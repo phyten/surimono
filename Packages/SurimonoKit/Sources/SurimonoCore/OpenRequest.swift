@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 public enum OpenRequest: Equatable, Sendable {
     case single(URL)
@@ -15,7 +16,7 @@ public enum OpenRequest: Equatable, Sendable {
             self = .single(first)
             return
         }
-        guard urls.allSatisfy({ DocumentFormat(fileExtension: $0.pathExtension) == .image }) else {
+        guard urls.allSatisfy(Self.isImage) else {
             self = .rejectedMultipleNonImages
             return
         }
@@ -28,5 +29,15 @@ public enum OpenRequest: Equatable, Sendable {
                 return comparison == .orderedSame
                     ? $0.absoluteString < $1.absoluteString : comparison == .orderedAscending
             })
+    }
+
+    /// Resolves the format as a single opened document does: the extension table first, then the content type, which
+    /// covers readable images such as PSD that the table does not list.
+    private static func isImage(_ url: URL) -> Bool {
+        let fileExtension = url.pathExtension
+        let format =
+            DocumentFormat(fileExtension: fileExtension)
+            ?? UTType(filenameExtension: fileExtension).flatMap { DocumentFormat(contentType: $0) }
+        return format == .image
     }
 }
