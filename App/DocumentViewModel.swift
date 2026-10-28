@@ -9,6 +9,9 @@ enum PreviewMode: String, CaseIterable { case sheets, pages }
 @Observable
 final class DocumentViewModel {
     let fileURL: URL?
+    let imageBundle: ImageBundleModel?
+    private(set) var unreadableImageURLs: [URL] = []
+    private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
     private var data: Data
     let preferences: AppPreferences
@@ -37,8 +40,10 @@ final class DocumentViewModel {
 
     init(
         data: Data, fileURL: URL?, format: DocumentFormat,
-        preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer()
+        preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer(),
+        imageBundle: ImageBundleModel? = nil
     ) {
+        self.imageBundle = imageBundle
         self.data = data
         self.fileURL = fileURL
         self.format = format
@@ -53,6 +58,16 @@ final class DocumentViewModel {
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
+    }
+
+    var sourceURLs: [URL] { imageBundle?.urls ?? [fileURL].compactMap { $0 } }
+    var protectedSourceURLs: [URL] {
+        NSDocumentController.shared.documents.compactMap(\.fileURL)
+            + ImageBundleWindows.shared.sourceURLs + sourceURLs
+    }
+    var exportName: String {
+        imageBundle?.exportName(layout: renderedSettings?.layout ?? layout, language: language)
+            ?? Self.exportName(fileURL: fileURL, layout: renderedSettings?.layout ?? layout, language: language)
     }
 
     var appearance: AppAppearance { appearanceOverride ?? preferences.appearance }
@@ -74,7 +89,7 @@ final class DocumentViewModel {
     }
     var canOutput: Bool {
         result != nil && !isRendering && !isPrinting && !isExporting && error == nil
-            && renderedSettings == renderSettings
+            && renderedSettings == renderSettings && renderedSourceURLs == sourceURLs
     }
     var previewDocument: PDFDocument? {
         previewMode == .sheets ? result?.sheetDocument : result?.logicalDocument
@@ -109,6 +124,7 @@ final class DocumentViewModel {
     func reload() {
         renderTask?.cancel()
         renderer.clearCache()
+        imageBundle?.clearCache()
         if let fileURL {
             do {
                 data = try Data(contentsOf: fileURL)
@@ -145,19 +161,27 @@ final class DocumentViewModel {
         }
         error = nil
         isRendering = true
-        let source = DocumentSource(data: data, fileURL: fileURL, format: format)
+        let sourceURLs = sourceURLs
+        let singleSource = DocumentSource(data: data, fileURL: fileURL, format: format)
         renderTask = Task { [weak self] in
             guard let self else { return }
             do {
+                let source: DocumentSource
+                if let imageBundle { source = try await imageBundle.source() } else { source = singleSource }
                 let output = try await renderer.render(source, settings: settings)
                 try Task.checkCancellation()
                 result = output
                 renderedSettings = settings
+                renderedSourceURLs = sourceURLs
+                unreadableImageURLs = output.unreadableImageURLs
                 isRendering = false
             } catch is CancellationError {
                 // A superseding request owns the progress indicator.
             } catch {
                 guard !Task.isCancelled else { return }
+                if case DocumentRenderer.RenderingError.noReadableImages(let urls) = error {
+                    unreadableImageURLs = urls
+                }
                 self.error = Self.message(for: error)
                 isRendering = false
             }
@@ -196,11 +220,10 @@ final class DocumentViewModel {
     }
 
     func exportPDF() {
-        guard let renderedSettings, let window, beginPDFExport() else { return }
+        guard let window, beginPDFExport() else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
-        panel.nameFieldStringValue = Self.exportName(
-            fileURL: fileURL, layout: renderedSettings.layout, language: language)
+        panel.nameFieldStringValue = exportName
         panel.beginSheetModal(for: window) { [weak self] response in
             self?.completePDFExport(to: response == .OK ? panel.url : nil)
         }
@@ -223,9 +246,7 @@ final class DocumentViewModel {
         }
         guard let url else { return }
         do {
-            let sources =
-                NSDocumentController.shared.documents.compactMap(\.fileURL)
-                + [fileURL].compactMap { $0 }
+            let sources = protectedSourceURLs
             guard Self.canExport(to: url, sourceURLs: sources) else { throw CocoaError(.fileWriteNoPermission) }
             guard let data = exportingDocument.dataRepresentation() else { throw CocoaError(.fileWriteUnknown) }
             try data.write(to: url, options: .atomic)
@@ -281,6 +302,7 @@ final class DocumentViewModel {
     private static func message(for error: Error) -> String {
         guard let error = error as? DocumentRenderer.RenderingError else { return error.localizedDescription }
         switch error {
+        case .noReadableImages: return String(localized: "None of the images could be opened.")
         case .invalidPDF: return String(localized: "This PDF could not be opened.")
         case .encryptedPDF: return String(localized: "Encrypted PDFs cannot be printed. Open an unlocked copy.")
         case .textDecodingFailed: return String(localized: "The text encoding could not be read without data loss.")

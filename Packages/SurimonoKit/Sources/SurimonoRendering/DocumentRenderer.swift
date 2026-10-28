@@ -6,11 +6,32 @@ public struct DocumentSource: Equatable, Sendable {
     public let data: Data
     public let fileURL: URL?
     public let format: DocumentFormat
+    public let images: [Image]?
+
+    public struct Image: Equatable, Sendable {
+        public let data: Data
+        public let fileURL: URL
+
+        public init(data: Data, fileURL: URL) {
+            self.data = data
+            self.fileURL = fileURL
+        }
+    }
+
+    public static func images(_ images: [Image]) -> Self { Self(images: images) }
+
+    private init(images: [Image]) {
+        data = Data()
+        fileURL = nil
+        format = .image
+        self.images = images
+    }
 
     public init(data: Data, fileURL: URL? = nil, format: DocumentFormat) {
         self.data = data
         self.fileURL = fileURL
         self.format = format
+        images = nil
     }
 }
 
@@ -47,12 +68,14 @@ public struct RenderResult {
     public let sheetDocument: PDFDocument
     public let plan: ImpositionPlan
     public let summary: PrintSummary
+    public let unreadableImageURLs: [URL]
 }
 
 /// Keep one renderer per open document and cancel the previous caller Task before starting a new render.
 @MainActor
 public final class DocumentRenderer {
     public enum RenderingError: Error, Equatable {
+        case noReadableImages([URL])
         case unsupportedFormat
         case textDecodingFailed
         case invalidPDF
@@ -68,7 +91,7 @@ public final class DocumentRenderer {
 
     public private(set) var logicalRenderCount = 0
     private let paginate: Paginate
-    private var cache: (key: CacheKey, data: Data)?
+    private var cache: (key: CacheKey, data: Data, unreadable: [URL])?
     private var generation = 0
 
     private struct CacheKey: Equatable {
@@ -115,12 +138,19 @@ public final class DocumentRenderer {
             let logical: PDFDocument
             let cachedData: Data
             let reused: Bool
+            let unreadable: [URL]
             if let cache, cache.key == key, let document = PDFDocument(data: cache.data) {
                 logical = document
                 cachedData = cache.data
+                unreadable = cache.unreadable
                 reused = true
             } else {
-                logical = try await logicalDocument(source, settings: settings)
+                if let images = source.images {
+                    (logical, unreadable) = try await imageBundle(images, settings: settings)
+                } else {
+                    logical = try await logicalDocument(source, settings: settings)
+                    unreadable = []
+                }
                 try Task.checkCancellation()
                 guard logical.pageCount > 0, let data = logical.dataRepresentation() else {
                     throw RenderingError.invalidPDF
@@ -133,11 +163,12 @@ public final class DocumentRenderer {
             if !reused {
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
-                if generation == currentGeneration { cache = (key, cachedData) }
+                if generation == currentGeneration { cache = (key, cachedData, unreadable) }
             }
             let plan = Imposition.plan(pageCount: logical.pageCount, layout: settings.layout)
             return RenderResult(
-                logicalDocument: logical, sheetDocument: sheet, plan: plan, summary: PrintSummary(plan: plan))
+                logicalDocument: logical, sheetDocument: sheet, plan: plan, summary: PrintSummary(plan: plan),
+                unreadableImageURLs: unreadable)
         } catch {
             if Task.isCancelled || error is CancellationError { throw CancellationError() }
             switch error {
@@ -148,6 +179,27 @@ public final class DocumentRenderer {
             default: throw RenderingError.paginationFailed
             }
         }
+    }
+
+    private func imageBundle(_ images: [DocumentSource.Image], settings: RenderSettings) async throws
+        -> (PDFDocument, [URL])
+    {
+        let document = PDFDocument()
+        var unreadable: [URL] = []
+        for image in images {
+            try Task.checkCancellation()
+            do {
+                let rendered = try await ImagePageRenderer().render(
+                    image.data, pageSize: settings.layout.logicalPageSize,
+                    marginsInMillimeters: settings.options.marginsInMillimeters)
+                guard let page = rendered.page(at: 0) else { throw ImagePageRenderer.RenderingError.invalidImage }
+                document.insert(page, at: document.pageCount)
+            } catch ImagePageRenderer.RenderingError.invalidImage {
+                unreadable.append(image.fileURL)
+            }
+        }
+        guard document.pageCount > 0 else { throw RenderingError.noReadableImages(unreadable) }
+        return (document, unreadable)
     }
 
     private func logicalDocument(_ source: DocumentSource, settings: RenderSettings) async throws -> PDFDocument {

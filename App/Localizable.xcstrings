@@ -781,6 +781,96 @@
           }
         }
       }
+    },
+    "Only images can be opened together": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "複数のファイルを同時に開けるのは画像だけです"
+          }
+        }
+      }
+    },
+    "Open Markdown, PDF, and other documents one at a time. Images can be opened together even if their types differ.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Markdown や PDF などは 1 つずつ開いてください。画像は種類が混ざっていてもまとめて開けます。"
+          }
+        }
+      }
+    },
+    "%lld images — %@": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像 %lld 枚 — %@"
+          }
+        }
+      }
+    },
+    "%@ and %lld more": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ほか %lld 枚"
+          }
+        }
+      }
+    },
+    "None of the images could be opened.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "どの画像も開けませんでした。"
+          }
+        }
+      }
+    },
+    "Could not open: %@": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開けなかった画像: %@"
+          }
+        }
+      }
+    },
+    "Images": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像"
+          }
+        }
+      }
+    },
+    "Move Image Up": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像を上に移動"
+          }
+        }
+      }
+    },
+    "Move Image Down": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像を下に移動"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
