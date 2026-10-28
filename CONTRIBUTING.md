@@ -15,7 +15,7 @@ Thanks for your interest in Surimono! This is a small project maintained in spar
 - Keep pull requests focused. Several small, logical commits are preferred over one large commit.
 - Fill in the pull request template, including how you tested the change.
 
-Build and test instructions will be documented in the README together with the Xcode project.
+Run `make build` to build the app, `make lint` to check formatting, and `make test` to run package and hosted app tests. See the README for toolchain requirements and other commands.
 
 ## Commit messages
 
@@ -31,7 +31,7 @@ The maintainer writes commit descriptions in Japanese; English is equally welcom
 
 ## Code style and tests
 
-- Swift code will be formatted and linted with `swift format`. The configuration and commands will be added together with the Xcode project.
+- Format Swift code with `make format` and check it with `make lint` (`xcrun swift-format`, configured in `.swift-format`).
 - New behavior should come with tests, and test names should describe the behavior.
 - Surimono must never modify the files it opens.
 

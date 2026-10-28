@@ -10,3 +10,9 @@ updates:
       github-actions:
         patterns:
           - "*"
+  - package-ecosystem: swift
+    directory: /Packages/SurimonoKit
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build

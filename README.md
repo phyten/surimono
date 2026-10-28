@@ -43,7 +43,21 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 
 ## Building from source
 
-Build instructions will be added together with the Xcode project.
+Requires macOS 15 or later and Xcode 26 or later (Swift 6.2 or later). Select Xcode as the active developer directory before building. CI uses Xcode 26.6; local development also supports Xcode 27.
+
+```bash
+make build                      # Debug build in build/DerivedData
+make run FILE=Samples/sample.md # Build and open a document
+make lint                       # Check Swift formatting
+make format                     # Format Swift sources
+make test                       # Package tests and hosted app tests
+make test-kit                   # Package tests only
+make test-app                   # Hosted app tests only
+make package                    # Release ZIP and SHA-256 in build/release
+make clean                      # Remove build products
+```
+
+You can also open `Surimono.xcodeproj` and use the shared `Surimono` scheme. Override `CONFIGURATION` or `DERIVED_DATA` for builds, and `VERSION` / `BUILD_NUMBER` for packaging. The app is ad-hoc signed; no developer account is required. The current viewer is a foundation for the planned print features.
 
 ## Contributing
 
