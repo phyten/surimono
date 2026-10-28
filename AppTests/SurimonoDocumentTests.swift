@@ -16,6 +16,14 @@ struct SurimonoDocumentTests {
         #expect(document.format == .markdown)
     }
 
+    @Test("TSV を読み取り可能な形式として受け付け、表として描画する形式になる")
+    func acceptsTabSeparatedValues() throws {
+        #expect(SurimonoDocument.readableContentTypes.contains(.tabSeparatedText))
+        let document = try SurimonoDocument(
+            file: FileWrapper(regularFileWithContents: Data("a\tb\n1\t2\n".utf8)), contentType: .tabSeparatedText)
+        #expect(document.format == .csv)
+    }
+
     @Test("ディレクトリを文書として読み込まない")
     func rejectsDirectory() {
         #expect(throws: CocoaError.self) {
