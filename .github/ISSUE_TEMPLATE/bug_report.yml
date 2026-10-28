@@ -1,0 +1,62 @@
+name: Bug report / 不具合報告
+description: Something does not work as expected. / 期待どおりに動かない。
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! English or Japanese is fine. / 報告ありがとうございます。日本語・英語どちらでも大丈夫です。
+        Please remove anything private from screenshots and sample files. / スクリーンショットやサンプルファイルから個人情報は取り除いてください。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened? / 何が起きましたか
+      description: Steps to reproduce, expected behavior, and actual behavior. / 再現手順、期待した動作、実際の動作。
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: File type / ファイル形式
+      multiple: true
+      options:
+        - Markdown
+        - PDF
+        - Image / 画像
+        - Org
+        - Plain text / テキスト
+        - HTML
+        - Other / その他
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / 機能
+      multiple: true
+      options:
+        - Viewing / 表示
+        - Printing / 印刷
+        - Booklet layout / 冊子レイアウト
+        - Print styles / 印刷スタイル
+        - HTML presets / HTML プリセット
+        - Other / その他
+  - type: input
+    id: version
+    attributes:
+      label: Surimono version / バージョン
+      placeholder: e.g. 0.1.0, or a commit SHA
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version / macOS のバージョン
+      placeholder: e.g. macOS 26.1
+    validations:
+      required: true
+  - type: input
+    id: printer
+    attributes:
+      label: Printer model (printing issues only) / プリンタの機種（印刷の不具合のみ）
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context / 補足
+      description: Screenshots, sample files, logs. / スクリーンショット、サンプルファイル、ログなど。

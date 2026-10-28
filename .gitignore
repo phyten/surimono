@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+*~
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.xcresult
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Signing material and local secrets
+*.p12
+*.p8
+.env
+.env.*
+
+# Private development documents (kept locally, never published)
+/.docs/
+
+# Shared AI agent settings are committed on purpose.
+# Re-include them in case they are ignored by a global gitignore.
+!AGENTS.md
+!CLAUDE.md
+!.claude/
+!.agents/
+# Personal AI agent settings stay local.
+.claude/settings.local.json
+.claude/launch.json
+CLAUDE.local.md

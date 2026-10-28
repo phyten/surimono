@@ -1,0 +1,28 @@
+name: Feature request / 機能の提案
+description: Suggest an idea or an improvement. / アイデアや改善を提案する。
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English or Japanese is fine. / 日本語・英語どちらでも大丈夫です。
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do? / 何をしたいですか
+      description: Describe the situation and what is hard today. / どんな場面で、今なにが不便かを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution / 提案する解決方法
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / 代替案・回避策
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context / 補足
+      description: Sample files, mockups, links. / サンプルファイル、ラフ、参考リンクなど。
