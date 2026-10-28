@@ -1,0 +1,40 @@
+import AppKit
+import ApplicationServices
+import SurimonoCore
+import SurimonoRendering
+import Testing
+
+@MainActor
+struct PrintJobFactoryTests {
+    @Test("レイアウトに対応した用紙寸法と両面設定を構築する", arguments: [PrintLayout.a3BookletA4, .a4Duplex, .a4Single])
+    func settings(layout: PrintLayout) throws {
+        let base = NSPrintInfo()
+        base.scalingFactor = 0.5
+        base.leftMargin = 99
+        let info = PrintJobFactory().printInfo(for: layout, base: base)
+        #expect(info !== base)
+        #expect(base.scalingFactor == 0.5)
+        #expect(base.leftMargin == 99)
+        #expect(info.orientation == (layout == .a3BookletA4 ? .landscape : .portrait))
+        #expect(abs(info.paperSize.width - (layout == .a3BookletA4 ? 1190.55 : 595.28)) < 1)
+        #expect(abs(info.paperSize.height - 841.89) < 1)
+        #expect(info.topMargin == 0 && info.bottomMargin == 0 && info.leftMargin == 0 && info.rightMargin == 0)
+        #expect(info.scalingFactor == 1)
+        #expect(info.isHorizontallyCentered && info.isVerticallyCentered)
+        var duplex = PMDuplexMode(kPMDuplexNone)
+        #expect(PMGetDuplex(OpaquePointer(info.pmPrintSettings()), &duplex) == noErr)
+        let expected =
+            layout == .a3BookletA4 ? kPMDuplexTumble : layout == .a4Duplex ? kPMDuplexNoTumble : kPMDuplexNone
+        #expect(duplex == PMDuplexMode(expected))
+    }
+
+    @Test("印刷パネルで用紙と向きと部数と範囲を変更できる")
+    func panel() throws {
+        _ = NSApplication.shared
+        let operation = try #require(
+            PrintJobFactory().printOperation(for: RenderingFixtures.pdf(), layout: .a4Single, showsPrintPanel: true))
+        #expect(operation.showsPrintPanel)
+        #expect(
+            operation.printPanel.options.contains([.showsPaperSize, .showsOrientation, .showsCopies, .showsPageRange]))
+    }
+}
