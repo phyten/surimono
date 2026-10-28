@@ -1,0 +1,10 @@
+body { font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; font-size: 10pt; line-height: 1.6; }
+h1, h2 { padding-bottom: 0.25em; border-bottom: 0.7pt solid #aaa; }
+h1 { font-size: 2em; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.25em; }
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.5em; line-height: 1.3; font-weight: 600; }
+p, pre, table { margin: 0.75em 0; }
+pre { border: 0.5pt solid #aaa; border-radius: 3pt; padding: 0.6em; font-size: 9pt; }
+code { font-size: 0.9em; }
+input[type="checkbox"] { margin-right: 0.3em; }

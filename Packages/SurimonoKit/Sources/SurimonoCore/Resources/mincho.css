@@ -1,0 +1,7 @@
+body { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: 10.5pt; line-height: 1.85; text-align: justify; }
+h1, h2, h3, h4, h5, h6 { text-align: center; line-height: 1.5; margin: 1.4em 0 0.6em; }
+h1 { font-size: 1.7em; }
+h2 { font-size: 1.35em; }
+h3 { font-size: 1.15em; }
+p { margin: 0.7em 0; }
+pre { text-align: left; font-size: 9pt; }

@@ -1,0 +1,7 @@
+body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; font-size: 10.5pt; line-height: 1.75; }
+h1 { font-size: 1.8em; }
+h2 { font-size: 1.4em; border-bottom: 0.5pt solid #888; }
+h3 { font-size: 1.15em; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; }
+p, pre, table { margin: 0.7em 0; }
+code { font-size: 0.9em; }
