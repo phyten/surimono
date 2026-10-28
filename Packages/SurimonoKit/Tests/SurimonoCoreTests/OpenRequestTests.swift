@@ -23,7 +23,14 @@ struct OpenRequestTests {
         #expect(OpenRequest(urls: names.reversed().map(url)) == .imageBundle(names.map(url)))
     }
 
-    @Test("画像以外を含む複数選択は全体を拒否する", arguments: [["a.jpg", "b.pdf"], ["a.md", "b.md"]])
+    @Test("拡張子の表にない画像も単独で開くときと同じく内容の型で画像として束にまとめる")
+    func imageByContentType() {
+        #expect(OpenRequest(urls: [url("b.psd"), url("a.png")]) == .imageBundle([url("a.png"), url("b.psd")]))
+    }
+
+    @Test(
+        "画像以外を含む複数選択は全体を拒否する",
+        arguments: [["a.jpg", "b.pdf"], ["a.md", "b.md"], ["a.jpg", "b.unknown"]])
     func rejected(_ names: [String]) {
         #expect(OpenRequest(urls: names.map(url)) == .rejectedMultipleNonImages)
     }
