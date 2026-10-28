@@ -1,0 +1,4 @@
+interface:
+  display_name: "Surimono Print Layout"
+  short_description: "印刷レイアウト・面付けの追加と検証"
+  default_prompt: "Use $project-surimono-print-layout to add or fix a print layout and verify the output."

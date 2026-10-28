@@ -1,0 +1,4 @@
+interface:
+  display_name: "Surimono Dev Loop"
+  short_description: "Surimono のビルド・起動・テスト・目視確認"
+  default_prompt: "Use $project-surimono-dev to build, run, and verify Surimono."

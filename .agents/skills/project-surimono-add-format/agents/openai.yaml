@@ -1,0 +1,4 @@
+interface:
+  display_name: "Surimono Add Format"
+  short_description: "Surimono に新しいファイル形式を追加する"
+  default_prompt: "Use $project-surimono-add-format to add support for a new document format."
