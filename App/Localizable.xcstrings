@@ -1,17 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "Settings will be available in a future version.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "設定は今後のバージョンで利用できるようになります。"
-          }
-        }
-      }
-    },
     "Document": {
       "extractionState": "manual",
       "localizations": {
@@ -140,6 +129,655 @@
           "stringUnit": {
             "state": "translated",
             "value": "CSV"
+          }
+        }
+      }
+    },
+    "System": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム"
+          }
+        }
+      }
+    },
+    "Light": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライト"
+          }
+        }
+      }
+    },
+    "Dark": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダーク"
+          }
+        }
+      }
+    },
+    "Layout": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "レイアウト"
+          }
+        }
+      }
+    },
+    "Print Theme": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷テーマ"
+          }
+        }
+      }
+    },
+    "HTML Preset": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTML プリセット"
+          }
+        }
+      }
+    },
+    "Preview": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示"
+          }
+        }
+      }
+    },
+    "Sheets": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙"
+          }
+        }
+      }
+    },
+    "Pages": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページ"
+          }
+        }
+      }
+    },
+    "Cycle Appearance": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外観を切り替える"
+          }
+        }
+      }
+    },
+    "Export as PDF…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF として書き出す…"
+          }
+        }
+      }
+    },
+    "Print…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷…"
+          }
+        }
+      }
+    },
+    "Quick Print": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すぐ印刷"
+          }
+        }
+      }
+    },
+    "Reload": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再読み込み"
+          }
+        }
+      }
+    },
+    "Open as Plain Text": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレーンテキストとして開く"
+          }
+        }
+      }
+    },
+    "Print Preview": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷プレビュー"
+          }
+        }
+      }
+    },
+    "Preparing pages…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページを準備中…"
+          }
+        }
+      }
+    },
+    "No preview is available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレビューを表示できません。"
+          }
+        }
+      }
+    },
+    "Dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外観"
+          }
+        }
+      }
+    },
+    "Default Layout": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定のレイアウト"
+          }
+        }
+      }
+    },
+    "Defaults apply to newly opened documents.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定値は新しく開く文書に適用されます。"
+          }
+        }
+      }
+    },
+    "General": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一般"
+          }
+        }
+      }
+    },
+    "Margins (mm)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "余白（mm）"
+          }
+        }
+      }
+    },
+    "Page Numbers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページ番号"
+          }
+        }
+      }
+    },
+    "Rotate Back Sides 180°": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裏面を 180° 回転"
+          }
+        }
+      }
+    },
+    "Printing": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷"
+          }
+        }
+      }
+    },
+    "Default Print Theme": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定の印刷テーマ"
+          }
+        }
+      }
+    },
+    "Open Styles Folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザー CSS のフォルダを開く"
+          }
+        }
+      }
+    },
+    "Styles": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スタイル"
+          }
+        }
+      }
+    },
+    "Default HTML Preset": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定の HTML プリセット"
+          }
+        }
+      }
+    },
+    "Allow JavaScript in HTML": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTML の JavaScript を許可"
+          }
+        }
+      }
+    },
+    "Open Presets Folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーザープリセットのフォルダを開く"
+          }
+        }
+      }
+    },
+    "Some presets could not be loaded:": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込めなかったプリセット："
+          }
+        }
+      }
+    },
+    "Drop a file to preview and print": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルをドロップして表示・印刷"
+          }
+        }
+      }
+    },
+    "Open…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く…"
+          }
+        }
+      }
+    },
+    "Recent Files": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近使ったファイル"
+          }
+        }
+      }
+    },
+    "The file is missing. The last preview is still available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルが見つかりません。直前のプレビューを表示しています。"
+          }
+        }
+      }
+    },
+    "The file could not be reloaded. The last preview is still available.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルを再読み込みできませんでした。直前のプレビューを表示しています。"
+          }
+        }
+      }
+    },
+    "Print styles could not be loaded. Reload them in Settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷スタイルを読み込めません。設定画面で再読み込みしてください。"
+          }
+        }
+      }
+    },
+    "The print job could not be created.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷ジョブを作成できませんでした。"
+          }
+        }
+      }
+    },
+    "Sent to %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ に送信しました"
+          }
+        }
+      }
+    },
+    "The print job was cancelled or could not be sent.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷がキャンセルされたか、送信できませんでした。"
+          }
+        }
+      }
+    },
+    "The PDF could not be exported.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF を書き出せませんでした。"
+          }
+        }
+      }
+    },
+    "Single-sided": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "片面"
+          }
+        }
+      }
+    },
+    "Duplex, long edge": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両面・長辺綴じ"
+          }
+        }
+      }
+    },
+    "Duplex, short edge": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両面・短辺綴じ"
+          }
+        }
+      }
+    },
+    "%ld pages → %@ %ld sheets (%@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%ld ページ → %@ %ld 枚（%@）"
+          }
+        }
+      }
+    },
+    "Encrypted PDFs cannot be printed. Open an unlocked copy.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暗号化された PDF は印刷できません。ロックを解除したコピーを開いてください。"
+          }
+        }
+      }
+    },
+    "The text encoding could not be read without data loss.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字を欠落させずに読み取れる文字コードを判定できませんでした。"
+          }
+        }
+      }
+    },
+    "The margins are too large for this page. Change them in Settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページに対して余白が大きすぎます。設定画面で変更してください。"
+          }
+        }
+      }
+    },
+    "This document format is not supported.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書形式には対応していません。"
+          }
+        }
+      }
+    },
+    "The document could not be paginated. Try reloading it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書をページに分割できませんでした。再読み込みしてください。"
+          }
+        }
+      }
+    },
+    "The pages could not be arranged on the paper.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙にページを配置できませんでした。"
+          }
+        }
+      }
+    },
+    "Loading or pagination timed out. Try reloading the document.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込みまたはページ分割がタイムアウトしました。文書を再読み込みしてください。"
+          }
+        }
+      }
+    },
+    "The document could not be loaded.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書を読み込めませんでした。"
+          }
+        }
+      }
+    },
+    "The preset ID is empty or duplicated.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリセットの ID が空か、重複しています。"
+          }
+        }
+      }
+    },
+    "Output Failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出力できませんでした"
+          }
+        }
+      }
+    },
+    "OK": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
           }
         }
       }

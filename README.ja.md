@@ -15,17 +15,17 @@
 
 Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷しようとすると、ブラウザやエディタのプラグイン、PDF ツールを経由する遠回りになりがちです。Surimono は「開いて、印刷を押す」の 2 手で済むことを目指します。
 
-## 予定している機能
+## 機能
 
-- Markdown・PDF・画像・Org・テキスト・HTML のクイックビューア（CSV は将来対応）
+- Markdown・PDF・画像・Org・テキスト・HTML・CSV のクイックビューア
 - 紙にどう出るかがそのまま分かる印刷プレビュー
 - Markdown・Org・テキスト向けの印刷用スタイルシート切替（自作 CSS も追加可能）
 - HTML のノイズ除去プリセット（ナビゲーション、広告、サイドバー、Cookie バナーなど。追加・編集可能）
-- 印刷レイアウト: A4 片面、A4 両面、中綴じ冊子（A3 → A4 冊子、A4 → A5 冊子）
+- 印刷レイアウト: A4 片面、A4 両面、中綴じ冊子（A3 → A4 冊子、A4 → A5 冊子）、A3 2アップ
 - ダイアログなしの「すぐ印刷」と PDF 書き出し（コンビニ印刷などに持ち出す用）
-- ライト / ダークの外観をワンクリックで切替
+- システム / ライト / ダークの外観をワンクリックで切替
 
-## 対応予定の形式
+## 対応形式
 
 | 形式 | 拡張子 |
 |---|---|
@@ -35,10 +35,11 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 | Org | `.org` |
 | テキスト | `.txt` などのテキストファイル |
 | HTML | `.html`, `.htm` |
+| CSV / TSV | `.csv`, `.tsv` |
 
 ## 動作環境
 
-- macOS 15 Sequoia 以降（予定）
+- macOS 15 Sequoia 以降
 
 ## ソースからのビルド
 
@@ -56,7 +57,9 @@ make package                    # build/release に Release ZIP と SHA-256 を�
 make clean                      # ビルド生成物を削除
 ```
 
-`Surimono.xcodeproj` を開き、共有スキーム `Surimono` でもビルドできます。ビルド時は `CONFIGURATION`・`DERIVED_DATA`、パッケージ作成時は `VERSION`・`BUILD_NUMBER` を指定できます。署名はアドホックのため、開発者アカウントは不要です。現在のビューアは、今後の印刷機能を実装するための土台です。
+`Surimono.xcodeproj` を開き、共有スキーム `Surimono` でもビルドできます。ビルド時は `CONFIGURATION`・`DERIVED_DATA`、パッケージ作成時は `VERSION`・`BUILD_NUMBER` を指定できます。署名はアドホックのため、開発者アカウントは不要です。文書変換から印刷プレビュー、印刷、PDF 書き出しまでを SurimonoKit の描画パイプラインで接続しています。
+
+`Samples/` に Markdown・Org・UTF-8／Shift_JIS テキスト・HTML・CSV のサンプルがあります。`booklet-demo.md` は冊子の読み順を確認するための、画像を含まない長い文書です。設定画面で余白・ページ番号・裏面回転・HTML の JavaScript を指定できます。ユーザー CSS は `~/Library/Application Support/Surimono/Styles/`、JSON プリセットは `Presets/` に追加し、設定画面から再読み込みします。外部で保存した文書は自動で再読み込みし、元のファイルには書き込みません。
 
 ## コントリビュート
 
