@@ -1,0 +1,6 @@
+interface:
+  display_name: "Surimono Release"
+  short_description: "Surimono のリリース作成と成果物の確認"
+  default_prompt: "Use $project-surimono-release to cut and verify a Surimono release."
+policy:
+  allow_implicit_invocation: false

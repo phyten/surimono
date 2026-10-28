@@ -35,6 +35,10 @@ The maintainer writes commit descriptions in Japanese; English is equally welcom
 - New behavior should come with tests, and test names should describe the behavior.
 - Surimono must never modify the files it opens.
 
+## AI-assisted contributions
+
+This repository includes instructions for coding agents: [AGENTS.md](AGENTS.md) (shared by all agents), [CLAUDE.md](CLAUDE.md), path-specific rules in `.claude/rules/`, and project skills in `.agents/skills/` (also visible to Claude Code through `.claude/skills/`). These files are written in Japanese. AI-assisted contributions are welcome, but you are responsible for reviewing and testing everything you submit.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
