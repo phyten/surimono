@@ -16,17 +16,17 @@ The name comes from *surimono* (摺物), privately commissioned Japanese woodblo
 
 Printing a Markdown note, an Org file or a long HTML article on a Mac usually means a detour through a browser, an editor plugin or a PDF tool. Surimono aims to make it a two-step job: open the file, press Print.
 
-## Planned features
+## Features
 
-- Quick viewer for Markdown, PDF, images, Org, plain text and HTML (CSV later)
+- Quick viewer for Markdown, PDF, images, Org, plain text, HTML, and CSV
 - WYSIWYG print preview: what you see is how the paper comes out
 - Swappable print stylesheets for Markdown, Org and text, including your own CSS
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend
-- Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet)
+- Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up
 - Quick print without a dialog, and PDF export (for example, for convenience-store printers)
-- One-click light / dark appearance switch
+- One-click system / light / dark appearance switch
 
-## Supported formats (planned)
+## Supported formats
 
 | Format | Extensions |
 |---|---|
@@ -36,10 +36,11 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 | Org | `.org` |
 | Plain text | `.txt` and other text files |
 | HTML | `.html`, `.htm` |
+| CSV / TSV | `.csv`, `.tsv` |
 
 ## Requirements
 
-- macOS 15 Sequoia or later (planned)
+- macOS 15 Sequoia or later
 
 ## Building from source
 
@@ -57,7 +58,9 @@ make package                    # Release ZIP and SHA-256 in build/release
 make clean                      # Remove build products
 ```
 
-You can also open `Surimono.xcodeproj` and use the shared `Surimono` scheme. Override `CONFIGURATION` or `DERIVED_DATA` for builds, and `VERSION` / `BUILD_NUMBER` for packaging. The app is ad-hoc signed; no developer account is required. The current viewer is a foundation for the planned print features.
+You can also open `Surimono.xcodeproj` and use the shared `Surimono` scheme. Override `CONFIGURATION` or `DERIVED_DATA` for builds, and `VERSION` / `BUILD_NUMBER` for packaging. The app is ad-hoc signed; no developer account is required. The app connects document conversion, print preview, printing, and PDF export through SurimonoKit.
+
+Sample documents in `Samples/` cover Markdown, Org, UTF-8 and Shift_JIS text, HTML, and CSV. `booklet-demo.md` is a long, image-free document for checking booklet page order. Settings include print margins, page numbers, back-side rotation, and JavaScript for HTML. Add CSS in `~/Library/Application Support/Surimono/Styles/` and JSON presets in `Presets/`, then reload them in Settings. Open documents automatically reload after external saves; source files are never edited.
 
 ## Contributing
 
