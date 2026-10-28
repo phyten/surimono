@@ -1,0 +1,38 @@
+{
+  "id": "clean",
+  "name": "Remove Noise",
+  "localizedNames": {
+    "en": "Remove Noise",
+    "ja": "ノイズ除去"
+  },
+  "removeSelectors": [
+    "nav",
+    "body > header",
+    "body > footer",
+    "aside",
+    "[role=banner]",
+    "[role=navigation]",
+    "[role=complementary]",
+    "[role=contentinfo]",
+    ".site-header",
+    ".site-footer",
+    ".sidebar",
+    ".advertisement",
+    ".ads",
+    ".ad-banner",
+    "[aria-label=\"Advertisement\"]",
+    ".cookie-banner",
+    "#cookie-banner",
+    ".cookie-consent",
+    ".share-buttons",
+    ".social-share",
+    ".related-posts",
+    ".related-articles",
+    "#comments",
+    ".comments",
+    "iframe"
+  ],
+  "keepSelectors": [],
+  "extraCSS": "",
+  "disablesJavaScript": true
+}

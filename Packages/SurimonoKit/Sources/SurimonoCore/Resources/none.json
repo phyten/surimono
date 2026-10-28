@@ -1,0 +1,12 @@
+{
+  "id": "none",
+  "name": "Original",
+  "localizedNames": {
+    "en": "Original",
+    "ja": "そのまま"
+  },
+  "removeSelectors": [],
+  "keepSelectors": [],
+  "extraCSS": "",
+  "disablesJavaScript": false
+}

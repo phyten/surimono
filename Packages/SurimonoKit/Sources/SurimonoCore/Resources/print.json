@@ -1,0 +1,38 @@
+{
+  "id": "print",
+  "name": "Print-Friendly",
+  "localizedNames": {
+    "en": "Print-Friendly",
+    "ja": "印刷最適化"
+  },
+  "removeSelectors": [
+    "nav",
+    "body > header",
+    "body > footer",
+    "aside",
+    "[role=banner]",
+    "[role=navigation]",
+    "[role=complementary]",
+    "[role=contentinfo]",
+    ".site-header",
+    ".site-footer",
+    ".sidebar",
+    ".advertisement",
+    ".ads",
+    ".ad-banner",
+    "[aria-label=\"Advertisement\"]",
+    ".cookie-banner",
+    "#cookie-banner",
+    ".cookie-consent",
+    ".share-buttons",
+    ".social-share",
+    ".related-posts",
+    ".related-articles",
+    "#comments",
+    ".comments",
+    "iframe"
+  ],
+  "keepSelectors": [],
+  "extraCSS": "html, body, body * { background: transparent !important; box-shadow: none !important; text-shadow: none !important; color: black !important; }\nhtml, body { background: white !important; }\na[href^=\"http://\"]::after, a[href^=\"https://\"]::after { content: \" (\" attr(href) \")\"; font-size: 0.85em; overflow-wrap: anywhere; }\nimg { max-width: 100% !important; height: auto !important; }",
+  "disablesJavaScript": true
+}

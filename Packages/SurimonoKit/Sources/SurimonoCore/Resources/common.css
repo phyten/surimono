@@ -1,0 +1,28 @@
+html, body { background: white; color: #111; }
+body { margin: 0; overflow-wrap: anywhere; }
+h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; }
+pre, table, img, blockquote { break-inside: avoid; page-break-inside: avoid; }
+p { orphans: 3; widows: 3; }
+img { max-width: 100%; height: auto; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
+code, pre { font-family: "SFMono-Regular", Menlo, monospace; }
+pre code { font-size: inherit; }
+table { border-collapse: collapse; max-width: 100%; }
+th, td { border: 0.5pt solid #888; padding: 0.25em 0.5em; text-align: left; }
+th[align="center"], td[align="center"] { text-align: center; }
+th[align="right"], td[align="right"] { text-align: right; }
+a { color: inherit; text-decoration: underline; }
+blockquote { margin-inline: 1em; padding-left: 0.8em; border-left: 2pt solid #aaa; }
+.org-todo, .org-done, .org-priority, .org-tag { font-size: 0.8em; font-family: sans-serif; }
+.org-todo { font-weight: bold; border: 0.5pt solid currentColor; padding: 0 0.2em; }
+.org-done { text-decoration: line-through; }
+.org-tag { border: 0.5pt solid #999; border-radius: 2pt; padding: 0 0.25em; }
+.org-planning { display: block; font-size: 0.8em; }
+.org-title-block { text-align: center; margin-bottom: 1.5em; }
+.org-author, .org-date { margin: 0.25em 0; }
+.org-center { text-align: center; }
+.org-verse { white-space: pre-wrap; }
+.org-checkbox { font-family: sans-serif; }
+.surimono-plain { font-family: inherit; line-height: inherit; }
+.surimono-csv { width: 100%; }
+.surimono-csv td { white-space: pre-wrap; }
