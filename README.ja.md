@@ -42,7 +42,21 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 
 ## ソースからのビルド
 
-Xcode プロジェクトの追加とあわせて手順を記載します。
+macOS 15 以降と Xcode 26 以降（Swift 6.2 以降）が必要です。Xcode を使用する開発者ディレクトリに選択してからビルドしてください。CI は Xcode 26.6、ローカル開発は Xcode 27 にも対応します。
+
+```bash
+make build                      # Debug ビルド（build/DerivedData）
+make run FILE=Samples/sample.md # ビルドして文書を開く
+make lint                       # Swift の整形チェック
+make format                     # Swift ソースを整形
+make test                       # パッケージとホストアプリ付きテスト
+make test-kit                   # パッケージのテストのみ
+make test-app                   # ホストアプリ付きテストのみ
+make package                    # build/release に Release ZIP と SHA-256 を出力
+make clean                      # ビルド生成物を削除
+```
+
+`Surimono.xcodeproj` を開き、共有スキーム `Surimono` でもビルドできます。ビルド時は `CONFIGURATION`・`DERIVED_DATA`、パッケージ作成時は `VERSION`・`BUILD_NUMBER` を指定できます。署名はアドホックのため、開発者アカウントは不要です。現在のビューアは、今後の印刷機能を実装するための土台です。
 
 ## コントリビュート
 
