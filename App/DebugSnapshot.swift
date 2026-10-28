@@ -44,9 +44,7 @@
                 do {
                     let data = try await capturePNG(of: window)
                     let destination = URL(fileURLWithPath: path)
-                    let sources =
-                        NSDocumentController.shared.documents.compactMap(\.fileURL)
-                        + [model.fileURL].compactMap { $0 }
+                    let sources = model.protectedSourceURLs
                     guard DocumentViewModel.canExport(to: destination, sourceURLs: sources) else {
                         logger.error("Snapshot destination matches an open document; nothing was written")
                         return

@@ -19,6 +19,9 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 ## Features
 
 - Quick viewer for Markdown, PDF, images, Org, plain text, HTML, and CSV
+- Open multiple images together as one image bundle, including mixed image formats
+- Reorder images by dragging thumbnails or with Option-Command-Up/Down
+- Export an image bundle as a PDF in its current order and print layout
 - WYSIWYG print preview: what you see is how the paper comes out
 - Swappable print stylesheets for Markdown, Org and text, including your own CSS
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend

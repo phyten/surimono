@@ -1,15 +1,47 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        NSWindow.allowsAutomaticWindowTabbing = false
+        // The document controller's launch-time open panel opens a multi-file selection one document at a time and
+        // bypasses OpenRouter. The welcome window offers Open… instead.
+        UserDefaults.standard.register(defaults: ["NSShowAppCentricOpenPanelInsteadOfUntitledFile": false])
+        // DocumentGroup can consume document URLs before the delegate receives openURLs.
+        // Intercept the complete Apple event to preserve the user's multi-file selection.
+        NSAppleEventManager.shared().setEventHandler(
+            self, andSelector: #selector(openDocuments(_:reply:)),
+            forEventClass: AEEventClass(kCoreEventClass), andEventID: AEEventID(kAEOpenDocuments))
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        OpenRouter.shared.open(urls)
+    }
+
+    /// File > Open… sends this action along the responder chain. Answering it before the document controller keeps a
+    /// multi-file selection together instead of opening every file as its own document.
+    @objc func openDocument(_ sender: Any?) {
+        OpenRouter.shared.showOpenPanel()
+    }
+
+    @objc private func openDocuments(_ event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
+        application(NSApp, open: Self.documentURLs(in: event))
+    }
+
+    static func documentURLs(in event: NSAppleEventDescriptor) -> [URL] {
+        guard let list = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)), list.numberOfItems > 0
+        else { return [] }
+        return (1...list.numberOfItems).compactMap { list.atIndex($0)?.fileURLValue }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Let Finder's initial open-document event reach DocumentGroup first.
+        // Restored windows appear shortly after launch; do not cover them with the welcome window. A rejected
+        // multi-file selection opens nothing, so the welcome window still follows its alert.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
-            if NSDocumentController.shared.documents.isEmpty { WelcomeController.shared.show() }
+            OpenRouter.shared.showWelcomeIfIdle()
         }
     }
 
@@ -46,7 +78,7 @@ final class WelcomeController {
 private struct WelcomeView: View {
     let preferences: AppPreferences
     @State private var recent: [URL] = NSDocumentController.shared.recentDocumentURLs
-    @State private var error: String?
+    @State private var window: NSWindow?
     @State private var isTargeted = false
 
     var body: some View {
@@ -55,38 +87,30 @@ private struct WelcomeView: View {
             Text("Drop a file to preview and print")
                 .frame(maxWidth: .infinity, minHeight: 60)
                 .background(isTargeted ? Color.accentColor.opacity(0.12) : Color.clear)
-                .dropDestination(for: URL.self) { urls, _ in
-                    let files = urls.filter(\.isFileURL)
-                    for url in files { open(url) }
-                    return !files.isEmpty
-                } isTargeted: {
-                    isTargeted = $0
-                }
-            Button("Open…") { NSDocumentController.shared.openDocument(nil) }
+            Button("Open…") { OpenRouter.shared.showOpenPanel() }
                 .keyboardShortcut("o")
             if !recent.isEmpty {
                 Text("Recent Files").font(.headline)
                 List(recent.prefix(6), id: \.self) { url in
                     Button {
-                        open(url)
+                        OpenRouter.shared.open([url])
                     } label: {
                         Text(verbatim: url.lastPathComponent)
                     }
                     .buttonStyle(.plain).help(url.path)
                 }
             }
-            if let error { Text(verbatim: error).foregroundStyle(.red) }
         }
         .padding(24)
+        .dropDestination(for: URL.self) { urls, _ in
+            OpenRouter.shared.open(urls, from: window)
+        } isTargeted: {
+            isTargeted = $0
+        }
+        .background(WindowReader { window = $0 })
         .preferredColorScheme(preferences.appearance.colorScheme)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             recent = NSDocumentController.shared.recentDocumentURLs
-        }
-    }
-
-    private func open(_ url: URL) {
-        NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
-            if let error { self.error = error.localizedDescription }
         }
     }
 }

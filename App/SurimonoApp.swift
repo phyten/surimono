@@ -9,7 +9,11 @@ struct SurimonoApp: App {
     init() {
         let preferences = AppPreferences()
         _preferences = State(initialValue: preferences)
+        let library = UserLibrary()
+        _library = State(initialValue: library)
         WelcomeController.shared.preferences = preferences
+        ImageBundleWindows.shared.preferences = preferences
+        ImageBundleWindows.shared.library = library
     }
 
     var body: some Scene {

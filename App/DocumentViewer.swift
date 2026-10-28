@@ -16,31 +16,53 @@ struct DocumentViewer: View {
     }
 
     var body: some View {
-        DocumentPreview(model: model)
-            .frame(minWidth: 760, minHeight: 480)
+        DocumentContent(model: model)
             .toolbar { DocumentToolbar(model: model) }
-            .focusedSceneValue(\.documentModel, model)
-            .preferredColorScheme(model.appearance.colorScheme)
-            .background(
-                WindowReader { window in
-                    model.window = window
-                    #if DEBUG
-                        DebugSnapshot.captureIfReady(model)
-                    #endif
-                }
-            )
-            .onAppear {
-                WelcomeController.shared.close()
-                model.start()
+    }
+}
+
+struct DocumentContent: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        HStack(spacing: 0) {
+            if let bundle = model.imageBundle {
+                ImageBundleSidebar(model: bundle)
+                Divider()
             }
-            .onDisappear { model.stop() }
-            .onChange(of: model.renderSettings) { _, _ in model.render() }
-            .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
-            .onChange(of: model.isRendering) { _, rendering in
+            DocumentPreview(model: model)
+        }
+        .frame(minWidth: 760, minHeight: 480)
+        .preferredColorScheme(model.appearance.colorScheme)
+        .background(
+            WindowReader { window in
+                window.tabbingMode = .disallowed
+                model.window = window
+                DocumentWindows.shared.register(model, for: window)
                 #if DEBUG
-                    if !rendering { DebugSnapshot.captureIfReady(model) }
+                    DebugSnapshot.captureIfReady(model)
                 #endif
             }
+        )
+        .dropDestination(for: URL.self) { urls, _ in
+            OpenRouter.shared.open(urls, from: model.window)
+        }
+        .onAppear {
+            WelcomeController.shared.close()
+            model.start()
+        }
+        .onDisappear { model.stop() }
+        .onChange(of: model.renderSettings) { _, _ in model.render() }
+        .onChange(of: model.imageBundle?.urls) { _, _ in
+            if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }
+            model.render()
+        }
+        .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
+        .onChange(of: model.isRendering) { _, rendering in
+            #if DEBUG
+                if !rendering { DebugSnapshot.captureIfReady(model) }
+            #endif
+        }
     }
 }
 
@@ -71,6 +93,15 @@ struct DocumentPreview: View {
                             ? LocalizedStringKey("Preparing pages…") : LocalizedStringKey("No preview is available."))
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if !model.unreadableImageURLs.isEmpty {
+                Text(
+                    String(
+                        format: String(localized: "Could not open: %@"),
+                        model.unreadableImageURLs.map(\.lastPathComponent).joined(separator: ", "))
+                )
+                .font(.callout).foregroundStyle(.secondary)
+                .textSelection(.enabled).padding(10)
             }
             Divider()
             HStack {
@@ -112,6 +143,7 @@ struct PDFDocumentView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PaperPDFView {
         let view = PaperPDFView()
+        view.acceptsDraggedFiles = false
         view.displayMode = .singlePageContinuous
         view.displayDirection = .vertical
         view.displaysPageBreaks = true
@@ -174,7 +206,7 @@ final class PaperPDFView: PDFView {
     }
 }
 
-private struct WindowReader: NSViewRepresentable {
+struct WindowReader: NSViewRepresentable {
     let onWindow: (NSWindow) -> Void
     func makeNSView(context: Context) -> ReaderView { ReaderView(onWindow: onWindow) }
     func updateNSView(_ view: ReaderView, context: Context) {}
