@@ -251,6 +251,9 @@ struct OverlayBand: View {
         }
         .buttonStyle(.borderless)
         .controlSize(.regular)
+        // The plan already made the tools fit; without this the stack would squeeze a label to make room for the
+        // spacer instead of leaving the slack to it.
+        .fixedSize()
     }
 
     /// The document's name, format and page, when the band no longer shows them in full.
