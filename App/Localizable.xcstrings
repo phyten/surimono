@@ -2440,6 +2440,61 @@
           }
         }
       }
+    },
+    "Show Cover Alone": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表紙を単独で表示"
+          }
+        }
+      }
+    },
+    "Fit to Window (%@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウに合わせる（%@）"
+          }
+        }
+      }
+    },
+    "Left to Right": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左から右へ"
+          }
+        }
+      }
+    },
+    "Right to Left": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右から左へ"
+          }
+        }
+      }
+    },
+    "View Type": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示の型"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

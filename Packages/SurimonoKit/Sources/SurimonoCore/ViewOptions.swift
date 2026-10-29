@@ -65,6 +65,9 @@ public struct ViewOptions: Codable, Equatable, Sendable {
     /// Pages form one scrolling strip instead of being turned one unit at a time.
     public var isContinuous: Bool { transition == .scroll }
 
+    /// The scroll axis decides where scrolling and sliding pages move; switching, fading and curling ignore it.
+    public var usesScrollAxis: Bool { transition == .scroll || transition == .slide }
+
     public enum SlideEdge: Equatable, Sendable {
         case left, right, top, bottom
     }
