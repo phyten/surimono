@@ -89,7 +89,7 @@ public enum SmartRemovalScript {
             if (!explicit) regionsToRank = elements.filter(element => scores.has(element));
             let main = null;
             let highest = -1;
-            // Related cards are not main regions; only the strongest prose region is protected.
+            // Related cards are not main regions; choose the strongest prose region as the main content.
             for (const element of regionsToRank) {
               const score = scores.get(element) || 0;
               // For the paragraph fallback, prefer a deeper block over an equally scored wrapper.
@@ -144,17 +144,22 @@ public enum SmartRemovalScript {
               const words = text(element);
               const links = Array.from(element.querySelectorAll('a'));
               const hit = (category, reason) => ({category, reason: reason || evidence});
-              if (!inside && (has('cookie', 'cookies', 'consent', 'gdpr')
-                || (positioned && /\b(cookies?|consent|gdpr)\b|クッキー|Cookieの同意/i.test(words)))) {
-                return hit('cookieBanner', [evidence, 'position: ' + style.position].filter(Boolean).join(' · '));
-              }
-              const host = adHost(element) || Array.from(element.querySelectorAll('iframe')).map(adHost).find(Boolean);
+              const ownHost = adHost(element);
               const adTopic = has('ad', 'ads', 'advert', 'advertisement', 'advertising', 'sponsor', 'sponsored', 'promo');
               const adSlot = has('adsbygoogle') || attributes.some(attribute =>
                 attribute.name.startsWith('data-ad-')
                 || (['id', 'class'].includes(attribute.name) && /(?:^|\s)ad[-_]slot(?:$|[-_\s])/i.test(attribute.value)))
                 || /^(advertisement|advertising|sponsored)(\s+content)?$/i
                   .test(clean(element.getAttribute('aria-label')));
+              const modal = element.getAttribute('aria-modal') === 'true' || element.matches('dialog, [role="dialog"]');
+              // Other prose regions need their own strong widget evidence; a descendant ad cannot condemn the prose.
+              if (!inside && !auxiliary(element) && looksLikeProse(element)
+                && !adSlot && !ownHost && !positioned && !modal) return null;
+              if (!inside && (has('cookie', 'cookies', 'consent', 'gdpr')
+                || (positioned && /\b(cookies?|consent|gdpr)\b|クッキー|Cookieの同意/i.test(words)))) {
+                return hit('cookieBanner', [evidence, 'position: ' + style.position].filter(Boolean).join(' · '));
+              }
+              const host = ownHost || Array.from(element.querySelectorAll('iframe')).map(adHost).find(Boolean);
               const smallWidget = words.length <= 80 && !element.querySelector('h1, h2, h3, h4, h5, h6, p');
               if ((!inside && (host || adTopic || adSlot)) || (inside && (host || adSlot || (adTopic && smallWidget)))) {
                 return hit('advertisement', host ? 'iframe host: ' + host : evidence);
@@ -166,8 +171,8 @@ public enum SmartRemovalScript {
                 if (links.length >= 2) return hit('relatedLinks');
               }
               if (!inside) {
-                if (has('modal', 'popup', 'overlay', 'dialog') || element.getAttribute('aria-modal') === 'true') {
-                  return hit('popup', evidence || 'aria-modal="true"');
+                if (has('modal', 'popup', 'overlay', 'dialog') || modal) {
+                  return hit('popup', evidence || (element.matches('dialog') ? 'dialog element' : 'aria-modal="true"'));
                 }
                 const rect = element.getBoundingClientRect();
                 if (positioned && rect.top <= 100 && rect.bottom > 0 && rect.height <= 250
