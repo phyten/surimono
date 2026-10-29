@@ -114,7 +114,7 @@ make clean
 
 - ウィンドウには紙だけを余白なしで出す（`ViewerWindow`: タイトルバーを隠し、信号機はメニューと一緒に出す）。窓の縦横比は表示中のページか見開きに固定する。
 - メニューは段階表示（`OverlayMenuState`）: 乗せると約 80 ms でファイル名と「印刷」、上部に留まると全部、離れて約 800 ms・静止 2.5 秒・ページ送りで隠す。Tab / M で出す、Esc で隠す、V で表示のオプション、⌥⌘T でメニューを固定（窓を上へ帯の高さだけ伸ばし、紙は動かさない）。
-- 紙は `PaperView`（PDFView）。`ViewOptions`（SurimonoCore）を PDFView の表示モード・`displaysAsBook`・`displaysRTL`・`displayDirection` に当てはめ、ページ送りのアニメーション（スライド・フェード・めくり）、拡大縮小（ピンチ・⌘＋スクロール・⌘＋/−/0・ダブルクリック）、キー操作、紙のドラッグでの窓の移動を受け持つ。
+- 紙は `PaperView`（PDFView）。`ViewOptions`（SurimonoCore）を PDFView の表示モード・`displaysAsBook`・`displaysRTL`・`displayDirection` に当てはめ、ページ送りのアニメーション（スライド・フェード・めくり）、拡大縮小（ピンチ・⌘＋スクロール・⌘＋/−/0・ダブルクリック）、キー操作、紙のドラッグでの窓の移動を受け持つ。拡大中に素早く閉じるピンチで 100% に戻る。100% 未満はゴムで、離すと戻る。
 
 ## コーディング規約
 

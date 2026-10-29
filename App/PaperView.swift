@@ -63,6 +63,37 @@ final class PaperPDFView: PDFView {
     var onTurn: (() -> Void)?
     var onKey: ((NSEvent) -> Bool)?
     private(set) var zoom: Double = 1
+    private(set) var displayedZoom: Double = 1
+    var shouldReduceMotion: () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    var isReturningToFit: Bool { zoomReturn != nil }
+    private var pinchDetector = PinchFlickDetector()
+    private var fingerZoom: Double = 1
+    private var pinchActive = false
+    private var ignoresPinchRemainder = false
+    private var zoomDisplayLink: CADisplayLink?
+    private var zoomReturn: ZoomReturn?
+    private var isMeasuringFit = false
+
+    private struct ZoomReturn {
+        let path: PinchZoom.Return
+        let startedAt: Double
+        let page: PDFPage
+        let pagePoint: NSPoint
+        let start: NSPoint
+        let end: NSPoint
+    }
+
+    // CADisplayLink retains its target; a weak relay lets a closed paper view release its link.
+    private final class ZoomDisplayLinkTarget: NSObject {
+        weak var view: PaperPDFView?
+
+        init(view: PaperPDFView) { self.view = view }
+
+        @objc func tick(_ link: CADisplayLink) {
+            guard let view, let animation = view.zoomReturn else { return }
+            view.advanceZoomReturn(elapsed: link.targetTimestamp - animation.startedAt)
+        }
+    }
     private var options: ViewOptions?
     private var pageSize = CGSize(width: 595, height: 842)
     private var fittedSize = CGSize.zero
@@ -93,11 +124,17 @@ final class PaperPDFView: PDFView {
 
     isolated deinit {
         if let magnifyMonitor { NSEvent.removeMonitor(magnifyMonitor) }
+        zoomDisplayLink?.invalidate()
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         updateMagnifyMonitor()
+        if window == nil {
+            stopZoomReturn()
+            if displayedZoom < 1 { setZoom(1, anchor: nil) }
+            pinchActive = false
+        }
         // Arrow keys and the menu keys should work as soon as the window opens, without clicking the paper first.
         Task { @MainActor [weak self] in
             guard let self, let window, window.firstResponder === window || window.firstResponder == nil else { return }
@@ -111,6 +148,11 @@ final class PaperPDFView: PDFView {
     }
 
     func show(_ document: PDFDocument, at index: Int) {
+        stopZoomReturn()
+        // A replacement keeps the user's zoom, but must not inherit transient rubber or old gesture events.
+        displayedZoom = zoom
+        if pinchActive { ignoresPinchRemainder = true }
+        pinchActive = false
         self.document = document
         displayBox = .cropBox
         pageSize = (0..<document.pageCount).reduce(into: CGSize.zero) { size, index in
@@ -182,7 +224,7 @@ final class PaperPDFView: PDFView {
     private func refit() {
         guard bounds.width > 1, bounds.height > 1 else { return }
         fittedSize = bounds.size
-        let target = max(fitScale * zoom, 0.01)
+        let target = max(fitScale * displayedZoom, 0.01)
         guard abs(scaleFactor - target) > 0.0005 else { return }
         // PDFKit keeps the centre in place when the scale changes; keep the top-left of the view instead, so that
         // fitting a resized window does not scroll the reader away from the start of the page.
@@ -194,7 +236,9 @@ final class PaperPDFView: PDFView {
     }
 
     override func magnify(with event: NSEvent) {
-        magnify(by: event.magnification, at: convert(event.locationInWindow, from: nil))
+        magnify(
+            by: event.magnification, at: convert(event.locationInWindow, from: nil), phase: event.phase,
+            time: event.timestamp)
     }
 
     override func smartMagnify(with event: NSEvent) {
@@ -218,10 +262,13 @@ final class PaperPDFView: PDFView {
 
     /// Zooms for a pinch or a smart zoom over the paper and reports whether it did.
     private func handleZoomGesture(_ event: NSEvent) -> Bool {
-        guard event.window === window, isPaper(atWindowPoint: event.locationInWindow) else { return false }
+        guard event.window === window else { return false }
+        // Keep the rest of an accepted pinch, including its end, even when the pointer crosses a panel.
+        let continuingPinch = event.type == .magnify && pinchActive && !event.phase.contains(.began)
+        guard continuingPinch || isPaper(atWindowPoint: event.locationInWindow) else { return false }
         let point = convert(event.locationInWindow, from: nil)
         if event.type == .magnify {
-            magnify(by: event.magnification, at: point)
+            magnify(by: event.magnification, at: point, phase: event.phase, time: event.timestamp)
         } else {
             setZoom(isZoomed ? 1 : 2, anchor: point)
         }
@@ -243,6 +290,34 @@ final class PaperPDFView: PDFView {
         setZoom(zoom * (1 + Double(magnification)), anchor: anchor)
     }
 
+    func magnify(by magnification: CGFloat, at anchor: NSPoint, phase: NSEvent.Phase, time: Double) {
+        if phase.isEmpty {
+            guard !ignoresPinchRemainder else { return }
+            magnify(by: magnification, at: anchor)
+            return
+        }
+        if phase.contains(.began) {
+            stopZoomReturn()
+            pinchActive = true
+            ignoresPinchRemainder = false
+            fingerZoom = PinchZoom.fingerZoom(for: displayedZoom)
+            _ = pinchDetector.update(timestamp: time, zoom: fingerZoom, phase: .began)
+        }
+        guard pinchActive else { return }
+        let ended = phase.contains(.ended) || phase.contains(.cancelled)
+        defer { if ended { pinchActive = false } }
+        guard !ignoresPinchRemainder else { return }
+        fingerZoom = min(Self.maximumZoom, max(Double.leastNormalMagnitude, fingerZoom * (1 + Double(magnification))))
+        let detectorPhase: PinchFlickDetector.Phase =
+            phase.contains(.cancelled) ? .cancelled : ended ? .ended : .changed
+        let flick = pinchDetector.update(timestamp: time, zoom: fingerZoom, phase: detectorPhase)
+        setDisplayedZoom(PinchZoom.rubberBand(fingerZoom), anchor: anchor)
+        if flick || (ended && displayedZoom < 1) {
+            ignoresPinchRemainder = true
+            returnToFit()
+        }
+    }
+
     @objc private func scaleDidChange() {
         // PDFKit also rescales on its own, for example when the display mode changes; the zoom stays the user's.
         guard !isSettingScale, fitScale > 0 else { return }
@@ -250,6 +325,7 @@ final class PaperPDFView: PDFView {
     }
 
     @objc private func pageDidChange() {
+        guard !isMeasuringFit else { return }
         onPageChange?(currentPageIndex)
     }
 
@@ -265,9 +341,20 @@ final class PaperPDFView: PDFView {
 
     /// Changes the zoom while keeping the point under `anchor` (view coordinates) in place.
     func setZoom(_ value: Double, anchor: NSPoint?) {
-        let clamped = min(max(value, 1), Self.maximumZoom)
+        stopZoomReturn()
+        if pinchActive { ignoresPinchRemainder = true }
+        setDisplayedZoom(min(max(value, 1), Self.maximumZoom), anchor: anchor)
+    }
+
+    private func setDisplayedZoom(_ value: Double, anchor: NSPoint?, notify: Bool = true) {
+        let previousZoom = zoom
+        displayedZoom = value
+        zoom = max(value, 1)
+        defer {
+            // Rubber-band values are presentation only; the model must never persist a zoom below fit.
+            if notify && previousZoom != zoom { onZoomChange?(zoom) }
+        }
         guard let documentView, let scrollView = documentView.enclosingScrollView else {
-            zoom = clamped
             refit()
             return
         }
@@ -276,7 +363,6 @@ final class PaperPDFView: PDFView {
         let anchorInDocument = documentView.convert(anchorInView, from: self)
         let anchorInClip = clip.convert(anchorInView, from: self)
         let oldScale = scaleFactor
-        zoom = clamped
         refit()
         let ratio = scaleFactor / max(oldScale, 0.0001)
         let origin = NSPoint(
@@ -284,7 +370,61 @@ final class PaperPDFView: PDFView {
             y: anchorInDocument.y * ratio - (anchorInClip.y - clip.bounds.minY))
         clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: origin, size: clip.bounds.size)).origin)
         scrollView.reflectScrolledClipView(clip)
-        onZoomChange?(zoom)
+    }
+
+    private func stopZoomReturn() {
+        zoomDisplayLink?.invalidate()
+        zoomDisplayLink = nil
+        zoomReturn = nil
+    }
+
+    private func returnToFit() {
+        stopZoomReturn()
+        guard !shouldReduceMotion(), displayedZoom != 1,
+            let page = currentPage, let clip = documentView?.enclosingScrollView?.contentView
+        else {
+            setDisplayedZoom(1, anchor: nil)
+            return
+        }
+        let startZoom = displayedZoom
+        let startOrigin = clip.bounds.origin
+        let pagePoint = page.bounds(for: displayBox).origin
+        let start = convert(pagePoint, from: page)
+        // Ask PDFKit for the exact fitted destination (also valid in continuous and facing-page modes),
+        // then restore before drawing. No transient fitted state is sent to the document model.
+        isMeasuringFit = true
+        setDisplayedZoom(1, anchor: nil, notify: false)
+        let end = convert(pagePoint, from: page)
+        setDisplayedZoom(startZoom, anchor: nil, notify: false)
+        clip.scroll(to: startOrigin)
+        documentView?.enclosingScrollView?.reflectScrolledClipView(clip)
+        isMeasuringFit = false
+        zoomReturn = ZoomReturn(
+            path: PinchZoom.Return(startZoom: startZoom), startedAt: CACurrentMediaTime(), page: page,
+            pagePoint: pagePoint, start: start, end: end)
+        let link = displayLink(
+            target: ZoomDisplayLinkTarget(view: self), selector: #selector(ZoomDisplayLinkTarget.tick(_:)))
+        zoomDisplayLink = link
+        link.add(to: .main, forMode: .common)
+    }
+
+    /// Shared by the display-link callback and deterministic tests, with elapsed time in seconds.
+    func advanceZoomReturn(elapsed: Double) {
+        guard let animation = zoomReturn else { return }
+        let value = animation.path.zoom(elapsed: elapsed)
+        setDisplayedZoom(value, anchor: nil)
+        if let scrollView = documentView?.enclosingScrollView {
+            let clip = scrollView.contentView
+            let desired = NSPoint(
+                x: animation.path.position(start: animation.start.x, end: animation.end.x, zoom: value),
+                y: animation.path.position(start: animation.start.y, end: animation.end.y, zoom: value))
+            let actual = clip.convert(convert(animation.pagePoint, from: animation.page), from: self)
+            let target = clip.convert(desired, from: self)
+            let origin = NSPoint(x: clip.bounds.minX + actual.x - target.x, y: clip.bounds.minY + actual.y - target.y)
+            clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: origin, size: clip.bounds.size)).origin)
+            scrollView.reflectScrolledClipView(clip)
+        }
+        if elapsed >= PinchZoom.Return.duration { stopZoomReturn() }
     }
 
     private var isZoomed: Bool { zoom > 1.001 }
@@ -293,15 +433,26 @@ final class PaperPDFView: PDFView {
 
     func goToPage(index: Int) {
         guard let document, let page = document.page(at: index) else { return }
+        finishZoomReturnForNavigation()
         go(to: page)
     }
 
     func turnPage(forward: Bool) {
         guard let options else { return }
+        finishZoomReturnForNavigation()
         guard forward ? canGoToNextPage : canGoToPreviousPage else { return }
         addTransition(forward: forward, options: options)
         if forward { goToNextPage(nil) } else { goToPreviousPage(nil) }
         onTurn?()
+    }
+
+    private func finishZoomReturnForNavigation() {
+        guard isReturningToFit else { return }
+        // Only explicit navigation settles the return; PDFKit's scale-driven page notifications must not.
+        let page = currentPage
+        setZoom(1, anchor: nil)
+        // Fitting a continuous document may change currentPage; a relative turn must still start at the old page.
+        if let page { go(to: page) }
     }
 
     private func addTransition(forward: Bool, options: ViewOptions) {
