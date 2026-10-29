@@ -14,6 +14,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
    - アプリ（`App/`、`Configs/`、Xcode プロジェクト）を変えた: `make lint && make build && make test-app`
    - 迷ったら `make lint && make test`
 2. 起動して確認する: `make run FILE=Samples/sample.md`
+   - Debug ビルドは公開版と別のアプリ「Surimono Dev」（バンドル ID `io.github.phyten.Surimono.debug`、保存先 `~/Library/Application Support/Surimono Dev/`）として動き、入れてある公開版と同時に起動できる。メニューバーの名前だけは Surimono のまま。
    - サンプルは `Samples/` にある（sample.md / sample.org / sample.txt / sample-sjis.txt（Shift_JIS）/ sample.html（ノイズ入り）/ sample.csv / booklet-demo.md（標準テーマの A4 で 38 ページ。冊子の確認用））。PDF・画像・画像の ZIP は手元の任意のファイルでよい（ZIP は `ditto -c -k --keepParent <フォルダ> <名前>.zip` で作れる）。
 3. UI を変えたら目視で確認する。見ずに完了としない。
    - **開発用スナップショット（推奨。画面収録の許可が不要）**: DEBUG ビルドは起動引数を受け取り、最初の文書ウィンドウの描画が終わると、そのウィンドウと近くのポップオーバーなどの子ウィンドウを ScreenCaptureKit で PNG に保存する。
