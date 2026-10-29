@@ -9,50 +9,51 @@ struct DocumentCommands: Commands {
         // A viewer creates nothing. The standard Open… item stays: AppDelegate answers its action so that a multi-file
         // selection reaches OpenRouter, and Open Recent opens a single file.
         CommandGroup(replacing: .newItem) {}
+        // SwiftUI applies a new enabled state to these items only when a menu opens, so a state derived from the key
+        // window's model goes stale and swallows the shortcuts. The items stay enabled; the model ignores what it
+        // cannot do.
         CommandGroup(replacing: .printItem) {
-            Button("Print…") { model?.printDocument() }
-                .keyboardShortcut("p").disabled(model?.canOutput != true)
+            Button("Print…") { model?.performPrintCommand() }
+                .keyboardShortcut("p")
             Button("Quick Print") { model?.printDocument(quick: true) }
-                .keyboardShortcut("p", modifiers: [.option, .command]).disabled(model?.canOutput != true)
+                .keyboardShortcut("p", modifiers: [.option, .command])
             Button("Export as PDF…") { model?.exportPDF() }
-                .keyboardShortcut("e", modifiers: [.shift, .command]).disabled(model?.canOutput != true)
+                .keyboardShortcut("e", modifiers: [.shift, .command])
         }
         CommandGroup(after: .toolbar) {
             ForEach(Array(ViewOptions.Layout.allCases.enumerated()), id: \.element) { index, layout in
                 Button(layout.title) { model?.setLayout(layout) }
                     .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [.option, .command])
-                    .disabled(model == nil)
             }
-            Button("View Options…") { model?.isViewOptionsPresented = true }
-                .disabled(model == nil)
+            Button("View Options…") {
+                guard let model, model.mode == .view else { return }
+                model.isViewOptionsPresented = true
+            }
             Divider()
             Button("Zoom In") { model?.paper.zoomIn() }
-                .keyboardShortcut("+").disabled(model == nil)
+                .keyboardShortcut("+")
             Button("Zoom Out") { model?.paper.zoomOut() }
-                .keyboardShortcut("-").disabled(model == nil)
+                .keyboardShortcut("-")
             Button("Fit to Window") { model?.paper.zoomToFit() }
-                .keyboardShortcut("0").disabled(model == nil)
+                .keyboardShortcut("0")
             Divider()
             Toggle(
                 "Keep Menu Visible",
                 isOn: Binding(get: { model?.isMenuPinned ?? false }, set: { model?.isMenuPinned = $0 })
             )
-            .keyboardShortcut("t", modifiers: [.option, .command]).disabled(model == nil)
+            .keyboardShortcut("t", modifiers: [.option, .command])
             Toggle(
                 "Float on Top",
                 isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { model?.isAlwaysOnTop = $0 })
             )
-            .disabled(model == nil)
             Divider()
             Button("Reset Document Settings") { model?.resetDocumentSettings() }
-                .disabled(model?.hasSavedSettings != true)
-            Button("Reload") { model?.reload() }.disabled(model == nil)
+            Button("Reload") { model?.reload() }
         }
         CommandMenu("Layout") {
             ForEach(Array(PrintLayout.presets.enumerated()), id: \.element.id) { index, layout in
-                Button(layout.displayName(language: language)) { model?.layoutID = layout.id }
+                Button(layout.displayName(language: language)) { model?.chooseLayout(layout.id) }
                     .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
-                    .disabled(model == nil)
             }
         }
         CommandMenu("Images") {
@@ -60,15 +61,12 @@ struct DocumentCommands: Commands {
                 "Show Thumbnails",
                 isOn: Binding(get: { model?.isDrawerOpen ?? false }, set: { model?.isDrawerOpen = $0 })
             )
-            .keyboardShortcut("s", modifiers: [.control, .command]).disabled(model?.imageBundle == nil)
+            .keyboardShortcut("s", modifiers: [.control, .command])
             Button("Move Image Up") { model?.imageBundle?.moveSelection(by: -1) }
                 .keyboardShortcut(.upArrow, modifiers: [.option, .command])
-                .disabled(model?.imageBundle?.canMoveSelection(by: -1) != true)
             Button("Move Image Down") { model?.imageBundle?.moveSelection(by: 1) }
                 .keyboardShortcut(.downArrow, modifiers: [.option, .command])
-                .disabled(model?.imageBundle?.canMoveSelection(by: 1) != true)
             Button("Sort by Name") { model?.imageBundle?.sortByName() }
-                .disabled(model?.imageBundle == nil)
         }
     }
 }

@@ -62,6 +62,8 @@ final class DocumentViewModel {
     @ObservationIgnored private var settingsBaseline: DocumentSettings?
     @ObservationIgnored private var pendingImageOrder: [String]?
     @ObservationIgnored private var restoredPaperSize: CGSize?
+    /// The view mode's paper size when the print mode began; the tray's size is not the document's window size.
+    @ObservationIgnored private var viewPaperSizeBeforePrinting: CGSize?
     @ObservationIgnored private var hasSizedWindow = false
     @ObservationIgnored private var didResizeWindow = false
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -122,6 +124,8 @@ final class DocumentViewModel {
     var displayName: String {
         imageBundle?.title(language: language) ?? fileURL?.lastPathComponent ?? String(localized: "Document")
     }
+    /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
+    var formatBadge: String { imageBundle == nil || format == .zipArchive ? format.badge : "IMG" }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
     var layout: PrintLayout { PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single }
@@ -328,8 +332,33 @@ final class DocumentViewModel {
         viewOptions = options.normalized()
     }
 
-    func enterPrintMode() { mode = .print }
-    func exitPrintMode() { mode = .view }
+    func enterPrintMode() {
+        guard mode != .print else { return }
+        isViewOptionsPresented = false
+        viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
+        mode = .print
+        guard let window else { return }
+        // The tray has its own size and always shows the traffic lights.
+        ViewerWindow.unlockAspectRatio(of: window)
+        ViewerWindow.setTrafficLightsVisible(true, in: window)
+        PrintModeWindow.enter(window)
+    }
+
+    func exitPrintMode() {
+        guard mode != .view else { return }
+        guard let window else {
+            mode = .view
+            return
+        }
+        PrintModeWindow.exit(window) { [weak self] in
+            guard let self else { return }
+            // Back at the view-mode frame; the print layout may have changed the pages' shape meanwhile.
+            ViewerWindow.markResizing(window, for: 0.3)
+            mode = .view
+            ViewerWindow.setTrafficLightsVisible(isMenuPinned, in: window)
+            sizeWindowToPaper(keepHeight: true)
+        }
+    }
 
     func toggleMenuPinned() { isMenuPinned.toggle() }
     func toggleAlwaysOnTop() { isAlwaysOnTop.toggle() }
@@ -488,7 +517,7 @@ final class DocumentViewModel {
         // A change that was undone before the save (for example a transient zoom) is not a change.
         guard force || hasSavedSettings || rememberedSettings != settingsBaseline || didResizeWindow else { return }
         var settings = rememberedSettings
-        settings.windowSize = currentPaperSize ?? restoredPaperSize
+        settings.windowSize = currentPaperSize ?? viewPaperSizeBeforePrinting ?? restoredPaperSize
         do {
             try settingsStore.save(settings, for: contentHash.hex)
             hasSavedSettings = true
