@@ -17,7 +17,7 @@ public enum MarkdownConverter {
             }
             lines.removeFirst(end + 1)
         }
-        let document = Document(parsing: lines.joined(separator: "\n"), options: [.disableSmartOpts])
+        let document = Document(parsing: MarkdownCallouts.preprocess(lines), options: [.disableSmartOpts])
         if title == nil { title = firstHeading(in: document) }
         return HTMLFragment(body: render(document), title: title)
     }
@@ -49,7 +49,8 @@ public enum MarkdownConverter {
         case is Strong: return wrap("strong")
         case is Emphasis: return wrap("em")
         case is Strikethrough: return wrap("del")
-        case is BlockQuote: return wrap("blockquote") + "\n"
+        case let quote as BlockQuote:
+            return renderCallout(quote, autolinks: autolinks) ?? (wrap("blockquote") + "\n")
         case is ThematicBreak: return "<hr>\n"
         case is LineBreak: return "<br>\n"
         case is SoftBreak: return "\n"
@@ -72,6 +73,37 @@ public enum MarkdownConverter {
         case let table as Table: return renderTable(table)
         default: return children()
         }
+    }
+
+    private static func renderCallout(_ quote: BlockQuote, autolinks: Bool) -> String? {
+        guard let paragraph = quote.child(at: 0) as? Paragraph else { return nil }
+        let inline = Array(paragraph.children)
+        let breakIndex = inline.firstIndex { $0 is SoftBreak || $0 is LineBreak } ?? inline.count
+        let firstLine = inline[..<breakIndex]
+        // cmark may split the bracket marker across adjacent Text nodes.
+        let prefix = firstLine.prefix { $0 is Text }.compactMap { ($0 as? Text)?.string }.joined()
+        guard let marker = MarkdownCallouts.quoteMarker(prefix) else { return nil }
+        var remaining = marker.consumed
+        var titleNodes: [any InlineMarkup] = []
+        for node in firstLine {
+            if let text = node as? Text, remaining > 0 {
+                let skipped = min(remaining, text.string.count)
+                remaining -= skipped
+                let suffix = String(text.string.dropFirst(skipped))
+                if !suffix.isEmpty { titleNodes.append(Text(suffix)) }
+            } else if let node = node as? any InlineMarkup {
+                titleNodes.append(node)
+            }
+        }
+        let title = renderChildren(Paragraph(titleNodes), autolinks: autolinks)
+        let titleHTML = title.isEmpty ? HTML.escape(marker.kind.defaultTitle) : title
+        var body = ""
+        if breakIndex < inline.count {
+            let remainder = inline.dropFirst(breakIndex + 1).compactMap { $0 as? any InlineMarkup }
+            if !remainder.isEmpty { body += render(Paragraph(remainder), autolinks: autolinks) }
+        }
+        body += quote.children.dropFirst().map { render($0, autolinks: autolinks) }.joined()
+        return marker.kind.opening + "\n" + marker.kind.title(titleHTML) + "\n" + body + "</div>\n"
     }
 
     private static func renderChildren(_ node: any Markup, autolinks: Bool = true) -> String {

@@ -61,3 +61,26 @@ blockquote { margin-inline: 1em; padding-left: 0.8em; border-left: 2pt solid #aa
 .hl-deletion { color: var(--hl-deletion); background: #fbefef; }
 .hl-section { color: var(--hl-section); font-weight: 600; }
 .hl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+.callout {
+    margin-block: 1em;
+    padding: 0.75em 1em;
+    border-left: 3pt solid var(--callout-color);
+    background: var(--callout-tint);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+.callout-note { --callout-color: #245c88; --callout-tint: #eff5fa; }
+.callout-tip { --callout-color: #28603c; --callout-tint: #eff6f0; }
+.callout-important { --callout-color: #713a8a; --callout-tint: #f7f0fa; }
+.callout-warning { --callout-color: #79500d; --callout-tint: #fcf5e8; }
+.callout-danger { --callout-color: #922e35; --callout-tint: #fbefef; }
+.callout-quote, .callout-neutral { --callout-color: #595959; --callout-tint: #f3f3f3; }
+.callout > .callout-title {
+    color: var(--callout-color);
+    font-weight: 700;
+    break-after: avoid;
+    page-break-after: avoid;
+}
+.callout > :first-child { margin-top: 0; }
+.callout > :last-child { margin-bottom: 0; }

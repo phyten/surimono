@@ -60,6 +60,8 @@ make clean
 ```
 
 - これらを束ねるのが `DocumentRenderer`（SurimonoRendering）。文書ごとに 1 つ持ち、論理ページの PDF を使い回す（両面設定やページ番号の変更だけなら組版し直さない）。ファイルが変わったら `clearCache()` を呼ぶ。
+- Markdown と Org のコードは SurimonoCore の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
+- `:::` は markdown-it-container と同じく、段落・参照定義・引用・リストの続きを打ち切る（コード・HTML・明示的な引用行・字下げしたリスト本文・AST のブロックに属さない行は除く）。
 - JavaScript: Markdown / Org / テキスト / CSV から作る HTML では常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。
 
 - 論理ページ寸法: 通常は用紙そのもの。冊子と 2アップは用紙の半分（A3 → A4、A4 → A5、B4 → B5）。Web 系の文書は論理ページ寸法で組版し直し、PDF と画像は縮小して収める。
