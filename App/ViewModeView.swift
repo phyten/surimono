@@ -96,7 +96,7 @@ private struct PaperArea: View {
                         model.unreadableImageURLs.map(\.lastPathComponent).joined(separator: ", "))
                 )
                 .font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-                .padding(8).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8)).padding(10)
+                .padding(8).paperOverlayBackground(cornerRadius: 8).padding(10)
             }
         }
         .alert(
@@ -155,7 +155,7 @@ private struct ErrorPanel: View {
         }
         .padding(24)
         .frame(maxWidth: 420)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .paperOverlayBackground(cornerRadius: 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
