@@ -11,7 +11,7 @@ typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
 /// A short message near the bottom of the window, optionally with one action.
 struct Toast: Equatable, Identifiable {
-    enum Action: Equatable { case resetDocumentSettings }
+    enum Action: Equatable { case resetDocumentSettings, reviewSmartRemoval }
 
     let id = UUID()
     var systemImage: String
@@ -44,6 +44,13 @@ final class DocumentViewModel {
     var isAlwaysOnTop = false
     var isDrawerOpen = false
     var isViewOptionsPresented = false
+    /// Smart Removal (beta) for HTML: remove what is not the article, except the parts the user keeps.
+    var isSmartRemovalEnabled = false
+    var smartRemovalKeptIDs: [String] = []
+    /// While reviewing, the paper outlines the detected parts instead of removing them.
+    private(set) var isReviewingSmartRemoval = false
+    /// An output asked for during the review; it runs once the pages without the outlines are drawn.
+    @ObservationIgnored private(set) var outputAfterReview: Output?
     var toast: Toast?
     private(set) var result: RenderResult?
     private(set) var renderedSettings: RenderSettings?
@@ -70,6 +77,7 @@ final class DocumentViewModel {
     @ObservationIgnored private var hashTask: Task<Void, Never>?
     @ObservationIgnored private var openFailure: String?
     @ObservationIgnored private var retriedChangedImages = false
+    @ObservationIgnored private var announcesSmartRemoval = false
     @ObservationIgnored private var hasShownArchiveSummary = false
     private var hasResolvedViewOptions = false
     @ObservationIgnored private var defaultViewOptions: ViewOptions?
@@ -138,17 +146,27 @@ final class DocumentViewModel {
         else { return nil }
         return RenderSettings(
             layout: layout, theme: theme, preset: preset, options: printOptions,
-            allowsJavaScriptInHTML: preferences.allowsJavaScript)
+            allowsJavaScriptInHTML: preferences.allowsJavaScript,
+            smartRemoval: format == .html && isSmartRemovalEnabled
+                ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
+                : nil)
     }
+    /// The pages shown were drawn from the current file and settings.
+    var isUpToDate: Bool {
+        result != nil && !isRendering && error == nil && renderedSettings == renderSettings
+            && renderedSourceURLs == sourceURLs
+    }
+    /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
-        result != nil && !isRendering && !isPrinting && !isExporting && error == nil
-            && renderedSettings == renderSettings && renderedSourceURLs == sourceURLs
+        isUpToDate && !isPrinting && !isExporting && renderedSettings?.smartRemoval?.highlightsCandidates != true
     }
     var summary: String? {
         guard let result, let renderedSettings else { return nil }
         return Self.summaryText(result.summary, layout: renderedSettings.layout, locale: Locale(identifier: language))
     }
     var pageCount: Int { result?.logicalDocument.pageCount ?? 0 }
+    var smartRemovalCandidates: [SmartRemovalCandidate] { result?.smartRemovalCandidates ?? [] }
+    var removedPartCount: Int { smartRemovalCandidates.filter { !smartRemovalKeptIDs.contains($0.id) }.count }
     var displayUnits: [DisplayUnit] {
         SpreadLayout.units(
             pageCount: pageCount, layout: viewOptions.layout, showsCoverAlone: viewOptions.showsCoverAlone,
@@ -300,6 +318,26 @@ final class DocumentViewModel {
                 }
                 isRendering = false
                 retriedChangedImages = false
+                if announcesSmartRemoval, renderedSettings?.smartRemoval != nil {
+                    announcesSmartRemoval = false
+                    // The review panel shows the count itself.
+                    if !isReviewingSmartRemoval {
+                        showToast(
+                            Toast(
+                                systemImage: "wand.and.rays",
+                                title: String(format: String(localized: "%lld parts removed"), removedPartCount),
+                                detail: String(localized: "Smart Removal (Beta) runs on this Mac only."),
+                                action: .reviewSmartRemoval))
+                    }
+                }
+                // A render that a later change made stale leaves the output to the render that follows it.
+                if let output = outputAfterReview, settings == renderSettings {
+                    outputAfterReview = nil
+                    switch output {
+                    case .print(let quick): printDocument(quick: quick)
+                    case .exportPDF: exportPDF()
+                    }
+                }
             } catch is CancellationError {
                 // A superseding request owns the progress indicator.
             } catch DocumentRenderer.RenderingError.imageChanged where !retriedChangedImages && imageBundle != nil {
@@ -315,6 +353,7 @@ final class DocumentViewModel {
                     unreadableImageURLs = urls
                 }
                 self.error = Self.message(for: error)
+                outputAfterReview = nil
                 isRendering = false
             }
         }
@@ -335,6 +374,8 @@ final class DocumentViewModel {
     func enterPrintMode() {
         guard mode != .print else { return }
         isViewOptionsPresented = false
+        // The tray shows what prints, so the review and its outlined pages end here.
+        isReviewingSmartRemoval = false
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
         mode = .print
         guard let window else { return }
@@ -357,6 +398,32 @@ final class DocumentViewModel {
             mode = .view
             ViewerWindow.setTrafficLightsVisible(isMenuPinned, in: window)
             sizeWindowToPaper(keepHeight: true)
+        }
+    }
+
+    func setSmartRemoval(enabled: Bool) {
+        guard isSmartRemovalEnabled != enabled else { return }
+        isSmartRemovalEnabled = enabled
+        announcesSmartRemoval = enabled
+        if !enabled { isReviewingSmartRemoval = false }
+    }
+
+    /// The menus' "Review Removed Parts…" and the toast's "Review". The panel belongs to the view mode.
+    func reviewSmartRemoval() {
+        guard format == .html, isSmartRemovalEnabled else { return }
+        dismissToast()
+        outputAfterReview = nil
+        if mode == .print { exitPrintMode() }
+        isReviewingSmartRemoval = true
+    }
+
+    func endSmartRemovalReview() { isReviewingSmartRemoval = false }
+
+    func toggleKeep(_ id: String) {
+        if let index = smartRemovalKeptIDs.firstIndex(of: id) {
+            smartRemovalKeptIDs.remove(at: index)
+        } else {
+            smartRemovalKeptIDs.append(id)
         }
     }
 
@@ -410,6 +477,8 @@ final class DocumentViewModel {
         DocumentSettings(
             view: viewOptions, zoom: (zoom * 100).rounded() / 100, layoutID: layoutID,
             themeID: format.usesPrintTheme ? themeID : nil, presetID: format.usesHTMLPreset ? presetID : nil,
+            smartRemoval: format == .html && (isSmartRemovalEnabled || !smartRemovalKeptIDs.isEmpty)
+                ? DocumentSettings.SmartRemoval(isEnabled: isSmartRemovalEnabled, keptIDs: smartRemovalKeptIDs) : nil,
             printOptions: printOptions,
             imageOrder: imageBundle.flatMap { $0.isSortedByName ? nil : $0.orderDigests })
     }
@@ -485,6 +554,10 @@ final class DocumentViewModel {
         if let id = saved.themeID, library.themes.contains(where: { $0.id == id }) { themeID = id }
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if let options = saved.printOptions { printOptions = options }
+        if let removal = saved.smartRemoval, format == .html {
+            isSmartRemovalEnabled = removal.isEnabled
+            smartRemovalKeptIDs = removal.keptIDs
+        }
         if let order = saved.imageOrder, let imageBundle, !imageBundle.applyOrder(order) {
             // The images of a ZIP are hashed while they render; restore the order then.
             pendingImageOrder = order
@@ -540,6 +613,9 @@ final class DocumentViewModel {
         themeID = Self.defaultThemeID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
+        isSmartRemovalEnabled = false
+        smartRemovalKeptIDs = []
+        isReviewingSmartRemoval = false
         zoom = 1
         imageBundle?.sortByName()
         if let defaultViewOptions { viewOptions = defaultViewOptions }
@@ -648,7 +724,21 @@ final class DocumentViewModel {
 
     // MARK: - Output
 
+    enum Output: Equatable {
+        case print(quick: Bool)
+        case exportPDF
+    }
+
+    /// An output asked for during the review ends it and waits for the pages without the outlines.
+    private func deferUntilReviewEnds(_ output: Output) -> Bool {
+        guard isReviewingSmartRemoval else { return false }
+        isReviewingSmartRemoval = false
+        outputAfterReview = output
+        return true
+    }
+
     func printDocument(quick: Bool = false) {
+        guard !deferUntilReviewEnds(.print(quick: quick)) else { return }
         guard canOutput, let result, let renderedSettings, let window else { return }
         outputError = nil
         guard
@@ -682,6 +772,7 @@ final class DocumentViewModel {
     }
 
     func exportPDF() {
+        guard !deferUntilReviewEnds(.exportPDF) else { return }
         guard let window, beginPDFExport() else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]

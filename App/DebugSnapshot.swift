@@ -61,6 +61,13 @@
                     name: showMenu, object: model, userInfo: ["stage": argument("SurimonoMenu") ?? ""])
             default: break
             }
+            switch argument("SurimonoSmartRemoval") {
+            case "on": model.setSmartRemoval(enabled: true)
+            case "review":
+                model.setSmartRemoval(enabled: true)
+                model.reviewSmartRemoval()
+            default: break
+            }
             if argument("SurimonoMode") == "print" { model.enterPrintMode() }
             if argument("SurimonoPopover") == "view" {
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
@@ -70,7 +77,7 @@
 
         static func captureIfReady(_ model: DocumentViewModel) {
             if firstDocument == nil { firstDocument = model }
-            guard firstDocument === model, !captured, !scheduled, model.canOutput, model.window != nil,
+            guard firstDocument === model, !captured, !scheduled, model.isUpToDate, model.window != nil,
                 let path = argument("SurimonoSnapshotPath"), path.hasPrefix("/")
             else { return }
             scheduled = true
@@ -79,7 +86,7 @@
                 defer { scheduled = false }
                 // Allow SwiftUI, the window resize and PDFKit to settle.
                 try? await Task.sleep(for: .milliseconds(1200))
-                guard model.canOutput else { return }
+                guard model.isUpToDate else { return }
                 if let value = argument("SurimonoPage"), let page = Int(value) {
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))
