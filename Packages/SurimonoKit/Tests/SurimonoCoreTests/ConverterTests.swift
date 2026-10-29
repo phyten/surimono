@@ -107,7 +107,7 @@ struct ConverterTests {
         #expect(DocumentFormat(fileExtension: "tsv") == .csv)
         #expect(DocumentFormat.allCases.filter(\.usesPrintTheme) == [.markdown, .org, .plainText, .csv])
         #expect(DocumentFormat.allCases.filter(\.usesHTMLPreset) == [.html])
-        #expect(DocumentFormat.allCases.filter { !$0.isWebRendered } == [.pdf, .image])
+        #expect(DocumentFormat.allCases.filter { !$0.isWebRendered } == [.pdf, .image, .zipArchive])
     }
 
     @Test("Markdownの表のヘッダーと本文で生HTMLアンカーを入れ子にしない")

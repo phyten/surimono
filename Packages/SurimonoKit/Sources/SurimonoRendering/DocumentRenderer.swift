@@ -204,6 +204,8 @@ public final class DocumentRenderer {
 
     private func logicalDocument(_ source: DocumentSource, settings: RenderSettings) async throws -> PDFDocument {
         switch source.format {
+        case .zipArchive:
+            throw RenderingError.unsupportedFormat
         case .pdf:
             guard let document = PDFDocument(data: source.data) else { throw RenderingError.invalidPDF }
             guard !document.isEncrypted && !document.isLocked else { throw RenderingError.encryptedPDF }

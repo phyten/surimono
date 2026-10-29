@@ -8,7 +8,7 @@ struct DocumentFormatTests {
         arguments: [
             ("md", DocumentFormat.markdown), ("markdown", .markdown), ("mdown", .markdown),
             ("mkd", .markdown), ("mkdn", .markdown), ("org", .org), ("txt", .plainText),
-            ("html", .html), ("htm", .html), ("pdf", .pdf), ("csv", .csv),
+            ("html", .html), ("htm", .html), ("pdf", .pdf), ("csv", .csv), ("zip", .zipArchive),
             ("png", .image), ("jpg", .image), ("jpeg", .image), ("gif", .image),
             ("tif", .image), ("tiff", .image), ("heic", .image), ("webp", .image),
         ])
@@ -21,7 +21,7 @@ struct DocumentFormatTests {
         #expect(DocumentFormat(fileExtension: "MD") == .markdown)
     }
 
-    @Test("拡張子の大文字小文字を区別しない", arguments: ["PDF", "PnG", "HTML", "CSV", "ORG", "TXT"])
+    @Test("拡張子の大文字小文字を区別しない", arguments: ["PDF", "PnG", "HTML", "CSV", "ORG", "TXT", "ZIP"])
     func detectsMixedCase(fileExtension: String) {
         #expect(
             DocumentFormat(fileExtension: fileExtension) == DocumentFormat(fileExtension: fileExtension.lowercased()))
@@ -32,7 +32,7 @@ struct DocumentFormatTests {
         arguments: [
             (UTType.surimonoMarkdown, DocumentFormat.markdown), (.surimonoOrg, .org),
             (.plainText, .plainText), (.html, .html), (.pdf, .pdf), (.image, .image),
-            (.png, .image), (.jpeg, .image), (.commaSeparatedText, .csv),
+            (.png, .image), (.jpeg, .image), (.commaSeparatedText, .csv), (.zip, .zipArchive),
         ])
     func detectsContentType(contentType: UTType, expected: DocumentFormat) {
         #expect(DocumentFormat(contentType: contentType) == expected)
@@ -48,7 +48,6 @@ struct DocumentFormatTests {
     func rejectsUnsupportedTypes() {
         #expect(DocumentFormat(fileExtension: "") == nil)
         #expect(DocumentFormat(fileExtension: "surimono-unknown") == nil)
-        #expect(DocumentFormat(fileExtension: "zip") == nil)
         #expect(DocumentFormat(contentType: .data) == nil)
         #expect(DocumentFormat(contentType: .folder) == nil)
     }
@@ -57,7 +56,14 @@ struct DocumentFormatTests {
     func providesDisplayNames() {
         #expect(
             DocumentFormat.allCases.map(\.displayName) == [
-                "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV",
+                "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV", "ZIP",
             ])
+    }
+
+    @Test("ZIPはHTML組版や印刷テーマの対象にしない")
+    func zipRenderingFlags() {
+        #expect(!DocumentFormat.zipArchive.isWebRendered)
+        #expect(!DocumentFormat.zipArchive.usesPrintTheme)
+        #expect(!DocumentFormat.zipArchive.usesHTMLPreset)
     }
 }

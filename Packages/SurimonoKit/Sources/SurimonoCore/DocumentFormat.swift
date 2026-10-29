@@ -8,6 +8,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case pdf
     case image
     case csv
+    case zipArchive
 
     public init?(fileExtension: String) {
         switch fileExtension.lowercased() {
@@ -17,6 +18,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "html", "htm": self = .html
         case "pdf": self = .pdf
         case "csv", "tsv": self = .csv
+        case "zip": self = .zipArchive
         case "png", "jpg", "jpeg", "gif", "tif", "tiff", "heic", "heif", "webp", "bmp", "svg", "ico", "icns":
             self = .image
         default: return nil
@@ -25,7 +27,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
 
     public var usesPrintTheme: Bool { [.markdown, .org, .plainText, .csv].contains(self) }
     public var usesHTMLPreset: Bool { self == .html }
-    public var isWebRendered: Bool { self != .pdf && self != .image }
+    public var isWebRendered: Bool { self != .pdf && self != .image && self != .zipArchive }
 
     public init?(contentType: UTType) {
         // Recognize known types independently of LaunchServices registration.
@@ -35,6 +37,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
+            "public.zip-archive": .zipArchive,
         ]
         if let format = known[contentType.identifier] {
             self = format
@@ -56,6 +59,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             self = .pdf
         } else if contentType.conforms(to: .image) {
             self = .image
+        } else if contentType.conforms(to: .zip) {
+            self = .zipArchive
         } else if contentType.conforms(to: .text) {
             self = .plainText
         } else {
@@ -72,6 +77,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .pdf: "PDF"
         case .image: "Image"
         case .csv: "CSV"
+        case .zipArchive: "ZIP"
         }
     }
 }
