@@ -24,22 +24,9 @@ struct ImageBundleDrawer: View {
                     .font(.caption).foregroundStyle(.secondary).padding(.top, 2)
                     .help(model.excludedPaths.joined(separator: "\n"))
             }
-            List(selection: $model.selection) {
-                ForEach(Array(model.items.enumerated()), id: \.element.id) { index, item in
-                    HStack(spacing: 8) {
-                        Text(verbatim: "\(index + 1)").font(.caption2).monospacedDigit().foregroundStyle(.secondary)
-                            .frame(width: 20, alignment: .trailing)
-                        ImageThumbnail(model: model, item: item)
-                        Text(verbatim: item.name).font(.callout).lineLimit(2).truncationMode(.middle)
-                    }
-                    .tag(item.url)
-                    .help(item.name)
-                }
-                .onMove { offsets, destination in model.move(fromOffsets: offsets, toOffset: destination) }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .padding(.vertical, 6)
+            ImageBundleList(model: model)
+                .scrollContentBackground(.hidden)
+                .padding(.vertical, 6)
             Button("Sort by Name") { model.sortByName() }
                 .frame(maxWidth: .infinity)
                 .disabled(model.isSortedByName)
@@ -48,6 +35,30 @@ struct ImageBundleDrawer: View {
         .frame(width: 240)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
+        .accessibilityLabel("Images")
+    }
+}
+
+/// The images of a bundle in order, with numbers and thumbnails; drag to reorder. Used by the view mode's drawer and
+/// the print mode's sidebar.
+struct ImageBundleList: View {
+    @Bindable var model: ImageBundleModel
+
+    var body: some View {
+        List(selection: $model.selection) {
+            ForEach(Array(model.items.enumerated()), id: \.element.id) { index, item in
+                HStack(spacing: 8) {
+                    Text(verbatim: "\(index + 1)").font(.caption2).monospacedDigit().foregroundStyle(.secondary)
+                        .frame(width: 20, alignment: .trailing)
+                    ImageThumbnail(model: model, item: item)
+                    Text(verbatim: item.name).font(.callout).lineLimit(2).truncationMode(.middle)
+                }
+                .tag(item.url)
+                .help(item.name)
+            }
+            .onMove { offsets, destination in model.move(fromOffsets: offsets, toOffset: destination) }
+        }
+        .listStyle(.plain)
         .accessibilityLabel("Images")
     }
 }

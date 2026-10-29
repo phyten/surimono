@@ -191,8 +191,7 @@ struct OverlayBand: View {
                 .truncationMode(.middle)
                 .help(model.fileURL?.path ?? model.displayName)
             if stage == .full {
-                FormatBadge(
-                    text: model.imageBundle == nil || model.format == .zipArchive ? model.format.badge : "IMG")
+                FormatBadge(text: model.formatBadge)
                 if let indicator = model.pageIndicator {
                     Text(verbatim: indicator).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -261,14 +260,13 @@ struct PrintButton: View {
 
     var body: some View {
         Button {
-            model.printDocument()
+            model.performPrintCommand()
         } label: {
             Label("Print", systemImage: "printer").labelStyle(.titleAndIcon)
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.regular)
-        .disabled(!model.canOutput)
-        .help("Print…")
+        .help("Show the sheets and print (⌘P)")
     }
 }
 

@@ -47,6 +47,8 @@ private final class ImageBundleWindowController: NSWindowController, NSWindowDel
         let content = NSHostingController(rootView: DocumentContent(model: model))
         // By default the hosting controller resizes the window to the content's ideal size; the paper decides it.
         content.sizingOptions = []
+        // Lets the print mode's toolbar reach this window, as it does in document windows.
+        content.sceneBridgingOptions = [.toolbars]
         window.contentViewController = content
         window.setContentSize(NSSize(width: 760, height: 760))
         super.init(window: window)

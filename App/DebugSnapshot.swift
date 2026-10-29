@@ -21,6 +21,8 @@
             return arguments[index + 1]
         }
 
+        static func flag(_ name: String) -> Bool { argument(name)?.uppercased() == "YES" }
+
         static func configure(_ model: DocumentViewModel) {
             // The app follows the system appearance; screenshots of both appearances force one for the whole app.
             switch argument("SurimonoAppearance") {
@@ -59,6 +61,7 @@
                     name: showMenu, object: model, userInfo: ["stage": argument("SurimonoMenu") ?? ""])
             default: break
             }
+            if argument("SurimonoMode") == "print" { model.enterPrintMode() }
             if argument("SurimonoPopover") == "view" {
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.isViewOptionsPresented = true
@@ -77,6 +80,13 @@
                 // Allow SwiftUI, the window resize and PDFKit to settle.
                 try? await Task.sleep(for: .milliseconds(1200))
                 guard model.canOutput else { return }
+                if argument("SurimonoMode") == "roundtrip" {
+                    // Into the print mode and back, to check that the view mode returns as it was.
+                    model.enterPrintMode()
+                    try? await Task.sleep(for: .milliseconds(900))
+                    model.exitPrintMode()
+                    try? await Task.sleep(for: .milliseconds(900))
+                }
                 if let turn = argument("SurimonoTurn") {
                     // Turn one page with a ten times slower animation and capture it halfway.
                     PaperPDFView.animationScale = 10

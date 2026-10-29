@@ -11,6 +11,15 @@ enum ViewerWindow {
 
     static func isResizingProgrammatically(_ window: NSWindow) -> Bool { resizingWindows.contains(window) }
 
+    /// Treats live-resize notifications of the next moments as the app's own, for frame changes made elsewhere.
+    static func markResizing(_ window: NSWindow, for duration: TimeInterval) {
+        resizingWindows.add(window)
+        Task { @MainActor [weak window] in
+            try? await Task.sleep(for: .seconds(duration))
+            if let window { resizingWindows.remove(window) }
+        }
+    }
+
     private static func setFrame(_ frame: NSRect, of window: NSWindow, animate: Bool) {
         guard frame.integral != window.frame.integral else { return }
         resizingWindows.add(window)
@@ -29,11 +38,13 @@ enum ViewerWindow {
     }
 
     static func configure(_ window: NSWindow) {
-        window.styleMask.insert(.fullSizeContentView)
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.isMovableByWindowBackground = false
-        window.tabbingMode = .disallowed
+        // Setting a property notifies its KVO observers even when the value stays the same, and SwiftUI observes some
+        // of these; so only change what differs.
+        if !window.styleMask.contains(.fullSizeContentView) { window.styleMask.insert(.fullSizeContentView) }
+        if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
+        if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
+        if window.isMovableByWindowBackground { window.isMovableByWindowBackground = false }
+        if window.tabbingMode != .disallowed { window.tabbingMode = .disallowed }
     }
 
     static func setTrafficLightsVisible(_ visible: Bool, in window: NSWindow) {

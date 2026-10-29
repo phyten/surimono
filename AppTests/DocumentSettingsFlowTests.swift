@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import PDFKit
@@ -334,6 +335,28 @@ struct DocumentSettingsFlowTests {
         let newKey = try #require(model.contentHash).hex
         #expect(newKey != oldKey)
         #expect(environment.store.record(for: newKey)?.imageOrder == bundle.orderDigests)
+    }
+
+    @Test("印刷モードで設定を変えて閉じても、表示モードの窓の大きさを覚えておく", .timeLimit(.minutes(1)))
+    func printModeKeepsViewWindowSize() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let data = pdf("a")
+        let model = environment.model(data)
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 600, height: 848),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        model.window = window
+        try await open(model)
+        model.enterPrintMode()
+        #expect(window.contentRect(forFrameRect: window.frame).size != NSSize(width: 600, height: 848))
+        model.printOptions.showsPageNumbers = true
+        model.rememberedSettingsDidChange()
+        model.stop()
+        let saved = try #require(environment.store.record(for: ContentHash.of(data).hex))
+        #expect(saved.windowSize == CGSize(width: 600, height: 848))
+        #expect(saved.printOptions?.showsPageNumbers == true)
+        withExtendedLifetime(window) {}
     }
 }
 /// Image data for a bundle whose reads can be slowed down, as when files sit on a slow disk.

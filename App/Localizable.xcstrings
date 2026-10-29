@@ -1487,6 +1487,739 @@
           }
         }
       }
+    },
+    "Back to View": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示に戻る"
+          }
+        }
+      }
+    },
+    "Back to the view mode (Esc)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示モードに戻る（Esc）"
+          }
+        }
+      }
+    },
+    "Style": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スタイル"
+          }
+        }
+      }
+    },
+    "Preset": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリセット"
+          }
+        }
+      }
+    },
+    "PDF is shown as is": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF はそのまま"
+          }
+        }
+      }
+    },
+    "Images are shown as is": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像はそのまま"
+          }
+        }
+      }
+    },
+    "Printed as they are, without a print style": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スタイルを使わず、そのまま刷ります"
+          }
+        }
+      }
+    },
+    "%lld pages": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld page"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld pages"
+                }
+              }
+            }
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ページ"
+          }
+        }
+      }
+    },
+    "Print on **both sides of %1$@ landscape** (short-edge binding). Stack the sheets with sheet 1 outermost, fold them in the middle and staple twice along the fold to get the **%2$@ booklet**.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%1$@ 横の両面**に刷り（短辺綴じ）、1 枚目が外側になるように重ねて中央で折り、折り目を 2 か所ホチキスで留めると **%2$@ 冊子**になります。"
+          }
+        }
+      }
+    },
+    "Prints **two pages side by side on %@ landscape**, single-sided. No folding.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%@ 横に 2 ページずつ**並べて、片面で刷ります。折りません。"
+          }
+        }
+      }
+    },
+    "Prints **one page per %@ portrait sheet**, single-sided.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%@ 縦に 1 ページずつ**、片面で刷ります。"
+          }
+        }
+      }
+    },
+    "Prints on **both sides of %@** (long-edge binding). Back sides turn like the pages of a book.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%@ の両面**に刷ります（長辺綴じ）。裏面は本のページをめくる向きです。"
+          }
+        }
+      }
+    },
+    "Prints on **both sides of %@** (short-edge binding).": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%@ の両面**に刷ります（短辺綴じ）。"
+          }
+        }
+      }
+    },
+    "Fold It": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折ってみる"
+          }
+        }
+      }
+    },
+    "Fold the sheets into a booklet and turn its pages": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "二つ折りにして、めくって確かめる"
+          }
+        }
+      }
+    },
+    "Sheet %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 枚目"
+          }
+        }
+      }
+    },
+    "%@ portrait": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 縦"
+          }
+        }
+      }
+    },
+    "%@ landscape": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 横"
+          }
+        }
+      }
+    },
+    "%@ landscape · outermost": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 横・いちばん外側"
+          }
+        }
+      }
+    },
+    "%@ landscape · innermost (center spread)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 横・いちばん内側（中央の見開き）"
+          }
+        }
+      }
+    },
+    "Front": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表"
+          }
+        }
+      }
+    },
+    "Back": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裏"
+          }
+        }
+      }
+    },
+    "Back 180°": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裏 180°"
+          }
+        }
+      }
+    },
+    "Page **%lld**": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%lld** ページ"
+          }
+        }
+      }
+    },
+    "Page %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ページ"
+          }
+        }
+      }
+    },
+    "Blank": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "白紙"
+          }
+        }
+      }
+    },
+    "Previous Sheet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前の用紙"
+          }
+        }
+      }
+    },
+    "Next Sheet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の用紙"
+          }
+        }
+      }
+    },
+    "Sheet %lld of %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙 %1$lld / %2$lld 枚"
+          }
+        }
+      }
+    },
+    "Fit to Width": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "幅に合わせる"
+          }
+        }
+      }
+    },
+    "%@ Single": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 片面"
+          }
+        }
+      }
+    },
+    "%@ Duplex": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 両面"
+          }
+        }
+      }
+    },
+    "%@ Booklet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 中綴じ"
+          }
+        }
+      }
+    },
+    "%@ 2-up": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 2アップ"
+          }
+        }
+      }
+    },
+    "%@ booklet when folded in the middle · no blank pages": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重ねて中央で折ると %@ 冊子・白紙なし"
+          }
+        }
+      }
+    },
+    "%1$@ booklet when folded in the middle · blank pages before the back cover: %2$lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重ねて中央で折ると %1$@ 冊子・白紙 %2$lld ページ（裏表紙の手前）"
+          }
+        }
+      }
+    },
+    "Back sides turn like the pages of a book": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裏面は本のようにめくる向き"
+          }
+        }
+      }
+    },
+    "The back of the last sheet is blank": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最後の用紙の裏は白紙"
+          }
+        }
+      }
+    },
+    "Two pages side by side, no folding": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折らずに 2 ページずつ並べる"
+          }
+        }
+      }
+    },
+    "Two pages side by side, no folding · the last right half is blank": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折らずに 2 ページずつ並べる・最後の右側は白紙"
+          }
+        }
+      }
+    },
+    "%@ portrait · one page per sheet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 縦・1 ページを 1 枚に"
+          }
+        }
+      }
+    },
+    "Page numbers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページ番号あり"
+          }
+        }
+      }
+    },
+    "Back sides rotated 180°": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裏面 180° 回転"
+          }
+        }
+      }
+    },
+    "%@ · %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@・%@"
+          }
+        }
+      }
+    },
+    "Print Options": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷のオプション"
+          }
+        }
+      }
+    },
+    "Page numbers, margins, and back side rotation": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページ番号・余白・裏面の回転"
+          }
+        }
+      }
+    },
+    "%@ · Changes appear on the sheets right away": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@・用紙のプレビューにすぐ反映します"
+          }
+        }
+      }
+    },
+    "Adds the page number at the bottom of each page.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "各ページの下にページ番号を入れます。"
+          }
+        }
+      }
+    },
+    "Applies to text documents and images. PDFs keep their own margins.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "テキストの文書と画像に使います。PDF は元の余白のままです。"
+          }
+        }
+      }
+    },
+    "For printers that print back sides upside down, or when feeding the back sides by hand.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裏面が上下逆に出るプリンタや、手差しで裏面を刷るときに。"
+          }
+        }
+      }
+    },
+    "Available for duplex layouts (A4 Duplex and booklets).": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両面のレイアウト（A4 両面・中綴じ）で使えます。"
+          }
+        }
+      }
+    },
+    "Print right away without the print panel (⌥⌘P)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダイアログなしで既定のプリンタへ送る（⌥⌘P）"
+          }
+        }
+      }
+    },
+    "Export PDF": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PDF に書き出す"
+          }
+        }
+      }
+    },
+    "Export the imposed sheets as a PDF (⇧⌘E)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面付けした PDF を書き出す（⇧⌘E）"
+          }
+        }
+      }
+    },
+    "Print (⌘P)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷（⌘P）"
+          }
+        }
+      }
+    },
+    "%@ booklet, folded": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 冊子にしてみる"
+          }
+        }
+      }
+    },
+    "**Cover**  %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**表紙**　%@"
+          }
+        }
+      }
+    },
+    "**Back cover**  %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**裏表紙**　%@"
+          }
+        }
+      }
+    },
+    "**Spread**  %1$@ | %2$@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**見開き**　%1$@｜%2$@"
+          }
+        }
+      }
+    },
+    "Center spread (staple position)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中央の見開き（ホチキスの位置）"
+          }
+        }
+      }
+    },
+    "%lld (blank)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld（白紙）"
+          }
+        }
+      }
+    },
+    "Previous Spread": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前の見開き"
+          }
+        }
+      }
+    },
+    "Next Spread": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次の見開き"
+          }
+        }
+      }
+    },
+    "Back to Sheets": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙に戻す"
+          }
+        }
+      }
+    },
+    "Show the sheets and print (⌘P)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷り台を出して印刷する（⌘P）"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

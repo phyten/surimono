@@ -62,52 +62,62 @@ struct DocumentContent: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        ViewModeView(model: model)
-            .background(
-                WindowReader { window in
-                    ViewerWindow.configure(window)
-                    model.window = window
-                    DocumentWindows.shared.register(model, for: window)
-                    ViewerWindow.setTrafficLightsVisible(model.isMenuPinned, in: window)
-                    ViewerWindow.setAlwaysOnTop(model.isAlwaysOnTop, in: window)
-                    model.sizeWindowToPaper()
-                    #if DEBUG
-                        DebugSnapshot.captureIfReady(model)
-                    #endif
-                }
-            )
-            .dropDestination(for: URL.self) { urls, _ in
-                OpenRouter.shared.open(urls, from: model.window)
+        Group {
+            switch model.mode {
+            case .view: ViewModeView(model: model)
+            case .print: PrintModeView(model: model)
             }
-            .onAppear {
-                WelcomeController.shared.close()
-                model.start()
-            }
-            .onDisappear { model.stop() }
-            .onChange(of: model.renderSettings) { _, _ in model.render() }
-            .onChange(of: model.imageBundle?.urls) { _, _ in
-                if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }
-                model.render()
-            }
-            .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
-            .onChange(of: model.isRendering) { _, rendering in
-                if !rendering { model.sizeWindowToPaper() }
+        }
+        // The tray's top bar needs the taller title bar of a window with a toolbar.
+        .toolbar {
+            if model.mode == .print { PrintModeToolbarPlaceholder() }
+        }
+        .background(
+            WindowReader { window in
+                ViewerWindow.configure(window)
+                model.window = window
+                DocumentWindows.shared.register(model, for: window)
+                // SwiftUI moves the content to the window again when the print mode adds its toolbar.
+                ViewerWindow.setTrafficLightsVisible(model.isMenuPinned || model.mode == .print, in: window)
+                ViewerWindow.setAlwaysOnTop(model.isAlwaysOnTop, in: window)
+                model.sizeWindowToPaper()
                 #if DEBUG
-                    if !rendering { DebugSnapshot.captureIfReady(model) }
+                    DebugSnapshot.captureIfReady(model)
                 #endif
             }
-            .onChange(of: model.viewOptions.layout) { old, new in
-                // Switching between one page and a spread keeps the height and changes the width.
-                if (old == .single) != (new == .single) { model.sizeWindowToPaper(keepHeight: true) }
-            }
-            .onChange(of: model.isMenuPinned) { old, new in model.updateBand(pinned: new, wasPinned: old) }
-            .onChange(of: model.isAlwaysOnTop) { _, onTop in
-                if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }
-            }
-            .onChange(of: model.rememberedSettings) { _, _ in model.rememberedSettingsDidChange() }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
-                if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
-            }
+        )
+        .dropDestination(for: URL.self) { urls, _ in
+            OpenRouter.shared.open(urls, from: model.window)
+        }
+        .onAppear {
+            WelcomeController.shared.close()
+            model.start()
+        }
+        .onDisappear { model.stop() }
+        .onChange(of: model.renderSettings) { _, _ in model.render() }
+        .onChange(of: model.imageBundle?.urls) { _, _ in
+            if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }
+            model.render()
+        }
+        .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
+        .onChange(of: model.isRendering) { _, rendering in
+            if !rendering { model.sizeWindowToPaper() }
+            #if DEBUG
+                if !rendering { DebugSnapshot.captureIfReady(model) }
+            #endif
+        }
+        .onChange(of: model.viewOptions.layout) { old, new in
+            // Switching between one page and a spread keeps the height and changes the width.
+            if (old == .single) != (new == .single) { model.sizeWindowToPaper(keepHeight: true) }
+        }
+        .onChange(of: model.isMenuPinned) { old, new in model.updateBand(pinned: new, wasPinned: old) }
+        .onChange(of: model.isAlwaysOnTop) { _, onTop in
+            if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }
+        }
+        .onChange(of: model.rememberedSettings) { _, _ in model.rememberedSettingsDidChange() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
+            if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
+        }
     }
 }
 
@@ -125,7 +135,12 @@ struct WindowReader: NSViewRepresentable {
         required init?(coder: NSCoder) { nil }
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if let window { onWindow(window) }
+            // SwiftUI may be updating its views right now (for example when a toolbar comes or goes); changing the
+            // window from inside that update can crash it, so wait until the update is done.
+            Task { @MainActor [weak self] in
+                guard let self, let window else { return }
+                onWindow(window)
+            }
         }
     }
 }
