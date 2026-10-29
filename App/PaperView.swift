@@ -21,6 +21,8 @@ final class PaperController {
 /// The logical pages of the view mode: no margins, no page shadows, laid out by `ViewOptions`.
 struct PaperView: NSViewRepresentable {
     let document: PDFDocument
+    /// Where a new paper view opens, as on returning from the print mode; afterwards the view keeps its own page.
+    let initialPageIndex: Int
     let options: ViewOptions
     let zoom: Double
     let controller: PaperController
@@ -42,7 +44,9 @@ struct PaperView: NSViewRepresentable {
         view.onPageChange = onPageChange
         view.onTurn = onTurn
         view.onKey = onKey
-        if view.document !== document { view.show(document) }
+        if view.document !== document {
+            view.show(document, at: view.document == nil ? initialPageIndex : view.currentPageIndex)
+        }
         view.apply(options)
         if abs(view.zoom - zoom) > 0.001 { view.setZoom(zoom, anchor: nil) }
     }
@@ -101,8 +105,7 @@ final class PaperPDFView: PDFView {
         return document.index(for: page)
     }
 
-    func show(_ document: PDFDocument) {
-        let index = currentPageIndex
+    func show(_ document: PDFDocument, at index: Int) {
         self.document = document
         displayBox = .cropBox
         pageSize = (0..<document.pageCount).reduce(into: CGSize.zero) { size, index in
