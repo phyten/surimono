@@ -30,6 +30,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var windowSize: CGSize?
     public var layoutID: String?
     public var themeID: String?
+    public var textScale: Double?
     public var presetID: String?
     public var smartRemoval: SmartRemoval?
     public var printOptions: PrintOptions?
@@ -38,7 +39,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
 
     public init(
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
-        themeID: String? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
+        themeID: String? = nil, textScale: Double? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
         printOptions: PrintOptions? = nil, imageOrder: [String]? = nil
     ) {
         self.view = view
@@ -46,6 +47,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.windowSize = windowSize
         self.layoutID = layoutID
         self.themeID = themeID
+        self.textScale = textScale
         self.presetID = presetID
         self.smartRemoval = smartRemoval
         self.printOptions = printOptions
@@ -53,7 +55,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case view, zoom, windowSize, layoutID, themeID, presetID, smartRemoval, printOptions, imageOrder
+        case view, zoom, windowSize, layoutID, themeID, textScale, presetID, smartRemoval, printOptions, imageOrder
     }
 
     /// Decodes each field on its own, so a value this version cannot read (such as a transition added later) falls
@@ -68,6 +70,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         windowSize = field(CGSize.self, .windowSize)
         layoutID = field(String.self, .layoutID)
         themeID = field(String.self, .themeID)
+        textScale = field(Double.self, .textScale)
         presetID = field(String.self, .presetID)
         smartRemoval = field(SmartRemoval.self, .smartRemoval)
         printOptions = field(PrintOptions.self, .printOptions)

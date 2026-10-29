@@ -12,6 +12,33 @@ struct DocumentRendererTests {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
     }
 
+    @Test(
+        "文字倍率の変更はテーマ形式だけを再組版し、同じ倍率ならキャッシュを使う",
+        arguments: [DocumentFormat.markdown, .org, .plainText, .csv, .html])
+    func textScaleCache(format: DocumentFormat) async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            requests.append(request)
+            return try RenderingFixtures.pdf()
+        })
+        let source = DocumentSource(data: Data("Body".utf8), format: format)
+        var settings = settings
+        _ = try await renderer.render(source, settings: settings)
+        settings.textScale = 1.5
+        _ = try await renderer.render(source, settings: settings)
+        _ = try await renderer.render(source, settings: settings)
+        if format == .html {
+            #expect(requests.count == 1)
+        } else {
+            #expect(requests.count == 2)
+            if case .html(let html, _) = try #require(requests.last).source {
+                #expect(html.contains("html { zoom: 1.5; }"))
+            } else {
+                Issue.record("テーマ形式はHTMLで組版する")
+            }
+        }
+    }
+
     @Test("Markdownの見出しを含む論理ページPDFを作れる", .timeLimit(.minutes(1)))
     func markdown() async throws {
         _ = NSApplication.shared

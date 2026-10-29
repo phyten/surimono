@@ -189,13 +189,13 @@ struct PrintStyleMenu: View {
                     }
                 }
                 .pickerStyle(.inline)
+                TextSizeMenuItems(model: model)
                 Divider()
                 Button("Open Styles Folder") { model.library.openFolder("Styles") }
             } label: {
                 label(
                     "Style",
-                    value: model.library.themes.first { $0.id == model.themeID }?.displayName(language: model.language)
-                        ?? model.themeID)
+                    value: model.styleName)
             }
             .menuStyle(.button)
             .buttonStyle(.plain)

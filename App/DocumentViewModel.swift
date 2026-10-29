@@ -32,6 +32,7 @@ final class DocumentViewModel {
     let library: UserLibrary
     var layoutID: String
     var themeID: String
+    private(set) var textScale: Double = 1
     var presetID: String
     var printOptions: PrintOptions
     var mode: ViewerMode = .view
@@ -92,6 +93,7 @@ final class DocumentViewModel {
     private var renderTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var watcher: FileWatcher?
+    @ObservationIgnored private var textSizeKeyMonitor: Any?
     private var printCompletion: PrintCompletion?
     private var printOperation: NSPrintOperation?
     private var exportingDocument: PDFDocument?
@@ -154,7 +156,8 @@ final class DocumentViewModel {
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
-                : nil)
+                : nil,
+            textScale: format.usesPrintTheme ? textScale : 1)
     }
     /// The pages shown were drawn from the current file and settings.
     var isUpToDate: Bool {
@@ -194,6 +197,17 @@ final class DocumentViewModel {
     }
 
     func start() {
+        if textSizeKeyMonitor == nil {
+            textSizeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                let handled = MainActor.assumeIsolated {
+                    guard let self, let window = self.window, event.window === window,
+                        window.isKeyWindow, window.attachedSheet == nil
+                    else { return false }
+                    return self.handleTextSizeKey(event)
+                }
+                return handled ? nil : event
+            }
+        }
         if watcher == nil, let fileURL {
             watcher = FileWatcher(url: fileURL) { [weak self] event in
                 guard let self, self.watcher != nil else { return }
@@ -232,6 +246,8 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        if let textSizeKeyMonitor { NSEvent.removeMonitor(textSizeKeyMonitor) }
+        textSizeKeyMonitor = nil
         renderTask?.cancel()
         toastTask?.cancel()
         hashTask?.cancel()
@@ -369,6 +385,24 @@ final class DocumentViewModel {
         }
     }
 
+    func setTextScale(_ value: Double) {
+        guard format.usesPrintTheme, TextScale.steps.contains(value) else { return }
+        textScale = value
+    }
+
+    func increaseTextSize() { setTextScale(TextScale.larger(than: textScale)) }
+    func decreaseTextSize() { setTextScale(TextScale.smaller(than: textScale)) }
+    func resetTextSize() { setTextScale(1) }
+
+    /// The unshifted US key for ⌥⌘+ must work in both the viewer and the print tray, before PDFKit handles ⌘=.
+    func handleTextSizeKey(_ event: NSEvent) -> Bool {
+        guard event.modifierFlags.intersection([.command, .option, .control]) == [.option, .command],
+            event.charactersIgnoringModifiers == "="
+        else { return false }
+        increaseTextSize()
+        return true
+    }
+
     // MARK: - View mode
 
     func setLayout(_ layout: ViewOptions.Layout) { updateViewOptions { $0.layout = layout } }
@@ -495,7 +529,8 @@ final class DocumentViewModel {
     var rememberedSettings: DocumentSettings {
         DocumentSettings(
             view: viewOptions, zoom: (zoom * 100).rounded() / 100, layoutID: layoutID,
-            themeID: format.usesPrintTheme ? themeID : nil, presetID: format.usesHTMLPreset ? presetID : nil,
+            themeID: format.usesPrintTheme ? themeID : nil,
+            textScale: format.usesPrintTheme ? textScale : nil, presetID: format.usesHTMLPreset ? presetID : nil,
             smartRemoval: format == .html && (isSmartRemovalEnabled || !smartRemovalKeptIDs.isEmpty)
                 ? DocumentSettings.SmartRemoval(isEnabled: isSmartRemovalEnabled, keptIDs: smartRemovalKeptIDs) : nil,
             printOptions: printOptions,
@@ -508,6 +543,7 @@ final class DocumentViewModel {
         DocumentSettings(
             view: defaultViewOptions ?? initialViewOptions, zoom: 1, layoutID: Self.defaultLayoutID(preferences),
             themeID: format.usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
+            textScale: format.usesPrintTheme ? 1 : nil,
             presetID: format.usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
             printOptions: preferences.printOptions)
     }
@@ -564,6 +600,7 @@ final class DocumentViewModel {
     }
 
     private func apply(_ saved: DocumentSettings) {
+        setTextScale(saved.textScale ?? 1)
         if let view = saved.view {
             viewOptions = view
             hasResolvedViewOptions = true
@@ -628,6 +665,7 @@ final class DocumentViewModel {
         hasSavedSettings = false
         pendingImageOrder = nil
         restoredPaperSize = nil
+        textScale = 1
         layoutID = Self.defaultLayoutID(preferences)
         themeID = Self.defaultThemeID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
