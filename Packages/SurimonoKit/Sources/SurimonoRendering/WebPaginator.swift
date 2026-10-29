@@ -36,6 +36,17 @@ public final class WebPaginator: NSObject {
         case emptyDocument
     }
 
+    @MainActor
+    public struct Result {
+        public let document: PDFDocument
+        public let preparationResult: String?
+
+        public init(document: PDFDocument, preparationResult: String? = nil) {
+            self.document = document
+            self.preparationResult = preparationResult
+        }
+    }
+
     /// Upper bound for the print step, which normally finishes in well under a second.
     var printTimeout: Duration = .seconds(60)
     /// Sessions whose web view and temporary files have not been released yet (observed by tests).
@@ -52,6 +63,17 @@ public final class WebPaginator: NSObject {
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, timeout: Duration = .seconds(15)
     ) async throws -> PDFDocument {
+        try await paginateWithResult(
+            source, pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
+            printsBackgrounds: printsBackgrounds, preparationScript: preparationScript, timeout: timeout
+        ).document
+    }
+
+    /// Returns the preparation script's string result together with the PDF made from that same DOM.
+    public func paginateWithResult(
+        _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
+        printsBackgrounds: Bool = true, preparationScript: String? = nil, timeout: Duration = .seconds(15)
+    ) async throws -> Result {
         openSessionCount += 1
         let session = PaginationSession(
             pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
@@ -68,11 +90,14 @@ public final class WebPaginator: NSObject {
 
         didStartWaitingForResources?()
         try await waitForResources(in: session.webView, timeout: timeout)
+        let preparationResult: String?
         if let preparationScript, !preparationScript.isEmpty {
-            try await runPreparationScript(preparationScript, in: session.webView, timeout: timeout)
+            preparationResult = try await runPreparationScript(preparationScript, in: session.webView, timeout: timeout)
+        } else {
+            preparationResult = nil
         }
         try Task.checkCancellation()
-        return try await session.printToPDF()
+        return Result(document: try await session.printToPDF(), preparationResult: preparationResult)
     }
 
     /// Waits for the page's images and fonts, but prints what has loaded once the timeout passes.
@@ -101,17 +126,22 @@ public final class WebPaginator: NSObject {
         }
     }
 
-    private func runPreparationScript(_ script: String, in webView: WKWebView, timeout: Duration) async throws {
+    private func runPreparationScript(_ script: String, in webView: WKWebView, timeout: Duration) async throws
+        -> String?
+    {
         var finished = false
+        var result: String?
         Task { @MainActor in
             // Runs in an isolated world so it still works when the page's own JavaScript is disabled.
             // A failing cleanup script must not block printing, so its error is deliberately ignored.
-            _ = try? await webView.callAsyncJavaScript(
+            let value = try? await webView.callAsyncJavaScript(
                 script, arguments: [:], in: nil, contentWorld: .world(name: "surimono"))
+            result = value as? String
             finished = true
         }
         // Unlike a failing script, a script that never settles cannot be printed as requested.
         try await waitUntil(timeout: timeout) { finished }
+        return result
     }
 
     private func waitUntil(timeout: Duration, _ condition: () -> Bool) async throws {
