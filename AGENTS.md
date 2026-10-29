@@ -5,7 +5,7 @@
 ## プロダクト
 
 - **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
-- 主な機能: 紙の出方そのままの印刷プレビュー、印刷テーマ（CSS）の切替とユーザー CSS、HTML のノイズ除去プリセット（ユーザー追加可）、印刷レイアウト（A4 片面・両面、中綴じ冊子 A3→A4 / A4→A5、2アップ）、すぐ印刷、PDF 書き出し、外観（システム / ライト / ダーク）切替、複数の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。
+- 主な機能: 紙の出方そのままの印刷プレビュー、印刷テーマ（CSS）の切替とユーザー CSS、HTML のノイズ除去プリセット（ユーザー追加可）、印刷レイアウト（A4 片面・両面、中綴じ冊子 A3→A4 / A4→A5、2アップ）、すぐ印刷、PDF 書き出し、余白のない表示モード（段階表示のメニュー、見開き / 単ページ / 2 ページずつ、拡大縮小、最前面に固定）、内容のハッシュごとの設定の保存、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観はシステムの設定に従う（アプリに切替は置かない）。
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
   - **オフラインで完結する**（ネットワークは、ユーザーの文書自身が参照するリソースの読み込みに限る。テレメトリなし）
@@ -73,7 +73,10 @@ make clean
 
   例: n = 8 → 用紙1 表[8|1] 裏[2|7]、用紙2 表[6|3] 裏[4|5]。この式はテストで固定している。変更するときはテストと `.agents/skills/project-surimono-print-layout` を先に更新する。
 - 依存の向き: App → SurimonoRendering → SurimonoCore。Core から AppKit / WebKit を import しない。
-- アプリの設定（外観・既定のレイアウト・余白など）は `AppPreferences` が `UserDefaults` に保存する。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`）。
+- アプリの既定値（既定のレイアウト・余白など）は `AppPreferences` が `UserDefaults` に保存する。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`）。
+- 文書ごとの設定（表示の型・向き・送り方・表紙・拡大率・窓の大きさ・印刷レイアウト・スタイル / プリセット・印刷のオプション・画像の並び順）は `DocumentSettings` にまとめ、**ファイル名ではなく内容の SHA-256（`ContentHash`）をキーに** `~/Library/Application Support/Surimono/DocumentSettings/`（`KeyedRecordStore`）へ保存する。
+  - キー: 1 ファイルはその内容、ZIP は ZIP ファイル自体、画像の束は各画像のハッシュを並べ替えて作る集合のハッシュ（`ContentHash.imageSet`。書式は永続化の形式なので変えない）。並び順は各画像のハッシュの列で保存する。
+  - 保存は利用者が何かを変えたときだけ（`DocumentViewModel` が読み込み・復元・既定に戻した時点の値と比べる）。開いている間にファイルが変わったら、表示中の設定を新しいハッシュへ引き継ぐ。
 
 ## ウィンドウとファイルの開き方
 
@@ -88,7 +91,14 @@ make clean
   - ドロップ: 文書・画像の束・ウェルカム画面の `.dropDestination`
   - 最近使った項目: 標準メニューの項目は文書コントローラが 1 ファイルを開く（規則と同じ結果になるので、ルーターを通さないままでよい）。ウェルカム画面の最近使ったファイルは `OpenRouter` を通す
 - 画像の束は NSDocument ではなく、`ImageBundleWindows` が AppKit の NSWindow に SwiftUI の `DocumentContent` を載せて開く。メニュー操作は `DocumentWindows.activeModel`（キーウィンドウのモデル）に届ける。
+- ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。
 - 新しい「開く」経路を足すときは `OpenRouter` を通し、`OpenRouterTests` にケースを足す。
+
+## 表示モードのウィンドウ
+
+- ウィンドウには紙だけを余白なしで出す（`ViewerWindow`: タイトルバーを隠し、信号機はメニューと一緒に出す）。窓の縦横比は表示中のページか見開きに固定する。
+- メニューは段階表示（`OverlayMenuState`）: 乗せると約 80 ms でファイル名と「印刷」、上部に留まると全部、離れて約 800 ms・静止 2.5 秒・ページ送りで隠す。Tab / M で出す、Esc で隠す、V で表示のオプション、⌥⌘T でメニューを固定（窓を上へ帯の高さだけ伸ばし、紙は動かさない）。
+- 紙は `PaperView`（PDFView）。`ViewOptions`（SurimonoCore）を PDFView の表示モード・`displaysAsBook`・`displaysRTL`・`displayDirection` に当てはめ、ページ送りのアニメーション（スライド・フェード・めくり）、拡大縮小（ピンチ・⌘＋スクロール・⌘＋/−/0・ダブルクリック）、キー操作、紙のドラッグでの窓の移動を受け持つ。
 
 ## コーディング規約
 
@@ -140,6 +150,9 @@ make clean
 - `@FocusedValue` / `focusedSceneValue` は AppKit で開いたウィンドウ（画像の束・ウェルカム画面）に届かない。メニューからは `DocumentWindows.activeModel` を使う。
 - `NSHostingController` を `contentViewController` にすると、既定ではウィンドウが中身の理想の大きさまで縮む。`sizingOptions = [.minSize]` にして大きさを指定する。
 - ホスト付きテストの中では `NSApp.mainMenu` が組み立て済みなので、メニュー構成（「開く…」が 1 つ、など）をテストで固定できる。
+- PDFView は表示モードや文書を切り替えたときにも自分で倍率を変える。`PaperPDFView` はピンチ（`magnify(with:)`）の間だけを利用者の拡大として扱い、それ以外は窓に合わせ直す（取り違えると何も変えていない文書の設定が保存される）。
+- `setFrame(_:display:animate:)` のアニメーションは、呼び出しから戻ったあとにライブリサイズの終了を通知する。アプリが窓の大きさを変えるときは `ViewerWindow` を通し、利用者のリサイズと区別する。
+- PDFView の `displaysAsBook` は単独の表紙を中央に置く（左右どちらかに寄せる API はない）。
 - エージェントのサンドボックス（Codex など）では、LaunchServices（UTType の準拠関係）、testmanagerd（ホスト付きテスト）、WebKit の子プロセス、ホーム配下のキャッシュへの書き込みが拒否されることがある。ビルドだけなら `CFFIXED_USER_HOME` などを `build/` 配下に向ける回避策があるが、Makefile には入れない。テストと起動の最終確認は通常の環境で `make test` / `make run` を実行して行う。
 
 ## スキル
