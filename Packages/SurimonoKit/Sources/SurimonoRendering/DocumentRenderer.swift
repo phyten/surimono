@@ -64,6 +64,7 @@ public struct DocumentSource: Equatable, Sendable {
 public struct RenderSettings: Equatable, Sendable {
     public var layout: PrintLayout
     public var theme: PrintTheme
+    public var textScale: Double
     public var preset: HTMLCleanupPreset
     public var options: PrintOptions
     public var allowsJavaScriptInHTML: Bool
@@ -72,10 +73,11 @@ public struct RenderSettings: Equatable, Sendable {
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
         options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
-        smartRemoval: SmartRemovalRequest? = nil
+        smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1
     ) {
         self.layout = layout
         self.theme = theme
+        self.textScale = textScale
         self.preset = preset
         self.options = options
         self.allowsJavaScriptInHTML = allowsJavaScriptInHTML
@@ -131,6 +133,7 @@ public final class DocumentRenderer {
         let source: DocumentSource
         let pageSize: CGSize
         let theme: PrintTheme?
+        let textScale: Double?
         let preset: HTMLCleanupPreset?
         let margin: Double
         let allowsJavaScript: Bool
@@ -171,6 +174,7 @@ public final class DocumentRenderer {
         let key = CacheKey(
             source: source, pageSize: pageSize,
             theme: source.format.usesPrintTheme ? settings.theme : nil,
+            textScale: source.format.usesPrintTheme ? settings.textScale : nil,
             preset: source.format.usesHTMLPreset ? settings.preset : nil,
             margin: margin,
             allowsJavaScript: source.format == .html && settings.allowsJavaScriptInHTML
@@ -314,7 +318,8 @@ public final class DocumentRenderer {
             }
             let directory = source.fileURL?.deletingLastPathComponent()
             let html = HTMLDocumentBuilder.build(
-                fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory)
+                fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
+                textScale: settings.textScale)
             return try await paginate(
                 PaginationRequest(
                     source: .html(html, baseURL: directory), pageSize: settings.layout.logicalPageSize,

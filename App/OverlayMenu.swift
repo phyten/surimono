@@ -334,8 +334,11 @@ extension DocumentViewModel {
             let preset = library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
             return isSmartRemovalEnabled ? preset + " + β" : preset
         }
-        return library.themes.first { $0.id == themeID }?.displayName(language: language) ?? themeID
+        let theme = library.themes.first { $0.id == themeID }?.displayName(language: language) ?? themeID
+        return format.usesPrintTheme && textScale != 1 ? theme + " · " + textScalePercentage : theme
     }
+
+    var textScalePercentage: String { "\(Int((textScale * 100).rounded()))%" }
 
     var zoomPercentage: String { "\(Int((zoom * 100).rounded()))%" }
 }
@@ -351,6 +354,7 @@ struct StyleMenuItems: View {
                 }
             }
             .pickerStyle(.inline)
+            TextSizeMenuItems(model: model)
         } else if model.format.usesHTMLPreset {
             Picker("HTML Preset", selection: $model.presetID) {
                 ForEach(model.library.presets) { preset in
@@ -360,6 +364,24 @@ struct StyleMenuItems: View {
             .pickerStyle(.inline)
             SmartRemovalMenuItems(model: model)
         }
+    }
+}
+
+/// Shared by the viewer and print tray so both edit the same pagination setting.
+struct TextSizeMenuItems: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Divider()
+        Picker("Text Size", selection: Binding(get: { model.textScale }, set: { model.setTextScale($0) })) {
+            ForEach(TextScale.steps, id: \.self) { scale in
+                Text(verbatim: "\(Int((scale * 100).rounded()))%").tag(scale)
+            }
+        }
+        .pickerStyle(.inline)
+        Button("Larger") { model.increaseTextSize() }
+        Button("Smaller") { model.decreaseTextSize() }
+        Button("Original Size") { model.resetTextSize() }
     }
 }
 
