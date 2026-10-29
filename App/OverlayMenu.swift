@@ -182,11 +182,7 @@ struct OverlayBand: View {
             Color.clear.frame(width: Self.lightsWidth, height: 1)
             title(plan)
             Spacer(minLength: Self.spacerMinimum)
-            if stage == .full {
-                tools(plan)
-            } else {
-                CompactIndicators(model: model)
-            }
+            if stage == .full { tools(plan) }
             PrintButton(model: model, iconOnly: plan.forms[.print] == .compact)
         }
         .padding(.trailing, Self.trailingPadding)
@@ -210,9 +206,13 @@ struct OverlayBand: View {
                 full: (measured[.item(item, .full)] ?? 0) + item.bandGap,
                 compact: item.hasCompactForm ? (measured[.item(item, .compact)] ?? 0) + item.bandGap : nil)
         }
-        // The traffic lights, the title, the spacer, the tools or the indicators, and Print: four gaps.
-        let stays = (stage == .full ? measured[.more] : measured[.indicators]) ?? 0
-        let fixed = Self.lightsWidth + Self.spacing * 4 + Self.spacerMinimum + Self.trailingPadding + stays
+        // The traffic lights, the title, the spacer, the tools and Print: four gaps, and "…" among the tools. The
+        // compact band has no tools; its indicators follow the name instead.
+        let fixed =
+            Self.lightsWidth + Self.spacerMinimum + Self.trailingPadding
+            + (stage == .full
+                ? Self.spacing * 4 + (measured[.more] ?? 0)
+                : Self.spacing * 3 + Self.titleSpacing + (measured[.indicators] ?? 0))
         // Until the band has been laid out once, its width is unknown: show everything rather than guess.
         return BandLayout.plan(
             widths: widths, fixed: fixed, separator: 1 + Self.toolSpacing,
@@ -232,6 +232,7 @@ struct OverlayBand: View {
             }
             if plan.forms[.formatBadge] != nil { FormatBadge(text: model.formatBadge) }
             if plan.forms[.pageIndicator] != nil { PageIndicatorText(model: model) }
+            if stage != .full { CompactIndicators(model: model) }
         }
     }
 

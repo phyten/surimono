@@ -31,7 +31,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 外観: `-SurimonoAppearance light|dark`（アプリ全体の外観を固定する。アプリ自体に外観の切替はない）
      - 印刷: `-SurimonoLayout <PrintLayout の id>`（a4Single / a4Duplex / a3BookletA4 / a4BookletA5 / a3TwoUp）
      - 表示: `-SurimonoViewLayout spread|single`、`-SurimonoTransition scroll|instant|slide|fade|pageCurl`、`-SurimonoCoverAlone YES`、`-SurimonoRightToLeft YES`、`-SurimonoZoom <倍率>`
-     - メニューと窓: `-SurimonoMenu compact|full|pinned`（段階 1 / 段階 2 / 固定）、`-SurimonoPopover view`（表示のオプション）、`-SurimonoAlwaysOnTop YES`、`-SurimonoDrawer YES`（画像の束のサムネイル）
+     - メニューと窓: `-SurimonoMenu compact|full|pinned`（段階 1 / 段階 2 / 固定）、`-SurimonoPopover view`（表示のオプション）、`-SurimonoAlwaysOnTop YES`、`-SurimonoSelectText YES`（文字を選択）、`-SurimonoDrawer YES`（画像の束のサムネイル）
      - 印刷モード: `-SurimonoMode print`（刷り台で撮る）、`-SurimonoMode roundtrip`（刷り台に入って表示モードへ戻ったところを撮る）、`-SurimonoFold YES`（折ってみる）
      - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）
