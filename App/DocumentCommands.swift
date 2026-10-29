@@ -41,6 +41,11 @@ struct DocumentCommands: Commands {
                 .keyboardShortcut("0")
             Divider()
             Toggle(
+                "Select Text",
+                isOn: Binding(
+                    get: { model?.isSelectingText ?? false }, set: { _ in model?.toggleSelectingText() })
+            )
+            Toggle(
                 "Keep Menu Visible",
                 isOn: Binding(get: { model?.isMenuPinned ?? false }, set: { model?.isMenuPinned = $0 })
             )

@@ -72,7 +72,7 @@ private struct PaperArea: View {
             if let document = model.result?.logicalDocument {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
-                    zoom: model.zoom, controller: model.paper,
+                    zoom: model.zoom, selectsText: model.isSelectingText, controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.currentPageIndex = $0 },
                     onTurn: { menu.pageTurned() },
@@ -111,7 +111,8 @@ private struct PaperArea: View {
         }
     }
 
-    /// Menu keys on the paper: Tab or M toggles the menu, Esc hides it, V opens the view options.
+    /// Menu keys on the paper: Tab or M toggles the menu, Esc hides it, V opens the view options, T switches between
+    /// selecting text and moving the window.
     private func handleKey(_ event: NSEvent) -> Bool {
         let modifiers = event.modifierFlags.intersection([.command, .option, .control])
         guard modifiers.isEmpty else { return false }
@@ -131,6 +132,10 @@ private struct PaperArea: View {
         case "v":
             menu.showFull()
             model.isViewOptionsPresented = true
+            return true
+        case "t":
+            guard model.canSelectText else { return false }
+            model.toggleSelectingText()
             return true
         default:
             return false

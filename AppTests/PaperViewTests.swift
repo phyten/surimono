@@ -369,10 +369,98 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("文字を選択のときは紙の端をクリックしてもページを送らず、やめると端のクリックで送る", .timeLimit(.minutes(1)))
+    func clickWhileSelectingTextKeepsThePage() async throws {
+        let (view, window) = try makeSinglePagePaper()
+        let edge = NSPoint(x: 410, y: 300)
+        view.selectsText = true
+        try clickThroughPDFKit(view, in: window, at: edge)
+        #expect(view.currentPageIndex == 0)
+        view.selectsText = false
+        try click(view, in: window, at: edge)
+        #expect(view.currentPageIndex == 1)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test(
+        "⌥ を押している間は、文字の選択と窓の移動が入れ替わる",
+        arguments: [(false, false, false), (false, true, true), (true, false, true), (true, true, false)])
+    func optionSwapsTheDrag(selecting: Bool, option: Bool, selects: Bool) throws {
+        let view = PaperPDFView(frame: NSRect(x: 0, y: 0, width: 420, height: 594))
+        view.selectsText = selecting
+        let event = try mouseEvent(.leftMouseDown, at: NSPoint(x: 100, y: 100), option: option, windowNumber: 0)
+        #expect(view.selectsText(for: event) == selects)
+    }
+
+    @Test("⌥ で一時的に文字を選ぶときは、⌥ を外して PDFKit に渡し、矩形の選択にしない")
+    func optionDragSelectsTextNotARectangle() throws {
+        let pressed = try mouseEvent(.leftMouseDown, at: NSPoint(x: 100, y: 100), option: true, windowNumber: 0)
+        let passed = PaperPDFView.withoutOption(pressed)
+        #expect(!passed.modifierFlags.contains(.option))
+        #expect(passed.type == .leftMouseDown)
+        #expect(passed.locationInWindow == pressed.locationInWindow)
+        #expect(passed.clickCount == pressed.clickCount)
+    }
+
+    @Test("すべて選択は文字を選択のときだけ効き、文字を選択をやめると選択を消す", .timeLimit(.minutes(1)))
+    func selectAllFollowsTheMode() async throws {
+        let (view, window) = try makeSinglePagePaper(document: Self.textDocument())
+        view.selectAll(nil)
+        #expect(view.currentSelection?.string?.isEmpty ?? true)
+        view.selectsText = true
+        view.selectAll(nil)
+        let selected = view.currentSelection?.string ?? ""
+        #expect(selected.contains("Surimono"))
+        view.selectsText = false
+        #expect(view.currentSelection?.string?.isEmpty ?? true)
+        withExtendedLifetime(window) {}
+    }
+
+    /// PDFKit's text selection tracks the mouse in a loop of its own until the button goes up, so the release has to
+    /// wait in the event queue before the press is sent.
+    private func clickThroughPDFKit(_ view: PaperPDFView, in window: NSWindow, at point: NSPoint) throws {
+        window.postEvent(try mouseEvent(.leftMouseUp, at: point, windowNumber: window.windowNumber), atStart: false)
+        view.mouseDown(with: try mouseEvent(.leftMouseDown, at: point, windowNumber: window.windowNumber))
+    }
+
+    private func click(_ view: PaperPDFView, in window: NSWindow, at point: NSPoint) throws {
+        view.mouseDown(with: try mouseEvent(.leftMouseDown, at: point, windowNumber: window.windowNumber))
+        view.mouseUp(with: try mouseEvent(.leftMouseUp, at: point, windowNumber: window.windowNumber))
+    }
+
+    private func mouseEvent(
+        _ type: NSEvent.EventType, at point: NSPoint, option: Bool = false, windowNumber: Int
+    ) throws -> NSEvent {
+        try #require(
+            NSEvent.mouseEvent(
+                with: type, location: point, modifierFlags: option ? [.option] : [], timestamp: 0,
+                windowNumber: windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+    }
+
+    /// Six pages that each carry a line of text, which PDFKit can select.
+    private static func textDocument() throws -> PDFDocument {
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: 595, height: 842)
+        let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        for page in 1...6 {
+            context.beginPDFPage(nil)
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+            NSAttributedString(
+                string: "Surimono selection page \(page)", attributes: [.font: NSFont.systemFont(ofSize: 24)]
+            ).draw(at: NSPoint(x: 72, y: 720))
+            NSGraphicsContext.restoreGraphicsState()
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return try #require(PDFDocument(data: data as Data))
+    }
+
     /// A paper view of a six-page PDF filling a window. It is used without SwiftUI, whose fixed zoom input would
     /// otherwise set the zoom back on its next update.
-    private func makeSinglePagePaper() throws -> (PaperPDFView, NSWindow) {
-        let document = try #require(PDFDocument(data: TestFixtures.pdf("pinch", pages: 6)))
+    private func makeSinglePagePaper(document: PDFDocument? = nil) throws -> (PaperPDFView, NSWindow) {
+        let document = try document ?? #require(PDFDocument(data: TestFixtures.pdf("pinch", pages: 6)))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
             defer: true)

@@ -2507,6 +2507,39 @@
           }
         }
       }
+    },
+    "Select Text": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字を選択"
+          }
+        }
+      }
+    },
+    "Select Text (T)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字を選択（T）"
+          }
+        }
+      }
+    },
+    "Selecting Text": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字を選択中"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

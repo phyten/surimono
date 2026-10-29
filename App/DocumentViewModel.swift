@@ -43,6 +43,9 @@ final class DocumentViewModel {
     var isMenuPinned = false
     var isAlwaysOnTop = false
     var isDrawerOpen = false
+    /// Dragging the paper selects text instead of moving the window. It belongs to the window and is never saved, so
+    /// a document always opens with the paper as the window and a drag never selects text by surprise.
+    var isSelectingText = false
     var isViewOptionsPresented = false
     /// Smart Removal (beta) for HTML: remove what is not the article, except the parts the user keeps.
     var isSmartRemovalEnabled = false
@@ -436,6 +439,14 @@ final class DocumentViewModel {
     }
 
     func toggleMenuPinned() { isMenuPinned.toggle() }
+
+    /// Images carry no text to select.
+    var canSelectText: Bool { imageBundle == nil && format != .image }
+
+    func toggleSelectingText() {
+        guard canSelectText else { return }
+        isSelectingText.toggle()
+    }
     func toggleAlwaysOnTop() { isAlwaysOnTop.toggle() }
 
     /// Picks the reading layout once the pages are known, unless the user already chose one for this document.

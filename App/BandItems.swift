@@ -35,7 +35,7 @@ extension BandLayout.Item {
             case .pageIndicator: model.pageIndicator != nil
             case .style: model.format.usesPrintTheme || model.format.usesHTMLPreset
             case .cover: model.viewOptions.usesCoverOption
-            case .selectText: false
+            case .selectText: model.canSelectText
             case .zoom: model.zoom > 1.001
             case .thumbnails: model.imageBundle != nil
             }
@@ -72,7 +72,7 @@ struct BandItemView: View {
                 Label("Show Cover Alone", systemImage: "book.closed")
             }
             .toggleStyle(.button).labelStyle(.iconOnly).help("Show Cover Alone")
-        case .selectText: EmptyView()
+        case .selectText: SelectTextButton(model: model, showsName: form == .full)
         case .zoom:
             Button {
                 model.paper.zoomToFit()
@@ -93,6 +93,36 @@ struct BandItemView: View {
                 .toggleStyle(.button).labelStyle(.iconOnly).help("Keep Menu Visible")
         case .print: PrintButton(model: model, iconOnly: form == .compact)
         }
+    }
+}
+
+/// The switch between selecting text and moving the window. A button-style toggle on the borderless band shows only
+/// the icon of its label, so this draws the pressed look itself: the accent colour on a pale accent background.
+struct SelectTextButton: View {
+    @Bindable var model: DocumentViewModel
+    let showsName: Bool
+
+    var body: some View {
+        Button {
+            model.toggleSelectingText()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "character.cursor.ibeam")
+                if showsName { Text("Select Text") }
+            }
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .foregroundStyle(model.isSelectingText ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+            .background {
+                RoundedRectangle(cornerRadius: 5).fill(
+                    model.isSelectingText ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.clear))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Select Text"))
+        .accessibilityAddTraits(model.isSelectingText ? .isSelected : [])
+        .help("Select Text (T)")
     }
 }
 
@@ -119,6 +149,9 @@ struct CompactIndicators: View {
         HStack(spacing: 6) {
             if model.isAlwaysOnTop {
                 Image(systemName: "pin.fill").help("Floating on Top")
+            }
+            if model.isSelectingText {
+                Image(systemName: "character.cursor.ibeam").help("Selecting Text")
             }
         }
         .foregroundStyle(.secondary)
@@ -286,6 +319,8 @@ private struct BandMenuItem: View {
             }
         case .cover:
             Toggle("Show Cover Alone", isOn: model.viewOption(\.showsCoverAlone))
+        case .selectText:
+            Toggle("Select Text", isOn: $model.isSelectingText)
         case .zoom:
             Button(String(format: String(localized: "Fit to Window (%@)"), model.zoomPercentage)) {
                 model.paper.zoomToFit()
@@ -296,7 +331,7 @@ private struct BandMenuItem: View {
             Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
         case .keepMenuVisible:
             Toggle("Keep Menu Visible", isOn: $model.isMenuPinned)
-        case .selectText, .formatBadge, .pageIndicator, .print:
+        case .formatBadge, .pageIndicator, .print:
             EmptyView()
         }
     }

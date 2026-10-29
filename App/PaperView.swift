@@ -25,6 +25,7 @@ struct PaperView: NSViewRepresentable {
     let initialPageIndex: Int
     let options: ViewOptions
     let zoom: Double
+    var selectsText = false
     let controller: PaperController
     var onZoomChange: (Double) -> Void
     var onPageChange: (Int) -> Void
@@ -48,6 +49,7 @@ struct PaperView: NSViewRepresentable {
             view.show(document, at: view.document == nil ? initialPageIndex : view.currentPageIndex)
         }
         view.apply(options)
+        view.selectsText = selectsText
         if abs(view.zoom - zoom) > 0.001 { view.setZoom(zoom, anchor: nil) }
     }
 }
@@ -104,6 +106,16 @@ final class PaperPDFView: PDFView {
     private var lastWheelTurn = Date.distantPast
     private var mouseDownEvent: NSEvent?
     private var didDrag = false
+    /// Whether the current click or drag belongs to PDFKit's text selection; decided when the button goes down.
+    private var dragSelectsText = false
+    /// Dragging selects text instead of moving the window or panning the zoomed paper.
+    var selectsText = false {
+        didSet {
+            guard selectsText != oldValue else { return }
+            if !selectsText { clearSelection() }
+            updateCursor()
+        }
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -559,8 +571,30 @@ final class PaperPDFView: PDFView {
         }
     }
 
+    /// Option swaps the two drags for as long as it is held, so a word can be copied without switching modes.
+    func selectsText(for event: NSEvent) -> Bool {
+        selectsText != event.modifierFlags.contains(.option)
+    }
+
+    /// With Option held PDFKit would select a rectangle; here Option only means "select text for now".
+    static func withoutOption(_ event: NSEvent) -> NSEvent {
+        guard event.modifierFlags.contains(.option) else { return event }
+        return NSEvent.mouseEvent(
+            with: event.type, location: event.locationInWindow, modifierFlags: event.modifierFlags.subtracting(.option),
+            timestamp: event.timestamp, windowNumber: event.windowNumber, context: nil, eventNumber: event.eventNumber,
+            clickCount: event.clickCount, pressure: event.pressure) ?? event
+    }
+
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
+        dragSelectsText = selectsText(for: event)
+        if dragSelectsText {
+            // PDFKit selects by drag, words by double-click and lines by triple-click; no page turns or zoom here. It
+            // tracks the drag in a loop of its own and returns when the button goes up.
+            mouseDownEvent = nil
+            super.mouseDown(with: Self.withoutOption(event))
+            return
+        }
         if event.clickCount == 2 {
             setZoom(isZoomed ? 1 : 2, anchor: convert(event.locationInWindow, from: nil))
             mouseDownEvent = nil
@@ -571,6 +605,10 @@ final class PaperPDFView: PDFView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if dragSelectsText {
+            super.mouseDragged(with: event)
+            return
+        }
         guard let start = mouseDownEvent else { return }
         let distance = hypot(
             event.locationInWindow.x - start.locationInWindow.x, event.locationInWindow.y - start.locationInWindow.y)
@@ -591,6 +629,11 @@ final class PaperPDFView: PDFView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if dragSelectsText {
+            dragSelectsText = false
+            super.mouseUp(with: event)
+            return
+        }
         defer { mouseDownEvent = nil }
         guard mouseDownEvent != nil, !didDrag, let options, !options.isContinuous, !isZoomed else { return }
         // Clicking near the left or right edge turns the page towards that side.
@@ -602,5 +645,41 @@ final class PaperPDFView: PDFView {
         } else if x > bounds.width - edge {
             turnPage(forward: !rightToLeft)
         }
+    }
+
+    // MARK: - Cursor
+
+    /// PDFKit shows an I-beam over text; without the selection mode a drag moves the window, so the paper shows the
+    /// arrow instead, or the open hand while a drag pans the zoomed paper.
+    private var paperCursor: NSCursor { isZoomed ? .openHand : .arrow }
+
+    override func mouseMoved(with event: NSEvent) {
+        if selectsText(for: event) { super.mouseMoved(with: event) } else { paperCursor.set() }
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        if selectsText(for: event) { super.cursorUpdate(with: event) } else { paperCursor.set() }
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        super.flagsChanged(with: event)
+        updateCursor(modifierFlags: event.modifierFlags)
+    }
+
+    private func updateCursor(modifierFlags: NSEvent.ModifierFlags = NSEvent.modifierFlags) {
+        guard let window, window.isKeyWindow else { return }
+        let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        guard bounds.contains(point) else { return }
+        if selectsText != modifierFlags.contains(.option) {
+            setCursorFor(areaOfInterest(for: point))
+        } else {
+            paperCursor.set()
+        }
+    }
+
+    override func selectAll(_ sender: Any?) {
+        // Select All would highlight every word while a drag still moves the window.
+        guard selectsText else { return }
+        super.selectAll(sender)
     }
 }
