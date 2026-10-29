@@ -34,10 +34,15 @@ run: build
 test: test-kit test-app
 
 # The Rendering tests drive WebKit against timeouts. Run alongside the CPU-heavy Core tests on a slow CI runner, they
-# starved until every page load timed out, so the two targets run one after the other.
+# starved until every page load timed out, so the two targets run one after the other. Custom flags run once as given:
+# SwiftPM joins several --filter options with "or", which would undo the split.
 test-kit:
-	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS) --filter SurimonoCoreTests
-	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS) --filter SurimonoRenderingTests
+ifeq ($(strip $(SWIFT_TEST_FLAGS)),)
+	swift test --package-path Packages/SurimonoKit --filter SurimonoCoreTests
+	swift test --package-path Packages/SurimonoKit --filter SurimonoRenderingTests
+else
+	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS)
+endif
 
 test-app:
 	$(XCODEBUILD) -configuration "$(CONFIGURATION)" test
