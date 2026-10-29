@@ -341,6 +341,9 @@ private struct TrayNavigator: View {
                 .font(.system(size: 10.5))
                 .monospacedDigit()
                 .foregroundStyle(PrintPalette.ink2)
+                // Hundreds of sheets would wrap in the narrow navigator; shrink instead.
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .padding(.vertical, 2)
                 .accessibilityLabel(Text("Sheet \(sheetNumber) of \(sheetCount)"))
             Button {

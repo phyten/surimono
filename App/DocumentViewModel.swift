@@ -179,8 +179,13 @@ final class DocumentViewModel {
         let pages =
             SpreadLayout.unitIndex(containing: currentPageIndex + 1, in: units).map { units[$0].pages }
             ?? [currentPageIndex + 1]
-        let shown = pages.count > 1 ? "\(pages[0])–\(pages[pages.count - 1])" : "\(pages[0])"
-        return "\(shown) / \(pageCount)"
+        return PageIndicator.text(pages: pages, pageCount: pageCount)
+    }
+
+    /// The widest page indicator of this document, whose width the band keeps for the indicator.
+    var pageIndicatorTemplate: String? {
+        guard pageCount > 0 else { return nil }
+        return PageIndicator.widestText(pageCount: pageCount, layout: viewOptions.layout)
     }
 
     func start() {
