@@ -20,4 +20,11 @@ struct DevelopmentBuildTests {
     func icon() {
         #expect(Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") as? String == "AppIcon-Dev")
     }
+
+    @Test("開発版はスタイル・プリセット・文書ごとの設定を Surimono Dev のフォルダに保存する")
+    func supportFolder() throws {
+        let applicationSupport = try #require(
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first)
+        #expect(UserLibrary.defaultRoot == applicationSupport.appendingPathComponent("Surimono Dev", isDirectory: true))
+    }
 }

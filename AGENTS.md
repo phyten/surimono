@@ -76,8 +76,8 @@ make clean
 
   例: n = 8 → 用紙1 表[8|1] 裏[2|7]、用紙2 表[6|3] 裏[4|5]。この式はテストで固定している。変更するときはテストと `.agents/skills/project-surimono-print-layout` を先に更新する。
 - 依存の向き: App → SurimonoRendering → SurimonoCore。Core から AppKit / WebKit を import しない。
-- アプリの既定値（既定のレイアウト・余白など）は `AppPreferences` が `UserDefaults` に保存する。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`）。
-- 文書ごとの設定（表示の型・向き・送り方・表紙・拡大率・窓の大きさ・印刷レイアウト・スタイル / プリセット・文字の大きさ・印刷のオプション・画像の並び順）は `DocumentSettings` にまとめ、**ファイル名ではなく内容の SHA-256（`ContentHash`）をキーに** `~/Library/Application Support/Surimono/DocumentSettings/`（`KeyedRecordStore`）へ保存する。
+- アプリの既定値（既定のレイアウト・余白など）は `AppPreferences` が `UserDefaults` に保存する。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`。Debug ビルドは `Surimono Dev/` 配下）。
+- 文書ごとの設定（表示の型・向き・送り方・表紙・拡大率・窓の大きさ・印刷レイアウト・スタイル / プリセット・文字の大きさ・印刷のオプション・画像の並び順）は `DocumentSettings` にまとめ、**ファイル名ではなく内容の SHA-256（`ContentHash`）をキーに** `~/Library/Application Support/Surimono/DocumentSettings/`（`KeyedRecordStore`。Debug ビルドは `Surimono Dev/` 配下）へ保存する。
   - キー: 1 ファイルはその内容、ZIP は ZIP ファイル自体、画像の束は各画像のハッシュを並べ替えて作る集合のハッシュ（`ContentHash.imageSet`。書式は永続化の形式なので変えない）。並び順は各画像のハッシュの列で保存する。
   - 保存は利用者が何かを変えたときだけ（`DocumentViewModel` が読み込み・復元・既定に戻した時点の値と比べる）。開いている間にファイルが変わったら、表示中の設定を新しいハッシュへ引き継ぐ。
 

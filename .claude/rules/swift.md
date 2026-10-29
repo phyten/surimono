@@ -23,7 +23,7 @@ AGENTS.md の「コーディング規約」の補足。Swift ファイルを編�
 ## ファイル
 
 - ユーザーが開いたファイルとその周辺に書き込まない。一時ファイルは `FileManager.default.temporaryDirectory` 配下に作り、使い終わったら消す。
-- アプリの設定は `AppPreferences`（`UserDefaults`）に保存する。ユーザー CSS とプリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/` と `Presets/`（`UserLibrary`）。
+- アプリの設定は `AppPreferences`（`UserDefaults`）に保存する。ユーザー CSS とプリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/` と `Presets/`（`UserLibrary`。Debug ビルドは `Surimono Dev/` 配下）。
 
 ## SwiftUI / AppKit
 
