@@ -64,7 +64,7 @@ struct ConverterTests {
         let body = MarkdownConverter.convert("a & b\n\n`<x>`\n\n```html\n<script>&\n```\n\n<div>raw</div>").body
         #expect(body.contains("a &amp; b"))
         #expect(body.contains("<code>&lt;x&gt;</code>"))
-        #expect(body.contains("&lt;script&gt;&amp;"))
+        #expect(body.contains("&lt;<span class=\"hl-tag\">script</span>&gt;&amp;"))
         #expect(body.contains("<div>raw</div>"))
     }
 

@@ -98,8 +98,10 @@ private struct OrgParser {
         switch kind {
         case "SRC":
             let language = arguments.split(whereSeparator: \.isWhitespace).first.map(String.init)
-            let attribute = language.map { " class=\"language-\(HTML.escape($0))\"" } ?? ""
-            return "<pre><code\(attribute)>\(HTML.escape(text))</code></pre>\n"
+            let highlighted = language.flatMap { SyntaxHighlighter.highlight(text, language: $0) }
+            let attribute =
+                language.map { " class=\"language-\(HTML.escape($0))\(highlighted == nil ? "" : " hl")\"" } ?? ""
+            return "<pre><code\(attribute)>\(highlighted ?? HTML.escape(text))</code></pre>\n"
         case "EXAMPLE": return "<pre>\(HTML.escape(text))</pre>\n"
         case "VERSE": return "<div class=\"org-verse\">\(OrgInline.render(text))</div>\n"
         case "QUOTE", "CENTER":

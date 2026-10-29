@@ -26,3 +26,38 @@ blockquote { margin-inline: 1em; padding-left: 0.8em; border-left: 2pt solid #aa
 .surimono-plain { font-family: inherit; line-height: inherit; }
 .surimono-csv { width: 100%; }
 .surimono-csv td { white-space: pre-wrap; }
+
+/* Defaults are dark enough for white paper; themes may override each token independently. */
+:root {
+    --hl-keyword: #713a8a;
+    --hl-type: #155e75;
+    --hl-builtin: #725014;
+    --hl-function: #215c88;
+    --hl-literal: #824110;
+    --hl-number: #824110;
+    --hl-string: #28603c;
+    --hl-comment: #595959;
+    --hl-meta: #67501d;
+    --hl-tag: #215c88;
+    --hl-attr: #713a8a;
+    --hl-variable: #704523;
+    --hl-addition: #245c35;
+    --hl-deletion: #922e35;
+    --hl-section: #414e75;
+}
+.hl-keyword { color: var(--hl-keyword); font-weight: 600; }
+.hl-type { color: var(--hl-type); }
+.hl-builtin { color: var(--hl-builtin); }
+.hl-function { color: var(--hl-function); }
+.hl-literal { color: var(--hl-literal); font-weight: 600; }
+.hl-number { color: var(--hl-number); }
+.hl-string { color: var(--hl-string); }
+.hl-comment { color: var(--hl-comment); font-style: italic; }
+.hl-meta { color: var(--hl-meta); }
+.hl-tag { color: var(--hl-tag); font-weight: 600; }
+.hl-attr { color: var(--hl-attr); }
+.hl-variable { color: var(--hl-variable); }
+.hl-addition { color: var(--hl-addition); background: #edf5ee; font-weight: 600; }
+.hl-deletion { color: var(--hl-deletion); background: #fbefef; }
+.hl-section { color: var(--hl-section); font-weight: 600; }
+.hl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
