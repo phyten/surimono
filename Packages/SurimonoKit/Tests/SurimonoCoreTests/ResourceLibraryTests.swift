@@ -11,11 +11,14 @@ struct ResourceLibraryTests {
         try body(directory)
     }
 
-    @Test("組み込みテーマは一意な4種で印刷用の共通指定を持つ")
+    @Test("組み込みテーマは一意な10種で、日常の用途から順に並び、印刷用の共通指定を持つ")
     func themes() throws {
         let themes = try PrintThemeLibrary.load()
-        #expect(Set(themes.map(\.id)) == ["standard", "mincho", "compact", "github"])
-        #expect(themes.count == 4)
+        #expect(
+            themes.map(\.id) == [
+                "standard", "mincho", "compact", "github", "academic", "modern", "large", "notes", "monochrome",
+                "handout",
+            ])
         for theme in themes {
             #expect(theme.isBuiltIn)
             #expect(theme.localizedNames["ja"] != nil)
@@ -39,6 +42,8 @@ struct ResourceLibraryTests {
             let themes = try PrintThemeLibrary.load(userDirectory: directory)
             let users = themes.filter { !$0.isBuiltIn }
             #expect(users.map(\.id) == ["user:Alpha.css", "user:Zebra.css"])
+            // User styles come after the built-in themes.
+            #expect(themes.suffix(2).map(\.id) == ["user:Alpha.css", "user:Zebra.css"])
             #expect(users.map(\.name) == ["Alpha", "Zebra"])
             #expect(users[0].css.contains("break-after: avoid"))
             #expect(users[0].css.contains("break-inside: avoid"))
@@ -50,7 +55,7 @@ struct ResourceLibraryTests {
     @Test("存在しないユーザーディレクトリは組み込みだけを返す")
     func absentDirectory() throws {
         let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        #expect(try PrintThemeLibrary.load(userDirectory: missing).count == 4)
+        #expect(try PrintThemeLibrary.load(userDirectory: missing).count == 10)
         let result = try HTMLCleanupPresetLibrary.load(userDirectory: missing)
         #expect(result.presets.count == 4)
         #expect(result.errors.isEmpty)

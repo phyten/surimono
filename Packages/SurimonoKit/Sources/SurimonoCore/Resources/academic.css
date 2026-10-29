@@ -1,0 +1,19 @@
+/* A paper: serif text with indented paragraphs, numbered sections and tables ruled only above and below. */
+body { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Times New Roman", serif; font-size: 10pt; line-height: 1.75; text-align: justify; counter-reset: section; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hiragino Kaku Gothic ProN", "Helvetica Neue", sans-serif; font-weight: 600; line-height: 1.4; text-align: left; }
+h1 { font-size: 1.6em; text-align: center; margin: 0.2em 0 1.2em; }
+h2 { font-size: 1.25em; margin: 1.6em 0 0.5em; counter-reset: subsection; }
+h3 { font-size: 1.05em; margin: 1.2em 0 0.4em; }
+h4, h5, h6 { font-size: 1em; margin: 1em 0 0.3em; }
+h2::before { counter-increment: section; content: counter(section) ".\2003"; }
+h3::before { counter-increment: subsection; content: counter(section) "." counter(subsection) "\2003"; }
+p { margin: 0.4em 0; text-indent: 1em; }
+li p, blockquote p, td p, th p, .callout p { text-indent: 0; }
+ul, ol { margin: 0.5em 0; }
+pre { font-size: 8.5pt; line-height: 1.5; border: 0.5pt solid #999; padding: 0.5em 0.7em; text-align: left; }
+code { font-size: 0.9em; }
+table { margin: 1em auto; border-top: 1pt solid #111; border-bottom: 1pt solid #111; }
+th, td { border: none; padding: 0.25em 0.8em; }
+thead th { border-bottom: 0.5pt solid #111; }
+blockquote { font-size: 0.95em; border-left: none; margin-inline: 2em; padding-left: 0; }
+img { display: block; margin: 0.8em auto; }

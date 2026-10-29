@@ -24,23 +24,26 @@ public struct PrintTheme: Equatable, Sendable, Identifiable {
 public enum PrintThemeLibrary {
     public static func load(userDirectory: URL? = nil) throws -> [PrintTheme] {
         let common = try String(contentsOf: CoreResources.url("common", extension: "css"), encoding: .utf8)
+        // Built-in themes keep this order in the menu, from everyday to special purposes.
         let definitions = [
             ("standard", "Standard", "標準"), ("mincho", "Mincho", "明朝"),
             ("compact", "Compact", "コンパクト"), ("github", "GitHub-like", "GitHub 風"),
+            ("academic", "Academic", "論文"), ("modern", "Modern", "モダン"),
+            ("large", "Large Print", "大きな文字"), ("notes", "Room for Notes", "書き込み用"),
+            ("monochrome", "Black and White", "白黒"), ("handout", "Page per Section", "見出しで改ページ"),
         ]
-        var themes = try definitions.map { id, name, japanese in
+        let builtIns = try definitions.map { id, name, japanese in
             let css = try String(contentsOf: CoreResources.url(id, extension: "css"), encoding: .utf8)
             return PrintTheme(
                 id: id, name: name, localizedNames: ["en": name, "ja": japanese], css: common + "\n" + css,
                 isBuiltIn: true)
         }
-        for url in try CoreResources.userFiles(in: userDirectory, extension: "css") {
-            themes.append(
-                PrintTheme(
-                    id: "user:\(url.lastPathComponent)", name: url.deletingPathExtension().lastPathComponent,
-                    css: common + "\n" + (try String(contentsOf: url, encoding: .utf8))))
+        let users = try CoreResources.userFiles(in: userDirectory, extension: "css").map { url in
+            PrintTheme(
+                id: "user:\(url.lastPathComponent)", name: url.deletingPathExtension().lastPathComponent,
+                css: common + "\n" + (try String(contentsOf: url, encoding: .utf8)))
         }
-        return themes.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+        return builtIns + users.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
 }
 

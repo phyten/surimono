@@ -1,0 +1,20 @@
+/* Sans text with a blue accent, tinted code and striped tables, for color printers. */
+body { font-family: "Helvetica Neue", "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; font-size: 10pt; line-height: 1.7; color: #1d1d1f; }
+h1, h2, h3, h4, h5, h6 { color: #1f4e8c; font-weight: 700; line-height: 1.35; margin: 1.3em 0 0.5em; }
+h1 { font-size: 2em; margin-top: 0; padding-bottom: 0.25em; border-bottom: 2pt solid #1f4e8c; }
+h2 { font-size: 1.45em; padding-left: 0.45em; border-left: 3pt solid #1f4e8c; }
+h3 { font-size: 1.15em; }
+p, pre, table, ul, ol { margin: 0.65em 0; }
+pre { background: #f3f5f8; border-radius: 4pt; padding: 0.7em 0.9em; font-size: 8.8pt; line-height: 1.55; }
+code { font-size: 0.9em; }
+:not(pre) > code { background: #eceff4; border-radius: 2pt; padding: 0.05em 0.3em; }
+th, td { border: 0.5pt solid #c9d1dc; padding: 0.3em 0.6em; }
+th { background: #1f4e8c; border-color: #1f4e8c; color: #fff; }
+/* Links and code in the blue header row must stay readable against it. */
+th a { color: inherit; }
+th code { color: #1d1d1f; }
+tbody tr:nth-child(even) td { background: #f3f5f8; }
+blockquote { border-left-color: #9fb3cc; color: #3a3a3c; }
+a { color: #1f4e8c; }
+.callout { border-radius: 0 4pt 4pt 0; }
+pre, th, tbody tr:nth-child(even) td, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
