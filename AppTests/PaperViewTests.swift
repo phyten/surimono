@@ -37,7 +37,7 @@ struct PaperViewTests {
 
     @Test("ピンチで拡大した倍率は、指を離したあとに PDFKit が倍率を変えても保つ", .timeLimit(.minutes(1)))
     func pinchedZoomStays() async throws {
-        let (view, window) = try await makeSinglePagePaper()
+        let (view, window) = try makeSinglePagePaper()
         var reported: [Double] = []
         view.onZoomChange = { reported.append($0) }
         let fitted = view.scaleFactor
@@ -53,15 +53,292 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
-    @Test("ピンチで縮めても、窓に合わせた大きさより小さくはならない", .timeLimit(.minutes(1)))
-    func pinchStopsAtTheFit() async throws {
-        let (view, window) = try await makeSinglePagePaper()
+    @Test("素早く閉じると指を離す前に戻り始め280msで100%になる", .timeLimit(.minutes(1)))
+    func fastPinchReturnsToFit() async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.shouldReduceMotion = { false }
+        let center = NSPoint(x: 100, y: 400)
+        view.setZoom(3, anchor: center)
+        view.magnify(by: 0, at: center, phase: .began, time: 1)
+        view.magnify(by: -0.2, at: center, phase: .changed, time: 1.04)
+        #expect(view.isReturningToFit)
+        let start = view.zoom
+        view.magnify(by: 0.5, at: center, phase: .changed, time: 1.05)
+        #expect(view.zoom == start)
+        view.advanceZoomReturn(elapsed: 0.14)
+        #expect(view.zoom > 1 && view.zoom < start)
+        view.advanceZoomReturn(elapsed: 0.28)
+        #expect(view.zoom == 1)
+        #expect(!view.isReturningToFit)
+        view.magnify(by: 0.5, at: center, phase: .changed, time: 1.4)
+        #expect(view.zoom == 1)
+        view.magnify(by: 0, at: center, phase: .began, time: 2)
+        view.magnify(by: 0.5, at: center, phase: .changed, time: 2.1)
+        #expect(abs(view.zoom - 1.5) < 0.001)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("ゆっくり300%から200%へ縮めて離すと200%を保つ", .timeLimit(.minutes(1)))
+    func slowPinchKeepsZoom() async throws {
+        let (view, window) = try makeSinglePagePaper()
+        let center = NSPoint(x: 200, y: 300)
+        view.setZoom(3, anchor: center)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        for frame in 1...60 {
+            view.magnify(by: pow(2.0 / 3, 1.0 / 60) - 1, at: center, phase: .changed, time: Double(frame) / 60)
+        }
+        view.magnify(by: 0, at: center, phase: .ended, time: 1)
+        #expect(abs(view.zoom - 2) < 0.001)
+        #expect(!view.isReturningToFit)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test(
+        "100%未満はゴムになり離すかキャンセルすると100%へ戻り保存値は1以上", .timeLimit(.minutes(1)),
+        arguments: [NSEvent.Phase.ended, .cancelled])
+    func rubberReturnsToFit(phase: NSEvent.Phase) async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.shouldReduceMotion = { false }
+        var reported: [Double] = []
+        view.onZoomChange = { reported.append($0) }
         let fitted = view.scaleFactor
         let center = NSPoint(x: view.bounds.midX, y: view.bounds.midY)
-        view.magnify(by: 1, at: center)
-        view.magnify(by: -0.9, at: center)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.5, at: center, phase: .changed, time: 0.5)
         #expect(view.zoom == 1)
+        #expect(view.displayedZoom >= 0.8 && view.displayedZoom < 1)
+        #expect(view.scaleFactor < fitted)
+        #expect(reported.isEmpty)
+        view.magnify(by: 0, at: center, phase: phase, time: 0.6)
+        #expect(view.isReturningToFit)
+        view.advanceZoomReturn(elapsed: 0.28)
+        #expect(view.zoom == 1 && view.displayedZoom == 1)
         #expect(abs(view.scaleFactor - fitted) < 0.01)
+        #expect(reported.allSatisfy { $0 >= 1 })
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("視差効果を減らす場合は素早いピンチから即時に100%へ戻る", .timeLimit(.minutes(1)))
+    func reducedMotionReturnsImmediately() async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.shouldReduceMotion = { true }
+        let center = NSPoint(x: 200, y: 300)
+        view.setZoom(3, anchor: center)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.2, at: center, phase: .changed, time: 0.04)
+        #expect(view.zoom == 1 && view.displayedZoom == 1)
+        #expect(!view.isReturningToFit)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test(
+        "戻る途中の拡大操作と新しいピンチはアニメーションを止める", .timeLimit(.minutes(1)),
+        arguments: ["pinch", "in", "out", "fit", "doubleClick"])
+    func newZoomInterruptsReturn(operation: String) async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.shouldReduceMotion = { false }
+        let center = NSPoint(x: 200, y: 300)
+        view.setZoom(3, anchor: center)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.2, at: center, phase: .changed, time: 0.04)
+        view.advanceZoomReturn(elapsed: 0.1)
+        switch operation {
+        case "pinch":
+            view.magnify(by: 0, at: center, phase: .began, time: 0.2)
+            view.magnify(by: 0.1, at: center, phase: .changed, time: 0.25)
+        case "in": view.stepZoom(up: true)
+        case "out": view.stepZoom(up: false)
+        case "fit": view.setZoom(1, anchor: nil)
+        default:
+            let event = try #require(
+                NSEvent.mouseEvent(
+                    with: .leftMouseDown, location: center, modifierFlags: [], timestamp: 0.2,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 2, pressure: 1))
+            view.mouseDown(with: event)
+        }
+        let interrupted = view.zoom
+        #expect(interrupted >= 1)
+        if operation == "fit" || operation == "doubleClick" { #expect(interrupted == 1) }
+        #expect(!view.isReturningToFit)
+        view.advanceZoomReturn(elapsed: 0.28)
+        #expect(view.zoom == interrupted)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("ゴムから戻る途中の新しいピンチは同じ見た目の倍率から続く", .timeLimit(.minutes(1)))
+    func pinchInterruptsRubberWithoutJumping() async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.shouldReduceMotion = { false }
+        let center = NSPoint(x: 200, y: 300)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.5, at: center, phase: .changed, time: 0.5)
+        view.magnify(by: 0, at: center, phase: .ended, time: 0.6)
+        view.advanceZoomReturn(elapsed: 0.1)
+        let interrupted = view.displayedZoom
+        view.magnify(by: 0, at: center, phase: .began, time: 0.7)
+        #expect(!view.isReturningToFit)
+        #expect(abs(view.displayedZoom - interrupted) < 0.000001)
+        view.magnify(by: 0.1, at: center, phase: .changed, time: 0.8)
+        #expect(view.displayedZoom > interrupted)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("ピンチの拡大は600%で止まり指を閉じればすぐ縮む", .timeLimit(.minutes(1)))
+    func pinchStopsAtMaximum() async throws {
+        let (view, window) = try makeSinglePagePaper()
+        let center = NSPoint(x: 200, y: 300)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: 10, at: center, phase: .changed, time: 1)
+        #expect(view.zoom == 6)
+        view.magnify(by: -0.1, at: center, phase: .changed, time: 2)
+        #expect(abs(view.zoom - 5.4) < 0.001)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test(
+        "戻りの途中で紙の外縁を露出せず通常の100%と同じ位置に着く", .timeLimit(.minutes(1)),
+        arguments: [ViewOptions.Transition.instant, .scroll])
+    func returnLandsAtFitPosition(transition: ViewOptions.Transition) async throws {
+        let (view, window) = try makeSinglePagePaper()
+        let (reference, referenceWindow) = try makeSinglePagePaper()
+        let options = ViewOptions(
+            layout: .single, scrollAxis: .vertical, transition: transition, showsCoverAlone: false)
+        let center = NSPoint(x: 100, y: 400)
+        for paper in [view, reference] {
+            paper.apply(options)
+            paper.goToPage(index: 3)
+            paper.setZoom(3, anchor: center)
+        }
+        view.shouldReduceMotion = { false }
+        let page = try #require(view.document?.page(at: 3))
+        let referencePage = try #require(reference.document?.page(at: 3))
+        reference.setZoom(2.4, anchor: center)
+        reference.setZoom(1, anchor: nil)
+        let fitted = reference.convert(referencePage.bounds(for: .cropBox), from: referencePage)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.2, at: center, phase: .changed, time: 0.04)
+        for frame in 0...28 {
+            view.advanceZoomReturn(elapsed: Double(frame) / 100)
+            var rect = view.convert(page.bounds(for: .cropBox), from: page)
+            if options.isContinuous, let document = view.document {
+                for index in 0..<document.pageCount {
+                    let other = try #require(document.page(at: index))
+                    rect = rect.union(view.convert(other.bounds(for: .cropBox), from: other))
+                }
+            }
+            #expect(rect.minX <= 1 && rect.minY <= 1, "frame \(frame): \(rect)")
+            #expect(rect.maxX >= view.bounds.maxX - 1 && rect.maxY >= view.bounds.maxY - 1, "frame \(frame): \(rect)")
+        }
+        let landed = view.convert(page.bounds(for: .cropBox), from: page)
+        #expect(abs(landed.minX - fitted.minX) < 1, "landed \(landed), fitted \(fitted)")
+        #expect(abs(landed.minY - fitted.minY) < 1, "landed \(landed), fitted \(fitted)")
+        withExtendedLifetime((window, referenceWindow)) {}
+    }
+
+    @Test(
+        "ゴムの途中で文書を差し替えると表示とモデルが100%にそろい残りのピンチを無視する",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func replacementClearsRubber(isReturning: Bool) async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.shouldReduceMotion = { false }
+        let fitted = view.scaleFactor
+        var modelZoom = 1.0
+        view.onZoomChange = { modelZoom = $0 }
+        let center = NSPoint(x: 200, y: 300)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.5, at: center, phase: .changed, time: 0.5)
+        if isReturning {
+            view.magnify(by: 0, at: center, phase: .ended, time: 0.6)
+            view.advanceZoomReturn(elapsed: 0.1)
+            #expect(view.isReturningToFit)
+        }
+        #expect(view.displayedZoom < 1)
+        let replacement = try #require(PDFDocument(data: TestFixtures.pdf("replacement", pages: 3)))
+        view.show(replacement, at: 1)
+        #expect(view.document === replacement)
+        #expect(view.zoom == 1 && view.displayedZoom == 1 && modelZoom == 1)
+        #expect(abs(view.scaleFactor - fitted) < 0.001)
+        #expect(!view.isReturningToFit)
+        view.advanceZoomReturn(elapsed: 0.28)
+        view.magnify(by: 0.5, at: center, phase: .changed, time: 0.7)
+        view.magnify(by: 0, at: center, phase: .ended, time: 0.8)
+        #expect(view.zoom == 1 && view.displayedZoom == 1)
+        view.magnify(by: 0, at: center, phase: .began, time: 1)
+        view.magnify(by: 0.5, at: center, phase: .changed, time: 1.1)
+        #expect(abs(view.zoom - 1.5) < 0.001)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("文書の差し替えでも利用者が選んだ100%以上の倍率は保つ", .timeLimit(.minutes(1)))
+    func replacementKeepsChosenZoom() async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.setZoom(2, anchor: nil)
+        let replacement = try #require(PDFDocument(data: TestFixtures.pdf("replacement", pages: 3)))
+        view.show(replacement, at: 1)
+        #expect(view.zoom == 2 && view.displayedZoom == 2)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test(
+        "連続表示の戻り途中でページを移動すると100%になり後続フレームでも移動先を保つ",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func pageNavigationFinishesReturn(turn: Bool) async throws {
+        let (view, window) = try makeSinglePagePaper()
+        view.apply(ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false))
+        view.shouldReduceMotion = { false }
+        let center = NSPoint(x: 200, y: 300)
+        view.setZoom(3, anchor: center)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.2, at: center, phase: .changed, time: 0.04)
+        view.advanceZoomReturn(elapsed: 0.1)
+        #expect(view.isReturningToFit)
+        let targetPage = turn ? view.currentPageIndex + 1 : 4
+        if turn { view.turnPage(forward: true) } else { view.goToPage(index: targetPage) }
+        #expect(view.currentPageIndex == targetPage)
+        let destination = try #require(view.documentView?.enclosingScrollView?.contentView.bounds.origin)
+        #expect(!view.isReturningToFit)
+        #expect(view.zoom == 1 && view.displayedZoom == 1)
+        for elapsed in [0.14, 0.28] {
+            view.advanceZoomReturn(elapsed: elapsed)
+            #expect(view.currentPageIndex == targetPage)
+            #expect(view.documentView?.enclosingScrollView?.contentView.bounds.origin == destination)
+        }
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("SwiftUIへ倍率を往復しても戻りが途中で止まらずモデルと表示が100%にそろう", .timeLimit(.minutes(1)))
+    func returnSurvivesSwiftUIFeedback() async throws {
+        let document = try #require(PDFDocument(data: TestFixtures.pdf("feedback", pages: 6)))
+        let model = ZoomFeedbackModel()
+        let host = NSHostingView(rootView: ZoomFeedbackPaper(document: document, model: model))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        let view = try #require(host.paperView)
+        view.shouldReduceMotion = { false }
+        let center = NSPoint(x: 200, y: 300)
+        view.setZoom(3, anchor: center)
+        host.layout()
+        #expect(model.renderedZoom == 3)
+        view.magnify(by: 0, at: center, phase: .began, time: 0)
+        view.magnify(by: -0.2, at: center, phase: .changed, time: 0.04)
+        for elapsed in [0.04, 0.1, 0.18, 0.24] {
+            view.advanceZoomReturn(elapsed: elapsed)
+            let reported = model.zoom
+            // Force the hosting view to process its pending graph update, without waiting on wall-clock frames.
+            host.layout()
+            #expect(host.paperView === view)
+            #expect(model.renderedZoom == reported)
+            #expect(view.zoom == reported)
+            #expect(view.isReturningToFit)
+        }
+        view.advanceZoomReturn(elapsed: 0.28)
+        host.layout()
+        #expect(model.renderedZoom == 1)
+        #expect(model.zoom == 1 && view.zoom == 1 && view.displayedZoom == 1)
+        #expect(!view.isReturningToFit)
         withExtendedLifetime(window) {}
     }
 
@@ -94,7 +371,7 @@ struct PaperViewTests {
 
     /// A paper view of a six-page PDF filling a window. It is used without SwiftUI, whose fixed zoom input would
     /// otherwise set the zoom back on its next update.
-    private func makeSinglePagePaper() async throws -> (PaperPDFView, NSWindow) {
+    private func makeSinglePagePaper() throws -> (PaperPDFView, NSWindow) {
         let document = try #require(PDFDocument(data: TestFixtures.pdf("pinch", pages: 6)))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
@@ -104,7 +381,6 @@ struct PaperViewTests {
         view.show(document, at: 0)
         view.apply(ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false))
         view.layoutSubtreeIfNeeded()
-        try await Task.sleep(for: .milliseconds(20))
         return (view, window)
     }
 }
@@ -112,5 +388,29 @@ struct PaperViewTests {
 extension NSView {
     fileprivate var paperView: PaperPDFView? {
         self as? PaperPDFView ?? subviews.lazy.compactMap(\.paperView).first
+    }
+}
+
+@MainActor
+@Observable
+private final class ZoomFeedbackModel {
+    var zoom = 1.0
+    @ObservationIgnored var renderedZoom = 1.0
+    let controller = PaperController()
+}
+
+@MainActor
+private struct ZoomFeedbackPaper: View {
+    let document: PDFDocument
+    let model: ZoomFeedbackModel
+
+    var body: some View {
+        PaperView(
+            document: document, initialPageIndex: 0,
+            options: ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false),
+            zoom: model.zoom, controller: model.controller,
+            onZoomChange: { model.zoom = $0 }, onPageChange: { _ in }, onTurn: {}, onKey: { _ in false }
+        )
+        .onChange(of: model.zoom, initial: true) { _, value in model.renderedZoom = value }
     }
 }
