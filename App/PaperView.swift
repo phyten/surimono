@@ -133,7 +133,6 @@ final class PaperPDFView: PDFView {
             switch options.layout {
             case .single: options.isContinuous ? .singlePageContinuous : .singlePage
             case .spread: options.isContinuous ? .twoUpContinuous : .twoUp
-            case .twoPageScroll: .twoUp
             }
         if displayMode != mode { displayMode = mode }
         displaysAsBook = options.usesCoverOption && options.showsCoverAlone
@@ -318,12 +317,13 @@ final class PaperPDFView: PDFView {
             return
         case .slide:
             transition.type = .push
-            if options.layout == .twoPageScroll && options.scrollAxis == .vertical {
-                // Like scrolling down: the next spread comes up from below.
-                transition.subtype = forward ? .fromBottom : .fromTop
-            } else {
-                transition.subtype = forward == nextFromRight ? .fromRight : .fromLeft
-            }
+            transition.subtype =
+                switch options.slideEdge(forward: forward) {
+                case .left: .fromLeft
+                case .right: .fromRight
+                case .top: .fromTop
+                case .bottom: .fromBottom
+                }
         case .fade:
             transition.type = .fade
         case .pageCurl:

@@ -51,14 +51,6 @@ struct SpreadLayoutTests {
         #expect(units(3, layout: .single, cover: true, .rightToLeft) == [.single(1), .single(2), .single(3)])
     }
 
-    @Test("2ページずつのスクロールは見開きと同じ組みになる")
-    func twoPageScrollPairsLikeSpreads() {
-        #expect(
-            units(5, layout: .twoPageScroll, cover: true, .leftToRight) == [
-                .spread(left: nil, right: 1), .spread(left: 2, right: 3), .spread(left: 4, right: 5),
-            ])
-    }
-
     @Test("ページがなければ何も組まない")
     func empty() { #expect(units(0, cover: true, .leftToRight).isEmpty) }
 
@@ -108,7 +100,7 @@ struct SpreadLayoutTests {
         "ページ表示の幅は、その文書でいちばん幅を取る表示に合わせる",
         arguments: [
             (9, ViewOptions.Layout.single, "8 / 9"), (12, .single, "88 / 12"), (12, .spread, "88–88 / 12"),
-            (250, .spread, "888–888 / 250"), (1500, .twoPageScroll, "8888–8888 / 1500"),
+            (250, .spread, "888–888 / 250"), (1500, .spread, "8888–8888 / 1500"),
         ])
     func pageIndicatorWidestText(pageCount: Int, layout: ViewOptions.Layout, widest: String) {
         #expect(PageIndicator.widestText(pageCount: pageCount, layout: layout) == widest)

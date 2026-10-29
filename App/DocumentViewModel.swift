@@ -375,7 +375,7 @@ final class DocumentViewModel {
         var options = viewOptions
         change(&options)
         hasResolvedViewOptions = true
-        viewOptions = options.normalized()
+        viewOptions = options
     }
 
     func enterPrintMode() {
@@ -554,7 +554,7 @@ final class DocumentViewModel {
 
     private func apply(_ saved: DocumentSettings) {
         if let view = saved.view {
-            viewOptions = view.normalized()
+            viewOptions = view
             hasResolvedViewOptions = true
         }
         if let zoom = saved.zoom { self.zoom = min(max(zoom, 1), PaperPDFView.maximumZoom) }

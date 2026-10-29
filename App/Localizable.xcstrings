@@ -839,13 +839,13 @@
         }
       }
     },
-    "Spread, Single Page or Two-Page Scroll": {
+    "Spread or Single Page": {
       "extractionState": "manual",
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "見開き・単ページ・2ページずつ"
+            "value": "見開き・単ページ"
           }
         }
       }
@@ -890,17 +890,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "単ページ"
-          }
-        }
-      }
-    },
-    "Two-Page Scroll": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "2ページずつ"
           }
         }
       }
@@ -1121,17 +1110,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "この文書を 1 ページずつ表示します。"
-          }
-        }
-      }
-    },
-    "Shows this document as spreads and scrolls one spread at a time. ": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この文書を見開きで表示し、1 見開きずつスクロールします。"
           }
         }
       }
