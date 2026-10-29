@@ -22,6 +22,7 @@ Packages/SurimonoKit/   ロジック本体（SwiftPM）
   Sources/SurimonoRendering/  AppKit / WebKit / PDFKit / CoreGraphics を使う描画（ページ分割、画像の PDF 化、面付け PDF の合成、印刷設定）
   Tests/                      Swift Testing のテスト
 Samples/                手動確認用のサンプル文書
+Design/                 アプリアイコンの原画（AppIcon.svg。App/Assets.xcassets の PNG はここから書き出す）
 Surimono.xcodeproj      手書きの最小プロジェクト（objectVersion 77）
 .github/workflows/      CI（ci.yml）とリリース（release.yml）
 .agents/skills/         プロジェクト固有スキル（正本。Codex が読む）
