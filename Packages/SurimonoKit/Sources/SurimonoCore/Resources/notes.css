@@ -1,0 +1,10 @@
+/* Room to write on the printout: wide line spacing and an empty band on the right of every page. */
+body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; font-size: 10.5pt; line-height: 2.5; padding-right: 22%; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.3em; line-height: 1.5; }
+h1 { font-size: 1.7em; }
+h2 { font-size: 1.35em; border-bottom: 0.5pt solid #888; }
+h3 { font-size: 1.12em; }
+p, ul, ol, table { margin: 0.5em 0; }
+pre { line-height: 1.8; font-size: 9pt; }
+code { font-size: 0.9em; }
+td, th { padding: 0.3em 0.6em; line-height: 1.6; }

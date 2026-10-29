@@ -1,0 +1,20 @@
+/* For black-and-white printers: no colours or tints; weight, style and rules tell code tokens and notes apart. */
+body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #000; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; }
+h1 { font-size: 1.8em; }
+h2 { font-size: 1.4em; border-bottom: 0.75pt solid #000; }
+h3 { font-size: 1.15em; }
+p, pre, table { margin: 0.7em 0; }
+pre { border: 0.5pt solid #000; padding: 0.5em 0.7em; font-size: 9pt; }
+code { font-size: 0.9em; }
+a { color: #000; }
+th, td { border-color: #000; }
+blockquote { border-left-color: #000; }
+:root {
+    --hl-keyword: #000; --hl-type: #000; --hl-builtin: #000; --hl-function: #000; --hl-literal: #000;
+    --hl-number: #000; --hl-string: #000; --hl-comment: #555; --hl-meta: #000; --hl-tag: #000; --hl-attr: #000;
+    --hl-variable: #000; --hl-addition: #000; --hl-deletion: #000; --hl-section: #000;
+}
+.hl-addition, .hl-deletion { background: none; }
+.hl-deletion { font-style: italic; }
+.callout[class] { --callout-color: #000; --callout-tint: transparent; border: 0.5pt solid #000; border-left-width: 3pt; }

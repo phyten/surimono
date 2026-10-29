@@ -50,7 +50,7 @@ make clean
 
 ```text
 ファイル → DocumentFormat 判定
-  ├ Markdown / Org / テキスト / CSV → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化
+  ├ Markdown / Org / テキスト / CSV → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
   ├ HTML → そのまま。ノイズ除去プリセット（CSS / JS）を注入
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
