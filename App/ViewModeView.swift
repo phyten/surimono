@@ -63,7 +63,8 @@ private struct PaperArea: View {
         ZStack {
             if let document = model.result?.logicalDocument {
                 PaperView(
-                    document: document, options: model.viewOptions, zoom: model.zoom, controller: model.paper,
+                    document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
+                    zoom: model.zoom, controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.currentPageIndex = $0 },
                     onTurn: { menu.pageTurned() },
