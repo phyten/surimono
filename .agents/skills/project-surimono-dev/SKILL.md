@@ -36,7 +36,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）
      - ページ: `-SurimonoPage <n>`（撮る前に n ページ目へ移る。`-SurimonoMode roundtrip` と合わせると、印刷モードから戻っても同じページかを見られる）
-     - Release ビルドには含まれない。表示の引数で設定を変えると、その文書の設定として `~/Library/Application Support/Surimono/DocumentSettings/` に保存される（次に開くと「戻しました」が出る）。確認用のファイルの記録は確認後に消す
+     - Release ビルドには含まれない。表示の引数で設定を変えると、その文書の設定として `~/Library/Application Support/Surimono Dev/DocumentSettings/` に保存される（次に開くと「戻しました」が出る）。確認用のファイルの記録は確認後に消す
      - 画像の束を撮るときは、`open` に画像を複数まとめて渡す（例: `open -n -W -a "$APP" a.png b.jpg c.heic --args …`）。束のウィンドウが撮られる。
      - 前回のウィンドウの復元が混ざらないよう、確認用の起動には `-ApplePersistenceIgnoreState YES` も付けるとよい（`pkill` などで落とすと次の起動で文書が復元される）。
    - **開き方の確認（ウィンドウの数と題名）**: `swift .agents/skills/project-surimono-dev/scripts/list-windows.swift` が開発版の画面上のウィンドウを前面から順に、レイヤー・位置・大きさ・題名つきで出す（題名は画面収録の許可がないと空になる。レイヤー 8 はアラートなどのモーダル。数えるのは名前が Surimono Dev の全プロセスの画面上のウィンドウで、公開版と最小化したものは含まない。一覧を取れなければ終了コード 1）。Finder や Dock からの開き方は `open -a "$APP" <ファイル…>` で再現し、AGENTS.md の「ウィンドウとファイルの開き方」の規則どおりの数と題名になるかを見る。

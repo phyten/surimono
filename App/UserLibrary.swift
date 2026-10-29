@@ -11,11 +11,20 @@ final class UserLibrary {
     private(set) var revision = 0
     let root: URL
 
+    /// A development build keeps its own folder, so it never reads or rewrites the installed app's styles, presets and
+    /// document settings. The folder names locate users' data, so they must not change.
+    static var defaultRoot: URL {
+        #if DEBUG
+            let folder = "Surimono Dev"
+        #else
+            let folder = "Surimono"
+        #endif
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(folder, isDirectory: true)
+    }
+
     init(root: URL? = nil) {
-        self.root =
-            root
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Surimono", isDirectory: true)
+        self.root = root ?? Self.defaultRoot
         reload()
     }
 
