@@ -22,7 +22,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Open multiple images together as one image bundle, including mixed image formats
 - Reorder images by dragging thumbnails or with Option-Command-Up/Down
 - Export an image bundle as a PDF in its current order and print layout
-- WYSIWYG print preview: what you see is how the paper comes out
+- A print mode that lays out the sheets as they come out of the printer — fronts and backs side by side, booklet sheets with their fold, and a "Fold It" preview that turns the pages of the folded booklet
 - Swappable print stylesheets for Markdown, Org and text, including your own CSS
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend
 - Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up
