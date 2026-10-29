@@ -253,6 +253,8 @@ private struct FormatBadge: View {
         Text(verbatim: text)
             .font(.system(size: 9.5, weight: .semibold))
             .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize()
             .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
             .background(RoundedRectangle(cornerRadius: 4).fill(.quaternary))
@@ -270,6 +272,8 @@ struct PrintButton: View {
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.regular)
+        // The file name gives way to the one button that must always show in full.
+        .fixedSize()
         .help("Show the sheets and print (⌘P)")
     }
 }
