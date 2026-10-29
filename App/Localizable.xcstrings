@@ -2220,6 +2220,204 @@
           }
         }
       }
+    },
+    "Smart Removal": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート削除"
+          }
+        }
+      }
+    },
+    "Smart Removal (Beta)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート削除（ベータ）"
+          }
+        }
+      }
+    },
+    "Review Removed Parts…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消した部分を確かめる…"
+          }
+        }
+      }
+    },
+    "%lld parts removed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld か所を消しました"
+          }
+        }
+      }
+    },
+    "Smart Removal (Beta) runs on this Mac only.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート削除（ベータ）は、この Mac の中だけで判定します。"
+          }
+        }
+      }
+    },
+    "Review": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確かめる"
+          }
+        }
+      }
+    },
+    "Turn Off": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフにする"
+          }
+        }
+      }
+    },
+    "Done": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了"
+          }
+        }
+      }
+    },
+    "Keep": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残す"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消す"
+          }
+        }
+      }
+    },
+    "The dashed frames on the paper show what was removed. Detection runs on this Mac only; nothing is sent anywhere. The result is remembered for this content.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紙の上の点線の枠が消した部分です。判定はこの Mac の中だけで行い、外には何も送りません。結果はこの内容の設定として覚えます。"
+          }
+        }
+      }
+    },
+    "Cookie Banner": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cookie バナー"
+          }
+        }
+      }
+    },
+    "Sticky Header": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追従ヘッダー"
+          }
+        }
+      }
+    },
+    "Advertisement": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "広告"
+          }
+        }
+      }
+    },
+    "Social Buttons": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SNS ボタン"
+          }
+        }
+      }
+    },
+    "Newsletter Sign-up": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ニュースレター欄"
+          }
+        }
+      }
+    },
+    "Recommended Articles": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おすすめ記事"
+          }
+        }
+      }
+    },
+    "Pop-up": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポップアップ"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

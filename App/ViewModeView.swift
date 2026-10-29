@@ -20,6 +20,13 @@ struct ViewModeView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
+            if model.isReviewingSmartRemoval {
+                SmartRemovalPanel(model: model)
+                    .padding(.top, ViewerWindow.bandHeight + 8)
+                    .padding([.trailing, .bottom], 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
             if bandVisible {
                 OverlayBand(model: model, stage: model.isMenuPinned ? .full : menu.stage, menu: menu)
                     .transition(.opacity)
@@ -30,6 +37,7 @@ struct ViewModeView: View {
         .background(Color(nsColor: .underPageBackgroundColor))
         .animation(.easeOut(duration: 0.16), value: menu.stage)
         .animation(.easeOut(duration: 0.2), value: model.isDrawerOpen)
+        .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
         .onContinuousHover(coordinateSpace: .local) { phase in
             switch phase {
             case .active(let point): menu.pointerMoved(to: point)
@@ -168,11 +176,15 @@ struct ToastOverlay: View {
                             Text(verbatim: detail).font(.system(size: 11)).opacity(0.75).lineLimit(2)
                         }
                     }
-                    if toast.action == .resetDocumentSettings {
-                        Button("Reset to Defaults") {
-                            model.resetDocumentSettings()
-                        }
-                        .controlSize(.small)
+                    switch toast.action {
+                    case .resetDocumentSettings?:
+                        Button("Reset to Defaults") { model.resetDocumentSettings() }
+                            .controlSize(.small)
+                    case .reviewSmartRemoval?:
+                        Button("Review") { model.reviewSmartRemoval() }
+                            .controlSize(.small)
+                    case nil:
+                        EmptyView()
                     }
                     Button {
                         model.dismissToast()

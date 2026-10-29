@@ -290,8 +290,10 @@ private struct StyleMenu: View {
 
     private var currentName: String {
         if model.format.usesHTMLPreset {
-            return model.library.presets.first { $0.id == model.presetID }?.displayName(language: model.language)
+            let preset =
+                model.library.presets.first { $0.id == model.presetID }?.displayName(language: model.language)
                 ?? model.presetID
+            return model.isSmartRemovalEnabled ? preset + " + β" : preset
         }
         return model.library.themes.first { $0.id == model.themeID }?.displayName(language: model.language)
             ?? model.themeID
@@ -316,7 +318,22 @@ private struct StyleMenuItems: View {
                 }
             }
             .pickerStyle(.inline)
+            SmartRemovalMenuItems(model: model)
         }
+    }
+}
+
+/// The Smart Removal (beta) switch and its review, shared by the band's and the tray's preset menus.
+struct SmartRemovalMenuItems: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Divider()
+        Toggle(
+            "Smart Removal (Beta)",
+            isOn: Binding(get: { model.isSmartRemovalEnabled }, set: { model.setSmartRemoval(enabled: $0) }))
+        Button("Review Removed Parts…") { model.reviewSmartRemoval() }
+            .disabled(!model.isSmartRemovalEnabled)
     }
 }
 

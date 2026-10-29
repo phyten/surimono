@@ -210,6 +210,7 @@ struct PrintStyleMenu: View {
                     }
                 }
                 .pickerStyle(.inline)
+                SmartRemovalMenuItems(model: model)
                 Divider()
                 Button("Open Presets Folder") { model.library.openFolder("Presets") }
             } label: {
