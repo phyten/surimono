@@ -19,7 +19,9 @@ let package = Package(
         ),
         .target(name: "SurimonoRendering", dependencies: ["SurimonoCore"]),
         .testTarget(name: "SurimonoCoreTests", dependencies: ["SurimonoCore"]),
-        .testTarget(name: "SurimonoRenderingTests", dependencies: ["SurimonoRendering"]),
+        .testTarget(
+            name: "SurimonoRenderingTests", dependencies: ["SurimonoRendering"],
+            resources: [.copy("Fixtures")]),
     ],
     swiftLanguageModes: [.v6]
 )

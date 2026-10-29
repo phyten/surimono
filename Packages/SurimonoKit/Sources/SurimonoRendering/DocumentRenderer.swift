@@ -67,16 +67,19 @@ public struct RenderSettings: Equatable, Sendable {
     public var preset: HTMLCleanupPreset
     public var options: PrintOptions
     public var allowsJavaScriptInHTML: Bool
+    public var smartRemoval: SmartRemovalRequest?
 
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
-        options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false
+        options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
+        smartRemoval: SmartRemovalRequest? = nil
     ) {
         self.layout = layout
         self.theme = theme
         self.preset = preset
         self.options = options
         self.allowsJavaScriptInHTML = allowsJavaScriptInHTML
+        self.smartRemoval = smartRemoval
     }
 }
 
@@ -95,6 +98,7 @@ public struct RenderResult {
     public let plan: ImpositionPlan
     public let summary: PrintSummary
     public let unreadableImageURLs: [URL]
+    public let smartRemovalCandidates: [SmartRemovalCandidate]
 }
 
 /// Keep one renderer per open document and cancel the previous caller Task before starting a new render.
@@ -116,10 +120,11 @@ public final class DocumentRenderer {
     }
 
     public typealias Paginate = @MainActor (PaginationRequest) async throws -> PDFDocument
+    public typealias PaginateWithResult = @MainActor (PaginationRequest) async throws -> WebPaginator.Result
 
     public private(set) var logicalRenderCount = 0
-    private let paginate: Paginate
-    private var cache: (key: CacheKey, data: Data, unreadable: [URL])?
+    private let paginate: PaginateWithResult
+    private var cache: (key: CacheKey, data: Data, unreadable: [URL], candidates: [SmartRemovalCandidate])?
     private var generation = 0
 
     private struct CacheKey: Equatable {
@@ -129,15 +134,23 @@ public final class DocumentRenderer {
         let preset: HTMLCleanupPreset?
         let margin: Double
         let allowsJavaScript: Bool
+        let smartRemoval: SmartRemovalRequest?
     }
 
     public init(paginate: Paginate? = nil) {
-        self.paginate =
-            paginate ?? { request in
-                try await WebPaginator().paginate(
+        if let paginate {
+            self.paginate = { request in WebPaginator.Result(document: try await paginate(request)) }
+        } else {
+            self.paginate = { request in
+                try await WebPaginator().paginateWithResult(
                     request.source, pageSize: request.pageSize, margins: request.margins,
                     allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript)
             }
+        }
+    }
+
+    public init(paginateWithResult: @escaping PaginateWithResult) {
+        self.paginate = paginateWithResult
     }
 
     /// Invalidate after external images, fonts, or an HTML file change without a change to source.data.
@@ -161,22 +174,30 @@ public final class DocumentRenderer {
             preset: source.format.usesHTMLPreset ? settings.preset : nil,
             margin: margin,
             allowsJavaScript: source.format == .html && settings.allowsJavaScriptInHTML
-                && !settings.preset.disablesJavaScript)
+                && !settings.preset.disablesJavaScript,
+            smartRemoval: source.format == .html ? settings.smartRemoval : nil)
         do {
             let logical: PDFDocument
             let cachedData: Data
             let reused: Bool
             let unreadable: [URL]
+            let candidates: [SmartRemovalCandidate]
             if let cache, cache.key == key, let document = PDFDocument(data: cache.data) {
                 logical = document
                 cachedData = cache.data
                 unreadable = cache.unreadable
+                candidates = cache.candidates
                 reused = true
             } else {
                 if let images = source.images {
                     (logical, unreadable) = try await imageBundle(images, settings: settings)
+                    candidates = []
                 } else {
-                    logical = try await logicalDocument(source, settings: settings)
+                    let result = try await logicalDocument(source, settings: settings)
+                    logical = result.document
+                    candidates =
+                        source.format == .html && settings.smartRemoval != nil
+                        ? SmartRemovalScript.candidates(fromJSON: result.preparationResult ?? "") : []
                     unreadable = []
                 }
                 try Task.checkCancellation()
@@ -191,12 +212,12 @@ public final class DocumentRenderer {
             if !reused {
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
-                if generation == currentGeneration { cache = (key, cachedData, unreadable) }
+                if generation == currentGeneration { cache = (key, cachedData, unreadable, candidates) }
             }
             let plan = Imposition.plan(pageCount: logical.pageCount, layout: settings.layout)
             return RenderResult(
                 logicalDocument: logical, sheetDocument: sheet, plan: plan, summary: PrintSummary(plan: plan),
-                unreadableImageURLs: unreadable)
+                unreadableImageURLs: unreadable, smartRemovalCandidates: candidates)
         } catch {
             if Task.isCancelled || error is CancellationError { throw CancellationError() }
             switch error {
@@ -247,7 +268,8 @@ public final class DocumentRenderer {
         return (document, unreadable)
     }
 
-    private func logicalDocument(_ source: DocumentSource, settings: RenderSettings) async throws -> PDFDocument {
+    private func logicalDocument(_ source: DocumentSource, settings: RenderSettings) async throws -> WebPaginator.Result
+    {
         switch source.format {
         case .zipArchive:
             throw RenderingError.unsupportedFormat
@@ -255,11 +277,12 @@ public final class DocumentRenderer {
             guard let document = PDFDocument(data: source.data) else { throw RenderingError.invalidPDF }
             guard !document.isEncrypted && !document.isLocked else { throw RenderingError.encryptedPDF }
             guard document.pageCount > 0 else { throw RenderingError.invalidPDF }
-            return document
+            return WebPaginator.Result(document: document)
         case .image:
-            return try await ImagePageRenderer().render(
-                source.data, pageSize: settings.layout.logicalPageSize,
-                marginsInMillimeters: settings.options.marginsInMillimeters)
+            return WebPaginator.Result(
+                document: try await ImagePageRenderer().render(
+                    source.data, pageSize: settings.layout.logicalPageSize,
+                    marginsInMillimeters: settings.options.marginsInMillimeters))
         case .html:
             let input: WebPaginator.Source
             if let url = source.fileURL {
@@ -267,12 +290,16 @@ public final class DocumentRenderer {
             } else {
                 input = .html(try decodedText(source.data), baseURL: nil)
             }
+            var preparation = HTMLCleanupScript.javaScript(for: settings.preset)
+            if let smartRemoval = settings.smartRemoval {
+                preparation += "\n" + SmartRemovalScript.javaScript(for: smartRemoval)
+            }
             return try await paginate(
                 PaginationRequest(
                     source: input, pageSize: settings.layout.logicalPageSize,
                     margins: .uniform(millimeters: settings.options.marginsInMillimeters),
                     allowsJavaScript: settings.allowsJavaScriptInHTML && !settings.preset.disablesJavaScript,
-                    preparationScript: HTMLCleanupScript.javaScript(for: settings.preset)))
+                    preparationScript: preparation))
         case .markdown, .org, .plainText, .csv:
             let text = try decodedText(source.data)
             let fragment: HTMLFragment
