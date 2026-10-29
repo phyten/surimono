@@ -115,6 +115,7 @@ final class PaperPDFView: PDFView {
                 page.rotation % 180 == 0 ? bounds.size : CGSize(width: bounds.height, height: bounds.width)
             size = CGSize(width: max(size.width, pageSize.width), height: max(size.height, pageSize.height))
         }
+        hideScrollersAndInsets()
         refit()
         goToPage(index: min(index, max(document.pageCount - 1, 0)))
     }
@@ -133,6 +134,7 @@ final class PaperPDFView: PDFView {
         displaysAsBook = options.usesCoverOption && options.showsCoverAlone
         displaysRTL = options.direction == .rightToLeft
         displayDirection = options.scrollAxis == .vertical ? .vertical : .horizontal
+        hideScrollersAndInsets()
         refit()
         goToPage(index: index)
     }
@@ -151,21 +153,25 @@ final class PaperPDFView: PDFView {
 
     override func layout() {
         super.layout()
-        // The paper is the window: legacy scroll bars would narrow it, and scrolling still works without them.
-        if let scrollView = documentView?.enclosingScrollView {
-            if scrollView.hasVerticalScroller { scrollView.hasVerticalScroller = false }
-            if scrollView.hasHorizontalScroller { scrollView.hasHorizontalScroller = false }
-            if scrollView.scrollerStyle != .overlay { scrollView.scrollerStyle = .overlay }
-            // Under the hidden title bar, the scroll view would inset the paper by the title bar's height.
-            if scrollView.automaticallyAdjustsContentInsets {
-                let index = currentPageIndex
-                scrollView.automaticallyAdjustsContentInsets = false
-                scrollView.contentInsets = NSEdgeInsetsZero
-                goToPage(index: index)
-            }
-        }
+        hideScrollersAndInsets()
         // Fit again when the window changes size; the zoom the user chose is relative to the fit.
         if bounds.size != fittedSize { refit() }
+    }
+
+    /// The paper is the window: legacy scroll bars would narrow it, and scrolling still works without them. PDFKit
+    /// adds them again when the document or the display mode changes, so this runs after those too.
+    private func hideScrollersAndInsets() {
+        guard let scrollView = documentView?.enclosingScrollView else { return }
+        if scrollView.hasVerticalScroller { scrollView.hasVerticalScroller = false }
+        if scrollView.hasHorizontalScroller { scrollView.hasHorizontalScroller = false }
+        if scrollView.scrollerStyle != .overlay { scrollView.scrollerStyle = .overlay }
+        // Under the hidden title bar, the scroll view would inset the paper by the title bar's height.
+        if scrollView.automaticallyAdjustsContentInsets {
+            let index = currentPageIndex
+            scrollView.automaticallyAdjustsContentInsets = false
+            scrollView.contentInsets = NSEdgeInsetsZero
+            goToPage(index: index)
+        }
     }
 
     private func refit() {
