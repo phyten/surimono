@@ -17,9 +17,10 @@ public enum MarkdownConverter {
             }
             lines.removeFirst(end + 1)
         }
-        let document = Document(parsing: MarkdownCallouts.preprocess(lines), options: [.disableSmartOpts])
+        let source = MarkdownCallouts.preprocess(lines)
+        let document = Document(parsing: source, options: [.disableSmartOpts])
         if title == nil { title = firstHeading(in: document) }
-        return HTMLFragment(body: render(document), title: title)
+        return HTMLFragment(body: render(document, sourceLines: source.components(separatedBy: "\n")), title: title)
     }
 
     private static func firstHeading(in node: any Markup) -> String? {
@@ -31,9 +32,9 @@ public enum MarkdownConverter {
     }
 
     // Render from the AST because HTMLFormatter does not escape text or attributes.
-    private static func render(_ node: any Markup, autolinks: Bool = true) -> String {
+    private static func render(_ node: any Markup, sourceLines: [String], autolinks: Bool = true) -> String {
         func children(allowLinks: Bool? = nil) -> String {
-            renderChildren(node, autolinks: allowLinks ?? autolinks)
+            renderChildren(node, sourceLines: sourceLines, autolinks: allowLinks ?? autolinks)
         }
         func wrap(_ tag: String) -> String { "<\(tag)>\(children())</\(tag)>" }
         switch node {
@@ -50,7 +51,7 @@ public enum MarkdownConverter {
         case is Emphasis: return wrap("em")
         case is Strikethrough: return wrap("del")
         case let quote as BlockQuote:
-            return renderCallout(quote, autolinks: autolinks) ?? (wrap("blockquote") + "\n")
+            return renderCallout(quote, sourceLines: sourceLines, autolinks: autolinks) ?? (wrap("blockquote") + "\n")
         case is ThematicBreak: return "<hr>\n"
         case is LineBreak: return "<br>\n"
         case is SoftBreak: return "\n"
@@ -70,13 +71,25 @@ public enum MarkdownConverter {
             return "<li>\(checkbox)\(children())</li>\n"
         case let list as OrderedList: return "<ol start=\"\(list.startIndex)\">\(children())</ol>\n"
         case is UnorderedList: return wrap("ul") + "\n"
-        case let table as Table: return renderTable(table)
+        case let table as Table: return renderTable(table, sourceLines: sourceLines)
         default: return children()
         }
     }
 
-    private static func renderCallout(_ quote: BlockQuote, autolinks: Bool) -> String? {
-        guard let paragraph = quote.child(at: 0) as? Paragraph else { return nil }
+    private static func renderCallout(_ quote: BlockQuote, sourceLines: [String], autolinks: Bool) -> String? {
+        // Text nodes have already decoded escapes and entities, so only a literal source marker opts in.
+        guard let paragraph = quote.child(at: 0) as? Paragraph,
+            let start = paragraph.range?.lowerBound,
+            start.line > 0, start.line <= sourceLines.count, start.column > 0
+        else { return nil }
+        let source = String(Substring(sourceLines[start.line - 1].utf8.dropFirst(start.column - 1)))
+        // A label followed by a colon is a link reference definition, which cmark drops from the paragraph without
+        // moving its start; the marker below would then come from a later, possibly escaped, line. A valid kind name
+        // has no brackets or backslashes, so its closing bracket is the one that would end such a label. cmark reads
+        // the colon as a byte, whereas a Character would merge it with a following combining mark.
+        guard MarkdownCallouts.quoteMarker(source) != nil, let close = source.firstIndex(of: "]"),
+            source[source.index(after: close)...].utf8.first != UInt8(ascii: ":")
+        else { return nil }
         let inline = Array(paragraph.children)
         let breakIndex = inline.firstIndex { $0 is SoftBreak || $0 is LineBreak } ?? inline.count
         let firstLine = inline[..<breakIndex]
@@ -95,18 +108,20 @@ public enum MarkdownConverter {
                 titleNodes.append(node)
             }
         }
-        let title = renderChildren(Paragraph(titleNodes), autolinks: autolinks)
+        let title = renderChildren(Paragraph(titleNodes), sourceLines: sourceLines, autolinks: autolinks)
         let titleHTML = title.isEmpty ? HTML.escape(marker.kind.defaultTitle) : title
         var body = ""
         if breakIndex < inline.count {
             let remainder = inline.dropFirst(breakIndex + 1).compactMap { $0 as? any InlineMarkup }
-            if !remainder.isEmpty { body += render(Paragraph(remainder), autolinks: autolinks) }
+            if !remainder.isEmpty {
+                body += render(Paragraph(remainder), sourceLines: sourceLines, autolinks: autolinks)
+            }
         }
-        body += quote.children.dropFirst().map { render($0, autolinks: autolinks) }.joined()
+        body += quote.children.dropFirst().map { render($0, sourceLines: sourceLines, autolinks: autolinks) }.joined()
         return marker.kind.opening + "\n" + marker.kind.title(titleHTML) + "\n" + body + "</div>\n"
     }
 
-    private static func renderChildren(_ node: any Markup, autolinks: Bool = true) -> String {
+    private static func renderChildren(_ node: any Markup, sourceLines: [String], autolinks: Bool = true) -> String {
         var insideRawAnchor = false
         return node.children.map { child in
             if let html = child as? InlineHTML {
@@ -116,7 +131,7 @@ public enum MarkdownConverter {
                     insideRawAnchor = false
                 }
             }
-            return render(child, autolinks: autolinks && !insideRawAnchor)
+            return render(child, sourceLines: sourceLines, autolinks: autolinks && !insideRawAnchor)
         }.joined()
     }
 
@@ -172,14 +187,14 @@ public enum MarkdownConverter {
         return output + HTML.escape(String(text[cursor...]))
     }
 
-    private static func renderTable(_ table: Table) -> String {
+    private static func renderTable(_ table: Table, sourceLines: [String]) -> String {
         func cells(_ node: any Markup, tag: String) -> String {
             node.children.enumerated().map { index, cell in
                 var attributes = ""
                 if index < table.columnAlignments.count, let alignment = table.columnAlignments[index] {
                     attributes += " align=\"\(alignment)\""
                 }
-                return "<\(tag)\(attributes)>\(renderChildren(cell))</\(tag)>"
+                return "<\(tag)\(attributes)>\(renderChildren(cell, sourceLines: sourceLines))</\(tag)>"
             }.joined()
         }
         let head = "<thead><tr>\(cells(table.head, tag: "th"))</tr></thead>"
