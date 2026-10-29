@@ -1,4 +1,5 @@
-// Lists Surimono's on-screen windows from front to back, to check how many windows an open request produced.
+// Lists the development build's on-screen windows from front to back, to check how many windows an open request
+// produced. The Debug build is named Surimono Dev, so an installed release's windows are not counted.
 import CoreGraphics
 import Foundation
 
@@ -8,8 +9,8 @@ guard let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[S
     FileHandle.standardError.write(Data("Could not read the window list\n".utf8))
     exit(1)
 }
-let surimono = windows.filter { $0[kCGWindowOwnerName as String] as? String == "Surimono" }
-print("Surimono windows: \(surimono.count)")
+let surimono = windows.filter { $0[kCGWindowOwnerName as String] as? String == "Surimono Dev" }
+print("Surimono Dev windows: \(surimono.count)")
 for info in surimono {
     let layer = info[kCGWindowLayer as String] as? Int ?? -1
     let bounds = info[kCGWindowBounds as String] as? [String: Double] ?? [:]
