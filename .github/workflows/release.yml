@@ -39,6 +39,8 @@ jobs:
             exit 1
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
+          # CFBundleShortVersionString takes only X.Y.Z, so a prerelease is marked by the tag, the release name, and --prerelease.
+          echo "marketing=${version%%-*}" >> "$GITHUB_OUTPUT"
       - name: Check existing release tag
         id: release-tag
         if: github.event_name == 'workflow_dispatch'
@@ -67,8 +69,9 @@ jobs:
       - name: Package
         env:
           VERSION: ${{ steps.version.outputs.value }}
+          MARKETING_VERSION: ${{ steps.version.outputs.marketing }}
           BUILD_NUMBER: ${{ github.run_number }}
-        run: make package VERSION="$VERSION" BUILD_NUMBER="$BUILD_NUMBER"
+        run: make package VERSION="$VERSION" MARKETING_VERSION="$MARKETING_VERSION" BUILD_NUMBER="$BUILD_NUMBER"
       # Developer ID signing and notarization can replace ad-hoc signing here in a future release.
       - name: Publish release
         env:
