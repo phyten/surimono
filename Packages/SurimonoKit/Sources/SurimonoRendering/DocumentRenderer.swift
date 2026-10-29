@@ -8,13 +8,39 @@ public struct DocumentSource: Equatable, Sendable {
     public let format: DocumentFormat
     public let images: [Image]?
 
+    /// One image of a bundle. Its bytes are read only while its page is drawn and released afterwards, so a large
+    /// bundle such as a ZIP of photos is never held in memory at once. Images compare by file and content hash.
     public struct Image: Equatable, Sendable {
-        public let data: Data
-        public let fileURL: URL
+        /// The bytes read now are not the content the image was identified by, for example because the file was
+        /// edited after it was hashed.
+        public struct ContentChanged: Error, Equatable {
+            public let fileURL: URL
+        }
 
-        public init(data: Data, fileURL: URL) {
-            self.data = data
+        public let fileURL: URL
+        public let contentHash: ContentHash
+        private let load: @Sendable () throws -> Data
+
+        public init(fileURL: URL, contentHash: ContentHash, load: @escaping @Sendable () throws -> Data) {
             self.fileURL = fileURL
+            self.contentHash = contentHash
+            self.load = load
+        }
+
+        /// An image whose bytes are already in memory.
+        public init(data: Data, fileURL: URL) {
+            self.init(fileURL: fileURL, contentHash: .of(data), load: { data })
+        }
+
+        /// Reads the bytes and checks them against the content hash, so a page is never drawn from other content.
+        public func data() throws -> Data {
+            let data = try load()
+            guard ContentHash.of(data) == contentHash else { throw ContentChanged(fileURL: fileURL) }
+            return data
+        }
+
+        public static func == (lhs: Image, rhs: Image) -> Bool {
+            lhs.fileURL == rhs.fileURL && lhs.contentHash == rhs.contentHash
         }
     }
 
@@ -76,6 +102,8 @@ public struct RenderResult {
 public final class DocumentRenderer {
     public enum RenderingError: Error, Equatable {
         case noReadableImages([URL])
+        /// An image's content no longer matches the hash it was identified by; hash the images again and retry.
+        case imageChanged(URL)
         case unsupportedFormat
         case textDecodingFailed
         case invalidPDF
@@ -188,9 +216,26 @@ public final class DocumentRenderer {
         var unreadable: [URL] = []
         for image in images {
             try Task.checkCancellation()
+            // Read one image at a time, away from the main actor; its bytes go away once its page exists.
+            let loading = Task.detached(priority: Task.currentPriority) { try image.data() }
+            let data: Data
+            do {
+                data = try await withTaskCancellationHandler {
+                    try await loading.value
+                } onCancel: {
+                    loading.cancel()
+                }
+            } catch is DocumentSource.Image.ContentChanged {
+                throw RenderingError.imageChanged(image.fileURL)
+            } catch {
+                try Task.checkCancellation()
+                unreadable.append(image.fileURL)
+                continue
+            }
+            try Task.checkCancellation()
             do {
                 let rendered = try await ImagePageRenderer().render(
-                    image.data, pageSize: settings.layout.logicalPageSize,
+                    data, pageSize: settings.layout.logicalPageSize,
                     marginsInMillimeters: settings.options.marginsInMillimeters)
                 guard let page = rendered.page(at: 0) else { throw ImagePageRenderer.RenderingError.invalidImage }
                 document.insert(page, at: document.pageCount)

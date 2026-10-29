@@ -96,4 +96,55 @@ struct ImageBundleTests {
             _ = try await renderer.render(.images([bad]), settings: settings)
         }
     }
+
+    @Test("画像は描くときに1枚ずつ読み、同じ画像と設定ならキャッシュを使って読み直さない")
+    func readsEachImageOnceWhenDrawing() async throws {
+        let reads = ReadCounter()
+        let images = try ["1.png", "2.png", "3.png"].map { name in
+            let bytes = try image(name, color: (0, 1, 0)).data()
+            return DocumentSource.Image(fileURL: URL(fileURLWithPath: "/fixtures/" + name), contentHash: .of(bytes)) {
+                reads.add(name)
+                return bytes
+            }
+        }
+        let renderer = DocumentRenderer()
+        let first = try await renderer.render(.images(images), settings: settings)
+        #expect(first.logicalDocument.pageCount == 3)
+        #expect(reads.names == ["1.png", "2.png", "3.png"])
+        var duplex = settings
+        duplex.layout = .a4Duplex
+        _ = try await renderer.render(.images(images), settings: duplex)
+        #expect(reads.names.count == 3)
+    }
+
+    @Test("読み込みに失敗した画像は読めない画像として名前を返す")
+    func failingRead() async throws {
+        let good = try image("good.png", color: (1, 0, 0))
+        let missing = DocumentSource.Image(
+            fileURL: URL(fileURLWithPath: "/fixtures/missing.png"), contentHash: .of(Data("missing".utf8))
+        ) { throw CocoaError(.fileReadNoSuchFile) }
+        let result = try await DocumentRenderer().render(.images([missing, good]), settings: settings)
+        #expect(result.logicalDocument.pageCount == 1)
+        #expect(result.unreadableImageURLs == [missing.fileURL])
+    }
+
+    @Test("読んだ内容が識別したハッシュと違えば、別の内容で描かずに知らせる")
+    func changedContentIsReported() async throws {
+        let original = try image("photo.png", color: (1, 0, 0)).data()
+        let edited = try image("photo.png", color: (0, 0, 1)).data()
+        let url = URL(fileURLWithPath: "/fixtures/photo.png")
+        let stale = DocumentSource.Image(fileURL: url, contentHash: .of(original)) { edited }
+        await #expect(throws: DocumentRenderer.RenderingError.imageChanged(url)) {
+            _ = try await DocumentRenderer().render(.images([stale]), settings: settings)
+        }
+    }
+}
+
+/// Records which images were read; reads happen off the main actor.
+private final class ReadCounter: @unchecked Sendable {
+    // The lock serializes the reads from the loading tasks and the checks in the test.
+    private let lock = NSLock()
+    private var _names: [String] = []
+    var names: [String] { lock.withLock { _names } }
+    func add(_ name: String) { lock.withLock { _names.append(name) } }
 }

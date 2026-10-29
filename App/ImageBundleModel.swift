@@ -22,7 +22,6 @@ final class ImageBundleModel {
     /// Files in the archive that are not images, by path.
     let excludedPaths: [String]
     private let nameOrder: [Item]
-    private var loaded: [URL: Data] = [:]
     private(set) var hashes: [URL: ContentHash] = [:]
     private var needsFreshHashes = false
     private let read: @Sendable (Item) throws -> Data
@@ -122,40 +121,42 @@ final class ImageBundleModel {
     }
 
     func clearCache() {
-        loaded = [:]
         // Keep the digests until the images have been read again, so the remembered order stays complete meanwhile.
         needsFreshHashes = true
     }
 
+    /// Reads one image when a thumbnail needs it; nothing is cached, so a large ZIP never sits in memory.
     func data(for item: Item) async -> Data? {
-        if let data = loaded[item.url] { return data }
         let read = read
         return await Task.detached(priority: .utility) { try? read(item) }.value
     }
 
+    /// Hashes the images that are not known yet, one at a time without keeping their bytes, and hands the renderer
+    /// images that it reads again one at a time while drawing.
     func source() async throws -> DocumentSource {
         let items = items
-        let cached = loaded
         let known = needsFreshHashes ? [:] : hashes
         let read = read
-        let loading = Task.detached(priority: Task.currentPriority) {
-            try items.map { item -> (Item, Data, ContentHash) in
+        let hashing = Task.detached(priority: Task.currentPriority) {
+            try items.map { item -> (URL, ContentHash) in
                 try Task.checkCancellation()
-                let data = cached[item.url] ?? ((try? read(item)) ?? Data())
-                return (item, data, known[item.url] ?? ContentHash.of(data))
+                return (item.url, known[item.url] ?? ContentHash.of((try? read(item)) ?? Data()))
             }
         }
-        let images = try await withTaskCancellationHandler {
-            let images = try await loading.value
+        let computed = try await withTaskCancellationHandler {
+            let computed = try await hashing.value
             try Task.checkCancellation()
-            return images
+            return computed
         } onCancel: {
-            loading.cancel()
+            hashing.cancel()
         }
-        loaded = Dictionary(images.map { ($0.0.url, $0.1) }, uniquingKeysWith: { first, _ in first })
-        hashes = Dictionary(images.map { ($0.0.url, $0.2) }, uniquingKeysWith: { first, _ in first })
+        let fresh = Dictionary(computed, uniquingKeysWith: { first, _ in first })
+        hashes = fresh
         needsFreshHashes = false
-        return .images(images.map { DocumentSource.Image(data: $0.1, fileURL: $0.0.url) })
+        return .images(
+            items.map { item in
+                DocumentSource.Image(fileURL: item.url, contentHash: fresh[item.url] ?? .of(Data())) { try read(item) }
+            })
     }
 
     func title(language: String) -> String {

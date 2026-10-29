@@ -277,6 +277,30 @@ struct DocumentSettingsFlowTests {
         model.stop()
     }
 
+    @Test("開いたあとに画像が編集されたら、描き直す前にハッシュを取り直して新しい組として扱う", .timeLimit(.minutes(1)))
+    func editedImageIsRehashedBeforeDrawing() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let source = SlowImages(["a.png": TestFixtures.png(red: 0.1), "b.png": TestFixtures.png(red: 0.6)])
+        let urls = ["a.png", "b.png"].map { URL(fileURLWithPath: "/fixtures/" + $0) }
+        let bundle = ImageBundleModel(urls: urls, readImage: { try source.read($0) })
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .image, preferences: environment.preferences,
+            library: environment.library, imageBundle: bundle, settingsStore: environment.store)
+        try await open(model)
+        let before = try #require(model.contentHash)
+
+        // Edited outside the app; a print option change then needs the pages drawn again.
+        source.replace("b.png", with: TestFixtures.png(red: 0.9))
+        model.printOptions.marginsInMillimeters = 20
+        model.render()
+        try await waitUntil { !model.isRendering && model.contentHash != before }
+        #expect(model.error == nil)
+        #expect(model.contentHash == bundle.setHash)
+        #expect(model.renderedSettings?.options.marginsInMillimeters == 20)
+        model.stop()
+    }
+
     @Test("中身の変わった画像の束を読み直すと、並び順とキーを同時に切り替え、前の記録は書き換えない", .timeLimit(.minutes(1)))
     func reloadingChangedBundleSwitchesKeyWithDigests() async throws {
         let environment = try environment()
