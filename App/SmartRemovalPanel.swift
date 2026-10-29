@@ -49,7 +49,7 @@ struct SmartRemovalPanel: View {
         }
         .padding(12)
         .frame(width: 280)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .paperOverlayBackground(cornerRadius: 12, tintOpacity: 0.985)
         .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
     }
 
