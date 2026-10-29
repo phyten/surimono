@@ -170,6 +170,8 @@ make clean
 - メニューの `.disabled(...)` をキーウィンドウのモデルから作ると、SwiftUI はメニューを開くまで更新せず、ショートカットが効かないままになる。項目は有効のままにして、できないときはモデル側で何もしない。
 - DocumentGroup の窓でツールバー項目をすべて消すと SwiftUI はツールバーごと消し、タイトルバーが縮む。ツールバーを自前の NSToolbar に差し替えると SwiftUI の監視でクラッシュする。印刷モードは見えない項目（`PrintModeToolbarPlaceholder`）でタイトルバーの高さを保つ。画像の束の窓では `sceneBridgingOptions = [.toolbars]` で同じツールバーを使う。
 - SwiftUI がビューを組み直している最中に、SwiftUI が KVO で監視する窓のプロパティ（`isMovableByWindowBackground` など）を設定すると落ちる（同じ値でも通知される）。`WindowReader` は更新が終わってから窓を渡し、`ViewerWindow.configure` は値が違うときだけ設定する。
+- 印刷モードとの切り替えで、表示モードのビュー（`PaperPDFView` を含む）は作り直される。戻したい状態はビューの中だけに持たず、モデルから渡す（読んでいたページは `DocumentViewModel.currentPageIndex` から `PaperView.initialPageIndex` で戻す）。
+- 紙（ページ）はダークでも白い。紙の上に浮かべるパネルにマテリアルだけを敷くと、白い紙の上で中間のグレーになり補足の文字が読めない。`paperOverlayBackground` を使う。
 - エージェントのサンドボックス（Codex など）では、LaunchServices（UTType の準拠関係）、testmanagerd（ホスト付きテスト）、WebKit の子プロセス、ホーム配下のキャッシュへの書き込みが拒否されることがある。ビルドだけなら `CFFIXED_USER_HOME` などを `build/` 配下に向ける回避策があるが、Makefile には入れない。テストと起動の最終確認は通常の環境で `make test` / `make run` を実行して行う。
 
 ## スキル
