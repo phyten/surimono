@@ -91,6 +91,12 @@
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))
                 }
+                if let value = argument("SurimonoThenLayout"), let layout = ViewOptions.Layout(rawValue: value) {
+                    // Change the layout with everything shown, as a reader does with the view options open; the window
+                    // then resizes to the new shape.
+                    model.setLayout(layout)
+                    try? await Task.sleep(for: .milliseconds(1200))
+                }
                 if argument("SurimonoMode") == "roundtrip" {
                     // Into the print mode and back, to check that the view mode returns as it was.
                     model.enterPrintMode()

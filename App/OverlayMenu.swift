@@ -167,10 +167,8 @@ struct OverlayBand: View {
             title
             Spacer(minLength: 8)
             if stage == .full {
-                ViewThatFits(in: .horizontal) {
-                    tools(overflow: false)
-                    tools(overflow: true)
-                }
+                // Ahead of the spacer, so the style menu keeps its name whenever the band has room for it.
+                tools.layoutPriority(0.5)
             } else if model.isAlwaysOnTop {
                 Image(systemName: "pin.fill").foregroundStyle(.secondary).help("Floating on Top")
             }
@@ -201,44 +199,45 @@ struct OverlayBand: View {
         .layoutPriority(1)
     }
 
-    @ViewBuilder private func tools(overflow: Bool) -> some View {
+    /// Only the style menu adapts to the width. Switching between whole variants of the tools would rebuild the view
+    /// options button, and with it close its popover, whenever a layout change resizes the window.
+    private var tools: some View {
         HStack(spacing: 8) {
-            if !overflow { StyleMenu(model: model) }
-            LayoutPicker(model: model)
-            ViewOptionsButton(model: model)
-            if model.zoom > 1.001 {
-                Button {
-                    model.paper.zoomToFit()
-                } label: {
-                    Text(verbatim: "\(Int((model.zoom * 100).rounded()))%").monospacedDigit()
+            if model.format.usesPrintTheme || model.format.usesHTMLPreset {
+                ViewThatFits(in: .horizontal) {
+                    StyleMenu(model: model, showsName: true)
+                    StyleMenu(model: model, showsName: false)
                 }
-                .help("Fit to Window")
             }
-            if model.imageBundle != nil {
-                Toggle(isOn: $model.isDrawerOpen) { Label("Thumbnails", systemImage: "sidebar.left") }
-                    .toggleStyle(.button).help("Thumbnails")
-            }
-            Toggle(isOn: $model.isAlwaysOnTop) {
-                Label("Float on Top", systemImage: model.isAlwaysOnTop ? "pin.fill" : "pin")
-            }
-            .toggleStyle(.button).help("Float on Top")
-            Toggle(isOn: $model.isMenuPinned) {
-                Label("Keep Menu Visible", systemImage: "menubar.rectangle")
-            }
-            .toggleStyle(.button).help("Keep Menu Visible")
-            if overflow {
-                Menu {
-                    StyleMenuItems(model: model)
-                } label: {
-                    Label("More", systemImage: "ellipsis.circle")
+            HStack(spacing: 8) {
+                LayoutPicker(model: model)
+                ViewOptionsButton(model: model)
+                if model.zoom > 1.001 {
+                    Button {
+                        model.paper.zoomToFit()
+                    } label: {
+                        Text(verbatim: "\(Int((model.zoom * 100).rounded()))%").monospacedDigit()
+                    }
+                    .help("Fit to Window")
                 }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("More")
+                if model.imageBundle != nil {
+                    Toggle(isOn: $model.isDrawerOpen) { Label("Thumbnails", systemImage: "sidebar.left") }
+                        .toggleStyle(.button).help("Thumbnails")
+                }
+                Toggle(isOn: $model.isAlwaysOnTop) {
+                    Label("Float on Top", systemImage: model.isAlwaysOnTop ? "pin.fill" : "pin")
+                }
+                .toggleStyle(.button).help("Float on Top")
+                Toggle(isOn: $model.isMenuPinned) {
+                    Label("Keep Menu Visible", systemImage: "menubar.rectangle")
+                }
+                .toggleStyle(.button).help("Keep Menu Visible")
             }
+            .labelStyle(.iconOnly)
+            .fixedSize()
         }
-        .labelStyle(.iconOnly)
         .buttonStyle(.borderless)
         .controlSize(.regular)
-        .fixedSize()
     }
 }
 
@@ -270,22 +269,22 @@ struct PrintButton: View {
     }
 }
 
-/// Print themes for text formats and cleanup presets for HTML; PDFs and images print as they are.
+/// Print themes for text formats and cleanup presets for HTML; PDFs and images print as they are. Narrow windows show
+/// the icon alone.
 private struct StyleMenu: View {
     @Bindable var model: DocumentViewModel
+    let showsName: Bool
 
     var body: some View {
-        if model.format.usesPrintTheme || model.format.usesHTMLPreset {
-            Menu {
-                StyleMenuItems(model: model)
-            } label: {
-                Label(currentName, systemImage: model.format.usesHTMLPreset ? "wand.and.rays" : "textformat")
-                    .labelStyle(.titleAndIcon)
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help(model.format.usesHTMLPreset ? "HTML Preset" : "Print Theme")
+        Menu {
+            StyleMenuItems(model: model)
+        } label: {
+            let label = Label(currentName, systemImage: model.format.usesHTMLPreset ? "wand.and.rays" : "textformat")
+            if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
         }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(model.format.usesHTMLPreset ? "HTML Preset" : "Print Theme")
     }
 
     private var currentName: String {
