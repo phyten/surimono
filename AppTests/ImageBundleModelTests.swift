@@ -14,7 +14,7 @@ struct ImageBundleModelTests {
         model.move(fromOffsets: IndexSet(integer: 0), toOffset: 3)
         let source = try await model.source()
         #expect(source.images?.map(\.fileURL) == [urls[1], urls[2], urls[0]])
-        #expect(source.images?.first?.data == Data("2.png".utf8))
+        #expect(try source.images?.first?.data() == Data("2.png".utf8))
     }
 
     @Test("選択画像を前後へ動かし先頭と末尾では動かさない")
@@ -71,7 +71,7 @@ struct ImageBundleModelTests {
         let model = ImageBundleModel(urls: urls, readImage: { _ in throw CocoaError(.fileReadNoPermission) })
         let source = try await model.source()
         #expect(source.images?.map(\.fileURL) == urls)
-        #expect(source.images?.allSatisfy { $0.data.isEmpty } == true)
+        #expect(source.images?.allSatisfy { (try? $0.data()) == nil } == true)
     }
 
     @Test("画像の内容から集合のハッシュと並び順のダイジェストを作る")
@@ -156,7 +156,7 @@ struct ImageBundleModelTests {
         #expect(model.items.map(\.name) == ["写真/IMG.png", "写真/IMG.png"])
         let source = try await model.source()
         #expect(source.images?.count == 2)
-        #expect(source.images?[0].data != source.images?[1].data)
+        #expect(try source.images?[0].data() != source.images?[1].data())
     }
 }
 

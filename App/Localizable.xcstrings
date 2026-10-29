@@ -1476,6 +1476,17 @@
           }
         }
       }
+    },
+    "The images keep changing. Try reloading the document.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像が変わり続けています。読み直してください。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -67,6 +67,7 @@ final class DocumentViewModel {
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var hashTask: Task<Void, Never>?
     @ObservationIgnored private var openFailure: String?
+    @ObservationIgnored private var retriedChangedImages = false
     @ObservationIgnored private var hasShownArchiveSummary = false
     private var hasResolvedViewOptions = false
     @ObservationIgnored private var defaultViewOptions: ViewOptions?
@@ -294,8 +295,16 @@ final class DocumentViewModel {
                     }
                 }
                 isRendering = false
+                retriedChangedImages = false
             } catch is CancellationError {
                 // A superseding request owns the progress indicator.
+            } catch DocumentRenderer.RenderingError.imageChanged where !retriedChangedImages && imageBundle != nil {
+                guard !Task.isCancelled else { return }
+                // An image was edited after it was hashed: hash the images again, which carries the settings over to
+                // the new set, and draw again. A second change in a row is reported below instead of looping.
+                retriedChangedImages = true
+                imageBundle?.clearCache()
+                render()
             } catch {
                 guard !Task.isCancelled else { return }
                 if case DocumentRenderer.RenderingError.noReadableImages(let urls) = error {
@@ -718,6 +727,7 @@ final class DocumentViewModel {
         guard let error = error as? DocumentRenderer.RenderingError else { return error.localizedDescription }
         switch error {
         case .noReadableImages: return String(localized: "None of the images could be opened.")
+        case .imageChanged: return String(localized: "The images keep changing. Try reloading the document.")
         case .invalidPDF: return String(localized: "This PDF could not be opened.")
         case .encryptedPDF: return String(localized: "Encrypted PDFs cannot be printed. Open an unlocked copy.")
         case .textDecodingFailed: return String(localized: "The text encoding could not be read without data loss.")
