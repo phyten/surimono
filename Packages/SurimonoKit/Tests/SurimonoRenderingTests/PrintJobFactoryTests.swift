@@ -28,6 +28,24 @@ struct PrintJobFactoryTests {
         #expect(duplex == PMDuplexMode(expected))
     }
 
+    @Test("プリンターを指定しなければ、もとの設定のプリンターに送る")
+    func keepsTheBasePrinter() {
+        let base = NSPrintInfo()
+        let info = PrintJobFactory().printInfo(for: .a4Single, base: base)
+        #expect(info.printer.name == base.printer.name)
+    }
+
+    @Test(
+        "指定したプリンターに送り、用紙はレイアウトのまま", .enabled(if: !NSPrinter.printerNames.isEmpty, "プリンターがある環境だけ"))
+    func usesTheChosenPrinter() throws {
+        let name = try #require(NSPrinter.printerNames.last)
+        let printer = try #require(NSPrinter(name: name))
+        let info = PrintJobFactory().printInfo(for: .a3BookletA4, base: NSPrintInfo(), printer: printer)
+        #expect(info.printer.name == name)
+        #expect(info.orientation == .landscape)
+        #expect(abs(info.paperSize.width - 1190.55) < 1)
+    }
+
     @Test("印刷パネルで用紙と向きと部数と範囲を変更できる")
     func panel() throws {
         _ = NSApplication.shared
