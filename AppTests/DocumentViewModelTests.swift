@@ -10,10 +10,9 @@ struct DocumentViewModelTests {
     func renderSettings() throws {
         let library = UserLibrary(
             root: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
-        let suite = "SurimonoTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let preferences = AppPreferences(defaults: defaults)
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
         preferences.themeID = "mincho"
         preferences.presetID = "clean"
         preferences.allowsJavaScript = true
@@ -31,10 +30,9 @@ struct DocumentViewModelTests {
 
     @Test("ウィンドウで選んだレイアウトは既定値や別の文書を変えない")
     func windowDefaults() {
-        let suite = "SurimonoTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let preferences = AppPreferences(defaults: defaults)
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
         let library = UserLibrary(
             root: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
         let first = DocumentViewModel(

@@ -15,14 +15,13 @@ struct SmartRemovalSettingsTests {
 
     private func environment() throws -> (AppPreferences, UserLibrary, DocumentSettingsStore, () -> Void) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let suite = "SurimonoTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let suite = TestDefaultsSuite()
         return (
-            AppPreferences(defaults: defaults), UserLibrary(root: directory.appendingPathComponent("Library")),
+            AppPreferences(defaults: suite.defaults), UserLibrary(root: directory.appendingPathComponent("Library")),
             DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")),
             {
                 try? FileManager.default.removeItem(at: directory)
-                UserDefaults().removePersistentDomain(forName: suite)
+                suite.remove()
             }
         )
     }

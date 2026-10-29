@@ -15,11 +15,11 @@ struct DocumentSettingsFlowTests {
         let library: UserLibrary
         let store: DocumentSettingsStore
         let directory: URL
-        let suite: String
+        let suite: TestDefaultsSuite
 
         func cleanUp() {
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults().removePersistentDomain(forName: suite)
+            suite.remove()
         }
 
         func model(_ data: Data, url: URL? = nil) -> DocumentViewModel {
@@ -31,10 +31,9 @@ struct DocumentSettingsFlowTests {
 
     private func environment() throws -> Environment {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let suite = "SurimonoTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
+        let suite = TestDefaultsSuite()
         return Environment(
-            preferences: AppPreferences(defaults: defaults),
+            preferences: AppPreferences(defaults: suite.defaults),
             library: UserLibrary(root: directory.appendingPathComponent("Library")),
             store: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")),
             directory: directory, suite: suite)

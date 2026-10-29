@@ -30,13 +30,12 @@ struct OutputAndLibraryTests {
         if reloading { library.reload() }
         #expect(library.error != nil)
         #expect(library.presets.contains { $0.id == "none" && $0.isBuiltIn })
-        let suite = "SurimonoTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
         for format in [DocumentFormat.pdf, .markdown] {
             let model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: format,
-                preferences: AppPreferences(defaults: defaults), library: library)
+                preferences: AppPreferences(defaults: suite.defaults), library: library)
             let settings = try #require(model.renderSettings)
             #expect(settings.preset.id == "none")
         }
@@ -86,9 +85,8 @@ struct OutputAndLibraryTests {
     private func withRenderedPDF(_ body: (DocumentViewModel, URL) throws -> Void) async throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let suite = "SurimonoTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
         let data = NSMutableData()
         let consumer = try #require(CGDataConsumer(data: data))
         var bounds = CGRect(x: 0, y: 0, width: 595, height: 842)
@@ -100,7 +98,7 @@ struct OutputAndLibraryTests {
         context.closePDF()
         let model = DocumentViewModel(
             data: data as Data, fileURL: nil, format: .pdf,
-            preferences: AppPreferences(defaults: defaults), library: UserLibrary(root: directory))
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
         defer { model.stop() }
         model.render()
         let deadline = ContinuousClock.now + .seconds(5)
