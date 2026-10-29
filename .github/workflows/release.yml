@@ -81,8 +81,16 @@ jobs:
           notes_file="$(mktemp)"
           trap 'rm -f "$notes_file"' EXIT
           cat > "$notes_file" <<'NOTES'
-          このアプリはアドホック署名のため、初回起動時に Gatekeeper の警告が出ます。
-          Finder で右クリック →「開く」、または `xattr -dr com.apple.quarantine Surimono.app` で起動できます。
+          Surimono は Apple の公証を受けていない（アドホック署名の）ため、初回の起動で Gatekeeper の警告が出ます。macOS 15 以降は Finder の右クリック →「開く」では起動できないので、次の手順で開いてください。
+
+          1. ZIP を展開し、Surimono.app を「アプリケーション」フォルダへ移す
+          2. Surimono.app をダブルクリックし、警告が出たら「完了」で閉じる（「ゴミ箱に入れる」は押さない）
+          3. アップルメニュー →「システム設定」→「プライバシーとセキュリティ」を開き、「セキュリティ」の欄にある「このまま開く」をクリックする（開こうとしてから約 1 時間だけ表示されます）
+          4. 確認の画面で開くことを選び、ログインパスワードを入力する
+
+          2 回目からはダブルクリックで開けます。詳しくは Apple のサポート記事「[Mac でアプリを安全に開く](https://support.apple.com/ja-jp/102445)」を参照してください。
+
+          **ターミナルを使う場合**: `xattr -dr com.apple.quarantine /Applications/Surimono.app` でも開けるようになります。ダウンロードしたファイルに macOS が付ける隔離の印（拡張属性 `com.apple.quarantine`）を、アプリの中のファイルまで含めて（`-r`）消す（`-d`）コマンドです。印が消えると Gatekeeper はこのアプリを確かめずに起動させるので、入手元を信頼できるときだけ使ってください。
           NOTES
           args=("v$VERSION" --title "Surimono $VERSION" --generate-notes --notes-file "$notes_file")
           if [[ "$EVENT_NAME" == "push" || "$TAG_EXISTS" == "true" ]]; then

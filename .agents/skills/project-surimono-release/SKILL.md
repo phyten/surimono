@@ -33,10 +33,11 @@ description: Cuts a Surimono release by choosing the version, pinning the commit
 
    ワークフローの手動実行（`gh workflow run release.yml`）は使わない。`--ref` はブランチの先頭を指すだけで、確認した SHA に公開対象を固定できない（承認後に master が進むと別のコミットが公開される）。
 6. 実行を見届ける: `gh run watch`。失敗したらログで原因を直してから再実行する。タグやリリースが途中まで作られていたら、消すかどうかをユーザーに確認する。
-7. 成果物を確かめる: `gh release view v<X.Y.Z>` に `Surimono-<X.Y.Z>.zip` と `.sha256` があること。ダウンロードして `shasum -a 256 -c` で照合し、展開して起動する（アドホック署名なので `xattr -dr com.apple.quarantine Surimono.app` が必要な場合がある）。
+7. 成果物を確かめる: `gh release view v<X.Y.Z>` に `Surimono-<X.Y.Z>.zip` と `.sha256` があること。ダウンロードして `shasum -a 256 -c` で照合し、展開して起動する。アドホック署名なので Gatekeeper に止められる。macOS 15 以降は Finder の右クリック →「開く」では越えられないため、リリースノートの手順（システム設定の「プライバシーとセキュリティ」→「このまま開く」）で開けることを確かめる。起動だけを手早く確かめるなら、`xattr -dr com.apple.quarantine Surimono.app`（ダウンロードで付いた隔離の印を消し、Gatekeeper の確認を省く）でもよい。
 
 ## 補足
 
 - アプリの `MARKETING_VERSION` はリリース時にワークフローが上書きする。`Configs/Base.xcconfig` の値は開発中の既定値。
 - release.yml は、手動実行で既存のタグが別のコミットを指している場合、ビルドの前に停止する。
+- リリースノートの起動の案内は release.yml の `Publish release` にある。macOS 15 以降は右クリック →「開く」で Gatekeeper を越えられない（[Apple の告知](https://developer.apple.com/news/?id=saqachfa)）ので、その案内に戻さない。手順は [Mac でアプリを安全に開く](https://support.apple.com/ja-jp/102445) に合わせる。
 - Developer ID 署名・公証にはまだ対応していない。導入するときは Secrets（証明書、App Store Connect API キー）を追加して release.yml を拡張する。
