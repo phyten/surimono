@@ -133,39 +133,6 @@
         }
       }
     },
-    "System": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "システム"
-          }
-        }
-      }
-    },
-    "Light": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ライト"
-          }
-        }
-      }
-    },
-    "Dark": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ダーク"
-          }
-        }
-      }
-    },
     "Layout": {
       "extractionState": "manual",
       "localizations": {
@@ -195,50 +162,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "HTML プリセット"
-          }
-        }
-      }
-    },
-    "Preview": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "表示"
-          }
-        }
-      }
-    },
-    "Sheets": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用紙"
-          }
-        }
-      }
-    },
-    "Pages": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ページ"
-          }
-        }
-      }
-    },
-    "Cycle Appearance": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "外観を切り替える"
           }
         }
       }
@@ -298,17 +221,6 @@
         }
       }
     },
-    "Print Preview": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "印刷プレビュー"
-          }
-        }
-      }
-    },
     "Preparing pages…": {
       "extractionState": "manual",
       "localizations": {
@@ -320,17 +232,6 @@
         }
       }
     },
-    "No preview is available.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレビューを表示できません。"
-          }
-        }
-      }
-    },
     "Dismiss": {
       "extractionState": "manual",
       "localizations": {
@@ -338,17 +239,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "閉じる"
-          }
-        }
-      }
-    },
-    "Appearance": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "外観"
           }
         }
       }
@@ -868,6 +758,721 @@
           "stringUnit": {
             "state": "translated",
             "value": "画像を下に移動"
+          }
+        }
+      }
+    },
+    "Floating on Top": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最前面に固定中"
+          }
+        }
+      }
+    },
+    "Fit to Window": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウに合わせる"
+          }
+        }
+      }
+    },
+    "Thumbnails": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サムネイル"
+          }
+        }
+      }
+    },
+    "Float on Top": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最前面に固定"
+          }
+        }
+      }
+    },
+    "Keep Menu Visible": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メニューを固定"
+          }
+        }
+      }
+    },
+    "More": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その他"
+          }
+        }
+      }
+    },
+    "Print": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷"
+          }
+        }
+      }
+    },
+    "View": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示"
+          }
+        }
+      }
+    },
+    "Spread, Single Page or Two-Page Scroll": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見開き・単ページ・2ページずつ"
+          }
+        }
+      }
+    },
+    "View Options": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示のオプション"
+          }
+        }
+      }
+    },
+    "View Options…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示のオプション…"
+          }
+        }
+      }
+    },
+    "Spread": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見開き"
+          }
+        }
+      }
+    },
+    "Single Page": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "単ページ"
+          }
+        }
+      }
+    },
+    "Two-Page Scroll": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2ページずつ"
+          }
+        }
+      }
+    },
+    "Direction": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "向き"
+          }
+        }
+      }
+    },
+    "Left to Right · Bound Left": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左から右へ・左綴じ"
+          }
+        }
+      }
+    },
+    "Right to Left · Bound Right": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右から左へ・右綴じ"
+          }
+        }
+      }
+    },
+    "Scrolling": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スクロール"
+          }
+        }
+      }
+    },
+    "Vertical": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縦"
+          }
+        }
+      }
+    },
+    "Horizontal": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "横"
+          }
+        }
+      }
+    },
+    "Page Turn": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送り方"
+          }
+        }
+      }
+    },
+    "Scroll": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スクロール"
+          }
+        }
+      }
+    },
+    "Switch": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切り替え"
+          }
+        }
+      }
+    },
+    "Slide": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スライド"
+          }
+        }
+      }
+    },
+    "Fade": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フェード"
+          }
+        }
+      }
+    },
+    "Page Curl": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "めくり"
+          }
+        }
+      }
+    },
+    "Cover": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表紙"
+          }
+        }
+      }
+    },
+    "Show Alone": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "単独で表示"
+          }
+        }
+      }
+    },
+    "Settings are remembered for this content, whatever the file is called.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この内容の設定として覚えます。ファイル名は関係しません。"
+          }
+        }
+      }
+    },
+    "Reset to Defaults": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定に戻す"
+          }
+        }
+      }
+    },
+    "Sample": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見本"
+          }
+        }
+      }
+    },
+    "Spreads": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見開きの組み"
+          }
+        }
+      }
+    },
+    "Shows this document as spreads. ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書を見開きで表示します。"
+          }
+        }
+      }
+    },
+    "Shows this document one page at a time. ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書を 1 ページずつ表示します。"
+          }
+        }
+      }
+    },
+    "Shows this document as spreads and scrolls one spread at a time. ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書を見開きで表示し、1 見開きずつスクロールします。"
+          }
+        }
+      }
+    },
+    "Pages turn from left to right (bound on the left). ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページは左から右へ送ります（左綴じ）。"
+          }
+        }
+      }
+    },
+    "Pages turn from right to left (bound on the right). ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページは右から左へ送ります（右綴じ）。"
+          }
+        }
+      }
+    },
+    "The cover is shown alone. ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表紙は単独で表示します。"
+          }
+        }
+      }
+    },
+    "Scrolling is vertical. ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スクロールは縦方向です。"
+          }
+        }
+      }
+    },
+    "Scrolling is horizontal. ": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スクロールは横方向です。"
+          }
+        }
+      }
+    },
+    "Pages scroll continuously.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページは続けてスクロールします。"
+          }
+        }
+      }
+    },
+    "Pages switch instantly.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページはすぐに切り替わります。"
+          }
+        }
+      }
+    },
+    "Pages slide into place.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページはスライドして切り替わります。"
+          }
+        }
+      }
+    },
+    "Pages fade into each other.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページはフェードして切り替わります。"
+          }
+        }
+      }
+    },
+    "Pages curl like paper.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページは紙のようにめくれます。"
+          }
+        }
+      }
+    },
+    "Restored the previous view settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前回の表示設定を戻しました"
+          }
+        }
+      }
+    },
+    "Content sha256 %@…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容の sha256 %@…"
+          }
+        }
+      }
+    },
+    "Opened %lld images": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像 %lld 枚を開きました"
+          }
+        }
+      }
+    },
+    "%lld non-image files excluded (%@)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像以外の %1$lld 件は除外（%2$@）"
+          }
+        }
+      }
+    },
+    "This ZIP archive contains no images.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この ZIP には画像がありません。"
+          }
+        }
+      }
+    },
+    "Encrypted ZIP archives cannot be opened.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暗号化された ZIP は開けません。"
+          }
+        }
+      }
+    },
+    "This ZIP archive is too large to open.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この ZIP は大きすぎるため開けません。"
+          }
+        }
+      }
+    },
+    "This ZIP archive could not be read.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この ZIP を読み込めませんでした。"
+          }
+        }
+      }
+    },
+    "%@ — %lld images": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ — 画像 %2$lld 枚"
+          }
+        }
+      }
+    },
+    "%@ (%lld)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@（%2$lld 件）"
+          }
+        }
+      }
+    },
+    "Image Order": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像の並び"
+          }
+        }
+      }
+    },
+    "Close": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        }
+      }
+    },
+    "Drag to reorder, or move the selected image with ⌥⌘↑ and ⌥⌘↓.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドラッグで並べ替えます。選んだ画像は ⌥⌘↑・⌥⌘↓ でも動かせます。"
+          }
+        }
+      }
+    },
+    "%lld non-image files excluded": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像以外の %lld 件は除外"
+          }
+        }
+      }
+    },
+    "Sort by Name": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前順に戻す"
+          }
+        }
+      }
+    },
+    "Zoom In": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡大"
+          }
+        }
+      }
+    },
+    "Zoom Out": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縮小"
+          }
+        }
+      }
+    },
+    "Reset Document Settings": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書の設定を既定に戻す"
+          }
+        }
+      }
+    },
+    "Show Thumbnails": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サムネイルを表示"
+          }
+        }
+      }
+    },
+    "This ZIP archive changed. Close and reopen it to see the new images.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この ZIP が変更されました。新しい画像を見るには、閉じてから開き直してください。"
           }
         }
       }

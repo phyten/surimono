@@ -45,14 +45,14 @@ struct OutputAndLibraryTests {
     @Test("PDF書き出しの失敗後もプレビューを保持し別の保存先へ再出力できる", .timeLimit(.minutes(1)))
     func exportFailureAllowsRetry() async throws {
         try await withRenderedPDF { model, directory in
-            let preview = try #require(model.previewDocument)
+            let preview = try #require(model.result?.logicalDocument)
             #expect(model.beginPDFExport())
             model.completePDFExport(to: directory.appendingPathComponent("missing/output.pdf"))
             #expect(model.outputError != nil)
             #expect(model.error == nil)
             #expect(!model.isExporting)
             #expect(model.canOutput)
-            #expect(model.previewDocument === preview)
+            #expect(model.result?.logicalDocument === preview)
             let destination = directory.appendingPathComponent("retry.pdf")
             #expect(model.beginPDFExport())
             model.completePDFExport(to: destination)

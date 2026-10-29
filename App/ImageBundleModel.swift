@@ -6,41 +6,143 @@ import SwiftUI
 
 @Observable
 final class ImageBundleModel {
-    private(set) var urls: [URL]
+    struct Item: Identifiable, Hashable, Sendable {
+        /// The image file, or for an entry of a ZIP archive the archive's URL with the entry path appended. It only
+        /// identifies the image; nothing is ever written there.
+        let url: URL
+        /// The file name, or the path inside the archive.
+        let name: String
+        var id: URL { url }
+    }
+
+    private(set) var items: [Item]
     var selection: URL?
+    /// The ZIP archive the images come from, if any.
+    let archiveURL: URL?
+    /// Files in the archive that are not images, by path.
+    let excludedPaths: [String]
+    private let nameOrder: [Item]
     private var loaded: [URL: Data] = [:]
-    private let readImage: @Sendable (URL) throws -> Data
+    private(set) var hashes: [URL: ContentHash] = [:]
+    private var needsFreshHashes = false
+    private let read: @Sendable (Item) throws -> Data
 
     init(urls: [URL], readImage: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }) {
-        self.urls = urls
-        selection = urls.first
-        self.readImage = readImage
+        let items = urls.map { Item(url: $0, name: $0.lastPathComponent) }
+        self.items = items
+        nameOrder = items
+        archiveURL = nil
+        excludedPaths = []
+        read = { try readImage($0.url) }
+        selection = items.first?.url
+    }
+
+    /// The images of a ZIP archive in path order, decompressed from memory when needed.
+    init(archive: ZipArchive, selection images: ZipImageSelection, archiveURL: URL) {
+        // An archive may hold several entries with the same path, so the position in the selection keeps each one.
+        let pairs = images.images.enumerated().map { index, entry in
+            (
+                archiveURL.appendingPathComponent(String(index), isDirectory: true).appendingPathComponent(entry.path),
+                entry
+            )
+        }
+        let entries = Dictionary(uniqueKeysWithValues: pairs)
+        let items = pairs.map { url, entry in Item(url: url, name: entry.path) }
+        self.items = items
+        nameOrder = items
+        self.archiveURL = archiveURL
+        excludedPaths = images.excludedPaths
+        read = { item in
+            guard let entry = entries[item.url] else { throw CocoaError(.fileReadCorruptFile) }
+            return try archive.contents(of: entry)
+        }
+        selection = items.first?.url
+    }
+
+    var urls: [URL] { items.map(\.url) }
+    var isSortedByName: Bool { items == nameOrder }
+
+    /// The excluded files by name, with the macOS resource-fork folder counted as one entry.
+    var excludedSummary: [String] { Self.summarize(excludedPaths: excludedPaths) }
+
+    static func summarize(excludedPaths: [String]) -> [String] {
+        var names: [String] = []
+        var counts: [String: Int] = [:]
+        for path in excludedPaths {
+            let name = path.hasPrefix("__MACOSX/") ? "__MACOSX" : (path as NSString).lastPathComponent
+            if counts[name] == nil { names.append(name) }
+            counts[name, default: 0] += 1
+        }
+        return names.map { name in
+            let count = counts[name] ?? 1
+            return count > 1 ? String(format: String(localized: "%@ (%lld)"), name, count) : name
+        }
+    }
+
+    /// The set of images, independent of their order and names; nil until every image has been read.
+    var setHash: ContentHash? {
+        let values = items.compactMap { hashes[$0.url] }
+        return values.count == items.count && !values.isEmpty ? ContentHash.imageSet(values) : nil
+    }
+
+    /// The content digests in display order, which restore the order even for renamed copies.
+    var orderDigests: [String]? {
+        let values = items.compactMap { hashes[$0.url]?.hex }
+        return values.count == items.count && !values.isEmpty ? values : nil
     }
 
     func move(fromOffsets offsets: IndexSet, toOffset destination: Int) {
-        urls.move(fromOffsets: offsets, toOffset: destination)
+        items.move(fromOffsets: offsets, toOffset: destination)
     }
 
     func canMoveSelection(by offset: Int) -> Bool {
-        guard let selection, let index = urls.firstIndex(of: selection) else { return false }
-        return urls.indices.contains(index + offset)
+        guard let selection, let index = items.firstIndex(where: { $0.url == selection }) else { return false }
+        return items.indices.contains(index + offset)
     }
 
     func moveSelection(by offset: Int) {
-        guard canMoveSelection(by: offset), let selection, let index = urls.firstIndex(of: selection) else { return }
-        urls.swapAt(index, index + offset)
+        guard canMoveSelection(by: offset), let selection,
+            let index = items.firstIndex(where: { $0.url == selection })
+        else { return }
+        items.swapAt(index, index + offset)
     }
 
-    func clearCache() { loaded = [:] }
+    func sortByName() {
+        guard !isSortedByName else { return }
+        items = nameOrder
+    }
+
+    /// Restores a saved order; returns false when the saved digests describe other images.
+    @discardableResult
+    func applyOrder(_ digests: [String]) -> Bool {
+        guard let ordered = ImageOrder.apply(digests, to: items, digest: { [hashes] in hashes[$0.url]?.hex ?? "" })
+        else { return false }
+        items = ordered
+        return true
+    }
+
+    func clearCache() {
+        loaded = [:]
+        // Keep the digests until the images have been read again, so the remembered order stays complete meanwhile.
+        needsFreshHashes = true
+    }
+
+    func data(for item: Item) async -> Data? {
+        if let data = loaded[item.url] { return data }
+        let read = read
+        return await Task.detached(priority: .utility) { try? read(item) }.value
+    }
 
     func source() async throws -> DocumentSource {
-        let urls = urls
+        let items = items
         let cached = loaded
-        let read = readImage
+        let known = needsFreshHashes ? [:] : hashes
+        let read = read
         let loading = Task.detached(priority: Task.currentPriority) {
-            try urls.map { url in
+            try items.map { item -> (Item, Data, ContentHash) in
                 try Task.checkCancellation()
-                return DocumentSource.Image(data: cached[url] ?? ((try? read(url)) ?? Data()), fileURL: url)
+                let data = cached[item.url] ?? ((try? read(item)) ?? Data())
+                return (item, data, known[item.url] ?? ContentHash.of(data))
             }
         }
         let images = try await withTaskCancellationHandler {
@@ -50,20 +152,31 @@ final class ImageBundleModel {
         } onCancel: {
             loading.cancel()
         }
-        loaded = Dictionary(uniqueKeysWithValues: images.map { ($0.fileURL, $0.data) })
-        return .images(images)
+        loaded = Dictionary(images.map { ($0.0.url, $0.1) }, uniquingKeysWith: { first, _ in first })
+        hashes = Dictionary(images.map { ($0.0.url, $0.2) }, uniquingKeysWith: { first, _ in first })
+        needsFreshHashes = false
+        return .images(images.map { DocumentSource.Image(data: $0.1, fileURL: $0.0.url) })
     }
 
     func title(language: String) -> String {
-        String(
-            format: localized("%lld images — %@", language: language), urls.count, urls.first?.lastPathComponent ?? "")
+        if let archiveURL {
+            return String(
+                format: localized("%@ — %lld images", language: language), archiveURL.lastPathComponent, items.count)
+        }
+        return String(
+            format: localized("%lld images — %@", language: language), items.count, items.first?.name ?? "")
     }
 
     func exportName(layout: PrintLayout, language: String) -> String {
-        let first = urls.first?.deletingPathExtension().lastPathComponent ?? String(localized: "Document")
-        let name =
-            urls.count > 1
-            ? String(format: localized("%@ and %lld more", language: language), first, urls.count - 1) : first
+        let name: String
+        if let archiveURL {
+            name = archiveURL.deletingPathExtension().lastPathComponent
+        } else {
+            let first = items.first?.url.deletingPathExtension().lastPathComponent ?? String(localized: "Document")
+            name =
+                items.count > 1
+                ? String(format: localized("%@ and %lld more", language: language), first, items.count - 1) : first
+        }
         return "\(name)（\(layout.displayName(language: language))）.pdf"
     }
 

@@ -10,11 +10,6 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             Form {
-                Picker("Appearance", selection: $preferences.appearance) {
-                    ForEach(AppAppearance.allCases) { appearance in
-                        Text(appearance.label).tag(appearance)
-                    }
-                }
                 Picker("Default Layout", selection: $preferences.layoutID) {
                     ForEach(PrintLayout.presets) { layout in
                         Text(verbatim: layout.displayName(language: language)).tag(layout.id)
@@ -67,7 +62,6 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding()
         .frame(width: 540, height: 370)
-        .preferredColorScheme(preferences.appearance.colorScheme)
     }
 
     @ViewBuilder private var libraryError: some View {
