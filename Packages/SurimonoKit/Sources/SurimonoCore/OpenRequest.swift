@@ -24,7 +24,7 @@ public enum OpenRequest: Equatable, Sendable {
         let unique = urls.filter { seen.insert($0).inserted }
         self = .imageBundle(
             unique.sorted {
-                let comparison = $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent)
+                let comparison = NaturalOrder.compare($0.lastPathComponent, $1.lastPathComponent)
                 // Preserve a deterministic order for identical names in different directories.
                 return comparison == .orderedSame
                     ? $0.absoluteString < $1.absoluteString : comparison == .orderedAscending
