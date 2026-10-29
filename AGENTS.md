@@ -22,7 +22,7 @@ Packages/SurimonoKit/   ロジック本体（SwiftPM）
   Sources/SurimonoRendering/  AppKit / WebKit / PDFKit / CoreGraphics を使う描画（ページ分割、画像の PDF 化、面付け PDF の合成、印刷設定）
   Tests/                      Swift Testing のテスト
 Samples/                手動確認用のサンプル文書
-Design/                 アプリアイコンの原画（AppIcon.svg。App/Assets.xcassets の PNG はここから書き出す）
+Design/                 アプリアイコンの原画（AppIcon.svg と、開発版の AppIcon-Dev.svg・AppIcon-Dev-small.svg。App/Assets.xcassets の PNG はここから書き出す）
 Surimono.xcodeproj      手書きの最小プロジェクト（objectVersion 77）
 .github/workflows/      CI（ci.yml）とリリース（release.yml）
 .agents/skills/         プロジェクト固有スキル（正本。Codex が読む）
@@ -33,7 +33,7 @@ Surimono.xcodeproj      手書きの最小プロジェクト（objectVersion 77�
 ## コマンド
 
 ```bash
-make build                      # Debug ビルド（build/DerivedData）
+make build                      # Debug ビルド（build/DerivedData。開発版の Surimono Dev）
 make run FILE=Samples/sample.md # ビルドしてファイルを開く（FILE 省略可）
 make test                       # test-kit と test-app の両方
 make test-kit                   # SurimonoKit のテスト（swift test）
@@ -45,6 +45,10 @@ make clean
 ```
 
 - 変更したら最低限 `make lint` と、変更範囲のテスト（Kit なら `make test-kit`、アプリなら `make build` と `make test-app`）を通す。
+- Debug ビルド（`make build`・`make run`・`make test-app` のホスト）は公開版と別のアプリ「Surimono Dev」になる。バンドル ID `io.github.phyten.Surimono.debug`、アイコン `AppIcon-Dev`（暗い地に黄色の DEV の帯）、保存先 `~/Library/Application Support/Surimono Dev/` で、設定（UserDefaults）も公開版と共有せず、入れてある公開版と同時に起動できる。
+  - 分け方: `Configs/Surimono.xcconfig` の `[config=Debug]` と `UserLibrary.defaultRoot` の `#if DEBUG`。`DevelopmentBuildTests` で固定している。
+  - `PRODUCT_NAME` は Makefile と `TEST_HOST` が `Surimono.app` を参照するので変えない。
+  - `AppIcon-Dev` は、Dock や ⌘Tab でも公開版と取り違えないよう、全体の明るさと帯の色で分ける。原画は、`Design/AppIcon.svg` を暗い地に置いて少し暗くし、黄色の注意の帯（縞と DEV の文字）を重ねた `Design/AppIcon-Dev.svg` と、16・32px 用に縞と文字を省いて帯を太くした `Design/AppIcon-Dev-small.svg`。どちらも `AppIcon.svg` に行を足しただけで、元の行は変えていない。`AppIcon` と同じく `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は `AppIcon-Dev-small.svg` から、残りの 7 枚は `AppIcon-Dev.svg` から書き出す。`AppIcon.svg` を変えたら、2 つの SVG にも同じ変更を入れて書き出し直す。
 - CI（`.github/workflows/ci.yml` の `build-and-test`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
 
 ## アーキテクチャ（印刷パイプライン）
@@ -160,7 +164,10 @@ make clean
 
 - メンテナ環境のグローバル gitignore は `AGENTS.md`・`CLAUDE.md`・`.claude`・`.agents` を無視する。リポジトリの `.gitignore` で打ち消しているので、その行を消さない。
 - `Surimono.xcodeproj` は手書き。Xcode の GUI でターゲットや設定を編集すると pbxproj が大きく書き換わる。設定は xcconfig へ。
+- 生成する Info.plist（`GENERATE_INFOPLIST_FILE`）は `CFBundleName` を常に `PRODUCT_NAME` にする（`Configs/Info.plist` に書いても `INFOPLIST_KEY_CFBundleName` でも変わらない）。メニューバーのアプリ名は `CFBundleName` なので開発版でも Surimono と出る。Dock・⌘Tab・アクティビティモニタ・ウィンドウの持ち主の名前は表示名（`CFBundleDisplayName`）の Surimono Dev。
+- `INFOPLIST_KEY_*` を `[config=Debug]` だけで指定すると、Release の生成 Info.plist にそのキーが空文字で入る（`CFBundleDisplayName` で起きた）。条件なしの値も書く。
 - `open -a` は相対パスを受け付けない（アプリの名前として探して失敗する）。`make run` は `realpath` で絶対パスにして渡している。
+- 開発版と公開版は同じ書類の種類を `Alternate` で宣言している。他に開けるアプリがない種類では、あとから登録された開発版が既定のアプリになることがある（ダミーのアプリでは、名前・バンドル ID・版・パスの並びによらず、あとから登録した方が選ばれた）。公開版を既定にするには Finder の「情報を見る」→「このアプリケーションで開く」→「すべてを変更」で選ぶ（バンドル ID で覚えるので、開発版と取り違えない）。
 - 冊子印刷は短辺綴じが前提。プリンタによっては裏面が上下逆になるため、「裏面を 180° 回転」オプションで補正する。
 - WKWebView の印刷は、ビューがウィンドウに載っていないと白紙になる。WebPaginator は非表示ウィンドウに載せ、`runModal(for:)` と別スレッドの印刷で PDF を作っている。
 - `loadHTMLString(_:baseURL:)` は基準 URL が file URL でもローカルのファイルを読む権限を与えないため、文書の隣の画像が表示されない。WebPaginator は生成した HTML を一時ファイルに書いて `loadFileURL` で読み込む（生成 HTML では JavaScript を止めている）。
