@@ -75,6 +75,33 @@ struct MarkdownCalloutTests {
         #expect(!body.contains("<blockquote>"))
     }
 
+    @Test(
+        "エスケープや文字参照で書いた囲みマーカーは普通の引用として残す",
+        arguments: [#"\[!NOTE]"#, "&#91;!NOTE]", "&#x5b;!NOTE]", "&lbrack;!NOTE]"])
+    func escapedQuoteMarker(marker: String) {
+        let body = MarkdownConverter.convert("> \(marker) literal text").body
+        #expect(body == "<blockquote><p>[!NOTE] literal text</p>\n</blockquote>\n")
+    }
+
+    @Test(
+        "引用の先頭の参照定義に続く、エスケープや文字参照で書いた囲みマーカーも普通の引用として残す",
+        arguments: ["[!NOTE]: /url", #"[!x\]y]: /url"#, "[!NOTE]:\u{0301}"],
+        [#"\[!NOTE]"#, "&#91;!NOTE]", "&#x5b;!NOTE]", "&lbrack;!NOTE]"])
+    func escapedQuoteMarkerAfterDefinition(definition: String, marker: String) {
+        let body = MarkdownConverter.convert("> \(definition)\n> \(marker) literal text").body
+        #expect(body == "<blockquote><p>[!NOTE] literal text</p>\n</blockquote>\n")
+    }
+
+    @Test("引用マーカーの原文位置はfront matter除去とコロン囲み展開後に確認する", arguments: [false, true])
+    func quoteMarkerAfterPreprocessing(escaped: Bool) {
+        let marker = escaped ? #"\[!NOTE]"# : "[!NOTE]"
+        let body = MarkdownConverter.convert(
+            "---\ntitle: 表題\n---\n:::tip\n前の段落\n:::\n\n> > \(marker) literal text"
+        ).body
+        #expect(body.contains("callout-note") == !escaped)
+        #expect(body.contains("<p>[!NOTE] literal text</p>") == escaped)
+    }
+
     @Test("引用の囲みも再帰し通常の引用は変えない")
     func nestedQuote() {
         let body = MarkdownConverter.convert("> [!unknown]\n> outer\n>\n>> [!faq]-\n>> inner").body
