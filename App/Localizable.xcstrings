@@ -188,17 +188,6 @@
         }
       }
     },
-    "Quick Print": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すぐ印刷"
-          }
-        }
-      }
-    },
     "Reload": {
       "extractionState": "manual",
       "localizations": {
@@ -2067,17 +2056,6 @@
         }
       }
     },
-    "Print right away without the print panel (⌥⌘P)": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ダイアログなしで既定のプリンタへ送る（⌥⌘P）"
-          }
-        }
-      }
-    },
     "Export PDF": {
       "extractionState": "manual",
       "localizations": {
@@ -2096,17 +2074,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "面付けした PDF を書き出す（⇧⌘E）"
-          }
-        }
-      }
-    },
-    "Print (⌘P)": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "印刷（⌘P）"
           }
         }
       }
@@ -2415,6 +2382,83 @@
           "stringUnit": {
             "state": "translated",
             "value": "ポップアップ"
+          }
+        }
+      }
+    },
+    "Print with System Dialog…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムの印刷画面で印刷…"
+          }
+        }
+      }
+    },
+    "No Printers": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリンターがありません"
+          }
+        }
+      }
+    },
+    "Printer": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリンター"
+          }
+        }
+      }
+    },
+    "%@ (Default)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（既定）"
+          }
+        }
+      }
+    },
+    "Print to %@ right away (⌘P)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ですぐ印刷（⌘P）"
+          }
+        }
+      }
+    },
+    "No printer is set up, so Print opens the system print dialog (⌘P)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリンターがないので、システムの印刷画面を開きます（⌘P）"
+          }
+        }
+      }
+    },
+    "Choose the printer for Print, or print with the system dialog": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「印刷」で使うプリンターを選ぶか、システムの印刷画面で印刷します"
           }
         }
       }

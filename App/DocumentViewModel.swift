@@ -56,6 +56,8 @@ final class DocumentViewModel {
     private(set) var renderedSettings: RenderSettings?
     private(set) var isRendering = false
     private(set) var isPrinting = false
+    /// The printers the tray offers; refreshed when the tray opens and before each print.
+    private(set) var printers = PrinterList.empty
     private(set) var isExporting = false
     var error: String?
     var outputError: String?
@@ -378,6 +380,7 @@ final class DocumentViewModel {
 
     func enterPrintMode() {
         guard mode != .print else { return }
+        refreshPrinters()
         isViewOptionsPresented = false
         // The tray shows what prints, so the review and its outlined pages end here.
         isReviewingSmartRemoval = false
@@ -742,13 +745,34 @@ final class DocumentViewModel {
         return true
     }
 
+    /// The printer Print sends to: the one chosen on the tray while it is set up, otherwise the system's default.
+    var selectedPrinterName: String? { printers.resolve(preferences.printerName) }
+
+    func refreshPrinters() {
+        let current = PrinterList.current()
+        if current != printers { printers = current }
+    }
+
+    func selectPrinter(_ name: String) {
+        preferences.printerName = name
+    }
+
+    /// Prints the sheets: right away to the selected printer when `quick`, otherwise through the system dialog,
+    /// which starts on that printer.
     func printDocument(quick: Bool = false) {
         guard !deferUntilReviewEnds(.print(quick: quick)) else { return }
         guard canOutput, let result, let renderedSettings, let window else { return }
         outputError = nil
+        let shown = selectedPrinterName
+        refreshPrinters()
+        let request = printers.request(quick: quick, shown: shown, remembered: preferences.printerName)
+        let destination = request.printerName.flatMap(NSPrinter.init(name:))
+        // Without a printer the system dialog still offers saving a PDF or adding a printer.
+        let quick = !request.showsPanel && destination != nil
         guard
             let operation = PrintJobFactory().printOperation(
-                for: result.sheetDocument, layout: renderedSettings.layout, showsPrintPanel: !quick)
+                for: result.sheetDocument, layout: renderedSettings.layout, showsPrintPanel: !quick,
+                printer: destination)
         else {
             outputError = String(localized: "The print job could not be created.")
             return

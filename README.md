@@ -27,7 +27,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend
 - Smart Removal (beta) for HTML: finds ads, recommended articles, share buttons, cookie banners and the like, removes them, and lets you review and keep any of them; detection runs on your Mac only
 - Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up
-- Quick print without a dialog, and PDF export (for example, for convenience-store printers)
+- Print straight to the printer chosen on the print tray, without a dialog (the system print dialog is one step away), and PDF export (for example, for convenience-store printers)
 - A borderless view: only the paper, with a menu that appears when you point at the window; spread, single-page and two-page scroll views; zoom without losing sharpness
 - Settings you change are remembered per document by its content (SHA-256), not its name; image bundles by the set of images
 - Open a ZIP of images as one image bundle (images in nested folders, sorted by name; never extracted to disk)
