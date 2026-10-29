@@ -1,0 +1,334 @@
+import SurimonoCore
+import SwiftUI
+
+/// A measured part of the band: an item in one of its forms, or a part that always stays.
+enum BandSlot: Hashable {
+    case item(BandLayout.Item, BandLayout.Form)
+    case name, more, indicators
+}
+
+extension BandLayout.Item {
+    var hasCompactForm: Bool {
+        switch self {
+        case .style, .transition, .selectText, .print: true
+        default: false
+        }
+    }
+
+    /// The spacing in front of the item on the band, which the plan counts as part of its width. Print's spacing
+    /// belongs to the band's fixed part.
+    var bandGap: CGFloat {
+        switch self {
+        case .formatBadge, .pageIndicator: OverlayBand.titleSpacing
+        case .print: 0
+        default: OverlayBand.toolSpacing
+        }
+    }
+
+    /// The items this document can show on the band at this stage.
+    static func applicable(for model: DocumentViewModel, stage: OverlayMenuState.Stage) -> [Self] {
+        guard stage == .full else { return [.print] }
+        return allCases.filter { item in
+            switch item {
+            case .formatBadge, .layout, .direction, .scrollAxis, .transition, .floatOnTop, .keepMenuVisible, .print:
+                true
+            case .pageIndicator: model.pageIndicator != nil
+            case .style: model.format.usesPrintTheme || model.format.usesHTMLPreset
+            case .cover: model.viewOptions.usesCoverOption
+            case .selectText: false
+            case .zoom: model.zoom > 1.001
+            case .thumbnails: model.imageBundle != nil
+            }
+        }
+    }
+}
+
+extension DocumentViewModel {
+    /// A binding to one view option that records the change as the user's own.
+    func viewOption<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
+        Binding(
+            get: { self.viewOptions[keyPath: keyPath] },
+            set: { value in self.updateViewOptions { $0[keyPath: keyPath] = value } })
+    }
+}
+
+/// One item of the band in the given form.
+struct BandItemView: View {
+    @Bindable var model: DocumentViewModel
+    let item: BandLayout.Item
+    let form: BandLayout.Form
+
+    var body: some View {
+        switch item {
+        case .formatBadge: FormatBadge(text: model.formatBadge)
+        case .pageIndicator: PageIndicatorText(model: model)
+        case .style: StyleMenu(model: model, showsName: form == .full)
+        case .layout: LayoutPicker(model: model)
+        case .direction: DirectionPicker(model: model)
+        case .scrollAxis: ScrollAxisPicker(model: model)
+        case .transition: TransitionMenu(model: model, showsName: form == .full)
+        case .cover:
+            Toggle(isOn: model.viewOption(\.showsCoverAlone)) {
+                Label("Show Cover Alone", systemImage: "book.closed")
+            }
+            .toggleStyle(.button).labelStyle(.iconOnly).help("Show Cover Alone")
+        case .selectText: EmptyView()
+        case .zoom:
+            Button {
+                model.paper.zoomToFit()
+            } label: {
+                Text(verbatim: model.zoomPercentage).monospacedDigit()
+            }
+            .help("Fit to Window")
+        case .thumbnails:
+            Toggle(isOn: $model.isDrawerOpen) { Label("Thumbnails", systemImage: "sidebar.left") }
+                .toggleStyle(.button).labelStyle(.iconOnly).help("Thumbnails")
+        case .floatOnTop:
+            Toggle(isOn: $model.isAlwaysOnTop) {
+                Label("Float on Top", systemImage: model.isAlwaysOnTop ? "pin.fill" : "pin")
+            }
+            .toggleStyle(.button).labelStyle(.iconOnly).help("Float on Top")
+        case .keepMenuVisible:
+            Toggle(isOn: $model.isMenuPinned) { Label("Keep Menu Visible", systemImage: "menubar.rectangle") }
+                .toggleStyle(.button).labelStyle(.iconOnly).help("Keep Menu Visible")
+        case .print: PrintButton(model: model, iconOnly: form == .compact)
+        }
+    }
+}
+
+/// Keeps the width of the widest indicator, so that turning pages never shifts the band.
+struct PageIndicatorText: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        if let indicator = model.pageIndicator {
+            Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
+                .overlay(alignment: .leading) { Text(verbatim: indicator) }
+                .font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+        }
+    }
+}
+
+/// What the compact band shows next to the file name: the states that change how the paper behaves.
+struct CompactIndicators: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if model.isAlwaysOnTop {
+                Image(systemName: "pin.fill").help("Floating on Top")
+            }
+        }
+        .foregroundStyle(.secondary)
+    }
+}
+
+struct DirectionPicker: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Picker("Direction", selection: model.viewOption(\.direction)) {
+            Label("Left to Right · Bound Left", systemImage: "arrow.right").tag(ViewOptions.Direction.leftToRight)
+            Label("Right to Left · Bound Right", systemImage: "arrow.left").tag(ViewOptions.Direction.rightToLeft)
+        }
+        .pickerStyle(.segmented).labelsHidden().labelStyle(.iconOnly).fixedSize()
+        .help("Direction")
+    }
+}
+
+/// Dimmed rather than hidden when the page turn ignores it, so that changing the page turn never reshuffles the band.
+struct ScrollAxisPicker: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Picker("Scrolling", selection: model.viewOption(\.scrollAxis)) {
+            Label("Vertical", systemImage: "arrow.up.and.down").tag(ViewOptions.ScrollAxis.vertical)
+            Label("Horizontal", systemImage: "arrow.left.and.right").tag(ViewOptions.ScrollAxis.horizontal)
+        }
+        .pickerStyle(.segmented).labelsHidden().labelStyle(.iconOnly).fixedSize()
+        .disabled(!model.viewOptions.usesScrollAxis)
+        .help("Scrolling")
+    }
+}
+
+struct TransitionMenu: View {
+    @Bindable var model: DocumentViewModel
+    let showsName: Bool
+
+    var body: some View {
+        Menu {
+            TransitionPicker(model: model)
+        } label: {
+            let transition = model.viewOptions.transition
+            let label = Label(transition.title, systemImage: transition.symbol)
+            if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Page Turn")
+    }
+}
+
+private struct TransitionPicker: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Picker("Page Turn", selection: model.viewOption(\.transition)) {
+            ForEach(ViewOptions.Transition.allCases, id: \.self) { transition in
+                Label(transition.title, systemImage: transition.symbol).tag(transition)
+            }
+        }
+        .pickerStyle(.inline)
+        .labelsHidden()
+    }
+}
+
+/// The "…" menu: what left the band, in band order, and the view options at the end. It is always on the band, so
+/// the popover it anchors never loses its anchor when the band rearranges.
+struct BandMoreMenu: View {
+    @Bindable var model: DocumentViewModel
+    /// The overflowing items; nil when the menu is only measured.
+    let overflow: [BandLayout.Item]
+    /// Names the document when the band no longer shows its name, format or page in full.
+    let header: String?
+
+    var body: some View {
+        Menu {
+            if let header {
+                Text(verbatim: header)
+                Divider()
+            }
+            let tools = overflow.filter { $0.group != nil }
+            ForEach(Array(tools.enumerated()), id: \.element) { index, item in
+                if index > 0, tools[index - 1].group != item.group { Divider() }
+                BandMenuItem(model: model, item: item)
+            }
+            if !tools.isEmpty { Divider() }
+            Button("View Options…") { model.isViewOptionsPresented = true }
+        } label: {
+            Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("More")
+    }
+}
+
+/// An item that left the band, as the "…" menu shows it: choices as submenus, switches as checked items.
+private struct BandMenuItem: View {
+    @Bindable var model: DocumentViewModel
+    let item: BandLayout.Item
+
+    var body: some View {
+        switch item {
+        case .style:
+            Menu {
+                StyleMenuItems(model: model)
+            } label: {
+                Text(
+                    model.format.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
+                Text(verbatim: model.styleName)
+            }
+        case .layout:
+            Menu {
+                Picker("View", selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) })) {
+                    ForEach(ViewOptions.Layout.allCases, id: \.self) { layout in
+                        Label(layout.title, systemImage: layout.symbol).tag(layout)
+                    }
+                }
+                .pickerStyle(.inline).labelsHidden()
+            } label: {
+                Text("View Type")
+                Text(model.viewOptions.layout.title)
+            }
+        case .direction:
+            Menu {
+                Picker("Direction", selection: model.viewOption(\.direction)) {
+                    Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
+                    Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
+                }
+                .pickerStyle(.inline).labelsHidden()
+            } label: {
+                Text("Direction")
+                Text(
+                    model.viewOptions.direction == .leftToRight
+                        ? LocalizedStringKey("Left to Right") : LocalizedStringKey("Right to Left"))
+            }
+        case .scrollAxis:
+            Menu {
+                Picker("Scrolling", selection: model.viewOption(\.scrollAxis)) {
+                    Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
+                    Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
+                }
+                .pickerStyle(.inline).labelsHidden()
+            } label: {
+                Text("Scrolling")
+                Text(
+                    model.viewOptions.scrollAxis == .vertical
+                        ? LocalizedStringKey("Vertical") : LocalizedStringKey("Horizontal"))
+            }
+            .disabled(!model.viewOptions.usesScrollAxis)
+        case .transition:
+            Menu {
+                TransitionPicker(model: model)
+            } label: {
+                Text("Page Turn")
+                Text(model.viewOptions.transition.title)
+            }
+        case .cover:
+            Toggle("Show Cover Alone", isOn: model.viewOption(\.showsCoverAlone))
+        case .zoom:
+            Button(String(format: String(localized: "Fit to Window (%@)"), model.zoomPercentage)) {
+                model.paper.zoomToFit()
+            }
+        case .thumbnails:
+            Toggle("Show Thumbnails", isOn: $model.isDrawerOpen)
+        case .floatOnTop:
+            Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
+        case .keepMenuVisible:
+            Toggle("Keep Menu Visible", isOn: $model.isMenuPinned)
+        case .selectText, .formatBadge, .pageIndicator, .print:
+            EmptyView()
+        }
+    }
+}
+
+/// Lays out every applicable item in each of its forms out of sight and records the widths, so the band can decide
+/// what fits without trying arrangements on screen.
+struct BandMeasurements: View {
+    @Bindable var model: DocumentViewModel
+    let items: [BandLayout.Item]
+    let menu: OverlayMenuState
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
+            measure(.more) { BandMoreMenu(model: model, overflow: [], header: nil) }
+            measure(.indicators) { CompactIndicators(model: model) }
+            ForEach(items, id: \.self) { item in
+                measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
+                if item.hasCompactForm {
+                    measure(.item(item, .compact)) { BandItemView(model: model, item: item, form: .compact) }
+                }
+            }
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.regular)
+        .hidden()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func measure<Content: View>(_ slot: BandSlot, @ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: { width in
+                if menu.bandWidths[slot] != width { menu.bandWidths[slot] = width }
+            }
+    }
+}

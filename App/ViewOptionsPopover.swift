@@ -38,6 +38,7 @@ struct ViewOptionsPopover: View {
                         Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
                         Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
                     }
+                    .disabled(!model.viewOptions.usesScrollAxis)
                 }
                 GridRow {
                     rowLabel("Page Turn")
@@ -77,6 +78,7 @@ struct ViewOptionsPopover: View {
         }
         .padding(16)
         .frame(width: 460)
+        .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
     }
 
     private var currentUnitIndex: Int? {
@@ -98,9 +100,7 @@ struct ViewOptionsPopover: View {
     }
 
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
-        Binding(
-            get: { model.viewOptions[keyPath: keyPath] },
-            set: { value in model.updateViewOptions { $0[keyPath: keyPath] = value } })
+        model.viewOption(keyPath)
     }
 }
 
@@ -112,6 +112,16 @@ extension ViewOptions.Transition {
         case .slide: "Slide"
         case .fade: "Fade"
         case .pageCurl: "Page Curl"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .scroll: "scroll"
+        case .instant: "square.on.square"
+        case .slide: "rectangle.righthalf.inset.filled.arrow.right"
+        case .fade: "circle.lefthalf.filled"
+        case .pageCurl: "book.pages"
         }
     }
 }

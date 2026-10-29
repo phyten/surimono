@@ -21,6 +21,17 @@ struct ViewOptionsTests {
     }
 
     @Test(
+        "スクロールの方向が効くのは送り方がスクロールとスライドのときだけ",
+        arguments: [
+            (ViewOptions.Transition.scroll, true), (.slide, true), (.instant, false), (.fade, false),
+            (.pageCurl, false),
+        ])
+    func scrollAxisMatters(transition: ViewOptions.Transition, uses: Bool) {
+        let options = ViewOptions(layout: .spread, scrollAxis: .vertical, transition: transition, showsCoverAlone: true)
+        #expect(options.usesScrollAxis == uses)
+    }
+
+    @Test(
         "どの表示の型でも送り方がスクロールのときだけ連続スクロールになる",
         arguments: ViewOptions.Layout.allCases, ViewOptions.Transition.allCases)
     func continuous(layout: ViewOptions.Layout, transition: ViewOptions.Transition) {

@@ -27,6 +27,10 @@ final class OverlayMenuState {
     @ObservationIgnored private var pointerY: CGFloat?
     @ObservationIgnored private var menuTracking = 0
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    /// The measured widths of the band's parts, and the band's own width. They outlive the band, which comes and goes
+    /// with the pointer, so that it opens with the tools that fit instead of a first guess.
+    var bandWidths: [BandSlot: CGFloat] = [:]
+    var bandWidth: CGFloat = 0
     /// Set while a popover from the band is open, so the menu stays put.
     var isHolding = false {
         didSet { if !isHolding { scheduleIdleHide() } }
@@ -154,99 +158,114 @@ final class OverlayMenuState {
     }
 }
 
-/// The band at the top of the view mode window.
+/// The band at the top of the view mode window. It shows as many tools as fit and folds the rest into "…" in one fixed
+/// order (`BandLayout`). Every part keeps its identity whatever fits, so a popover opened from the band stays open
+/// when a layout change resizes the window.
 struct OverlayBand: View {
     @Bindable var model: DocumentViewModel
     let stage: OverlayMenuState.Stage
     let menu: OverlayMenuState
 
+    static let spacing: CGFloat = 10
+    static let toolSpacing: CGFloat = 8
+    static let titleSpacing: CGFloat = 6
+    static let nameFont = Font.system(size: 13, weight: .semibold)
+    private static let lightsWidth: CGFloat = 64
+    private static let spacerMinimum: CGFloat = 8
+    private static let trailingPadding: CGFloat = 8
+
     var body: some View {
-        HStack(spacing: 10) {
+        let items = BandLayout.Item.applicable(for: model, stage: stage)
+        let plan = plan(for: items)
+        HStack(spacing: Self.spacing) {
             // Room for the traffic lights.
-            Color.clear.frame(width: 64, height: 1)
-            title
-            Spacer(minLength: 8)
+            Color.clear.frame(width: Self.lightsWidth, height: 1)
+            title(plan)
+            Spacer(minLength: Self.spacerMinimum)
             if stage == .full {
-                // Ahead of the spacer, so the style menu keeps its name whenever the band has room for it.
-                tools.layoutPriority(0.5)
-            } else if model.isAlwaysOnTop {
-                Image(systemName: "pin.fill").foregroundStyle(.secondary).help("Floating on Top")
+                tools(plan)
+            } else {
+                CompactIndicators(model: model)
             }
-            PrintButton(model: model)
+            PrintButton(model: model, iconOnly: plan.forms[.print] == .compact)
         }
-        .padding(.trailing, 8)
+        .padding(.trailing, Self.trailingPadding)
         .frame(height: ViewerWindow.bandHeight)
         .frame(maxWidth: .infinity)
         .background(.bar)
         .overlay(alignment: .bottom) { Divider() }
-    }
-
-    private var title: some View {
-        HStack(spacing: 6) {
-            Text(verbatim: model.displayName)
-                .font(.system(size: 13, weight: .semibold))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .help(model.fileURL?.path ?? model.displayName)
-            if stage == .full {
-                FormatBadge(text: model.formatBadge)
-                if let indicator = model.pageIndicator {
-                    // Keeps the width of the widest indicator, so that turning pages never shifts the band or squeezes
-                    // the indicator; the file name gives way instead.
-                    Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
-                        .overlay(alignment: .leading) { Text(verbatim: indicator) }
-                        .font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .fixedSize()
-                }
-            }
+        .background(alignment: .topLeading) { BandMeasurements(model: model, items: items, menu: menu) }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: { width in
+            if menu.bandWidth != width { menu.bandWidth = width }
         }
-        .layoutPriority(1)
     }
 
-    /// Only the style menu adapts to the width. Switching between whole variants of the tools would rebuild the view
-    /// options button, and with it close its popover, whenever a layout change resizes the window.
-    private var tools: some View {
-        HStack(spacing: 8) {
-            if model.format.usesPrintTheme || model.format.usesHTMLPreset {
-                ViewThatFits(in: .horizontal) {
-                    StyleMenu(model: model, showsName: true)
-                    StyleMenu(model: model, showsName: false)
-                }
+    private func plan(for items: [BandLayout.Item]) -> BandLayout.Plan {
+        let measured = menu.bandWidths
+        var widths: [BandLayout.Item: BandLayout.Widths] = [:]
+        for item in items {
+            widths[item] = BandLayout.Widths(
+                full: (measured[.item(item, .full)] ?? 0) + item.bandGap,
+                compact: item.hasCompactForm ? (measured[.item(item, .compact)] ?? 0) + item.bandGap : nil)
+        }
+        // The traffic lights, the title, the spacer, the tools or the indicators, and Print: four gaps.
+        let stays = (stage == .full ? measured[.more] : measured[.indicators]) ?? 0
+        let fixed = Self.lightsWidth + Self.spacing * 4 + Self.spacerMinimum + Self.trailingPadding + stays
+        // Until the band has been laid out once, its width is unknown: show everything rather than guess.
+        return BandLayout.plan(
+            widths: widths, fixed: fixed, separator: 1 + Self.toolSpacing,
+            name: measured[.name] ?? .greatestFiniteMagnitude,
+            available: menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude)
+    }
+
+    private func title(_ plan: BandLayout.Plan) -> some View {
+        HStack(spacing: Self.titleSpacing) {
+            if plan.showsName {
+                Text(verbatim: model.displayName)
+                    .font(Self.nameFont)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: plan.nameWidth + 0.5, alignment: .leading)
+                    .help(model.fileURL?.path ?? model.displayName)
             }
-            HStack(spacing: 8) {
-                LayoutPicker(model: model)
-                ViewOptionsButton(model: model)
-                if model.zoom > 1.001 {
-                    Button {
-                        model.paper.zoomToFit()
-                    } label: {
-                        Text(verbatim: "\(Int((model.zoom * 100).rounded()))%").monospacedDigit()
-                    }
-                    .help("Fit to Window")
+            if plan.forms[.formatBadge] != nil { FormatBadge(text: model.formatBadge) }
+            if plan.forms[.pageIndicator] != nil { PageIndicatorText(model: model) }
+        }
+    }
+
+    private func tools(_ plan: BandLayout.Plan) -> some View {
+        let shown = BandLayout.Item.allCases.filter { $0.group != nil && plan.forms[$0] != nil }
+        return HStack(spacing: Self.toolSpacing) {
+            ForEach(Array(shown.enumerated()), id: \.element) { index, item in
+                if index > 0, shown[index - 1].group != item.group {
+                    Divider().frame(height: 16)
                 }
-                if model.imageBundle != nil {
-                    Toggle(isOn: $model.isDrawerOpen) { Label("Thumbnails", systemImage: "sidebar.left") }
-                        .toggleStyle(.button).help("Thumbnails")
-                }
-                Toggle(isOn: $model.isAlwaysOnTop) {
-                    Label("Float on Top", systemImage: model.isAlwaysOnTop ? "pin.fill" : "pin")
-                }
-                .toggleStyle(.button).help("Float on Top")
-                Toggle(isOn: $model.isMenuPinned) {
-                    Label("Keep Menu Visible", systemImage: "menubar.rectangle")
-                }
-                .toggleStyle(.button).help("Keep Menu Visible")
+                BandItemView(model: model, item: item, form: plan.forms[item] ?? .full)
             }
-            .labelStyle(.iconOnly)
-            .fixedSize()
+            BandMoreMenu(model: model, overflow: plan.overflow, header: header(plan))
+                .popover(isPresented: $model.isViewOptionsPresented, arrowEdge: .bottom) {
+                    ViewOptionsPopover(model: model)
+                }
         }
         .buttonStyle(.borderless)
         .controlSize(.regular)
     }
+
+    /// The document's name, format and page, when the band no longer shows them in full.
+    private func header(_ plan: BandLayout.Plan) -> String? {
+        let truncated = plan.nameWidth + 0.5 < (menu.bandWidths[.name] ?? 0)
+        guard
+            !plan.showsName || truncated || plan.overflow.contains(.formatBadge)
+                || plan.overflow.contains(.pageIndicator)
+        else { return nil }
+        return ([model.displayName, model.formatBadge] + [model.pageIndicator].compactMap { $0 })
+            .joined(separator: " · ")
+    }
 }
 
-private struct FormatBadge: View {
+struct FormatBadge: View {
     let text: String
 
     var body: some View {
@@ -263,12 +282,18 @@ private struct FormatBadge: View {
 
 struct PrintButton: View {
     @Bindable var model: DocumentViewModel
+    /// The narrowest band keeps Print as an icon rather than dropping it: printing takes two steps at most.
+    var iconOnly = false
 
     var body: some View {
         Button {
             model.performPrintCommand()
         } label: {
-            Label("Print", systemImage: "printer").labelStyle(.titleAndIcon)
+            if iconOnly {
+                Label("Print", systemImage: "printer").labelStyle(.iconOnly)
+            } else {
+                Label("Print", systemImage: "printer").labelStyle(.titleAndIcon)
+            }
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.regular)
@@ -280,7 +305,7 @@ struct PrintButton: View {
 
 /// Print themes for text formats and cleanup presets for HTML; PDFs and images print as they are. Narrow windows show
 /// the icon alone.
-private struct StyleMenu: View {
+struct StyleMenu: View {
     @Bindable var model: DocumentViewModel
     let showsName: Bool
 
@@ -288,27 +313,30 @@ private struct StyleMenu: View {
         Menu {
             StyleMenuItems(model: model)
         } label: {
-            let label = Label(currentName, systemImage: model.format.usesHTMLPreset ? "wand.and.rays" : "textformat")
+            let label = Label(
+                model.styleName, systemImage: model.format.usesHTMLPreset ? "wand.and.rays" : "textformat")
             if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help(model.format.usesHTMLPreset ? "HTML Preset" : "Print Theme")
-    }
-
-    private var currentName: String {
-        if model.format.usesHTMLPreset {
-            let preset =
-                model.library.presets.first { $0.id == model.presetID }?.displayName(language: model.language)
-                ?? model.presetID
-            return model.isSmartRemovalEnabled ? preset + " + β" : preset
-        }
-        return model.library.themes.first { $0.id == model.themeID }?.displayName(language: model.language)
-            ?? model.themeID
+        .help(model.format.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
     }
 }
 
-private struct StyleMenuItems: View {
+extension DocumentViewModel {
+    /// The chosen print theme, or for HTML the cleanup preset and whether Smart Removal follows it.
+    var styleName: String {
+        if format.usesHTMLPreset {
+            let preset = library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
+            return isSmartRemovalEnabled ? preset + " + β" : preset
+        }
+        return library.themes.first { $0.id == themeID }?.displayName(language: language) ?? themeID
+    }
+
+    var zoomPercentage: String { "\(Int((zoom * 100).rounded()))%" }
+}
+
+struct StyleMenuItems: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
@@ -345,7 +373,7 @@ struct SmartRemovalMenuItems: View {
     }
 }
 
-private struct LayoutPicker: View {
+struct LayoutPicker: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
@@ -359,24 +387,9 @@ private struct LayoutPicker: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .labelStyle(.iconOnly)
         .fixedSize()
         .help("Spread or Single Page")
-    }
-}
-
-private struct ViewOptionsButton: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        Button {
-            model.isViewOptionsPresented.toggle()
-        } label: {
-            Label("View Options", systemImage: "slider.horizontal.3")
-        }
-        .help("View Options")
-        .popover(isPresented: $model.isViewOptionsPresented, arrowEdge: .bottom) {
-            ViewOptionsPopover(model: model)
-        }
     }
 }
 
