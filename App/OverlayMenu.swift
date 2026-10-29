@@ -407,6 +407,13 @@ extension ViewOptions.Layout {
         case .single: "rectangle.portrait"
         }
     }
+
+    var name: String {
+        switch self {
+        case .spread: String(localized: "Spread")
+        case .single: String(localized: "Single Page")
+        }
+    }
 }
 
 extension DocumentFormat {

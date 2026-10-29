@@ -112,6 +112,100 @@ struct BandLayoutTests {
         #expect(!plan(available: 200).showsName)
     }
 
+    @Test("帯が場所を空ける順は仕様の表のとおり")
+    func stepsFollowTheSpecification() {
+        #expect(
+            BandLayout.steps == [
+                .compact(.style), .compact(.transition), .compact(.selectText),
+                .remove(.keepMenuVisible), .remove(.floatOnTop), .remove(.formatBadge),
+                .remove(.cover), .remove(.scrollAxis), .remove(.direction), .remove(.pageIndicator),
+                .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout),
+                .remove(.thumbnails), .remove(.zoom), .compact(.print),
+            ])
+    }
+
+    /// Every item at once, each with its own width, so that each step frees a different amount.
+    private let everything: [BandLayout.Item: BandLayout.Widths] = [
+        .formatBadge: .init(full: 30), .pageIndicator: .init(full: 50),
+        .style: .init(full: 90, compact: 40),
+        .layout: .init(full: 60), .direction: .init(full: 61), .scrollAxis: .init(full: 62),
+        .transition: .init(full: 100, compact: 40), .cover: .init(full: 30),
+        .selectText: .init(full: 110, compact: 30), .zoom: .init(full: 50), .thumbnails: .init(full: 30),
+        .floatOnTop: .init(full: 30), .keepMenuVisible: .init(full: 30),
+        .print: .init(full: 70, compact: 34),
+    ]
+
+    @Test(
+        "1pt 足りないごとに、次の 1 つだけが場所を空ける",
+        arguments: [
+            // fixed 150 + name 80 + items 803 + three separators 30 = 1063.
+            (1063, [], []),
+            (1062, [], [.style]),
+            (1012, [], [.style, .transition]),
+            (952, [], [.style, .transition, .selectText]),
+            (872, [.keepMenuVisible], [.style, .transition, .selectText]),
+            (842, [.floatOnTop, .keepMenuVisible], [.style, .transition, .selectText]),
+            (802, [.formatBadge, .floatOnTop, .keepMenuVisible], [.style, .transition, .selectText]),
+            (772, [.formatBadge, .cover, .floatOnTop, .keepMenuVisible], [.style, .transition, .selectText]),
+            (
+                742, [.formatBadge, .scrollAxis, .cover, .floatOnTop, .keepMenuVisible],
+                [.style, .transition, .selectText]
+            ),
+            (
+                680, [.formatBadge, .direction, .scrollAxis, .cover, .floatOnTop, .keepMenuVisible],
+                [.style, .transition, .selectText]
+            ),
+            (
+                619, [.formatBadge, .pageIndicator, .direction, .scrollAxis, .cover, .floatOnTop, .keepMenuVisible],
+                [.style, .transition, .selectText]
+            ),
+            (
+                569,
+                [.formatBadge, .pageIndicator, .style, .direction, .scrollAxis, .cover, .floatOnTop, .keepMenuVisible],
+                [.transition, .selectText]
+            ),
+            (
+                519,
+                [
+                    .formatBadge, .pageIndicator, .style, .direction, .scrollAxis, .transition, .cover, .floatOnTop,
+                    .keepMenuVisible,
+                ],
+                [.selectText]
+            ),
+            (
+                479,
+                [
+                    .formatBadge, .pageIndicator, .style, .direction, .scrollAxis, .transition, .cover, .selectText,
+                    .floatOnTop, .keepMenuVisible,
+                ],
+                []
+            ),
+        ] as [(CGFloat, [BandLayout.Item], Set<BandLayout.Item>)])
+    func eachStepFreesItsOwnRoom(
+        available: CGFloat, overflow: [BandLayout.Item], compact: Set<BandLayout.Item>
+    ) {
+        let result = plan(everything, available: available)
+        #expect(result.overflow == overflow)
+        #expect(Set(result.forms.filter { $0.value == .compact }.keys) == compact)
+    }
+
+    @Test(
+        "表示の型の後はサムネイル、拡大率の順に帯から外し、最後に印刷をアイコンにする",
+        arguments: [
+            // Before these steps the band holds the layout, zoom, thumbnails and Print, with one separator: 450.
+            (450, [.layout, .zoom, .thumbnails, .print], false),
+            (449, [.zoom, .thumbnails, .print], false),
+            (379, [.zoom, .print], false),
+            (349, [.print], false),
+            (300, [.print], false),
+            (299, [.print], true),
+        ] as [(CGFloat, [BandLayout.Item], Bool)])
+    func lastStepsKeepPrintToTheEnd(available: CGFloat, shown: [BandLayout.Item], printIsIcon: Bool) {
+        let result = plan(everything, available: available)
+        #expect(BandLayout.Item.allCases.filter { result.forms[$0] != nil } == shown)
+        #expect((result.forms[.print] == .compact) == printIsIcon)
+    }
+
     @Test("短いファイル名は 80pt より狭い元の幅で場所を取る")
     func shortNameReservesItsOwnWidth() {
         let result = plan(available: fullWidth - 30, name: 50)

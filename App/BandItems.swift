@@ -217,6 +217,14 @@ struct BandMoreMenu: View {
     }
 }
 
+/// A choice and its current value on one line, such as "Direction: Left to Right", so that the "…" menu stays as compact
+/// as a menu of single-line items.
+private func choice(_ title: String, _ value: String) -> String {
+    String(
+        format: String(localized: "%@: %@", comment: "A menu item that names a choice and its current value"), title,
+        value)
+}
+
 /// An item that left the band, as the "…" menu shows it: choices as submenus, switches as checked items.
 private struct BandMenuItem: View {
     @Bindable var model: DocumentViewModel
@@ -228,9 +236,9 @@ private struct BandMenuItem: View {
             Menu {
                 StyleMenuItems(model: model)
             } label: {
-                Text(
-                    model.format.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
-                Text(verbatim: model.styleName)
+                let title =
+                    model.format.usesHTMLPreset ? String(localized: "HTML Preset") : String(localized: "Print Theme")
+                Text(verbatim: choice(title, model.styleName))
             }
         case .layout:
             Menu {
@@ -241,8 +249,7 @@ private struct BandMenuItem: View {
                 }
                 .pickerStyle(.inline).labelsHidden()
             } label: {
-                Text("View Type")
-                Text(model.viewOptions.layout.title)
+                Text(verbatim: choice(String(localized: "View Type"), model.viewOptions.layout.name))
             }
         case .direction:
             Menu {
@@ -252,10 +259,10 @@ private struct BandMenuItem: View {
                 }
                 .pickerStyle(.inline).labelsHidden()
             } label: {
-                Text("Direction")
-                Text(
+                let value =
                     model.viewOptions.direction == .leftToRight
-                        ? LocalizedStringKey("Left to Right") : LocalizedStringKey("Right to Left"))
+                    ? String(localized: "Left to Right") : String(localized: "Right to Left")
+                Text(verbatim: choice(String(localized: "Direction"), value))
             }
         case .scrollAxis:
             Menu {
@@ -265,18 +272,17 @@ private struct BandMenuItem: View {
                 }
                 .pickerStyle(.inline).labelsHidden()
             } label: {
-                Text("Scrolling")
-                Text(
+                let value =
                     model.viewOptions.scrollAxis == .vertical
-                        ? LocalizedStringKey("Vertical") : LocalizedStringKey("Horizontal"))
+                    ? String(localized: "Vertical") : String(localized: "Horizontal")
+                Text(verbatim: choice(String(localized: "Scrolling"), value))
             }
             .disabled(!model.viewOptions.usesScrollAxis)
         case .transition:
             Menu {
                 TransitionPicker(model: model)
             } label: {
-                Text("Page Turn")
-                Text(model.viewOptions.transition.title)
+                Text(verbatim: choice(String(localized: "Page Turn"), model.viewOptions.transition.name))
             }
         case .cover:
             Toggle("Show Cover Alone", isOn: model.viewOption(\.showsCoverAlone))
