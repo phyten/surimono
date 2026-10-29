@@ -40,8 +40,10 @@ public enum MarkdownConverter {
         case let text as Text: return autolinks ? renderAutolinks(text.string) : HTML.escape(text.string)
         case let code as InlineCode: return "<code>\(HTML.escape(code.code))</code>"
         case let code as CodeBlock:
-            let language = code.language.map { " class=\"language-\(HTML.escape($0))\"" } ?? ""
-            return "<pre><code\(language)>\(HTML.escape(code.code))</code></pre>\n"
+            let highlighted = code.language.flatMap { SyntaxHighlighter.highlight(code.code, language: $0) }
+            let language =
+                code.language.map { " class=\"language-\(HTML.escape($0))\(highlighted == nil ? "" : " hl")\"" } ?? ""
+            return "<pre><code\(language)>\(highlighted ?? HTML.escape(code.code))</code></pre>\n"
         case let heading as Heading: return wrap("h\(heading.level)") + "\n"
         case is Paragraph: return wrap("p") + "\n"
         case is Strong: return wrap("strong")
