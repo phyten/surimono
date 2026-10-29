@@ -153,13 +153,13 @@ struct PrintTrayTests {
 @MainActor
 struct PrintModeTests {
     @MainActor private final class Fixture {
-        let suite = "SurimonoTests.\(UUID().uuidString)"
+        let suite = TestDefaultsSuite()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let preferences: AppPreferences
         let library: UserLibrary
 
         init() {
-            preferences = AppPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
+            preferences = AppPreferences(defaults: suite.defaults)
             library = UserLibrary(root: root)
         }
 
@@ -168,7 +168,7 @@ struct PrintModeTests {
         }
 
         deinit {
-            UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+            suite.remove()
             try? FileManager.default.removeItem(at: root)
         }
     }
@@ -206,7 +206,7 @@ struct PrintModeTests {
         let model = fixture.model()
         model.selectPrinter("Office Laser")
         #expect(fixture.preferences.printerName == "Office Laser")
-        let defaults = try #require(UserDefaults(suiteName: fixture.suite))
+        let defaults = try #require(UserDefaults(suiteName: fixture.suite.name))
         #expect(AppPreferences(defaults: defaults).printerName == "Office Laser")
     }
 

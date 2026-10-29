@@ -48,14 +48,14 @@ struct ImageBundleModelTests {
 
     @Test("画像の束の全URLをPDFとスナップショット共通の原本保護に含める")
     func protectedSources() throws {
-        let suite = "SurimonoTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
         let library = UserLibrary(
             root: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString))
         let model = DocumentViewModel(
             data: Data(), fileURL: nil, format: .image,
-            preferences: AppPreferences(defaults: defaults), library: library, imageBundle: ImageBundleModel(urls: urls)
+            preferences: AppPreferences(defaults: suite.defaults), library: library,
+            imageBundle: ImageBundleModel(urls: urls)
         )
         for url in urls {
             #expect(!DocumentViewModel.canExport(to: url, sourceURLs: model.protectedSourceURLs))
