@@ -33,6 +33,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 表示: `-SurimonoViewLayout spread|single|twoPageScroll`、`-SurimonoTransition scroll|instant|slide|fade|pageCurl`、`-SurimonoCoverAlone YES`、`-SurimonoRightToLeft YES`、`-SurimonoZoom <倍率>`
      - メニューと窓: `-SurimonoMenu compact|full|pinned`（段階 1 / 段階 2 / 固定）、`-SurimonoPopover view`（表示のオプション）、`-SurimonoAlwaysOnTop YES`、`-SurimonoDrawer YES`（画像の束のサムネイル）
      - 印刷モード: `-SurimonoMode print`（刷り台で撮る）、`-SurimonoMode roundtrip`（刷り台に入って表示モードへ戻ったところを撮る）、`-SurimonoFold YES`（折ってみる）
+     - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）
      - ページ: `-SurimonoPage <n>`（撮る前に n ページ目へ移る。`-SurimonoMode roundtrip` と合わせると、印刷モードから戻っても同じページかを見られる）
      - Release ビルドには含まれない。表示の引数で設定を変えると、その文書の設定として `~/Library/Application Support/Surimono/DocumentSettings/` に保存される（次に開くと「戻しました」が出る）。確認用のファイルの記録は確認後に消す
