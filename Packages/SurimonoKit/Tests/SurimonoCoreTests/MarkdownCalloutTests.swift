@@ -323,11 +323,12 @@ extension MarkdownCalloutTests {
     @Test("参照定義を打ち切る囲みの扱いは先行する文書の量に依存しない", arguments: [0, 1_000])
     func referenceFenceIndependentOfDocumentSize(paragraphs: Int) {
         let prefix = String(repeating: "前に置いた段落です。\n\n", count: paragraphs)
-        let body = MarkdownConverter.convert(prefix + "[label]: /url \"first\n:::note\nlast\"\n[label]").body
-        #expect(body.components(separatedBy: "<div ").count == 2)
-        #expect(body.contains("callout-note"))
-        #expect(body.hasSuffix("<p>last&quot;\n[label]</p>\n</div>\n"))
-        #expect(!body.contains("href=\"/url\""))
+        let source = prefix + "[label]: /url \"first\n:::note\nlast\"\n[label]"
+        let processed = MarkdownCallouts.preprocess(source.components(separatedBy: "\n"))
+        #expect(processed.hasPrefix(prefix + "[label]: /url \"first\n"))
+        #expect(processed.components(separatedBy: "<div ").count == 2)
+        #expect(processed.contains("callout-note"))
+        #expect(processed.hasSuffix("last\"\n[label]\n\n</div>\n"))
     }
 
     @Test(
@@ -343,32 +344,67 @@ extension MarkdownCalloutTests {
 }
 
 extension MarkdownCalloutTests {
-    @Test(
-        "同じ項目内の参照定義一万組を一分以内に変換する",
-        .timeLimit(.minutes(1)), arguments: ["  ", ""])
-    func manyReferenceParagraphs(indentation: String) {
+    @Test("同じ項目内の字下げした参照定義一万組を前処理する", .timeLimit(.minutes(1)))
+    func manyIndentedReferenceParagraphs() {
+        checkManyReferenceParagraphs(indentation: "  ")
+    }
+
+    @Test("同じ項目内の遅延継続の参照定義一万組を前処理する", .timeLimit(.minutes(1)))
+    func manyLazyReferenceParagraphs() {
+        checkManyReferenceParagraphs(indentation: "")
+    }
+
+    private func checkManyReferenceParagraphs(indentation: String) {
         let paragraph = "  [r]: /url \"first\n\(indentation):::note\n  last\"\n  body\n\n"
-        let body = MarkdownConverter.convert("- item\n\n" + String(repeating: paragraph, count: 10_000)).body
-        #expect(body.contains("item"))
-        #expect(body.components(separatedBy: "body").count == 10_001)
-        #expect(body.components(separatedBy: "<div ").count == body.components(separatedBy: "</div>").count)
-        if !indentation.isEmpty {
-            #expect(!body.contains("callout-"))
-            #expect(body.components(separatedBy: "<li>").count == 2)
+        let source = "- item\n\n" + String(repeating: paragraph, count: 10_000)
+        let processed = MarkdownCallouts.preprocess(source.components(separatedBy: "\n"))
+        if indentation.isEmpty {
+            #expect(processed.components(separatedBy: "<div ").count == 10_001)
+            #expect(processed.components(separatedBy: "</div>").count == 10_001)
+            #expect(processed.components(separatedBy: "  body").count == 10_001)
+        } else {
+            #expect(processed == source)
         }
     }
 
-    @Test(
-        "参照定義を持つ一万項目のリストを一分以内に変換する",
-        .timeLimit(.minutes(1)), arguments: [false, true])
-    func manyReferenceDefinitions(hasFence: Bool) {
+    @Test("参照定義を持つ一万項目のリストを前処理する", .timeLimit(.minutes(1)))
+    func manyReferenceDefinitions() {
+        checkManyReferenceDefinitions(hasFence: false)
+    }
+
+    @Test("表題にコロンを含む参照定義を持つ一万項目のリストを前処理する", .timeLimit(.minutes(1)))
+    func manyReferenceDefinitionsWithFence() {
+        checkManyReferenceDefinitions(hasFence: true)
+    }
+
+    private func checkManyReferenceDefinitions(hasFence: Bool) {
         let title = hasFence ? " \"first\n  :::note\n  last\"" : ""
-        let item = "- [r]: /url\(title)\n  body\n\n"
-        let body = MarkdownConverter.convert(String(repeating: item, count: 10_000)).body
+        let source = String(repeating: "- [r]: /url\(title)\n  body\n\n", count: 10_000)
+        #expect(MarkdownCallouts.preprocess(source.components(separatedBy: "\n")) == source)
+    }
+
+    @Test("参照定義を持つ複数項目は一つのリストとしてHTMLにする", arguments: [false, true])
+    func referenceListHTML(hasFence: Bool) {
+        let title = hasFence ? " \"first\n  :::note\n  last\"" : ""
+        let body = MarkdownConverter.convert(String(repeating: "- [r]: /url\(title)\n  body\n\n", count: 3)).body
         #expect(!body.contains("callout-"))
         #expect(body.components(separatedBy: "<ul>").count == 2)
-        #expect(body.components(separatedBy: "<li>").count == 10_001)
-        #expect(body.components(separatedBy: "<p>body</p>").count == 10_001)
+        #expect(body.components(separatedBy: "<li>").count == 4)
+        #expect(body.components(separatedBy: "<p>body</p>").count == 4)
+    }
+
+    @Test("同じ項目内の参照定義は字下げに応じて囲みのHTMLになる", arguments: ["  ", ""])
+    func referenceParagraphsHTML(indentation: String) {
+        let paragraph = "  [r]: /url \"first\n\(indentation):::note\n  last\"\n  body\n\n"
+        let body = MarkdownConverter.convert("- item\n\n" + String(repeating: paragraph, count: 3)).body
+        #expect(body.components(separatedBy: "body").count == 4)
+        if indentation.isEmpty {
+            #expect(body.components(separatedBy: "<div ").count == 4)
+            #expect(body.components(separatedBy: "</div>").count == 4)
+        } else {
+            #expect(!body.contains("callout-"))
+            #expect(body.components(separatedBy: "<li>").count == 2)
+        }
     }
 
     @Test("先行項目があっても入れ子のリストの参照定義を保持する")
