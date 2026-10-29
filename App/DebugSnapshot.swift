@@ -80,6 +80,10 @@
                 // Allow SwiftUI, the window resize and PDFKit to settle.
                 try? await Task.sleep(for: .milliseconds(1200))
                 guard model.canOutput else { return }
+                if let value = argument("SurimonoPage"), let page = Int(value) {
+                    model.paper.goToPage(index: page - 1)
+                    try? await Task.sleep(for: .milliseconds(300))
+                }
                 if argument("SurimonoMode") == "roundtrip" {
                     // Into the print mode and back, to check that the view mode returns as it was.
                     model.enterPrintMode()
