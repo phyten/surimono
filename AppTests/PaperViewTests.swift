@@ -402,6 +402,44 @@ struct PaperViewTests {
         #expect(passed.clickCount == pressed.clickCount)
     }
 
+    @Test("⌥ を押したドラッグは、矩形ではなく行をまたいで続く文字を選ぶ", .timeLimit(.minutes(1)))
+    func optionDragSelectsContinuousText() async throws {
+        let (view, window) = try makeSinglePagePaper(
+            document: Self.textDocument(lines: ["alpha bravo charlie delta", "echo foxtrot golf hotel"]))
+        let page = try #require(view.document?.page(at: 0))
+        let text = page.string ?? ""
+        // From the start of "bravo" on the first line to the end of "foxtrot" on the second: a rectangle between
+        // them would leave out "delta" at the end of the first line and "echo" at the start of the second.
+        let start = try windowPoint(of: "bravo", at: .start, in: text, page: page, view: view)
+        let end = try windowPoint(of: "foxtrot", at: .end, in: text, page: page, view: view)
+        let number = window.windowNumber
+        window.postEvent(try mouseEvent(.leftMouseDragged, at: end, option: true, windowNumber: number), atStart: false)
+        window.postEvent(try mouseEvent(.leftMouseUp, at: end, option: true, windowNumber: number), atStart: false)
+        view.mouseDown(with: try mouseEvent(.leftMouseDown, at: start, option: true, windowNumber: number))
+        let selected = view.currentSelection?.string ?? ""
+        #expect(selected.contains("delta"))
+        #expect(selected.contains("echo"))
+        #expect(!selected.contains("alpha"))
+        #expect(!selected.contains("hotel"))
+        withExtendedLifetime(window) {}
+    }
+
+    private enum Edge { case start, end }
+
+    /// The window point at the first or last character of `word`, a little inside the glyph.
+    private func windowPoint(
+        of word: String, at edge: Edge, in text: String, page: PDFPage, view: PaperPDFView
+    ) throws -> NSPoint {
+        let range = try #require(text.range(of: word))
+        let index =
+            edge == .start
+            ? text.distance(from: text.startIndex, to: range.lowerBound)
+            : text.distance(from: text.startIndex, to: range.upperBound) - 1
+        let bounds = view.convert(page.characterBounds(at: index), from: page)
+        let point = NSPoint(x: edge == .start ? bounds.minX + 1 : bounds.maxX - 1, y: bounds.midY)
+        return view.convert(point, to: nil)
+    }
+
     @Test("すべて選択は文字を選択のときだけ効き、文字を選択をやめると選択を消す", .timeLimit(.minutes(1)))
     func selectAllFollowsTheMode() async throws {
         let (view, window) = try makeSinglePagePaper(document: Self.textDocument())
@@ -437,8 +475,8 @@ struct PaperViewTests {
                 windowNumber: windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
     }
 
-    /// Six pages that each carry a line of text, which PDFKit can select.
-    private static func textDocument() throws -> PDFDocument {
+    /// Six pages that carry lines of text, which PDFKit can select.
+    private static func textDocument(lines: [String]? = nil) throws -> PDFDocument {
         let data = NSMutableData()
         var box = CGRect(x: 0, y: 0, width: 595, height: 842)
         let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
@@ -447,9 +485,10 @@ struct PaperViewTests {
             context.beginPDFPage(nil)
             NSGraphicsContext.saveGraphicsState()
             NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
-            NSAttributedString(
-                string: "Surimono selection page \(page)", attributes: [.font: NSFont.systemFont(ofSize: 24)]
-            ).draw(at: NSPoint(x: 72, y: 720))
+            for (number, line) in (lines ?? ["Surimono selection page \(page)"]).enumerated() {
+                NSAttributedString(string: line, attributes: [.font: NSFont.systemFont(ofSize: 24)])
+                    .draw(at: NSPoint(x: 72, y: 720 - CGFloat(number) * 40))
+            }
             NSGraphicsContext.restoreGraphicsState()
             context.endPDFPage()
         }

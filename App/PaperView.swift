@@ -668,8 +668,10 @@ final class PaperPDFView: PDFView {
 
     private func updateCursor(modifierFlags: NSEvent.ModifierFlags = NSEvent.modifierFlags) {
         guard let window, window.isKeyWindow else { return }
-        let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
-        guard bounds.contains(point) else { return }
+        // The band and the panels lie over the paper; the cursor over them is theirs.
+        let location = window.mouseLocationOutsideOfEventStream
+        guard isPaper(atWindowPoint: location) else { return }
+        let point = convert(location, from: nil)
         if selectsText != modifierFlags.contains(.option) {
             setCursorFor(areaOfInterest(for: point))
         } else {
