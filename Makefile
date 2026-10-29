@@ -28,8 +28,9 @@ help:
 build:
 	$(XCODEBUILD) -configuration "$(CONFIGURATION)" build
 
+# open -a looks up a relative path as an application name and fails, so pass an absolute path.
 run: build
-	open -a "$(APP)" $(if $(strip $(FILE)),"$(FILE)")
+	open -a "$$(realpath "$(APP)")" $(if $(strip $(FILE)),"$(FILE)")
 
 test: test-kit test-app
 

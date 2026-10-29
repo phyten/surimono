@@ -160,6 +160,7 @@ make clean
 
 - メンテナ環境のグローバル gitignore は `AGENTS.md`・`CLAUDE.md`・`.claude`・`.agents` を無視する。リポジトリの `.gitignore` で打ち消しているので、その行を消さない。
 - `Surimono.xcodeproj` は手書き。Xcode の GUI でターゲットや設定を編集すると pbxproj が大きく書き換わる。設定は xcconfig へ。
+- `open -a` は相対パスを受け付けない（アプリの名前として探して失敗する）。`make run` は `realpath` で絶対パスにして渡している。
 - 冊子印刷は短辺綴じが前提。プリンタによっては裏面が上下逆になるため、「裏面を 180° 回転」オプションで補正する。
 - WKWebView の印刷は、ビューがウィンドウに載っていないと白紙になる。WebPaginator は非表示ウィンドウに載せ、`runModal(for:)` と別スレッドの印刷で PDF を作っている。
 - `loadHTMLString(_:baseURL:)` は基準 URL が file URL でもローカルのファイルを読む権限を与えないため、文書の隣の画像が表示されない。WebPaginator は生成した HTML を一時ファイルに書いて `loadFileURL` で読み込む（生成 HTML では JavaScript を止めている）。
