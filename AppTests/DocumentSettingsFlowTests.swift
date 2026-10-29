@@ -53,6 +53,98 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("文字の大きさを内容ごとに保存して復元し、既定に戻すと消える", .timeLimit(.minutes(1)))
+    func textScalePersistence() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let data = Data("# Text scale fixture".utf8)
+        func model(_ content: Data) -> DocumentViewModel {
+            DocumentViewModel(
+                data: content, fileURL: nil, format: .markdown, preferences: environment.preferences,
+                library: environment.library,
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: self.pdf("Text"))! }),
+                settingsStore: environment.store)
+        }
+        let first = model(data)
+        try await open(first)
+        #expect(first.textScale == 1)
+        first.rememberedSettingsDidChange()
+        #expect(environment.store.keys().isEmpty)
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 600, height: 848),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        first.window = window
+        first.sizeWindowToPaper()
+        let originalFrame = window.frame
+        first.setTextScale(1.5)
+        first.render()
+        try await waitUntil { !first.isRendering }
+        first.sizeWindowToPaper()
+        #expect(window.frame == originalFrame)
+        #expect(first.renderSettings?.textScale == 1.5)
+        #expect(first.styleName.hasSuffix(" · 150%"))
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        first.stop()
+        #expect(environment.store.record(for: ContentHash.of(data).hex)?.textScale == 1.5)
+
+        let reopened = model(data)
+        try await open(reopened)
+        #expect(reopened.textScale == 1.5)
+        reopened.stop()
+        let other = model(Data("Different content".utf8))
+        try await open(other)
+        #expect(other.textScale == 1)
+        other.stop()
+        reopened.resetDocumentSettings()
+        #expect(reopened.textScale == 1)
+        reopened.rememberedSettingsDidChange()
+        reopened.stop()
+        #expect(environment.store.keys().isEmpty)
+    }
+
+    @Test("文字倍率の等号ショートカットはOptionとCommandの組だけを扱う")
+    func textSizeKeyboardAlias() throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .markdown, preferences: environment.preferences,
+            library: environment.library, settingsStore: environment.store)
+        func event(_ flags: NSEvent.ModifierFlags, key: String = "=") throws -> NSEvent {
+            try #require(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
+                    context: nil, characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: 24))
+        }
+        #expect(model.handleTextSizeKey(try event([.option, .command])))
+        #expect(model.textScale == 1.1)
+        #expect(!model.handleTextSizeKey(try event(.command)))
+        #expect(!model.handleTextSizeKey(try event([.option, .command, .control])))
+        #expect(!model.handleTextSizeKey(try event([.option, .command], key: "x")))
+        #expect(model.textScale == 1.1)
+        model.mode = .print
+        #expect(model.handleTextSizeKey(try event([.option, .command])))
+        #expect(model.textScale == 1.25)
+        model.setTextScale(.infinity)
+        #expect(model.textScale == 1.25)
+    }
+
+    @Test("テーマのない文書では文字の大きさの操作を無視する", .timeLimit(.minutes(1)))
+    func textScaleIgnoresPDF() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(pdf("PDF"))
+        try await open(model)
+        model.setTextScale(1.5)
+        model.increaseTextSize()
+        model.decreaseTextSize()
+        model.resetTextSize()
+        #expect(model.textScale == 1)
+        #expect(model.rememberedSettings.textScale == nil)
+        model.stop()
+        #expect(environment.store.keys().isEmpty)
+    }
+
     @Test("何も変えずに閉じた文書の設定は保存しない", .timeLimit(.minutes(1)))
     func untouchedDocumentIsNotSaved() async throws {
         let environment = try environment()

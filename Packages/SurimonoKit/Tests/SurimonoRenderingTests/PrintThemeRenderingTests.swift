@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
@@ -14,6 +15,43 @@ struct PrintThemeRenderingTests {
         let result = try await DocumentRenderer().render(
             DocumentSource(data: Data(markdown.utf8), format: .markdown), settings: settings)
         return result.logicalDocument
+    }
+
+    @Test("150%の文字は100%より高くページ数が増え、用紙寸法は変わらない", .timeLimit(.minutes(1)))
+    func textScalePagination() async throws {
+        _ = NSApplication.shared
+        let markdown = (1...80).map { _ in
+            "Readable text remains on the same paper. " + String(repeating: "Words fill this paragraph. ", count: 8)
+        }.joined(separator: "\n\n")
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        var settings = RenderSettings(
+            layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let renderer = DocumentRenderer()
+        let source = DocumentSource(data: Data(markdown.utf8), format: .markdown)
+        let normal = try await renderer.render(source, settings: settings)
+        settings.textScale = 1.5
+        let large = try await renderer.render(source, settings: settings)
+        let normalPage = try #require(normal.logicalDocument.page(at: 0))
+        let largePage = try #require(large.logicalDocument.page(at: 0))
+        let normalHeight = normalPage.characterBounds(at: 0).height
+        let largeHeight = largePage.characterBounds(at: 0).height
+        #expect(normalHeight > 0)
+        #expect(largeHeight > normalHeight * 1.4)
+        #expect(largeHeight < normalHeight * 1.6)
+        #expect(large.logicalDocument.pageCount > normal.logicalDocument.pageCount)
+        for index in 0..<large.logicalDocument.pageCount {
+            let page = try #require(large.logicalDocument.page(at: index))
+            #expect(page.bounds(for: .mediaBox) == normalPage.bounds(for: .mediaBox))
+        }
+        #expect(large.sheetDocument.pageCount == large.logicalDocument.pageCount)
+        let sheetPage = try #require(large.sheetDocument.page(at: 0))
+        #expect(abs(sheetPage.characterBounds(at: 0).height - largeHeight) < 0.1)
+        // Synthetic fixture metrics make the real WebKit result available in the test log.
+        let metrics =
+            "Text scale: pages \(normal.logicalDocument.pageCount) -> \(large.logicalDocument.pageCount), "
+            + "character height \(normalHeight) -> \(largeHeight), paper \(largePage.bounds(for: .mediaBox))"
+        Logger(subsystem: "io.github.phyten.Surimono", category: "TextScaleTests").notice(
+            "\(metrics, privacy: .public)")
     }
 
     @Test("見出しで改ページのテーマは、大見出し・中見出し・水平線ごとに新しいページから始める", .timeLimit(.minutes(1)))

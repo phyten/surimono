@@ -25,6 +25,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Export an image bundle as a PDF in its current order and print layout
 - A print mode that lays out the sheets as they come out of the printer — fronts and backs side by side, booklet sheets with their fold, and a "Fold It" preview that turns the pages of the folded booklet
 - Swappable print stylesheets for Markdown, Org and text: Standard, Mincho, Compact, GitHub-like, Academic, Modern, Large Print, Room for Notes, Black and White, and Page per Section (every section and horizontal rule starts a new page), plus your own CSS
+- Text size from 80% to 200% layered over any print theme for Markdown, Org, text, and CSV; keeps the window and paper size, with the same result in print and PDF export
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend
 - Smart Removal (beta) for HTML: finds ads, recommended articles, share buttons, cookie banners and the like, removes them, and lets you review and keep any of them; detection runs on your Mac only
 - Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up

@@ -33,6 +33,13 @@ struct DocumentCommands: Commands {
                 model.isViewOptionsPresented = true
             }
             Divider()
+            Button("Increase Text Size") { model?.increaseTextSize() }
+                .keyboardShortcut("+", modifiers: [.option, .command])
+            Button("Decrease Text Size") { model?.decreaseTextSize() }
+                .keyboardShortcut("-", modifiers: [.option, .command])
+            Button("Original Text Size") { model?.resetTextSize() }
+                .keyboardShortcut("0", modifiers: [.option, .command])
+            Divider()
             Button("Zoom In") { model?.paper.zoomIn() }
                 .keyboardShortcut("+")
             Button("Zoom Out") { model?.paper.zoomOut() }
