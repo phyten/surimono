@@ -14,7 +14,7 @@ struct PrintPressBar: View {
                 summary(density)
                 actions
                 Button {
-                    model.printDocument()
+                    model.performPrintCommand()
                 } label: {
                     VStack(spacing: 0) {
                         Text("Print").font(.system(size: 16, weight: .bold)).tracking(1.6)
@@ -26,7 +26,7 @@ struct PrintPressBar: View {
                 }
                 .buttonStyle(SealButtonStyle())
                 .disabled(!model.canOutput)
-                .help("Print (⌘P)")
+                .help(Text(verbatim: printHelp))
                 .accessibilityLabel(Text(verbatim: printAccessibilityLabel))
             }
             .padding(.leading, 12)
@@ -113,16 +113,14 @@ struct PrintPressBar: View {
 
     private var actions: some View {
         VStack(spacing: 6) {
-            actionButton("Quick Print", systemImage: "bolt", help: "Print right away without the print panel (⌥⌘P)") {
-                model.printDocument(quick: true)
-            }
+            PrinterPicker(model: model)
             actionButton("Export PDF", systemImage: "arrow.down.doc", help: "Export the imposed sheets as a PDF (⇧⌘E)")
             {
                 model.exportPDF()
             }
+            .disabled(!model.canOutput)
         }
         .fixedSize()
-        .disabled(!model.canOutput)
     }
 
     private func actionButton(
@@ -152,8 +150,71 @@ struct PrintPressBar: View {
     }
 
     private var printAccessibilityLabel: String {
-        [PrintModeText.string("Print", language: model.language), model.summary].compactMap { $0 }.joined(
-            separator: ", ")
+        [PrintModeText.string("Print", language: model.language), model.selectedPrinterName, model.summary]
+            .compactMap { $0 }.joined(separator: ", ")
+    }
+
+    private var printHelp: String {
+        guard let printer = model.selectedPrinterName else {
+            return PrintModeText.string(
+                "No printer is set up, so Print opens the system print dialog (⌘P)", language: model.language)
+        }
+        return PrintModeText.format("Print to %@ right away (⌘P)", language: model.language, printer)
+    }
+}
+
+/// Where Print sends the sheets: the printers that are set up, and the system dialog for everything else (copies,
+/// page ranges, paper trays).
+private struct PrinterPicker: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Menu {
+            if model.printers.names.isEmpty {
+                Text("No Printers")
+            } else {
+                Picker(
+                    "Printer",
+                    selection: Binding(get: { model.selectedPrinterName ?? "" }, set: { model.selectPrinter($0) })
+                ) {
+                    ForEach(model.printers.names, id: \.self) { name in
+                        Text(verbatim: title(for: name)).tag(name)
+                    }
+                }
+                .pickerStyle(.inline)
+            }
+            Divider()
+            Button("Print with System Dialog…") { model.printDocument(quick: false) }
+                .disabled(!model.canOutput)
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "printer").font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
+                    .frame(width: 15)
+                Text(
+                    verbatim: model.selectedPrinterName ?? PrintModeText.string("No Printers", language: model.language)
+                )
+                .lineLimit(1)
+                .truncationMode(.middle)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink3)
+            }
+            .padding(.horizontal, 9)
+            // Room for a typical model name such as "Brother MFC-J7100CDW"; longer names lose their middle.
+            .frame(minWidth: 130, maxWidth: 230)
+        }
+        .menuStyle(.button)
+        .menuIndicator(.hidden)
+        .buttonStyle(PrintBorderedButtonStyle(height: 27))
+        // A printer set up while the tray is open shows up the next time the pointer comes back to the menu.
+        .onHover { if $0 { model.refreshPrinters() } }
+        .help("Choose the printer for Print, or print with the system dialog")
+        .accessibilityLabel(Text("Printer"))
+    }
+
+    private func title(for name: String) -> String {
+        name == model.printers.defaultName
+            ? PrintModeText.format("%@ (Default)", language: model.language, name) : name
     }
 }
 

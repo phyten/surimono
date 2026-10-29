@@ -13,9 +13,12 @@ struct DocumentCommands: Commands {
         // window's model goes stale and swallows the shortcuts. The items stay enabled; the model ignores what it
         // cannot do.
         CommandGroup(replacing: .printItem) {
-            Button("Print…") { model?.performPrintCommand() }
-                .keyboardShortcut("p")
-            Button("Quick Print") { model?.printDocument(quick: true) }
+            // On the tray ⌘P prints right away, so the item loses its ellipsis there.
+            Button(model?.mode == .print ? LocalizedStringKey("Print") : LocalizedStringKey("Print…")) {
+                model?.performPrintCommand()
+            }
+            .keyboardShortcut("p")
+            Button("Print with System Dialog…") { model?.printDocument(quick: false) }
                 .keyboardShortcut("p", modifiers: [.option, .command])
             Button("Export as PDF…") { model?.exportPDF() }
                 .keyboardShortcut("e", modifiers: [.shift, .command])

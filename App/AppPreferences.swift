@@ -13,6 +13,8 @@ final class AppPreferences {
     var pageNumbers: Bool { didSet { defaults.set(pageNumbers, forKey: "pageNumbers") } }
     var rotateBack: Bool { didSet { defaults.set(rotateBack, forKey: "rotateBack") } }
     var allowsJavaScript: Bool { didSet { defaults.set(allowsJavaScript, forKey: "allowsJavaScript") } }
+    /// The printer the tray's Print sends to; nil means the system's default printer.
+    var printerName: String? { didSet { defaults.set(printerName, forKey: "printer") } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -23,6 +25,7 @@ final class AppPreferences {
         pageNumbers = defaults.bool(forKey: "pageNumbers")
         rotateBack = defaults.bool(forKey: "rotateBack")
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
+        printerName = defaults.string(forKey: "printer")
     }
 
     var printOptions: PrintOptions {

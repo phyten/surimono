@@ -189,7 +189,7 @@ struct PrintModeTests {
         #expect(model.mode == .view)
     }
 
-    @Test("表示モードの⌘Pは印刷モードに入り、印刷モードの⌘Pは印刷パネルを出す")
+    @Test("表示モードの⌘Pは印刷モードに入り、印刷モードの⌘Pは選んだプリンターですぐ印刷する")
     func printCommand() {
         let fixture = Fixture()
         let model = fixture.model()
@@ -197,7 +197,17 @@ struct PrintModeTests {
         #expect(model.canPerformPrintCommand)
         model.performPrintCommand()
         #expect(model.mode == .print)
-        #expect(model.printCommand == .showPrintPanel)
+        #expect(model.printCommand == .printNow)
+    }
+
+    @Test("選んだプリンターはアプリ全体の設定として覚える")
+    func selectedPrinterIsRemembered() throws {
+        let fixture = Fixture()
+        let model = fixture.model()
+        model.selectPrinter("Office Laser")
+        #expect(fixture.preferences.printerName == "Office Laser")
+        let defaults = try #require(UserDefaults(suiteName: fixture.suite))
+        #expect(AppPreferences(defaults: defaults).printerName == "Office Laser")
     }
 
     @Test("印刷モードの⌘Pは、用紙ができるまで使えない")
