@@ -3,6 +3,8 @@
 CONFIGURATION ?= Debug
 DERIVED_DATA ?= build/DerivedData
 VERSION ?= $(shell sed -n 's/^MARKETING_VERSION = //p' Configs/Base.xcconfig)
+# The app version must be X.Y.Z, so a prerelease such as 0.2.0-beta.1 keeps its suffix in VERSION (file names) only.
+MARKETING_VERSION ?= $(VERSION)
 BUILD_NUMBER ?= 1
 FILE ?=
 SWIFT_TEST_FLAGS ?=
@@ -46,7 +48,7 @@ format:
 	xcrun swift-format format --in-place --recursive --parallel $(SWIFT_PATHS)
 
 package:
-	$(XCODEBUILD) -configuration Release MARKETING_VERSION="$(VERSION)" CURRENT_PROJECT_VERSION="$(BUILD_NUMBER)" build
+	$(XCODEBUILD) -configuration Release MARKETING_VERSION="$(MARKETING_VERSION)" CURRENT_PROJECT_VERSION="$(BUILD_NUMBER)" build
 	codesign --verify --deep --strict "$(RELEASE_APP)"
 	mkdir -p build/release
 	ditto -c -k --keepParent "$(RELEASE_APP)" "build/release/Surimono-$(VERSION).zip"

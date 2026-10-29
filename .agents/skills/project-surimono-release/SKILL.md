@@ -37,7 +37,7 @@ description: Cuts a Surimono release by choosing the version, pinning the commit
 
 ## 補足
 
-- アプリの `MARKETING_VERSION` はリリース時にワークフローが上書きする。`Configs/Base.xcconfig` の値は開発中の既定値。
+- アプリの `MARKETING_VERSION`（CFBundleShortVersionString）は、リリース時にワークフローがタグの `X.Y.Z` で上書きする。Apple の書式は整数 3 つだけなので、ベータの印（`-beta.N`）はタグ・リリース名・prerelease・ZIP のファイル名にだけ付ける。`Configs/Base.xcconfig` の値は開発中の既定値。
 - release.yml は、手動実行で既存のタグが別のコミットを指している場合、ビルドの前に停止する。
 - リリースノートの起動の案内は release.yml の `Publish release` にある。macOS 15 以降は右クリック →「開く」で Gatekeeper を越えられない（[Apple の告知](https://developer.apple.com/news/?id=saqachfa)）ので、その案内に戻さない。手順は [Mac でアプリを安全に開く](https://support.apple.com/ja-jp/102445) に合わせる。
 - Developer ID 署名・公証にはまだ対応していない。導入するときは Secrets（証明書、App Store Connect API キー）を追加して release.yml を拡張する。
