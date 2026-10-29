@@ -25,6 +25,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - A print mode that lays out the sheets as they come out of the printer — fronts and backs side by side, booklet sheets with their fold, and a "Fold It" preview that turns the pages of the folded booklet
 - Swappable print stylesheets for Markdown, Org and text, including your own CSS
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend
+- Smart Removal (beta) for HTML: finds ads, recommended articles, share buttons, cookie banners and the like, removes them, and lets you review and keep any of them; detection runs on your Mac only
 - Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up
 - Quick print without a dialog, and PDF export (for example, for convenience-store printers)
 - A borderless view: only the paper, with a menu that appears when you point at the window; spread, single-page and two-page scroll views; zoom without losing sharpness
