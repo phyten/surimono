@@ -2495,6 +2495,18 @@
           }
         }
       }
+    },
+    "%@: %@": {
+      "comment": "A menu item that names a choice and its current value",
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@：%2$@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -115,6 +115,16 @@ extension ViewOptions.Transition {
         }
     }
 
+    var name: String {
+        switch self {
+        case .scroll: String(localized: "Scroll")
+        case .instant: String(localized: "Switch")
+        case .slide: String(localized: "Slide")
+        case .fade: String(localized: "Fade")
+        case .pageCurl: String(localized: "Page Curl")
+        }
+    }
+
     var symbol: String {
         switch self {
         case .scroll: "scroll"
