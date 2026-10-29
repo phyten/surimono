@@ -67,7 +67,7 @@ final class PaperPDFView: PDFView {
     private var pageSize = CGSize(width: 595, height: 842)
     private var fittedSize = CGSize.zero
     private var isSettingScale = false
-    private var isMagnifying = false
+    private var magnifyMonitor: Any?
     private var wheelDistance: CGFloat = 0
     private var wheelTurnedInGesture = false
     private var lastWheelTurn = Date.distantPast
@@ -91,8 +91,13 @@ final class PaperPDFView: PDFView {
 
     required init?(coder: NSCoder) { nil }
 
+    isolated deinit {
+        if let magnifyMonitor { NSEvent.removeMonitor(magnifyMonitor) }
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        updateMagnifyMonitor()
         // Arrow keys and the menu keys should work as soon as the window opens, without clicking the paper first.
         Task { @MainActor [weak self] in
             guard let self, let window, window.firstResponder === window || window.firstResponder == nil else { return }
@@ -189,30 +194,59 @@ final class PaperPDFView: PDFView {
     }
 
     override func magnify(with event: NSEvent) {
-        isMagnifying = true
-        defer { isMagnifying = false }
-        super.magnify(with: event)
+        magnify(by: event.magnification, at: convert(event.locationInWindow, from: nil))
     }
 
     override func smartMagnify(with event: NSEvent) {
         setZoom(isZoomed ? 1 : 2, anchor: convert(event.locationInWindow, from: nil))
     }
 
-    @objc private func scaleDidChange() {
-        guard !isSettingScale, fitScale > 0 else { return }
-        // PDFKit also rescales on its own, for example when the display mode changes; only a pinch is the user's zoom.
-        guard isMagnifying else {
-            refit()
+    /// PDFKit's scroll view takes pinches before this view sees them and rescales by itself, which the fit then undid,
+    /// so a pinch snapped back. Taking the gestures before PDFKit makes every zoom this view's own.
+    private func updateMagnifyMonitor() {
+        guard window != nil else {
+            if let magnifyMonitor { NSEvent.removeMonitor(magnifyMonitor) }
+            magnifyMonitor = nil
             return
         }
-        // Keep the zoom relative to the fit and never below it.
-        let proposed = Double(scaleFactor / fitScale)
-        let clamped = min(max(proposed, 1), Self.maximumZoom)
-        if abs(clamped - zoom) > 0.001 {
-            zoom = clamped
-            onZoomChange?(clamped)
+        guard magnifyMonitor == nil else { return }
+        magnifyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.magnify, .smartMagnify]) { [weak self] event in
+            let handled = MainActor.assumeIsolated { self?.handleZoomGesture(event) ?? false }
+            return handled ? nil : event
         }
-        if abs(proposed - clamped) > 0.001 { refit() }
+    }
+
+    /// Zooms for a pinch or a smart zoom over the paper and reports whether it did.
+    private func handleZoomGesture(_ event: NSEvent) -> Bool {
+        guard event.window === window, isPaper(atWindowPoint: event.locationInWindow) else { return false }
+        let point = convert(event.locationInWindow, from: nil)
+        if event.type == .magnify {
+            magnify(by: event.magnification, at: point)
+        } else {
+            setZoom(isZoomed ? 1 : 2, anchor: point)
+        }
+        return true
+    }
+
+    /// Whether this point of the window shows the paper itself, not the band or a panel laid over it: the monitor sees
+    /// every gesture of the window, and those over the panels are theirs.
+    func isPaper(atWindowPoint point: NSPoint) -> Bool {
+        guard let content = window?.contentView, !isHiddenOrHasHiddenAncestor else { return false }
+        let location = content.superview?.convert(point, from: nil) ?? point
+        guard let hit = content.hitTest(location) else { return false }
+        return hit === self || hit.isDescendant(of: self)
+    }
+
+    /// Follows the fingers: each step of a pinch scales the zoom around the pointer, and the zoom stays where the
+    /// fingers leave it.
+    func magnify(by magnification: CGFloat, at anchor: NSPoint) {
+        setZoom(zoom * (1 + Double(magnification)), anchor: anchor)
+    }
+
+    @objc private func scaleDidChange() {
+        // PDFKit also rescales on its own, for example when the display mode changes; the zoom stays the user's.
+        guard !isSettingScale, fitScale > 0 else { return }
+        refit()
     }
 
     @objc private func pageDidChange() {
