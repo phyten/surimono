@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (for example, 0.1.0)'
+        description: 'Release version (for example, 0.1.0 or 0.2.0-beta.1)'
         required: true
         type: string
 
@@ -34,13 +34,25 @@ jobs:
           else
             version="${REF_NAME#v}"
           fi
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid version" >&2
+          # MINOR and PATCH stay below 100 and N below 99 so that the build number below grows with the version.
+          pattern='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)(-beta\.([1-9]|[1-8][0-9]|9[0-8]))?$'
+          if [[ ! "$version" =~ $pattern ]]; then
+            echo "::error::Invalid version. Use X.Y.Z or X.Y.Z-beta.N without leading zeros (Y and Z: 0-99, N: 1-98)."
             exit 1
           fi
-          echo "value=$version" >> "$GITHUB_OUTPUT"
-          # CFBundleShortVersionString takes only X.Y.Z, so a prerelease is marked by the tag, the release name, and --prerelease.
-          echo "marketing=${version%%-*}" >> "$GITHUB_OUTPUT"
+          major="${BASH_REMATCH[1]}"
+          minor="${BASH_REMATCH[2]}"
+          patch="${BASH_REMATCH[3]}"
+          stage="${BASH_REMATCH[5]:-99}"
+          {
+            echo "value=$version"
+            # CFBundleShortVersionString takes only X.Y.Z, so a prerelease is marked by the tag, the release name, and --prerelease.
+            echo "marketing=$major.$minor.$patch"
+            # Updaters such as Sparkle compare CFBundleVersion. The run number would make a fix for an older series,
+            # released after a beta, look newer than the beta, so the number follows the version: beta.N ends in N,
+            # and the final release ends in 99.
+            echo "build=$(( major * 1000000 + minor * 10000 + patch * 100 + stage ))"
+          } >> "$GITHUB_OUTPUT"
       - name: Check existing release tag
         id: release-tag
         if: github.event_name == 'workflow_dispatch'
@@ -70,7 +82,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.value }}
           MARKETING_VERSION: ${{ steps.version.outputs.marketing }}
-          BUILD_NUMBER: ${{ github.run_number }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build }}
         run: make package VERSION="$VERSION" MARKETING_VERSION="$MARKETING_VERSION" BUILD_NUMBER="$BUILD_NUMBER"
       # Developer ID signing and notarization can replace ad-hoc signing here in a future release.
       - name: Publish release
