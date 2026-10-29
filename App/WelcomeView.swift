@@ -108,7 +108,6 @@ private struct WelcomeView: View {
             isTargeted = $0
         }
         .background(WindowReader { window = $0 })
-        .preferredColorScheme(preferences.appearance.colorScheme)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             recent = NSDocumentController.shared.recentDocumentURLs
         }

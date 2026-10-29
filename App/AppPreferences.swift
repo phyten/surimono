@@ -1,44 +1,11 @@
 import Observation
+import SurimonoCore
 import SwiftUI
 
-enum AppAppearance: String, CaseIterable, Identifiable {
-    case system, light, dark
-
-    var id: String { rawValue }
-    var next: Self {
-        switch self {
-        case .system: .light
-        case .light: .dark
-        case .dark: .system
-        }
-    }
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: nil
-        case .light: .light
-        case .dark: .dark
-        }
-    }
-    var label: LocalizedStringKey {
-        switch self {
-        case .system: "System"
-        case .light: "Light"
-        case .dark: "Dark"
-        }
-    }
-    var symbol: String {
-        switch self {
-        case .system: "circle.lefthalf.filled"
-        case .light: "sun.max"
-        case .dark: "moon"
-        }
-    }
-}
-
+/// App-wide defaults. Settings a user changes in a document window are remembered per document instead.
 @Observable
 final class AppPreferences {
     private let defaults: UserDefaults
-    var appearance: AppAppearance { didSet { defaults.set(appearance.rawValue, forKey: "appearance") } }
     var layoutID: String { didSet { defaults.set(layoutID, forKey: "layout") } }
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
     var presetID: String { didSet { defaults.set(presetID, forKey: "preset") } }
@@ -49,7 +16,6 @@ final class AppPreferences {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        appearance = AppAppearance(rawValue: defaults.string(forKey: "appearance") ?? "system") ?? .system
         layoutID = defaults.string(forKey: "layout") ?? "a4Single"
         themeID = defaults.string(forKey: "theme") ?? "standard"
         presetID = defaults.string(forKey: "preset") ?? "none"
@@ -57,5 +23,9 @@ final class AppPreferences {
         pageNumbers = defaults.bool(forKey: "pageNumbers")
         rotateBack = defaults.bool(forKey: "rotateBack")
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
+    }
+
+    var printOptions: PrintOptions {
+        PrintOptions(marginsInMillimeters: margin, showsPageNumbers: pageNumbers, rotatesBackSides: rotateBack)
     }
 }

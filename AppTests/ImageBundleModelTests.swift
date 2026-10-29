@@ -73,4 +73,102 @@ struct ImageBundleModelTests {
         #expect(source.images?.map(\.fileURL) == urls)
         #expect(source.images?.allSatisfy { $0.data.isEmpty } == true)
     }
+
+    @Test("画像の内容から集合のハッシュと並び順のダイジェストを作る")
+    func hashes() async throws {
+        let model = ImageBundleModel(urls: urls, readImage: { Data($0.lastPathComponent.utf8) })
+        #expect(model.setHash == nil)
+        _ = try await model.source()
+        let expected = urls.map { ContentHash.of(Data($0.lastPathComponent.utf8)) }
+        #expect(model.setHash == ContentHash.imageSet(expected))
+        #expect(model.orderDigests == expected.map(\.hex))
+        model.move(fromOffsets: IndexSet(integer: 0), toOffset: 3)
+        #expect(model.setHash == ContentHash.imageSet(expected))
+        #expect(model.orderDigests == [expected[1], expected[2], expected[0]].map(\.hex))
+    }
+
+    @Test("保存した並び順を内容で戻し、別の画像の組では並びを変えない")
+    func restoreOrder() async throws {
+        let model = ImageBundleModel(urls: urls, readImage: { Data($0.lastPathComponent.utf8) })
+        _ = try await model.source()
+        let digests = urls.map { ContentHash.of(Data($0.lastPathComponent.utf8)).hex }
+        #expect(model.applyOrder([digests[2], digests[0], digests[1]]))
+        #expect(model.urls == [urls[2], urls[0], urls[1]])
+        #expect(!model.applyOrder([digests[0], digests[1]]))
+        #expect(model.urls == [urls[2], urls[0], urls[1]])
+    }
+
+    @Test("名前順に戻すと開いたときの自然順になる")
+    func sortByName() {
+        let model = ImageBundleModel(urls: urls)
+        #expect(model.isSortedByName)
+        model.move(fromOffsets: IndexSet(integer: 2), toOffset: 0)
+        #expect(!model.isSortedByName)
+        model.sortByName()
+        #expect(model.urls == urls)
+        #expect(model.isSortedByName)
+    }
+
+    @Test("除外したファイルの一覧は名前で示し、__MACOSX は1つにまとめて数える")
+    func excludedSummary() {
+        let summary = ImageBundleModel.summarize(excludedPaths: [
+            "メモ.txt", "1日目/.DS_Store", "__MACOSX/1日目/._IMG_1.jpg", "__MACOSX/._メモ.txt",
+        ])
+        #expect(summary.count == 3)
+        #expect(summary[0] == "メモ.txt")
+        #expect(summary[1] == ".DS_Store")
+        #expect(summary[2].hasPrefix("__MACOSX") && summary[2].contains("2"))
+        #expect(ImageBundleModel(urls: urls).excludedSummary.isEmpty)
+    }
+
+    @Test("読み直している間も、前に読んだ画像の並び順のダイジェストを保つ")
+    func digestsSurviveReload() async throws {
+        let model = ImageBundleModel(urls: urls, readImage: { Data($0.lastPathComponent.utf8) })
+        _ = try await model.source()
+        let digests = try #require(model.orderDigests)
+        model.clearCache()
+        #expect(model.orderDigests == digests)
+    }
+
+    @Test("読み直したら、新しい内容で集合のハッシュを作り直す")
+    func reloadRehashes() async throws {
+        let content = ChangingContent()
+        let model = ImageBundleModel(urls: urls, readImage: { content.read($0) })
+        _ = try await model.source()
+        let before = try #require(model.setHash)
+        content.suffix = "-edited"
+        model.clearCache()
+        _ = try await model.source()
+        #expect(model.setHash != before)
+    }
+
+    @Test("ZIP の中で同じパスの画像が複数あっても、それぞれを1枚として扱う")
+    func duplicateZipPaths() async throws {
+        let zip = TestFixtures.storedZip([
+            ("写真/IMG.png", TestFixtures.png(red: 0.2)), ("写真/IMG.png", TestFixtures.png(red: 0.8)),
+        ])
+        let archive = try ZipArchive(data: zip)
+        let model = ImageBundleModel(
+            archive: archive, selection: ZipImageSelection(archive: archive),
+            archiveURL: URL(fileURLWithPath: "/fixtures/写真.zip"))
+        #expect(model.items.count == 2)
+        #expect(Set(model.urls).count == 2)
+        #expect(model.items.map(\.name) == ["写真/IMG.png", "写真/IMG.png"])
+        let source = try await model.source()
+        #expect(source.images?.count == 2)
+        #expect(source.images?[0].data != source.images?[1].data)
+    }
+}
+
+/// Image bytes that a test can change between reads.
+private final class ChangingContent: @unchecked Sendable {
+    // Written only by the test between reads; the lock covers the reads on the loading thread.
+    private let lock = NSLock()
+    private var _suffix = ""
+    var suffix: String {
+        get { lock.withLock { _suffix } }
+        set { lock.withLock { _suffix = newValue } }
+    }
+
+    func read(_ url: URL) -> Data { Data((url.lastPathComponent + suffix).utf8) }
 }

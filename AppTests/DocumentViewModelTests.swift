@@ -46,13 +46,6 @@ struct DocumentViewModelTests {
         #expect(preferences.layoutID == "a4Single")
     }
 
-    @Test("外観はシステムからライトとダークを経て戻る")
-    func appearanceCycle() {
-        #expect(AppAppearance.system.next == .light)
-        #expect(AppAppearance.light.next == .dark)
-        #expect(AppAppearance.dark.next == .system)
-    }
-
     @Test("冊子の要約は論理ページ数と用紙枚数と短辺綴じを示す")
     func summary() {
         let summary = PrintSummary(plan: Imposition.plan(pageCount: 12, layout: .a3BookletA4))
