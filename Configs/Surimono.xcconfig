@@ -12,3 +12,14 @@ SWIFT_APPROACHABLE_CONCURRENCY = YES
 ENABLE_PREVIEWS = YES
 ENABLE_APP_SANDBOX = NO
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks
+
+// A development build is a separate app: its own bundle identifier keeps its preferences apart from the installed
+// release's, and its name and icon tell the two apart. PRODUCT_NAME stays Surimono because the Makefile and the tests'
+// TEST_HOST refer to Surimono.app.
+PRODUCT_BUNDLE_IDENTIFIER[config=Debug] = io.github.phyten.Surimono.debug
+ASSETCATALOG_COMPILER_APPICON_NAME[config=Debug] = AppIcon-Dev
+// The Dock and the app switcher show the display name. The menu bar shows CFBundleName, which the generated Info.plist
+// always sets to PRODUCT_NAME, so it still reads Surimono. The unconditional value is needed: with only the Debug one,
+// a release build's generated Info.plist gets an empty CFBundleDisplayName.
+INFOPLIST_KEY_CFBundleDisplayName = $(PRODUCT_NAME)
+INFOPLIST_KEY_CFBundleDisplayName[config=Debug] = Surimono Dev

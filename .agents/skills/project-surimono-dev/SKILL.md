@@ -39,10 +39,10 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - Release ビルドには含まれない。表示の引数で設定を変えると、その文書の設定として `~/Library/Application Support/Surimono/DocumentSettings/` に保存される（次に開くと「戻しました」が出る）。確認用のファイルの記録は確認後に消す
      - 画像の束を撮るときは、`open` に画像を複数まとめて渡す（例: `open -n -W -a "$APP" a.png b.jpg c.heic --args …`）。束のウィンドウが撮られる。
      - 前回のウィンドウの復元が混ざらないよう、確認用の起動には `-ApplePersistenceIgnoreState YES` も付けるとよい（`pkill` などで落とすと次の起動で文書が復元される）。
-   - **開き方の確認（ウィンドウの数と題名）**: `swift .agents/skills/project-surimono-dev/scripts/list-windows.swift` が Surimono の画面上のウィンドウを前面から順に、レイヤー・位置・大きさ・題名つきで出す（題名は画面収録の許可がないと空になる。レイヤー 8 はアラートなどのモーダル。数えるのは名前が Surimono の全プロセスの画面上のウィンドウで、最小化したものは含まない。一覧を取れなければ終了コード 1）。Finder や Dock からの開き方は `open -a "$APP" <ファイル…>` で再現し、AGENTS.md の「ウィンドウとファイルの開き方」の規則どおりの数と題名になるかを見る。
-   - 操作まで確かめたい場合: Claude Code なら computer-use の `request_access`（アプリ名 Surimono）→ `app_screenshot`（ユーザーが許可しなければ使わない）。それ以外は `screencapture -x -o -l "$(swift .agents/skills/project-surimono-dev/scripts/window-id.swift)" /tmp/surimono.png`（実行するターミナルに画面収録の許可が必要）。
+   - **開き方の確認（ウィンドウの数と題名）**: `swift .agents/skills/project-surimono-dev/scripts/list-windows.swift` が開発版の画面上のウィンドウを前面から順に、レイヤー・位置・大きさ・題名つきで出す（題名は画面収録の許可がないと空になる。レイヤー 8 はアラートなどのモーダル。数えるのは名前が Surimono Dev の全プロセスの画面上のウィンドウで、公開版と最小化したものは含まない。一覧を取れなければ終了コード 1）。Finder や Dock からの開き方は `open -a "$APP" <ファイル…>` で再現し、AGENTS.md の「ウィンドウとファイルの開き方」の規則どおりの数と題名になるかを見る。
+   - 操作まで確かめたい場合: Claude Code なら computer-use の `request_access`（開発版のバンドル ID `io.github.phyten.Surimono.debug`）→ `app_screenshot`（ユーザーが許可しなければ使わない）。それ以外は `screencapture -x -o -l "$(swift .agents/skills/project-surimono-dev/scripts/window-id.swift)" /tmp/surimono.png`（実行するターミナルに画面収録の許可が必要）。
    - ライト / ダークの両方と、空・読み込み中・エラー・長い文書の状態を見る。表示モードはメニューの段階（乗せただけ / 上部 / 固定）と、見開き・単ページを見る。冊子は書き出した PDF か印刷パネルのプレビューで面付け（1 枚目の表が [最終ページ | 1]）も確かめる。
-4. 終わったら起動したアプリを終了する: `osascript -e 'quit app "Surimono"'`。
+4. 終わったら起動したアプリを終了する: `osascript -e 'quit app id "io.github.phyten.Surimono.debug"'`（名前で指定すると、入れてある公開版を終了してしまう）。
 
 ## つまずきやすい点
 
