@@ -7,8 +7,13 @@ import SurimonoCore
 public struct PrintJobFactory {
     public init() {}
 
-    public func printInfo(for layout: PrintLayout, base: NSPrintInfo = .shared) -> NSPrintInfo {
+    /// Print settings for the sheets of `layout`, sent to `printer` when given.
+    public func printInfo(for layout: PrintLayout, base: NSPrintInfo = .shared, printer: NSPrinter? = nil)
+        -> NSPrintInfo
+    {
         let info = (base.copy() as? NSPrintInfo) ?? NSPrintInfo()
+        // Choose the printer first: changing it afterwards can reset the paper to that printer's default.
+        if let printer { info.printer = printer }
         info.orientation = .portrait
         // Paper names are driver-dependent; explicit dimensions remain authoritative.
         let name =
@@ -45,11 +50,11 @@ public struct PrintJobFactory {
     }
 
     public func printOperation(
-        for document: PDFDocument, layout: PrintLayout, showsPrintPanel: Bool
+        for document: PDFDocument, layout: PrintLayout, showsPrintPanel: Bool, printer: NSPrinter? = nil
     ) -> NSPrintOperation? {
         guard document.pageCount > 0, !document.isLocked,
             let operation = document.printOperation(
-                for: printInfo(for: layout), scalingMode: .pageScaleDownToFit, autoRotate: false)
+                for: printInfo(for: layout, printer: printer), scalingMode: .pageScaleDownToFit, autoRotate: false)
         else { return nil }
         operation.showsPrintPanel = showsPrintPanel
         operation.printPanel.options.formUnion([.showsPaperSize, .showsOrientation, .showsCopies, .showsPageRange])
