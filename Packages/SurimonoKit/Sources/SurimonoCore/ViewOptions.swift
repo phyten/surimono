@@ -7,8 +7,19 @@ public struct ViewOptions: Codable, Equatable, Sendable {
     public enum Layout: String, Codable, CaseIterable, Sendable {
         case spread
         case single
-        /// Shows spreads and moves exactly one spread per scroll gesture.
-        case twoPageScroll
+
+        public init(from decoder: any Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            // Two-page scrolling was merged into spread; keep existing document settings readable.
+            if value == "twoPageScroll" {
+                self = .spread
+            } else if let layout = Self(rawValue: value) {
+                self = layout
+            } else {
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown view layout: \(value)")
+            }
+        }
     }
 
     /// The reading direction and the binding side are one choice: left-to-right books are bound on the left.
@@ -48,24 +59,20 @@ public struct ViewOptions: Codable, Equatable, Sendable {
         self.showsCoverAlone = showsCoverAlone
     }
 
-    /// Two-page scrolling snaps from spread to spread, so continuous scrolling and overlay effects do not apply.
-    public static func transitions(for layout: Layout) -> [Transition] {
-        layout == .twoPageScroll ? [.instant, .slide] : Transition.allCases
-    }
-
-    public var availableTransitions: [Transition] { Self.transitions(for: layout) }
-
     /// A single page has no facing page, so the cover option only applies to spreads.
     public var usesCoverOption: Bool { layout != .single }
 
     /// Pages form one scrolling strip instead of being turned one unit at a time.
-    public var isContinuous: Bool { layout != .twoPageScroll && transition == .scroll }
+    public var isContinuous: Bool { transition == .scroll }
 
-    /// Replaces a transition that the layout cannot show with the closest one it can.
-    public func normalized() -> ViewOptions {
-        var options = self
-        if !availableTransitions.contains(transition) { options.transition = .slide }
-        return options
+    public enum SlideEdge: Equatable, Sendable {
+        case left, right, top, bottom
+    }
+
+    /// The edge from which the next visible page or spread enters.
+    public func slideEdge(forward: Bool) -> SlideEdge {
+        if scrollAxis == .vertical { return forward ? .bottom : .top }
+        return forward == (direction == .leftToRight) ? .right : .left
     }
 }
 

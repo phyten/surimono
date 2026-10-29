@@ -42,7 +42,7 @@ struct ViewOptionsPopover: View {
                 GridRow {
                     rowLabel("Page Turn")
                     Picker("Page Turn", selection: option(\.transition)) {
-                        ForEach(model.viewOptions.availableTransitions, id: \.self) { transition in
+                        ForEach(ViewOptions.Transition.allCases, id: \.self) { transition in
                             Text(transition.title).tag(transition)
                         }
                     }
@@ -142,8 +142,6 @@ enum ViewOptionsSummary {
         switch options.layout {
         case .spread: parts.append(String(localized: "Shows this document as spreads. "))
         case .single: parts.append(String(localized: "Shows this document one page at a time. "))
-        case .twoPageScroll:
-            parts.append(String(localized: "Shows this document as spreads and scrolls one spread at a time. "))
         }
         switch options.direction {
         case .leftToRight: parts.append(String(localized: "Pages turn from left to right (bound on the left). "))

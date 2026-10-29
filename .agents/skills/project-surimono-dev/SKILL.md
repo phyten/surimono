@@ -30,7 +30,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 撮影: `-SurimonoSnapshotPath <PNG の絶対パス>`（開いている文書は上書きできない）、`-SurimonoSnapshotQuit YES`（保存後に終了）。保存先のディレクトリは先に作っておく
      - 外観: `-SurimonoAppearance light|dark`（アプリ全体の外観を固定する。アプリ自体に外観の切替はない）
      - 印刷: `-SurimonoLayout <PrintLayout の id>`（a4Single / a4Duplex / a3BookletA4 / a4BookletA5 / a3TwoUp）
-     - 表示: `-SurimonoViewLayout spread|single|twoPageScroll`、`-SurimonoTransition scroll|instant|slide|fade|pageCurl`、`-SurimonoCoverAlone YES`、`-SurimonoRightToLeft YES`、`-SurimonoZoom <倍率>`
+     - 表示: `-SurimonoViewLayout spread|single`、`-SurimonoTransition scroll|instant|slide|fade|pageCurl`、`-SurimonoCoverAlone YES`、`-SurimonoRightToLeft YES`、`-SurimonoZoom <倍率>`
      - メニューと窓: `-SurimonoMenu compact|full|pinned`（段階 1 / 段階 2 / 固定）、`-SurimonoPopover view`（表示のオプション）、`-SurimonoAlwaysOnTop YES`、`-SurimonoDrawer YES`（画像の束のサムネイル）
      - 印刷モード: `-SurimonoMode print`（刷り台で撮る）、`-SurimonoMode roundtrip`（刷り台に入って表示モードへ戻ったところを撮る）、`-SurimonoFold YES`（折ってみる）
      - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
@@ -41,7 +41,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 前回のウィンドウの復元が混ざらないよう、確認用の起動には `-ApplePersistenceIgnoreState YES` も付けるとよい（`pkill` などで落とすと次の起動で文書が復元される）。
    - **開き方の確認（ウィンドウの数と題名）**: `swift .agents/skills/project-surimono-dev/scripts/list-windows.swift` が Surimono の画面上のウィンドウを前面から順に、レイヤー・位置・大きさ・題名つきで出す（題名は画面収録の許可がないと空になる。レイヤー 8 はアラートなどのモーダル。数えるのは名前が Surimono の全プロセスの画面上のウィンドウで、最小化したものは含まない。一覧を取れなければ終了コード 1）。Finder や Dock からの開き方は `open -a "$APP" <ファイル…>` で再現し、AGENTS.md の「ウィンドウとファイルの開き方」の規則どおりの数と題名になるかを見る。
    - 操作まで確かめたい場合: Claude Code なら computer-use の `request_access`（アプリ名 Surimono）→ `app_screenshot`（ユーザーが許可しなければ使わない）。それ以外は `screencapture -x -o -l "$(swift .agents/skills/project-surimono-dev/scripts/window-id.swift)" /tmp/surimono.png`（実行するターミナルに画面収録の許可が必要）。
-   - ライト / ダークの両方と、空・読み込み中・エラー・長い文書の状態を見る。表示モードはメニューの段階（乗せただけ / 上部 / 固定）と、見開き・単ページ・2 ページずつを見る。冊子は書き出した PDF か印刷パネルのプレビューで面付け（1 枚目の表が [最終ページ | 1]）も確かめる。
+   - ライト / ダークの両方と、空・読み込み中・エラー・長い文書の状態を見る。表示モードはメニューの段階（乗せただけ / 上部 / 固定）と、見開き・単ページを見る。冊子は書き出した PDF か印刷パネルのプレビューで面付け（1 枚目の表が [最終ページ | 1]）も確かめる。
 4. 終わったら起動したアプリを終了する: `osascript -e 'quit app "Surimono"'`。
 
 ## つまずきやすい点

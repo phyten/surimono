@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import SurimonoCore
 import Testing
 
@@ -14,41 +15,99 @@ struct ViewOptionsTests {
                 pdfDirection: direction))
     }
 
-    @Test("2ページずつのスクロールでは切り替えとスライドだけを選べる")
-    func twoPageScrollTransitions() {
-        #expect(ViewOptions.transitions(for: .twoPageScroll) == [.instant, .slide])
-        #expect(ViewOptions.transitions(for: .spread) == [.scroll, .instant, .slide, .fade, .pageCurl])
+    @Test("表示の型は見開きと単ページの順に並ぶ")
+    func layouts() {
+        #expect(ViewOptions.Layout.allCases == [.spread, .single])
     }
 
     @Test(
-        "2ページずつのスクロールで使えない送り方はスライドに直す",
-        arguments: [
-            ViewOptions.Transition.scroll, .fade, .pageCurl,
+        "どの表示の型でも送り方がスクロールのときだけ連続スクロールになる",
+        arguments: ViewOptions.Layout.allCases, ViewOptions.Transition.allCases)
+    func continuous(layout: ViewOptions.Layout, transition: ViewOptions.Transition) {
+        let options = ViewOptions(
+            layout: layout, scrollAxis: .vertical, transition: transition, showsCoverAlone: false)
+        #expect(options.isContinuous == (transition == .scroll))
+    }
+
+    private func savedView(layout: String, transition: ViewOptions.Transition) -> String {
+        """
+        {"layout":"\(layout)","direction":"rightToLeft","scrollAxis":"vertical",
+         "transition":"\(transition.rawValue)","showsCoverAlone":false}
+        """
+    }
+
+    @Test("旧表示型は見開きとして読み込み、ほかの表示設定を保つ", arguments: ViewOptions.Transition.allCases)
+    func decodeLegacyView(transition: ViewOptions.Transition) throws {
+        let data = Data(savedView(layout: "twoPageScroll", transition: transition).utf8)
+        let options = try JSONDecoder().decode(ViewOptions.self, from: data)
+        #expect(
+            options
+                == ViewOptions(
+                    layout: .spread, direction: .rightToLeft, scrollAxis: .vertical,
+                    transition: transition, showsCoverAlone: false))
+        let encoded = try JSONEncoder().encode(options)
+        let values = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(values["layout"] as? String == "spread")
+    }
+
+    @Test("文書設定の旧表示型もほかの設定を保って見開きへ読み替える", arguments: ViewOptions.Transition.allCases)
+    func decodeLegacyDocumentSettings(transition: ViewOptions.Transition) throws {
+        let json = """
+            {"view":\(savedView(layout: "twoPageScroll", transition: transition)),"zoom":2,"themeID":"test-theme"}
+            """
+        let settings = try JSONDecoder().decode(DocumentSettings.self, from: Data(json.utf8))
+        #expect(
+            settings.view
+                == ViewOptions(
+                    layout: .spread, direction: .rightToLeft, scrollAxis: .vertical,
+                    transition: transition, showsCoverAlone: false))
+        #expect(settings.zoom == 2)
+        #expect(settings.themeID == "test-theme")
+    }
+
+    @Test("未知の表示型は読み込みに失敗し、文書設定では表示以外の項目を残す")
+    func unknownLayout() throws {
+        let view = savedView(layout: "unknown-layout", transition: .fade)
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(ViewOptions.self, from: Data(view.utf8))
+        }
+        let json = """
+            {"view":\(view),"zoom":2,"themeID":"test-theme"}
+            """
+        let settings = try JSONDecoder().decode(DocumentSettings.self, from: Data(json.utf8))
+        #expect(settings.view == nil)
+        #expect(settings.zoom == 2)
+        #expect(settings.themeID == "test-theme")
+    }
+
+    @Test("表示の型は現在の文字列で書き出して読み戻せる", arguments: ViewOptions.Layout.allCases)
+    func layoutRoundTrip(layout: ViewOptions.Layout) throws {
+        let data = try JSONEncoder().encode(layout)
+        #expect(String(decoding: data, as: UTF8.self) == "\"\(layout.rawValue)\"")
+        #expect(try JSONDecoder().decode(ViewOptions.Layout.self, from: data) == layout)
+    }
+
+    @Test(
+        "スライドで入る辺は表示の型によらずスクロール方向と綴じ方向と進退で決まる",
+        arguments: ViewOptions.Layout.allCases,
+        [
+            (ViewOptions.ScrollAxis.vertical, ViewOptions.Direction.leftToRight, true, ViewOptions.SlideEdge.bottom),
+            (.vertical, .leftToRight, false, .top),
+            (.vertical, .rightToLeft, true, .bottom),
+            (.vertical, .rightToLeft, false, .top),
+            (.horizontal, .leftToRight, true, .right),
+            (.horizontal, .leftToRight, false, .left),
+            (.horizontal, .rightToLeft, true, .left),
+            (.horizontal, .rightToLeft, false, .right),
         ])
-    func normalizeUnavailableTransition(_ transition: ViewOptions.Transition) {
+    func slideEdge(
+        layout: ViewOptions.Layout,
+        scenario: (ViewOptions.ScrollAxis, ViewOptions.Direction, Bool, ViewOptions.SlideEdge)
+    ) {
+        let (axis, direction, forward, edge) = scenario
         let options = ViewOptions(
-            layout: .twoPageScroll, scrollAxis: .vertical, transition: transition, showsCoverAlone: false)
-        #expect(options.normalized().transition == .slide)
-    }
-
-    @Test("使える送り方は正規化しても変えない")
-    func normalizeKeepsAvailableTransition() {
-        let options = ViewOptions(
-            layout: .twoPageScroll, scrollAxis: .vertical, transition: .instant, showsCoverAlone: true)
-        #expect(options.normalized() == options)
-    }
-
-    @Test("連続したスクロールになるのはスクロールの送り方で、2ページずつ以外のとき")
-    func continuous() {
-        #expect(
-            ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
-                .isContinuous)
-        #expect(
-            !ViewOptions(layout: .spread, scrollAxis: .vertical, transition: .slide, showsCoverAlone: false)
-                .isContinuous)
-        #expect(
-            !ViewOptions(layout: .twoPageScroll, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
-                .isContinuous)
+            layout: layout, direction: direction, scrollAxis: axis, transition: .slide, showsCoverAlone: true)
+        #expect(options.slideEdge(forward: forward) == edge)
     }
 
     @Test("流し込みの文書は単ページの縦の連続スクロールで開く")

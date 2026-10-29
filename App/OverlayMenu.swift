@@ -360,7 +360,7 @@ private struct LayoutPicker: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
-        .help("Spread, Single Page or Two-Page Scroll")
+        .help("Spread or Single Page")
     }
 }
 
@@ -385,7 +385,6 @@ extension ViewOptions.Layout {
         switch self {
         case .spread: "Spread"
         case .single: "Single Page"
-        case .twoPageScroll: "Two-Page Scroll"
         }
     }
 
@@ -393,7 +392,6 @@ extension ViewOptions.Layout {
         switch self {
         case .spread: "rectangle.split.2x1"
         case .single: "rectangle.portrait"
-        case .twoPageScroll: "rectangle.grid.2x2"
         }
     }
 }

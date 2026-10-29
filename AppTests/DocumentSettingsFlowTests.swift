@@ -114,7 +114,7 @@ struct DocumentSettingsFlowTests {
         defer { environment.cleanUp() }
         let model = environment.model(pdf("a"))
         try await open(model)
-        model.setLayout(.twoPageScroll)
+        model.setLayout(.single)
         model.layoutID = PrintLayout.a4BookletA5.id
         model.printOptions.showsPageNumbers = true
         model.rememberedSettingsDidChange()
