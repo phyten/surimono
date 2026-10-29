@@ -191,8 +191,13 @@ struct OverlayBand: View {
             if stage == .full {
                 FormatBadge(text: model.formatBadge)
                 if let indicator = model.pageIndicator {
-                    Text(verbatim: indicator).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
+                    // Keeps the width of the widest indicator, so that turning pages never shifts the band or squeezes
+                    // the indicator; the file name gives way instead.
+                    Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
+                        .overlay(alignment: .leading) { Text(verbatim: indicator) }
+                        .font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .fixedSize()
                 }
             }
         }

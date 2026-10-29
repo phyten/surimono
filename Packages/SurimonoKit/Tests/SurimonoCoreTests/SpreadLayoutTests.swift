@@ -71,4 +71,46 @@ struct SpreadLayoutTests {
         #expect(SpreadLayout.unitIndex(containing: 6, in: pairs) == nil)
         #expect(DisplayUnit.spread(left: 3, right: 2).pages == [2, 3])
     }
+
+    @Test("組み地図に入りきるなら、すべての組を見せる")
+    func visibleRangeShowsEverythingThatFits() {
+        #expect(SpreadLayout.visibleRange(unitCount: 5, current: 4, capacity: 5) == 0..<5)
+        #expect(SpreadLayout.visibleRange(unitCount: 3, current: nil, capacity: 8) == 0..<3)
+    }
+
+    @Test("入りきらないときは、今の組を真ん中にして見せる")
+    func visibleRangeCentresTheCurrentUnit() {
+        #expect(SpreadLayout.visibleRange(unitCount: 76, current: 50, capacity: 7) == 47..<54)
+        #expect(SpreadLayout.visibleRange(unitCount: 76, current: 50, capacity: 6) == 48..<54)
+    }
+
+    @Test("文書の初めと終わりでは、端の組から見せる")
+    func visibleRangeStaysWithinTheDocument() {
+        #expect(SpreadLayout.visibleRange(unitCount: 76, current: 1, capacity: 7) == 0..<7)
+        #expect(SpreadLayout.visibleRange(unitCount: 76, current: 75, capacity: 7) == 69..<76)
+        #expect(SpreadLayout.visibleRange(unitCount: 76, current: nil, capacity: 7) == 0..<7)
+    }
+
+    @Test("入る数が 0 なら何も見せない")
+    func visibleRangeWithoutRoom() {
+        #expect(SpreadLayout.visibleRange(unitCount: 76, current: 3, capacity: 0).isEmpty)
+        #expect(SpreadLayout.visibleRange(unitCount: 0, current: nil, capacity: 7).isEmpty)
+    }
+
+    @Test("ページ表示は単ページを「3 / 12」、見開きを「2–3 / 12」と書く")
+    func pageIndicatorText() {
+        #expect(PageIndicator.text(pages: [3], pageCount: 12) == "3 / 12")
+        #expect(PageIndicator.text(pages: [2, 3], pageCount: 12) == "2–3 / 12")
+        #expect(PageIndicator.text(pages: [100, 101], pageCount: 250) == "100–101 / 250")
+    }
+
+    @Test(
+        "ページ表示の幅は、その文書でいちばん幅を取る表示に合わせる",
+        arguments: [
+            (9, ViewOptions.Layout.single, "8 / 9"), (12, .single, "88 / 12"), (12, .spread, "88–88 / 12"),
+            (250, .spread, "888–888 / 250"), (1500, .twoPageScroll, "8888–8888 / 1500"),
+        ])
+    func pageIndicatorWidestText(pageCount: Int, layout: ViewOptions.Layout, widest: String) {
+        #expect(PageIndicator.widestText(pageCount: pageCount, layout: layout) == widest)
+    }
 }

@@ -41,3 +41,32 @@ public enum SpreadLayout {
         units.firstIndex { $0.pages.contains(page) }
     }
 }
+
+extension SpreadLayout {
+    /// The units that a strip with room for `capacity` of them shows: all of them when they fit, otherwise a run
+    /// around `current` that stays within the document.
+    public static func visibleRange(unitCount: Int, current: Int?, capacity: Int) -> Range<Int> {
+        guard unitCount > 0, capacity > 0 else { return 0..<0 }
+        guard unitCount > capacity else { return 0..<unitCount }
+        let center = min(max(current ?? 0, 0), unitCount - 1)
+        let start = min(max(center - (capacity - 1) / 2, 0), unitCount - capacity)
+        return start..<(start + capacity)
+    }
+}
+
+/// The page indicator of the view mode: "3 / 12" for a page, "2–3 / 12" for a spread.
+public enum PageIndicator {
+    public static func text(pages: [Int], pageCount: Int) -> String {
+        guard let first = pages.first, let last = pages.last else { return "" }
+        let shown = first == last ? "\(first)" : "\(first)–\(last)"
+        return "\(shown) / \(pageCount)"
+    }
+
+    /// The widest text that any unit of this document can show, with "8" standing for every digit; in a font with
+    /// tabular digits, reserving its width keeps the indicator from changing size while turning pages.
+    public static func widestText(pageCount: Int, layout: ViewOptions.Layout) -> String {
+        let digits = String(repeating: "8", count: String(max(pageCount, 1)).count)
+        let shown = layout == .single ? digits : "\(digits)–\(digits)"
+        return "\(shown) / \(pageCount)"
+    }
+}
