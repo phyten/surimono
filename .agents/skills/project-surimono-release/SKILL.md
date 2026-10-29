@@ -23,7 +23,7 @@ description: Cuts a Surimono release by choosing the version, pinning the commit
    ```
 
    `conclusion` が `success` でなければリリースしない。
-3. バージョンを決める（SemVer。1.0 までは機能追加でマイナー、修正でパッチ。プレリリースは `0.2.0-beta.1` のようにハイフン付き）。
+3. バージョンを決める（SemVer。1.0 までは機能追加でマイナー、修正でパッチ）。書式は `X.Y.Z` か、ベータの `X.Y.Z-beta.N` だけ（先頭に 0 を付けない。Y と Z は 0〜99、N は 1〜98）。ほかの書式（`-rc.1` など）は Release ワークフローの `Determine version` で止まる。
 4. ユーザーに「v<X.Y.Z> を <SHA> から公開してよいか」を確認する。
 5. 確認した SHA にタグを付けて push する（Release ワークフローがタグで起動する）。
 
@@ -33,11 +33,12 @@ description: Cuts a Surimono release by choosing the version, pinning the commit
 
    ワークフローの手動実行（`gh workflow run release.yml`）は使わない。`--ref` はブランチの先頭を指すだけで、確認した SHA に公開対象を固定できない（承認後に master が進むと別のコミットが公開される）。
 6. 実行を見届ける: `gh run watch`。失敗したらログで原因を直してから再実行する。タグやリリースが途中まで作られていたら、消すかどうかをユーザーに確認する。
-7. 成果物を確かめる: `gh release view v<X.Y.Z>` に `Surimono-<X.Y.Z>.zip` と `.sha256` があること。ダウンロードして `shasum -a 256 -c` で照合し、展開して起動する。アドホック署名なので Gatekeeper に止められる。macOS 15 以降は Finder の右クリック →「開く」では越えられないため、リリースノートの手順（システム設定の「プライバシーとセキュリティ」→「このまま開く」）で開けることを確かめる。起動だけを手早く確かめるなら、`xattr -dr com.apple.quarantine Surimono.app`（ダウンロードで付いた隔離の印を消し、Gatekeeper の確認を省く）でもよい。
+7. 成果物を確かめる: `gh release view v<X.Y.Z>` に `Surimono-<X.Y.Z>.zip` と `.sha256` があること。ダウンロードして `shasum -a 256 -c` で照合し、展開する。アプリの版とビルド番号が補足の決め方どおりであること（v0.3.0-beta.1 なら `0.3.0` と `30001`）を `/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' -c 'Print :CFBundleVersion' Surimono.app/Contents/Info.plist` で確かめてから起動する。アドホック署名なので Gatekeeper に止められる。macOS 15 以降は Finder の右クリック →「開く」では越えられないため、リリースノートの手順（システム設定の「プライバシーとセキュリティ」→「このまま開く」）で開けることを確かめる。起動だけを手早く確かめるなら、`xattr -dr com.apple.quarantine Surimono.app`（ダウンロードで付いた隔離の印を消し、Gatekeeper の確認を省く）でもよい。
 
 ## 補足
 
 - アプリの `MARKETING_VERSION`（CFBundleShortVersionString）は、リリース時にワークフローがタグの `X.Y.Z` で上書きする。Apple の書式は整数 3 つだけなので、ベータの印（`-beta.N`）はタグ・リリース名・prerelease・ZIP のファイル名にだけ付ける。`Configs/Base.xcconfig` の値は開発中の既定値。
+- ビルド番号（`CURRENT_PROJECT_VERSION`、CFBundleVersion）もワークフローがタグから計算する: `MAJOR×1000000 + MINOR×10000 + PATCH×100 + S`（正式版は S = 99、beta.N は S = N）。例: 0.2.0 → 20099、0.3.0-beta.1 → 30001、0.3.0 → 30099、あとから出す 0.2.1 → 20199。Sparkle などの更新の仕組みはこの値で新旧を比べるため、実行番号（`github.run_number`）は使わない（ベータのあとに旧系列の修正版を出すと大小が逆転する）。同じ版を出し直すと同じ番号になる。
 - release.yml は、手動実行で既存のタグが別のコミットを指している場合、ビルドの前に停止する。
 - リリースノートの起動の案内は release.yml の `Publish release` にある。macOS 15 以降は右クリック →「開く」で Gatekeeper を越えられない（[Apple の告知](https://developer.apple.com/news/?id=saqachfa)）ので、その案内に戻さない。手順は [Mac でアプリを安全に開く](https://support.apple.com/ja-jp/102445) に合わせる。
 - Developer ID 署名・公証にはまだ対応していない。導入するときは Secrets（証明書、App Store Connect API キー）を追加して release.yml を拡張する。
