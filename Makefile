@@ -33,8 +33,11 @@ run: build
 
 test: test-kit test-app
 
+# The Rendering tests drive WebKit against timeouts. Run alongside the CPU-heavy Core tests on a slow CI runner, they
+# starved until every page load timed out, so the two targets run one after the other.
 test-kit:
-	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS)
+	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS) --filter SurimonoCoreTests
+	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS) --filter SurimonoRenderingTests
 
 test-app:
 	$(XCODEBUILD) -configuration "$(CONFIGURATION)" test
