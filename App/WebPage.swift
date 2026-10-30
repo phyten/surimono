@@ -19,7 +19,20 @@ final class WebPageController: NSObject {
     private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "WebPage")
     static let zoomSteps: [Double] = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]
 
-    var zoom: Double { webView.map { Double($0.pageZoom) } ?? 1 }
+    /// The reader's zoom, relative to fitting one slide into the window for a slide deck, and to 100 % otherwise.
+    private(set) var zoom: Double = 1
+    /// The slide size the page zooms to fit into the window; nil leaves the page at the reader's zoom.
+    var fitSize: CGSize? {
+        didSet { if fitSize != oldValue { applyZoom() } }
+    }
+    /// The slide deck the page looks like, as last measured; nil for an ordinary page or before it has loaded.
+    private(set) var slideDeck: SlideDeck?
+    var onSlideDeckChange: ((SlideDeck?) -> Void)?
+
+    override init() {
+        super.init()
+        container.onResize = { [weak self] in self?.applyZoom() }
+    }
 
     /// Whether the page was loaded with its JavaScript allowed.
     private(set) var allowsJavaScript: Bool?
@@ -32,6 +45,7 @@ final class WebPageController: NSObject {
     static let contentWorld = WKContentWorld.world(name: "surimono")
     static let printMessageName = "surimonoPrint"
     static let printEventName = "surimono-print-request"
+    static let slidesMessageName = "surimonoSlides"
 
     /// Loads the file the first time the page is shown, and keeps the page while the setting stays. A changed
     /// JavaScript setting takes a new web view, because a configuration cannot change once the view exists.
@@ -46,6 +60,12 @@ final class WebPageController: NSObject {
         configuration.defaultWebpagePreferences.allowsContentJavaScript = allowsJavaScript
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         Self.installPrintBridge(in: configuration.userContentController, handler: PrintMessageHandler(self))
+        configuration.userContentController.addUserScript(
+            WKUserScript(
+                source: SlideDeckScript.observerJavaScript(messageName: Self.slidesMessageName),
+                injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: Self.contentWorld))
+        configuration.userContentController.add(
+            SlideMessageHandler(self), contentWorld: Self.contentWorld, name: Self.slidesMessageName)
         let webView = WKWebView(frame: container.bounds, configuration: configuration)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
@@ -54,6 +74,7 @@ final class WebPageController: NSObject {
         container.addSubview(webView)
         self.webView = webView
         self.fileURL = fileURL
+        applyZoom()
         load()
         // A page that replaces one on screen takes the keys at once.
         if container.window != nil { focus() }
@@ -130,6 +151,16 @@ final class WebPageController: NSObject {
         webView?.removeFromSuperview()
         webView = nil
         allowsJavaScript = nil
+        // The page that measured it is gone; the owner learns of a restart separately.
+        slideDeck = nil
+    }
+
+    /// The slide script measured the page again.
+    func slideFactsDidArrive(_ json: String) {
+        let deck = SlideDeck.detect(fromJSON: json)
+        guard deck != slideDeck else { return }
+        slideDeck = deck
+        onSlideDeckChange?(deck)
     }
 
     func focus() {
@@ -164,9 +195,27 @@ final class WebPageController: NSObject {
     func resetZoom() { setZoom(1) }
 
     private func setZoom(_ value: Double) {
-        guard let webView, abs(Double(webView.pageZoom) - value) > 0.001 else { return }
-        webView.pageZoom = CGFloat(value)
+        guard abs(zoom - value) > 0.001 else { return }
+        zoom = value
+        applyZoom()
         onZoomChange?(value)
+    }
+
+    /// The scale that fits one slide into the page's area, which follows the window.
+    var fitScale: Double {
+        let bounds = container.bounds.size
+        guard let fitSize, fitSize.width > 0, fitSize.height > 0, bounds.width > 0, bounds.height > 0 else {
+            return 1
+        }
+        return min(bounds.width / fitSize.width, bounds.height / fitSize.height)
+    }
+
+    /// Page zoom rather than magnification: the page lays itself out for a viewport of the slide's size, so the
+    /// deck's own script and layout go on working as in a browser zoomed to fit.
+    private func applyZoom() {
+        guard let webView else { return }
+        let value = CGFloat(fitScale * zoom)
+        if abs(webView.pageZoom - value) > 0.0001 { webView.pageZoom = value }
     }
 
     enum NavigationDecision: Equatable {
@@ -272,9 +321,29 @@ private final class PrintMessageHandler: NSObject, WKScriptMessageHandler {
     }
 }
 
+/// Passes the slide script's measurements on, as `PrintMessageHandler` does for print requests.
+private final class SlideMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var controller: WebPageController?
+
+    init(_ controller: WebPageController) { self.controller = controller }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame, message.webView === controller?.webView,
+            let json = message.body as? String
+        else { return }
+        controller?.slideFactsDidArrive(json)
+    }
+}
+
 /// Holds the web view and catches the Esc the page did not use, which hides the band as it does on paper.
 final class WebPageContainerView: NSView {
     var onEscape: (() -> Bool)?
+    var onResize: (() -> Void)?
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        onResize?()
+    }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53, event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,

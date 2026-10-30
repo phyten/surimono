@@ -32,6 +32,11 @@ struct DocumentCommands: Commands {
                 model?.toggleHTMLPresentation()
             }
             .keyboardShortcut("p", modifiers: [.control, .command])
+            // For a page that only looks like a slide deck; other documents ignore it.
+            Toggle(
+                "Don't Treat as Slides",
+                isOn: Binding(get: { model?.ignoresSlides ?? false }, set: { model?.setIgnoresSlides($0) })
+            )
             Divider()
             ForEach(Array(ViewOptions.Layout.allCases.enumerated()), id: \.element) { index, layout in
                 Button(layout.title) { model?.setLayout(layout) }

@@ -97,6 +97,12 @@
                     model.setLayout(layout)
                     try? await Task.sleep(for: .milliseconds(1200))
                 }
+                // A slide deck is measured once the page has loaded, and the window then takes its shape.
+                if model.showsWeb { try? await Task.sleep(for: .milliseconds(1200)) }
+                if argument("SurimonoSlides") == "off" {
+                    model.setIgnoresSlides(true)
+                    try? await Task.sleep(for: .milliseconds(800))
+                }
                 if let script = argument("SurimonoWebScript") {
                     // Stands in for a reader using the live page before it is shown as paper.
                     _ = try? await model.web.webView?.evaluateJavaScript(script)
@@ -126,6 +132,7 @@
                     switch argument("SurimonoTray") {
                     case "original": model.setPrintsOriginalPage(true)
                     case "openDetails": model.setOpensClosedDetails(true)
+                    case "currentSlide": model.setPrintsCurrentSlideOnly(true)
                     default: break
                     }
                     if argument("SurimonoTray") != nil { try? await Task.sleep(for: .milliseconds(1500)) }

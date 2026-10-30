@@ -529,6 +529,33 @@ struct DocumentRendererTests {
         #expect(requests[2].pageSize.width > requests[2].pageSize.height)
     }
 
+    @Test("スライドは自動なら @page にかかわらず横で 1 回だけ組み、刷り方を変えると組み直す")
+    func slidesTurnLandscape() async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            requests.append(request)
+            return WebPaginator.Result(
+                document: try RenderingFixtures.pdf(size: request.pageSize), pageRules: [PageRule(size: "A4 portrait")])
+        })
+        let source = DocumentSource(data: Data("<p>Deck</p>".utf8), format: .html)
+        var settings = settings
+        settings.slides = SlidePrintRequest(slideSize: CGSize(width: 1280, height: 720), count: 6)
+        let all = try await renderer.render(source, settings: settings)
+        #expect(all.resolvedOrientation == .landscape)
+        #expect(requests.count == 1)
+        #expect(requests[0].pageSize.width > requests[0].pageSize.height)
+        #expect(requests[0].preparationScript?.contains("const only = -1;") == true)
+
+        settings.slides?.onlyIndex = 2
+        _ = try await renderer.render(source, settings: settings)
+        #expect(requests.count == 2)
+        #expect(requests[1].preparationScript?.contains("const only = 2;") == true)
+
+        settings.paperOrientation = .portrait
+        let portrait = try await renderer.render(source, settings: settings)
+        #expect(portrait.resolvedOrientation == .portrait)
+    }
+
     @Test("HTML の @page の向きは自動のときだけ使い、縦を選べば縦、冊子はいつも縦の用紙で組む")
     func pageRuleOnlyForAuto() async throws {
         var requests: [PaginationRequest] = []
