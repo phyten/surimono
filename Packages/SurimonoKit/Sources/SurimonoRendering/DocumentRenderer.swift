@@ -91,6 +91,10 @@ public struct RenderSettings: Equatable, Sendable {
     /// HTML: open every `<details>` of the copy being laid out.
     public var opensDetails: Bool
 
+    var usesPerPageOrientation: Bool {
+        layout.kind == .normal && layout.duplex == .none && paperOrientation == .auto
+    }
+
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
         options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
@@ -123,9 +127,19 @@ public struct PaginationRequest: Sendable {
 public struct RenderResult {
     // Content orientation is retained separately because 2-up reverses the sheet orientation.
     public let resolvedOrientation: PaperOrientation
+    // The uniform-layout fallback; mixed output must use sheetOrientations instead.
     public var sheetOrientation: PaperOrientation {
         layout.sheetSize.width > layout.sheetSize.height ? .landscape : .portrait
     }
+    /// Indexed by sheetDocument page (a printed side), including any imposed blank back.
+    public var sheetOrientations: [PaperOrientation] {
+        (0..<sheetDocument.pageCount).compactMap { index in
+            guard let page = sheetDocument.page(at: index) else { return nil }
+            let size = page.bounds(for: .mediaBox).size
+            return size.width > size.height ? .landscape : .portrait
+        }
+    }
+    public var hasMixedSheetOrientations: Bool { Set(sheetOrientations).count > 1 }
     public let layout: PrintLayout
     public let logicalDocument: PDFDocument
     public let sheetDocument: PDFDocument
@@ -167,6 +181,7 @@ public final class DocumentRenderer {
     private struct CacheKey: Equatable {
         let source: DocumentSource
         let pageSize: CGSize
+        let mixesImagePages: Bool
         let theme: PrintTheme?
         let textScale: Double?
         let preset: HTMLCleanupPreset?
@@ -238,6 +253,8 @@ public final class DocumentRenderer {
             }
             let key = CacheKey(
                 source: source, pageSize: source.format == .pdf ? .zero : pageSize,
+                mixesImagePages: source.format == .image && settings.usesPerPageOrientation
+                    && Set(sourcePageSizes?.sizes.map { $0.width > $0.height } ?? []).count > 1,
                 theme: source.format.usesPrintTheme ? settings.theme : nil,
                 textScale: source.format.usesPrintTheme ? settings.textScale : nil,
                 preset: source.format.usesHTMLPreset ? settings.preset : nil,
@@ -278,7 +295,9 @@ public final class DocumentRenderer {
                 cachedData = data
                 reused = false
             }
-            let sheet = try await PDFComposer().compose(logical, layout: settings.layout, options: settings.options)
+            let sheet = try await PDFComposer().compose(
+                logical, layout: settings.layout, options: settings.options,
+                orientsEachPage: settings.usesPerPageOrientation && (source.format == .pdf || source.format == .image))
             try Task.checkCancellation()
             if !reused {
                 logicalRenderCount += 1
@@ -378,8 +397,9 @@ public final class DocumentRenderer {
             try Task.checkCancellation()
             do {
                 let rendered = try await ImagePageRenderer().render(
-                    data, pageSize: settings.layout.logicalPageSize(options: settings.options),
-                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options))
+                    data, pageSize: imagePageSize(settings),
+                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options),
+                    autoRotatesPage: settings.usesPerPageOrientation)
                 guard let page = rendered.page(at: 0) else { throw ImagePageRenderer.RenderingError.invalidImage }
                 document.insert(page, at: document.pageCount)
             } catch ImagePageRenderer.RenderingError.invalidImage {
@@ -388,6 +408,12 @@ public final class DocumentRenderer {
         }
         guard document.pageCount > 0 else { throw RenderingError.noReadableImages(unreadable) }
         return (document, unreadable)
+    }
+
+    private func imagePageSize(_ settings: RenderSettings) -> CGSize {
+        // Auto rotation starts with portrait so a minority portrait image retains its own shape.
+        let layout = settings.usesPerPageOrientation ? settings.layout.oriented(false) : settings.layout
+        return layout.logicalPageSize(options: settings.options)
     }
 
     private func logicalDocument(_ source: DocumentSource, settings: RenderSettings) async throws -> WebPaginator.Result
@@ -403,8 +429,9 @@ public final class DocumentRenderer {
         case .image:
             return WebPaginator.Result(
                 document: try await ImagePageRenderer().render(
-                    source.data, pageSize: settings.layout.logicalPageSize(options: settings.options),
-                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)))
+                    source.data, pageSize: imagePageSize(settings),
+                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options),
+                    autoRotatesPage: settings.usesPerPageOrientation))
         case .html:
             let input: WebPaginator.Source
             if source.isLiveSnapshot {

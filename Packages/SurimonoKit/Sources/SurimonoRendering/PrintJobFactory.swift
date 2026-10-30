@@ -52,9 +52,19 @@ public struct PrintJobFactory {
     public func printOperation(
         for document: PDFDocument, layout: PrintLayout, showsPrintPanel: Bool, printer: NSPrinter? = nil
     ) -> NSPrintOperation? {
+        let orientations = (0..<document.pageCount).compactMap { index -> Bool? in
+            guard let page = document.page(at: index) else { return nil }
+            let size = page.bounds(for: .mediaBox).size
+            return size.width > size.height
+        }
+        let mixed = layout.kind == .normal && layout.duplex == .none && Set(orientations).count > 1
+        // Feed one paper size; PDFKit rotates each landscape sheet onto it before scaling down.
+        let printLayout =
+            layout.kind == .normal && layout.duplex == .none
+            ? layout.oriented(!mixed && orientations.first == true) : layout
         guard document.pageCount > 0, !document.isLocked,
             let operation = document.printOperation(
-                for: printInfo(for: layout, printer: printer), scalingMode: .pageScaleDownToFit, autoRotate: false)
+                for: printInfo(for: printLayout, printer: printer), scalingMode: .pageScaleDownToFit, autoRotate: mixed)
         else { return nil }
         operation.showsPrintPanel = showsPrintPanel
         operation.printPanel.options.formUnion([.showsPaperSize, .showsOrientation, .showsCopies, .showsPageRange])

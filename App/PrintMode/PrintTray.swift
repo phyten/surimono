@@ -26,6 +26,7 @@ struct PrintTray: Equatable {
         let index: Int
         let position: Position
         let sides: [Side]
+        let orientation: PaperOrientation
         var id: Int { index }
         var number: Int { index + 1 }
     }
@@ -39,7 +40,8 @@ struct PrintTray: Equatable {
     let layout: PrintLayout
     let sheets: [Sheet]
 
-    init(plan: ImpositionPlan, layout: PrintLayout, rotatesBackSides: Bool) {
+    init(plan: ImpositionPlan, layout: PrintLayout, rotatesBackSides: Bool, sheetOrientations: [PaperOrientation] = [])
+    {
         self.layout = layout
         let sides = plan.sides.enumerated().map { index, side in
             Side(
@@ -53,7 +55,14 @@ struct PrintTray: Equatable {
             Array(sides[$0..<min($0 + perSheet, sides.count)])
         }
         sheets = groups.enumerated().map { index, sides in
-            Sheet(index: index, position: Self.position(of: index, count: groups.count, layout: layout), sides: sides)
+            let documentIndex = sides.first?.documentIndex ?? 0
+            let orientation =
+                sheetOrientations.indices.contains(documentIndex)
+                ? sheetOrientations[documentIndex]
+                : (layout.sheetSize.width > layout.sheetSize.height ? PaperOrientation.landscape : .portrait)
+            return Sheet(
+                index: index, position: Self.position(of: index, count: groups.count, layout: layout),
+                sides: sides, orientation: orientation)
         }
     }
 
@@ -116,6 +125,13 @@ struct TrayMetrics: Equatable {
 
 /// Print mode texts for an explicit language, like `DocumentViewModel.summaryText`, so tests can pin them.
 enum PrintModeText {
+    static func mixedNote(_ orientations: [PaperOrientation], language: String) -> String? {
+        let portrait = orientations.filter { $0 == .portrait }.count
+        let landscape = orientations.filter { $0 == .landscape }.count
+        guard portrait > 0 && landscape > 0 else { return nil }
+        return format("%1$lld portrait · %2$lld landscape", language: language, portrait, landscape)
+    }
+
     static func sheetTitle(_ sheet: PrintTray.Sheet, language: String) -> String {
         format("Sheet %lld", language: language, sheet.number)
     }
@@ -126,7 +142,7 @@ enum PrintModeText {
         case .outermost: return format("%@ landscape · outermost", language: language, paper)
         case .innermost: return format("%@ landscape · innermost (center spread)", language: language, paper)
         case .only, .middle, .unstacked:
-            let landscape = layout.sheetSize.width > layout.sheetSize.height
+            let landscape = sheet.orientation == .landscape
             return format(landscape ? "%@ landscape" : "%@ portrait", language: language, paper)
         }
     }

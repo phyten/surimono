@@ -41,8 +41,14 @@ struct PaperOrientationControl: View {
             if !model.isUpToDate {
                 "Auto"
             } else {
-                model.result?.sheetOrientation == .landscape ? "Auto (Landscape)" : "Auto (Portrait)"
+                Self.automaticValue(for: model.result?.sheetOrientations ?? [])
             }
         }
     }
+    static func automaticValue(for orientations: [PaperOrientation]) -> LocalizedStringKey {
+        if Set(orientations).count > 1 { return "Auto (Mixed)" }
+        guard let orientation = orientations.first else { return "Auto" }
+        return orientation == .landscape ? "Auto (Landscape)" : "Auto (Portrait)"
+    }
+
 }

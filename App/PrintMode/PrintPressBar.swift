@@ -144,7 +144,8 @@ struct PrintPressBar: View {
 
     private var note: String? {
         guard let result = model.result else { return nil }
-        return PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
+        return PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
+            ?? PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
     }
 
     private var optionsText: String? {
