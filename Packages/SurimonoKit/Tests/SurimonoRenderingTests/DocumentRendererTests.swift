@@ -12,6 +12,89 @@ struct DocumentRendererTests {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
     }
 
+    @Test("縦2横4のPDFは自動の通常片面だけページごとの用紙になる")
+    func mixedSheets() async throws {
+        let pdf = try RenderingFixtures.pdf(count: 2, size: CGSize(width: 200, height: 400))
+        let wide = try RenderingFixtures.pdf(count: 4, size: CGSize(width: 400, height: 200))
+        for index in 0..<4 { pdf.insert(try #require(wide.page(at: index)), at: pdf.pageCount) }
+        let source = DocumentSource(data: try #require(pdf.dataRepresentation()), format: .pdf)
+        let renderer = DocumentRenderer()
+        var settings = settings
+        let mixed = try await renderer.render(source, settings: settings)
+        #expect(mixed.sheetOrientations == [.portrait, .portrait, .landscape, .landscape, .landscape, .landscape])
+        #expect(mixed.hasMixedSheetOrientations)
+        for index in 0..<6 {
+            let size = try #require(mixed.sheetDocument.page(at: index)).bounds(for: .mediaBox).size
+            #expect(abs(size.width - (index < 2 ? 595.28 : 841.89)) < 0.1)
+            #expect(abs(size.height - (index < 2 ? 841.89 : 595.28)) < 0.1)
+        }
+        let exported = try #require(PDFDocument(data: mixed.sheetDocument.dataRepresentation()!))
+        #expect(exported.pageCount == 6)
+        for index in 0..<6 {
+            let reread = try #require(exported.page(at: index)).bounds(for: .mediaBox).size
+            let original = try #require(mixed.sheetDocument.page(at: index)).bounds(for: .mediaBox).size
+            #expect(reread == original)
+        }
+        settings.layout = .a4Duplex
+        let duplex = try await renderer.render(source, settings: settings)
+        #expect(duplex.sheetOrientations == Array(repeating: .landscape, count: 6))
+        settings.layout = .a3TwoUp
+        let twoUp = try await renderer.render(source, settings: settings)
+        #expect(twoUp.resolvedOrientation == .landscape)
+        #expect(twoUp.sheetOrientations == [.portrait, .portrait, .portrait])
+        settings.layout = .a4Single
+        settings.paperOrientation = .portrait
+        let portrait = try await renderer.render(source, settings: settings)
+        #expect(portrait.sheetOrientations == Array(repeating: .portrait, count: 6))
+        #expect(renderer.logicalRenderCount == 1)
+    }
+
+    @Test("正方形は縦、CropBoxとRotateを反映した横ページは横の用紙になる")
+    func croppedMixedSheets() async throws {
+        let pdf = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 400, height: 400))
+        pdf.page(at: 1)?.setBounds(CGRect(x: 20, y: 30, width: 300, height: 100), for: .cropBox)
+        pdf.page(at: 2)?.setBounds(CGRect(x: 20, y: 30, width: 100, height: 300), for: .cropBox)
+        pdf.page(at: 2)?.rotation = 90
+        let result = try await DocumentRenderer().render(
+            DocumentSource(data: try #require(pdf.dataRepresentation()), format: .pdf), settings: settings)
+        #expect(result.sheetOrientations == [.portrait, .landscape, .landscape])
+    }
+
+    @Test(
+        "固定レイアウトと明示した横向きでは混在させない",
+        arguments: [PrintLayout.a3BookletA4, .a4Handout3, .a4Single])
+    func mixedSourceFixedSheets(layout: PrintLayout) async throws {
+        let pdf = try RenderingFixtures.pdf(size: CGSize(width: 200, height: 400))
+        let wide = try RenderingFixtures.pdf(size: CGSize(width: 400, height: 200))
+        pdf.insert(try #require(wide.page(at: 0)), at: 1)
+        var settings = settings
+        settings.layout = layout
+        settings.paperOrientation = .landscape
+        let result = try await DocumentRenderer().render(
+            DocumentSource(data: try #require(pdf.dataRepresentation()), format: .pdf), settings: settings)
+        #expect(!result.hasMixedSheetOrientations)
+        #expect(result.sheetOrientations.allSatisfy { $0 == (layout.kind == .handout3 ? .portrait : .landscape) })
+    }
+
+    @Test("画像の束の自動片面はEXIF後の各画像に合わせ、両面への変更でキャッシュを更新する")
+    func mixedImageSheets() async throws {
+        let source = DocumentSource.images([
+            .init(data: try RenderingFixtures.image(orientation: 6), fileURL: URL(fileURLWithPath: "/fixture/p.tiff")),
+            .init(data: try RenderingFixtures.image(), fileURL: URL(fileURLWithPath: "/fixture/l.tiff")),
+            .init(data: try RenderingFixtures.image(), fileURL: URL(fileURLWithPath: "/fixture/l2.tiff")),
+        ])
+        let renderer = DocumentRenderer()
+        var settings = settings
+        let mixed = try await renderer.render(source, settings: settings)
+        #expect(mixed.sheetOrientations == [.portrait, .landscape, .landscape])
+        settings.layout = .a4Duplex
+        let duplex = try await renderer.render(source, settings: settings)
+        #expect(duplex.sheetOrientations == [.landscape, .landscape, .landscape, .landscape])
+        settings.layout = .a4Single
+        let again = try await renderer.render(source, settings: settings)
+        #expect(again.sheetOrientations == mixed.sheetOrientations)
+    }
+
     @Test("3枚＋メモの用紙は内容の向きと別に常に縦になる", arguments: PaperOrientation.allCases)
     func handoutSheetOrientation(orientation: PaperOrientation) async throws {
         let pdf = try RenderingFixtures.pdf(size: CGSize(width: 800, height: 450))

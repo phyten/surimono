@@ -17,7 +17,10 @@ struct PrintTrayView: View {
         GeometryReader { geometry in
             // Legacy scroll bars take their width from the visible area; overlay scroll bars take nothing.
             let width = geometry.size.width - Self.scrollerWidth
-            let metrics = TrayMetrics(layout: tray.layout, viewportWidth: width, zoom: zoom)
+            let mixed = Set(tray.sheets.map(\.orientation)).count > 1
+            let metrics = TrayMetrics(
+                layout: mixed ? tray.layout.oriented(true) : tray.layout,
+                viewportWidth: width, zoom: zoom)
             // Scroll sideways only when zoomed wider than the window, so no idle horizontal scroll bar shows.
             let scrollsSideways = metrics.rowWidth + 2 * TrayMetrics.padding > width
             ZStack(alignment: .bottomTrailing) {
@@ -104,7 +107,9 @@ struct PrintTrayView: View {
 
     /// The Markdown emphasis of the instructions is drawn in the darker ink, as in the design.
     private var instructions: AttributedString {
-        let markdown = PrintModeText.instructions(tray.layout, language: model.language)
+        let markdown =
+            PrintModeText.mixedNote(tray.sheets.map(\.orientation), language: model.language)
+            ?? PrintModeText.instructions(tray.layout, language: model.language)
         var text = (try? AttributedString(markdown: markdown)) ?? AttributedString(markdown)
         for run in text.runs where run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true {
             text[run.range].foregroundColor = PrintPalette.ink
@@ -169,7 +174,7 @@ private struct TraySheetView: View {
             HStack(alignment: .top, spacing: TrayMetrics.sideSpacing) {
                 ForEach(sheet.sides, id: \.documentIndex) { side in
                     TraySideView(
-                        side: side, page: document.page(at: side.documentIndex), size: metrics.sideSize,
+                        side: side, page: document.page(at: side.documentIndex), size: sideSize,
                         scale: metrics.scale, layout: layout, language: language, imageNames: imageNames,
                         options: options)
                 }
@@ -177,9 +182,15 @@ private struct TraySheetView: View {
         }
     }
 
+    private var sideSize: CGSize {
+        let size =
+            layout.kind == .normal ? layout.oriented(sheet.orientation == .landscape).sheetSize : layout.sheetSize
+        return CGSize(width: size.width * metrics.scale, height: size.height * metrics.scale)
+    }
+
     private var width: CGFloat {
         let count = CGFloat(sheet.sides.count)
-        return metrics.sideSize.width * count + TrayMetrics.sideSpacing * (count - 1)
+        return sideSize.width * count + TrayMetrics.sideSpacing * (count - 1)
     }
 }
 

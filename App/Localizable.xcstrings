@@ -2662,6 +2662,28 @@
         }
       }
     },
+    "Auto (Mixed)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動（混在）"
+          }
+        }
+      }
+    },
+    "%1$lld portrait · %2$lld landscape": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縦 %1$lld 枚・横 %2$lld 枚"
+          }
+        }
+      }
+    },
     "Auto (Landscape)": {
       "extractionState": "manual",
       "localizations": {

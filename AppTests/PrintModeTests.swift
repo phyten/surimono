@@ -13,6 +13,21 @@ struct PrintTrayTests {
             rotatesBackSides: rotatesBackSides)
     }
 
+    @Test("混在用紙のラベルと枚数を日本語と英語で示す")
+    func mixedOrientations() {
+        let orientations: [PaperOrientation] = [.portrait, .portrait, .landscape, .landscape, .landscape, .landscape]
+        let tray = PrintTray(
+            plan: Imposition.plan(pageCount: 6, layout: .a4Single), layout: .a4Single,
+            rotatesBackSides: false, sheetOrientations: orientations)
+        #expect(PrintModeText.sheetSubtitle(tray.sheets[0], layout: .a4Single, language: "ja") == "A4 縦")
+        #expect(PrintModeText.sheetSubtitle(tray.sheets[2], layout: .a4Single, language: "ja") == "A4 横")
+        #expect(PrintModeText.sheetSubtitle(tray.sheets[2], layout: .a4Single, language: "en") == "A4 landscape")
+        #expect(PrintModeText.mixedNote(orientations, language: "ja") == "縦 2 枚・横 4 枚")
+        #expect(PrintModeText.mixedNote(orientations, language: "en") == "2 portrait · 4 landscape")
+        #expect(PrintModeText.mixedNote([.portrait], language: "ja") == nil)
+        #expect(PrintModeText.string("Auto (Mixed)", language: "ja") == "自動（混在）")
+    }
+
     @Test("3枚＋メモは縦の片面3枚とページ範囲を示す")
     func handout() {
         let sheets = tray(.a4Handout3, pages: 7).sheets
@@ -263,6 +278,14 @@ struct PrintModeTests {
         #expect(!model.canPerformPrintCommand)
         model.performPrintCommand()
         #expect(model.mode == .print)
+    }
+
+    @Test("自動の向き表示は読み飛ばした画像を含めず残った用紙の向きに従う")
+    func automaticOrientationControl() {
+        #expect(PaperOrientationControl.automaticValue(for: [.portrait]) == "Auto (Portrait)")
+        #expect(PaperOrientationControl.automaticValue(for: [.landscape]) == "Auto (Landscape)")
+        #expect(PaperOrientationControl.automaticValue(for: [.portrait, .landscape]) == "Auto (Mixed)")
+        #expect(PaperOrientationControl.automaticValue(for: []) == "Auto")
     }
 
     @Test("固定向きのレイアウトは向き操作を無効化して用紙の向きを表示し保存値を変えない")

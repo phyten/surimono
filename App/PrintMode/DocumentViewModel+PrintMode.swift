@@ -29,6 +29,6 @@ extension DocumentViewModel {
         guard let result, let renderedSettings else { return nil }
         return PrintTray(
             plan: result.plan, layout: result.layout,
-            rotatesBackSides: renderedSettings.options.rotatesBackSides)
+            rotatesBackSides: renderedSettings.options.rotatesBackSides, sheetOrientations: result.sheetOrientations)
     }
 }

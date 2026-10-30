@@ -15,7 +15,7 @@ public struct PDFComposer {
     public init() {}
 
     public func compose(
-        _ document: PDFDocument, layout: PrintLayout, options: PrintOptions
+        _ document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool = false
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
@@ -37,7 +37,21 @@ public struct PDFComposer {
                 for side in plan.sides {
                     await Task.yield()
                     try Task.checkCancellation()
-                    context.beginPDFPage(nil)
+                    var layout = layout
+                    if orientsEachPage && layout.kind == .normal && layout.duplex == .none,
+                        let index = side.slots.first ?? nil, let page = source.page(at: index + 1)
+                    {
+                        let box = page.getBoxRect(.cropBox).intersection(page.getBoxRect(.mediaBox))
+                        let size =
+                            page.rotationAngle % 180 == 0
+                            ? box.size : CGSize(width: box.height, height: box.width)
+                        layout = layout.oriented(size.width > size.height)
+                    }
+                    let size = layout.sheetSize
+                    let logicalSize = layout.logicalPageSize(options: options)
+                    var box = CGRect(origin: .zero, size: size)
+                    let boxData = Data(bytes: &box, count: MemoryLayout<CGRect>.size)
+                    context.beginPDFPage([kCGPDFContextMediaBox: boxData] as CFDictionary)
                     context.saveGState()
                     if options.rotatesBackSides && side.isBack {
                         context.translateBy(x: size.width, y: size.height)
