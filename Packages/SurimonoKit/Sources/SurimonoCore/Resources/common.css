@@ -13,6 +13,27 @@ th[align="center"], td[align="center"] { text-align: center; }
 th[align="right"], td[align="right"] { text-align: right; }
 a { color: inherit; text-decoration: underline; }
 blockquote { margin-inline: 1em; padding-left: 0.8em; border-left: 2pt solid #aaa; }
+/* A task's box takes the bullet's place. The native control prints gray and blurred, so the box is drawn instead. */
+li.task-list-item { list-style-type: none; }
+li.task-list-item > input[type="checkbox"],
+li.task-list-item > p:first-child > input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+    width: 0.9em;
+    height: 0.9em;
+    margin: 0 0.4em 0 -1.3em;
+    vertical-align: -0.1em;
+    border: 1pt solid currentColor;
+    border-radius: 0.15em;
+    background: transparent;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+li.task-list-item > input[type="checkbox"]:checked,
+li.task-list-item > p:first-child > input[type="checkbox"]:checked {
+    background: currentColor url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat;
+}
 .org-todo, .org-done, .org-priority, .org-tag { font-size: 0.8em; font-family: sans-serif; }
 .org-todo { font-weight: bold; border: 0.5pt solid currentColor; padding: 0 0.2em; }
 .org-done { text-decoration: line-through; }

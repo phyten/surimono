@@ -39,6 +39,89 @@ struct ConverterTests {
         #expect(body.contains("href=\"https://example.com\""))
     }
 
+    @Test("詰めた箇条書きの項目は段落で包まない")
+    func tightListItemsHaveNoParagraphs() {
+        let body = MarkdownConverter.convert("- 一\n- 二\n\n1. 三\n2. 四").body
+        #expect(body.contains("<li>一</li>"))
+        #expect(body.contains("<li>二</li>"))
+        #expect(body.contains("<li>三</li>"))
+        #expect(!body.contains("<li><p>"))
+    }
+
+    @Test("空行で区切った箇条書きの項目は段落で包む")
+    func looseListItemsKeepParagraphs() {
+        let body = MarkdownConverter.convert("- 一\n\n- 二").body
+        #expect(body.contains("<li><p>一</p>"))
+        #expect(body.contains("<li><p>二</p>"))
+    }
+
+    @Test("項目の中の段落の間に空行があれば、そのリストの項目はすべて段落で包む")
+    func blankLineInsideAnItemLoosensTheList() {
+        let body = MarkdownConverter.convert("- 一\n\n  続き\n- 二").body
+        #expect(body.contains("<li><p>一</p>"))
+        #expect(body.contains("<p>続き</p>"))
+        #expect(body.contains("<li><p>二</p>"))
+    }
+
+    @Test("入れ子のリストの中の空行は、外側のリストをゆるくしない")
+    func nestedLooseListKeepsOuterListTight() {
+        let body = MarkdownConverter.convert("- 親\n  - 子一\n\n  - 子二\n- 次").body
+        #expect(body.contains("<li>親"))
+        #expect(body.contains("<li><p>子一</p>"))
+        #expect(body.contains("<li>次</li>"))
+    }
+
+    @Test("コードブロックの中の空行は、リストをゆるくしない")
+    func blankLineInsideCodeKeepsListTight() {
+        let body = MarkdownConverter.convert("- 一\n  ```\n  a\n\n  b\n  ```\n- 二").body
+        #expect(body.contains("<li>一"))
+        #expect(body.contains("<li>二</li>"))
+    }
+
+    @Test(
+        "引用の中でも、「>」だけの行は空行として数える",
+        arguments: [
+            "> - 一\n>\n> - 二", "> > - 一\n> >\n> > - 二", "> > - 一\n>\t>\n> > - 二", "> [!note]\n> - 一\n>\n> - 二",
+        ])
+    func blankQuoteLineLoosensTheList(source: String) {
+        let body = MarkdownConverter.convert(source).body
+        #expect(body.contains("<li><p>一</p>"))
+        #expect(body.contains("<li><p>二</p>"))
+    }
+
+    @Test("引用の中の詰めたリストは段落で包まない")
+    func tightListInsideQuote() {
+        let body = MarkdownConverter.convert("> - 一\n> - 二").body
+        #expect(body.contains("<li>一</li>"))
+        #expect(body.contains("<li>二</li>"))
+    }
+
+    @Test("中身のない項目の後ろの空行も、リストをゆるくする")
+    func blankLineAfterEmptyItemLoosensTheList() {
+        let loose = MarkdownConverter.convert("- 一\n-\n\n- 二").body
+        #expect(loose.contains("<li><p>一</p>"))
+        #expect(loose.contains("<li><p>二</p>"))
+        let tight = MarkdownConverter.convert("- 一\n-\n- 二").body
+        #expect(tight.contains("<li>一</li>"))
+        #expect(tight.contains("<li>二</li>"))
+    }
+
+    @Test("空行で区切ったタスクリストでは、チェックボックスを最初の段落の中に置く")
+    func looseTaskListPutsTheCheckboxInsideTheFirstParagraph() {
+        let body = MarkdownConverter.convert("- [ ] 一\n\n  続き\n- [x] 二").body
+        #expect(body.contains("<li class=\"task-list-item\"><p><input type=\"checkbox\" disabled> 一</p>"))
+        #expect(body.contains("<p>続き</p>"))
+        #expect(body.contains("<li class=\"task-list-item\"><p><input type=\"checkbox\" disabled checked> 二</p>"))
+    }
+
+    @Test("チェックボックス付きの項目は、チェックボックスと文を同じ行に置く")
+    func taskListItemsKeepTheCheckboxBesideTheText() {
+        let body = MarkdownConverter.convert("- [ ] まだ\n- [x] 済み\n- ふつう").body
+        #expect(body.contains("<li class=\"task-list-item\"><input type=\"checkbox\" disabled> まだ</li>"))
+        #expect(body.contains("<li class=\"task-list-item\"><input type=\"checkbox\" disabled checked> 済み</li>"))
+        #expect(body.contains("<li>ふつう</li>"))
+    }
+
     @Test("Markdownのfront matterを除き表題を取り出す")
     func frontMatter() {
         let result = MarkdownConverter.convert("---\ntitle: \"本 & 紙\"\nauthor: Example\n---\n# 見出し\n本文")
