@@ -57,6 +57,11 @@ final class DocumentViewModel {
     private(set) var isCapturingWeb = false
     /// The last copy of the live page failed, so the pages on paper may show an earlier state and do not print.
     private(set) var webCaptureFailed = false
+    /// The tray's 「最初の状態で刷る」: print the page as the file opens instead of its current state. It belongs to the
+    /// visit to the tray and is never saved.
+    private(set) var printsOriginalPage = false
+    /// The tray's 「開いて刷る」: open the details the copy of the live page has closed. Never saved.
+    private(set) var opensClosedDetails = false
     /// Smart Removal (beta) for HTML: remove what is not the article, except the parts the user keeps.
     var isSmartRemovalEnabled = false
     var smartRemovalKeptIDs: [String] = []
@@ -78,7 +83,9 @@ final class DocumentViewModel {
     @ObservationIgnored let paper = PaperController()
     @ObservationIgnored let web = WebPageController()
     /// The live page's state as last copied; paper and printing are made from it instead of the file.
-    @ObservationIgnored private var liveSnapshot: String?
+    private var liveSnapshot: HTMLSnapshot?
+    /// Whether the pages shown were made from the copy of the live page rather than the file.
+    private var renderedFromSnapshot = false
     /// Set while an output that waited for the copy of the live page runs, so that it does not wait again.
     @ObservationIgnored private var isRunningCapturedOutput = false
     @ObservationIgnored private var captureTask: Task<Void, Never>?
@@ -176,12 +183,19 @@ final class DocumentViewModel {
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
                 : nil,
-            textScale: format.usesPrintTheme ? textScale : 1, paperOrientation: paperOrientation)
+            textScale: format.usesPrintTheme ? textScale : 1, paperOrientation: paperOrientation,
+            opensDetails: rendersSnapshot && opensClosedDetails)
     }
+    /// Paper and printing show the copy of the live page, unless there is none or the tray asks for the file.
+    var rendersSnapshot: Bool { usesHTMLPresentation && liveSnapshot != nil && !printsOriginalPage }
+    /// The tray tells what it prints when the page has a state of its own.
+    var offersOriginalPage: Bool { usesHTMLPresentation && liveSnapshot != nil }
+    /// The details the copy of the live page has closed, which print closed unless opened on the tray.
+    var closedDetailsCount: Int { rendersSnapshot ? liveSnapshot?.closedDetailsCount ?? 0 : 0 }
     /// The pages shown were drawn from the current file and settings.
     var isUpToDate: Bool {
         result != nil && !isRendering && error == nil && renderedSettings == renderSettings
-            && renderedSourceURLs == sourceURLs
+            && renderedSourceURLs == sourceURLs && renderedFromSnapshot == rendersSnapshot
     }
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
@@ -218,9 +232,13 @@ final class DocumentViewModel {
 
     func start() {
         web.onZoomChange = { [weak self] zoom in self?.webZoom = zoom }
+        web.onPrintRequest = { [weak self] in self?.pageDidRequestPrint() }
         web.onRestart = { [weak self] in
-            self?.cancelCapture()
-            self?.liveSnapshot = nil
+            guard let self else { return }
+            cancelCapture()
+            liveSnapshot = nil
+            // Pages of the old copy would no longer count as up to date, so they are made from the file again.
+            if renderedFromSnapshot { render() }
         }
         if textSizeKeyMonitor == nil {
             textSizeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -353,9 +371,10 @@ final class DocumentViewModel {
         error = nil
         isRendering = true
         let sourceURLs = sourceURLs
+        let fromSnapshot = rendersSnapshot
         let singleSource =
-            usesHTMLPresentation && liveSnapshot != nil
-            ? DocumentSource.liveSnapshot(liveSnapshot ?? "", of: fileURL)
+            fromSnapshot
+            ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
             : DocumentSource(data: data, fileURL: fileURL, format: format)
         renderTask = Task { [weak self] in
             guard let self else { return }
@@ -373,6 +392,7 @@ final class DocumentViewModel {
                 result = output
                 renderedSettings = settings
                 renderedSourceURLs = sourceURLs
+                renderedFromSnapshot = fromSnapshot
                 unreadableImageURLs = output.unreadableImageURLs
                 resolveViewOptionsIfNeeded(for: output.logicalDocument)
                 if let imageBundle {
@@ -480,9 +500,11 @@ final class DocumentViewModel {
     func exitPrintMode() {
         guard mode != .view else { return }
         guard let window else {
+            resetPrintChoices()
             mode = .view
             return
         }
+        resetPrintChoices()
         PrintModeWindow.exit(window) { [weak self] in
             guard let self else { return }
             // Back at the view-mode frame; the print layout may have changed the pages' shape meanwhile.
@@ -491,6 +513,41 @@ final class DocumentViewModel {
             ViewerWindow.setTrafficLightsVisible(isMenuPinned, in: window)
             sizeWindowToPaper(keepHeight: true)
         }
+    }
+
+    /// The tray's choices of what to print last only while it is shown; paper then shows the current state again.
+    private func resetPrintChoices() {
+        opensClosedDetails = false
+        guard printsOriginalPage else { return }
+        printsOriginalPage = false
+        render()
+    }
+
+    /// The tray's switch between the page as it is now and as the file opens.
+    func setPrintsOriginalPage(_ original: Bool) {
+        guard offersOriginalPage, printsOriginalPage != original else { return }
+        printsOriginalPage = original
+        render()
+    }
+
+    /// The tray's 「開いて刷る」 and its undo; the settings change draws the pages again.
+    func setOpensClosedDetails(_ opens: Bool) {
+        guard usesHTMLPresentation else { return }
+        opensClosedDetails = opens
+    }
+
+    /// The page called `window.print()`: open the print tray as ⌘P does. Only the page the reader is using may ask:
+    /// not one behind paper or the tray, nor one in a window in the background, and a request while the page is
+    /// being copied for the tray is already on its way there.
+    func pageDidRequestPrint() {
+        guard showsWeb, !isCapturingWeb, isWindowActive else { return }
+        enterPrintMode()
+    }
+
+    /// The window is the one the reader works in; replaced in tests, whose windows never become key.
+    @ObservationIgnored var windowActiveOverride: Bool?
+    private var isWindowActive: Bool {
+        windowActiveOverride ?? (window.map { $0.isVisible && $0.isKeyWindow } ?? false)
     }
 
     func setSmartRemoval(enabled: Bool) {
@@ -530,6 +587,12 @@ final class DocumentViewModel {
     var isWebPresentation: Bool { usesHTMLPresentation && htmlPresentation == .web }
     /// The live page is on screen.
     var showsWeb: Bool { mode == .view && isWebPresentation }
+
+    /// ⌃⌘P: between the live page and paper. Only HTML in the view mode has the two.
+    func toggleHTMLPresentation() {
+        guard usesHTMLPresentation, mode == .view else { return }
+        setHTMLPresentation(htmlPresentation == .web ? .paper : .web)
+    }
 
     /// - Parameter capturesWeb: Whether paper shows the page as the reader left it. Restoring a remembered choice
     ///   while the document opens shows the file as it is.
@@ -571,8 +634,8 @@ final class DocumentViewModel {
             let completions = captureCompletions
             captureCompletions = []
             webCaptureFailed = snapshot == .failed
-            if case .captured(let html) = snapshot, html != liveSnapshot {
-                liveSnapshot = html
+            if case .captured(let copy) = snapshot, copy != liveSnapshot {
+                liveSnapshot = copy
                 // The pages of the previous state must not show or print in the meantime.
                 result = nil
                 render()

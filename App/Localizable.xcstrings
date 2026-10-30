@@ -2887,6 +2887,160 @@
           }
         }
       }
+    },
+    "Show as Web": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブで表示"
+          }
+        }
+      }
+    },
+    "Show as Paper": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紙面で表示"
+          }
+        }
+      }
+    },
+    "Printing the web page as it is now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブの今の状態を刷ります"
+          }
+        }
+      }
+    },
+    "Print the Original Page": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最初の状態で刷る"
+          }
+        }
+      }
+    },
+    "Print the page as the file opens, without your changes": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作する前の、ファイルを開いたときの状態で刷ります"
+          }
+        }
+      }
+    },
+    "Printing the page as the file opens": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルを開いたときの状態を刷ります"
+          }
+        }
+      }
+    },
+    "Print as It Is Now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今の状態で刷る"
+          }
+        }
+      }
+    },
+    "Print the web page as it is now": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブの今の状態で刷ります"
+          }
+        }
+      }
+    },
+    "%lld closed details": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じた折りたたみが %lld 個あります"
+          }
+        }
+      }
+    },
+    "Open and Print": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開いて刷る"
+          }
+        }
+      }
+    },
+    "Open all closed details on paper; the web page stays as it is": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紙の上でだけ折りたたみをすべて開きます。ウェブページはそのままです"
+          }
+        }
+      }
+    },
+    "Printing %lld closed details opened": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じた折りたたみ %lld 個を開いて刷ります"
+          }
+        }
+      }
+    },
+    "Keep Them Closed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じたまま刷る"
+          }
+        }
+      }
+    },
+    "Print the details closed, as on the web page": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウェブページと同じく、閉じたまま刷ります"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

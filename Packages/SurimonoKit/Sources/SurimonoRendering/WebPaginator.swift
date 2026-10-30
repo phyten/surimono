@@ -1,5 +1,6 @@
 import AppKit
 import PDFKit
+import SurimonoCore
 import WebKit
 
 /// Lays out HTML in an off-screen WKWebView and prints it into a paginated PDF.
@@ -42,10 +43,13 @@ public final class WebPaginator: NSObject {
     public struct Result {
         public let document: PDFDocument
         public let preparationResult: String?
+        /// The document's own `@page` rules with a size, read before the preparation script ran; empty unless asked.
+        public let pageRules: [PageRule]
 
-        public init(document: PDFDocument, preparationResult: String? = nil) {
+        public init(document: PDFDocument, preparationResult: String? = nil, pageRules: [PageRule] = []) {
             self.document = document
             self.preparationResult = preparationResult
+            self.pageRules = pageRules
         }
     }
 
@@ -72,9 +76,11 @@ public final class WebPaginator: NSObject {
     }
 
     /// Returns the preparation script's string result together with the PDF made from that same DOM.
+    /// - Parameter readsPageRules: Whether to read the document's `@page` rules into the result.
     public func paginateWithResult(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
-        printsBackgrounds: Bool = true, preparationScript: String? = nil, timeout: Duration = .seconds(15)
+        printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
+        timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
         let session = PaginationSession(
@@ -92,6 +98,13 @@ public final class WebPaginator: NSObject {
 
         didStartWaitingForResources?()
         try await waitForResources(in: session.webView, timeout: timeout)
+        // Before the preparation, whose presets may remove the document's style elements.
+        let pageRules =
+            readsPageRules
+            ? PageRule.rules(
+                fromJSON: try await runPreparationScript(PageRule.javaScript, in: session.webView, timeout: timeout)
+                    ?? "")
+            : []
         let preparationResult: String?
         if let preparationScript, !preparationScript.isEmpty {
             preparationResult = try await runPreparationScript(preparationScript, in: session.webView, timeout: timeout)
@@ -99,7 +112,8 @@ public final class WebPaginator: NSObject {
             preparationResult = nil
         }
         try Task.checkCancellation()
-        return Result(document: try await session.printToPDF(), preparationResult: preparationResult)
+        return Result(
+            document: try await session.printToPDF(), preparationResult: preparationResult, pageRules: pageRules)
     }
 
     /// Waits for the page's images and fonts, but prints what has loaded once the timeout passes.

@@ -25,6 +25,13 @@ final class WebPageController: NSObject {
     private(set) var allowsJavaScript: Bool?
     /// Called when the page starts over, so that a copy of its earlier state is no longer used.
     var onRestart: (() -> Void)?
+    /// Called when the page calls `window.print()`, instead of the system print dialog.
+    var onPrintRequest: (() -> Void)?
+
+    /// The world of the app's own scripts on the page, apart from the page's scripts.
+    static let contentWorld = WKContentWorld.world(name: "surimono")
+    static let printMessageName = "surimonoPrint"
+    static let printEventName = "surimono-print-request"
 
     /// Loads the file the first time the page is shown, and keeps the page while the setting stays. A changed
     /// JavaScript setting takes a new web view, because a configuration cannot change once the view exists.
@@ -38,6 +45,7 @@ final class WebPageController: NSObject {
         let configuration = WKWebViewConfiguration()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = allowsJavaScript
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+        Self.installPrintBridge(in: configuration.userContentController, handler: PrintMessageHandler(self))
         let webView = WKWebView(frame: container.bounds, configuration: configuration)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
@@ -72,7 +80,50 @@ final class WebPageController: NSObject {
         if container.window != nil { show(fileURL, allowsJavaScript: allowsJavaScript) }
     }
 
+    /// How long after the reader's own click or key a page may still ask to print, as a print button does at once.
+    static let printGestureWindowMilliseconds = 1500
+
+    /// A page's print button opens the print tray. The page's `window.print` only raises an event on the document;
+    /// a script in the app's own world hears it and tells the app, so the page itself gets no message handler.
+    /// Any page script can raise that event too, so the app's script passes on one request per click or key of the
+    /// reader: only trusted events, which a page cannot make, allow the next one. A page printing on a timer then
+    /// cannot keep sending the reader back to the tray.
+    private static func installPrintBridge(in controller: WKUserContentController, handler: WKScriptMessageHandler) {
+        controller.addUserScript(
+            WKUserScript(
+                source: """
+                    (() => {
+                      const request = () => { document.dispatchEvent(new Event('\(printEventName)')); };
+                      Object.defineProperty(window, 'print', {
+                        value: function print() { request(); }, writable: true, configurable: true,
+                      });
+                    })();
+                    """,
+                injectionTime: .atDocumentStart, forMainFrameOnly: true, in: .page))
+        controller.addUserScript(
+            WKUserScript(
+                source: """
+                    (() => {
+                      let gestureAt = null;
+                      const note = event => { if (event.isTrusted) gestureAt = performance.now(); };
+                      for (const type of ['mousedown', 'mouseup', 'click', 'keydown', 'keyup']) {
+                        window.addEventListener(type, note, true);
+                      }
+                      document.addEventListener('\(printEventName)', () => {
+                        if (gestureAt === null || performance.now() - gestureAt > \(printGestureWindowMilliseconds)) {
+                          return;
+                        }
+                        gestureAt = null;
+                        window.webkit.messageHandlers.\(printMessageName).postMessage(null);
+                      });
+                    })();
+                    """,
+                injectionTime: .atDocumentStart, forMainFrameOnly: true, in: contentWorld))
+        controller.add(handler, contentWorld: contentWorld, name: printMessageName)
+    }
+
     func close() {
+        webView?.configuration.userContentController.removeAllScriptMessageHandlers()
         webView?.stopLoading()
         webView?.navigationDelegate = nil
         webView?.uiDelegate = nil
@@ -89,7 +140,7 @@ final class WebPageController: NSObject {
     enum Snapshot: Equatable {
         /// No page has been shown, so there is no state beyond the file.
         case notLoaded
-        case captured(String)
+        case captured(HTMLSnapshot)
         case failed
     }
 
@@ -99,9 +150,9 @@ final class WebPageController: NSObject {
         do {
             // An isolated world works whether or not the page's own JavaScript may run.
             let value = try await webView.callAsyncJavaScript(
-                HTMLSnapshotScript.javaScript, arguments: [:], in: nil, contentWorld: .world(name: "surimono"))
-            guard let html = value as? String else { return .failed }
-            return .captured(html)
+                HTMLSnapshotScript.javaScript, arguments: [:], in: nil, contentWorld: Self.contentWorld)
+            guard let json = value as? String, let snapshot = HTMLSnapshot(scriptResult: json) else { return .failed }
+            return .captured(snapshot)
         } catch {
             Self.logger.error("Capturing the web page failed: \(error.localizedDescription, privacy: .public)")
             return .failed
@@ -206,6 +257,18 @@ extension WebPageController: WKUIDelegate {
         _ = perform(
             Self.decision(for: url, type: type, target: .newWindow(byUser: byUser), document: fileURL), for: url)
         return nil
+    }
+}
+
+/// Passes the page's print requests on without the user content controller keeping the controller alive.
+private final class PrintMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var controller: WebPageController?
+
+    init(_ controller: WebPageController) { self.controller = controller }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame, message.webView === controller?.webView else { return }
+        controller?.onPrintRequest?()
     }
 }
 

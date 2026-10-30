@@ -101,6 +101,8 @@
                     // Stands in for a reader using the live page before it is shown as paper.
                     _ = try? await model.web.webView?.evaluateJavaScript(script)
                     try? await Task.sleep(for: .milliseconds(300))
+                    // A page's print button opens the tray, which takes its time to show the sheets.
+                    if model.mode == .print { try? await Task.sleep(for: .milliseconds(1500)) }
                 }
                 switch argument("SurimonoPresentation") {
                 case "paper":
@@ -118,6 +120,15 @@
                     // After the page script, so that the tray shows the page as it was left.
                     model.enterPrintMode()
                     try? await Task.sleep(for: .milliseconds(1500))
+                }
+                if model.mode == .print {
+                    // The tray's choices of what to print a web page as.
+                    switch argument("SurimonoTray") {
+                    case "original": model.setPrintsOriginalPage(true)
+                    case "openDetails": model.setOpensClosedDetails(true)
+                    default: break
+                    }
+                    if argument("SurimonoTray") != nil { try? await Task.sleep(for: .milliseconds(1500)) }
                 }
                 if argument("SurimonoMode") == "roundtrip" {
                     // Into the print mode and back, to check that the view mode returns as it was.

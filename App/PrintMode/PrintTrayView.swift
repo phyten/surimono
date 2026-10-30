@@ -97,6 +97,7 @@ struct PrintTrayView: View {
                 }
             }
             .padding(.bottom, 14)
+            PrintSourceNotes(model: model)
             Rectangle().fill(PrintPalette.line).frame(height: 1)
         }
     }
