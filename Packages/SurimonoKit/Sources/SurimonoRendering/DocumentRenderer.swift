@@ -555,7 +555,7 @@ public final class DocumentRenderer {
             } else if let url = source.fileURL {
                 input = .file(url, readAccessURL: url.deletingLastPathComponent())
             } else {
-                input = .html(try decodedText(source.data), baseURL: nil)
+                input = .html(try Self.decodedText(source.data), baseURL: nil)
             }
             var preparation =
                 (settings.opensDetails ? HTMLSnapshotScript.openDetailsJavaScript + "\n" : "")
@@ -580,17 +580,7 @@ public final class DocumentRenderer {
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
                     readsPageRules: true))
         case .markdown, .org, .plainText, .csv:
-            let text = try decodedText(source.data)
-            let fragment: HTMLFragment
-            switch source.format {
-            case .markdown: fragment = MarkdownConverter.convert(text)
-            case .org: fragment = OrgConverter.convert(text)
-            case .plainText: fragment = PlainTextConverter.convert(text)
-            case .csv:
-                fragment = CSVConverter.convert(
-                    text, delimiter: source.fileURL?.pathExtension.lowercased() == "tsv" ? "\t" : ",")
-            default: throw RenderingError.unsupportedFormat
-            }
+            guard let fragment = try Self.themedFragment(source) else { throw RenderingError.unsupportedFormat }
             let directory = source.fileURL?.deletingLastPathComponent()
             let html = HTMLDocumentBuilder.build(
                 fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
@@ -605,7 +595,21 @@ public final class DocumentRenderer {
         }
     }
 
-    private func decodedText(_ data: Data) throws -> String {
+    /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
+    static func themedFragment(_ source: DocumentSource) throws -> HTMLFragment? {
+        switch source.format {
+        case .markdown: MarkdownConverter.convert(try decodedText(source.data))
+        case .org: OrgConverter.convert(try decodedText(source.data))
+        case .plainText: PlainTextConverter.convert(try decodedText(source.data))
+        case .csv:
+            CSVConverter.convert(
+                try decodedText(source.data),
+                delimiter: source.fileURL?.pathExtension.lowercased() == "tsv" ? "\t" : ",")
+        default: nil
+        }
+    }
+
+    private static func decodedText(_ data: Data) throws -> String {
         let decoded = TextDecoding.decode(data)
         // Core deliberately tolerates invalid byte sequences; printing must surface that data loss.
         guard String(data: data, encoding: decoded.encoding) != nil else { throw RenderingError.textDecodingFailed }

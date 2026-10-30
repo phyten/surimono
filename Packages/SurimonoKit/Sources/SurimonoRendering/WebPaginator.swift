@@ -93,11 +93,11 @@ public final class WebPaginator: NSObject {
         defer { session.requestClose() }
 
         try session.load(source)
-        try await waitUntil(timeout: timeout) { session.navigationState != .loading }
+        try await Self.waitUntil(timeout: timeout) { session.navigationState != .loading }
         if case .failed(let message) = session.navigationState { throw PaginationError.loadFailed(message) }
 
         didStartWaitingForResources?()
-        try await waitForResources(in: session.webView, timeout: timeout)
+        try await Self.waitForResources(in: session.webView, timeout: timeout)
         // Before the preparation, whose presets may remove the document's style elements.
         let pageRules =
             readsPageRules
@@ -117,7 +117,7 @@ public final class WebPaginator: NSObject {
     }
 
     /// Waits for the page's images and fonts, but prints what has loaded once the timeout passes.
-    private func waitForResources(in webView: WKWebView, timeout: Duration) async throws {
+    static func waitForResources(in webView: WKWebView, timeout: Duration) async throws {
         let script = """
             if (document.readyState !== 'complete') {
               await new Promise(resolve => window.addEventListener('load', resolve, { once: true }));
@@ -136,7 +136,7 @@ public final class WebPaginator: NSObject {
             finished = true
         }
         do {
-            try await waitUntil(timeout: timeout) { finished }
+            try await Self.waitUntil(timeout: timeout) { finished }
         } catch PaginationError.timedOut {
             // Missing images or fonts should not block printing; cancellation still propagates.
         }
@@ -156,11 +156,11 @@ public final class WebPaginator: NSObject {
             finished = true
         }
         // Unlike a failing script, a script that never settles cannot be printed as requested.
-        try await waitUntil(timeout: timeout) { finished }
+        try await Self.waitUntil(timeout: timeout) { finished }
         return result
     }
 
-    private func waitUntil(timeout: Duration, _ condition: () -> Bool) async throws {
+    static func waitUntil(timeout: Duration, _ condition: () -> Bool) async throws {
         let deadline = ContinuousClock.now + timeout
         while !condition() {
             if ContinuousClock.now >= deadline { throw PaginationError.timedOut }
@@ -409,7 +409,7 @@ private final class PaginationSession {
 }
 
 @MainActor
-private final class NavigationTracker: NSObject, WKNavigationDelegate {
+final class NavigationTracker: NSObject, WKNavigationDelegate {
     enum State: Equatable {
         case loading
         case finished
