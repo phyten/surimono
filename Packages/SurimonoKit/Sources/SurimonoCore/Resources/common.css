@@ -92,6 +92,47 @@ nav.toc a { text-decoration: none; }
 .math-block > .math-display { margin-block: 0; }
 .math-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0 0.2em; white-space: pre-wrap; }
 
+/* LaTeX documents (LaTeXConverter). Plain HTML elements carry the structure, so the print themes style them too. */
+.latex-title-block { text-align: center; margin-bottom: 1.5em; }
+.latex-title-block > :first-child { margin-top: 0; }
+.latex-author, .latex-date { margin: 0.3em 0; }
+.latex-author-name + .latex-author-name { margin-left: 2em; }
+.secnum { margin-right: 0.7em; }
+.abstract { margin: 1em 2em; font-size: 0.95em; }
+.abstract-title { text-align: center; font-weight: 700; margin-bottom: 0.3em; }
+.latex-center, figure.latex-figure, figure.latex-table { text-align: center; }
+.latex-flushleft { text-align: left; }
+.latex-flushright { text-align: right; }
+figure.latex-figure, figure.latex-table { margin: 1em 0; break-inside: avoid; page-break-inside: avoid; }
+figure.latex-table > table { margin-inline: auto; }
+figcaption { margin: 0.4em 0; font-size: 0.95em; }
+.latex-caption-label { font-weight: 700; }
+img.latex-graphic { max-width: 100%; }
+ol.latex-enumerate, li.latex-custom-label { list-style: none; }
+.item-label { display: inline-block; min-width: 1.8em; margin-left: -2.2em; margin-right: 0.4em; text-align: right; }
+.latex-description dd { margin-left: 2em; }
+table.latex-tabular th, table.latex-tabular td { border: none; padding: 0.2em 0.6em; }
+.latex-equation { position: relative; }
+.latex-equation > .eqno { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+.latex-unsupported {
+    margin: 1em 0;
+    padding: 0.8em 1em;
+    border: 0.75pt dashed #888;
+    color: #555;
+    font-size: 0.9em;
+    text-align: center;
+}
+.latex-pagebreak { break-after: page; page-break-after: always; }
+.latex-sc { font-variant: small-caps; }
+.latex-sf { font-family: sans-serif; }
+.latex-nowrap { white-space: nowrap; }
+.latex-fbox, .latex-colorbox { padding: 0 0.2em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.latex-fbox { border: 0.5pt solid currentColor; }
+.latex-hspace { display: inline-block; }
+.latex-url { font-family: "SFMono-Regular", Menlo, monospace; font-size: 0.9em; }
+.latex-missing { font-weight: 700; }
+.latex-verse { white-space: pre-line; }
+
 /* Defaults are dark enough for white paper; themes may override each token independently. */
 :root {
     --hl-keyword: #713a8a;
