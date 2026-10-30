@@ -13,6 +13,34 @@ struct PrintTrayTests {
             rotatesBackSides: rotatesBackSides)
     }
 
+    @Test("横向き通常印刷の説明は解決済み用紙の向きを示す")
+    func landscapeNote() {
+        #expect(
+            PrintModeText.note(PrintLayout.a4Single.oriented(true), pageCount: 4, language: "ja") == "A4 横・1ページを1枚に")
+        #expect(PrintModeText.note(.a4Single, pageCount: 4, language: "en") == "A4 portrait · one page per sheet")
+        #expect(
+            PrintModeText.note(PrintLayout.a4Single.oriented(true), pageCount: 4, language: "en")
+                == "A4 landscape · one page per sheet")
+    }
+
+    @Test("上下2アップの説明とラベルは奇数ページの下半分の白紙を示す")
+    func stackedNotesAndCaptions() {
+        let layout = PrintLayout.a3TwoUp.oriented(true)
+        #expect(PrintModeText.note(layout, pageCount: 4, language: "ja") == "2ページを上下に配置・折らずに使う")
+        #expect(PrintModeText.note(layout, pageCount: 3, language: "ja") == "2ページを上下に配置・折らずに使う・最後の下半分は白紙")
+        #expect(
+            PrintModeText.note(layout, pageCount: 3, language: "en")
+                == "Two pages stacked, no folding · the last bottom half is blank")
+        #expect(
+            PrintModeText.note(.a3TwoUp, pageCount: 3, language: "en")
+                == "Two pages side by side, no folding · the last right half is blank")
+        let sheets = tray(layout, pages: 3).sheets
+        #expect(sheets[1].sides[0].visiblePages == [3, nil])
+        #expect(PrintModeText.stackedCaption(sheets[0].sides[0].visiblePages, language: "ja") == "1–2 ページ")
+        #expect(PrintModeText.stackedCaption(sheets[1].sides[0].visiblePages, language: "ja") == "3 ページ・下半分は白紙")
+        #expect(PrintModeText.stackedCaption([1, 2], language: "en") == "Pages 1–2")
+    }
+
     @Test("12ページのA3中綴じは3枚の用紙になり、1枚目の表は[12|1]、裏は[2|11]になる")
     func a3Booklet() {
         let tray = tray(.a3BookletA4, pages: 12)

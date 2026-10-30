@@ -2617,6 +2617,160 @@
           }
         }
       }
+    },
+    "Paper Orientation": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙の向き"
+          }
+        }
+      }
+    },
+    "Auto": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動"
+          }
+        }
+      }
+    },
+    "Portrait": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縦"
+          }
+        }
+      }
+    },
+    "Landscape": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "横"
+          }
+        }
+      }
+    },
+    "Auto (Landscape)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動（横）"
+          }
+        }
+      }
+    },
+    "Auto (Portrait)": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動（縦）"
+          }
+        }
+      }
+    },
+    "Booklets use a fixed paper orientation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中綴じでは用紙の向きが決まっています。"
+          }
+        }
+      }
+    },
+    "Prints **two pages stacked on %@ portrait**, single-sided. No folding.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%@ 縦に2ページを上下に並べて**、片面で印刷します。折らずに使います。"
+          }
+        }
+      }
+    },
+    "Prints **one page per %@ landscape sheet**, single-sided.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%@ 横の用紙1枚に1ページずつ**、片面で印刷します。"
+          }
+        }
+      }
+    },
+    "%@ landscape · one page per sheet": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 横・1ページを1枚に"
+          }
+        }
+      }
+    },
+    "Two pages stacked, no folding": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2ページを上下に配置・折らずに使う"
+          }
+        }
+      }
+    },
+    "Two pages stacked, no folding · the last bottom half is blank": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2ページを上下に配置・折らずに使う・最後の下半分は白紙"
+          }
+        }
+      }
+    },
+    "Pages %1$lld–%2$lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld–%2$lld ページ"
+          }
+        }
+      }
+    },
+    "Page %lld · bottom half blank": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ページ・下半分は白紙"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

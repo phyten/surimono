@@ -6,6 +6,18 @@ import Testing
 
 @MainActor
 struct PrintJobFactoryTests {
+    @Test("通常横は横向きで上下2アップは縦向きの印刷設定になる")
+    func orientedSheets() {
+        let normal = PrintJobFactory().printInfo(for: PrintLayout.a4Single.oriented(true))
+        #expect(normal.orientation == .landscape)
+        #expect(abs(normal.paperSize.width - 841.89) < 1)
+        #expect(abs(normal.paperSize.height - 595.28) < 1)
+        let stacked = PrintJobFactory().printInfo(for: PrintLayout.a3TwoUp.oriented(true))
+        #expect(stacked.orientation == .portrait)
+        #expect(abs(stacked.paperSize.width - 841.89) < 1)
+        #expect(abs(stacked.paperSize.height - 1190.55) < 1)
+    }
+
     @Test("レイアウトに対応した用紙寸法と両面設定を構築する", arguments: [PrintLayout.a3BookletA4, .a4Duplex, .a4Single])
     func settings(layout: PrintLayout) throws {
         let base = NSPrintInfo()

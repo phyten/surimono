@@ -45,9 +45,10 @@ public struct PDFComposer {
                         guard let page = source.page(at: index + 1) else {
                             throw CompositionError.invalidPage(index + 1)
                         }
+                        let slotRect = layout.slotRect(at: slot)
                         let rect = CGRect(
-                            x: CGFloat(slot) * size.width / CGFloat(layout.pagesPerSide), y: 0,
-                            width: size.width / CGFloat(layout.pagesPerSide), height: size.height)
+                            x: slotRect.minX * size.width, y: (1 - slotRect.maxY) * size.height,
+                            width: slotRect.width * size.width, height: slotRect.height * size.height)
                         try draw(page, in: rect, context: context, index: index)
                         if options.showsPageNumbers {
                             drawNumber(

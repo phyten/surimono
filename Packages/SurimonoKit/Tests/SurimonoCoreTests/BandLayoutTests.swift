@@ -32,6 +32,19 @@ struct BandLayoutTests {
             available: available)
     }
 
+    @Test("用紙の向きはスクロールの次に並び綴じ方向より先に畳む")
+    func paperOrientation() {
+        let items = BandLayout.Item.allCases
+        #expect(items.firstIndex(of: .paperOrientation) == items.firstIndex(of: .scrollAxis).map { $0 + 1 })
+        let widths: [BandLayout.Item: BandLayout.Widths] = [
+            .scrollAxis: .init(full: 60), .paperOrientation: .init(full: 90), .direction: .init(full: 60),
+        ]
+        let result = BandLayout.plan(widths: widths, fixed: 0, separator: 0, name: 0, available: 149)
+        #expect(result.forms[.direction] == .full)
+        #expect(result.forms[.paperOrientation] == nil)
+        #expect(result.overflow == [.scrollAxis, .paperOrientation])
+    }
+
     @Test("すべて入る幅では全部を元の形で帯に出し、ファイル名は元の幅のまま")
     func everythingFits() {
         let result = plan(available: 2000)
@@ -118,7 +131,8 @@ struct BandLayoutTests {
             BandLayout.steps == [
                 .compact(.style), .compact(.transition), .compact(.selectText),
                 .remove(.keepMenuVisible), .remove(.floatOnTop), .remove(.formatBadge),
-                .remove(.cover), .remove(.scrollAxis), .remove(.direction), .remove(.pageIndicator),
+                .remove(.cover), .remove(.scrollAxis), .remove(.paperOrientation), .remove(.direction),
+                .remove(.pageIndicator),
                 .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout),
                 .remove(.thumbnails), .remove(.zoom), .compact(.print),
             ])

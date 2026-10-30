@@ -8,7 +8,7 @@ public enum BandLayout {
     public enum Item: CaseIterable, Hashable, Sendable {
         case formatBadge, pageIndicator
         case style
-        case layout, direction, scrollAxis, transition, cover
+        case layout, direction, scrollAxis, paperOrientation, transition, cover
         case selectText, zoom, thumbnails
         case floatOnTop, keepMenuVisible
         case print
@@ -19,7 +19,7 @@ public enum BandLayout {
             switch self {
             case .formatBadge, .pageIndicator, .print: nil
             case .style: 1
-            case .layout, .direction, .scrollAxis, .transition, .cover: 2
+            case .layout, .direction, .scrollAxis, .paperOrientation, .transition, .cover: 2
             case .selectText, .zoom, .thumbnails: 3
             case .floatOnTop, .keepMenuVisible: 4
             }
@@ -53,7 +53,7 @@ public enum BandLayout {
     public static let steps: [Step] = [
         .compact(.style), .compact(.transition), .compact(.selectText),
         .remove(.keepMenuVisible), .remove(.floatOnTop), .remove(.formatBadge),
-        .remove(.cover), .remove(.scrollAxis), .remove(.direction), .remove(.pageIndicator),
+        .remove(.cover), .remove(.scrollAxis), .remove(.paperOrientation), .remove(.direction), .remove(.pageIndicator),
         .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout),
         .remove(.thumbnails), .remove(.zoom), .compact(.print),
     ]

@@ -29,6 +29,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     /// The view mode's content size in points.
     public var windowSize: CGSize?
     public var layoutID: String?
+    public var paperOrientation: PaperOrientation?
     public var themeID: String?
     public var textScale: Double?
     public var presetID: String?
@@ -40,12 +41,13 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public init(
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
         themeID: String? = nil, textScale: Double? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
-        printOptions: PrintOptions? = nil, imageOrder: [String]? = nil
+        printOptions: PrintOptions? = nil, imageOrder: [String]? = nil, paperOrientation: PaperOrientation? = nil
     ) {
         self.view = view
         self.zoom = zoom
         self.windowSize = windowSize
         self.layoutID = layoutID
+        self.paperOrientation = paperOrientation
         self.themeID = themeID
         self.textScale = textScale
         self.presetID = presetID
@@ -55,7 +57,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case view, zoom, windowSize, layoutID, themeID, textScale, presetID, smartRemoval, printOptions, imageOrder
+        case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
+            printOptions, imageOrder
     }
 
     /// Decodes each field on its own, so a value this version cannot read (such as a transition added later) falls
@@ -69,6 +72,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         zoom = field(Double.self, .zoom)
         windowSize = field(CGSize.self, .windowSize)
         layoutID = field(String.self, .layoutID)
+        paperOrientation = field(PaperOrientation.self, .paperOrientation)
         themeID = field(String.self, .themeID)
         textScale = field(Double.self, .textScale)
         presetID = field(String.self, .presetID)

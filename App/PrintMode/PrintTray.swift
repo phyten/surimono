@@ -148,12 +148,18 @@ enum PrintModeText {
                 language: language, paper, (layout.sheet.halved ?? layout.sheet).displayName)
         case .twoUp:
             return format(
-                "Prints **two pages side by side on %@ landscape**, single-sided. No folding.", language: language,
-                paper)
+                layout.landscapeContent
+                    ? "Prints **two pages stacked on %@ portrait**, single-sided. No folding."
+                    : "Prints **two pages side by side on %@ landscape**, single-sided. No folding.",
+                language: language, paper)
         case .normal:
             switch layout.duplex {
             case .none:
-                return format("Prints **one page per %@ portrait sheet**, single-sided.", language: language, paper)
+                return format(
+                    layout.landscapeContent
+                        ? "Prints **one page per %@ landscape sheet**, single-sided."
+                        : "Prints **one page per %@ portrait sheet**, single-sided.",
+                    language: language, paper)
             case .longEdge:
                 return format(
                     "Prints on **both sides of %@** (long-edge binding). Back sides turn like the pages of a book.",
@@ -176,6 +182,12 @@ enum PrintModeText {
                     "%1$@ booklet when folded in the middle · blank pages before the back cover: %2$lld",
                     language: language, booklet, blanks)
         case .twoUp:
+            if layout.hasStackedSlots {
+                return string(
+                    pageCount % 2 == 1
+                        ? "Two pages stacked, no folding · the last bottom half is blank"
+                        : "Two pages stacked, no folding", language: language)
+            }
             return string(
                 pageCount % 2 == 1
                     ? "Two pages side by side, no folding · the last right half is blank"
@@ -183,7 +195,9 @@ enum PrintModeText {
         case .normal:
             switch layout.duplex {
             case .none:
-                return format("%@ portrait · one page per sheet", language: language, layout.sheet.displayName)
+                return format(
+                    layout.landscapeContent ? "%@ landscape · one page per sheet" : "%@ portrait · one page per sheet",
+                    language: language, layout.sheet.displayName)
             case .longEdge, .shortEdge:
                 return string(
                     pageCount % 2 == 1
@@ -191,6 +205,14 @@ enum PrintModeText {
                     language: language)
             }
         }
+    }
+
+    static func stackedCaption(_ pages: [Int?], language: String) -> String {
+        guard let first = pages.first ?? nil else { return string("Blank", language: language) }
+        if let last = pages.last ?? nil, pages.count > 1 {
+            return format("Pages %1$lld–%2$lld", language: language, first, last)
+        }
+        return format("Page %lld · bottom half blank", language: language, first)
     }
 
     /// The short name on a layout card, for example "A3 Booklet".

@@ -53,6 +53,34 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("用紙の向きは操作したときだけ保存して復元し既定に戻すと自動になる", .timeLimit(.minutes(1)))
+    func paperOrientationPersistence() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let data = pdf("Orientation")
+        let first = environment.model(data)
+        defer { first.stop() }
+        try await open(first)
+        #expect(first.paperOrientation == .auto)
+        first.rememberedSettingsDidChange()
+        #expect(environment.store.keys().isEmpty)
+        first.paperOrientation = .landscape
+        first.render()
+        try await waitUntil { !first.isRendering }
+        #expect(first.canOutput)
+        #expect(first.printTray?.layout.landscapeContent == true)
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        first.stop()
+        let reopened = environment.model(data)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.paperOrientation == .landscape)
+        reopened.resetDocumentSettings()
+        #expect(reopened.paperOrientation == .auto)
+        #expect(environment.store.keys().isEmpty)
+    }
+
     @Test("文字の大きさを内容ごとに保存して復元し、既定に戻すと消える", .timeLimit(.minutes(1)))
     func textScalePersistence() async throws {
         let environment = try environment()

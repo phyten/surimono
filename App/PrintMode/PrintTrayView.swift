@@ -202,8 +202,9 @@ private struct TraySideView: View {
         SheetPageView(page: page)
             .frame(width: size.width, height: size.height)
             .overlay {
-                HStack(spacing: 0) {
-                    ForEach(Array(side.visiblePages.enumerated()), id: \.offset) { _, page in
+                ZStack(alignment: .topLeading) {
+                    ForEach(Array(side.visiblePages.enumerated()), id: \.offset) { index, page in
+                        let rect = layout.slotRect(at: index)
                         if page == nil {
                             ZStack {
                                 PrintPalette.blankPaper
@@ -212,11 +213,12 @@ private struct TraySideView: View {
                                     .tracking(max(2, 9 * scale))
                                     .foregroundStyle(PrintPalette.blankInk)
                             }
-                        } else {
-                            Color.clear
+                            .frame(width: rect.width * size.width, height: rect.height * size.height)
+                            .offset(x: rect.minX * size.width, y: rect.minY * size.height)
                         }
                     }
                 }
+                .frame(width: size.width, height: size.height, alignment: .topLeading)
             }
             .overlay {
                 if layout.kind == .booklet { FoldLine() }
@@ -241,13 +243,19 @@ private struct TraySideView: View {
         let pages = side.visiblePages
         let face = PrintModeText.faceLabel(side, language: language)
         return ZStack(alignment: .leading) {
-            HStack(spacing: 0) {
-                ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                    pageLabel(page)
-                        // The first label stays clear of the front and back tag at the left edge.
-                        .padding(.leading, index == 0 && face != nil ? (side.isRotated ? 56 : 28) : 4)
-                        .padding(.trailing, 4)
-                        .frame(width: size.width / CGFloat(max(pages.count, 1)))
+            if layout.hasStackedSlots {
+                Text(verbatim: PrintModeText.stackedCaption(pages, language: language))
+                    .font(.system(size: 12)).monospacedDigit().lineLimit(1)
+                    .frame(width: size.width)
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
+                        pageLabel(page)
+                            // The first label stays clear of the front and back tag at the left edge.
+                            .padding(.leading, index == 0 && face != nil ? (side.isRotated ? 56 : 28) : 4)
+                            .padding(.trailing, 4)
+                            .frame(width: size.width / CGFloat(max(pages.count, 1)))
+                    }
                 }
             }
             if let face { PrintTag(text: face) }
