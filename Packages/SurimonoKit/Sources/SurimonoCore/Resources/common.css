@@ -1,5 +1,17 @@
 html, body { background: white; color: #111; }
 body { margin: 0; overflow-wrap: anywhere; }
+/* The page margin already frames the text, so the first block adds no space of its own above it. An Org title block or
+   a quote has no top border or padding, so its first child's margin would show through it. */
+body > :first-child,
+body > .org-title-block:first-child > :first-child,
+body > blockquote:first-child > :first-child { margin-top: 0; }
+/* The browser's lists take a full line above and below; keep them as close as the paragraphs around them. A theme that
+   sets its own list spacing comes later and wins. */
+ul, ol { margin-block: 0.5em; }
+li > ul, li > ol { margin-block: 0; }
+li > p { margin-block: 0.3em; }
+/* A heading right after a heading keeps only a small top margin, so a title and its first section stay together. */
+:is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) { margin-top: 0.4em; }
 h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; }
 pre, table, img, blockquote { break-inside: avoid; page-break-inside: avoid; }
 p { orphans: 3; widows: 3; }
