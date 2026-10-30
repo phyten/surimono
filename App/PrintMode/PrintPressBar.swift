@@ -393,15 +393,10 @@ struct PrintOptionsPopover: View {
                     .controlSize(.small)
                     .labelsHidden()
             }
-            row("Margins (mm)", hint: "Applies to text documents and images. PDFs keep their own margins.") {
-                HStack(spacing: 4) {
-                    TextField("Margins (mm)", value: margin, format: .number.precision(.fractionLength(0...1)))
-                        .labelsHidden()
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 52)
-                    Stepper("Margins (mm)", value: margin, in: Self.marginRange, step: 1).labelsHidden()
+            if model.marginsAffectPrinting {
+                row("Margins (mm)", hint: "Applies to text documents and images. PDFs keep their own margins.") {
+                    MarginControl(model: model).controlSize(.small)
                 }
-                .controlSize(.small)
             }
             row(
                 "Rotate Back Sides 180°",
@@ -422,24 +417,12 @@ struct PrintOptionsPopover: View {
         .frame(width: 360)
     }
 
-    static let marginRange: ClosedRange<Double> = 0...40
-
     private var isDuplex: Bool { model.layout.duplex != .none }
 
     private var subtitle: String {
         PrintModeText.format(
             "%@ · Changes appear on the sheets right away", language: model.language,
             model.layout.displayName(language: model.language))
-    }
-
-    private var margin: Binding<Double> {
-        Binding(
-            get: { model.printOptions.marginsInMillimeters },
-            set: {
-                model.printOptions.marginsInMillimeters = min(
-                    max($0, Self.marginRange.lowerBound), Self.marginRange.upperBound)
-            }
-        )
     }
 
     private func row<Control: View>(

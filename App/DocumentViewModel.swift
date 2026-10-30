@@ -471,6 +471,30 @@ final class DocumentViewModel {
     func decreaseTextSize() { setTextScale(TextScale.smaller(than: textScale)) }
     func resetTextSize() { setTextScale(1) }
 
+    static let marginRange: ClosedRange<Double> = 0...40
+    static let marginPresets: [Double] = [0, 5, 10, 15, 20, 25]
+
+    /// Whether the margin shows on the pages view mode displays. PDFs keep their own margins, and the 3-up handout
+    /// insets the sheet instead of its logical pages.
+    var marginsApply: Bool { format != .pdf && layout.kind != .handout3 }
+
+    /// Whether the margin changes the printed sheets: everything but PDFs, including the 3-up handout's sheet.
+    var marginsAffectPrinting: Bool { format != .pdf }
+
+    /// The presets, plus the current margin when it is none of them, so the menu always checks the current value.
+    var marginChoices: [Double] {
+        let current = printOptions.marginsInMillimeters
+        return Self.marginPresets.contains(current) ? Self.marginPresets : (Self.marginPresets + [current]).sorted()
+    }
+
+    /// The one way the viewer and the tray change the margin, so both re-paginate and remember it the same way.
+    func setMargins(_ millimeters: Double) {
+        guard millimeters.isFinite else { return }
+        // Tenths of a millimeter are as fine as the labels show, so two choices never read the same.
+        let rounded = (millimeters * 10).rounded() / 10
+        printOptions.marginsInMillimeters = min(max(rounded, Self.marginRange.lowerBound), Self.marginRange.upperBound)
+    }
+
     /// The unshifted US key for ⌥⌘+ must work in both the viewer and the print tray, before PDFKit handles ⌘=.
     func handleTextSizeKey(_ event: NSEvent) -> Bool {
         guard event.modifierFlags.intersection([.command, .option, .control]) == [.option, .command],

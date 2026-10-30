@@ -3173,6 +3173,39 @@
           }
         }
       }
+    },
+    "Margins": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "余白"
+          }
+        }
+      }
+    },
+    "%@ mm": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ mm"
+          }
+        }
+      }
+    },
+    "mm": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "mm"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
