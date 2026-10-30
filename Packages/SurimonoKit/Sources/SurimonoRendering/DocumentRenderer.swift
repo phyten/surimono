@@ -88,12 +88,16 @@ public struct RenderSettings: Equatable, Sendable {
     public var options: PrintOptions
     public var allowsJavaScriptInHTML: Bool
     public var smartRemoval: SmartRemovalRequest?
+    /// HTML: open every `<details>` of the copy being laid out.
+    public var opensDetails: Bool
 
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
         options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
-        smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, paperOrientation: PaperOrientation = .auto
+        smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, paperOrientation: PaperOrientation = .auto,
+        opensDetails: Bool = false
     ) {
+        self.opensDetails = opensDetails
         self.layout = layout
         self.paperOrientation = paperOrientation
         self.theme = theme
@@ -111,6 +115,8 @@ public struct PaginationRequest: Sendable {
     public let margins: WebPaginator.Margins
     public let allowsJavaScript: Bool
     public let preparationScript: String?
+    /// Whether the result should carry the document's `@page` rules.
+    public let readsPageRules: Bool
 }
 
 @MainActor
@@ -155,6 +161,8 @@ public final class DocumentRenderer {
     private var cache: (key: CacheKey, data: Data, unreadable: [URL], candidates: [SmartRemovalCandidate])?
     private var generation = 0
     private var sourcePageSizes: (source: DocumentSource, sizes: [CGSize])?
+    /// The orientation the `@page` rules of an HTML source ask for, known once the source has been laid out.
+    private var sourcePageRule: (source: DocumentSource, orientation: PaperOrientation?)?
 
     private struct CacheKey: Equatable {
         let source: DocumentSource
@@ -165,6 +173,7 @@ public final class DocumentRenderer {
         let margin: Double
         let allowsJavaScript: Bool
         let smartRemoval: SmartRemovalRequest?
+        let opensDetails: Bool
     }
 
     public init(paginate: Paginate? = nil) {
@@ -174,7 +183,8 @@ public final class DocumentRenderer {
             self.paginate = { request in
                 try await WebPaginator().paginateWithResult(
                     request.source, pageSize: request.pageSize, margins: request.margins,
-                    allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript)
+                    allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
+                    readsPageRules: request.readsPageRules)
             }
         }
     }
@@ -188,9 +198,23 @@ public final class DocumentRenderer {
         generation += 1
         cache = nil
         sourcePageSizes = nil
+        sourcePageRule = nil
     }
 
     public func render(_ source: DocumentSource, settings: RenderSettings) async throws -> RenderResult {
+        let output = try await renderOnce(source, settings: settings)
+        // HTML in Auto turns with its `@page` rules, which are known only once it has been laid out. A document that
+        // asks for landscape is laid out again; the common upright one costs nothing more.
+        if source.format == .html, settings.paperOrientation == .auto, settings.layout.kind != .booklet,
+            let rule = sourcePageRule, rule.source == source,
+            (rule.orientation == .landscape) != (output.resolvedOrientation == .landscape)
+        {
+            return try await renderOnce(source, settings: settings)
+        }
+        return output
+    }
+
+    private func renderOnce(_ source: DocumentSource, settings: RenderSettings) async throws -> RenderResult {
         try Task.checkCancellation()
         generation += 1
         let currentGeneration = generation
@@ -219,7 +243,8 @@ public final class DocumentRenderer {
                 preset: source.format.usesHTMLPreset ? settings.preset : nil,
                 margin: source.format == .pdf ? 0 : margin,
                 allowsJavaScript: source.allowsJavaScript(settings),
-                smartRemoval: source.format == .html ? settings.smartRemoval : nil)
+                smartRemoval: source.format == .html ? settings.smartRemoval : nil,
+                opensDetails: source.format == .html && settings.opensDetails)
             let logical: PDFDocument
             let cachedData: Data
             let reused: Bool
@@ -237,6 +262,9 @@ public final class DocumentRenderer {
                     candidates = []
                 } else {
                     let result = try await logicalDocument(source, settings: settings)
+                    if source.format == .html, generation == currentGeneration {
+                        sourcePageRule = (source, PageRule.orientation(of: result.pageRules))
+                    }
                     logical = result.document
                     candidates =
                         source.format == .html && settings.smartRemoval != nil
@@ -275,6 +303,11 @@ public final class DocumentRenderer {
     }
 
     private func automaticLandscape(_ source: DocumentSource) async throws -> Bool {
+        if source.format == .html {
+            // Upright until the `@page` rules are known; render(_:settings:) lays a landscape document out again.
+            guard let sourcePageRule, sourcePageRule.source == source else { return false }
+            return sourcePageRule.orientation == .landscape
+        }
         guard source.format == .pdf || source.format == .image else { return false }
         if let sourcePageSizes, sourcePageSizes.source == source {
             return PaperOrientation.auto.isLandscape(pageSizes: sourcePageSizes.sizes)
@@ -384,7 +417,9 @@ public final class DocumentRenderer {
             } else {
                 input = .html(try decodedText(source.data), baseURL: nil)
             }
-            var preparation = HTMLCleanupScript.javaScript(for: settings.preset)
+            var preparation =
+                (settings.opensDetails ? HTMLSnapshotScript.openDetailsJavaScript + "\n" : "")
+                + HTMLCleanupScript.javaScript(for: settings.preset)
             if let smartRemoval = settings.smartRemoval {
                 preparation += "\n" + PaperCleanupScript.following(SmartRemovalScript.javaScript(for: smartRemoval))
             } else {
@@ -395,7 +430,8 @@ public final class DocumentRenderer {
                     source: input, pageSize: settings.layout.logicalPageSize(options: settings.options),
                     margins: .uniform(
                         millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
-                    allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation))
+                    allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
+                    readsPageRules: true))
         case .markdown, .org, .plainText, .csv:
             let text = try decodedText(source.data)
             let fragment: HTMLFragment
@@ -418,7 +454,7 @@ public final class DocumentRenderer {
                     pageSize: settings.layout.logicalPageSize(options: settings.options),
                     margins: .uniform(
                         millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
-                    allowsJavaScript: false, preparationScript: nil))
+                    allowsJavaScript: false, preparationScript: nil, readsPageRules: false))
         }
     }
 

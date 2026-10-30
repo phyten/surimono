@@ -154,6 +154,8 @@ struct WebCaptureTests {
         let suite: TestDefaultsSuite
         /// The HTML of every copy the renderer was asked to lay out.
         let laidOut: () -> [String]
+        /// Every layout the renderer was asked for, in order.
+        let requests: () -> [PaginationRequest]
 
         func close() {
             model.stop()
@@ -173,12 +175,16 @@ struct WebCaptureTests {
         try data.write(to: file)
         let suite = TestDefaultsSuite()
         let pages = TestFixtures.pdf("html", pages: 2)
-        final class Log { var html: [String] = [] }
+        final class Log {
+            var html: [String] = []
+            var requests: [PaginationRequest] = []
+        }
         let log = Log()
         let model = DocumentViewModel(
             data: data, fileURL: file, format: .html, preferences: AppPreferences(defaults: suite.defaults),
             library: UserLibrary(root: directory.appendingPathComponent("Library")),
             renderer: DocumentRenderer(paginate: { request in
+                log.requests.append(request)
                 if case .snapshot(let html, _) = request.source { log.html.append(html) }
                 return PDFDocument(data: pages) ?? PDFDocument()
             }))
@@ -193,7 +199,7 @@ struct WebCaptureTests {
         try await waitUntil { model.result != nil && !model.isRendering }
         return Fixture(
             model: model, snapshots: snapshots, window: window, directory: directory, suite: suite,
-            laidOut: { log.html })
+            laidOut: { log.html }, requests: { log.requests })
     }
 
     private func waitUntil(seconds: Int = 5, _ condition: () -> Bool) async throws {
@@ -212,7 +218,7 @@ struct WebCaptureTests {
         #expect(model.isCapturingWeb)
         #expect(!model.canOutput)
         try await waitUntil { fixture.snapshots.requestCount == 1 }
-        fixture.snapshots.resolve(.captured("<p>Now</p>"))
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Now</p>")))
         try await waitUntil { !model.isCapturingWeb && model.result != nil && !model.isRendering }
         #expect(fixture.laidOut() == ["<p>Now</p>"])
         #expect(model.canOutput)
@@ -227,7 +233,7 @@ struct WebCaptureTests {
         try await waitUntil { fixture.snapshots.requestCount == 1 }
         model.reload()
         #expect(!model.isCapturingWeb)
-        fixture.snapshots.resolve(.captured("<p>Old</p>"))
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Old</p>")))
         try await waitUntil { model.result != nil && !model.isRendering }
         try await Task.sleep(for: .milliseconds(100))
         #expect(fixture.laidOut().isEmpty)
@@ -277,7 +283,7 @@ struct WebCaptureTests {
 
         model.retryWebCapture()
         try await waitUntil { fixture.snapshots.requestCount == 3 }
-        fixture.snapshots.resolve(.captured("<p>Retry</p>"))
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Retry</p>")))
         try await waitUntil { !model.isCapturingWeb && model.result != nil && !model.isRendering }
         #expect(!model.webCaptureFailed)
         #expect(model.canOutput)
@@ -314,5 +320,180 @@ struct WebCaptureTests {
         try await waitUntil(seconds: 20) { model.web.webView?.url != nil && model.web.webView?.isLoading == false }
         let ran = try await model.web.webView?.evaluateJavaScript("typeof window.ran") as? String
         #expect(ran == "undefined")
+    }
+
+    private func isFile(_ request: PaginationRequest?) -> Bool {
+        if case .file? = request?.source { return true }
+        return false
+    }
+
+    @Test("ウェブから刷り台に入ると今の状態を刷り、最初の状態に切り替えるとファイルから組み、戻ると今の状態に戻る")
+    func originalOrCurrentState() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        #expect(!model.offersOriginalPage)
+        model.enterPrintMode()
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Now</p>")))
+        try await waitUntil { model.mode == .print && model.canOutput }
+        #expect(model.offersOriginalPage)
+        #expect(model.rendersSnapshot)
+        #expect(fixture.laidOut() == ["<p>Now</p>"])
+
+        model.setPrintsOriginalPage(true)
+        #expect(!model.canOutput)
+        try await waitUntil { model.canOutput }
+        #expect(!model.rendersSnapshot)
+        #expect(isFile(fixture.requests().last))
+
+        model.exitPrintMode()
+        #expect(!model.printsOriginalPage)
+        try await waitUntil { model.mode == .view && model.isUpToDate }
+        #expect(model.rendersSnapshot)
+        #expect(fixture.laidOut() == ["<p>Now</p>", "<p>Now</p>"])
+    }
+
+    @Test("写しに閉じた折りたたみがあると数を知らせ、開いて刷ると写しの組版だけで開き、刷り台を出ると閉じたままに戻る")
+    func openClosedDetails() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.setHTMLPresentation(.paper)
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(
+            .captured(HTMLSnapshot(html: "<details><summary>Q</summary>A</details>", closedDetailsCount: 3)))
+        try await waitUntil { !model.isCapturingWeb && model.canOutput }
+        #expect(model.closedDetailsCount == 3)
+        model.enterPrintMode()
+        try await waitUntil { model.mode == .print }
+        let before = fixture.requests().count
+
+        model.setOpensClosedDetails(true)
+        #expect(model.renderSettings?.opensDetails == true)
+        #expect(!model.isUpToDate)
+        model.render()
+        try await waitUntil { model.canOutput }
+        let request = try #require(fixture.requests().last)
+        #expect(fixture.requests().count == before + 1)
+        #expect(request.preparationScript?.hasPrefix(HTMLSnapshotScript.openDetailsJavaScript) == true)
+        if case .snapshot = request.source {} else { Issue.record("開くのは写しの組版") }
+
+        // The original page has its own details; the count is that of the copy.
+        model.setPrintsOriginalPage(true)
+        #expect(model.closedDetailsCount == 0)
+        #expect(model.renderSettings?.opensDetails == false)
+        model.setPrintsOriginalPage(false)
+
+        model.exitPrintMode()
+        #expect(!model.opensClosedDetails)
+        #expect(model.renderSettings?.opensDetails == false)
+    }
+
+    @Test("ウェブで文書が印刷を頼むと刷り台を開き、紙面のときは何もしない")
+    func pagePrintRequest() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.windowActiveOverride = true
+        model.setHTMLPresentation(.paper)
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.notLoaded)
+        try await waitUntil { !model.isCapturingWeb }
+        model.pageDidRequestPrint()
+        #expect(model.mode == .view)
+        #expect(fixture.snapshots.requestCount == 1)
+
+        model.setHTMLPresentation(.web)
+        model.pageDidRequestPrint()
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        fixture.snapshots.resolve(.notLoaded)
+        try await waitUntil { model.mode == .print }
+        #expect(model.mode == .print)
+    }
+
+    @Test("後ろの窓の文書が印刷を頼んでも刷り台を開かない")
+    func backgroundWindowCannotPrint() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.windowActiveOverride = false
+        model.pageDidRequestPrint()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(model.mode == .view)
+        #expect(!model.isCapturingWeb)
+        #expect(fixture.snapshots.requestCount == 0)
+    }
+
+    @Test("写しの途中と刷り台での印刷の依頼は重ねず、刷り台は 1 回だけ開く")
+    func repeatedRequestsDuringCapture() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.windowActiveOverride = true
+        for _ in 0..<5 { model.pageDidRequestPrint() }
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        var outcomes: [DocumentViewModel.CaptureOutcome] = []
+        model.captureWeb { outcomes.append($0) }
+        fixture.snapshots.resolve(.notLoaded)
+        try await waitUntil { model.mode == .print }
+        // Only the tray's own wait and this one were queued for the copy.
+        #expect(outcomes == [.ready])
+        for _ in 0..<5 { model.pageDidRequestPrint() }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(fixture.snapshots.requestCount == 1)
+        #expect(model.mode == .print)
+    }
+
+    @Test("刷り台を閉じている途中に文書が印刷を頼んでも、刷り台へ戻さない")
+    func requestRightAfterReturning() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.windowActiveOverride = true
+        model.enterPrintMode()
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.notLoaded)
+        try await waitUntil { model.mode == .print }
+        model.exitPrintMode()
+        // While the tray is closing, the page cannot send the reader back.
+        model.pageDidRequestPrint()
+        #expect(fixture.snapshots.requestCount == 1)
+        try await waitUntil { model.mode == .view }
+        #expect(model.mode == .view)
+    }
+
+    @Test("⌃⌘P はウェブと紙面を入れ替え、刷り台では何もしない")
+    func toggleShortcut() async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.toggleHTMLPresentation()
+        #expect(model.htmlPresentation == .paper)
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.notLoaded)
+        try await waitUntil { !model.isCapturingWeb }
+        model.toggleHTMLPresentation()
+        #expect(model.htmlPresentation == .web)
+        model.toggleHTMLPresentation()
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        fixture.snapshots.resolve(.notLoaded)
+        try await waitUntil { !model.isCapturingWeb }
+        model.enterPrintMode()
+        try await waitUntil { model.mode == .print }
+        model.toggleHTMLPresentation()
+        #expect(model.htmlPresentation == .paper)
+    }
+}
+
+@MainActor
+struct HTMLPresentationMenuTests {
+    @Test("表示メニューに ⌃⌘P のウェブ / 紙面の切り替えが 1 つある")
+    func menuItem() throws {
+        let items = (NSApp.mainMenu?.items ?? []).flatMap { $0.submenu?.items ?? [] }
+        let toggles = items.filter { $0.keyEquivalent == "p" && $0.keyEquivalentModifierMask == [.control, .command] }
+        #expect(toggles.count == 1)
+        let item = try #require(toggles.first)
+        #expect(item.isEnabled)
     }
 }

@@ -27,9 +27,29 @@ struct PageScriptsTests {
         #expect(script.hasSuffix("return surimonoPreparationResult;"))
     }
 
-    @Test("今の状態の写しは文書型つきの HTML を返す")
+    @Test("今の状態の写しは文書型つきの HTML と閉じた折りたたみの数を JSON で返す")
     func snapshotReturnsDocument() {
         let script = HTMLSnapshotScript.javaScript
-        #expect(script.contains("return doctype + copy.outerHTML;"))
+        #expect(script.contains("JSON.stringify({ html: doctype + copy.outerHTML, closedDetails })"))
+    }
+
+    @Test("写しの結果から HTML と閉じた折りたたみの数を読む")
+    func snapshotResult() {
+        let snapshot = HTMLSnapshot(scriptResult: #"{"html":"<!DOCTYPE html><p>Now</p>","closedDetails":3}"#)
+        #expect(snapshot == HTMLSnapshot(html: "<!DOCTYPE html><p>Now</p>", closedDetailsCount: 3))
+    }
+
+    @Test("写しの結果として読めない値は写しにしない", arguments: ["", "<p>Now</p>", #"{"html":"<p>Now</p>"}"#, "[]"])
+    func invalidSnapshotResult(_ value: String) {
+        #expect(HTMLSnapshot(scriptResult: value) == nil)
+    }
+
+    @Test("折りたたみを開く処理は名前つきの組を外してから全部を開く")
+    func openDetailsScript() throws {
+        let script = HTMLSnapshotScript.openDetailsJavaScript
+        let ungroup = try #require(script.range(of: "removeAttribute('name')"))
+        let open = try #require(script.range(of: "details.open = true"))
+        #expect(ungroup.upperBound <= open.lowerBound)
+        #expect(!script.contains("return"))
     }
 }

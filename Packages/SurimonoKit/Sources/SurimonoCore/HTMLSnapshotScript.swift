@@ -1,7 +1,34 @@
+import Foundation
+
+/// A copy of a live web page's current state, as the snapshot script returns it.
+public struct HTMLSnapshot: Equatable, Sendable {
+    /// The document's HTML with its doctype.
+    public var html: String
+    /// The `<details>` closed on the live page. They print closed unless the reader asks to open them.
+    public var closedDetailsCount: Int
+
+    public init(html: String, closedDetailsCount: Int = 0) {
+        self.html = html
+        self.closedDetailsCount = closedDetailsCount
+    }
+
+    private struct Result: Decodable {
+        let html: String
+        let closedDetails: Int
+    }
+
+    /// Reads the snapshot script's result; nil for anything else.
+    public init?(scriptResult json: String) {
+        guard let result = try? JSONDecoder().decode(Result.self, from: Data(json.utf8)) else { return nil }
+        self.init(html: result.html, closedDetailsCount: max(result.closedDetails, 0))
+    }
+}
+
 /// Captures the current state of a live web page as HTML, so that paper and printing show what the reader sees:
 /// entered values, opened details, chosen tabs, drawn canvases and animations at their end.
 public enum HTMLSnapshotScript {
-    /// A callAsyncJavaScript function body that returns the document's HTML with its doctype.
+    /// A callAsyncJavaScript function body that returns, as JSON, the document's HTML with its doctype (`html`) and
+    /// the number of closed `<details>` (`closedDetails`). `HTMLSnapshot(scriptResult:)` reads it.
     ///
     /// Everything is written to a copy of the document, matched to the live elements by their order: entered values
     /// become attributes, canvases become images, and each animated element keeps the state it reached, because the
@@ -102,6 +129,16 @@ public enum HTMLSnapshotScript {
 
         let doctype = '';
         if (document.doctype) doctype = new XMLSerializer().serializeToString(document.doctype) + '\n';
-        return doctype + copy.outerHTML;
+        const closedDetails = live.filter(element => element.tagName === 'DETAILS' && !element.open).length;
+        return JSON.stringify({ html: doctype + copy.outerHTML, closedDetails });
+        """#
+
+    /// A preparation script that opens every `<details>` of the copy being laid out, never the live page. A group of
+    /// exclusive details (`name`) would close the others as each one opens, so the group is undone first.
+    public static let openDetailsJavaScript = #"""
+        for (const details of Array.from(document.querySelectorAll('details'))) {
+          details.removeAttribute('name');
+          details.open = true;
+        }
         """#
 }

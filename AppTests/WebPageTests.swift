@@ -170,6 +170,47 @@ struct WebPageKeyTests {
         #expect(host.menu.stage == .full)
     }
 
+    @Test("利用者のキーの後の window.print() はアプリに 1 回だけ印刷を頼み、文書からはアプリへの通り道が見えない")
+    func windowPrintAsksTheApp() async throws {
+        let host = try await host()
+        defer { host.close() }
+        var requests = 0
+        host.controller.onPrintRequest = { requests += 1 }
+        try send(host, characters: "p", keyCode: 35)
+        try await waitUntil { await keys(host) == ["p"] }
+        let visible =
+            try await host.controller.webView?.evaluateJavaScript(
+                "window.print(); window.print(); typeof (window.webkit && window.webkit.messageHandlers.surimonoPrint)")
+            as? String
+        try await waitUntil { requests == 1 }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(requests == 1)
+        #expect(visible == "undefined")
+    }
+
+    @Test("タイマーで繰り返す window.print() と、文書が自分で出した依頼のイベントは、利用者の操作がなければ届かない")
+    func printWithoutGestureIsIgnored() async throws {
+        let host = try await host()
+        defer { host.close() }
+        var requests = 0
+        host.controller.onPrintRequest = { requests += 1 }
+        _ = try await host.controller.webView?.evaluateJavaScript(
+            """
+            window.print();
+            document.dispatchEvent(new Event('surimono-print-request'));
+            window.printTimer = setInterval(() => window.print(), 50);
+            """)
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(requests == 0)
+
+        // One key lets one request through; the timer cannot use it again.
+        try send(host, characters: "p", keyCode: 35)
+        try await waitUntil { requests == 1 }
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(requests == 1)
+        _ = try await host.controller.webView?.evaluateJavaScript("clearInterval(window.printTimer)")
+    }
+
     @Test("JavaScript の設定を変えると、ページを新しい設定で開き直す")
     func javaScriptSettingRecreatesThePage() async throws {
         let host = try await host()

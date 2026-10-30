@@ -420,4 +420,82 @@ struct DocumentRendererTests {
         #expect(requests[0].pageSize.width < requests[0].pageSize.height)
         #expect(requests[1].pageSize.width > requests[1].pageSize.height)
     }
+
+    @Test("HTML の @page が横を求めると、自動は横で組み直し、次からは最初から横で組む")
+    func pageRuleTurnsHTML() async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            requests.append(request)
+            return WebPaginator.Result(
+                document: try RenderingFixtures.pdf(size: request.pageSize),
+                pageRules: [PageRule(size: "A4 landscape")])
+        })
+        let source = DocumentSource(data: Data("<p>Wide</p>".utf8), format: .html)
+        var settings = settings
+        let first = try await renderer.render(source, settings: settings)
+        #expect(first.resolvedOrientation == .landscape)
+        #expect(requests.count == 2)
+        #expect(requests.allSatisfy { $0.readsPageRules })
+        #expect(requests[0].pageSize.width < requests[0].pageSize.height)
+        #expect(requests[1].pageSize.width > requests[1].pageSize.height)
+
+        settings.options.marginsInMillimeters = 20
+        let again = try await renderer.render(source, settings: settings)
+        #expect(again.resolvedOrientation == .landscape)
+        #expect(requests.count == 3)
+        #expect(requests[2].pageSize.width > requests[2].pageSize.height)
+    }
+
+    @Test("HTML の @page の向きは自動のときだけ使い、縦を選べば縦、冊子はいつも縦の用紙で組む")
+    func pageRuleOnlyForAuto() async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            requests.append(request)
+            return WebPaginator.Result(
+                document: try RenderingFixtures.pdf(size: request.pageSize), pageRules: [PageRule(size: "landscape")])
+        })
+        let source = DocumentSource(data: Data("<p>Wide</p>".utf8), format: .html)
+        var settings = settings
+        settings.paperOrientation = .portrait
+        let portrait = try await renderer.render(source, settings: settings)
+        #expect(portrait.resolvedOrientation == .portrait)
+        settings.paperOrientation = .auto
+        settings.layout = .a3BookletA4
+        let booklet = try await renderer.render(source, settings: settings)
+        #expect(booklet.resolvedOrientation == .portrait)
+        #expect(requests.allSatisfy { $0.pageSize.width < $0.pageSize.height })
+    }
+
+    @Test("HTML の @page が向きを求めなければ、自動は縦のまま 1 回で組む")
+    func noPageRuleKeepsHTMLUpright() async throws {
+        var count = 0
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            count += 1
+            return WebPaginator.Result(
+                document: try RenderingFixtures.pdf(size: request.pageSize),
+                pageRules: [PageRule(selector: ":first", size: "landscape"), PageRule(size: "auto")])
+        })
+        let result = try await renderer.render(
+            DocumentSource(data: Data("<p>Tall</p>".utf8), format: .html), settings: settings)
+        #expect(result.resolvedOrientation == .portrait)
+        #expect(count == 1)
+    }
+
+    @Test("折りたたみを開いて刷るときは、写しを開く処理を先に入れて組み直す")
+    func opensDetailsBeforePreparation() async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            requests.append(request)
+            return try RenderingFixtures.pdf()
+        })
+        let source = DocumentSource.liveSnapshot(
+            "<details><summary>Q</summary>A</details>", of: URL(fileURLWithPath: "/Documents/page.html"))
+        var settings = settings
+        _ = try await renderer.render(source, settings: settings)
+        settings.opensDetails = true
+        _ = try await renderer.render(source, settings: settings)
+        #expect(requests.count == 2)
+        #expect(requests[0].preparationScript?.contains(HTMLSnapshotScript.openDetailsJavaScript) == false)
+        #expect(requests[1].preparationScript?.hasPrefix(HTMLSnapshotScript.openDetailsJavaScript) == true)
+    }
 }

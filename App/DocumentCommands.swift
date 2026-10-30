@@ -24,6 +24,15 @@ struct DocumentCommands: Commands {
                 .keyboardShortcut("e", modifiers: [.shift, .command])
         }
         CommandGroup(after: .toolbar) {
+            // Names where the item goes, as the print item does; HTML only, and nothing happens for other documents.
+            Button(
+                model?.htmlPresentation == .paper
+                    ? LocalizedStringKey("Show as Web") : LocalizedStringKey("Show as Paper")
+            ) {
+                model?.toggleHTMLPresentation()
+            }
+            .keyboardShortcut("p", modifiers: [.control, .command])
+            Divider()
             ForEach(Array(ViewOptions.Layout.allCases.enumerated()), id: \.element) { index, layout in
                 Button(layout.title) { model?.setLayout(layout) }
                     .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [.option, .command])
