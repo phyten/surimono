@@ -311,6 +311,10 @@ struct BandMoreMenu: View {
                 BandMenuItem(model: model, item: item)
             }
             if !tools.isEmpty { Divider() }
+            if model.marginsApply {
+                MarginMenu(model: model)
+                Divider()
+            }
             if model.detectedSlideDeck != nil, model.usesHTMLPresentation {
                 Toggle(
                     "Don't Treat as Slides",
@@ -330,7 +334,7 @@ struct BandMoreMenu: View {
 
 /// A choice and its current value on one line, such as "Direction: Left to Right", so that the "…" menu stays as compact
 /// as a menu of single-line items.
-private func choice(_ title: String, _ value: String) -> String {
+func choice(_ title: String, _ value: String) -> String {
     String(
         format: String(localized: "%@: %@", comment: "A menu item that names a choice and its current value"), title,
         value)

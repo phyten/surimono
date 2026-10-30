@@ -57,6 +57,15 @@ struct ViewOptionsPopover: View {
                     }
                     .disabled(!model.viewOptions.usesCoverOption)
                 }
+                if model.marginsApply {
+                    GridRow {
+                        rowLabel("Margins")
+                        HStack(spacing: 4) {
+                            MarginControl(model: model)
+                            Text("mm").foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
