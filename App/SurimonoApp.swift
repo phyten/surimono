@@ -17,6 +17,8 @@ struct SurimonoApp: App {
         ImageBundleWindows.shared.preferences = preferences
         ImageBundleWindows.shared.library = library
         ImageBundleWindows.shared.settingsStore = settingsStore
+        // Sparkle keeps its schedule from launch, not from the first time the menu is opened.
+        _ = AppUpdater.shared
     }
 
     var body: some Scene {
@@ -27,7 +29,10 @@ struct SurimonoApp: App {
         }
         // The paper fills the window; the traffic lights appear with the overlay menu.
         .windowStyle(.hiddenTitleBar)
-        .commands { DocumentCommands() }
+        .commands {
+            DocumentCommands()
+            UpdateCommands()
+        }
         Settings {
             SettingsView(preferences: preferences, library: library)
         }

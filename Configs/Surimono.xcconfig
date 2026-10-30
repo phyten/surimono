@@ -23,3 +23,8 @@ ASSETCATALOG_COMPILER_APPICON_NAME[config=Debug] = AppIcon-Dev
 // a release build's generated Info.plist gets an empty CFBundleDisplayName.
 INFOPLIST_KEY_CFBundleDisplayName = $(PRODUCT_NAME)
 INFOPLIST_KEY_CFBundleDisplayName[config=Debug] = Surimono Dev
+
+// Release builds look for updates in the appcast attached to the latest GitHub release ("//" starts a comment in an
+// xcconfig, hence "$()"). Debug builds name no feed, so Surimono Dev never replaces itself with the release.
+SURIMONO_UPDATE_FEED_URL = https:/$()/github.com/phyten/surimono/releases/latest/download/appcast.xml
+SURIMONO_UPDATE_FEED_URL[config=Debug] =
