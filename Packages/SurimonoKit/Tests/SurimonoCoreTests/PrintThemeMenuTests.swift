@@ -29,6 +29,29 @@ struct PrintThemeMenuTests {
             ])
     }
 
+    @Test("探すと、名前・id・カテゴリー名のどれかに語がすべて入るテーマを目録の順に返し、空なら何も返さない")
+    func searchThemes() {
+        let localized = [
+            PrintTheme(
+                id: "washi", name: "Washi", localizedNames: ["ja": "和紙"], css: "", isBuiltIn: true,
+                category: "japanese"),
+            PrintTheme(
+                id: "mincho", name: "Mincho", localizedNames: ["ja": "明朝"], css: "", isBuiltIn: true,
+                category: "japanese"),
+            PrintTheme(id: "grid", name: "Graph Paper", localizedNames: ["ja": "方眼"], css: "", isBuiltIn: true),
+        ]
+        let japanese = [PrintThemeCategory(id: "japanese", name: "Japanese", localizedNames: ["ja": "和の趣"])]
+        func search(_ query: String) -> [String] {
+            PrintThemeMenu.search(query, in: localized, categories: japanese, language: "ja").map(\.id)
+        }
+        #expect(search("和") == ["washi", "mincho"])
+        #expect(search("ＷＡＳＨＩ") == ["washi"])
+        #expect(search("japanese 明") == ["mincho"])
+        #expect(search("paper") == ["grid"])
+        #expect(search("  ").isEmpty)
+        #expect(search("zzz").isEmpty)
+    }
+
     @Test("最近使ったものは新しい順に最大5つで、消えたテーマと重複は除く")
     func recentThemes() {
         let menu = PrintThemeMenu(

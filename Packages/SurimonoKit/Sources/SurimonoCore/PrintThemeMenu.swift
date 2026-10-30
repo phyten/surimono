@@ -56,4 +56,24 @@ public struct PrintThemeMenu: Equatable, Sendable {
     public static func toggling(_ id: String, in favoriteIDs: [String]) -> [String] {
         favoriteIDs.contains(id) ? favoriteIDs.filter { $0 != id } : favoriteIDs + [id]
     }
+
+    /// The themes whose name in either language, id or category name contains `query`, ignoring case and width, in
+    /// catalog order. An empty query finds nothing, so the picker shows its sections instead.
+    public static func search(
+        _ query: String, in themes: [PrintTheme], categories: [PrintThemeCategory], language: String
+    ) -> [PrintTheme] {
+        let options: String.CompareOptions = [.caseInsensitive, .widthInsensitive, .diacriticInsensitive]
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return [] }
+        let categoryNames = Dictionary(
+            categories.map { ($0.id, [$0.name, $0.displayName(language: language)]) },
+            uniquingKeysWith: { first, _ in first })
+        return themes.filter { theme in
+            let fields =
+                [theme.id, theme.name, theme.displayName(language: language)]
+                + (theme.category.flatMap { categoryNames[$0] } ?? [])
+            // Every word must match somewhere, so "和 紙" narrows rather than widens.
+            return words.allSatisfy { word in fields.contains { $0.range(of: word, options: options) != nil } }
+        }
+    }
 }
