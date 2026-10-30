@@ -15,6 +15,12 @@ final class AppPreferences {
     var allowsJavaScript: Bool { didSet { defaults.set(allowsJavaScript, forKey: "allowsJavaScript") } }
     /// The printer the tray's Print sends to; nil means the system's default printer.
     var printerName: String? { didSet { defaults.set(printerName, forKey: "printer") } }
+    /// Print themes the user chose in any window, most recent first.
+    private(set) var recentThemeIDs: [String] { didSet { defaults.set(recentThemeIDs, forKey: "recentThemes") } }
+    /// Print themes the user marked as favorites, in the order they were added.
+    private(set) var favoriteThemeIDs: [String] {
+        didSet { defaults.set(favoriteThemeIDs, forKey: "favoriteThemes") }
+    }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -26,6 +32,16 @@ final class AppPreferences {
         rotateBack = defaults.bool(forKey: "rotateBack")
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
         printerName = defaults.string(forKey: "printer")
+        recentThemeIDs = defaults.stringArray(forKey: "recentThemes") ?? []
+        favoriteThemeIDs = defaults.stringArray(forKey: "favoriteThemes") ?? []
+    }
+
+    func recordThemeChoice(_ id: String) {
+        recentThemeIDs = PrintThemeMenu.recording(id, in: recentThemeIDs)
+    }
+
+    func toggleFavoriteTheme(_ id: String) {
+        favoriteThemeIDs = PrintThemeMenu.toggling(id, in: favoriteThemeIDs)
     }
 
     var printOptions: PrintOptions {

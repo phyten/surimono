@@ -32,6 +32,7 @@ final class DocumentViewModel {
     let library: UserLibrary
     var paperOrientation: PaperOrientation = .auto
     var layoutID: String
+    /// Set directly only when restoring or falling back; a theme the user picks goes through `selectTheme(_:)`.
     var themeID: String
     private(set) var textScale: Double = 1
     var presetID: String
@@ -181,6 +182,24 @@ final class DocumentViewModel {
     var formatBadge: String { imageBundle == nil || format == .zipArchive ? format.badge : "IMG" }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
+
+    /// The user picked a print theme, so it also becomes the most recent one in every window's menu.
+    func selectTheme(_ id: String) {
+        themeID = id
+        preferences.recordThemeChoice(id)
+    }
+
+    var isFavoriteTheme: Bool { preferences.favoriteThemeIDs.contains(themeID) }
+
+    func toggleFavoriteTheme() {
+        preferences.toggleFavoriteTheme(themeID)
+    }
+
+    var themeMenu: PrintThemeMenu {
+        PrintThemeMenu(
+            themes: library.themes, categories: library.themeCategories, recentIDs: preferences.recentThemeIDs,
+            favoriteIDs: preferences.favoriteThemeIDs)
+    }
     var layout: PrintLayout { PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single }
     var renderSettings: RenderSettings? {
         guard

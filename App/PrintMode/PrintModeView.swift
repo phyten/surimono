@@ -184,12 +184,7 @@ struct PrintStyleMenu: View {
     var body: some View {
         if model.format.usesPrintTheme {
             Menu {
-                Picker("Print Theme", selection: $model.themeID) {
-                    ForEach(model.library.themes) { theme in
-                        Text(verbatim: theme.displayName(language: model.language)).tag(theme.id)
-                    }
-                }
-                .pickerStyle(.inline)
+                ThemeMenuContent(model: model)
                 TextSizeMenuItems(model: model)
                 Divider()
                 Button("Open Styles Folder") { model.library.openFolder("Styles") }
