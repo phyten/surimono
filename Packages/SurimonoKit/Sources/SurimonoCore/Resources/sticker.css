@@ -1,0 +1,30 @@
+/* Stickers: headings and callouts are slightly tilted stickers with a white edge and a drop shadow. */
+:root { --deco-emoji: ⭐ 🍓 🐱 🌈 🍒 🎧 🌻 🍦 💌 🛹 🍋 👾; }
+body { font-family: "Avenir Next", "Hiragino Maru Gothic ProN", sans-serif; font-size: 10.5pt; line-height: 1.8; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.5em; line-height: 1.4; font-weight: 800;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* The side margin and small top gap keep tilted corners off the page edge. */
+h1, h2, h3 { width: fit-content; max-width: 95%; margin-left: 0.4em; }
+body > h1:first-child { margin-top: 0.3em; }
+h1 { font-size: 1.9em; color: #3a1d6e; padding: 0.15em 0.6em; background: #fff3a8; border: 2.5pt solid #3a1d6e;
+    border-radius: 0.6em; box-shadow: 0 0 0 3pt #fff, 3pt 4pt 0 3pt #d7cdea; transform: rotate(-2deg); }
+h2 { font-size: 1.35em; color: #0b5c7a; padding: 0.1em 0.6em; background: #dff6ff; border: 2pt solid #0b5c7a;
+    border-radius: 2em; box-shadow: 0 0 0 2.5pt #fff, 2pt 3pt 0 2.5pt #c4dce6; transform: rotate(1.2deg); }
+h3 { font-size: 1.1em; color: #a3204f; padding: 0.05em 0.5em; background: #ffe4ee; border: 1.5pt solid #a3204f;
+    border-radius: 4pt; transform: rotate(-1deg); }
+h1[data-deco]::before, h2[data-deco]::before, h3[data-deco]::before { content: attr(data-deco) " "; }
+p, pre, table { margin: 0.7em 0; }
+li { margin: 0.2em 0; }
+ul > li[data-deco] { list-style: none; position: relative; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.5em; }
+ol > li::marker { color: #a3204f; font-weight: 800; }
+hr { border: none; border-top: 2pt dashed #c4b5e0; margin: 1.5em 0; }
+hr[data-deco] { border: none; text-align: center; height: auto; font-size: 1.3em; }
+hr[data-deco]::after { content: attr(data-deco); letter-spacing: 0.5em; }
+code { font-size: 0.9em; }
+pre { border: 1.5pt solid #333; border-radius: 6pt; padding: 0.6em 0.8em; font-size: 9pt; box-shadow: 2pt 3pt 0 #ddd; }
+blockquote { border-left: 4pt solid #ffb000; }
+th { background: #fff3a8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.callout { border: 2pt solid var(--callout-color); border-radius: 8pt; transform: rotate(-0.6deg);
+    box-shadow: 0 0 0 3pt #fff, 3pt 4pt 0 3pt #e4e4e4; margin-inline: 0.4em; }

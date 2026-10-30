@@ -1,0 +1,17 @@
+/* A faint warm paper tint with delicate ink lines and mincho. */
+html, body { background: #fcfaf5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Hiragino Mincho ProN", "YuMincho", serif; font-size: 10.5pt; line-height: 1.9; color: #2b2622; text-align: justify; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 600; color: #2b2622; line-height: 1.5; margin: 1.5em 0 0.6em; }
+h1 { font-size: 1.75em; text-align: center; padding: 0.3em 0; border-top: 0.4pt solid #8a7f72; border-bottom: 0.4pt solid #8a7f72; }
+h2 { font-size: 1.35em; padding-bottom: 0.15em; border-bottom: 0.4pt solid #a89d90; }
+h3 { font-size: 1.12em; }
+h3::before { content: "〇 "; color: #8a7f72; font-size: 0.8em; }
+h4, h5, h6 { font-size: 1em; color: #4a423b; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+pre { text-align: left; font-size: 8.8pt; line-height: 1.6; padding: 0.6em 0.9em; border: 0.4pt solid #c4b9aa; }
+th, td { border: 0.4pt solid #a89d90; padding: 0.3em 0.6em; }
+th { font-weight: 600; background: #f3eee4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 0.75pt solid #a89d90; color: #4a423b; }
+hr { border: none; border-top: 0.4pt solid #a89d90; width: 40%; margin: 1.6em auto; }
+a { color: #5a4636; }

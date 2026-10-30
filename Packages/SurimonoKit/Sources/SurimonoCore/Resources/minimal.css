@@ -1,0 +1,17 @@
+/* Almost no decoration: hairlines and quiet gray headings. */
+body { font-family: "Helvetica Neue", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.75; color: #1e1e1e; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 500; color: #555; line-height: 1.4; margin: 1.5em 0 0.5em; }
+h1 { font-size: 1.6em; color: #333; }
+h2 { font-size: 1.3em; }
+h3 { font-size: 1.1em; }
+h4, h5, h6 { font-size: 1em; color: #6e6e6e; }
+p, ul, ol, table, pre, blockquote { margin: 0.7em 0; }
+pre { font-size: 8.8pt; line-height: 1.6; padding: 0.5em 0; border-top: 0.25pt solid #bbb; border-bottom: 0.25pt solid #bbb; }
+code { font-size: 0.9em; }
+th, td { border: none; border-bottom: 0.25pt solid #bbb; padding: 0.3em 0.8em 0.3em 0; }
+th { font-weight: 500; color: #555; }
+blockquote { border-left: 0.25pt solid #999; color: #555; }
+hr { border: none; border-top: 0.25pt solid #bbb; margin: 1.5em 0; }
+a { color: inherit; text-decoration-thickness: 0.25pt; }
+.callout { background: none; border-left-width: 1pt; }

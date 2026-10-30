@@ -1,0 +1,31 @@
+/* Dot grid like a bullet journal: small dots every 5 mm on the root canvas. */
+html {
+    background-color: #fff;
+    background-image: radial-gradient(circle, #a3b0bc 0.55pt, transparent 0.75pt);
+    background-size: 5mm 5mm;
+    background-position: -2.5mm -2.5mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+body {
+    background: transparent;
+    font-family: "Avenir Next", "Hiragino Sans", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.9;
+    color: #20262c;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; font-weight: 600; color: #2b3a47; }
+h1 { font-size: 1.8em; letter-spacing: 0.02em; }
+h2 { font-size: 1.35em; }
+h2::before { content: "\25CF"; color: #d07a4a; margin-right: 0.45em; font-size: 0.7em; vertical-align: 0.15em; }
+h3 { font-size: 1.12em; }
+h3::before { content: "\25CB"; color: #d07a4a; margin-right: 0.45em; font-size: 0.8em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.55em 0; }
+li { margin: 0.15em 0; }
+ul { list-style-type: "\2022  "; }
+pre { font-size: 9pt; line-height: 1.6; padding: 0.4em 0.8em; background: rgba(255, 255, 255, 0.9); border: 0.5pt solid #a3b0bc; }
+code { font-size: 0.9em; }
+th, td { border-color: #a3b0bc; background: rgba(255, 255, 255, 0.9); }
+blockquote { border-left-color: #d07a4a; }
+hr { border: none; border-top: 1pt dotted #6c7a87; margin: 1.2em 0; }

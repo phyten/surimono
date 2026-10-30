@@ -1,0 +1,21 @@
+/* Corporate navy and gray: solid navy title band, gray rules. */
+body { font-family: "Helvetica Neue", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.7; color: #1f2329; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 700; color: #13294b; line-height: 1.35; margin: 1.35em 0 0.5em; }
+h1 { font-size: 1.8em; padding: 0.35em 0.6em; background: #13294b; color: #fff; }
+h1 a, h1 code { color: inherit; }
+h2 { font-size: 1.35em; padding-bottom: 0.2em; border-bottom: 2pt solid #13294b; box-shadow: 0 1.5pt 0 #9aa3ae; }
+h3 { font-size: 1.12em; padding-left: 0.5em; border-left: 3pt solid #6b7685; }
+h4, h5, h6 { font-size: 1em; color: #4a5361; }
+p, ul, ol, table, pre { margin: 0.65em 0; }
+li::marker { color: #13294b; }
+pre { font-size: 8.6pt; line-height: 1.5; padding: 0.6em 0.8em; background: #f2f4f7; border-left: 3pt solid #9aa3ae; }
+table { width: 100%; }
+th, td { border: 0.5pt solid #c4cad3; padding: 0.3em 0.6em; }
+th { background: #13294b; border-color: #13294b; color: #fff; }
+th a, th code { color: inherit; }
+tbody tr:nth-child(even) td { background: #f2f4f7; }
+blockquote { border-left-color: #6b7685; color: #3a414c; }
+hr { border: none; border-top: 1pt solid #9aa3ae; margin: 1.4em 0; }
+a { color: #13294b; }
+h1, pre, th, tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

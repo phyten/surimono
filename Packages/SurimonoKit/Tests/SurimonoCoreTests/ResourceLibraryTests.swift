@@ -11,14 +11,15 @@ struct ResourceLibraryTests {
         try body(directory)
     }
 
-    @Test("組み込みテーマは一意な10種で、日常の用途から順に並び、印刷用の共通指定を持つ")
+    @Test("組み込みテーマは目録の順に並び、どれもカテゴリーと日本語名と印刷用の共通指定を持つ")
     func themes() throws {
         let themes = try PrintThemeLibrary.load()
-        #expect(
-            themes.map(\.id) == [
-                "standard", "mincho", "compact", "github", "academic", "modern", "large", "notes", "monochrome",
-                "handout",
-            ])
+        let categories = try PrintThemeLibrary.categories()
+        #expect(Set(themes.map(\.id)).count == themes.count)
+        // Themes come grouped by category, in the categories' order.
+        let order = themes.compactMap { theme in categories.firstIndex { $0.id == theme.category } }
+        #expect(order.count == themes.count)
+        #expect(order == order.sorted())
         for theme in themes {
             #expect(theme.isBuiltIn)
             #expect(theme.localizedNames["ja"] != nil)
@@ -27,6 +28,41 @@ struct ResourceLibraryTests {
             #expect(theme.css.contains("max-width: 100%"))
             #expect(theme.css.contains("pre-wrap"))
             #expect(!theme.css.contains("@page"))
+        }
+    }
+
+    @Test("これまでの 10 種のテーマは同じ id のまま目録にある")
+    func existingThemesKeepTheirIDs() throws {
+        let ids = Set(try PrintThemeLibrary.load().map(\.id))
+        let existing: Set = [
+            "standard", "mincho", "compact", "github", "academic", "modern", "large", "notes", "monochrome", "handout",
+        ]
+        #expect(existing.isSubset(of: ids))
+    }
+
+    @Test("どのカテゴリーにも組み込みテーマがあり、日本語名を持つ")
+    func categories() throws {
+        let themes = try PrintThemeLibrary.load()
+        for category in try PrintThemeLibrary.categories() {
+            #expect(category.localizedNames["ja"] != nil)
+            #expect(themes.contains { $0.category == category.id })
+        }
+    }
+
+    @Test("定番のテーマは目録の定番の順に番号を持つ")
+    func featuredThemes() throws {
+        let featured = try PrintThemeLibrary.load().filter { $0.featuredRank != nil }
+            .sorted { ($0.featuredRank ?? 0) < ($1.featuredRank ?? 0) }
+        #expect(featured.first?.id == "standard")
+        #expect(featured.map(\.featuredRank) == featured.indices.map { $0 })
+    }
+
+    @Test("絵文字で飾るテーマは飾りのスクリプトを持ち、ほかの組み込みテーマは持たない")
+    func themeScripts() throws {
+        let decorated: Set = ["confetti", "emoji", "sticker", "sparkle", "newyear", "halloween", "christmas", "zoo"]
+        for theme in try PrintThemeLibrary.load() {
+            #expect((theme.script != nil) == decorated.contains(theme.id), "\(theme.id)")
+            if let script = theme.script { #expect(script.contains("--deco-emoji")) }
         }
     }
 
@@ -45,6 +81,8 @@ struct ResourceLibraryTests {
             // User styles come after the built-in themes.
             #expect(themes.suffix(2).map(\.id) == ["user:Alpha.css", "user:Zebra.css"])
             #expect(users.map(\.name) == ["Alpha", "Zebra"])
+            // User styles are CSS only; scripts come with the app's own themes.
+            #expect(users.allSatisfy { $0.script == nil && $0.category == nil })
             #expect(users[0].css.contains("break-after: avoid"))
             #expect(users[0].css.contains("break-inside: avoid"))
             #expect(users[0].css.contains("max-width: 100%"))
@@ -55,7 +93,7 @@ struct ResourceLibraryTests {
     @Test("存在しないユーザーディレクトリは組み込みだけを返す")
     func absentDirectory() throws {
         let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        #expect(try PrintThemeLibrary.load(userDirectory: missing).count == 10)
+        #expect(try PrintThemeLibrary.load(userDirectory: missing) == PrintThemeLibrary.load())
         let result = try HTMLCleanupPresetLibrary.load(userDirectory: missing)
         #expect(result.presets.count == 4)
         #expect(result.errors.isEmpty)

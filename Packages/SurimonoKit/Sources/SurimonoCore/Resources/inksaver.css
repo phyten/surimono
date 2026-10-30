@@ -1,0 +1,23 @@
+/* Ink saver: no filled areas, hairline rules and a light weight, while keeping body text near-black. */
+body {
+    font-family: "Helvetica Neue", "Hiragino Sans", sans-serif;
+    font-size: 10.5pt;
+    font-weight: 300;
+    line-height: 1.7;
+    color: #222;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.4em; line-height: 1.4; font-weight: 500; color: #111; }
+h1 { font-size: 1.7em; }
+h2 { font-size: 1.35em; border-bottom: 0.4pt solid #888; }
+h3 { font-size: 1.12em; }
+body > :first-child { margin-top: 0; }
+strong, b, th { font-weight: 600; }
+p, ul, ol, pre, table { margin: 0.55em 0; }
+li { margin: 0.1em 0; }
+pre { font-size: 9pt; line-height: 1.5; padding-left: 0.8em; border-left: 0.4pt solid #888; }
+code { font-size: 0.9em; }
+th, td { border: none; border-bottom: 0.4pt solid #999; }
+blockquote { border-left: 0.4pt solid #888; }
+.callout { background: none; border-left-width: 0.75pt; padding: 0.2em 0.9em; }
+.hl-addition, .hl-deletion { background: none; }
+hr { border: none; border-top: 0.4pt solid #999; margin: 1em 0; }

@@ -1,0 +1,33 @@
+/* Ruled notebook: horizontal rules every 21pt and a red margin line, painted on the root canvas for every page. */
+html {
+    background-color: #fff;
+    background-image:
+        linear-gradient(to right, transparent 7mm, #e3a1a1 7mm, #e3a1a1 7.6mm, transparent 7.6mm),
+        repeating-linear-gradient(to bottom, transparent 0, transparent 20.4pt, #b6cbe0 20.4pt, #b6cbe0 21pt);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+body {
+    background: transparent;
+    padding-left: 10mm;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 10.5pt;
+    line-height: 21pt;
+    color: #1d2633;
+}
+/* Every line box and margin is a multiple of 21pt so text rests on the rules. */
+h1, h2, h3, h4, h5, h6 { margin: 21pt 0 0; line-height: 21pt; font-weight: 700; color: #22406a; }
+h1 { font-size: 1.6em; line-height: 42pt; }
+h2 { font-size: 1.3em; line-height: 42pt; }
+h3 { font-size: 1.1em; }
+h4, h5, h6 { font-size: 1em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, blockquote, table { margin: 0; }
+li { margin: 0; }
+pre { font-size: 9pt; line-height: 21pt; }
+code { font-size: 0.9em; }
+th, td { border: none; border-right: 0.5pt solid #9fb4c9; padding: 0 0.6em; line-height: 21pt; }
+th { color: #22406a; }
+blockquote { border-left-color: #e3a1a1; }
+.callout { margin-block: 0; padding: 0 1em; }
+hr { border: none; height: 21pt; margin: 0; }

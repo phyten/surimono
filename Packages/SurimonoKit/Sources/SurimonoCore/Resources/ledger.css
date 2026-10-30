@@ -1,0 +1,21 @@
+/* Business form: boxed headings, fully ruled tables, monospaced figures. */
+body { font-family: "BIZ UDGothic", "Hiragino Sans", sans-serif; font-size: 9.5pt; line-height: 1.6; color: #111; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 700; line-height: 1.35; margin: 1.1em 0 0.4em; }
+h1 { font-size: 1.6em; text-align: center; letter-spacing: 0.3em; padding: 0.3em; border: 1.5pt solid #111; outline: 0.5pt solid #111; outline-offset: 2pt; }
+h2 { font-size: 1.15em; display: inline-block; padding: 0.1em 0.8em; border: 1pt solid #111; }
+h3 { font-size: 1.02em; padding: 0.05em 0.5em; border-left: 4pt solid #111; border-bottom: 0.5pt solid #111; }
+h4, h5, h6 { font-size: 0.95em; }
+p, ul, ol, pre { margin: 0.45em 0; }
+pre { font-size: 8.4pt; line-height: 1.45; padding: 0.5em 0.7em; border: 0.75pt solid #111; }
+table { width: 100%; margin: 0.6em 0; border: 1.25pt solid #111; }
+th, td { border: 0.5pt solid #444; padding: 0.25em 0.5em; }
+th { background: #e8e8e8; font-weight: 700; text-align: center; border-bottom: 1pt solid #111; }
+/* Figures line up when digits are monospaced; right-aligned cells are usually amounts. */
+td { font-variant-numeric: tabular-nums; }
+td[align="right"], .surimono-csv td { font-family: "Menlo", "BIZ UDGothic", monospace; font-size: 0.95em; }
+tbody tr:nth-child(even) td { background: #f5f5f5; }
+blockquote { border-left: 1pt solid #111; color: #222; }
+hr { border: none; border-top: 0.75pt double #111; border-bottom: 0.75pt solid #111; height: 1.5pt; margin: 1em 0; }
+a { color: inherit; }
+th, tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

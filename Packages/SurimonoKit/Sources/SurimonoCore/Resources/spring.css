@@ -1,0 +1,22 @@
+/* Spring: sakura pink on a soft mincho, with fixed cherry-blossom marks. */
+body { font-family: "Hiragino Mincho ProN", "YuMincho", serif; font-size: 10.5pt; line-height: 1.85; color: #2a1f24; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.45;
+    font-family: "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; color: #a8325f; }
+h1 { font-size: 1.85em; text-align: center; padding-bottom: 0.2em; border-bottom: 1pt solid #f4b6cc; }
+h1::before, h1::after { content: "🌸"; font-size: 0.7em; margin: 0 0.5em; vertical-align: 0.15em; }
+h2 { font-size: 1.4em; padding-left: 0.2em; border-bottom: 0.75pt dashed #f0a3bf; }
+h2::before { content: "🌸 "; font-size: 0.85em; }
+h3 { font-size: 1.15em; color: #8a3a58; }
+p, pre, table { margin: 0.7em 0; }
+ul > li:not(.task-list-item) { list-style: none; position: relative; }
+ul > li:not(.task-list-item)::before { content: "✿"; color: #e57aa3; position: absolute; left: -1.2em; }
+ol > li::marker { color: #c04a78; }
+hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
+hr::after { content: "🌸 · 🌸 · 🌸"; color: #e57aa3; letter-spacing: 0.4em; font-size: 0.9em; }
+code { font-size: 0.88em; }
+pre { background: #fff6f9; border-left: 3pt solid #f4b6cc; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left-color: #f0a3bf; color: #4a3a40; }
+th { background: #fdeef3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #e9b9ca; }

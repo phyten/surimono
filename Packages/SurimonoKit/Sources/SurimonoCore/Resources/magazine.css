@@ -1,0 +1,28 @@
+/* Magazine: heavy headlines, drop-cap opening letter, pull-quote blockquotes with red rules. */
+:root { --mag-red: #b4122a; }
+body { font-family: "Georgia", "Hiragino Mincho ProN", serif; font-size: 10pt; line-height: 1.7; color: #1a1a1a; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Futura", "Hiragino Sans", sans-serif; line-height: 1.15; }
+h1 { font-size: 2.8em; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; margin: 0 0 0.5em; padding-bottom: 0.25em; border-bottom: 4pt solid var(--mag-red); }
+h2 { font-size: 1.7em; font-weight: 700; margin: 1.4em 0 0.4em; }
+h2::before { content: ""; display: block; width: 2.2em; height: 3pt; margin-bottom: 0.35em; background: var(--mag-red); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h3 { font-size: 1.15em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mag-red); margin: 1.2em 0 0.3em; }
+h4, h5, h6 { font-size: 1em; font-weight: 700; margin: 1em 0 0.3em; }
+p { margin: 0.55em 0; }
+/* Drop cap on the opening paragraph of each article and section. */
+h1 + p::first-letter, h2 + p::first-letter {
+    float: left; font-family: "Didot", "Hiragino Mincho ProN", serif; font-size: 3.4em; line-height: 0.85; font-weight: 700;
+    margin: 0.06em 0.1em 0 0; color: var(--mag-red);
+}
+ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
+li::marker { color: var(--mag-red); }
+blockquote { border-left: none; margin: 1.2em 1.5em; padding: 0.6em 0; border-top: 2pt solid var(--mag-red); border-bottom: 2pt solid var(--mag-red); text-align: center; font-size: 1.3em; font-style: italic; line-height: 1.45; }
+blockquote p { margin: 0.2em 0; }
+code { font-size: 0.85em; }
+pre { font-size: 8.5pt; line-height: 1.5; background: #f6f3f1; padding: 0.6em 0.8em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+table { margin: 0.9em 0; font-family: "Futura", "Hiragino Sans", sans-serif; font-size: 0.9em; }
+th, td { border: none; border-bottom: 0.5pt solid #bbb; }
+thead th { border-bottom: 1.5pt solid #1a1a1a; text-transform: uppercase; letter-spacing: 0.05em; }
+.callout > .callout-title { font-family: "Futura", "Hiragino Sans", sans-serif; text-transform: uppercase; letter-spacing: 0.06em; }
+hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
+hr::after { content: "■ ■ ■"; color: var(--mag-red); font-size: 0.6em; letter-spacing: 0.8em; }

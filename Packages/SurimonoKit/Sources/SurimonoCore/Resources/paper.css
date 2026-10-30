@@ -1,0 +1,22 @@
+/* Japanese academic paper: mincho throughout, indented paragraphs, decimal section numbers. */
+body { font-family: "YuMincho", "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.8; text-align: justify; counter-reset: sec; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; font-weight: 600; line-height: 1.45; text-align: left; }
+h1 { font-size: 1.55em; text-align: center; margin: 0 0 1.2em; letter-spacing: 0.05em; }
+h2 { font-size: 1.2em; margin: 1.5em 0 0.5em; counter-reset: subsec; }
+h3 { font-size: 1.05em; margin: 1.2em 0 0.4em; counter-reset: subsubsec; }
+h4, h5, h6 { font-size: 1em; margin: 1em 0 0.3em; }
+h2::before { counter-increment: sec; content: counter(sec) "\3000"; }
+h3::before { counter-increment: subsec; content: counter(sec) "." counter(subsec) "\3000"; }
+h4::before { counter-increment: subsubsec; content: "(" counter(subsubsec) ")\2002"; }
+p { margin: 0.2em 0; text-indent: 1em; }
+li p, blockquote p, td p, th p, .callout p { text-indent: 0; }
+ul, ol { margin: 0.4em 0; padding-left: 2em; }
+code { font-size: 0.88em; }
+pre { font-size: 8.5pt; line-height: 1.5; border-top: 0.5pt solid #333; border-bottom: 0.5pt solid #333; padding: 0.4em 0.2em; }
+table { margin: 0.9em auto; border-top: 1pt solid #111; border-bottom: 1pt solid #111; }
+th, td { border: none; padding: 0.2em 0.8em; }
+thead th { border-bottom: 0.5pt solid #111; font-weight: 600; }
+blockquote { border-left: none; margin-inline: 2em; padding-left: 0; font-size: 0.95em; }
+hr { border: none; border-top: 0.5pt solid #555; margin: 1.2em 3em; }
+img { display: block; margin: 0.8em auto; }

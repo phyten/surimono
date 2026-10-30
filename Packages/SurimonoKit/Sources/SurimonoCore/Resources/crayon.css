@@ -1,0 +1,31 @@
+/* Crayon: waxy crayon colors, felt-pen Latin type and wobbly hand-drawn borders. */
+body { font-family: "Chalkboard SE", "Tsukushi A Round Gothic", "Hiragino Maru Gothic ProN", sans-serif;
+    font-size: 11pt; line-height: 1.85; color: #222; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.5em; line-height: 1.4;
+    font-family: "Marker Felt", "Tsukushi A Round Gothic", "Hiragino Maru Gothic ProN", sans-serif; font-weight: bold; }
+/* Uneven elliptical radii make a box look drawn by hand. */
+h1 { font-size: 1.9em; color: #d2372f; text-align: center; padding: 0.2em 0.6em; border: 2.5pt solid #d2372f;
+    border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px; }
+h2 { font-size: 1.4em; color: #2862b8; padding-bottom: 0.1em; border-bottom: 3pt solid #f2b632;
+    border-radius: 0 0 40% 6% / 0 0 6pt 3pt; }
+h3 { font-size: 1.15em; color: #2f8a3d; }
+h4 { color: #8a3fb0; }
+p, pre, table { margin: 0.65em 0; }
+li { margin: 0.2em 0; }
+ul > li:nth-child(4n+1)::marker { color: #d2372f; }
+ul > li:nth-child(4n+2)::marker { color: #e07b1a; }
+ul > li:nth-child(4n+3)::marker { color: #2f8a3d; }
+ul > li:nth-child(4n)::marker { color: #2862b8; }
+ol > li::marker { color: #8a3fb0; font-weight: bold; }
+hr { border: none; height: 3pt; margin: 1.4em 0; border-radius: 40% 10% 30% 20% / 2pt;
+    background: linear-gradient(90deg, #d2372f, #e07b1a, #f2b632, #2f8a3d, #2862b8, #8a3fb0);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+code { font-size: 0.88em; }
+pre { border: 2pt solid #2862b8; padding: 0.6em 0.9em; font-size: 9pt;
+    border-radius: 18px 225px 18px 255px / 255px 18px 225px 18px; }
+blockquote { border-left: none; padding: 0.4em 0.9em; border: 2pt dashed #e07b1a;
+    border-radius: 225px 18px 255px 18px / 18px 255px 18px 225px; }
+th, td { border: 1.5pt solid #555; }
+th { color: #d2372f; }
+.callout { border: 2pt solid var(--callout-color); border-radius: 225px 15px 255px 15px / 15px 255px 15px 225px; }

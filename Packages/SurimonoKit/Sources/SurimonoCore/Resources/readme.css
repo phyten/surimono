@@ -1,0 +1,24 @@
+/* Open-source README: centered project title, purple accent squares on sections, airy sans. */
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.7; color: #24222b; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { line-height: 1.3; font-weight: 700; }
+h1 { font-size: 2.3em; text-align: center; margin: 0 0 0.3em; letter-spacing: -0.01em; }
+h1 + p { text-align: center; color: #5a5566; margin-bottom: 1.4em; }
+h2 { font-size: 1.4em; margin: 1.6em 0 0.5em; padding-bottom: 0.2em; border-bottom: 0.5pt solid #ddd8e6; }
+h2::before { content: ""; display: inline-block; width: 0.5em; height: 0.5em; margin-right: 0.45em; vertical-align: 0.12em; background: #7c3aed; border-radius: 1.5pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h3 { font-size: 1.15em; margin: 1.2em 0 0.4em; color: #4c1d95; }
+h4 { font-size: 1em; margin: 1em 0 0.3em; }
+p { margin: 0.6em 0; }
+ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
+li { margin: 0.15em 0; }
+li::marker { color: #7c3aed; }
+a { color: #6d28d9; }
+code { font-size: 0.86em; background: #f3f0f8; padding: 0.05em 0.35em; border-radius: 3pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre { font-size: 8.8pt; line-height: 1.55; background: #f7f6fa; border-left: 3pt solid #7c3aed; border-radius: 0 4pt 4pt 0; padding: 0.7em 0.9em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre code { background: none; padding: 0; }
+table { margin: 0.9em 0; }
+th, td { border: 0.5pt solid #ddd8e6; padding: 0.35em 0.7em; }
+th { background: #f3f0f8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #c4b5fd; color: #5a5566; }
+.callout { border-radius: 0 4pt 4pt 0; }
+hr { border: none; height: 2pt; background: #ece8f3; margin: 1.6em 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

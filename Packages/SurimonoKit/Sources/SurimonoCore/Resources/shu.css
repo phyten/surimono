@@ -1,0 +1,20 @@
+/* Mincho with vermilion accents and seal-like square marks before headings. */
+body { font-family: "Hiragino Mincho ProN", "YuMincho", serif; font-size: 10.5pt; line-height: 1.85; color: #1f1a17; text-align: justify; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 600; line-height: 1.45; margin: 1.4em 0 0.55em; color: #1f1a17; }
+h1 { font-size: 1.8em; padding-bottom: 0.25em; border-bottom: 1.5pt solid #c0392b; }
+h1::before { content: "印"; display: inline-block; margin-right: 0.45em; padding: 0.05em 0.15em; border: 1.5pt solid #c0392b; border-radius: 3pt; color: #c0392b; font-size: 0.55em; vertical-align: 0.35em; line-height: 1.2; }
+h2 { font-size: 1.35em; }
+h2::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; margin-right: 0.45em; background: #c0392b; border-radius: 1.5pt; vertical-align: 0.05em; }
+h3 { font-size: 1.12em; color: #a5301f; }
+h3::before { content: "◆ "; font-size: 0.75em; color: #c0392b; }
+h4, h5, h6 { font-size: 1em; color: #a5301f; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+li::marker { color: #c0392b; }
+pre { text-align: left; font-size: 8.8pt; line-height: 1.55; padding: 0.6em 0.9em; border-left: 2pt solid #c0392b; background: #fdf6f4; }
+th, td { border: 0.5pt solid #d9b2ab; padding: 0.3em 0.6em; }
+th { border-bottom: 1.5pt solid #c0392b; color: #a5301f; }
+blockquote { border-left-color: #c0392b; color: #4a3a35; }
+hr { border: none; border-top: 0.75pt solid #c0392b; width: 25%; margin: 1.6em auto; }
+a { color: #a5301f; }
+h2::before, pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

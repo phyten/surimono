@@ -1,0 +1,23 @@
+/* Winter: icy blues, light geometric type and snowflake marks. */
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.8; color: #14222e; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.4; font-weight: 600; color: #1f5f8b; }
+h1 { font-size: 1.9em; text-align: center; letter-spacing: 0.06em; padding: 0.2em 0;
+    border-top: 1pt solid #a9d3ec; border-bottom: 1pt solid #a9d3ec; }
+h1::before, h1::after { content: "❄️"; font-size: 0.7em; margin: 0 0.5em; vertical-align: 0.15em; }
+h2 { font-size: 1.4em; border-bottom: 1.5pt solid #cfe8f6; }
+h2::before { content: "❄️ "; font-size: 0.8em; }
+h3 { font-size: 1.15em; color: #2f6f8f; }
+p, pre, table { margin: 0.7em 0; }
+ul > li:not(.task-list-item) { list-style: none; position: relative; }
+/* Text presentation (U+FE0E) so the bullet takes the icy color instead of the emoji glyph. */
+ul > li:not(.task-list-item)::before { content: "\2744\FE0E"; color: #5aa6d6; position: absolute; left: -1.3em; }
+ol > li::marker { color: #3a86b8; font-weight: 600; }
+hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
+hr::after { content: "\2745\FE0E  \2744\FE0E  \2746\FE0E  \2744\FE0E  \2745\FE0E"; color: #8cc4e6; letter-spacing: 0.4em; }
+code { font-size: 0.9em; }
+pre { background: #f2f9fd; border: 1pt solid #cfe8f6; border-radius: 4pt; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left-color: #a9d3ec; color: #33475a; }
+th { background: #edf6fc; color: #1f5f8b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #b7d5e8; }

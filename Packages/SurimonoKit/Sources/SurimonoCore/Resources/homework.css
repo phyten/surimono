@@ -1,0 +1,29 @@
+/* Homework: notebook paper with a red margin line, cheerful headings and big ticked checkboxes. */
+body { font-family: "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.85; color: #1c2430; padding-left: 2.2em;
+    background: linear-gradient(90deg, transparent 1.4em, #f2a3a3 1.4em, #f2a3a3 calc(1.4em + 1pt), transparent calc(1.4em + 1pt));
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.45em; line-height: 1.4; font-family: "Hiragino Maru Gothic ProN", sans-serif; }
+h1 { font-size: 1.8em; color: #1f5fa8; padding-bottom: 0.15em; border-bottom: 2pt solid #1f5fa8; }
+h2 { font-size: 1.35em; color: #e5533d; border-bottom: 1.5pt dashed #f4a08f; }
+h3 { font-size: 1.12em; color: #2a8a4a; }
+h3::before { content: "✎ "; }
+p, pre, table { margin: 0.6em 0; }
+li { margin: 0.2em 0; }
+ul > li::marker { color: #1f5fa8; }
+ol > li::marker { color: #e5533d; font-weight: bold; }
+li.task-list-item { list-style: none; margin: 0.35em 0 0.35em -1.4em; font-weight: 600; }
+li.task-list-item input[type="checkbox"] { -webkit-appearance: none; appearance: none; width: 1.15em; height: 1.15em;
+    margin: 0 0.5em 0 0; vertical-align: -0.2em; border: 1.5pt solid #e5533d; border-radius: 3pt; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+li.task-list-item input[type="checkbox"]:checked {
+    background: #e5533d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3L13 4.5' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 85% no-repeat; }
+li.task-list-item:has(input:checked) { color: #7a8494; font-weight: normal; text-decoration: line-through; text-decoration-color: #e5533d; }
+hr { border: none; border-top: 1pt solid #a9c4e4; margin: 1.3em 0; }
+code { font-size: 0.9em; }
+pre { background: #f6f9fd; border: 1pt solid #c5d7ec; border-radius: 4pt; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #ffcc4d; background: #fffbea; padding: 0.3em 0.9em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th { background: #eef4fb; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #a9c4e4; }

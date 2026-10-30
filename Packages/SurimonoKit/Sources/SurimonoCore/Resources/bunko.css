@@ -1,0 +1,20 @@
+/* Japanese paperback: mincho, indented run-on paragraphs, small quiet headings, asterism scene breaks. */
+body { font-family: "YuMincho", "Hiragino Mincho ProN", serif; font-size: 10pt; line-height: 1.85; text-align: justify; color: #1a1a1a; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hiragino Mincho ProN", "YuMincho", serif; font-weight: 600; line-height: 1.5; }
+h1 { font-size: 1.35em; text-align: center; letter-spacing: 0.15em; margin: 0 0 1.6em; }
+h2 { font-size: 1.12em; letter-spacing: 0.08em; margin: 2em 0 1em; }
+h3 { font-size: 1em; margin: 1.5em 0 0.6em; }
+h4, h5, h6 { font-size: 0.95em; margin: 1.2em 0 0.4em; }
+p { margin: 0; text-indent: 1em; }
+li p, blockquote p, td p, th p, .callout p { text-indent: 0; }
+ul, ol { margin: 0.6em 0; padding-left: 2em; }
+blockquote { border-left: none; margin-inline: 2em; padding-left: 0; font-size: 0.95em; }
+code { font-size: 0.85em; }
+pre { font-size: 8.5pt; line-height: 1.5; padding: 0.5em 1em; border-top: 0.5pt solid #888; border-bottom: 0.5pt solid #888; }
+table { margin: 1em auto; border-top: 0.75pt solid #222; border-bottom: 0.75pt solid #222; }
+th, td { border: none; padding: 0.2em 0.8em; }
+.callout { background: none; border-left: 0.75pt solid var(--callout-color); }
+hr { border: none; text-align: center; margin: 1.5em 0; height: auto; }
+hr::after { content: "＊\3000＊\3000＊"; color: #555; font-size: 0.9em; }
+img { display: block; margin: 1em auto; }

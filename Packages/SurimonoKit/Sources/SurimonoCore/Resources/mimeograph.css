@@ -1,0 +1,38 @@
+/* Mimeograph (gari-ban) handout: everything in violet stencil ink, hand-lettered feel, slightly bled edges. */
+:root { --ink: #4a2d7f; }
+body {
+    font-family: "Klee", "Tsukushi A Round Gothic", "Hiragino Maru Gothic ProN", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.8;
+    color: var(--ink);
+    /* A faint halo imitates ink spreading through the stencil. */
+    text-shadow: 0 0 0.5pt rgba(74, 45, 127, 0.55);
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.4em; line-height: 1.4; font-weight: 600; color: var(--ink); }
+h1 {
+    font-size: 1.75em;
+    text-align: center;
+    padding: 0.15em 0.4em;
+    border: 1.5pt solid var(--ink);
+    border-radius: 3pt 9pt 4pt 7pt;
+}
+h2 { font-size: 1.35em; border-bottom: 1.2pt dashed var(--ink); }
+h3 { font-size: 1.12em; }
+h3::before { content: "\261E  "; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.6em 0; }
+li { margin: 0.15em 0; }
+a, strong { color: var(--ink); }
+code, pre { font-family: "Osaka", "Klee", "Hiragino Sans", monospace; }
+pre { font-size: 9.5pt; line-height: 1.6; padding: 0.5em 0.8em; border: 1pt dashed var(--ink); border-radius: 2pt 6pt 3pt 5pt; }
+code { font-size: 0.92em; }
+th, td { border: 0.8pt dashed var(--ink); }
+blockquote { border-left: 2pt dotted var(--ink); }
+.callout { --callout-color: var(--ink); --callout-tint: #f4effa; border: 1pt dashed var(--ink); border-left-width: 3pt; }
+:root {
+    --hl-keyword: #4a2d7f; --hl-type: #4a2d7f; --hl-builtin: #4a2d7f; --hl-function: #4a2d7f; --hl-literal: #4a2d7f;
+    --hl-number: #4a2d7f; --hl-string: #5c3f8f; --hl-comment: #6a5591; --hl-meta: #4a2d7f; --hl-tag: #4a2d7f;
+    --hl-attr: #4a2d7f; --hl-variable: #4a2d7f; --hl-addition: #4a2d7f; --hl-deletion: #4a2d7f; --hl-section: #4a2d7f;
+}
+.hl-addition, .hl-deletion { background: none; }
+hr { border: none; border-top: 1.2pt dashed var(--ink); margin: 1.2em 0; }

@@ -1,0 +1,23 @@
+/* Documentation site: clean sans, indigo accents, tinted code blocks and rounded callouts. */
+:root { --docs-accent: #4338ca; }
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.7; color: #1f2430; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { line-height: 1.3; font-weight: 700; color: #111827; }
+h1 { font-size: 2em; margin: 0 0 0.6em; letter-spacing: -0.01em; }
+h2 { font-size: 1.4em; margin: 1.6em 0 0.5em; padding-top: 0.6em; border-top: 0.5pt solid #e2e5ec; }
+h3 { font-size: 1.15em; margin: 1.2em 0 0.4em; }
+h4 { font-size: 1em; margin: 1em 0 0.3em; color: #374151; }
+p { margin: 0.6em 0; }
+ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
+li { margin: 0.2em 0; }
+li::marker { color: var(--docs-accent); }
+a { color: var(--docs-accent); text-decoration: none; border-bottom: 0.5pt solid #a5b4fc; }
+code { font-size: 0.86em; color: #3730a3; background: #eef0fb; padding: 0.05em 0.35em; border-radius: 3pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre { font-size: 8.8pt; line-height: 1.55; background: #f4f5fb; border-radius: 6pt; padding: 0.8em 1em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre code { color: inherit; background: none; padding: 0; }
+.callout { border-left: none; border: 0.75pt solid var(--callout-color); border-radius: 6pt; }
+table { margin: 0.9em 0; width: 100%; }
+th, td { border: none; border-bottom: 0.5pt solid #e2e5ec; padding: 0.4em 0.7em; }
+thead th { border-bottom: 1pt solid #c7cbe0; font-weight: 600; color: #374151; }
+blockquote { border-left: 2.5pt solid #c7d2fe; color: #4b5563; }
+hr { border: none; border-top: 0.5pt solid #e2e5ec; margin: 1.6em 0; }

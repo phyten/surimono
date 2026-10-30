@@ -1,0 +1,39 @@
+/* Showa-era school textbook: textbook kai typeface, two-color printing in muted indigo and bengara red. */
+html, body {
+    background: #fbf8ee;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+body {
+    font-family: "YuKyokasho", "Hiragino Mincho ProN", serif;
+    font-size: 11pt;
+    line-height: 1.9;
+    color: #2a2622;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin: 1.2em 0 0.45em;
+    line-height: 1.45;
+    font-family: "Toppan Bunkyu Midashi Mincho", "YuMincho", "Hiragino Mincho ProN", serif;
+    font-weight: 700;
+}
+h1 { font-size: 1.8em; color: #8c3b2a; text-align: center; letter-spacing: 0.15em; }
+h2 { font-size: 1.35em; color: #2f4868; display: inline-block; padding: 0.05em 0.6em; border: 1.2pt solid #2f4868; }
+h3 { font-size: 1.12em; color: #8c3b2a; }
+h3::before { content: "\25CE  "; }
+h4, h5, h6 { font-size: 1em; color: #2f4868; }
+body > :first-child { margin-top: 0; }
+p { margin: 0.5em 0; text-indent: 1em; }
+li p, td p, blockquote p, .callout p { text-indent: 0; }
+ul, ol, pre, table { margin: 0.6em 0; }
+li { margin: 0.15em 0; }
+strong { color: #8c3b2a; }
+pre { font-size: 9.5pt; line-height: 1.6; padding: 0.5em 0.8em; border: 0.75pt solid #9c8b74; }
+code { font-size: 0.9em; }
+th, td { border-color: #7a6a58; }
+th { background: #efe6d2; color: #2f4868; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt double #8c3b2a; }
+.callout { --callout-tint: #f3ecdc; }
+.callout-note, .callout-tip, .callout-quote, .callout-neutral { --callout-color: #2f4868; }
+.callout-important, .callout-warning, .callout-danger { --callout-color: #8c3b2a; }
+:root { --hl-keyword: #8c3b2a; --hl-type: #2f4868; --hl-function: #2f4868; --hl-string: #4f5a2a; --hl-comment: #6a5f52; }
+hr { border: none; border-top: 1pt dotted #7a6a58; margin: 1.3em 0; }

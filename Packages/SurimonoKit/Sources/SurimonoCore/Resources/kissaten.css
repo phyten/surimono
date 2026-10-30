@@ -1,0 +1,48 @@
+/* Retro cafe menu: cream paper, coffee-brown ink, engraved capitals and centered ornamental headings. */
+html, body {
+    background: #fbf4e6;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+body {
+    font-family: "Hoefler Text", "YuMincho", "Hiragino Mincho ProN", serif;
+    font-size: 10.5pt;
+    line-height: 1.8;
+    color: #3f2719;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin: 1.2em 0 0.45em;
+    line-height: 1.4;
+    font-family: "Copperplate", "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif;
+    font-weight: 700;
+    color: #6b3a22;
+}
+h1 {
+    font-size: 1.9em;
+    text-align: center;
+    letter-spacing: 0.12em;
+    padding: 0.25em 0;
+    border-top: 3pt double #8a5a3b;
+    border-bottom: 3pt double #8a5a3b;
+}
+h2 { font-size: 1.35em; text-align: center; letter-spacing: 0.1em; }
+h2::before { content: "\2756  "; color: #a8744f; }
+h2::after { content: "  \2756"; color: #a8744f; }
+h3 { font-size: 1.12em; letter-spacing: 0.05em; border-bottom: 0.75pt dotted #8a5a3b; }
+h4, h5, h6 { font-size: 1em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.6em 0; }
+li { margin: 0.15em 0; }
+li::marker { color: #a8744f; }
+strong { color: #6b3a22; }
+/* Tables read like the menu board: no grid, dotted rows. */
+table { width: 100%; }
+th, td { border: none; border-bottom: 0.75pt dotted #a8744f; padding: 0.3em 0.6em; }
+thead th { font-family: "Copperplate", "Hiragino Mincho ProN", serif; color: #6b3a22; border-bottom: 1.2pt solid #8a5a3b; }
+pre { font-size: 9pt; line-height: 1.55; padding: 0.5em 0.8em; border: 0.75pt solid #c9a888; background: #fffaf1; }
+code { font-size: 0.9em; }
+blockquote { border-left: 2pt solid #a8744f; font-style: italic; }
+.callout { --callout-color: #6b3a22; --callout-tint: #f3e5cf; }
+:root { --hl-keyword: #7a2e1c; --hl-string: #4f5a22; --hl-function: #6b3a22; --hl-comment: #6e5848; }
+hr { border: none; text-align: center; height: auto; margin: 1.2em 0; color: #a8744f; }
+hr::after { content: "\2615   \2766   \2615"; letter-spacing: 0.3em; }

@@ -1,0 +1,18 @@
+/* Plain internal memo: compact gothic with a simple header rule. */
+body { font-family: "Hiragino Sans", sans-serif; font-size: 9.5pt; line-height: 1.6; color: #222; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 700; line-height: 1.35; margin: 1em 0 0.35em; }
+h1 { font-size: 1.45em; padding-bottom: 0.2em; border-bottom: 1pt solid #222; }
+h2 { font-size: 1.15em; }
+h2::before { content: "▶ "; font-size: 0.75em; color: #666; vertical-align: 0.1em; }
+h3 { font-size: 1.02em; }
+h4, h5, h6 { font-size: 0.95em; color: #444; }
+p, ul, ol, table, pre { margin: 0.45em 0; }
+ul, ol { padding-left: 1.5em; }
+li { margin: 0.1em 0; }
+pre { font-size: 8.4pt; line-height: 1.45; padding: 0.4em 0.6em; border: 0.5pt solid #bbb; }
+th, td { border: 0.5pt solid #999; padding: 0.2em 0.5em; }
+th { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { margin-inline: 0.5em; border-left-width: 1.5pt; color: #444; }
+hr { border: none; border-top: 0.5pt solid #999; margin: 0.9em 0; }
+.callout { margin-block: 0.6em; padding: 0.45em 0.8em; }

@@ -1,0 +1,38 @@
+/* Telegram slip: monospace body, uppercase spaced Latin headings, and pasted paper strips for headings and rules. */
+body {
+    font-family: "Courier New", "Osaka", "Hiragino Sans", monospace;
+    font-size: 10.5pt;
+    line-height: 1.75;
+    color: #1d1d1d;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.4; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; }
+h1 {
+    font-size: 1.55em;
+    text-align: center;
+    padding: 0.3em 0;
+    border-top: 3pt double #8b1e1e;
+    border-bottom: 3pt double #8b1e1e;
+    color: #8b1e1e;
+}
+/* Headings sit on pale strips like tape pasted onto the form. */
+h2, h3 {
+    padding: 0.1em 0.6em;
+    background: #f4eed9;
+    border-top: 0.5pt solid #c8bc95;
+    border-bottom: 0.5pt solid #c8bc95;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h2 { font-size: 1.2em; }
+h3 { font-size: 1.05em; letter-spacing: 0.1em; }
+h4, h5, h6 { font-size: 1em; letter-spacing: 0.1em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.6em 0; }
+li { margin: 0.1em 0; }
+pre { font-size: 9.5pt; line-height: 1.55; padding: 0.4em 0.8em; border-top: 0.75pt dashed #777; border-bottom: 0.75pt dashed #777; }
+code { font-size: 1em; }
+th, td { border: none; border-bottom: 0.75pt dashed #777; }
+th { text-transform: uppercase; letter-spacing: 0.1em; }
+blockquote { border-left: 2pt solid #c8bc95; }
+hr { border: none; text-align: center; height: auto; margin: 1.2em 0; }
+hr::after { content: "\2014\2014  STOP  \2014\2014"; letter-spacing: 0.3em; font-weight: 700; color: #8b1e1e; }

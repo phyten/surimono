@@ -1,0 +1,19 @@
+/* Unbleached natural beige tint with soft brown ink. */
+html, body { background: #f8f3e8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "YuMincho", "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.85; color: #3b2f25; text-align: justify; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "YuGothic", "Hiragino Sans", sans-serif; font-weight: 600; color: #5b4330; line-height: 1.45; margin: 1.4em 0 0.55em; }
+h1 { font-size: 1.75em; padding-bottom: 0.25em; border-bottom: 1pt solid #a88c6d; }
+h2 { font-size: 1.35em; padding-left: 0.5em; border-left: 3pt solid #b89a78; }
+h3 { font-size: 1.12em; color: #6e5440; }
+h4, h5, h6 { font-size: 1em; color: #6e5440; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+li::marker { color: #a88c6d; }
+pre { text-align: left; font-size: 8.8pt; line-height: 1.55; padding: 0.7em 0.9em; background: #f1e9d9; border-radius: 3pt; }
+th, td { border: 0.5pt solid #cdb89c; padding: 0.3em 0.6em; }
+th { background: #efe5d2; color: #4d3826; }
+blockquote { border-left-color: #b89a78; color: #5b4a3c; }
+hr { border: none; border-top: 0.75pt solid #cdb89c; margin: 1.5em 0; }
+a { color: #6e4a2a; }
+:root { --hl-comment: #6b5d50; }
+pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

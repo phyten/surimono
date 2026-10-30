@@ -1,0 +1,28 @@
+/* Picture book: large rounded type, warm orange and peach, soft rounded shapes. */
+body { font-family: "Tsukushi A Round Gothic", "Hiragino Maru Gothic ProN", sans-serif; font-size: 13pt; line-height: 1.9; color: #3b2516; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hiragino Maru Gothic ProN", "Tsukushi A Round Gothic", sans-serif; font-weight: 700; line-height: 1.4; }
+h1 { font-size: 1.9em; text-align: center; color: #b4420c; margin: 0 0 0.8em; padding: 0.35em 0.6em; background: #fff1e0; border: 2pt solid #f6b47a; border-radius: 1.2em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h2 { display: table; font-size: 1.35em; color: #9a3412; margin: 1.4em 0 0.5em; padding: 0.1em 0.9em; background: #ffe7d1; border-radius: 1em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h3 { font-size: 1.12em; color: #b45309; margin: 1.1em 0 0.4em; }
+h3::before { content: "✿ "; color: #f59e0b; }
+h4, h5, h6 { font-size: 1em; color: #9a3412; margin: 0.9em 0 0.3em; }
+p { margin: 0.6em 0; }
+ul, ol { margin: 0.5em 0; padding-left: 1.6em; }
+li { margin: 0.2em 0; }
+li::marker { color: #ea7a2a; }
+strong { color: #9a3412; }
+a { color: #9a3412; }
+code { font-size: 0.85em; background: #fff4e6; padding: 0 0.3em; border-radius: 4pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre { font-size: 9.5pt; line-height: 1.55; background: #fff8ef; border: 1pt solid #f6c99f; border-radius: 10pt; padding: 0.7em 1em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: none; background: #fff6ec; border-radius: 12pt; padding: 0.5em 1em; margin-inline: 1em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.callout { border-left: none; border-radius: 12pt; border: 1.5pt solid var(--callout-color); }
+table { margin: 0.8em auto; border-collapse: separate; border-spacing: 0; border: 1.5pt solid #f6b47a; border-radius: 10pt; overflow: hidden; }
+th, td { border: none; border-bottom: 1pt dotted #f6b47a; padding: 0.3em 0.8em; }
+th { background: #ffe7d1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+img { border-radius: 12pt; }
+hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
+hr::after { content: "● ● ●"; color: #f6b47a; letter-spacing: 0.6em; font-size: 0.7em; }
+/* Form controls do not inherit the font size, so the task box would stay at the small UI size. */
+li.task-list-item > input[type="checkbox"] { font-size: inherit; }

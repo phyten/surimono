@@ -1,0 +1,41 @@
+/* 8-bit game: monospace throughout, square blocky borders with hard offset shadows, arrow-cursor headings. */
+body {
+    font-family: "Osaka-Mono", Menlo, "Hiragino Sans", monospace;
+    font-size: 10pt;
+    line-height: 1.7;
+    color: #111;
+}
+code, pre { font-family: "Osaka-Mono", Menlo, "Hiragino Sans", monospace; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.5em; line-height: 1.35; font-weight: 700; letter-spacing: 0.05em; }
+h1 {
+    font-size: 1.7em;
+    padding: 0.2em 0.5em;
+    border: 3pt solid #111;
+    box-shadow: 4pt 4pt 0 #2e7d32;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h1::before { content: "\25B6  "; color: #c62828; }
+h2 {
+    font-size: 1.3em;
+    padding-bottom: 0.15em;
+    border-bottom: 3pt dotted #1565c0;
+}
+h2::before { content: "\25A0  "; color: #1565c0; }
+h3 { font-size: 1.1em; color: #2e7d32; }
+h3::before { content: "\25BA  "; }
+h4, h5, h6 { font-size: 1em; }
+h4::before, h5::before, h6::before { content: "> "; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.6em 0; }
+li { margin: 0.15em 0; }
+ul { list-style-type: "\25AA  "; }
+ol { list-style-type: decimal-leading-zero; }
+pre { font-size: 9pt; line-height: 1.55; padding: 0.6em 0.9em; border: 2pt solid #111; box-shadow: 3pt 3pt 0 #bbb; }
+code { font-size: 1em; }
+th, td { border: 2pt solid #111; }
+th { background: #e3f0e3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 4pt solid #111; }
+.callout { border: 2pt solid var(--callout-color); border-left-width: 6pt; box-shadow: 3pt 3pt 0 var(--callout-color); }
+img { border: 2pt solid #111; }
+hr { border: none; height: 4pt; margin: 1.2em 0; background: repeating-linear-gradient(to right, #111 0, #111 4pt, transparent 4pt, transparent 8pt); -webkit-print-color-adjust: exact; print-color-adjust: exact; }

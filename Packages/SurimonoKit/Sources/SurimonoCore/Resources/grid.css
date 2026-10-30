@@ -1,0 +1,34 @@
+/* Graph paper: 6 mm cells with a stronger line every 5 cells. The grid sits on the root canvas so it fills every page. */
+html {
+    background-color: #fff;
+    background-image:
+        linear-gradient(to right, #b9d0e3 0.6pt, transparent 0.6pt),
+        linear-gradient(to bottom, #b9d0e3 0.6pt, transparent 0.6pt),
+        linear-gradient(to right, #e1ecf5 0.4pt, transparent 0.4pt),
+        linear-gradient(to bottom, #e1ecf5 0.4pt, transparent 0.4pt);
+    background-size: 30mm 30mm, 30mm 30mm, 6mm 6mm, 6mm 6mm;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+body {
+    background: transparent;
+    font-family: "Avenir Next", "Hiragino Sans", sans-serif;
+    font-size: 10pt;
+    line-height: 6mm;
+    color: #1b2a36;
+}
+/* Spacing is kept in whole or half cells so lines of text sit on the grid rows. */
+h1, h2, h3, h4, h5, h6 { margin: 6mm 0 0; line-height: 6mm; color: #1d4e72; font-weight: 700; }
+h1 { font-size: 1.8em; line-height: 12mm; border-bottom: 1.2pt solid #1d4e72; }
+h2 { font-size: 1.4em; line-height: 9mm; border-bottom: 0.6pt solid #1d4e72; }
+h3 { font-size: 1.15em; }
+h4, h5, h6 { font-size: 1em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table, blockquote { margin: 0 0 3mm; }
+li { margin: 0; }
+pre { font-size: 9pt; line-height: 6mm; padding: 0 3mm; border-left: 1.5pt solid #1d4e72; }
+code { font-size: 0.9em; }
+th, td { border-color: #7f9db5; padding: 0 2mm; line-height: 6mm; background: rgba(255, 255, 255, 0.85); }
+th { color: #1d4e72; }
+blockquote { border-left-color: #1d4e72; }
+hr { border: none; border-top: 1pt dashed #1d4e72; margin: 3mm 0; }

@@ -1,0 +1,27 @@
+/* Blueprint: a faint blue drafting grid on white, blue line work and condensed technical lettering. */
+body {
+    font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.65; color: #10243e;
+    background-color: white;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='M20 0V20H0' fill='none' stroke='%23e3ecf7' stroke-width='0.6'/%3E%3C/svg%3E");
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Avenir Next Condensed", "Hiragino Sans", sans-serif; font-weight: 600; line-height: 1.3; color: #1d4e89; text-transform: uppercase; letter-spacing: 0.06em; }
+h1 { font-size: 1.9em; margin: 0 0 0.7em; padding: 0.3em 0.5em; border: 1.5pt solid #1d4e89; outline: 0.5pt solid #1d4e89; outline-offset: 2pt; }
+h2 { font-size: 1.35em; margin: 1.5em 0 0.5em; padding-bottom: 0.15em; border-bottom: 1pt solid #1d4e89; }
+h2::before { content: "▸ "; }
+h3 { font-size: 1.1em; margin: 1.1em 0 0.4em; border-bottom: 0.5pt dashed #4a7fc1; display: table; }
+h4, h5, h6 { font-size: 1em; margin: 0.9em 0 0.3em; }
+p { margin: 0.5em 0; }
+ul, ol { margin: 0.4em 0; padding-left: 1.6em; }
+li::marker { color: #1d4e89; }
+a { color: #1d4e89; }
+code { font-size: 0.88em; color: #1d4e89; }
+pre { font-size: 8.8pt; line-height: 1.5; background: white; border: 0.75pt solid #4a7fc1; border-left: 3pt solid #1d4e89; padding: 0.6em 0.8em; }
+pre code { color: #10243e; }
+table { margin: 0.8em 0; background: white; border: 1.2pt solid #1d4e89; }
+th, td { border: 0.5pt solid #4a7fc1; }
+th { color: #1d4e89; font-family: "Avenir Next Condensed", "Hiragino Sans", sans-serif; text-transform: uppercase; letter-spacing: 0.04em; }
+blockquote { border-left: 2pt dashed #4a7fc1; color: #22406a; }
+.callout { border: 0.75pt solid var(--callout-color); border-left-width: 3pt; }
+hr { border: none; border-top: 1pt dashed #4a7fc1; margin: 1.4em 0; }
