@@ -76,7 +76,13 @@ final class DocumentViewModel {
     /// An output asked for during the review; it runs once the pages without the outlines are drawn.
     @ObservationIgnored private(set) var outputAfterReview: Output?
     var toast: Toast?
-    private(set) var result: RenderResult?
+    /// The logical pages the paper shows. They are published before the sheets are composed.
+    private(set) var result: PreparedRender?
+    /// The composed sheets for the tray and the outputs. It may still belong to an earlier `result` while the sheets
+    /// of the current one are composed; `canOutput` checks that it matches.
+    private(set) var printResult: RenderResult?
+    /// The sheets of `printResult`, grouped as they come out of the printer; built once per composition.
+    private(set) var printTray: PrintTray?
     private(set) var renderedSettings: RenderSettings?
     private(set) var isRendering = false
     private(set) var isPrinting = false
@@ -206,10 +212,19 @@ final class DocumentViewModel {
         result != nil && !isRendering && error == nil && renderedSettings == renderSettings
             && renderedSourceURLs == sourceURLs && renderedFromSnapshot == rendersSnapshot
     }
+    /// The tray, "Fold It" and the sheet notes may show `printResult`: it was composed from the logical pages in
+    /// `result`, so nothing on the tray mixes two renders. While the sheets of newer logical pages are composed, or
+    /// after their composition failed, the tray shows the progress or the error instead. A render that has not yet
+    /// published new logical pages keeps the previous, consistent preview, so a change on the tray does not blank it.
+    /// The tray labels its pages with the current file names, so a reordered or changed set of images hides the
+    /// previous preview too. Printing and saving do not hide the preview; `canOutput` checks those.
+    var hasCurrentPrintPreview: Bool {
+        error == nil && result != nil && printResult?.id == result?.id && renderedSourceURLs == sourceURLs
+            && renderedSettings?.smartRemoval?.highlightsCandidates != true
+    }
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
-        isUpToDate && !isPrinting && !isExporting && !isCapturingWeb && !webCaptureFailed
-            && renderedSettings?.smartRemoval?.highlightsCandidates != true
+        isUpToDate && hasCurrentPrintPreview && !isPrinting && !isExporting && !isCapturingWeb && !webCaptureFailed
     }
     var summary: String? {
         guard let result, let renderedSettings else { return nil }
@@ -406,14 +421,15 @@ final class DocumentViewModel {
                 } else {
                     source = singleSource
                 }
-                let output = try await renderer.render(source, settings: settings)
+                let prepared = try await renderer.prepare(source, settings: settings)
                 try Task.checkCancellation()
-                result = output
+                // The paper shows the logical pages right away; the sheets for the tray and the outputs follow.
+                result = prepared
                 renderedSettings = settings
                 renderedSourceURLs = sourceURLs
                 renderedFromSnapshot = fromSnapshot
-                unreadableImageURLs = output.unreadableImageURLs
-                resolveViewOptionsIfNeeded(for: output.logicalDocument)
+                unreadableImageURLs = prepared.unreadableImageURLs
+                resolveViewOptionsIfNeeded(for: prepared.logicalDocument)
                 if let imageBundle {
                     // The digests of the images are known now, so a remembered order can be restored.
                     if let order = pendingImageOrder {
@@ -422,6 +438,12 @@ final class DocumentViewModel {
                         if imageBundle.applyOrder(order) { settingsBaseline = rememberedSettings }
                     }
                 }
+                let output = try await renderer.composeSheet(for: prepared)
+                try Task.checkCancellation()
+                printResult = output
+                printTray = PrintTray(
+                    plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
+                    sheetOrientations: output.sheetOrientations)
                 isRendering = false
                 retriedChangedImages = false
                 if announcesSmartRemoval, renderedSettings?.smartRemoval != nil {
@@ -720,6 +742,8 @@ final class DocumentViewModel {
                 liveSnapshot = copy
                 // The pages of the previous state must not show or print in the meantime.
                 result = nil
+                printResult = nil
+                printTray = nil
                 render()
             }
             let outcome: CaptureOutcome = snapshot == .failed ? .failed : isRendering ? .rendering : .ready
@@ -1152,7 +1176,7 @@ final class DocumentViewModel {
         guard !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick)) else {
             return
         }
-        guard canOutput, let result, let window else { return }
+        guard canOutput, let result = printResult, let window else { return }
         outputError = nil
         let shown = selectedPrinterName
         refreshPrinters()
@@ -1203,7 +1227,7 @@ final class DocumentViewModel {
     }
 
     func beginPDFExport() -> Bool {
-        guard canOutput, let result else { return false }
+        guard canOutput, let result = printResult else { return false }
         // Keep the selected output stable even if the file reloads while the save panel is open.
         exportingDocument = result.sheetDocument
         isExporting = true

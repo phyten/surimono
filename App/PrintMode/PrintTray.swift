@@ -39,6 +39,8 @@ struct PrintTray: Equatable {
 
     let layout: PrintLayout
     let sheets: [Sheet]
+    /// 2-up sheets sit two to a row; built once, since the tray reads it on every update.
+    let rows: [Row]
 
     init(plan: ImpositionPlan, layout: PrintLayout, rotatesBackSides: Bool, sheetOrientations: [PaperOrientation] = [])
     {
@@ -54,7 +56,7 @@ struct PrintTray: Equatable {
         let groups = stride(from: 0, to: sides.count, by: perSheet).map {
             Array(sides[$0..<min($0 + perSheet, sides.count)])
         }
-        sheets = groups.enumerated().map { index, sides in
+        let sheets = groups.enumerated().map { index, sides in
             let documentIndex = sides.first?.documentIndex ?? 0
             let orientation =
                 sheetOrientations.indices.contains(documentIndex)
@@ -64,16 +66,14 @@ struct PrintTray: Equatable {
                 index: index, position: Self.position(of: index, count: groups.count, layout: layout),
                 sides: sides, orientation: orientation)
         }
-    }
-
-    var isBooklet: Bool { layout.kind == .booklet }
-
-    var rows: [Row] {
+        self.sheets = sheets
         let perRow = layout.kind == .twoUp ? 2 : 1
-        return stride(from: 0, to: sheets.count, by: perRow).map {
+        rows = stride(from: 0, to: sheets.count, by: perRow).map {
             Row(sheets: Array(sheets[$0..<min($0 + perRow, sheets.count)]))
         }
     }
+
+    var isBooklet: Bool { layout.kind == .booklet }
 
     static func position(of index: Int, count: Int, layout: PrintLayout) -> Position {
         guard layout.kind == .booklet else { return .unstacked }

@@ -41,7 +41,7 @@ struct PaperOrientationControl: View {
             if !model.isUpToDate {
                 "Auto"
             } else {
-                Self.automaticValue(for: model.result?.sheetOrientations ?? [])
+                Self.automaticValue(for: model.printResult?.sheetOrientations ?? [])
             }
         }
     }

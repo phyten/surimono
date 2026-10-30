@@ -19,6 +19,25 @@ public struct PDFComposer {
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
+        return try await compose(
+            try Self.composingSource(of: document), pageCount: document.pageCount, layout: layout, options: options,
+            orientsEachPage: orientsEachPage)
+    }
+
+    /// The pages of `document` as drawn into the sheets. A caller composing the same document again may keep it.
+    static func composingSource(of document: PDFDocument) throws -> CGPDFDocument {
+        // PDFPage edits (including rotation) are not necessarily reflected in pageRef until serialized.
+        guard let data = document.dataRepresentation(), let provider = CGDataProvider(data: data as CFData),
+            let source = CGPDFDocument(provider)
+        else { throw CompositionError.pdfCreationFailed }
+        return source
+    }
+
+    func compose(
+        _ source: CGPDFDocument, pageCount: Int, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool
+    ) async throws -> PDFDocument {
+        try Task.checkCancellation()
+        guard pageCount > 0 else { throw CompositionError.emptyDocument }
         let logicalSize = layout.logicalPageSize(options: options)
         let margin = CGFloat(layout.logicalMarginsInMillimeters(options: options) * 72 / 25.4)
         guard options.marginsInMillimeters.isFinite, options.marginsInMillimeters >= 0,
@@ -26,11 +45,7 @@ public struct PDFComposer {
         else {
             throw CompositionError.invalidMargins
         }
-        // PDFPage edits (including rotation) are not necessarily reflected in pageRef until serialized.
-        guard let data = document.dataRepresentation(), let provider = CGDataProvider(data: data as CFData),
-            let source = CGPDFDocument(provider)
-        else { throw CompositionError.pdfCreationFailed }
-        let plan = Imposition.plan(pageCount: document.pageCount, layout: layout)
+        let plan = Imposition.plan(pageCount: pageCount, layout: layout)
         let size = layout.sheetSize
         do {
             return try await PDFDrawing.document(pageSize: size) { context in
