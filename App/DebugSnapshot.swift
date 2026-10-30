@@ -58,8 +58,10 @@
             switch argument("SurimonoMenu") {
             case "pinned": model.isMenuPinned = true
             case "compact", "full":
-                NotificationCenter.default.post(
-                    name: showMenu, object: model, userInfo: ["stage": argument("SurimonoMenu") ?? ""])
+                var info: [String: Any] = ["stage": argument("SurimonoMenu") ?? ""]
+                // The snapshot holds the band open, which counts as using it; NO draws the lighter look instead.
+                if let hover = argument("SurimonoBandHover") { info["bandHover"] = hover.uppercased() == "YES" }
+                NotificationCenter.default.post(name: showMenu, object: model, userInfo: info)
             default: break
             }
             switch argument("SurimonoSmartRemoval") {
