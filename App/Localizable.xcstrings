@@ -3140,6 +3140,39 @@
           }
         }
       }
+    },
+    "Check for Updates…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデートを確認…"
+          }
+        }
+      }
+    },
+    "Check for Updates Automatically": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデートを自動で確認"
+          }
+        }
+      }
+    },
+    "Surimono asks GitHub whether a newer version exists. Nothing about your documents is sent.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub に新しい版があるかを確かめます。文書についての情報は送りません。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

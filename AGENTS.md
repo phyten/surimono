@@ -8,7 +8,7 @@
 - 主な機能: 出てくる用紙をそのまま並べる印刷モード（刷り台）、印刷テーマ（CSS）の切替とユーザー CSS・文字の大きさ、HTML のノイズ除去プリセット（ユーザー追加可）とスマート削除（ベータ）、印刷レイアウト（A4 片面・両面、中綴じ冊子 A3→A4 / A4→A5、2アップ）、刷り台で選んだプリンターへのダイアログなしの印刷（システムの印刷画面も選べる）、PDF 書き出し、余白のない表示モード（段階表示のメニュー、見開き / 単ページ、拡大縮小、最前面に固定）、内容のハッシュごとの設定の保存、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観はシステムの設定に従う（アプリに切替は置かない）。
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
-  - **オフラインで完結する**（ネットワークは、ユーザーの文書自身が参照するリソースの読み込みに限る。テレメトリなし）
+  - **オフラインで完結する**（ネットワークは、ユーザーの文書自身が参照するリソースの読み込みと、アップデートの確認（「配布とアップデート」）に限る。テレメトリなし）
   - **2 手で印刷できる**（開く → 印刷）。迷ったら操作を減らす方を選ぶ
 
 ## リポジトリ構成
@@ -122,11 +122,22 @@ make clean
 - 帯には、スタイル・表示の型・向き・スクロール・送り方・表紙（見開きのとき）・文字を選択（画像以外）・拡大率（拡大中）・サムネイル（画像の束）・最前面に固定・メニューを固定・「…」・印刷を直接並べる。幅が足りないときは `BandLayout`（SurimonoCore）の決まった順に畳む: まずスタイルと送り方の名前を省き、次にメニューを固定・最前面に固定・形式のバッジ・表紙・スクロール・向き・ページ表示・スタイル・送り方・表示の型の順に帯から外す。ファイル名は 80pt まで縮めて残し、印刷は最後にアイコンだけになる。外した物は「…」のメニューに並び、最後の「表示のオプション…」（V）でポップオーバーを開く。部品の幅は見えない所で形ごとに測り（`BandMeasurements`）、測った値は帯が消えても `OverlayMenuState` に残す。スクロールは、効かない送り方（切り替え・フェード・めくり）のときは隠さずに薄くする。
 - 紙は `PaperView`（PDFView）。`ViewOptions`（SurimonoCore）を PDFView の表示モード・`displaysAsBook`・`displaysRTL`・`displayDirection` に当てはめ、ページ送りのアニメーション（スライド・フェード・めくり）、拡大縮小（ピンチ・⌘＋スクロール・⌘＋/−/0・ダブルクリック）、キー操作、紙のドラッグでの窓の移動を受け持つ。「文字を選択」（`DocumentViewModel.isSelectingText`。窓ごとで保存しない）のときは、ドラッグ・クリック・ダブルクリックを PDFKit の文字の選択に渡し、端のクリックでページを送らない。⌥ を押している間は二つのドラッグが入れ替わる。カーソルは、文字を選択のときだけ PDFKit の I ビームに任せ、それ以外は矢印（拡大中は手のひら）にする。拡大中に素早く閉じるピンチで 100% に戻る。100% 未満はゴムで、離すと戻る。
 
+## 配布とアップデート
+
+- リリースは `v*` のタグで動く release.yml が作る（手順は `project-surimono-release`）。GitHub Releases に、新しく入れる人向けの DMG（アプリと `/Applications` へのリンク）、アプリ内アップデート用の ZIP、それぞれの SHA-256、`appcast.xml` を載せる。
+- アプリ内アップデートは Sparkle 2（`AppUpdater`）。公開版は Info.plist の `SUFeedURL`（`releases/latest/download/appcast.xml`）を読み、`SUPublicEDKey` の公開鍵で ZIP の EdDSA 署名を確かめてから入れ替えて再起動する。
+  - 自動の確認は、Sparkle が 2 回目の起動で利用者に聞く（`SUEnableAutomaticChecks` を Info.plist に書かない）。断られたら、メニューの「アップデートを確認…」のときだけ通信する。設定の「一般」でも切り替えられる。システム情報の送信（`SUEnableSystemProfiling`）は使わない。
+  - 開発版は `SURIMONO_UPDATE_FEED_URL` が空なので Sparkle を起動せず、メニューにも出さない（`AppUpdaterTests`）。
+  - appcast は、各リリースが自分の ZIP だけを載せる。配られるのは GitHub の「Latest」のリリース（プレリリースは配らない）。
+  - 秘密鍵は、メンテナのログインキーチェーン（Sparkle の `generate_keys`、アカウント `io.github.phyten.Surimono`）と、リポジトリの Secret `SPARKLE_PRIVATE_KEY` にある。なくすと、入れてある版はその後の更新を確かめられず、入れ直しになる。鍵を替えるときは Sparkle の鍵の切り替えの手順に従う。
+  - Sparkle の道具（`generate_appcast`・`sign_update`・`generate_keys`）は、パッケージを解決すると `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/` にできる。
+- 署名はアドホックのまま（Developer ID・公証はまだ）。そのため Library Validation を外している（地雷を参照）。
+
 ## コーディング規約
 
 - Swift 6 言語モード。アプリターゲットは既定で MainActor 分離（`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`）。Kit では UI / WebKit を触る型に明示的に `@MainActor` を付ける。
 - デプロイメントターゲットは macOS 15.0。
-- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: swift-markdown（Apache-2.0）。
+- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: swift-markdown（Apache-2.0）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）。
 - UI 文言は英語をキーにして String Catalog（`App/Localizable.xcstrings`）で日本語訳を付ける。
 - 整形は swift-format（`.swift-format`。インデント 4、行長 120）。
 - コメントは「なぜそうするか」を書く。自明な処理の説明コメントは付けない。**コードコメントとドキュメントコメントは英語**で書く（テスト名は日本語）。
@@ -185,6 +196,8 @@ make clean
 - SwiftUI がビューを組み直している最中に、SwiftUI が KVO で監視する窓のプロパティ（`isMovableByWindowBackground` など）を設定すると落ちる（同じ値でも通知される）。`WindowReader` は更新が終わってから窓を渡し、`ViewerWindow.configure` は値が違うときだけ設定する。
 - 印刷モードとの切り替えで、表示モードのビュー（`PaperPDFView` を含む）は作り直される。戻したい状態はビューの中だけに持たず、モデルから渡す（読んでいたページは `DocumentViewModel.currentPageIndex` から `PaperView.initialPageIndex` で戻す）。
 - 紙（ページ）はダークでも白い。紙の上に浮かべるパネルにマテリアルだけを敷くと、白い紙の上で中間のグレーになり補足の文字が読めない。`paperOverlayBackground` を使う。
+- アドホック署名には Team ID がないため、Hardened Runtime の Library Validation が、埋め込んだ Sparkle.framework を拒んで Release 版が起動時に落ちる（`different Team IDs`）。`Configs/Surimono.entitlements` の `com.apple.security.cs.disable-library-validation` で外している。Developer ID で署名するようになったら消す。Debug は Hardened Runtime が無効なので気づけない。署名や依存を変えたら、`make package` で作ったアプリを起動して確かめる。
+- xcconfig では `//` から後ろがコメントになる。URL は `https:/$()/…` と書く（`SURIMONO_UPDATE_FEED_URL`）。
 - エージェントのサンドボックス（Codex など）では、LaunchServices（UTType の準拠関係）、testmanagerd（ホスト付きテスト）、WebKit の子プロセス、ホーム配下のキャッシュへの書き込みが拒否されることがある。ビルドだけなら `CFFIXED_USER_HOME` などを `build/` 配下に向ける回避策があるが、Makefile には入れない。テストと起動の最終確認は通常の環境で `make test` / `make run` を実行して行う。
 
 ## スキル

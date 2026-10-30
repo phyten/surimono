@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
     @Environment(\.locale) private var locale
+    private let updater = AppUpdater.shared
     private var language: String { locale.language.languageCode?.identifier ?? "en" }
 
     var body: some View {
@@ -16,6 +17,18 @@ struct SettingsView: View {
                     }
                 }
                 Text("Defaults apply to newly opened documents.").font(.caption).foregroundStyle(.secondary)
+                if updater.isAvailable {
+                    Section {
+                        Toggle(
+                            "Check for Updates Automatically",
+                            isOn: Binding(
+                                get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) }))
+                        Text(
+                            "Surimono asks GitHub whether a newer version exists. Nothing about your documents is sent."
+                        )
+                        .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
             }.tabItem { Label("General", systemImage: "gearshape") }
             Form {
                 TextField("Margins (mm)", value: $preferences.margin, format: .number)

@@ -77,6 +77,16 @@ jobs:
             fi
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+      # Without the key the release would ship an update no installed copy can verify, so stop before building.
+      - name: Check update signing key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          if [[ -z "$SPARKLE_PRIVATE_KEY" ]]; then
+            echo "::error::The SPARKLE_PRIVATE_KEY secret is not set, so the update cannot be signed."
+            exit 1
+          fi
       - run: make test-kit
       - name: Package
         env:
@@ -85,6 +95,26 @@ jobs:
           BUILD_NUMBER: ${{ steps.version.outputs.build }}
         run: make package VERSION="$VERSION" MARKETING_VERSION="$MARKETING_VERSION" BUILD_NUMBER="$BUILD_NUMBER"
       # Developer ID signing and notarization can replace ad-hoc signing here in a future release.
+      # Installed copies read releases/latest/download/appcast.xml, so each release carries an appcast that offers its
+      # own ZIP, signed with the EdDSA key whose public half is SUPublicEDKey in Configs/Info.plist.
+      - name: Write appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          VERSION: ${{ steps.version.outputs.value }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          archives="$(mktemp -d)"
+          trap 'rm -rf "$archives"' EXIT
+          cp "build/release/Surimono-$VERSION.zip" "$archives/"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/$REPOSITORY/releases/download/v$VERSION/" \
+            --full-release-notes-url "https://github.com/$REPOSITORY/releases/tag/v$VERSION" \
+            --link "https://github.com/$REPOSITORY/releases/latest" \
+            "$archives"
+          cp "$archives/appcast.xml" build/release/appcast.xml
+          grep -q 'sparkle:edSignature=' build/release/appcast.xml
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -118,4 +148,5 @@ jobs:
           fi
           gh release create "${args[@]}" \
             "build/release/Surimono-$VERSION.dmg" "build/release/Surimono-$VERSION.dmg.sha256" \
-            "build/release/Surimono-$VERSION.zip" "build/release/Surimono-$VERSION.zip.sha256"
+            "build/release/Surimono-$VERSION.zip" "build/release/Surimono-$VERSION.zip.sha256" \
+            build/release/appcast.xml

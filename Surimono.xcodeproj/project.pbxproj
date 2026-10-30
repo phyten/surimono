@@ -8,6 +8,7 @@
 /* Begin PBXBuildFile section */
 		A00000000000000000000001 /* SurimonoCore in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000061 /* SurimonoCore */; };
 		A00000000000000000000002 /* SurimonoRendering in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000062 /* SurimonoRendering */; };
+		A00000000000000000000004 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000064 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,7 +42,7 @@
 		A00000000000000000000022 = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
-			files = (A00000000000000000000001, A00000000000000000000002);
+			files = (A00000000000000000000001, A00000000000000000000002, A00000000000000000000004);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A00000000000000000000023 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
@@ -76,7 +77,7 @@
 			dependencies = ();
 			fileSystemSynchronizedGroups = (A00000000000000000000020);
 			name = Surimono;
-			packageProductDependencies = (A00000000000000000000061, A00000000000000000000062);
+			packageProductDependencies = (A00000000000000000000061, A00000000000000000000062, A00000000000000000000064);
 			productName = Surimono;
 			productReference = A00000000000000000000010;
 			productType = "com.apple.product-type.application";
@@ -113,7 +114,7 @@
 			knownRegions = (en, ja, Base);
 			mainGroup = A00000000000000000000024;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (A00000000000000000000060);
+			packageReferences = (A00000000000000000000060, A00000000000000000000063);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A00000000000000000000026;
 			projectDirPath = "";
@@ -155,9 +156,18 @@
 		A00000000000000000000060 /* SurimonoKit */ = {isa = XCLocalSwiftPackageReference; relativePath = Packages/SurimonoKit; };
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		A00000000000000000000063 /* Sparkle */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {kind = exactVersion; version = 2.10.0; };
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		A00000000000000000000061 /* SurimonoCore */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000060; productName = SurimonoCore; };
 		A00000000000000000000062 /* SurimonoRendering */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000060; productName = SurimonoRendering; };
+		A00000000000000000000064 /* Sparkle */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000063 /* Sparkle */; productName = Sparkle; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A00000000000000000000040 /* Project object */;

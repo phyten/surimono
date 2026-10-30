@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>SUFeedURL</key>
+	<string>$(SURIMONO_UPDATE_FEED_URL)</string>
+	<key>SUPublicEDKey</key>
+	<string>J2DmT6aAkfRg6szOm5nH4hjIqVaCdeIso9phuWHieiA=</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
