@@ -126,8 +126,35 @@ public struct PaginationRequest: Sendable {
     public let readsPageRules: Bool
 }
 
+/// The logical pages of a render, ready to show before the printed sheets are composed.
+@MainActor
+public struct PreparedRender {
+    /// Distinguishes this render from every other one of the same renderer; its `RenderResult` carries the same id.
+    public let id: Int
+    // Content orientation is retained separately because 2-up reverses the sheet orientation.
+    public let resolvedOrientation: PaperOrientation
+    public let layout: PrintLayout
+    /// Shared with later renders whose logical pages are the same, so treat it as read-only.
+    public let logicalDocument: PDFDocument
+    public let plan: ImpositionPlan
+    public let summary: PrintSummary
+    public let unreadableImageURLs: [URL]
+    public let smartRemovalCandidates: [SmartRemovalCandidate]
+    let sheetKey: SheetKey
+    let options: PrintOptions
+}
+
+/// What the composed sheets depend on: the logical pages they were made from and the settings of the imposition.
+struct SheetKey: Equatable {
+    let logicalID: Int
+    let layout: PrintLayout
+    let options: PrintOptions
+    let orientsEachPage: Bool
+}
+
 @MainActor
 public struct RenderResult {
+    public let id: Int
     // Content orientation is retained separately because 2-up reverses the sheet orientation.
     public let resolvedOrientation: PaperOrientation
     // The uniform-layout fallback; mixed output must use sheetOrientations instead.
@@ -135,21 +162,29 @@ public struct RenderResult {
         layout.sheetSize.width > layout.sheetSize.height ? .landscape : .portrait
     }
     /// Indexed by sheetDocument page (a printed side), including any imposed blank back.
-    public var sheetOrientations: [PaperOrientation] {
-        (0..<sheetDocument.pageCount).compactMap { index in
-            guard let page = sheetDocument.page(at: index) else { return nil }
-            let size = page.bounds(for: .mediaBox).size
-            return size.width > size.height ? .landscape : .portrait
-        }
-    }
+    public let sheetOrientations: [PaperOrientation]
     public var hasMixedSheetOrientations: Bool { Set(sheetOrientations).count > 1 }
     public let layout: PrintLayout
     public let logicalDocument: PDFDocument
+    /// Shared with later renders of the same sheets, so treat it as read-only.
     public let sheetDocument: PDFDocument
     public let plan: ImpositionPlan
     public let summary: PrintSummary
     public let unreadableImageURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
+
+    init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
+        id = prepared.id
+        resolvedOrientation = prepared.resolvedOrientation
+        layout = prepared.layout
+        logicalDocument = prepared.logicalDocument
+        sheetDocument = sheet
+        self.sheetOrientations = sheetOrientations
+        plan = prepared.plan
+        summary = prepared.summary
+        unreadableImageURLs = prepared.unreadableImageURLs
+        smartRemovalCandidates = prepared.smartRemovalCandidates
+    }
 }
 
 /// Keep one renderer per open document and cancel the previous caller Task before starting a new render.
@@ -175,11 +210,36 @@ public final class DocumentRenderer {
 
     public private(set) var logicalRenderCount = 0
     private let paginate: PaginateWithResult
-    private var cache: (key: CacheKey, data: Data, unreadable: [URL], candidates: [SmartRemovalCandidate])?
+    public private(set) var sheetCompositionCount = 0
+    /// Runs before each composition that the sheet cache cannot serve. Tests hold or fail a composition with it to
+    /// pin what the app shows between the logical pages and their sheets.
+    public var willComposeSheet: (@MainActor () async throws -> Void)?
+    private var cache: (key: CacheKey, logical: Logical)?
+    /// The most recent composed sheets, so that going back to a recent layout or option does not compose again.
+    private var sheets: [(key: SheetKey, document: PDFDocument, orientations: [PaperOrientation])] = []
+    private static let sheetCacheLimit = 2
     private var generation = 0
+    private var logicalSerial = 0
     private var sourcePageSizes: (source: DocumentSource, sizes: [CGSize])?
     /// The orientation the `@page` rules of an HTML source ask for, known once the source has been laid out.
     private var sourcePageRule: (source: DocumentSource, orientation: PaperOrientation?)?
+
+    /// The logical pages of a cache entry. The document is handed out as is, so that a view showing it keeps it.
+    private final class Logical {
+        let id: Int
+        let document: PDFDocument
+        let unreadable: [URL]
+        let candidates: [SmartRemovalCandidate]
+        /// The serialized pages the sheets are drawn from, made once for all compositions.
+        var composingSource: CGPDFDocument?
+
+        init(id: Int, document: PDFDocument, unreadable: [URL], candidates: [SmartRemovalCandidate]) {
+            self.id = id
+            self.document = document
+            self.unreadable = unreadable
+            self.candidates = candidates
+        }
+    }
 
     private struct CacheKey: Equatable {
         let source: DocumentSource
@@ -216,24 +276,84 @@ public final class DocumentRenderer {
     public func clearCache() {
         generation += 1
         cache = nil
+        sheets = []
         sourcePageSizes = nil
         sourcePageRule = nil
     }
 
+    /// Prepares the logical pages and composes the printed sheets.
     public func render(_ source: DocumentSource, settings: RenderSettings) async throws -> RenderResult {
-        let output = try await renderOnce(source, settings: settings)
+        try await composeSheet(for: try await prepare(source, settings: settings))
+    }
+
+    /// Prepares the logical pages only. The screen can show them while `composeSheet(for:)` imposes them on paper.
+    public func prepare(_ source: DocumentSource, settings: RenderSettings) async throws -> PreparedRender {
+        let output = try await prepareOnce(source, settings: settings)
         // HTML in Auto turns with its `@page` rules, which are known only once it has been laid out. A document that
         // asks for landscape is laid out again; the common upright one costs nothing more.
         if source.format == .html, settings.paperOrientation == .auto, settings.layout.kind != .booklet,
             settings.slides == nil, let rule = sourcePageRule, rule.source == source,
             (rule.orientation == .landscape) != (output.resolvedOrientation == .landscape)
         {
-            return try await renderOnce(source, settings: settings)
+            return try await prepareOnce(source, settings: settings)
         }
         return output
     }
 
-    private func renderOnce(_ source: DocumentSource, settings: RenderSettings) async throws -> RenderResult {
+    /// Composes the printed sheets of a prepared render, reusing the sheets of a recent render with the same logical
+    /// pages and imposition settings.
+    public func composeSheet(for prepared: PreparedRender) async throws -> RenderResult {
+        try Task.checkCancellation()
+        if let index = sheets.firstIndex(where: { $0.key == prepared.sheetKey }) {
+            let entry = sheets.remove(at: index)
+            sheets.append(entry)
+            return RenderResult(prepared, sheet: entry.document, sheetOrientations: entry.orientations)
+        }
+        do {
+            try await willComposeSheet?()
+            let composer = PDFComposer()
+            let sheet: PDFDocument
+            if let logical = cache?.logical, logical.id == prepared.sheetKey.logicalID {
+                if logical.composingSource == nil {
+                    logical.composingSource = try? PDFComposer.composingSource(of: logical.document)
+                }
+                guard let source = logical.composingSource else { throw RenderingError.invalidPDF }
+                sheet = try await composer.compose(
+                    source, pageCount: logical.document.pageCount, layout: prepared.layout,
+                    options: prepared.options, orientsEachPage: prepared.sheetKey.orientsEachPage)
+            } else {
+                // The cache has moved on to other pages; compose from the document itself.
+                sheet = try await composer.compose(
+                    prepared.logicalDocument, layout: prepared.layout, options: prepared.options,
+                    orientsEachPage: prepared.sheetKey.orientsEachPage)
+            }
+            try Task.checkCancellation()
+            sheetCompositionCount += 1
+            let orientations = (0..<sheet.pageCount).compactMap { index -> PaperOrientation? in
+                guard let page = sheet.page(at: index) else { return nil }
+                let size = page.bounds(for: .mediaBox).size
+                return size.width > size.height ? .landscape : .portrait
+            }
+            sheets.append((prepared.sheetKey, sheet, orientations))
+            if sheets.count > Self.sheetCacheLimit { sheets.removeFirst(sheets.count - Self.sheetCacheLimit) }
+            return RenderResult(prepared, sheet: sheet, sheetOrientations: orientations)
+        } catch {
+            throw Self.renderingError(error)
+        }
+    }
+
+    private static func renderingError(_ error: any Error) -> any Error {
+        if Task.isCancelled || error is CancellationError { return CancellationError() }
+        switch error {
+        case let error as RenderingError: return error
+        case let error as WebPaginator.PaginationError: return RenderingError.pagination(error)
+        case let error as ImagePageRenderer.RenderingError: return RenderingError.image(error)
+        case let error as PDFComposer.CompositionError: return RenderingError.composition(error)
+        default: return RenderingError.paginationFailed
+        }
+    }
+
+    private func prepareOnce(_ source: DocumentSource, settings: RenderSettings) async throws -> PreparedRender {
         try Task.checkCancellation()
         generation += 1
         let currentGeneration = generation
@@ -270,62 +390,47 @@ public final class DocumentRenderer {
                 smartRemoval: source.format == .html ? settings.smartRemoval : nil,
                 opensDetails: source.format == .html && settings.opensDetails,
                 slides: source.format == .html ? settings.slides : nil)
-            let logical: PDFDocument
-            let cachedData: Data
-            let reused: Bool
-            let unreadable: [URL]
-            let candidates: [SmartRemovalCandidate]
-            if let cache, cache.key == key, let document = PDFDocument(data: cache.data) {
-                logical = document
-                cachedData = cache.data
-                unreadable = cache.unreadable
-                candidates = cache.candidates
-                reused = true
+            let logical: Logical
+            if let cache, cache.key == key {
+                logical = cache.logical
             } else {
+                let document: PDFDocument
+                let unreadable: [URL]
+                let candidates: [SmartRemovalCandidate]
                 if let images = source.images {
-                    (logical, unreadable) = try await imageBundle(images, settings: settings)
+                    (document, unreadable) = try await imageBundle(images, settings: settings)
                     candidates = []
                 } else {
                     let result = try await logicalDocument(source, settings: settings)
                     if source.format == .html, generation == currentGeneration {
                         sourcePageRule = (source, PageRule.orientation(of: result.pageRules))
                     }
-                    logical = result.document
+                    document = result.document
                     candidates =
                         source.format == .html && settings.smartRemoval != nil
                         ? SmartRemovalScript.candidates(fromJSON: result.preparationResult ?? "") : []
                     unreadable = []
                 }
                 try Task.checkCancellation()
-                guard logical.pageCount > 0, let data = logical.dataRepresentation() else {
-                    throw RenderingError.invalidPDF
-                }
-                cachedData = data
-                reused = false
-            }
-            let sheet = try await PDFComposer().compose(
-                logical, layout: settings.layout, options: settings.options,
-                orientsEachPage: settings.usesPerPageOrientation && (source.format == .pdf || source.format == .image))
-            try Task.checkCancellation()
-            if !reused {
+                guard document.pageCount > 0 else { throw RenderingError.invalidPDF }
+                logicalSerial += 1
+                logical = Logical(id: logicalSerial, document: document, unreadable: unreadable, candidates: candidates)
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
-                if generation == currentGeneration { cache = (key, cachedData, unreadable, candidates) }
+                if generation == currentGeneration { cache = (key, logical) }
             }
-            let plan = Imposition.plan(pageCount: logical.pageCount, layout: settings.layout)
-            return RenderResult(
-                resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
-                logicalDocument: logical, sheetDocument: sheet, plan: plan, summary: PrintSummary(plan: plan),
-                unreadableImageURLs: unreadable, smartRemovalCandidates: candidates)
+            let plan = Imposition.plan(pageCount: logical.document.pageCount, layout: settings.layout)
+            return PreparedRender(
+                id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
+                logicalDocument: logical.document, plan: plan, summary: PrintSummary(plan: plan),
+                unreadableImageURLs: logical.unreadable, smartRemovalCandidates: logical.candidates,
+                sheetKey: SheetKey(
+                    logicalID: logical.id, layout: settings.layout, options: settings.options,
+                    orientsEachPage: settings.usesPerPageOrientation
+                        && (source.format == .pdf || source.format == .image)),
+                options: settings.options)
         } catch {
-            if Task.isCancelled || error is CancellationError { throw CancellationError() }
-            switch error {
-            case let error as RenderingError: throw error
-            case let error as WebPaginator.PaginationError: throw RenderingError.pagination(error)
-            case let error as ImagePageRenderer.RenderingError: throw RenderingError.image(error)
-            case let error as PDFComposer.CompositionError: throw RenderingError.composition(error)
-            default: throw RenderingError.paginationFailed
-            }
+            throw Self.renderingError(error)
         }
     }
 

@@ -34,7 +34,8 @@ struct PrintTrayView: View {
                                         TraySheetView(
                                             sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
                                             language: model.language, imageNames: imageNames,
-                                            options: model.printOptions)
+                                            // The sheets were drawn with the options of their render.
+                                            options: model.renderedSettings?.options ?? model.printOptions)
                                     }
                                 }
                                 .id(row.id)
@@ -436,8 +437,10 @@ final class SheetPageNSView: NSView {
     override var isOpaque: Bool { true }
 
     override func setFrameSize(_ newSize: NSSize) {
+        let resized = newSize != frame.size
         super.setFrameSize(newSize)
-        needsDisplay = true
+        // SwiftUI sets the same size again on unrelated updates; redrawing a complex vector page then is wasted.
+        if resized { needsDisplay = true }
     }
 
     override func draw(_ dirtyRect: NSRect) {

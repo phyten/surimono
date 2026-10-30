@@ -62,10 +62,10 @@ struct PrintFoldView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(PrintPalette.stage)
         // Rebuild the book whenever the pages are rendered again, for example after a style change.
-        .task(id: model.result.map { ObjectIdentifier($0.logicalDocument) }) {
-            guard let result = model.result, let settings = model.renderedSettings else { return }
+        .task(id: FoldSource.current(model)) {
+            guard let source = FoldSource.current(model) else { return }
             book.load(
-                result.logicalDocument, pageSize: settings.layout.logicalPageSize,
+                source.document, pageSize: source.pageSize,
                 blankLabel: PrintModeText.string("Blank", language: model.language))
         }
         .accessibilityElement(children: .contain)
@@ -106,6 +106,24 @@ struct PrintFoldView: View {
             text[run.range].foregroundColor = PrintPalette.ink
         }
         return text
+    }
+}
+
+/// What the folded book is made from: the logical pages of the current print preview and the size of its blank
+/// pages. A PDF keeps one logical document across booklet sizes, so the size is part of the identity.
+struct FoldSource: Equatable {
+    let document: PDFDocument
+    let pageSize: CGSize
+
+    static func current(_ model: DocumentViewModel) -> FoldSource? {
+        guard model.hasCurrentPrintPreview, let result = model.result, let settings = model.renderedSettings else {
+            return nil
+        }
+        return FoldSource(document: result.logicalDocument, pageSize: settings.layout.logicalPageSize)
+    }
+
+    static func == (lhs: FoldSource, rhs: FoldSource) -> Bool {
+        lhs.document === rhs.document && lhs.pageSize == rhs.pageSize
     }
 }
 

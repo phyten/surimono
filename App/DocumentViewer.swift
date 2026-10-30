@@ -101,6 +101,10 @@ struct DocumentContent: View {
             model.render()
         }
         .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
+        // The paper is shown before the sheets are composed, so the window takes its shape then too.
+        .onChange(of: model.result.map { ObjectIdentifier($0.logicalDocument) }) { _, document in
+            if document != nil { model.sizeWindowToPaper() }
+        }
         .onChange(of: model.isRendering) { _, rendering in
             if !rendering { model.sizeWindowToPaper() }
             #if DEBUG

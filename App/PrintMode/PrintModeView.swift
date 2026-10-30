@@ -51,7 +51,8 @@ struct PrintModeView: View {
     private var stage: some View {
         ZStack {
             PrintPalette.stage
-            if let tray = model.printTray, let document = model.result?.sheetDocument {
+            if model.hasCurrentPrintPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument
+            {
                 PrintTrayView(model: model, tray: tray, document: document, showsFold: $showsFold)
             } else if model.error == nil {
                 VStack(spacing: 10) {
@@ -61,7 +62,7 @@ struct PrintModeView: View {
                         .foregroundStyle(PrintPalette.ink2)
                 }
             }
-            if showsFold, model.printTray?.isBooklet == true {
+            if showsFold, model.hasCurrentPrintPreview, model.printTray?.isBooklet == true {
                 PrintFoldView(model: model) { showsFold = false }
                     .transition(.opacity)
             }

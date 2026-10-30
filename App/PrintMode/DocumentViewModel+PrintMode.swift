@@ -23,12 +23,4 @@ extension DocumentViewModel {
         layoutID = id
         enterPrintMode()
     }
-
-    /// The sheets of the current output, grouped as they come out of the printer.
-    var printTray: PrintTray? {
-        guard let result, let renderedSettings else { return nil }
-        return PrintTray(
-            plan: result.plan, layout: result.layout,
-            rotatesBackSides: renderedSettings.options.rotatesBackSides, sheetOrientations: result.sheetOrientations)
-    }
 }

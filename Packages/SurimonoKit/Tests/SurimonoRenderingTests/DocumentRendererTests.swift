@@ -269,11 +269,11 @@ struct DocumentRendererTests {
         let source = DocumentSource(data: Data("# Test".utf8), format: .markdown)
         var settings = settings
         let first = try await renderer.render(source, settings: settings)
-        first.logicalDocument.removePage(at: 0)
         settings.layout = .a4Duplex
         settings.options.showsPageNumbers = true
         settings.options.rotatesBackSides = true
         let second = try await renderer.render(source, settings: settings)
+        #expect(second.logicalDocument === first.logicalDocument)
         #expect(second.logicalDocument.pageCount == 2)
         settings.layout = .a3BookletA4
         _ = try await renderer.render(source, settings: settings)
