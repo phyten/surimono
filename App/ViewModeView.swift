@@ -35,6 +35,7 @@ struct ViewModeView: View {
                 .transition(.opacity)
             }
             ToastOverlay(model: model)
+            ThemePaletteAnchor(model: model)
         }
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
@@ -77,12 +78,12 @@ private struct PaperArea: View {
                 WebPageView(
                     controller: model.web, fileURL: fileURL, allowsJavaScript: model.preferences.allowsJavaScript,
                     onEscape: { menu.hideForEscape(pinned: model.isMenuPinned) })
-            } else if let document = model.result?.logicalDocument, !model.isCapturingWeb {
+            } else if let document = model.paperDocument, !model.isCapturingWeb {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
                     zoom: model.zoom, selectsText: model.isSelectingText, controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
-                    onPageChange: { model.currentPageIndex = $0 },
+                    onPageChange: { model.paperDidChangePage($0) },
                     onTurn: { menu.pageTurned() },
                     onKey: handleKey)
             } else if model.error == nil {
@@ -97,6 +98,15 @@ private struct PaperArea: View {
                 ErrorPanel(model: model, message: error)
             }
         }
+        .overlay(alignment: .bottom) {
+            if let name = model.trialThemeName {
+                ThemeTrialBadge(name: name, isReady: model.themeTrial.document != nil)
+                    .padding(.bottom, 18)
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: model.trialThemeName)
         .overlay(alignment: .bottom) {
             if !model.unreadableImageURLs.isEmpty {
                 Text(
@@ -218,5 +228,48 @@ struct ToastOverlay: View {
         }
         .frame(maxWidth: .infinity)
         .animation(.easeOut(duration: 0.2), value: model.toast)
+    }
+}
+
+/// Says which theme the paper is trying while the pointer rests on it in the palette.
+struct ThemeTrialBadge: View {
+    let name: String
+    let isReady: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if !isReady { ProgressView().controlSize(.mini) }
+            Text(verbatim: String(format: String(localized: "Trying %@"), name)).font(
+                .system(size: 12.5, weight: .semibold))
+            Text("Click to choose. Move away to go back.").font(.system(size: 11.5)).opacity(0.75)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .foregroundStyle(PrintPalette.toastInk)
+        .background(RoundedRectangle(cornerRadius: 9).fill(PrintPalette.toast))
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
+    }
+}
+
+/// Hangs the style palette off the window's trailing edge, so it opens beside the paper instead of over it and a
+/// theme tried from it shows on the whole page. The edge never moves with the band, so the palette keeps its anchor.
+struct ThemePaletteAnchor: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .allowsHitTesting(false)
+            .popover(
+                isPresented: Binding(
+                    get: { model.isThemePalettePresented },
+                    set: { presented in
+                        if presented { model.isThemePalettePresented = true } else { model.themePaletteDidClose() }
+                    }),
+                arrowEdge: .trailing
+            ) {
+                ThemePalette(model: model)
+            }
     }
 }

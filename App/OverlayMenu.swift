@@ -296,6 +296,7 @@ struct OverlayBand: View {
                 .popover(isPresented: $model.isViewOptionsPresented, arrowEdge: .bottom) {
                     ViewOptionsPopover(model: model)
                 }
+
         }
         .buttonStyle(.borderless)
         .controlSize(.regular)
@@ -361,16 +362,35 @@ struct StyleMenu: View {
     let showsName: Bool
 
     var body: some View {
-        Menu {
-            StyleMenuItems(model: model)
-        } label: {
-            let label = Label(
-                model.styleName, systemImage: model.format.usesHTMLPreset ? "wand.and.rays" : "textformat")
-            if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+        if model.format.usesPrintTheme {
+            // Print themes open the palette of samples beside the paper, where it leaves the paper in view.
+            Button {
+                model.openThemePalette()
+            } label: {
+                HStack(spacing: 3) {
+                    label
+                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(model.isThemePalettePresented ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+            }
+            .fixedSize()
+            .help("Print Theme")
+        } else {
+            Menu {
+                StyleMenuItems(model: model)
+            } label: {
+                label
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help(model.format.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .help(model.format.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
+    }
+
+    @ViewBuilder private var label: some View {
+        let label = Label(model.styleName, systemImage: model.format.usesHTMLPreset ? "wand.and.rays" : "textformat")
+        if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
     }
 }
 
@@ -451,19 +471,6 @@ struct ThemeMenuContent: View {
             if let title { Text(title) }
         }
         .pickerStyle(.inline)
-    }
-}
-
-extension PrintThemeMenu.Section {
-    /// Stable within one menu: each kind appears at most once.
-    fileprivate var id: String {
-        switch kind {
-        case .recent: "recent"
-        case .favorites: "favorites"
-        case .featured: "featured"
-        case .category(let category): "category:\(category.id)"
-        case .user: "user"
-        }
     }
 }
 

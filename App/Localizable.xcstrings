@@ -3272,6 +3272,391 @@
           }
         }
       }
+    },
+    "Show": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示"
+          }
+        }
+      }
+    },
+    "Frequently Used": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "よく使う"
+          }
+        }
+      }
+    },
+    "Categories": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カテゴリー"
+          }
+        }
+      }
+    },
+    "Search by name or category": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前やカテゴリーで探す"
+          }
+        }
+      }
+    },
+    "Clear Search": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索をクリア"
+          }
+        }
+      }
+    },
+    "Point to try it on the paper. Click to choose.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "乗せると紙で試せます。クリックで決まります。"
+          }
+        }
+      }
+    },
+    "This document is long, so a style changes on click.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長い文書なので、クリックで切り替えます。"
+          }
+        }
+      }
+    },
+    "Matching “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」に合うスタイル"
+          }
+        }
+      }
+    },
+    "No styles match. Try a category instead.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合うスタイルがありません。カテゴリーからも探せます。"
+          }
+        }
+      }
+    },
+    "Styles you star appear here.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "星を付けたスタイルが、ここに並びます。"
+          }
+        }
+      }
+    },
+    "Surprise Me": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おまかせ"
+          }
+        }
+      }
+    },
+    "Choose any style at random": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "どれかのスタイルをおまかせで選ぶ"
+          }
+        }
+      }
+    },
+    "Compare…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見比べる…"
+          }
+        }
+      }
+    },
+    "Lay a few styles side by side": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いくつかのスタイルを並べて見比べる"
+          }
+        }
+      }
+    },
+    "Remove %@ from Favorites": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ をお気に入りから外す"
+          }
+        }
+      }
+    },
+    "Add %@ to Favorites": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ をお気に入りに入れる"
+          }
+        }
+      }
+    },
+    "Trying %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ を試しています"
+          }
+        }
+      }
+    },
+    "Click to choose. Move away to go back.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クリックで決まります。離すと戻ります。"
+          }
+        }
+      }
+    },
+    "Choose from Samples…": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見本から選ぶ…"
+          }
+        }
+      }
+    },
+    "Add to Compare": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "候補に足す"
+          }
+        }
+      }
+    },
+    "Up to four": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4 つまで並べられます"
+          }
+        }
+      }
+    },
+    "Nothing here yet.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだありません。"
+          }
+        }
+      }
+    },
+    "%@ is the style now. The paper shows it when you go back.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ にしました。表示に戻ると紙に当てはまります。"
+          }
+        }
+      }
+    },
+    "Compare Styles": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スタイルを見比べる"
+          }
+        }
+      }
+    },
+    "First page of %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ の 1 ページ目"
+          }
+        }
+      }
+    },
+    "Current: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いま：%@"
+          }
+        }
+      }
+    },
+    "Shuffle": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おまかせで並べ替える"
+          }
+        }
+      }
+    },
+    "Keep the current style and pick three others at random": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いまのスタイルを残して、ほかの 3 つをおまかせで選ぶ"
+          }
+        }
+      }
+    },
+    "Current Style": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いまのスタイル"
+          }
+        }
+      }
+    },
+    "Remove %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ を外す"
+          }
+        }
+      }
+    },
+    "Remove from Compare": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "候補から外す"
+          }
+        }
+      }
+    },
+    "Use This": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これにする"
+          }
+        }
+      }
+    },
+    "Pick a style in the row below": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下の列から選ぶと、ここに並びます"
+          }
+        }
+      }
+    },
+    "Remove %@ from Compare": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ を候補から外す"
+          }
+        }
+      }
+    },
+    "Add %@ to Compare": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ を候補に足す"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

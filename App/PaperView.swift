@@ -21,7 +21,9 @@ final class PaperController {
 /// The logical pages of the view mode: no margins, no page shadows, laid out by `ViewOptions`.
 struct PaperView: NSViewRepresentable {
     let document: PDFDocument
-    /// Where a new paper view opens, as on returning from the print mode; afterwards the view keeps its own page.
+    /// The reading position, which the model keeps in step with the page shown (`onPageChange`). A new paper view
+    /// opens there, as on returning from the print mode, and so does a new document, such as a theme being tried;
+    /// a document too short for it shows its last page, and the reading position stays for the next one.
     let initialPageIndex: Int
     let options: ViewOptions
     let zoom: Double
@@ -46,7 +48,7 @@ struct PaperView: NSViewRepresentable {
         view.onTurn = onTurn
         view.onKey = onKey
         if view.document !== document {
-            view.show(document, at: view.document == nil ? initialPageIndex : view.currentPageIndex)
+            view.show(document, at: initialPageIndex)
         }
         view.apply(options)
         view.selectsText = selectsText

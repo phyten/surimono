@@ -27,18 +27,26 @@ enum PrintModeWindow {
     private static let saved = NSMapTable<NSWindow, SavedChrome>.weakToStrongObjects()
     private static let leaving = NSHashTable<NSWindow>.weakObjects()
 
-    static func enter(_ window: NSWindow) {
-        guard saved.object(forKey: window) == nil else { return }
-        let chrome = SavedChrome(window)
-        saved.setObject(chrome, forKey: window)
-        // The tray draws its own top bar under the title bar. The window keeps its toolbar (SwiftUI observes and owns
-        // it); the print mode only hides the toolbar's items, so the traffic lights stay centered in the bar.
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
-        window.titlebarSeparatorStyle = .none
-        window.styleMask.insert(.fullSizeContentView)
+    /// The comparison stage of print themes, which shows four pages side by side.
+    static let compareSize = NSSize(width: 1100, height: 780)
+
+    /// Gives the window a stage's size. Going from one stage to the other keeps the view-mode frame saved first.
+    static func enter(_ window: NSWindow, size: NSSize = traySize) {
+        let chrome: SavedChrome
+        if let existing = saved.object(forKey: window) {
+            chrome = existing
+        } else {
+            chrome = SavedChrome(window)
+            saved.setObject(chrome, forKey: window)
+            // The tray draws its own top bar under the title bar. The window keeps its toolbar (SwiftUI observes and
+            // owns it); the print mode only hides the toolbar's items, so the traffic lights stay centered in the bar.
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.titlebarSeparatorStyle = .none
+            window.styleMask.insert(.fullSizeContentView)
+        }
         guard !window.styleMask.contains(.fullScreen), let screen = window.screen ?? NSScreen.main else { return }
-        setFrame(trayFrame(around: chrome.frame, visibleFrame: screen.visibleFrame), of: window)
+        setFrame(trayFrame(around: chrome.frame, visibleFrame: screen.visibleFrame, size: size), of: window)
     }
 
     /// Shrinks the window back first and restores its title bar when it has its old frame, so `completion` (which

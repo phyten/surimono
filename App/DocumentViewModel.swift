@@ -5,7 +5,8 @@ import PDFKit
 import SurimonoCore
 import SurimonoRendering
 
-enum ViewerMode { case view, print }
+/// The window shows the paper, the print tray, or the comparison stage of print themes.
+enum ViewerMode { case view, print, compare }
 
 typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
@@ -50,6 +51,20 @@ final class DocumentViewModel {
     /// a document always opens with the paper as the window and a drag never selects text by surprise.
     var isSelectingText = false
     var isViewOptionsPresented = false
+    /// The style palette is open beside the paper.
+    var isThemePalettePresented = false
+    /// The first page of the document in each theme, for the palette and the comparison stage.
+    let themeSamples = ThemeSamples()
+    /// The theme the pointer rests on in the palette, laid out on the paper.
+    let themeTrial: ThemeTrial
+    /// A trial the user then chose: the paper keeps it until the document's own pages in that theme are ready.
+    private(set) var chosenTrial: (themeID: String, document: PDFDocument)?
+    /// The candidates on the comparison stage, kept while the window lives.
+    var themeComparison: ThemeComparison?
+    /// How long the last fresh layout of the logical pages took. A long document is not laid out again on hover.
+    @ObservationIgnored private(set) var lastLayoutDuration: Duration?
+    /// A trial longer than this to lay out would trail the pointer, so longer documents switch on click only.
+    @ObservationIgnored var hoverTrialLimit: Duration = .milliseconds(1500)
     /// HTML opens as a live web page; paper shows how it prints.
     private(set) var htmlPresentation: HTMLPresentation = .web
     /// The web page's own zoom, apart from the paper's.
@@ -140,8 +155,10 @@ final class DocumentViewModel {
     init(
         data: Data, fileURL: URL?, format: DocumentFormat,
         preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer(),
-        imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil
+        imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil,
+        trialRenderer: DocumentRenderer = DocumentRenderer()
     ) {
+        themeTrial = ThemeTrial(renderer: trialRenderer)
         self.imageBundle = imageBundle
         self.settingsStore = settingsStore
         self.data = data
@@ -161,12 +178,17 @@ final class DocumentViewModel {
                 firstPageSize: PaperSize.a4.size))
         viewOptions = guess
         initialViewOptions = guess
+        themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
     }
 
     var sourceURLs: [URL] { imageBundle?.urls ?? [fileURL].compactMap { $0 } }
+    /// The document as the print themes lay it out; nil for the formats that print without a theme.
+    var themedSource: DocumentSource? {
+        format.usesPrintTheme && imageBundle == nil ? DocumentSource(data: data, fileURL: fileURL, format: format) : nil
+    }
     var protectedSourceURLs: [URL] {
         NSDocumentController.shared.documents.compactMap(\.fileURL)
             + ImageBundleWindows.shared.sourceURLs + sourceURLs
@@ -185,6 +207,12 @@ final class DocumentViewModel {
 
     /// The user picked a print theme, so it also becomes the most recent one in every window's menu.
     func selectTheme(_ id: String) {
+        // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
+        if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
+            chosenTrial = (id, document)
+        }
+        themeTrial.end()
+        themeComparison?.choose(id)
         themeID = id
         preferences.recordThemeChoice(id)
     }
@@ -352,6 +380,8 @@ final class DocumentViewModel {
         watcher = nil
         cancelCapture()
         web.close()
+        themeTrial.end()
+        themeSamples.invalidate()
     }
 
     func reload() {
@@ -370,6 +400,8 @@ final class DocumentViewModel {
         }
         renderTask?.cancel()
         renderer.clearCache()
+        themeTrial.clear()
+        themeSamples.invalidate()
         imageBundle?.clearCache()
         if let fileURL {
             do {
@@ -406,11 +438,15 @@ final class DocumentViewModel {
     func reopenAsText() {
         format = .plainText
         renderer.clearCache()
+        themeTrial.clear()
+        themeSamples.invalidate()
         render()
     }
 
     func render() {
         renderTask?.cancel()
+        // A trial was laid out under the previous settings or file.
+        themeTrial.end()
         if let openFailure {
             error = openFailure
             isRendering = false
@@ -429,6 +465,8 @@ final class DocumentViewModel {
             fromSnapshot
             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
             : DocumentSource(data: data, fileURL: fileURL, format: format)
+        let started = ContinuousClock.now
+        let layoutsBefore = renderer.logicalRenderCount
         renderTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -442,8 +480,10 @@ final class DocumentViewModel {
                 }
                 let prepared = try await renderer.prepare(source, settings: settings)
                 try Task.checkCancellation()
+                if renderer.logicalRenderCount != layoutsBefore { lastLayoutDuration = ContinuousClock.now - started }
                 // The paper shows the logical pages right away; the sheets for the tray and the outputs follow.
                 result = prepared
+                chosenTrial = nil
                 renderedSettings = settings
                 renderedSourceURLs = sourceURLs
                 renderedFromSnapshot = fromSnapshot
@@ -498,6 +538,7 @@ final class DocumentViewModel {
                 }
                 self.error = Self.message(for: error)
                 outputAfterReview = nil
+                chosenTrial = nil
                 isRendering = false
             }
         }
@@ -579,6 +620,33 @@ final class DocumentViewModel {
         ViewerWindow.unlockAspectRatio(of: window)
         ViewerWindow.setTrafficLightsVisible(true, in: window)
         PrintModeWindow.enter(window)
+    }
+
+    /// The comparison stage (見比べ台): the window grows like the print tray's and comes back to its frame afterwards.
+    func enterCompareMode() {
+        guard mode == .view, format.usesPrintTheme else { return }
+        isThemePalettePresented = false
+        themeTrial.end()
+        isViewOptionsPresented = false
+        viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
+        let featured = library.themes.filter { $0.featuredRank != nil }
+            .sorted { ($0.featuredRank ?? 0) < ($1.featuredRank ?? 0) }.map(\.id)
+        if themeComparison?.current != themeID {
+            // The theme chosen since leads; the latest choices of an earlier visit follow, before the suggestions.
+            themeComparison = ThemeComparison(
+                current: themeID, suggestions: (themeComparison?.candidates.reversed() ?? []) + featured)
+        }
+        mode = .compare
+        guard let window else { return }
+        ViewerWindow.unlockAspectRatio(of: window)
+        ViewerWindow.setTrafficLightsVisible(true, in: window)
+        PrintModeWindow.enter(window, size: PrintModeWindow.compareSize)
+    }
+
+    /// Back to the view mode, by the same way as from the print tray.
+    func exitCompareMode() {
+        guard mode == .compare else { return }
+        exitPrintMode()
     }
 
     func exitPrintMode() {
