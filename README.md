@@ -3,7 +3,7 @@
 > Open it casually, glance at it, print it right away.
 > 雑に開いて、雑に見て、さっと刷る。
 
-**Surimono** is a macOS app for quickly viewing and printing everyday documents and images — Markdown, PDF, images, Org, plain text and HTML. It is built around printing: swappable print stylesheets, HTML noise-removal presets, and saddle-stitch booklet printing (two A4 pages side by side on A3, printed double-sided, folded and stapled in the middle).
+**Surimono** is a macOS app for quickly viewing and printing everyday documents and images — Markdown, PDF, images, Org, plain text, HTML and LaTeX. It is built around printing: swappable print stylesheets, HTML noise-removal presets, and saddle-stitch booklet printing (two A4 pages side by side on A3, printed double-sided, folded and stapled in the middle).
 
 The name comes from *surimono* (摺物), privately commissioned Japanese woodblock prints; *suru* (摺る) means "to print".
 
@@ -21,13 +21,14 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`), rendered offline without JavaScript
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)
-- Quick viewer for Markdown, PDF, images, Org, plain text, HTML, and CSV
+- Quick viewer for Markdown, PDF, images, Org, plain text, HTML, CSV, and LaTeX
+- LaTeX documents printed with the print themes: titles, numbered sections and references, lists (enumitem), code (listings), math through SwaTex with equation numbers, footnotes, hyperref, xcolor, figures (graphicx) and tables (booktabs). Surimono reads the common subset rather than running TeX; TikZ pictures are marked where they would be
 - Open multiple images together as one image bundle, including mixed image formats
 - Reorder images by dragging thumbnails or with Option-Command-Up/Down
 - Export an image bundle as a PDF in its current order and print layout
 - A print mode that lays out the sheets as they come out of the printer — fronts and backs side by side, booklet sheets with their fold, and a "Fold It" preview that turns the pages of the folded booklet
-- 94 print stylesheets for Markdown, Org and text in 12 categories (everyday, Japanese, business, academic, technical, reading, notes, print-friendly, retro, pop, seasons, kids), chosen from a palette of samples of your document's first page — with Recent, Favorites and Suggested at the top — that tries a style on the paper as you point at it, or by laying up to four side by side, plus your own CSS. Some playful styles sprinkle emoji that stay the same for a document on screen and on paper
-- Text size from 80% to 200% layered over any print theme for Markdown, Org, text, and CSV; keeps the window and paper size, with the same result in print and PDF export
+- 94 print stylesheets for Markdown, Org, text and LaTeX in 12 categories (everyday, Japanese, business, academic, technical, reading, notes, print-friendly, retro, pop, seasons, kids), chosen from a palette of samples of your document's first page — with Recent, Favorites and Suggested at the top — that tries a style on the paper as you point at it, or by laying up to four side by side, plus your own CSS. Some playful styles sprinkle emoji that stay the same for a document on screen and on paper
+- Text size from 80% to 200% layered over any print theme for Markdown, Org, text, CSV, and LaTeX; keeps the window and paper size, with the same result in print and PDF export
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend
 - Smart Removal (beta) for HTML: finds ads, recommended articles, share buttons, cookie banners and the like, removes them, and lets you review and keep any of them; detection runs on your Mac only
 - Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up
@@ -49,6 +50,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 | Plain text | `.txt` and other text files |
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
+| LaTeX | `.tex`, `.latex`, `.ltx` |
 | ZIP of images | `.zip` (opened as one image bundle) |
 
 ## Requirements
