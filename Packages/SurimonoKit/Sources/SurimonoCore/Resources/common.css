@@ -62,6 +62,29 @@ li.task-list-item > p:first-child > input[type="checkbox"]:checked {
 .surimono-csv { width: 100%; }
 .surimono-csv td { white-space: pre-wrap; }
 
+/* Markdown extensions. Superscripts and subscripts keep the line height, so a line with a note number is not taller
+   than its neighbours. */
+sup, sub { line-height: 0; }
+mark {
+    background: #fff1a8;
+    color: inherit;
+    padding: 0 0.1em;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+ruby rt { font-size: 0.5em; }
+dl { margin-block: 0.7em; }
+dt { font-weight: 700; break-after: avoid; page-break-after: avoid; }
+dd { margin: 0.15em 0 0.5em 1.5em; }
+.footnote-ref a { text-decoration: none; }
+.footnotes { margin-top: 2em; padding-top: 0.5em; border-top: 0.5pt solid #888; font-size: 0.9em; }
+.footnotes ol { padding-left: 1.6em; }
+.footnotes li > p { margin-block: 0.2em; }
+nav.toc { margin-block: 1em; }
+nav.toc ul { list-style: none; margin-block: 0.15em; padding-left: 1.2em; }
+nav.toc > ul { padding-left: 0; }
+nav.toc a { text-decoration: none; }
+
 /* Defaults are dark enough for white paper; themes may override each token independently. */
 :root {
     --hl-keyword: #713a8a;
