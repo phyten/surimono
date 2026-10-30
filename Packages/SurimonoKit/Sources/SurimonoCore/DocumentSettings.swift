@@ -39,12 +39,14 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var imageOrder: [String]?
     /// Whether an HTML document shows as a live web page or as paper.
     public var htmlPresentation: HTMLPresentation?
+    /// The reader said the live page is not a slide deck, although it looks like one.
+    public var ignoresSlides: Bool?
 
     public init(
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
         themeID: String? = nil, textScale: Double? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
         printOptions: PrintOptions? = nil, imageOrder: [String]? = nil, paperOrientation: PaperOrientation? = nil,
-        htmlPresentation: HTMLPresentation? = nil
+        htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -58,12 +60,13 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.printOptions = printOptions
         self.imageOrder = imageOrder
         self.htmlPresentation = htmlPresentation
+        self.ignoresSlides = ignoresSlides
     }
 
     private enum CodingKeys: String, CodingKey {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, imageOrder
-        case htmlPresentation
+        case htmlPresentation, ignoresSlides
     }
 
     /// Decodes each field on its own, so a value this version cannot read (such as a transition added later) falls
@@ -85,6 +88,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         printOptions = field(PrintOptions.self, .printOptions)
         imageOrder = field([String].self, .imageOrder)
         htmlPresentation = field(HTMLPresentation.self, .htmlPresentation)
+        ignoresSlides = field(Bool.self, .ignoresSlides)
     }
 }
 

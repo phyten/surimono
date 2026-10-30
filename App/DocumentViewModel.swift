@@ -62,6 +62,12 @@ final class DocumentViewModel {
     private(set) var printsOriginalPage = false
     /// The tray's 「開いて刷る」: open the details the copy of the live page has closed. Never saved.
     private(set) var opensClosedDetails = false
+    /// The slide deck the live page looks like, as last measured; nil for an ordinary page.
+    private(set) var detectedSlideDeck: SlideDeck?
+    /// 「スライドとして扱わない」: the reader says the page is not a deck. Remembered for the document.
+    private(set) var ignoresSlides = false
+    /// The tray's 「今の 1 枚」: print only the slide shown on the web. It belongs to the visit to the tray.
+    private(set) var printsCurrentSlideOnly = false
     /// Smart Removal (beta) for HTML: remove what is not the article, except the parts the user keeps.
     var isSmartRemovalEnabled = false
     var smartRemovalKeptIDs: [String] = []
@@ -184,7 +190,10 @@ final class DocumentViewModel {
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
                 : nil,
             textScale: format.usesPrintTheme ? textScale : 1, paperOrientation: paperOrientation,
-            opensDetails: rendersSnapshot && opensClosedDetails)
+            opensDetails: rendersSnapshot && opensClosedDetails,
+            slides: slideDeck.map {
+                SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
+            })
     }
     /// Paper and printing show the copy of the live page, unless there is none or the tray asks for the file.
     var rendersSnapshot: Bool { usesHTMLPresentation && liveSnapshot != nil && !printsOriginalPage }
@@ -214,8 +223,12 @@ final class DocumentViewModel {
             pageCount: pageCount, layout: viewOptions.layout, showsCoverAlone: viewOptions.showsCoverAlone,
             direction: viewOptions.direction)
     }
-    /// "3 / 12" for a page, "2–3 / 12" for a spread.
+    /// "3 / 12" for a page, "2–3 / 12" for a spread; "Slide 3 of 6" for a slide deck on the web.
     var pageIndicator: String? {
+        if showsWeb {
+            guard let slideDeck else { return nil }
+            return Self.slideIndicator(slideDeck.currentIndex + 1, of: slideDeck.count)
+        }
         guard pageCount > 0 else { return nil }
         let units = displayUnits
         let pages =
@@ -226,6 +239,10 @@ final class DocumentViewModel {
 
     /// The widest page indicator of this document, whose width the band keeps for the indicator.
     var pageIndicatorTemplate: String? {
+        if showsWeb {
+            guard let slideDeck else { return nil }
+            return Self.slideIndicator(slideDeck.count, of: slideDeck.count)
+        }
         guard pageCount > 0 else { return nil }
         return PageIndicator.widestText(pageCount: pageCount, layout: viewOptions.layout)
     }
@@ -233,10 +250,12 @@ final class DocumentViewModel {
     func start() {
         web.onZoomChange = { [weak self] zoom in self?.webZoom = zoom }
         web.onPrintRequest = { [weak self] in self?.pageDidRequestPrint() }
+        web.onSlideDeckChange = { [weak self] deck in self?.slideDeckDidChange(deck) }
         web.onRestart = { [weak self] in
             guard let self else { return }
             cancelCapture()
             liveSnapshot = nil
+            slideDeckDidChange(nil)
             // Pages of the old copy would no longer count as up to date, so they are made from the file again.
             if renderedFromSnapshot { render() }
         }
@@ -518,6 +537,7 @@ final class DocumentViewModel {
     /// The tray's choices of what to print last only while it is shown; paper then shows the current state again.
     private func resetPrintChoices() {
         opensClosedDetails = false
+        printsCurrentSlideOnly = false
         guard printsOriginalPage else { return }
         printsOriginalPage = false
         render()
@@ -528,6 +548,12 @@ final class DocumentViewModel {
         guard offersOriginalPage, printsOriginalPage != original else { return }
         printsOriginalPage = original
         render()
+    }
+
+    /// The tray's 「全部 / 今の 1 枚」 for a slide deck; the settings change draws the pages again.
+    func setPrintsCurrentSlideOnly(_ currentOnly: Bool) {
+        guard slideDeck != nil else { return }
+        printsCurrentSlideOnly = currentOnly
     }
 
     /// The tray's 「開いて刷る」 and its undo; the settings change draws the pages again.
@@ -600,11 +626,8 @@ final class DocumentViewModel {
         guard usesHTMLPresentation, presentation != htmlPresentation else { return }
         let wasWeb = isWebPresentation
         htmlPresentation = presentation
-        guard let window else { return }
-        if presentation == .web {
-            ViewerWindow.unlockAspectRatio(of: window)
-            return
-        }
+        guard window != nil else { return }
+        if presentation == .web { return applyWebShape() }
         isViewOptionsPresented = false
         guard wasWeb, capturesWeb else { return sizeWindowToPaper(keepHeight: true) }
         captureWeb { [weak self] outcome in
@@ -612,6 +635,41 @@ final class DocumentViewModel {
             if outcome == .failed { self?.showCaptureFailure() }
             self?.sizeWindowToPaper(keepHeight: true)
         }
+    }
+
+    // MARK: - Slides
+
+    /// The deck the app treats the page as: the one measured, unless the reader said it is not one.
+    var slideDeck: SlideDeck? { usesHTMLPresentation && !ignoresSlides ? detectedSlideDeck : nil }
+
+    static func slideIndicator(_ slide: Int, of count: Int) -> String {
+        String(format: String(localized: "Slide %lld of %lld"), slide, count)
+    }
+
+    /// The live page was measured again. Only a new shape changes the window; turning slides changes the indicator.
+    func slideDeckDidChange(_ deck: SlideDeck?) {
+        let reshapes = !(deck?.hasSameShape(as: detectedSlideDeck) ?? (detectedSlideDeck == nil))
+        detectedSlideDeck = deck
+        if reshapes, !ignoresSlides { applyWebShape() }
+    }
+
+    /// The "…" and View menus' 「スライドとして扱わない」, for a page that only looks like a deck.
+    func setIgnoresSlides(_ ignores: Bool) {
+        guard usesHTMLPresentation, ignoresSlides != ignores else { return }
+        ignoresSlides = ignores
+        if ignores { printsCurrentSlideOnly = false }
+        applyWebShape()
+    }
+
+    /// On the web a deck shows one slide to the window: the window takes the slide's shape, keeping its height, and
+    /// the page zooms to fit unless the deck scales itself. An ordinary page takes any shape the reader gives it.
+    func applyWebShape(animate: Bool = true) {
+        web.fitSize = slideDeck.flatMap { $0.scalesItself ? nil : $0.size }
+        guard showsWeb, let window else { return }
+        guard let deck = slideDeck else { return ViewerWindow.unlockAspectRatio(of: window) }
+        let size = ViewerWindow.paperSize(
+            unit: deck.size, height: ViewerWindow.paperHeight(of: window, band: bandInset), on: window.screen)
+        ViewerWindow.setPaperSize(size, band: bandInset, of: window, animate: animate)
     }
 
     enum CaptureOutcome: Equatable {
@@ -772,7 +830,8 @@ final class DocumentViewModel {
                 ? DocumentSettings.SmartRemoval(isEnabled: isSmartRemovalEnabled, keptIDs: smartRemovalKeptIDs) : nil,
             printOptions: printOptions,
             imageOrder: imageBundle.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
-            paperOrientation: paperOrientation, htmlPresentation: usesHTMLPresentation ? htmlPresentation : nil)
+            paperOrientation: paperOrientation, htmlPresentation: usesHTMLPresentation ? htmlPresentation : nil,
+            ignoresSlides: usesHTMLPresentation && ignoresSlides ? true : nil)
     }
 
     /// What this document has when the user changes nothing. Until the pages are known, the reading layout is the
@@ -851,6 +910,7 @@ final class DocumentViewModel {
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if let options = saved.printOptions { printOptions = options }
         if let presentation = saved.htmlPresentation { setHTMLPresentation(presentation, capturesWeb: false) }
+        if saved.ignoresSlides == true { setIgnoresSlides(true) }
         if let removal = saved.smartRemoval, format == .html {
             isSmartRemovalEnabled = removal.isEnabled
             smartRemovalKeptIDs = removal.keptIDs
@@ -916,6 +976,7 @@ final class DocumentViewModel {
         smartRemovalKeptIDs = []
         isReviewingSmartRemoval = false
         zoom = 1
+        setIgnoresSlides(false)
         setHTMLPresentation(.web)
         imageBundle?.sortByName()
         if let defaultViewOptions { viewOptions = defaultViewOptions }
@@ -964,10 +1025,10 @@ final class DocumentViewModel {
                     animate: false)
             }
             // A web page opens at the paper's size but reflows to any shape the reader gives the window.
-            if isWebPresentation { ViewerWindow.unlockAspectRatio(of: window) }
+            if isWebPresentation { applyWebShape(animate: false) }
             return
         }
-        guard !isWebPresentation else { return }
+        guard !isWebPresentation else { return applyWebShape() }
         let height = ViewerWindow.paperHeight(of: window, band: bandInset)
         ViewerWindow.setPaperSize(
             CGSize(width: (height * unit.width / unit.height).rounded(), height: height), band: bandInset,
@@ -987,7 +1048,13 @@ final class DocumentViewModel {
         ViewerWindow.setBand(
             pinned ? ViewerWindow.bandHeight : 0, previous: wasPinned ? ViewerWindow.bandHeight : 0, of: window,
             unit: unit)
-        if isWebPresentation { ViewerWindow.unlockAspectRatio(of: window) }
+        guard isWebPresentation else { return }
+        // The band grows the window at the top, so the page area keeps the slide's shape.
+        if let deck = slideDeck {
+            ViewerWindow.lockAspectRatio(of: window, unit: deck.size, band: bandInset)
+        } else {
+            ViewerWindow.unlockAspectRatio(of: window)
+        }
     }
 
     func windowDidEndLiveResize() {

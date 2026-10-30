@@ -35,7 +35,8 @@ extension BandLayout.Item {
             case .formatBadge, .floatOnTop, .keepMenuVisible, .print: true
             case .layout, .direction, .scrollAxis, .paperOrientation, .transition: paper
             case .presentation: model.usesHTMLPresentation
-            case .pageIndicator: paper && model.pageIndicator != nil
+            // On the web, only a slide deck has pages to count.
+            case .pageIndicator: model.pageIndicator != nil
             case .style: paper && (model.format.usesPrintTheme || model.format.usesHTMLPreset)
             case .cover: paper && model.viewOptions.usesCoverOption
             case .selectText: paper && model.canSelectText
@@ -310,6 +311,12 @@ struct BandMoreMenu: View {
                 BandMenuItem(model: model, item: item)
             }
             if !tools.isEmpty { Divider() }
+            if model.detectedSlideDeck != nil, model.usesHTMLPresentation {
+                Toggle(
+                    "Don't Treat as Slides",
+                    isOn: Binding(get: { model.ignoresSlides }, set: { model.setIgnoresSlides($0) }))
+                Divider()
+            }
             Button("View Options…") { model.isViewOptionsPresented = true }
         } label: {
             Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)

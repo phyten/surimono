@@ -3063,6 +3063,83 @@
           }
         }
       }
+    },
+    "Slide %lld of %lld": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スライド %1$lld / %2$lld"
+          }
+        }
+      }
+    },
+    "Don't Treat as Slides": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スライドとして扱わない"
+          }
+        }
+      }
+    },
+    "%lld slides, one to a page": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スライド %lld 枚を 1 枚ずつ"
+          }
+        }
+      }
+    },
+    "Slides to Print": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷るスライド"
+          }
+        }
+      }
+    },
+    "All Slides": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部"
+          }
+        }
+      }
+    },
+    "Current Slide": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今の 1 枚"
+          }
+        }
+      }
+    },
+    "Print every slide on its own page, or only the slide shown on the web": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スライドを 1 枚ずつ全部刷るか、ウェブで見ているスライドだけを刷ります"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -90,6 +90,8 @@ public struct RenderSettings: Equatable, Sendable {
     public var smartRemoval: SmartRemovalRequest?
     /// HTML: open every `<details>` of the copy being laid out.
     public var opensDetails: Bool
+    /// HTML that is a slide deck: print its slides one to a page, landscape in Auto.
+    public var slides: SlidePrintRequest?
 
     var usesPerPageOrientation: Bool {
         layout.kind == .normal && layout.duplex == .none && paperOrientation == .auto
@@ -99,9 +101,10 @@ public struct RenderSettings: Equatable, Sendable {
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
         options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
         smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, paperOrientation: PaperOrientation = .auto,
-        opensDetails: Bool = false
+        opensDetails: Bool = false, slides: SlidePrintRequest? = nil
     ) {
         self.opensDetails = opensDetails
+        self.slides = slides
         self.layout = layout
         self.paperOrientation = paperOrientation
         self.theme = theme
@@ -189,6 +192,7 @@ public final class DocumentRenderer {
         let allowsJavaScript: Bool
         let smartRemoval: SmartRemovalRequest?
         let opensDetails: Bool
+        let slides: SlidePrintRequest?
     }
 
     public init(paginate: Paginate? = nil) {
@@ -221,7 +225,7 @@ public final class DocumentRenderer {
         // HTML in Auto turns with its `@page` rules, which are known only once it has been laid out. A document that
         // asks for landscape is laid out again; the common upright one costs nothing more.
         if source.format == .html, settings.paperOrientation == .auto, settings.layout.kind != .booklet,
-            let rule = sourcePageRule, rule.source == source,
+            settings.slides == nil, let rule = sourcePageRule, rule.source == source,
             (rule.orientation == .landscape) != (output.resolvedOrientation == .landscape)
         {
             return try await renderOnce(source, settings: settings)
@@ -238,6 +242,9 @@ public final class DocumentRenderer {
             let landscape: Bool
             if settings.layout.kind == .booklet {
                 landscape = false
+            } else if settings.paperOrientation == .auto, source.format == .html, let slides = settings.slides {
+                // A slide prints best on paper of its own shape, whatever the deck's `@page` says.
+                landscape = slides.slideSize.width > slides.slideSize.height
             } else if settings.paperOrientation == .auto {
                 landscape = try await automaticLandscape(source)
             } else {
@@ -261,7 +268,8 @@ public final class DocumentRenderer {
                 margin: source.format == .pdf ? 0 : margin,
                 allowsJavaScript: source.allowsJavaScript(settings),
                 smartRemoval: source.format == .html ? settings.smartRemoval : nil,
-                opensDetails: source.format == .html && settings.opensDetails)
+                opensDetails: source.format == .html && settings.opensDetails,
+                slides: source.format == .html ? settings.slides : nil)
             let logical: PDFDocument
             let cachedData: Data
             let reused: Bool
@@ -447,6 +455,13 @@ public final class DocumentRenderer {
             var preparation =
                 (settings.opensDetails ? HTMLSnapshotScript.openDetailsJavaScript + "\n" : "")
                 + HTMLCleanupScript.javaScript(for: settings.preset)
+            if let slides = settings.slides {
+                let pageSize = settings.layout.logicalPageSize(options: settings.options)
+                let margin = settings.layout.logicalMarginsInMillimeters(options: settings.options) * 72 / 25.4
+                // The paginating web view lays out one CSS pixel to a point.
+                let printable = CGSize(width: pageSize.width - 2 * margin, height: pageSize.height - 2 * margin)
+                preparation += "\n" + SlideDeckScript.printJavaScript(slides, printableSize: printable)
+            }
             if let smartRemoval = settings.smartRemoval {
                 preparation += "\n" + PaperCleanupScript.following(SmartRemovalScript.javaScript(for: smartRemoval))
             } else {

@@ -59,6 +59,15 @@ struct DocumentSettingsTests {
         #expect(unknown == DocumentSettings(layoutID: "a4Duplex"))
     }
 
+    @Test("「スライドとして扱わない」を読み書きし、読めない値は捨ててほかの項目を残す")
+    func ignoresSlides() throws {
+        let saved = try JSONEncoder().encode(DocumentSettings(ignoresSlides: true))
+        #expect(try JSONDecoder().decode(DocumentSettings.self, from: saved) == DocumentSettings(ignoresSlides: true))
+        let broken = try JSONDecoder().decode(
+            DocumentSettings.self, from: Data(#"{"ignoresSlides":"yes","layoutID":"a4Duplex"}"#.utf8))
+        #expect(broken == DocumentSettings(layoutID: "a4Duplex"))
+    }
+
     @Test("保存した画像の順番を内容のハッシュで戻す")
     func restoreImageOrder() {
         let items = [("fuji.png", "f"), ("sakura.png", "s"), ("neko.png", "n")]

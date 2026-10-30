@@ -81,6 +81,18 @@ enum ViewerWindow {
         return CGSize(width: width.rounded(), height: height.rounded())
     }
 
+    /// The paper size of the unit's shape at `height`, made smaller to fit the screen when it is too wide.
+    static func paperSize(unit: CGSize, height: CGFloat, on screen: NSScreen?) -> CGSize {
+        guard unit.width > 0, unit.height > 0, height > 0 else { return initialPaperSize(unit: unit, on: screen) }
+        let visible = (screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
+        var size = CGSize(width: height * unit.width / unit.height, height: height)
+        let maximumWidth = visible.width * 0.9
+        if size.width > maximumWidth {
+            size = CGSize(width: maximumWidth, height: maximumWidth * unit.height / unit.width)
+        }
+        return CGSize(width: size.width.rounded(), height: size.height.rounded())
+    }
+
     /// The current paper height of the window, excluding the band.
     static func paperHeight(of window: NSWindow, band: CGFloat) -> CGFloat {
         window.contentRect(forFrameRect: window.frame).height - band
