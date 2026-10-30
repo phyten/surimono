@@ -127,7 +127,7 @@ struct ConverterTests {
         let result = MarkdownConverter.convert("---\ntitle: \"本 & 紙\"\nauthor: Example\n---\n# 見出し\n本文")
         #expect(result.title == "本 & 紙")
         #expect(!result.body.contains("author"))
-        #expect(result.body.contains("<h1>見出し</h1>"))
+        #expect(result.body.contains("<h1 id=\"見出し\">見出し</h1>"))
     }
 
     @Test("閉じていないfront matterは削除しない")
@@ -139,7 +139,7 @@ struct ConverterTests {
     func heading() {
         let result = MarkdownConverter.convert("## 先\n# **本** & 紙\n# 次")
         #expect(result.title == "本 & 紙")
-        #expect(result.body.contains("<h1><strong>本</strong> &amp; 紙</h1>"))
+        #expect(result.body.contains("<h1 id=\"本--紙\"><strong>本</strong> &amp; 紙</h1>"))
     }
 
     @Test("Markdownの本文とコードをエスケープし明示的な生HTMLは保持する")

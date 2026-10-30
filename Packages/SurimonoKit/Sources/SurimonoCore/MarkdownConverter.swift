@@ -17,14 +17,56 @@ public enum MarkdownConverter {
             }
             lines.removeFirst(end + 1)
         }
-        let source = MarkdownCallouts.preprocess(lines)
-        let document = Document(parsing: source, options: [.disableSmartOpts])
+        let extracted = MarkdownExtensions.extractFootnotes(lines)
+        let footnotes = MarkdownExtensions.Footnotes(definitions: extracted.definitions)
+        let (body, document) = renderBody(extracted.lines, footnotes: footnotes, anchorsHeadings: true)
         if title == nil { title = firstHeading(in: document) }
-        return HTMLFragment(body: render(document, sourceLines: source.components(separatedBy: "\n")), title: title)
+        return HTMLFragment(body: body + footnoteSection(footnotes), title: title)
+    }
+
+    /// The source lines the AST was parsed from, and the heading anchors still to hand out in document order.
+    private final class Context {
+        let sourceLines: [String]
+        let anchors: [MarkdownExtensions.HeadingAnchor]
+        var nextAnchor = 0
+
+        init(sourceLines: [String], anchors: [MarkdownExtensions.HeadingAnchor]) {
+            self.sourceLines = sourceLines
+            self.anchors = anchors
+        }
+    }
+
+    private static func renderBody(_ lines: [String], footnotes: MarkdownExtensions.Footnotes, anchorsHeadings: Bool)
+        -> (String, Document)
+    {
+        let source = MarkdownCallouts.preprocess(MarkdownExtensions.rewriteInline(lines, footnotes: footnotes))
+        let document = Document(parsing: source, options: [.disableSmartOpts])
+        let context = Context(
+            sourceLines: source.components(separatedBy: "\n"),
+            anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document) : [])
+        return (render(document, context), document)
+    }
+
+    /// The notes in the order the text first refers to them. A note may refer to another note, which then joins the
+    /// end of the list. Paper has no way back from a note, so the notes carry no return links.
+    private static func footnoteSection(_ footnotes: MarkdownExtensions.Footnotes) -> String {
+        guard !footnotes.order.isEmpty else { return "" }
+        var items = ""
+        var index = 0
+        while index < footnotes.order.count {
+            let definition = footnotes.definitions[footnotes.order[index]] ?? ""
+            let (html, _) = renderBody(
+                definition.components(separatedBy: "\n"), footnotes: footnotes, anchorsHeadings: false)
+            items += "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
+            index += 1
+        }
+        return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }
 
     private static func firstHeading(in node: any Markup) -> String? {
-        if let heading = node as? Heading, heading.level == 1 { return heading.plainText }
+        if let heading = node as? Heading, heading.level == 1 {
+            return MarkdownExtensions.splitCustomID(MarkdownExtensions.plainText(heading)).text
+        }
         for child in node.children {
             if let title = firstHeading(in: child) { return title }
         }
@@ -32,26 +74,38 @@ public enum MarkdownConverter {
     }
 
     // Render from the AST because HTMLFormatter does not escape text or attributes.
-    private static func render(_ node: any Markup, sourceLines: [String], autolinks: Bool = true) -> String {
+    private static func render(_ node: any Markup, _ context: Context, autolinks: Bool = true) -> String {
         func children(allowLinks: Bool? = nil) -> String {
-            renderChildren(node, sourceLines: sourceLines, autolinks: allowLinks ?? autolinks)
+            renderChildren(node, context, autolinks: allowLinks ?? autolinks)
         }
         func wrap(_ tag: String) -> String { "<\(tag)>\(children())</\(tag)>" }
         switch node {
-        case let text as Text: return autolinks ? renderAutolinks(text.string) : HTML.escape(text.string)
+        case let text as Text:
+            return autolinks ? renderAutolinks(text.string) : HTML.escape(MarkdownExtensions.emojified(text.string))
         case let code as InlineCode: return "<code>\(HTML.escape(code.code))</code>"
         case let code as CodeBlock:
             let highlighted = code.language.flatMap { SyntaxHighlighter.highlight(code.code, language: $0) }
             let language =
                 code.language.map { " class=\"language-\(HTML.escape($0))\(highlighted == nil ? "" : " hl")\"" } ?? ""
             return "<pre><code\(language)>\(highlighted ?? HTML.escape(code.code))</code></pre>\n"
-        case let heading as Heading: return wrap("h\(heading.level)") + "\n"
-        case is Paragraph: return wrap("p") + "\n"
+        case let heading as Heading:
+            var attributes = ""
+            if context.nextAnchor < context.anchors.count {
+                attributes = " id=\"\(HTML.escape(context.anchors[context.nextAnchor].id))\""
+                context.nextAnchor += 1
+            }
+            let content = MarkdownExtensions.splitCustomID(children()).text
+            return "<h\(heading.level)\(attributes)>\(content)</h\(heading.level)>\n"
+        case let paragraph as Paragraph:
+            if MarkdownExtensions.isTableOfContentsMarker(paragraph) {
+                return MarkdownExtensions.tableOfContents(context.anchors)
+            }
+            return definitionList(paragraph, context, autolinks: autolinks) ?? (wrap("p") + "\n")
         case is Strong: return wrap("strong")
         case is Emphasis: return wrap("em")
         case is Strikethrough: return wrap("del")
         case let quote as BlockQuote:
-            return renderCallout(quote, sourceLines: sourceLines, autolinks: autolinks) ?? (wrap("blockquote") + "\n")
+            return renderCallout(quote, context, autolinks: autolinks) ?? (wrap("blockquote") + "\n")
         case is ThematicBreak: return "<hr>\n"
         case is LineBreak: return "<br>\n"
         case is SoftBreak: return "\n"
@@ -65,15 +119,73 @@ public enum MarkdownConverter {
             return "<img src=\"\(HTML.escape(image.source ?? ""))\" alt=\"\(HTML.escape(image.plainText))\"\(title)>"
         case let list as OrderedList:
             return
-                "<ol start=\"\(list.startIndex)\">\(renderItems(of: list, sourceLines: sourceLines, autolinks: autolinks))</ol>\n"
+                "<ol start=\"\(list.startIndex)\">\(renderItems(of: list, context, autolinks: autolinks))</ol>\n"
         case let list as UnorderedList:
-            return "<ul>\(renderItems(of: list, sourceLines: sourceLines, autolinks: autolinks))</ul>\n"
-        case let table as Table: return renderTable(table, sourceLines: sourceLines)
+            return "<ul>\(renderItems(of: list, context, autolinks: autolinks))</ul>\n"
+        case let table as Table: return renderTable(table, context)
         default: return children()
         }
     }
 
-    private static func renderCallout(_ quote: BlockQuote, sourceLines: [String], autolinks: Bool) -> String? {
+    /// `Term` followed by lines that start with `: ` is a definition list; a later line without the colon starts the
+    /// next term.
+    private static func definitionList(_ paragraph: Paragraph, _ context: Context, autolinks: Bool) -> String? {
+        let lines = MarkdownExtensions.lines(of: paragraph)
+        guard lines.count >= 2, MarkdownExtensions.definitionBody(lines[0], sourceLines: context.sourceLines) == nil,
+            MarkdownExtensions.definitionBody(lines[1], sourceLines: context.sourceLines) != nil
+        else { return nil }
+        let items = lines.map { line in
+            if let body = MarkdownExtensions.definitionBody(line, sourceLines: context.sourceLines) {
+                return "<dd>\(renderChildren(Paragraph(body), context, autolinks: autolinks))</dd>\n"
+            }
+            return "<dt>\(renderChildren(Paragraph(line), context, autolinks: autolinks))</dt>\n"
+        }
+        return "<dl>\n" + items.joined() + "</dl>\n"
+    }
+
+    /// The looser form: a paragraph of terms, then one or more paragraphs that start with `: `.
+    private static func looseDefinitionList(
+        _ blocks: [any Markup], at index: Int, _ context: Context, autolinks: Bool
+    ) -> (html: String, consumed: Int)? {
+        func startsWithDefinition(_ block: any Markup) -> Bool {
+            guard let paragraph = block as? Paragraph, let first = MarkdownExtensions.lines(of: paragraph).first else {
+                return false
+            }
+            return MarkdownExtensions.definitionBody(first, sourceLines: context.sourceLines) != nil
+        }
+        guard index + 1 < blocks.count, let terms = blocks[index] as? Paragraph,
+            !MarkdownExtensions.isTableOfContentsMarker(terms),
+            MarkdownExtensions.lines(of: terms).allSatisfy({
+                MarkdownExtensions.definitionBody($0, sourceLines: context.sourceLines) == nil
+            }),
+            startsWithDefinition(blocks[index + 1])
+        else { return nil }
+        var html = "<dl>\n"
+        for line in MarkdownExtensions.lines(of: terms) {
+            html += "<dt>\(renderChildren(Paragraph(line), context, autolinks: autolinks))</dt>\n"
+        }
+        var cursor = index + 1
+        while cursor < blocks.count, startsWithDefinition(blocks[cursor]), let paragraph = blocks[cursor] as? Paragraph
+        {
+            // Within one paragraph each `: ` line starts a definition and other lines continue it.
+            var definitions: [[any InlineMarkup]] = []
+            for line in MarkdownExtensions.lines(of: paragraph) {
+                if let body = MarkdownExtensions.definitionBody(line, sourceLines: context.sourceLines) {
+                    definitions.append(body)
+                } else {
+                    definitions[definitions.count - 1] += [SoftBreak()] + line
+                }
+            }
+            for body in definitions {
+                html += "<dd>\(renderChildren(Paragraph(body), context, autolinks: autolinks))</dd>\n"
+            }
+            cursor += 1
+        }
+        return (html + "</dl>\n", cursor - index)
+    }
+
+    private static func renderCallout(_ quote: BlockQuote, _ context: Context, autolinks: Bool) -> String? {
+        let sourceLines = context.sourceLines
         // Text nodes have already decoded escapes and entities, so only a literal source marker opts in.
         guard let paragraph = quote.child(at: 0) as? Paragraph,
             let start = paragraph.range?.lowerBound,
@@ -105,26 +217,26 @@ public enum MarkdownConverter {
                 titleNodes.append(node)
             }
         }
-        let title = renderChildren(Paragraph(titleNodes), sourceLines: sourceLines, autolinks: autolinks)
+        let title = renderChildren(Paragraph(titleNodes), context, autolinks: autolinks)
         let titleHTML = title.isEmpty ? HTML.escape(marker.kind.defaultTitle) : title
         var body = ""
         if breakIndex < inline.count {
             let remainder = inline.dropFirst(breakIndex + 1).compactMap { $0 as? any InlineMarkup }
             if !remainder.isEmpty {
-                body += render(Paragraph(remainder), sourceLines: sourceLines, autolinks: autolinks)
+                body += render(Paragraph(remainder), context, autolinks: autolinks)
             }
         }
-        body += quote.children.dropFirst().map { render($0, sourceLines: sourceLines, autolinks: autolinks) }.joined()
+        body += quote.children.dropFirst().map { render($0, context, autolinks: autolinks) }.joined()
         return marker.kind.opening + "\n" + marker.kind.title(titleHTML) + "\n" + body + "</div>\n"
     }
 
     /// Items of a tight list hold their paragraphs' text directly, as CommonMark renders them, so a task's checkbox
     /// stays on its text's line and the items keep no paragraph spacing.
-    private static func renderItems(of list: any Markup, sourceLines: [String], autolinks: Bool) -> String {
-        let tight = !isLoose(list, sourceLines: sourceLines)
+    private static func renderItems(of list: any Markup, _ context: Context, autolinks: Bool) -> String {
+        let tight = !isLoose(list, sourceLines: context.sourceLines)
         return list.children.map { child in
             guard let item = child as? ListItem else {
-                return render(child, sourceLines: sourceLines, autolinks: autolinks)
+                return render(child, context, autolinks: autolinks)
             }
             let checkbox =
                 item.checkbox.map {
@@ -132,8 +244,8 @@ public enum MarkdownConverter {
                 } ?? ""
             var leadsWithCheckbox = !checkbox.isEmpty
             let body = item.children.map { block -> String in
-                guard block is Paragraph else { return render(block, sourceLines: sourceLines, autolinks: autolinks) }
-                let text = renderChildren(block, sourceLines: sourceLines, autolinks: autolinks)
+                guard block is Paragraph else { return render(block, context, autolinks: autolinks) }
+                let text = renderChildren(block, context, autolinks: autolinks)
                 // In a loose list the checkbox goes inside the first paragraph, so it still sits on the text's line.
                 let prefix = leadsWithCheckbox ? checkbox : ""
                 leadsWithCheckbox = false
@@ -190,9 +302,18 @@ public enum MarkdownConverter {
         }
     }
 
-    private static func renderChildren(_ node: any Markup, sourceLines: [String], autolinks: Bool = true) -> String {
+    private static func renderChildren(_ node: any Markup, _ context: Context, autolinks: Bool = true) -> String {
+        let children = Array(node.children)
+        var output = ""
         var insideRawAnchor = false
-        return node.children.map { child in
+        var index = 0
+        while index < children.count {
+            if let list = looseDefinitionList(children, at: index, context, autolinks: autolinks) {
+                output += list.html
+                index += list.consumed
+                continue
+            }
+            let child = children[index]
             if let html = child as? InlineHTML {
                 if html.rawHTML.range(of: #"^<a(?:\s|>)"#, options: [.regularExpression, .caseInsensitive]) != nil {
                     insideRawAnchor = true
@@ -200,8 +321,10 @@ public enum MarkdownConverter {
                     insideRawAnchor = false
                 }
             }
-            return render(child, sourceLines: sourceLines, autolinks: autolinks && !insideRawAnchor)
-        }.joined()
+            output += render(child, context, autolinks: autolinks && !insideRawAnchor)
+            index += 1
+        }
+        return output
     }
 
     private static func renderAutolinks(_ text: String) -> String {
@@ -210,7 +333,7 @@ public enum MarkdownConverter {
         let email = #"(?:mailto:|xmpp:)?[A-Za-z0-9._+\-]+@[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)+"#
         guard let regex = try? NSRegularExpression(pattern: "(?<web>\(web))|\(email)", options: [.caseInsensitive])
         else {
-            return HTML.escape(text)
+            return HTML.escape(MarkdownExtensions.emojified(text))
         }
         var output = ""
         var cursor = text.startIndex
@@ -249,21 +372,22 @@ public enum MarkdownConverter {
             } else {
                 destination = "mailto:" + label
             }
-            output += HTML.escape(String(text[cursor..<range.lowerBound]))
+            // Emoji shortcodes apply around a URL, never inside it, so the link keeps its destination.
+            output += HTML.escape(MarkdownExtensions.emojified(String(text[cursor..<range.lowerBound])))
             output += "<a href=\"\(HTML.escape(destination))\">\(HTML.escape(label))</a>"
             cursor = text.index(range.lowerBound, offsetBy: label.count)
         }
-        return output + HTML.escape(String(text[cursor...]))
+        return output + HTML.escape(MarkdownExtensions.emojified(String(text[cursor...])))
     }
 
-    private static func renderTable(_ table: Table, sourceLines: [String]) -> String {
+    private static func renderTable(_ table: Table, _ context: Context) -> String {
         func cells(_ node: any Markup, tag: String) -> String {
             node.children.enumerated().map { index, cell in
                 var attributes = ""
                 if index < table.columnAlignments.count, let alignment = table.columnAlignments[index] {
                     attributes += " align=\"\(alignment)\""
                 }
-                return "<\(tag)\(attributes)>\(renderChildren(cell, sourceLines: sourceLines))</\(tag)>"
+                return "<\(tag)\(attributes)>\(renderChildren(cell, context))</\(tag)>"
             }.joined()
         }
         let head = "<thead><tr>\(cells(table.head, tag: "th"))</tr></thead>"
