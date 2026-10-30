@@ -335,6 +335,29 @@ struct LaTeXConverterBoundaryTests {
         #expect(html.contains("<a href=\"#eq-t1\">(A)</a>, <a href=\"#eq-t2\">B</a>, <a href=\"#eq-1\">(1)</a>"))
     }
 
+    @Test("表題の中の \\maketitle は表題をもう一度作らない", .timeLimit(.minutes(1)))
+    func titleThatMakesTheTitle() {
+        let html = body("\\title{題\\maketitle\\maketitle}\\maketitle 後")
+        #expect(html.components(separatedBy: "<header class=\"latex-title-block\">").count == 2)
+        #expect(html.contains("後"))
+    }
+
+    @Test("深く入れ子になった波括弧は、決まった深さから先を文字のまま出す", .timeLimit(.minutes(1)))
+    func deeplyNestedGroups() {
+        let html = body(String(repeating: "{", count: 100_000) + "x" + String(repeating: "}", count: 100_000) + "後")
+        #expect(html.contains("x"))
+        #expect(html.contains("後"))
+    }
+
+    @Test("長い \\tag への参照は、何度書いても決まった長さの番号を出す", .timeLimit(.minutes(1)))
+    func referencesToLongTags() {
+        let tag = String(repeating: "T", count: 10_000)
+        let html = body(
+            "\\begin{equation}x\\tag{\(tag)}\\label{e}\\end{equation}" + String(repeating: "\\ref{e}", count: 10_000))
+        #expect(html.utf8.count < 5_000_000)
+        #expect(html.contains("<a href=\"#eq-t1\">\(String(repeating: "T", count: 100))…</a>"))
+    }
+
     @Test("拡張子のある画像も \\graphicspath のフォルダから探す")
     func graphicsPathWithExtension() throws {
         let folder = FileManager.default.temporaryDirectory.appending(path: "latex-images-\(UUID().uuidString)")

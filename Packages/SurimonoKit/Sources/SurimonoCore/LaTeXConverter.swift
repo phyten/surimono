@@ -100,6 +100,11 @@ final class LaTeXDocument {
     var footnotes: [String] = []
     var references: [(key: String, style: ReferenceStyle)] = []
     var enumerateDepth = 0
+    /// How many readers are reading inside one another.
+    var depth = 0
+    static let maximumDepth = 100
+    /// Set while `\maketitle` reads the title, so a title that makes the title again is not read again.
+    var makingTitle = false
     var expansions = 0
     /// Characters macros produced, and the work spent putting them back into the source; both are bounded so a
     /// recursive or doubling definition cannot exhaust memory or time.
