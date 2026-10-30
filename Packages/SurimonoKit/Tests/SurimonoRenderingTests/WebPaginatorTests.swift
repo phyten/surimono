@@ -331,4 +331,98 @@ struct WebPaginatorTests {
                 margins: .uniform(millimeters: 15), allowsJavaScript: false)
         }
     }
+
+    @Test("今の状態の写しは文書の場所の画像だけを読み、外の画像はリンク経由でも読まない")
+    func snapshotReadsOnlyTheDocumentDirectory() async throws {
+        let root = try makeImageDirectory(relativePath: "outside.png")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let document = root.appending(path: "document")
+        let inside = try makeImageDirectory(relativePath: "inside.png")
+        defer { try? FileManager.default.removeItem(at: inside) }
+        try FileManager.default.moveItem(at: inside, to: document)
+        try FileManager.default.createSymbolicLink(
+            at: document.appending(path: "escape.png"), withDestinationURL: root.appending(path: "outside.png"))
+        let html = """
+            <!doctype html><meta charset="utf-8"><body>
+            <img id="inside" src="inside.png"><img id="parent" src="../outside.png">
+            <img id="link" src="escape.png"><img id="file" src="\(root.appending(path: "outside.png").absoluteString)">
+            </body>
+            """
+        let report = """
+            return JSON.stringify(['inside', 'parent', 'link', 'file']
+              .map(id => document.getElementById(id).naturalWidth));
+            """
+        let result = try await WebPaginator().paginateWithResult(
+            .snapshot(html, directory: document), pageSize: a4, margins: .uniform(millimeters: 15),
+            allowsJavaScript: false, preparationScript: report)
+        #expect(result.preparationResult == "[40,0,0,0]")
+    }
+
+    @Test("写しの場所の外を指すパスは、.. でもリンクでも文書の場所から出さない")
+    func snapshotPathsStayInside() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "surimono-test-\(UUID().uuidString)")
+        let directory = root.appending(path: "document")
+        try FileManager.default.createDirectory(
+            at: directory.appending(path: "images"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("inside".utf8).write(to: directory.appending(path: "images/a.png"))
+        try Data("secret".utf8).write(to: root.appending(path: "secret.txt"))
+        try FileManager.default.createSymbolicLink(at: directory.appending(path: "up"), withDestinationURL: root)
+        let inside = SnapshotSchemeHandler.fileURL(for: "/images/a.png", in: directory)
+        #expect(inside?.lastPathComponent == "a.png")
+        #expect(SnapshotSchemeHandler.fileURL(for: "/../secret.txt", in: directory) == nil)
+        #expect(SnapshotSchemeHandler.fileURL(for: "/up/secret.txt", in: directory) == nil)
+        #expect(SnapshotSchemeHandler.fileURL(for: "/missing.png", in: directory) == nil)
+        #expect(SnapshotSchemeHandler.fileURL(for: "/", in: directory) == nil)
+    }
+
+    @Test("写しが読むのは普通のファイルだけで、名前の % や日本語、エンコードした区切りも文書の場所の中で解く")
+    func snapshotServableFiles() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "surimono-test-\(UUID().uuidString)")
+        let directory = root.appending(path: "document")
+        try FileManager.default.createDirectory(
+            at: directory.appending(path: "画像"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("photo".utf8).write(to: directory.appending(path: "画像/写真.png"))
+        try Data("percent".utf8).write(to: directory.appending(path: "100%.png"))
+        try Data(repeating: 0, count: 64).write(to: directory.appending(path: "large.bin"))
+        try Data("secret".utf8).write(to: root.appending(path: "secret.txt"))
+        #expect(mkfifo(directory.appending(path: "pipe").path, 0o600) == 0)
+        func served(_ url: String, maximumSize: Int = SnapshotSchemeHandler.maximumFileSize) throws -> String? {
+            let path = try #require(URL(string: url)).path
+            return SnapshotSchemeHandler.servableFile(for: path, in: directory, maximumSize: maximumSize)?
+                .lastPathComponent
+        }
+        let base = "surimono-snapshot://document/"
+        #expect(try served(base + "%E7%94%BB%E5%83%8F/%E5%86%99%E7%9C%9F.png") == "写真.png")
+        #expect(try served(base + "%E7%94%BB%E5%83%8F%2F%E5%86%99%E7%9C%9F.png") == "写真.png")
+        #expect(try served(base + "100%25.png") == "100%.png")
+        #expect(try served(base + "%2E%2E%2Fsecret.txt") == nil)
+        #expect(try served(base + "..%2Fsecret.txt") == nil)
+        #expect(try served(base + "pipe") == nil)
+        #expect(try served(base + "%E7%94%BB%E5%83%8F") == nil)
+        #expect(try served(base + "large.bin", maximumSize: 63) == nil)
+        #expect(try served(base + "large.bin", maximumSize: 64) == "large.bin")
+    }
+
+    @Test("写しの中の枠のページは自分の文字コードのまま読む")
+    func snapshotFramesKeepTheirEncoding() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "surimono-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let frame = "<!doctype html><meta charset=\"shift_jis\"><body>摺物の枠</body>"
+        try #require(frame.data(using: .shiftJIS)).write(to: directory.appending(path: "frame.html"))
+        let html = "<!doctype html><meta charset=\"utf-8\"><body><iframe id=\"f\" src=\"frame.html\"></iframe></body>"
+        let report = """
+            const frame = document.getElementById('f');
+            if (!frame.contentDocument || frame.contentDocument.readyState !== 'complete') {
+              await new Promise(resolve => frame.addEventListener('load', resolve, { once: true }));
+            }
+            return frame.contentDocument.body.textContent;
+            """
+        let result = try await WebPaginator().paginateWithResult(
+            .snapshot(html, directory: directory), pageSize: a4, margins: .uniform(millimeters: 15),
+            allowsJavaScript: false, preparationScript: report)
+        #expect(result.preparationResult == "摺物の枠")
+    }
 }

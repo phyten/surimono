@@ -82,13 +82,13 @@ struct SmartRemovalRenderingTests {
         #expect(result.logicalDocument.pageCount == 1)
     }
 
-    @Test("プリセットの処理を先に置きその後でスマート除去を実行する")
+    @Test("プリセット、スマート除去、紙面の整えの順に実行し、スマート除去の結果を返す")
     func presetOrder() async throws {
         var changed = settings
         changed.preset.removeSelectors = [".preset-only"]
         let expected =
             HTMLCleanupScript.javaScript(for: changed.preset) + "\n"
-            + SmartRemovalScript.javaScript(for: SmartRemovalRequest())
+            + PaperCleanupScript.following(SmartRemovalScript.javaScript(for: SmartRemovalRequest()))
         let renderer = DocumentRenderer(paginateWithResult: { request in
             #expect(request.preparationScript == expected)
             #expect(!request.allowsJavaScript)

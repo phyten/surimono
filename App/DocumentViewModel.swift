@@ -11,7 +11,7 @@ typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
 /// A short message near the bottom of the window, optionally with one action.
 struct Toast: Equatable, Identifiable {
-    enum Action: Equatable { case resetDocumentSettings, reviewSmartRemoval }
+    enum Action: Equatable { case resetDocumentSettings, reviewSmartRemoval, retryWebCapture }
 
     let id = UUID()
     var systemImage: String
@@ -49,6 +49,14 @@ final class DocumentViewModel {
     /// a document always opens with the paper as the window and a drag never selects text by surprise.
     var isSelectingText = false
     var isViewOptionsPresented = false
+    /// HTML opens as a live web page; paper shows how it prints.
+    private(set) var htmlPresentation: HTMLPresentation = .web
+    /// The web page's own zoom, apart from the paper's.
+    var webZoom: Double = 1
+    /// The live page is being copied for paper or printing.
+    private(set) var isCapturingWeb = false
+    /// The last copy of the live page failed, so the pages on paper may show an earlier state and do not print.
+    private(set) var webCaptureFailed = false
     /// Smart Removal (beta) for HTML: remove what is not the article, except the parts the user keeps.
     var isSmartRemovalEnabled = false
     var smartRemovalKeptIDs: [String] = []
@@ -68,6 +76,16 @@ final class DocumentViewModel {
     var outputError: String?
     @ObservationIgnored weak var window: NSWindow?
     @ObservationIgnored let paper = PaperController()
+    @ObservationIgnored let web = WebPageController()
+    /// The live page's state as last copied; paper and printing are made from it instead of the file.
+    @ObservationIgnored private var liveSnapshot: String?
+    /// Set while an output that waited for the copy of the live page runs, so that it does not wait again.
+    @ObservationIgnored private var isRunningCapturedOutput = false
+    @ObservationIgnored private var captureTask: Task<Void, Never>?
+    /// Everyone waiting for the copy in flight: switching to paper, the print tray, and outputs.
+    @ObservationIgnored private var captureCompletions: [(CaptureOutcome) -> Void] = []
+    /// Stands in for the live page in tests.
+    @ObservationIgnored var snapshotSource: (() async -> WebPageController.Snapshot)?
     /// The key of the remembered settings: the content hash of the file, of the ZIP, or of the set of images.
     private(set) var contentHash: ContentHash?
     private(set) var hasSavedSettings = false
@@ -167,7 +185,8 @@ final class DocumentViewModel {
     }
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
-        isUpToDate && !isPrinting && !isExporting && renderedSettings?.smartRemoval?.highlightsCandidates != true
+        isUpToDate && !isPrinting && !isExporting && !isCapturingWeb && !webCaptureFailed
+            && renderedSettings?.smartRemoval?.highlightsCandidates != true
     }
     var summary: String? {
         guard let result, let renderedSettings else { return nil }
@@ -198,6 +217,11 @@ final class DocumentViewModel {
     }
 
     func start() {
+        web.onZoomChange = { [weak self] zoom in self?.webZoom = zoom }
+        web.onRestart = { [weak self] in
+            self?.cancelCapture()
+            self?.liveSnapshot = nil
+        }
         if textSizeKeyMonitor == nil {
             textSizeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
                 let handled = MainActor.assumeIsolated {
@@ -255,9 +279,15 @@ final class DocumentViewModel {
         if saveTask != nil { saveSettings() }
         watcher?.stop()
         watcher = nil
+        cancelCapture()
+        web.close()
     }
 
     func reload() {
+        reload(reloadsWeb: true)
+    }
+
+    private func reload(reloadsWeb: Bool) {
         if imageBundle?.archiveURL != nil, fileURL != nil {
             // The images of a ZIP were read when it opened; its window cannot swap in another archive.
             showToast(
@@ -285,6 +315,13 @@ final class DocumentViewModel {
                 return
             }
         }
+        if reloadsWeb {
+            // The page starts over from the new file, and paper follows it; a copy of the old page is not used.
+            cancelCapture()
+            liveSnapshot = nil
+            web.reload()
+            webZoom = web.zoom
+        }
         computeContentHash()
         render()
     }
@@ -292,7 +329,7 @@ final class DocumentViewModel {
     func reloadLibrary() {
         if !library.themes.contains(where: { $0.id == themeID }) { themeID = "standard" }
         if !library.presets.contains(where: { $0.id == presetID }) { presetID = "none" }
-        reload()
+        reload(reloadsWeb: false)
     }
 
     func reopenAsText() {
@@ -316,7 +353,10 @@ final class DocumentViewModel {
         error = nil
         isRendering = true
         let sourceURLs = sourceURLs
-        let singleSource = DocumentSource(data: data, fileURL: fileURL, format: format)
+        let singleSource =
+            usesHTMLPresentation && liveSnapshot != nil
+            ? DocumentSource.liveSnapshot(liveSnapshot ?? "", of: fileURL)
+            : DocumentSource(data: data, fileURL: fileURL, format: format)
         renderTask = Task { [weak self] in
             guard let self else { return }
             do {
@@ -360,10 +400,7 @@ final class DocumentViewModel {
                 // A render that a later change made stale leaves the output to the render that follows it.
                 if let output = outputAfterReview, settings == renderSettings {
                     outputAfterReview = nil
-                    switch output {
-                    case .print(let quick): printDocument(quick: quick)
-                    case .exportPDF: exportPDF()
-                    }
+                    run(output)
                 }
             } catch is CancellationError {
                 // A superseding request owns the progress indicator.
@@ -418,6 +455,15 @@ final class DocumentViewModel {
 
     func enterPrintMode() {
         guard mode != .print else { return }
+        guard mode == .view, isWebPresentation || webCaptureFailed else { return showPrintTray() }
+        // The tray prints the page as it is now.
+        captureWeb { [weak self] outcome in
+            if outcome == .failed { self?.showCaptureFailure() } else { self?.showPrintTray() }
+        }
+    }
+
+    private func showPrintTray() {
+        guard mode != .print else { return }
         refreshPrinters()
         isViewOptionsPresented = false
         // The tray shows what prints, so the review and its outlined pages end here.
@@ -458,6 +504,8 @@ final class DocumentViewModel {
     func reviewSmartRemoval() {
         guard format == .html, isSmartRemovalEnabled else { return }
         dismissToast()
+        // The review outlines parts of the paper.
+        setHTMLPresentation(.paper)
         outputAfterReview = nil
         if mode == .print { exitPrintMode() }
         isReviewingSmartRemoval = true
@@ -474,6 +522,131 @@ final class DocumentViewModel {
     }
 
     func toggleMenuPinned() { isMenuPinned.toggle() }
+
+    // MARK: - Web or paper
+
+    /// HTML from a file can show as a live page; other documents, and HTML without a file, show only as paper.
+    var usesHTMLPresentation: Bool { format == .html && imageBundle == nil && fileURL != nil }
+    var isWebPresentation: Bool { usesHTMLPresentation && htmlPresentation == .web }
+    /// The live page is on screen.
+    var showsWeb: Bool { mode == .view && isWebPresentation }
+
+    /// - Parameter capturesWeb: Whether paper shows the page as the reader left it. Restoring a remembered choice
+    ///   while the document opens shows the file as it is.
+    func setHTMLPresentation(_ presentation: HTMLPresentation, capturesWeb: Bool = true) {
+        guard usesHTMLPresentation, presentation != htmlPresentation else { return }
+        let wasWeb = isWebPresentation
+        htmlPresentation = presentation
+        guard let window else { return }
+        if presentation == .web {
+            ViewerWindow.unlockAspectRatio(of: window)
+            return
+        }
+        isViewOptionsPresented = false
+        guard wasWeb, capturesWeb else { return sizeWindowToPaper(keepHeight: true) }
+        captureWeb { [weak self] outcome in
+            // Paper then shows the last copy, or the file.
+            if outcome == .failed { self?.showCaptureFailure() }
+            self?.sizeWindowToPaper(keepHeight: true)
+        }
+    }
+
+    enum CaptureOutcome: Equatable {
+        /// The pages show the page's current state.
+        case ready
+        /// Pages of the current state are on the way.
+        case rendering
+        case failed
+    }
+
+    /// Copies the live page and makes paper from the copy. A request while a copy is in flight waits for the same copy.
+    func captureWeb(_ completion: @escaping (CaptureOutcome) -> Void) {
+        captureCompletions.append(completion)
+        guard captureTask == nil else { return }
+        isCapturingWeb = true
+        captureTask = Task { [weak self] in
+            guard let snapshot = await self?.takeSnapshot(), !Task.isCancelled, let self else { return }
+            captureTask = nil
+            isCapturingWeb = false
+            let completions = captureCompletions
+            captureCompletions = []
+            webCaptureFailed = snapshot == .failed
+            if case .captured(let html) = snapshot, html != liveSnapshot {
+                liveSnapshot = html
+                // The pages of the previous state must not show or print in the meantime.
+                result = nil
+                render()
+            }
+            let outcome: CaptureOutcome = snapshot == .failed ? .failed : isRendering ? .rendering : .ready
+            for completion in completions { completion(outcome) }
+        }
+    }
+
+    private func takeSnapshot() async -> WebPageController.Snapshot {
+        if let snapshotSource { return await snapshotSource() }
+        return await web.snapshot()
+    }
+
+    /// A copy of a page that has since started over, or of a window that closed, must not replace what follows.
+    private func cancelCapture() {
+        captureTask?.cancel()
+        captureTask = nil
+        captureCompletions = []
+        isCapturingWeb = false
+        webCaptureFailed = false
+    }
+
+    /// The failure notice's Try Again: copy the page again and show paper from the new copy.
+    func retryWebCapture() {
+        dismissToast()
+        guard usesHTMLPresentation, webCaptureFailed else { return }
+        captureWeb { [weak self] outcome in
+            if outcome == .failed { self?.showCaptureFailure() }
+            self?.sizeWindowToPaper(keepHeight: true)
+        }
+    }
+
+    /// The JavaScript setting changed in Settings; the kept page follows it even while it is not shown.
+    func javaScriptSettingDidChange() {
+        web.applyJavaScriptSetting(preferences.allowsJavaScript)
+    }
+
+    private func showCaptureFailure() {
+        showToast(
+            Toast(
+                systemImage: "exclamationmark.triangle",
+                title: String(localized: "The current state of the web page could not be copied."),
+                action: .retryWebCapture),
+            dismissAfter: nil)
+    }
+
+    /// An output asked for on the web, or while the page is being copied, waits for the copy and the pages made from
+    /// it; it is dropped with a notice if the copy fails, so that nothing prints from an earlier state.
+    private func deferUntilWebIsCaptured(_ output: Output) -> Bool {
+        guard showsWeb || isCapturingWeb || webCaptureFailed, !isRunningCapturedOutput else { return false }
+        captureWeb { [weak self] outcome in
+            guard let self else { return }
+            switch outcome {
+            case .failed: showCaptureFailure()
+            case .rendering: outputAfterReview = output
+            case .ready: run(output)
+            }
+        }
+        return true
+    }
+
+    private func run(_ output: Output) {
+        isRunningCapturedOutput = true
+        defer { isRunningCapturedOutput = false }
+        switch output {
+        case .print(let quick): printDocument(quick: quick)
+        case .exportPDF: exportPDF()
+        }
+    }
+
+    func zoomIn() { if showsWeb { web.zoomIn() } else { paper.zoomIn() } }
+    func zoomOut() { if showsWeb { web.zoomOut() } else { paper.zoomOut() } }
+    func zoomToFit() { if showsWeb { web.resetZoom() } else { paper.zoomToFit() } }
 
     /// Images carry no text to select.
     var canSelectText: Bool { imageBundle == nil && format != .image }
@@ -536,7 +709,7 @@ final class DocumentViewModel {
                 ? DocumentSettings.SmartRemoval(isEnabled: isSmartRemovalEnabled, keptIDs: smartRemovalKeptIDs) : nil,
             printOptions: printOptions,
             imageOrder: imageBundle.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
-            paperOrientation: paperOrientation)
+            paperOrientation: paperOrientation, htmlPresentation: usesHTMLPresentation ? htmlPresentation : nil)
     }
 
     /// What this document has when the user changes nothing. Until the pages are known, the reading layout is the
@@ -547,7 +720,8 @@ final class DocumentViewModel {
             themeID: format.usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
             textScale: format.usesPrintTheme ? 1 : nil,
             presetID: format.usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
-            printOptions: preferences.printOptions, paperOrientation: .auto)
+            printOptions: preferences.printOptions, paperOrientation: .auto,
+            htmlPresentation: usesHTMLPresentation ? .web : nil)
     }
 
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
@@ -613,6 +787,7 @@ final class DocumentViewModel {
         if let id = saved.themeID, library.themes.contains(where: { $0.id == id }) { themeID = id }
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if let options = saved.printOptions { printOptions = options }
+        if let presentation = saved.htmlPresentation { setHTMLPresentation(presentation, capturesWeb: false) }
         if let removal = saved.smartRemoval, format == .html {
             isSmartRemovalEnabled = removal.isEnabled
             smartRemovalKeptIDs = removal.keptIDs
@@ -678,6 +853,7 @@ final class DocumentViewModel {
         smartRemovalKeptIDs = []
         isReviewingSmartRemoval = false
         zoom = 1
+        setHTMLPresentation(.web)
         imageBundle?.sortByName()
         if let defaultViewOptions { viewOptions = defaultViewOptions }
         if mode == .view, let window, let unit = paperUnitSize {
@@ -724,8 +900,11 @@ final class DocumentViewModel {
                     ViewerWindow.initialPaperSize(unit: unit, on: window.screen), band: bandInset, of: window,
                     animate: false)
             }
+            // A web page opens at the paper's size but reflows to any shape the reader gives the window.
+            if isWebPresentation { ViewerWindow.unlockAspectRatio(of: window) }
             return
         }
+        guard !isWebPresentation else { return }
         let height = ViewerWindow.paperHeight(of: window, band: bandInset)
         ViewerWindow.setPaperSize(
             CGSize(width: (height * unit.width / unit.height).rounded(), height: height), band: bandInset,
@@ -745,10 +924,13 @@ final class DocumentViewModel {
         ViewerWindow.setBand(
             pinned ? ViewerWindow.bandHeight : 0, previous: wasPinned ? ViewerWindow.bandHeight : 0, of: window,
             unit: unit)
+        if isWebPresentation { ViewerWindow.unlockAspectRatio(of: window) }
     }
 
     func windowDidEndLiveResize() {
-        guard mode == .view, let window, !ViewerWindow.isResizingProgrammatically(window), let unit = paperUnitSize
+        // The window size remembered is the paper's; the web page takes whatever size the reader likes.
+        guard mode == .view, !isWebPresentation, let window, !ViewerWindow.isResizingProgrammatically(window),
+            let unit = paperUnitSize
         else { return }
         if bandInset > 0 {
             // While the band is pinned the aspect ratio can only approximate "paper plus a fixed band"; settle on the
@@ -813,7 +995,9 @@ final class DocumentViewModel {
     /// Prints the sheets: right away to the selected printer when `quick`, otherwise through the system dialog,
     /// which starts on that printer.
     func printDocument(quick: Bool = false) {
-        guard !deferUntilReviewEnds(.print(quick: quick)) else { return }
+        guard !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick)) else {
+            return
+        }
         guard canOutput, let result, let window else { return }
         outputError = nil
         let shown = selectedPrinterName
@@ -854,7 +1038,7 @@ final class DocumentViewModel {
     }
 
     func exportPDF() {
-        guard !deferUntilReviewEnds(.exportPDF) else { return }
+        guard !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF) else { return }
         guard let window, beginPDFExport() else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]

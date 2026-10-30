@@ -10,7 +10,7 @@ enum BandSlot: Hashable {
 extension BandLayout.Item {
     var hasCompactForm: Bool {
         switch self {
-        case .style, .transition, .selectText, .print: true
+        case .presentation, .style, .transition, .selectText, .print: true
         default: false
         }
     }
@@ -28,16 +28,18 @@ extension BandLayout.Item {
     /// The items this document can show on the band at this stage.
     static func applicable(for model: DocumentViewModel, stage: OverlayMenuState.Stage) -> [Self] {
         guard stage == .full else { return [.print] }
+        // The paper's tools do nothing for a live web page.
+        let paper = !model.showsWeb
         return allCases.filter { item in
             switch item {
-            case .formatBadge, .layout, .direction, .scrollAxis, .paperOrientation, .transition, .floatOnTop,
-                .keepMenuVisible, .print:
-                true
-            case .pageIndicator: model.pageIndicator != nil
-            case .style: model.format.usesPrintTheme || model.format.usesHTMLPreset
-            case .cover: model.viewOptions.usesCoverOption
-            case .selectText: model.canSelectText
-            case .zoom: model.zoom > 1.001
+            case .formatBadge, .floatOnTop, .keepMenuVisible, .print: true
+            case .layout, .direction, .scrollAxis, .paperOrientation, .transition: paper
+            case .presentation: model.usesHTMLPresentation
+            case .pageIndicator: paper && model.pageIndicator != nil
+            case .style: paper && (model.format.usesPrintTheme || model.format.usesHTMLPreset)
+            case .cover: paper && model.viewOptions.usesCoverOption
+            case .selectText: paper && model.canSelectText
+            case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil
             }
         }
@@ -63,6 +65,7 @@ struct BandItemView: View {
         switch item {
         case .formatBadge: FormatBadge(text: model.formatBadge)
         case .pageIndicator: PageIndicatorText(model: model)
+        case .presentation: PresentationPicker(model: model, showsNames: form == .full)
         case .style: StyleMenu(model: model, showsName: form == .full)
         case .layout: LayoutPicker(model: model)
         case .direction: DirectionPicker(model: model)
@@ -77,7 +80,7 @@ struct BandItemView: View {
         case .selectText: SelectTextButton(model: model, showsName: form == .full)
         case .zoom:
             Button {
-                model.paper.zoomToFit()
+                model.zoomToFit()
             } label: {
                 Text(verbatim: model.zoomPercentage).monospacedDigit()
             }
@@ -125,6 +128,72 @@ struct SelectTextButton: View {
         .accessibilityLabel(Text("Select Text"))
         .accessibilityAddTraits(model.isSelectingText ? .isSelected : [])
         .help("Select Text (T)")
+    }
+}
+
+/// Web or Paper for HTML: the live page, or the paper it prints as. A segmented picker on macOS shows either the
+/// icons or the titles of its labels, so this draws the segments itself to show both while there is room.
+struct PresentationPicker: View {
+    @Bindable var model: DocumentViewModel
+    let showsNames: Bool
+
+    var body: some View {
+        HStack(spacing: 1) {
+            ForEach(HTMLPresentation.allCases, id: \.self) { presentation in
+                segment(presentation)
+            }
+        }
+        .padding(1)
+        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+        .fixedSize()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("Web or Paper"))
+    }
+
+    private func segment(_ presentation: HTMLPresentation) -> some View {
+        let selected = model.htmlPresentation == presentation
+        return Button {
+            model.setHTMLPresentation(presentation)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: presentation.symbol)
+                if showsNames { Text(presentation.title) }
+            }
+            .padding(.horizontal, showsNames ? 8 : 7)
+            .padding(.vertical, 3)
+            .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .background {
+                RoundedRectangle(cornerRadius: 5).fill(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(presentation.title))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .help(presentation.title)
+    }
+}
+
+extension HTMLPresentation {
+    var title: LocalizedStringKey {
+        switch self {
+        case .web: "Web"
+        case .paper: "Paper"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .web: "globe"
+        case .paper: "doc.text"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .web: String(localized: "Web")
+        case .paper: String(localized: "Paper")
+        }
     }
 }
 
@@ -267,6 +336,20 @@ private struct BandMenuItem: View {
 
     var body: some View {
         switch item {
+        case .presentation:
+            Menu {
+                Picker(
+                    "Web or Paper",
+                    selection: Binding(get: { model.htmlPresentation }, set: { model.setHTMLPresentation($0) })
+                ) {
+                    ForEach(HTMLPresentation.allCases, id: \.self) { presentation in
+                        Label(presentation.title, systemImage: presentation.symbol).tag(presentation)
+                    }
+                }
+                .pickerStyle(.inline).labelsHidden()
+            } label: {
+                Text(verbatim: choice(String(localized: "View As"), model.htmlPresentation.name))
+            }
         case .style:
             Menu {
                 StyleMenuItems(model: model)
@@ -326,7 +409,7 @@ private struct BandMenuItem: View {
             Toggle("Select Text", isOn: $model.isSelectingText)
         case .zoom:
             Button(String(format: String(localized: "Fit to Window (%@)"), model.zoomPercentage)) {
-                model.paper.zoomToFit()
+                model.zoomToFit()
             }
         case .thumbnails:
             Toggle("Show Thumbnails", isOn: $model.isDrawerOpen)

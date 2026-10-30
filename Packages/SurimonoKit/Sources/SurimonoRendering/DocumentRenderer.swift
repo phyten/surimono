@@ -7,6 +7,8 @@ public struct DocumentSource: Equatable, Sendable {
     public let fileURL: URL?
     public let format: DocumentFormat
     public let images: [Image]?
+    /// The HTML is a copy of a live page's current state rather than the file's bytes; its own scripts already ran.
+    public let isLiveSnapshot: Bool
 
     /// One image of a bundle. Its bytes are read only while its page is drawn and released afterwards, so a large
     /// bundle such as a ZIP of photos is never held in memory at once. Images compare by file and content hash.
@@ -46,18 +48,34 @@ public struct DocumentSource: Equatable, Sendable {
 
     public static func images(_ images: [Image]) -> Self { Self(images: images) }
 
+    /// The current state of a live HTML page, laid out against the directory of `fileURL` without running scripts.
+    public static func liveSnapshot(_ html: String, of fileURL: URL?) -> Self {
+        Self(data: Data(html.utf8), fileURL: fileURL, format: .html, isLiveSnapshot: true)
+    }
+
     private init(images: [Image]) {
         data = Data()
         fileURL = nil
         format = .image
         self.images = images
+        isLiveSnapshot = false
     }
 
     public init(data: Data, fileURL: URL? = nil, format: DocumentFormat) {
+        self.init(data: data, fileURL: fileURL, format: format, isLiveSnapshot: false)
+    }
+
+    private init(data: Data, fileURL: URL?, format: DocumentFormat, isLiveSnapshot: Bool) {
         self.data = data
         self.fileURL = fileURL
         self.format = format
         images = nil
+        self.isLiveSnapshot = isLiveSnapshot
+    }
+
+    /// Whether the page's own JavaScript runs while it is laid out.
+    func allowsJavaScript(_ settings: RenderSettings) -> Bool {
+        format == .html && !isLiveSnapshot && settings.allowsJavaScriptInHTML && !settings.preset.disablesJavaScript
     }
 }
 
@@ -194,8 +212,7 @@ public final class DocumentRenderer {
                 textScale: source.format.usesPrintTheme ? settings.textScale : nil,
                 preset: source.format.usesHTMLPreset ? settings.preset : nil,
                 margin: source.format == .pdf ? 0 : margin,
-                allowsJavaScript: source.format == .html && settings.allowsJavaScriptInHTML
-                    && !settings.preset.disablesJavaScript,
+                allowsJavaScript: source.allowsJavaScript(settings),
                 smartRemoval: source.format == .html ? settings.smartRemoval : nil)
             let logical: PDFDocument
             let cachedData: Data
@@ -351,21 +368,27 @@ public final class DocumentRenderer {
                     marginsInMillimeters: settings.options.marginsInMillimeters))
         case .html:
             let input: WebPaginator.Source
-            if let url = source.fileURL {
+            if source.isLiveSnapshot {
+                let html = String(decoding: source.data, as: UTF8.self)
+                input =
+                    source.fileURL.map { .snapshot(html, directory: $0.deletingLastPathComponent()) }
+                    ?? .html(html, baseURL: nil)
+            } else if let url = source.fileURL {
                 input = .file(url, readAccessURL: url.deletingLastPathComponent())
             } else {
                 input = .html(try decodedText(source.data), baseURL: nil)
             }
             var preparation = HTMLCleanupScript.javaScript(for: settings.preset)
             if let smartRemoval = settings.smartRemoval {
-                preparation += "\n" + SmartRemovalScript.javaScript(for: smartRemoval)
+                preparation += "\n" + PaperCleanupScript.following(SmartRemovalScript.javaScript(for: smartRemoval))
+            } else {
+                preparation += "\n" + PaperCleanupScript.javaScript
             }
             return try await paginate(
                 PaginationRequest(
                     source: input, pageSize: settings.layout.logicalPageSize,
                     margins: .uniform(millimeters: settings.options.marginsInMillimeters),
-                    allowsJavaScript: settings.allowsJavaScriptInHTML && !settings.preset.disablesJavaScript,
-                    preparationScript: preparation))
+                    allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation))
         case .markdown, .org, .plainText, .csv:
             let text = try decodedText(source.data)
             let fragment: HTMLFragment

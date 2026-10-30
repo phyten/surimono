@@ -7,6 +7,7 @@ public enum BandLayout {
     /// The parts of the band that can give way, in their order on the band.
     public enum Item: CaseIterable, Hashable, Sendable {
         case formatBadge, pageIndicator
+        case presentation
         case style
         case layout, direction, scrollAxis, paperOrientation, transition, cover
         case selectText, zoom, thumbnails
@@ -18,6 +19,7 @@ public enum BandLayout {
         public var group: Int? {
             switch self {
             case .formatBadge, .pageIndicator, .print: nil
+            case .presentation: 0
             case .style: 1
             case .layout, .direction, .scrollAxis, .paperOrientation, .transition, .cover: 2
             case .selectText, .zoom, .thumbnails: 3
@@ -49,12 +51,13 @@ public enum BandLayout {
     }
 
     /// The order in which the band gives up room. Labels go before tools, and a tool leaves earlier the less often it
-    /// is used while reading; Print, the second of the two steps to print, stays to the end.
+    /// is used while reading; Print, the second of the two steps to print, stays to the end. The switch between web
+    /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone.
     public static let steps: [Step] = [
-        .compact(.style), .compact(.transition), .compact(.selectText),
+        .compact(.style), .compact(.transition), .compact(.selectText), .compact(.presentation),
         .remove(.keepMenuVisible), .remove(.floatOnTop), .remove(.formatBadge),
         .remove(.cover), .remove(.scrollAxis), .remove(.paperOrientation), .remove(.direction), .remove(.pageIndicator),
-        .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout),
+        .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout), .remove(.presentation),
         .remove(.thumbnails), .remove(.zoom), .compact(.print),
     ]
 

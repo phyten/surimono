@@ -69,7 +69,6 @@
                 model.reviewSmartRemoval()
             default: break
             }
-            if argument("SurimonoMode") == "print" { model.enterPrintMode() }
             if argument("SurimonoPopover") == "view" {
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.isViewOptionsPresented = true
@@ -97,6 +96,28 @@
                     // then resizes to the new shape.
                     model.setLayout(layout)
                     try? await Task.sleep(for: .milliseconds(1200))
+                }
+                if let script = argument("SurimonoWebScript") {
+                    // Stands in for a reader using the live page before it is shown as paper.
+                    _ = try? await model.web.webView?.evaluateJavaScript(script)
+                    try? await Task.sleep(for: .milliseconds(300))
+                }
+                switch argument("SurimonoPresentation") {
+                case "paper":
+                    model.setHTMLPresentation(.paper)
+                    try? await Task.sleep(for: .milliseconds(1500))
+                case "roundtrip":
+                    // To paper and back, to check that the live page continues where it was.
+                    model.setHTMLPresentation(.paper)
+                    try? await Task.sleep(for: .milliseconds(1500))
+                    model.setHTMLPresentation(.web)
+                    try? await Task.sleep(for: .milliseconds(600))
+                default: break
+                }
+                if argument("SurimonoMode") == "print" {
+                    // After the page script, so that the tray shows the page as it was left.
+                    model.enterPrintMode()
+                    try? await Task.sleep(for: .milliseconds(1500))
                 }
                 if argument("SurimonoMode") == "roundtrip" {
                     // Into the print mode and back, to check that the view mode returns as it was.
