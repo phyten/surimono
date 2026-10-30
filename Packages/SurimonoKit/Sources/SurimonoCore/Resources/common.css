@@ -84,6 +84,13 @@ nav.toc { margin-block: 1em; }
 nav.toc ul { list-style: none; margin-block: 0.15em; padding-left: 1.2em; }
 nav.toc > ul { padding-left: 0; }
 nav.toc a { text-decoration: none; }
+/* Formulas are SwaTex's SVG. A display formula wider than the page shrinks to fit instead of running into the margin. */
+.math svg { overflow: visible; }
+.math-display { display: block; margin-block: 0.6em; text-align: center; }
+.math-display svg { max-width: 100%; height: auto; }
+.math-block { margin-block: 0.8em; text-align: center; break-inside: avoid; page-break-inside: avoid; }
+.math-block > .math-display { margin-block: 0; }
+.math-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0 0.2em; white-space: pre-wrap; }
 
 /* Defaults are dark enough for white paper; themes may override each token independently. */
 :root {

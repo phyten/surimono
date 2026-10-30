@@ -38,6 +38,49 @@ enum MarkdownExtensions {
         }
     }
 
+    /// Formulas taken out of the text before cmark parses it, so its emphasis and escapes cannot reach the LaTeX.
+    /// Inline formulas leave a token in the text, which `restore(_:)` turns back into their HTML.
+    final class Formulas {
+        private var html: [String] = []
+        /// Random for each document, so a token never matches text the document itself contains.
+        private let nonce = String((0..<12).map { _ in "abcdefghijklmnopqrstuvwxyz".randomElement() ?? "x" })
+        private lazy var pattern = try? NSRegularExpression(pattern: "\u{E000}\(nonce)([0-9]+)\u{E001}")
+
+        fileprivate func token(_ latex: String, display: Bool, source: String) -> String {
+            html.append(MathRenderer.html(latex, display: display) ?? MathRenderer.fallback(source, display: display))
+            return "\u{E000}\(nonce)\(html.count - 1)\u{E001}"
+        }
+
+        /// A display formula on lines of its own, as an HTML block.
+        fileprivate func block(_ latex: String, source: String) -> String {
+            let formula = MathRenderer.html(latex, display: true) ?? MathRenderer.fallback(source, display: true)
+            return "<div class=\"math-block\">\(formula)</div>"
+        }
+
+        /// Puts the formulas back into rendered HTML.
+        func restore(_ text: String) -> String { replacingTokens(in: text) { $0 } }
+
+        /// The text without its formula tokens, for titles, anchors and alternative text.
+        func strip(_ text: String) -> String { replacingTokens(in: text) { _ in "" } }
+
+        /// Only tokens this document issued are replaced; anything else stays as written.
+        private func replacingTokens(in text: String, with replacement: (String) -> String) -> String {
+            guard text.contains("\u{E000}"), let regex = pattern else { return text }
+            let nsText = text as NSString
+            var output = ""
+            var cursor = 0
+            for match in regex.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
+                guard let index = Int(nsText.substring(with: match.range(at: 1))), html.indices.contains(index) else {
+                    continue
+                }
+                output += nsText.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+                output += replacement(html[index])
+                cursor = match.range.location + match.range.length
+            }
+            return output + nsText.substring(from: cursor)
+        }
+    }
+
     // MARK: - Source rewriting
 
     /// The parts of the source the extensions leave as written: whole lines of code blocks, HTML blocks and link
@@ -224,24 +267,226 @@ enum MarkdownExtensions {
 
     /// Rewrites the inline syntax of every line outside code and HTML blocks. The title on a `:::` line is plain text
     /// (`MarkdownCallouts` escapes it), so the line is left as written.
-    static func rewriteInline(_ lines: [String], footnotes: Footnotes) -> [String] {
+    static func rewriteInline(_ lines: [String], footnotes: Footnotes, formulas: Formulas) -> [String] {
         let protection = protection(lines)
-        return lines.enumerated().map { index, line in
-            if protection.lines[index] || line.drop(while: { $0 == " " }).hasPrefix(":::") { return line }
-            guard let spans = protection.spans[index] else { return rewriteInline(line, footnotes) }
+        var output: [String] = []
+        var index = 0
+        // How far an unclosed formula was searched, by closing mark and container; a later opening of the same kind
+        // before that line would find no end either.
+        var searched: [String: Int] = [:]
+        while index < lines.count {
+            let line = lines[index]
+            if protection.lines[index] || line.drop(while: { $0 == " " }).hasPrefix(":::") {
+                output.append(line)
+                index += 1
+                continue
+            }
+            if protection.spans[index] == nil {
+                switch displayBlock(lines, at: index, protection: protection, searched: &searched) {
+                case .block(let block):
+                    // An HTML block ends only at a blank line, so one follows to keep the next lines out of it.
+                    output += [block.prefix + formulas.block(block.latex, source: block.source), block.blankLine]
+                    index = block.end
+                    continue
+                case .none:
+                    break
+                }
+            }
+            index += 1
+            guard let spans = protection.spans[index - 1] else {
+                output.append(rewriteInline(line, footnotes, formulas))
+                continue
+            }
             let bytes = Array(line.utf8)
             func text(_ range: Range<Int>) -> String { String(decoding: bytes[range], as: UTF8.self) }
-            var output = ""
+            var rewritten = ""
             var cursor = 0
             for span in spans.sorted(by: { $0.lowerBound < $1.lowerBound }) where span.lowerBound >= cursor {
-                output += rewriteInline(text(cursor..<span.lowerBound), footnotes) + text(span)
+                rewritten += rewriteInline(text(cursor..<span.lowerBound), footnotes, formulas) + text(span)
                 cursor = span.upperBound
             }
-            return output + rewriteInline(text(cursor..<bytes.count), footnotes)
+            output.append(rewritten + rewriteInline(text(cursor..<bytes.count), footnotes, formulas))
         }
+        return output
+    }
+
+    private struct DisplayBlock {
+        let prefix: String
+        let latex: String
+        let source: String
+        let blankLine: String
+        let end: Int
+    }
+
+    private enum DisplaySearch {
+        case block(DisplayBlock)
+        case none
+    }
+
+    /// A display formula that starts a line with `$$` or `\[` and ends a line with `$$` or `\]`, on one line or
+    /// several. The following lines keep everything but the block quote markers of the opening line, so `- x` and
+    /// `> 0` stay in the formula. A line outside those quotes, a line indented less than the opening line's content
+    /// (the next list item, or text after the list), or a blank line (TeX allows none in display math) ends the
+    /// search.
+    private static func displayBlock(
+        _ lines: [String], at index: Int, protection: Protection, searched: inout [String: Int]
+    ) -> DisplaySearch {
+        let line = lines[index]
+        let prefixEnd =
+            containerPrefix?.firstMatch(in: line, range: NSRange(line.startIndex..., in: line))
+            .flatMap { Range($0.range, in: line)?.upperBound } ?? line.startIndex
+        let prefix = String(line[..<prefixEnd])
+        let opening = line[prefixEnd...].trimmingCharacters(in: .whitespaces)
+        let delimiters = [("$$", "$$"), ("\\[", "\\]")]
+        guard let (opener, closer) = delimiters.first(where: { opening.hasPrefix($0.0) }) else { return .none }
+        let rest = String(opening.dropFirst(opener.count))
+        let blankLine = String(prefix.map { $0 == ">" ? ">" : " " }).trimmingCharacters(in: .whitespaces)
+        if let close = rest.range(of: closer) {
+            // `$$a$$` alone on its line; with text after it, the formula is inline and handled with the text.
+            guard close.upperBound == rest.endIndex, close.lowerBound != rest.startIndex else { return .none }
+            return .block(
+                DisplayBlock(
+                    prefix: prefix, latex: String(rest[..<close.lowerBound]), source: opening, blankLine: blankLine,
+                    end: index + 1))
+        }
+        let containers = containers(of: prefix)
+        let key = closer + containers.map { if case .list(let width) = $0 { "l\(width)" } else { "q" } }.joined()
+        guard index >= searched[key, default: 0] else { return .none }
+        var latex = [rest]
+        var source = [opening]
+        var cursor = index + 1
+        func unclosed() -> DisplaySearch {
+            searched[key] = cursor
+            return .none
+        }
+        while cursor < lines.count {
+            guard !protection.lines[cursor], let inside = content(of: lines[cursor], in: containers) else {
+                return unclosed()
+            }
+            let text = inside.trimmingCharacters(in: .whitespaces)
+            if text.isEmpty { return unclosed() }
+            source.append(text)
+            if text.hasSuffix(closer) {
+                latex.append(String(text.dropLast(closer.count)))
+                return .block(
+                    DisplayBlock(
+                        prefix: prefix, latex: latex.joined(separator: "\n"), source: source.joined(separator: "\n"),
+                        blankLine: blankLine, end: cursor + 1))
+            }
+            latex.append(text)
+            cursor += 1
+        }
+        return unclosed()
+    }
+
+    /// A block quote, or a list item (or plain indentation) whose content starts `width` columns in.
+    private enum Container {
+        case quote
+        case list(width: Int)
+    }
+
+    private static let listMarker = try? NSRegularExpression(pattern: #"^(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t]|$)"#)
+
+    /// The opening line's containers in the order they nest, read from its prefix. Widths count columns, with a tab
+    /// to the next multiple of four from where it stands.
+    private static func containers(of prefix: String) -> [Container] {
+        var result: [Container] = []
+        var rest = Substring(prefix)
+        var column = 0
+        while !rest.isEmpty {
+            let (leading, leadingCount) = whitespace(rest, from: column)
+            let marker = rest.dropFirst(leadingCount)
+            if marker.first == ">" {
+                result.append(.quote)
+                column += leading + 1
+                rest = marker.dropFirst()
+                if rest.first == " " {
+                    rest = rest.dropFirst()
+                    column += 1
+                }
+            } else if let match = listMarker?.firstMatch(
+                in: String(marker), range: NSRange(marker.startIndex..., in: marker))
+            {
+                let markerEnd = column + leading + match.range.length
+                let afterMarker = marker.dropFirst(match.range.length)
+                let (gap, gapCount) = whitespace(afterMarker, from: markerEnd)
+                // CommonMark: content starts one to four columns after the marker; with none or five or more, one.
+                let padding = (1...4).contains(gap) ? gap : 1
+                result.append(.list(width: leading + match.range.length + padding))
+                column = markerEnd + gap
+                rest = afterMarker.dropFirst(gapCount)
+            } else {
+                if leading > 0 { result.append(.list(width: leading)) }
+                break
+            }
+        }
+        return result
+    }
+
+    /// The line's content inside the containers, or nil when it has left one: fewer quote markers, or less
+    /// indentation than a list item's content (the next item, or text after the list).
+    private static func content(of line: String, in containers: [Container]) -> Substring? {
+        var rest = Substring(line)
+        var column = 0
+        // Columns of a tab already passed but not yet taken by a container: one tab may indent two nested items.
+        var spare = 0
+        for container in containers {
+            switch container {
+            case .quote:
+                spare = 0
+                let (leading, leadingCount) = whitespace(rest, from: column)
+                let marker = rest.dropFirst(leadingCount)
+                guard marker.first == ">" else { return nil }
+                column += leading + 1
+                rest = marker.dropFirst()
+                if rest.first == " " {
+                    rest = rest.dropFirst()
+                    column += 1
+                }
+            case .list(let width):
+                guard spare + whitespace(rest, from: column).columns >= width else { return nil }
+                var needed = width - min(spare, width)
+                spare -= width - needed
+                while needed > 0, let first = rest.first {
+                    let step = first == "\t" ? 4 - column % 4 : 1
+                    column += step
+                    rest = rest.dropFirst()
+                    spare = max(step - needed, 0)
+                    needed = max(needed - step, 0)
+                }
+            }
+        }
+        return rest
+    }
+
+    /// The columns and characters of the leading spaces and tabs, starting at `column`.
+    private static func whitespace(_ text: Substring, from column: Int) -> (columns: Int, count: Int) {
+        var end = column
+        var count = 0
+        for character in text {
+            if character == " " {
+                end += 1
+            } else if character == "\t" {
+                end += 4 - end % 4
+            } else {
+                break
+            }
+            count += 1
+        }
+        return (end - column, count)
     }
 
     private static let inlinePattern: NSRegularExpression? = {
+        // Formulas come first so that `\(` and `\[` open a formula rather than escape a bracket. An inline `$` must
+        // touch its formula on both sides and not be followed by a digit, so prices such as $5 and $10 stay text.
+        // Inside, a backslash and the next character go together (`\$` is LaTeX's dollar sign). A `$` escaped in the
+        // text is consumed by the escape below before it could open a formula, so the opening is not checked for one.
+        let math = [
+            #"\$\$(?<displayMath>[^$\n]+?)\$\$"#,
+            #"\\\[(?<displayMath2>.+?)\\\]"#,
+            #"\\\((?<inlineMath2>.+?)\\\)"#,
+            #"(?<!\$)\$(?<inlineMath>(?=[^\s$])(?:\\.|[^$\\\n])*?(?<=[^\s]))\$(?![0-9$])"#,
+        ].joined(separator: "|")
         let verbatim = [
             #"\\[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]"#,  // a backslash escape
             #"(?<!`)(?<ticks>`+)(?:.*?[^`])?\k<ticks>(?!`)"#,  // a code span on one line
@@ -256,11 +501,11 @@ enum MarkdownExtensions {
             #"(?<![\\^])\^(?=[^\s^])(?<sup>[^\s^]+?)\^(?!\^)"#,
             #"(?<![~\\])~(?=[^\s~])(?<sub>[^\s~]+?)~(?!~)"#,
         ].joined(separator: "|")
-        return try? NSRegularExpression(pattern: "(?<verbatim>\(verbatim))|\(syntax)")
+        return try? NSRegularExpression(pattern: "\(math)|(?<verbatim>\(verbatim))|\(syntax)")
     }()
 
-    private static func rewriteInline(_ text: String, _ footnotes: Footnotes) -> String {
-        guard let regex = inlinePattern, text.contains(where: { "[{=^~".contains($0) }) else { return text }
+    private static func rewriteInline(_ text: String, _ footnotes: Footnotes, _ formulas: Formulas) -> String {
+        guard let regex = inlinePattern, text.contains(where: { "[{=^~$\\".contains($0) }) else { return text }
         let nsText = text as NSString
         var output = ""
         var cursor = 0
@@ -272,14 +517,18 @@ enum MarkdownExtensions {
                 let range = match.range(withName: name)
                 return range.location == NSNotFound ? nil : nsText.substring(with: range)
             }
-            if capture("verbatim") != nil {
+            if let latex = capture("displayMath") ?? capture("displayMath2") {
+                output += formulas.token(latex, display: true, source: whole)
+            } else if let latex = capture("inlineMath") ?? capture("inlineMath2") {
+                output += formulas.token(latex, display: false, source: whole)
+            } else if capture("verbatim") != nil {
                 output += whole
             } else if let label = capture("footnote") {
                 output += footnotes.reference(to: label) ?? whole
             } else if let base = capture("rubyBase"), let reading = capture("rubyText") {
                 output += ruby(base: base, reading: reading)
             } else if let content = capture("mark") {
-                output += "<mark>" + rewriteInline(content, footnotes) + "</mark>"
+                output += "<mark>" + rewriteInline(content, footnotes, formulas) + "</mark>"
             } else if let content = capture("sup") {
                 output += "<sup>" + content + "</sup>"
             } else if let content = capture("sub") {
@@ -350,9 +599,9 @@ enum MarkdownExtensions {
 
     /// The heading's text as a reader sees it: the inline HTML of rewritten syntax, such as a footnote reference,
     /// does not count.
-    static func plainText(_ node: any Markup) -> String {
+    static func plainText(_ node: any Markup, formulas: Formulas? = nil) -> String {
         switch node {
-        case let text as Text: return emojified(text.string)
+        case let text as Text: return formulas.map { $0.strip(emojified(text.string)) } ?? emojified(text.string)
         case let code as InlineCode: return code.code
         case is SoftBreak, is LineBreak: return " "
         case is InlineHTML: return ""
@@ -365,7 +614,7 @@ enum MarkdownExtensions {
                     if html.rawHTML == "</sup>" { insideReference = false }
                     return ""
                 }
-                return insideReference ? "" : plainText(child)
+                return insideReference ? "" : plainText(child, formulas: formulas)
             }.joined()
         }
     }
@@ -381,12 +630,12 @@ enum MarkdownExtensions {
     }
 
     /// Every heading's anchor in document order; a repeated id gets `-1`, `-2`… as on GitHub.
-    static func headingAnchors(in document: any Markup) -> [HeadingAnchor] {
+    static func headingAnchors(in document: any Markup, formulas: Formulas? = nil) -> [HeadingAnchor] {
         var anchors: [HeadingAnchor] = []
         var used: [String: Int] = [:]
         func visit(_ node: any Markup) {
             if let heading = node as? Heading {
-                let (text, custom) = splitCustomID(plainText(heading))
+                let (text, custom) = splitCustomID(plainText(heading, formulas: formulas))
                 let base = custom ?? (slug(text).isEmpty ? "section" : slug(text))
                 var id = base
                 if let count = used[base] {
