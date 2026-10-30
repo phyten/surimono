@@ -19,24 +19,29 @@ struct PaperOrientationControl: View {
                 Text(value)
             }
         }
-        .disabled(model.layout.kind == .booklet)
+        .disabled(isFixed)
         .help(
-            model.layout.kind == .booklet
-                ? Text("Booklets use a fixed paper orientation.") : Text("Paper Orientation")
+            isFixed
+                ? Text("This layout uses a fixed paper orientation.") : Text("Paper Orientation")
         )
         .accessibilityLabel(Text("Paper Orientation"))
         .accessibilityValue(Text(value))
     }
 
-    private var value: LocalizedStringKey {
-        switch model.paperOrientation {
+    var isFixed: Bool { model.layout.kind == .booklet || model.layout.kind == .handout3 }
+
+    var value: LocalizedStringKey {
+        if isFixed {
+            return model.layout.sheetSize.width > model.layout.sheetSize.height ? "Landscape" : "Portrait"
+        }
+        return switch model.paperOrientation {
         case .portrait: "Portrait"
         case .landscape: "Landscape"
         case .auto:
-            if model.layout.kind == .booklet || !model.isUpToDate {
+            if !model.isUpToDate {
                 "Auto"
             } else {
-                model.result?.resolvedOrientation == .landscape ? "Auto (Landscape)" : "Auto (Portrait)"
+                model.result?.sheetOrientation == .landscape ? "Auto (Landscape)" : "Auto (Portrait)"
             }
         }
     }

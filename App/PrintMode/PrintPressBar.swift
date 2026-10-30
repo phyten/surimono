@@ -359,6 +359,12 @@ struct LayoutPictogram: View {
             return Parts(
                 papers: [CGRect(x: 10, y: 8, width: 26, height: 16)], fold: fold,
                 text: lines([(13, 12, 7), (13, 15, 7), (26, 12, 7), (26, 15, 7), (26, 18, 4)]))
+        case .handout3:
+            var text = lines([(27, 9, 6), (27, 13, 6), (27, 17, 6), (27, 21, 6)])
+            for y in [6.5, 12.5, 18.5] {
+                text.addRect(CGRect(x: 13, y: y, width: 11, height: 4.5))
+            }
+            return Parts(papers: [CGRect(x: 10, y: 3.5, width: 26, height: 23)], text: text)
         case .twoUp:
             var text = Path()
             text.addRect(CGRect(x: 8, y: 7.5, width: 13, height: 16))

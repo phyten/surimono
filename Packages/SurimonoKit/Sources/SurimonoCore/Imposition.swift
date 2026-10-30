@@ -28,6 +28,10 @@ public enum Imposition {
                 for index in stride(from: 0, to: count, by: 2) {
                     sides.append(SheetSide(slots: [index, page(index + 1)], isBack: false))
                 }
+            case .handout3:
+                for index in stride(from: 0, to: count, by: 3) {
+                    sides.append(SheetSide(slots: [index, page(index + 1), page(index + 2)], isBack: false))
+                }
             case .booklet:
                 let sheets = count / 4 + (count % 4 == 0 ? 0 : 1)
                 let padded = sheets * 4

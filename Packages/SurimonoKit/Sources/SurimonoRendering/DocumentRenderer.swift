@@ -115,7 +115,11 @@ public struct PaginationRequest: Sendable {
 
 @MainActor
 public struct RenderResult {
+    // Content orientation is retained separately because 2-up reverses the sheet orientation.
     public let resolvedOrientation: PaperOrientation
+    public var sheetOrientation: PaperOrientation {
+        layout.sheetSize.width > layout.sheetSize.height ? .landscape : .portrait
+    }
     public let layout: PrintLayout
     public let logicalDocument: PDFDocument
     public let sheetDocument: PDFDocument
@@ -201,9 +205,11 @@ public final class DocumentRenderer {
                 landscape = settings.paperOrientation == .landscape
             }
             settings.layout = settings.layout.oriented(landscape)
-            let pageSize = settings.layout.logicalPageSize
-            let margin = settings.options.marginsInMillimeters
-            guard PDFDrawing.validGeometry(pageSize: pageSize, margin: margin * 72 / 25.4) else {
+            let pageSize = settings.layout.logicalPageSize(options: settings.options)
+            let margin = settings.layout.logicalMarginsInMillimeters(options: settings.options)
+            guard settings.options.marginsInMillimeters.isFinite, settings.options.marginsInMillimeters >= 0,
+                PDFDrawing.validGeometry(pageSize: pageSize, margin: margin * 72 / 25.4)
+            else {
                 throw RenderingError.invalidMargins
             }
             let key = CacheKey(
@@ -339,8 +345,8 @@ public final class DocumentRenderer {
             try Task.checkCancellation()
             do {
                 let rendered = try await ImagePageRenderer().render(
-                    data, pageSize: settings.layout.logicalPageSize,
-                    marginsInMillimeters: settings.options.marginsInMillimeters)
+                    data, pageSize: settings.layout.logicalPageSize(options: settings.options),
+                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options))
                 guard let page = rendered.page(at: 0) else { throw ImagePageRenderer.RenderingError.invalidImage }
                 document.insert(page, at: document.pageCount)
             } catch ImagePageRenderer.RenderingError.invalidImage {
@@ -364,8 +370,8 @@ public final class DocumentRenderer {
         case .image:
             return WebPaginator.Result(
                 document: try await ImagePageRenderer().render(
-                    source.data, pageSize: settings.layout.logicalPageSize,
-                    marginsInMillimeters: settings.options.marginsInMillimeters))
+                    source.data, pageSize: settings.layout.logicalPageSize(options: settings.options),
+                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)))
         case .html:
             let input: WebPaginator.Source
             if source.isLiveSnapshot {
@@ -386,8 +392,9 @@ public final class DocumentRenderer {
             }
             return try await paginate(
                 PaginationRequest(
-                    source: input, pageSize: settings.layout.logicalPageSize,
-                    margins: .uniform(millimeters: settings.options.marginsInMillimeters),
+                    source: input, pageSize: settings.layout.logicalPageSize(options: settings.options),
+                    margins: .uniform(
+                        millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation))
         case .markdown, .org, .plainText, .csv:
             let text = try decodedText(source.data)
@@ -407,8 +414,10 @@ public final class DocumentRenderer {
                 textScale: settings.textScale)
             return try await paginate(
                 PaginationRequest(
-                    source: .html(html, baseURL: directory), pageSize: settings.layout.logicalPageSize,
-                    margins: .uniform(millimeters: settings.options.marginsInMillimeters),
+                    source: .html(html, baseURL: directory),
+                    pageSize: settings.layout.logicalPageSize(options: settings.options),
+                    margins: .uniform(
+                        millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
                     allowsJavaScript: false, preparationScript: nil))
         }
     }

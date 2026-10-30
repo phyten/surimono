@@ -2837,6 +2837,56 @@
           }
         }
       }
+    },
+    "%@ 3-up + Notes": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 3枚＋メモ"
+          }
+        }
+      }
+    },
+    "Prints **three pages on the left of %@ portrait**, single-sided, with ruled notes on the right.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "**%@ 縦の左側に3ページ**を片面で印刷し、右側に罫線入りのメモ欄を設けます。"
+          }
+        }
+      }
+    },
+    "Three pages on the left · notes on the right": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左に3ページ・右にメモ欄"
+          }
+        }
+      }
+    },
+    "Three pages on the left · notes on the right · unused slots on the last sheet are blank": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左に3ページ・右にメモ欄・最後の空き枠は白紙"
+          }
+        }
+      }
+    },
+    "This layout uses a fixed paper orientation.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このレイアウトでは用紙の向きが決まっています。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

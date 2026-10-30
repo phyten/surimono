@@ -18,7 +18,9 @@ struct PrintJobFactoryTests {
         #expect(abs(stacked.paperSize.height - 1190.55) < 1)
     }
 
-    @Test("レイアウトに対応した用紙寸法と両面設定を構築する", arguments: [PrintLayout.a3BookletA4, .a4Duplex, .a4Single])
+    @Test(
+        "レイアウトに対応した用紙寸法と両面設定を構築する",
+        arguments: [PrintLayout.a3BookletA4, .a4Duplex, .a4Single, .a4Handout3, .a4Handout3.oriented(true)])
     func settings(layout: PrintLayout) throws {
         let base = NSPrintInfo()
         base.scalingFactor = 0.5

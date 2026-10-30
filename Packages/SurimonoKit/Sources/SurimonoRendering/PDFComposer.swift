@@ -19,8 +19,11 @@ public struct PDFComposer {
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
-        let margin = CGFloat(options.marginsInMillimeters * 72 / 25.4)
-        guard PDFDrawing.validGeometry(pageSize: layout.logicalPageSize, margin: margin) else {
+        let logicalSize = layout.logicalPageSize(options: options)
+        let margin = CGFloat(layout.logicalMarginsInMillimeters(options: options) * 72 / 25.4)
+        guard options.marginsInMillimeters.isFinite, options.marginsInMillimeters >= 0,
+            PDFDrawing.validGeometry(pageSize: logicalSize, margin: margin)
+        else {
             throw CompositionError.invalidMargins
         }
         // PDFPage edits (including rotation) are not necessarily reflected in pageRef until serialized.
@@ -45,16 +48,27 @@ public struct PDFComposer {
                         guard let page = source.page(at: index + 1) else {
                             throw CompositionError.invalidPage(index + 1)
                         }
-                        let slotRect = layout.slotRect(at: slot)
+                        let slotRect = layout.slotRect(at: slot, options: options)
                         let rect = CGRect(
                             x: slotRect.minX * size.width, y: (1 - slotRect.maxY) * size.height,
                             width: slotRect.width * size.width, height: slotRect.height * size.height)
                         try draw(page, in: rect, context: context, index: index)
                         if options.showsPageNumbers {
-                            drawNumber(
-                                index + 1, in: rect, margin: margin, logicalSize: layout.logicalPageSize,
-                                context: context)
+                            if layout.kind == .handout3 {
+                                let spaceBelow = slot < 2 ? 8 * 72 / 25.4 : options.marginsInMillimeters * 72 / 25.4
+                                drawHandoutNumber(index + 1, below: rect, space: spaceBelow, context: context)
+                            } else {
+                                drawNumber(
+                                    index + 1, in: rect, margin: margin, logicalSize: logicalSize,
+                                    context: context)
+                            }
                         }
+                    }
+                    if let memo = layout.memoRect(options: options) {
+                        let rect = CGRect(
+                            x: memo.minX * size.width, y: (1 - memo.maxY) * size.height,
+                            width: memo.width * size.width, height: memo.height * size.height)
+                        drawMemo(in: rect, context: context)
                     }
                     context.restoreGState()
                     context.endPDFPage()
@@ -67,6 +81,20 @@ public struct PDFComposer {
         } catch {
             throw CompositionError.pdfCreationFailed
         }
+    }
+
+    private func drawMemo(in rect: CGRect, context: CGContext) {
+        context.saveGState()
+        defer { context.restoreGState() }
+        context.clip(to: rect)
+        context.setStrokeColor(CGColor(gray: 0.75, alpha: 1))
+        context.setLineWidth(0.5)
+        let spacing = 8.0 * 72 / 25.4
+        for offset in stride(from: spacing, through: rect.height, by: spacing) {
+            context.move(to: CGPoint(x: rect.minX, y: rect.maxY - offset))
+            context.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - offset))
+        }
+        context.strokePath()
     }
 
     private func draw(_ page: CGPDFPage, in rect: CGRect, context: CGContext, index: Int) throws {
@@ -88,6 +116,32 @@ public struct PDFComposer {
                 .cropBox, rect: CGRect(origin: .zero, size: rotatedSize), rotate: 0, preserveAspectRatio: true))
         context.clip(to: box)
         context.drawPDFPage(page)
+    }
+
+    private func drawHandoutNumber(_ number: Int, below rect: CGRect, space: CGFloat, context: CGContext) {
+        let text = NSAttributedString(
+            string: String(number),
+            attributes: [.font: NSFont.systemFont(ofSize: 8), .foregroundColor: NSColor.black])
+        let line = CTLineCreateWithAttributedString(text)
+        var ascent: CGFloat = 0
+        var descent: CGFloat = 0
+        let width = CTLineGetTypographicBounds(line, &ascent, &descent, nil)
+        let height = ascent + descent
+        let padding: CGFloat = 2
+        context.saveGState()
+        defer { context.restoreGState() }
+        context.textMatrix = .identity
+        if space >= height + 2 * padding {
+            context.textPosition = CGPoint(
+                x: rect.midX - width / 2, y: rect.minY - space / 2 - (ascent - descent) / 2)
+        } else {
+            // The last slot has no usable footer with zero or tiny margins; white backing preserves contrast.
+            let backing = CGRect(x: rect.minX, y: rect.minY, width: width + 2 * padding, height: height + 2 * padding)
+            context.setFillColor(CGColor(gray: 1, alpha: 1))
+            context.fill(backing)
+            context.textPosition = CGPoint(x: backing.minX + padding, y: backing.minY + padding + descent)
+        }
+        CTLineDraw(line, context)
     }
 
     private func drawNumber(

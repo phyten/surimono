@@ -67,7 +67,7 @@ struct PrintLayoutTests {
     @Test("半裁対応とプリセットの順番を固定する")
     func presets() {
         #expect(PaperSize.allCases.map(\.halved) == [.a4, .a5, nil, .b5, nil, nil, .letter])
-        #expect(PrintLayout.presets == [.a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp])
+        #expect(PrintLayout.presets == [.a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3])
         #expect(PrintLayout.a3BookletA4.logicalPageSize == PaperSize.a4.size)
         #expect(PrintLayout.a4BookletA5.logicalPageSize == PaperSize.a5.size)
         #expect(PrintLayout.a3TwoUp.sheetSize.width == PaperSize.a3.size.height)

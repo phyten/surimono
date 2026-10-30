@@ -12,6 +12,47 @@ struct DocumentRendererTests {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
     }
 
+    @Test("3枚＋メモの用紙は内容の向きと別に常に縦になる", arguments: PaperOrientation.allCases)
+    func handoutSheetOrientation(orientation: PaperOrientation) async throws {
+        let pdf = try RenderingFixtures.pdf(size: CGSize(width: 800, height: 450))
+        let source = DocumentSource(data: try #require(pdf.dataRepresentation()), format: .pdf)
+        var settings = settings
+        settings.layout = .a4Handout3
+        settings.paperOrientation = orientation
+        let result = try await DocumentRenderer().render(source, settings: settings)
+        #expect(result.sheetOrientation == .portrait)
+        #expect(settings.paperOrientation == orientation)
+        settings.layout = .a4Single
+        let single = try await DocumentRenderer().render(source, settings: settings)
+        #expect(single.sheetOrientation == (orientation == .portrait ? .portrait : .landscape))
+    }
+
+    @Test("3枚＋メモのWeb組版は枠の寸法を使い外周余白を二重に引かない")
+    func handoutPagination() async throws {
+        var sizes: [CGSize] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            sizes.append(request.pageSize)
+            #expect(request.margins == .uniform(millimeters: 0))
+            return try RenderingFixtures.pdf(count: 7, size: request.pageSize)
+        })
+        var settings = settings
+        settings.layout = .a4Handout3
+        let source = DocumentSource(data: Data("# Handout".utf8), format: .markdown)
+        let automatic = try await renderer.render(source, settings: settings)
+        #expect(automatic.sheetDocument.pageCount == 3)
+        settings.paperOrientation = .portrait
+        _ = try await renderer.render(source, settings: settings)
+        settings.paperOrientation = .landscape
+        _ = try await renderer.render(source, settings: settings)
+        #expect(sizes.count == 1)
+        settings.options.marginsInMillimeters = 10
+        _ = try await renderer.render(source, settings: settings)
+        #expect(sizes.count == 2)
+        #expect(abs(sizes[0].width - 312.0378) < 0.001)
+        #expect(abs(sizes[0].height - 237.1654) < 0.001)
+        #expect(abs(sizes[1].width - 330.1795) < 0.001)
+    }
+
     @Test("Markdownの向き変更は寸法を変えて再組版し印刷だけの変更は使い回す")
     func paperOrientationCache() async throws {
         var sizes: [CGSize] = []

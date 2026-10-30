@@ -17,7 +17,7 @@ extension DocumentViewModel {
         }
     }
 
-    /// ⌘1–⌘5 and the layout cards: choose the layout and show it on the tray.
+    /// ⌘1–⌘6 and the layout cards: choose the layout and show it on the tray.
     func chooseLayout(_ id: String) {
         guard PrintLayout.presets.contains(where: { $0.id == id }) else { return }
         layoutID = id
