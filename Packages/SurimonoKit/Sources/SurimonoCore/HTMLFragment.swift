@@ -18,6 +18,16 @@ enum HTML {
             .replacingOccurrences(of: "\"", with: "&quot;")
             .replacingOccurrences(of: "'", with: "&#39;")
     }
+
+    /// The text `escape(_:)` wrote, and the non-breaking space.
+    static func unescape(_ html: String) -> String {
+        html.replacingOccurrences(of: "&nbsp;", with: "\u{00A0}")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&amp;", with: "&")
+    }
 }
 
 public enum PlainTextConverter {

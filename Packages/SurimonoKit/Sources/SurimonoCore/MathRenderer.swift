@@ -13,10 +13,12 @@ public enum MathRenderer {
     private static let size = try? NSRegularExpression(pattern: #" width="[^"]*" height="[^"]*""#)
 
     /// The formula as HTML, or nil when SwaTex cannot read it.
-    public static func html(_ latex: String, display: Bool) -> String? {
+    /// - Parameter macros: Definitions put in front of the formula, such as a document's `\newcommand`s; they are
+    ///   not part of its accessible label.
+    public static func html(_ latex: String, display: Bool, macros: String = "") -> String? {
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty,
-            let list = try? SwaTexEngine.displayList(for: source, style: display ? .display : .text)
+            let list = try? SwaTexEngine.displayList(for: macros + source, style: display ? .display : .text)
         else { return nil }
         let svg = SVGRenderer(options: SVGOptions(fontSize: fontSize, padding: 0)).render(list)
         let nsSVG = svg as NSString
