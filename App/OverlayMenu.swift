@@ -20,12 +20,19 @@ final class OverlayMenuState {
     static let fullZone: CGFloat = ViewerWindow.bandHeight + 40
 
     private(set) var stage: Stage = .hidden
+    /// Whether the band is in use: the pointer rests on it, or a menu or popover from it is open. The band draws its
+    /// full background then, and a lighter one while the pointer is merely somewhere in the window.
+    private(set) var isPointerOverBand = false
     @ObservationIgnored private var showTask: Task<Void, Never>?
     @ObservationIgnored private var fullTask: Task<Void, Never>?
     @ObservationIgnored private var hideTask: Task<Void, Never>?
     @ObservationIgnored private var idleTask: Task<Void, Never>?
-    @ObservationIgnored private var pointerY: CGFloat?
-    @ObservationIgnored private var menuTracking = 0
+    @ObservationIgnored private var pointerY: CGFloat? {
+        didSet { updatePointerOverBand() }
+    }
+    @ObservationIgnored private var menuTracking = 0 {
+        didSet { updatePointerOverBand() }
+    }
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     /// The measured widths of the band's parts, and the band's own width. They outlive the band, which comes and goes
     /// with the pointer, so that it opens with the tools that fit instead of a first guess.
@@ -33,8 +40,17 @@ final class OverlayMenuState {
     var bandWidth: CGFloat = 0
     /// Set while a popover from the band is open, so the menu stays put.
     var isHolding = false {
-        didSet { if !isHolding { scheduleIdleHide() } }
+        didSet {
+            updatePointerOverBand()
+            if !isHolding { scheduleIdleHide() }
+        }
     }
+    #if DEBUG
+        /// Lets a snapshot draw either look of the band while it holds the band open.
+        var debugPointerOverBand: Bool? {
+            didSet { updatePointerOverBand() }
+        }
+    #endif
 
     init() {
         // A pop-up menu opened from the band takes the pointer away; keep the band until the menu closes.
@@ -60,6 +76,15 @@ final class OverlayMenuState {
     }
 
     private var isHeld: Bool { isHolding || menuTracking > 0 }
+
+    private func updatePointerOverBand() {
+        var over = isHeld || (pointerY.map { $0 <= ViewerWindow.bandHeight } ?? false)
+        #if DEBUG
+            if let debugPointerOverBand { over = debugPointerOverBand }
+        #endif
+        // Assign only on a change: the pointer moves constantly, and every assignment would invalidate the band.
+        if isPointerOverBand != over { isPointerOverBand = over }
+    }
 
     func pointerMoved(to point: CGPoint) {
         pointerY = point.y
@@ -172,6 +197,10 @@ struct OverlayBand: View {
     @Bindable var model: DocumentViewModel
     let stage: OverlayMenuState.Stage
     let menu: OverlayMenuState
+    /// The menu is pinned: it is part of the window then, not a passing overlay, so it keeps the full background.
+    let isPinned: Bool
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     static let spacing: CGFloat = 10
     static let toolSpacing: CGFloat = 8
@@ -180,10 +209,16 @@ struct OverlayBand: View {
     private static let lightsWidth: CGFloat = 64
     private static let spacerMinimum: CGFloat = 8
     private static let trailingPadding: CGFloat = 8
+    /// The opacity of the background while the pointer is elsewhere in the window, light enough to see the paper
+    /// through. The paper is white in both appearances, so the dark band fades less: its light text would otherwise
+    /// sit on a mid grey.
+    private static let translucentOpacity: (light: Double, dark: Double) = (0.6, 0.85)
 
     var body: some View {
         let items = BandLayout.Item.applicable(for: model, stage: stage)
         let plan = plan(for: items)
+        // Reduce Transparency asks for opaque surfaces, so the band never fades for it.
+        let solid = isPinned || menu.isPointerOverBand || reduceTransparency
         HStack(spacing: Self.spacing) {
             // Room for the traffic lights.
             Color.clear.frame(width: Self.lightsWidth, height: 1)
@@ -195,8 +230,13 @@ struct OverlayBand: View {
         .padding(.trailing, Self.trailingPadding)
         .frame(height: ViewerWindow.bandHeight)
         .frame(maxWidth: .infinity)
-        .background(.bar)
-        .overlay(alignment: .bottom) { Divider() }
+        // Only the background fades; the tools and text keep their full contrast.
+        .background {
+            Rectangle().fill(.bar).opacity(
+                solid ? 1 : colorScheme == .dark ? Self.translucentOpacity.dark : Self.translucentOpacity.light)
+        }
+        .overlay(alignment: .bottom) { Divider().opacity(solid ? 1 : 0.5) }
+        .animation(.easeOut(duration: 0.18), value: solid)
         .background(alignment: .topLeading) { BandMeasurements(model: model, items: items, menu: menu) }
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width

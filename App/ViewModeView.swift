@@ -28,8 +28,11 @@ struct ViewModeView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
             if bandVisible {
-                OverlayBand(model: model, stage: model.isMenuPinned ? .full : menu.stage, menu: menu)
-                    .transition(.opacity)
+                OverlayBand(
+                    model: model, stage: model.isMenuPinned ? .full : menu.stage, menu: menu,
+                    isPinned: model.isMenuPinned
+                )
+                .transition(.opacity)
             }
             ToastOverlay(model: model)
         }
@@ -56,6 +59,7 @@ struct ViewModeView: View {
             .onReceive(NotificationCenter.default.publisher(for: DebugSnapshot.showMenu)) { note in
                 guard let target = note.object as? DocumentViewModel, target === model else { return }
                 menu.isHolding = true
+                if let hover = note.userInfo?["bandHover"] as? Bool { menu.debugPointerOverBand = hover }
                 if note.userInfo?["stage"] as? String == "compact" { menu.showCompact() } else { menu.showFull() }
             }
         #endif
