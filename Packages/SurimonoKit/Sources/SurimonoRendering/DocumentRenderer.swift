@@ -579,7 +579,7 @@ public final class DocumentRenderer {
                         millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
                     readsPageRules: true))
-        case .markdown, .org, .plainText, .csv:
+        case .markdown, .org, .plainText, .csv, .latex:
             guard let fragment = try Self.themedFragment(source) else { throw RenderingError.unsupportedFormat }
             let directory = source.fileURL?.deletingLastPathComponent()
             let html = HTMLDocumentBuilder.build(
@@ -599,6 +599,9 @@ public final class DocumentRenderer {
     static func themedFragment(_ source: DocumentSource) throws -> HTMLFragment? {
         switch source.format {
         case .markdown: MarkdownConverter.convert(try decodedText(source.data))
+        case .latex:
+            LaTeXConverter.convert(
+                try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent())
         case .org: OrgConverter.convert(try decodedText(source.data))
         case .plainText: PlainTextConverter.convert(try decodedText(source.data))
         case .csv:

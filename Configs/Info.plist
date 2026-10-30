@@ -19,6 +19,7 @@
 			<array>
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
+				<string>org.tug.tex</string>
 				<string>public.plain-text</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
@@ -66,6 +67,25 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>org</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.tug.tex</string>
+			<key>UTTypeDescription</key>
+			<string>LaTeX</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>tex</string>
+					<string>latex</string>
+					<string>ltx</string>
 				</array>
 			</dict>
 		</dict>

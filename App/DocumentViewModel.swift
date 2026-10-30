@@ -946,7 +946,7 @@ final class DocumentViewModel {
         case .pdf: return .pdf
         case .image: return .image
         case .zipArchive: return .imageBundle
-        case .markdown, .org, .plainText, .html, .csv: return .flowingText
+        case .markdown, .org, .plainText, .html, .csv, .latex: return .flowingText
         }
     }
 

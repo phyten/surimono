@@ -561,6 +561,7 @@ extension DocumentFormat {
         case .image: "IMG"
         case .csv: "CSV"
         case .zipArchive: "ZIP"
+        case .latex: "TEX"
         }
     }
 }

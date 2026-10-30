@@ -50,6 +50,7 @@ struct SurimonoDocumentTests {
             Set(imported.compactMap { $0["UTTypeIdentifier"] as? String })
                 == Set([
                     UTType.surimonoMarkdown.identifier, UTType.surimonoOrg.identifier,
+                    UTType.surimonoLaTeX.identifier,
                 ]))
     }
 }

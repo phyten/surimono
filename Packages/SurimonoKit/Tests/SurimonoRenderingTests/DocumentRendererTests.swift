@@ -473,6 +473,26 @@ struct DocumentRendererTests {
         _ = try await renderer.render(DocumentSource(data: Data("* 見出し".utf8), format: .org), settings: settings)
     }
 
+    @Test("LaTeX は節に番号を振った HTML にし、印刷テーマを当て、文書の JavaScript を常に無効にする")
+    func latex() async throws {
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source {
+                #expect(html.contains("<body class=\"surimono format-latex\">"))
+                #expect(html.contains("<h2 id=\"sec-1\"><span class=\"secnum\">1</span>見出し</h2>"))
+            } else {
+                Issue.record("LaTeX は HTML に変換する")
+            }
+            #expect(!request.allowsJavaScript)
+            return try RenderingFixtures.pdf()
+        })
+        var settings = settings
+        settings.allowsJavaScriptInHTML = true
+        let source = DocumentSource(
+            data: Data("\\documentclass{article}\\begin{document}\\section{見出し}本文\\end{document}".utf8),
+            format: .latex)
+        _ = try await renderer.render(source, settings: settings)
+    }
+
     @Test("キャンセルされた組版はCancellationErrorを返し結果をキャッシュしない")
     func cancellation() async throws {
         var started = false

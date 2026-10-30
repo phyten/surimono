@@ -1,0 +1,100 @@
+\documentclass[a4paper]{jsarticle}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{booktabs}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\shelf}[1]{\textbf{棚#1}}
+\DeclareMathOperator{\argmax}{arg\,max}
+\definecolor{ai}{HTML}{2B4C6F}
+
+\title{星見図書室の運営メモ}
+\author{架空の司書 \and 架空の助手}
+\date{2026年10月}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+星見図書室の貸し出しと棚の並べ方を、印刷して配るためにまとめた架空の文書です。
+\end{abstract}
+
+\tableofcontents
+
+\section{はじめに}\label{sec:intro}
+この文書は \LaTeX{} で書かれています。図書室の棚は\shelf{A}から順に並びます%
+（コメントは印刷されません）。
+詳しくは\ref{sec:rules}節と式~\eqref{eq:books}を見てください\footnote{脚注は文書の最後にまとめて刷られます。}。
+
+\section{貸し出しの決まり}\label{sec:rules}
+\subsection{冊数}
+一度に借りられる冊数 $n$ は、次の式で決めます。
+\begin{equation}
+  n = \min\left(5, \left\lfloor \frac{d}{7} \right\rfloor + 2\right) \label{eq:books}
+\end{equation}
+ここで $d$ は利用した日数です。実数の集合 $\R$ や $\argmax_{x \in \R} f(x)$ も書けます。
+
+\begin{align*}
+  a &= b + c \\
+  d &= e + f
+\end{align*}
+
+\subsection{手順}
+\begin{enumerate}
+  \item 窓口で図書カードを見せる
+  \item 本を選ぶ
+  \begin{enumerate}[label=(\alph*)]
+    \item 雑誌は二冊まで\label{item:magazine}
+    \item 辞書は館内だけ
+  \end{enumerate}
+  \item 返す日を確かめる
+\end{enumerate}
+雑誌の決まりは(\ref{item:magazine})です。
+
+\begin{itemize}
+  \item \textcolor{ai}{藍色の文字}と\emph{強調}と\texttt{等幅}
+  \item[\checkmark] チェックの印を付けた項目
+\end{itemize}
+
+\begin{description}
+  \item[貸し出し] 一度に五冊まで
+  \item[予約] 窓口で受け付けます
+\end{description}
+
+\section{棚の一覧}
+\begin{table}[h]
+  \centering
+  \caption{棚と分類}\label{tab:shelves}
+  \begin{tabular}{lcr}
+    \toprule
+    棚 & 分類 & 冊数 \\
+    \midrule
+    A & 文学 & 1200 \\
+    B & 科学 & 860 \\
+    \multicolumn{2}{l}{合計} & 2060 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+表~\ref{tab:shelves}のとおりです。
+
+\begin{lstlisting}[language=Python]
+def lend(books, limit=5):
+    return books[:limit]
+\end{lstlisting}
+
+\begin{tikzpicture}
+  \draw (0,0) -- (1,1);
+\end{tikzpicture}
+
+\begin{quote}
+静かにお過ごしください。---星見図書室
+\end{quote}
+
+詳しくは \url{https://example.com/hoshimi} か
+\href{https://example.com/hoshimi/faq}{よくある質問}へ。
+
+\end{document}

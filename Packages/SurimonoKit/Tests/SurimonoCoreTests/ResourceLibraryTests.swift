@@ -66,6 +66,17 @@ struct ResourceLibraryTests {
         }
     }
 
+    @Test("見出しに番号を振るテーマは、番号を自分で持つ LaTeX の文書には振らない")
+    func numberingThemesLeaveLaTeXAlone() throws {
+        let numbering = try PrintThemeLibrary.load().filter(\.isBuiltIn).filter { $0.css.contains("counter(") }
+        #expect(numbering.count >= 7)
+        for theme in numbering {
+            for line in theme.css.split(separator: "\n") where line.contains("counter(") && line.contains("content:") {
+                #expect(line.contains("body:not(.format-latex)"), "\(theme.id): \(line)")
+            }
+        }
+    }
+
     @Test("ユーザーCSSは直下だけを読み名前順で安定して並ぶ")
     func userThemes() throws {
         try withDirectory { directory in
