@@ -63,14 +63,11 @@ public enum MarkdownConverter {
         case let image as Image:
             let title = image.title.map { " title=\"\(HTML.escape($0))\"" } ?? ""
             return "<img src=\"\(HTML.escape(image.source ?? ""))\" alt=\"\(HTML.escape(image.plainText))\"\(title)>"
-        case let item as ListItem:
-            let checkbox =
-                item.checkbox.map {
-                    "<input type=\"checkbox\" disabled" + ($0 == .checked ? " checked" : "") + "> "
-                } ?? ""
-            return "<li>\(checkbox)\(children())</li>\n"
-        case let list as OrderedList: return "<ol start=\"\(list.startIndex)\">\(children())</ol>\n"
-        case is UnorderedList: return wrap("ul") + "\n"
+        case let list as OrderedList:
+            return
+                "<ol start=\"\(list.startIndex)\">\(renderItems(of: list, sourceLines: sourceLines, autolinks: autolinks))</ol>\n"
+        case let list as UnorderedList:
+            return "<ul>\(renderItems(of: list, sourceLines: sourceLines, autolinks: autolinks))</ul>\n"
         case let table as Table: return renderTable(table, sourceLines: sourceLines)
         default: return children()
         }
@@ -119,6 +116,78 @@ public enum MarkdownConverter {
         }
         body += quote.children.dropFirst().map { render($0, sourceLines: sourceLines, autolinks: autolinks) }.joined()
         return marker.kind.opening + "\n" + marker.kind.title(titleHTML) + "\n" + body + "</div>\n"
+    }
+
+    /// Items of a tight list hold their paragraphs' text directly, as CommonMark renders them, so a task's checkbox
+    /// stays on its text's line and the items keep no paragraph spacing.
+    private static func renderItems(of list: any Markup, sourceLines: [String], autolinks: Bool) -> String {
+        let tight = !isLoose(list, sourceLines: sourceLines)
+        return list.children.map { child in
+            guard let item = child as? ListItem else {
+                return render(child, sourceLines: sourceLines, autolinks: autolinks)
+            }
+            let checkbox =
+                item.checkbox.map {
+                    "<input type=\"checkbox\" disabled" + ($0 == .checked ? " checked" : "") + "> "
+                } ?? ""
+            var leadsWithCheckbox = !checkbox.isEmpty
+            let body = item.children.map { block -> String in
+                guard block is Paragraph else { return render(block, sourceLines: sourceLines, autolinks: autolinks) }
+                let text = renderChildren(block, sourceLines: sourceLines, autolinks: autolinks)
+                // In a loose list the checkbox goes inside the first paragraph, so it still sits on the text's line.
+                let prefix = leadsWithCheckbox ? checkbox : ""
+                leadsWithCheckbox = false
+                return tight ? prefix + text : "<p>\(prefix)\(text)</p>\n"
+            }.joined()
+            let attributes = item.checkbox == nil ? "" : " class=\"task-list-item\""
+            return "<li\(attributes)>\(leadsWithCheckbox ? checkbox : "")\(body)</li>\n"
+        }.joined()
+    }
+
+    /// CommonMark calls a list loose when a blank line separates two of its items, or two blocks directly inside one
+    /// of them. swift-markdown does not keep that, so it is read from the source lines between the blocks; blank lines
+    /// inside a block, such as a code block or a nested list, do not count.
+    private static func isLoose(_ list: any Markup, sourceLines: [String]) -> Bool {
+        func lastLine(of node: any Markup) -> Int? {
+            if node is ListItem || node is UnorderedList || node is OrderedList || node is BlockQuote {
+                // An empty item's own range runs over the blank lines after it, so its marker line ends it.
+                guard let last = Array(node.children).last else { return node.range?.lowerBound.line }
+                return lastLine(of: last)
+            }
+            return node.range?.upperBound.line
+        }
+        // Inside block quotes a separating line still carries their markers, so ">" alone counts as blank.
+        var quoteDepth = 0
+        var ancestor = list.parent
+        while let node = ancestor {
+            if node is BlockQuote { quoteDepth += 1 }
+            ancestor = node.parent
+        }
+        func isBlank(_ line: String) -> Bool {
+            var rest = Substring(line)
+            for _ in 0..<quoteDepth {
+                let marker = rest.drop(while: { $0 == " " || $0 == "\t" })
+                guard marker.first == ">" else { break }
+                rest = marker.dropFirst()
+                if rest.first == " " || rest.first == "\t" { rest = rest.dropFirst() }
+            }
+            return rest.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        func blankLine(between earlier: any Markup, and later: any Markup) -> Bool {
+            // Lines are 1-based, so the lines strictly between are the indices from `end` to `start - 2`.
+            guard let end = lastLine(of: earlier), let start = later.range?.lowerBound.line, start - 1 > end else {
+                return false
+            }
+            return sourceLines[min(end, sourceLines.count)..<min(start - 1, sourceLines.count)].contains(where: isBlank)
+        }
+        let items = Array(list.children)
+        for (earlier, later) in zip(items, items.dropFirst()) where blankLine(between: earlier, and: later) {
+            return true
+        }
+        return items.contains { item in
+            let blocks = Array(item.children)
+            return zip(blocks, blocks.dropFirst()).contains { blankLine(between: $0, and: $1) }
+        }
     }
 
     private static func renderChildren(_ node: any Markup, sourceLines: [String], autolinks: Bool = true) -> String {
