@@ -1,5 +1,5 @@
 {
-  "originHash" : "6aeb5d2838324236ceba8185b4f60be19700604627cc6ccd8c049686e1c5dbae",
+  "originHash" : "6c39b23bcced9bc37018e21d0a4c6802c66a1633de9635a6e9dc8ef3cc454081",
   "pins" : [
     {
       "identity" : "sparkle",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "eef1a539a373c1f1a320624b1130fc5de7b2e100",
         "version" : "2.10.0"
+      }
+    },
+    {
+      "identity" : "swatex",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/PhraseHQ/SwaTex.git",
+      "state" : {
+        "revision" : "2b38d0b9b9b9466ac1302ab93b37f3b90b8c74fc",
+        "version" : "0.5.0"
       }
     },
     {

@@ -19,56 +19,72 @@ public enum MarkdownConverter {
         }
         let extracted = MarkdownExtensions.extractFootnotes(lines)
         let footnotes = MarkdownExtensions.Footnotes(definitions: extracted.definitions)
-        let (body, document) = renderBody(extracted.lines, footnotes: footnotes, anchorsHeadings: true)
-        if title == nil { title = firstHeading(in: document) }
-        return HTMLFragment(body: body + footnoteSection(footnotes), title: title)
+        let formulas = MarkdownExtensions.Formulas()
+        let (body, document) = renderBody(
+            extracted.lines, footnotes: footnotes, formulas: formulas, anchorsHeadings: true)
+        if title == nil { title = firstHeading(in: document, formulas: formulas) }
+        let html = body + footnoteSection(footnotes, formulas: formulas)
+        // At the end of the body, so the theme's rules for the first block still find the document's first block.
+        let fonts = MathRenderer.fontFaces(for: html)
+        return HTMLFragment(body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title)
     }
 
-    /// The source lines the AST was parsed from, and the heading anchors still to hand out in document order.
+    /// The source lines the AST was parsed from, the heading anchors still to hand out in document order, and the
+    /// formulas whose tokens the text holds.
     private final class Context {
         let sourceLines: [String]
         let anchors: [MarkdownExtensions.HeadingAnchor]
+        let formulas: MarkdownExtensions.Formulas
         var nextAnchor = 0
 
-        init(sourceLines: [String], anchors: [MarkdownExtensions.HeadingAnchor]) {
+        init(
+            sourceLines: [String], anchors: [MarkdownExtensions.HeadingAnchor], formulas: MarkdownExtensions.Formulas
+        ) {
             self.sourceLines = sourceLines
             self.anchors = anchors
+            self.formulas = formulas
         }
     }
 
-    private static func renderBody(_ lines: [String], footnotes: MarkdownExtensions.Footnotes, anchorsHeadings: Bool)
-        -> (String, Document)
-    {
-        let source = MarkdownCallouts.preprocess(MarkdownExtensions.rewriteInline(lines, footnotes: footnotes))
+    private static func renderBody(
+        _ lines: [String], footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
+        anchorsHeadings: Bool
+    ) -> (String, Document) {
+        let source = MarkdownCallouts.preprocess(
+            MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas))
         let document = Document(parsing: source, options: [.disableSmartOpts])
         let context = Context(
             sourceLines: source.components(separatedBy: "\n"),
-            anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document) : [])
+            anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
+            formulas: formulas)
         return (render(document, context), document)
     }
 
     /// The notes in the order the text first refers to them. A note may refer to another note, which then joins the
     /// end of the list. Paper has no way back from a note, so the notes carry no return links.
-    private static func footnoteSection(_ footnotes: MarkdownExtensions.Footnotes) -> String {
+    private static func footnoteSection(
+        _ footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas
+    ) -> String {
         guard !footnotes.order.isEmpty else { return "" }
         var items = ""
         var index = 0
         while index < footnotes.order.count {
             let definition = footnotes.definitions[footnotes.order[index]] ?? ""
             let (html, _) = renderBody(
-                definition.components(separatedBy: "\n"), footnotes: footnotes, anchorsHeadings: false)
+                definition.components(separatedBy: "\n"), footnotes: footnotes, formulas: formulas,
+                anchorsHeadings: false)
             items += "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
             index += 1
         }
         return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }
 
-    private static func firstHeading(in node: any Markup) -> String? {
+    private static func firstHeading(in node: any Markup, formulas: MarkdownExtensions.Formulas) -> String? {
         if let heading = node as? Heading, heading.level == 1 {
-            return MarkdownExtensions.splitCustomID(MarkdownExtensions.plainText(heading)).text
+            return MarkdownExtensions.splitCustomID(MarkdownExtensions.plainText(heading, formulas: formulas)).text
         }
         for child in node.children {
-            if let title = firstHeading(in: child) { return title }
+            if let title = firstHeading(in: child, formulas: formulas) { return title }
         }
         return nil
     }
@@ -81,8 +97,14 @@ public enum MarkdownConverter {
         func wrap(_ tag: String) -> String { "<\(tag)>\(children())</\(tag)>" }
         switch node {
         case let text as Text:
-            return autolinks ? renderAutolinks(text.string) : HTML.escape(MarkdownExtensions.emojified(text.string))
+            let html =
+                autolinks ? renderAutolinks(text.string) : HTML.escape(MarkdownExtensions.emojified(text.string))
+            return context.formulas.restore(html)
         case let code as InlineCode: return "<code>\(HTML.escape(code.code))</code>"
+        case let code as CodeBlock where code.language?.lowercased() == "math":
+            let formula =
+                MathRenderer.html(code.code, display: true) ?? MathRenderer.fallback(code.code, display: true)
+            return "<div class=\"math-block\">\(formula)</div>\n"
         case let code as CodeBlock:
             let highlighted = code.language.flatMap { SyntaxHighlighter.highlight(code.code, language: $0) }
             let language =
@@ -116,7 +138,8 @@ public enum MarkdownConverter {
             return "<a href=\"\(HTML.escape(link.destination ?? ""))\"\(title)>\(children(allowLinks: false))</a>"
         case let image as Image:
             let title = image.title.map { " title=\"\(HTML.escape($0))\"" } ?? ""
-            return "<img src=\"\(HTML.escape(image.source ?? ""))\" alt=\"\(HTML.escape(image.plainText))\"\(title)>"
+            return
+                "<img src=\"\(HTML.escape(image.source ?? ""))\" alt=\"\(HTML.escape(context.formulas.strip(image.plainText)))\"\(title)>"
         case let list as OrderedList:
             return
                 "<ol start=\"\(list.startIndex)\">\(renderItems(of: list, context, autolinks: autolinks))</ol>\n"
