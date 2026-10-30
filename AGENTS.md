@@ -4,7 +4,7 @@
 
 ## プロダクト
 
-- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
+- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
 - 主な機能: 出てくる用紙をそのまま並べる印刷モード（刷り台）、印刷テーマ（CSS。12 のカテゴリーに 94 種。文書の 1 ページ目の見本を並べたパレットで、最近使った・お気に入り・定番・カテゴリーから選べ、乗せると紙で試せる。4 つまで並べる見比べ台もある）の切替とユーザー CSS・文字の大きさ、HTML のノイズ除去プリセット（ユーザー追加可）とスマート削除（ベータ）、印刷レイアウト（A4 片面・両面、中綴じ冊子 A3→A4 / A4→A5、2アップ）、刷り台で選んだプリンターへのダイアログなしの印刷（システムの印刷画面も選べる）、PDF 書き出し、余白のない表示モード（段階表示のメニュー、見開き / 単ページ、拡大縮小、最前面に固定）、内容のハッシュごとの設定の保存、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観はシステムの設定に従う（アプリに切替は置かない）。
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
@@ -55,7 +55,7 @@ make clean
 
 ```text
 ファイル → DocumentFormat 判定
-  ├ Markdown / Org / テキスト / CSV → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
+  ├ Markdown / Org / テキスト / CSV / LaTeX → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
   ├ HTML → そのまま。ノイズ除去プリセット（CSS / JS）を注入
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
@@ -72,9 +72,13 @@ make clean
   - 脚注は最初に参照した順に番号を振り、本文は末尾の `section.footnotes` にまとめる。紙からは戻れないので、戻りのリンクは付けない。
   - 絵文字の対応表 `Resources/emoji.json` は GitHub の gemoji（MIT）の別名だけを取り出したもの。ライセンス文を `App/Acknowledgements/` に同梱している。
   - 数式 `$…$`・`$$…$$`（複数行も）・`\(…\)`・`\[…\]`・```` ```math ```` は、SwaTex（純 Swift の KaTeX 互換の組版）で SVG にする（`MathRenderer`）。式は cmark の前に取り出し、インラインは私用領域の文字の目印、行をまたぐものは HTML ブロックにするので、強調やエスケープが LaTeX に触れない。インラインの `$` は式に接していて後ろに数字が来ないときだけ（`$5 と $10` は文字のまま）。字形は KaTeX の書体の `<text>` で、使った書体だけを本文の最後の `<style>` に data URL の `@font-face` で埋め込む（文書の隣のファイルを読まずに刷れる。テーマの「Web フォントを使わない」とは別で、アプリが同梱する数式用の書体）。大きさは em（文字の 1.1 倍）、色は `currentColor` でテーマに従う。読めない式は原文を `.math-error` で残す。
-- JavaScript: Markdown / Org / テキスト / CSV から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りのスクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
+- LaTeX（`.tex`・`.latex`・`.ltx`、UTType `org.tug.tex`）は `LaTeXConverter`（SurimonoCore）が HTML 断片にする。TeX エンジンではなく、よく使う部分集合を読んで印刷テーマで刷る（Swift で書かれた TeX エンジンはなく、Tectonic などは TeX Live の同梱とネットからの取得が要るため）。
+  - 読むもの: 前置きの `\documentclass`・`\title`／`\author`／`\date`・`\newcommand`／`\def`・`\DeclareMathOperator`・`\definecolor`・`\graphicspath`、`\maketitle`、abstract、`\tableofcontents`、番号つきの節（章のある文書クラス、`\appendix`、和文の文書クラスは「第1章」）、`\label`／`\ref`／`\eqref`、書体とサイズ、itemize／enumerate（enumitem の `label=`・`start=`）／description、quote・center など、verbatim・lstlisting・minted（色付けは `SyntaxHighlighter`）、`\verb`、数式（`$`・`\(`・`\[`・equation・align などは SwaTex。星なしの環境に式番号）、`\footnote`、hyperref の `\href`／`\url`、xcolor、figure／table の `\caption`（図と表は別の番号）、graphicx の `\includegraphics`（拡張子がなければ文書の隣と `\graphicspath` を探す）、tabular（列の揃え・縦線・`\hline`・booktabs・`\multicolumn`・`\multirow`）。
+  - 前置きの `\newcommand` は文章の中では展開し、数式には定義として渡す（SwaTex が読めない定義は外す）。知らないコマンドは名前を捨てて引数の文字を残し、設定だけのコマンド（`\setlength` など）は引数ごと消す。geometry は無視して Surimono の用紙と余白を使う。TikZ などの図と `\input` は、描けない・読まないことを枠で示す。
+  - 改行をはさんだ和文の文字の間には空白を入れない（和文の TeX と同じ）。参照と目次は文書の終わりまで読んでから埋める。
+- JavaScript: Markdown / Org / テキスト / CSV / LaTeX から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りのスクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
 - 印刷テーマの目録は `Resources/themes.json`（SurimonoCore）: カテゴリー（順と名前）、定番の順、各テーマの id・英語名・日本語名・カテゴリー・飾りのスクリプトを持つ。テーマの CSS は `Resources/<id>.css` で、`common.css` の後に重ねる（`PrintThemeLibrary`）。メニューの並び（最近使った 5 つ・お気に入り・定番・カテゴリー・自分のスタイル）は純粋な型 `PrintThemeMenu` が決め、テストで固定している。
-  - テーマを足すときの決まり: `@page`・CSS の段組み・`position: fixed`・アニメーション・外部の URL・Web フォントは使わない。書体は macOS に入っているものだけで、最後に日本語の書体と総称の書体を置く。紙の地は白かごく淡い色にする（インクを使い切らないため）。本文は 4.5:1 以上のコントラストにする。
+  - テーマを足すときの決まり: `@page`・CSS の段組み・`position: fixed`・アニメーション・外部の URL・Web フォントは使わない。書体は macOS に入っているものだけで、最後に日本語の書体と総称の書体を置く。見出しに CSS のカウンターで番号を振るときは、`body:not(.format-latex)` を付けて LaTeX の文書を外す（LaTeX は自分で番号を持つ）。紙の地は白かごく淡い色にする（インクを使い切らないため）。本文は 4.5:1 以上のコントラストにする。
   - 飾りのスクリプト（`decorations.js`）は、テーマの `--deco-emoji` から絵文字を選び、見出し・箇条書き・区切り線に `data-deco` を付ける。乱数の種は本文の文字から作るので、同じ文書なら画面と印刷で同じ絵柄になる。テーマの CSS が `attr(data-deco)` で見せる。
 
 - 論理ページ寸法: 通常は用紙そのもの。冊子と 2アップは用紙の半分（A3 → A4、A4 → A5、B4 → B5）。Web 系の文書は論理ページ寸法で組版し直し、PDF と画像は縮小して収める。
@@ -132,7 +136,7 @@ make clean
 
 ## スタイルのパレットと見比べ台
 
-- テーマを使う形式（Markdown・Org・テキスト・CSV）では、帯のスタイルのボタンと「…」の「見本から選ぶ…」がパレット（`ThemePalette`）を開く。HTML のプリセットと刷り台のスタイルは今までどおりメニュー（`ThemeMenuContent`）。
+- テーマを使う形式（Markdown・Org・テキスト・CSV・LaTeX）では、帯のスタイルのボタンと「…」の「見本から選ぶ…」がパレット（`ThemePalette`）を開く。HTML のプリセットと刷り台のスタイルは今までどおりメニュー（`ThemeMenuContent`）。
 - パレットは窓の右の縁から外へ出す（`ThemePaletteAnchor`、`arrowEdge: .trailing`）。帯のボタンの下に出すと紙を覆い、乗せて試しても見えないため。窓が画面の右端にあると、macOS が左へ出す。
 - 見本: `ThemeSampler`（SurimonoRendering）が、文書を隠した窓の WKWebView に一度だけ読み込み、テーマごとにスタイルと飾りだけを差し替えて、1 ページ目の範囲を `createPDF` でベクターの 1 ページにする（1 テーマ 0.1 秒弱）。画面用の描画なので、刷った 1 ページ目とわずかに違うことがある。アプリでは `ThemeSamples` が、文書・用紙・余白・文字の大きさが同じあいだ見本を覚え、見えたセルの分だけ描く。
 - 乗せて試す: `ThemeTrial` が別の `DocumentRenderer` で文書全体を組み直し（約 200 ms 待ち、新しい要求で前を取り消し、最近 6 件を覚える。本番の組版中は待つ）、紙は `paperDocument` で試しのページを出す。試しているテーマを選ぶと、本番のページができるまで試しのページを出し続ける（`chosenTrial`）。直前の組版が `hoverTrialLimit`（1.5 秒）を超えた文書では試さず、クリックで切り替える。
