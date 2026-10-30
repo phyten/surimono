@@ -29,6 +29,14 @@ final class LaTeXReader {
     }
 
     func read() -> String {
+        document.depth += 1
+        defer { document.depth -= 1 }
+        // Every group and environment is read by a reader of its own. Source nested deeper than any real document
+        // would exhaust the stack, so past the limit it prints as text.
+        guard document.depth <= LaTeXDocument.maximumDepth else {
+            let text = HTML.escape(String(characters))
+            return isBlock ? "<p>\(text)</p>\n" : text
+        }
         while let character = peek() { step(character) }
         if isBlock {
             flush()
@@ -373,7 +381,11 @@ final class LaTeXReader {
         case "end": _ = argument()
         case "part", "chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph":
             section(name)
-        case "maketitle": appendBlock(titleBlock())
+        case "maketitle":
+            guard !document.makingTitle else { break }
+            document.makingTitle = true
+            appendBlock(titleBlock())
+            document.makingTitle = false
         case "tableofcontents": appendBlock(document.placeholder("T", 0))
         case "title": document.title = argument()
         case "author": document.authors = argument()
@@ -933,6 +945,8 @@ final class LaTeXReader {
 
     /// An anchor for a formula with its own tag, and its labels pointing at the tag.
     private func registerTag(_ tag: String, labels: [String]) -> String {
+        // References print the tag; a long one is cut here once rather than at each reference.
+        let tag = tag.utf8.count > 300 ? String(tag.prefix(100)) + "…" : tag
         document.taggedCount += 1
         let id = "eq-t\(document.taggedCount)"
         for key in labels where !key.isEmpty { document.labels[key] = (tag, id) }
