@@ -40,7 +40,7 @@ make test-kit                   # SurimonoKit のテスト（swift test）
 make test-app                   # アプリのテスト（xcodebuild test）
 make lint                       # swift-format lint --strict
 make format                     # swift-format で整形
-make package                    # Release ビルド → build/release/Surimono-<version>.zip
+make package                    # Release ビルド → build/release/Surimono-<version>.dmg と .zip（それぞれ SHA-256 付き）
 make clean
 ```
 

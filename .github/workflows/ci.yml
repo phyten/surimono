@@ -36,6 +36,7 @@ jobs:
         with:
           name: Surimono
           path: |
+            build/release/*.dmg
             build/release/*.zip
             build/release/*.sha256
           retention-days: 14

@@ -98,7 +98,7 @@ jobs:
           cat > "$notes_file" <<'NOTES'
           Surimono は Apple の公証を受けていない（アドホック署名の）ため、初回の起動で Gatekeeper の警告が出ます。macOS 15 以降は Finder の右クリック →「開く」では起動できないので、次の手順で開いてください。
 
-          1. ZIP を展開し、Surimono.app を「アプリケーション」フォルダへ移す
+          1. DMG を開き、Surimono を隣の「Applications」へドラッグする（ZIP の場合は、展開した Surimono.app を「アプリケーション」フォルダへ移す）
           2. Surimono.app をダブルクリックし、警告が出たら「完了」で閉じる（「ゴミ箱に入れる」は押さない）
           3. アップルメニュー →「システム設定」→「プライバシーとセキュリティ」を開き、「セキュリティ」の欄にある「このまま開く」をクリックする（開こうとしてから約 1 時間だけ表示されます）
           4. 確認の画面で開くことを選び、ログインパスワードを入力する
@@ -116,4 +116,6 @@ jobs:
           if [[ "$VERSION" == *-* ]]; then
             args+=(--prerelease)
           fi
-          gh release create "${args[@]}" "build/release/Surimono-$VERSION.zip" "build/release/Surimono-$VERSION.zip.sha256"
+          gh release create "${args[@]}" \
+            "build/release/Surimono-$VERSION.dmg" "build/release/Surimono-$VERSION.dmg.sha256" \
+            "build/release/Surimono-$VERSION.zip" "build/release/Surimono-$VERSION.zip.sha256"

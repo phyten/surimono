@@ -65,7 +65,7 @@ make format                     # Format Swift sources
 make test                       # Package tests and hosted app tests
 make test-kit                   # Package tests only
 make test-app                   # Hosted app tests only
-make package                    # Release ZIP and SHA-256 in build/release
+make package                    # Release DMG and ZIP with SHA-256 in build/release
 make clean                      # Remove build products
 ```
 
