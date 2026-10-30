@@ -34,6 +34,76 @@ struct WebPaginatorTests {
         #expect(text(of: document).contains("END-MARKER"))
     }
 
+    @Test("用紙ちょうどの大きさの紙片を並べた HTML は、1 枚が 1 ページに収まり、ページは用紙の大きさのまま")
+    func fitsSheetsOfExactlyThePaperSizeOnePerPage() async throws {
+        // A4 is 1122.52 CSS pixels tall; a page box cut to whole pixels would push each sheet onto two pages.
+        let sheet = { (index: Int) in
+            "<article class=\"sheet\"><p>SHEET-\(index)</p><footer>FOOT-\(index)</footer></article>"
+        }
+        let html = """
+            <!doctype html><meta charset="utf-8"><style>
+            @page { size: A4 portrait; margin: 0 }
+            * { box-sizing: border-box } body { margin: 0 }
+            .sheet { width: 210mm; height: 297mm; padding: 12mm 16mm; display: flex; flex-direction: column;
+              break-after: page; break-inside: avoid }
+            .sheet:last-child { break-after: auto }
+            footer { margin-top: auto }
+            </style><body>\(sheet(1))\(sheet(2))\(sheet(3))</body>
+            """
+        let document = try await WebPaginator().paginate(
+            .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: false)
+        #expect(document.pageCount == 3)
+        for index in 0..<document.pageCount {
+            let page = try #require(document.page(at: index))
+            let text = page.string ?? ""
+            #expect(text.contains("SHEET-\(index + 1)") && text.contains("FOOT-\(index + 1)"), "page \(index + 1)")
+            let media = page.bounds(for: .mediaBox)
+            #expect(abs(media.width - a4.width) < 0.01 && abs(media.height - a4.height) < 0.01, "page \(index + 1)")
+            #expect(page.bounds(for: .cropBox) == media, "page \(index + 1)")
+        }
+        // The sheets are composed from the saved PDF, which must keep the pages' boxes.
+        let saved = try #require(document.dataRepresentation().flatMap(PDFDocument.init(data:)))
+        let size = try #require(saved.page(at: 1)?.bounds(for: .cropBox).size)
+        #expect(abs(size.width - a4.width) < 0.01 && abs(size.height - a4.height) < 0.01)
+    }
+
+    /// A sheet 1.5 pixels taller than A4 (1122.52 CSS pixels) whose footer's descenders, set larger than its line,
+    /// reach below the paper.
+    static let overhangingSheet = """
+        <!doctype html><meta charset="utf-8"><style>@page { size: A4 portrait; margin: 0 }
+        * { box-sizing: border-box } body { margin: 0 }
+        .sheet { width: 210mm; height: calc(297mm + 1.5px); display: flex; flex-direction: column }
+        footer { margin-top: auto; font: 14px/4px sans-serif }
+        </style><body><article class="sheet"><p>SHEET-1</p><footer>FOOT-MARKER gjpqy</footer></article></body>
+        """
+
+    @Test("文字が用紙の下端を越えて組まれたときは、ページを用紙の大きさに切り戻さない")
+    func keepsTheAllowanceWhenTextReachesIt() async throws {
+        let document = try await WebPaginator().paginate(
+            .html(Self.overhangingSheet, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15),
+            allowsJavaScript: false)
+        #expect(document.pageCount == 1)
+        let page = try #require(document.page(at: 0))
+        #expect(page.string?.contains("FOOT-MARKER") == true)
+        // The page keeps the strip with the text; composing fits it onto the paper.
+        #expect(page.bounds(for: .cropBox).height > a4.height + 1)
+    }
+
+    @Test("文字のない罫や色が用紙の下端を越えて組まれたときも、ページを用紙の大きさに切り戻さない")
+    func keepsTheAllowanceWhenDrawingReachesIt() async throws {
+        let html = """
+            <!doctype html><meta charset="utf-8"><style>@page { size: A4 portrait; margin: 0 }
+            * { box-sizing: border-box } body { margin: 0 }
+            .sheet { width: 210mm; height: calc(297mm + 1.5px); display: flex; flex-direction: column }
+            .bar { margin-top: auto; height: 3px; background: rgb(200, 40, 40) }
+            </style><body><article class="sheet"><p>SHEET-1</p><div class="bar"></div></article></body>
+            """
+        let document = try await WebPaginator().paginate(
+            .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: false)
+        #expect(document.pageCount == 1)
+        #expect(try #require(document.page(at: 0)).bounds(for: .cropBox).height > a4.height + 1)
+    }
+
     @Test("文書の JavaScript を止めても準備スクリプトは動き、文書のスクリプトは動かない")
     func runsPreparationScriptWithPageScriptsDisabled() async throws {
         let html = """
@@ -66,6 +136,23 @@ struct WebPaginatorTests {
         let page = try #require(document.page(at: 0))
         let pixel = try RenderingFixtures.pixel(page, x: 300, y: 600)
         #expect(pixel[0] > 240 && pixel[1] > 240 && pixel[2] > 240)
+    }
+
+    @Test("スクリプトが足したスタイルシートの @page も見つけ、下端の確認を省かない")
+    func findsPageRulesInAdoptedStyleSheets() async throws {
+        let adopted = """
+            <!doctype html><meta charset="utf-8"><body><p>BODY-MARKER</p><script>
+            const sheet = new CSSStyleSheet(); sheet.replaceSync('@page { size: A4; margin: 0 }');
+            document.adoptedStyleSheets = [sheet];</script></body>
+            """
+        var answers: [Bool] = []
+        for html in [adopted, simpleHTML] {
+            let paginator = WebPaginator()
+            paginator.didCheckPageRules = { answers.append($0) }
+            _ = try await paginator.paginate(
+                .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: true)
+        }
+        #expect(answers == [true, false])
     }
 
     @Test("JavaScript を許可すると文書のスクリプトの結果が印刷される")

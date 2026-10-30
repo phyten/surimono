@@ -305,6 +305,46 @@ struct DocumentRendererTests {
         #expect(calls == 6)
     }
 
+    @Test("用紙ちょうどの大きさの紙片を並べた HTML は、紙片の数だけの用紙に 1 枚ずつ刷られる", .timeLimit(.minutes(1)))
+    func fixedSheetHTMLPrintsOneSheetPerPaper() async throws {
+        let sheets = (1...3).map { "<article class=\"sheet\"><p>LINE-00\($0)</p></article>" }.joined()
+        let html = """
+            <!doctype html><meta charset="utf-8"><style>@page { size: A4 portrait; margin: 0 }
+            * { box-sizing: border-box } body { margin: 0 }
+            .sheet { width: 210mm; height: 297mm; padding: 12mm 16mm; break-after: page; break-inside: avoid }
+            .sheet:last-child { break-after: auto }</style><body>\(sheets)</body>
+            """
+        let result = try await DocumentRenderer().render(
+            DocumentSource(data: Data(html.utf8), format: .html), settings: settings)
+        #expect(result.logicalDocument.pageCount == 3)
+        #expect(result.sheetDocument.pageCount == 3)
+        for index in 0..<result.sheetDocument.pageCount {
+            let page = try #require(result.sheetDocument.page(at: index))
+            #expect(page.string?.contains("LINE-00\(index + 1)") == true)
+        }
+    }
+
+    @Test("用紙の下端を越えて文字が組まれた HTML のページは、刷るときに用紙へ縮めて収める", .timeLimit(.minutes(1)))
+    func fitsTallerLogicalPagesOntoThePaper() async throws {
+        // A sheet a little taller than A4 whose footer's descenders reach below the paper.
+        let html = """
+            <!doctype html><meta charset="utf-8"><style>@page { size: A4 portrait; margin: 0 }
+            * { box-sizing: border-box } body { margin: 0 }
+            .sheet { width: 210mm; height: calc(297mm + 1.5px); display: flex; flex-direction: column }
+            footer { margin-top: auto; font: 14px/4px sans-serif }
+            </style><body><article class="sheet"><p>SHEET-1</p><footer>FOOT-MARKER gjpqy</footer></article></body>
+            """
+        let result = try await DocumentRenderer().render(
+            DocumentSource(data: Data(html.utf8), format: .html), settings: settings)
+        let logical = try #require(result.logicalDocument.page(at: 0))
+        #expect(logical.bounds(for: .cropBox).height > 841.89 + 1)
+        #expect(result.sheetDocument.pageCount == 1)
+        let sheet = try #require(result.sheetDocument.page(at: 0))
+        let size = sheet.bounds(for: .mediaBox).size
+        #expect(abs(size.width - 595.28) < 0.1 && abs(size.height - 841.89) < 0.1)
+        #expect(sheet.string?.contains("FOOT-MARKER") == true)
+    }
+
     @Test("HTMLのプリセットとJavaScriptの変更を組版へ渡してキャッシュを無効化する")
     func htmlSettings() async throws {
         var requests: [PaginationRequest] = []

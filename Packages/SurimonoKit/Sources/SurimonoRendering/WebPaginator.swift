@@ -62,6 +62,8 @@ public final class WebPaginator: NSObject {
     /// Test hooks that make the order of events around printing deterministic.
     var didStartWaitingForResources: (@MainActor () -> Void)?
     var didFinishPrinting: (@MainActor () -> Void)?
+    /// Receives whether the document may draw below the paper (observed by tests).
+    var didCheckPageRules: (@MainActor (Bool) -> Void)?
 
     public override init() {}
 
@@ -112,9 +114,34 @@ public final class WebPaginator: NSObject {
             preparationResult = nil
         }
         try Task.checkCancellation()
+        // Only a document with `@page` rules can set margins of its own and so draw below the paper; an unknown
+        // answer counts as yes.
+        let mayDrawBelowPaper: Bool
+        do {
+            mayDrawBelowPaper =
+                try await runPreparationScript(Self.pageRuleProbe, in: session.webView, timeout: timeout) != "false"
+        } catch PaginationError.timedOut {
+            mayDrawBelowPaper = true
+        }
+        didCheckPageRules?(mayDrawBelowPaper)
         return Result(
-            document: try await session.printToPDF(), preparationResult: preparationResult, pageRules: pageRules)
+            document: try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper),
+            preparationResult: preparationResult, pageRules: pageRules)
     }
+
+    /// Returns "true" when a style sheet of the document, including those a script adopted, has an `@page` rule or
+    /// cannot be read, and "false" otherwise.
+    static let pageRuleProbe = """
+        const hasPageRule = list => Array.from(list || []).some(rule => {
+          if (rule.type === CSSRule.PAGE_RULE) return true;
+          try { if (rule.styleSheet && hasPageRule(rule.styleSheet.cssRules)) return true; } catch (_) { return true; }
+          try { return hasPageRule(rule.cssRules); } catch (_) { return false; }
+        });
+        const sheets = Array.from(document.styleSheets).concat(Array.from(document.adoptedStyleSheets || []));
+        return String(sheets.some(sheet => {
+          try { return hasPageRule(sheet.cssRules); } catch (_) { return true; }
+        }));
+        """
 
     /// Waits for the page's images and fonts, but prints what has loaded once the timeout passes.
     private func waitForResources(in webView: WKWebView, timeout: Duration) async throws {
@@ -321,13 +348,16 @@ private final class PaginationSession {
         }
     }
 
-    func printToPDF() async throws -> PDFDocument {
+    /// - Parameter checkingBelowPaper: Whether the document may draw below the paper, so that the pages are cut back
+    ///   to the paper only after finding nothing there.
+    func printToPDF(checkingBelowPaper: Bool) async throws -> PDFDocument {
         let outputURL = temporaryURL(extension: "pdf")
         let printInfo = NSPrintInfo()
-        printInfo.paperSize = pageSize
+        printInfo.paperSize = CGSize(width: pageSize.width, height: pageSize.height + Self.pageHeightAllowance)
         printInfo.topMargin = margins.top
         printInfo.leftMargin = margins.left
-        printInfo.bottomMargin = margins.bottom
+        // The allowance goes into the bottom margin, so a document laid out with these margins keeps its height.
+        printInfo.bottomMargin = margins.bottom + Self.pageHeightAllowance
         printInfo.rightMargin = margins.right
         printInfo.horizontalPagination = .fit
         printInfo.verticalPagination = .automatic
@@ -369,7 +399,62 @@ private final class PaginationSession {
         guard let data = try? Data(contentsOf: outputURL), let document = PDFDocument(data: data),
             document.pageCount > 0
         else { throw WebPaginator.PaginationError.emptyDocument }
-        return document
+        return cutToPaper(document, checkingBelowPaper: checkingBelowPaper)
+    }
+
+    /// WebKit cuts the printable height into pages of whole CSS pixels and lets a document's `@page` size and margins
+    /// override the print info, so a sheet exactly as tall as its page (A4 is 1122.52 pixels) spilled a sliver onto a
+    /// page of its own. Pages are laid out this much taller and then cut back to the paper, keeping their top. In the
+    /// measured setup 0.5 pt was rounded back to the standard paper size and 1 pt was enough.
+    static let pageHeightAllowance: CGFloat = 2
+
+    /// Cuts the pages back to the paper unless something is drawn in the strip the cut would take off. With the
+    /// allowance added to the bottom margin, only a document whose own `@page` margin leaves less than that at the
+    /// bottom draws there; its pages keep the strip, and composing fits them onto the paper.
+    ///
+    /// The cut pages come back as a document read anew: PDFKit keeps reporting some characters of a page whose boxes
+    /// were just changed at zero size, which would break finding and selecting text on the paper.
+    private func cutToPaper(_ document: PDFDocument, checkingBelowPaper: Bool) -> PDFDocument {
+        let pages = (0..<document.pageCount).compactMap { document.page(at: $0) }
+        if checkingBelowPaper, pages.contains(where: { Self.drawsBelowPaper($0, paperHeight: pageSize.height) }) {
+            return document
+        }
+        for page in pages {
+            let media = page.bounds(for: .mediaBox)
+            let height = min(pageSize.height, media.height)
+            let paper = CGRect(x: media.minX, y: media.maxY - height, width: media.width, height: height)
+            page.setBounds(paper, for: .mediaBox)
+            page.setBounds(paper, for: .cropBox)
+        }
+        return document.dataRepresentation().flatMap(PDFDocument.init(data:)) ?? document
+    }
+
+    /// Whether the page draws anything below the paper's height. The strip is rendered on white and any pixel that is
+    /// not near-white counts, so text, rules, images and backgrounds all keep the page whole.
+    static func drawsBelowPaper(_ page: PDFPage, paperHeight: CGFloat) -> Bool {
+        let media = page.bounds(for: .mediaBox)
+        let stripHeight = media.height - paperHeight
+        guard stripHeight > 0 else { return false }
+        let scale: CGFloat = 4
+        let width = max(1, Int((media.width * scale).rounded(.up)))
+        let height = max(1, Int((stripHeight * scale).rounded(.up)))
+        guard
+            let context = CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue),
+            let data = context.data
+        else { return true }
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        // The box's lower left corner lands on the bitmap's origin, so the bitmap holds the bottom of the page.
+        context.scaleBy(x: scale, y: scale)
+        page.draw(with: .mediaBox, to: context)
+        let pixels = data.assumingMemoryBound(to: UInt8.self)
+        for index in stride(from: 0, to: width * height * 4, by: 4)
+        where pixels[index] < 250 || pixels[index + 1] < 250 || pixels[index + 2] < 250 {
+            return true
+        }
+        return false
     }
 
     /// Closes now, or as soon as an in-flight print operation finishes.
