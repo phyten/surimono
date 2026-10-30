@@ -63,7 +63,7 @@ public enum DuplexMode: String, Codable, Sendable {
 }
 
 public enum LayoutKind: String, Codable, Sendable {
-    case normal, twoUp, booklet
+    case normal, twoUp, booklet, handout3
 }
 
 public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
@@ -77,12 +77,14 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         case missingHalfSize
         case twoUpMustBeSingleSided
         case bookletMustUseShortEdge
+        case handoutMustBeSingleSided
     }
 
     public init(id: String, kind: LayoutKind, sheet: PaperSize, duplex: DuplexMode) throws {
-        if kind != .normal && sheet.halved == nil { throw ValidationError.missingHalfSize }
+        if (kind == .twoUp || kind == .booklet) && sheet.halved == nil { throw ValidationError.missingHalfSize }
         if kind == .twoUp && duplex != .none { throw ValidationError.twoUpMustBeSingleSided }
         if kind == .booklet && duplex != .shortEdge { throw ValidationError.bookletMustUseShortEdge }
+        if kind == .handout3 && duplex != .none { throw ValidationError.handoutMustBeSingleSided }
         self.init(validatedID: id, kind: kind, sheet: sheet, duplex: duplex)
     }
 
@@ -106,11 +108,18 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     }
 
     public var sheetSize: CGSize {
+        if kind == .handout3 { return sheet.size }
         let landscapeSheet = kind == .normal ? landscapeContent : !landscapeContent
         return landscapeSheet ? CGSize(width: sheet.size.height, height: sheet.size.width) : sheet.size
     }
 
-    public var logicalPageSize: CGSize {
+    public var logicalPageSize: CGSize { logicalPageSize(options: PrintOptions()) }
+
+    public func logicalPageSize(options: PrintOptions) -> CGSize {
+        if kind == .handout3 {
+            let rect = slotRect(at: 0, options: options)
+            return CGSize(width: rect.width * sheetSize.width, height: rect.height * sheetSize.height)
+        }
         let size = kind == .normal ? sheet.size : (sheet.halved ?? sheet).size
         return landscapeContent ? CGSize(width: size.height, height: size.width) : size
     }
@@ -121,18 +130,44 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         return result
     }
 
-    public var hasStackedSlots: Bool { kind == .twoUp && landscapeContent }
+    public var hasStackedSlots: Bool { kind == .handout3 || (kind == .twoUp && landscapeContent) }
 
     /// A unit rectangle measured from the top left, shared by the sheet preview and PDF composition.
-    public func slotRect(at index: Int) -> CGRect {
+    public func slotRect(at index: Int, options: PrintOptions = PrintOptions()) -> CGRect {
         guard (0..<pagesPerSide).contains(index) else { return .zero }
+        if kind == .handout3 {
+            let size = CGSize(width: sheetSize.width * 25.4 / 72, height: sheetSize.height * 25.4 / 72)
+            let margin = options.marginsInMillimeters
+            let gap = 8.0
+            let width = (size.width - 2 * margin - gap) * 0.64
+            let height = (size.height - 2 * margin - 2 * gap) / 3
+            return CGRect(
+                x: margin / size.width, y: (margin + CGFloat(index) * (height + gap)) / size.height,
+                width: width / size.width, height: height / size.height)
+        }
         if hasStackedSlots {
             return CGRect(x: 0, y: CGFloat(index) / 2, width: 1, height: 0.5)
         }
         return CGRect(x: CGFloat(index) / CGFloat(pagesPerSide), y: 0, width: 1 / CGFloat(pagesPerSide), height: 1)
     }
 
-    public var pagesPerSide: Int { kind == .normal ? 1 : 2 }
+    public func memoRect(options: PrintOptions = PrintOptions()) -> CGRect? {
+        guard kind == .handout3 else { return nil }
+        let size = CGSize(width: sheetSize.width * 25.4 / 72, height: sheetSize.height * 25.4 / 72)
+        let margin = options.marginsInMillimeters
+        let gap = 8.0
+        let width = (size.width - 2 * margin - gap) * 0.36
+        return CGRect(
+            x: (size.width - margin - width) / size.width, y: margin / size.height,
+            width: width / size.width, height: (size.height - 2 * margin) / size.height)
+    }
+
+    // Handout margins surround the sheet, not each of its already inset logical pages.
+    public func logicalMarginsInMillimeters(options: PrintOptions) -> Double {
+        kind == .handout3 ? 0 : options.marginsInMillimeters
+    }
+
+    public var pagesPerSide: Int { kind == .handout3 ? 3 : kind == .normal ? 1 : 2 }
 
     public func displayName(language: String = "en") -> String {
         let japanese = language.lowercased().hasPrefix("ja")
@@ -140,6 +175,8 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         case .normal:
             return "\(sheet.displayName) "
                 + (duplex == .none ? (japanese ? "片面" : "Single-sided") : (japanese ? "両面" : "Duplex"))
+        case .handout3:
+            return "\(sheet.displayName) " + (japanese ? "3枚＋メモ" : "3-up + Notes")
         case .twoUp:
             return "\(sheet.displayName) " + (japanese ? "2アップ" : "2-up")
         case .booklet:
@@ -155,7 +192,10 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public static let a4BookletA5 = PrintLayout(
         validatedID: "a4BookletA5", kind: .booklet, sheet: .a4, duplex: .shortEdge)
     public static let a3TwoUp = PrintLayout(validatedID: "a3TwoUp", kind: .twoUp, sheet: .a3, duplex: .none)
-    public static let presets: [PrintLayout] = [.a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp]
+    public static let a4Handout3 = PrintLayout(validatedID: "a4Handout3", kind: .handout3, sheet: .a4, duplex: .none)
+    public static let presets: [PrintLayout] = [
+        .a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3,
+    ]
 }
 
 public struct PrintOptions: Codable, Equatable, Sendable {

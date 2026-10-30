@@ -30,7 +30,8 @@ struct PrintTrayView: View {
                                     ForEach(row.sheets) { sheet in
                                         TraySheetView(
                                             sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
-                                            language: model.language, imageNames: imageNames)
+                                            language: model.language, imageNames: imageNames,
+                                            options: model.printOptions)
                                     }
                                 }
                                 .id(row.id)
@@ -143,6 +144,7 @@ private struct TraySheetView: View {
     let document: PDFDocument
     let language: String
     let imageNames: [String]?
+    let options: PrintOptions
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -167,7 +169,8 @@ private struct TraySheetView: View {
                 ForEach(sheet.sides, id: \.documentIndex) { side in
                     TraySideView(
                         side: side, page: document.page(at: side.documentIndex), size: metrics.sideSize,
-                        scale: metrics.scale, layout: layout, language: language, imageNames: imageNames)
+                        scale: metrics.scale, layout: layout, language: language, imageNames: imageNames,
+                        options: options)
                 }
             }
         }
@@ -188,6 +191,7 @@ private struct TraySideView: View {
     let layout: PrintLayout
     let language: String
     let imageNames: [String]?
+    let options: PrintOptions
 
     var body: some View {
         VStack(spacing: 9) {
@@ -204,8 +208,8 @@ private struct TraySideView: View {
             .overlay {
                 ZStack(alignment: .topLeading) {
                     ForEach(Array(side.visiblePages.enumerated()), id: \.offset) { index, page in
-                        let rect = layout.slotRect(at: index)
-                        if page == nil {
+                        let rect = layout.slotRect(at: index, options: options)
+                        if page == nil && layout.kind != .handout3 {
                             ZStack {
                                 PrintPalette.blankPaper
                                 Text("Blank")
@@ -244,9 +248,13 @@ private struct TraySideView: View {
         let face = PrintModeText.faceLabel(side, language: language)
         return ZStack(alignment: .leading) {
             if layout.hasStackedSlots {
-                Text(verbatim: PrintModeText.stackedCaption(pages, language: language))
-                    .font(.system(size: 12)).monospacedDigit().lineLimit(1)
-                    .frame(width: size.width)
+                Text(
+                    verbatim: layout.kind == .handout3
+                        ? PrintModeText.handoutCaption(pages, language: language)
+                        : PrintModeText.stackedCaption(pages, language: language)
+                )
+                .font(.system(size: 12)).monospacedDigit().lineLimit(1)
+                .frame(width: size.width)
             } else {
                 HStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, page in

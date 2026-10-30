@@ -91,7 +91,7 @@ struct TrayMetrics: Equatable {
         let available = max(400, viewportWidth - 2 * Self.padding - 100)
         let pageWidth: CGFloat
         switch layout.kind {
-        case .normal:
+        case .normal, .handout3:
             pageWidth =
                 layout.duplex == .none ? min(600, available - 120) : min(480, (available - Self.sideSpacing) / 2)
         case .twoUp:
@@ -100,10 +100,11 @@ struct TrayMetrics: Equatable {
             pageWidth = min(max((available - Self.sideSpacing) / 4, 110), 300)
         }
         let zoom = min(max(zoom, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
-        scale = pageWidth * zoom / layout.logicalPageSize.width
+        scale = pageWidth * zoom / (layout.kind == .handout3 ? layout.sheetSize.width : layout.logicalPageSize.width)
         sideSize = CGSize(width: layout.sheetSize.width * scale, height: layout.sheetSize.height * scale)
         rowWidth =
             switch layout.kind {
+            case .handout3: sideSize.width
             case .normal: layout.duplex == .none ? sideSize.width : sideSize.width * 2 + Self.sideSpacing
             case .twoUp: sideSize.width * 2 + Self.twoUpSpacing
             case .booklet: sideSize.width * 2 + Self.sideSpacing
@@ -142,6 +143,10 @@ enum PrintModeText {
     static func instructions(_ layout: PrintLayout, language: String) -> String {
         let paper = layout.sheet.displayName
         switch layout.kind {
+        case .handout3:
+            return format(
+                "Prints **three pages on the left of %@ portrait**, single-sided, with ruled notes on the right.",
+                language: language, paper)
         case .booklet:
             return format(
                 "Print on **both sides of %1$@ landscape** (short-edge binding). Stack the sheets with sheet 1 outermost, fold them in the middle and staple twice along the fold to get the **%2$@ booklet**.",
@@ -173,6 +178,12 @@ enum PrintModeText {
     /// The second line under the summary: what to do with the sheets and where blanks fall.
     static func note(_ layout: PrintLayout, pageCount: Int, language: String) -> String {
         switch layout.kind {
+        case .handout3:
+            return string(
+                pageCount % 3 == 0
+                    ? "Three pages on the left · notes on the right"
+                    : "Three pages on the left · notes on the right · unused slots on the last sheet are blank",
+                language: language)
         case .booklet:
             let booklet = (layout.sheet.halved ?? layout.sheet).displayName
             let blanks = (pageCount + 3) / 4 * 4 - pageCount
@@ -215,10 +226,19 @@ enum PrintModeText {
         return format("Page %lld · bottom half blank", language: language, first)
     }
 
+    static func handoutCaption(_ pages: [Int?], language: String) -> String {
+        let numbers = pages.compactMap { $0 }
+        guard let first = numbers.first, let last = numbers.last else { return string("Blank", language: language) }
+        return first == last
+            ? format("Page %lld", language: language, first)
+            : format("Pages %1$lld–%2$lld", language: language, first, last)
+    }
+
     /// The short name on a layout card, for example "A3 Booklet".
     static func cardTitle(_ layout: PrintLayout, language: String) -> String {
         let paper = layout.sheet.displayName
         switch layout.kind {
+        case .handout3: return format("%@ 3-up + Notes", language: language, paper)
         case .booklet: return format("%@ Booklet", language: language, paper)
         case .twoUp: return format("%@ 2-up", language: language, paper)
         case .normal: return format(layout.duplex == .none ? "%@ Single" : "%@ Duplex", language: language, paper)

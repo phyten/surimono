@@ -6,6 +6,89 @@ import Testing
 
 @MainActor
 struct PDFComposerTests {
+    @Test("3枚＋メモは7ページを上から配置し最後も罫線を残す", arguments: [false, true])
+    func handout(landscape: Bool) async throws {
+        let source = try RenderingFixtures.pdf(count: 7, size: CGSize(width: 800, height: 450))
+        let output = try await PDFComposer().compose(
+            source, layout: PrintLayout.a4Handout3.oriented(landscape), options: PrintOptions(showsPageNumbers: true))
+        #expect(output.pageCount == 3)
+        for sheet in 0..<3 {
+            let page = try #require(output.page(at: sheet))
+            for (slot, y) in [562.2, 302.4, 42.5].enumerated() {
+                let rect = CGRect(x: 42.5, y: y, width: 312, height: 237)
+                let text = page.selection(for: rect)?.string ?? ""
+                let number = sheet * 3 + slot + 1
+                if number <= 7 {
+                    #expect(text.contains("PAGE-\(number)"))
+                    let numberRect = CGRect(x: 42.5, y: y - 22, width: 312, height: 22)
+                    #expect(
+                        page.selection(for: numberRect)?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+                            == String(number))
+                    #expect(try RenderingFixtures.pixel(page, x: 44, y: Int(y + 32))[0] < 60)
+                } else {
+                    #expect(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    #expect(try RenderingFixtures.pixel(page, x: 44, y: Int(y + 32))[0] > 240)
+                }
+            }
+            let linePixels = try (775...778).map { try RenderingFixtures.pixel(page, x: 430, y: $0)[0] }
+            #expect(linePixels.min()! < 245)
+            #expect(try RenderingFixtures.pixel(page, x: 430, y: 765)[0] > 250)
+            #expect(try RenderingFixtures.pixel(page, x: 365, y: 777)[0] > 250)
+        }
+    }
+
+    @Test("枠いっぱいの黒い内容でも番号は枠外か白い台紙の上で読める", arguments: [15.0, 0, 1])
+    func handoutNumberContrast(margin: Double) async throws {
+        let options = PrintOptions(marginsInMillimeters: margin, showsPageNumbers: true)
+        let layout = PrintLayout.a4Handout3
+        var box = CGRect(origin: .zero, size: layout.logicalPageSize(options: options))
+        let data = NSMutableData()
+        let consumer = try #require(CGDataConsumer(data: data))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        for _ in 0..<3 {
+            context.beginPDFPage(nil)
+            context.setFillColor(CGColor(gray: 0, alpha: 1))
+            context.fill(box)
+            context.endPDFPage()
+        }
+        context.closePDF()
+        let source = try #require(PDFDocument(data: data as Data))
+        let output = try await PDFComposer().compose(source, layout: layout, options: options)
+        let page = try #require(output.page(at: 0))
+        for slot in 0..<3 {
+            let selection = try #require(output.findString(String(slot + 1), withOptions: []).first)
+            let number = selection.bounds(for: page)
+            let unit = layout.slotRect(at: slot, options: options)
+            let bottom = (1 - unit.maxY) * layout.sheetSize.height
+            if slot < 2 || margin == 15 {
+                #expect(number.maxY < bottom)
+            } else {
+                #expect(number.minX < 15)
+                #expect(number.minY >= bottom)
+            }
+            #expect(try RenderingFixtures.pixel(page, x: Int(number.minX) - 1, y: Int(number.midY))[0] > 240)
+            var ink: [UInt8] = []
+            for x in Int(ceil(number.minX))..<Int(number.maxX) {
+                for y in Int(ceil(number.minY))..<Int(number.maxY) {
+                    ink.append(try RenderingFixtures.pixel(page, x: x, y: y)[0])
+                }
+            }
+            #expect(try #require(ink.min()) < 180)
+            #expect(
+                try RenderingFixtures.pixel(page, x: Int(unit.midX * layout.sheetSize.width), y: Int(bottom + 20))[0]
+                    < 10)
+        }
+    }
+
+    @Test("3枚＋メモは負の余白と枠を作れない余白を拒否する", arguments: [-1.0, 101, Double.nan, Double.infinity])
+    func invalidHandoutMargins(margin: Double) async throws {
+        let source = try RenderingFixtures.pdf()
+        await #expect(throws: PDFComposer.CompositionError.invalidMargins) {
+            _ = try await PDFComposer().compose(
+                source, layout: .a4Handout3, options: PrintOptions(marginsInMillimeters: margin))
+        }
+    }
+
     @Test("横長2アップは上から順に配置し最後の下半分は白紙になる")
     func stackedTwoUp() async throws {
         let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 800, height: 450))

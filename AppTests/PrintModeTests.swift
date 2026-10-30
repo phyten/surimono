@@ -13,6 +13,23 @@ struct PrintTrayTests {
             rotatesBackSides: rotatesBackSides)
     }
 
+    @Test("3枚＋メモは縦の片面3枚とページ範囲を示す")
+    func handout() {
+        let sheets = tray(.a4Handout3, pages: 7).sheets
+        #expect(sheets.count == 3)
+        #expect(sheets[2].sides[0].pages == [7, nil, nil])
+        #expect(PrintModeText.cardTitle(.a4Handout3, language: "ja") == "A4 3枚＋メモ")
+        #expect(PrintModeText.cardTitle(.a4Handout3, language: "en") == "A4 3-up + Notes")
+        #expect(PrintModeText.handoutCaption([1, 2, 3], language: "ja") == "1–3 ページ")
+        #expect(PrintModeText.handoutCaption([7, nil, nil], language: "ja") == "7 ページ")
+        #expect(PrintModeText.handoutCaption([4, 5, nil], language: "en") == "Pages 4–5")
+        #expect(PrintModeText.sheetSubtitle(sheets[0], layout: .a4Handout3, language: "ja") == "A4 縦")
+        #expect(PrintModeText.note(.a4Handout3, pageCount: 7, language: "ja") == "左に3ページ・右にメモ欄・最後の空き枠は白紙")
+        #expect(
+            PrintModeText.note(.a4Handout3, pageCount: 6, language: "en")
+                == "Three pages on the left · notes on the right")
+    }
+
     @Test("横向き通常印刷の説明は解決済み用紙の向きを示す")
     func landscapeNote() {
         #expect(
@@ -151,7 +168,7 @@ struct PrintTrayTests {
     func cardTitles() {
         #expect(
             PrintLayout.presets.map { PrintModeText.cardTitle($0, language: "ja") } == [
-                "A4 片面", "A4 両面", "A3 中綴じ", "A4 中綴じ", "A3 2アップ",
+                "A4 片面", "A4 両面", "A3 中綴じ", "A4 中綴じ", "A3 2アップ", "A4 3枚＋メモ",
             ])
     }
 
@@ -248,7 +265,24 @@ struct PrintModeTests {
         #expect(model.mode == .print)
     }
 
-    @Test("⌘1〜⌘5のレイアウト選択はレイアウトを変えて印刷モードに入る")
+    @Test("固定向きのレイアウトは向き操作を無効化して用紙の向きを表示し保存値を変えない")
+    func fixedOrientationControl() {
+        let fixture = Fixture()
+        let model = fixture.model()
+        model.paperOrientation = .landscape
+        model.chooseLayout(PrintLayout.a4Handout3.id)
+        let control = PaperOrientationControl(model: model)
+        #expect(control.isFixed)
+        #expect(control.value == "Portrait")
+        #expect(model.paperOrientation == .landscape)
+        model.chooseLayout(PrintLayout.a3BookletA4.id)
+        #expect(PaperOrientationControl(model: model).value == "Landscape")
+        model.chooseLayout(PrintLayout.a4Single.id)
+        #expect(!PaperOrientationControl(model: model).isFixed)
+        #expect(model.paperOrientation == .landscape)
+    }
+
+    @Test("⌘1〜⌘6のレイアウト選択はレイアウトを変えて印刷モードに入る")
     func chooseLayout() {
         let fixture = Fixture()
         let model = fixture.model()
