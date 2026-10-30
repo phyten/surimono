@@ -71,6 +71,7 @@ make clean
   - インラインの記法は、cmark の前に原文を inline HTML へ書き換える。中の Markdown もそのまま読まれ、表の `|` とも混ざらない。コードブロック・HTML ブロック・コードスパン・タグ・リンク先・URL は書き換えない。
   - 脚注は最初に参照した順に番号を振り、本文は末尾の `section.footnotes` にまとめる。紙からは戻れないので、戻りのリンクは付けない。
   - 絵文字の対応表 `Resources/emoji.json` は GitHub の gemoji（MIT）の別名だけを取り出したもの。ライセンス文を `App/Acknowledgements/` に同梱している。
+  - 数式 `$…$`・`$$…$$`（複数行も）・`\(…\)`・`\[…\]`・```` ```math ```` は、SwaTex（純 Swift の KaTeX 互換の組版）で SVG にする（`MathRenderer`）。式は cmark の前に取り出し、インラインは私用領域の文字の目印、行をまたぐものは HTML ブロックにするので、強調やエスケープが LaTeX に触れない。インラインの `$` は式に接していて後ろに数字が来ないときだけ（`$5 と $10` は文字のまま）。字形は KaTeX の書体の `<text>` で、使った書体だけを本文の最後の `<style>` に data URL の `@font-face` で埋め込む（文書の隣のファイルを読まずに刷れる。テーマの「Web フォントを使わない」とは別で、アプリが同梱する数式用の書体）。大きさは em（文字の 1.1 倍）、色は `currentColor` でテーマに従う。読めない式は原文を `.math-error` で残す。
 - JavaScript: Markdown / Org / テキスト / CSV から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りのスクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
 - 印刷テーマの目録は `Resources/themes.json`（SurimonoCore）: カテゴリー（順と名前）、定番の順、各テーマの id・英語名・日本語名・カテゴリー・飾りのスクリプトを持つ。テーマの CSS は `Resources/<id>.css` で、`common.css` の後に重ねる（`PrintThemeLibrary`）。メニューの並び（最近使った 5 つ・お気に入り・定番・カテゴリー・自分のスタイル）は純粋な型 `PrintThemeMenu` が決め、テストで固定している。
   - テーマを足すときの決まり: `@page`・CSS の段組み・`position: fixed`・アニメーション・外部の URL・Web フォントは使わない。書体は macOS に入っているものだけで、最後に日本語の書体と総称の書体を置く。紙の地は白かごく淡い色にする（インクを使い切らないため）。本文は 4.5:1 以上のコントラストにする。
@@ -153,7 +154,7 @@ make clean
 
 - Swift 6 言語モード。アプリターゲットは既定で MainActor 分離（`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`）。Kit では UI / WebKit を触る型に明示的に `@MainActor` を付ける。
 - デプロイメントターゲットは macOS 15.0。
-- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: swift-markdown（Apache-2.0）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）。
+- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: swift-markdown（Apache-2.0）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している）。SwaTex が同梱する KaTeX の書体（SIL OFL 1.1）は SurimonoCore の `Resources` に写して使い、ライセンス文を `App/Acknowledgements/` に同梱している。SwaTex を上げたら書体も写し直す。
 - UI 文言は英語をキーにして String Catalog（`App/Localizable.xcstrings`）で日本語訳を付ける。
 - 整形は swift-format（`.swift-format`。インデント 4、行長 120）。
 - コメントは「なぜそうするか」を書く。自明な処理の説明コメントは付けない。**コードコメントとドキュメントコメントは英語**で書く（テスト名は日本語）。
