@@ -64,7 +64,7 @@ make format                     # Swift ソースを整形
 make test                       # パッケージとホストアプリ付きテスト
 make test-kit                   # パッケージのテストのみ
 make test-app                   # ホストアプリ付きテストのみ
-make package                    # build/release に Release ZIP と SHA-256 を出力
+make package                    # build/release に Release の DMG・ZIP と SHA-256 を出力
 make clean                      # ビルド生成物を削除
 ```
 

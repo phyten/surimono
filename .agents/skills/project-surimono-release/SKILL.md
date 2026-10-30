@@ -1,6 +1,6 @@
 ---
 name: project-surimono-release
-description: Cuts a Surimono release by choosing the version, pinning the commit whose CI passed, pushing a v* tag for exactly that commit to start the Release workflow, and verifying the published zip and checksum. Use when asked to release, tag, publish, or ship a new version of Surimono. Not for day-to-day builds (use project-surimono-dev).
+description: Cuts a Surimono release by choosing the version, pinning the commit whose CI passed, pushing a v* tag for exactly that commit to start the Release workflow, and verifying the published DMG, zip, and checksums. Use when asked to release, tag, publish, or ship a new version of Surimono. Not for day-to-day builds (use project-surimono-dev).
 ---
 
 # project-surimono-release
@@ -33,7 +33,7 @@ description: Cuts a Surimono release by choosing the version, pinning the commit
 
    ワークフローの手動実行（`gh workflow run release.yml`）は使わない。`--ref` はブランチの先頭を指すだけで、確認した SHA に公開対象を固定できない（承認後に master が進むと別のコミットが公開される）。
 6. 実行を見届ける: `gh run watch`。失敗したらログで原因を直してから再実行する。タグやリリースが途中まで作られていたら、消すかどうかをユーザーに確認する。
-7. 成果物を確かめる: `gh release view v<X.Y.Z>` に `Surimono-<X.Y.Z>.zip` と `.sha256` があること。ダウンロードして `shasum -a 256 -c` で照合し、展開する。アプリの版とビルド番号が補足の決め方どおりであること（v0.3.0-beta.1 なら `0.3.0` と `30001`）を `/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' -c 'Print :CFBundleVersion' Surimono.app/Contents/Info.plist` で確かめてから起動する。アドホック署名なので Gatekeeper に止められる。macOS 15 以降は Finder の右クリック →「開く」では越えられないため、リリースノートの手順（システム設定の「プライバシーとセキュリティ」→「このまま開く」）で開けることを確かめる。起動だけを手早く確かめるなら、`xattr -dr com.apple.quarantine Surimono.app`（ダウンロードで付いた隔離の印を消し、Gatekeeper の確認を省く）でもよい。
+7. 成果物を確かめる: `gh release view v<X.Y.Z>` に `Surimono-<X.Y.Z>.dmg`・`Surimono-<X.Y.Z>.zip` と、それぞれの `.sha256` があること。ダウンロードして `shasum -a 256 -c` で照合し、DMG を開いて（`hdiutil attach`）、中に Surimono.app と Applications へのリンクがあることを確かめる。アプリの版とビルド番号が補足の決め方どおりであること（v0.3.0-beta.1 なら `0.3.0` と `30001`）を `/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' -c 'Print :CFBundleVersion' Surimono.app/Contents/Info.plist` で確かめてから起動する。アドホック署名なので Gatekeeper に止められる。macOS 15 以降は Finder の右クリック →「開く」では越えられないため、リリースノートの手順（システム設定の「プライバシーとセキュリティ」→「このまま開く」）で開けることを確かめる。起動だけを手早く確かめるなら、`xattr -dr com.apple.quarantine Surimono.app`（ダウンロードで付いた隔離の印を消し、Gatekeeper の確認を省く）でもよい。
 
 ## 補足
 

@@ -24,7 +24,7 @@ help:
 	@echo "test-app   Run hosted app tests"
 	@echo "lint       Check Swift formatting"
 	@echo "format     Format Swift sources"
-	@echo "package    Build Release, verify signing, and create ZIP + SHA-256"
+	@echo "package    Build Release, verify signing, and create DMG + ZIP with SHA-256"
 	@echo "clean      Remove build products"
 
 build:
@@ -62,6 +62,18 @@ package:
 	mkdir -p build/release
 	ditto -c -k --keepParent "$(RELEASE_APP)" "build/release/Surimono-$(VERSION).zip"
 	cd build/release && shasum -a 256 "Surimono-$(VERSION).zip" > "Surimono-$(VERSION).zip.sha256"
+# The disk image holds the app next to a link to /Applications, so installing is one drag. hdiutil on CI runners
+# sometimes fails with "Resource busy", so it gets a few tries.
+	rm -rf build/dmg
+	set -e; trap 'rm -rf build/dmg' EXIT; \
+	mkdir -p build/dmg; \
+	ditto "$(RELEASE_APP)" build/dmg/Surimono.app; \
+	ln -s /Applications build/dmg/Applications; \
+	for attempt in 1 2 3; do \
+		if hdiutil create -volname Surimono -srcfolder build/dmg -ov -format UDZO "build/release/Surimono-$(VERSION).dmg"; then break; fi; \
+		[ $$attempt -lt 3 ] || exit 1; sleep 5; \
+	done
+	cd build/release && shasum -a 256 "Surimono-$(VERSION).dmg" > "Surimono-$(VERSION).dmg.sha256"
 
 clean:
 	rm -rf build "$(DERIVED_DATA)" Packages/SurimonoKit/.build
