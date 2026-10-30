@@ -395,12 +395,38 @@ final class LaTeXReader {
         case "ref", "autoref", "cref", "Cref", "pageref", "vref", "nameref":
             appendHTML(document.reference(argument() ?? "", style: .number))
         case "eqref": appendHTML(document.reference(argument() ?? "", style: .equation))
-        case "cite", "citep", "citet", "parencite", "textcite", "autocite":
+        case "cite", "citep", "citet", "parencite", "textcite", "autocite": cite()
+        case "bibliography", "printbibliography":
+            let files = name == "bibliography" ? (argument() ?? "") : (optional() ?? "")
+            let names = files.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) + ".bib" }
+            let message =
+                name == "bibliography" && !names.isEmpty
+                ? (document.isJapanese
+                    ? "文献のファイル \(names.joined(separator: "、")) は読み込みません"
+                    : "\(names.joined(separator: ", ")) \(names.count == 1 ? "is" : "are") not included")
+                : (document.isJapanese ? "文献のデータベースは読み込みません" : "The bibliography database is not read")
+            appendBlock(unsupported(message))
+        case "newtheorem": newTheorem()
+        case "theoremstyle": document.theoremStyle = argument()?.trimmingCharacters(in: .whitespaces) ?? "plain"
+        case "qed", "qedsymbol": appendText("□")
+        case "qedhere": break
+        case "num":
             _ = optional()
+            appendHTML(LaTeXUnits.numberHTML(argument() ?? ""))
+        case "qty", "SI":
             _ = optional()
-            appendText(
-                "[\((argument() ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.joined(separator: ", "))]"
-            )
+            let value = argument() ?? ""
+            let before = name == "SI" ? optional() : nil
+            let unit = argument() ?? ""
+            appendHTML(
+                (before.map { LaTeXUnits.unitHTML($0) + "\u{202F}" } ?? "") + LaTeXUnits.numberHTML(value)
+                    + "\u{202F}" + LaTeXUnits.unitHTML(unit))
+        case "unit", "si":
+            _ = optional()
+            appendHTML(LaTeXUnits.unitHTML(argument() ?? ""))
+        case "ang":
+            _ = optional()
+            appendHTML(LaTeXUnits.angleHTML(argument() ?? ""))
         case "footnote", "thanks": footnote()
         case "href": link()
         case "url", "nolinkurl":
@@ -576,6 +602,15 @@ final class LaTeXReader {
             case "DeclareMathOperator": declareOperator()
             case "definecolor": defineColor()
             case "graphicspath": document.graphicsPaths = graphicsPaths(argument() ?? "")
+            case "usepackage":
+                _ = optional()
+                if (argument() ?? "").split(separator: ",").contains(where: {
+                    ["amsthm", "ntheorem", "thmtools"].contains($0.trimmingCharacters(in: .whitespacesAndNewlines))
+                }) {
+                    document.usesAMSTheorem = true
+                }
+            case "newtheorem": newTheorem()
+            case "theoremstyle": document.theoremStyle = argument()?.trimmingCharacters(in: .whitespaces) ?? "plain"
             default: break
             }
         }
@@ -683,11 +718,7 @@ final class LaTeXReader {
         if !starred, level <= deepestNumbered, level >= first {
             document.sectionCounters[level] += 1
             for deeper in (level + 1)..<document.sectionCounters.count { document.sectionCounters[deeper] = 0 }
-            let parts = (first...level).map { position -> String in
-                let value = document.sectionCounters[position]
-                return document.isAppendix && position == first ? LaTeXSymbols.format(value, as: "Alph") : String(value)
-            }
-            number = parts.joined(separator: ".")
+            number = sectionNumber(through: level)
             if level == 0, let chapter = number {
                 display =
                     document.isAppendix
@@ -705,6 +736,16 @@ final class LaTeXReader {
         if let number { document.labelTarget = (number, id) }
         let numberHTML = display.map { "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
         appendBlock("<h\(tag) id=\"\(id)\">\(numberHTML)\(title)</h\(tag)>\n")
+    }
+
+    /// The number of the current heading at `level`, with the levels above it, as `\thesection` prints it.
+    private func sectionNumber(through level: Int) -> String {
+        let first = document.hasChapters ? 0 : 1
+        guard level >= first, level < document.sectionCounters.count else { return "" }
+        return (first...level).map { position -> String in
+            let value = document.sectionCounters[position]
+            return document.isAppendix && position == first ? LaTeXSymbols.format(value, as: "Alph") : String(value)
+        }.joined(separator: ".")
     }
 
     private func titleBlock() -> String {
@@ -904,7 +945,10 @@ final class LaTeXReader {
     }
 
     private func formula(_ latex: String, display: Bool, source: String) -> String {
-        MathRenderer.html(latex, display: display, macros: document.mathDefinitions)
+        // amsthm's `\qedhere` only moves the end-of-proof box, which SwaTex does not know.
+        MathRenderer.html(
+            LaTeXUnits.expandingInMath(latex.replacingOccurrences(of: "\\qedhere", with: "")), display: display,
+            macros: document.mathDefinitions)
             ?? MathRenderer.fallback(source, display: display)
     }
 
@@ -1194,8 +1238,12 @@ final class LaTeXReader {
             _ = reader.optional()
             _ = reader.argument()
             appendBlock("<div class=\"latex-minipage\">\n\(blocks(reader.rest))</div>\n")
+        case "proof": proof(body)
+        case "thebibliography": bibliography(body)
         default:
-            if Self.unsupportedEnvironments.contains(base) {
+            if let theorem = document.theorems[name] {
+                self.theorem(name, theorem, body: body)
+            } else if Self.unsupportedEnvironments.contains(base) {
                 appendBlock(
                     unsupported(
                         document.isJapanese ? "TikZ などの図（Surimono では描けません）" : "TikZ picture (Surimono cannot draw it)"))
@@ -1278,7 +1326,7 @@ final class LaTeXReader {
 
     /// The items of a list body, split at each `\item` outside nested groups and environments, with the label
     /// written in brackets after it.
-    private static func items(of body: String) -> [(label: String?, content: String)] {
+    private static func items(of body: String, command: String = "item") -> [(label: String?, content: String)] {
         let characters = Array(body)
         var items: [(String?, String)] = []
         var current: [Character]?
@@ -1303,12 +1351,13 @@ final class LaTeXReader {
                     environments += 1
                 } else if matches("\\end{", at: index) {
                     environments -= 1
-                } else if braces == 0, environments == 0, matches("\\item", at: index),
-                    !(index + 5 < characters.count && characters[index + 5].isASCII && characters[index + 5].isLetter)
+                } else if braces == 0, environments == 0, matches("\\" + command, at: index),
+                    !(index + command.count + 1 < characters.count && characters[index + command.count + 1].isASCII
+                        && characters[index + command.count + 1].isLetter)
                 {
                     if let current { items.append((nil, String(current))) }
                     current = []
-                    index += 5
+                    index += command.count + 1
                     continue
                 }
                 current?.append(character)
@@ -1327,6 +1376,165 @@ final class LaTeXReader {
             let label = reader.optional()
             return (label, reader.rest)
         }
+    }
+
+    // MARK: - Theorems and the bibliography
+
+    /// `\newtheorem{name}{Title}`, `\newtheorem{name}[shared]{Title}`, `\newtheorem{name}{Title}[parent]` and
+    /// `\newtheorem*{name}{Title}`.
+    private func newTheorem() {
+        let starred = star()
+        guard let name = argument()?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { return }
+        let shared = optional()?.trimmingCharacters(in: .whitespaces)
+        let title = argument() ?? ""
+        let parent = shared == nil ? optional()?.trimmingCharacters(in: .whitespaces) : nil
+        var counter: String?
+        if !starred {
+            counter = shared.map { document.theorems[$0]?.counter ?? $0 } ?? name
+            if let parent { document.counterParents[name] = parent }
+        }
+        let styles = ["plain", "definition", "remark"]
+        let style = styles.contains(document.theoremStyle) ? document.theoremStyle : "plain"
+        document.theorems[name] = .init(title: title, counter: counter, style: style)
+    }
+
+    /// The next value of a theorem counter, after the number of what it counts within: `2.3` is the third in
+    /// section 2.
+    private func stepCounter(_ counter: String) -> String {
+        var parent = ""
+        if let within = document.counterParents[counter] {
+            let levels = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"]
+            if let level = levels.firstIndex(of: within) {
+                parent = sectionNumber(through: level)
+            } else if let state = document.counterValues[within] {
+                parent = state.parent.isEmpty ? String(state.value) : "\(state.parent).\(state.value)"
+            }
+        }
+        var state = document.counterValues[counter] ?? (0, parent)
+        if state.parent != parent { state = (0, parent) }
+        state.value += 1
+        document.counterValues[counter] = state
+        return parent.isEmpty ? String(state.value) : "\(parent).\(state.value)"
+    }
+
+    /// A theorem-like environment: its heading and number in front of the first paragraph. amsthm's plain style
+    /// sets the body in italics; a Japanese document keeps it upright, as its fonts have no italics.
+    private func theorem(_ name: String, _ theorem: LaTeXDocument.Theorem, body: String) {
+        let reader = LaTeXReader(body, document: document, isBlock: false)
+        let note = reader.optionalOnLine().map { inline($0) }
+        var head: String
+        if let cached = document.theoremHeadings[name] {
+            head = cached
+        } else {
+            let excerpt = HTML.escape(theorem.title.count > 1_000 ? theorem.title.prefix(1_000) + "…" : theorem.title)
+            // Reserved first: inside its own heading the environment prints its source instead of reading it again.
+            document.theoremHeadings[name] = excerpt
+            head = inline(theorem.title)
+            // A heading that opens other theorems could double at each step; a long one shows its source instead.
+            if head.utf8.count > 20_000 { head = excerpt }
+            document.theoremHeadings[name] = head
+        }
+        // Every heading printed draws on one budget, so printing a long heading many times cannot multiply it; past
+        // the budget a heading is the environment's name, which its source already holds.
+        if head.utf8.count <= document.headingBudget {
+            document.headingBudget -= head.utf8.count
+        } else {
+            head = HTML.escape(name)
+        }
+        var anchor = ""
+        if let counter = theorem.counter {
+            let number = stepCounter(counter)
+            document.theoremCount += 1
+            let id = "thm-\(document.theoremCount)"
+            document.labelTarget = (number, id)
+            head += " " + HTML.escape(number)
+            anchor = " id=\"\(id)\""
+        }
+        let noteHTML = note.map { document.isJapanese ? "（\($0)）" : " (\($0))" } ?? ""
+        head =
+            document.usesAMSTheorem
+            ? head + (noteHTML.isEmpty ? "" : "<span class=\"theorem-note\">\(noteHTML)</span>") + "."
+            : head + noteHTML
+        let style = theorem.style == "plain" && document.isJapanese ? "definition" : theorem.style
+        let content = blocks(reader.rest)
+        appendBlock(
+            "<div class=\"latex-theorem latex-theorem-\(style)\"\(anchor)>\n"
+                + leading("<span class=\"theorem-head\">\(head)</span> ", content) + "</div>\n")
+    }
+
+    /// amsthm's proof: its heading in italics and the end-of-proof box at the right of the last line.
+    private func proof(_ body: String) {
+        let reader = LaTeXReader(body, document: document, isBlock: false)
+        // A redefined `\proofname` is read as a macro, within the limits on expansion.
+        let title =
+            reader.optionalOnLine().map { inline($0) }
+            ?? (document.macros["proofname"] != nil ? inline("\\proofname") : (document.isJapanese ? "証明" : "Proof"))
+        var content = blocks(reader.rest).trimmingCharacters(in: .whitespacesAndNewlines)
+        let box = "<span class=\"qed\">□</span>"
+        if content.hasSuffix("</p>") {
+            content = content.dropLast(4) + box + "</p>"
+        } else {
+            content += "\n<p class=\"qed-line\">\(box)</p>"
+        }
+        appendBlock(
+            "<div class=\"latex-proof\">\n" + leading("<span class=\"proof-head\">\(title).</span> ", content)
+                + "\n</div>\n")
+    }
+
+    /// Markup in front of the first paragraph, or in a paragraph of its own when the body starts with something else.
+    private func leading(_ head: String, _ content: String) -> String {
+        content.hasPrefix("<p>") ? "<p>" + head + content.dropFirst(3) : "<p>\(head)</p>\n" + content
+    }
+
+    /// `thebibliography`: a heading and the entries, numbered in order or labeled by `\bibitem[label]`. `\cite`
+    /// finds them by key when the document is read to the end.
+    private func bibliography(_ body: String) {
+        let reader = LaTeXReader(body, document: document, isBlock: false)
+        // The widest label; without it the first `\bibitem` would be taken for it.
+        if reader.rest.drop(while: \.isWhitespace).first == "{" { _ = reader.argument() }
+        let nameMacro = document.hasChapters ? "bibname" : "refname"
+        let heading =
+            document.macros[nameMacro] != nil
+            ? inline("\\" + nameMacro)
+            : (document.isJapanese ? "参考文献" : document.hasChapters ? "Bibliography" : "References")
+        document.bibliographyCount += 1
+        let headingID = "bibliography-\(document.bibliographyCount)"
+        document.headings.append(.init(level: document.hasChapters ? 0 : 1, number: nil, id: headingID, title: heading))
+        var entries = ""
+        var number = 0
+        for (position, item) in Self.items(of: reader.rest, command: "bibitem").enumerated() {
+            let itemReader = LaTeXReader(item.content, document: document, isBlock: false)
+            let key = itemReader.argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            // As in LaTeX, an entry with its own label does not advance the numbers.
+            let label: String
+            if let own = item.label {
+                label = inline(own)
+            } else {
+                number += 1
+                label = String(number)
+            }
+            let id = "bib-\(document.bibliographyCount)-\(position + 1)"
+            if !key.isEmpty { document.bibliography[key] = (label, id) }
+            let text = compact(blocks(itemReader.rest))
+            let marker = "<span class=\"bib-label\">[\(label)]</span>"
+            entries +=
+                "<li id=\"\(id)\">\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
+        }
+        appendBlock(
+            "<h2 class=\"latex-bibliography-heading\" id=\"\(headingID)\">\(heading)</h2>\n"
+                + "<ol class=\"latex-bibliography\">\n\(entries)</ol>\n")
+    }
+
+    /// `\cite[after]{keys}` and natbib's `\citep[before][after]{keys}`. The numbers are filled in at the end, as
+    /// the bibliography usually comes last.
+    private func cite() {
+        let first = optional()
+        let second = optional()
+        let keys = (argument() ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let (before, after) = second == nil ? (nil, first) : (first, second)
+        appendHTML(
+            document.citation(.init(keys: keys, before: before.map { inline($0) }, after: after.map { inline($0) })))
     }
 
     // MARK: - Floats, images and tables
