@@ -66,11 +66,12 @@ struct DocumentContent: View {
             switch model.mode {
             case .view: ViewModeView(model: model)
             case .print: PrintModeView(model: model)
+            case .compare: ThemeCompareView(model: model)
             }
         }
-        // The tray's top bar needs the taller title bar of a window with a toolbar.
+        // The tray's and the stage's top bars need the taller title bar of a window with a toolbar.
         .toolbar {
-            if model.mode == .print { PrintModeToolbarPlaceholder() }
+            if model.mode != .view { PrintModeToolbarPlaceholder() }
         }
         .background(
             WindowReader { window in
@@ -78,7 +79,7 @@ struct DocumentContent: View {
                 model.window = window
                 DocumentWindows.shared.register(model, for: window)
                 // SwiftUI moves the content to the window again when the print mode adds its toolbar.
-                ViewerWindow.setTrafficLightsVisible(model.isMenuPinned || model.mode == .print, in: window)
+                ViewerWindow.setTrafficLightsVisible(model.isMenuPinned || model.mode != .view, in: window)
                 ViewerWindow.setAlwaysOnTop(model.isAlwaysOnTop, in: window)
                 model.sizeWindowToPaper()
                 #if DEBUG

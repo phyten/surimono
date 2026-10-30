@@ -498,6 +498,35 @@ struct PaperViewTests {
 
     /// A paper view of a six-page PDF filling a window. It is used without SwiftUI, whose fixed zoom input would
     /// otherwise set the zoom back on its next update.
+    @Test("新しい文書は読んでいるページで開き、足りない文書では最後のページを出しても読んでいるページは変えない", .timeLimit(.minutes(1)))
+    func newDocumentsOpenAtTheReadingPosition() async throws {
+        let long = try #require(PDFDocument(data: TestFixtures.pdf("paper-long", pages: 10)))
+        let short = try #require(PDFDocument(data: TestFixtures.pdf("paper-short", pages: 6)))
+        let reading = ReadingModel(document: long, page: 8)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 594), styleMask: [.titled], backing: .buffered,
+            defer: true)
+        let host = NSHostingView(rootView: ReadingPaper(model: reading))
+        window.contentView = host
+        func settle() async throws {
+            for _ in 0..<5 {
+                host.layoutSubtreeIfNeeded()
+                try await Task.sleep(for: .milliseconds(20))
+            }
+        }
+        try await settle()
+        let view = try #require(host.paperView)
+        #expect(view.currentPageIndex == 8)
+        // A theme with fewer pages being tried: the paper shows its last page, and the model keeps reading page 9.
+        reading.document = short
+        try await settle()
+        #expect(view.currentPageIndex == 5)
+        reading.document = long
+        try await settle()
+        #expect(view.currentPageIndex == 8)
+        withExtendedLifetime(window) {}
+    }
+
     private func makeSinglePagePaper(document: PDFDocument? = nil) throws -> (PaperPDFView, NSWindow) {
         let document = try document ?? #require(PDFDocument(data: TestFixtures.pdf("pinch", pages: 6)))
         let window = NSWindow(
@@ -539,5 +568,31 @@ private struct ZoomFeedbackPaper: View {
             onZoomChange: { model.zoom = $0 }, onPageChange: { _ in }, onTurn: {}, onKey: { _ in false }
         )
         .onChange(of: model.zoom, initial: true) { _, value in model.renderedZoom = value }
+    }
+}
+
+/// Stands in for the window's model: the document on the paper and the reading position, which a trial leaves alone.
+@MainActor
+@Observable
+private final class ReadingModel {
+    var document: PDFDocument
+    let page: Int
+
+    init(document: PDFDocument, page: Int) {
+        self.document = document
+        self.page = page
+    }
+}
+
+@MainActor
+private struct ReadingPaper: View {
+    let model: ReadingModel
+
+    var body: some View {
+        PaperView(
+            document: model.document, initialPageIndex: model.page,
+            options: ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false),
+            zoom: 1, controller: PaperController(), onZoomChange: { _ in }, onPageChange: { _ in }, onTurn: {},
+            onKey: { _ in false })
     }
 }

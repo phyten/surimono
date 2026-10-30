@@ -363,6 +363,10 @@ private struct BandMenuItem: View {
             }
         case .style:
             Menu {
+                if model.format.usesPrintTheme {
+                    Button("Choose from Samples…") { model.openThemePalette() }
+                    Divider()
+                }
                 StyleMenuItems(model: model)
             } label: {
                 let title =

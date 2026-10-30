@@ -75,6 +75,10 @@
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.isViewOptionsPresented = true
             }
+            if argument("SurimonoPopover") == "style" {
+                NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
+                model.openThemePalette()
+            }
         }
 
         static func captureIfReady(_ model: DocumentViewModel) {
@@ -139,6 +143,20 @@
                     }
                     if argument("SurimonoTray") != nil { try? await Task.sleep(for: .milliseconds(1500)) }
                 }
+                if argument("SurimonoMode") == "compare" {
+                    model.enterCompareMode()
+                    // The window grows, then the four pages and the row are sampled.
+                    try? await Task.sleep(for: .milliseconds(2500))
+                }
+                if argument("SurimonoPopover") == "style" {
+                    // The palette samples the themes it shows.
+                    try? await Task.sleep(for: .milliseconds(2500))
+                }
+                if let theme = argument("SurimonoTry") {
+                    // As if the pointer rested on the theme in the palette.
+                    model.tryTheme(theme)
+                    try? await Task.sleep(for: .milliseconds(2500))
+                }
                 if argument("SurimonoMode") == "roundtrip" {
                     // Into the print mode and back, to check that the view mode returns as it was.
                     model.enterPrintMode()
@@ -177,7 +195,7 @@
             guard let main = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
                 throw CocoaError(.fileNoSuchFile)
             }
-            let nearby = main.frame.insetBy(dx: -400, dy: -400)
+            let nearby = main.frame.insetBy(dx: -700, dy: -400)
             // Leave out the menu bar and status layers and anything as large as a screen.
             let windows = content.windows.filter { other in
                 other.windowID == main.windowID
