@@ -8,6 +8,8 @@ public final class WebPaginator: NSObject {
     public enum Source: Sendable {
         case html(String, baseURL: URL?)
         case file(URL, readAccessURL: URL)
+        /// A copy of a live page, which may read the files under its document's directory and no others.
+        case snapshot(String, directory: URL)
     }
 
     public struct Margins: Sendable, Equatable {
@@ -240,6 +242,7 @@ private final class PaginationSession {
     let webView: WKWebView
     private let window: NSWindow
     private let navigationTracker = NavigationTracker()
+    private let snapshotHandler = SnapshotSchemeHandler()
     private let pageSize: CGSize
     private let margins: WebPaginator.Margins
     private let allowsJavaScript: Bool
@@ -271,6 +274,7 @@ private final class PaginationSession {
         configuration.defaultWebpagePreferences.allowsContentJavaScript = allowsJavaScript
         configuration.suppressesIncrementalRendering = true
         configuration.preferences.shouldPrintBackgrounds = printsBackgrounds
+        configuration.setURLSchemeHandler(snapshotHandler, forURLScheme: SnapshotSchemeHandler.scheme)
         let printableWidth = max(pageSize.width - margins.left - margins.right, 72)
         let frame = CGRect(x: 0, y: 0, width: printableWidth, height: pageSize.height)
         webView = WKWebView(frame: frame, configuration: configuration)
@@ -296,6 +300,10 @@ private final class PaginationSession {
             webView.loadHTMLString(html, baseURL: baseURL)
         case .file(let url, let readAccessURL):
             webView.loadFileURL(url, allowingReadAccessTo: readAccessURL)
+        case .snapshot(let html, let directory):
+            snapshotHandler.serve(
+                WebPaginator.injectingBase(SnapshotSchemeHandler.rootURL, into: html), directory: directory)
+            webView.load(URLRequest(url: SnapshotSchemeHandler.pageURL))
         }
     }
 

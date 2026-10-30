@@ -122,6 +122,13 @@ final class OverlayMenuState {
         stage = .hidden
     }
 
+    /// Esc hides a band that is showing and not pinned; returns whether it did.
+    func hideForEscape(pinned: Bool) -> Bool {
+        guard stage != .hidden, !pinned else { return false }
+        hideNow()
+        return true
+    }
+
     private func scheduleHide() {
         hideTask?.cancel()
         guard stage != .hidden else { return }
@@ -340,7 +347,7 @@ extension DocumentViewModel {
 
     var textScalePercentage: String { "\(Int((textScale * 100).rounded()))%" }
 
-    var zoomPercentage: String { "\(Int((zoom * 100).rounded()))%" }
+    var zoomPercentage: String { "\(Int(((showsWeb ? webZoom : zoom) * 100).rounded()))%" }
 }
 
 struct StyleMenuItems: View {

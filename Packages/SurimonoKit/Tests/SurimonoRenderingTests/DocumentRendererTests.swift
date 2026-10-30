@@ -329,4 +329,54 @@ struct DocumentRendererTests {
         #expect(calls == 2)
         #expect(renderer.logicalRenderCount == 1)
     }
+
+    @Test("今の状態の写しは文書の場所だけを読める形で JavaScript なしで組み、別の写しは組み直す")
+    func liveSnapshot() async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            requests.append(request)
+            return try RenderingFixtures.pdf()
+        })
+        var settings = settings
+        settings.allowsJavaScriptInHTML = true
+        let file = URL(fileURLWithPath: "/Documents/page.html")
+        let first = DocumentSource.liveSnapshot("<p>First</p>", of: file)
+        _ = try await renderer.render(first, settings: settings)
+        _ = try await renderer.render(first, settings: settings)
+        _ = try await renderer.render(.liveSnapshot("<p>Second</p>", of: file), settings: settings)
+        _ = try await renderer.render(
+            DocumentSource(data: Data("<p>First</p>".utf8), fileURL: file, format: .html), settings: settings)
+        #expect(requests.count == 3)
+        #expect(requests.map(\.allowsJavaScript) == [false, false, true])
+        if case .snapshot(let html, let directory) = requests[0].source {
+            #expect(html == "<p>First</p>")
+            #expect(directory == URL(fileURLWithPath: "/Documents/"))
+        } else {
+            Issue.record("写しは文書の場所だけを読める写しとして渡す")
+        }
+        if case .file(let url, _) = requests[2].source {
+            #expect(url == file)
+        } else {
+            Issue.record("写しでなければファイルから読む")
+        }
+    }
+
+    @Test("今の状態の写しも用紙の向きを決めてから組み、自動は縦、横を選べば横で組む")
+    func liveSnapshotOrientation() async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            requests.append(request)
+            return try RenderingFixtures.pdf()
+        })
+        let source = DocumentSource.liveSnapshot("<p>Wide</p>", of: URL(fileURLWithPath: "/Documents/page.html"))
+        var settings = settings
+        let automatic = try await renderer.render(source, settings: settings)
+        settings.paperOrientation = .landscape
+        let landscape = try await renderer.render(source, settings: settings)
+        #expect(automatic.resolvedOrientation == .portrait)
+        #expect(landscape.resolvedOrientation == .landscape)
+        #expect(requests.count == 2)
+        #expect(requests[0].pageSize.width < requests[0].pageSize.height)
+        #expect(requests[1].pageSize.width > requests[1].pageSize.height)
+    }
 }

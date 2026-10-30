@@ -40,11 +40,11 @@ struct DocumentCommands: Commands {
             Button("Original Text Size") { model?.resetTextSize() }
                 .keyboardShortcut("0", modifiers: [.option, .command])
             Divider()
-            Button("Zoom In") { model?.paper.zoomIn() }
+            Button("Zoom In") { model?.zoomIn() }
                 .keyboardShortcut("+")
-            Button("Zoom Out") { model?.paper.zoomOut() }
+            Button("Zoom Out") { model?.zoomOut() }
                 .keyboardShortcut("-")
-            Button("Fit to Window") { model?.paper.zoomToFit() }
+            Button("Fit to Window") { model?.zoomToFit() }
                 .keyboardShortcut("0")
             Divider()
             Toggle(

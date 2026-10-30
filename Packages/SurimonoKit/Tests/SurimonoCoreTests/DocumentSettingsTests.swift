@@ -13,7 +13,7 @@ struct DocumentSettingsTests {
             zoom: 1.5, windowSize: CGSize(width: 1190, height: 842), layoutID: "a3BookletA4", themeID: "mincho",
             presetID: "clean", smartRemoval: DocumentSettings.SmartRemoval(isEnabled: true, keptIDs: ["aside#ad"]),
             printOptions: PrintOptions(marginsInMillimeters: 12, showsPageNumbers: true, rotatesBackSides: true),
-            imageOrder: ["b", "a"])
+            imageOrder: ["b", "a"], htmlPresentation: .paper)
         let decoded = try JSONDecoder().decode(DocumentSettings.self, from: JSONEncoder().encode(settings))
         #expect(decoded == settings)
     }
@@ -48,6 +48,15 @@ struct DocumentSettingsTests {
         let json = Data(#"{"zoom":"large","layoutID":"a4Duplex"}"#.utf8)
         let decoded = try JSONDecoder().decode(DocumentSettings.self, from: json)
         #expect(decoded == DocumentSettings(layoutID: "a4Duplex"))
+    }
+
+    @Test("HTML の見え方はウェブか紙面で、読めない値は捨ててほかの項目を残す")
+    func htmlPresentation() throws {
+        let paper = try JSONDecoder().decode(DocumentSettings.self, from: Data(#"{"htmlPresentation":"paper"}"#.utf8))
+        #expect(paper == DocumentSettings(htmlPresentation: .paper))
+        let unknown = try JSONDecoder().decode(
+            DocumentSettings.self, from: Data(#"{"htmlPresentation":"hologram","layoutID":"a4Duplex"}"#.utf8))
+        #expect(unknown == DocumentSettings(layoutID: "a4Duplex"))
     }
 
     @Test("保存した画像の順番を内容のハッシュで戻す")

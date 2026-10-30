@@ -69,7 +69,11 @@ private struct PaperArea: View {
 
     var body: some View {
         ZStack {
-            if let document = model.result?.logicalDocument {
+            if model.showsWeb, let fileURL = model.fileURL {
+                WebPageView(
+                    controller: model.web, fileURL: fileURL, allowsJavaScript: model.preferences.allowsJavaScript,
+                    onEscape: { menu.hideForEscape(pinned: model.isMenuPinned) })
+            } else if let document = model.result?.logicalDocument, !model.isCapturingWeb {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
                     zoom: model.zoom, selectsText: model.isSelectingText, controller: model.paper,
@@ -84,7 +88,8 @@ private struct PaperArea: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            if let error = model.error {
+            // The live page shows whatever the paper's pagination ran into.
+            if let error = model.error, !model.showsWeb {
                 ErrorPanel(model: model, message: error)
             }
         }
@@ -121,9 +126,7 @@ private struct PaperArea: View {
             return true
         }
         if event.keyCode == 53 {  // Escape
-            guard menu.stage != .hidden, !model.isMenuPinned else { return false }
-            menu.hideNow()
-            return true
+            return menu.hideForEscape(pinned: model.isMenuPinned)
         }
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "m":
@@ -184,6 +187,9 @@ struct ToastOverlay: View {
                     switch toast.action {
                     case .resetDocumentSettings?:
                         Button("Reset to Defaults") { model.resetDocumentSettings() }
+                            .controlSize(.small)
+                    case .retryWebCapture?:
+                        Button("Try Again") { model.retryWebCapture() }
                             .controlSize(.small)
                     case .reviewSmartRemoval?:
                         Button("Review") { model.reviewSmartRemoval() }

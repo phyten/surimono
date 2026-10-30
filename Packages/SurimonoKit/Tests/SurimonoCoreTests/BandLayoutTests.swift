@@ -129,13 +129,58 @@ struct BandLayoutTests {
     func stepsFollowTheSpecification() {
         #expect(
             BandLayout.steps == [
-                .compact(.style), .compact(.transition), .compact(.selectText),
+                .compact(.style), .compact(.transition), .compact(.selectText), .compact(.presentation),
                 .remove(.keepMenuVisible), .remove(.floatOnTop), .remove(.formatBadge),
                 .remove(.cover), .remove(.scrollAxis), .remove(.paperOrientation), .remove(.direction),
                 .remove(.pageIndicator),
-                .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout),
+                .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout), .remove(.presentation),
                 .remove(.thumbnails), .remove(.zoom), .compact(.print),
             ])
+    }
+
+    /// An HTML document on paper: the Markdown tools with the switch between web and paper in front.
+    private var htmlOnPaper: [BandLayout.Item: BandLayout.Widths] {
+        var widths = markdown
+        widths[.presentation] = .init(full: 120, compact: 50)
+        return widths
+    }
+
+    @Test("「ウェブ / 紙面」は、ほかのラベルを省いた後でアイコンだけになる")
+    func presentationLabelGoesAfterTheOtherLabels() {
+        // fixed 150 + name 80 + items 810 + four separators 40 = 1080; the other labels free 50 + 60 + 80.
+        let withoutOtherLabels: CGFloat = 1080 - 190
+        #expect(plan(htmlOnPaper, available: withoutOtherLabels).forms[.presentation] == .full)
+        let result = plan(htmlOnPaper, available: withoutOtherLabels - 1)
+        #expect(result.forms[.presentation] == .compact)
+        #expect(result.overflow.isEmpty)
+    }
+
+    @Test("「ウェブ / 紙面」は表示の型の次に帯から外れ、拡大率より先に外れる")
+    func presentationLeavesAfterTheLayout() {
+        var widths = htmlOnPaper
+        widths[.zoom] = .init(full: 50)
+        // At last the band holds the layout, the switch, zoom and Print: fixed 150 + name 80 + items 60 + 50 + 50
+        // + 70 and two separators 20 = 480.
+        func shown(_ available: CGFloat) -> [BandLayout.Item] {
+            let result = plan(widths, available: available)
+            return BandLayout.Item.allCases.filter { result.forms[$0] != nil }
+        }
+        #expect(shown(480) == [.presentation, .layout, .zoom, .print])
+        #expect(shown(479) == [.presentation, .zoom, .print])
+        #expect(shown(410) == [.presentation, .zoom, .print])
+        #expect(shown(409) == [.zoom, .print])
+    }
+
+    @Test("ウェブでは「ウェブ / 紙面」と窓の道具だけで帯を組む")
+    func webShowsOnlyTheSwitchAndWindowTools() {
+        let web: [BandLayout.Item: BandLayout.Widths] = [
+            .formatBadge: .init(full: 30), .presentation: .init(full: 120, compact: 50),
+            .floatOnTop: .init(full: 30), .keepMenuVisible: .init(full: 30), .print: .init(full: 70),
+        ]
+        // fixed 150 + name 80 + items 280 + one separator 10 = 520.
+        #expect(plan(web, available: 520).forms.values.allSatisfy { $0 == .full })
+        #expect(plan(web, available: 519).forms[.presentation] == .compact)
+        #expect(plan(web, available: 449).overflow == [.keepMenuVisible])
     }
 
     /// Every item at once, each with its own width, so that each step frees a different amount.
