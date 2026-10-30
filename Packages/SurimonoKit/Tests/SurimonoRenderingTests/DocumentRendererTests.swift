@@ -12,6 +12,67 @@ struct DocumentRendererTests {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
     }
 
+    @Test("Markdownの向き変更は寸法を変えて再組版し印刷だけの変更は使い回す")
+    func paperOrientationCache() async throws {
+        var sizes: [CGSize] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            sizes.append(request.pageSize)
+            return try RenderingFixtures.pdf(size: request.pageSize)
+        })
+        let source = DocumentSource(data: Data("# Heading".utf8), format: .markdown)
+        var settings = settings
+        _ = try await renderer.render(source, settings: settings)
+        settings.paperOrientation = .landscape
+        let result = try await renderer.render(source, settings: settings)
+        settings.options.showsPageNumbers = true
+        _ = try await renderer.render(source, settings: settings)
+        #expect(sizes.count == 2)
+        #expect(abs(sizes[1].width - 841.89) < 0.1)
+        #expect(abs(sizes[1].height - 595.28) < 0.1)
+        #expect(result.resolvedOrientation == .landscape)
+        let size = try #require(result.logicalDocument.page(at: 0)).bounds(for: .mediaBox).size
+        #expect(abs(size.width - sizes[1].width) < 0.01)
+        #expect(abs(size.height - sizes[1].height) < 0.01)
+    }
+
+    @Test("PDFは向き変更で読み直さず再面付けしRotateを自動判定に反映する")
+    func pdfOrientationCache() async throws {
+        let document = try RenderingFixtures.pdf(size: CGSize(width: 200, height: 400))
+        document.page(at: 0)?.rotation = 90
+        let source = DocumentSource(data: try #require(document.dataRepresentation()), format: .pdf)
+        let renderer = DocumentRenderer()
+        var settings = settings
+        let automatic = try await renderer.render(source, settings: settings)
+        #expect(automatic.resolvedOrientation == .landscape)
+        #expect(abs(try #require(automatic.sheetDocument.page(at: 0)).bounds(for: .mediaBox).width - 841.89) < 0.1)
+        settings.paperOrientation = .portrait
+        let portrait = try await renderer.render(source, settings: settings)
+        #expect(portrait.resolvedOrientation == .portrait)
+        #expect(abs(try #require(portrait.sheetDocument.page(at: 0)).bounds(for: .mediaBox).width - 595.28) < 0.1)
+        #expect(renderer.logicalRenderCount == 1)
+    }
+
+    @Test("画像と画像の束はEXIF反映後の多数決で用紙を決める")
+    func imageOrientation() async throws {
+        let landscape = try RenderingFixtures.image()
+        let portrait = try RenderingFixtures.image(orientation: 6)
+        let source = DocumentSource.images([
+            .init(data: portrait, fileURL: URL(fileURLWithPath: "/fixture/1.tiff")),
+            .init(data: landscape, fileURL: URL(fileURLWithPath: "/fixture/2.tiff")),
+            .init(data: landscape, fileURL: URL(fileURLWithPath: "/fixture/3.tiff")),
+        ])
+        let renderer = DocumentRenderer()
+        var settings = settings
+        settings.layout = .a3TwoUp
+        let bundle = try await renderer.render(source, settings: settings)
+        #expect(bundle.resolvedOrientation == .landscape)
+        #expect(bundle.layout.sheetSize.width < bundle.layout.sheetSize.height)
+        let page = try #require(bundle.logicalDocument.page(at: 0))
+        #expect(page.bounds(for: .mediaBox).width > page.bounds(for: .mediaBox).height)
+        let single = try await renderer.render(DocumentSource(data: portrait, format: .image), settings: settings)
+        #expect(single.resolvedOrientation == .portrait)
+    }
+
     @Test(
         "文字倍率の変更はテーマ形式だけを再組版し、同じ倍率ならキャッシュを使う",
         arguments: [DocumentFormat.markdown, .org, .plainText, .csv, .html])

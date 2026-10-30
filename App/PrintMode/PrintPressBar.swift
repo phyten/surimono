@@ -33,7 +33,7 @@ struct PrintPressBar: View {
             .padding(.trailing, 14)
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .frame(height: 92)
+        .frame(height: 112)
         .background(PrintPalette.chrome)
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
     }
@@ -67,6 +67,8 @@ struct PrintPressBar: View {
     private func summary(_ density: Density) -> some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
+                PaperOrientationControl(model: model)
+                    .controlSize(.small)
                 HStack(spacing: 6) {
                     Text(verbatim: model.summary ?? String(localized: "Preparing pages…"))
                         .font(.system(size: density == .regular ? 13.5 : 12.5))
@@ -141,8 +143,8 @@ struct PrintPressBar: View {
     }
 
     private var note: String? {
-        guard let result = model.result, let settings = model.renderedSettings else { return nil }
-        return PrintModeText.note(settings.layout, pageCount: result.plan.logicalPageCount, language: model.language)
+        guard let result = model.result else { return nil }
+        return PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
     }
 
     private var optionsText: String? {

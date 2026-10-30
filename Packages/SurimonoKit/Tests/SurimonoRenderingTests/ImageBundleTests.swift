@@ -97,7 +97,7 @@ struct ImageBundleTests {
         }
     }
 
-    @Test("画像は描くときに1枚ずつ読み、同じ画像と設定ならキャッシュを使って読み直さない")
+    @Test("自動判定の寸法を再利用し同じ設定なら描画を省き向きの変更では画像を1枚ずつ読み直す")
     func readsEachImageOnceWhenDrawing() async throws {
         let reads = ReadCounter()
         let images = try ["1.png", "2.png", "3.png"].map { name in
@@ -110,11 +110,39 @@ struct ImageBundleTests {
         let renderer = DocumentRenderer()
         let first = try await renderer.render(.images(images), settings: settings)
         #expect(first.logicalDocument.pageCount == 3)
-        #expect(reads.names == ["1.png", "2.png", "3.png"])
+        #expect(reads.names == ["1.png", "2.png", "3.png", "1.png", "2.png", "3.png"])
         var duplex = settings
         duplex.layout = .a4Duplex
         _ = try await renderer.render(.images(images), settings: duplex)
-        #expect(reads.names.count == 3)
+        #expect(reads.names.count == 6)
+        duplex.paperOrientation = .landscape
+        let landscape = try await renderer.render(.images(images), settings: duplex)
+        #expect(landscape.resolvedOrientation == .landscape)
+        #expect(reads.names.count == 9)
+        duplex.paperOrientation = .auto
+        _ = try await renderer.render(.images(images), settings: duplex)
+        #expect(reads.names.count == 12)
+    }
+
+    @Test("自動判定後に編集された画像は向きや余白の変更時に内容変更として検出する", arguments: [false, true])
+    func editedAfterAutoDetection(changesOrientation: Bool) async throws {
+        let original = try image("photo.png", color: (1, 0, 0)).data()
+        let edited = try image("photo.png", color: (0, 0, 1)).data()
+        let bytes = MutableImageBytes(original)
+        let url = URL(fileURLWithPath: "/fixtures/photo.png")
+        let source = DocumentSource.images([.init(fileURL: url, contentHash: .of(original)) { bytes.read() }])
+        let renderer = DocumentRenderer()
+        var settings = settings
+        _ = try await renderer.render(source, settings: settings)
+        bytes.replace(with: edited)
+        if changesOrientation {
+            settings.paperOrientation = .landscape
+        } else {
+            settings.options.marginsInMillimeters = 20
+        }
+        await #expect(throws: DocumentRenderer.RenderingError.imageChanged(url)) {
+            _ = try await renderer.render(source, settings: settings)
+        }
     }
 
     @Test("読み込みに失敗した画像は読めない画像として名前を返す")
@@ -147,4 +175,13 @@ private final class ReadCounter: @unchecked Sendable {
     private var _names: [String] = []
     var names: [String] { lock.withLock { _names } }
     func add(_ name: String) { lock.withLock { _names.append(name) } }
+}
+
+private final class MutableImageBytes: @unchecked Sendable {
+    // The lock protects updates on the main actor and reads on the loading task.
+    private let lock = NSLock()
+    private var data: Data
+    init(_ data: Data) { self.data = data }
+    func read() -> Data { lock.withLock { data } }
+    func replace(with data: Data) { lock.withLock { self.data = data } }
 }

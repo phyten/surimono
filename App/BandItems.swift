@@ -30,7 +30,8 @@ extension BandLayout.Item {
         guard stage == .full else { return [.print] }
         return allCases.filter { item in
             switch item {
-            case .formatBadge, .layout, .direction, .scrollAxis, .transition, .floatOnTop, .keepMenuVisible, .print:
+            case .formatBadge, .layout, .direction, .scrollAxis, .paperOrientation, .transition, .floatOnTop,
+                .keepMenuVisible, .print:
                 true
             case .pageIndicator: model.pageIndicator != nil
             case .style: model.format.usesPrintTheme || model.format.usesHTMLPreset
@@ -66,6 +67,7 @@ struct BandItemView: View {
         case .layout: LayoutPicker(model: model)
         case .direction: DirectionPicker(model: model)
         case .scrollAxis: ScrollAxisPicker(model: model)
+        case .paperOrientation: PaperOrientationControl(model: model)
         case .transition: TransitionMenu(model: model, showsName: form == .full)
         case .cover:
             Toggle(isOn: model.viewOption(\.showsCoverAlone)) {
@@ -297,6 +299,7 @@ private struct BandMenuItem: View {
                     ? String(localized: "Left to Right") : String(localized: "Right to Left")
                 Text(verbatim: choice(String(localized: "Direction"), value))
             }
+        case .paperOrientation: PaperOrientationControl(model: model)
         case .scrollAxis:
             Menu {
                 Picker("Scrolling", selection: model.viewOption(\.scrollAxis)) {

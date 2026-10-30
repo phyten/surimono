@@ -6,6 +6,23 @@ import Testing
 
 @MainActor
 struct PDFComposerTests {
+    @Test("横長2アップは上から順に配置し最後の下半分は白紙になる")
+    func stackedTwoUp() async throws {
+        let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 800, height: 450))
+        let output = try await PDFComposer().compose(
+            source, layout: PrintLayout.a3TwoUp.oriented(true), options: PrintOptions())
+        #expect(output.pageCount == 2)
+        let first = try #require(output.page(at: 0))
+        let last = try #require(output.page(at: 1))
+        let top = CGRect(x: 0, y: 596, width: 842, height: 595)
+        let bottom = CGRect(x: 0, y: 0, width: 842, height: 595)
+        #expect(first.selection(for: top)?.string?.contains("PAGE-1") == true)
+        #expect(first.selection(for: bottom)?.string?.contains("PAGE-2") == true)
+        #expect(last.selection(for: top)?.string?.contains("PAGE-3") == true)
+        let blank = (last.selection(for: bottom)?.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(blank.isEmpty)
+    }
+
     @Test("5ページのA3冊子は4面になり白紙とページ順が左右のスロットに反映される")
     func booklet() async throws {
         let output = try await PDFComposer().compose(

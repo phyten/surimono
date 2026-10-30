@@ -52,6 +52,19 @@ public struct ImagePageRenderer {
         }
     }
 
+    nonisolated static func contentSize(_ data: Data) throws -> CGSize {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+            let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+            width.doubleValue > 0, height.doubleValue > 0
+        else { throw RenderingError.invalidImage }
+        let orientation = (properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+        return (5...8).contains(orientation)
+            ? CGSize(width: height.doubleValue, height: width.doubleValue)
+            : CGSize(width: width.doubleValue, height: height.doubleValue)
+    }
+
     private nonisolated static func decode(
         _ data: Data, pageSize: CGSize, margin: CGFloat, autoRotatesPage: Bool
     ) throws -> (CGImage, CGSize) {

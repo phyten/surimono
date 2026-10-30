@@ -62,6 +62,7 @@ public struct DocumentSource: Equatable, Sendable {
 }
 
 public struct RenderSettings: Equatable, Sendable {
+    public var paperOrientation: PaperOrientation
     public var layout: PrintLayout
     public var theme: PrintTheme
     public var textScale: Double
@@ -73,9 +74,10 @@ public struct RenderSettings: Equatable, Sendable {
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
         options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
-        smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1
+        smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, paperOrientation: PaperOrientation = .auto
     ) {
         self.layout = layout
+        self.paperOrientation = paperOrientation
         self.theme = theme
         self.textScale = textScale
         self.preset = preset
@@ -95,6 +97,8 @@ public struct PaginationRequest: Sendable {
 
 @MainActor
 public struct RenderResult {
+    public let resolvedOrientation: PaperOrientation
+    public let layout: PrintLayout
     public let logicalDocument: PDFDocument
     public let sheetDocument: PDFDocument
     public let plan: ImpositionPlan
@@ -128,6 +132,7 @@ public final class DocumentRenderer {
     private let paginate: PaginateWithResult
     private var cache: (key: CacheKey, data: Data, unreadable: [URL], candidates: [SmartRemovalCandidate])?
     private var generation = 0
+    private var sourcePageSizes: (source: DocumentSource, sizes: [CGSize])?
 
     private struct CacheKey: Equatable {
         let source: DocumentSource
@@ -160,27 +165,38 @@ public final class DocumentRenderer {
     public func clearCache() {
         generation += 1
         cache = nil
+        sourcePageSizes = nil
     }
 
     public func render(_ source: DocumentSource, settings: RenderSettings) async throws -> RenderResult {
         try Task.checkCancellation()
         generation += 1
         let currentGeneration = generation
-        let pageSize = settings.layout.logicalPageSize
-        let margin = settings.options.marginsInMillimeters
-        guard PDFDrawing.validGeometry(pageSize: pageSize, margin: margin * 72 / 25.4) else {
-            throw RenderingError.invalidMargins
-        }
-        let key = CacheKey(
-            source: source, pageSize: pageSize,
-            theme: source.format.usesPrintTheme ? settings.theme : nil,
-            textScale: source.format.usesPrintTheme ? settings.textScale : nil,
-            preset: source.format.usesHTMLPreset ? settings.preset : nil,
-            margin: margin,
-            allowsJavaScript: source.format == .html && settings.allowsJavaScriptInHTML
-                && !settings.preset.disablesJavaScript,
-            smartRemoval: source.format == .html ? settings.smartRemoval : nil)
         do {
+            var settings = settings
+            let landscape: Bool
+            if settings.layout.kind == .booklet {
+                landscape = false
+            } else if settings.paperOrientation == .auto {
+                landscape = try await automaticLandscape(source)
+            } else {
+                landscape = settings.paperOrientation == .landscape
+            }
+            settings.layout = settings.layout.oriented(landscape)
+            let pageSize = settings.layout.logicalPageSize
+            let margin = settings.options.marginsInMillimeters
+            guard PDFDrawing.validGeometry(pageSize: pageSize, margin: margin * 72 / 25.4) else {
+                throw RenderingError.invalidMargins
+            }
+            let key = CacheKey(
+                source: source, pageSize: source.format == .pdf ? .zero : pageSize,
+                theme: source.format.usesPrintTheme ? settings.theme : nil,
+                textScale: source.format.usesPrintTheme ? settings.textScale : nil,
+                preset: source.format.usesHTMLPreset ? settings.preset : nil,
+                margin: source.format == .pdf ? 0 : margin,
+                allowsJavaScript: source.format == .html && settings.allowsJavaScriptInHTML
+                    && !settings.preset.disablesJavaScript,
+                smartRemoval: source.format == .html ? settings.smartRemoval : nil)
             let logical: PDFDocument
             let cachedData: Data
             let reused: Bool
@@ -220,6 +236,7 @@ public final class DocumentRenderer {
             }
             let plan = Imposition.plan(pageCount: logical.pageCount, layout: settings.layout)
             return RenderResult(
+                resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
                 logicalDocument: logical, sheetDocument: sheet, plan: plan, summary: PrintSummary(plan: plan),
                 unreadableImageURLs: unreadable, smartRemovalCandidates: candidates)
         } catch {
@@ -232,6 +249,51 @@ public final class DocumentRenderer {
             default: throw RenderingError.paginationFailed
             }
         }
+    }
+
+    private func automaticLandscape(_ source: DocumentSource) async throws -> Bool {
+        guard source.format == .pdf || source.format == .image else { return false }
+        if let sourcePageSizes, sourcePageSizes.source == source {
+            return PaperOrientation.auto.isLandscape(pageSizes: sourcePageSizes.sizes)
+        }
+        let currentGeneration = generation
+        let sizes: [CGSize]
+        if source.format == .pdf {
+            guard let document = PDFDocument(data: source.data) else { throw RenderingError.invalidPDF }
+            guard !document.isEncrypted && !document.isLocked else { throw RenderingError.encryptedPDF }
+            sizes = (0..<document.pageCount).compactMap { index in
+                guard let page = document.page(at: index), let ref = page.pageRef else { return nil }
+                let size = ref.getBoxRect(.cropBox).intersection(ref.getBoxRect(.mediaBox)).size
+                return page.rotation % 180 == 0 ? size : CGSize(width: size.height, height: size.width)
+            }
+        } else {
+            let loading = Task.detached(priority: Task.currentPriority) {
+                guard let images = source.images else {
+                    return [try ImagePageRenderer.contentSize(source.data)]
+                }
+                var sizes: [CGSize] = []
+                for image in images {
+                    try Task.checkCancellation()
+                    do {
+                        sizes.append(try ImagePageRenderer.contentSize(image.data()))
+                    } catch is DocumentSource.Image.ContentChanged {
+                        throw RenderingError.imageChanged(image.fileURL)
+                    } catch {
+                        try Task.checkCancellation()
+                    }
+                }
+                return sizes
+            }
+            sizes = try await withTaskCancellationHandler {
+                try await loading.value
+            } onCancel: {
+                loading.cancel()
+            }
+        }
+        try Task.checkCancellation()
+        let landscape = PaperOrientation.auto.isLandscape(pageSizes: sizes)
+        if generation == currentGeneration { sourcePageSizes = (source, sizes) }
+        return landscape
     }
 
     private func imageBundle(_ images: [DocumentSource.Image], settings: RenderSettings) async throws

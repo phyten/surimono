@@ -28,7 +28,7 @@ public struct PrintJobFactory {
             }
         info.paperName = NSPrinter.PaperName(name)
         info.paperSize = layout.sheet.size
-        info.orientation = layout.kind == .normal ? .portrait : .landscape
+        info.orientation = layout.sheetSize.width > layout.sheetSize.height ? .landscape : .portrait
         info.topMargin = 0
         info.bottomMargin = 0
         info.leftMargin = 0

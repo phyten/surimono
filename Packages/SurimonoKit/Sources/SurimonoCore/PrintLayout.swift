@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 public enum PaperSize: String, CaseIterable, Codable, Sendable {
@@ -40,6 +41,23 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
     }
 }
 
+public enum PaperOrientation: String, CaseIterable, Codable, Sendable {
+    case auto, portrait, landscape
+
+    public func isLandscape(pageSizes: [CGSize]) -> Bool {
+        switch self {
+        case .portrait: return false
+        case .landscape: return true
+        case .auto:
+            let count = pageSizes.filter { $0.width > $0.height }.count
+            if count * 2 == pageSizes.count {
+                return pageSizes.first.map { $0.width > $0.height } ?? false
+            }
+            return count * 2 > pageSizes.count
+        }
+    }
+}
+
 public enum DuplexMode: String, Codable, Sendable {
     case none, longEdge, shortEdge
 }
@@ -53,6 +71,7 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public let kind: LayoutKind
     public let sheet: PaperSize
     public let duplex: DuplexMode
+    public private(set) var landscapeContent = false
 
     public enum ValidationError: Error, Sendable {
         case missingHalfSize
@@ -74,7 +93,7 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         self.duplex = duplex
     }
 
-    private enum CodingKeys: String, CodingKey { case id, kind, sheet, duplex }
+    private enum CodingKeys: String, CodingKey { case id, kind, sheet, duplex, landscapeContent }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -82,14 +101,35 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
             id: values.decode(String.self, forKey: .id), kind: values.decode(LayoutKind.self, forKey: .kind),
             sheet: values.decode(PaperSize.self, forKey: .sheet),
             duplex: values.decode(DuplexMode.self, forKey: .duplex))
+        landscapeContent =
+            try kind != .booklet && (values.decodeIfPresent(Bool.self, forKey: .landscapeContent) ?? false)
     }
 
     public var sheetSize: CGSize {
-        kind == .normal ? sheet.size : CGSize(width: sheet.size.height, height: sheet.size.width)
+        let landscapeSheet = kind == .normal ? landscapeContent : !landscapeContent
+        return landscapeSheet ? CGSize(width: sheet.size.height, height: sheet.size.width) : sheet.size
     }
 
     public var logicalPageSize: CGSize {
-        kind == .normal ? sheet.size : (sheet.halved ?? sheet).size
+        let size = kind == .normal ? sheet.size : (sheet.halved ?? sheet).size
+        return landscapeContent ? CGSize(width: size.height, height: size.width) : size
+    }
+
+    public func oriented(_ landscape: Bool) -> PrintLayout {
+        var result = self
+        result.landscapeContent = kind != .booklet && landscape
+        return result
+    }
+
+    public var hasStackedSlots: Bool { kind == .twoUp && landscapeContent }
+
+    /// A unit rectangle measured from the top left, shared by the sheet preview and PDF composition.
+    public func slotRect(at index: Int) -> CGRect {
+        guard (0..<pagesPerSide).contains(index) else { return .zero }
+        if hasStackedSlots {
+            return CGRect(x: 0, y: CGFloat(index) / 2, width: 1, height: 0.5)
+        }
+        return CGRect(x: CGFloat(index) / CGFloat(pagesPerSide), y: 0, width: 1 / CGFloat(pagesPerSide), height: 1)
     }
 
     public var pagesPerSide: Int { kind == .normal ? 1 : 2 }

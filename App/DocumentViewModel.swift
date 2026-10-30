@@ -30,6 +30,7 @@ final class DocumentViewModel {
     private var data: Data
     let preferences: AppPreferences
     let library: UserLibrary
+    var paperOrientation: PaperOrientation = .auto
     var layoutID: String
     var themeID: String
     private(set) var textScale: Double = 1
@@ -157,7 +158,7 @@ final class DocumentViewModel {
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
                 : nil,
-            textScale: format.usesPrintTheme ? textScale : 1)
+            textScale: format.usesPrintTheme ? textScale : 1, paperOrientation: paperOrientation)
     }
     /// The pages shown were drawn from the current file and settings.
     var isUpToDate: Bool {
@@ -534,7 +535,8 @@ final class DocumentViewModel {
             smartRemoval: format == .html && (isSmartRemovalEnabled || !smartRemovalKeptIDs.isEmpty)
                 ? DocumentSettings.SmartRemoval(isEnabled: isSmartRemovalEnabled, keptIDs: smartRemovalKeptIDs) : nil,
             printOptions: printOptions,
-            imageOrder: imageBundle.flatMap { $0.isSortedByName ? nil : $0.orderDigests })
+            imageOrder: imageBundle.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
+            paperOrientation: paperOrientation)
     }
 
     /// What this document has when the user changes nothing. Until the pages are known, the reading layout is the
@@ -545,7 +547,7 @@ final class DocumentViewModel {
             themeID: format.usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
             textScale: format.usesPrintTheme ? 1 : nil,
             presetID: format.usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
-            printOptions: preferences.printOptions)
+            printOptions: preferences.printOptions, paperOrientation: .auto)
     }
 
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
@@ -606,6 +608,7 @@ final class DocumentViewModel {
             hasResolvedViewOptions = true
         }
         if let zoom = saved.zoom { self.zoom = min(max(zoom, 1), PaperPDFView.maximumZoom) }
+        if let orientation = saved.paperOrientation { paperOrientation = orientation }
         if let id = saved.layoutID, PrintLayout.presets.contains(where: { $0.id == id }) { layoutID = id }
         if let id = saved.themeID, library.themes.contains(where: { $0.id == id }) { themeID = id }
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
@@ -666,6 +669,7 @@ final class DocumentViewModel {
         pendingImageOrder = nil
         restoredPaperSize = nil
         textScale = 1
+        paperOrientation = .auto
         layoutID = Self.defaultLayoutID(preferences)
         themeID = Self.defaultThemeID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
@@ -810,7 +814,7 @@ final class DocumentViewModel {
     /// which starts on that printer.
     func printDocument(quick: Bool = false) {
         guard !deferUntilReviewEnds(.print(quick: quick)) else { return }
-        guard canOutput, let result, let renderedSettings, let window else { return }
+        guard canOutput, let result, let window else { return }
         outputError = nil
         let shown = selectedPrinterName
         refreshPrinters()
@@ -820,7 +824,7 @@ final class DocumentViewModel {
         let quick = !request.showsPanel && destination != nil
         guard
             let operation = PrintJobFactory().printOperation(
-                for: result.sheetDocument, layout: renderedSettings.layout, showsPrintPanel: !quick,
+                for: result.sheetDocument, layout: result.layout, showsPrintPanel: !quick,
                 printer: destination)
         else {
             outputError = String(localized: "The print job could not be created.")
