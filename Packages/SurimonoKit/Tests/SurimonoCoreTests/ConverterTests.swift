@@ -188,7 +188,7 @@ struct ConverterTests {
     @Test("文書形式に応じてテーマとHTMLプリセットを選べる")
     func formatCapabilities() {
         #expect(DocumentFormat(fileExtension: "tsv") == .csv)
-        #expect(DocumentFormat.allCases.filter(\.usesPrintTheme) == [.markdown, .org, .plainText, .csv])
+        #expect(DocumentFormat.allCases.filter(\.usesPrintTheme) == [.markdown, .org, .plainText, .csv, .latex])
         #expect(DocumentFormat.allCases.filter(\.usesHTMLPreset) == [.html])
         #expect(DocumentFormat.allCases.filter { !$0.isWebRendered } == [.pdf, .image, .zipArchive])
     }

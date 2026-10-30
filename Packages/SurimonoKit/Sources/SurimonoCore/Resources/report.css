@@ -6,8 +6,8 @@ h1 { font-size: 1.75em; text-align: center; padding-bottom: 0.4em; border-bottom
 h2 { font-size: 1.3em; padding-bottom: 0.15em; border-bottom: 0.75pt solid #1b2f4f; counter-increment: h2; counter-reset: h3; }
 h3 { font-size: 1.1em; counter-increment: h3; }
 /* Numbering is generated so Markdown sources need not number sections by hand. */
-h2::before { content: counter(h2) ". "; }
-h3::before { content: counter(h2) "." counter(h3) " "; }
+body:not(.format-latex) h2::before { content: counter(h2) ". "; }
+body:not(.format-latex) h3::before { content: counter(h2) "." counter(h3) " "; }
 h4, h5, h6 { font-size: 1em; color: #333; }
 p { margin: 0.6em 0; text-align: justify; }
 ul, ol, table, pre { margin: 0.65em 0; }

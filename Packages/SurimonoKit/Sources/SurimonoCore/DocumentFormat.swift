@@ -9,6 +9,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case image
     case csv
     case zipArchive
+    case latex
 
     public init?(fileExtension: String) {
         switch fileExtension.lowercased() {
@@ -19,13 +20,14 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "pdf": self = .pdf
         case "csv", "tsv": self = .csv
         case "zip": self = .zipArchive
+        case "tex", "latex", "ltx": self = .latex
         case "png", "jpg", "jpeg", "gif", "tif", "tiff", "heic", "heif", "webp", "bmp", "svg", "ico", "icns":
             self = .image
         default: return nil
         }
     }
 
-    public var usesPrintTheme: Bool { [.markdown, .org, .plainText, .csv].contains(self) }
+    public var usesPrintTheme: Bool { [.markdown, .org, .plainText, .csv, .latex].contains(self) }
     public var usesHTMLPreset: Bool { self == .html }
     public var isWebRendered: Bool { self != .pdf && self != .image && self != .zipArchive }
 
@@ -37,7 +39,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
-            "public.zip-archive": .zipArchive,
+            "public.zip-archive": .zipArchive, "org.tug.tex": .latex,
         ]
         if let format = known[contentType.identifier] {
             self = format
@@ -51,6 +53,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             self = .markdown
         } else if contentType.conforms(to: .surimonoOrg) {
             self = .org
+        } else if contentType.conforms(to: .surimonoLaTeX) {
+            self = .latex
         } else if contentType.conforms(to: .commaSeparatedText) {
             self = .csv
         } else if contentType.conforms(to: .html) {
@@ -78,6 +82,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .image: "Image"
         case .csv: "CSV"
         case .zipArchive: "ZIP"
+        case .latex: "LaTeX"
         }
     }
 }
@@ -85,4 +90,6 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
 extension UTType {
     public static let surimonoMarkdown = UTType(importedAs: "net.daringfireball.markdown", conformingTo: .plainText)
     public static let surimonoOrg = UTType(importedAs: "org.orgmode.org", conformingTo: .plainText)
+    /// The identifier TeX distributions and editors on the Mac use for `.tex` files.
+    public static let surimonoLaTeX = UTType(importedAs: "org.tug.tex", conformingTo: .plainText)
 }

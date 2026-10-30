@@ -6,9 +6,9 @@ h1 { font-size: 1.55em; text-align: center; margin: 0 0 1.2em; letter-spacing: 0
 h2 { font-size: 1.2em; margin: 1.5em 0 0.5em; counter-reset: subsec; }
 h3 { font-size: 1.05em; margin: 1.2em 0 0.4em; counter-reset: subsubsec; }
 h4, h5, h6 { font-size: 1em; margin: 1em 0 0.3em; }
-h2::before { counter-increment: sec; content: counter(sec) "\3000"; }
-h3::before { counter-increment: subsec; content: counter(sec) "." counter(subsec) "\3000"; }
-h4::before { counter-increment: subsubsec; content: "(" counter(subsubsec) ")\2002"; }
+body:not(.format-latex) h2::before { counter-increment: sec; content: counter(sec) "\3000"; }
+body:not(.format-latex) h3::before { counter-increment: subsec; content: counter(sec) "." counter(subsec) "\3000"; }
+body:not(.format-latex) h4::before { counter-increment: subsubsec; content: "(" counter(subsubsec) ")\2002"; }
 p { margin: 0.2em 0; text-indent: 1em; }
 li p, blockquote p, td p, th p, .callout p { text-indent: 0; }
 ul, ol { margin: 0.4em 0; padding-left: 2em; }

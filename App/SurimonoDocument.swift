@@ -6,8 +6,8 @@ import UniformTypeIdentifiers
 struct SurimonoDocument: FileDocument {
     nonisolated static var readableContentTypes: [UTType] {
         [
-            .surimonoMarkdown, .surimonoOrg, .plainText, .html, .pdf, .image, .commaSeparatedText, .tabSeparatedText,
-            .zip,
+            .surimonoMarkdown, .surimonoOrg, .surimonoLaTeX, .plainText, .html, .pdf, .image, .commaSeparatedText,
+            .tabSeparatedText, .zip,
         ]
     }
 
