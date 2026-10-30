@@ -7,14 +7,56 @@ import Testing
 
 @MainActor
 struct PrintThemeRenderingTests {
-    private func render(_ markdown: String, theme id: String) async throws -> PDFDocument {
+    private func render(_ text: String, theme id: String, format: DocumentFormat = .markdown) async throws
+        -> PDFDocument
+    {
         _ = NSApplication.shared
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == id })
         let settings = RenderSettings(
             layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
         let result = try await DocumentRenderer().render(
-            DocumentSource(data: Data(markdown.utf8), format: .markdown), settings: settings)
+            DocumentSource(data: Data(text.utf8), format: format), settings: settings)
         return result.logicalDocument
+    }
+
+    @Test("先頭の見出しは、見出しの上余白を足さずにページの余白のすぐ下から始まる", .timeLimit(.minutes(1)))
+    func leadingHeadingStartsAtThePageMargin() async throws {
+        let document = try await render("# 見出し\n\n本文", theme: "standard")
+        let page = try #require(document.page(at: 0))
+        #expect(page.string?.hasPrefix("見出し") == true)
+        let glyph = page.characterBounds(at: 0)
+        #expect(glyph.height > 0)
+        let gap = page.bounds(for: .mediaBox).maxY - glyph.maxY
+        let margin = 15 * 72 / 25.4
+        // Glyph bounds sit a little inside the line box, so allow a point either way. The heading's own top margin
+        // (about 23 pt in this theme) would push it well past the upper limit.
+        #expect(gap >= margin - 1)
+        #expect(gap < margin + 12)
+    }
+
+    @Test("Org の表題と引用で始まる文書も、ページの余白のすぐ下から始まる", .timeLimit(.minutes(1)))
+    func leadingTitleAndQuoteStartAtThePageMargin() async throws {
+        let margin = 15 * 72 / 25.4
+        let cases = [("#+TITLE: 表題\n\n本文", DocumentFormat.org, "表題"), ("> 引用\n\n本文", .markdown, "引用")]
+        for (text, format, first) in cases {
+            let page = try #require(try await render(text, theme: "standard", format: format).page(at: 0))
+            // PDF text order need not follow the page, so measure the leading block's own characters.
+            let index = ((page.string ?? "") as NSString).range(of: first).location
+            try #require(index != NSNotFound)
+            let gap = page.bounds(for: .mediaBox).maxY - page.characterBounds(at: index).maxY
+            #expect(gap < margin + 12, "\(format): \(gap)")
+        }
+    }
+
+    @Test("見出しで改ページのテーマでは、見出しのすぐ後の章の見出しも新しいページの上端から始まる", .timeLimit(.minutes(1)))
+    func handoutHeadingAfterHeadingStartsFlush() async throws {
+        let document = try await render("# 表題\n\n## 節\n\n本文", theme: "handout")
+        #expect(document.pageCount == 2)
+        let page = try #require(document.page(at: 1))
+        #expect(page.string?.hasPrefix("節") == true)
+        let gap = page.bounds(for: .mediaBox).maxY - page.characterBounds(at: 0).maxY
+        let margin = 15 * 72 / 25.4
+        #expect(gap < margin + 12)
     }
 
     @Test("150%の文字は100%より高くページ数が増え、用紙寸法は変わらない", .timeLimit(.minutes(1)))
