@@ -1,0 +1,22 @@
+/* Classical book: Toppan Bunkyu Mincho, ruby-friendly leading and framed headings. */
+body { font-family: "Toppan Bunkyu Mincho", "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 2; color: #1c1915; text-align: justify; }
+body > :first-child { margin-top: 0; }
+rt { font-size: 0.5em; }
+h1, h2, h3, h4, h5, h6 { font-family: "Toppan Bunkyu Midashi Mincho", "Toppan Bunkyu Mincho", "Hiragino Mincho ProN", serif; font-weight: normal; line-height: 1.5; margin: 1.6em 0 0.6em; }
+h1 { font-size: 1.8em; text-align: center; letter-spacing: 0.3em; padding: 0.4em 0; border-top: 3pt double #3a332b; border-bottom: 3pt double #3a332b; }
+h2 { font-size: 1.35em; letter-spacing: 0.1em; }
+h2::after { content: ""; display: block; width: 3em; margin-top: 0.2em; border-bottom: 0.5pt solid #3a332b; }
+h3 { font-size: 1.12em; }
+h3::before { content: "【"; }
+h3::after { content: "】"; }
+h4, h5, h6 { font-size: 1em; }
+p { margin: 0.4em 0; text-indent: 1em; }
+li > p, blockquote p, .callout p, td p, .callout-title { text-indent: 0; }
+ul, ol, table, pre { margin: 0.8em 0; }
+pre { text-align: left; font-size: 8.8pt; line-height: 1.6; }
+th, td { border: 0.5pt solid #5a5048; padding: 0.3em 0.6em; }
+th { font-weight: normal; font-family: "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; }
+blockquote { border-left: none; margin-inline: 2em; padding-left: 0; color: #3a332b; }
+hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
+hr::after { content: "◇"; color: #5a5048; }
+a { color: inherit; }

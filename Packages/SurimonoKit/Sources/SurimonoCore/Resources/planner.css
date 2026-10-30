@@ -1,0 +1,37 @@
+/* Planner / agenda: small type, boxed headings and ledger-like rows. */
+body {
+    font-family: "Helvetica Neue", "Hiragino Sans", sans-serif;
+    font-size: 9pt;
+    line-height: 1.6;
+    color: #1f2a30;
+    font-variant-numeric: tabular-nums;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1em 0 0.4em; line-height: 1.35; font-weight: 700; }
+h1 {
+    font-size: 1.9em;
+    padding: 0.2em 0.4em;
+    border: 1.5pt solid #2f4858;
+    letter-spacing: 0.04em;
+}
+h2 {
+    font-size: 1.25em;
+    padding: 0.15em 0.5em;
+    border-left: 5pt solid #2f4858;
+    background: #e9eff2;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h3 { font-size: 1.05em; display: inline-block; padding: 0 0.5em; border: 0.75pt solid #2f4858; }
+h4, h5, h6 { font-size: 1em; text-transform: uppercase; letter-spacing: 0.08em; color: #3f5b6b; }
+body > :first-child { margin-top: 0; }
+p, pre, table, ul, ol { margin: 0.4em 0; }
+/* List items read like agenda rows. */
+li { margin: 0; padding: 0.1em 0; border-bottom: 0.5pt solid #c6d2d8; }
+li li:last-child { border-bottom: none; }
+table { width: 100%; }
+th, td { border: none; border-bottom: 0.5pt solid #9fb1ba; padding: 0.2em 0.5em; }
+thead th { border-bottom: 1.2pt solid #2f4858; text-transform: uppercase; font-size: 0.9em; letter-spacing: 0.05em; }
+pre { font-size: 8pt; line-height: 1.5; padding: 0.4em 0.6em; border: 0.5pt solid #9fb1ba; }
+code { font-size: 0.9em; }
+blockquote { border-left-color: #2f4858; }
+hr { border: none; border-top: 0.5pt solid #2f4858; border-bottom: 0.5pt solid #2f4858; height: 2pt; margin: 0.8em 0; }

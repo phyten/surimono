@@ -1,0 +1,26 @@
+/* Story Time: storybook pages with large rounded type, warm colors, an ornamented title and a drop cap. */
+body { font-family: "Hiragino Maru Gothic ProN", sans-serif; font-size: 12.5pt; line-height: 1.95; color: #3a2616; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.45em; line-height: 1.45;
+    font-family: "Hoefler Text", "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; color: #8a3b12; }
+h1 { font-size: 2em; text-align: center; letter-spacing: 0.08em; }
+h1:first-of-type::before { content: "❦ ✿ ❦"; display: block; font-size: 0.45em; letter-spacing: 0.6em; color: #c9893a; margin-bottom: 0.3em; }
+h1:first-of-type::after { content: "~ ✦ ~"; display: block; font-size: 0.5em; letter-spacing: 0.5em; color: #c9893a; margin-top: 0.2em; }
+h2 { font-size: 1.4em; text-align: center; color: #a04a1c; }
+h2::before, h2::after { content: "❧"; color: #c9893a; margin: 0 0.5em; font-size: 0.8em; }
+h2::before { display: inline-block; transform: scaleX(-1); }
+h3 { font-size: 1.15em; color: #6f5a1a; }
+p, pre, table { margin: 0.7em 0; }
+h1 + p::first-letter, h2 + p::first-letter { float: left; font-size: 2.6em; line-height: 1; margin: 0.08em 0.12em 0 0;
+    color: #b0461a; font-family: "Hoefler Text", "Toppan Bunkyu Midashi Mincho", serif; }
+li { margin: 0.2em 0; }
+ul > li::marker { color: #c9893a; }
+ol > li::marker { color: #8a3b12; font-weight: bold; }
+hr { border: none; text-align: center; height: auto; margin: 1.3em 0; }
+hr::after { content: "✿ ❀ ✿"; color: #c9893a; letter-spacing: 1em; }
+code { font-size: 0.85em; }
+pre { font-size: 9.5pt; line-height: 1.6; background: #fdf7ee; border: 1pt solid #e8cfa8; border-radius: 6pt; padding: 0.6em 0.8em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: none; text-align: center; font-style: italic; color: #6a4a2a; }
+th { background: #fbf1e1; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #d9bb93; }

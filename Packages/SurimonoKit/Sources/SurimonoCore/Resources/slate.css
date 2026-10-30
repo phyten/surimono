@@ -1,0 +1,20 @@
+/* Cool slate grays with a modern geometric sans. */
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.75; color: #1e293b; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 600; color: #334155; line-height: 1.35; margin: 1.4em 0 0.5em; }
+h1 { font-size: 2em; color: #0f172a; padding-bottom: 0.3em; border-bottom: 1pt solid #94a3b8; }
+h2 { font-size: 1.4em; color: #1e293b; }
+h2::after { content: ""; display: block; margin-top: 0.2em; border-bottom: 0.5pt solid #cbd5e1; }
+h3 { font-size: 1.12em; color: #475569; }
+h4, h5, h6 { font-size: 0.95em; color: #475569; text-transform: uppercase; letter-spacing: 0.06em; }
+p, ul, ol, table, pre { margin: 0.65em 0; }
+li::marker { color: #64748b; }
+pre { font-size: 8.6pt; line-height: 1.55; padding: 0.7em 0.9em; background: #f1f5f9; border: 0.5pt solid #cbd5e1; border-radius: 4pt; }
+:not(pre) > code { background: #f1f5f9; border-radius: 3pt; padding: 0.05em 0.3em; font-size: 0.88em; }
+th, td { border: none; border-bottom: 0.5pt solid #cbd5e1; padding: 0.35em 0.7em; }
+th { background: #e2e8f0; color: #1e293b; font-weight: 600; }
+blockquote { border-left: 3pt solid #94a3b8; color: #475569; }
+hr { border: none; border-top: 0.75pt solid #cbd5e1; margin: 1.5em 0; }
+a { color: #3b5b85; }
+.callout { border-radius: 0 4pt 4pt 0; }
+pre, th, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

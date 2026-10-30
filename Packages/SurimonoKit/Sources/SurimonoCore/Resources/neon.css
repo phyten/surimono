@@ -1,0 +1,24 @@
+/* Neon: sign-like headings that glow through layered text-shadow; body stays plain black on white. */
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #111; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.4; font-family: "Futura", "Hiragino Sans", sans-serif;
+    font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1 { font-size: 2em; color: #d1006f; letter-spacing: 0.04em;
+    text-shadow: 0 0 1pt #fff, 0 0 3pt #ff4fb8, 0 0 8pt #ff8ad4; }
+h2 { font-size: 1.45em; color: #00739e; text-shadow: 0 0 1pt #fff, 0 0 3pt #33d6ff, 0 0 7pt #8ae9ff; }
+h3 { font-size: 1.15em; color: #3d7a00; text-shadow: 0 0 2pt #9dff4a, 0 0 6pt #c8ff96; }
+h4 { color: #7a2bc4; text-shadow: 0 0 3pt #d3a3ff; }
+p, pre, table { margin: 0.7em 0; }
+ul > li::marker { color: #ff2fa0; }
+ol > li::marker { color: #00a6d6; font-weight: 700; }
+/* The tube: a thin bright core with a soft halo. */
+hr { border: none; height: 1.5pt; margin: 1.6em 0; background: #ff4fb8; border-radius: 1pt;
+    box-shadow: 0 0 3pt #ff4fb8, 0 0 8pt #ffa3dc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+code { font-size: 0.9em; }
+pre { border: 1pt solid #33d6ff; border-radius: 4pt; padding: 0.6em 0.8em; font-size: 9pt;
+    box-shadow: 0 0 4pt #a6ecff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 2pt solid #9dff4a; box-shadow: -2pt 0 5pt -2pt #9dff4a;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th { border-bottom: 1.5pt solid #ff4fb8; }
+th, td { border-color: #b8b8c8; }
+a { color: #8a1fd1; }

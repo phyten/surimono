@@ -1,0 +1,27 @@
+/* Halloween: pumpkin orange and witch purple with spooky emoji from the decoration script. */
+:root { --deco-emoji: 🎃 👻 🦇 🍬 🕷️ 🕸️ 🍭 🧙 🌙 💀; }
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #1d1424; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.4;
+    font-family: "Chalkduster", "Toppan Bunkyu Midashi Gothic", "Hiragino Sans", sans-serif; }
+h1 { font-size: 1.95em; color: #c94a00; text-align: center; padding-bottom: 0.2em; border-bottom: 3pt dotted #5b2a86; }
+h1[data-deco]::before, h1[data-deco]::after { content: attr(data-deco); margin: 0 0.35em; }
+h2 { font-size: 1.4em; color: #5b2a86; border-bottom: 2pt solid #f08a24; }
+h2[data-deco]::before, h3[data-deco]::before { content: attr(data-deco) " "; }
+h3 { font-size: 1.15em; color: #b04200; }
+p, pre, table { margin: 0.7em 0; }
+li { margin: 0.15em 0; }
+ul > li[data-deco] { list-style: none; position: relative; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.5em; }
+ol > li::marker { color: #5b2a86; font-weight: 700; }
+hr { border: none; height: 2pt; margin: 1.5em 0;
+    background: repeating-linear-gradient(90deg, #f08a24 0 8pt, #5b2a86 8pt 16pt);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+hr[data-deco] { background: none; text-align: center; height: auto; }
+hr[data-deco]::after { content: attr(data-deco); letter-spacing: 0.6em; }
+code { font-size: 0.9em; }
+pre { background: #f8f3fc; border-left: 4pt solid #f08a24; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #5b2a86; color: #3a2a48; }
+th { background: #fff0e0; color: #8a3300; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #b9a2cf; }

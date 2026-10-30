@@ -1,0 +1,32 @@
+/* Typewriter: a typed memo on slightly warm paper, with typed underlines instead of bold rules. */
+html, body {
+    background: #fdfbf4;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+body {
+    font-family: "American Typewriter", "Courier New", "Osaka", "Hiragino Sans", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.8;
+    color: #1e1e1e;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; font-weight: 600; }
+h1 { font-size: 1.5em; text-transform: uppercase; letter-spacing: 0.12em; text-decoration: underline double; text-underline-offset: 0.2em; }
+h2 { font-size: 1.25em; text-transform: uppercase; letter-spacing: 0.08em; text-decoration: underline; text-underline-offset: 0.2em; }
+h3 { font-size: 1.08em; }
+h3::before { content: "\2014  "; }
+h4, h5, h6 { font-size: 1em; text-decoration: underline; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.6em 0; }
+li { margin: 0.1em 0; }
+ul { list-style-type: "-  "; }
+code, pre { font-family: "Courier New", Menlo, "Osaka", "Hiragino Sans", monospace; }
+pre { font-size: 9.5pt; line-height: 1.55; padding-left: 1em; border-left: 1pt dashed #555; }
+code { font-size: 1em; }
+th, td { border: 0.75pt dashed #555; }
+blockquote { border-left: 1pt dashed #555; font-style: italic; }
+.callout { background: transparent; border: 0.75pt dashed var(--callout-color); border-left-width: 2pt; }
+/* Typed ribbon colors: black and the red half of a two-color ribbon. */
+:root { --hl-keyword: #a3261d; --hl-string: #333; --hl-function: #1e1e1e; --hl-type: #a3261d; --hl-number: #333; }
+hr { border: none; text-align: center; margin: 1.2em 0; height: auto; }
+hr::after { content: "*   *   *"; letter-spacing: 0.2em; }

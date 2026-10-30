@@ -1,0 +1,32 @@
+/* Rainbow: gradient-filled h1/h2 and rainbow rules. Headings keep a solid color when background-clip:text is missing. */
+:root { --rainbow: linear-gradient(90deg, #d7263d, #f46036, #e2a400, #2e9e44, #1b6fd1, #6a3fb5, #b0258f); }
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; font-weight: 800; }
+h1 { font-size: 2em; color: #d7263d; }
+h2 { font-size: 1.45em; color: #1b6fd1; }
+h3 { font-size: 1.15em; color: #2e7d3a; border-left: 4pt solid #e2a400; padding-left: 0.4em; }
+h4 { color: #6a3fb5; }
+@supports (-webkit-background-clip: text) {
+    /* fit-content keeps the whole spectrum on short headings instead of only its red end. */
+    h1, h2 { width: fit-content; max-width: 100%; background: var(--rainbow); -webkit-background-clip: text;
+        background-clip: text; -webkit-text-fill-color: transparent;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+h1 { padding-bottom: 0.1em; }
+p, pre, table { margin: 0.7em 0; }
+ul > li:nth-child(6n+1)::marker { color: #d7263d; }
+ul > li:nth-child(6n+2)::marker { color: #f46036; }
+ul > li:nth-child(6n+3)::marker { color: #e2a400; }
+ul > li:nth-child(6n+4)::marker { color: #2e9e44; }
+ul > li:nth-child(6n+5)::marker { color: #1b6fd1; }
+ul > li:nth-child(6n)::marker { color: #6a3fb5; }
+ol > li::marker { color: #1b6fd1; font-weight: 700; }
+hr { border: none; height: 3pt; border-radius: 2pt; margin: 1.5em 0; background: var(--rainbow);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+code { font-size: 0.9em; }
+pre { border-left: 4pt solid #1b6fd1; background: #f6f8fc; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #b0258f; }
+thead { border-bottom: 2.5pt solid #e2a400; }
+th, td { border-color: #c4c4d4; }

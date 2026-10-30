@@ -1,0 +1,24 @@
+/* Autumn: maple reds and oranges, 🍁 headings and 🍂 bullets on warm gothic text. */
+body { font-family: "YuGothic", "Hiragino Sans", sans-serif; font-weight: 500; font-size: 10.5pt; line-height: 1.8; color: #2a1d16; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.45;
+    font-family: "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; color: #a8321a; }
+h1 { font-size: 1.85em; padding-bottom: 0.2em; border-bottom: 2pt solid #d9711a; }
+h1::before { content: "🍁 "; }
+h2 { font-size: 1.4em; padding-bottom: 0.1em;
+    background: linear-gradient(90deg, #b2401c, #e08a1e, #d9b44a) left bottom / 100% 1.5pt no-repeat;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h2::before { content: "🍁 "; font-size: 0.85em; }
+h3 { font-size: 1.15em; color: #8a4a12; }
+p, pre, table { margin: 0.7em 0; }
+ul > li:not(.task-list-item) { list-style: none; position: relative; }
+ul > li:not(.task-list-item)::before { content: "🍂"; position: absolute; left: -1.5em; font-size: 0.85em; }
+ol > li::marker { color: #b2401c; font-weight: 700; }
+hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
+hr::after { content: "🍁 🍂 🌰 🍂 🍁"; letter-spacing: 0.5em; }
+code { font-size: 0.9em; }
+pre { background: #fdf6ee; border-left: 3pt solid #d9711a; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left-color: #c9894a; color: #4a3626; }
+th { background: #fbeee0; color: #7a2e12; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #d8b293; }

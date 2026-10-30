@@ -1,0 +1,51 @@
+/* Newspaper extra edition (gogai): a huge black headline with a red "号外" badge, dense justified mincho body. */
+body {
+    font-family: "Hiragino Mincho ProN", "YuMincho", serif;
+    font-size: 9.5pt;
+    line-height: 1.55;
+    color: #111;
+    text-align: justify;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin: 0.8em 0 0.3em;
+    line-height: 1.2;
+    font-family: "Toppan Bunkyu Midashi Gothic", "Hiragino Sans", sans-serif;
+    font-weight: 900;
+    text-align: left;
+}
+h1 {
+    font-size: 3em;
+    letter-spacing: -0.02em;
+    padding: 0.15em 0;
+    border-top: 4pt solid #111;
+    border-bottom: 1.5pt solid #111;
+}
+h1::before {
+    content: "号外";
+    display: inline-block;
+    margin-right: 0.3em;
+    padding: 0.05em 0.2em;
+    font-size: 0.55em;
+    vertical-align: 0.25em;
+    color: #fff;
+    background: #c4161c;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h2 { font-size: 1.8em; color: #c4161c; border-bottom: 2pt solid #111; }
+h3 { font-size: 1.3em; }
+h3::before { content: "\25BC"; color: #c4161c; margin-right: 0.2em; }
+h4, h5, h6 { font-size: 1.05em; }
+body > :first-child { margin-top: 0; }
+p { margin: 0.25em 0; text-indent: 1em; }
+li p, td p, blockquote p, .callout p { text-indent: 0; }
+ul, ol, pre, table, blockquote { margin: 0.4em 0; }
+li { margin: 0; }
+strong { font-family: "Hiragino Sans", sans-serif; font-weight: 700; }
+pre { font-size: 8.5pt; line-height: 1.4; padding: 0.3em 0.6em; border: 0.75pt solid #111; text-align: left; }
+code { font-size: 0.9em; }
+th, td { border-color: #111; padding: 0.15em 0.4em; }
+th { font-family: "Hiragino Sans", sans-serif; }
+blockquote { border-left: 3pt solid #c4161c; }
+.callout { border-left-color: #c4161c; }
+hr { border: none; border-top: 1.5pt solid #111; border-bottom: 0.5pt solid #111; height: 2pt; margin: 0.8em 0; }

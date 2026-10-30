@@ -1,0 +1,24 @@
+/* Lecture handout: clear sans hierarchy, highlighted key terms and boxed definitions. */
+body { font-family: "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.7; color: #1b1f24; counter-reset: sec; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4 { line-height: 1.35; font-weight: 700; }
+h1 { font-size: 1.7em; margin: 0 0 0.8em; padding-bottom: 0.25em; border-bottom: 2.5pt solid #1f4e8c; }
+h2 { font-size: 1.3em; margin: 1.4em 0 0.5em; padding: 0.15em 0.5em; color: #163a6a; border-left: 5pt solid #1f4e8c; background: #eef3fa; -webkit-print-color-adjust: exact; print-color-adjust: exact; counter-reset: sub; }
+h2::before { counter-increment: sec; content: counter(sec) ". "; }
+h3 { font-size: 1.1em; margin: 1.1em 0 0.4em; padding-bottom: 0.1em; border-bottom: 1pt dotted #1f4e8c; }
+h3::before { counter-increment: sub; content: counter(sec) "-" counter(sub) " "; color: #1f4e8c; }
+h4 { font-size: 1em; margin: 0.9em 0 0.3em; color: #163a6a; }
+p { margin: 0.5em 0; }
+ul, ol { margin: 0.4em 0; padding-left: 1.6em; }
+li { margin: 0.15em 0; }
+/* Key terms get a highlighter stripe so students spot them when reviewing. */
+strong { background: linear-gradient(transparent 60%, #fde68a 60%); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+code { font-size: 0.88em; background: #f1f3f5; padding: 0 0.25em; border-radius: 2pt; }
+pre { font-size: 8.8pt; line-height: 1.5; background: #f6f7f9; border: 0.5pt solid #ccd3dc; border-radius: 3pt; padding: 0.6em 0.8em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre code { background: none; padding: 0; }
+.callout { border: 1pt solid var(--callout-color); border-left-width: 4pt; border-radius: 3pt; }
+.callout > .callout-title { font-size: 1.05em; }
+table { margin: 0.8em 0; }
+th { background: #eef3fa; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { color: #3d4652; border-left-color: #9fb3cf; }
+hr { border: none; border-top: 1pt solid #c7d2e0; margin: 1.4em 0; }

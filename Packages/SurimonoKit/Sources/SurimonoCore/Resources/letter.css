@@ -1,0 +1,18 @@
+/* A personal letter: mincho body, inset text block and a centered title. */
+body { font-family: "YuMincho", "Hiragino Mincho ProN", serif; font-size: 11pt; line-height: 2; color: #1f1f1f; padding: 0 6%; text-align: justify; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hiragino Mincho ProN", serif; font-weight: 600; line-height: 1.5; margin: 1.6em 0 0.6em; }
+h1 { font-size: 1.6em; text-align: center; letter-spacing: 0.2em; margin-bottom: 1.6em; }
+h2 { font-size: 1.25em; text-align: center; letter-spacing: 0.1em; }
+h3 { font-size: 1.08em; }
+h4, h5, h6 { font-size: 1em; }
+p { margin: 0 0 1em; text-indent: 1em; }
+li > p, blockquote p, .callout p, td p { text-indent: 0; }
+ul, ol, table, pre { margin: 1em 0; text-align: left; }
+pre { font-size: 9pt; line-height: 1.6; }
+th, td { border: none; border-bottom: 0.5pt solid #aaa; padding: 0.3em 0.8em; }
+th { font-weight: 600; }
+blockquote { border-left: none; margin-inline: 2em; padding-left: 0; color: #444; }
+hr { border: none; text-align: center; margin: 1.6em 0; height: auto; }
+hr::after { content: "＊　＊　＊"; color: #777; font-size: 0.9em; }
+a { color: inherit; }

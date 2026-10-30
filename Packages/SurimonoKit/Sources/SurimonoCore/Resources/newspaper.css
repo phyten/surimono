@@ -1,0 +1,22 @@
+/* Newspaper: masthead-style h1 between rules, bold headline mincho, tight justified body. */
+body { font-family: "YuMincho", "Hiragino Mincho ProN", serif; font-size: 9.5pt; line-height: 1.55; text-align: justify; color: #111; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; font-weight: 800; line-height: 1.2; text-align: left; }
+h1 { font-size: 2.6em; text-align: center; margin: 0 0 0.6em; padding: 0.15em 0; border-top: 3pt double #111; border-bottom: 3pt double #111; letter-spacing: 0.04em; }
+h2 { font-size: 1.75em; margin: 1.1em 0 0.35em; padding-bottom: 0.15em; border-bottom: 0.75pt solid #111; }
+h3 { font-family: "Toppan Bunkyu Midashi Gothic", "Hiragino Sans", sans-serif; font-size: 1.15em; margin: 0.9em 0 0.3em; }
+h4, h5, h6 { font-family: "Hiragino Sans", sans-serif; font-size: 1em; font-weight: 700; margin: 0.7em 0 0.2em; }
+/* Lead paragraph under a headline reads like a news lede. */
+h2 + p { font-family: "Hiragino Sans", sans-serif; font-weight: 600; font-size: 1.02em; text-indent: 0; margin-bottom: 0.3em; }
+p { margin: 0; text-indent: 1em; }
+li p, blockquote p, td p, th p, .callout p { text-indent: 0; }
+ul, ol { margin: 0.3em 0; padding-left: 1.6em; }
+li { margin: 0; }
+blockquote { border-left: 2pt solid #111; margin-inline: 0.5em; font-family: "Hiragino Sans", sans-serif; font-size: 0.92em; }
+code { font-size: 0.85em; }
+pre { font-size: 8pt; line-height: 1.4; border: 0.5pt solid #555; padding: 0.4em 0.6em; }
+table { margin: 0.6em 0; font-family: "Hiragino Sans", sans-serif; font-size: 0.88em; border-top: 1.5pt solid #111; border-bottom: 1.5pt solid #111; }
+th, td { border: none; border-bottom: 0.4pt solid #999; padding: 0.15em 0.5em; }
+thead th { border-bottom: 0.75pt solid #111; }
+.callout { background: none; border: 0.75pt solid #111; border-left-width: 3pt; padding: 0.5em 0.8em; }
+hr { border: none; border-top: 0.75pt solid #111; border-bottom: 0.4pt solid #111; height: 1.5pt; margin: 1em 0; }

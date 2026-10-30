@@ -1,0 +1,24 @@
+/* School textbook: YuKyokasho body, rounded friendly headings in green. */
+body { font-family: "YuKyokasho Yoko", "YuKyokasho", "Hiragino Mincho ProN", serif; font-size: 11pt; line-height: 1.85; color: #1d1d1d; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif; font-weight: 700; line-height: 1.4; }
+h1 { font-size: 1.75em; margin: 0 0 0.8em; color: #1f6f43; padding-bottom: 0.2em; border-bottom: 3pt double #4caf7a; }
+h2 { font-size: 1.3em; margin: 1.4em 0 0.6em; padding: 0.2em 0.8em; color: #14532d; background: #e6f4ea; border-radius: 1em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h3 { font-size: 1.1em; margin: 1.1em 0 0.4em; color: #1f6f43; }
+h3::before { content: "●"; color: #4caf7a; margin-right: 0.35em; font-size: 0.8em; }
+h4 { font-size: 1em; margin: 0.9em 0 0.3em; }
+h4::before { content: "▶ "; color: #4caf7a; font-size: 0.8em; }
+p { margin: 0.5em 0; }
+ul, ol { margin: 0.4em 0; padding-left: 1.8em; }
+li { margin: 0.2em 0; }
+li::marker { color: #2f8f5b; }
+strong { color: #14532d; }
+code { font-size: 0.88em; }
+pre { font-size: 9pt; line-height: 1.5; background: #f4f8f5; border: 0.7pt solid #b5d6c0; border-radius: 6pt; padding: 0.6em 0.8em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.callout { border-left: none; border: 1.2pt solid var(--callout-color); border-radius: 8pt; }
+.callout > .callout-title { font-family: "Hiragino Maru Gothic ProN", sans-serif; }
+table { margin: 0.8em 0; }
+th, td { border-color: #8fbfa0; }
+th { background: #e6f4ea; font-family: "Hiragino Maru Gothic ProN", sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #9fd0b0; color: #333; }
+hr { border: none; border-top: 1pt dashed #8fbfa0; margin: 1.4em 0; }

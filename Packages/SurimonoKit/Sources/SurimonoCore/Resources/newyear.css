@@ -1,0 +1,27 @@
+/* New Year: celebratory red and gold with brush-like mincho headings and New Year emoji from the script. */
+:root { --deco-emoji: 🎍 🌅 🗻 ⛩️ 🎌 🍶 🪁 🐉 🧧 🎴 🍡; }
+body { font-family: "Hiragino Mincho ProN", "YuMincho", serif; font-size: 10.5pt; line-height: 1.85; color: #1e1414; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.45;
+    font-family: "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; color: #b5172b; }
+h1 { font-size: 2em; text-align: center; letter-spacing: 0.1em; padding: 0.25em 0;
+    border-top: 3pt double #b8860b; border-bottom: 3pt double #b8860b; }
+h1[data-deco]::before, h1[data-deco]::after { content: attr(data-deco); font-size: 0.75em; margin: 0 0.5em; letter-spacing: 0; }
+h2 { font-size: 1.4em; padding: 0.1em 0.5em; border-left: 6pt solid #b5172b; background: #fdf3e3;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h2[data-deco]::before, h3[data-deco]::before { content: attr(data-deco) " "; font-size: 0.85em; }
+h3 { font-size: 1.15em; color: #8a6200; }
+p, pre, table { margin: 0.7em 0; }
+li { margin: 0.15em 0; }
+ul > li[data-deco] { list-style: none; position: relative; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.5em; font-size: 0.9em; }
+ol > li::marker { color: #b5172b; font-weight: 700; }
+hr { border: none; border-top: 1.5pt solid #b8860b; margin: 1.5em 0; }
+hr[data-deco] { border: none; text-align: center; height: auto; }
+hr[data-deco]::after { content: attr(data-deco); letter-spacing: 0.6em; }
+code { font-size: 0.88em; }
+pre { background: #fffaf0; border: 1pt solid #e2c27a; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left-color: #b8860b; }
+th { background: #fbe9e9; color: #8e1020; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #d9b46a; }

@@ -1,0 +1,25 @@
+/* Summer: sea blues with a wave rule, 🌊 on section headings and 🐚 bullets. */
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #12222e; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; font-weight: 700; color: #0a5c8f; }
+h1 { font-size: 1.9em; padding-bottom: 0.3em; border-bottom: 3pt solid #4fb3d9; }
+h1::after { content: " 🌊"; }
+h2 { font-size: 1.4em; padding: 0.1em 0.5em; background: #e6f5fb; border-left: 5pt solid #1e88c7;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h2::before { content: "🌊 "; font-size: 0.85em; }
+h3 { font-size: 1.15em; color: #0f7d8c; }
+p, pre, table { margin: 0.7em 0; }
+ul > li:not(.task-list-item) { list-style: none; position: relative; }
+ul > li:not(.task-list-item)::before { content: "🐚"; position: absolute; left: -1.5em; font-size: 0.9em; }
+ol > li::marker { color: #1e88c7; font-weight: 700; }
+/* A single wave drawn as an inline SVG repeated along the rule. */
+hr { border: none; height: 8pt; margin: 1.4em 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8'%3E%3Cpath d='M0 4 Q6 0 12 4 T24 4' fill='none' stroke='%231e88c7' stroke-width='1.5'/%3E%3C/svg%3E") repeat-x left center / 24px 8px;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+code { font-size: 0.9em; }
+pre { background: #f3fafd; border: 1pt solid #a9d8ec; border-radius: 6pt; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #f2c46d; background: #fffaf0; padding: 0.3em 0.9em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th { background: #e6f5fb; color: #0a4f7a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #9cc9de; }

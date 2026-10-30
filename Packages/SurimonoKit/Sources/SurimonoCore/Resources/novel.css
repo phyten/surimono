@@ -1,0 +1,24 @@
+/* Classic Western novel: old-style serif, centered chapter heads with a fleuron, indented run-on paragraphs. */
+body { font-family: "Hoefler Text", "Iowan Old Style", "Palatino", "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.7; text-align: justify; color: #1c1a17; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hoefler Text", "Iowan Old Style", "Hiragino Mincho ProN", serif; font-weight: 400; line-height: 1.35; text-align: center; }
+h1 { font-size: 2em; font-style: italic; margin: 0 0 1.4em; }
+h2 { font-size: 1.35em; font-variant: small-caps; letter-spacing: 0.12em; margin: 2.2em 0 1.2em; }
+h2::before { content: "❦"; display: block; font-size: 0.85em; color: #6b5536; margin-bottom: 0.4em; letter-spacing: 0; }
+h3 { font-size: 1.1em; font-style: italic; margin: 1.6em 0 0.8em; }
+h4, h5, h6 { font-size: 1em; font-variant: small-caps; letter-spacing: 0.08em; margin: 1.2em 0 0.5em; }
+p { margin: 0; text-indent: 1.5em; }
+h1 + p, h2 + p, h3 + p, h4 + p, hr + p, li p, blockquote p, td p, th p, .callout p { text-indent: 0; }
+/* Opening line of a chapter in small caps, as in printed novels. */
+h2 + p::first-line { font-variant: small-caps; letter-spacing: 0.04em; }
+ul, ol { margin: 0.6em 0; padding-left: 2em; }
+blockquote { border-left: none; margin: 0.8em 2em; padding-left: 0; font-style: italic; }
+code { font-size: 0.85em; }
+pre { font-size: 8.5pt; line-height: 1.5; padding: 0.5em 1em; border-top: 0.4pt solid #8a7a62; border-bottom: 0.4pt solid #8a7a62; }
+table { margin: 1em auto; border-top: 0.75pt solid #1c1a17; border-bottom: 0.75pt solid #1c1a17; }
+th, td { border: none; padding: 0.2em 0.8em; }
+th { font-variant: small-caps; font-weight: 400; letter-spacing: 0.06em; }
+.callout { background: none; border-left: 0.75pt solid var(--callout-color); font-style: italic; }
+.callout > .callout-title { font-style: normal; font-variant: small-caps; }
+hr { border: none; text-align: center; height: auto; margin: 1.2em 0; }
+hr::after { content: "⁂"; color: #6b5536; font-size: 1.1em; }

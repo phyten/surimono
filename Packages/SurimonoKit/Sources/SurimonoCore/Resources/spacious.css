@@ -1,0 +1,21 @@
+/* Spacious lines: the widest line height the brief allows, airy letter spacing and generous gaps between blocks. */
+body {
+    font-family: "YuGothic", "Hiragino Sans", sans-serif;
+    font-weight: 500;
+    font-size: 11pt;
+    line-height: 2;
+    letter-spacing: 0.04em;
+    color: #1d1d1d;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.6em 0 0.6em; line-height: 1.5; font-weight: 700; letter-spacing: 0.06em; }
+h1 { font-size: 1.7em; }
+h2 { font-size: 1.35em; padding-bottom: 0.2em; border-bottom: 0.75pt solid #8a8a8a; }
+h3 { font-size: 1.12em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table, blockquote { margin: 1.1em 0; }
+li { margin: 0.35em 0; }
+pre { font-size: 9.5pt; line-height: 1.9; letter-spacing: 0; }
+code { font-size: 0.9em; letter-spacing: 0; }
+th, td { padding: 0.5em 0.9em; border-color: #9a9a9a; }
+.callout { padding: 1em 1.3em; }
+hr { border: none; border-top: 0.75pt solid #9a9a9a; margin: 2em 0; }

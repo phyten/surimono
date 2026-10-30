@@ -1,0 +1,29 @@
+/* Manga: inked outline headings, speech-bubble quotes and screentone dots in small elements. */
+:root { --tone: radial-gradient(#b5b5b5 0.55pt, transparent 0.75pt) 0 0 / 3.5pt 3.5pt; }
+body { font-family: "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #111; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.45em; line-height: 1.35; font-family: "Hiragino Sans", sans-serif; font-weight: 800;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1 { font-size: 2.1em; color: #ffd400; -webkit-text-stroke: 0.9pt #111; text-shadow: 2pt 2pt 0 #111; letter-spacing: 0.03em; }
+h2 { font-size: 1.45em; padding: 0.1em 0.5em; border: 2pt solid #111; box-shadow: 3pt 3pt 0 #111;
+    width: fit-content; max-width: 100%; background: #fff; }
+h3 { font-size: 1.15em; padding-left: 0.5em; border-left: 6pt solid #111; }
+h3::after { content: " !!"; color: #e0182d; }
+p, pre, table { margin: 0.7em 0; }
+ul > li:not(.task-list-item)::marker { content: "◆ "; color: #e0182d; }
+ol > li::marker { font-weight: 800; }
+/* Speech bubble: rounded inked frame with a tail drawn by two stacked triangles. */
+blockquote { position: relative; margin: 1em 1.5em 1.4em; padding: 0.6em 1em; border: 1.5pt solid #111;
+    border-radius: 1.4em; background: #fff; }
+blockquote::before, blockquote::after { content: ""; position: absolute; left: 2em; width: 0; height: 0;
+    border-style: solid; border-color: transparent; }
+blockquote::before { bottom: -11pt; border-width: 11pt 9pt 0 0; border-top-color: #111; }
+blockquote::after { bottom: -8pt; left: calc(2em + 1.5pt); border-width: 8pt 6.5pt 0 0; border-top-color: #fff; }
+hr { border: none; height: 6pt; margin: 1.5em 0; background: var(--tone); border-top: 1.5pt solid #111;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+code { font-size: 0.9em; padding: 0 0.25em; border: 0.75pt solid #111; border-radius: 2pt; }
+pre { border: 1.5pt solid #111; padding: 0.6em 0.8em; font-size: 9pt; box-shadow: 3pt 3pt 0 #ccc; }
+pre code { border: none; padding: 0; }
+th { background: var(--tone); border-bottom: 1.5pt solid #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #111; }
+.callout { border: 1.5pt solid #111; border-left-width: 6pt; box-shadow: 3pt 3pt 0 #111; }

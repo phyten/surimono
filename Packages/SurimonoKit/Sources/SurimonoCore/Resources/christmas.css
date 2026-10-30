@@ -1,0 +1,29 @@
+/* Christmas: red and green with candy-cane rules and festive emoji from the decoration script. */
+:root { --deco-emoji: 🎄 🎁 ⭐ 🔔 🎅 ⛄ 🦌 🍪 🧦 🕯️; }
+body { font-family: "Hoefler Text", "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.8; color: #1a1a1a; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.45em; line-height: 1.4;
+    font-family: "Hoefler Text", "Toppan Bunkyu Midashi Mincho", "Hiragino Mincho ProN", serif; }
+h1 { font-size: 2em; color: #b3202a; text-align: center; padding-bottom: 0.3em;
+    background: repeating-linear-gradient(-45deg, #c8262f 0 4pt, #fff 4pt 8pt) left bottom / 100% 4pt no-repeat;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1[data-deco]::before, h1[data-deco]::after { content: attr(data-deco); margin: 0 0.35em; font-size: 0.8em; }
+h2 { font-size: 1.4em; color: #1f6b3a; border-bottom: 1.5pt solid #c9a227; }
+h2[data-deco]::before, h3[data-deco]::before { content: attr(data-deco) " "; font-size: 0.85em; }
+h3 { font-size: 1.15em; color: #b3202a; }
+p, pre, table { margin: 0.7em 0; }
+li { margin: 0.15em 0; }
+ul > li[data-deco] { list-style: none; position: relative; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.5em; font-size: 0.9em; }
+ol > li::marker { color: #1f6b3a; font-weight: 700; }
+hr { border: none; height: 4pt; margin: 1.5em 0;
+    background: repeating-linear-gradient(-45deg, #c8262f 0 4pt, #fff 4pt 8pt, #1f7a43 8pt 12pt, #fff 12pt 16pt);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+hr[data-deco] { background: none; text-align: center; height: auto; }
+hr[data-deco]::after { content: attr(data-deco); letter-spacing: 0.6em; }
+code { font-size: 0.88em; }
+pre { background: #f5faf6; border-left: 4pt solid #1f6b3a; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #c9a227; }
+th { background: #fbeeee; color: #8e1820; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #b9cdbf; }

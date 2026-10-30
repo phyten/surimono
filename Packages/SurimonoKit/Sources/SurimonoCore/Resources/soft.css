@@ -1,0 +1,21 @@
+/* Rounded gothic with gentle peach and sage accents. */
+body { font-family: "Tsukushi A Round Gothic", "Hiragino Maru Gothic ProN", sans-serif; font-size: 10.5pt; line-height: 1.85; color: #3b3330; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hiragino Maru Gothic ProN", "Tsukushi A Round Gothic", sans-serif; color: #8a4b3a; line-height: 1.45; margin: 1.4em 0 0.55em; }
+h1 { font-size: 1.8em; text-align: center; padding-bottom: 0.35em; border-bottom: 2pt dotted #e2a48f; }
+h2 { font-size: 1.4em; padding: 0.15em 0.7em; background: #fcefe9; border-radius: 1em; }
+h3 { font-size: 1.15em; color: #5d7a5a; }
+h3::before { content: "● "; color: #a9c4a3; font-size: 0.7em; vertical-align: 0.15em; }
+h4, h5, h6 { font-size: 1em; color: #6b5b55; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+li::marker { color: #d98c73; }
+pre { font-size: 8.8pt; line-height: 1.6; padding: 0.8em 1em; background: #faf6f2; border-radius: 8pt; }
+:not(pre) > code { background: #f6ede8; border-radius: 4pt; padding: 0.05em 0.35em; font-size: 0.9em; }
+table { border-radius: 6pt; }
+th, td { border: 0.5pt solid #e8d6cd; padding: 0.35em 0.7em; }
+th { background: #fcefe9; color: #6e3d2f; }
+blockquote { border-left: 3pt solid #e9c2b4; border-radius: 2pt; color: #5e524d; }
+hr { border: none; border-top: 1.5pt dotted #e2a48f; margin: 1.6em 0; }
+a { color: #a2533d; }
+.callout { border-radius: 8pt; }
+h2, pre, th, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

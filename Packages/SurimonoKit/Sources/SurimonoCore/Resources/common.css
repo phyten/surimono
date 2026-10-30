@@ -29,6 +29,8 @@ blockquote { margin-inline: 1em; padding-left: 0.8em; border-left: 2pt solid #aa
 li.task-list-item { list-style-type: none; }
 li.task-list-item > input[type="checkbox"],
 li.task-list-item > p:first-child > input[type="checkbox"] {
+    /* Form controls keep the browser's own font size; inheriting it lets the box grow with the text it marks. */
+    font: inherit;
     -webkit-appearance: none;
     appearance: none;
     box-sizing: border-box;

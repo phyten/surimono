@@ -1,0 +1,52 @@
+/* Cornell notes: a cue column on the left (marked by a vertical rule on every page) and notes on the right.
+   h3/h4 float into the cue column; h1 and hr span the full width like the title and summary areas. */
+html {
+    background: #fff linear-gradient(to right, transparent 27%, #7d97ae 27%, #7d97ae calc(27% + 0.75pt), transparent calc(27% + 0.75pt));
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+body {
+    background: transparent;
+    padding-left: 31%;
+    font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.8;
+    color: #1c2530;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1em 0 0.35em; line-height: 1.4; color: #24435f; }
+/* -44.9% of the notes column equals the 31% padding of the page width. */
+h1 {
+    font-size: 1.7em;
+    margin-left: -44.9%;
+    padding-bottom: 0.2em;
+    border-bottom: 1.5pt solid #24435f;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h2 { font-size: 1.3em; border-bottom: 0.5pt solid #7d97ae; clear: left; }
+h3, h4 {
+    float: left;
+    clear: left;
+    width: 36%;
+    margin: 0.15em 0 0.4em -44.9%;
+    font-size: 1em;
+    text-align: right;
+}
+h4 { font-weight: 600; color: #4a6680; }
+h5, h6 { font-size: 1em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.5em 0; }
+li { margin: 0.1em 0; }
+pre { font-size: 9pt; line-height: 1.55; }
+code { font-size: 0.9em; }
+blockquote { border-left-color: #7d97ae; }
+hr {
+    clear: both;
+    margin: 1.4em 0 0.6em -44.9%;
+    border: none;
+    border-top: 1.5pt solid #24435f;
+    height: auto;
+    overflow: visible;
+}
+hr::after { content: "まとめ Summary"; display: block; font-size: 0.8em; font-weight: 700; color: #24435f; letter-spacing: 0.1em; }

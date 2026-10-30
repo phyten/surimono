@@ -1,0 +1,19 @@
+/* Sepia ink on white: serif body with friendly sans headings. */
+body { font-family: "Palatino", "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.8; color: #3d2b1f; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-weight: 600; color: #7a4520; line-height: 1.4; margin: 1.4em 0 0.5em; }
+h1 { font-size: 1.85em; padding-bottom: 0.25em; border-bottom: 1.5pt solid #c99a6b; }
+h2 { font-size: 1.4em; padding-bottom: 0.1em; border-bottom: 0.5pt solid #e0c4a5; }
+h3 { font-size: 1.15em; color: #8c5a2f; }
+h4, h5, h6 { font-size: 1em; color: #6b4a33; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+li::marker { color: #b07a4a; }
+pre { font-size: 8.8pt; line-height: 1.55; padding: 0.7em 0.9em; background: #fbf6f0; border-left: 2pt solid #d9b893; }
+:not(pre) > code { background: #f7efe5; padding: 0.05em 0.3em; border-radius: 2pt; font-size: 0.88em; }
+th, td { border: 0.5pt solid #dcc3a6; padding: 0.3em 0.6em; }
+th { font-family: "Avenir Next", "Hiragino Sans", sans-serif; background: #f7efe5; color: #5c3518; }
+blockquote { border-left-color: #c99a6b; color: #5e4636; font-style: italic; }
+hr { border: none; border-top: 0.75pt solid #d9b893; margin: 1.5em 0; }
+a { color: #8c4a1c; }
+:root { --hl-comment: #6e5a48; }
+pre, th, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

@@ -1,0 +1,29 @@
+/* Emoji Party: the decoration script picks emoji per document for headings, bullets and rules. */
+:root { --deco-emoji: 🎉 🥳 🌈 🍕 🚀 🦄 🍩 🎸 🐙 🌟 🍉 🎈 🤩 🧁 🛸 🍀; }
+body { font-family: "Avenir Next", "Hiragino Maru Gothic ProN", sans-serif; font-size: 10.5pt; line-height: 1.8; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.4em; line-height: 1.4; font-weight: 800; }
+h1 { font-size: 2em; color: #c2187a; text-align: center; }
+h2 { font-size: 1.45em; color: #0b6fa4; border-bottom: 2pt dotted #ff9f1c; padding-bottom: 0.1em; }
+h3 { font-size: 1.15em; color: #6a3fb5; }
+h1[data-deco]::before, h1[data-deco]::after { content: attr(data-deco); margin: 0 0.3em; }
+h2[data-deco]::before, h3[data-deco]::before { content: attr(data-deco) " "; }
+p, pre, table { margin: 0.6em 0; }
+ul, ol { padding-left: 1.8em; }
+li { margin: 0.2em 0; }
+ul > li[data-deco] { list-style: none; position: relative; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.6em; }
+ol > li::marker { color: #c2187a; font-weight: 800; }
+hr { border: none; border-top: 2pt dashed #ff9f1c; margin: 1.4em 0; }
+hr[data-deco] { border: none; text-align: center; height: auto; font-size: 1.3em; }
+hr[data-deco]::after { content: attr(data-deco); letter-spacing: 0.5em; }
+code { font-size: 0.9em; background: #fff3d6; border-radius: 3pt; padding: 0 0.25em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre { background: #f2f8ff; border: 1.5pt solid #9cc9f0; border-radius: 8pt; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4pt solid #ff5fa2; background: #fff0f7; border-radius: 0 8pt 8pt 0; padding: 0.3em 0.9em;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th { background: #e9f9ef; color: #1a6b3a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #8ccfa5; }
+.callout { border-radius: 8pt; border: 1.5pt solid var(--callout-color); border-left-width: 5pt; }

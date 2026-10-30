@@ -1,0 +1,28 @@
+/* Universal design: BIZ UD faces, strong weight contrast and unmistakable markers for each heading level. */
+body {
+    font-family: "BIZ UDPGothic", "BIZ UDGothic", "Hiragino Sans", sans-serif;
+    font-size: 11pt;
+    line-height: 1.75;
+    color: #111;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.45em; line-height: 1.4; font-weight: 700; color: #000; }
+h1 { font-size: 1.75em; padding-bottom: 0.15em; border-bottom: 2.5pt solid #1d4e89; }
+h2 { font-size: 1.4em; padding-left: 0.4em; border-left: 6pt solid #1d4e89; }
+h3 { font-size: 1.15em; padding-bottom: 0.1em; border-bottom: 1pt solid #1d4e89; display: inline-block; }
+h4 { font-size: 1.05em; }
+h4::before { content: "\25A0  "; color: #1d4e89; }
+h5, h6 { font-size: 1em; }
+body > :first-child { margin-top: 0; }
+p, pre, table, ul, ol { margin: 0.6em 0; }
+li { margin: 0.2em 0; }
+strong { color: #000; }
+code, pre { font-family: "BIZ UDGothic", Menlo, "Hiragino Sans", monospace; }
+pre { font-size: 10pt; line-height: 1.55; padding: 0.5em 0.8em; border: 1pt solid #6b7f99; }
+code { font-size: 0.95em; }
+a { text-decoration-thickness: 1pt; text-underline-offset: 0.15em; }
+th, td { border-color: #333; padding: 0.35em 0.6em; }
+th { background: #e7eef7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #1d4e89; }
+blockquote, blockquote p { font-family: "BIZ UDMincho", "Hiragino Mincho ProN", serif; }
+:root { --hl-comment: #404040; }
+hr { border: none; border-top: 1.5pt solid #1d4e89; margin: 1em 0; }

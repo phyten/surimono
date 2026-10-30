@@ -1,0 +1,21 @@
+/* A haiku anthology: wide quiet whitespace, centered short lines, small refined headings. */
+body { font-family: "YuMincho", "Hiragino Mincho ProN", serif; font-size: 11pt; line-height: 2; color: #2a2a2a; text-align: center; letter-spacing: 0.06em; padding: 0 10%; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-weight: 500; line-height: 1.6; color: #444; letter-spacing: 0.25em; margin: 2em 0 1em; }
+h1 { font-size: 1.4em; margin-bottom: 2em; }
+h2 { font-size: 1em; }
+h2::before, h2::after { content: "—"; color: #999; margin: 0 0.8em; }
+h3, h4, h5, h6 { font-size: 0.9em; color: #666; }
+p { margin: 1.2em 0; }
+ul, ol { list-style: none; padding: 0; margin: 1.2em 0; }
+li + li { margin-top: 0.4em; }
+li.task-list-item input { margin-right: 0.5em; }
+table { margin: 1.2em auto; }
+th, td { border: none; border-bottom: 0.25pt solid #bbb; padding: 0.3em 1em; letter-spacing: normal; }
+th { font-weight: 500; color: #555; }
+pre { text-align: left; font-size: 9pt; line-height: 1.6; letter-spacing: normal; }
+blockquote { border-left: none; padding: 0; color: #555; margin-inline: 0; }
+hr { border: none; text-align: center; height: auto; margin: 2.2em 0; }
+hr::after { content: "・"; color: #888; }
+a { color: inherit; }
+.callout { text-align: left; letter-spacing: normal; background: none; }

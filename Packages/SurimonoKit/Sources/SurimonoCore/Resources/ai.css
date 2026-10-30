@@ -1,0 +1,19 @@
+/* Indigo-dyed accents; gothic headings over a mincho body. */
+body { font-family: "Hiragino Mincho ProN", "YuMincho", serif; font-size: 10.5pt; line-height: 1.85; color: #1b1f2a; text-align: justify; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { font-family: "Hiragino Sans", sans-serif; font-weight: 600; color: #1f3a5f; line-height: 1.4; margin: 1.4em 0 0.5em; }
+h1 { font-size: 1.8em; padding: 0.2em 0 0.3em; border-bottom: 3pt double #1f3a5f; }
+h2 { font-size: 1.35em; padding: 0.15em 0.6em; border-left: 5pt solid #1f3a5f; background: #eef2f8; }
+h3 { font-size: 1.12em; padding-bottom: 0.1em; border-bottom: 0.5pt dashed #6a84a8; }
+h4, h5, h6 { font-size: 1em; color: #2f4c74; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+li::marker { color: #2f4c74; }
+pre { text-align: left; font-size: 8.8pt; line-height: 1.55; padding: 0.7em 0.9em; background: #f2f5fa; border: 0.5pt solid #c5d1e3; }
+:not(pre) > code { color: #1f3a5f; font-size: 0.9em; }
+th, td { border: 0.5pt solid #b8c6da; padding: 0.3em 0.6em; }
+th { font-family: "Hiragino Sans", sans-serif; font-weight: 600; background: #1f3a5f; color: #fff; border-color: #1f3a5f; }
+th a, th code { color: inherit; }
+blockquote { border-left-color: #6a84a8; color: #33405a; }
+hr { border: none; border-top: 0.75pt solid #6a84a8; margin: 1.5em 0; }
+a { color: #1f3a5f; }
+h2, pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

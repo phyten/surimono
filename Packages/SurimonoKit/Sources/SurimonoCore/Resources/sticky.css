@@ -1,0 +1,47 @@
+/* Sticky notes: quotes and callouts become pastel notes, slightly tilted, with a strip of tape on top. */
+body {
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.75;
+    color: #222;
+}
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.4em; line-height: 1.4; }
+h1 { font-size: 1.75em; }
+h2 { font-size: 1.35em; border-bottom: 2pt solid #f2c94c; }
+h3 { font-size: 1.12em; }
+body > :first-child { margin-top: 0; }
+p, ul, ol, pre, table { margin: 0.6em 0; }
+li { margin: 0.15em 0; }
+pre { font-size: 9pt; line-height: 1.55; }
+code { font-size: 0.9em; }
+blockquote, .callout {
+    position: relative;
+    width: 88%;
+    margin: 1.4em auto;
+    padding: 0.9em 1.1em 0.8em;
+    border: none;
+    background: var(--callout-tint, #fff3a6);
+    box-shadow: 1pt 2pt 3pt rgba(0, 0, 0, 0.15);
+    transform: rotate(-0.8deg);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+blockquote { --callout-tint: #fff3a6; }
+blockquote::before, .callout::before {
+    content: "";
+    position: absolute;
+    top: -7pt;
+    left: 40%;
+    width: 20%;
+    height: 13pt;
+    background: rgba(220, 220, 210, 0.7);
+}
+.callout-note { --callout-tint: #dcecff; transform: rotate(0.7deg); }
+.callout-tip { --callout-tint: #ddf4d8; transform: rotate(-0.6deg); }
+.callout-important { --callout-tint: #f2e0f7; transform: rotate(0.9deg); }
+.callout-warning { --callout-tint: #ffe3bf; transform: rotate(-1deg); }
+.callout-danger { --callout-tint: #ffdcdc; transform: rotate(0.6deg); }
+.callout-quote, .callout-neutral { --callout-tint: #fff3a6; }
+blockquote > :first-child { margin-top: 0; }
+blockquote > :last-child { margin-bottom: 0; }
+hr { border: none; border-top: 1pt dashed #c9a227; margin: 1.2em 0; }

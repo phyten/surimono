@@ -601,7 +601,7 @@ public final class DocumentRenderer {
                     pageSize: settings.layout.logicalPageSize(options: settings.options),
                     margins: .uniform(
                         millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
-                    allowsJavaScript: false, preparationScript: nil, readsPageRules: false))
+                    allowsJavaScript: false, preparationScript: settings.theme.script, readsPageRules: false))
         }
     }
 

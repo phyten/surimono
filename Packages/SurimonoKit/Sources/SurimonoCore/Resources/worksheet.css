@@ -1,0 +1,25 @@
+/* Worksheet: school print with boxed headings, big question numbers and answer-space lines under each item. */
+body { font-family: "BIZ UDGothic", "Hiragino Sans", sans-serif; font-size: 11pt; line-height: 1.8; color: #111; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.5em; line-height: 1.45; font-weight: bold; }
+h1 { font-size: 1.7em; text-align: center; padding-bottom: 0.2em; border-bottom: 3pt double #333; }
+/* A name field under the title, like a real school handout. */
+h1::after { content: "　　年　　組　　番　なまえ（　　　　　　　　　　）"; display: block; margin-top: 0.5em;
+    font-size: 0.5em; font-weight: normal; text-align: right; letter-spacing: 0.05em; }
+h2 { font-size: 1.3em; padding: 0.2em 0.6em; border: 1.5pt solid #1f5fa8; border-radius: 4pt; background: #eef4fb; color: #123f73;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h3 { font-size: 1.12em; padding-left: 0.4em; border-left: 5pt solid #1f5fa8; }
+p, pre, table { margin: 0.6em 0; }
+ol { padding-left: 2em; }
+ol > li { margin: 0.4em 0; padding: 0.1em 0 1.4em; border-bottom: 0.75pt dashed #8a9bb0; }
+ol > li::marker { font-weight: bold; font-size: 1.2em; color: #1f5fa8; }
+ol ol > li, ul ol > li { padding-bottom: 0.8em; }
+ul > li { margin: 0.2em 0; }
+hr { border: none; border-top: 1pt solid #555; margin: 1.4em 0; }
+blockquote { border: 1pt solid #555; border-radius: 4pt; margin-inline: 0; padding: 0.4em 0.8em; }
+code { font-size: 0.9em; }
+pre { border: 1pt solid #999; padding: 0.6em 0.8em; font-size: 9.5pt; }
+th { background: #eef4fb; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #555; padding: 0.35em 0.7em; }
+td:empty { min-width: 4em; }
+input[type="checkbox"] { transform: scale(1.25); margin-right: 0.4em; }

@@ -1,0 +1,31 @@
+/* Confetti: calm body text with party emoji on h1/h2 and bullets, and multicolor confetti strips on rules. */
+:root {
+    --deco-emoji: 🎉 🎊 🎈 🥳 ✨ 🎁 🍰 🪅 🎀;
+    --confetti: linear-gradient(90deg, #ef476f 0 20%, #ffb703 20% 40%, #06a77d 40% 60%, #3a86ff 60% 80%, #9b5de5 80%);
+}
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; font-weight: 700; }
+h1 { font-size: 1.85em; color: #1d2a4d; padding-bottom: 0.25em;
+    background: var(--confetti) left bottom / 100% 3pt no-repeat;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h2 { font-size: 1.4em; color: #1d2a4d; padding-bottom: 0.15em;
+    background: var(--confetti) left bottom / 4em 2.5pt no-repeat;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h3 { font-size: 1.15em; color: #b8305a; }
+h1[data-deco]::before, h2[data-deco]::before { content: attr(data-deco) " "; }
+p, pre, table { margin: 0.7em 0; }
+li { margin: 0.15em 0; }
+ul > li[data-deco] { list-style: none; position: relative; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.5em; font-size: 0.95em; }
+ol > li::marker { color: #3a86ff; font-weight: 700; }
+hr { border: none; height: 3pt; margin: 1.5em 0; background: var(--confetti);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+hr[data-deco] { background: none; text-align: center; height: auto; }
+hr[data-deco]::after { content: attr(data-deco); letter-spacing: 0.6em; }
+code { font-size: 0.9em; }
+pre { background: #f7f7fb; border-left: 3pt solid #9b5de5; padding: 0.6em 0.8em; font-size: 9pt;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left-color: #ffb703; color: #333; }
+th { background: #fff6dc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+th, td { border-color: #c9c3d9; }

@@ -1,0 +1,36 @@
+/* Solarized Light: base3 paper, base02 text; accent hues darkened just enough to keep small text readable. */
+:root {
+    --hl-keyword: #5f6e00; --hl-type: #8a6700; --hl-builtin: #a33a10; --hl-function: #1b6aa3;
+    --hl-literal: #2f8582; --hl-number: #a7315f; --hl-string: #1d7a73; --hl-comment: #5e7076;
+    --hl-meta: #a33a10; --hl-tag: #1b6aa3; --hl-attr: #8a6700; --hl-variable: #4d55a8;
+    --hl-addition: #5f6e00; --hl-deletion: #b0291f; --hl-section: #4d55a8;
+}
+html, body { background: #fdf6e3; color: #073642; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Avenir Next", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.7; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { line-height: 1.35; font-weight: 700; }
+h1 { font-size: 1.8em; margin: 0 0 0.6em; color: #b03e10; padding-bottom: 0.2em; border-bottom: 1.5pt solid #e5ddc8; }
+h2 { font-size: 1.35em; margin: 1.4em 0 0.5em; color: #1b6aa3; }
+h3 { font-size: 1.12em; margin: 1.1em 0 0.4em; color: #1d7a73; }
+h4, h5, h6 { font-size: 1em; margin: 0.9em 0 0.3em; color: #5f6e00; }
+p { margin: 0.55em 0; }
+ul, ol { margin: 0.45em 0; padding-left: 1.5em; }
+li::marker { color: #8a6700; }
+a { color: #1b6aa3; }
+strong { color: #002b36; }
+code { font-size: 0.88em; color: #a33a10; }
+pre { font-size: 8.8pt; line-height: 1.5; background: #eee8d5; border-radius: 3pt; padding: 0.6em 0.8em; color: #073642; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+pre code { color: inherit; }
+.hl-addition { background: #e6e9c4; }
+.hl-deletion { background: #f6dcd2; }
+table { margin: 0.8em 0; }
+th, td { border-color: #c9bfa4; }
+th { background: #eee8d5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left-color: #93a1a1; color: #3c5158; }
+.callout-note { --callout-color: #1b6aa3; --callout-tint: #f3eedd; }
+.callout-tip { --callout-color: #5f6e00; --callout-tint: #f3eedd; }
+.callout-important { --callout-color: #4d55a8; --callout-tint: #f3eedd; }
+.callout-warning { --callout-color: #8a6700; --callout-tint: #f3eedd; }
+.callout-danger { --callout-color: #b0291f; --callout-tint: #f3eedd; }
+.callout-quote, .callout-neutral { --callout-color: #5e7076; --callout-tint: #f3eedd; }
+hr { border: none; border-top: 1pt solid #d9cfb4; margin: 1.3em 0; }
