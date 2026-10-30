@@ -21,7 +21,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 - Markdown の拡張記法: 脚注、`==ハイライト==`、`^上付き^`・`~下付き~`、ルビ `{漢字|かんじ}`、絵文字 `:tada:`、定義リスト、見出しの ID と目次 `[TOC]`
 - Markdown の数式（`$…$`・`$$…$$`・```` ```math ````）を、純 Swift の KaTeX 互換の組版（[SwaTex](https://github.com/PhraseHQ/SwaTex)）で JavaScript なしに描画。化学式（mhchem）も
 - Markdown・PDF・画像・Org・テキスト・HTML・CSV・LaTeX のクイックビューア
-- LaTeX の文書を印刷テーマで刷る: 表題、番号つきの節と参照、リスト（enumitem）、コード（listings）、SwaTex による数式と式番号、脚注、hyperref、xcolor、図（graphicx）、表（booktabs）。TeX を動かすのではなく、よく使う部分集合を読む。TikZ の図は場所を枠で示す
+- LaTeX の文書を印刷テーマで刷る: 表題、番号つきの節と参照、リスト（enumitem）、コード（listings）、SwaTex による数式と式番号、脚注、hyperref、xcolor、図（graphicx）、表（booktabs）、定理と証明（amsthm）、参考文献と引用、単位（siunitx）。TeX を動かすのではなく、よく使う部分集合を読む。TikZ の図は場所を枠で示す
 - 種類が混ざった複数の画像を、1 つの「画像の束」としてまとめて開く
 - サムネイルのドラッグや ⌥⌘↑ / ⌥⌘↓ で画像を並び替え
 - 画像の束を現在の並び順と印刷レイアウトで PDF に書き出し
