@@ -6,12 +6,6 @@ public enum HTMLDocumentBuilder {
         textScale: Double = 1
     ) -> String {
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
-        // Since style is an HTML raw-text element, CSS-escape any closing style tags inside the CSS.
-        let css = theme.css.replacingOccurrences(of: "</style", with: "\\3C /style", options: .caseInsensitive)
-        // Zoom scales fixed-point fonts, tables and images together while pagination keeps the paper size.
-        let scaleCSS =
-            textScale != 1 && textScale.isFinite && textScale > 0
-            ? "\nhtml { zoom: \(textScale); }" : ""
         return """
             <!doctype html>
             <html lang="\(HTML.escape(language))">
@@ -19,7 +13,7 @@ public enum HTMLDocumentBuilder {
             <meta charset="utf-8">
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
-            \(css)\(scaleCSS)
+            \(styleSheet(theme: theme, textScale: textScale))
             </style>
             </head>
             <body class="surimono format-\(format.rawValue)">
@@ -27,5 +21,16 @@ public enum HTMLDocumentBuilder {
             </body>
             </html>
             """
+    }
+
+    /// The contents of the document's one style element. A theme picker swaps it in a page that is already laid out.
+    public static func styleSheet(theme: PrintTheme, textScale: Double = 1) -> String {
+        // Since style is an HTML raw-text element, CSS-escape any closing style tags inside the CSS.
+        let css = theme.css.replacingOccurrences(of: "</style", with: "\\3C /style", options: .caseInsensitive)
+        // Zoom scales fixed-point fonts, tables and images together while pagination keeps the paper size.
+        let scaleCSS =
+            textScale != 1 && textScale.isFinite && textScale > 0
+            ? "\nhtml { zoom: \(textScale); }" : ""
+        return css + scaleCSS
     }
 }
