@@ -395,12 +395,7 @@ struct StyleMenuItems: View {
 
     var body: some View {
         if model.format.usesPrintTheme {
-            Picker("Print Theme", selection: $model.themeID) {
-                ForEach(model.library.themes) { theme in
-                    Text(verbatim: theme.displayName(language: model.language)).tag(theme.id)
-                }
-            }
-            .pickerStyle(.inline)
+            ThemeMenuContent(model: model)
             TextSizeMenuItems(model: model)
         } else if model.format.usesHTMLPreset {
             Picker("HTML Preset", selection: $model.presetID) {
@@ -410,6 +405,64 @@ struct StyleMenuItems: View {
             }
             .pickerStyle(.inline)
             SmartRemovalMenuItems(model: model)
+        }
+    }
+}
+
+/// The print themes, shared by the band's and the tray's style menus. With about a hundred themes only a few quick
+/// sections stay at the top; every built-in theme is in its category's submenu, so a theme may be checked twice.
+struct ThemeMenuContent: View {
+    let model: DocumentViewModel
+
+    var body: some View {
+        let selection = Binding(get: { model.themeID }, set: { model.selectTheme($0) })
+        ForEach(model.themeMenu.sections, id: \.id) { section in
+            switch section.kind {
+            case .recent:
+                picker("Recent", section.themes, selection: selection)
+            case .favorites:
+                picker("Favorites", section.themes, selection: selection)
+            case .featured:
+                picker("Suggested", section.themes, selection: selection)
+            case .category(let category):
+                Menu {
+                    picker(nil, section.themes, selection: selection)
+                } label: {
+                    Text(verbatim: category.displayName(language: model.language))
+                }
+            case .user:
+                Menu("My Styles") {
+                    picker(nil, section.themes, selection: selection)
+                }
+            }
+        }
+        Divider()
+        // Always enabled: a disabled state derived from the key window's model would not update until the menu opens.
+        Button(model.isFavoriteTheme ? "Remove from Favorites" : "Add to Favorites") { model.toggleFavoriteTheme() }
+    }
+
+    @ViewBuilder
+    private func picker(_ title: LocalizedStringKey?, _ themes: [PrintTheme], selection: Binding<String>) -> some View {
+        Picker(selection: selection) {
+            ForEach(themes) { theme in
+                Text(verbatim: theme.displayName(language: model.language)).tag(theme.id)
+            }
+        } label: {
+            if let title { Text(title) }
+        }
+        .pickerStyle(.inline)
+    }
+}
+
+extension PrintThemeMenu.Section {
+    /// Stable within one menu: each kind appears at most once.
+    fileprivate var id: String {
+        switch kind {
+        case .recent: "recent"
+        case .favorites: "favorites"
+        case .featured: "featured"
+        case .category(let category): "category:\(category.id)"
+        case .user: "user"
         }
     }
 }

@@ -5,6 +5,7 @@ import SurimonoCore
 @Observable
 final class UserLibrary {
     private(set) var themes: [PrintTheme] = []
+    private(set) var themeCategories: [PrintThemeCategory] = []
     private(set) var presets: [HTMLCleanupPreset] = []
     private(set) var presetErrors: [HTMLCleanupPresetLoadError] = []
     private(set) var error: String?
@@ -36,6 +37,13 @@ final class UserLibrary {
             self.error = error.localizedDescription
             // A broken user stylesheet must not hide the bundled themes.
             themes = (try? PrintThemeLibrary.load()) ?? []
+        }
+        do {
+            themeCategories = try PrintThemeLibrary.categories()
+        } catch {
+            self.error = error.localizedDescription
+            // Without categories the menus still offer the recent, favorite, suggested and user styles.
+            themeCategories = []
         }
         do {
             let loaded = try HTMLCleanupPresetLibrary.load(userDirectory: root.appendingPathComponent("Presets"))

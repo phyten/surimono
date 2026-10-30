@@ -37,8 +37,25 @@ struct SettingsView: View {
             }.tabItem { Label("Printing", systemImage: "printer") }
             Form {
                 Picker("Default Print Theme", selection: $preferences.themeID) {
-                    ForEach(library.themes) { theme in
-                        Text(verbatim: theme.displayName(language: language)).tag(theme.id)
+                    ForEach(library.themeCategories) { category in
+                        Section {
+                            ForEach(library.themes.filter { $0.category == category.id }) { theme in
+                                Text(verbatim: theme.displayName(language: language)).tag(theme.id)
+                            }
+                        } header: {
+                            Text(verbatim: category.displayName(language: language))
+                        }
+                    }
+                    // Themes without a known category: the user's styles, or every theme if the catalog failed.
+                    let others = library.themes.filter { theme in
+                        !library.themeCategories.contains { $0.id == theme.category }
+                    }
+                    if !others.isEmpty {
+                        Section("My Styles") {
+                            ForEach(others) { theme in
+                                Text(verbatim: theme.displayName(language: language)).tag(theme.id)
+                            }
+                        }
                     }
                 }
                 HStack {
