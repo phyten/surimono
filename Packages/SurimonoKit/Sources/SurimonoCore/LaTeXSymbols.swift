@@ -70,14 +70,14 @@ enum LaTeXSymbols {
         "setlength": 2, "addtolength": 2, "setcounter": 2, "addtocounter": 2, "stepcounter": 1, "pagestyle": 1,
         "thispagestyle": 1, "pagenumbering": 1, "vspace": 1, "hspace": 1, "geometry": 1, "hypersetup": 1,
         "lstset": 1, "graphicspath": 1, "bibliographystyle": 1, "usetikzlibrary": 1, "numberwithin": 2,
-        "theoremstyle": 1, "captionsetup": 1, "setmainfont": 1, "setsansfont": 1, "setmonofont": 1,
+        "newtheoremstyle": 9, "captionsetup": 1, "setmainfont": 1, "setsansfont": 1, "setmonofont": 1,
         "setmainjfont": 1, "setsansjfont": 1, "newlength": 1, "colorlet": 2, "linespread": 1, "usepackage": 1,
         "RequirePackage": 1, "documentclass": 1, "label": 1, "index": 1, "glossary": 1, "nocite": 1,
-        "addcontentsline": 3, "markboth": 2, "markright": 1, "setcitestyle": 1, "bibliography": 1,
+        "addcontentsline": 3, "markboth": 2, "markright": 1, "setcitestyle": 1,
         "addbibresource": 1, "newcounter": 1, "renewenvironment": 3, "newenvironment": 3, "selectlanguage": 1,
         "hyphenation": 1, "phantom": 1, "hphantom": 1, "vphantom": 1, "includeonly": 1, "titleformat": 5,
         "sisetup": 1, "pgfplotsset": 1, "tikzset": 1, "ExecuteOptions": 1, "PassOptionsToPackage": 2,
-        "definecolor": 3, "newtheorem": 2, "DeclareMathOperator": 2,
+        "definecolor": 3, "DeclareMathOperator": 2, "bibitem": 1,
     ]
 
     /// xcolor's base colors.

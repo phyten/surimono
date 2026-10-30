@@ -132,6 +132,17 @@ table.latex-tabular th, table.latex-tabular td { border: none; padding: 0.2em 0.
 .latex-url { font-family: "SFMono-Regular", Menlo, monospace; font-size: 0.9em; }
 .latex-missing { font-weight: 700; }
 .latex-verse { white-space: pre-line; }
+.latex-theorem, .latex-proof { margin: 0.8em 0; }
+.theorem-head { font-weight: 700; }
+.theorem-note { font-weight: 400; }
+.latex-theorem-plain { font-style: italic; }
+.latex-theorem-plain .theorem-head { font-style: normal; }
+.latex-theorem-remark .theorem-head { font-weight: 400; font-style: italic; }
+.proof-head { font-style: italic; }
+.qed { float: right; margin-left: 1em; }
+.qed-line { text-align: right; margin-top: 0; }
+ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
+.bib-label { display: inline-block; min-width: 2em; margin-left: -2.5em; margin-right: 0.5em; }
 
 /* Defaults are dark enough for white paper; themes may override each token independently. */
 :root {

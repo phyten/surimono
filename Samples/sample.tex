@@ -6,6 +6,10 @@
 \usepackage{enumitem}
 \usepackage{listings}
 \usepackage{booktabs}
+\usepackage{amsthm}
+\usepackage{siunitx}
+
+\newtheorem{kimari}{決まり}[section]
 
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\shelf}[1]{\textbf{棚#1}}
@@ -37,6 +41,14 @@
   n = \min\left(5, \left\lfloor \frac{d}{7} \right\rfloor + 2\right) \label{eq:books}
 \end{equation}
 ここで $d$ は利用した日数です。実数の集合 $\R$ や $\argmax_{x \in \R} f(x)$ も書けます。
+
+\begin{kimari}[返却]\label{rule:return}
+借りた本は \qty{14}{\day} 以内に返す。書庫は \qty{20}{\degreeCelsius}、湿度 \qty{55}{\percent} に保つ。
+\end{kimari}
+
+\begin{proof}[理由]
+次の人が待っているため。棚の総延長は \qty{1.2e3}{\metre} あり、探すのに時間がかかる\cite{hoshimi2026}。
+\end{proof}
 
 \begin{align*}
   a &= b + c \\
@@ -95,6 +107,11 @@ def lend(books, limit=5):
 \end{quote}
 
 詳しくは \url{https://example.com/hoshimi} か
-\href{https://example.com/hoshimi/faq}{よくある質問}へ。
+\href{https://example.com/hoshimi/faq}{よくある質問}へ。決まり~\ref{rule:return}の背景は文献\cite{shelves,hoshimi2026}にあります。
+
+\begin{thebibliography}{9}
+\bibitem{hoshimi2026} 架空の司書『星見図書室の十年』星見出版, 2026.
+\bibitem{shelves} 架空の助手「棚の並べ方の研究」『架空図書館学』第3巻, pp.~1--10, 2025.
+\end{thebibliography}
 
 \end{document}

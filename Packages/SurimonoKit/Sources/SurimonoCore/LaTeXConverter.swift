@@ -67,6 +67,20 @@ final class LaTeXDocument {
         let title: String
     }
 
+    struct Theorem {
+        /// The heading's source, such as `Theorem` or `定理`.
+        let title: String
+        /// The counter it numbers with, shared by `\newtheorem{…}[other]{…}`; nil for `\newtheorem*`.
+        let counter: String?
+        let style: String
+    }
+
+    struct Citation {
+        let keys: [String]
+        let before: String?
+        let after: String?
+    }
+
     enum ReferenceStyle {
         case number
         case equation
@@ -100,11 +114,26 @@ final class LaTeXDocument {
     var footnotes: [String] = []
     var references: [(key: String, style: ReferenceStyle)] = []
     var enumerateDepth = 0
+    var theorems: [String: Theorem] = [:]
+    var theoremStyle = "plain"
+    /// amsthm's look (a period after the heading, the note in roman) rather than LaTeX's own `\newtheorem`.
+    var usesAMSTheorem = false
+    /// What a theorem counter counts within (`\newtheorem{…}{…}[section]`).
+    var counterParents: [String: String] = [:]
+    /// Each theorem counter's value and the number it counted under; a new parent number starts it again.
+    var counterValues: [String: (value: Int, parent: String)] = [:]
+    var theoremCount = 0
+    var bibliography: [String: (label: String, id: String)] = [:]
+    var bibliographyCount = 0
+    var citations: [Citation] = []
     /// How many readers are reading inside one another.
     var depth = 0
     static let maximumDepth = 100
     /// Set while `\maketitle` reads the title, so a title that makes the title again is not read again.
     var makingTitle = false
+    /// Each theorem's heading, read once: a heading that opens its own environment would otherwise read itself again.
+    var theoremHeadings: [String: String] = [:]
+    var headingBudget = 2_000_000
     var expansions = 0
     /// Characters macros produced, and the work spent putting them back into the source; both are bounded so a
     /// recursive or doubling definition cannot exhaust memory or time.
@@ -132,38 +161,145 @@ final class LaTeXDocument {
         return placeholder("R", references.count - 1)
     }
 
-    /// Fills in the table of contents, then the references, which may point at things defined later in the document
-    /// and may sit in the headings the table of contents repeats.
-    func resolvePlaceholders(in html: String) -> String {
-        replacing("R", in: replacing("T", in: html))
+    func citation(_ citation: Citation) -> String {
+        citations.append(citation)
+        return placeholder("C", citations.count - 1)
     }
 
+    /// Fills in the table of contents, then the references and citations, which may point at things defined later in
+    /// the document and may sit in the headings the table of contents repeats.
+    func resolvePlaceholders(in html: String) -> String {
+        resolveCitations()
+        return replacing("C", in: replacing("R", in: replacing("T", in: html)))
+    }
+
+    private var resolvedCitations: [String] = []
+
+    /// Each citation's HTML, in the order they were made. A note or an entry's label may cite again; a citation made
+    /// earlier is filled in, a later one (or the citation itself) is not, so nothing refers back to itself. Labels
+    /// that cite a lot, or a long label cited many times, could still multiply the text, so each citation is built
+    /// within a size limit and all of them within a budget; past either, it shows its keys as written.
+    private func resolveCitations() {
+        var budget = 2_000_000
+        resolvedCitations = []
+        for (index, citation) in citations.enumerated() {
+            if budget > 0, let html = citationHTML(citation, before: index, limit: min(20_000, budget)) {
+                budget -= html.utf8.count
+                resolvedCitations.append(html)
+            } else {
+                // No longer than the source that cites them.
+                let keys = HTML.escape(citation.keys.joined(separator: ", "))
+                resolvedCitations.append("<span class=\"latex-cite\">[\(keys)]</span>")
+            }
+        }
+    }
+
+    /// `[1, 2, p. 3]`, each number linking to its entry. A key with no `\bibitem` prints itself in bold, as biblatex
+    /// does, so the reader can tell which source is meant. Each piece is checked against `limit` before it is added;
+    /// nil when the citation would pass it.
+    private func citationHTML(_ citation: Citation, before index: Int, limit: Int) -> String? {
+        var html = "<span class=\"latex-cite\">["
+        func add(_ piece: String) -> Bool {
+            guard let filled = filled(piece, below: index, limit: limit - html.utf8.count) else { return false }
+            html += filled
+            return true
+        }
+        if let before = citation.before, !before.isEmpty, !add(before + " ") { return nil }
+        for (position, key) in citation.keys.enumerated() {
+            if position > 0, !add(", ") { return nil }
+            if let entry = bibliography[key] {
+                // The label goes in on its own, so a label too long is turned down before it is copied anywhere.
+                guard add("<a href=\"#\(HTML.escape(entry.id))\">"), add(entry.label), add("</a>") else { return nil }
+            } else if !add("<span class=\"latex-missing\">\(HTML.escape(key))</span>") {
+                return nil
+            }
+        }
+        if let after = citation.after, !after.isEmpty, !add(", " + after) { return nil }
+        return add("]</span>") ? html : nil
+    }
+
+    /// A piece of a citation with its references and earlier citations filled in, or nil once it would pass `limit`.
+    /// Filling in never makes a placeholder shorter, so the check before each addition is enough.
+    private func filled(_ piece: String, below index: Int, limit: Int) -> String? {
+        guard piece.utf8.count <= limit else { return nil }
+        guard piece.contains("\u{E000}\(nonce)"),
+            let regex = try? NSRegularExpression(pattern: "\u{E000}\(nonce)([RC])([0-9]+)\u{E001}")
+        else { return piece }
+        let nsPiece = piece as NSString
+        var output = ""
+        var size = 0
+        func add(_ text: String) -> Bool {
+            size += text.utf8.count
+            guard size <= limit else { return false }
+            output += text
+            return true
+        }
+        var cursor = 0
+        for match in regex.matches(in: piece, range: NSRange(location: 0, length: nsPiece.length)) {
+            guard add(nsPiece.substring(with: NSRange(location: cursor, length: match.range.location - cursor))) else {
+                return nil
+            }
+            cursor = match.range.location + match.range.length
+            let number = Int(nsPiece.substring(with: match.range(at: 2))) ?? -1
+            let replacement =
+                nsPiece.substring(with: match.range(at: 1)) == "R"
+                ? referenceHTML(number)
+                : number < index && resolvedCitations.indices.contains(number)
+                    ? resolvedCitations[number] : "<span class=\"latex-missing\">?</span>"
+            guard add(replacement) else { return nil }
+        }
+        return add(nsPiece.substring(from: cursor)) ? output : nil
+    }
+
+    /// Fills in one kind of placeholder. The table of contents and citations can be long and a placeholder can be
+    /// repeated (in a theorem heading printed many times), so what they add in one pass has a budget.
     private func replacing(_ kind: String, in html: String) -> String {
         guard html.contains("\u{E000}\(nonce)\(kind)"),
-            let regex = try? NSRegularExpression(pattern: "\u{E000}\(nonce)(\(kind))([0-9]+)\u{E001}")
+            let regex = try? NSRegularExpression(pattern: "\u{E000}\(nonce)\(kind)([0-9]+)\u{E001}")
         else { return html }
         let nsHTML = html as NSString
         var output = ""
         var cursor = 0
+        var budget = 4_000_000
+        var contents: String?
         for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
             output += nsHTML.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
             cursor = match.range.location + match.range.length
-            let kind = nsHTML.substring(with: match.range(at: 1))
-            let index = Int(nsHTML.substring(with: match.range(at: 2))) ?? -1
-            if kind == "T" {
-                output += tableOfContents()
-            } else if references.indices.contains(index) {
-                let (key, style) = references[index]
-                if let target = labels[key] {
-                    let text = style == .equation ? "(\(target.number))" : target.number
-                    output += "<a href=\"#\(HTML.escape(target.id))\">\(HTML.escape(text))</a>"
-                } else {
-                    // LaTeX prints ?? for a label it cannot find.
-                    output += "<span class=\"latex-missing\">??</span>"
+            let index = Int(nsHTML.substring(with: match.range(at: 1))) ?? -1
+            switch kind {
+            case "T":
+                let toc = contents ?? tableOfContents()
+                contents = toc
+                if toc.utf8.count <= budget {
+                    output += toc
+                    budget -= toc.utf8.count
                 }
+            case "C":
+                let citation =
+                    resolvedCitations.indices.contains(index)
+                    ? resolvedCitations[index] : "<span class=\"latex-missing\">?</span>"
+                if citation.utf8.count <= budget {
+                    output += citation
+                    budget -= citation.utf8.count
+                } else {
+                    output += "<span class=\"latex-cite\">[…]</span>"
+                }
+            default: output += referenceHTML(index)
             }
         }
         return output + nsHTML.substring(from: cursor)
+    }
+
+    /// A reference's number linking to what it names. A number is short unless it is an equation's own `\tag`; that
+    /// is cut, so a long tag referred to many times cannot multiply.
+    private func referenceHTML(_ index: Int) -> String {
+        guard references.indices.contains(index) else { return "" }
+        let (key, style) = references[index]
+        // LaTeX prints ?? for a label it cannot find.
+        guard let target = labels[key] else { return "<span class=\"latex-missing\">??</span>" }
+        let number = target.number.utf8.count > 300 ? String(target.number.prefix(100)) + "…" : target.number
+        let text = style == .equation ? "(\(number))" : number
+        return "<a href=\"#\(HTML.escape(target.id))\">\(HTML.escape(text))</a>"
     }
 
     private func tableOfContents() -> String {
