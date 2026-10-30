@@ -35,6 +35,7 @@ description: Cuts a Surimono release by choosing the version, pinning the commit
    ワークフローの手動実行（`gh workflow run release.yml`）は使わない。`--ref` はブランチの先頭を指すだけで、確認した SHA に公開対象を固定できない（承認後に master が進むと別のコミットが公開される）。
 6. 実行を見届ける: `gh run watch`。失敗したらログで原因を直してから再実行する。タグやリリースが途中まで作られていたら、消すかどうかをユーザーに確認する。
 7. 成果物を確かめる: `gh release view v<X.Y.Z>` に `Surimono-<X.Y.Z>.dmg`・`Surimono-<X.Y.Z>.zip` と、それぞれの `.sha256` があること。ダウンロードして `shasum -a 256 -c` で照合し、DMG を開いて（`hdiutil attach`）、中に Surimono.app と Applications へのリンクがあることを確かめる。正式版なら、`curl -sL https://github.com/phyten/surimono/releases/latest/download/appcast.xml` に、この版の `sparkle:shortVersionString`・`sparkle:version`（ビルド番号）・この版の ZIP の URL・`sparkle:edSignature` があることも確かめる。アプリの版とビルド番号が補足の決め方どおりであること（v0.3.0-beta.1 なら `0.3.0` と `30001`）を `/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' -c 'Print :CFBundleVersion' Surimono.app/Contents/Info.plist` で確かめてから起動する。アドホック署名なので Gatekeeper に止められる。macOS 15 以降は Finder の右クリック →「開く」では越えられないため、リリースノートの手順（システム設定の「プライバシーとセキュリティ」→「このまま開く」）で開けることを確かめる。起動だけを手早く確かめるなら、`xattr -dr com.apple.quarantine Surimono.app`（ダウンロードで付いた隔離の印を消し、Gatekeeper の確認を省く）でもよい。
+8. 正式版を出したら、`Configs/Base.xcconfig` の `MARKETING_VERSION`（開発中の既定値）を次の版（ふつうは次のマイナー。0.1.0 を出したら 0.2.0）に上げる PR を出す。手元や CI のビルドが公開版と同じ版を名乗ると、どちらなのかを版で見分けられないため。
 
 ## 補足
 
