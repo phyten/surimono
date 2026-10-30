@@ -49,6 +49,25 @@ struct WebPaginatorTests {
         #expect(!content.contains("PAGE-SCRIPT-MARKER"))
     }
 
+    @Test("アプリがダークでも、ダークに対応した HTML はライトの色で組版される")
+    func typesetsInLightAppearanceEvenWhenAppIsDark() async throws {
+        let html = """
+            <!doctype html><meta charset="utf-8"><meta name="color-scheme" content="light dark">
+            <style>html, body { margin: 0; height: 100%; background: rgb(255, 255, 255); }
+            @media (prefers-color-scheme: dark) { html, body { background: rgb(0, 0, 0); } }</style>
+            <body><p>BODY-MARKER</p></body>
+            """
+        let application = NSApplication.shared
+        let previous = application.appearance
+        application.appearance = NSAppearance(named: .darkAqua)
+        defer { application.appearance = previous }
+        let document = try await WebPaginator().paginate(
+            .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 0), allowsJavaScript: false)
+        let page = try #require(document.page(at: 0))
+        let pixel = try RenderingFixtures.pixel(page, x: 300, y: 600)
+        #expect(pixel[0] > 240 && pixel[1] > 240 && pixel[2] > 240)
+    }
+
     @Test("JavaScript を許可すると文書のスクリプトの結果が印刷される")
     func runsPageScriptsWhenAllowed() async throws {
         let html = """
