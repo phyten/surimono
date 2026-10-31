@@ -17,6 +17,11 @@ struct SettingsView: View {
                     }
                 }
                 Text("Defaults apply to newly opened documents.").font(.caption).foregroundStyle(.secondary)
+                Picker("Scroll Sensitivity", selection: $preferences.wheelSensitivity) {
+                    Text("Low").tag(WheelPageTurner.Sensitivity.low)
+                    Text("Normal").tag(WheelPageTurner.Sensitivity.normal)
+                    Text("High").tag(WheelPageTurner.Sensitivity.high)
+                }
                 if updater.isAvailable {
                     Section {
                         Toggle(

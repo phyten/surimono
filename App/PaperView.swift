@@ -27,6 +27,7 @@ struct PaperView: NSViewRepresentable {
     let initialPageIndex: Int
     let options: ViewOptions
     let zoom: Double
+    var wheelSensitivity: WheelPageTurner.Sensitivity = .normal
     var selectsText = false
     let controller: PaperController
     var onZoomChange: (Double) -> Void
@@ -51,6 +52,7 @@ struct PaperView: NSViewRepresentable {
             view.show(document, at: initialPageIndex)
         }
         view.apply(options)
+        view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
         if abs(view.zoom - zoom) > 0.001 { view.setZoom(zoom, anchor: nil) }
     }
@@ -103,9 +105,12 @@ final class PaperPDFView: PDFView {
     private var fittedSize = CGSize.zero
     private var isSettingScale = false
     private var magnifyMonitor: Any?
-    private var wheelDistance: CGFloat = 0
-    private var wheelTurnedInGesture = false
-    private var lastWheelTurn = Date.distantPast
+    private var wheelMonitor: Any?
+    private var wheelSequence = WheelSequence()
+    private var wheelTurner = WheelPageTurner()
+    var wheelSensitivity: WheelPageTurner.Sensitivity = .normal {
+        didSet { if oldValue != wheelSensitivity { wheelTurner = WheelPageTurner() } }
+    }
     private var mouseDownEvent: NSEvent?
     private var didDrag = false
     /// Whether the current click or drag belongs to PDFKit's text selection; decided when the button goes down.
@@ -138,12 +143,14 @@ final class PaperPDFView: PDFView {
 
     isolated deinit {
         if let magnifyMonitor { NSEvent.removeMonitor(magnifyMonitor) }
+        if let wheelMonitor { NSEvent.removeMonitor(wheelMonitor) }
         zoomDisplayLink?.invalidate()
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         updateMagnifyMonitor()
+        updateWheelMonitor()
         if window == nil {
             stopZoomReturn()
             if displayedZoom < 1 { setZoom(1, anchor: nil) }
@@ -167,6 +174,7 @@ final class PaperPDFView: PDFView {
         displayedZoom = zoom
         if pinchActive { ignoresPinchRemainder = true }
         pinchActive = false
+        wheelTurner = WheelPageTurner()
         self.document = document
         displayBox = .cropBox
         pageSize = (0..<document.pageCount).reduce(into: CGSize.zero) { size, index in
@@ -184,6 +192,7 @@ final class PaperPDFView: PDFView {
     func apply(_ options: ViewOptions) {
         guard options != self.options else { return }
         let index = currentPageIndex
+        wheelTurner = WheelPageTurner()
         self.options = options
         let mode: PDFDisplayMode =
             switch options.layout {
@@ -469,7 +478,7 @@ final class PaperPDFView: PDFView {
     }
 
     private func addTransition(forward: Bool, options: ViewOptions) {
-        guard !options.isContinuous, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, let layer else {
+        guard !options.isContinuous, !shouldReduceMotion(), let layer else {
             return
         }
         let transition = CATransition()
@@ -480,8 +489,8 @@ final class PaperPDFView: PDFView {
         switch options.transition {
         case .scroll, .instant:
             return
-        case .slide:
-            transition.type = .push
+        case .slide, .cover, .reveal:
+            transition.type = options.transition == .cover ? .moveIn : options.transition == .reveal ? .reveal : .push
             transition.subtype =
                 switch options.slideEdge(forward: forward) {
                 case .left: .fromLeft
@@ -491,6 +500,31 @@ final class PaperPDFView: PDFView {
                 }
         case .fade:
             transition.type = .fade
+        case .wipe:
+            guard let filter = CIFilter(name: "CISwipeTransition") else {
+                transition.type = .fade
+                break
+            }
+            filter.setDefaults()
+            let angle: Double =
+                switch options.slideEdge(forward: forward) {
+                case .right: .pi
+                case .left: 0
+                case .bottom: .pi / 2
+                case .top: -.pi / 2
+                }
+            filter.setValue(angle, forKey: kCIInputAngleKey)
+            filter.setValue(CIVector(cgRect: bounds), forKey: kCIInputExtentKey)
+            filter.setValue(24, forKey: "inputWidth")
+            transition.filter = filter
+        case .zoom:
+            transition.type = .fade
+            let scale = CABasicAnimation(keyPath: "transform.scale")
+            scale.fromValue = forward ? 0.96 : 1.04
+            scale.toValue = 1
+            scale.duration = transition.duration
+            scale.timingFunction = transition.timingFunction
+            layer.add(scale, forKey: "pageTurnScale")
         case .pageCurl:
             guard let filter = CIFilter(name: "CIPageCurlTransition") else {
                 transition.type = .fade
@@ -508,41 +542,73 @@ final class PaperPDFView: PDFView {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
 
-    override func scrollWheel(with event: NSEvent) {
-        if event.modifierFlags.contains(.command) {
+    private func updateWheelMonitor() {
+        guard window != nil else {
+            if let wheelMonitor { NSEvent.removeMonitor(wheelMonitor) }
+            wheelMonitor = nil
+            wheelSequence = WheelSequence()
+            wheelTurner = WheelPageTurner()
+            return
+        }
+        guard wheelMonitor == nil else { return }
+        // PDFKit's inner scroll view can consume wheel events before the PDFView override.
+        wheelMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            let handled = MainActor.assumeIsolated { self?.handleWheelEvent(event) ?? false }
+            return handled ? nil : event
+        }
+    }
+
+    /// Shared by the local monitor and responder fallback; hit testing excludes overlay controls.
+    func handleWheelEvent(_ event: NSEvent) -> Bool {
+        let phase: WheelPageTurner.Phase
+        if event.momentumPhase.contains(.ended) || event.momentumPhase.contains(.cancelled) {
+            phase = .momentumEnded
+        } else if !event.momentumPhase.isEmpty {
+            phase = .momentum
+        } else if event.phase.contains(.cancelled) {
+            phase = .cancelled
+        } else if event.phase.contains(.ended) {
+            phase = .ended
+        } else if event.phase.contains(.began) {
+            phase = .began
+        } else if !event.phase.isEmpty {
+            phase = .changed
+        } else {
+            phase = .discrete
+        }
+        let canTurn = options?.isContinuous == false && !isZoomed && !pinchActive && !isReturningToFit
+        let command = event.modifierFlags.contains(.command)
+        // Observe starts and ends even outside the paper. Current pointer position cannot steal momentum.
+        let ownership = wheelSequence.update(
+            phase: phase, timestamp: event.timestamp,
+            startsOnPaper: event.window === window && isPaper(atWindowPoint: event.locationInWindow)
+                && (command || canTurn))
+        if ownership.startsSequence { wheelTurner.beginSequence() }
+        guard ownership.owns, event.window === window else { return false }
+        if phase == .momentum || phase == .momentumEnded { return true }
+        if command {
             let anchor = convert(event.locationInWindow, from: nil)
             setZoom(zoom * exp(Double(event.scrollingDeltaY) * 0.01), anchor: anchor)
-            return
+            return true
         }
-        guard let options, !options.isContinuous, !isZoomed else {
-            super.scrollWheel(with: event)
-            return
-        }
-        // Momentum after a turn must not keep turning pages.
-        guard event.momentumPhase.isEmpty else { return }
-        if event.phase.contains(.began) {
-            wheelDistance = 0
-            wheelTurnedInGesture = false
-        }
+        guard canTurn, let options else { return true }
         let horizontal = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY)
-        let delta = horizontal ? event.scrollingDeltaX : event.scrollingDeltaY
-        // Content moving left or up reveals the next page of a left-to-right book.
-        let forwardSign: CGFloat = horizontal && options.direction == .rightToLeft ? 1 : -1
-        wheelDistance += delta * forwardSign
-        let isGesture = !event.phase.isEmpty
-        let threshold: CGFloat = isGesture ? 36 : 1
-        if abs(wheelDistance) >= threshold, !wheelTurnedInGesture,
-            isGesture || Date().timeIntervalSince(lastWheelTurn) > 0.25
+        // Discrete mice report lines; trackpads report precise point travel.
+        let delta =
+            phase == .discrete
+            ? (horizontal ? event.deltaX : event.deltaY)
+            : (horizontal ? event.scrollingDeltaX : event.scrollingDeltaY)
+        let sign: Double = horizontal && options.direction == .rightToLeft ? 1 : -1
+        if let forward = wheelTurner.update(
+            delta: Double(delta) * sign, phase: phase, timestamp: event.timestamp, sensitivity: wheelSensitivity)
         {
-            turnPage(forward: wheelDistance > 0)
-            lastWheelTurn = Date()
-            wheelDistance = 0
-            wheelTurnedInGesture = isGesture
+            turnPage(forward: forward)
         }
-        if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
-            wheelDistance = 0
-            wheelTurnedInGesture = false
-        }
+        return true
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        if !handleWheelEvent(event) { super.scrollWheel(with: event) }
     }
 
     override func keyDown(with event: NSEvent) {

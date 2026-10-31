@@ -21,10 +21,10 @@ struct ViewOptionsTests {
     }
 
     @Test(
-        "スクロールの方向が効くのは送り方がスクロールとスライドのときだけ",
+        "方向を持つ送り方ではスクロールの方向が効く",
         arguments: [
             (ViewOptions.Transition.scroll, true), (.slide, true), (.instant, false), (.fade, false),
-            (.pageCurl, false),
+            (.pageCurl, false), (.cover, true), (.reveal, true), (.wipe, true), (.zoom, false),
         ])
     func scrollAxisMatters(transition: ViewOptions.Transition, uses: Bool) {
         let options = ViewOptions(layout: .spread, scrollAxis: .vertical, transition: transition, showsCoverAlone: true)
