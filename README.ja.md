@@ -82,7 +82,7 @@ make clean                      # ビルド生成物を削除
 
 `Surimono.xcodeproj` を開き、共有スキーム `Surimono` でもビルドできます。ビルド時は `CONFIGURATION`・`DERIVED_DATA`、パッケージ作成時は `VERSION`・`BUILD_NUMBER` を指定できます（`0.2.0-beta.1` のようなプレリリースでは `MARKETING_VERSION=0.2.0` も指定します）。署名はアドホックのため、開発者アカウントは不要です。文書変換から印刷プレビュー、印刷、PDF 書き出しまでを SurimonoKit の描画パイプラインで接続しています。
 
-`Samples/` に Markdown・Org・UTF-8／Shift_JIS テキスト・HTML・CSV のサンプルがあります。`booklet-demo.md` は冊子の読み順を確認するための、画像を含まない長い文書です。設定画面で余白・ページ番号・裏面回転・HTML の JavaScript を指定できます。ユーザー CSS は `~/Library/Application Support/Surimono/Styles/`、JSON プリセットは `Presets/` に追加し、設定画面から再読み込みします。Markdown などの印刷スタイル（ユーザー CSS も）が `html` に付けた背景（紙の色や罫線）は余白まで敷かれ、模様は本文の左上にそろいます（横に大きくはみ出す文書では本文の範囲だけになります）。外部で保存した文書は自動で再読み込みし、元のファイルには書き込みません。
+`Samples/` に Markdown・Org・UTF-8／Shift_JIS テキスト・HTML・CSV のサンプルがあります。`booklet-demo.md` は冊子の読み順を確認するための、画像を含まない長い文書です。設定画面で余白・ページ番号・裏面回転・HTML の JavaScript を指定できます。ユーザー CSS は `~/Library/Application Support/Surimono/Styles/`、JSON プリセットは `Presets/` に追加し、設定画面から再読み込みします。Markdown などの印刷スタイル（ユーザー CSS も）が `html` に付けた背景（紙の色や罫線）は余白まで敷かれ、模様は本文の左上にそろいます（横に大きくはみ出す文書では本文の範囲だけになります）。外部で保存した文書は自動で再読み込みし（Markdown は変わったブロックの左に薄い赤の線を出します。印刷には出ません）、元のファイルには書き込みません。
 
 ## コントリビュート
 

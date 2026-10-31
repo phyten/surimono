@@ -93,6 +93,8 @@ make clean
   ```
 
   例: n = 8 → 用紙1 表[8|1] 裏[2|7]、用紙2 表[6|3] 裏[4|5]。この式はテストで固定している。変更するときはテストと `.agents/skills/project-surimono-print-layout` を先に更新する。
+- 外での保存: `FileWatcher` がパスのメタデータを 250 ms ごとに裏で見て（エディタは保存でファイルを差し替えることが多いので、開いたファイルではなくパスを見る）、変わったら `DocumentViewModel` が裏で読み直す。内容が同じなら組み直さない。手で押した再読み込みはいつも読み直す。イベントの見張り（vnode）と比べ、速さと負荷の差は誤差で、ネットワークやクラウドの場所では届かないことがあるのでポーリングのままにしている。
+- Markdown の変更の印: 読み直したとき、前に表示していた原文と行ごとに比べ（`MarkdownChanges`。前処理をまたいで原文の行とブロックを対応づける）、変わったブロックの位置を、各ブロックに見えないリンク（`surimono-mark:`）を置いた別の組版から WebKit のリンク注釈として受け取る（`ChangeMark`）。表示・印刷に使う組版には何も足さず、線は表示用の写し（`ViewPageDocument`）にだけ、本文の左端のすぐ外に描く。HTML・Org・LaTeX には印を付けない。
 - 依存の向き: App → SurimonoRendering → SurimonoCore。Core から AppKit / WebKit を import しない。
 - アプリの既定値（既定のレイアウト・余白など）と、スタイルの最近使ったもの・お気に入り（アプリ全体）は `AppPreferences` が `UserDefaults` に保存する。スタイルを選んだと記録するのは利用者がメニューで選んだとき（`DocumentViewModel.selectTheme`）だけで、復元・既定に戻す・代わりのテーマへの切り替えでは記録しない。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`。Debug ビルドは `Surimono Dev/` 配下）。
 - 文書ごとの設定（表示の型・向き・送り方・表紙・拡大率・窓の大きさ・印刷レイアウト・スタイル / プリセット・文字の大きさ・印刷のオプション・画像の並び順）は `DocumentSettings` にまとめ、**ファイル名ではなく内容の SHA-256（`ContentHash`）をキーに** `~/Library/Application Support/Surimono/DocumentSettings/`（`KeyedRecordStore`。Debug ビルドは `Surimono Dev/` 配下）へ保存する。
