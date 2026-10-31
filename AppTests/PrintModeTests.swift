@@ -201,6 +201,28 @@ struct PrintTrayTests {
         #expect(abs(metrics.rowWidth - 812) < 0.01)
     }
 
+    @Test("A4片面の刷り台は、窓の高さに1枚が収まる大きさで始まる")
+    func trayFitsSheetHeight() {
+        let metrics = TrayMetrics(layout: .a4Single, viewportWidth: 1000, viewportHeight: 500, zoom: 1)
+        // 500 minus the heading and captions leaves 436 for the A4 sheet, 841.89 pt tall.
+        #expect(abs(metrics.sideSize.height - 436) < 0.01)
+        #expect(metrics.zoomPercent == 52)
+    }
+
+    @Test("高さに余裕のある窓では、刷り台は今までどおり幅で大きさが決まる")
+    func trayKeepsWidthWhenTall() {
+        let tall = TrayMetrics(layout: .a3BookletA4, viewportWidth: 1000, viewportHeight: 2000, zoom: 1)
+        #expect(tall.zoomPercent == 33)
+    }
+
+    @Test("縦と横が混ざる刷り台は、背の高い縦の紙が収まる大きさにする")
+    func trayFitsPortraitWhenMixed() {
+        let metrics = TrayMetrics(
+            layout: PrintLayout.a4Single.oriented(true), viewportWidth: 1000, viewportHeight: 500,
+            mixedOrientations: true, zoom: 1)
+        #expect(abs(metrics.scale * 841.89 - 436) < 0.01)
+    }
+
     @Test("折ってみるでは表紙、見開き、中央の見開き、裏表紙の順にめくる")
     func foldSpreads() {
         #expect(FoldBook.spread(row: 0, pageCount: 12) == .cover(1))

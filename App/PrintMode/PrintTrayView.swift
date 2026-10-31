@@ -10,6 +10,7 @@ struct PrintTrayView: View {
     let document: PDFDocument
     @Binding var showsFold: Bool
     @State private var zoom: CGFloat = 1
+    @State private var headerHeight: CGFloat = 80
     @State private var visibleRow: Int?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -20,13 +21,17 @@ struct PrintTrayView: View {
             let mixed = Set(tray.sheets.map(\.orientation)).count > 1
             let metrics = TrayMetrics(
                 layout: mixed ? tray.layout.oriented(true) : tray.layout,
-                viewportWidth: width, zoom: zoom)
+                viewportWidth: width,
+                viewportHeight: geometry.size.height - Self.topPadding - headerHeight - Self.headerSpacing
+                    - Self.bottomClearance,
+                mixedOrientations: mixed, zoom: zoom)
             // Scroll sideways only when zoomed wider than the window, so no idle horizontal scroll bar shows.
             let scrollsSideways = metrics.rowWidth + 2 * TrayMetrics.padding > width
             ZStack(alignment: .bottomTrailing) {
                 ScrollView(scrollsSideways ? [.vertical, .horizontal] : .vertical) {
-                    VStack(alignment: .leading, spacing: 30) {
+                    VStack(alignment: .leading, spacing: Self.headerSpacing) {
                         header.frame(width: metrics.rowWidth, alignment: .leading)
+                            .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
                         LazyVStack(alignment: .leading, spacing: 34) {
                             ForEach(tray.rows) { row in
                                 HStack(alignment: .top, spacing: TrayMetrics.twoUpSpacing) {
@@ -45,7 +50,7 @@ struct PrintTrayView: View {
                         // A lazy stack fills the offered width; pin it so the sheets stay centered.
                         .frame(width: metrics.rowWidth, alignment: .leading)
                     }
-                    .padding(.top, 22)
+                    .padding(.top, Self.topPadding)
                     .padding(.horizontal, TrayMetrics.padding)
                     .padding(.bottom, 40)
                     .frame(minWidth: scrollsSideways ? width : nil, maxWidth: scrollsSideways ? nil : .infinity)
@@ -67,6 +72,11 @@ struct PrintTrayView: View {
             visibleRow = nil
         }
     }
+
+    private static let topPadding: CGFloat = 22
+    private static let headerSpacing: CGFloat = 30
+    /// Room below the first sheet, so its captions do not touch the press bar.
+    private static let bottomClearance: CGFloat = 16
 
     private static var scrollerWidth: CGFloat {
         NSScroller.preferredScrollerStyle == .legacy
