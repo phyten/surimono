@@ -34,9 +34,10 @@ struct HTMLPresentationTests {
     }
 
     private func model(
-        _ environment: Environment, format: DocumentFormat = .html, hasFile: Bool = true
+        _ environment: Environment, format: DocumentFormat = .html, hasFile: Bool = true,
+        contents: String = "<p>Presentation fixture</p>"
     ) throws -> DocumentViewModel {
-        let data = Data("<p>Presentation fixture</p>".utf8)
+        let data = Data(contents.utf8)
         var url: URL?
         if hasFile {
             let file = environment.directory.appendingPathComponent("page.html")
@@ -56,6 +57,31 @@ struct HTMLPresentationTests {
             try await Task.sleep(for: .milliseconds(20))
         }
         #expect(condition())
+    }
+
+    @Test("紙面のHTMLはページ余白ゼロでもアプリの余白で内容を切り取らない", .timeLimit(.minutes(1)))
+    func htmlMarginsAreNotKnownBlank() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        // Pagination is stubbed: this tests the model's conservative policy, not WebKit's CSS parsing.
+        let model = try model(
+            environment, hasFile: false,
+            contents: "<style>@page { margin: 0 }</style><p>Edge content</p>")
+        model.start()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        #expect(!model.isWebPresentation)
+        #expect(model.renderedSettings != nil)
+        #expect(model.viewLogicalMargin == nil)
+        let source = try #require(model.paperDocument)
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        let plan = ViewPageLayout(
+            pageCount: source.pageCount, options: options,
+            hasLogicalMargins: model.viewLogicalMargin != nil, showsNumbers: false)
+        #expect(!plan.cropsMargins)
+        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 42))
+        for index in 0..<source.pageCount {
+            #expect(copy.page(at: index)?.bounds(for: .cropBox) == source.page(at: index)?.bounds(for: .cropBox))
+        }
     }
 
     @Test("HTML はウェブで開き、変えなければ何も保存しない", .timeLimit(.minutes(1)))

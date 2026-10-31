@@ -82,7 +82,8 @@ private struct PaperArea: View {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
-                    selectsText: model.isSelectingText, controller: model.paper,
+                    selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
+                    showsPageNumbers: model.preferences.viewPageNumbers, controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.paperDidChangePage($0) },
                     onTurn: { menu.pageTurned() },

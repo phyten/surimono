@@ -1,6 +1,28 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Page Numbers in View Mode": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示モードでページ番号を出す"
+          }
+        }
+      }
+    },
+    "Join Pages": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページのあいだを詰める"
+          }
+        }
+      }
+    },
     "Cover Slide": {
       "extractionState": "manual",
       "localizations": {

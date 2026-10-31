@@ -556,6 +556,15 @@ final class DocumentViewModel {
     static let marginRange: ClosedRange<Double> = 0...40
     static let marginPresets: [Double] = [0, 5, 10, 15, 20, 25]
 
+    /// Only themed text guarantees blank margins. HTML may override them with @page rules, and the
+    /// prepared pages do not expose that information here, so HTML keeps all its content like PDFs and images.
+    var viewLogicalMargin: CGFloat? {
+        guard imageBundle == nil, format.usesPrintTheme else { return nil }
+        // Keep the margin attached to the pages still on screen while a new layout is being prepared.
+        guard let settings = renderedSettings else { return nil }
+        return CGFloat(settings.layout.logicalMarginsInMillimeters(options: settings.options) * 72 / 25.4)
+    }
+
     /// Whether the margin shows on the pages view mode displays. PDFs keep their own margins, and the 3-up handout
     /// insets the sheet instead of its logical pages.
     var marginsApply: Bool { format != .pdf && layout.kind != .handout3 }

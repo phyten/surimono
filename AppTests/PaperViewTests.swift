@@ -9,6 +9,167 @@ import Testing
 @MainActor
 struct PaperViewTests {
     @Test(
+        "見開きの表紙と最終ページは左右に収まり白紙の番号を通知しない",
+        arguments: ViewOptions.Direction.allCases, [false, true])
+    func paddedSpreads(direction: ViewOptions.Direction, cover: Bool) throws {
+        let count = cover ? 4 : 3
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("spread", pages: count)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        var reported: [Int] = []
+        view.onPageChange = { reported.append($0) }
+        view.apply(
+            ViewOptions(
+                layout: .spread, direction: direction, scrollAxis: .horizontal, transition: .instant,
+                showsCoverAlone: cover))
+        view.layoutSubtreeIfNeeded()
+        #expect(view.document?.pageCount == (cover ? 6 : 4))
+        #expect(!view.displaysAsBook)
+        #expect(view.currentPageIndex == 0)
+        view.turnPage(forward: true)
+        #expect(view.currentPageIndex == (cover ? 1 : 2))
+        view.turnPage(forward: true)
+        #expect(view.currentPageIndex == count - 1)
+        let document = try #require(view.document)
+        let last = try #require(document.page(at: document.pageCount - 2))
+        let blank = try #require(document.page(at: document.pageCount - 1))
+        let lastRect = view.convert(last.bounds(for: .cropBox), from: last)
+        let blankRect = view.convert(blank.bounds(for: .cropBox), from: blank)
+        #expect(direction == .leftToRight ? lastRect.midX < blankRect.midX : lastRect.midX > blankRect.midX)
+        view.goToPage(index: 0)
+        #expect(view.currentPageIndex == 0)
+        #expect(reported.allSatisfy { (0..<count).contains($0) })
+        #expect(source.pageCount == count)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("見開きの前後移動と後半ページへの移動と復元は先頭の論理ページを報告する", arguments: ViewOptions.Direction.allCases, [false, true])
+    func spreadReadingPosition(direction: ViewOptions.Direction, cover: Bool) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("reading-position", pages: cover ? 4 : 5)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        let options = ViewOptions(
+            layout: .spread, direction: direction, scrollAxis: .horizontal, transition: .instant,
+            showsCoverAlone: cover)
+        var reported: [Int] = []
+        view.onPageChange = { reported.append($0) }
+        view.apply(options)
+        let middle = cover ? 1 : 2
+        let last = cover ? 3 : 4
+        view.turnPage(forward: true)
+        #expect(view.currentPageIndex == middle)
+        view.turnPage(forward: true)
+        #expect(view.currentPageIndex == last)
+        view.turnPage(forward: true)
+        #expect(view.currentPageIndex == last)
+        view.turnPage(forward: false)
+        #expect(view.currentPageIndex == middle)
+        view.turnPage(forward: false)
+        #expect(view.currentPageIndex == 0)
+        view.turnPage(forward: false)
+        #expect(view.currentPageIndex == 0)
+        view.goToPage(index: middle + 1)
+        #expect(view.currentPageIndex == middle)
+        #expect(reported.last == middle)
+        // Internal links may still land on the second half. Reporting and the next turn must normalize it too.
+        let document = try #require(view.document)
+        let secondHalf = try #require(document.page(at: 3))
+        view.go(to: secondHalf)
+        #expect(view.currentPageIndex == middle)
+        view.turnPage(forward: false)
+        #expect(view.currentPageIndex == 0)
+        #expect(reported.allSatisfy { [0, middle, last].contains($0) })
+        // Returning from the tray creates a new view; an older saved setting may name the second half.
+        let restored = PaperPDFView(frame: view.frame)
+        window.contentView = restored
+        restored.configure(source, at: middle + 1, options: options, logicalMargin: nil, showsPageNumbers: false)
+        #expect(restored.currentPageIndex == middle)
+        restored.turnPage(forward: true)
+        #expect(restored.currentPageIndex == last)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("送り方や向きだけの変更では番号入り表示PDFを作り直さない")
+    func reusesViewDocument() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("reuse", pages: 4)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        var options = ViewOptions(layout: .spread, scrollAxis: .vertical, transition: .slide, showsCoverAlone: true)
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: true)
+        let original = try #require(view.document)
+        options.transition = .fade
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: true)
+        #expect(view.document === original)
+        options.direction = .rightToLeft
+        options.scrollAxis = .horizontal
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: true)
+        #expect(view.document === original)
+        view.configure(source, at: 0, options: options, logicalMargin: 20, showsPageNumbers: true)
+        #expect(view.document !== original)
+        let changedMargin = try #require(view.document)
+        options.showsCoverAlone = false
+        view.configure(source, at: 0, options: options, logicalMargin: 20, showsPageNumbers: true)
+        #expect(view.document !== changedMargin)
+        let changedPadding = try #require(view.document)
+        view.configure(source, at: 0, options: options, logicalMargin: 20, showsPageNumbers: false)
+        #expect(view.document !== changedPadding)
+        let unnumbered = try #require(view.document)
+        let replacement = try #require(PDFDocument(data: TestFixtures.pdf("replacement-reuse", pages: 4)))
+        view.configure(replacement, at: 0, options: options, logicalMargin: 20, showsPageNumbers: false)
+        #expect(view.document !== unnumbered)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("結合中は実際の切り取りが同じ向き変更で表示PDFを再利用し辺が変われば作り直す")
+    func cropCache() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("crop-cache", pages: 3)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        var options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: true)
+        let vertical = try #require(view.document)
+        options.direction = .rightToLeft
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: true)
+        #expect(view.document === vertical)
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: false)
+        #expect(view.document === vertical)
+        options.scrollAxis = .horizontal
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: false)
+        #expect(view.document !== vertical)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("結合と番号の切り替えは読み位置と倍率を保ち原本を変更しない")
+    func presentationChanges() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("joined", pages: 4)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        var options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: true)
+        view.goToPage(index: 2)
+        view.setZoom(2, anchor: nil)
+        let originalBox = try #require(source.page(at: 2)?.bounds(for: .cropBox))
+        #expect(view.document?.page(at: 2)?.bounds(for: .cropBox).height == originalBox.height - 84)
+        options.joinsPages = false
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: false)
+        #expect(view.currentPageIndex == 2)
+        #expect(view.zoom == 2)
+        #expect(view.document?.page(at: 2)?.bounds(for: .cropBox) == originalBox)
+        #expect(source.page(at: 2)?.bounds(for: .cropBox) == originalBox)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("表示のページ番号は初期状態で無効で印刷の保存キーと独立して覚える")
+    func pageNumberPreferences() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(true, forKey: "pageNumbers")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        #expect(preferences.pageNumbers)
+        #expect(!preferences.viewPageNumbers)
+        preferences.viewPageNumbers = true
+        preferences.pageNumbers = false
+        let restored = AppPreferences(defaults: suite.defaults)
+        #expect(restored.viewPageNumbers)
+        #expect(!restored.printOptions.showsPageNumbers)
+    }
+
+    @Test(
         "表示モードに戻って紙を作り直すと、覚えているページから表示する", .timeLimit(.minutes(1)),
         arguments: [ViewOptions.Transition.scroll, .instant])
     func recreatedPaperOpensAtTheRememberedPage(transition: ViewOptions.Transition) async throws {
