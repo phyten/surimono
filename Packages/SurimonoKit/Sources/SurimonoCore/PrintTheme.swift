@@ -29,7 +29,7 @@ public struct PrintTheme: Equatable, Sendable, Identifiable {
     }
 
     public func displayName(language: String = "en") -> String {
-        localizedNames[language] ?? localizedNames[String(language.prefix(2))] ?? name
+        UILanguage.name(localizedNames, language: language, english: name)
     }
 }
 
@@ -46,7 +46,7 @@ public struct PrintThemeCategory: Equatable, Sendable, Identifiable {
     }
 
     public func displayName(language: String = "en") -> String {
-        localizedNames[language] ?? localizedNames[String(language.prefix(2))] ?? name
+        UILanguage.name(localizedNames, language: language, english: name)
     }
 }
 
@@ -63,12 +63,14 @@ public enum PrintThemeLibrary {
         struct Category: Decodable {
             let id: String
             let name: String
-            let ja: String
+            let ja: String?
+            let localizedNames: [String: String]?
         }
         struct Theme: Decodable {
             let id: String
             let name: String
-            let ja: String
+            let ja: String?
+            let localizedNames: [String: String]?
             let category: String
             let script: String?
         }
@@ -80,7 +82,9 @@ public enum PrintThemeLibrary {
     /// The built-in categories in menu order.
     public static func categories() throws -> [PrintThemeCategory] {
         try catalog().categories.map {
-            PrintThemeCategory(id: $0.id, name: $0.name, localizedNames: ["en": $0.name, "ja": $0.ja])
+            PrintThemeCategory(
+                id: $0.id, name: $0.name,
+                localizedNames: UILanguage.names(english: $0.name, japanese: $0.ja, localized: $0.localizedNames))
         }
     }
 
@@ -98,7 +102,9 @@ public enum PrintThemeLibrary {
                 return loaded
             }
             return PrintTheme(
-                id: entry.id, name: entry.name, localizedNames: ["en": entry.name, "ja": entry.ja],
+                id: entry.id, name: entry.name,
+                localizedNames: UILanguage.names(
+                    english: entry.name, japanese: entry.ja, localized: entry.localizedNames),
                 css: common + "\n" + css, isBuiltIn: true, category: entry.category,
                 featuredRank: catalog.featured.firstIndex(of: entry.id), script: script)
         }

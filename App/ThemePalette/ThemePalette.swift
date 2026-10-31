@@ -12,8 +12,8 @@ struct ThemePalette: View {
     enum Tab: Hashable { case frequent, categories }
 
     static let columns = 5
-    static let cellWidth: CGFloat = 96
-    static let width: CGFloat = 588
+    static let cellWidth: CGFloat = 104
+    static let width: CGFloat = 628
     static let height: CGFloat = 660
 
     var body: some View {
@@ -48,7 +48,7 @@ struct ThemePalette: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Text("Print Theme").font(.system(size: 14, weight: .semibold))
+                Text("Print Theme").font(.system(size: 14, weight: .semibold)).fixedSize()
                 Text(verbatim: model.theme(model.themeID)?.displayName(language: model.language) ?? model.themeID)
                     .font(.system(size: 12))
                     .foregroundStyle(.tint)
@@ -249,8 +249,8 @@ struct ThemePaletteCell: View {
                 Text(verbatim: name)
                     .font(.system(size: 11, weight: isCurrent ? .semibold : .regular))
                     .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(width: width)
             }
             .padding(4)

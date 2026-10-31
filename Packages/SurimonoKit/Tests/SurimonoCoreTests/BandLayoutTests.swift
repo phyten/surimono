@@ -32,6 +32,24 @@ struct BandLayoutTests {
             available: available)
     }
 
+    @Test("翻訳でラベルが長くなっても帯は実測幅に従って畳まれる")
+    func longLocalizedLabels() {
+        let widths: [BandLayout.Item: BandLayout.Widths] = [
+            .style: .init(full: 260, compact: 40),
+            .transition: .init(full: 240, compact: 40),
+            .selectText: .init(full: 180, compact: 30),
+            .layout: .init(full: 200),
+            .print: .init(full: 130, compact: 34),
+        ]
+        let result = BandLayout.plan(widths: widths, fixed: 100, separator: 0, name: 120, available: 360)
+        #expect(result.forms[.style] == nil)
+        #expect(result.forms[.transition] == nil)
+        #expect(result.forms[.selectText] == nil)
+        #expect(result.forms[.layout] == nil)
+        #expect(result.forms[.print] == .full)
+        #expect(result.nameWidth + 100 + 130 <= 360)
+    }
+
     @Test("用紙の向きはスクロールの次に並び綴じ方向より先に畳む")
     func paperOrientation() {
         let items = BandLayout.Item.allCases

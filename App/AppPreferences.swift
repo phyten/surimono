@@ -6,6 +6,16 @@ import SwiftUI
 @Observable
 final class AppPreferences {
     private let defaults: UserDefaults
+    private let languageDomainName: String?
+    /// Only the application's persistent domain determines the override, never the global AppleLanguages value.
+    var languageOverride: String? {
+        didSet {
+            guard let languageDomainName else { return }
+            var domain = defaults.persistentDomain(forName: languageDomainName) ?? [:]
+            domain["AppleLanguages"] = languageOverride.map { [$0] }
+            defaults.setPersistentDomain(domain, forName: languageDomainName)
+        }
+    }
     var wheelSensitivity: WheelPageTurner.Sensitivity {
         didSet { defaults.set(wheelSensitivity.rawValue, forKey: "wheelSensitivity") }
     }
@@ -40,8 +50,15 @@ final class AppPreferences {
         didSet { defaults.set(favoriteThemeIDs, forKey: "favoriteThemes") }
     }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier) {
         self.defaults = defaults
+        languageDomainName = domainName
+        let savedLanguages = domainName.flatMap {
+            defaults.persistentDomain(forName: $0)?["AppleLanguages"] as? [String]
+        }
+        languageOverride = savedLanguages?.first.flatMap { saved in
+            UILanguage.candidates(for: saved).dropLast().first { UILanguage.supported.contains($0) }
+        }
         wheelSensitivity =
             WheelPageTurner.Sensitivity(rawValue: defaults.string(forKey: "wheelSensitivity") ?? "") ?? .normal
         defaultViewLayout = ViewOptions.Layout(rawValue: defaults.string(forKey: "defaultViewLayout") ?? "")

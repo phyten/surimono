@@ -73,8 +73,8 @@ struct ThemeCompareView: View {
         let count = CGFloat(ThemeComparison.capacity)
         let byWidth = (size.width - 64 - Self.gap * (count - 1)) / count
         let paper = model.themeSamples.paperSize
-        // The mark above the page, the name and category, the button and the gaps between them take 150 pt.
-        let byHeight = (size.height - 18 - 150) * paper.width / max(paper.height, 1)
+        // The mark above the page, the name and category, the button and the gaps between them take 185 pt.
+        let byHeight = (size.height - 18 - 185) * paper.width / max(paper.height, 1)
         return max(min(byWidth, byHeight, 300), 120)
     }
 
@@ -260,8 +260,11 @@ private struct CompareCard: View {
             }
             HStack(alignment: .top, spacing: 4) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
+                    Text(verbatim: name).font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .help(name)
                     Text(verbatim: categoryName).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
                 FavoriteStarButton(isFavorite: isFavorite, name: name) { model.toggleFavoriteTheme(theme.id) }
@@ -281,6 +284,7 @@ private struct CompareCard: View {
             Button(action: onChoose) {
                 Text(isCurrent ? "Current Style" : "Use This")
                     .font(.system(size: 12.5, weight: .semibold))
+                    .lineLimit(1).minimumScaleFactor(0.8)
                     .frame(width: width, height: 30)
                     // The raised paper colour reads on the indigo in both appearances; white fades on the night one.
                     .foregroundStyle(isCurrent ? PrintPalette.ink2 : PrintPalette.raised)
@@ -331,7 +335,7 @@ private struct CompareTrayCell: View {
     let onToggle: () -> Void
     @State private var isHovering = false
 
-    static let width: CGFloat = 62
+    static let width: CGFloat = 80
 
     var body: some View {
         let isIn = model.themeComparison?.contains(theme.id) ?? false
@@ -359,7 +363,8 @@ private struct CompareTrayCell: View {
                 Text(verbatim: name)
                     .font(.system(size: 10.5, weight: isIn ? .semibold : .regular))
                     .foregroundStyle(isIn ? PrintPalette.ai : PrintPalette.ink)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(width: Self.width)
             }
             .padding(3)

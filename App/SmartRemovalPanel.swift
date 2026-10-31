@@ -48,7 +48,7 @@ struct SmartRemovalPanel: View {
             .padding(.top, 10)
         }
         .padding(12)
-        .frame(width: 280)
+        .frame(width: 340)
         .paperOverlayBackground(cornerRadius: 12, tintOpacity: 0.985)
         .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
     }
@@ -75,6 +75,7 @@ private struct CandidateRow: View {
             }
             Spacer(minLength: 6)
             Button(isKept ? "Remove" : "Keep", action: toggle).controlSize(.small)
+                .fixedSize()
         }
         .padding(.vertical, 8)
         .opacity(isKept ? 0.6 : 1)

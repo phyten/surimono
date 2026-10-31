@@ -9,6 +9,8 @@ struct SettingsCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Settings") {
+            LanguagePicker(preferences: preferences)
+            Divider()
             Picker("Scroll Sensitivity", selection: $preferences.wheelSensitivity) {
                 Text("Low").tag(WheelPageTurner.Sensitivity.low)
                 Text("Normal").tag(WheelPageTurner.Sensitivity.normal)

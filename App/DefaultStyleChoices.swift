@@ -3,8 +3,7 @@ import SwiftUI
 
 struct DefaultStyleChoices: View {
     let library: UserLibrary
-    @Environment(\.locale) private var locale
-    private var language: String { locale.language.languageCode?.identifier ?? "en" }
+    private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
     var body: some View {
         ForEach(library.themeCategories) { category in

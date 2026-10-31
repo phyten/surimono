@@ -25,9 +25,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
-    @Environment(\.locale) private var locale
     private let updater = AppUpdater.shared
-    private var language: String { locale.language.languageCode?.identifier ?? "en" }
+    private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
     var body: some View {
         NavigationSplitView {
@@ -41,11 +40,12 @@ struct SettingsView: View {
                     Label(LocalizedStringKey(section.rawValue), systemImage: section.symbol).tag(section)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 200, max: 200)
+            .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 300)
         } detail: {
             Form {
                 switch preferences.settingsSection {
                 case .general:
+                    LanguagePicker(preferences: preferences)
                     if updater.isAvailable {
                         Section {
                             Toggle(
@@ -134,7 +134,7 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .navigationTitle(Text(LocalizedStringKey(preferences.settingsSection.rawValue)))
         }
-        .frame(width: 720, height: 520)
+        .frame(minWidth: 820, idealWidth: 860, minHeight: 540)
     }
 
     private var defaultsNote: some View {

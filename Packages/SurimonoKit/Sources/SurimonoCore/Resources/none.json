@@ -3,7 +3,13 @@
   "name": "Original",
   "localizedNames": {
     "en": "Original",
-    "ja": "そのまま"
+    "ja": "そのまま",
+    "zh-Hans": "原样",
+    "zh-Hant": "原樣",
+    "ko": "원본",
+    "fr": "Original",
+    "de": "Original",
+    "es": "Original"
   },
   "removeSelectors": [],
   "keepSelectors": [],
