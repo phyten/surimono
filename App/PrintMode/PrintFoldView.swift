@@ -1,6 +1,7 @@
 import AppKit
 import PDFKit
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 
 /// "Fold It": the booklet in reading order, one spread at a time, as it will read once folded and stapled.
@@ -223,7 +224,7 @@ final class FoldBook {
         CTLineDraw(line, context)
         context.endPDFPage()
         context.closePDF()
-        return PDFDocument(data: data as Data)?.page(at: 0)
+        return StandalonePage.first(of: data as Data)
     }
 }
 

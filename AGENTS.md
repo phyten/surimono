@@ -234,6 +234,7 @@ make clean
 - DocumentGroup の窓でツールバー項目をすべて消すと SwiftUI はツールバーごと消し、タイトルバーが縮む。ツールバーを自前の NSToolbar に差し替えると SwiftUI の監視でクラッシュする。印刷モードは見えない項目（`PrintModeToolbarPlaceholder`）でタイトルバーの高さを保つ。画像の束の窓では `sceneBridgingOptions = [.toolbars]` で同じツールバーを使う。
 - SwiftUI がビューを組み直している最中に、SwiftUI が KVO で監視する窓のプロパティ（`isMovableByWindowBackground` など）を設定すると落ちる（同じ値でも通知される）。`WindowReader` は更新が終わってから窓を渡し、`ViewerWindow.configure` は値が違うときだけ設定する。
 - 印刷モードとの切り替えで、表示モードのビュー（`PaperPDFView` を含む）は作り直される。戻したい状態はビューの中だけに持たず、モデルから渡す（読んでいたページは `DocumentViewModel.currentPageIndex` から `PaperView.initialPageIndex` で戻す）。
+- PDFKit のアクセシビリティ（VoiceOver や画面を読むアプリ）は、表示したページを保持しないまま後から読みにくる。描いた PDF の一時的な `PDFDocument` からページだけを取り出すと元の CGPDFDocument が解放され、最適化したビルドでは毎回 CoreGraphics の中で落ちた（開発版では落ちにくく気づけない）。取り出すときは `StandalonePage.first(of:)` を使う。紙（`PaperPDFView`）は表示した文書を紙の寿命の間すべて残す（差し替えた古い文書のページも読みにくるため）。確かめるときは、AX の木を読み続けながら見開きと単ページを切り替える負荷を Release 構成のアプリにかける。
 - 紙（ページ）はダークでも白い。紙の上に浮かべるパネルにマテリアルだけを敷くと、白い紙の上で中間のグレーになり補足の文字が読めない。`paperOverlayBackground` を使う。
 - アドホック署名には Team ID がないため、Hardened Runtime の Library Validation が、埋め込んだ Sparkle.framework を拒んで Release 版が起動時に落ちる（`different Team IDs`）。`Configs/Surimono.entitlements` の `com.apple.security.cs.disable-library-validation` で外している。Developer ID で署名するようになったら消す。Debug は Hardened Runtime が無効なので気づけない。署名や依存を変えたら、`make package` で作ったアプリを起動して確かめる。
 - xcconfig では `//` から後ろがコメントになる。URL は `https:/$()/…` と書く（`SURIMONO_UPDATE_FEED_URL`）。
