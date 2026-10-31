@@ -176,3 +176,38 @@ private final class CapturingPrintDocument: PDFDocument {
         return super.printOperation(for: printInfo, scalingMode: scaleMode, autoRotate: doRotate)
     }
 }
+
+@MainActor
+struct PrintPageOrderTests {
+    @Test(
+        "印刷の順番は既定で後ろの紙からで、前の紙からも選べ、どちらもプリンター任せにしない",
+        arguments: [
+            (PrintPageOrder.lastSheetFirst, "Reverse"), (.firstSheetFirst, "Normal"),
+        ])
+    func pageOrder(order: PrintPageOrder, expected: String) throws {
+        let factory = PrintJobFactory()
+        let defaultInfo = factory.printInfo(for: .a4Duplex, base: NSPrintInfo())
+        #expect(outputOrder(of: defaultInfo) == "Reverse")
+        let info = factory.printInfo(for: .a4Duplex, base: NSPrintInfo(), pageOrder: order)
+        #expect(outputOrder(of: info) == expected)
+        // Changing other settings later keeps the order, as the print operation copies the info.
+        let copy = try #require(info.copy() as? NSPrintInfo)
+        #expect(outputOrder(of: copy) == expected)
+    }
+
+    @Test("印刷の操作にも選んだ順番が渡る")
+    func operationCarriesOrder() throws {
+        let document = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 595.28, height: 841.89))
+        let operation = try #require(
+            PrintJobFactory().printOperation(
+                for: document, layout: .a4Duplex, showsPrintPanel: false, pageOrder: .firstSheetFirst))
+        #expect(outputOrder(of: operation.printInfo) == "Normal")
+    }
+
+    private func outputOrder(of info: NSPrintInfo) -> String? {
+        var value: Unmanaged<CFTypeRef>?
+        guard PMPrintSettingsGetValue(OpaquePointer(info.pmPrintSettings()), "OutputOrder" as CFString, &value) == noErr
+        else { return nil }
+        return value?.takeUnretainedValue() as? String
+    }
+}

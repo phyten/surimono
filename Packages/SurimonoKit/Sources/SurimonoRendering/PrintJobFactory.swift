@@ -8,9 +8,10 @@ public struct PrintJobFactory {
     public init() {}
 
     /// Print settings for the sheets of `layout`, sent to `printer` when given.
-    public func printInfo(for layout: PrintLayout, base: NSPrintInfo = .shared, printer: NSPrinter? = nil)
-        -> NSPrintInfo
-    {
+    public func printInfo(
+        for layout: PrintLayout, base: NSPrintInfo = .shared, printer: NSPrinter? = nil,
+        pageOrder: PrintPageOrder = .lastSheetFirst
+    ) -> NSPrintInfo {
         let info = (base.copy() as? NSPrintInfo) ?? NSPrintInfo()
         // Choose the printer first: changing it afterwards can reset the paper to that printer's default.
         if let printer { info.printer = printer }
@@ -44,13 +45,19 @@ public struct PrintJobFactory {
             case .longEdge: kPMDuplexNoTumble
             case .shortEdge: kPMDuplexTumble
             }
-        PMSetDuplex(OpaquePointer(info.pmPrintSettings()), PMDuplexMode(duplex))
+        let settings = OpaquePointer(info.pmPrintSettings())
+        PMSetDuplex(settings, PMDuplexMode(duplex))
+        // kPMOutputOrderKey is a CFSTR macro Swift does not import. Always naming the order keeps the printer's
+        // own default from deciding it; the print system keeps the fronts and backs of duplex sheets together.
+        let order = pageOrder == .lastSheetFirst ? "Reverse" : "Normal"
+        PMPrintSettingsSetValue(settings, "OutputOrder" as CFString, order as CFString, false)
         info.updateFromPMPrintSettings()
         return info
     }
 
     public func printOperation(
-        for document: PDFDocument, layout: PrintLayout, showsPrintPanel: Bool, printer: NSPrinter? = nil
+        for document: PDFDocument, layout: PrintLayout, showsPrintPanel: Bool, printer: NSPrinter? = nil,
+        pageOrder: PrintPageOrder = .lastSheetFirst
     ) -> NSPrintOperation? {
         let orientations = (0..<document.pageCount).compactMap { index -> Bool? in
             guard let page = document.page(at: index) else { return nil }
@@ -64,7 +71,8 @@ public struct PrintJobFactory {
             ? layout.oriented(!mixed && orientations.first == true) : layout
         guard document.pageCount > 0, !document.isLocked,
             let operation = document.printOperation(
-                for: printInfo(for: printLayout, printer: printer), scalingMode: .pageScaleDownToFit, autoRotate: mixed)
+                for: printInfo(for: printLayout, printer: printer, pageOrder: pageOrder),
+                scalingMode: .pageScaleDownToFit, autoRotate: mixed)
         else { return nil }
         operation.showsPrintPanel = showsPrintPanel
         operation.printPanel.options.formUnion([.showsPaperSize, .showsOrientation, .showsCopies, .showsPageRange])

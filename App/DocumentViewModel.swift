@@ -52,6 +52,7 @@ final class DocumentViewModel {
     /// a document always opens with the paper as the window and a drag never selects text by surprise.
     var isSelectingText = false
     var isViewOptionsPresented = false
+    var isPrintOptionsPresented = false
     /// The style palette is open beside the paper.
     var isThemePalettePresented = false
     /// The first page of the document in each theme, for the palette and the comparison stage.
@@ -1355,6 +1356,11 @@ final class DocumentViewModel {
         return true
     }
 
+    var printPageOrder: PrintPageOrder {
+        get { preferences.printPageOrder }
+        set { preferences.printPageOrder = newValue }
+    }
+
     /// The printer Print sends to: the one chosen on the tray while it is set up, otherwise the system's default.
     var selectedPrinterName: String? { printers.resolve(preferences.printerName) }
 
@@ -1384,7 +1390,7 @@ final class DocumentViewModel {
         guard
             let operation = PrintJobFactory().printOperation(
                 for: result.sheetDocument, layout: result.layout, showsPrintPanel: !quick,
-                printer: destination)
+                printer: destination, pageOrder: preferences.printPageOrder)
         else {
             outputError = String(localized: "The print job could not be created.")
             return

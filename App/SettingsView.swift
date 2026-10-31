@@ -93,6 +93,8 @@ struct SettingsView: View {
                     TextField("Margins (mm)", value: $preferences.margin, format: .number)
                     Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
                     defaultsNote
+                    PrintPageOrderPicker(order: $preferences.printPageOrder)
+                    Text(PrintPageOrderPicker.hint).font(.caption).foregroundStyle(.secondary)
                 case .styles:
                     Picker("Default Print Theme", selection: $preferences.themeID) {
                         DefaultStyleChoices(library: library)

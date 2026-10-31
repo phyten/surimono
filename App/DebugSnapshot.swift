@@ -142,6 +142,11 @@
                     default: break
                     }
                     if argument("SurimonoTray") != nil { try? await Task.sleep(for: .milliseconds(1500)) }
+                    // The press bar exists only in print mode, so its popover opens after entering it.
+                    if argument("SurimonoPopover") == "printOptions" {
+                        model.isPrintOptionsPresented = true
+                        try? await Task.sleep(for: .milliseconds(800))
+                    }
                 }
                 if argument("SurimonoMode") == "compare" {
                     model.enterCompareMode()

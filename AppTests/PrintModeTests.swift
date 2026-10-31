@@ -270,6 +270,15 @@ struct PrintModeTests {
         #expect(AppPreferences(defaults: defaults).printerName == "Office Laser")
     }
 
+    @Test("印刷の順番は既定で後ろの紙からで、選んだ順番をアプリ全体の設定として覚える")
+    func pageOrderIsRemembered() throws {
+        let fixture = Fixture()
+        #expect(fixture.preferences.printPageOrder == .lastSheetFirst)
+        fixture.preferences.printPageOrder = .firstSheetFirst
+        let defaults = try #require(UserDefaults(suiteName: fixture.suite.name))
+        #expect(AppPreferences(defaults: defaults).printPageOrder == .firstSheetFirst)
+    }
+
     @Test("印刷モードの⌘Pは、用紙ができるまで使えない")
     func printPanelNeedsOutput() {
         let fixture = Fixture()
