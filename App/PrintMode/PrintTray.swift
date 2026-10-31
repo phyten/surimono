@@ -96,7 +96,16 @@ struct TrayMetrics: Equatable {
     let sideSize: CGSize
     let rowWidth: CGFloat
 
-    init(layout: PrintLayout, viewportWidth: CGFloat, zoom: CGFloat) {
+    /// The sheet heading above a sheet and the page captions below it.
+    static let sheetChrome: CGFloat = 64
+
+    /// At zoom 1 a sheet fits the width and, given `viewportHeight` (the height left below the instructions), the
+    /// height too, so print mode opens with a whole sheet in view. With mixed orientations the taller portrait sheets
+    /// decide the height.
+    init(
+        layout: PrintLayout, viewportWidth: CGFloat, viewportHeight: CGFloat = .infinity,
+        mixedOrientations: Bool = false, zoom: CGFloat
+    ) {
         let available = max(400, viewportWidth - 2 * Self.padding - 100)
         let pageWidth: CGFloat
         switch layout.kind {
@@ -109,7 +118,12 @@ struct TrayMetrics: Equatable {
             pageWidth = min(max((available - Self.sideSpacing) / 4, 110), 300)
         }
         let zoom = min(max(zoom, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
-        scale = pageWidth * zoom / (layout.kind == .handout3 ? layout.sheetSize.width : layout.logicalPageSize.width)
+        let widthScale = pageWidth / (layout.kind == .handout3 ? layout.sheetSize.width : layout.logicalPageSize.width)
+        let sheetHeight =
+            mixedOrientations ? max(layout.sheetSize.width, layout.sheetSize.height) : layout.sheetSize.height
+        let heightScale =
+            viewportHeight.isFinite ? max(viewportHeight - Self.sheetChrome, 120) / sheetHeight : widthScale
+        scale = min(widthScale, heightScale) * zoom
         sideSize = CGSize(width: layout.sheetSize.width * scale, height: layout.sheetSize.height * scale)
         rowWidth =
             switch layout.kind {
