@@ -7,6 +7,7 @@ import SwiftUI
 /// Lets menus and the overlay drive the paper view of one window.
 final class PaperController {
     fileprivate weak var view: PaperPDFView?
+    var onToast: ((Toast) -> Void)?
 
     func zoomIn() { view?.stepZoom(up: true) }
     func zoomOut() { view?.stepZoom(up: false) }
@@ -43,11 +44,13 @@ struct PaperView: NSViewRepresentable {
     func makeNSView(context: Context) -> PaperPDFView {
         let view = PaperPDFView()
         controller.view = view
+        view.onToast = controller.onToast
         return view
     }
 
     func updateNSView(_ view: PaperPDFView, context: Context) {
         controller.view = view
+        view.onToast = controller.onToast
         view.onZoomChange = onZoomChange
         view.onPageChange = onPageChange
         view.onTurn = onTurn
@@ -71,6 +74,20 @@ final class PaperPDFView: PDFView {
     var onPageChange: ((Int) -> Void)?
     var onTurn: (() -> Void)?
     var onKey: ((NSEvent) -> Bool)?
+    var onToast: ((Toast) -> Void)?
+    // PDFView inherits delegate-shaped methods that forward to its delegate, so delegating to self recurses on zoom.
+    private let linkDelegate = LinkDelegate()
+
+    private final class LinkDelegate: NSObject, PDFViewDelegate {
+        weak var view: PaperPDFView?
+
+        func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
+            // Only URL actions come here; PDFKit still handles destinations inside this document.
+            Task { @MainActor [weak view] in
+                await PaperLinkHandler().open(url) { [weak view] toast in view?.onToast?(toast) }
+            }
+        }
+    }
     private(set) var zoom: Double = 1
     private(set) var displayedZoom: Double = 1
     var shouldReduceMotion: () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
@@ -171,6 +188,8 @@ final class PaperPDFView: PDFView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        linkDelegate.view = self
+        delegate = linkDelegate
         acceptsDraggedFiles = false
         autoScales = false
         displaysPageBreaks = false
