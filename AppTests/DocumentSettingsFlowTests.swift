@@ -226,7 +226,13 @@ struct DocumentSettingsFlowTests {
         let environment = try environment()
         defer { environment.cleanUp() }
         let data = pdf("a")
-        let first = environment.model(data, url: URL(fileURLWithPath: "/fixtures/README.pdf"))
+        // Real files: for a missing file the watcher reports it removed, and its toast would race the restore toast.
+        try FileManager.default.createDirectory(at: environment.directory, withIntermediateDirectories: true)
+        let original = environment.directory.appending(path: "README.pdf")
+        let renamed = environment.directory.appending(path: "README のコピー.pdf")
+        try data.write(to: original)
+        try data.write(to: renamed)
+        let first = environment.model(data, url: original)
         try await open(first)
         first.setLayout(.single)
         first.viewOptions.direction = .rightToLeft
@@ -235,7 +241,7 @@ struct DocumentSettingsFlowTests {
         first.stop()
         #expect(environment.store.keys() == [ContentHash.of(data).hex])
 
-        let copy = environment.model(data, url: URL(fileURLWithPath: "/fixtures/README のコピー.pdf"))
+        let copy = environment.model(data, url: renamed)
         try await open(copy)
         #expect(copy.viewOptions.layout == .single)
         #expect(copy.viewOptions.direction == .rightToLeft)
