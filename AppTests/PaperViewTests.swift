@@ -709,6 +709,57 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("差し替えて外した文書は、紙が残る間は解放しない（PDFKit のアクセシビリティが古いページを読みにくるため）")
+    func replacedDocumentsStayAlive() throws {
+        weak var first: PDFDocument?
+        weak var singleCopy: PDFDocument?
+        weak var spreadCopy: PDFDocument?
+        let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        let spread = ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: false)
+        let (view, window) = try autoreleasepool { () throws -> (PaperPDFView, NSWindow) in
+            let document = try #require(PDFDocument(data: TestFixtures.pdf("first", pages: 3)))
+            first = document
+            return try makeSinglePagePaper(document: document)
+        }
+        try autoreleasepool {
+            // Page numbers make every layout draw a view copy, so each swap below replaces one copy with another.
+            let second = try #require(PDFDocument(data: TestFixtures.pdf("second", pages: 3)))
+            view.configure(second, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
+            singleCopy = view.document
+            view.configure(second, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+            spreadCopy = view.document
+            // More documents than any small cap would keep.
+            for index in 0..<40 {
+                let next = try #require(PDFDocument(data: TestFixtures.pdf("next \(index)", pages: 3)))
+                view.configure(
+                    next, at: 0, options: index.isMultiple(of: 2) ? single : spread, logicalMargin: nil,
+                    showsPageNumbers: true)
+            }
+        }
+        #expect(first != nil)
+        #expect(singleCopy != nil)
+        #expect(spreadCopy != nil)
+        #expect(view.document !== singleCopy && view.document !== spreadCopy)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("見開きと単ページを行き来しても、同じ表示用の文書を使い回す")
+    func toggledLayoutsReuseViewCopies() throws {
+        let single = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        let spread = ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: false)
+        let (view, window) = try makeSinglePagePaper()
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("toggle", pages: 3)))
+        view.configure(source, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
+        let singleCopy = view.document
+        view.configure(source, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+        let spreadCopy = view.document
+        view.configure(source, at: 0, options: single, logicalMargin: nil, showsPageNumbers: true)
+        #expect(view.document === singleCopy)
+        view.configure(source, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+        #expect(view.document === spreadCopy)
+        withExtendedLifetime(window) {}
+    }
+
     private func makeSinglePagePaper(document: PDFDocument? = nil) throws -> (PaperPDFView, NSWindow) {
         let document = try document ?? #require(PDFDocument(data: TestFixtures.pdf("pinch", pages: 6)))
         let window = NSWindow(
