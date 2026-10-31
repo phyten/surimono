@@ -120,6 +120,10 @@ extension ViewOptions.Transition {
         case .instant: "Switch"
         case .slide: "Slide"
         case .fade: "Fade"
+        case .cover: "Cover Slide"
+        case .reveal: "Reveal"
+        case .wipe: "Wipe"
+        case .zoom: "Zoom"
         case .pageCurl: "Page Curl"
         }
     }
@@ -130,6 +134,10 @@ extension ViewOptions.Transition {
         case .instant: String(localized: "Switch")
         case .slide: String(localized: "Slide")
         case .fade: String(localized: "Fade")
+        case .cover: String(localized: "Cover Slide")
+        case .reveal: String(localized: "Reveal")
+        case .wipe: String(localized: "Wipe")
+        case .zoom: String(localized: "Zoom")
         case .pageCurl: String(localized: "Page Curl")
         }
     }
@@ -140,6 +148,10 @@ extension ViewOptions.Transition {
         case .instant: "square.on.square"
         case .slide: "rectangle.righthalf.inset.filled.arrow.right"
         case .fade: "circle.lefthalf.filled"
+        case .cover: "square.on.square"
+        case .reveal: "square.stack"
+        case .wipe: "rectangle.lefthalf.filled"
+        case .zoom: "arrow.up.left.and.arrow.down.right"
         case .pageCurl: "book.pages"
         }
     }
@@ -188,6 +200,10 @@ enum ViewOptionsSummary {
         case .instant: parts.append(String(localized: "Pages switch instantly."))
         case .slide: parts.append(String(localized: "Pages slide into place."))
         case .fade: parts.append(String(localized: "Pages fade into each other."))
+        case .cover: parts.append(String(localized: "The next page slides over the current page."))
+        case .reveal: parts.append(String(localized: "The current page slides away."))
+        case .wipe: parts.append(String(localized: "Pages change with a soft wipe."))
+        case .zoom: parts.append(String(localized: "Pages gently scale and fade."))
         case .pageCurl: parts.append(String(localized: "Pages curl like paper."))
         }
         return parts.joined().trimmingCharacters(in: .whitespaces)

@@ -40,6 +40,10 @@ public struct ViewOptions: Codable, Equatable, Sendable {
         case slide
         case fade
         case pageCurl
+        case cover
+        case reveal
+        case wipe
+        case zoom
     }
 
     public var layout: Layout
@@ -65,8 +69,8 @@ public struct ViewOptions: Codable, Equatable, Sendable {
     /// Pages form one scrolling strip instead of being turned one unit at a time.
     public var isContinuous: Bool { transition == .scroll }
 
-    /// The scroll axis decides where scrolling and sliding pages move; switching, fading and curling ignore it.
-    public var usesScrollAxis: Bool { transition == .scroll || transition == .slide }
+    /// The scroll axis controls continuous scrolling and directional effects; radial and stationary effects ignore it.
+    public var usesScrollAxis: Bool { [.scroll, .slide, .cover, .reveal, .wipe].contains(transition) }
 
     public enum SlideEdge: Equatable, Sendable {
         case left, right, top, bottom

@@ -6,6 +6,9 @@ import SwiftUI
 @Observable
 final class AppPreferences {
     private let defaults: UserDefaults
+    var wheelSensitivity: WheelPageTurner.Sensitivity {
+        didSet { defaults.set(wheelSensitivity.rawValue, forKey: "wheelSensitivity") }
+    }
     var layoutID: String { didSet { defaults.set(layoutID, forKey: "layout") } }
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
     var presetID: String { didSet { defaults.set(presetID, forKey: "preset") } }
@@ -24,6 +27,8 @@ final class AppPreferences {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        wheelSensitivity =
+            WheelPageTurner.Sensitivity(rawValue: defaults.string(forKey: "wheelSensitivity") ?? "") ?? .normal
         layoutID = defaults.string(forKey: "layout") ?? "a4Single"
         themeID = defaults.string(forKey: "theme") ?? "standard"
         presetID = defaults.string(forKey: "preset") ?? "none"

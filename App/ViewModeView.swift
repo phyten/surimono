@@ -81,7 +81,8 @@ private struct PaperArea: View {
             } else if let document = model.paperDocument, !model.isCapturingWeb {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
-                    zoom: model.zoom, selectsText: model.isSelectingText, controller: model.paper,
+                    zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
+                    selectsText: model.isSelectingText, controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.paperDidChangePage($0) },
                     onTurn: { menu.pageTurned() },

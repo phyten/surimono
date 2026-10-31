@@ -527,6 +527,27 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test(
+        "追加の送り方はページを送り、動きを減らす設定では効果を付けない",
+        arguments: [ViewOptions.Transition.cover, .reveal, .wipe, .zoom])
+    func additionalTransitions(transition: ViewOptions.Transition) throws {
+        let (view, window) = try makeSinglePagePaper()
+        if view.layer == nil { view.layer = CALayer() }
+        view.apply(
+            ViewOptions(layout: .single, scrollAxis: .horizontal, transition: transition, showsCoverAlone: false))
+        view.shouldReduceMotion = { false }
+        view.turnPage(forward: true)
+        #expect(view.currentPageIndex == 1)
+        #expect(view.layer?.animation(forKey: "transition") != nil)
+        view.layer?.removeAllAnimations()
+        view.shouldReduceMotion = { true }
+        view.turnPage(forward: false)
+        #expect(view.currentPageIndex == 0)
+        #expect(view.layer?.animation(forKey: "transition") == nil)
+        #expect(view.layer?.animation(forKey: "pageTurnScale") == nil)
+        withExtendedLifetime(window) {}
+    }
+
     private func makeSinglePagePaper(document: PDFDocument? = nil) throws -> (PaperPDFView, NSWindow) {
         let document = try document ?? #require(PDFDocument(data: TestFixtures.pdf("pinch", pages: 6)))
         let window = NSWindow(
