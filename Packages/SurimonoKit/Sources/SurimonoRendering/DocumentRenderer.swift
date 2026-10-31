@@ -547,7 +547,9 @@ public final class DocumentRenderer {
                     data, pageSize: imagePageSize(settings),
                     marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options),
                     autoRotatesPage: settings.usesPerPageOrientation)
-                guard let page = rendered.page(at: 0) else { throw ImagePageRenderer.RenderingError.invalidImage }
+                guard let page = StandalonePage.first(of: rendered) else {
+                    throw ImagePageRenderer.RenderingError.invalidImage
+                }
                 document.insert(page, at: document.pageCount)
             } catch ImagePageRenderer.RenderingError.invalidImage {
                 unreadable.append(image.fileURL)

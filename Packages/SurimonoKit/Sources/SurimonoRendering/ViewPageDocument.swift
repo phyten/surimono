@@ -118,7 +118,7 @@ public enum ViewPageDocument {
         }
         context.endPage()
         context.closePDF()
-        guard let page = PDFDocument(data: data as Data)?.page(at: 0) else { return nil }
+        guard let page = StandalonePage.first(of: data as Data) else { return nil }
         page.setBounds(media, for: .mediaBox)
         page.setBounds(crop, for: .cropBox)
         page.rotation = original.rotation
