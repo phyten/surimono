@@ -67,6 +67,15 @@ public final class WebPaginator: NSObject {
 
     public override init() {}
 
+    /// CSS pixels to a point of the printed page. WebKit lays a page out 1.25 times as wide as its paper and shrinks
+    /// it to fit (a page wider than that shrinks further).
+    public static let printPixelsPerPoint = 1.25
+
+    /// Whether a web view can lay out pages over a clear ground. A page that has no background of its own otherwise
+    /// gets WebKit's white, which would hide a paper laid under it (`PaperBackground`). The switch is WebKit's own
+    /// but not public, so it is used only where it exists.
+    public static let drawsClearPages = WKWebView.instancesRespond(to: NSSelectorFromString("_setDrawsBackground:"))
+
     public func paginate(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, timeout: Duration = .seconds(15)
@@ -78,16 +87,19 @@ public final class WebPaginator: NSObject {
     }
 
     /// Returns the preparation script's string result together with the PDF made from that same DOM.
-    /// - Parameter readsPageRules: Whether to read the document's `@page` rules into the result.
+    /// - Parameters:
+    ///   - readsPageRules: Whether to read the document's `@page` rules into the result.
+    ///   - drawsBackground: Whether WebKit's white goes under a page without a background of its own; false leaves
+    ///     such a page clear where `drawsClearPages` allows it.
     public func paginateWithResult(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
-        timeout: Duration = .seconds(15)
+        drawsBackground: Bool = true, timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
         let session = PaginationSession(
             pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
-            printsBackgrounds: printsBackgrounds, printTimeout: printTimeout,
+            printsBackgrounds: printsBackgrounds, drawsBackground: drawsBackground, printTimeout: printTimeout,
             onPrintStart: { [weak self] in self?.printStartCount += 1 },
             onPrintFinish: { [weak self] in self?.didFinishPrinting?() },
             onClose: { [weak self] in self?.openSessionCount -= 1 })
@@ -301,8 +313,8 @@ private final class PaginationSession {
 
     init(
         pageSize: CGSize, margins: WebPaginator.Margins, allowsJavaScript: Bool, printsBackgrounds: Bool,
-        printTimeout: Duration, onPrintStart: @escaping () -> Void, onPrintFinish: @escaping () -> Void,
-        onClose: @escaping () -> Void
+        drawsBackground: Bool = true, printTimeout: Duration, onPrintStart: @escaping () -> Void,
+        onPrintFinish: @escaping () -> Void, onClose: @escaping () -> Void
     ) {
         self.pageSize = pageSize
         self.margins = margins
@@ -319,6 +331,7 @@ private final class PaginationSession {
         let printableWidth = max(pageSize.width - margins.left - margins.right, 72)
         let frame = CGRect(x: 0, y: 0, width: printableWidth, height: pageSize.height)
         webView = WKWebView(frame: frame, configuration: configuration)
+        if !drawsBackground && WebPaginator.drawsClearPages { webView.setValue(false, forKey: "drawsBackground") }
         // WebKit only produces non-blank print output for a view that lives in a window.
         window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false

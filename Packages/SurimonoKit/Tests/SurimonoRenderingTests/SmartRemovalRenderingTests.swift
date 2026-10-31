@@ -58,7 +58,8 @@ struct SmartRemovalRenderingTests {
         var calls = 0
         let renderer = DocumentRenderer(paginateWithResult: { request in
             calls += 1
-            #expect(request.preparationScript == nil)
+            // Only the question whether the theme has paper, which every themed page asks.
+            #expect(request.preparationScript == nil || request.preparationScript == PaperBackground.detectionScript)
             return WebPaginator.Result(
                 document: try RenderingFixtures.pdf(),
                 preparationResult: ##"[{"id":"#ad","category":"advertisement","excerpt":"Ad","reason":"ad"}]"##)

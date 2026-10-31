@@ -30,7 +30,7 @@ struct ThemeScriptRenderingTests {
                 DocumentSource(data: Data("x".utf8), format: format), settings: settings(script: "return 1"))
         }
         #expect(requests.all.count == 4)
-        #expect(requests.all.allSatisfy { !$0.allowsJavaScript && $0.preparationScript == "return 1" })
+        #expect(requests.all.allSatisfy { !$0.allowsJavaScript && $0.preparationScript?.contains("return 1") == true })
     }
 
     @Test("飾りのスクリプトだけを変えても、組版し直す")
@@ -44,7 +44,9 @@ struct ThemeScriptRenderingTests {
         let source = DocumentSource(data: Data("# x".utf8), format: .markdown)
         _ = try await renderer.render(source, settings: settings(script: "return 1"))
         _ = try await renderer.render(source, settings: settings(script: "return 2"))
-        #expect(requests.all.map(\.preparationScript) == ["return 1", "return 2"])
+        #expect(requests.all.count == 2)
+        #expect(requests.all.first?.preparationScript?.contains("return 1") == true)
+        #expect(requests.all.last?.preparationScript?.contains("return 2") == true)
     }
 
     @Test("飾りは見出しと箇条書きに付き、タスクの項目には付かず、同じ文書なら毎回同じ", .timeLimit(.minutes(1)))
