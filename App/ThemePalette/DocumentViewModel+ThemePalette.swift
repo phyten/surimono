@@ -6,12 +6,12 @@ extension DocumentViewModel {
     var paperDocument: PDFDocument? {
         if themeTrial.themeID != nil, let document = themeTrial.document { return document }
         if let chosenTrial, chosenTrial.themeID == themeID { return chosenTrial.document }
-        return result?.logicalDocument
+        return result?.viewDocument
     }
 
     /// The paper shows pages of a trial rather than the document's own.
     var paperShowsTrial: Bool {
-        guard let shown = paperDocument, let own = result?.logicalDocument else { return false }
+        guard let shown = paperDocument, let own = result?.viewDocument else { return false }
         return shown !== own
     }
 
