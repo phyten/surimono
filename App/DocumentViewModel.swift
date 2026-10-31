@@ -39,6 +39,7 @@ final class DocumentViewModel {
     var presetID: String
     var printOptions: PrintOptions
     var mode: ViewerMode = .view
+    private let openingViewDefaults: ViewDefaultPreferences
     var viewOptions: ViewOptions
     /// Magnification relative to fitting the current page or spread into the window.
     var zoom: Double = 1
@@ -165,6 +166,7 @@ final class DocumentViewModel {
         self.fileURL = fileURL
         self.format = format
         self.preferences = preferences
+        openingViewDefaults = preferences.viewDefaults
         self.library = library
         self.renderer = renderer
         layoutID = Self.defaultLayoutID(preferences)
@@ -172,10 +174,10 @@ final class DocumentViewModel {
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
         // A guess until the pages are known; most documents have more than two pages.
-        let guess = ViewOptions.defaults(
+        let guess = ViewOptions.resolved(
             for: ViewDefaultsContext(
                 kind: Self.viewKind(format: format, isBundle: imageBundle != nil), pageCount: 3,
-                firstPageSize: PaperSize.a4.size))
+                firstPageSize: PaperSize.a4.size), preferences: preferences.viewDefaults)
         viewOptions = guess
         initialViewOptions = guess
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
@@ -925,7 +927,7 @@ final class DocumentViewModel {
     /// Picks the reading layout once the pages are known, unless the user already chose one for this document.
     private func resolveViewOptionsIfNeeded(for document: PDFDocument) {
         guard defaultViewOptions == nil else { return }
-        let defaults = ViewOptions.defaults(for: viewDefaultsContext(for: document))
+        let defaults = ViewOptions.resolved(for: viewDefaultsContext(for: document), preferences: openingViewDefaults)
         defaultViewOptions = defaults
         if !hasResolvedViewOptions {
             hasResolvedViewOptions = true

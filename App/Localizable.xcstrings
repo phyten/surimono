@@ -1,6 +1,176 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "All Settings…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての設定…"
+          }
+        }
+      }
+    },
+    "Automatic (Match Document)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動（文書に合わせる）"
+          }
+        }
+      }
+    },
+    "Choose Style…": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見本からスタイルを選ぶ…"
+          }
+        }
+      }
+    },
+    "Default Margins": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定の余白"
+          }
+        }
+      }
+    },
+    "Default Page Turn": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定のページ送り"
+          }
+        }
+      }
+    },
+    "Default Print Layout": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定の印刷レイアウト"
+          }
+        }
+      }
+    },
+    "Default Style": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定のスタイル"
+          }
+        }
+      }
+    },
+    "In Print": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷時"
+          }
+        }
+      }
+    },
+    "In View Mode": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示モード"
+          }
+        }
+      }
+    },
+    "Join Pages in Single-Page Scrolling": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "単ページのスクロールでページをつなぐ"
+          }
+        }
+      }
+    },
+    "New Document View": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しい文書の表示"
+          }
+        }
+      }
+    },
+    "Page Numbers in Print": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷時のページ番号"
+          }
+        }
+      }
+    },
+    "Page numbers are never shown in single-page scrolling.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "単ページのスクロールではページ番号を表示しません。"
+          }
+        }
+      }
+    },
+    "Print Layout": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷レイアウト"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定"
+          }
+        }
+      }
+    },
+    "Updates are unavailable in development builds.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開発版ではアップデートを確認できません。"
+          }
+        }
+      }
+    },
+    "View & Page Turn": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示とページ送り"
+          }
+        }
+      }
+    },
     "Page Numbers in View Mode": {
       "extractionState": "manual",
       "localizations": {

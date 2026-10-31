@@ -53,6 +53,42 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("新しい文書だけが表示の既定値を取り込み、保存した表示は優先する", .timeLimit(.minutes(1)))
+    func newViewDefaults() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultViewLayout = .single
+        environment.preferences.defaultPageTurn = .fade
+        environment.preferences.defaultJoinsPages = false
+        let data = pdf("View defaults")
+        let first = environment.model(data)
+        defer { first.stop() }
+        // Defaults are captured at opening, even if pagination finishes after the preference changes.
+        environment.preferences.defaultViewLayout = .spread
+        environment.preferences.defaultPageTurn = .wipe
+        environment.preferences.defaultJoinsPages = true
+        try await open(first)
+        #expect(first.viewOptions.layout == .single)
+        #expect(first.viewOptions.transition == .fade)
+        #expect(!first.viewOptions.joinsPages)
+        #expect(!first.hasSavedSettings)
+        first.setLayout(.spread)
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        let reopened = environment.model(data)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.viewOptions.layout == .spread)
+        #expect(reopened.viewOptions.transition == .fade)
+        #expect(!reopened.viewOptions.joinsPages)
+        let fresh = environment.model(pdf("Fresh defaults"))
+        defer { fresh.stop() }
+        try await open(fresh)
+        #expect(fresh.viewOptions.layout == .spread)
+        #expect(fresh.viewOptions.transition == .wipe)
+        #expect(fresh.viewOptions.joinsPages)
+    }
+
     @Test("用紙の向きは操作したときだけ保存して復元し既定に戻すと自動になる", .timeLimit(.minutes(1)))
     func paperOrientationPersistence() async throws {
         let environment = try environment()

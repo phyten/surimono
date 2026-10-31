@@ -9,6 +9,20 @@ final class AppPreferences {
     var wheelSensitivity: WheelPageTurner.Sensitivity {
         didSet { defaults.set(wheelSensitivity.rawValue, forKey: "wheelSensitivity") }
     }
+    var defaultViewLayout: ViewOptions.Layout? {
+        didSet { defaults.set(defaultViewLayout?.rawValue, forKey: "defaultViewLayout") }
+    }
+    var defaultPageTurn: ViewOptions.Transition? {
+        didSet { defaults.set(defaultPageTurn?.rawValue, forKey: "defaultPageTurn") }
+    }
+    var defaultJoinsPages: Bool { didSet { defaults.set(defaultJoinsPages, forKey: "defaultJoinsPages") } }
+    /// Kept for this app run, including when the Settings window is closed and reopened.
+    var settingsSection: SettingsSection = .general
+
+    var viewDefaults: ViewDefaultPreferences {
+        ViewDefaultPreferences(layout: defaultViewLayout, transition: defaultPageTurn, joinsPages: defaultJoinsPages)
+    }
+
     var layoutID: String { didSet { defaults.set(layoutID, forKey: "layout") } }
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
     var presetID: String { didSet { defaults.set(presetID, forKey: "preset") } }
@@ -30,6 +44,9 @@ final class AppPreferences {
         self.defaults = defaults
         wheelSensitivity =
             WheelPageTurner.Sensitivity(rawValue: defaults.string(forKey: "wheelSensitivity") ?? "") ?? .normal
+        defaultViewLayout = ViewOptions.Layout(rawValue: defaults.string(forKey: "defaultViewLayout") ?? "")
+        defaultPageTurn = ViewOptions.Transition(rawValue: defaults.string(forKey: "defaultPageTurn") ?? "")
+        defaultJoinsPages = defaults.object(forKey: "defaultJoinsPages") as? Bool ?? true
         layoutID = defaults.string(forKey: "layout") ?? "a4Single"
         themeID = defaults.string(forKey: "theme") ?? "standard"
         presetID = defaults.string(forKey: "preset") ?? "none"

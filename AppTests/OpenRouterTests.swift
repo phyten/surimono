@@ -93,6 +93,7 @@ struct OpenRouterTests {
     @Test("3枚＋メモはレイアウトメニューのコマンド6で選べる")
     func handoutShortcut() throws {
         let items = (NSApp.mainMenu?.items ?? []).flatMap { $0.submenu?.items ?? [] }
+            .flatMap { [$0] + ($0.submenu?.items ?? []) }
         let item = try #require(items.first { $0.keyEquivalent == "6" && $0.keyEquivalentModifierMask == .command })
         #expect(item.title.contains("3枚＋メモ") || item.title.contains("3-up + Notes"))
     }
