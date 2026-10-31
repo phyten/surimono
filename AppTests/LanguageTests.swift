@@ -110,14 +110,28 @@ struct LanguageTests {
         let variations: [String: [String: Translation]]?
         let substitutions: [String: Substitution]?
         var units: [Unit] {
-            (stringUnit.map { [$0] } ?? [])
-                + (variations?.values.flatMap { $0.values.flatMap(\.units) } ?? [])
-                + (substitutions?.values.flatMap { $0.variations.values.flatMap { $0.values.flatMap(\.units) } } ?? [])
+            // Built in steps: as one expression the CI compiler (Xcode 26.6) could not type-check it in time.
+            var result: [Unit] = []
+            if let stringUnit { result.append(stringUnit) }
+            for forms in (variations ?? [:]).values {
+                for translation in forms.values { result += translation.units }
+            }
+            for substitution in (substitutions ?? [:]).values {
+                for forms in substitution.variations.values {
+                    for translation in forms.values { result += translation.units }
+                }
+            }
+            return result
         }
         var expandedValues: [String] {
-            var values =
-                stringUnit.map { [$0.value] }
-                ?? variations?.values.flatMap { $0.values.flatMap(\.expandedValues) } ?? []
+            var values: [String] = []
+            if let stringUnit {
+                values = [stringUnit.value]
+            } else {
+                for forms in (variations ?? [:]).values {
+                    for translation in forms.values { values += translation.expandedValues }
+                }
+            }
             for (name, substitution) in substitutions ?? [:] {
                 let forms = substitution.variations.values.flatMap { $0.values.flatMap(\.expandedValues) }
                 values = values.flatMap { value in
