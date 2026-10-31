@@ -19,7 +19,7 @@ struct ThemeSamplerTests {
                 for: DocumentSource(data: Data(markdown.utf8), format: .markdown), settings: settings))
     }
 
-    @Test("見本は文書の 1 ページ目を、印刷できる範囲の大きさのページに描く", .timeLimit(.minutes(1)))
+    @Test("見本は文書の 1 ページ目を、余白を含む論理ページの大きさに描く", .timeLimit(.minutes(1)))
     func samplesTheFirstPage() async throws {
         let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
         let sampler = try sampler("# 星見図書室の案内\n\n本を借りる前に確かめてください。", theme: standard)
@@ -27,10 +27,22 @@ struct ThemeSamplerTests {
         let page = try await sampler.firstPage(for: standard)
         #expect(page.string?.contains("星見図書室の案内") == true)
         let bounds = page.bounds(for: .mediaBox)
-        // A4 is 595 × 842 pt; the default 15 mm margins leave about 510 × 757 pt.
-        #expect(abs(bounds.width - sampler.printableSize.width) < 1)
-        #expect(abs(bounds.height - sampler.printableSize.height) < 1)
+        // A4 is 595 × 842 pt; the default 15 mm margins leave about 510 × 757 pt for the text.
+        #expect(abs(bounds.width - 595.3) < 1)
+        #expect(abs(bounds.height - 841.9) < 1)
         #expect(abs(sampler.printableSize.width - 510.4) < 1)
+    }
+
+    @Test("紙のあるテーマの見本は、余白まで紙を敷く", .timeLimit(.minutes(1)))
+    func samplesTheWholePaper() async throws {
+        let washi = try #require(PrintThemeLibrary.load().first { $0.id == "washi" })
+        let sampler = try sampler("# 星見図書室の案内", theme: washi)
+        defer { sampler.close() }
+        let pixels = try PagePixels(try await sampler.firstPage(for: washi))
+        for (x, y) in [(8.0, 8.0), (300.0, 600.0)] {
+            let color = pixels.color(atX: x, y: y)
+            #expect(abs(color.red - 0xfc) <= 3 && abs(color.green - 0xfa) <= 3 && abs(color.blue - 0xf5) <= 3)
+        }
     }
 
     @Test("テーマを替えると見本の見た目が変わり、描いたテーマはもう一度描かない", .timeLimit(.minutes(1)))

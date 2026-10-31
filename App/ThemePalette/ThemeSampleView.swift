@@ -2,8 +2,8 @@ import PDFKit
 import SurimonoRendering
 import SwiftUI
 
-/// A sample page on white paper: the sampled printable area drawn as vectors inside the paper's margins, so it stays
-/// sharp at any size. Until the sample is drawn, the paper shows a few faint lines in its place.
+/// A sample page: the sampled logical page, with the theme's paper and the text inside the margins, drawn as vectors so
+/// it stays sharp at any size. Until the sample is drawn, the paper shows a few faint lines where the text goes.
 struct ThemeSampleView: View {
     let page: PDFPage?
     let paperSize: CGSize
@@ -22,12 +22,11 @@ struct ThemeSampleView: View {
                 return
             }
             let bounds = page.bounds(for: .mediaBox)
-            let pageScale = content.width / max(bounds.width, 1)
+            let pageScale = size.width / max(bounds.width, 1)
             context.withCGContext { cg in
                 cg.saveGState()
-                cg.clip(to: content)
                 // PDF pages draw upward from the bottom left; the canvas runs downward from the top left.
-                cg.translateBy(x: content.minX, y: content.minY + bounds.height * pageScale)
+                cg.translateBy(x: 0, y: bounds.height * pageScale)
                 cg.scaleBy(x: pageScale, y: -pageScale)
                 cg.translateBy(x: -bounds.minX, y: -bounds.minY)
                 page.draw(with: .mediaBox, to: cg)
@@ -35,7 +34,7 @@ struct ThemeSampleView: View {
             }
         }
         .aspectRatio(paperSize.width / max(paperSize.height, 1), contentMode: .fit)
-        // The paper is white in both appearances, like the printed sheet.
+        // Under a theme's paper the sheet is white in both appearances, like the printed one.
         .background(RoundedRectangle(cornerRadius: cornerRadius).fill(Color.white))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .accessibilityHidden(true)
