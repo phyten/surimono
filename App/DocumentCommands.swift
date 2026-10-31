@@ -75,27 +75,30 @@ struct DocumentCommands: Commands {
                 "Float on Top",
                 isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { model?.isAlwaysOnTop = $0 })
             )
+        }
+        CommandMenu("Document") {
+            Menu("Print Layout") {
+                ForEach(Array(PrintLayout.presets.enumerated()), id: \.element.id) { index, layout in
+                    Button(layout.displayName(language: language)) { model?.chooseLayout(layout.id) }
+                        .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
+                }
+            }
+            Button("Choose Style…") { model?.openThemePalette() }
+            Menu("Images") {
+                Toggle(
+                    "Show Thumbnails",
+                    isOn: Binding(get: { model?.isDrawerOpen ?? false }, set: { model?.isDrawerOpen = $0 })
+                )
+                .keyboardShortcut("s", modifiers: [.control, .command])
+                Button("Move Image Up") { model?.imageBundle?.moveSelection(by: -1) }
+                    .keyboardShortcut(.upArrow, modifiers: [.option, .command])
+                Button("Move Image Down") { model?.imageBundle?.moveSelection(by: 1) }
+                    .keyboardShortcut(.downArrow, modifiers: [.option, .command])
+                Button("Sort by Name") { model?.imageBundle?.sortByName() }
+            }
             Divider()
             Button("Reset Document Settings") { model?.resetDocumentSettings() }
             Button("Reload") { model?.reload() }
-        }
-        CommandMenu("Layout") {
-            ForEach(Array(PrintLayout.presets.enumerated()), id: \.element.id) { index, layout in
-                Button(layout.displayName(language: language)) { model?.chooseLayout(layout.id) }
-                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
-            }
-        }
-        CommandMenu("Images") {
-            Toggle(
-                "Show Thumbnails",
-                isOn: Binding(get: { model?.isDrawerOpen ?? false }, set: { model?.isDrawerOpen = $0 })
-            )
-            .keyboardShortcut("s", modifiers: [.control, .command])
-            Button("Move Image Up") { model?.imageBundle?.moveSelection(by: -1) }
-                .keyboardShortcut(.upArrow, modifiers: [.option, .command])
-            Button("Move Image Down") { model?.imageBundle?.moveSelection(by: 1) }
-                .keyboardShortcut(.downArrow, modifiers: [.option, .command])
-            Button("Sort by Name") { model?.imageBundle?.sortByName() }
         }
     }
 }

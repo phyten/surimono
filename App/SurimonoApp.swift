@@ -31,6 +31,7 @@ struct SurimonoApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands {
             DocumentCommands()
+            SettingsCommands(preferences: preferences, library: library)
             UpdateCommands()
         }
         Settings {
