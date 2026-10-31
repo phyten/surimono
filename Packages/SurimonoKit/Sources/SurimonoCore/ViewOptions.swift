@@ -51,17 +51,35 @@ public struct ViewOptions: Codable, Equatable, Sendable {
     public var scrollAxis: ScrollAxis
     public var transition: Transition
     public var showsCoverAlone: Bool
+    public var joinsPages: Bool
 
     public init(
         layout: Layout, direction: Direction = .leftToRight, scrollAxis: ScrollAxis, transition: Transition,
-        showsCoverAlone: Bool
+        showsCoverAlone: Bool, joinsPages: Bool = true
     ) {
         self.layout = layout
         self.direction = direction
         self.scrollAxis = scrollAxis
         self.transition = transition
         self.showsCoverAlone = showsCoverAlone
+        self.joinsPages = joinsPages
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case layout, direction, scrollAxis, transition, showsCoverAlone, joinsPages
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        layout = try values.decode(Layout.self, forKey: .layout)
+        direction = try values.decode(Direction.self, forKey: .direction)
+        scrollAxis = try values.decode(ScrollAxis.self, forKey: .scrollAxis)
+        transition = try values.decode(Transition.self, forKey: .transition)
+        showsCoverAlone = try values.decode(Bool.self, forKey: .showsCoverAlone)
+        joinsPages = try values.decodeIfPresent(Bool.self, forKey: .joinsPages) ?? true
+    }
+
+    public var isSinglePageContinuous: Bool { layout == .single && isContinuous }
 
     /// A single page has no facing page, so the cover option only applies to spreads.
     public var usesCoverOption: Bool { layout != .single }

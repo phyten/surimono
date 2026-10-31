@@ -1,6 +1,7 @@
 import AppKit
 import PDFKit
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 
 /// Lets menus and the overlay drive the paper view of one window.
@@ -29,6 +30,8 @@ struct PaperView: NSViewRepresentable {
     let zoom: Double
     var wheelSensitivity: WheelPageTurner.Sensitivity = .normal
     var selectsText = false
+    var logicalMargin: CGFloat? = nil
+    var showsPageNumbers = false
     let controller: PaperController
     var onZoomChange: (Double) -> Void
     var onPageChange: (Int) -> Void
@@ -48,10 +51,9 @@ struct PaperView: NSViewRepresentable {
         view.onPageChange = onPageChange
         view.onTurn = onTurn
         view.onKey = onKey
-        if view.document !== document {
-            view.show(document, at: initialPageIndex)
-        }
-        view.apply(options)
+        view.configure(
+            document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
+            showsPageNumbers: showsPageNumbers)
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
         if abs(view.zoom - zoom) > 0.001 { view.setZoom(zoom, anchor: nil) }
@@ -101,6 +103,31 @@ final class PaperPDFView: PDFView {
         }
     }
     private var options: ViewOptions?
+    private var sourceDocument: PDFDocument?
+    private var pagePlan: ViewPageLayout?
+    private var documentKey: ViewPageLayout.DocumentKey?
+    private var logicalMargin: CGFloat?
+    private var showsPageNumbers = false
+    private var isUpdatingDocument = false
+
+    func configure(
+        _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool
+    ) {
+        guard
+            sourceDocument !== source || self.options != options || self.logicalMargin != logicalMargin
+                || self.showsPageNumbers != showsPageNumbers
+        else { return }
+        let position = sourceDocument === source ? currentPageIndex : index
+        isUpdatingDocument = true
+        self.logicalMargin = logicalMargin
+        self.showsPageNumbers = showsPageNumbers
+        self.options = options
+        configureDisplay(options)
+        show(source, at: position)
+        isUpdatingDocument = false
+        onPageChange?(currentPageIndex)
+    }
+
     private var pageSize = CGSize(width: 595, height: 842)
     private var fittedSize = CGSize.zero
     private var isSettingScale = false
@@ -165,10 +192,44 @@ final class PaperPDFView: PDFView {
 
     var currentPageIndex: Int {
         guard let document, let page = currentPage else { return 0 }
-        return document.index(for: page)
+        return pagePlan?.readingIndex(at: document.index(for: page)) ?? 0
     }
 
-    func show(_ document: PDFDocument, at index: Int) {
+    func show(_ source: PDFDocument, at index: Int) {
+        let wasUpdating = isUpdatingDocument
+        isUpdatingDocument = true
+        defer {
+            isUpdatingDocument = wasUpdating
+            if !wasUpdating { onPageChange?(currentPageIndex) }
+        }
+        let effectiveOptions =
+            options
+            ?? ViewOptions(
+                layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        let plan = ViewPageLayout(
+            pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
+            showsNumbers: showsPageNumbers)
+        let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
+        if sourceDocument === source, documentKey == key, document != nil {
+            // Layout and navigation may change without touching page content or losing the PDFKit page cache.
+            pagePlan = plan
+            hideScrollersAndInsets()
+            refit()
+            goToPage(index: min(index, max(source.pageCount - 1, 0)))
+            return
+        }
+        sourceDocument = source
+        let copy = key.requiresCopy ? ViewPageDocument.make(source, plan: plan, margin: logicalMargin ?? 0) : source
+        documentKey = copy != nil ? key : nil
+        let document = copy ?? source
+        pagePlan =
+            copy != nil
+            ? plan
+            : ViewPageLayout(
+                pageCount: source.pageCount,
+                options: ViewOptions(
+                    layout: .single, scrollAxis: .vertical, transition: effectiveOptions.transition,
+                    showsCoverAlone: false), hasLogicalMargins: false, showsNumbers: showsPageNumbers)
         stopZoomReturn()
         // A replacement keeps the user's zoom, but must not inherit transient rubber or old gesture events.
         displayedZoom = zoom
@@ -186,26 +247,32 @@ final class PaperPDFView: PDFView {
         }
         hideScrollersAndInsets()
         refit()
-        goToPage(index: min(index, max(document.pageCount - 1, 0)))
+        goToPage(index: min(index, max(source.pageCount - 1, 0)))
     }
 
     func apply(_ options: ViewOptions) {
         guard options != self.options else { return }
-        let index = currentPageIndex
+        if let sourceDocument {
+            configure(
+                sourceDocument, at: currentPageIndex, options: options, logicalMargin: logicalMargin,
+                showsPageNumbers: showsPageNumbers)
+        } else {
+            self.options = options
+            configureDisplay(options)
+        }
+    }
+
+    private func configureDisplay(_ options: ViewOptions) {
         wheelTurner = WheelPageTurner()
-        self.options = options
         let mode: PDFDisplayMode =
             switch options.layout {
             case .single: options.isContinuous ? .singlePageContinuous : .singlePage
             case .spread: options.isContinuous ? .twoUpContinuous : .twoUp
             }
         if displayMode != mode { displayMode = mode }
-        displaysAsBook = options.usesCoverOption && options.showsCoverAlone
+        displaysAsBook = false
         displaysRTL = options.direction == .rightToLeft
         displayDirection = options.scrollAxis == .vertical ? .vertical : .horizontal
-        hideScrollersAndInsets()
-        refit()
-        goToPage(index: index)
     }
 
     /// One page, or two side by side, at 100 %.
@@ -347,7 +414,7 @@ final class PaperPDFView: PDFView {
     }
 
     @objc private func pageDidChange() {
-        guard !isMeasuringFit else { return }
+        guard !isMeasuringFit, !isUpdatingDocument else { return }
         onPageChange?(currentPageIndex)
     }
 
@@ -454,7 +521,10 @@ final class PaperPDFView: PDFView {
     // MARK: - Turning pages
 
     func goToPage(index: Int) {
-        guard let document, let page = document.page(at: index) else { return }
+        guard let document, let pagePlan, let requested = pagePlan.viewIndex(for: index),
+            let first = pagePlan.readingIndex(at: requested), let viewIndex = pagePlan.viewIndex(for: first),
+            let page = document.page(at: viewIndex)
+        else { return }
         finishZoomReturnForNavigation()
         go(to: page)
     }
@@ -462,9 +532,11 @@ final class PaperPDFView: PDFView {
     func turnPage(forward: Bool) {
         guard let options else { return }
         finishZoomReturnForNavigation()
-        guard forward ? canGoToNextPage : canGoToPreviousPage else { return }
+        guard let document, let page = currentPage,
+            let next = pagePlan?.adjacentReadingIndex(at: document.index(for: page), forward: forward)
+        else { return }
         addTransition(forward: forward, options: options)
-        if forward { goToNextPage(nil) } else { goToPreviousPage(nil) }
+        goToPage(index: next)
         onTurn?()
     }
 

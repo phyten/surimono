@@ -57,6 +57,13 @@ struct ViewOptionsPopover: View {
                     }
                     .disabled(!model.viewOptions.usesCoverOption)
                 }
+                if model.viewOptions.isSinglePageContinuous, model.viewLogicalMargin != nil {
+                    GridRow {
+                        rowLabel("Join Pages")
+                        Toggle("Join Pages", isOn: option(\.joinsPages))
+                            .toggleStyle(.switch).controlSize(.small)
+                    }
+                }
                 if model.marginsApply {
                     GridRow {
                         rowLabel("Margins")
@@ -219,9 +226,6 @@ private struct SpreadSample: View {
         HStack(spacing: 0) {
             switch unit ?? (options.layout == .single ? .single(1) : .spread(left: nil, right: 1)) {
             case .single(let page): MiniPage(number: page)
-            case .spread(nil, 1?), .spread(1?, nil):
-                // PDFKit shows a cover alone in the middle of the spread.
-                MiniPage(number: 1)
             case .spread(let left, let right):
                 MiniPage(number: left)
                 MiniPage(number: right)

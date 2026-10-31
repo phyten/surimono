@@ -178,20 +178,6 @@ public struct PDFComposer {
     ) {
         let logicalRect = PDFDrawing.fittedRect(size: logicalSize, in: rect)
         let scale = logicalRect.width / logicalSize.width
-        let text = NSAttributedString(
-            string: String(number),
-            attributes: [.font: NSFont.systemFont(ofSize: 8 * scale), .foregroundColor: NSColor.black])
-        let line = CTLineCreateWithAttributedString(text)
-        var ascent: CGFloat = 0
-        var descent: CGFloat = 0
-        let width = CTLineGetTypographicBounds(line, &ascent, &descent, nil)
-        context.saveGState()
-        defer { context.restoreGState() }
-        context.clip(to: rect)
-        context.textMatrix = .identity
-        // With zero margins, keep the label inside the page instead of clipping it below the media box.
-        let centerY = logicalRect.minY + max(margin * scale / 2, (ascent + descent) / 2 + 2)
-        context.textPosition = CGPoint(x: logicalRect.midX - width / 2, y: centerY - (ascent - descent) / 2)
-        CTLineDraw(line, context)
+        PageNumberDrawing.draw(number, in: logicalRect, margin: margin * scale, scale: scale, context: context)
     }
 }

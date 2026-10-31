@@ -14,6 +14,7 @@ final class AppPreferences {
     var presetID: String { didSet { defaults.set(presetID, forKey: "preset") } }
     var margin: Double { didSet { defaults.set(margin, forKey: "margin") } }
     var pageNumbers: Bool { didSet { defaults.set(pageNumbers, forKey: "pageNumbers") } }
+    var viewPageNumbers: Bool { didSet { defaults.set(viewPageNumbers, forKey: "viewPageNumbers") } }
     var rotateBack: Bool { didSet { defaults.set(rotateBack, forKey: "rotateBack") } }
     var allowsJavaScript: Bool { didSet { defaults.set(allowsJavaScript, forKey: "allowsJavaScript") } }
     /// The printer the tray's Print sends to; nil means the system's default printer.
@@ -34,6 +35,7 @@ final class AppPreferences {
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
         pageNumbers = defaults.bool(forKey: "pageNumbers")
+        viewPageNumbers = defaults.bool(forKey: "viewPageNumbers")
         rotateBack = defaults.bool(forKey: "rotateBack")
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
         printerName = defaults.string(forKey: "printer")

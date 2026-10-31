@@ -38,6 +38,7 @@ struct SettingsView: View {
             Form {
                 TextField("Margins (mm)", value: $preferences.margin, format: .number)
                 Toggle("Page Numbers", isOn: $preferences.pageNumbers)
+                Toggle("Page Numbers in View Mode", isOn: $preferences.viewPageNumbers)
                 Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
             }.tabItem { Label("Printing", systemImage: "printer") }
             Form {
