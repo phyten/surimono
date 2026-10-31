@@ -107,6 +107,19 @@ final class PaperPDFView: PDFView {
     private var sourceDocument: PDFDocument?
     private var pagePlan: ViewPageLayout?
     private var documentKey: ViewPageLayout.DocumentKey?
+    /// Every document this view has shown, kept alive for as long as the view lives. PDFKit's accessibility nodes keep
+    /// unretained references to the pages they describe and are asked about them long after the document is replaced
+    /// (VoiceOver, apps that read the screen); freeing those pages crashed inside PDFKit. Dropping even the oldest of
+    /// sixteen still crashed, so there is no limit. View copies are reused for the same source, layout and marks, so
+    /// switching between spread and single pages does not keep adding copies; the list grows only with new content
+    /// or new page decorations.
+    private struct ShownDocument {
+        let source: PDFDocument
+        let key: ViewPageLayout.DocumentKey?
+        let marks: [ChangeMark]
+        let document: PDFDocument
+    }
+    private var shownDocuments: [ShownDocument] = []
     private var logicalMargin: CGFloat?
     private var showsPageNumbers = false
     private var changeMarks: [ChangeMark] = []
@@ -224,9 +237,18 @@ final class PaperPDFView: PDFView {
             return
         }
         sourceDocument = source
-        let copy =
-            key.requiresCopy || !changeMarks.isEmpty
-            ? ViewPageDocument.make(source, plan: plan, margin: logicalMargin ?? 0, changeMarks: changeMarks) : source
+        let copy: PDFDocument?
+        if key.requiresCopy || !changeMarks.isEmpty {
+            if let shown = shownDocuments.first(where: {
+                $0.source === source && $0.key == key && $0.marks == changeMarks
+            }) {
+                copy = shown.document
+            } else {
+                copy = ViewPageDocument.make(source, plan: plan, margin: logicalMargin ?? 0, changeMarks: changeMarks)
+            }
+        } else {
+            copy = source
+        }
         drawnChangeMarks = changeMarks
         documentKey = copy != nil ? key : nil
         let document = copy ?? source
@@ -244,6 +266,12 @@ final class PaperPDFView: PDFView {
         if pinchActive { ignoresPinchRemainder = true }
         pinchActive = false
         wheelTurner = WheelPageTurner()
+        if !shownDocuments.contains(where: { $0.document === document }) {
+            shownDocuments.append(
+                ShownDocument(
+                    source: source, key: copy != nil ? key : nil, marks: copy != nil ? changeMarks : [],
+                    document: document))
+        }
         self.document = document
         displayBox = .cropBox
         pageSize = (0..<document.pageCount).reduce(into: CGSize.zero) { size, index in
