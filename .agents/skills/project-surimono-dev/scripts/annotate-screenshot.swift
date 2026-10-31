@@ -35,10 +35,11 @@ NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
 let red = NSColor(srgbRed: 0.85, green: 0.16, blue: 0.13, alpha: 1)
 let scale = max(CGFloat(width) / 1600, 1)
 for (index, spec) in arguments.dropFirst(3).enumerated() {
-    let parts = spec.split(separator: ":", maxSplits: 1).map(String.init)
-    let numbers = parts[0].split(separator: ",").compactMap { Double($0) }
-    guard numbers.count == 4 else {
-        FileHandle.standardError.write(Data("bad region: \(spec)\n".utf8))
+    let parts = spec.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+    let fields = (parts.first ?? "").split(separator: ",", omittingEmptySubsequences: false)
+    let numbers = fields.compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+    guard fields.count == 4, numbers.count == 4, numbers.allSatisfy(\.isFinite), numbers[2] > 0, numbers[3] > 0 else {
+        FileHandle.standardError.write(Data("bad region (want x,y,width,height[:label]): \(spec)\n".utf8))
         exit(2)
     }
     let rect = CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3])

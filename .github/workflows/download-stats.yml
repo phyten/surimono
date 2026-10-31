@@ -1,13 +1,15 @@
 name: Download stats
 
-# Counts release downloads once a day and publishes them as shields.io endpoint JSON on the `stats` branch,
-# which the README badges read. DMG downloads stand for new installs and ZIP downloads for in-app updates (Sparkle
-# fetches the ZIP); appcast and checksum files are left out.
+# Counts release downloads once a day and after each release, and publishes them as shields.io endpoint JSON on the
+# `stats` branch, which the README badges read. These are download counts, not installs: the ZIP also serves in-app
+# updates (Sparkle). Appcast and checksum files are left out.
 on:
   schedule:
     - cron: "17 0 * * *"
-  release:
-    types: [published]
+  # A release created with GITHUB_TOKEN raises no `release` event for other workflows, so follow the Release run.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +21,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -34,7 +37,7 @@ jobs:
           dmg=$(jq -s '[.[] | select(.name | endswith(".dmg")) | .download_count] | add // 0' assets.jsonl)
           zip=$(jq -s '[.[] | select(.name | endswith(".zip")) | .download_count] | add // 0' assets.jsonl)
           jq -n --arg m "$dmg" '{schemaVersion: 1, label: "DMG downloads", message: $m, color: "blue"}' > out/downloads-dmg.json
-          jq -n --arg m "$zip" '{schemaVersion: 1, label: "in-app updates", message: $m, color: "informational"}' > out/downloads-zip.json
+          jq -n --arg m "$zip" '{schemaVersion: 1, label: "ZIP downloads", message: $m, color: "informational"}' > out/downloads-zip.json
           jq -n --argjson dmg "$dmg" --argjson zip "$zip" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{dmg: $dmg, zip: $zip, countedAt: $at}' > out/downloads.json
           cat out/downloads.json

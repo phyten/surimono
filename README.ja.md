@@ -1,6 +1,6 @@
 # Surimono（摺物）
 
-[![DMG のダウンロード数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-dmg.json)](https://github.com/phyten/surimono/releases) [![アプリ内アップデートの数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-zip.json)](https://github.com/phyten/surimono/releases)
+[![DMG のダウンロード数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-dmg.json)](https://github.com/phyten/surimono/releases) [![ZIP のダウンロード数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-zip.json)](https://github.com/phyten/surimono/releases)
 
 > 雑に開いて、雑に見て、さっと刷る。
 

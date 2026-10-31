@@ -158,7 +158,7 @@ make clean
   - appcast は、各リリースが自分の ZIP だけを載せる。配られるのは GitHub の「Latest」のリリース（プレリリースは配らない）。
   - 秘密鍵は、メンテナのログインキーチェーン（Sparkle の `generate_keys`、アカウント `io.github.phyten.Surimono`）と、リポジトリの Secret `SPARKLE_PRIVATE_KEY` にある。なくすと、入れてある版はその後の更新を確かめられず、入れ直しになる。鍵を替えるときは Sparkle の鍵の切り替えの手順に従う。
   - Sparkle の道具（`generate_appcast`・`sign_update`・`generate_keys`）は、パッケージを解決すると `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/` にできる。
-- ダウンロード数: download-stats.yml が毎日（とリリースの公開時に）GitHub Releases の各ファイルのダウンロード数を数え、DMG（新しく入れた数）と ZIP（Sparkle のアプリ内アップデートの数）の合計を、shields.io の endpoint 用の JSON として `stats` ブランチに 1 コミットで上書きする。README のバッジがそれを読む。appcast と SHA-256 は数えない。数は GitHub が持つものだけで、アプリからは何も送らない（テレメトリなし）。
+- ダウンロード数: download-stats.yml が毎日と Release ワークフローの成功後（GITHUB_TOKEN で作ったリリースは `release` イベントで他のワークフローを起動しないため `workflow_run` で受ける）に、GitHub Releases の DMG と ZIP のダウンロード数をそれぞれ合計し、shields.io の endpoint 用の JSON として `stats` ブランチに 1 コミットで上書きする。README のバッジがそれを読む。数は取得の回数で、入れた数や更新した数ではない（ZIP はアプリ内アップデートにも、手で入れるのにも使う）。appcast と SHA-256 は数えない。数は GitHub が持つものだけで、アプリからは何も送らない（テレメトリなし）。
 - 署名はアドホックのまま（Developer ID・公証はまだ）。そのため Library Validation を外している（地雷を参照）。
 
 ## コーディング規約
@@ -196,7 +196,7 @@ make clean
 - **見た目や操作が変わる PR には、注釈付きのスクリーンショットを貼る**（テンプレートの「スクリーンショット」の欄）。
   - 撮る: 開発版のスナップショット（`project-surimono-dev` の `-SurimonoSnapshotPath`）で、変えたところが写る状態を撮る。ライト・ダークで見た目が違うものは両方。文書は `Samples/` のサンプルか自分で作った架空のものだけを使い、ユーザーの文書・個人情報・デスクトップを写さない。
   - 注釈: `swift .agents/skills/project-surimono-dev/scripts/annotate-screenshot.swift <入力.png> <出力.png> "x,y,幅,高さ:ラベル" …` で、変えた箇所に赤い枠と番号付きの短いラベルを付ける（座標は画像の左上からのピクセル）。本文では番号ごとに何が変わったかを書く。
-  - 置き場: 画像は master に入れず、孤立したブランチ `pr-assets` の `pr-<番号>/` に push して、`https://raw.githubusercontent.com/phyten/surimono/pr-assets/pr-<番号>/<名前>.png` を本文に貼る（`gh` は PR へ画像を直接上げられないため）。
+  - 置き場: 画像は master に入れず、孤立したブランチ `pr-assets` の `pr-<番号>/` に push して、`https://raw.githubusercontent.com/phyten/surimono/pr-assets/pr-<番号>/<名前>.png` を本文に貼る（`gh` は PR へ画像を直接上げられないため）。`pr-assets` は既存の画像を残して足していく（`stats` のように上書きしない）。
   - 撮れない変更（メニューを開いた状態、実機のホイール操作など）は、撮れなかったことと代わりに確かめたことを書く。
 
 ## 開発資料（.docs/）
