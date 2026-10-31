@@ -14,11 +14,12 @@ final class ThemeTrial {
     private(set) var themeID: String?
     /// Its logical pages, once laid out.
     private(set) var document: PDFDocument?
+    private(set) var changeMarks: [ChangeMark] = []
     @ObservationIgnored private let renderer: DocumentRenderer
     @ObservationIgnored private var task: Task<Void, Never>?
     /// Recent trials, so going back to a theme just tried shows it at once.
     @ObservationIgnored private var recent:
-        [(source: DocumentSource, settings: RenderSettings, document: PDFDocument)] =
+        [(source: DocumentSource, settings: RenderSettings, document: PDFDocument, marks: [ChangeMark])] =
             []
     static let cacheLimit = 6
     static let delay: Duration = .milliseconds(200)
@@ -38,9 +39,11 @@ final class ThemeTrial {
         themeID = id
         if let hit = recent.first(where: { $0.source == source && $0.settings == settings }) {
             document = hit.document
+            changeMarks = hit.marks
             return
         }
         document = nil
+        changeMarks = []
         task = Task { [weak self] in
             do {
                 try await Task.sleep(for: Self.delay)
@@ -50,8 +53,9 @@ final class ThemeTrial {
                 try Task.checkCancellation()
                 guard themeID == id else { return }
                 document = prepared.logicalDocument
+                changeMarks = prepared.changeMarks
                 recent.removeAll { $0.source == source && $0.settings == settings }
-                recent.insert((source, settings, prepared.logicalDocument), at: 0)
+                recent.insert((source, settings, prepared.logicalDocument, prepared.changeMarks), at: 0)
                 if recent.count > Self.cacheLimit { recent.removeLast(recent.count - Self.cacheLimit) }
             } catch {
                 // A cancelled or failed trial leaves the paper on the document's own pages.
@@ -65,6 +69,7 @@ final class ThemeTrial {
         task = nil
         themeID = nil
         document = nil
+        changeMarks = []
     }
 
     /// Forgets the recent trials, for example after the file changed outside the app.

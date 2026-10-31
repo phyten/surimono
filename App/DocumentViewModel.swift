@@ -59,7 +59,7 @@ final class DocumentViewModel {
     /// The theme the pointer rests on in the palette, laid out on the paper.
     let themeTrial: ThemeTrial
     /// A trial the user then chose: the paper keeps it until the document's own pages in that theme are ready.
-    private(set) var chosenTrial: (themeID: String, document: PDFDocument)?
+    private(set) var chosenTrial: (themeID: String, document: PDFDocument, changeMarks: [ChangeMark])?
     /// The candidates on the comparison stage, kept while the window lives.
     var themeComparison: ThemeComparison?
     /// How long the last fresh layout of the logical pages took. A long document is not laid out again on hover.
@@ -148,6 +148,18 @@ final class DocumentViewModel {
     private var renderTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var watcher: FileWatcher?
+    private var reloadTask: Task<Void, Never>?
+    private var reconciliationTask: Task<Void, Never>?
+    var beforeWatcherCheck: @Sendable () -> Void = {}
+    private var reloadRequiresRefresh = false
+    private var reloadRequiresWebRefresh = false
+    private var reloadOwnsProgress = false
+    var readReloadData: @Sendable (URL) async throws -> Data = { url in
+        try await Task.detached(priority: .utility) { try Data(contentsOf: url) }.value
+    }
+    private var reloadGeneration = 0
+    private var displayedMarkdownData: Data?
+    private(set) var markdownChanges: [MarkdownMarkRequest] = []
     @ObservationIgnored private var textSizeKeyMonitor: Any?
     private var printCompletion: PrintCompletion?
     private var printOperation: NSPrintOperation?
@@ -211,7 +223,7 @@ final class DocumentViewModel {
     func selectTheme(_ id: String) {
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
-            chosenTrial = (id, document)
+            chosenTrial = (id, document, themeTrial.changeMarks)
         }
         themeTrial.end()
         themeComparison?.choose(id)
@@ -248,7 +260,7 @@ final class DocumentViewModel {
             opensDetails: rendersSnapshot && opensClosedDetails,
             slides: slideDeck.map {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
-            })
+            }, markdownChanges: format == .markdown ? markdownChanges : [])
     }
     /// Paper and printing show the copy of the live page, unless there is none or the tray asks for the file.
     var rendersSnapshot: Bool { usesHTMLPresentation && liveSnapshot != nil && !printsOriginalPage }
@@ -335,18 +347,13 @@ final class DocumentViewModel {
             }
         }
         if watcher == nil, let fileURL {
-            watcher = FileWatcher(url: fileURL) { [weak self] event in
-                guard let self, self.watcher != nil else { return }
-                switch event {
-                case .changed: reload()
-                case .removed:
-                    showToast(
-                        Toast(
-                            systemImage: "exclamationmark.triangle",
-                            title: String(localized: "The file is missing. The last preview is still available.")),
-                        dismissAfter: nil)
-                }
-            }
+            watcher = FileWatcher(
+                url: fileURL,
+                beforeCheck: beforeWatcherCheck,
+                onChange: { [weak self] event in
+                    guard let self, self.watcher != nil else { return }
+                    handleFileEvent(event)
+                })
         }
         if let imageBundle, imageBundle.archiveURL != nil, !hasShownArchiveSummary, openFailure == nil {
             hasShownArchiveSummary = true
@@ -378,6 +385,14 @@ final class DocumentViewModel {
         toastTask?.cancel()
         hashTask?.cancel()
         if saveTask != nil { saveSettings() }
+        reloadGeneration += 1
+        reloadTask?.cancel()
+        reloadTask = nil
+        reloadRequiresRefresh = false
+        reloadRequiresWebRefresh = false
+        reloadOwnsProgress = false
+        reconciliationTask?.cancel()
+        reconciliationTask = nil
         watcher?.stop()
         watcher = nil
         cancelCapture()
@@ -386,11 +401,42 @@ final class DocumentViewModel {
         themeSamples.invalidate()
     }
 
+    func handleFileEvent(_ event: FileWatcher.Event) {
+        switch event {
+        case .check:
+            guard let fileURL else { return }
+            let generation = reloadGeneration
+            let reader = readReloadData
+            reconciliationTask?.cancel()
+            reconciliationTask = Task { [weak self] in
+                // Initial registration is not evidence of a change: leave an in-flight layout alone.
+                guard let bytes = try? await reader(fileURL), let self,
+                    !Task.isCancelled, generation == reloadGeneration, bytes != data
+                else { return }
+                reload(reloadsWeb: true, onlyIfChanged: true)
+            }
+        case .changed: reload(reloadsWeb: true, onlyIfChanged: true)
+        case .removed:
+            reloadGeneration += 1
+            reloadTask?.cancel()
+            reloadTask = nil
+            reloadRequiresRefresh = false
+            reloadRequiresWebRefresh = false
+            if reloadOwnsProgress { isRendering = false }
+            reloadOwnsProgress = false
+            showToast(
+                Toast(
+                    systemImage: "exclamationmark.triangle",
+                    title: String(localized: "The file is missing. The last preview is still available.")),
+                dismissAfter: nil)
+        }
+    }
+
     func reload() {
         reload(reloadsWeb: true)
     }
 
-    private func reload(reloadsWeb: Bool) {
+    private func reload(reloadsWeb: Bool, onlyIfChanged: Bool = false) {
         if imageBundle?.archiveURL != nil, fileURL != nil {
             // The images of a ZIP were read when it opened; its window cannot swap in another archive.
             showToast(
@@ -400,16 +446,56 @@ final class DocumentViewModel {
                 dismissAfter: nil)
             return
         }
+        reloadRequiresRefresh = reloadRequiresRefresh || !onlyIfChanged
+        reloadRequiresWebRefresh = reloadRequiresWebRefresh || reloadsWeb
+        reloadGeneration += 1
+        let generation = reloadGeneration
+        reloadTask?.cancel()
+        // Invalidate captures before yielding for I/O: an old snapshot must never win this race.
         renderTask?.cancel()
-        renderer.clearCache()
-        themeTrial.clear()
-        themeSamples.invalidate()
-        imageBundle?.clearCache()
-        if let fileURL {
+        if reloadsWeb { cancelCapture() }
+        reloadOwnsProgress = true
+        if reloadRequiresRefresh { isRendering = true }
+        guard let fileURL else {
+            applyReload(reloadsWeb: reloadsWeb)
+            return
+        }
+        // Detached I/O keeps large files off the main actor; generation checks reject superseded reads.
+        let reader = readReloadData
+        reloadTask = Task { [weak self] in
             do {
-                data = try Data(contentsOf: fileURL)
+                let bytes = try await reader(fileURL)
+                guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
+                if !reloadRequiresRefresh && bytes == data {
+                    reloadTask = nil
+                    reloadOwnsProgress = false
+                    reloadRequiresWebRefresh = false
+                    // If a still-running layout was cancelled at the reload boundary, finish that same content.
+                    if isRendering { render() }
+                    return
+                }
+                if format == .markdown, bytes != data || displayedMarkdownData != bytes {
+                    let previous = displayedMarkdownData
+                    let diff = Task.detached(priority: .utility) {
+                        previous.map {
+                            MarkdownChanges.marks(
+                                from: TextDecoding.decode($0).text, to: TextDecoding.decode(bytes).text)
+                        } ?? []
+                    }
+                    let changes = await diff.value
+                    guard !Task.isCancelled, reloadGeneration == generation else { return }
+                    markdownChanges = changes
+                }
+                reloadTask = nil
+                data = bytes
+                applyReload(reloadsWeb: reloadRequiresWebRefresh)
             } catch {
-                isRendering = false
+                guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
+                reloadTask = nil
+                if reloadOwnsProgress { isRendering = false }
+                reloadOwnsProgress = false
+                reloadRequiresRefresh = false
+                reloadRequiresWebRefresh = false
                 showToast(
                     Toast(
                         systemImage: "exclamationmark.triangle",
@@ -417,9 +503,19 @@ final class DocumentViewModel {
                             localized: "The file could not be reloaded. The last preview is still available."),
                         detail: error.localizedDescription),
                     dismissAfter: nil)
-                return
             }
         }
+    }
+
+    private func applyReload(reloadsWeb: Bool) {
+        reloadOwnsProgress = false
+        reloadRequiresRefresh = false
+        reloadRequiresWebRefresh = false
+        renderTask?.cancel()
+        renderer.clearCache()
+        themeTrial.clear()
+        themeSamples.invalidate()
+        imageBundle?.clearCache()
         if reloadsWeb {
             // The page starts over from the new file, and paper follows it; a copy of the old page is not used.
             cancelCapture()
@@ -446,6 +542,7 @@ final class DocumentViewModel {
     }
 
     func render() {
+        reloadOwnsProgress = false
         renderTask?.cancel()
         // A trial was laid out under the previous settings or file.
         themeTrial.end()
@@ -485,6 +582,7 @@ final class DocumentViewModel {
                 if renderer.logicalRenderCount != layoutsBefore { lastLayoutDuration = ContinuousClock.now - started }
                 // The paper shows the logical pages right away; the sheets for the tray and the outputs follow.
                 result = prepared
+                if source.format == .markdown { displayedMarkdownData = source.data }
                 chosenTrial = nil
                 renderedSettings = settings
                 renderedSourceURLs = sourceURLs

@@ -37,28 +37,38 @@ enum MarkdownCallouts {
     }
 
     static func preprocess(_ lines: [String]) -> String {
-        var output: [String] = []
-        var stack: [Int] = []
+        preprocess(MarkdownSourceLines.unmapped(lines)).lines.joined(separator: "\n")
+    }
+
+    static func preprocess(_ mapped: MarkdownSourceLines) -> MarkdownSourceLines {
+        let lines = mapped.lines
+        var output = MarkdownSourceLines()
+        var stack: [(length: Int, input: Int, output: Int)] = []
         let source = SourceContext(lines: lines)
         for (index, line) in lines.enumerated() {
             guard let content = source.lines[index].fenceContent(line) else {
-                output.append(line)
+                output.append(line, from: mapped.origins[index])
                 continue
             }
             let length = content.prefix { $0 == ":" }.count
             let rest = content.dropFirst(length).trimmingCharacters(in: .whitespaces)
             if rest.isEmpty {
-                if let open = stack.last, length >= open {
+                if let open = stack.last, length >= open.length {
                     stack.removeLast()
-                    output.append("\n</div>\n")
+                    if !mapped.origins[open.input].isEmpty {
+                        output.origins[open.output] = mapped.origins[open.input...index].reduce(into: Set<Int>()) {
+                            $0.formUnion($1)
+                        }
+                    }
+                    output.append("\n</div>\n", from: [])
                 } else {
-                    output.append(line)
+                    output.append(line, from: mapped.origins[index])
                 }
                 continue
             }
             let name = rest.prefix { $0 != " " && $0 != "\t" }
             guard validName(name) else {
-                output.append(line)
+                output.append(line, from: mapped.origins[index])
                 continue
             }
             var type = name.lowercased()
@@ -70,14 +80,22 @@ enum MarkdownCallouts {
             }
             let kind = Kind(name: type)
             if !isMessage, title.isEmpty { title = kind.defaultTitle }
-            output.append("\n\(kind.opening)\n")
-            if !isMessage { output.append("\(kind.title(HTML.escape(title)))\n") }
-            stack.append(length)
+            let opening = output.lines.count + 1
+            output.append("\n\(kind.opening)\n", from: mapped.origins[index])
+            if !isMessage { output.append("\(kind.title(HTML.escape(title)))\n", from: mapped.origins[index]) }
+            stack.append((length, index, opening))
         }
         // Close an unfinished code fence first so generated closing divs cannot become code text.
-        if !stack.isEmpty, let closingFence = source.closingFence { output.append(closingFence) }
-        for _ in stack { output.append("\n</div>\n") }
-        return output.joined(separator: "\n")
+        if !stack.isEmpty, let closingFence = source.closingFence { output.append(closingFence, from: []) }
+        for open in stack {
+            if !mapped.origins[open.input].isEmpty {
+                output.origins[open.output] = mapped.origins[open.input...].reduce(into: Set<Int>()) {
+                    $0.formUnion($1)
+                }
+            }
+            output.append("\n</div>\n", from: [])
+        }
+        return output
     }
 
     private struct LineContext: Sendable {

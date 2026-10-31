@@ -1,5 +1,6 @@
 import PDFKit
 import SurimonoCore
+import SurimonoRendering
 
 extension DocumentViewModel {
     /// The pages the paper shows: a theme being tried, a trial just chosen, or the document's own pages.
@@ -7,6 +8,13 @@ extension DocumentViewModel {
         if themeTrial.themeID != nil, let document = themeTrial.document { return document }
         if let chosenTrial, chosenTrial.themeID == themeID { return chosenTrial.document }
         return result?.viewDocument
+    }
+
+    var paperChangeMarks: [ChangeMark] {
+        guard mode == .view else { return [] }
+        if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.changeMarks }
+        if let chosenTrial, chosenTrial.themeID == themeID { return chosenTrial.changeMarks }
+        return result?.changeMarks ?? []
     }
 
     /// The paper shows pages of a trial rather than the document's own.
