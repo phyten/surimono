@@ -193,6 +193,7 @@ final class DocumentViewModel {
         viewOptions = guess
         initialViewOptions = guess
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
+        paper.onToast = { [weak self] in self?.showToast($0) }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
