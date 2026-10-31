@@ -139,6 +139,9 @@ public struct PreparedRender {
     public let layout: PrintLayout
     /// Shared with later renders whose logical pages are the same, so treat it as read-only.
     public let logicalDocument: PDFDocument
+    /// The pages the view mode shows: the logical pages, except that an image's page leaves out the paper the image's
+    /// shape does not fill. Shared like `logicalDocument`.
+    public let viewDocument: PDFDocument
     public let plan: ImpositionPlan
     public let summary: PrintSummary
     public let unreadableImageURLs: [URL]
@@ -231,14 +234,19 @@ public final class DocumentRenderer {
     private final class Logical {
         let id: Int
         let document: PDFDocument
+        let viewDocument: PDFDocument
         let unreadable: [URL]
         let candidates: [SmartRemovalCandidate]
         /// The serialized pages the sheets are drawn from, made once for all compositions.
         var composingSource: CGPDFDocument?
 
-        init(id: Int, document: PDFDocument, unreadable: [URL], candidates: [SmartRemovalCandidate]) {
+        init(
+            id: Int, document: PDFDocument, viewDocument: PDFDocument, unreadable: [URL],
+            candidates: [SmartRemovalCandidate]
+        ) {
             self.id = id
             self.document = document
+            self.viewDocument = viewDocument
             self.unreadable = unreadable
             self.candidates = candidates
         }
@@ -417,7 +425,10 @@ public final class DocumentRenderer {
                 try Task.checkCancellation()
                 guard document.pageCount > 0 else { throw RenderingError.invalidPDF }
                 logicalSerial += 1
-                logical = Logical(id: logicalSerial, document: document, unreadable: unreadable, candidates: candidates)
+                logical = Logical(
+                    id: logicalSerial, document: document,
+                    viewDocument: source.format == .image ? ImagePageRenderer.viewDocument(of: document) : document,
+                    unreadable: unreadable, candidates: candidates)
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
                 if generation == currentGeneration { cache = (key, logical) }
@@ -425,7 +436,8 @@ public final class DocumentRenderer {
             let plan = Imposition.plan(pageCount: logical.document.pageCount, layout: settings.layout)
             return PreparedRender(
                 id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
-                logicalDocument: logical.document, plan: plan, summary: PrintSummary(plan: plan),
+                logicalDocument: logical.document, viewDocument: logical.viewDocument, plan: plan,
+                summary: PrintSummary(plan: plan),
                 unreadableImageURLs: logical.unreadable, smartRemovalCandidates: logical.candidates,
                 sheetKey: SheetKey(
                     logicalID: logical.id, layout: settings.layout, options: settings.options,
