@@ -1,7 +1,10 @@
 /* Homework: notebook paper with a red margin line, cheerful headings and big ticked checkboxes. */
-body { font-family: "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.85; color: #1c2430; padding-left: 2.2em;
-    background: linear-gradient(90deg, transparent 1.4em, #f2a3a3 1.4em, #f2a3a3 calc(1.4em + 1pt), transparent calc(1.4em + 1pt));
-    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+/* The margin line is part of the paper, so it sits on the root (1.4em of the body's 10.5pt from the text area's left)
+   and runs through the whole sheet. On the body, a gradient with clear parts printed black. */
+html { background: #fff linear-gradient(90deg, transparent 14.7pt, #f2a3a3 14.7pt, #f2a3a3 15.7pt, transparent 15.7pt)
+    repeat-y; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { background: transparent; font-family: "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.85;
+    color: #1c2430; padding-left: 2.2em; }
 body > :first-child { margin-top: 0; }
 h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.45em; line-height: 1.4; font-family: "Hiragino Maru Gothic ProN", sans-serif; }
 h1 { font-size: 1.8em; color: #1f5fa8; padding-bottom: 0.15em; border-bottom: 2pt solid #1f5fa8; }

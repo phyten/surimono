@@ -3,7 +3,10 @@ html {
     background-color: #fff;
     background-image:
         linear-gradient(to right, transparent 7mm, #e3a1a1 7mm, #e3a1a1 7.6mm, transparent 7.6mm),
-        repeating-linear-gradient(to bottom, transparent 0, transparent 20.4pt, #b6cbe0 20.4pt, #b6cbe0 21pt);
+        linear-gradient(to bottom, transparent 20.4pt, #b6cbe0 20.4pt);
+    /* Tiles of one line each keep the rules in step across the margins; the margin line runs down only. */
+    background-size: auto, 100% 21pt;
+    background-repeat: repeat-y, repeat;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
@@ -17,8 +20,9 @@ body {
 }
 /* Every line box and margin is a multiple of 21pt so text rests on the rules. */
 h1, h2, h3, h4, h5, h6 { margin: 21pt 0 0; line-height: 21pt; font-weight: 700; color: #22406a; }
-h1 { font-size: 1.6em; line-height: 42pt; }
-h2 { font-size: 1.3em; line-height: 42pt; }
+/* The large headings take two lines and sit on the lower rule, so no rule runs through them. */
+h1 { font-size: 1.6em; padding-top: 21pt; }
+h2 { font-size: 1.3em; padding-top: 21pt; }
 h3 { font-size: 1.1em; }
 h4, h5, h6 { font-size: 1em; }
 body > :first-child { margin-top: 0; }
