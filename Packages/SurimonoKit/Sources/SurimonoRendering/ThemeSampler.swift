@@ -7,8 +7,9 @@ import WebKit
 ///
 /// The document is laid out once in an off-screen web view as wide as the printable area of its page, as the
 /// paginator lays it out. Each theme then only replaces the page's style sheet and decorations before the first
-/// page's area is captured as a one-page vector PDF. The page is drawn for the screen rather than printed, so it can
-/// differ a little from the printed first page; it is a sample for choosing a look, never output.
+/// page's area is captured as a vector PDF. A theme with paper (`PaperBackground`) has it drawn by a second web view
+/// over the whole page and laid under the text, as in printing. The page is drawn for the screen rather than printed,
+/// so it can differ a little from the printed first page; it is a sample for choosing a look, never output.
 @MainActor
 public final class ThemeSampler {
     public enum SamplingError: Error, Equatable {
@@ -30,21 +31,25 @@ public final class ThemeSampler {
     public private(set) var drawCount = 0
 
     private let html: String
+    private let format: DocumentFormat
     private let baseURL: URL?
     private let textScale: Double
     private let timeout: Duration
     private var session: Session?
+    private var paperSession: Session?
     private var appliedTheme: PrintTheme?
+    private var appliedHasPaper: Bool?
     private var samples: [String: (theme: PrintTheme, page: PDFPage)] = [:]
     private var isBusy = false
     private var isClosed = false
 
     /// - Parameter html: A whole document as `HTMLDocumentBuilder` builds it, with exactly one style element.
     public init(
-        html: String, baseURL: URL?, pageSize: CGSize, margins: WebPaginator.Margins, textScale: Double = 1,
-        timeout: Duration = .seconds(15)
+        html: String, format: DocumentFormat = .markdown, baseURL: URL?, pageSize: CGSize,
+        margins: WebPaginator.Margins, textScale: Double = 1, timeout: Duration = .seconds(15)
     ) {
         self.html = html
+        self.format = format
         self.baseURL = baseURL
         self.pageSize = pageSize
         self.margins = margins
@@ -52,7 +57,9 @@ public final class ThemeSampler {
         self.timeout = timeout
     }
 
-    /// The sample of `theme`, drawn once and then kept until the sampler closes. Requests are served one at a time.
+    /// The sample of `theme`: the whole logical page, with the text of the first page inside its margins and the
+    /// theme's paper, if any, under it. Drawn once and then kept until the sampler closes. Requests are served one at
+    /// a time.
     public func firstPage(for theme: PrintTheme) async throws -> PDFPage {
         if let sample = samples[theme.id], sample.theme == theme { return sample.page }
         // The web view shows one theme at a time, so a request waits for the one before it.
@@ -63,13 +70,20 @@ public final class ThemeSampler {
         defer { isBusy = false }
         let session = try await openSession()
         try Task.checkCancellation()
-        try await apply(theme, in: session.webView)
+        let hasPaper = try await apply(theme, in: session.webView)
         try Task.checkCancellation()
         let configuration = WKPDFConfiguration()
         configuration.rect = CGRect(origin: .zero, size: printableSize)
         let data = try await session.webView.pdf(configuration: configuration)
         guard !isClosed else { throw SamplingError.closed }
-        guard let page = PDFDocument(data: data)?.page(at: 0) else { throw SamplingError.emptyPage }
+        guard let text = PDFDocument(data: data)?.page(at: 0) else { throw SamplingError.emptyPage }
+        // A paper that cannot be drawn leaves the sample on white, as a theme without one.
+        let paper = hasPaper ? try? await paperPage(for: theme) : nil
+        try Task.checkCancellation()
+        guard !isClosed else { throw SamplingError.closed }
+        guard let page = PaperComposer.sample(text: text, paper: paper, pageSize: pageSize, margins: margins) else {
+            throw SamplingError.emptyPage
+        }
         drawCount += 1
         samples[theme.id] = (theme, page)
         return page
@@ -80,6 +94,8 @@ public final class ThemeSampler {
         isClosed = true
         session?.close()
         session = nil
+        paperSession?.close()
+        paperSession = nil
         samples = [:]
     }
 
@@ -90,7 +106,9 @@ public final class ThemeSampler {
         session?.close()
         session = nil
         appliedTheme = nil
-        let session = Session(size: printableSize)
+        appliedHasPaper = nil
+        // Clear, so that the paper drawn by the other web view shows through around the text.
+        let session = Session(size: printableSize, drawsBackground: false)
         self.session = session
         do {
             try session.load(html, baseURL: baseURL)
@@ -106,13 +124,17 @@ public final class ThemeSampler {
         return session
     }
 
-    /// Swaps the style sheet and decorations; the document's own JavaScript stays off throughout.
-    private func apply(_ theme: PrintTheme, in webView: WKWebView) async throws {
-        guard appliedTheme != theme else { return }
+    /// Swaps the style sheet and decorations; the document's own JavaScript stays off throughout. The page keeps the
+    /// paper off with `PaperBackground.removalStyle`; returns whether the theme has paper.
+    private func apply(_ theme: PrintTheme, in webView: WKWebView) async throws -> Bool {
+        if appliedTheme == theme, let hasPaper = appliedHasPaper { return hasPaper }
         let world = WKContentWorld.world(name: "surimono")
+        // A wide page may have kept the previous theme's paper (`PaperBackground.detectionScript`).
         let swap = """
             const style = document.head.querySelector('style');
             if (style) { style.textContent = css; }
+            const removal = document.getElementById('\(PaperBackground.removalStyleID)');
+            if (removal) { removal.disabled = false; }
             for (const element of document.querySelectorAll('[data-deco]')) { element.removeAttribute('data-deco'); }
             return document.documentElement.getBoundingClientRect().height;
             """
@@ -125,7 +147,57 @@ public final class ThemeSampler {
             // A failing decoration leaves the page undecorated rather than failing the sample, as in printing.
             _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
         }
+        let detection = try? await webView.callAsyncJavaScript(
+            PaperBackground.detectionScript, arguments: [:], in: nil, contentWorld: world)
+        let hasPaper = detection as? String == "paper"
         appliedTheme = theme
+        appliedHasPaper = hasPaper
+        return hasPaper
+    }
+
+    /// The theme's paper over the whole page, drawn in a web view of its own that holds only the paper.
+    private func paperPage(for theme: PrintTheme) async throws -> PDFPage {
+        // The samples are captured at the screen's scale, a pixel to a point.
+        let margin = Double(margins.top) * 25.4 / 72
+        let css = PaperBackground.styleSheet(
+            theme: theme, textScale: textScale, pageSize: pageSize, marginInMillimeters: margin, pixelsPerPoint: 1)
+        let session: Session
+        if let paperSession, paperSession.isReady {
+            session = paperSession
+        } else {
+            paperSession?.close()
+            session = Session(size: pageSize)
+            paperSession = session
+            let html = PaperBackground.document(
+                theme: theme, format: format, baseURL: baseURL, textScale: textScale, pageSize: pageSize,
+                marginInMillimeters: margin, pixelsPerPoint: 1)
+            do {
+                try session.load(html, baseURL: baseURL)
+                try await WebPaginator.waitUntil(timeout: timeout) { session.navigation.state != .loading }
+                if case .failed(let message) = session.navigation.state { throw SamplingError.loadFailed(message) }
+                try await WebPaginator.waitForResources(in: session.webView, timeout: timeout)
+            } catch {
+                session.close()
+                if paperSession === session { paperSession = nil }
+                throw error
+            }
+            session.isReady = true
+        }
+        let world = WKContentWorld.world(name: "surimono")
+        let swap = """
+            const style = document.head.querySelector('style');
+            if (style) { style.textContent = css; }
+            document.documentElement.style.removeProperty('background-color');
+            if (document.body) { document.body.style.removeProperty('background-color'); }
+            """
+        _ = try await session.webView.callAsyncJavaScript(
+            swap + "\n" + PaperBackground.opaqueScript, arguments: ["css": css], in: nil, contentWorld: world)
+        if css.contains("@font-face") { try await WebPaginator.waitForResources(in: session.webView, timeout: timeout) }
+        let configuration = WKPDFConfiguration()
+        configuration.rect = CGRect(origin: .zero, size: pageSize)
+        let data = try await session.webView.pdf(configuration: configuration)
+        guard let page = PDFDocument(data: data)?.page(at: 0) else { throw SamplingError.emptyPage }
+        return page
     }
 
     /// Owns the web view, the window it needs to draw in, and the temporary copy of the document.
@@ -138,12 +210,13 @@ public final class ThemeSampler {
         private let window: NSWindow
         private var temporaryFile: URL?
 
-        init(size: CGSize) {
+        init(size: CGSize, drawsBackground: Bool = true) {
             let configuration = WKWebViewConfiguration()
             configuration.defaultWebpagePreferences.allowsContentJavaScript = false
             configuration.suppressesIncrementalRendering = true
             let frame = CGRect(origin: .zero, size: size)
             webView = WKWebView(frame: frame, configuration: configuration)
+            if !drawsBackground && WebPaginator.drawsClearPages { webView.setValue(false, forKey: "drawsBackground") }
             window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             window.contentView = webView
@@ -186,9 +259,10 @@ extension DocumentRenderer {
         let directory = source.fileURL?.deletingLastPathComponent()
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
-            textScale: settings.textScale)
+            textScale: settings.textScale, removesPaper: WebPaginator.drawsClearPages)
         return ThemeSampler(
-            html: html, baseURL: directory, pageSize: layout.logicalPageSize(options: settings.options),
+            html: html, format: source.format, baseURL: directory,
+            pageSize: layout.logicalPageSize(options: settings.options),
             margins: .uniform(millimeters: layout.logicalMarginsInMillimeters(options: settings.options)),
             textScale: settings.textScale)
     }
