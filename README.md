@@ -65,7 +65,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 1. Download `Surimono-<version>.dmg` from the [latest release](https://github.com/phyten/surimono/releases/latest), open it, and drag Surimono to Applications.
 2. Surimono is not notarized by Apple yet, so macOS blocks the first launch. Follow the steps in the release notes (System Settings > Privacy & Security > Open Anyway). Later launches open normally.
 
-Surimono updates itself. Choose **Surimono > Check for Updates…**, or let it check automatically: it asks on the second launch, and Settings > General turns it on or off. Updates are signed and verified before they are installed. Checking downloads a small feed from GitHub; nothing about your documents is sent.
+Surimono updates itself. Choose **Surimono > Check for Updates…**, or let it check automatically on every launch and once a day while it runs: it asks on the second launch, and Settings > General turns it on or off. Updates are signed and verified before they are installed. Checking downloads a small feed from GitHub; nothing about your documents is sent.
 
 ## Building from source
 

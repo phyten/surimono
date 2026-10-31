@@ -30,6 +30,7 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
             startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
         self.controller = controller
         controller.startUpdater()
+        Self.checkOnLaunch(controller.updater)
         checksAutomatically = controller.updater.automaticallyChecksForUpdates
         observation = controller.updater.observe(\.automaticallyChecksForUpdates, options: [.new]) {
             [weak self] _, change in
@@ -37,6 +38,15 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
             // Sparkle changes the setting on the main thread only.
             MainActor.assumeIsolated { self?.checksAutomatically = value }
         }
+    }
+
+    /// Sparkle on its own checks at launch only once a day has passed since the last check, so an update released
+    /// since then waited for the next day. Checking on every launch still needs the user's consent to automatic checks.
+    /// Call it right after starting the updater: Sparkle waits one run loop turn before its own cycle and, finding this
+    /// check in progress, schedules the next daily check when it ends.
+    static func checkOnLaunch(_ updater: some LaunchUpdateChecking) {
+        guard updater.automaticallyChecksForUpdates else { return }
+        updater.checkForUpdatesInBackground()
     }
 
     func setChecksAutomatically(_ value: Bool) {
@@ -69,6 +79,15 @@ final class AppUpdater: NSObject, SPUUpdaterDelegate {
         return url
     }
 }
+
+/// The part of Sparkle's updater the launch check uses, so the check can be tested without going online.
+@MainActor
+protocol LaunchUpdateChecking {
+    var automaticallyChecksForUpdates: Bool { get }
+    func checkForUpdatesInBackground()
+}
+
+extension SPUUpdater: LaunchUpdateChecking {}
 
 /// Keeps relaunch decisions testable without launching an application or starting Sparkle.
 @MainActor

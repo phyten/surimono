@@ -60,6 +60,20 @@ struct AppUpdaterTests {
         #expect(launches == 0)
     }
 
+    @Test("自動確認が許可されていれば、起動のたびに裏でアップデートを確認する")
+    func checksOnLaunchWhenAllowed() {
+        let updater = FakeUpdater(automaticallyChecksForUpdates: true)
+        AppUpdater.checkOnLaunch(updater)
+        #expect(updater.backgroundChecks == 1)
+    }
+
+    @Test("自動確認が許可されていなければ、起動しても通信しない")
+    func staysOfflineOnLaunchWithoutConsent() {
+        let updater = FakeUpdater(automaticallyChecksForUpdates: false)
+        AppUpdater.checkOnLaunch(updater)
+        #expect(updater.backgroundChecks == 0)
+    }
+
     @Test("開発版は appcast を持たず、アップデーターを動かさない")
     func developmentBuildHasNoUpdater() {
         #expect(AppUpdater.feedURL(in: Bundle.main.infoDictionary) == nil)
@@ -83,5 +97,19 @@ struct AppUpdaterTests {
         #expect(AppUpdater.feedURL(in: ["SUFeedURL": ""]) == nil)
         #expect(AppUpdater.feedURL(in: [:]) == nil)
         #expect(AppUpdater.feedURL(in: nil) == nil)
+    }
+}
+
+@MainActor
+private final class FakeUpdater: LaunchUpdateChecking {
+    let automaticallyChecksForUpdates: Bool
+    private(set) var backgroundChecks = 0
+
+    init(automaticallyChecksForUpdates: Bool) {
+        self.automaticallyChecksForUpdates = automaticallyChecksForUpdates
+    }
+
+    func checkForUpdatesInBackground() {
+        backgroundChecks += 1
     }
 }
