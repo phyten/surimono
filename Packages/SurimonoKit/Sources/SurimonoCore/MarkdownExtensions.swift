@@ -215,13 +215,21 @@ enum MarkdownExtensions {
     /// Takes the footnote definitions out of the text. A definition continues on lines indented by four spaces or a
     /// tab, which may be separated by blank lines.
     static func extractFootnotes(_ lines: [String]) -> (lines: [String], definitions: [String: String]) {
+        let mapped = extractFootnotes(MarkdownSourceLines.unmapped(lines))
+        return (mapped.body.lines, mapped.definitions.mapValues { $0.lines.joined(separator: "\n") })
+    }
+
+    static func extractFootnotes(_ source: MarkdownSourceLines)
+        -> (body: MarkdownSourceLines, definitions: [String: MarkdownSourceLines])
+    {
+        let lines = source.lines
         guard
             let regex = try? NSRegularExpression(pattern: #"^ {0,3}\[\^([^\]\s]+)\]:[ \t]?(.*)$"#),
             lines.contains(where: { $0.contains("[^") })
-        else { return (lines, [:]) }
+        else { return (source, [:]) }
         let protection = protection(lines)
-        var output: [String] = []
-        var definitions: [String: String] = [:]
+        var output = MarkdownSourceLines()
+        var definitions: [String: MarkdownSourceLines] = [:]
         var index = 0
         while index < lines.count {
             let line = lines[index]
@@ -230,10 +238,11 @@ enum MarkdownExtensions {
                 let labelRange = Range(match.range(at: 1), in: line),
                 let firstRange = Range(match.range(at: 2), in: line)
             else {
-                output.append(line)
+                output.append(line, from: source.origins[index])
                 index += 1
                 continue
             }
+            let start = index
             var body = [String(line[firstRange])]
             index += 1
             while index < lines.count {
@@ -252,7 +261,9 @@ enum MarkdownExtensions {
                 }
             }
             let id = line[labelRange].lowercased()
-            if definitions[id] == nil { definitions[id] = body.joined(separator: "\n") }
+            if definitions[id] == nil {
+                definitions[id] = MarkdownSourceLines(body, origins: Array(source.origins[start..<index]))
+            }
         }
         return (output, definitions)
     }
@@ -268,8 +279,15 @@ enum MarkdownExtensions {
     /// Rewrites the inline syntax of every line outside code and HTML blocks. The title on a `:::` line is plain text
     /// (`MarkdownCallouts` escapes it), so the line is left as written.
     static func rewriteInline(_ lines: [String], footnotes: Footnotes, formulas: Formulas) -> [String] {
+        rewriteInline(MarkdownSourceLines.unmapped(lines), footnotes: footnotes, formulas: formulas).lines
+    }
+
+    static func rewriteInline(_ source: MarkdownSourceLines, footnotes: Footnotes, formulas: Formulas)
+        -> MarkdownSourceLines
+    {
+        let lines = source.lines
         let protection = protection(lines)
-        var output: [String] = []
+        var output = MarkdownSourceLines()
         var index = 0
         // How far an unclosed formula was searched, by closing mark and container; a later opening of the same kind
         // before that line would find no end either.
@@ -277,7 +295,7 @@ enum MarkdownExtensions {
         while index < lines.count {
             let line = lines[index]
             if protection.lines[index] || line.drop(while: { $0 == " " }).hasPrefix(":::") {
-                output.append(line)
+                output.append(line, from: source.origins[index])
                 index += 1
                 continue
             }
@@ -285,7 +303,9 @@ enum MarkdownExtensions {
                 switch displayBlock(lines, at: index, protection: protection, searched: &searched) {
                 case .block(let block):
                     // An HTML block ends only at a blank line, so one follows to keep the next lines out of it.
-                    output += [block.prefix + formulas.block(block.latex, source: block.source), block.blankLine]
+                    let origins = source.origins[index..<block.end].reduce(into: Set<Int>()) { $0.formUnion($1) }
+                    output.append(block.prefix + formulas.block(block.latex, source: block.source), from: origins)
+                    output.append(block.blankLine, from: [])
                     index = block.end
                     continue
                 case .none:
@@ -294,7 +314,7 @@ enum MarkdownExtensions {
             }
             index += 1
             guard let spans = protection.spans[index - 1] else {
-                output.append(rewriteInline(line, footnotes, formulas))
+                output.append(rewriteInline(line, footnotes, formulas), from: source.origins[index - 1])
                 continue
             }
             let bytes = Array(line.utf8)
@@ -305,7 +325,9 @@ enum MarkdownExtensions {
                 rewritten += rewriteInline(text(cursor..<span.lowerBound), footnotes, formulas) + text(span)
                 cursor = span.upperBound
             }
-            output.append(rewritten + rewriteInline(text(cursor..<bytes.count), footnotes, formulas))
+            output.append(
+                rewritten + rewriteInline(text(cursor..<bytes.count), footnotes, formulas),
+                from: source.origins[index - 1])
         }
         return output
     }

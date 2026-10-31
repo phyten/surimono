@@ -32,6 +32,7 @@ struct PaperView: NSViewRepresentable {
     var selectsText = false
     var logicalMargin: CGFloat? = nil
     var showsPageNumbers = false
+    var changeMarks: [ChangeMark] = []
     let controller: PaperController
     var onZoomChange: (Double) -> Void
     var onPageChange: (Int) -> Void
@@ -53,7 +54,7 @@ struct PaperView: NSViewRepresentable {
         view.onKey = onKey
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
-            showsPageNumbers: showsPageNumbers)
+            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks)
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
         if abs(view.zoom - zoom) > 0.001 { view.setZoom(zoom, anchor: nil) }
@@ -108,19 +109,23 @@ final class PaperPDFView: PDFView {
     private var documentKey: ViewPageLayout.DocumentKey?
     private var logicalMargin: CGFloat?
     private var showsPageNumbers = false
+    private var changeMarks: [ChangeMark] = []
+    private var drawnChangeMarks: [ChangeMark] = []
     private var isUpdatingDocument = false
 
     func configure(
-        _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool
+        _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool,
+        changeMarks: [ChangeMark] = []
     ) {
         guard
             sourceDocument !== source || self.options != options || self.logicalMargin != logicalMargin
-                || self.showsPageNumbers != showsPageNumbers
+                || self.showsPageNumbers != showsPageNumbers || self.changeMarks != changeMarks
         else { return }
         let position = sourceDocument === source ? currentPageIndex : index
         isUpdatingDocument = true
         self.logicalMargin = logicalMargin
         self.showsPageNumbers = showsPageNumbers
+        self.changeMarks = changeMarks
         self.options = options
         configureDisplay(options)
         show(source, at: position)
@@ -210,7 +215,7 @@ final class PaperPDFView: PDFView {
             pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
             showsNumbers: showsPageNumbers)
         let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
-        if sourceDocument === source, documentKey == key, document != nil {
+        if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks, document != nil {
             // Layout and navigation may change without touching page content or losing the PDFKit page cache.
             pagePlan = plan
             hideScrollersAndInsets()
@@ -219,7 +224,10 @@ final class PaperPDFView: PDFView {
             return
         }
         sourceDocument = source
-        let copy = key.requiresCopy ? ViewPageDocument.make(source, plan: plan, margin: logicalMargin ?? 0) : source
+        let copy =
+            key.requiresCopy || !changeMarks.isEmpty
+            ? ViewPageDocument.make(source, plan: plan, margin: logicalMargin ?? 0, changeMarks: changeMarks) : source
+        drawnChangeMarks = changeMarks
         documentKey = copy != nil ? key : nil
         let document = copy ?? source
         pagePlan =

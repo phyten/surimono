@@ -3,7 +3,18 @@ import Markdown
 
 public enum MarkdownConverter {
     public static func convert(_ text: String) -> HTMLFragment {
-        var lines = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
+        convertDocument(text, mapsSource: false).fragment
+    }
+
+    public static func convertWithSourceMap(_ text: String) -> MarkdownMappedDocument {
+        convertDocument(text, mapsSource: true)
+    }
+
+    private static func convertDocument(_ text: String, mapsSource: Bool) -> MarkdownMappedDocument {
+        let original = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
+        var source = mapsSource ? MarkdownSourceLines(original) : .unmapped(original)
+        var lines = original
+        let mapping = mapsSource ? BlockMapping(original: original) : nil
         var title: String?
         if lines.first == "---", let end = lines.dropFirst().firstIndex(of: "---") {
             for line in lines[1..<end] where line.hasPrefix("title:") {
@@ -16,54 +27,102 @@ public enum MarkdownConverter {
                 title = value
             }
             lines.removeFirst(end + 1)
+            source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
         }
-        let extracted = MarkdownExtensions.extractFootnotes(lines)
-        let footnotes = MarkdownExtensions.Footnotes(definitions: extracted.definitions)
+        let extracted = MarkdownExtensions.extractFootnotes(source)
+        let footnotes = MarkdownExtensions.Footnotes(
+            definitions: extracted.definitions.mapValues { $0.lines.joined(separator: "\n") })
         let formulas = MarkdownExtensions.Formulas()
         let (body, document) = renderBody(
-            extracted.lines, footnotes: footnotes, formulas: formulas, anchorsHeadings: true)
+            extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping)
         if title == nil { title = firstHeading(in: document, formulas: formulas) }
-        let html = body + footnoteSection(footnotes, formulas: formulas)
+        let html =
+            body + footnoteSection(footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping)
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = MathRenderer.fontFaces(for: html)
-        return HTMLFragment(body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title)
+        return MarkdownMappedDocument(
+            fragment: HTMLFragment(body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title),
+            blocks: mapping?.blocks ?? [])
+    }
+
+    private final class BlockMapping {
+        let original: [String]
+        var blocks: [MarkdownBlock] = []
+        var occurrences: [String: Int] = [:]
+
+        init(original: [String]) { self.original = original }
+
+        func tag(_ html: String, lines: Set<Int>, kind: String) -> String {
+            guard !lines.isEmpty, let end = html.firstIndex(of: ">"), html.first == "<" else { return html }
+            let content = lines.sorted().compactMap { original.indices.contains($0 - 1) ? original[$0 - 1] : nil }
+                .joined(separator: "\n")
+            let digest = String(ContentHash.of(Data((kind + "\n" + content).utf8)).hex.prefix(24))
+            let occurrence = occurrences[digest, default: 0]
+            occurrences[digest] = occurrence + 1
+            let id = "md-\(digest)-\(occurrence)"
+            blocks.append(MarkdownBlock(id: id, lines: lines))
+            return String(html[..<end]) + " data-surimono-block=\"\(id)\"" + html[end...]
+        }
     }
 
     /// The source lines the AST was parsed from, the heading anchors still to hand out in document order, and the
     /// formulas whose tokens the text holds.
     private final class Context {
         let sourceLines: [String]
+        let origins: [Set<Int>]
+        let mapping: BlockMapping?
         let anchors: [MarkdownExtensions.HeadingAnchor]
         let formulas: MarkdownExtensions.Formulas
         var nextAnchor = 0
 
         init(
-            sourceLines: [String], anchors: [MarkdownExtensions.HeadingAnchor], formulas: MarkdownExtensions.Formulas
+            source: MarkdownSourceLines, anchors: [MarkdownExtensions.HeadingAnchor],
+            formulas: MarkdownExtensions.Formulas,
+            mapping: BlockMapping?
         ) {
-            self.sourceLines = sourceLines
+            sourceLines = source.lines
+            origins = source.origins
+            self.mapping = mapping
             self.anchors = anchors
             self.formulas = formulas
         }
     }
 
     private static func renderBody(
-        _ lines: [String], footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        anchorsHeadings: Bool
+        _ lines: MarkdownSourceLines, footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
+        anchorsHeadings: Bool, mapping: BlockMapping? = nil
     ) -> (String, Document) {
         let source = MarkdownCallouts.preprocess(
             MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas))
-        let document = Document(parsing: source, options: [.disableSmartOpts])
+        let document = Document(parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
         let context = Context(
-            sourceLines: source.components(separatedBy: "\n"),
+            source: source,
             anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
-            formulas: formulas)
+            formulas: formulas, mapping: mapping)
         return (render(document, context), document)
+    }
+
+    private static func sourceLines(of node: any Markup, _ context: Context) -> Set<Int> {
+        guard let range = node.range else { return [] }
+        let start = max(0, range.lowerBound.line - 1)
+        var end = min(context.origins.count, range.upperBound.line)
+        if node is ListItem {
+            while end > start, context.sourceLines[end - 1].trimmingCharacters(in: .whitespaces).isEmpty { end -= 1 }
+        }
+        guard start < end else { return [] }
+        return context.origins[start..<end].reduce(into: Set<Int>()) { $0.formUnion($1) }
+    }
+
+    private static func mapped(_ html: String, node: any Markup, _ context: Context) -> String {
+        context.mapping?.tag(html, lines: sourceLines(of: node, context), kind: String(describing: type(of: node)))
+            ?? html
     }
 
     /// The notes in the order the text first refers to them. A note may refer to another note, which then joins the
     /// end of the list. Paper has no way back from a note, so the notes carry no return links.
     private static func footnoteSection(
-        _ footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas
+        _ footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
+        definitions: [String: MarkdownSourceLines], mapping: BlockMapping?
     ) -> String {
         guard !footnotes.order.isEmpty else { return "" }
         var items = ""
@@ -71,9 +130,13 @@ public enum MarkdownConverter {
         while index < footnotes.order.count {
             let definition = footnotes.definitions[footnotes.order[index]] ?? ""
             let (html, _) = renderBody(
-                definition.components(separatedBy: "\n"), footnotes: footnotes, formulas: formulas,
+                MarkdownSourceLines.unmapped(definition.components(separatedBy: "\n")), footnotes: footnotes,
+                formulas: formulas,
                 anchorsHeadings: false)
-            items += "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
+            let item = "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
+            let origins =
+                definitions[footnotes.order[index]]?.origins.reduce(into: Set<Int>()) { $0.formUnion($1) } ?? []
+            items += mapping?.tag(item, lines: origins, kind: "footnote") ?? item
             index += 1
         }
         return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
@@ -91,6 +154,19 @@ public enum MarkdownConverter {
 
     // Render from the AST because HTMLFormatter does not escape text or attributes.
     private static func render(_ node: any Markup, _ context: Context, autolinks: Bool = true) -> String {
+        let html = renderUnmapped(node, context, autolinks: autolinks)
+        switch node {
+        case is Paragraph, is Heading, is CodeBlock, is BlockQuote, is ThematicBreak, is Table:
+            return mapped(html, node: node, context)
+        case let raw as HTMLBlock
+        where raw.rawHTML.hasPrefix("<div class=\"math-block\"")
+            || raw.rawHTML.hasPrefix("<div class=\"callout "):
+            return mapped(html, node: node, context)
+        default: return html
+        }
+    }
+
+    private static func renderUnmapped(_ node: any Markup, _ context: Context, autolinks: Bool) -> String {
         func children(allowLinks: Bool? = nil) -> String {
             renderChildren(node, context, autolinks: allowLinks ?? autolinks)
         }
@@ -246,7 +322,9 @@ public enum MarkdownConverter {
         if breakIndex < inline.count {
             let remainder = inline.dropFirst(breakIndex + 1).compactMap { $0 as? any InlineMarkup }
             if !remainder.isEmpty {
-                body += render(Paragraph(remainder), context, autolinks: autolinks)
+                let paragraphHTML = render(Paragraph(remainder), context, autolinks: autolinks)
+                let origins = Self.sourceLines(of: paragraph, context).subtracting(context.origins[start.line - 1])
+                body += context.mapping?.tag(paragraphHTML, lines: origins, kind: "Paragraph") ?? paragraphHTML
             }
         }
         body += quote.children.dropFirst().map { render($0, context, autolinks: autolinks) }.joined()
@@ -275,7 +353,7 @@ public enum MarkdownConverter {
                 return tight ? prefix + text : "<p>\(prefix)\(text)</p>\n"
             }.joined()
             let attributes = item.checkbox == nil ? "" : " class=\"task-list-item\""
-            return "<li\(attributes)>\(leadsWithCheckbox ? checkbox : "")\(body)</li>\n"
+            return mapped("<li\(attributes)>\(leadsWithCheckbox ? checkbox : "")\(body)</li>\n", node: item, context)
         }.joined()
     }
 
@@ -332,7 +410,10 @@ public enum MarkdownConverter {
         var index = 0
         while index < children.count {
             if let list = looseDefinitionList(children, at: index, context, autolinks: autolinks) {
-                output += list.html
+                let origins = children[index..<(index + list.consumed)].reduce(into: Set<Int>()) {
+                    $0.formUnion(sourceLines(of: $1, context))
+                }
+                output += context.mapping?.tag(list.html, lines: origins, kind: "definition-list") ?? list.html
                 index += list.consumed
                 continue
             }

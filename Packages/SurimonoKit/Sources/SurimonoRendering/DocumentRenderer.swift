@@ -92,6 +92,7 @@ public struct RenderSettings: Equatable, Sendable {
     public var opensDetails: Bool
     /// HTML that is a slide deck: print its slides one to a page, landscape in Auto.
     public var slides: SlidePrintRequest?
+    public var markdownChanges: [MarkdownMarkRequest]
 
     var usesPerPageOrientation: Bool {
         layout.kind == .normal && layout.duplex == .none && paperOrientation == .auto
@@ -101,8 +102,9 @@ public struct RenderSettings: Equatable, Sendable {
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
         options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
         smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, paperOrientation: PaperOrientation = .auto,
-        opensDetails: Bool = false, slides: SlidePrintRequest? = nil
+        opensDetails: Bool = false, slides: SlidePrintRequest? = nil, markdownChanges: [MarkdownMarkRequest] = []
     ) {
+        self.markdownChanges = markdownChanges
         self.opensDetails = opensDetails
         self.slides = slides
         self.layout = layout
@@ -146,6 +148,7 @@ public struct PreparedRender {
     public let summary: PrintSummary
     public let unreadableImageURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
+    public let changeMarks: [ChangeMark]
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -178,6 +181,7 @@ public struct RenderResult {
     public let summary: PrintSummary
     public let unreadableImageURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
+    public let changeMarks: [ChangeMark]
 
     init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
         id = prepared.id
@@ -190,6 +194,7 @@ public struct RenderResult {
         summary = prepared.summary
         unreadableImageURLs = prepared.unreadableImageURLs
         smartRemovalCandidates = prepared.smartRemovalCandidates
+        changeMarks = prepared.changeMarks
     }
 }
 
@@ -237,6 +242,8 @@ public final class DocumentRenderer {
         let viewDocument: PDFDocument
         let unreadable: [URL]
         let candidates: [SmartRemovalCandidate]
+        var changeMarks: [ChangeMark] = []
+        var markRequests: [MarkdownMarkRequest] = []
         /// The serialized pages the sheets are drawn from, made once for all compositions.
         var composingSource: CGPDFDocument?
 
@@ -412,7 +419,9 @@ public final class DocumentRenderer {
                     (document, unreadable) = try await imageBundle(images, settings: settings)
                     candidates = []
                 } else {
-                    let result = try await logicalDocument(source, settings: settings)
+                    var outputSettings = settings
+                    outputSettings.markdownChanges = []
+                    let result = try await logicalDocument(source, settings: outputSettings)
                     if source.format == .html, generation == currentGeneration {
                         sourcePageRule = (source, PageRule.orientation(of: result.pageRules))
                     }
@@ -433,12 +442,22 @@ public final class DocumentRenderer {
                 // An older suspended render must not overwrite the cache of a newer request.
                 if generation == currentGeneration { cache = (key, logical) }
             }
+            let requests = source.format == .markdown ? settings.markdownChanges : []
+            if !requests.isEmpty, logical.markRequests != requests {
+                // Geometry comes from a disposable pass; output always uses the anchor-free cached PDF.
+                // Structural selectors in a theme can slightly offset these rectangles, never the output.
+                let marked = try await logicalDocument(source, settings: settings)
+                try Task.checkCancellation()
+                logical.changeMarks = ChangeMarkAnchors.extract(from: marked.document, requests: requests)
+                logical.markRequests = requests
+            }
             let plan = Imposition.plan(pageCount: logical.document.pageCount, layout: settings.layout)
             return PreparedRender(
                 id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
                 logicalDocument: logical.document, viewDocument: logical.viewDocument, plan: plan,
                 summary: PrintSummary(plan: plan),
                 unreadableImageURLs: logical.unreadable, smartRemovalCandidates: logical.candidates,
+                changeMarks: requests.isEmpty ? [] : logical.changeMarks,
                 sheetKey: SheetKey(
                     logicalID: logical.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: settings.usesPerPageOrientation
@@ -595,7 +614,13 @@ public final class DocumentRenderer {
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
                     readsPageRules: true))
         case .markdown, .org, .plainText, .csv, .latex:
-            guard let fragment = try Self.themedFragment(source) else { throw RenderingError.unsupportedFormat }
+            let fragment: HTMLFragment
+            if source.format == .markdown, !settings.markdownChanges.isEmpty {
+                fragment = MarkdownConverter.convertWithSourceMap(try Self.decodedText(source.data)).fragment
+            } else {
+                guard let themed = try Self.themedFragment(source) else { throw RenderingError.unsupportedFormat }
+                fragment = themed
+            }
             let directory = source.fileURL?.deletingLastPathComponent()
             // Without clear pages the paper stays on the text pages, which WebKit draws inside the margins only.
             let separatesPaper = WebPaginator.drawsClearPages
@@ -604,11 +629,15 @@ public final class DocumentRenderer {
                 textScale: settings.textScale, removesPaper: separatesPaper)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margin = settings.layout.logicalMarginsInMillimeters(options: settings.options)
+            let marksScript = source.format == .markdown ? ChangeMarkAnchors.javaScript(settings.markdownChanges) : ""
+            let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
+            let parts = [marksScript, themeScript].filter { !$0.isEmpty }
+            let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")
             let text = try await paginate(
                 PaginationRequest(
                     source: .html(html, baseURL: directory), pageSize: pageSize, margins: .uniform(millimeters: margin),
                     allowsJavaScript: false,
-                    preparationScript: separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script,
+                    preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !separatesPaper))
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(

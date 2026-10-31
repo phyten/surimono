@@ -46,6 +46,7 @@ final class ThemeSamples {
             if key != nil { invalidate() }
             return
         }
+        settings.markdownChanges = []
         settings.theme = PrintTheme(id: "", name: "", css: "")
         let key = Key(source: source, settings: settings)
         guard key != self.key else { return }

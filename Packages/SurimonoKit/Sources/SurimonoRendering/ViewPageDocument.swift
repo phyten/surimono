@@ -5,15 +5,33 @@ import SurimonoCore
 /// Numbers are baked into the view copy on the main actor, so PDFKit's tile workers need no application callbacks.
 @MainActor
 public enum ViewPageDocument {
-    public static func make(_ source: PDFDocument, plan: ViewPageLayout, margin: CGFloat) -> PDFDocument? {
+    public static func make(
+        _ source: PDFDocument, plan: ViewPageLayout, margin: CGFloat, changeMarks: [ChangeMark] = []
+    ) -> PDFDocument? {
         let result = PDFDocument()
         for (viewIndex, logicalIndex) in plan.logicalIndices.enumerated() {
             if let logicalIndex {
                 guard let original = source.page(at: logicalIndex) else { return nil }
+                let crop = plan.crops(at: viewIndex)
+                var box = original.bounds(for: .cropBox)
+                let top = crop.top ? margin : 0
+                let bottom = crop.bottom ? margin : 0
+                let left = crop.left ? margin : 0
+                let right = crop.right ? margin : 0
+                if margin.isFinite, margin >= 0, top + bottom < box.height, left + right < box.width {
+                    box.origin.x += left
+                    box.origin.y += bottom
+                    box.size.width -= left + right
+                    box.size.height -= top + bottom
+                }
                 let page: PDFPage
-                if let number = plan.number(at: viewIndex) {
-                    guard let numbered = numberedCopy(original, number: number, margin: margin) else { return nil }
-                    page = numbered
+                let marks = changeMarks.filter { $0.pageIndex == logicalIndex }
+                if plan.number(at: viewIndex) != nil || !marks.isEmpty {
+                    guard
+                        let decorated = decoratedCopy(
+                            original, number: plan.number(at: viewIndex), margin: margin, marks: marks, visibleBox: box)
+                    else { return nil }
+                    page = decorated
                 } else {
                     guard let copy = original.copy() as? PDFPage else { return nil }
                     page = copy
@@ -24,19 +42,7 @@ public enum ViewPageDocument {
                     guard let copy = annotation.copy() as? PDFAnnotation else { return nil }
                     page.addAnnotation(copy)
                 }
-                let crop = plan.crops(at: viewIndex)
-                var box = page.bounds(for: .cropBox)
-                let top = crop.top ? margin : 0
-                let bottom = crop.bottom ? margin : 0
-                let left = crop.left ? margin : 0
-                let right = crop.right ? margin : 0
-                if margin.isFinite, margin >= 0, top + bottom < box.height, left + right < box.width {
-                    box.origin.x += left
-                    box.origin.y += bottom
-                    box.size.width -= left + right
-                    box.size.height -= top + bottom
-                    page.setBounds(box, for: .cropBox)
-                }
+                page.setBounds(box, for: .cropBox)
                 result.insert(page, at: viewIndex)
             } else {
                 guard let neighbor = plan.readingIndex(at: viewIndex), let page = source.page(at: neighbor) else {
@@ -70,7 +76,9 @@ public enum ViewPageDocument {
         return result
     }
 
-    private static func numberedCopy(_ original: PDFPage, number: Int, margin: CGFloat) -> PDFPage? {
+    private static func decoratedCopy(
+        _ original: PDFPage, number: Int?, margin: CGFloat, marks: [ChangeMark], visibleBox: CGRect
+    ) -> PDFPage? {
         guard let source = original.pageRef else { return nil }
         let media = original.bounds(for: .mediaBox)
         let crop = original.bounds(for: .cropBox)
@@ -100,8 +108,14 @@ public enum ViewPageDocument {
         }
         context.saveGState()
         context.concatenate(transform.inverted())
-        PageNumberDrawing.draw(number, in: displayed, margin: margin, context: context)
+        if let number { PageNumberDrawing.draw(number, in: displayed, margin: margin, context: context) }
         context.restoreGState()
+        context.setFillColor(CGColor(srgbRed: 229.0 / 255, green: 83.0 / 255, blue: 61.0 / 255, alpha: 0.7))
+        let textLeft = margin.isFinite && margin > 0 ? media.minX + margin : nil
+        for mark in marks {
+            let bar = mark.bar(in: visibleBox, textLeft: textLeft)
+            if !bar.isNull, !bar.isEmpty { context.fill(bar) }
+        }
         context.endPage()
         context.closePDF()
         guard let page = PDFDocument(data: data as Data)?.page(at: 0) else { return nil }

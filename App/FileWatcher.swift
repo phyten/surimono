@@ -2,8 +2,10 @@ import Foundation
 
 @MainActor
 final class FileWatcher {
-    enum Event: Equatable { case changed, removed }
+    enum Event: Equatable, Sendable { case check, changed, removed }
     private var task: Task<Void, Never>?
+    private var stopped = false
+    private(set) var isReady = false
 
     // Poll the path, not an open descriptor: editors commonly replace the inode on save.
     // Metadata avoids repeatedly reading large PDFs and also detects same-size writes.
@@ -23,13 +25,23 @@ final class FileWatcher {
         }
     }
 
-    init(url: URL, onChange: @escaping @MainActor (Event) -> Void) {
-        let initial = Stamp.read(url)
-        task = Task.detached(priority: .utility) {
+    init(
+        url: URL, beforeCheck: @escaping @Sendable () -> Void = {},
+        onChange: @escaping @MainActor (Event) -> Void
+    ) {
+        task = Task.detached(priority: .utility) { [weak self] in
+            guard !Task.isCancelled else { return }
+            beforeCheck()
+            guard !Task.isCancelled else { return }
+            let initial = Stamp.read(url)
+            // The model may hold bytes older than the first poll. Reconcile even when metadata stays equal.
+            await self?.deliver(initial == nil ? .removed : .check, to: onChange)
             var delivered = initial
             var pending = initial
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                beforeCheck()
+                guard !Task.isCancelled else { return }
                 let current = Stamp.read(url)
                 if current != pending {
                     pending = current
@@ -37,14 +49,21 @@ final class FileWatcher {
                 }
                 if current != delivered {
                     delivered = current
-                    guard !Task.isCancelled else { return }
-                    await onChange(current == nil ? .removed : .changed)
+                    await self?.deliver(current == nil ? .removed : .changed, to: onChange)
                 }
             }
         }
     }
 
+    private func deliver(_ event: Event, to onChange: @MainActor (Event) -> Void) {
+        // Check again on the main actor: stop() may run while this delivery is queued.
+        guard !stopped, !Task.isCancelled else { return }
+        isReady = true
+        onChange(event)
+    }
+
     func stop() {
+        stopped = true
         task?.cancel()
         task = nil
     }
