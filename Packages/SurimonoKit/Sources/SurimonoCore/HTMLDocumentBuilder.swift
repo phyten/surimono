@@ -1,9 +1,11 @@
 import Foundation
 
 public enum HTMLDocumentBuilder {
+    /// - Parameter removesPaper: Whether the page is laid out without the theme's paper, which then goes on a page of
+    ///   its own (`PaperBackground`).
     public static func build(
         fragment: HTMLFragment, format: DocumentFormat, theme: PrintTheme, baseURL: URL? = nil, language: String = "ja",
-        textScale: Double = 1
+        textScale: Double = 1, removesPaper: Bool = false
     ) -> String {
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         return """
@@ -14,7 +16,7 @@ public enum HTMLDocumentBuilder {
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
             \(styleSheet(theme: theme, textScale: textScale))
-            </style>
+            </style>\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)">
             \(fragment.body)

@@ -124,6 +124,9 @@ public struct PaginationRequest: Sendable {
     public let preparationScript: String?
     /// Whether the result should carry the document's `@page` rules.
     public let readsPageRules: Bool
+    /// Whether a page without a background of its own is laid on white; false leaves it clear, for a paper laid under
+    /// it (`WebPaginator.drawsClearPages`).
+    public var drawsBackground = true
 }
 
 /// The logical pages of a render, ready to show before the printed sheets are composed.
@@ -263,7 +266,7 @@ public final class DocumentRenderer {
                 try await WebPaginator().paginateWithResult(
                     request.source, pageSize: request.pageSize, margins: request.margins,
                     allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
-                    readsPageRules: request.readsPageRules)
+                    readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground)
             }
         }
     }
@@ -582,17 +585,49 @@ public final class DocumentRenderer {
         case .markdown, .org, .plainText, .csv, .latex:
             guard let fragment = try Self.themedFragment(source) else { throw RenderingError.unsupportedFormat }
             let directory = source.fileURL?.deletingLastPathComponent()
+            // Without clear pages the paper stays on the text pages, which WebKit draws inside the margins only.
+            let separatesPaper = WebPaginator.drawsClearPages
             let html = HTMLDocumentBuilder.build(
                 fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
-                textScale: settings.textScale)
-            return try await paginate(
+                textScale: settings.textScale, removesPaper: separatesPaper)
+            let pageSize = settings.layout.logicalPageSize(options: settings.options)
+            let margin = settings.layout.logicalMarginsInMillimeters(options: settings.options)
+            let text = try await paginate(
                 PaginationRequest(
-                    source: .html(html, baseURL: directory),
-                    pageSize: settings.layout.logicalPageSize(options: settings.options),
-                    margins: .uniform(
-                        millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
-                    allowsJavaScript: false, preparationScript: settings.theme.script, readsPageRules: false))
+                    source: .html(html, baseURL: directory), pageSize: pageSize, margins: .uniform(millimeters: margin),
+                    allowsJavaScript: false,
+                    preparationScript: separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script,
+                    readsPageRules: false, drawsBackground: !separatesPaper))
+            guard separatesPaper, text.preparationResult == "paper" else { return text }
+            let paperHTML = PaperBackground.document(
+                theme: settings.theme, format: source.format, baseURL: directory, textScale: settings.textScale,
+                pageSize: pageSize, marginInMillimeters: margin, pixelsPerPoint: WebPaginator.printPixelsPerPoint)
+            // A paper that cannot be drawn leaves the text on white, as a theme without one; a cancelled render stops.
+            let paper: WebPaginator.Result
+            do {
+                paper = try await paginate(
+                    PaginationRequest(
+                        source: .html(paperHTML, baseURL: directory), pageSize: pageSize,
+                        margins: .uniform(millimeters: 0), allowsJavaScript: false,
+                        preparationScript: PaperBackground.opaqueScript, readsPageRules: false))
+            } catch {
+                if error is CancellationError { throw error }
+                try Task.checkCancellation()
+                return text
+            }
+            guard let paperPage = paper.document.page(at: 0),
+                let composed = PaperComposer.compose(text.document, paper: paperPage)
+            else { return text }
+            return WebPaginator.Result(
+                document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules)
         }
+    }
+
+    /// The theme's decorations, then the question whether the theme has paper. The decorations run in a function of
+    /// their own, so neither a failure nor a return of theirs keeps the question from being asked.
+    static func themedPreparation(_ theme: PrintTheme) -> String {
+        guard let script = theme.script, !script.isEmpty else { return PaperBackground.detectionScript }
+        return "try {\n  await (async () => {\n\(script)\n  })();\n} catch (_) {}\n" + PaperBackground.detectionScript
     }
 
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
