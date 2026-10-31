@@ -31,6 +31,8 @@ public enum HTMLDocumentBuilder {
         let scaleCSS =
             textScale != 1 && textScale.isFinite && textScale > 0
             ? "\nhtml { zoom: \(textScale); }" : ""
-        return css + scaleCSS
+        // In the same element, so a theme picker that swaps it brings the theme's fonts along.
+        let fonts = ThemeFonts.faces(forStyleSheet: css)
+        return css + scaleCSS + (fonts.isEmpty ? "" : "\n" + fonts)
     }
 }

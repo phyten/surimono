@@ -26,4 +26,20 @@ struct MathRenderingTests {
         #expect(pdf.contains("+KaTeX_Math-Italic"))
         #expect(pdf.contains("+KaTeX_Main-Regular"))
     }
+
+    @Test("LaTeX 風のテーマは、欧文と等幅を同梱の Computer Modern で、和文を明朝で刷る", .timeLimit(.minutes(1)))
+    func latexThemePrintsComputerModern() async throws {
+        _ = NSApplication.shared
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex" })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let markdown = "# Title\n\nThe quick brown fox と日本語の文、**bold** と `code`。"
+        let result = try await DocumentRenderer().render(
+            DocumentSource(data: Data(markdown.utf8), format: .markdown), settings: settings)
+        let pdf = String(decoding: try #require(result.logicalDocument.dataRepresentation()), as: UTF8.self)
+        #expect(pdf.contains("+KaTeX_Main-Regular"))
+        #expect(pdf.contains("+KaTeX_Main-Bold"))
+        #expect(pdf.contains("+KaTeX_Typewriter-Regular"))
+        #expect(pdf.contains("HiraMinProN"))
+    }
 }
