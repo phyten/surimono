@@ -153,7 +153,7 @@ make clean
 
 - リリースは `v*` のタグで動く release.yml が作る（手順は `project-surimono-release`）。GitHub Releases に、新しく入れる人向けの DMG（アプリと `/Applications` へのリンク）、アプリ内アップデート用の ZIP、それぞれの SHA-256、`appcast.xml` を載せる。
 - アプリ内アップデートは Sparkle 2（`AppUpdater`）。公開版は Info.plist の `SUFeedURL`（`releases/latest/download/appcast.xml`）を読み、`SUPublicEDKey` の公開鍵で ZIP の EdDSA 署名を確かめてから入れ替えて再起動する。
-  - 自動の確認は、Sparkle が 2 回目の起動で利用者に聞く（`SUEnableAutomaticChecks` を Info.plist に書かない）。断られたら、メニューの「アップデートを確認…」のときだけ通信する。設定の「一般」でも切り替えられる。システム情報の送信（`SUEnableSystemProfiling`）は使わない。
+  - 自動の確認は、Sparkle が 2 回目の起動で利用者に聞く（`SUEnableAutomaticChecks` を Info.plist に書かない）。許されていれば、Sparkle の 1 日ごとの確認に加えて起動のたびに裏で確認する（`AppUpdater.checkOnLaunch`。Sparkle だけでは前回から 1 日たつまで起動しても確かめない）。断られたら、メニューの「アップデートを確認…」のときだけ通信する。設定の「一般」でも切り替えられる。システム情報の送信（`SUEnableSystemProfiling`）は使わない。
   - 開発版は `SURIMONO_UPDATE_FEED_URL` が空なので Sparkle を起動せず、メニューにも出さない（`AppUpdaterTests`）。
   - appcast は、各リリースが自分の ZIP だけを載せる。配られるのは GitHub の「Latest」のリリース（プレリリースは配らない）。
   - 秘密鍵は、メンテナのログインキーチェーン（Sparkle の `generate_keys`、アカウント `io.github.phyten.Surimono`）と、リポジトリの Secret `SPARKLE_PRIVATE_KEY` にある。なくすと、入れてある版はその後の更新を確かめられず、入れ直しになる。鍵を替えるときは Sparkle の鍵の切り替えの手順に従う。
