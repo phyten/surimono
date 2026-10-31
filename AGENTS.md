@@ -193,6 +193,11 @@ make clean
 - コミットは論理的な最小単位ごと。メッセージは**日本語の Conventional Commits**（例: `feat(print): A5 冊子レイアウトを追加`）。AI と協業したコミットには `Co-Authored-By` を付ける。
 - **エージェントは明示的に頼まれない限り commit / push / merge をしない**。
 - PR 本文は日本語で、テンプレート（`.github/PULL_REQUEST_TEMPLATE.md`）に沿って書く。
+- **見た目や操作が変わる PR には、注釈付きのスクリーンショットを貼る**（テンプレートの「スクリーンショット」の欄）。
+  - 撮る: 開発版のスナップショット（`project-surimono-dev` の `-SurimonoSnapshotPath`）で、変えたところが写る状態を撮る。ライト・ダークで見た目が違うものは両方。文書は `Samples/` のサンプルか自分で作った架空のものだけを使い、ユーザーの文書・個人情報・デスクトップを写さない。
+  - 注釈: `swift .agents/skills/project-surimono-dev/scripts/annotate-screenshot.swift <入力.png> <出力.png> "x,y,幅,高さ:ラベル" …` で、変えた箇所に赤い枠と番号付きの短いラベルを付ける（座標は画像の左上からのピクセル）。本文では番号ごとに何が変わったかを書く。
+  - 置き場: 画像は master に入れず、孤立したブランチ `pr-assets` の `pr-<番号>/` に push して、`https://raw.githubusercontent.com/phyten/surimono/pr-assets/pr-<番号>/<名前>.png` を本文に貼る（`gh` は PR へ画像を直接上げられないため）。
+  - 撮れない変更（メニューを開いた状態、実機のホイール操作など）は、撮れなかったことと代わりに確かめたことを書く。
 
 ## 開発資料（.docs/）
 
