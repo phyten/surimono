@@ -7,44 +7,44 @@ struct PrintPressBar: View {
     @State private var showsOptions = false
 
     var body: some View {
-        GeometryReader { geometry in
-            let density = Density(width: geometry.size.width)
-            HStack(spacing: density == .regular ? 14 : 12) {
-                layouts(density)
-                summary(density)
-                actions
-                Button {
-                    model.performPrintCommand()
-                } label: {
-                    VStack(spacing: 0) {
-                        Text("Print").font(.system(size: 16, weight: .bold)).tracking(1.6)
-                        Spacer(minLength: 0)
-                        Text(verbatim: "⌘P").font(.system(size: 9.5)).tracking(0.4).opacity(0.85)
-                    }
-                    .padding(.top, 15)
-                    .padding(.bottom, 12)
-                }
-                .buttonStyle(SealButtonStyle())
-                .disabled(!model.canOutput)
-                .help(Text(verbatim: printHelp))
-                .accessibilityLabel(Text(verbatim: printAccessibilityLabel))
-            }
-            .padding(.leading, 12)
-            .padding(.trailing, 14)
-            .frame(width: geometry.size.width, height: geometry.size.height)
+        PrintPressLayout {
+            layouts(.compact)
+            summary(.compact)
+            actions
+            printButton
         }
-        .frame(height: 112)
+        .padding(.vertical, 12)
+        .padding(.leading, 12)
+        .padding(.trailing, 14)
+        .frame(maxWidth: .infinity)
         .background(PrintPalette.chrome)
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
+        .popover(isPresented: $showsOptions, arrowEdge: .top) {
+            PrintOptionsPopover(model: model)
+        }
     }
 
-    /// The bar tightens in narrow windows, like the mock's container queries.
     enum Density {
         case regular, medium, compact
+    }
 
-        init(width: CGFloat) {
-            self = width >= 1080 ? .regular : width >= 940 ? .medium : .compact
+    private var printButton: some View {
+        Button {
+            model.performPrintCommand()
+        } label: {
+            VStack(spacing: 0) {
+                Text("Print").font(.system(size: 16, weight: .bold))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Text(verbatim: "⌘P").font(.system(size: 9.5)).tracking(0.4).opacity(0.85)
+            }
+            .padding(.top, 15)
+            .padding(.bottom, 12)
         }
+        .buttonStyle(SealButtonStyle())
+        .disabled(!model.canOutput)
+        .help(Text(verbatim: printHelp))
+        .accessibilityLabel(Text(verbatim: printAccessibilityLabel))
     }
 
     private func layouts(_ density: Density) -> some View {
@@ -66,14 +66,16 @@ struct PrintPressBar: View {
 
     private func summary(_ density: Density) -> some View {
         HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
+            PrintSummaryColumnLayout {
                 PaperOrientationControl(model: model)
                     .controlSize(.small)
+                    .fixedSize()
                 HStack(spacing: 6) {
                     Text(verbatim: model.summary ?? String(localized: "Preparing pages…"))
                         .font(.system(size: density == .regular ? 13.5 : 12.5))
                         .monospacedDigit()
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     if model.isRendering { ProgressView().controlSize(.mini) }
                 }
                 if let note {
@@ -81,13 +83,14 @@ struct PrintPressBar: View {
                     Text(verbatim: note)
                         .font(.system(size: 11.5))
                         .foregroundStyle(PrintPalette.ink2)
-                        .lineLimit(optionsText == nil ? 2 : 1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let options = optionsText {
-                    Text(verbatim: options).font(.system(size: 11)).foregroundStyle(PrintPalette.ai).lineLimit(1)
+                    Text(verbatim: options).font(.system(size: 11)).foregroundStyle(PrintPalette.ai)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             Button {
                 showsOptions.toggle()
             } label: {
@@ -104,13 +107,9 @@ struct PrintPressBar: View {
             .buttonStyle(PrintBorderedButtonStyle(height: 27))
             .help("Page numbers, margins, and back side rotation")
             .accessibilityLabel(Text("Print Options"))
-            .popover(isPresented: $showsOptions, arrowEdge: .top) {
-                PrintOptionsPopover(model: model)
-            }
         }
         .padding(.leading, 16)
         .overlay(alignment: .leading) { Rectangle().fill(PrintPalette.line).frame(width: 1, height: 50) }
-        .frame(maxWidth: .infinity)
     }
 
     private var actions: some View {
@@ -241,12 +240,13 @@ private struct LayoutCard: View {
                 Text(verbatim: title)
                     .font(.system(size: compact ? 11 : 12, weight: .semibold))
                     .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.8)
             }
             .padding(.horizontal, 2)
             .frame(
-                width: density == .regular ? 90 : density == .medium ? 80 : 68, height: density == .regular ? 72 : 66
+                width: density == .regular ? 90 : density == .medium ? 80 : 68, height: density == .regular ? 80 : 76
             )
             .background {
                 RoundedRectangle(cornerRadius: 7)
@@ -414,7 +414,7 @@ struct PrintOptionsPopover: View {
         .foregroundStyle(PrintPalette.ink)
         .tint(PrintPalette.ai)
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 6, trailing: 16))
-        .frame(width: 360)
+        .frame(width: 460)
     }
 
     private var isDuplex: Bool { model.layout.duplex != .none }
@@ -431,7 +431,7 @@ struct PrintOptionsPopover: View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(PrintPalette.line).frame(height: 1)
             HStack(alignment: .top, spacing: 10) {
-                Text(title).font(.system(size: 12.5)).frame(width: 110, alignment: .leading).padding(.top, 3)
+                Text(title).font(.system(size: 12.5)).frame(width: 145, alignment: .leading).padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
                     control()
                     Text(hint)

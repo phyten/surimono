@@ -1468,7 +1468,7 @@ final class DocumentViewModel {
     }
 
     static func summaryText(_ summary: PrintSummary, layout: PrintLayout, locale: Locale) -> String {
-        let language = locale.language.languageCode?.identifier ?? "en"
+        let language = UILanguage.candidates(for: locale.identifier).first { UILanguage.supported.contains($0) } ?? "en"
         let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
         let bindingKey =
             switch layout.duplex {

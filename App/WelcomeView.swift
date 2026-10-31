@@ -62,7 +62,7 @@ final class WelcomeController {
             return
         }
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 420),
             styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.title = "Surimono"
         window.isReleasedWhenClosed = false
@@ -85,6 +85,8 @@ private struct WelcomeView: View {
         VStack(spacing: 16) {
             Image(systemName: "printer").font(.system(size: 36)).foregroundStyle(.secondary)
             Text("Drop a file to preview and print")
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, minHeight: 60)
                 .background(isTargeted ? Color.accentColor.opacity(0.12) : Color.clear)
             Button("Open…") { OpenRouter.shared.showOpenPanel() }

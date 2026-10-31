@@ -60,7 +60,7 @@ struct PrintSourceNotes: View {
             )
             .font(.system(size: 12))
             .foregroundStyle(PrintPalette.ink2)
-            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
             Picker(
                 "Slides to Print",
                 selection: Binding(
@@ -90,8 +90,7 @@ struct PrintSourceNotes: View {
             Text(verbatim: text)
                 .font(.system(size: 12))
                 .foregroundStyle(PrintPalette.ink2)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
             Button(action: perform) {
                 Text(action).font(.system(size: 12)).padding(.horizontal, 10)
             }

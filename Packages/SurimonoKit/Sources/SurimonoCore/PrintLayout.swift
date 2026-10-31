@@ -170,19 +170,26 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public var pagesPerSide: Int { kind == .handout3 ? 3 : kind == .normal ? 1 : 2 }
 
     public func displayName(language: String = "en") -> String {
-        let japanese = language.lowercased().hasPrefix("ja")
+        let terms: [String: [String]] = [
+            "en": ["Single-sided", "Duplex", "3-up + Notes", "2-up", "Booklet"],
+            "ja": ["片面", "両面", "3枚＋メモ", "2アップ", "中綴じ"],
+            "zh-Hans": ["单面", "双面", "每页3张＋笔记", "每页2张", "小册子"],
+            "zh-Hant": ["單面", "雙面", "每頁3張＋筆記", "每頁2張", "小冊子"],
+            "ko": ["단면", "양면", "3쪽 + 메모", "2쪽 모아찍기", "소책자"],
+            "fr": ["Recto", "Recto verso", "3 pages + notes", "2 pages par feuille", "Livret"],
+            "de": ["Einseitig", "Beidseitig", "3 Seiten + Notizen", "2 Seiten pro Blatt", "Broschüre"],
+            "es": ["Una cara", "Doble cara", "3 páginas + notas", "2 páginas por hoja", "Folleto"],
+        ]
+        let index: Int
         switch kind {
-        case .normal:
-            return "\(sheet.displayName) "
-                + (duplex == .none ? (japanese ? "片面" : "Single-sided") : (japanese ? "両面" : "Duplex"))
-        case .handout3:
-            return "\(sheet.displayName) " + (japanese ? "3枚＋メモ" : "3-up + Notes")
-        case .twoUp:
-            return "\(sheet.displayName) " + (japanese ? "2アップ" : "2-up")
-        case .booklet:
-            return "\(sheet.displayName) " + (japanese ? "中綴じ" : "Booklet")
-                + " → \((sheet.halved ?? sheet).displayName)"
+        case .normal: index = duplex == .none ? 0 : 1
+        case .handout3: index = 2
+        case .twoUp: index = 3
+        case .booklet: index = 4
         }
+        let names = terms.mapValues { $0[index] }
+        let title = UILanguage.name(names, language: language, english: names["en"] ?? "")
+        return "\(sheet.displayName) \(title)" + (kind == .booklet ? " → \((sheet.halved ?? sheet).displayName)" : "")
     }
 
     public static let a4Single = PrintLayout(validatedID: "a4Single", kind: .normal, sheet: .a4, duplex: .none)

@@ -81,7 +81,10 @@ private struct SealButton: View {
     var body: some View {
         configuration.label
             .foregroundStyle(.white)
-            .frame(width: 62, height: 62)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 14)
+            .frame(minWidth: 62)
+            .frame(height: 62)
             .background {
                 RoundedRectangle(cornerRadius: 7)
                     .fill(

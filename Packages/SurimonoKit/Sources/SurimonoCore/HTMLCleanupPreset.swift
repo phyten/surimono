@@ -27,8 +27,25 @@ public struct HTMLCleanupPreset: Codable, Equatable, Sendable, Identifiable {
         case id, name, localizedNames, removeSelectors, keepSelectors, extraCSS, disablesJavaScript
     }
 
+    private enum LegacyKeys: String, CodingKey { case ja }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        name = try values.decode(String.self, forKey: .name)
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        localizedNames = try values.decodeIfPresent([String: String].self, forKey: .localizedNames) ?? [:]
+        if let japanese = try legacy.decodeIfPresent(String.self, forKey: .ja), localizedNames["ja"] == nil {
+            localizedNames["ja"] = japanese
+        }
+        removeSelectors = try values.decodeIfPresent([String].self, forKey: .removeSelectors) ?? []
+        keepSelectors = try values.decodeIfPresent([String].self, forKey: .keepSelectors) ?? []
+        extraCSS = try values.decodeIfPresent(String.self, forKey: .extraCSS) ?? ""
+        disablesJavaScript = try values.decodeIfPresent(Bool.self, forKey: .disablesJavaScript) ?? false
+    }
+
     public func displayName(language: String = "en") -> String {
-        localizedNames[language] ?? localizedNames[String(language.prefix(2))] ?? name
+        UILanguage.name(localizedNames, language: language, english: name)
     }
 }
 

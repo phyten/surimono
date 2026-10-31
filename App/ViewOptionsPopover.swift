@@ -31,6 +31,7 @@ struct ViewOptionsPopover: View {
                         Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
                         Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
                     }
+                    .pickerStyle(.menu)
                 }
                 GridRow {
                     rowLabel("Scrolling")
@@ -47,6 +48,7 @@ struct ViewOptionsPopover: View {
                             Text(transition.title).tag(transition)
                         }
                     }
+                    .pickerStyle(.menu)
                 }
                 GridRow {
                     rowLabel("Cover")
@@ -93,7 +95,7 @@ struct ViewOptionsPopover: View {
             }
         }
         .padding(16)
-        .frame(width: 460)
+        .frame(width: 560)
         .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
     }
 

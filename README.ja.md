@@ -93,3 +93,10 @@ Issue・Pull Request を歓迎します（日本語・英語どちらでも大�
 ## ライセンス
 
 [MIT](LICENSE) © 2026 phyten
+
+## 言語
+
+英語・日本語・中国語（簡体字）・中国語（繁体字）・韓国語・フランス語・ドイツ語・スペイン語に対応しています。
+**設定 › 一般 › 言語**（またはメニューバーの **設定 › 言語**）から選び、案内に従って再起動してください。**システム（既定）** は macOS の言語設定に従います。**macOS のシステム設定 › 一般 › 言語と地域 › アプリケーション** からも変更できます。
+
+ホスト側で表示を確認する際は、Debug アプリに `-AppleLanguages '(de)'` を指定します。`de` は `en`・`ja`・`zh-Hans`・`zh-Hant`・`ko`・`fr`・`es` に置き換えられます。既存の `-SurimonoSnapshotPath`、`-SurimonoPopover style|view`、`-SurimonoMode print|compare`、`-SurimonoMenu full` と組み合わせて使えます。言語ごとに新しいインスタンスを起動してください。メニューやテーマ名も再起動後に切り替わります。

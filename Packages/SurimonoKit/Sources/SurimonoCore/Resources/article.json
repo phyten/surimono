@@ -3,7 +3,13 @@
   "name": "Article Only",
   "localizedNames": {
     "en": "Article Only",
-    "ja": "本文のみ"
+    "ja": "本文のみ",
+    "zh-Hans": "仅正文",
+    "zh-Hant": "僅內文",
+    "ko": "본문만",
+    "fr": "Article seul",
+    "de": "Nur Artikel",
+    "es": "Solo el artículo"
   },
   "removeSelectors": [
     "nav",

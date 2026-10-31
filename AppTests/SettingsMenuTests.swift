@@ -32,12 +32,20 @@ struct SettingsMenuTests {
     func settingsItems() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Settings") }?.submenu)
         let keys: [String?] = [
-            "Scroll Sensitivity", "Default Page Turn", "New Document View", nil,
+            "Language", nil, "Scroll Sensitivity", "Default Page Turn", "New Document View", nil,
             "Join Pages in Single-Page Scrolling", "Page Numbers in View Mode", "Page Numbers in Print", nil,
             "Default Print Layout", "Default Margins", "Default Style", nil, "All Settings…",
         ]
         #expect(menu.items.map { $0.isSeparatorItem ? nil : $0.title } == keys.map { $0.map(localized) })
-        let sensitivity = try #require(menu.items.first?.submenu)
+        let languageMenu = try #require(menu.items.first { $0.title == localized("Language") }?.submenu)
+        let currentLocale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        let languageNames = ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"].map { code in
+            let translated = currentLocale.localizedString(forIdentifier: code) ?? code
+            let native = Locale(identifier: code).localizedString(forIdentifier: code) ?? code
+            return translated == native ? native : "\(translated) \(native)"
+        }
+        #expect(languageMenu.items.map(\.title) == [localized("System (default)")] + languageNames)
+        let sensitivity = try #require(menu.items.first { $0.title == localized("Scroll Sensitivity") }?.submenu)
         #expect(sensitivity.items.map(\.title) == ["Low", "Normal", "High"].map(localized))
         let turn = try #require(menu.items.first { $0.title == localized("Default Page Turn") }?.submenu)
         #expect(turn.items.count == ViewOptions.Transition.allCases.count + 1)

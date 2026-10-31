@@ -111,7 +111,7 @@
 			buildConfigurationList = A00000000000000000000050;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, ja, Base);
+			knownRegions = (en, ja, "zh-Hans", "zh-Hant", ko, fr, de, es, Base);
 			mainGroup = A00000000000000000000024;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (A00000000000000000000060, A00000000000000000000063);

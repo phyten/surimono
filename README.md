@@ -94,3 +94,10 @@ Issues and pull requests are welcome, in English or Japanese. See [CONTRIBUTING.
 ## License
 
 [MIT](LICENSE) © 2026 phyten
+
+## Languages
+
+Surimono supports English, Japanese, Simplified Chinese, Traditional Chinese, Korean, French, German, and Spanish.
+Choose **Settings › General › Language** (or **Settings › Language** in the menu bar), then relaunch when prompted. **System (default)** follows macOS. You can also choose the app language in **macOS System Settings › General › Language & Region › Applications**.
+
+For host-side visual checks, launch the Debug app with `-AppleLanguages '(de)'` (replace `de` with `en`, `ja`, `zh-Hans`, `zh-Hant`, `ko`, `fr`, or `es`). This works with the existing `-SurimonoSnapshotPath`, `-SurimonoPopover style|view`, `-SurimonoMode print|compare`, and `-SurimonoMenu full` arguments. Use a fresh instance for each language. Language changes take effect on relaunch, including menus and theme names.

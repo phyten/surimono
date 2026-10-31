@@ -197,23 +197,28 @@ struct ToastOverlay: View {
                     Image(systemName: toast.systemImage).font(.system(size: 16))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: toast.title).font(.system(size: 13, weight: .semibold))
+                            .fixedSize(horizontal: false, vertical: true)
                         if let detail = toast.detail {
-                            Text(verbatim: detail).font(.system(size: 11)).opacity(0.75).lineLimit(2)
+                            Text(verbatim: detail).font(.system(size: 11)).opacity(0.75)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    switch toast.action {
-                    case .resetDocumentSettings?:
-                        Button("Reset to Defaults") { model.resetDocumentSettings() }
-                            .controlSize(.small)
-                    case .retryWebCapture?:
-                        Button("Try Again") { model.retryWebCapture() }
-                            .controlSize(.small)
-                    case .reviewSmartRemoval?:
-                        Button("Review") { model.reviewSmartRemoval() }
-                            .controlSize(.small)
-                    case nil:
-                        EmptyView()
+                    Group {
+                        switch toast.action {
+                        case .resetDocumentSettings?:
+                            Button("Reset to Defaults") { model.resetDocumentSettings() }
+                                .controlSize(.small)
+                        case .retryWebCapture?:
+                            Button("Try Again") { model.retryWebCapture() }
+                                .controlSize(.small)
+                        case .reviewSmartRemoval?:
+                            Button("Review") { model.reviewSmartRemoval() }
+                                .controlSize(.small)
+                        case nil:
+                            EmptyView()
+                        }
                     }
+                    .buttonStyle(ToastActionButtonStyle())
                     Button {
                         model.dismissToast()
                     } label: {
@@ -224,6 +229,7 @@ struct ToastOverlay: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14).padding(.vertical, 10)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.78)))
+                .padding(.horizontal, 16)
                 .padding(.bottom, 18)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .id(toast.id)
@@ -231,6 +237,21 @@ struct ToastOverlay: View {
         }
         .frame(maxWidth: .infinity)
         .animation(.easeOut(duration: 0.2), value: model.toast)
+    }
+}
+
+/// Toast actions stay legible regardless of the surrounding view's accent color or appearance.
+private struct ToastActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.white)
+            .fixedSize()
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background {
+                Capsule().fill(.white.opacity(configuration.isPressed ? 0.32 : 0.2))
+            }
     }
 }
 
