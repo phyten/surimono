@@ -1,7 +1,7 @@
 /* Cornell notes: a cue column on the left (marked by a vertical rule on every page) and notes on the right.
    h3/h4 float into the cue column; h1 and hr span the full width like the title and summary areas. */
 html {
-    background: #fff linear-gradient(to right, transparent 27%, #7d97ae 27%, #7d97ae calc(27% + 0.75pt), transparent calc(27% + 0.75pt));
+    background: #fff linear-gradient(to right, transparent 27%, #7d97ae 27%, #7d97ae calc(27% + 0.75pt), transparent calc(27% + 0.75pt)) repeat-y;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
