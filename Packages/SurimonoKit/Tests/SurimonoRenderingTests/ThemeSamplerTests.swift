@@ -48,6 +48,21 @@ struct ThemeSamplerTests {
         #expect(sampler.drawCount == 2)
     }
 
+    @Test("書体を持ち込むテーマへ替えた見本は、その書体が読み込まれてから描く", .timeLimit(.minutes(1)))
+    func waitsForTheFontsAThemeBrings() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let latex = try #require(PrintThemeLibrary.load().first { $0.id == "latex" })
+        let sampler = try sampler("# Title\n\nThe quick brown fox.", theme: standard)
+        defer { sampler.close() }
+        _ = try await sampler.firstPage(for: standard)
+        let page = try await sampler.firstPage(for: latex)
+        // The sampler keeps the page, not its document; a document of its own reads the fonts it embeds.
+        let document = PDFDocument()
+        document.insert(page, at: 0)
+        let pdf = String(decoding: try #require(document.dataRepresentation()), as: UTF8.self)
+        #expect(pdf.contains("+KaTeX_Main-Regular"))
+    }
+
     @Test("飾りつきのテーマから飾りのないテーマへ替えると、飾りは残らない", .timeLimit(.minutes(1)))
     func dropsDecorationsOfThePreviousTheme() async throws {
         let shows = "h1[data-deco]::before { content: \"<\" attr(data-deco) \">\"; }"

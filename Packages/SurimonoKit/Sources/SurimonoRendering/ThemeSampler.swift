@@ -116,9 +116,11 @@ public final class ThemeSampler {
             for (const element of document.querySelectorAll('[data-deco]')) { element.removeAttribute('data-deco'); }
             return document.documentElement.getBoundingClientRect().height;
             """
-        _ = try await webView.callAsyncJavaScript(
-            swap, arguments: ["css": HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale)], in: nil,
-            contentWorld: world)
+        let css = HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale)
+        _ = try await webView.callAsyncJavaScript(swap, arguments: ["css": css], in: nil, contentWorld: world)
+        // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
+        // show the fallback font and be kept that way.
+        if css.contains("@font-face") { try await WebPaginator.waitForResources(in: webView, timeout: timeout) }
         if let script = theme.script, !script.isEmpty {
             // A failing decoration leaves the page undecorated rather than failing the sample, as in printing.
             _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)

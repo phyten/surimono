@@ -75,7 +75,7 @@ public enum MathRenderer {
     }
 
     /// The bundled KaTeX font for a face, named as KaTeX names its files: `KaTeX_Main-BoldItalic.ttf`.
-    private static func fontData(family: String, weight: String, style: String) -> Data? {
+    static func fontData(family: String, weight: String, style: String) -> Data? {
         let variant =
             switch (weight == "bold", style == "italic") {
             case (true, true): "BoldItalic"

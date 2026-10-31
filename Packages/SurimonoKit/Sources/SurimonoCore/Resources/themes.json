@@ -42,6 +42,7 @@
     { "id": "executive", "name": "Executive", "ja": "エグゼクティブ", "category": "business" },
     { "id": "academic", "name": "Academic", "ja": "論文", "category": "academic" },
     { "id": "paper", "name": "Paper", "ja": "論文（明朝）", "category": "academic" },
+    { "id": "latex", "name": "LaTeX", "ja": "LaTeX 風", "category": "academic" },
     { "id": "thesis", "name": "Thesis", "ja": "卒業論文", "category": "academic" },
     { "id": "journal", "name": "Journal", "ja": "学会誌", "category": "academic" },
     { "id": "science", "name": "Lab Report", "ja": "理系レポート", "category": "academic" },
