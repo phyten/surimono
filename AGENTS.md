@@ -24,7 +24,7 @@ Packages/SurimonoKit/   ロジック本体（SwiftPM）
 Samples/                手動確認用のサンプル文書
 Design/                 アプリアイコンの原画（AppIcon.svg と、開発版の AppIcon-Dev.svg・AppIcon-Dev-small.svg。App/Assets.xcassets の PNG はここから書き出す）
 Surimono.xcodeproj      手書きの最小プロジェクト（objectVersion 77）
-.github/workflows/      CI（ci.yml）とリリース（release.yml）
+.github/workflows/      CI（ci.yml）、リリース（release.yml）、ダウンロード数（download-stats.yml）
 .agents/skills/         プロジェクト固有スキル（正本。Codex が読む）
 .claude/                Claude Code 用（settings.json、rules/、skills は .agents/skills へのシンボリックリンク）
 .docs/                  ローカル専用の開発資料（gitignore 済み。コミットしない）
@@ -158,6 +158,7 @@ make clean
   - appcast は、各リリースが自分の ZIP だけを載せる。配られるのは GitHub の「Latest」のリリース（プレリリースは配らない）。
   - 秘密鍵は、メンテナのログインキーチェーン（Sparkle の `generate_keys`、アカウント `io.github.phyten.Surimono`）と、リポジトリの Secret `SPARKLE_PRIVATE_KEY` にある。なくすと、入れてある版はその後の更新を確かめられず、入れ直しになる。鍵を替えるときは Sparkle の鍵の切り替えの手順に従う。
   - Sparkle の道具（`generate_appcast`・`sign_update`・`generate_keys`）は、パッケージを解決すると `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/` にできる。
+- ダウンロード数: download-stats.yml が毎日（とリリースの公開時に）GitHub Releases の各ファイルのダウンロード数を数え、DMG（新しく入れた数）と ZIP（Sparkle のアプリ内アップデートの数）の合計を、shields.io の endpoint 用の JSON として `stats` ブランチに 1 コミットで上書きする。README のバッジがそれを読む。appcast と SHA-256 は数えない。数は GitHub が持つものだけで、アプリからは何も送らない（テレメトリなし）。
 - 署名はアドホックのまま（Developer ID・公証はまだ）。そのため Library Validation を外している（地雷を参照）。
 
 ## コーディング規約

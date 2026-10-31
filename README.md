@@ -1,5 +1,7 @@
 # Surimono
 
+[![DMG downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-dmg.json)](https://github.com/phyten/surimono/releases) [![In-app updates](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-zip.json)](https://github.com/phyten/surimono/releases)
+
 > Open it casually, glance at it, print it right away.
 > 雑に開いて、雑に見て、さっと刷る。
 

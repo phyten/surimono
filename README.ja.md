@@ -1,5 +1,7 @@
 # Surimono（摺物）
 
+[![DMG のダウンロード数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-dmg.json)](https://github.com/phyten/surimono/releases) [![アプリ内アップデートの数](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fphyten%2Fsurimono%2Fstats%2Fdownloads-zip.json)](https://github.com/phyten/surimono/releases)
+
 > 雑に開いて、雑に見て、さっと刷る。
 
 **Surimono** は、Markdown・PDF・画像・Org・テキスト・HTML・LaTeX といった身近な書類や画像を、すぐに見て、そのまま気軽に印刷するための macOS アプリです。印刷を主役に据えていて、印刷用スタイルシートの差し替え、HTML のノイズ除去プリセット、中綴じ冊子印刷（A3 に A4 を 2 ページ並べて両面印刷し、中央で折って綴じる）に対応します。
