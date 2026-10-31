@@ -33,7 +33,8 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Smart Removal (beta) for HTML: finds ads, recommended articles, share buttons, cookie banners and the like, removes them, and lets you review and keep any of them; detection runs on your Mac only
 - Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up
 - Print straight to the printer chosen on the print tray, without a dialog (the system print dialog is one step away), and PDF export (for example, for convenience-store printers)
-- A borderless view: only the paper, with a menu that appears when you point at the window; spread and single-page views; zoom without losing sharpness
+- A borderless view: only the paper, with a menu that appears when you point at the window; spread and single-page views; zoom without losing sharpness. The mouse wheel and trackpad turn pages with the chosen effect (fade, slide, curl, cover, reveal, wipe, zoom) at an adjustable sensitivity; in Markdown and the other themed formats, single-page scrolling can join pages by hiding the margins where they meet; a lone last page of a spread sits on its side; and page numbers can be turned on for view mode and for print separately, set in the bottom margin (never in single-page scrolling)
+- App-wide settings live in the Settings menu; actions on the current document in the Document menu
 - Settings you change are remembered per document by its content (SHA-256), not its name; image bundles by the set of images
 - Open a ZIP of images as one image bundle (images in nested folders, sorted by name; never extracted to disk)
 - Keep a window floating on top of other apps
