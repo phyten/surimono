@@ -488,7 +488,7 @@ final class DocumentViewModel {
                 renderedSourceURLs = sourceURLs
                 renderedFromSnapshot = fromSnapshot
                 unreadableImageURLs = prepared.unreadableImageURLs
-                resolveViewOptionsIfNeeded(for: prepared.logicalDocument)
+                resolveViewOptionsIfNeeded(for: prepared.viewDocument)
                 if let imageBundle {
                     // The digests of the images are known now, so a remembered order can be restored.
                     if let order = pendingImageOrder {
@@ -1127,7 +1127,7 @@ final class DocumentViewModel {
 
     /// One page, or a spread, at 100 %.
     var paperUnitSize: CGSize? {
-        guard let document = result?.logicalDocument, document.pageCount > 0 else { return nil }
+        guard let document = result?.viewDocument, document.pageCount > 0 else { return nil }
         let page = (0..<document.pageCount).reduce(into: CGSize.zero) { size, index in
             guard let page = document.page(at: index) else { return }
             let bounds = page.bounds(for: .cropBox)
