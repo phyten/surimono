@@ -4,7 +4,6 @@ import SwiftUI
 /// The press bar (刷り台バー): layouts, what comes out, options, and the ways to output.
 struct PrintPressBar: View {
     @Bindable var model: DocumentViewModel
-    @State private var showsOptions = false
 
     var body: some View {
         PrintPressLayout {
@@ -19,7 +18,7 @@ struct PrintPressBar: View {
         .frame(maxWidth: .infinity)
         .background(PrintPalette.chrome)
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
-        .popover(isPresented: $showsOptions, arrowEdge: .top) {
+        .popover(isPresented: $model.isPrintOptionsPresented, arrowEdge: .top) {
             PrintOptionsPopover(model: model)
         }
     }
@@ -92,7 +91,7 @@ struct PrintPressBar: View {
                 }
             }
             Button {
-                showsOptions.toggle()
+                model.isPrintOptionsPresented.toggle()
             } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 12))
@@ -398,6 +397,12 @@ struct PrintOptionsPopover: View {
                     MarginControl(model: model).controlSize(.small)
                 }
             }
+            row("Print Order", hint: PrintPageOrderPicker.hint) {
+                PrintPageOrderPicker(order: $model.printPageOrder)
+                    .labelsHidden()
+                    .controlSize(.small)
+                    .fixedSize()
+            }
             row(
                 "Rotate Back Sides 180°",
                 hint: isDuplex
@@ -443,5 +448,22 @@ struct PrintOptionsPopover: View {
             }
             .padding(.vertical, 9)
         }
+    }
+}
+
+/// The order the printer prints the sheets in. It belongs to the printer rather than the document, so one choice
+/// applies to every window, and it changes only the print job, not the sheets on the tray.
+struct PrintPageOrderPicker: View {
+    @Binding var order: PrintPageOrder
+
+    static let hint: LocalizedStringKey =
+        "Applies to all documents. Last Sheet First keeps sheets that come out face up in page order."
+
+    var body: some View {
+        Picker("Print Order", selection: $order) {
+            Text("Last Sheet First").tag(PrintPageOrder.lastSheetFirst)
+            Text("First Sheet First").tag(PrintPageOrder.firstSheetFirst)
+        }
+        .pickerStyle(.segmented)
     }
 }

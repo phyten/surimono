@@ -43,6 +43,8 @@ final class AppPreferences {
     var allowsJavaScript: Bool { didSet { defaults.set(allowsJavaScript, forKey: "allowsJavaScript") } }
     /// The printer the tray's Print sends to; nil means the system's default printer.
     var printerName: String? { didSet { defaults.set(printerName, forKey: "printer") } }
+    /// Which sheet comes out first, for every document: it depends on the printer, not on the document.
+    var printPageOrder: PrintPageOrder { didSet { defaults.set(printPageOrder.rawValue, forKey: "printPageOrder") } }
     /// Print themes the user chose in any window, most recent first.
     private(set) var recentThemeIDs: [String] { didSet { defaults.set(recentThemeIDs, forKey: "recentThemes") } }
     /// Print themes the user marked as favorites, in the order they were added.
@@ -73,6 +75,7 @@ final class AppPreferences {
         rotateBack = defaults.bool(forKey: "rotateBack")
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
         printerName = defaults.string(forKey: "printer")
+        printPageOrder = PrintPageOrder(rawValue: defaults.string(forKey: "printPageOrder") ?? "") ?? .lastSheetFirst
         recentThemeIDs = defaults.stringArray(forKey: "recentThemes") ?? []
         favoriteThemeIDs = defaults.stringArray(forKey: "favoriteThemes") ?? []
     }
