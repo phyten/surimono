@@ -259,6 +259,42 @@ struct DocumentRendererTests {
         #expect(result.sheetDocument.pageCount == 1)
     }
 
+    @Test("画像の表示用のページは画像の縦横比で、印刷のページは用紙のまま", arguments: [false, true])
+    func imageViewPages(isBundle: Bool) async throws {
+        let data = try RenderingFixtures.image()
+        let source =
+            isBundle
+            ? DocumentSource.images([
+                .init(data: data, fileURL: URL(fileURLWithPath: "/fixture/1.tiff")),
+                .init(data: data, fileURL: URL(fileURLWithPath: "/fixture/2.tiff")),
+            ])
+            : DocumentSource(data: data, format: .image)
+        var settings = settings
+        settings.paperOrientation = .portrait
+        settings.options.marginsInMillimeters = 0
+        let prepared = try await DocumentRenderer().prepare(source, settings: settings)
+        #expect(prepared.viewDocument.pageCount == prepared.logicalDocument.pageCount)
+        for index in 0..<prepared.viewDocument.pageCount {
+            let shown = try #require(prepared.viewDocument.page(at: index)).bounds(for: .cropBox).size
+            // The 2:1 image across a portrait A4 sheet, without the paper above and below it.
+            #expect(abs(shown.width - 595.28) < 0.1 && abs(shown.height - 297.64) < 0.1)
+            let logical = try #require(prepared.logicalDocument.page(at: index)).bounds(for: .cropBox).size
+            #expect(abs(logical.width - 595.28) < 0.1 && abs(logical.height - 841.89) < 0.1)
+        }
+        let sheet = try #require(
+            try await DocumentRenderer().render(source, settings: settings).sheetDocument.page(at: 0))
+        #expect(abs(sheet.bounds(for: .mediaBox).height - 841.89) < 0.1)
+    }
+
+    @Test("画像以外の表示用のページは論理ページそのもの", arguments: [DocumentFormat.markdown, .pdf])
+    func viewPagesOfOtherFormats(format: DocumentFormat) async throws {
+        let renderer = DocumentRenderer(paginate: { _ in try RenderingFixtures.pdf() })
+        let data =
+            format == .pdf ? try #require(try RenderingFixtures.pdf(count: 2).dataRepresentation()) : Data("Body".utf8)
+        let prepared = try await renderer.prepare(DocumentSource(data: data, format: format), settings: settings)
+        #expect(prepared.viewDocument === prepared.logicalDocument)
+    }
+
     @Test("両面とページ番号と裏面回転だけの変更では再組版しない")
     func reusesPagination() async throws {
         var calls = 0

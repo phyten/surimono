@@ -110,6 +110,22 @@ struct ImagePageRendererTests {
         #expect(try RenderingFixtures.pixel(page, x: 10, y: 150)[0...2] == [255, 255, 255])
     }
 
+    @Test("画像と余白の範囲をページの内容の枠にし、縦横比の違いで余る用紙を含めない", arguments: [0, 20])
+    func contentBox(marginInPoints: Double) async throws {
+        let result = try await ImagePageRenderer().render(
+            RenderingFixtures.image(), pageSize: CGSize(width: 200, height: 300),
+            marginsInMillimeters: 25.4 / 72 * marginInPoints)
+        let page = try #require(result.page(at: 0))
+        // The 2:1 image fills the width inside the margins and leaves paper above and below it.
+        let imageHeight = (200 - 2 * marginInPoints) / 2
+        let expected = CGRect(
+            x: 0, y: 150 - imageHeight / 2 - marginInPoints, width: 200, height: imageHeight + 2 * marginInPoints)
+        let box = page.bounds(for: .artBox)
+        #expect(abs(box.minX - expected.minX) < 0.01 && abs(box.minY - expected.minY) < 0.01)
+        #expect(abs(box.width - expected.width) < 0.01 && abs(box.height - expected.height) < 0.01)
+        #expect(page.bounds(for: .cropBox).size == CGSize(width: 200, height: 300))
+    }
+
     @Test("EXIF適用後に横長の画像だけページを横置きにする", arguments: [1, 6, 8])
     func orientation(value: Int) async throws {
         let result = try await ImagePageRenderer().render(

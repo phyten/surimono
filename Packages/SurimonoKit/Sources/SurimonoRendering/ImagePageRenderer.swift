@@ -37,10 +37,14 @@ public struct ImagePageRenderer {
         let rect = PDFDrawing.fittedRect(
             size: CGSize(width: image.width, height: image.height),
             in: CGRect(origin: .zero, size: size).insetBy(dx: margin, dy: margin))
+        // The art box marks the image and its margins, so the screen can leave out the paper the image's shape does
+        // not fill; printing still places the whole page.
+        var artBox = rect.insetBy(dx: -margin, dy: -margin).intersection(CGRect(origin: .zero, size: size))
+        let pageInfo = [kCGPDFContextArtBox: Data(bytes: &artBox, count: MemoryLayout<CGRect>.size)] as CFDictionary
         do {
             return try await PDFDrawing.document(pageSize: size) { context in
                 try Task.checkCancellation()
-                context.beginPDFPage(nil)
+                context.beginPDFPage(pageInfo)
                 context.interpolationQuality = .high
                 context.draw(image, in: rect)
                 context.endPDFPage()
@@ -50,6 +54,18 @@ public struct ImagePageRenderer {
         } catch {
             throw RenderingError.pdfCreationFailed
         }
+    }
+
+    /// Copies of the pages cropped to their art boxes, for the screen. The pages themselves keep the whole paper,
+    /// because the sheets are composed from their crop boxes.
+    static func viewDocument(of document: PDFDocument) -> PDFDocument {
+        let cropped = PDFDocument()
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index), let copy = page.copy() as? PDFPage else { continue }
+            copy.setBounds(page.bounds(for: .artBox), for: .cropBox)
+            cropped.insert(copy, at: cropped.pageCount)
+        }
+        return cropped
     }
 
     nonisolated static func contentSize(_ data: Data) throws -> CGSize {
