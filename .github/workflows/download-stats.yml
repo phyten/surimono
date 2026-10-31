@@ -1,0 +1,51 @@
+name: Download stats
+
+# Counts release downloads once a day and publishes them as shields.io endpoint JSON on the `stats` branch,
+# which the README badges read. DMG downloads stand for new installs and ZIP downloads for in-app updates (Sparkle
+# fetches the ZIP); appcast and checksum files are left out.
+on:
+  schedule:
+    - cron: "17 0 * * *"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: download-stats
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      SERVER_URL: ${{ github.server_url }}
+    steps:
+      - name: Count downloads
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft | not) | .assets[]' > assets.jsonl
+          dmg=$(jq -s '[.[] | select(.name | endswith(".dmg")) | .download_count] | add // 0' assets.jsonl)
+          zip=$(jq -s '[.[] | select(.name | endswith(".zip")) | .download_count] | add // 0' assets.jsonl)
+          jq -n --arg m "$dmg" '{schemaVersion: 1, label: "DMG downloads", message: $m, color: "blue"}' > out/downloads-dmg.json
+          jq -n --arg m "$zip" '{schemaVersion: 1, label: "in-app updates", message: $m, color: "informational"}' > out/downloads-zip.json
+          jq -n --argjson dmg "$dmg" --argjson zip "$zip" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{dmg: $dmg, zip: $zip, countedAt: $at}' > out/downloads.json
+          cat out/downloads.json
+      - name: Publish to the stats branch
+        run: |
+          set -euo pipefail
+          cd out
+          git init -q -b stats
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads-dmg.json downloads-zip.json downloads.json
+          git commit -q -m "chore: ダウンロード数を更新する"
+          # One commit that is replaced each day, so the branch does not grow.
+          git push -q --force "https://x-access-token:${GH_TOKEN}@${SERVER_URL#https://}/${REPOSITORY}.git" stats
