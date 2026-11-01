@@ -10,6 +10,27 @@ struct SettingsMenuTests {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
+    @Test("ヘルプメニューから文書がなくてもキーと操作の一覧を開ける")
+    func keyGuideInHelp() throws {
+        let menu = try #require(NSApp.mainMenu?.items.last?.submenu)
+        let entries = menu.items.filter { $0.title == localized("Keys and Gestures") }
+        #expect(entries.count == 1)
+        #expect(entries.first?.isEnabled == true)
+    }
+
+    @Test("一覧が案内する印刷キーはファイルメニューの割り当てと一致する")
+    func printShortcuts() throws {
+        let menu = try #require(NSApp.mainMenu?.items[1].submenu)
+        for (titles, flags) in [
+            (["Print…", "Print"], NSEvent.ModifierFlags.command),
+            (["Print with System Dialog…"], NSEvent.ModifierFlags([.option, .command])),
+        ] {
+            let item = try #require(menu.items.first { titles.map(localized).contains($0.title) })
+            #expect(item.keyEquivalent == "p")
+            #expect(item.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == flags)
+        }
+    }
+
     @Test("メニューバーは表示・文書の順で独立した設定メニューを置かない")
     func topLevelOrder() throws {
         let menu = try #require(NSApp.mainMenu)
@@ -50,6 +71,10 @@ struct SettingsMenuTests {
                 ].map(localized))
         let layouts = try #require(menu.items.first?.submenu)
         #expect(layouts.items.map(\.keyEquivalent) == ["1", "2", "3", "4", "5", "6"])
+        #expect(
+            layouts.items.allSatisfy {
+                $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == .command
+            })
     }
 
     @Test("表示の既定値は保存され未設定や不正な値なら自動に戻る")

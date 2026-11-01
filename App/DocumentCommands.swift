@@ -76,6 +76,9 @@ struct DocumentCommands: Commands {
                 isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { model?.isAlwaysOnTop = $0 })
             )
         }
+        CommandGroup(replacing: .help) {
+            Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
+        }
         CommandMenu("Document") {
             Menu("Print Layout") {
                 ForEach(Array(PrintLayout.presets.enumerated()), id: \.element.id) { index, layout in

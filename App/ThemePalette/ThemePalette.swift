@@ -5,11 +5,7 @@ import SwiftUI
 /// sample tries it on the paper; a click chooses it and leaves the palette open for the next look.
 struct ThemePalette: View {
     @Bindable var model: DocumentViewModel
-    @State private var tab = Tab.frequent
-    @State private var groupID: String?
     @State private var query = ""
-
-    enum Tab: Hashable { case frequent, categories }
 
     static let columns = 5
     static let cellWidth: CGFloat = 104
@@ -37,10 +33,7 @@ struct ThemePalette: View {
                 .padding(.vertical, 10)
         }
         .frame(width: Self.width, height: Self.height)
-        .onAppear {
-            model.followThemeSamples()
-            if groupID == nil { groupID = initialGroupID }
-        }
+        .onAppear { model.followThemeSamples() }
         .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
         .onDisappear { model.themePaletteDidClose() }
     }
@@ -54,13 +47,6 @@ struct ThemePalette: View {
                     .foregroundStyle(.tint)
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                Picker("Show", selection: $tab) {
-                    Text("Frequently Used").tag(Tab.frequent)
-                    Text("Categories").tag(Tab.categories)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -81,22 +67,6 @@ struct ThemePalette: View {
             .frame(height: 28)
             .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.separator))
-            if tab == .categories, query.isEmpty {
-                FlowLayout(spacing: 6) {
-                    ForEach(model.themeGroups, id: \.id) { group in
-                        ThemeGroupChip(
-                            title: groupTitle(group), isSelected: group.id == selectedGroup?.id,
-                            action: { groupID = group.id })
-                    }
-                }
-            }
-            Text(
-                model.canTryThemesOnHover
-                    ? LocalizedStringKey("Point to try it on the paper. Click to choose.")
-                    : LocalizedStringKey("This document is long, so a style changes on click.")
-            )
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
         }
     }
 
@@ -107,22 +77,12 @@ struct ThemePalette: View {
                 String(format: String(localized: "Matching “%@”"), query.trimmingCharacters(in: .whitespaces)),
                 count: matches.count, themes: matches,
                 empty: String(localized: "No styles match. Try a category instead."))
-        } else if tab == .frequent {
-            VStack(alignment: .leading, spacing: 18) {
-                let sections = model.frequentThemeSections
-                if let recent = sections.first(where: { $0.kind == .recent }) {
-                    section(String(localized: "Recent"), themes: recent.themes)
-                }
-                section(
-                    String(localized: "Favorites"),
-                    themes: sections.first(where: { $0.kind == .favorites })?.themes ?? [],
-                    empty: String(localized: "Styles you star appear here."))
-                if let featured = sections.first(where: { $0.kind == .featured }) {
-                    section(String(localized: "Suggested"), themes: featured.themes)
+        } else {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                ForEach(model.themeMenu.sections, id: \.id) { group in
+                    section(groupTitle(group), themes: group.themes)
                 }
             }
-        } else if let group = selectedGroup {
-            section(groupTitle(group), count: group.themes.count, themes: group.themes)
         }
     }
 
@@ -162,12 +122,6 @@ struct ThemePalette: View {
     private var footer: some View {
         HStack(spacing: 8) {
             Button {
-                model.chooseRandomTheme()
-            } label: {
-                Label("Surprise Me", systemImage: "dice")
-            }
-            .help("Choose any style at random")
-            Button {
                 model.enterCompareMode()
             } label: {
                 Label("Compare…", systemImage: "square.grid.2x2")
@@ -200,20 +154,13 @@ struct ThemePalette: View {
         .controlSize(.small)
     }
 
-    private var selectedGroup: PrintThemeMenu.Section? {
-        let groups = model.themeGroups
-        return groups.first { $0.id == groupID } ?? groups.first
-    }
-
-    /// The category of the current theme, so the categories open where the reader already is.
-    private var initialGroupID: String? {
-        model.themeGroups.first { $0.themes.contains { $0.id == model.themeID } }?.id
-    }
-
     private func groupTitle(_ group: PrintThemeMenu.Section) -> String {
         switch group.kind {
         case .category(let category): category.displayName(language: model.language)
-        default: String(localized: "My Styles")
+        case .recent: String(localized: "Recent")
+        case .favorites: String(localized: "Favorites")
+        case .featured: String(localized: "Suggested")
+        case .user: String(localized: "My Styles")
         }
     }
 }
@@ -341,44 +288,5 @@ struct ThemeGroupChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-/// Lays its children out in rows, wrapping to the next row when one is full.
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = rows(for: subviews, width: proposal.width ?? .greatestFiniteMagnitude)
-        let height = rows.map(\.height).reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
-        return CGSize(width: proposal.width ?? rows.map(\.width).max() ?? 0, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var y = bounds.minY
-        for row in rows(for: subviews, width: bounds.width) {
-            var x = bounds.minX
-            for index in row.indices {
-                let size = subviews[index].sizeThatFits(.unspecified)
-                subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
-                x += size.width + spacing
-            }
-            y += row.height + spacing
-        }
-    }
-
-    private func rows(for subviews: Subviews, width: CGFloat) -> [(indices: [Int], width: CGFloat, height: CGFloat)] {
-        var rows: [(indices: [Int], width: CGFloat, height: CGFloat)] = []
-        for index in subviews.indices {
-            let size = subviews[index].sizeThatFits(.unspecified)
-            if let last = rows.last, last.width + spacing + size.width <= width {
-                rows[rows.count - 1].indices.append(index)
-                rows[rows.count - 1].width += spacing + size.width
-                rows[rows.count - 1].height = max(last.height, size.height)
-            } else {
-                rows.append(([index], size.width, size.height))
-            }
-        }
-        return rows
     }
 }

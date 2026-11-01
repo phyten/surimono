@@ -72,10 +72,10 @@ struct BandItemView: View {
             } label: {
                 Text(verbatim: model.zoomPercentage).monospacedDigit()
             }
-            .help("Fit to Window")
+            .help("Fit to Window (⌘0)")
         case .thumbnails:
             Toggle(isOn: $model.isDrawerOpen) { Label("Thumbnails", systemImage: "sidebar.left") }
-                .toggleStyle(.button).labelStyle(.iconOnly).help("Thumbnails")
+                .toggleStyle(.button).labelStyle(.iconOnly).help("Thumbnails (⌃⌘S)")
         case .print: PrintButton(model: model, iconOnly: form == .compact)
         }
     }
@@ -120,7 +120,7 @@ struct PresentationPicker: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(presentation.title))
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help(presentation.title)
+        .help("Switch Web or Paper (⌃⌘P)")
     }
 }
 
@@ -194,8 +194,7 @@ private struct TransitionPicker: View {
     }
 }
 
-/// The "…" menu: what left the band, in band order, and the view options at the end. It is always on the band, so
-/// the popover it anchors never loses its anchor when the band rearranges.
+// The menu stays on the band so its view-options popover keeps its anchor when the band rearranges.
 struct BandMoreMenu: View {
     @Bindable var model: DocumentViewModel
     /// Empty while measuring: only the menu label needs a width.
@@ -230,13 +229,16 @@ struct BandMoreMenu: View {
                 Divider()
             }
             Button("View Options…") { model.isViewOptionsPresented = true }
+                .help("View Options (V)")
+            Divider()
+            Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
         } label: {
             Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("More")
+        .help("More · View Options (V)")
     }
 }
 
@@ -364,10 +366,12 @@ private struct SecondaryViewMenuItem: View {
             Toggle("Show Cover Alone", isOn: model.viewOption(\.showsCoverAlone))
         case .selectText:
             Toggle("Select Text", isOn: $model.isSelectingText)
+                .help("Select Text (T)")
         case .floatOnTop:
             Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
         case .keepMenuVisible:
             Toggle("Keep Menu Visible", isOn: $model.isMenuPinned)
+                .help("Keep Menu Visible (⌥⌘T)")
         }
     }
 }
