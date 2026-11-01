@@ -10,7 +10,7 @@ enum BandSlot: Hashable {
 extension BandLayout.Item {
     var hasCompactForm: Bool {
         switch self {
-        case .presentation, .style, .transition, .selectText, .print: true
+        case .presentation, .style, .transition, .print: true
         default: false
         }
     }
@@ -32,14 +32,12 @@ extension BandLayout.Item {
         let paper = !model.showsWeb
         return allCases.filter { item in
             switch item {
-            case .formatBadge, .floatOnTop, .keepMenuVisible, .print: true
-            case .layout, .direction, .scrollAxis, .paperOrientation, .transition: paper
+            case .formatBadge, .print: true
+            case .layout, .transition: paper
             case .presentation: model.usesHTMLPresentation
             // On the web, only a slide deck has pages to count.
             case .pageIndicator: model.pageIndicator != nil
             case .style: paper && (model.format.usesPrintTheme || model.format.usesHTMLPreset)
-            case .cover: paper && model.viewOptions.usesCoverOption
-            case .selectText: paper && model.canSelectText
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil
             }
@@ -69,16 +67,7 @@ struct BandItemView: View {
         case .presentation: PresentationPicker(model: model, showsNames: form == .full)
         case .style: StyleMenu(model: model, showsName: form == .full)
         case .layout: LayoutPicker(model: model)
-        case .direction: DirectionPicker(model: model)
-        case .scrollAxis: ScrollAxisPicker(model: model)
-        case .paperOrientation: PaperOrientationControl(model: model)
         case .transition: TransitionMenu(model: model, showsName: form == .full)
-        case .cover:
-            Toggle(isOn: model.viewOption(\.showsCoverAlone)) {
-                Label("Show Cover Alone", systemImage: "book.closed")
-            }
-            .toggleStyle(.button).labelStyle(.iconOnly).help("Show Cover Alone")
-        case .selectText: SelectTextButton(model: model, showsName: form == .full)
         case .zoom:
             Button {
                 model.zoomToFit()
@@ -89,46 +78,8 @@ struct BandItemView: View {
         case .thumbnails:
             Toggle(isOn: $model.isDrawerOpen) { Label("Thumbnails", systemImage: "sidebar.left") }
                 .toggleStyle(.button).labelStyle(.iconOnly).help("Thumbnails")
-        case .floatOnTop:
-            Toggle(isOn: $model.isAlwaysOnTop) {
-                Label("Float on Top", systemImage: model.isAlwaysOnTop ? "pin.fill" : "pin")
-            }
-            .toggleStyle(.button).labelStyle(.iconOnly).help("Float on Top")
-        case .keepMenuVisible:
-            Toggle(isOn: $model.isMenuPinned) { Label("Keep Menu Visible", systemImage: "menubar.rectangle") }
-                .toggleStyle(.button).labelStyle(.iconOnly).help("Keep Menu Visible")
         case .print: PrintButton(model: model, iconOnly: form == .compact)
         }
-    }
-}
-
-/// The switch between selecting text and moving the window. A button-style toggle on the borderless band shows only
-/// the icon of its label, so this draws the pressed look itself: the accent colour on a pale accent background.
-struct SelectTextButton: View {
-    @Bindable var model: DocumentViewModel
-    let showsName: Bool
-
-    var body: some View {
-        Button {
-            model.toggleSelectingText()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "character.cursor.ibeam")
-                if showsName { Text("Select Text") }
-            }
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .foregroundStyle(model.isSelectingText ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-            .background {
-                RoundedRectangle(cornerRadius: 5).fill(
-                    model.isSelectingText ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.clear))
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("Select Text"))
-        .accessibilityAddTraits(model.isSelectingText ? .isSelected : [])
-        .help("Select Text (T)")
     }
 }
 
@@ -230,34 +181,6 @@ struct CompactIndicators: View {
     }
 }
 
-struct DirectionPicker: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        Picker("Direction", selection: model.viewOption(\.direction)) {
-            Label("Left to Right · Bound Left", systemImage: "arrow.right").tag(ViewOptions.Direction.leftToRight)
-            Label("Right to Left · Bound Right", systemImage: "arrow.left").tag(ViewOptions.Direction.rightToLeft)
-        }
-        .pickerStyle(.segmented).labelsHidden().labelStyle(.iconOnly).fixedSize()
-        .help("Direction")
-    }
-}
-
-/// Dimmed rather than hidden when the page turn ignores it, so that changing the page turn never reshuffles the band.
-struct ScrollAxisPicker: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        Picker("Scrolling", selection: model.viewOption(\.scrollAxis)) {
-            Label("Vertical", systemImage: "arrow.up.and.down").tag(ViewOptions.ScrollAxis.vertical)
-            Label("Horizontal", systemImage: "arrow.left.and.right").tag(ViewOptions.ScrollAxis.horizontal)
-        }
-        .pickerStyle(.segmented).labelsHidden().labelStyle(.iconOnly).fixedSize()
-        .disabled(!model.viewOptions.usesScrollAxis)
-        .help("Scrolling")
-    }
-}
-
 struct TransitionMenu: View {
     @Bindable var model: DocumentViewModel
     let showsName: Bool
@@ -294,7 +217,7 @@ private struct TransitionPicker: View {
 /// the popover it anchors never loses its anchor when the band rearranges.
 struct BandMoreMenu: View {
     @Bindable var model: DocumentViewModel
-    /// The overflowing items; nil when the menu is only measured.
+    /// Empty while measuring: only the menu label needs a width.
     let overflow: [BandLayout.Item]
     /// Names the document when the band no longer shows its name, format or page in full.
     let header: String?
@@ -311,6 +234,10 @@ struct BandMoreMenu: View {
                 BandMenuItem(model: model, item: item)
             }
             if !tools.isEmpty { Divider() }
+            ForEach(SecondaryViewControl.applicable(for: model), id: \.self) { item in
+                SecondaryViewMenuItem(model: model, item: item)
+            }
+            Divider()
             if model.marginsApply {
                 MarginMenu(model: model)
                 Divider()
@@ -384,6 +311,46 @@ private struct BandMenuItem: View {
             } label: {
                 Text(verbatim: choice(String(localized: "View Type"), model.viewOptions.layout.name))
             }
+        case .transition:
+            Menu {
+                TransitionPicker(model: model)
+            } label: {
+                Text(verbatim: choice(String(localized: "Page Turn"), model.viewOptions.transition.name))
+            }
+        case .zoom:
+            Button(String(format: String(localized: "Fit to Window (%@)"), model.zoomPercentage)) {
+                model.zoomToFit()
+            }
+        case .thumbnails:
+            Toggle("Show Thumbnails", isOn: $model.isDrawerOpen)
+        case .formatBadge, .pageIndicator, .print:
+            EmptyView()
+        }
+    }
+}
+
+// Keeping these separate from BandLayout prevents measurements or narrow windows from moving them onto the band.
+enum SecondaryViewControl: CaseIterable {
+    case direction, scrollAxis, paperOrientation, cover, selectText, floatOnTop, keepMenuVisible
+
+    static func applicable(for model: DocumentViewModel) -> [Self] {
+        allCases.filter { item in
+            switch item {
+            case .direction, .scrollAxis, .paperOrientation: !model.showsWeb
+            case .cover: !model.showsWeb && model.viewOptions.usesCoverOption
+            case .selectText: !model.showsWeb && model.canSelectText
+            case .floatOnTop, .keepMenuVisible: true
+            }
+        }
+    }
+}
+
+private struct SecondaryViewMenuItem: View {
+    @Bindable var model: DocumentViewModel
+    let item: SecondaryViewControl
+
+    var body: some View {
+        switch item {
         case .direction:
             Menu {
                 Picker("Direction", selection: model.viewOption(\.direction)) {
@@ -412,28 +379,14 @@ private struct BandMenuItem: View {
                 Text(verbatim: choice(String(localized: "Scrolling"), value))
             }
             .disabled(!model.viewOptions.usesScrollAxis)
-        case .transition:
-            Menu {
-                TransitionPicker(model: model)
-            } label: {
-                Text(verbatim: choice(String(localized: "Page Turn"), model.viewOptions.transition.name))
-            }
         case .cover:
             Toggle("Show Cover Alone", isOn: model.viewOption(\.showsCoverAlone))
         case .selectText:
             Toggle("Select Text", isOn: $model.isSelectingText)
-        case .zoom:
-            Button(String(format: String(localized: "Fit to Window (%@)"), model.zoomPercentage)) {
-                model.zoomToFit()
-            }
-        case .thumbnails:
-            Toggle("Show Thumbnails", isOn: $model.isDrawerOpen)
         case .floatOnTop:
             Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
         case .keepMenuVisible:
             Toggle("Keep Menu Visible", isOn: $model.isMenuPinned)
-        case .formatBadge, .pageIndicator, .print:
-            EmptyView()
         }
     }
 }

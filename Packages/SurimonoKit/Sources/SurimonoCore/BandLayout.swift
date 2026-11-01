@@ -9,9 +9,8 @@ public enum BandLayout {
         case formatBadge, pageIndicator
         case presentation
         case style
-        case layout, direction, scrollAxis, paperOrientation, transition, cover
-        case selectText, zoom, thumbnails
-        case floatOnTop, keepMenuVisible
+        case layout, transition
+        case zoom, thumbnails
         case print
 
         /// Tools of one group sit together, and a thin separator divides neighbouring groups. The title's parts and
@@ -21,9 +20,8 @@ public enum BandLayout {
             case .formatBadge, .pageIndicator, .print: nil
             case .presentation: 0
             case .style: 1
-            case .layout, .direction, .scrollAxis, .paperOrientation, .transition, .cover: 2
-            case .selectText, .zoom, .thumbnails: 3
-            case .floatOnTop, .keepMenuVisible: 4
+            case .layout, .transition: 2
+            case .zoom, .thumbnails: 3
             }
         }
     }
@@ -54,11 +52,9 @@ public enum BandLayout {
     /// is used while reading; Print, the second of the two steps to print, stays to the end. The switch between web
     /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone.
     public static let steps: [Step] = [
-        .compact(.style), .compact(.transition), .compact(.selectText), .compact(.presentation),
-        .remove(.keepMenuVisible), .remove(.floatOnTop), .remove(.formatBadge),
-        .remove(.cover), .remove(.scrollAxis), .remove(.paperOrientation), .remove(.direction), .remove(.pageIndicator),
-        .remove(.style), .remove(.transition), .remove(.selectText), .remove(.layout), .remove(.presentation),
-        .remove(.thumbnails), .remove(.zoom), .compact(.print),
+        .compact(.style), .compact(.transition), .compact(.presentation),
+        .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
+        .remove(.layout), .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .compact(.print),
     ]
 
     /// The file name keeps this much room until every step has been taken.

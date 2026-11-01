@@ -124,21 +124,23 @@ struct HTMLPresentationTests {
         reopened.stop()
     }
 
-    @Test("ウェブの帯には「ウェブ / 紙面」と窓の道具だけを出し、紙面では紙の道具も出す")
+    @Test("ウェブの帯は切り替えと印刷に絞り窓の道具は常にその他に置く")
     func bandOnTheWeb() throws {
         let environment = try environment()
         defer { environment.cleanUp() }
         let model = try model(environment)
         #expect(
             BandLayout.Item.applicable(for: model, stage: .full) == [
-                .formatBadge, .presentation, .floatOnTop, .keepMenuVisible, .print,
+                .formatBadge, .presentation, .print,
             ])
+        #expect(SecondaryViewControl.applicable(for: model) == [.floatOnTop, .keepMenuVisible])
         model.setHTMLPresentation(.paper)
         let paper = BandLayout.Item.applicable(for: model, stage: .full)
         #expect(paper.contains(.presentation))
         #expect(paper.contains(.style))
         #expect(paper.contains(.layout))
-        #expect(paper.contains(.selectText))
+        #expect(paper.contains(.transition))
+        #expect(SecondaryViewControl.applicable(for: model).contains(.selectText))
     }
 
     @Test("HTML 以外と、ファイルのない HTML は紙面だけで見せる", arguments: [(DocumentFormat.markdown, true), (.html, false)])

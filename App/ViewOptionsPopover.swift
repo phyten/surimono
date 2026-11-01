@@ -1,8 +1,7 @@
 import SurimonoCore
 import SwiftUI
 
-/// The standard popover behind "View Options": a live sample and a map of the spreads on top, the options in the
-/// middle, and the choice spelled out as a sentence below.
+// Frequent choices stay on the band; this popover keeps the remaining document values beside a live sample.
 struct ViewOptionsPopover: View {
     @Bindable var model: DocumentViewModel
 
@@ -18,14 +17,6 @@ struct ViewOptionsPopover: View {
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
-                    rowLabel("View")
-                    Picker("View", selection: option(\.layout)) {
-                        ForEach(ViewOptions.Layout.allCases, id: \.self) { layout in
-                            Label(layout.title, systemImage: layout.symbol).tag(layout)
-                        }
-                    }
-                }
-                GridRow {
                     rowLabel("Direction")
                     Picker("Direction", selection: option(\.direction)) {
                         Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
@@ -40,15 +31,6 @@ struct ViewOptionsPopover: View {
                         Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
                     }
                     .disabled(!model.viewOptions.usesScrollAxis)
-                }
-                GridRow {
-                    rowLabel("Page Turn")
-                    Picker("Page Turn", selection: option(\.transition)) {
-                        ForEach(ViewOptions.Transition.allCases, id: \.self) { transition in
-                            Text(transition.title).tag(transition)
-                        }
-                    }
-                    .pickerStyle(.menu)
                 }
                 GridRow {
                     rowLabel("Cover")
@@ -78,9 +60,6 @@ struct ViewOptionsPopover: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Text(verbatim: ViewOptionsSummary.sentence(for: model.viewOptions))
-                .font(.callout).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
             Divider()
             HStack {
                 if model.hasSavedSettings {
@@ -181,40 +160,6 @@ extension DisplayUnit {
         case .single(let page): "[\(page)]"
         case .spread(let left, let right): "[\(left.map(String.init) ?? " ")|\(right.map(String.init) ?? " ")]"
         }
-    }
-}
-
-/// Spells out the chosen options, so the effect of each control is clear without trying it.
-enum ViewOptionsSummary {
-    static func sentence(for options: ViewOptions) -> String {
-        var parts: [String] = []
-        switch options.layout {
-        case .spread: parts.append(String(localized: "Shows this document as spreads. "))
-        case .single: parts.append(String(localized: "Shows this document one page at a time. "))
-        }
-        switch options.direction {
-        case .leftToRight: parts.append(String(localized: "Pages turn from left to right (bound on the left). "))
-        case .rightToLeft: parts.append(String(localized: "Pages turn from right to left (bound on the right). "))
-        }
-        if options.usesCoverOption, options.showsCoverAlone {
-            parts.append(String(localized: "The cover is shown alone. "))
-        }
-        switch options.scrollAxis {
-        case .vertical: parts.append(String(localized: "Scrolling is vertical. "))
-        case .horizontal: parts.append(String(localized: "Scrolling is horizontal. "))
-        }
-        switch options.transition {
-        case .scroll: parts.append(String(localized: "Pages scroll continuously."))
-        case .instant: parts.append(String(localized: "Pages switch instantly."))
-        case .slide: parts.append(String(localized: "Pages slide into place."))
-        case .fade: parts.append(String(localized: "Pages fade into each other."))
-        case .cover: parts.append(String(localized: "The next page slides over the current page."))
-        case .reveal: parts.append(String(localized: "The current page slides away."))
-        case .wipe: parts.append(String(localized: "Pages change with a soft wipe."))
-        case .zoom: parts.append(String(localized: "Pages gently scale and fade."))
-        case .pageCurl: parts.append(String(localized: "Pages curl like paper."))
-        }
-        return parts.joined().trimmingCharacters(in: .whitespaces)
     }
 }
 

@@ -36,7 +36,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Print layouts: A4 single-sided, A4 double-sided, and saddle-stitch booklets (A3 → A4 booklet, A4 → A5 booklet), plus A3 2-up
 - Print straight to the printer chosen on the print tray, without a dialog (the system print dialog is one step away), and PDF export (for example, for convenience-store printers)
 - A borderless view: only the paper, with a menu that appears when you point at the window; spread and single-page views; zoom without losing sharpness. The mouse wheel and trackpad turn pages with the chosen effect (fade, slide, curl, cover, reveal, wipe, zoom) at an adjustable sensitivity; in Markdown and the other themed formats, single-page scrolling can join pages by hiding the margins where they meet; a lone last page of a spread sits on its side; and page numbers can be turned on for view mode and for print separately, set in the bottom margin (never in single-page scrolling)
-- App-wide settings live in the Settings menu; actions on the current document in the Document menu
+- Open defaults for new documents and app-wide settings from **Surimono › Settings…** (⌘,). Actions on the current document live in the View and Document menus
 - Settings you change are remembered per document by its content (SHA-256), not its name; image bundles by the set of images
 - Open a ZIP of images as one image bundle (images in nested folders, sorted by name; never extracted to disk)
 - Keep a window floating on top of other apps
@@ -98,6 +98,6 @@ Issues and pull requests are welcome, in English or Japanese. See [CONTRIBUTING.
 ## Languages
 
 Surimono supports English, Japanese, Simplified Chinese, Traditional Chinese, Korean, French, German, and Spanish.
-Choose **Settings › General › Language** (or **Settings › Language** in the menu bar), then relaunch when prompted. **System (default)** follows macOS. You can also choose the app language in **macOS System Settings › General › Language & Region › Applications**.
+Choose **Surimono › Settings… › General › Language**, then relaunch when prompted. **System (default)** follows macOS. You can also choose the app language in **macOS System Settings › General › Language & Region › Applications**.
 
 For host-side visual checks, launch the Debug app with `-AppleLanguages '(de)'` (replace `de` with `en`, `ja`, `zh-Hans`, `zh-Hant`, `ko`, `fr`, or `es`). This works with the existing `-SurimonoSnapshotPath`, `-SurimonoPopover style|view`, `-SurimonoMode print|compare`, and `-SurimonoMenu full` arguments. Use a fresh instance for each language. Language changes take effect on relaunch, including menus and theme names.

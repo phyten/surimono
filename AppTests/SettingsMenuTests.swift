@@ -10,51 +10,34 @@ struct SettingsMenuTests {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
-    @Test("メニューバーは表示・文書・設定の順で旧レイアウトと画像を独立させない")
+    @Test("メニューバーは表示・文書の順で独立した設定メニューを置かない")
     func topLevelOrder() throws {
         let menu = try #require(NSApp.mainMenu)
         let titles = menu.items.map(\.title)
-        try #require(titles.count == 8)
+        try #require(titles.count == 7)
         // System menus use AppKit's translations rather than the application's string catalog.
         for (index, names) in [
             (1, ["File", "ファイル"]), (2, ["Edit", "編集"]), (3, ["View", "表示"]),
-            (6, ["Window", "ウインドウ"]), (7, ["Help", "ヘルプ"]),
+            (5, ["Window", "ウインドウ"]), (6, ["Help", "ヘルプ"]),
         ] {
             #expect(names.contains(titles[index]))
         }
         #expect(titles[4] == localized("Document"))
-        #expect(titles[5] == localized("Settings"))
+        #expect(!titles.contains(localized("Settings")))
         #expect(!titles.contains(localized("Layout")))
         #expect(!titles.contains(localized("Images")))
     }
 
-    @Test("設定メニューは既定値と番号と全設定を決めた順序に並べる")
-    func settingsItems() throws {
-        let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Settings") }?.submenu)
-        let keys: [String?] = [
-            "Language", nil, "Scroll Sensitivity", "Default Page Turn", "New Document View", nil,
-            "Join Pages in Single-Page Scrolling", "Page Numbers in View Mode", "Page Numbers in Print", nil,
-            "Default Print Layout", "Default Margins", "Default Style", nil, "All Settings…",
-        ]
-        #expect(menu.items.map { $0.isSeparatorItem ? nil : $0.title } == keys.map { $0.map(localized) })
-        let languageMenu = try #require(menu.items.first { $0.title == localized("Language") }?.submenu)
-        let currentLocale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
-        let languageNames = ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"].map { code in
-            let translated = currentLocale.localizedString(forIdentifier: code) ?? code
-            let native = Locale(identifier: code).localizedString(forIdentifier: code) ?? code
-            return translated == native ? native : "\(translated) \(native)"
+    @Test("帯から移した文字選択と固定操作は表示メニューに残る")
+    func secondaryViewCommands() throws {
+        let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        for key in ["Select Text", "Keep Menu Visible", "Float on Top", "View Options…"] {
+            let item = try #require(menu.items.first { $0.title == localized(key) })
+            #expect(item.isEnabled)
         }
-        #expect(languageMenu.items.map(\.title) == [localized("System (default)")] + languageNames)
-        let sensitivity = try #require(menu.items.first { $0.title == localized("Scroll Sensitivity") }?.submenu)
-        #expect(sensitivity.items.map(\.title) == ["Low", "Normal", "High"].map(localized))
-        let turn = try #require(menu.items.first { $0.title == localized("Default Page Turn") }?.submenu)
-        #expect(turn.items.count == ViewOptions.Transition.allCases.count + 1)
-        #expect(turn.items.first?.title == localized("Automatic (Match Document)"))
-        let view = try #require(menu.items.first { $0.title == localized("New Document View") }?.submenu)
-        #expect(view.items.map(\.title) == ["Automatic (Match Document)", "Spread", "Single Page"].map(localized))
-        let margins = try #require(menu.items.first { $0.title == localized("Default Margins") }?.submenu)
-        #expect(margins.items.map(\.title) == ["0 mm", "10 mm", "15 mm", "20 mm", "25 mm"])
-        #expect(menu.items.last?.keyEquivalent == "")
+        let pin = try #require(menu.items.first { $0.title == localized("Keep Menu Visible") })
+        #expect(pin.keyEquivalent == "t")
+        #expect(pin.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == [.option, .command])
     }
 
     @Test("文書メニューに印刷レイアウト・スタイル・画像・リセット・再読み込みをまとめる")
@@ -93,7 +76,7 @@ struct SettingsMenuTests {
         #expect(fallback.defaultPageTurn == nil)
     }
 
-    @Test("⌘, はアプリのメニューの設定だけが持ち、設定メニューの全設定は持たない")
+    @Test("設定画面を開く⌘,はアプリ名のメニューの設定だけが持つ")
     func settingsShortcutIsUnique() throws {
         let menu = try #require(NSApp.mainMenu)
         func items(_ menu: NSMenu) -> [NSMenuItem] {
@@ -105,5 +88,7 @@ struct SettingsMenuTests {
         }
         #expect(owners.count == 1)
         #expect(owners.first?.menu === menu.items.first?.submenu)
+        #expect(["Settings…", "設定…"].contains(owners.first?.title ?? ""))
+        #expect(owners.first?.isEnabled == true)
     }
 }
