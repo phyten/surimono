@@ -9,6 +9,8 @@
 		A00000000000000000000001 /* SurimonoCore in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000061 /* SurimonoCore */; };
 		A00000000000000000000002 /* SurimonoRendering in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000062 /* SurimonoRendering */; };
 		A00000000000000000000004 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000064 /* Sparkle */; };
+		A00000000000000000000005 /* SurimonoCore in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000065 /* SurimonoCore */; };
+		A00000000000000000000006 /* SurimonoRendering in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000066 /* SurimonoRendering */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,6 +33,9 @@
 		A00000000000000000000016 /* SurimonoTests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = SurimonoTests.xcconfig; sourceTree = "<group>"; };
 		A00000000000000000000017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A00000000000000000000018 /* Surimono.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Surimono.entitlements; sourceTree = "<group>"; };
+		A00000000000000000000019 /* Surimono-AppStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Surimono-AppStore.entitlements"; sourceTree = "<group>"; };
+		A0000000000000000000001A /* SurimonoAppStore.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = SurimonoAppStore.xcconfig; sourceTree = "<group>"; };
+		A0000000000000000000001B /* Surimono.app (App Store) */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Surimono.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -46,6 +51,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A00000000000000000000023 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000027 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A00000000000000000000005, A00000000000000000000006); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -56,13 +62,13 @@
 		};
 		A00000000000000000000025 /* Configs */ = {
 			isa = PBXGroup;
-			children = (A00000000000000000000012, A00000000000000000000013, A00000000000000000000014, A00000000000000000000015, A00000000000000000000016, A00000000000000000000017, A00000000000000000000018);
+			children = (A00000000000000000000012, A00000000000000000000013, A00000000000000000000014, A00000000000000000000015, A00000000000000000000016, A00000000000000000000017, A00000000000000000000018, A00000000000000000000019, A0000000000000000000001A);
 			path = Configs;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000026 /* Products */ = {
 			isa = PBXGroup;
-			children = (A00000000000000000000010, A00000000000000000000011);
+			children = (A00000000000000000000010, A00000000000000000000011, A0000000000000000000001B);
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -95,6 +101,19 @@
 			productReference = A00000000000000000000011;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		A00000000000000000000038 /* Surimono App Store */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000053;
+			buildPhases = (A00000000000000000000039, A00000000000000000000027, A0000000000000000000003A);
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (A00000000000000000000020);
+			name = "Surimono App Store";
+			packageProductDependencies = (A00000000000000000000065, A00000000000000000000066);
+			productName = Surimono;
+			productReference = A0000000000000000000001B;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -106,6 +125,7 @@
 				TargetAttributes = {
 					A00000000000000000000030 = {CreatedOnToolsVersion = 26.6; };
 					A00000000000000000000031 = {CreatedOnToolsVersion = 26.6; TestTargetID = A00000000000000000000030; };
+					A00000000000000000000038 = {CreatedOnToolsVersion = 26.6; };
 				};
 			};
 			buildConfigurationList = A00000000000000000000050;
@@ -119,18 +139,20 @@
 			productRefGroup = A00000000000000000000026;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (A00000000000000000000030, A00000000000000000000031);
+			targets = (A00000000000000000000030, A00000000000000000000031, A00000000000000000000038);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A00000000000000000000034 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A00000000000000000000035 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A0000000000000000000003A = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A00000000000000000000032 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A00000000000000000000033 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A00000000000000000000039 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -144,12 +166,15 @@
 		A00000000000000000000044 = {isa = XCBuildConfiguration; baseConfigurationReference = A00000000000000000000015; buildSettings = {}; name = Release; };
 		A00000000000000000000045 = {isa = XCBuildConfiguration; baseConfigurationReference = A00000000000000000000016; buildSettings = {}; name = Debug; };
 		A00000000000000000000046 = {isa = XCBuildConfiguration; baseConfigurationReference = A00000000000000000000016; buildSettings = {}; name = Release; };
+		A00000000000000000000047 = {isa = XCBuildConfiguration; baseConfigurationReference = A0000000000000000000001A; buildSettings = {}; name = Debug; };
+		A00000000000000000000048 = {isa = XCBuildConfiguration; baseConfigurationReference = A0000000000000000000001A; buildSettings = {}; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		A00000000000000000000050 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000041, A00000000000000000000042); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A00000000000000000000051 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000043, A00000000000000000000044); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A00000000000000000000052 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000045, A00000000000000000000046); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A00000000000000000000053 = {isa = XCConfigurationList; buildConfigurations = (A00000000000000000000047, A00000000000000000000048); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -168,6 +193,8 @@
 		A00000000000000000000061 /* SurimonoCore */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000060; productName = SurimonoCore; };
 		A00000000000000000000062 /* SurimonoRendering */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000060; productName = SurimonoRendering; };
 		A00000000000000000000064 /* Sparkle */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000063 /* Sparkle */; productName = Sparkle; };
+		A00000000000000000000065 /* SurimonoCore */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000060; productName = SurimonoCore; };
+		A00000000000000000000066 /* SurimonoRendering */ = {isa = XCSwiftPackageProductDependency; package = A00000000000000000000060; productName = SurimonoRendering; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A00000000000000000000040 /* Project object */;

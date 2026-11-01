@@ -41,6 +41,7 @@ make test-app                   # アプリのテスト（xcodebuild test）
 make lint                       # swift-format lint --strict
 make format                     # swift-format で整形
 make package                    # Release ビルド → build/release/Surimono-<version>.dmg と .zip（それぞれ SHA-256 付き）
+make check-appstore             # Mac App Store 版（ターゲット Surimono App Store）を組み立て、サンドボックスと Sparkle なしを確かめる
 make clean
 ```
 
@@ -159,6 +160,7 @@ make clean
   - 秘密鍵は、メンテナのログインキーチェーン（Sparkle の `generate_keys`、アカウント `io.github.phyten.Surimono`）と、リポジトリの Secret `SPARKLE_PRIVATE_KEY` にある。なくすと、入れてある版はその後の更新を確かめられず、入れ直しになる。鍵を替えるときは Sparkle の鍵の切り替えの手順に従う。
   - Sparkle の道具（`generate_appcast`・`sign_update`・`generate_keys`）は、パッケージを解決すると `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/` にできる。
 - ダウンロード数: download-stats.yml が毎日と Release ワークフローの成功後（GITHUB_TOKEN で作ったリリースは `release` イベントで他のワークフローを起動しないため `workflow_run` で受ける）に、GitHub Releases の DMG と ZIP のダウンロード数をそれぞれ合計し、shields.io の endpoint 用の JSON として `stats` ブランチに 1 コミットで上書きする。README のバッジがそれを読む。数は取得の回数で、入れた数や更新した数ではない（ZIP はアプリ内アップデートにも、手で入れるのにも使う）。appcast と SHA-256 は数えない。数は GitHub が持つものだけで、アプリからは何も送らない（テレメトリなし）。
+- Mac App Store 版（準備中。まだ申請していない）は別のターゲット `Surimono App Store`（`Configs/SurimonoAppStore.xcconfig`）。同じソースを `APP_STORE` の条件つきで組み、App Sandbox を有効にし（`Configs/Surimono-AppStore.entitlements`: 利用者が選んだファイルの読み書き・ブックマーク・印刷・外への通信）、Sparkle をリンクしない（`AppUpdater` は何もしない版になる）。パッケージの製品は構成ごとにリンクを分けられず、リンクしたターゲットには Xcode が Sparkle を埋め込むため、ターゲットを分けている。どちらのターゲットも Surimono.app を作るので、`make build-appstore` は `build/DerivedData-AppStore` に組む。CI は `make check-appstore` で、サンドボックスが有効で Sparkle を含まず読み込まないことを確かめる。
 - 署名はアドホックのまま（Developer ID・公証はまだ）。そのため Library Validation を外している（地雷を参照）。
 
 ## コーディング規約

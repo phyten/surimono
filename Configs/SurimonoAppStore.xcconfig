@@ -1,0 +1,9 @@
+#include "Surimono.xcconfig"
+
+// The Mac App Store app: the same sources, sandboxed, and without Sparkle, because the App Store updates the app. It is
+// a target of its own because a package product cannot be linked per configuration, and Xcode embeds Sparkle into any
+// target that links it. APP_STORE leaves the Sparkle code out.
+ENABLE_APP_SANDBOX = YES
+CODE_SIGN_ENTITLEMENTS = Configs/Surimono-AppStore.entitlements
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) APP_STORE
+SURIMONO_UPDATE_FEED_URL =
