@@ -1,6 +1,7 @@
 import AppKit
 import OSLog
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 import WebKit
 
@@ -12,6 +13,9 @@ final class WebPageController: NSObject {
     let container = WebPageContainerView()
     private(set) var webView: WKWebView?
     private var fileURL: URL?
+    var allowedResourceFolders: [URL] = []
+    var isSandboxed: () -> Bool = { SandboxEnvironment.isSandboxed }
+    var onFolderAccessRequired: ((URL) -> Void)?
     var onZoomChange: ((Double) -> Void)?
     /// Opens a link outside the app; replaced in tests.
     var openExternally: (URL) -> Void = { NSWorkspace.shared.open($0) }
@@ -57,6 +61,12 @@ final class WebPageController: NSObject {
         }
         self.allowsJavaScript = allowsJavaScript
         let configuration = WKWebViewConfiguration()
+        if isSandboxed() {
+            let handler = LocalResourceSchemeHandler(
+                access: LocalResourceAccess(documentURL: fileURL, folders: allowedResourceFolders))
+            handler.onDenied = { [weak self] folder in self?.onFolderAccessRequired?(folder) }
+            configuration.setURLSchemeHandler(handler, forURLScheme: LocalResourceSchemeHandler.scheme)
+        }
         configuration.defaultWebpagePreferences.allowsContentJavaScript = allowsJavaScript
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         Self.installPrintBridge(in: configuration.userContentController, handler: PrintMessageHandler(self))
@@ -83,13 +93,23 @@ final class WebPageController: NSObject {
     /// The file changed on disk: show it from the start.
     func reload() {
         guard webView != nil else { return }
+        if isSandboxed(), let fileURL, let allowsJavaScript {
+            close()
+            onRestart?()
+            show(fileURL, allowsJavaScript: allowsJavaScript)
+            return
+        }
         load()
     }
 
     private func load() {
         guard let webView, let fileURL else { return }
         // The document may refer to files next to it, such as images and style sheets.
-        webView.loadFileURL(fileURL, allowingReadAccessTo: fileURL.deletingLastPathComponent())
+        if isSandboxed() {
+            webView.load(URLRequest(url: LocalResourceSchemeHandler.url(for: fileURL)))
+        } else {
+            webView.loadFileURL(fileURL, allowingReadAccessTo: fileURL.deletingLastPathComponent())
+        }
     }
 
     /// Applies a changed JavaScript setting whether or not the page is on screen: a page kept while paper or the tray
@@ -281,7 +301,8 @@ extension WebPageController: WKNavigationDelegate {
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
-        guard let url = navigationAction.request.url, let fileURL else { return decisionHandler(.cancel) }
+        guard let requested = navigationAction.request.url, let fileURL else { return decisionHandler(.cancel) }
+        let url = isSandboxed() ? (LocalResourceSchemeHandler.fileURL(for: requested) ?? requested) : requested
         let type = navigationAction.navigationType
         let target: NavigationTarget =
             switch navigationAction.targetFrame?.isMainFrame {
@@ -300,7 +321,8 @@ extension WebPageController: WKUIDelegate {
     ) -> WKWebView? {
         // Pages may open windows only in answer to a click (see javaScriptCanOpenWindowsAutomatically), so a window
         // asked for here comes from the reader.
-        guard let url = navigationAction.request.url, let fileURL else { return nil }
+        guard let requested = navigationAction.request.url, let fileURL else { return nil }
+        let url = isSandboxed() ? (LocalResourceSchemeHandler.fileURL(for: requested) ?? requested) : requested
         let type = navigationAction.navigationType
         let byUser = type == .linkActivated || type == .other
         _ = perform(

@@ -8,6 +8,7 @@ import WebKit
 public final class WebPaginator: NSObject {
     public enum Source: Sendable {
         case html(String, baseURL: URL?)
+        case sandboxed(String?, access: LocalResourceAccess)
         case file(URL, readAccessURL: URL)
         /// A copy of a live page, which may read the files under its document's directory and no others.
         case snapshot(String, directory: URL)
@@ -45,8 +46,13 @@ public final class WebPaginator: NSObject {
         public let preparationResult: String?
         /// The document's own `@page` rules with a size, read before the preparation script ran; empty unless asked.
         public let pageRules: [PageRule]
+        public var requiredFolderAccess: URL?
 
-        public init(document: PDFDocument, preparationResult: String? = nil, pageRules: [PageRule] = []) {
+        public init(
+            document: PDFDocument, preparationResult: String? = nil, pageRules: [PageRule] = [],
+            requiredFolderAccess: URL? = nil
+        ) {
+            self.requiredFolderAccess = requiredFolderAccess
             self.document = document
             self.preparationResult = preparationResult
             self.pageRules = pageRules
@@ -71,10 +77,9 @@ public final class WebPaginator: NSObject {
     /// it to fit (a page wider than that shrinks further).
     public static let printPixelsPerPoint = 1.25
 
-    /// Whether a web view can lay out pages over a clear ground. A page that has no background of its own otherwise
-    /// gets WebKit's white, which would hide a paper laid under it (`PaperBackground`). The switch is WebKit's own
-    /// but not public, so it is used only where it exists.
-    public static let drawsClearPages = WKWebView.instancesRespond(to: NSSelectorFromString("_setDrawsBackground:"))
+    // Only the distribution app may opt into platform-specific background removal.
+    public static var clearBackground: (@MainActor (WKWebView) -> Void)?
+    public static var drawsClearPages: Bool { clearBackground != nil }
 
     public func paginate(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
@@ -98,7 +103,7 @@ public final class WebPaginator: NSObject {
     ) async throws -> Result {
         openSessionCount += 1
         let session = PaginationSession(
-            pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
+            source: source, pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
             printsBackgrounds: printsBackgrounds, drawsBackground: drawsBackground, printTimeout: printTimeout,
             onPrintStart: { [weak self] in self?.printStartCount += 1 },
             onPrintFinish: { [weak self] in self?.didFinishPrinting?() },
@@ -136,9 +141,12 @@ public final class WebPaginator: NSObject {
             mayDrawBelowPaper = true
         }
         didCheckPageRules?(mayDrawBelowPaper)
+        let document = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
+        if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
         return Result(
-            document: try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper),
-            preparationResult: preparationResult, pageRules: pageRules)
+            document: document,
+            preparationResult: preparationResult, pageRules: pageRules,
+            requiredFolderAccess: session.localHandler?.requiredFolderAccess)
     }
 
     /// Returns "true" when a style sheet of the document, including those a script adopted, has an `@page` rule or
@@ -303,6 +311,7 @@ private final class PaginationSession {
     private let onPrintStart: () -> Void
     private let onPrintFinish: () -> Void
     private let onClose: () -> Void
+    let localHandler: LocalResourceSchemeHandler?
     private var temporaryFiles: [URL] = []
     private var printCompletion: PrintCompletion?
     private var isPrinting = false
@@ -312,7 +321,8 @@ private final class PaginationSession {
     var navigationState: NavigationTracker.State { navigationTracker.state }
 
     init(
-        pageSize: CGSize, margins: WebPaginator.Margins, allowsJavaScript: Bool, printsBackgrounds: Bool,
+        source: WebPaginator.Source, pageSize: CGSize, margins: WebPaginator.Margins, allowsJavaScript: Bool,
+        printsBackgrounds: Bool,
         drawsBackground: Bool = true, printTimeout: Duration, onPrintStart: @escaping () -> Void,
         onPrintFinish: @escaping () -> Void, onClose: @escaping () -> Void
     ) {
@@ -323,7 +333,15 @@ private final class PaginationSession {
         self.onPrintStart = onPrintStart
         self.onPrintFinish = onPrintFinish
         self.onClose = onClose
+        if case .sandboxed(let html, let access) = source {
+            localHandler = LocalResourceSchemeHandler(access: access, html: html)
+        } else {
+            localHandler = nil
+        }
         let configuration = WKWebViewConfiguration()
+        if let localHandler {
+            configuration.setURLSchemeHandler(localHandler, forURLScheme: LocalResourceSchemeHandler.scheme)
+        }
         configuration.defaultWebpagePreferences.allowsContentJavaScript = allowsJavaScript
         configuration.suppressesIncrementalRendering = true
         configuration.preferences.shouldPrintBackgrounds = printsBackgrounds
@@ -331,7 +349,7 @@ private final class PaginationSession {
         let printableWidth = max(pageSize.width - margins.left - margins.right, 72)
         let frame = CGRect(x: 0, y: 0, width: printableWidth, height: pageSize.height)
         webView = WKWebView(frame: frame, configuration: configuration)
-        if !drawsBackground && WebPaginator.drawsClearPages { webView.setValue(false, forKey: "drawsBackground") }
+        if !drawsBackground { WebPaginator.clearBackground?(webView) }
         // WebKit only produces non-blank print output for a view that lives in a window.
         window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -341,6 +359,8 @@ private final class PaginationSession {
 
     func load(_ source: WebPaginator.Source) throws {
         switch source {
+        case .sandboxed(_, let access):
+            webView.load(URLRequest(url: LocalResourceSchemeHandler.url(for: access.documentURL)))
         case .html(let html, let baseURL?) where baseURL.isFileURL && !allowsJavaScript:
             // loadHTMLString does not grant file read access, so images next to the document would not load.
             // Load a temporary copy instead. Reading is allowed broadly so that references such as ../images/

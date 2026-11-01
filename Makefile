@@ -91,7 +91,8 @@ check-appstore: build-appstore
 	test ! -e "$(APP_STORE_APP)/Contents/Frameworks/Sparkle.framework"
 	libraries="$$(otool -L "$(APP_STORE_APP)/Contents/MacOS/Surimono")" && ! printf '%s\n' "$$libraries" | grep -q Sparkle
 	! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$(APP_STORE_APP)/Contents/Info.plist" 2>/dev/null | grep -q .
-	@echo "AppStore build: sandboxed, no Sparkle"
+	private_api="$$(strings "$(APP_STORE_APP)/Contents/MacOS/Surimono")" && ! printf '%s\n' "$$private_api" | grep -q '_setDrawsBackground'
+	@echo "AppStore build: sandboxed, no Sparkle, no private background API"
 
 clean:
 	rm -rf build "$(DERIVED_DATA)" "$(APP_STORE_DERIVED_DATA)" Packages/SurimonoKit/.build

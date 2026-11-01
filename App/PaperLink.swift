@@ -1,5 +1,6 @@
 import AppKit
 import SurimonoCore
+import SurimonoRendering
 
 enum PaperLinkAction: Equatable {
     case external, document, missingFile, unsupported
@@ -17,6 +18,7 @@ enum PaperLinkAction: Equatable {
 }
 
 struct PaperLinkHandler {
+    var isSandboxed: () -> Bool = { SandboxEnvironment.isSandboxed }
     var openExternal: (URL) async throws -> Void = { url in
         let configuration = NSWorkspace.OpenConfiguration()
         // Failures belong in the document's toast, not a LaunchServices error dialog.
@@ -26,6 +28,16 @@ struct PaperLinkHandler {
     var openDocument: (URL) -> Void = { OpenRouter.shared.open([$0]) }
 
     func open(_ url: URL, onToast: (Toast) -> Void) async {
+        let sandboxed = isSandboxed()
+        let url = sandboxed ? (LocalResourceSchemeHandler.fileURL(for: url) ?? url) : url
+        if sandboxed, url.isFileURL, !FileManager.default.isReadableFile(atPath: url.path) {
+            onToast(
+                Toast(
+                    systemImage: "folder",
+                    title: String(localized: "Allow folder access to display images and other resources"),
+                    action: .allowFolderAccess))
+            return
+        }
         let exists = url.isFileURL && FileManager.default.fileExists(atPath: url.path)
         let file = url.isFileURL ? url.resolvingSymlinksInPath() : url
         let values = exists ? try? file.resourceValues(forKeys: [.isRegularFileKey]) : nil

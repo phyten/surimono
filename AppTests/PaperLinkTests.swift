@@ -127,4 +127,16 @@ struct PaperLinkTests {
         #expect(toasts.first?.title == String(localized: "The linked file could not be found"))
         #expect(toasts.first?.detail == "missing.md")
     }
+    @Test("サンドボックスで読めない紙のリンクはフォルダ許可を案内する")
+    func missingSandboxFileRequestsPermission() async {
+        var handler = PaperLinkHandler()
+        handler.isSandboxed = { true }
+        var toasts: [Toast] = []
+        await handler.open(URL(fileURLWithPath: "/missing-folder-\(UUID().uuidString)/next.md")) {
+            toasts.append($0)
+        }
+        #expect(toasts.count == 1)
+        #expect(toasts.first?.action == .allowFolderAccess)
+    }
+
 }

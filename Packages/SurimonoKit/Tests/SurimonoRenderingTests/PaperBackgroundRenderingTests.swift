@@ -63,6 +63,9 @@ struct PaperBackgroundRenderingTests {
     private func render(
         _ markdown: String, theme: PrintTheme, margin: Double = 15, textScale: Double = 1
     ) async throws -> PDFDocument {
+        let previous = WebPaginator.clearBackground
+        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         var settings = RenderSettings(
             layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
@@ -160,6 +163,9 @@ struct PaperBackgroundRenderingTests {
 
     @Test("下地を敷かない組版は、背景のないページを透明のまま描く", .timeLimit(.minutes(1)))
     func clearPagesStayClear() async throws {
+        let previous = WebPaginator.clearBackground
+        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         #expect(WebPaginator.drawsClearPages)
         // WebKit puts its white under the root's box, which the body makes 200 px tall.
@@ -189,6 +195,9 @@ struct PaperBackgroundRenderingTests {
     }
 
     private func requests(answering answer: String) async throws -> Requests {
+        let previous = WebPaginator.clearBackground
+        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         let requests = Requests()
         let renderer = DocumentRenderer(paginateWithResult: { request in
@@ -218,6 +227,9 @@ struct PaperBackgroundRenderingTests {
     }
 
     private func renderFailingPaper(with error: any Error) async throws -> PDFDocument {
+        let previous = WebPaginator.clearBackground
+        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        defer { WebPaginator.clearBackground = previous }
         _ = NSApplication.shared
         let requests = Requests()
         let renderer = DocumentRenderer(paginateWithResult: { request in

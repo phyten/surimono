@@ -1,4 +1,6 @@
+import SurimonoRendering
 import SwiftUI
+import WebKit
 
 @main
 struct SurimonoApp: App {
@@ -8,6 +10,11 @@ struct SurimonoApp: App {
     private let settingsStore: DocumentSettingsStore
 
     init() {
+        #if !APP_STORE
+            if WKWebView.instancesRespond(to: NSSelectorFromString("_setDrawsBackground:")) {
+                WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+            }
+        #endif
         let preferences = AppPreferences()
         _preferences = State(initialValue: preferences)
         let library = UserLibrary()
