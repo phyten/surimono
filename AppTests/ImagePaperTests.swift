@@ -7,8 +7,10 @@ import Testing
 
 @MainActor
 struct ImagePaperTests {
-    @Test("余白0の画像は、表示モードの紙と窓が用紙の空きを含まず画像の形になる", .timeLimit(.minutes(1)))
-    func imagePaperHasImageShape() async throws {
+    @Test(
+        "余白0の画像は、印刷レイアウトによらず表示モードの紙と窓が画像の形になる", .timeLimit(.minutes(1)),
+        arguments: [PrintLayout.a4Single, .a4BookletA5, .a4Handout3])
+    func imagePaperHasImageShape(layout: PrintLayout) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let suite = TestDefaultsSuite()
@@ -17,6 +19,7 @@ struct ImagePaperTests {
             data: TestFixtures.png(red: 1), fileURL: nil, format: .image,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
         defer { model.stop() }
+        model.layoutID = layout.id
         model.printOptions.marginsInMillimeters = 0
         model.render()
         for _ in 0..<500 where model.isRendering { try await Task.sleep(for: .milliseconds(20)) }

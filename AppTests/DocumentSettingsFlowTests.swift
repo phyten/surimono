@@ -53,6 +53,33 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("冊子を覚えた文書を開き直しても表示は A4 片面で、刷り台には冊子を復元する", .timeLimit(.minutes(1)))
+    func rememberedBookletOnlyAffectsPrinting() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let data = pdf("Remembered booklet")
+        let first = environment.model(data)
+        try await open(first)
+        first.layoutID = PrintLayout.a4BookletA5.id
+        first.rememberedSettingsDidChange()
+        first.stop()
+
+        let reopened = environment.model(data)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.mode == .view)
+        #expect(reopened.layoutID == "a4BookletA5")
+        #expect(reopened.renderedSettings?.layout == .a4Single)
+        #expect(reopened.renderSettings?.layout == .a4Single)
+        reopened.enterPrintMode()
+        #expect(reopened.renderSettings?.layout == .a4BookletA5)
+        #expect(!reopened.canOutput)
+        reopened.render()
+        try await waitUntil { !reopened.isRendering }
+        #expect(reopened.canOutput)
+        #expect(reopened.printResult?.layout == .a4BookletA5)
+    }
+
     @Test("新しい文書だけが表示の既定値を取り込み、保存した表示は優先する", .timeLimit(.minutes(1)))
     func newViewDefaults() async throws {
         let environment = try environment()

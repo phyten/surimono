@@ -193,7 +193,7 @@ struct MarkdownChangeMarksTests {
             let old = model.paperChangeMarks
             switch change {
             case 0: model.themeID = "mincho"
-            case 1: model.layoutID = "a4BookletA5"
+            case 1: model.paperOrientation = .landscape
             default: model.setTextScale(1.25)
             }
             model.render()

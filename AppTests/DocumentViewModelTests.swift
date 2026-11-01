@@ -7,8 +7,83 @@ import Testing
 
 @MainActor
 struct DocumentViewModelTests {
-    @Test("縦23枚と回転した横1枚のPDFは縦A4を窓の基準にする", .timeLimit(.minutes(1)))
-    func mixedPaperUnitSize() async throws {
+    @Test("表示と見比べ台は印刷レイアウトに関係なく A4 片面で組む", arguments: [ViewerMode.view, .compare])
+    func readingLayoutIgnoresPrintLayout(mode: ViewerMode) throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.layoutID = PrintLayout.a4BookletA5.id
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .markdown, preferences: preferences,
+            library: UserLibrary(root: directory))
+        defer { model.stop() }
+        model.mode = mode
+        model.paperOrientation = .landscape
+        model.setMargins(12)
+        model.setTextScale(1.25)
+        model.selectTheme("mincho")
+        for layout in PrintLayout.presets {
+            model.layoutID = layout.id
+            let settings = try #require(model.renderSettings)
+            #expect(settings.layout == .a4Single)
+            #expect(settings.paperOrientation == .landscape)
+            #expect(settings.options.marginsInMillimeters == 12)
+            #expect(settings.textScale == 1.25)
+            #expect(settings.theme.id == "mincho")
+            #expect(model.layoutID == layout.id)
+        }
+        #expect(preferences.layoutID == "a4BookletA5")
+    }
+
+    @Test("刷り台だけは選んだ印刷レイアウトで組み、表示へ戻ると A4 片面に戻す")
+    func printModeUsesRememberedLayout() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .markdown, preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: directory))
+        defer { model.stop() }
+        for layout in PrintLayout.presets {
+            model.layoutID = layout.id
+            model.enterPrintMode()
+            #expect(model.renderSettings?.layout == layout)
+            model.exitPrintMode()
+            #expect(model.renderSettings?.layout == .a4Single)
+            #expect(model.layoutID == layout.id)
+        }
+    }
+
+    @Test("表示では冊子やメモ用紙を選んでいても余白と用紙の向きを変えられる")
+    func readingControlsUseReadingLayout() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .markdown, preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: directory))
+        defer { model.stop() }
+        model.paperOrientation = .landscape
+        for layout in [PrintLayout.a4BookletA5, .a4Handout3] {
+            model.layoutID = layout.id
+            #expect(model.marginsApply)
+            #expect(!PaperOrientationControl(model: model).isFixed)
+            #expect(PaperOrientationControl(model: model).value == "Landscape")
+            model.enterPrintMode()
+            #expect(PaperOrientationControl(model: model).isFixed)
+            #expect(model.marginsApply == (layout == .a4BookletA5))
+            model.exitPrintMode()
+        }
+    }
+
+    @Test(
+        "縦23枚と回転した横1枚のPDFは印刷レイアウトによらず縦A4を窓の基準にする", .timeLimit(.minutes(1)),
+        arguments: [PrintLayout.a4Single, .a4BookletA5, .a4Handout3])
+    func mixedPaperUnitSize(layout: PrintLayout) async throws {
         let document = try #require(PDFDocument(data: TestFixtures.pdf("mixed", pages: 24)))
         document.page(at: 16)?.rotation = 90
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -19,6 +94,7 @@ struct DocumentViewModelTests {
             data: try #require(document.dataRepresentation()), fileURL: nil, format: .pdf,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
         defer { model.stop() }
+        model.layoutID = layout.id
         model.render()
         for _ in 0..<500 where model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
         model.viewOptions.layout = .single

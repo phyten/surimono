@@ -92,8 +92,10 @@ final class DocumentViewModel {
     var smartRemovalKeptIDs: [String] = []
     /// While reviewing, the paper outlines the detected parts instead of removing them.
     private(set) var isReviewingSmartRemoval = false
-    /// An output asked for during the review; it runs once the pages without the outlines are drawn.
+    /// An output waiting for the print layout, a web capture, or the end of a review; it runs when sheets are ready.
     @ObservationIgnored private(set) var outputAfterReview: Output?
+    /// Replaces the system output UI in tests, after readiness checks, with the exact sheets being output.
+    @ObservationIgnored var outputOverride: ((Output, RenderResult) -> Void)?
     var toast: Toast?
     /// The logical pages the paper shows. They are published before the sheets are composed.
     private(set) var result: PreparedRender?
@@ -249,6 +251,9 @@ final class DocumentViewModel {
             favoriteIDs: preferences.favoriteThemeIDs)
     }
     var layout: PrintLayout { PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single }
+    /// Reading and comparing keep the paper's shape independent of how pages are arranged for printing.
+    var renderLayout: PrintLayout { mode == .print ? layout : .a4Single }
+
     var renderSettings: RenderSettings? {
         guard
             let theme = library.themes.first(where: { $0.id == (format.usesPrintTheme ? themeID : "standard") })
@@ -257,7 +262,7 @@ final class DocumentViewModel {
                 ?? library.presets.first(where: { $0.id == "none" })
         else { return nil }
         return RenderSettings(
-            layout: layout, theme: theme, preset: preset, options: printOptions,
+            layout: renderLayout, theme: theme, preset: preset, options: printOptions,
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
@@ -620,7 +625,7 @@ final class DocumentViewModel {
                 retriedChangedImages = false
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 // A render that a later change made stale leaves the output to the render that follows it.
-                if let output = outputAfterReview, settings == renderSettings {
+                if let output = outputAfterReview, mode == .print, settings == renderSettings {
                     outputAfterReview = nil
                     run(output)
                 }
@@ -669,7 +674,7 @@ final class DocumentViewModel {
 
     /// Whether the margin shows on the pages view mode displays. PDFs keep their own margins, and the 3-up handout
     /// insets the sheet instead of its logical pages.
-    var marginsApply: Bool { format != .pdf && layout.kind != .handout3 }
+    var marginsApply: Bool { format != .pdf && renderLayout.kind != .handout3 }
 
     /// Whether the margin changes the printed sheets: everything but PDFs, including the 3-up handout's sheet.
     var marginsAffectPrinting: Bool { format != .pdf }
@@ -711,10 +716,21 @@ final class DocumentViewModel {
 
     func enterPrintMode() {
         guard mode != .print else { return }
-        guard mode == .view, isWebPresentation || webCaptureFailed else { return showPrintTray() }
+        guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
         // The tray prints the page as it is now.
         captureWeb { [weak self] outcome in
-            if outcome == .failed { self?.showCaptureFailure() } else { self?.showPrintTray() }
+            guard let self else { return }
+            if outcome == .failed {
+                outputAfterReview = nil
+                showCaptureFailure()
+            } else {
+                showPrintTray()
+                // An unchanged copy with the same layout needs no render to resume the waiting output.
+                if let output = outputAfterReview, canOutput {
+                    outputAfterReview = nil
+                    run(output)
+                }
+            }
         }
     }
 
@@ -759,6 +775,7 @@ final class DocumentViewModel {
 
     func exitPrintMode() {
         guard mode != .view else { return }
+        outputAfterReview = nil
         guard let window else {
             resetPrintChoices()
             mode = .view
@@ -932,17 +949,23 @@ final class DocumentViewModel {
             isCapturingWeb = false
             let completions = captureCompletions
             captureCompletions = []
+            let settingsBeforeCompletions = renderSettings
             webCaptureFailed = snapshot == .failed
+            var needsRender = false
             if case .captured(let copy) = snapshot, copy != liveSnapshot {
                 liveSnapshot = copy
                 // The pages of the previous state must not show or print in the meantime.
                 result = nil
                 printResult = nil
                 printTray = nil
-                render()
+                needsRender = true
+                isRendering = true
             }
             let outcome: CaptureOutcome = snapshot == .failed ? .failed : isRendering ? .rendering : .ready
             for completion in completions { completion(outcome) }
+            // A changed layout is rendered by DocumentContent's settings observer. Otherwise the new copy still
+            // needs a render here. Never paginate once for reading and again for the tray, or start both paths.
+            if needsRender, settingsBeforeCompletions == renderSettings { render() }
         }
     }
 
@@ -956,6 +979,8 @@ final class DocumentViewModel {
         captureTask?.cancel()
         captureTask = nil
         captureCompletions = []
+        // A request waiting on this capture must not survive a reload and run on a later visit to the tray.
+        outputAfterReview = nil
         isCapturingWeb = false
         webCaptureFailed = false
     }
@@ -1398,6 +1423,18 @@ final class DocumentViewModel {
         case exportPDF
     }
 
+    /// Outputs use the tray's layout even when requested from reading or comparison. The view observes the changed
+    /// render settings and draws once; do not start a second render here or output the reading pages in the meantime.
+    private func deferUntilPrintMode(_ output: Output) -> Bool {
+        guard mode != .print else { return false }
+        outputAfterReview = output
+        enterPrintMode()
+        guard mode == .print, canOutput else { return true }
+        // A4 single-sided may already be composed, so no settings change will trigger another render.
+        outputAfterReview = nil
+        return false
+    }
+
     /// An output asked for during the review ends it and waits for the pages without the outlines.
     private func deferUntilReviewEnds(_ output: Output) -> Bool {
         guard isReviewingSmartRemoval else { return false }
@@ -1426,10 +1463,14 @@ final class DocumentViewModel {
     /// Prints the sheets: right away to the selected printer when `quick`, otherwise through the system dialog,
     /// which starts on that printer.
     func printDocument(quick: Bool = false) {
-        guard !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick)) else {
+        guard !deferUntilPrintMode(.print(quick: quick)),
+            !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick))
+        else {
             return
         }
-        guard canOutput, let result = printResult, let window else { return }
+        guard canOutput, let result = printResult else { return }
+        if let outputOverride { return outputOverride(.print(quick: quick), result) }
+        guard let window else { return }
         outputError = nil
         let shown = selectedPrinterName
         refreshPrinters()
@@ -1469,7 +1510,11 @@ final class DocumentViewModel {
     }
 
     func exportPDF() {
-        guard !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF) else { return }
+        guard !deferUntilPrintMode(.exportPDF),
+            !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF)
+        else { return }
+        guard canOutput, let result = printResult else { return }
+        if let outputOverride { return outputOverride(.exportPDF, result) }
         guard let window, beginPDFExport() else { return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.pdf]
