@@ -1,4 +1,5 @@
 import Foundation
+import PDFKit
 import SurimonoCore
 import Testing
 
@@ -6,6 +7,26 @@ import Testing
 
 @MainActor
 struct DocumentViewModelTests {
+    @Test("縦23枚と回転した横1枚のPDFは縦A4を窓の基準にする", .timeLimit(.minutes(1)))
+    func mixedPaperUnitSize() async throws {
+        let document = try #require(PDFDocument(data: TestFixtures.pdf("mixed", pages: 24)))
+        document.page(at: 16)?.rotation = 90
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = DocumentViewModel(
+            data: try #require(document.dataRepresentation()), fileURL: nil, format: .pdf,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
+        defer { model.stop() }
+        model.render()
+        for _ in 0..<500 where model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
+        model.viewOptions.layout = .single
+        #expect(model.paperUnitSize == CGSize(width: 595, height: 842))
+        model.viewOptions.layout = .spread
+        #expect(model.paperUnitSize == CGSize(width: 1190, height: 842))
+    }
+
     @Test("文書形式に合うテーマとプリセットだけを描画要求に反映する")
     func renderSettings() throws {
         let library = UserLibrary(

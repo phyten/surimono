@@ -1239,13 +1239,11 @@ final class DocumentViewModel {
     /// One page, or a spread, at 100 %.
     var paperUnitSize: CGSize? {
         guard let document = result?.viewDocument, document.pageCount > 0 else { return nil }
-        let page = (0..<document.pageCount).reduce(into: CGSize.zero) { size, index in
-            guard let page = document.page(at: index) else { return }
-            let bounds = page.bounds(for: .cropBox)
-            let pageSize =
-                page.rotation % 180 == 0 ? bounds.size : CGSize(width: bounds.height, height: bounds.width)
-            size = CGSize(width: max(size.width, pageSize.width), height: max(size.height, pageSize.height))
-        }
+        let page = PageSizes.representative(
+            (0..<document.pageCount).compactMap { index in
+                guard let page = document.page(at: index) else { return nil }
+                return PageSizes.displayed(page.bounds(for: .cropBox).size, rotation: page.rotation)
+            })
         guard page.width > 0, page.height > 0 else { return nil }
         return viewOptions.layout == .single ? page : CGSize(width: page.width * 2, height: page.height)
     }
