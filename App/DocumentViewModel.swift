@@ -12,7 +12,7 @@ typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
 /// A short message near the bottom of the window, optionally with one action.
 struct Toast: Equatable, Identifiable {
-    enum Action: Equatable { case resetDocumentSettings, reviewSmartRemoval, retryWebCapture, allowFolderAccess }
+    enum Action: Equatable { case retryWebCapture, allowFolderAccess }
 
     let id = UUID()
     var systemImage: String
@@ -140,7 +140,6 @@ final class DocumentViewModel {
     @ObservationIgnored private var hashTask: Task<Void, Never>?
     @ObservationIgnored private var openFailure: String?
     @ObservationIgnored private var retriedChangedImages = false
-    @ObservationIgnored private var announcesSmartRemoval = false
     @ObservationIgnored private var hasShownArchiveSummary = false
     private var hasResolvedViewOptions = false
     @ObservationIgnored private var defaultViewOptions: ViewOptions?
@@ -370,15 +369,15 @@ final class DocumentViewModel {
         if let imageBundle, imageBundle.archiveURL != nil, !hasShownArchiveSummary, openFailure == nil {
             hasShownArchiveSummary = true
             let excluded = imageBundle.excludedSummary
-            showToast(
-                Toast(
-                    systemImage: "photo.on.rectangle",
-                    title: String(format: String(localized: "Opened %lld images"), imageBundle.items.count),
-                    detail: excluded.isEmpty
-                        ? nil
-                        : String(
+            if !excluded.isEmpty {
+                showToast(
+                    Toast(
+                        systemImage: "photo.on.rectangle",
+                        title: String(format: String(localized: "Opened %lld images"), imageBundle.items.count),
+                        detail: String(
                             format: String(localized: "%lld non-image files excluded (%@)"),
                             imageBundle.excludedPaths.count, ListFormatter.localizedString(byJoining: excluded))))
+            }
         }
         computeContentHash()
         render()
@@ -619,18 +618,6 @@ final class DocumentViewModel {
                     sheetOrientations: output.sheetOrientations)
                 isRendering = false
                 retriedChangedImages = false
-                if announcesSmartRemoval, renderedSettings?.smartRemoval != nil {
-                    announcesSmartRemoval = false
-                    // The review panel shows the count itself.
-                    if !isReviewingSmartRemoval {
-                        showToast(
-                            Toast(
-                                systemImage: "wand.and.rays",
-                                title: String(format: String(localized: "%lld parts removed"), removedPartCount),
-                                detail: String(localized: "Smart Removal (Beta) runs on this Mac only."),
-                                action: .reviewSmartRemoval))
-                    }
-                }
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 // A render that a later change made stale leaves the output to the render that follows it.
                 if let output = outputAfterReview, settings == renderSettings {
@@ -836,11 +823,10 @@ final class DocumentViewModel {
     func setSmartRemoval(enabled: Bool) {
         guard isSmartRemovalEnabled != enabled else { return }
         isSmartRemovalEnabled = enabled
-        announcesSmartRemoval = enabled
         if !enabled { isReviewingSmartRemoval = false }
     }
 
-    /// The menus' "Review Removed Parts…" and the toast's "Review". The panel belongs to the view mode.
+    // Review outlines belong to paper in view mode, even when requested from the print tray.
     func reviewSmartRemoval() {
         guard format == .html, isSmartRemovalEnabled else { return }
         dismissToast()
@@ -1148,12 +1134,6 @@ final class DocumentViewModel {
         apply(saved)
         hasSavedSettings = true
         settingsBaseline = rememberedSettings
-        showToast(
-            Toast(
-                systemImage: "checkmark.circle", title: String(localized: "Restored the previous view settings"),
-                detail: String(format: String(localized: "Content sha256 %@…"), hash.abbreviated),
-                action: .resetDocumentSettings),
-            dismissAfter: .seconds(6))
     }
 
     private func apply(_ saved: DocumentSettings) {

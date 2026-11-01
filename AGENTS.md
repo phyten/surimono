@@ -100,6 +100,7 @@ make clean
 - アプリの既定値（既定のレイアウト・余白など）と、スタイルの最近使ったもの・お気に入り（アプリ全体）は `AppPreferences` が `UserDefaults` に保存する。スタイルを選んだと記録するのは利用者がメニューで選んだとき（`DocumentViewModel.selectTheme`）だけで、復元・既定に戻す・代わりのテーマへの切り替えでは記録しない。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`。Debug ビルドは `Surimono Dev/` 配下）。
 - 文書ごとの設定（表示の型・向き・送り方・表紙・拡大率・窓の大きさ・印刷レイアウト・スタイル / プリセット・文字の大きさ・印刷のオプション・画像の並び順）は `DocumentSettings` にまとめ、**ファイル名ではなく内容の SHA-256（`ContentHash`）をキーに** `~/Library/Application Support/Surimono/DocumentSettings/`（`KeyedRecordStore`。Debug ビルドは `Surimono Dev/` 配下）へ保存する。
   - キー: 1 ファイルはその内容、ZIP は ZIP ファイル自体、画像の束は各画像のハッシュを並べ替えて作る集合のハッシュ（`ContentHash.imageSet`。書式は永続化の形式なので変えない）。並び順は各画像のハッシュの列で保存する。
+  - 復元のトーストは出さない。表示のオプションの最下段は、保存した設定があるときに「この文書の設定を使っています」と「既定に戻す」を出し、ハッシュは見せない。保存した設定がなければ状態の文言は出さず、「既定に戻す」は無効のまま表示する。
   - 保存は利用者が何かを変えたときだけ（`DocumentViewModel` が読み込み・復元・既定に戻した時点の値と比べる）。開いている間にファイルが変わったら、表示中の設定を新しいハッシュへ引き継ぐ。
 
 ## ウィンドウとファイルの開き方
@@ -115,7 +116,7 @@ make clean
   - ドロップ: 文書・画像の束・ウェルカム画面の `.dropDestination`
   - 最近使った項目: 標準メニューの項目は文書コントローラが 1 ファイルを開く（規則と同じ結果になるので、ルーターを通さないままでよい）。ウェルカム画面の最近使ったファイルは `OpenRouter` を通す
 - 画像の束は NSDocument ではなく、`ImageBundleWindows` が AppKit の NSWindow に SwiftUI の `DocumentContent` を載せて開く。メニュー操作は `DocumentWindows.activeModel`（キーウィンドウのモデル）に届ける。
-- ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。
+- ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。開いた枚数のトーストは、画像以外を除いたなど `excludedSummary` が空でないときだけ、除いたものと一緒に出す。
 - 新しい「開く」経路を足すときは `OpenRouter` を通し、`OpenRouterTests` にケースを足す。
 
 ## HTML のスマート削除（ベータ）
@@ -123,7 +124,7 @@ make clean
 - 選んだプリセットのあとに、本文でない部分（広告・おすすめ記事・SNS ボタン・Cookie バナー・追従ヘッダー・ニュースレター欄・ポップアップ）を見つけて消す。判定は組版の準備スクリプトとして WKWebView の中だけで行い、外には何も送らない（`SmartRemovalScript`、SurimonoCore）。
 - 本文の領域を 1 つに絞り、本文とその祖先、本文らしい見出しと段落の塊は消さない。候補の識別子は同じ HTML なら毎回同じで、「残す」の選択に左右されない。
 - アプリは `RenderSettings.smartRemoval`（HTML のときだけ）で頼み、`RenderResult.smartRemovalCandidates` で候補を受け取る。確かめている間は消さずに点線の枠で示す。オンかどうかと「残す」の一覧は、文書ごとの設定として内容のハッシュで覚える。
-- 確かめるパネルは表示モードにだけある。メニューとトーストからは `reviewSmartRemoval()` で開き、刷り台からなら表示モードへ戻る。枠つきのページは出力に使わない（`canOutput` が偽）。印刷モードに入ると確認を終え、確認中の印刷と PDF の書き出しは、確認を終えて枠のないページができてから行う。
+- 削除後のトーストは出さず、消した数は確かめるパネルに出す。確かめるパネルは表示モードにだけある。「…」と刷り台のメニューから `reviewSmartRemoval()` で開き、刷り台からなら表示モードへ戻る。枠つきのページは出力に使わない（`canOutput` が偽）。印刷モードに入ると確認を終え、確認中の印刷と PDF の書き出しは、確認を終えて枠のないページができてから行う。
 
 ## 印刷モード（刷り台）
 

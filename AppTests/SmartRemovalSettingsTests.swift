@@ -81,6 +81,7 @@ struct SmartRemovalSettingsTests {
         try await waitUntil { !first.isRendering && first.renderedSettings?.smartRemoval != nil }
         #expect(first.smartRemovalCandidates.map(\.id) == ["#cookie", "body > aside:nth-of-type(1)"])
         #expect(first.removedPartCount == 2)
+        #expect(first.toast == nil)
         first.toggleKeep("#cookie")
         #expect(first.removedPartCount == 1)
         first.rememberedSettingsDidChange()
@@ -90,6 +91,8 @@ struct SmartRemovalSettingsTests {
         reopened.start()
         try await waitUntil { reopened.contentHash != nil && reopened.result != nil && !reopened.isRendering }
         #expect(reopened.isSmartRemovalEnabled)
+        #expect(reopened.hasSavedSettings)
+        #expect(reopened.toast == nil)
         #expect(reopened.smartRemovalKeptIDs == ["#cookie"])
         reopened.stop()
     }
@@ -178,8 +181,8 @@ struct SmartRemovalSettingsTests {
         }
     }
 
-    @Test("刷り台でスマート削除をオンにしてトーストから確かめると、表示モードに戻って確認パネルを開く", .timeLimit(.minutes(1)))
-    func reviewFromTheTrayToastOpensThePanel() async throws {
+    @Test("刷り台でスマート削除をオンにしても知らせず、メニューの確認操作で表示モードのパネルを開く", .timeLimit(.minutes(1)))
+    func reviewFromTheTrayOpensThePanel() async throws {
         let (preferences, library, _, cleanUp) = try environment()
         defer { cleanUp() }
         let html = model(preferences, library, nil, format: .html)
@@ -187,7 +190,8 @@ struct SmartRemovalSettingsTests {
         html.setSmartRemoval(enabled: true)
         html.render()
         try await waitUntil { !html.isRendering && html.renderedSettings?.smartRemoval != nil }
-        #expect(html.toast?.action == .reviewSmartRemoval)
+        #expect(html.toast == nil)
+        #expect(html.removedPartCount == 2)
         html.reviewSmartRemoval()
         #expect(html.mode == .view)
         #expect(html.isReviewingSmartRemoval)

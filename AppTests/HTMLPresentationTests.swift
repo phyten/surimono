@@ -116,6 +116,8 @@ struct HTMLPresentationTests {
         reopened.start()
         try await waitUntil { reopened.contentHash != nil && reopened.result != nil && !reopened.isRendering }
         #expect(reopened.htmlPresentation == .paper)
+        #expect(reopened.hasSavedSettings)
+        #expect(reopened.toast == nil)
         #expect(!reopened.showsWeb)
         reopened.resetDocumentSettings()
         #expect(reopened.htmlPresentation == .web)
