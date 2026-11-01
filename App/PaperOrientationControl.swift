@@ -28,11 +28,11 @@ struct PaperOrientationControl: View {
         .accessibilityValue(Text(value))
     }
 
-    var isFixed: Bool { model.layout.kind == .booklet || model.layout.kind == .handout3 }
+    var isFixed: Bool { model.renderLayout.kind == .booklet || model.renderLayout.kind == .handout3 }
 
     var value: LocalizedStringKey {
         if isFixed {
-            return model.layout.sheetSize.width > model.layout.sheetSize.height ? "Landscape" : "Portrait"
+            return model.renderLayout.sheetSize.width > model.renderLayout.sheetSize.height ? "Landscape" : "Portrait"
         }
         return switch model.paperOrientation {
         case .portrait: "Portrait"

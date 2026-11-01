@@ -59,11 +59,12 @@ struct MarginSettingsTests {
         #expect(!makeModel(format: .pdf, suite: suite).marginsAffectPrinting)
         let handout = makeModel(format: .markdown, suite: suite)
         handout.layoutID = "a4Handout3"
+        handout.enterPrintMode()
         #expect(handout.marginsAffectPrinting)
         #expect(!handout.marginsApply)
     }
 
-    @Test("余白は Markdown には効き、PDF と 3 枚＋メモには効かない")
+    @Test("表示の余白は印刷に 3 枚＋メモを選んでも Markdown に効き、PDF には効かない")
     func marginsApply() {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -71,7 +72,7 @@ struct MarginSettingsTests {
         #expect(!makeModel(format: .pdf, suite: suite).marginsApply)
         let handout = makeModel(format: .markdown, suite: suite)
         handout.layoutID = "a4Handout3"
-        #expect(!handout.marginsApply)
+        #expect(handout.marginsApply)
     }
 
     @Test("余白のメニューは 0・5・10・15・20・25 mm を並べる")

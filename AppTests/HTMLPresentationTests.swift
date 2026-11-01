@@ -269,6 +269,46 @@ struct WebCaptureTests {
         #expect(fixture.laidOut().isEmpty)
     }
 
+    @Test(
+        "出力要求の写しを取得中に再読み込みすると要求が消え、後から刷り台を開いても出力しない",
+        arguments: [DocumentViewModel.Output.exportPDF, .print(quick: false), .print(quick: true)])
+    func reloadCancelsOutputWaitingForCapture(output: DocumentViewModel.Output) async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.window = nil
+        model.layoutID = PrintLayout.a4BookletA5.id
+        var outputs: [(DocumentViewModel.Output, RenderResult)] = []
+        model.outputOverride = { outputs.append(($0, $1)) }
+        switch output {
+        case .exportPDF: model.exportPDF()
+        case .print(let quick): model.printDocument(quick: quick)
+        }
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        #expect(model.outputAfterReview == output)
+        #expect(outputs.isEmpty)
+
+        model.reload()
+        #expect(!model.isCapturingWeb)
+        #expect(model.outputAfterReview == nil)
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Cancelled copy</p>")))
+        try await waitUntil { model.isUpToDate }
+        #expect(model.mode == .view)
+        #expect(outputs.isEmpty)
+        #expect(fixture.laidOut().isEmpty)
+
+        // Opening the tray later is a preview request, not permission to resume the cancelled output.
+        model.enterPrintMode()
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>New copy</p>")))
+        try await waitUntil { model.mode == .print && !model.isCapturingWeb }
+        model.render()
+        try await waitUntil { model.canOutput }
+        #expect(model.printResult?.layout == .a4BookletA5)
+        #expect(model.outputAfterReview == nil)
+        #expect(outputs.isEmpty)
+    }
+
     @Test("写しの途中の出力は同じ写しを待ち、写しに失敗したら知らせて出力しない")
     func failedCopyStopsTheOutput() async throws {
         let fixture = try await fixture()
@@ -286,8 +326,84 @@ struct WebCaptureTests {
         try await waitUntil { outcomes.count == 2 }
         #expect(outcomes == [.failed, .failed])
         #expect(!model.isExporting)
+        #expect(model.outputAfterReview == nil)
         #expect(model.toast?.systemImage == "exclamationmark.triangle")
         #expect(fixture.laidOut().isEmpty)
+    }
+
+    @Test(
+        "ウェブからの出力は写しを一度だけ取り、刷り台の冊子ができてから一度だけ出力する",
+        arguments: [DocumentViewModel.Output.exportPDF, .print(quick: false), .print(quick: true)])
+    func capturedOutputUsesPrintLayout(output: DocumentViewModel.Output) async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.window = nil
+        var outputs: [(DocumentViewModel.Output, RenderResult)] = []
+        model.outputOverride = { outputs.append(($0, $1)) }
+        model.layoutID = PrintLayout.a4BookletA5.id
+        let requestsBefore = fixture.requests().count
+        switch output {
+        case .exportPDF: model.exportPDF()
+        case .print(let quick): model.printDocument(quick: quick)
+        }
+        #expect(model.outputAfterReview == output)
+        #expect(outputs.isEmpty)
+        #expect(!model.canOutput)
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Booklet copy</p>")))
+        try await waitUntil { model.mode == .print && !model.isCapturingWeb }
+        #expect(fixture.requests().count == requestsBefore)
+        #expect(model.outputAfterReview == output)
+        #expect(outputs.isEmpty)
+        #expect(!model.canOutput)
+        // DocumentContent observes the changed settings; without a view the test starts that render.
+        model.render()
+        try await waitUntil { model.mode == .print && !model.isRendering && !model.isCapturingWeb }
+        #expect(fixture.snapshots.requestCount == 1)
+        #expect(fixture.requests().count == requestsBefore + 1)
+        #expect(model.renderedSettings?.layout == .a4BookletA5)
+        #expect(model.printResult?.layout == .a4BookletA5)
+        #expect(model.outputAfterReview == nil)
+        #expect(model.canOutput)
+        #expect(!model.isExporting)
+        #expect(outputs.count == 1)
+        let (executed, result) = try #require(outputs.first)
+        #expect(executed == output)
+        #expect(result.layout == .a4BookletA5)
+        #expect(result.id == model.printResult?.id)
+    }
+
+    @Test("ウェブや紙面の写しと A4 片面の用紙が変わらなければ出力を組版待ちに残さない", arguments: [false, true])
+    func unchangedCaptureResumesOutput(fromPaper: Bool) async throws {
+        let fixture = try await fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        model.window = nil
+        var outputs: [(DocumentViewModel.Output, RenderResult)] = []
+        model.outputOverride = { outputs.append(($0, $1)) }
+        let snapshot = HTMLSnapshot(html: "<p>Same copy</p>")
+        model.captureWeb { _ in }
+        try await waitUntil { fixture.snapshots.requestCount == 1 }
+        fixture.snapshots.resolve(.captured(snapshot))
+        try await waitUntil { !model.isRendering && !model.isCapturingWeb }
+        let requestsBefore = fixture.requests().count
+        if fromPaper {
+            model.setHTMLPresentation(.paper)
+            model.captureWeb { _ in }
+        }
+        model.exportPDF()
+        #expect(outputs.isEmpty)
+        try await waitUntil { fixture.snapshots.requestCount == 2 }
+        fixture.snapshots.resolve(.captured(snapshot))
+        try await waitUntil { model.mode == .print && !model.isCapturingWeb }
+        #expect(model.outputAfterReview == nil)
+        #expect(fixture.requests().count == requestsBefore)
+        #expect(model.canOutput)
+        #expect(!model.isExporting)
+        #expect(outputs.count == 1)
+        #expect(outputs.first?.0 == .exportPDF)
+        #expect(outputs.first?.1.layout == .a4Single)
     }
 
     @Test("写しに失敗したら紙面のまま出力を止め、出力を頼むと写し直し、写し直せたら出力できる")

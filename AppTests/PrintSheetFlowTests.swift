@@ -56,6 +56,7 @@ struct PrintSheetFlowTests {
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
             renderer: renderer)
         model.layoutID = layout.id
+        model.enterPrintMode()
         model.render()
         try await waitUntil { !model.isRendering }
         return model
@@ -63,6 +64,105 @@ struct PrintSheetFlowTests {
 
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    }
+
+    @Test(
+        "表示からの書き出しと印刷は刷り台に入り、印刷レイアウトの用紙ができるまで保留する",
+        .timeLimit(.minutes(1)),
+        arguments: [DocumentViewModel.Output.exportPDF, .print(quick: false), .print(quick: true)])
+    func outputFromViewWaitsForPrintSheets(output: DocumentViewModel.Output) async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let gate = CompositionGate()
+        defer { gate.release() }
+        let model = try await renderedModel(suite, directory: directory, gate: gate)
+        defer { model.stop() }
+        model.exitPrintMode()
+        model.layoutID = PrintLayout.a4BookletA5.id
+        #expect(model.canOutput)
+        #expect(model.renderedSettings?.layout == .a4Single)
+
+        var outputs: [(DocumentViewModel.Output, RenderResult)] = []
+        model.outputOverride = { outputs.append(($0, $1)) }
+        switch output {
+        case .exportPDF: model.exportPDF()
+        case .print(let quick): model.printDocument(quick: quick)
+        }
+        #expect(model.mode == .print)
+        #expect(model.outputAfterReview == output)
+        #expect(!model.canOutput)
+        #expect(!model.isExporting && !model.isPrinting)
+        #expect(outputs.isEmpty)
+
+        gate.isHeld = true
+        model.render()
+        try await waitUntil { gate.waiting == 1 }
+        #expect(model.renderedSettings?.layout == .a4BookletA5)
+        #expect(model.outputAfterReview == output)
+        #expect(!model.canOutput)
+        #expect(outputs.isEmpty)
+        gate.release()
+        try await waitUntil { !model.isRendering }
+        #expect(model.outputAfterReview == nil)
+        #expect(model.canOutput)
+        #expect(model.printResult?.layout == .a4BookletA5)
+        #expect(model.printResult?.sheetDocument.pageCount == 2)
+        #expect(!model.isExporting && !model.isPrinting)
+        #expect(outputs.count == 1)
+        let (executed, result) = try #require(outputs.first)
+        #expect(executed == output)
+        #expect(result.layout == .a4BookletA5)
+        #expect(result.id == model.printResult?.id)
+        #expect(result.sheetDocument.pageCount == 2)
+
+        // Another completed render must not execute the consumed request again.
+        model.render()
+        try await waitUntil { !model.isRendering }
+        #expect(outputs.count == 1)
+    }
+
+    @Test("表示と印刷の用紙が同じなら組み直さずに出力待ちを終える", .timeLimit(.minutes(1)))
+    func matchingLayoutDoesNotWaitForAnotherRender() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = try await renderedModel(suite, directory: directory)
+        defer { model.stop() }
+        model.exitPrintMode()
+        let resultID = model.printResult?.id
+        var outputs: [(DocumentViewModel.Output, RenderResult)] = []
+        model.outputOverride = { outputs.append(($0, $1)) }
+        model.exportPDF()
+        #expect(model.mode == .print)
+        #expect(model.outputAfterReview == nil)
+        #expect(!model.isRendering)
+        #expect(model.printResult?.id == resultID)
+        #expect(model.canOutput)
+        #expect(outputs.count == 1)
+        #expect(outputs.first?.0 == .exportPDF)
+        #expect(outputs.first?.1.id == resultID)
+        #expect(outputs.first?.1.layout == .a4Single)
+    }
+
+    @Test("出力を待つ間に表示へ戻ったら、その出力を取り消す", .timeLimit(.minutes(1)))
+    func leavingTrayCancelsPendingOutput() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = try await renderedModel(suite, directory: directory)
+        defer { model.stop() }
+        model.exitPrintMode()
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.exportPDF()
+        #expect(model.outputAfterReview == .exportPDF)
+        model.exitPrintMode()
+        #expect(model.mode == .view)
+        #expect(model.outputAfterReview == nil)
+        #expect(model.renderSettings?.layout == .a4Single)
     }
 
     @Test("論理ページを出してから用紙ができるまでは、刷り台にも出力にも前の用紙を使わない", .timeLimit(.minutes(1)))
