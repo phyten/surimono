@@ -185,7 +185,7 @@ private struct ErrorPanel: View {
     }
 }
 
-/// Restored settings, quick print results and file notices appear here and fade out on their own.
+/// Shows a notice and its optional action; the model decides when it goes away.
 struct ToastOverlay: View {
     @Bindable var model: DocumentViewModel
 
@@ -208,14 +208,8 @@ struct ToastOverlay: View {
                         case .allowFolderAccess?:
                             Button("Allow Access to Folder…") { model.allowFolderAccess() }
                                 .controlSize(.small)
-                        case .resetDocumentSettings?:
-                            Button("Reset to Defaults") { model.resetDocumentSettings() }
-                                .controlSize(.small)
                         case .retryWebCapture?:
                             Button("Try Again") { model.retryWebCapture() }
-                                .controlSize(.small)
-                        case .reviewSmartRemoval?:
-                            Button("Review") { model.reviewSmartRemoval() }
                                 .controlSize(.small)
                         case nil:
                             EmptyView()

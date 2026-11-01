@@ -8,6 +8,43 @@ import Testing
 struct ImageBundleModelTests {
     private let urls = ["富士.jpg", "2.png", "10.png"].map { URL(fileURLWithPath: "/fixtures/" + $0) }
 
+    @Test("ZIP は画像以外を除いたときだけ知らせ、開き直さずに再開しても繰り返さない", arguments: [false, true])
+    func archiveNoticeRequiresExclusions(excludesFiles: Bool) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = TestDefaultsSuite()
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+            suite.remove()
+        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var entries = [(path: "image.png", data: TestFixtures.png(red: 0.5))]
+        if excludesFiles { entries.append((path: "notes.txt", data: Data("notes".utf8))) }
+        let data = TestFixtures.storedZip(entries)
+        let url = directory.appendingPathComponent("images.zip")
+        try data.write(to: url)
+        let archive = try ZipArchive(data: data)
+        let bundle = ImageBundleModel(archive: archive, selection: ZipImageSelection(archive: archive), archiveURL: url)
+        let model = DocumentViewModel(
+            data: data, fileURL: url, format: .zipArchive,
+            preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: directory.appendingPathComponent("Library")), imageBundle: bundle)
+        defer { model.stop() }
+        model.start()
+        if excludesFiles {
+            #expect(model.toast?.title == String(format: String(localized: "Opened %lld images"), 1))
+            #expect(
+                model.toast?.detail
+                    == String(format: String(localized: "%lld non-image files excluded (%@)"), 1, "notes.txt"))
+            #expect(model.toast?.action == nil)
+        } else {
+            #expect(model.toast == nil)
+        }
+        model.dismissToast()
+        model.stop()
+        model.start()
+        #expect(model.toast == nil)
+    }
+
     @Test("ドラッグによる並び替えを描画要求の順番に反映する")
     func move() async throws {
         let model = ImageBundleModel(urls: urls, readImage: { Data($0.lastPathComponent.utf8) })

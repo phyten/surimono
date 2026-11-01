@@ -221,12 +221,12 @@ struct DocumentSettingsFlowTests {
         #expect(!model.hasSavedSettings)
     }
 
-    @Test("変えた設定は内容のハッシュで保存し、名前の違うコピーでも戻す", .timeLimit(.minutes(1)))
+    @Test("変えた設定は内容のハッシュで保存し、名前の違うコピーでも知らせずに戻す", .timeLimit(.minutes(1)))
     func restoresSettingsByContent() async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
         let data = pdf("a")
-        // Real files: for a missing file the watcher reports it removed, and its toast would race the restore toast.
+        // Real files keep the missing-file notice from obscuring whether restoration stays silent.
         try FileManager.default.createDirectory(at: environment.directory, withIntermediateDirectories: true)
         let original = environment.directory.appending(path: "README.pdf")
         let renamed = environment.directory.appending(path: "README のコピー.pdf")
@@ -247,7 +247,7 @@ struct DocumentSettingsFlowTests {
         #expect(copy.viewOptions.direction == .rightToLeft)
         #expect(copy.layoutID == PrintLayout.a3BookletA4.id)
         #expect(copy.hasSavedSettings)
-        #expect(copy.toast?.action == .resetDocumentSettings)
+        #expect(copy.toast == nil)
         copy.stop()
     }
 

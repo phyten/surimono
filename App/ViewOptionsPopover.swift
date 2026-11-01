@@ -83,10 +83,9 @@ struct ViewOptionsPopover: View {
                 .fixedSize(horizontal: false, vertical: true)
             Divider()
             HStack {
-                if let hash = model.contentHash {
-                    Text(verbatim: "sha256 \(hash.abbreviated)…")
-                        .font(.caption).monospaced().foregroundStyle(.secondary)
-                        .help("Settings are remembered for this content, whatever the file is called.")
+                if model.hasSavedSettings {
+                    Text("Using this document’s settings")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Reset to Defaults") { model.resetDocumentSettings() }
