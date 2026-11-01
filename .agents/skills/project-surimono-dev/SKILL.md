@@ -32,7 +32,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 外観: `-SurimonoAppearance light|dark`（アプリ全体の外観を固定する。アプリ自体に外観の切替はない）
      - 印刷: `-SurimonoLayout <PrintLayout の id>`（a4Single / a4Duplex / a3BookletA4 / a4BookletA5 / a3TwoUp）
      - 表示: `-SurimonoViewLayout spread|single`、`-SurimonoTransition scroll|instant|slide|fade|pageCurl`、`-SurimonoCoverAlone YES`、`-SurimonoRightToLeft YES`、`-SurimonoZoom <倍率>`
-     - メニューと窓: `-SurimonoMenu compact|full|pinned`（段階 1 / 段階 2 / 固定）、`-SurimonoPopover view|style|printOptions`（表示のオプション / スタイルのパレット / 刷り台の印刷オプション）、`-SurimonoAlwaysOnTop YES`、`-SurimonoSelectText YES`（文字を選択）、`-SurimonoDrawer YES`（画像の束のサムネイル）
+     - メニューと窓: `-SurimonoMenu full|pinned`（全体を表示 / 固定。旧 `compact` は `full` と同じ扱い）、`-SurimonoPopover view|style|printOptions`（表示のオプション / スタイルのパレット / 刷り台の印刷オプション）、`-SurimonoAlwaysOnTop YES`、`-SurimonoSelectText YES`（文字を選択）、`-SurimonoDrawer YES`（画像の束のサムネイル）
      - 印刷モード: `-SurimonoMode print`（刷り台で撮る）、`-SurimonoMode roundtrip`（刷り台に入って表示モードへ戻ったところを撮る）、`-SurimonoMode compare`（見比べ台で撮る）、`-SurimonoTry <テーマの id>`（パレットで乗せたように紙で試したところを撮る）、`-SurimonoFold YES`（折ってみる）、`-SurimonoTray original|openDetails|currentSlide`（HTML の刷り台で「最初の状態で刷る」/「開いて刷る」/ スライドの「今の 1 枚」を選ぶ）、`-SurimonoSlides off`（「スライドとして扱わない」）
      - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）
@@ -43,7 +43,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
    - **PR に貼る注釈付きスクリーンショット**: 撮ったスナップショットに `swift .agents/skills/project-surimono-dev/scripts/annotate-screenshot.swift <入力.png> <出力.png> "x,y,w,h:ラベル" …` で赤い枠と番号付きのラベルを付ける（macOS 標準の CoreGraphics と AppKit だけで動く）。置き場と書き方は AGENTS.md の「Git / PR」。
    - **開き方の確認（ウィンドウの数と題名）**: `swift .agents/skills/project-surimono-dev/scripts/list-windows.swift` が開発版の画面上のウィンドウを前面から順に、レイヤー・位置・大きさ・題名つきで出す（題名は画面収録の許可がないと空になる。レイヤー 8 はアラートなどのモーダル。数えるのは名前が Surimono Dev の全プロセスの画面上のウィンドウで、公開版と最小化したものは含まない。一覧を取れなければ終了コード 1）。Finder や Dock からの開き方は `open -a "$APP" <ファイル…>` で再現し、AGENTS.md の「ウィンドウとファイルの開き方」の規則どおりの数と題名になるかを見る。
    - 操作まで確かめたい場合: Claude Code なら computer-use の `request_access`（開発版のバンドル ID `io.github.phyten.Surimono.debug`）→ `app_screenshot`（ユーザーが許可しなければ使わない）。それ以外は `screencapture -x -o -l "$(swift .agents/skills/project-surimono-dev/scripts/window-id.swift)" /tmp/surimono.png`（実行するターミナルに画面収録の許可が必要）。
-   - ライト / ダークの両方と、空・読み込み中・エラー・長い文書の状態を見る。表示モードはメニューの段階（乗せただけ / 上部 / 固定）と、見開き・単ページを見る。冊子は書き出した PDF か印刷パネルのプレビューで面付け（1 枚目の表が [最終ページ | 1]）も確かめる。
+   - ライト / ダークの両方と、空・読み込み中・エラー・長い文書の状態を見る。表示モードはメニューの出し入れ（上端 38pt で全体を表示 / 離れて 1 秒で非表示 / 固定）と、見開き・単ページを見る。冊子は書き出した PDF か印刷パネルのプレビューで面付け（1 枚目の表が [最終ページ | 1]）も確かめる。
 4. 終わったら起動したアプリを終了する: `osascript -e 'quit app id "io.github.phyten.Surimono.debug"'`（名前で指定すると、入れてある公開版を終了してしまう）。
 
 ## つまずきやすい点

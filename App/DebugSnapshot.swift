@@ -58,10 +58,8 @@
             switch argument("SurimonoMenu") {
             case "pinned": model.isMenuPinned = true
             case "compact", "full":
-                var info: [String: Any] = ["stage": argument("SurimonoMenu") ?? ""]
-                // The snapshot holds the band open, which counts as using it; NO draws the lighter look instead.
-                if let hover = argument("SurimonoBandHover") { info["bandHover"] = hover.uppercased() == "YES" }
-                NotificationCenter.default.post(name: showMenu, object: model, userInfo: info)
+                // Keep older snapshot commands usable with the single visible state.
+                NotificationCenter.default.post(name: showMenu, object: model)
             default: break
             }
             switch argument("SurimonoSmartRemoval") {
@@ -150,7 +148,7 @@
                 }
                 if argument("SurimonoMode") == "compare" {
                     model.enterCompareMode()
-                    // The window grows, then the four pages and the row are sampled.
+                    // Wait for the four pages and the row to finish sampling.
                     try? await Task.sleep(for: .milliseconds(2500))
                 }
                 if argument("SurimonoPopover") == "style" {

@@ -98,7 +98,7 @@ struct SlideDeckModelTests {
         defer { fixture.close() }
         let model = fixture.model
         #expect(model.pageIndicator == nil)
-        #expect(!BandLayout.Item.applicable(for: model, stage: .full).contains(.pageIndicator))
+        #expect(!BandLayout.Item.applicable(for: model).contains(.pageIndicator))
         model.slideDeckDidChange(deck)
         let frame = fixture.window.frame
         var turned = deck
@@ -108,7 +108,7 @@ struct SlideDeckModelTests {
         let indicator = try #require(model.pageIndicator)
         #expect(indicator.contains("5"))
         #expect(indicator.contains("6"))
-        #expect(BandLayout.Item.applicable(for: model, stage: .full).contains(.pageIndicator))
+        #expect(BandLayout.Item.applicable(for: model).contains(.pageIndicator))
     }
 
     @Test("「スライドとして扱わない」は内容のハッシュで覚え、次に開くと戻り、触らなければ保存しない")
