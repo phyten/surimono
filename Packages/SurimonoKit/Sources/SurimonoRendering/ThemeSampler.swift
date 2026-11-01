@@ -30,6 +30,7 @@ public final class ThemeSampler {
     /// Number of themes drawn rather than served from the cache (observed by tests).
     public private(set) var drawCount = 0
 
+    private let resourceAccess: LocalResourceAccess?
     private let html: String
     private let format: DocumentFormat
     private let baseURL: URL?
@@ -46,8 +47,10 @@ public final class ThemeSampler {
     /// - Parameter html: A whole document as `HTMLDocumentBuilder` builds it, with exactly one style element.
     public init(
         html: String, format: DocumentFormat = .markdown, baseURL: URL?, pageSize: CGSize,
-        margins: WebPaginator.Margins, textScale: Double = 1, timeout: Duration = .seconds(15)
+        margins: WebPaginator.Margins, textScale: Double = 1, timeout: Duration = .seconds(15),
+        resourceAccess: LocalResourceAccess? = nil
     ) {
+        self.resourceAccess = resourceAccess
         self.html = html
         self.format = format
         self.baseURL = baseURL
@@ -77,8 +80,9 @@ public final class ThemeSampler {
         let data = try await session.webView.pdf(configuration: configuration)
         guard !isClosed else { throw SamplingError.closed }
         guard let text = PDFDocument(data: data)?.page(at: 0) else { throw SamplingError.emptyPage }
+        if resourceAccess != nil { LocalResourceSchemeHandler.restoreFileLinks(on: text) }
         // A paper that cannot be drawn leaves the sample on white, as a theme without one.
-        let paper = hasPaper ? try? await paperPage(for: theme) : nil
+        let paper = hasPaper && WebPaginator.drawsClearPages ? try? await paperPage(for: theme) : nil
         try Task.checkCancellation()
         guard !isClosed else { throw SamplingError.closed }
         guard let page = PaperComposer.sample(text: text, paper: paper, pageSize: pageSize, margins: margins) else {
@@ -108,7 +112,7 @@ public final class ThemeSampler {
         appliedTheme = nil
         appliedHasPaper = nil
         // Clear, so that the paper drawn by the other web view shows through around the text.
-        let session = Session(size: printableSize, drawsBackground: false)
+        let session = Session(size: printableSize, drawsBackground: false, resourceAccess: resourceAccess, html: html)
         self.session = session
         do {
             try session.load(html, baseURL: baseURL)
@@ -166,11 +170,11 @@ public final class ThemeSampler {
             session = paperSession
         } else {
             paperSession?.close()
-            session = Session(size: pageSize)
-            paperSession = session
             let html = PaperBackground.document(
                 theme: theme, format: format, baseURL: baseURL, textScale: textScale, pageSize: pageSize,
                 marginInMillimeters: margin, pixelsPerPoint: 1)
+            session = Session(size: pageSize, resourceAccess: resourceAccess, html: html)
+            paperSession = session
             do {
                 try session.load(html, baseURL: baseURL)
                 try await WebPaginator.waitUntil(timeout: timeout) { session.navigation.state != .loading }
@@ -209,14 +213,23 @@ public final class ThemeSampler {
         var isReady = false
         private let window: NSWindow
         private var temporaryFile: URL?
+        private let resourceAccess: LocalResourceAccess?
 
-        init(size: CGSize, drawsBackground: Bool = true) {
+        init(
+            size: CGSize, drawsBackground: Bool = true, resourceAccess: LocalResourceAccess? = nil, html: String? = nil
+        ) {
+            self.resourceAccess = resourceAccess
             let configuration = WKWebViewConfiguration()
+            if let resourceAccess {
+                configuration.setURLSchemeHandler(
+                    LocalResourceSchemeHandler(access: resourceAccess, html: html),
+                    forURLScheme: LocalResourceSchemeHandler.scheme)
+            }
             configuration.defaultWebpagePreferences.allowsContentJavaScript = false
             configuration.suppressesIncrementalRendering = true
             let frame = CGRect(origin: .zero, size: size)
             webView = WKWebView(frame: frame, configuration: configuration)
-            if !drawsBackground && WebPaginator.drawsClearPages { webView.setValue(false, forKey: "drawsBackground") }
+            if !drawsBackground { WebPaginator.clearBackground?(webView) }
             window = NSWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
             window.contentView = webView
@@ -224,6 +237,10 @@ public final class ThemeSampler {
         }
 
         func load(_ html: String, baseURL: URL?) throws {
+            if let resourceAccess {
+                webView.load(URLRequest(url: LocalResourceSchemeHandler.url(for: resourceAccess.documentURL)))
+                return
+            }
             guard let baseURL, baseURL.isFileURL else {
                 webView.loadHTMLString(html, baseURL: baseURL)
                 return
@@ -252,7 +269,16 @@ extension DocumentRenderer {
     /// A sampler of this document's first page, laid out like its logical pages under `settings`; nil for the
     /// formats that print without a theme.
     public static func themeSampler(for source: DocumentSource, settings: RenderSettings) throws -> ThemeSampler? {
-        guard source.format.usesPrintTheme, let fragment = try themedFragment(source) else { return nil }
+        let access =
+            SandboxEnvironment.isSandboxed
+            ? source.fileURL.map { LocalResourceAccess(documentURL: $0, folders: source.allowedResourceFolders) } : nil
+        guard source.format.usesPrintTheme,
+            let fragment = try themedFragment(
+                source,
+                imageExists: { url in
+                    (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
+                })
+        else { return nil }
         // Text formats stand upright unless the paper is turned by hand, as in pagination.
         let layout = settings.layout.oriented(
             settings.layout.kind != .booklet && settings.paperOrientation == .landscape)
@@ -264,6 +290,6 @@ extension DocumentRenderer {
             html: html, format: source.format, baseURL: directory,
             pageSize: layout.logicalPageSize(options: settings.options),
             margins: .uniform(millimeters: layout.logicalMarginsInMillimeters(options: settings.options)),
-            textScale: settings.textScale)
+            textScale: settings.textScale, resourceAccess: access)
     }
 }

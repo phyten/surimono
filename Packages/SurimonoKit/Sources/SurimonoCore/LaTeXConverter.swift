@@ -7,10 +7,14 @@ import Foundation
 /// margins and theme. Commands it does not know keep their text; TikZ pictures are marked where they would be.
 public enum LaTeXConverter {
     /// - Parameter directory: The document's folder, where images without an extension are looked up.
-    public static func convert(_ text: String, directory: URL? = nil) -> HTMLFragment {
+    public static func convert(
+        _ text: String, directory: URL? = nil,
+        imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+    ) -> HTMLFragment {
         let source = TextDecoding.normalizeNewlines(text)
         let document = LaTeXDocument()
         document.directory = directory
+        document.imageExists = imageExists
         let (preamble, body) = split(source)
         if let preamble { LaTeXReader(preamble, document: document, isBlock: false).readPreamble() }
         if LaTeXLexer.find("chapter", in: Array(body)) != nil { document.hasChapters = true }
@@ -54,6 +58,7 @@ public enum LaTeXConverter {
 
 /// What one document's conversion shares across nested groups: definitions, counters, labels and notes.
 final class LaTeXDocument {
+    var imageExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     struct Macro {
         let parameters: Int
         let defaultArgument: String?
@@ -348,7 +353,7 @@ final class LaTeXDocument {
             ? ["pdf", "png", "jpg", "jpeg", "svg", "gif"].map { file + "." + $0 } : [file]
         for folder in [""] + graphicsPaths {
             for name in names
-            where FileManager.default.fileExists(atPath: directory.appending(path: folder + name).path) {
+            where imageExists(directory.appending(path: folder + name)) {
                 return folder + name
             }
         }

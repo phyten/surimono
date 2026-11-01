@@ -35,6 +35,9 @@ struct ThemeSamplerTests {
 
     @Test("紙のあるテーマの見本は、余白まで紙を敷く", .timeLimit(.minutes(1)))
     func samplesTheWholePaper() async throws {
+        let previous = WebPaginator.clearBackground
+        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        defer { WebPaginator.clearBackground = previous }
         let washi = try #require(PrintThemeLibrary.load().first { $0.id == "washi" })
         let sampler = try sampler("# 星見図書室の案内", theme: washi)
         defer { sampler.close() }

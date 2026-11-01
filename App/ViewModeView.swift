@@ -205,6 +205,9 @@ struct ToastOverlay: View {
                     }
                     Group {
                         switch toast.action {
+                        case .allowFolderAccess?:
+                            Button("Allow Access to Folder…") { model.allowFolderAccess() }
+                                .controlSize(.small)
                         case .resetDocumentSettings?:
                             Button("Reset to Defaults") { model.resetDocumentSettings() }
                                 .controlSize(.small)

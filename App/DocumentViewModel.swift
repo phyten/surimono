@@ -12,7 +12,7 @@ typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
 /// A short message near the bottom of the window, optionally with one action.
 struct Toast: Equatable, Identifiable {
-    enum Action: Equatable { case resetDocumentSettings, reviewSmartRemoval, retryWebCapture }
+    enum Action: Equatable { case resetDocumentSettings, reviewSmartRemoval, retryWebCapture, allowFolderAccess }
 
     let id = UUID()
     var systemImage: String
@@ -23,6 +23,7 @@ struct Toast: Equatable, Identifiable {
 
 @Observable
 final class DocumentViewModel {
+    private var folderLease: FolderAccess.Lease?
     let fileURL: URL?
     let imageBundle: ImageBundleModel?
     private(set) var unreadableImageURLs: [URL] = []
@@ -194,7 +195,10 @@ final class DocumentViewModel {
         viewOptions = guess
         initialViewOptions = guess
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
-        paper.onToast = { [weak self] in self?.showToast($0) }
+        paper.onToast = { [weak self] toast in
+            self?.showToast(toast, dismissAfter: toast.action == .allowFolderAccess ? nil : .seconds(5))
+        }
+        web.onFolderAccessRequired = { [weak self] _ in self?.requestFolderAccess() }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
@@ -203,7 +207,8 @@ final class DocumentViewModel {
     var sourceURLs: [URL] { imageBundle?.urls ?? [fileURL].compactMap { $0 } }
     /// The document as the print themes lay it out; nil for the formats that print without a theme.
     var themedSource: DocumentSource? {
-        format.usesPrintTheme && imageBundle == nil ? DocumentSource(data: data, fileURL: fileURL, format: format) : nil
+        format.usesPrintTheme && imageBundle == nil
+            ? withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format)) : nil
     }
     var protectedSourceURLs: [URL] {
         NSDocumentController.shared.documents.compactMap(\.fileURL)
@@ -326,6 +331,11 @@ final class DocumentViewModel {
     }
 
     func start() {
+        if SandboxEnvironment.isSandboxed, folderLease == nil, let fileURL {
+            folderLease = FolderAccess.shared.acquire(for: fileURL)
+            web.allowedResourceFolders = folderLease.map { [$0.url] } ?? []
+            if folderLease != nil { web.reload() }
+        }
         web.onZoomChange = { [weak self] zoom in self?.webZoom = zoom }
         web.onPrintRequest = { [weak self] in self?.pageDidRequestPrint() }
         web.onSlideDeckChange = { [weak self] deck in self?.slideDeckDidChange(deck) }
@@ -401,6 +411,8 @@ final class DocumentViewModel {
         web.close()
         themeTrial.end()
         themeSamples.invalidate()
+        folderLease?.close()
+        folderLease = nil
     }
 
     func handleFileEvent(_ event: FileWatcher.Event) {
@@ -577,7 +589,7 @@ final class DocumentViewModel {
                     // The digests and the key of their set change together, so nothing is saved under a mixed state.
                     if imageBundle.archiveURL == nil, let hash = imageBundle.setHash { didComputeHash(hash) }
                 } else {
-                    source = singleSource
+                    source = withFolderAccess(singleSource)
                 }
                 let prepared = try await renderer.prepare(source, settings: settings)
                 try Task.checkCancellation()
@@ -619,6 +631,7 @@ final class DocumentViewModel {
                                 action: .reviewSmartRemoval))
                     }
                 }
+                if prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 // A render that a later change made stale leaves the output to the render that follows it.
                 if let output = outputAfterReview, settings == renderSettings {
                     outputAfterReview = nil
@@ -1319,6 +1332,66 @@ final class DocumentViewModel {
         guard contentHash != nil, settingsBaseline != nil else { return }
         didResizeWindow = true
         scheduleSave()
+    }
+
+    private func withFolderAccess(_ source: DocumentSource) -> DocumentSource {
+        var source = source
+        source.allowedResourceFolders = folderLease.map { [$0.url] } ?? []
+        return source
+    }
+
+    func requestFolderAccess() {
+        guard SandboxEnvironment.isSandboxed, fileURL != nil, toast?.action != .allowFolderAccess else { return }
+        showToast(
+            Toast(
+                systemImage: "folder",
+                title: String(localized: "Allow folder access to display images and other resources"),
+                action: .allowFolderAccess),
+            dismissAfter: nil)
+    }
+
+    func allowFolderAccess() {
+        guard SandboxEnvironment.isSandboxed, let fileURL, let window else { return }
+        let folder = fileURL.deletingLastPathComponent()
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = folder
+        panel.message = String(
+            localized: "Choose the document’s folder or a parent folder to display images and other resources.")
+        panel.prompt = String(localized: "Allow Access")
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard let self, response == .OK, let selected = panel.url else { return }
+            guard LocalResourceAccess.contains(folder, in: selected) else {
+                showToast(
+                    Toast(systemImage: "folder", title: String(localized: "Choose a folder containing this document")))
+                return
+            }
+            do {
+                try FolderAccess.shared.remember(selected)
+                guard let lease = FolderAccess.shared.acquire(for: fileURL) else {
+                    throw CocoaError(.fileReadNoPermission)
+                }
+                folderLease?.close()
+                folderLease = lease
+                web.allowedResourceFolders = [lease.url]
+                dismissToast()
+                renderer.clearCache()
+                themeSamples.invalidate()
+                themeTrial.end()
+                cancelCapture()
+                liveSnapshot = nil
+                web.reload()
+                render()
+            } catch {
+                showToast(
+                    Toast(
+                        systemImage: "exclamationmark.triangle",
+                        title: String(localized: "Folder access could not be saved")))
+            }
+        }
     }
 
     // MARK: - Toasts

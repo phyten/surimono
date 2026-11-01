@@ -8,6 +8,7 @@ public struct DocumentSource: Equatable, Sendable {
     public let format: DocumentFormat
     public let images: [Image]?
     /// The HTML is a copy of a live page's current state rather than the file's bytes; its own scripts already ran.
+    public var allowedResourceFolders: [URL] = []
     public let isLiveSnapshot: Bool
 
     /// One image of a bundle. Its bytes are read only while its page is drawn and released afterwards, so a large
@@ -146,6 +147,7 @@ public struct PreparedRender {
     public let viewDocument: PDFDocument
     public let plan: ImpositionPlan
     public let summary: PrintSummary
+    public let requiredFolderAccess: URL?
     public let unreadableImageURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
     public let changeMarks: [ChangeMark]
@@ -179,6 +181,7 @@ public struct RenderResult {
     public let sheetDocument: PDFDocument
     public let plan: ImpositionPlan
     public let summary: PrintSummary
+    public let requiredFolderAccess: URL?
     public let unreadableImageURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
     public let changeMarks: [ChangeMark]
@@ -192,6 +195,7 @@ public struct RenderResult {
         self.sheetOrientations = sheetOrientations
         plan = prepared.plan
         summary = prepared.summary
+        requiredFolderAccess = prepared.requiredFolderAccess
         unreadableImageURLs = prepared.unreadableImageURLs
         smartRemovalCandidates = prepared.smartRemovalCandidates
         changeMarks = prepared.changeMarks
@@ -221,6 +225,7 @@ public final class DocumentRenderer {
 
     public private(set) var logicalRenderCount = 0
     private let paginate: PaginateWithResult
+    private let isSandboxed: () -> Bool
     public private(set) var sheetCompositionCount = 0
     /// Runs before each composition that the sheet cache cannot serve. Tests hold or fail a composition with it to
     /// pin what the app shows between the logical pages and their sheets.
@@ -240,6 +245,7 @@ public final class DocumentRenderer {
         let id: Int
         let document: PDFDocument
         let viewDocument: PDFDocument
+        var requiredFolderAccess: URL?
         let unreadable: [URL]
         let candidates: [SmartRemovalCandidate]
         var changeMarks: [ChangeMark] = []
@@ -273,7 +279,8 @@ public final class DocumentRenderer {
         let slides: SlidePrintRequest?
     }
 
-    public init(paginate: Paginate? = nil) {
+    public init(isSandboxed: @escaping () -> Bool = { SandboxEnvironment.isSandboxed }, paginate: Paginate? = nil) {
+        self.isSandboxed = isSandboxed
         if let paginate {
             self.paginate = { request in WebPaginator.Result(document: try await paginate(request)) }
         } else {
@@ -286,7 +293,11 @@ public final class DocumentRenderer {
         }
     }
 
-    public init(paginateWithResult: @escaping PaginateWithResult) {
+    public init(
+        isSandboxed: @escaping () -> Bool = { SandboxEnvironment.isSandboxed },
+        paginateWithResult: @escaping PaginateWithResult
+    ) {
+        self.isSandboxed = isSandboxed
         self.paginate = paginateWithResult
     }
 
@@ -412,6 +423,7 @@ public final class DocumentRenderer {
             if let cache, cache.key == key {
                 logical = cache.logical
             } else {
+                var requiredFolderAccess: URL?
                 let document: PDFDocument
                 let unreadable: [URL]
                 let candidates: [SmartRemovalCandidate]
@@ -425,6 +437,7 @@ public final class DocumentRenderer {
                     if source.format == .html, generation == currentGeneration {
                         sourcePageRule = (source, PageRule.orientation(of: result.pageRules))
                     }
+                    requiredFolderAccess = result.requiredFolderAccess
                     document = result.document
                     candidates =
                         source.format == .html && settings.smartRemoval != nil
@@ -438,6 +451,7 @@ public final class DocumentRenderer {
                     id: logicalSerial, document: document,
                     viewDocument: source.format == .image ? ImagePageRenderer.viewDocument(of: document) : document,
                     unreadable: unreadable, candidates: candidates)
+                logical.requiredFolderAccess = requiredFolderAccess
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
                 if generation == currentGeneration { cache = (key, logical) }
@@ -456,7 +470,8 @@ public final class DocumentRenderer {
                 id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
                 logicalDocument: logical.document, viewDocument: logical.viewDocument, plan: plan,
                 summary: PrintSummary(plan: plan),
-                unreadableImageURLs: logical.unreadable, smartRemovalCandidates: logical.candidates,
+                requiredFolderAccess: logical.requiredFolderAccess, unreadableImageURLs: logical.unreadable,
+                smartRemovalCandidates: logical.candidates,
                 changeMarks: requests.isEmpty ? [] : logical.changeMarks,
                 sheetKey: SheetKey(
                     logicalID: logical.id, layout: settings.layout, options: settings.options,
@@ -610,17 +625,43 @@ public final class DocumentRenderer {
             }
             return try await paginate(
                 PaginationRequest(
-                    source: input, pageSize: settings.layout.logicalPageSize(options: settings.options),
+                    source: sandboxSource(input, for: source),
+                    pageSize: settings.layout.logicalPageSize(options: settings.options),
                     margins: .uniform(
                         millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
                     readsPageRules: true))
         case .markdown, .org, .plainText, .csv, .latex:
+            var missingImage = false
+            let access = resourceAccess(for: source)
             let fragment: HTMLFragment
             if source.format == .markdown, !settings.markdownChanges.isEmpty {
                 fragment = MarkdownConverter.convertWithSourceMap(try Self.decodedText(source.data)).fragment
             } else {
-                guard let themed = try Self.themedFragment(source) else { throw RenderingError.unsupportedFormat }
+                guard
+                    let themed = try Self.themedFragment(
+                        source,
+                        imageExists: { url in
+                            if let access, !access.permits(url) {
+                                missingImage = true
+                                return false
+                            }
+                            guard access != nil else { return FileManager.default.fileExists(atPath: url.path) }
+                            do {
+                                return try url.checkResourceIsReachable()
+                            } catch {
+                                let failure = error as NSError
+                                // Missing extension candidates are normal during graphicx's search.
+                                if failure.domain != NSCocoaErrorDomain
+                                    || ![CocoaError.fileNoSuchFile.rawValue, CocoaError.fileReadNoSuchFile.rawValue]
+                                        .contains(failure.code)
+                                {
+                                    missingImage = true
+                                }
+                                return false
+                            }
+                        })
+                else { throw RenderingError.unsupportedFormat }
                 fragment = themed
             }
             let directory = source.fileURL?.deletingLastPathComponent()
@@ -635,12 +676,14 @@ public final class DocumentRenderer {
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
             let parts = [marksScript, themeScript].filter { !$0.isEmpty }
             let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")
-            let text = try await paginate(
+            var text = try await paginate(
                 PaginationRequest(
-                    source: .html(html, baseURL: directory), pageSize: pageSize, margins: .uniform(millimeters: margin),
+                    source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
+                    margins: .uniform(millimeters: margin),
                     allowsJavaScript: false,
                     preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !separatesPaper))
+            if missingImage { text.requiredFolderAccess = directory }
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
                 theme: settings.theme, format: source.format, baseURL: directory, textScale: settings.textScale,
@@ -650,7 +693,7 @@ public final class DocumentRenderer {
             do {
                 paper = try await paginate(
                     PaginationRequest(
-                        source: .html(paperHTML, baseURL: directory), pageSize: pageSize,
+                        source: sandboxSource(.html(paperHTML, baseURL: directory), for: source), pageSize: pageSize,
                         margins: .uniform(millimeters: 0), allowsJavaScript: false,
                         preparationScript: PaperBackground.opaqueScript, readsPageRules: false))
             } catch {
@@ -662,7 +705,27 @@ public final class DocumentRenderer {
                 let composed = PaperComposer.compose(text.document, paper: paperPage)
             else { return text }
             return WebPaginator.Result(
-                document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules)
+                document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules,
+                requiredFolderAccess: text.requiredFolderAccess ?? paper.requiredFolderAccess)
+        }
+    }
+
+    private func resourceAccess(for source: DocumentSource) -> LocalResourceAccess? {
+        guard isSandboxed(), let file = source.fileURL else { return nil }
+        return LocalResourceAccess(documentURL: file, folders: source.allowedResourceFolders)
+    }
+
+    private func sandboxSource(_ input: WebPaginator.Source, for source: DocumentSource) -> WebPaginator.Source {
+        guard let access = resourceAccess(for: source) else { return input }
+        switch input {
+        case .html(let html, let base):
+            return .sandboxed(base.map { WebPaginator.injectingBase($0, into: html) } ?? html, access: access)
+        case .file:
+            return .sandboxed(nil, access: access)
+        case .snapshot(let html, let directory):
+            return .sandboxed(WebPaginator.injectingBase(directory, into: html), access: access)
+        case .sandboxed:
+            return input
         }
     }
 
@@ -674,12 +737,16 @@ public final class DocumentRenderer {
     }
 
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
-    static func themedFragment(_ source: DocumentSource) throws -> HTMLFragment? {
+    static func themedFragment(
+        _ source: DocumentSource,
+        imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+    ) throws -> HTMLFragment? {
         switch source.format {
         case .markdown: MarkdownConverter.convert(try decodedText(source.data))
         case .latex:
             LaTeXConverter.convert(
-                try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent())
+                try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
+                imageExists: imageExists)
         case .org: OrgConverter.convert(try decodedText(source.data))
         case .plainText: PlainTextConverter.convert(try decodedText(source.data))
         case .csv:
