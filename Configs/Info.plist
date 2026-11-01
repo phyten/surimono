@@ -7,6 +7,9 @@
         <string>en</string><string>ja</string><string>zh-Hans</string><string>zh-Hant</string>
         <string>ko</string><string>fr</string><string>de</string><string>es</string>
     </array>
+	<!-- Only the system's TLS is used, for documents that refer to web resources; App Store Connect asks for this. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>SUFeedURL</key>
 	<string>$(SURIMONO_UPDATE_FEED_URL)</string>
 	<key>SUPublicEDKey</key>

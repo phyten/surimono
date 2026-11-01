@@ -28,6 +28,7 @@ jobs:
       - run: make lint
       - run: make test-kit
       - run: make test-app
+      - run: make check-appstore
       - name: Package
         env:
           BUILD_NUMBER: ${{ github.run_number }}

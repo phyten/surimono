@@ -13,8 +13,11 @@ XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -der
 SWIFT_PATHS = App AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
 APP = $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/Surimono.app
 RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
+# Both app targets make Surimono.app (the menu bar shows PRODUCT_NAME), so the App Store app gets derived data of its own.
+APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
+APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-app lint format package clean
+.PHONY: help build run test test-kit test-app lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
@@ -25,6 +28,8 @@ help:
 	@echo "lint       Check Swift formatting"
 	@echo "format     Format Swift sources"
 	@echo "package    Build Release, verify signing, and create DMG + ZIP with SHA-256"
+	@echo "build-appstore  Build the sandboxed Mac App Store app (target Surimono App Store, Release)"
+	@echo "check-appstore  Build it and check that it is sandboxed and carries no Sparkle"
 	@echo "clean      Remove build products"
 
 build:
@@ -77,5 +82,16 @@ package:
 	done
 	cd build/release && shasum -a 256 "Surimono-$(VERSION).dmg" > "Surimono-$(VERSION).dmg.sha256"
 
+build-appstore:
+	xcodebuild -quiet -project Surimono.xcodeproj -scheme "Surimono App Store" -derivedDataPath "$(APP_STORE_DERIVED_DATA)" -destination 'platform=macOS' -configuration Release build
+
+# The App Store build must be sandboxed and must not carry or load Sparkle: the App Store updates the app.
+check-appstore: build-appstore
+	codesign -d --entitlements - --xml "$(APP_STORE_APP)" 2>/dev/null | grep -q '<key>com.apple.security.app-sandbox</key><true/>'
+	test ! -e "$(APP_STORE_APP)/Contents/Frameworks/Sparkle.framework"
+	libraries="$$(otool -L "$(APP_STORE_APP)/Contents/MacOS/Surimono")" && ! printf '%s\n' "$$libraries" | grep -q Sparkle
+	! /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$(APP_STORE_APP)/Contents/Info.plist" 2>/dev/null | grep -q .
+	@echo "AppStore build: sandboxed, no Sparkle"
+
 clean:
-	rm -rf build "$(DERIVED_DATA)" Packages/SurimonoKit/.build
+	rm -rf build "$(DERIVED_DATA)" "$(APP_STORE_DERIVED_DATA)" Packages/SurimonoKit/.build
