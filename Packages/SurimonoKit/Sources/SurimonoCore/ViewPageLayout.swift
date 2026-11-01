@@ -9,6 +9,7 @@ public struct ViewPageLayout: Equatable, Sendable {
     private let pagesPerUnit: Int
     private let scrollAxis: ViewOptions.ScrollAxis
     private let direction: ViewOptions.Direction
+    private let pageScales: [CGFloat]
 
     public struct CropEdges: Equatable, Sendable {
         public var top = false
@@ -23,9 +24,10 @@ public struct ViewPageLayout: Equatable, Sendable {
         let edges: [CropEdges]
         let showsNumbers: Bool
         let margin: Double
+        let pageScales: [CGFloat]
 
         public var requiresCopy: Bool {
-            logicalIndices.contains(nil) || showsNumbers || edges.contains { $0 != CropEdges() }
+            logicalIndices.contains(nil) || showsNumbers || edges.contains { $0 != CropEdges() } || !pageScales.isEmpty
         }
     }
 
@@ -34,10 +36,12 @@ public struct ViewPageLayout: Equatable, Sendable {
         let usesMargin = showsNumbers || edges.contains { $0 != CropEdges() }
         return DocumentKey(
             logicalIndices: logicalIndices, edges: edges, showsNumbers: showsNumbers,
-            margin: usesMargin ? margin : 0)
+            margin: usesMargin ? margin : 0, pageScales: pageScales)
     }
 
-    public init(pageCount: Int, options: ViewOptions, hasLogicalMargins: Bool, showsNumbers: Bool) {
+    public init(
+        pageCount: Int, options: ViewOptions, hasLogicalMargins: Bool, showsNumbers: Bool, pageSizes: [CGSize] = []
+    ) {
         var indices = (0..<max(0, pageCount)).map(Optional.some)
         if options.layout == .spread && !indices.isEmpty {
             if options.showsCoverAlone { indices.insert(nil, at: 0) }
@@ -49,6 +53,29 @@ public struct ViewPageLayout: Equatable, Sendable {
         logicalIndices = indices
         cropsMargins = hasLogicalMargins && options.isSinglePageContinuous && options.joinsPages
         self.showsNumbers = showsNumbers && !options.isSinglePageContinuous
+        let representative = PageSizes.representative(pageSizes)
+        if options.isContinuous, pageSizes.contains(where: { !PageSizes.matches($0, representative) }) {
+            pageScales = pageSizes.map { size in
+                guard !PageSizes.matches(size, representative),
+                    size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0,
+                    representative.width > 0, representative.height > 0
+                else { return 1 }
+                let widthScale = representative.width / size.width
+                // PDFKit spaces horizontal spreads using the widest page, so both dimensions must fit.
+                let fit =
+                    options.scrollAxis == .vertical ? widthScale : min(widthScale, representative.height / size.height)
+                return min(1, fit)
+            }
+        } else {
+            pageScales = []
+        }
+    }
+
+    public func scale(at viewIndex: Int) -> CGFloat {
+        guard let logicalIndex = logicalIndex(at: viewIndex) ?? readingIndex(at: viewIndex),
+            pageScales.indices.contains(logicalIndex)
+        else { return 1 }
+        return pageScales[logicalIndex]
     }
 
     public func viewIndex(for logicalIndex: Int) -> Int? {

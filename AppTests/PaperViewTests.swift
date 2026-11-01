@@ -8,6 +8,91 @@ import Testing
 
 @MainActor
 struct PaperViewTests {
+    @Test("縦横混在でも基準は縦のままで横ページと見開き全体が窓に収まる", arguments: [false, true])
+    func mixedPagesFit(spread: Bool) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("mixed", pages: 4)))
+        source.page(at: 2)?.rotation = 90
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.apply(
+            ViewOptions(
+                layout: spread ? .spread : .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        )
+        #expect(view.unitSize == CGSize(width: spread ? 1190 : 595, height: 842))
+        view.goToPage(index: 2)
+        view.layoutSubtreeIfNeeded()
+        let page = try #require(view.document?.page(at: 2))
+        let rect = view.convert(page.bounds(for: .cropBox), from: page)
+        #expect(rect.width <= view.bounds.width + 0.1)
+        #expect(rect.height <= view.bounds.height + 0.1)
+        if spread {
+            let neighbor = try #require(view.document?.page(at: 3))
+            let pair = rect.union(view.convert(neighbor.bounds(for: .cropBox), from: neighbor))
+            #expect(pair.width <= view.bounds.width + 0.1)
+            #expect(pair.height <= view.bounds.height + 0.1)
+        }
+        view.goToPage(index: 0)
+        #expect(abs(view.scaleFactor - min(420.0 / (spread ? 1190 : 595), 594.0 / 842)) < 0.001)
+        #expect(view.zoom == 1)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("横スクロールの単ページと見開きは混在PDFでも余計な横幅やページ間の空きを作らない", arguments: ViewOptions.Layout.allCases)
+    func horizontalMixedPagesFit(layout: ViewOptions.Layout) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("horizontal-mixed", pages: 4)))
+        source.page(at: 2)?.rotation = 90
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.configure(
+            source, at: 0,
+            options: ViewOptions(layout: layout, scrollAxis: .horizontal, transition: .scroll, showsCoverAlone: false),
+            logicalMargin: nil, showsPageNumbers: false)
+        for index in [0, 2] {
+            view.goToPage(index: index)
+            view.layoutSubtreeIfNeeded()
+            let first = try #require(view.document?.page(at: index))
+            var rect = view.convert(first.bounds(for: .cropBox), from: first)
+            if layout == .spread {
+                let second = try #require(view.document?.page(at: index + 1))
+                let next = view.convert(second.bounds(for: .cropBox), from: second)
+                #expect(abs(next.minX - rect.maxX) < 1)
+                rect = rect.union(next)
+            }
+            #expect(rect.width <= view.bounds.width + 0.1)
+            #expect(rect.height <= view.bounds.height + 0.1)
+            #expect(abs(rect.width - view.bounds.width) < 1)
+        }
+        #expect(source.page(at: 2)?.bounds(for: .cropBox).size == CGSize(width: 595, height: 842))
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("混在PDFの連続表示はコピーを作り縦横切替では適したコピーへ戻る")
+    func continuousMixedPages() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("mixed", pages: 4)))
+        source.page(at: 2)?.rotation = 90
+        source.page(at: 3)?.setBounds(CGRect(x: 0, y: 0, width: 595, height: 1684), for: .mediaBox)
+        source.page(at: 3)?.setBounds(CGRect(x: 0, y: 0, width: 595, height: 1684), for: .cropBox)
+        let (view, window) = try makeSinglePagePaper(document: source)
+        var options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        view.apply(options)
+        let vertical = try #require(view.document)
+        #expect(vertical !== source)
+        let wide = try #require(vertical.page(at: 2))
+        #expect(abs(wide.bounds(for: .cropBox).height - 595) < 0.01)
+        #expect(view.unitSize == CGSize(width: 595, height: 842))
+        let portrait = try #require(vertical.page(at: 0))
+        let portraitRect = view.convert(portrait.bounds(for: .cropBox), from: portrait)
+        #expect(abs(portraitRect.width - view.bounds.width) < 1)
+        #expect(view.convert(wide.bounds(for: .cropBox), from: wide).width <= view.bounds.width + 0.1)
+        options.scrollAxis = .horizontal
+        view.apply(options)
+        #expect(view.document !== vertical)
+        #expect(abs(try #require(view.document?.page(at: 2)).bounds(for: .cropBox).height - 595) < 0.01)
+        #expect(view.document?.page(at: 3)?.bounds(for: .cropBox).height == 842)
+        options.scrollAxis = .vertical
+        view.apply(options)
+        #expect(view.document === vertical)
+        withExtendedLifetime(window) {}
+    }
+
     @Test(
         "見開きの表紙と最終ページは左右に収まり白紙の番号を通知しない",
         arguments: ViewOptions.Direction.allCases, [false, true])

@@ -243,9 +243,14 @@ final class PaperPDFView: PDFView {
             options
             ?? ViewOptions(
                 layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+        let sizes = (0..<source.pageCount).map { index in
+            guard let page = source.page(at: index) else { return CGSize.zero }
+            return PageSizes.displayed(page.bounds(for: .cropBox).size, rotation: page.rotation)
+        }
+        pageSize = PageSizes.representative(sizes)
         let plan = ViewPageLayout(
             pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
-            showsNumbers: showsPageNumbers)
+            showsNumbers: showsPageNumbers, pageSizes: sizes)
         let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
         if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks, document != nil {
             // Layout and navigation may change without touching page content or losing the PDFKit page cache.
@@ -293,13 +298,6 @@ final class PaperPDFView: PDFView {
         }
         self.document = document
         displayBox = .cropBox
-        pageSize = (0..<document.pageCount).reduce(into: CGSize.zero) { size, index in
-            guard let page = document.page(at: index) else { return }
-            let bounds = page.bounds(for: .cropBox)
-            let pageSize =
-                page.rotation % 180 == 0 ? bounds.size : CGSize(width: bounds.height, height: bounds.width)
-            size = CGSize(width: max(size.width, pageSize.width), height: max(size.height, pageSize.height))
-        }
         hideScrollersAndInsets()
         refit()
         goToPage(index: min(index, max(source.pageCount - 1, 0)))
@@ -336,8 +334,23 @@ final class PaperPDFView: PDFView {
         return CGSize(width: pageSize.width * 2, height: pageSize.height)
     }
 
+    private var fittedUnitSize: CGSize {
+        guard options?.isContinuous != true, let document, let currentPage else { return unitSize }
+        let count = options?.layout == .spread ? 2 : 1
+        let index = document.index(for: currentPage)
+        let start = index - index % count
+        var size = CGSize.zero
+        for index in start..<min(start + count, document.pageCount) {
+            guard let page = document.page(at: index) else { continue }
+            let displayed = PageSizes.displayed(page.bounds(for: .cropBox).size, rotation: page.rotation)
+            size.width += displayed.width
+            size.height = max(size.height, displayed.height)
+        }
+        return size
+    }
+
     private var fitScale: CGFloat {
-        let unit = unitSize
+        let unit = fittedUnitSize
         guard unit.width > 0, unit.height > 0, bounds.width > 0, bounds.height > 0 else { return 1 }
         return min(bounds.width / unit.width, bounds.height / unit.height)
     }
@@ -366,7 +379,7 @@ final class PaperPDFView: PDFView {
     }
 
     private func refit() {
-        guard bounds.width > 1, bounds.height > 1 else { return }
+        guard !isSettingScale, bounds.width > 1, bounds.height > 1 else { return }
         fittedSize = bounds.size
         let target = max(fitScale * displayedZoom, 0.01)
         guard abs(scaleFactor - target) > 0.0005 else { return }
@@ -377,6 +390,8 @@ final class PaperPDFView: PDFView {
         scaleFactor = target
         isSettingScale = false
         if let destination { go(to: destination) }
+        // A new scale can bring PDFKit's scroll bars back over the paper.
+        hideScrollersAndInsets()
     }
 
     override func magnify(with event: NSEvent) {
@@ -469,7 +484,8 @@ final class PaperPDFView: PDFView {
     }
 
     @objc private func pageDidChange() {
-        guard !isMeasuringFit, !isUpdatingDocument else { return }
+        guard !isMeasuringFit, !isUpdatingDocument, !isSettingScale else { return }
+        if options?.isContinuous != true { refit() }
         onPageChange?(currentPageIndex)
     }
 
@@ -582,6 +598,7 @@ final class PaperPDFView: PDFView {
         else { return }
         finishZoomReturnForNavigation()
         go(to: page)
+        if options?.isContinuous != true { refit() }
     }
 
     func turnPage(forward: Bool) {
