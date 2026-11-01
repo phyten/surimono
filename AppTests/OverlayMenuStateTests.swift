@@ -1,149 +1,115 @@
 import AppKit
-import CoreGraphics
-import Foundation
 import Testing
 
 @testable import Surimono
 
 @MainActor
+@Suite(.serialized)
 struct OverlayMenuStateTests {
-    @Test("乗せると段階1になり、上部に留まると段階2になる", .timeLimit(.minutes(1)))
-    func stages() async throws {
+    @Test("上端38ptに入ると待たずに帯全体を表示する")
+    func topEdgeShowsFullBand() {
         let menu = OverlayMenuState()
-        menu.pointerMoved(to: CGPoint(x: 200, y: 400))
+        menu.pointerMoved(to: CGPoint(x: 200, y: 39))
         #expect(menu.stage == .hidden)
-        try await Task.sleep(for: .milliseconds(300))
-        #expect(menu.stage == .compact)
-        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
-        try await Task.sleep(for: .milliseconds(400))
+        menu.pointerMoved(to: CGPoint(x: 200, y: 38))
         #expect(menu.stage == .full)
     }
 
-    @Test("離れてもすぐには隠れず、少し待つと隠れる", .timeLimit(.minutes(1)))
-    func hidesAfterLeaving() async throws {
+    @Test("帯から本文へ離れると1秒後に隠れ、本文で動いても延長しない", .timeLimit(.minutes(1)))
+    func leavingBandStartsOneTimer() async throws {
+        let menu = OverlayMenuState()
+        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
+        menu.pointerMoved(to: CGPoint(x: 200, y: 100))
+        try await Task.sleep(for: .milliseconds(700))
+        #expect(menu.stage == .full)
+        menu.pointerMoved(to: CGPoint(x: 300, y: 300))
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(menu.stage == .hidden)
+    }
+
+    @Test("窓の外へ離れて1秒後に隠れる", .timeLimit(.minutes(1)))
+    func hidesAfterLeavingWindow() async throws {
         let menu = OverlayMenuState()
         menu.showFull()
         menu.pointerExited()
-        try await Task.sleep(for: .milliseconds(300))
+        try await Task.sleep(for: .milliseconds(700))
         #expect(menu.stage == .full)
-        try await Task.sleep(for: .milliseconds(1000))
+        try await Task.sleep(for: .milliseconds(500))
         #expect(menu.stage == .hidden)
     }
 
-    @Test("ページを送るとすぐに隠れる")
-    func pageTurnHides() {
+    @Test("帯へ戻ると非表示の予約を取り消す", .timeLimit(.minutes(1)))
+    func returningCancelsHide() async throws {
         let menu = OverlayMenuState()
-        menu.showFull()
+        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
+        menu.pointerExited()
+        try await Task.sleep(for: .milliseconds(600))
+        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(menu.stage == .full)
+    }
+
+    @Test("キーボードで表示した帯は静止しても隠れない", .timeLimit(.minutes(1)))
+    func keyboardHasNoIdleTimeout() async throws {
+        let menu = OverlayMenuState()
+        menu.pointerMoved(to: CGPoint(x: 200, y: 400))
+        menu.toggle()
+        try await Task.sleep(for: .milliseconds(2800))
+        #expect(menu.stage == .full)
+        menu.toggle()
+        #expect(menu.stage == .hidden)
+    }
+
+    @Test("ページ送りでは帯の上にポインタがある間は隠さない")
+    func pageTurnRespectsPointer() {
+        let menu = OverlayMenuState()
+        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
+        menu.pageTurned()
+        #expect(menu.stage == .full)
+        menu.pointerMoved(to: CGPoint(x: 200, y: 100))
         menu.pageTurned()
         #expect(menu.stage == .hidden)
     }
 
-    @Test("ポップオーバーを開いている間は、ページを送っても離れても隠れない", .timeLimit(.minutes(1)))
-    func holdingKeepsMenu() async throws {
+    @Test("ポップオーバーを閉じてから1秒待って隠す", .timeLimit(.minutes(1)))
+    func popoverHoldsUntilClosed() async throws {
         let menu = OverlayMenuState()
         menu.showFull()
         menu.isHolding = true
-        menu.pageTurned()
         menu.pointerExited()
+        menu.pageTurned()
         try await Task.sleep(for: .milliseconds(1200))
         #expect(menu.stage == .full)
-    }
-
-    @Test("キーボードで全部のメニューを出し入れできる")
-    func keyboardToggle() {
-        let menu = OverlayMenuState()
-        menu.toggle()
+        menu.isHolding = false
         #expect(menu.stage == .full)
-        menu.toggle()
+        try await Task.sleep(for: .milliseconds(1200))
         #expect(menu.stage == .hidden)
     }
 
-    @Test("段階1が出てから段階2になる前に隠すと、あとから段階2にならない", .timeLimit(.minutes(1)))
-    func hidingCancelsPendingFullStage() async throws {
+    @Test("メニューを開いている間は隠れず閉じてから1秒待つ", .timeLimit(.minutes(1)))
+    func trackingHoldsUntilClosed() async throws {
+        let menu = OverlayMenuState()
+        let popup = NSMenu()
+        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
+        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: popup)
+        defer { NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: popup) }
+        menu.pointerMoved(to: CGPoint(x: 200, y: 200))
+        menu.pageTurned()
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(menu.stage == .full)
+        NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: popup)
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(menu.stage == .hidden)
+    }
+
+    @Test("Escで隠した帯は動かさなければ再表示せず、固定中はEscで隠れない", .timeLimit(.minutes(1)))
+    func escapeAndPin() async throws {
         let menu = OverlayMenuState()
         menu.pointerMoved(to: CGPoint(x: 200, y: 20))
-        for _ in 0..<60 where menu.stage == .hidden {
-            try await Task.sleep(for: .milliseconds(5))
-        }
-        menu.hideNow()
+        #expect(!menu.hideForEscape(pinned: true))
+        #expect(menu.stage == .full)
+        #expect(menu.hideForEscape(pinned: false))
         try await Task.sleep(for: .milliseconds(300))
         #expect(menu.stage == .hidden)
     }
-
-    @Test("ポインタが帯の上にあると、帯を使っている状態になる")
-    func pointerInsideBand() {
-        let menu = OverlayMenuState()
-        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
-        #expect(menu.isPointerOverBand)
-    }
-
-    @Test("ポインタが帯の下へ移ると、帯を使っている状態でなくなる")
-    func pointerBelowBand() {
-        let menu = OverlayMenuState()
-        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
-        menu.pointerMoved(to: CGPoint(x: 200, y: 60))
-        #expect(!menu.isPointerOverBand)
-    }
-
-    @Test("ポインタが窓から出ると、帯を使っている状態でなくなる")
-    func pointerExitClearsBand() {
-        let menu = OverlayMenuState()
-        menu.pointerMoved(to: CGPoint(x: 200, y: 20))
-        menu.pointerExited()
-        #expect(!menu.isPointerOverBand)
-    }
-
-    @Test("帯から開いたポップオーバーがある間は、ポインタが帯の外でも帯を使っている状態になる")
-    func holdingCountsAsOverBand() {
-        let menu = OverlayMenuState()
-        menu.pointerMoved(to: CGPoint(x: 200, y: 400))
-        menu.isHolding = true
-        #expect(menu.isPointerOverBand)
-        menu.isHolding = false
-        #expect(!menu.isPointerOverBand)
-    }
-
-    @Test("帯の中や帯の外で動かすだけでは、帯の状態の変化を知らせない")
-    func movesWithinOneRegionDoNotNotify() {
-        let menu = OverlayMenuState()
-        menu.pointerMoved(to: CGPoint(x: 200, y: 10))
-        let flag = ChangeFlag()
-        withObservationTracking {
-            _ = menu.isPointerOverBand
-        } onChange: {
-            flag.fired = true
-        }
-        menu.pointerMoved(to: CGPoint(x: 260, y: 20))
-        #expect(!flag.fired)
-        menu.pointerMoved(to: CGPoint(x: 260, y: 80))
-        #expect(flag.fired)
-        flag.fired = false
-        withObservationTracking {
-            _ = menu.isPointerOverBand
-        } onChange: {
-            flag.fired = true
-        }
-        menu.pointerMoved(to: CGPoint(x: 300, y: 120))
-        #expect(!flag.fired)
-    }
-
-    @Test("帯から開いたメニューを追っている間は、ポインタが窓の外でも帯を使っている状態になる", .timeLimit(.minutes(1)))
-    func menuTrackingKeepsTheBandInUse() async throws {
-        let menu = OverlayMenuState()
-        menu.pointerMoved(to: CGPoint(x: 200, y: 10))
-        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: NSMenu())
-        // The observers run on the main queue, so let them run.
-        try await Task.sleep(for: .milliseconds(50))
-        menu.pointerExited()
-        #expect(menu.isPointerOverBand)
-        NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: NSMenu())
-        try await Task.sleep(for: .milliseconds(50))
-        #expect(!menu.isPointerOverBand)
-    }
-}
-
-/// Observation calls `onChange` synchronously on the thread that mutates the property, here the main actor, so the
-/// flag is only touched from one thread.
-private final class ChangeFlag: @unchecked Sendable {
-    var fired = false
 }

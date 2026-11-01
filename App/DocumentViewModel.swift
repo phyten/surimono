@@ -727,13 +727,11 @@ final class DocumentViewModel {
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
         mode = .print
         guard let window else { return }
-        // The tray has its own size and always shows the traffic lights.
-        ViewerWindow.unlockAspectRatio(of: window)
+        // Stage controls need free resizing and visible traffic lights.
         ViewerWindow.setTrafficLightsVisible(true, in: window)
         PrintModeWindow.enter(window)
     }
 
-    /// The comparison stage (見比べ台): the window grows like the print tray's and comes back to its frame afterwards.
     func enterCompareMode() {
         guard mode == .view, format.usesPrintTheme else { return }
         isThemePalettePresented = false
@@ -749,7 +747,6 @@ final class DocumentViewModel {
         }
         mode = .compare
         guard let window else { return }
-        ViewerWindow.unlockAspectRatio(of: window)
         ViewerWindow.setTrafficLightsVisible(true, in: window)
         PrintModeWindow.enter(window, size: PrintModeWindow.compareSize)
     }
@@ -770,10 +767,11 @@ final class DocumentViewModel {
         resetPrintChoices()
         PrintModeWindow.exit(window) { [weak self] in
             guard let self else { return }
-            // Back at the view-mode frame; the print layout may have changed the pages' shape meanwhile.
             ViewerWindow.markResizing(window, for: 0.3)
             mode = .view
             ViewerWindow.setTrafficLightsVisible(isMenuPinned, in: window)
+            // The view mode shows only the paper, and the print layout may have changed the pages' shape on the
+            // stage, so the window keeps its height and takes the pages' width again.
             sizeWindowToPaper(keepHeight: true)
         }
     }
@@ -1250,7 +1248,8 @@ final class DocumentViewModel {
     }
 
     /// Fits the window to the paper: the first time at a comfortable or remembered size, later keeping the height.
-    func sizeWindowToPaper(keepHeight: Bool = false) {
+    func sizeWindowToPaper(keepHeight: Bool = false, initialOnly: Bool = false) {
+        guard !initialOnly || !hasSizedWindow else { return }
         guard mode == .view, let window, let unit = paperUnitSize else { return }
         guard hasSizedWindow else {
             hasSizedWindow = true

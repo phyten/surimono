@@ -130,12 +130,12 @@ struct HTMLPresentationTests {
         defer { environment.cleanUp() }
         let model = try model(environment)
         #expect(
-            BandLayout.Item.applicable(for: model, stage: .full) == [
+            BandLayout.Item.applicable(for: model) == [
                 .formatBadge, .presentation, .print,
             ])
         #expect(SecondaryViewControl.applicable(for: model) == [.floatOnTop, .keepMenuVisible])
         model.setHTMLPresentation(.paper)
-        let paper = BandLayout.Item.applicable(for: model, stage: .full)
+        let paper = BandLayout.Item.applicable(for: model)
         #expect(paper.contains(.presentation))
         #expect(paper.contains(.style))
         #expect(paper.contains(.layout))
@@ -151,7 +151,7 @@ struct HTMLPresentationTests {
         #expect(!model.usesHTMLPresentation)
         #expect(!model.showsWeb)
         model.setHTMLPresentation(.web)
-        #expect(!BandLayout.Item.applicable(for: model, stage: .full).contains(.presentation))
+        #expect(!BandLayout.Item.applicable(for: model).contains(.presentation))
         #expect(model.rememberedSettings.htmlPresentation == nil)
     }
 }

@@ -81,7 +81,8 @@ struct DocumentContent: View {
                 // SwiftUI moves the content to the window again when the print mode adds its toolbar.
                 ViewerWindow.setTrafficLightsVisible(model.isMenuPinned || model.mode != .view, in: window)
                 ViewerWindow.setAlwaysOnTop(model.isAlwaysOnTop, in: window)
-                model.sizeWindowToPaper()
+                // Reattaching after a stage must preserve the frame chosen for the return to reading.
+                model.sizeWindowToPaper(initialOnly: true)
                 #if DEBUG
                     DebugSnapshot.captureIfReady(model)
                 #endif

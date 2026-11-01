@@ -1,15 +1,12 @@
 import AppKit
 
-/// Gives a window the print tray's size and chrome while it is in the print mode, and puts it back afterwards.
-///
-/// Each window remembers its own view-mode frame and title bar, so leaving the print mode restores exactly what the
-/// user had, whatever the view mode looks like.
+// Stage entry needs more room only when its controls would not fit; fitting paper on return belongs to the model.
 enum PrintModeWindow {
-    static let traySize = NSSize(width: 1000, height: 760)
-    static let animationDuration: TimeInterval = 0.3
+    static let traySize = NSSize(width: 760, height: 560)
 
     private final class SavedChrome {
         let frame: NSRect
+        var didEnlarge = false
         let titleVisibility: NSWindow.TitleVisibility
         let titlebarAppearsTransparent: Bool
         let titlebarSeparatorStyle: NSTitlebarSeparatorStyle
@@ -27,10 +24,9 @@ enum PrintModeWindow {
     private static let saved = NSMapTable<NSWindow, SavedChrome>.weakToStrongObjects()
     private static let leaving = NSHashTable<NSWindow>.weakObjects()
 
-    /// The comparison stage of print themes, which shows four pages side by side.
-    static let compareSize = NSSize(width: 1100, height: 780)
+    static let compareSize = NSSize(width: 900, height: 620)
 
-    /// Gives the window a stage's size. Going from one stage to the other keeps the view-mode frame saved first.
+    // Switching stages must keep the frame from before either stage was opened.
     static func enter(_ window: NSWindow, size: NSSize = traySize) {
         let chrome: SavedChrome
         if let existing = saved.object(forKey: window) {
@@ -40,17 +36,20 @@ enum PrintModeWindow {
             saved.setObject(chrome, forKey: window)
             // The tray draws its own top bar under the title bar. The window keeps its toolbar (SwiftUI observes and
             // owns it); the print mode only hides the toolbar's items, so the traffic lights stay centered in the bar.
-            window.titleVisibility = .hidden
-            window.titlebarAppearsTransparent = true
-            window.titlebarSeparatorStyle = .none
-            window.styleMask.insert(.fullSizeContentView)
+            if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
+            if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
+            if window.titlebarSeparatorStyle != .none { window.titlebarSeparatorStyle = .none }
+            if !window.styleMask.contains(.fullSizeContentView) { window.styleMask.insert(.fullSizeContentView) }
         }
+        ViewerWindow.unlockAspectRatio(of: window)
         guard !window.styleMask.contains(.fullScreen), let screen = window.screen ?? NSScreen.main else { return }
-        setFrame(trayFrame(around: chrome.frame, visibleFrame: screen.visibleFrame, size: size), of: window)
+        let frame = trayFrame(around: window.frame, visibleFrame: screen.visibleFrame, size: size)
+        guard frame != window.frame else { return }
+        chrome.didEnlarge = true
+        ViewerWindow.setStageFrame(frame, of: window)
     }
 
-    /// Shrinks the window back first and restores its title bar when it has its old frame, so `completion` (which
-    /// brings back the view mode) lays the pages out once, at their final size.
+    // Undo only the automatic enlargement here. The completion fits the paper width while keeping this height.
     static func exit(_ window: NSWindow, completion: @escaping () -> Void) {
         // A second request while the window shrinks back changes nothing; the first one finishes the job.
         guard !leaving.contains(window) else { return }
@@ -62,50 +61,42 @@ enum PrintModeWindow {
         leaving.add(window)
         let restore = {
             leaving.remove(window)
-            window.titleVisibility = chrome.titleVisibility
-            window.titlebarAppearsTransparent = chrome.titlebarAppearsTransparent
-            window.titlebarSeparatorStyle = chrome.titlebarSeparatorStyle
+            if window.titleVisibility != chrome.titleVisibility { window.titleVisibility = chrome.titleVisibility }
+            if window.titlebarAppearsTransparent != chrome.titlebarAppearsTransparent {
+                window.titlebarAppearsTransparent = chrome.titlebarAppearsTransparent
+            }
+            if window.titlebarSeparatorStyle != chrome.titlebarSeparatorStyle {
+                window.titlebarSeparatorStyle = chrome.titlebarSeparatorStyle
+            }
             if !chrome.hadFullSizeContentView {
                 // AppKit keeps the content size when the content stops running under the title bar, which would
                 // grow the window by the title bar's height.
+                let frame = window.frame
                 window.styleMask.remove(.fullSizeContentView)
-                window.setFrame(chrome.frame, display: true)
+                ViewerWindow.setFrame(frame, of: window, animate: false)
             }
             completion()
         }
-        guard !window.styleMask.contains(.fullScreen) else {
+        guard chrome.didEnlarge, !window.styleMask.contains(.fullScreen) else {
             restore()
             return
         }
-        setFrame(chrome.frame, of: window, completion: restore)
+        ViewerWindow.setStageFrame(chrome.frame, of: window, completion: restore)
     }
 
-    /// The tray frame: about `size`, centered on the view-mode window and kept inside the screen's visible frame.
+    // Grow only missing dimensions, preserving the other dimension even on a smaller screen.
     static func trayFrame(around frame: NSRect, visibleFrame: NSRect, size: NSSize = traySize) -> NSRect {
-        let width = min(size.width, visibleFrame.width)
-        let height = min(size.height, visibleFrame.height)
-        let x = min(max(frame.midX - width / 2, visibleFrame.minX), visibleFrame.maxX - width)
-        let y = min(max(frame.midY - height / 2, visibleFrame.minY), visibleFrame.maxY - height)
-        return NSRect(x: x.rounded(), y: y.rounded(), width: width, height: height)
+        let width = max(frame.width, min(size.width, visibleFrame.width))
+        let height = max(frame.height, min(size.height, visibleFrame.height))
+        guard width != frame.width || height != frame.height else { return frame }
+        let x =
+            width == frame.width
+            ? frame.minX
+            : min(max(frame.midX - width / 2, visibleFrame.minX), visibleFrame.maxX - width).rounded()
+        let y =
+            height == frame.height
+            ? frame.minY
+            : min(max(frame.midY - height / 2, visibleFrame.minY), visibleFrame.maxY - height).rounded()
+        return NSRect(x: x, y: y, width: width, height: height)
     }
-
-    private static func setFrame(_ frame: NSRect, of window: NSWindow, completion: (() -> Void)? = nil) {
-        guard window.isVisible, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-            window.setFrame(frame, display: true)
-            completion?()
-            return
-        }
-        // The completion handler is @Sendable, so it carries only an identifier to the main-actor state.
-        let id = UUID()
-        if let completion { pendingCompletions[id] = completion }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = animationDuration
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.2, 1)
-            window.animator().setFrame(frame, display: true)
-        } completionHandler: {
-            MainActor.assumeIsolated { pendingCompletions.removeValue(forKey: id)?() }
-        }
-    }
-
-    private static var pendingCompletions: [UUID: () -> Void] = [:]
 }

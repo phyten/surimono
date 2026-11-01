@@ -17,7 +17,7 @@ struct BandControlsTests {
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
         model.viewOptions.layout = .spread
         #expect(
-            BandLayout.Item.applicable(for: model, stage: .full) == [
+            BandLayout.Item.applicable(for: model) == [
                 .formatBadge, .style, .layout, .transition, .print,
             ])
         #expect(
@@ -29,7 +29,6 @@ struct BandControlsTests {
             SecondaryViewControl.applicable(for: model) == [
                 .direction, .scrollAxis, .paperOrientation, .selectText, .floatOnTop, .keepMenuVisible,
             ])
-        #expect(BandLayout.Item.applicable(for: model, stage: .compact) == [.print])
     }
 
     @Test("拡大率は拡大中だけ帯に現れ画像には文字選択を出さない")
@@ -41,10 +40,10 @@ struct BandControlsTests {
         let model = DocumentViewModel(
             data: Data(), fileURL: nil, format: .image,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
-        #expect(!BandLayout.Item.applicable(for: model, stage: .full).contains(.zoom))
-        #expect(!BandLayout.Item.applicable(for: model, stage: .full).contains(.style))
+        #expect(!BandLayout.Item.applicable(for: model).contains(.zoom))
+        #expect(!BandLayout.Item.applicable(for: model).contains(.style))
         #expect(!SecondaryViewControl.applicable(for: model).contains(.selectText))
         model.zoom = 2
-        #expect(BandLayout.Item.applicable(for: model, stage: .full).contains(.zoom))
+        #expect(BandLayout.Item.applicable(for: model).contains(.zoom))
     }
 }

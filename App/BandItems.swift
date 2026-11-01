@@ -4,7 +4,7 @@ import SwiftUI
 /// A measured part of the band: an item in one of its forms, or a part that always stays.
 enum BandSlot: Hashable {
     case item(BandLayout.Item, BandLayout.Form)
-    case name, more, indicators
+    case name, more
 }
 
 extension BandLayout.Item {
@@ -25,9 +25,7 @@ extension BandLayout.Item {
         }
     }
 
-    /// The items this document can show on the band at this stage.
-    static func applicable(for model: DocumentViewModel, stage: OverlayMenuState.Stage) -> [Self] {
-        guard stage == .full else { return [.print] }
+    static func applicable(for model: DocumentViewModel) -> [Self] {
         // The paper's tools do nothing for a live web page.
         let paper = !model.showsWeb
         return allCases.filter { item in
@@ -161,23 +159,6 @@ struct PageIndicatorText: View {
                 .lineLimit(1)
                 .fixedSize()
         }
-    }
-}
-
-/// What the compact band shows next to the file name: the states that change how the paper behaves.
-struct CompactIndicators: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if model.isAlwaysOnTop {
-                Image(systemName: "pin.fill").help("Floating on Top")
-            }
-            if model.isSelectingText {
-                Image(systemName: "character.cursor.ibeam").help("Selecting Text")
-            }
-        }
-        .foregroundStyle(.secondary)
     }
 }
 
@@ -402,7 +383,6 @@ struct BandMeasurements: View {
         ZStack(alignment: .topLeading) {
             measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
             measure(.more) { BandMoreMenu(model: model, overflow: [], header: nil) }
-            measure(.indicators) { CompactIndicators(model: model) }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
                 if item.hasCompactForm {

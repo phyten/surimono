@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
+import PDFKit
 import SurimonoCore
+import SurimonoRendering
 import Testing
 
 @testable import Surimono
@@ -209,6 +211,13 @@ struct PrintTrayTests {
         #expect(metrics.zoomPercent == 52)
     }
 
+    @Test("最小の刷り台でも倍率1なら用紙とラベルが幅と高さに収まる", arguments: PrintLayout.presets)
+    func minimumTrayFitsSheet(layout: PrintLayout) {
+        let metrics = TrayMetrics(layout: layout, viewportWidth: 760, viewportHeight: 300, zoom: 1)
+        #expect(metrics.rowWidth + 88 <= 760)
+        #expect(metrics.sideSize.height + 64 <= 300.01)
+    }
+
     @Test("高さに余裕のある窓では、刷り台は今までどおり幅で大きさが決まる")
     func trayKeepsWidthWhenTall() {
         let tall = TrayMetrics(layout: .a3BookletA4, viewportWidth: 1000, viewportHeight: 2000, zoom: 1)
@@ -381,23 +390,220 @@ struct PrintModeTests {
         #expect(second.printOptions == PrintOptions())
     }
 
-    @Test("刷り台の窓は1000×760で、元の窓の中心に合わせ、画面の内側に収める")
-    func trayFrame() {
-        let screen = NSRect(x: 0, y: 0, width: 1440, height: 875)
-        #expect(
-            PrintModeWindow.trayFrame(around: NSRect(x: 300, y: 100, width: 800, height: 600), visibleFrame: screen)
-                == NSRect(x: 200, y: 20, width: 1000, height: 760))
-        #expect(
-            PrintModeWindow.trayFrame(around: NSRect(x: 1200, y: 500, width: 600, height: 400), visibleFrame: screen)
-                == NSRect(x: 440, y: 115, width: 1000, height: 760))
+    @Test("初回調整済みの文書は刷り台で変えた高さを保ち幅を紙の比に戻す", .timeLimit(.minutes(1)))
+    func returnFitsRenderedPaperKeepingHeight() async throws {
+        let fixture = Fixture()
+        let model = DocumentViewModel(
+            data: try PrintWindowFixtures.pdf(size: CGSize(width: 600, height: 400)),
+            fileURL: nil, format: .pdf, preferences: fixture.preferences, library: fixture.library)
+        defer { model.stop() }
+        model.setLayout(.single)
+        try await render(model)
+        #expect(model.paperUnitSize == CGSize(width: 600, height: 400))
+        let window = PrintWindowFixtures.window(width: 900, height: 600)
+        model.window = window
+        model.sizeWindowToPaper()
+        ViewerWindow.setPaperSize(CGSize(width: 900, height: 600), band: 0, of: window, animate: false)
+        let original = window.frame
+        model.enterPrintMode()
+        #expect(window.frame == original)
+        window.setFrame(NSRect(x: 100, y: 100, width: 1000, height: 640), display: false)
+        model.exitPrintMode()
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 960, height: 640) }
+        #expect(window.frame.height == 640)
+        #expect(window.frame.width == 960)
     }
 
-    @Test("画面が刷り台より小さいときは、画面の見える範囲いっぱいにする")
+    @Test("刷り台でレイアウトを変えると復帰時の幅は新しい紙の形に合う", .timeLimit(.minutes(1)))
+    func returnFitsNewlyRenderedLayout() async throws {
+        let fixture = Fixture()
+        // Only pagination is substituted; the renderer still rebuilds the logical pages for the selected layout.
+        let renderer = DocumentRenderer(paginate: { request in
+            try #require(PDFDocument(data: PrintWindowFixtures.pdf(size: request.pageSize)))
+        })
+        let model = DocumentViewModel(
+            data: Data("# Window fixture".utf8), fileURL: nil, format: .markdown,
+            preferences: fixture.preferences, library: fixture.library, renderer: renderer)
+        defer { model.stop() }
+        model.setLayout(.single)
+        model.paperOrientation = .landscape
+        try await render(model)
+        let firstPaper = try #require(model.paperUnitSize)
+        #expect(firstPaper.width > firstPaper.height)
+        let window = PrintWindowFixtures.window(width: 849, height: 600)
+        model.window = window
+        model.sizeWindowToPaper()
+        ViewerWindow.setPaperSize(CGSize(width: 849, height: 600), band: 0, of: window, animate: false)
+        let original = window.frame
+        model.enterPrintMode()
+        #expect(window.frame == original)
+        model.chooseLayout(PrintLayout.a4BookletA5.id)
+        try await render(model)
+        let newPaper = try #require(model.paperUnitSize)
+        #expect(abs(newPaper.width - 419.52756) < 0.01)
+        #expect(abs(newPaper.height - 595.27559) < 0.01)
+        #expect(newPaper != firstPaper)
+        #expect(renderer.logicalRenderCount == 2)
+        model.exitPrintMode()
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 423, height: 600) }
+        #expect(window.frame.height == 600)
+        #expect(window.frame.width == 423)
+    }
+
+    @Test("復帰後の初回限定のサイズ調整は枠を変えない", .timeLimit(.minutes(1)))
+    func initialOnlyDoesNotRefitAfterReturning() async throws {
+        let fixture = Fixture()
+        let model = DocumentViewModel(
+            data: try PrintWindowFixtures.pdf(size: CGSize(width: 600, height: 400)),
+            fileURL: nil, format: .pdf, preferences: fixture.preferences, library: fixture.library)
+        defer { model.stop() }
+        model.setLayout(.single)
+        try await render(model)
+        _ = try #require(model.paperUnitSize)
+        let window = PrintWindowFixtures.window(width: 900, height: 600)
+        model.window = window
+        model.sizeWindowToPaper()
+        ViewerWindow.setPaperSize(CGSize(width: 900, height: 600), band: 0, of: window, animate: false)
+        model.enterPrintMode()
+        model.exitPrintMode()
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 900, height: 600) }
+        // A deliberately non-paper frame makes an accidental second fit observable.
+        ViewerWindow.unlockAspectRatio(of: window)
+        let chosen = NSRect(x: 100, y: 100, width: 1000, height: 650)
+        window.setFrame(chosen, display: false)
+        #expect(window.frame == chosen)
+        model.sizeWindowToPaper(initialOnly: true)
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(window.frame == chosen)
+    }
+
+    private func render(_ model: DocumentViewModel) async throws {
+        model.render()
+        try await waitUntil { !model.isRendering }
+        #expect(model.error == nil)
+        try #require(model.result != nil)
+        try #require(model.isUpToDate)
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        for _ in 0..<500 {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try #require(condition())
+    }
+}
+
+@MainActor
+struct PrintModeWindowTests {
+    @Test("自動拡大しなければ紙の形へ合わせる前の枠は利用者の選んだまま残す")
+    func unchangedEntryKeepsUserFrame() {
+        let window = makeWindow(width: 1000, height: 700)
+        let original = window.frame
+        PrintModeWindow.enter(window)
+        #expect(window.frame == original)
+        let chosen = NSRect(x: 100, y: 100, width: 1050, height: 720)
+        window.setFrame(chosen, display: false)
+        var completed = false
+        PrintModeWindow.exit(window) { completed = true }
+        #expect(completed)
+        #expect(window.frame == chosen)
+    }
+
+    @Test("小さい窓を刷り台の最小まで広げたときだけ元の枠に戻す")
+    func enlargedTrayRestoresFrame() {
+        let window = makeWindow(width: 500, height: 400)
+        let original = window.frame
+        PrintModeWindow.enter(window)
+        #expect(window.frame.size == NSSize(width: 760, height: 560))
+        var completed = false
+        PrintModeWindow.exit(window) { completed = true }
+        #expect(completed)
+        #expect(window.frame == original)
+    }
+
+    @Test("見比べ台から刷り台へ移っても縮めず最初の表示枠へ戻す")
+    func comparisonToTrayKeepsOriginalFrame() {
+        let window = makeWindow(width: 800, height: 600)
+        let original = window.frame
+        PrintModeWindow.enter(window, size: PrintModeWindow.compareSize)
+        #expect(window.frame.size == NSSize(width: 900, height: 620))
+        let comparison = window.frame
+        PrintModeWindow.enter(window)
+        #expect(window.frame == comparison)
+        PrintModeWindow.exit(window) {}
+        #expect(window.frame == original)
+    }
+
+    @Test("十分な窓は見比べ台と刷り台を経ても紙の形へ合わせる前の枠を変えない")
+    func largeWindowSurvivesBothStages() {
+        let window = makeWindow(width: 1000, height: 700)
+        let original = window.frame
+        PrintModeWindow.enter(window, size: PrintModeWindow.compareSize)
+        #expect(window.frame == original)
+        PrintModeWindow.enter(window)
+        #expect(window.frame == original)
+        PrintModeWindow.exit(window) {}
+        #expect(window.frame == original)
+    }
+
+    private func makeWindow(width: CGFloat, height: CGFloat) -> NSWindow {
+        PrintWindowFixtures.window(width: width, height: height)
+    }
+
+    @Test("十分な窓は刷り台へ入っても位置と大きさを変えない")
+    func trayFrame() {
+        let frame = NSRect(x: 300, y: 100, width: 800, height: 600)
+        #expect(
+            PrintModeWindow.trayFrame(around: frame, visibleFrame: NSRect(x: 0, y: 0, width: 1440, height: 875))
+                == frame)
+    }
+
+    @Test("刷り台は不足する寸法だけ760×560まで広げる")
+    func growsOnlyMissingDimension() {
+        #expect(
+            PrintModeWindow.trayFrame(
+                around: NSRect(x: 300, y: 100, width: 600, height: 800),
+                visibleFrame: NSRect(x: 0, y: 0, width: 1440, height: 1000))
+                == NSRect(x: 220, y: 100, width: 760, height: 800))
+    }
+
+    @Test("見比べ台は900×620まで広げ画面内に収める")
+    func compareFrame() {
+        #expect(
+            PrintModeWindow.trayFrame(
+                around: NSRect(x: 1200, y: 500, width: 600, height: 400),
+                visibleFrame: NSRect(x: 0, y: 0, width: 1440, height: 875),
+                size: PrintModeWindow.compareSize)
+                == NSRect(x: 540, y: 255, width: 900, height: 620))
+    }
+
+    @Test("小さな画面では画面内まで広げるが既存の大きい寸法は縮めない")
     func trayFrameOnSmallScreen() {
         #expect(
             PrintModeWindow.trayFrame(
-                around: NSRect(x: 100, y: 100, width: 600, height: 400),
-                visibleFrame: NSRect(x: 0, y: 25, width: 900, height: 675))
-                == NSRect(x: 0, y: 25, width: 900, height: 675))
+                around: NSRect(x: 100, y: 100, width: 600, height: 800),
+                visibleFrame: NSRect(x: 0, y: 25, width: 700, height: 675))
+                == NSRect(x: 0, y: 100, width: 700, height: 800))
+    }
+}
+
+@MainActor
+private enum PrintWindowFixtures {
+    static func window(width: CGFloat, height: CGFloat) -> NSWindow {
+        NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: width, height: height),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+    }
+
+    static func pdf(size: CGSize) throws -> Data {
+        let data = NSMutableData()
+        var box = CGRect(origin: .zero, size: size)
+        let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        context.beginPDFPage(nil)
+        context.endPDFPage()
+        context.closePDF()
+        return data as Data
     }
 }

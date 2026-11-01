@@ -3,68 +3,42 @@ import Observation
 import SurimonoCore
 import SwiftUI
 
-/// The staged overlay menu of the view mode ("06 段階表示"): hovering shows the file name and Print, moving to the
-/// top shows every tool, and leaving or idling hides it again. Pinning keeps the full menu.
 @Observable
 final class OverlayMenuState {
-    enum Stage: Int, Comparable {
-        case hidden, compact, full
-        static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
-    }
+    enum Stage { case hidden, full }
 
-    static let showDelay = Duration.milliseconds(80)
-    static let fullDelay = Duration.milliseconds(120)
-    static let hideDelay = Duration.milliseconds(800)
-    static let idleDelay = Duration.milliseconds(2500)
-    /// The band plus a margin below it in which resting the pointer reveals every tool.
-    static let fullZone: CGFloat = ViewerWindow.bandHeight + 40
+    static let hideDelay = Duration.seconds(1)
+    static let revealZone = ViewerWindow.bandHeight
 
     private(set) var stage: Stage = .hidden
-    /// Whether the band is in use: the pointer rests on it, or a menu or popover from it is open. The band draws its
-    /// full background then, and a lighter one while the pointer is merely somewhere in the window.
-    private(set) var isPointerOverBand = false
-    @ObservationIgnored private var showTask: Task<Void, Never>?
-    @ObservationIgnored private var fullTask: Task<Void, Never>?
     @ObservationIgnored private var hideTask: Task<Void, Never>?
-    @ObservationIgnored private var idleTask: Task<Void, Never>?
-    @ObservationIgnored private var pointerY: CGFloat? {
-        didSet { updatePointerOverBand() }
-    }
-    @ObservationIgnored private var menuTracking = 0 {
-        didSet { updatePointerOverBand() }
-    }
+    @ObservationIgnored private var pointerY: CGFloat?
+    @ObservationIgnored private var menuTracking = 0
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
-    /// The measured widths of the band's parts, and the band's own width. They outlive the band, which comes and goes
-    /// with the pointer, so that it opens with the tools that fit instead of a first guess.
+    // Measurements outlive the band so it reopens with the tools that fit.
     var bandWidths: [BandSlot: CGFloat] = [:]
     var bandWidth: CGFloat = 0
-    /// Set while a popover from the band is open, so the menu stays put.
     var isHolding = false {
-        didSet {
-            updatePointerOverBand()
-            if !isHolding { scheduleIdleHide() }
-        }
+        didSet { updateHideTimer() }
     }
-    #if DEBUG
-        /// Lets a snapshot draw either look of the band while it holds the band open.
-        var debugPointerOverBand: Bool? {
-            didSet { updatePointerOverBand() }
-        }
-    #endif
 
     init() {
-        // A pop-up menu opened from the band takes the pointer away; keep the band until the menu closes.
+        // Pop-up tracking takes the pointer away from the band until the menu closes.
         let center = NotificationCenter.default
         observers = [
             center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) {
-                [weak self] _ in MainActor.assumeIsolated { self?.menuTracking += 1 }
+                [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.menuTracking += 1
+                    self?.updateHideTimer()
+                }
             },
             center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) {
                 [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.menuTracking = max(self.menuTracking - 1, 0)
-                    if self.pointerY == nil { self.scheduleHide() }
+                    self.updateHideTimer()
                 }
             },
         ]
@@ -72,121 +46,70 @@ final class OverlayMenuState {
 
     isolated deinit {
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
-        for task in [showTask, fullTask, hideTask, idleTask] { task?.cancel() }
+        hideTask?.cancel()
     }
 
     private var isHeld: Bool { isHolding || menuTracking > 0 }
-
-    private func updatePointerOverBand() {
-        var over = isHeld || (pointerY.map { $0 <= ViewerWindow.bandHeight } ?? false)
-        #if DEBUG
-            if let debugPointerOverBand { over = debugPointerOverBand }
-        #endif
-        // Assign only on a change: the pointer moves constantly, and every assignment would invalidate the band.
-        if isPointerOverBand != over { isPointerOverBand = over }
+    private var isPointerOverBand: Bool {
+        pointerY.map { $0 >= 0 && $0 <= Self.revealZone } ?? false
     }
 
     func pointerMoved(to point: CGPoint) {
         pointerY = point.y
-        hideTask?.cancel()
-        if stage == .hidden, showTask == nil {
-            showTask = after(Self.showDelay) { state in
-                state.showTask = nil
-                state.stage = max(state.stage, .compact)
-            }
-        }
-        if point.y <= Self.fullZone {
-            if stage != .full, fullTask == nil {
-                fullTask = after(Self.fullDelay) { state in
-                    state.fullTask = nil
-                    state.stage = .full
-                }
-            }
+        if isPointerOverBand {
+            showFull()
         } else {
-            fullTask?.cancel()
-            fullTask = nil
+            updateHideTimer()
         }
-        scheduleIdleHide()
     }
 
     func pointerExited() {
         pointerY = nil
-        showTask?.cancel()
-        showTask = nil
-        fullTask?.cancel()
-        fullTask = nil
-        idleTask?.cancel()
-        scheduleHide()
+        updateHideTimer()
     }
 
-    /// Turning a page means the reader is reading: get out of the way.
     func pageTurned() {
-        guard !isHeld else { return }
+        guard !isHeld, !isPointerOverBand else { return }
         hideNow()
     }
 
-    /// Tab or M from the keyboard.
     func toggle() {
         if stage == .full { hideNow() } else { showFull() }
     }
 
     func showFull() {
-        cancelTimers()
+        cancelHide()
         stage = .full
-        scheduleIdleHide()
-    }
-
-    func showCompact() {
-        cancelTimers()
-        stage = .compact
-        scheduleIdleHide()
     }
 
     func hideNow() {
-        cancelTimers()
+        cancelHide()
         stage = .hidden
     }
 
-    /// Esc hides a band that is showing and not pinned; returns whether it did.
     func hideForEscape(pinned: Bool) -> Bool {
         guard stage != .hidden, !pinned else { return false }
         hideNow()
         return true
     }
 
-    private func scheduleHide() {
+    private func updateHideTimer() {
+        guard !isHeld, !isPointerOverBand else {
+            cancelHide()
+            return
+        }
+        // Movement elsewhere in the window must not postpone the deadline for leaving the band.
+        guard stage != .hidden, hideTask == nil else { return }
+        hideTask = Task { [weak self] in
+            do { try await Task.sleep(for: Self.hideDelay) } catch { return }
+            guard let self, !Task.isCancelled, !isHeld, !isPointerOverBand else { return }
+            hideNow()
+        }
+    }
+
+    private func cancelHide() {
         hideTask?.cancel()
-        guard stage != .hidden else { return }
-        hideTask = after(Self.hideDelay) { state in
-            guard !state.isHeld, state.pointerY == nil else { return }
-            state.hideNow()
-        }
-    }
-
-    private func scheduleIdleHide() {
-        idleTask?.cancel()
-        idleTask = after(Self.idleDelay) { state in
-            // Resting on the band itself is not idling.
-            guard !state.isHeld, (state.pointerY ?? .infinity) > ViewerWindow.bandHeight else { return }
-            state.hideNow()
-        }
-    }
-
-    private func cancelTimers() {
-        for task in [showTask, fullTask, hideTask, idleTask] { task?.cancel() }
-        showTask = nil
-        fullTask = nil
         hideTask = nil
-        idleTask = nil
-    }
-
-    private func after(_ delay: Duration, _ action: @escaping (OverlayMenuState) -> Void) -> Task<Void, Never> {
-        Task { [weak self] in
-            do { try await Task.sleep(for: delay) } catch { return }
-            // A cancelled timer must not fire even if it woke up just before the cancellation.
-            guard let self, !Task.isCancelled else { return }
-            action(self)
-        }
     }
 }
 
@@ -195,11 +118,7 @@ final class OverlayMenuState {
 /// when a layout change resizes the window.
 struct OverlayBand: View {
     @Bindable var model: DocumentViewModel
-    let stage: OverlayMenuState.Stage
     let menu: OverlayMenuState
-    /// The menu is pinned: it is part of the window then, not a passing overlay, so it keeps the full background.
-    let isPinned: Bool
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     static let spacing: CGFloat = 10
@@ -209,34 +128,28 @@ struct OverlayBand: View {
     private static let lightsWidth: CGFloat = 64
     private static let spacerMinimum: CGFloat = 8
     private static let trailingPadding: CGFloat = 8
-    /// The opacity of the background while the pointer is elsewhere in the window, light enough to see the paper
-    /// through. The paper is white in both appearances, so the dark band fades less: its light text would otherwise
-    /// sit on a mid grey.
-    private static let translucentOpacity: (light: Double, dark: Double) = (0.6, 0.85)
-
     var body: some View {
-        let items = BandLayout.Item.applicable(for: model, stage: stage)
+        let items = BandLayout.Item.applicable(for: model)
         let plan = plan(for: items)
-        // Reduce Transparency asks for opaque surfaces, so the band never fades for it.
-        let solid = isPinned || menu.isPointerOverBand || reduceTransparency
         HStack(spacing: Self.spacing) {
             // Room for the traffic lights.
             Color.clear.frame(width: Self.lightsWidth, height: 1)
             title(plan)
             Spacer(minLength: Self.spacerMinimum)
-            if stage == .full { tools(plan) }
+            tools(plan)
             PrintButton(model: model, iconOnly: plan.forms[.print] == .compact)
         }
         .padding(.trailing, Self.trailingPadding)
         .frame(height: ViewerWindow.bandHeight)
         .frame(maxWidth: .infinity)
-        // Only the background fades; the tools and text keep their full contrast.
         .background {
-            Rectangle().fill(.bar).opacity(
-                solid ? 1 : colorScheme == .dark ? Self.translucentOpacity.dark : Self.translucentOpacity.light)
+            if reduceTransparency {
+                Color(nsColor: .windowBackgroundColor)
+            } else {
+                Rectangle().fill(.bar)
+            }
         }
-        .overlay(alignment: .bottom) { Divider().opacity(solid ? 1 : 0.5) }
-        .animation(.easeOut(duration: 0.18), value: solid)
+        .overlay(alignment: .bottom) { Divider() }
         .background(alignment: .topLeading) { BandMeasurements(model: model, items: items, menu: menu) }
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
@@ -253,13 +166,9 @@ struct OverlayBand: View {
                 full: (measured[.item(item, .full)] ?? 0) + item.bandGap,
                 compact: item.hasCompactForm ? (measured[.item(item, .compact)] ?? 0) + item.bandGap : nil)
         }
-        // The traffic lights, the title, the spacer, the tools and Print: four gaps, and "…" among the tools. The
-        // compact band has no tools; its indicators follow the name instead.
         let fixed =
             Self.lightsWidth + Self.spacerMinimum + Self.trailingPadding
-            + (stage == .full
-                ? Self.spacing * 4 + (measured[.more] ?? 0)
-                : Self.spacing * 3 + Self.titleSpacing + (measured[.indicators] ?? 0))
+            + Self.spacing * 4 + (measured[.more] ?? 0)
         // Until the band has been laid out once, its width is unknown: show everything rather than guess.
         return BandLayout.plan(
             widths: widths, fixed: fixed, separator: 1 + Self.toolSpacing,
@@ -279,7 +188,6 @@ struct OverlayBand: View {
             }
             if plan.forms[.formatBadge] != nil { FormatBadge(text: model.formatBadge) }
             if plan.forms[.pageIndicator] != nil { PageIndicatorText(model: model) }
-            if stage != .full { CompactIndicators(model: model) }
         }
     }
 

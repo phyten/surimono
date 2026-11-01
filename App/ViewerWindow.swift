@@ -20,7 +20,7 @@ enum ViewerWindow {
         }
     }
 
-    private static func setFrame(_ frame: NSRect, of window: NSWindow, animate: Bool) {
+    static func setFrame(_ frame: NSRect, of window: NSWindow, animate: Bool) {
         guard frame.integral != window.frame.integral else { return }
         resizingWindows.add(window)
         guard animate else {
@@ -36,6 +36,31 @@ enum ViewerWindow {
             if let window { resizingWindows.remove(window) }
         }
     }
+
+    static func setStageFrame(_ frame: NSRect, of window: NSWindow, completion: (() -> Void)? = nil) {
+        guard frame != window.frame else {
+            completion?()
+            return
+        }
+        guard window.isVisible, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            setFrame(frame, of: window, animate: false)
+            completion?()
+            return
+        }
+        // The live-resize notification can arrive after the animation's completion handler.
+        markResizing(window, for: 0.55)
+        let id = UUID()
+        if let completion { pendingStageCompletions[id] = completion }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.3
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.2, 1)
+            window.animator().setFrame(frame, display: true)
+        } completionHandler: {
+            MainActor.assumeIsolated { pendingStageCompletions.removeValue(forKey: id)?() }
+        }
+    }
+
+    private static var pendingStageCompletions: [UUID: () -> Void] = [:]
 
     static func configure(_ window: NSWindow) {
         // Setting a property notifies its KVO observers even when the value stays the same, and SwiftUI observes some
