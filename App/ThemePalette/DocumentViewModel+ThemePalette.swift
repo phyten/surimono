@@ -76,19 +76,6 @@ extension DocumentViewModel {
         themeSamples.refresh()
     }
 
-    /// 「おまかせ」: any built-in theme but the current one.
-    func chooseRandomTheme() {
-        let others = library.themes.filter { $0.isBuiltIn && $0.id != themeID }
-        guard let theme = others.randomElement() else { return }
-        selectTheme(theme.id)
-    }
-
-    /// The themes in the palette's 「よく使う」: the recent, favorite and suggested sections of the style menu.
-    var frequentThemeSections: [PrintThemeMenu.Section] {
-        themeMenu.sections.filter { [.recent, .favorites, .featured].contains($0.kind) }
-    }
-
-    /// The groups the palette and the stage filter by: each category, then the user's own styles if any.
     var themeGroups: [PrintThemeMenu.Section] {
         themeMenu.sections.filter { section in
             switch section.kind {

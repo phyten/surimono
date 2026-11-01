@@ -19,6 +19,17 @@ struct PrintThemeMenuTests {
         menu.sections.first { $0.kind == kind }.map { $0.themes.map(\.id) }
     }
 
+    @Test("パレットの一続きの一覧は上段からカテゴリーと自分のスタイルまで同じ順を保つ")
+    func paletteList() {
+        let menu = PrintThemeMenu(
+            themes: themes, categories: categories, recentIDs: ["neon"], favoriteIDs: ["compact"])
+        #expect(
+            menu.sections.map { $0.themes.map(\.id) } == [
+                ["neon"], ["compact"], ["standard", "confetti"],
+                ["standard", "compact"], ["confetti", "neon"], ["user:Mine.css"],
+            ])
+    }
+
     @Test("最近使った・お気に入り・定番・カテゴリー・自分のスタイルの順に並べ、空の区切りは出さない")
     func sectionOrder() {
         let menu = PrintThemeMenu(

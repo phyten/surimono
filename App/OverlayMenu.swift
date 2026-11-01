@@ -430,7 +430,7 @@ struct LayoutPicker: View {
         .labelsHidden()
         .labelStyle(.iconOnly)
         .fixedSize()
-        .help("Spread or Single Page")
+        .help("Spread or Single Page (⌥⌘1 / ⌥⌘2)")
     }
 }
 

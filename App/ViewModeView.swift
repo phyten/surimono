@@ -133,27 +133,18 @@ private struct PaperArea: View {
         }
     }
 
-    /// Menu keys on the paper: Tab or M toggles the menu, Esc hides it, V opens the view options, T switches between
-    /// selecting text and moving the window.
     private func handleKey(_ event: NSEvent) -> Bool {
-        let modifiers = event.modifierFlags.intersection([.command, .option, .control])
-        guard modifiers.isEmpty else { return false }
-        if event.specialKey == .tab {
+        switch KeyGuideEntry.paperAction(for: event) {
+        case .menu:
             menu.toggle()
             return true
-        }
-        if event.keyCode == 53 {  // Escape
+        case .escape:
             return menu.hideForEscape(pinned: model.isMenuPinned)
-        }
-        switch event.charactersIgnoringModifiers?.lowercased() {
-        case "m":
-            menu.toggle()
-            return true
-        case "v":
+        case .viewOptions:
             menu.showFull()
             model.isViewOptionsPresented = true
             return true
-        case "t":
+        case .selectText:
             guard model.canSelectText else { return false }
             model.toggleSelectingText()
             return true
