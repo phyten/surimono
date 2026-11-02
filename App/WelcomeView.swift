@@ -37,6 +37,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+            // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's
+            // clipboard alone.
+            if let path = DebugSnapshot.argument("SurimonoOpenClipboard"),
+                let text = try? String(contentsOfFile: path, encoding: .utf8)
+            {
+                let board = NSPasteboard(name: .init("SurimonoDebugClipboard"))
+                board.clearContents()
+                board.setString(text, forType: .string)
+                ClipboardWindows.shared.open(from: board)
+            }
+        #endif
         // Restored windows appear shortly after launch; do not cover them with the welcome window. A rejected
         // multi-file selection opens nothing, so the welcome window still follows its alert.
         Task { @MainActor in
