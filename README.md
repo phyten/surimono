@@ -23,6 +23,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
 - Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`), rendered offline without JavaScript
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents
+- Mermaid diagrams in Markdown (```` ```mermaid ````) and Org (`#+begin_src mermaid`) rendered as printable SVG offline. Invalid diagrams keep their source and appear in the preflight checks.
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)
 - Quick viewer for Markdown, PDF, images, Org, plain text, HTML, CSV, and LaTeX
 - LaTeX documents printed with the print themes: titles, numbered sections and references, lists (enumitem), code (listings), math through SwaTex with equation numbers, footnotes, hyperref, xcolor, figures (graphicx), tables (booktabs), theorems and proofs (amsthm), the bibliography and citations, and units (siunitx). Surimono reads the common subset rather than running TeX; TikZ pictures are marked where they would be

@@ -134,4 +134,14 @@ struct PrintIssueTests {
         #expect(PrintModeText.format("Check %lld", language: "ja", 3) == "確認 3 件")
         #expect(PrintModeText.format("Before Printing (%lld)…", language: "ja", 3) == "印刷前の確認（3）…")
     }
+
+    @Test("図の失敗には8言語でタイトルと修正方法を出す")
+    func mermaidTranslations() {
+        let issue = PrintIssue(id: "0", kind: .mermaid, detail: "flowchart LR")
+        #expect(PrintIssueText.title(issue, language: "ja") == "図を描けませんでした：flowchart LR")
+        for language in ["ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            #expect(PrintIssueText.title(issue, language: language) != PrintIssueText.title(issue, language: "en"))
+            #expect(PrintIssueText.advice(issue, language: language) != PrintIssueText.advice(issue, language: "en"))
+        }
+    }
 }

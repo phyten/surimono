@@ -22599,6 +22599,110 @@
         }
       }
     },
+    "Could Not Render Diagram: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could Not Render Diagram: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "図を描けませんでした：%@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagramm konnte nicht dargestellt werden: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo representar el diagrama: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de représenter le diagramme : %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다이어그램을 표시할 수 없습니다: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法绘制图表：%@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法繪製圖表：%@"
+          }
+        }
+      }
+    },
+    "Check the Mermaid syntax and simplify the diagram in the source document.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the Mermaid syntax and simplify the diagram in the source document."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元の文書で Mermaid の構文を確認し、図を簡単にしてください。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfen Sie die Mermaid-Syntax und vereinfachen Sie das Diagramm im Quelldokument."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba la sintaxis de Mermaid y simplifica el diagrama en el documento original."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vérifiez la syntaxe Mermaid et simplifiez le diagramme dans le document source."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원본 문서에서 Mermaid 구문을 확인하고 다이어그램을 단순화하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请在源文档中检查 Mermaid 语法并简化图表。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請在原始文件中檢查 Mermaid 語法並簡化圖表。"
+          }
+        }
+      }
+    },
     "Could Not Render Formula: %@": {
       "localizations": {
         "en": {

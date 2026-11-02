@@ -71,13 +71,14 @@ make clean
 - Markdown の拡張記法（`MarkdownExtensions`、SurimonoCore）: 脚注 `[^id]`、`==ハイライト==`、`^上付き^`、`~下付き~`（pandoc と同じく `~~` は取り消し線）、ルビ `{漢字|かんじ}`・`{漢字|かん|じ}`、絵文字 `:name:`、定義リスト（語の次の行の `: 説明`）、見出しの ID（GitHub と同じ slug、`{#id}` で指定）と目次 `[TOC]`。
   - インラインの記法は、cmark の前に原文を inline HTML へ書き換える。中の Markdown もそのまま読まれ、表の `|` とも混ざらない。コードブロック・HTML ブロック・コードスパン・タグ・リンク先・URL は書き換えない。
   - 脚注は最初に参照した順に番号を振り、本文は末尾の `section.footnotes` にまとめる。紙からは戻れないので、戻りのリンクは付けない。
+  - Mermaid: Markdown の ```` ```mermaid ```` と Org の `#+begin_src mermaid` は、原文をエスケープした `.mermaid-block` にする。Rendering に同梱する mermaid.js を隔離された世界 `surimono` で一度評価し、neutral・strict・本文の書体で SVG にしてから、変更の印・紙の判定・印刷前の確認・ページ分割を行う。文書の JavaScript は無効のまま。図のない文書ではライブラリを読み込まない。元の文書のリソースを読み込んだ後、図による追加のリソース取得は遮断する。描けない図や時間内に終わらない図は原文を残し、印刷前の確認に出す。パレットの小さな見本は原文のまま（乗せて試す紙と見比べ台は図になる）。
   - 絵文字の対応表 `Resources/emoji.json` は GitHub の gemoji（MIT）の別名だけを取り出したもの。ライセンス文を `App/Acknowledgements/` に同梱している。
   - 数式 `$…$`・`$$…$$`（複数行も）・`\(…\)`・`\[…\]`・```` ```math ```` は、SwaTex（純 Swift の KaTeX 互換の組版）で SVG にする（`MathRenderer`）。式は cmark の前に取り出し、インラインは私用領域の文字の目印、行をまたぐものは HTML ブロックにするので、強調やエスケープが LaTeX に触れない。インラインの `$` は式に接していて後ろに数字が来ないときだけ（`$5 と $10` は文字のまま）。字形は KaTeX の書体の `<text>` で、使った書体だけを本文の最後の `<style>` に data URL の `@font-face` で埋め込む（文書の隣のファイルを読まずに刷れる。テーマの「Web フォントを使わない」とは別で、アプリが同梱する数式用の書体）。大きさは em（文字の 1.1 倍）、色は `currentColor` でテーマに従う。読めない式は原文を `.math-error` で残す。
 - LaTeX（`.tex`・`.latex`・`.ltx`、UTType `org.tug.tex`）は `LaTeXConverter`（SurimonoCore）が HTML 断片にする。TeX エンジンではなく、よく使う部分集合を読んで印刷テーマで刷る（Swift で書かれた TeX エンジンはなく、Tectonic などは TeX Live の同梱とネットからの取得が要るため）。
   - 読むもの: 前置きの `\documentclass`・`\title`／`\author`／`\date`・`\newcommand`／`\def`・`\DeclareMathOperator`・`\definecolor`・`\graphicspath`、`\maketitle`、abstract、`\tableofcontents`、番号つきの節（章のある文書クラス、`\appendix`、和文の文書クラスは「第1章」）、`\label`／`\ref`／`\eqref`、書体とサイズ、itemize／enumerate（enumitem の `label=`・`start=`）／description、quote・center など、verbatim・lstlisting・minted（色付けは `SyntaxHighlighter`）、`\verb`、数式（`$`・`\(`・`\[`・equation・align などは SwaTex。星なしの環境に式番号）、`\footnote`、hyperref の `\href`／`\url`、xcolor、figure／table の `\caption`（図と表は別の番号）、graphicx の `\includegraphics`（拡張子がなければ文書の隣と `\graphicspath` を探す）、tabular（列の揃え・縦線・`\hline`・booktabs・`\multicolumn`・`\multirow`）、amsthm の `\newtheorem`（節ごと・共有・番号なし、`\theoremstyle`。和文の文書は plain でも斜体にしない）と proof、thebibliography と `\cite`（natbib の `\citep` なども番号で）、siunitx の `\num`・`\qty`（`\SI`）・`\unit`（`\si`）・`\ang`（数式の中でも使える）。
   - 前置きの `\newcommand` は文章の中では展開し、数式には定義として渡す（SwaTex が読めない定義は外す）。知らないコマンドは名前を捨てて引数の文字を残し、設定だけのコマンド（`\setlength` など）は引数ごと消す。geometry は無視して Surimono の用紙と余白を使う。TikZ などの図と `\input`・`\bibliography`（.bib）は、描けない・読まないことを枠で示す。
   - 改行をはさんだ和文の文字の間には空白を入れない（和文の TeX と同じ）。参照・文献の番号・目次は文書の終わりまで読んでから埋める。`\bibitem` のない `\cite` はキーを太字で出す。
-- JavaScript: Markdown / Org / テキスト / CSV / LaTeX から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りのスクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
+- JavaScript: Markdown / Org / テキスト / CSV / LaTeX から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りと Mermaid の描画スクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
 - 印刷テーマの目録は `Resources/themes.json`（SurimonoCore）: カテゴリー（順と名前）、定番の順、各テーマの id・英語名・日本語名・カテゴリー・飾りのスクリプトを持つ。テーマの CSS は `Resources/<id>.css` で、`common.css` の後に重ねる（`PrintThemeLibrary`）。メニューの並び（最近使った 5 つ・お気に入り・定番・カテゴリー・自分のスタイル）は純粋な型 `PrintThemeMenu` が決め、テストで固定している。
   - テーマを足すときの決まり: `@page`・CSS の段組み・`position: fixed`・アニメーション・外部の URL・Web フォントは使わない。書体は macOS に入っているものだけで、最後に日本語の書体と総称の書体を置く。例外として、アプリが同梱する KaTeX の書体を `ThemeFonts`（SurimonoCore）の名前 `"Surimono Computer Modern"`・`"Surimono Computer Modern Typewriter"`（引用符つき）で使える。使ったスタイル（ユーザー CSS も）にだけ、欧文の範囲に絞った data URL の `@font-face` がスタイルの要素に入る（パレットが要素を差し替えても書体が付いてくる）。数式の書体とは別の名前で欧文の範囲に絞るので、和文や … ・矢印はこの書体を使わず、テーマの書体の並びで次の書体に任せる（「LaTeX 風」テーマが使う）。パレットは要素を差し替えたあと、書体の読み込みを待ってから見本を描く。見出しに CSS のカウンターで番号を振るときは、`body:not(.format-latex)` を付けて LaTeX の文書を外す（LaTeX は自分で番号を持つ）。紙の地は白かごく淡い色にする（インクを使い切らないため）。本文は 4.5:1 以上のコントラストにする。
   - 紙の色や模様は `html` に書き、`body` の背景は `transparent` にするか `html, body` で同じ色にする（`body` の背景は本文の範囲にしか出ない。テストで固定している）。模様は SVG の画像か放射状のグラデーションで描く（固い境目の線形グラデーションを `background-size` で並べると、WebKit の印刷で細い横縞になった）。1 本だけの縦線は `repeat-y` にする（横にも並ぶと右の余白に 2 本目が出る）。
@@ -132,7 +133,7 @@ make clean
 
 ## 印刷前の確認
 
-- 読めない画像、本文より幅の広いブロック、数式のエラー、LaTeX の未対応部分を、ページと直し方付きで刷り台の藍の「確認 N 件」に出す。問題がない文書では札も表示モードのメニュー項目も出さず、印刷を止めない。HTML はローカル画像だけを対象とし、PDF・画像・画像の束は対象外。
+- 読めない画像、本文より幅の広いブロック、数式と Mermaid の図のエラー、LaTeX の未対応部分を、ページと直し方付きで刷り台の藍の「確認 N 件」に出す。問題がない文書では札も表示モードのメニュー項目も出さず、印刷を止めない。HTML はローカル画像だけを対象とし、PDF・画像・画像の束は対象外。
 - 組版の準備で問題の要素に不可視の `surimono-issue:` リンクを置き、PDF のリンク注釈から論理ページと矩形を取得する。未知の ID も含めて注釈をすべて除去してからキャッシュ・面付けへ渡す。void 要素と SVG は隣、表は最初のセルに置く。準備スクリプトは既存の戻り値を関数内に閉じ、問題一覧と一緒に JSON で返して紙の判定・スマート削除の結果を保持する。
 - 幅は要素も本文の内側も zoom 後の座標で比較する。問題は検出順の ID とは別に原文の出現箇所の鍵を持つ。「そのページへ」は表示モードの組版を待って同じ鍵の問題へ移り、表示では問題がなくなった場合は文書内の位置の割合で近似する（A4 片面の刷り台からは元のページ番号を使う）。
 - 開発用スナップショットは `-SurimonoPopover issues` で刷り台と一覧を開く。確認用の文書は `Samples/preflight.md`。
@@ -186,7 +187,7 @@ make clean
 
 - Swift 6 言語モード。アプリターゲットは既定で MainActor 分離（`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`）。Kit では UI / WebKit を触る型に明示的に `@MainActor` を付ける。
 - デプロイメントターゲットは macOS 15.0。
-- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: swift-markdown（Apache-2.0）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している）。SwaTex が同梱する KaTeX の書体（SIL OFL 1.1）は SurimonoCore の `Resources` に写して使い、ライセンス文を `App/Acknowledgements/` に同梱している。SwaTex を上げたら書体も写し直す。
+- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: mermaid.js 12.2.0（MIT。公式 npm tarball の `dist/mermaid.min.js` を変更せず SurimonoRendering の `Resources` に同梱し、ライセンス文を `App/Acknowledgements/` に置く。版を上げたら両方を差し替える）、swift-markdown（Apache-2.0）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している）。SwaTex が同梱する KaTeX の書体（SIL OFL 1.1）は SurimonoCore の `Resources` に写して使い、ライセンス文を `App/Acknowledgements/` に同梱している。SwaTex を上げたら書体も写し直す。
 - UI 文言は英語をキーにして String Catalog（`App/Localizable.xcstrings`）で日本語訳を付ける。
 - 整形は swift-format（`.swift-format`。インデント 4、行長 120）。
 - コメントは「なぜそうするか」を書く。自明な処理の説明コメントは付けない。**コードコメントとドキュメントコメントは英語**で書く（テスト名は日本語）。
