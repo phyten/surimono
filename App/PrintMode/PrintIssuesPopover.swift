@@ -61,7 +61,7 @@ struct PrintIssuesPopover: View {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
-        case .math, .latex: EmptyView()
+        case .math, .latex, .mermaid: EmptyView()
         }
     }
 }
@@ -72,6 +72,7 @@ enum PrintIssueText {
         switch issue.kind {
         case .image: key = "Could Not Load Image: %@"
         case .math: key = "Could Not Render Formula: %@"
+        case .mermaid: key = "Could Not Render Diagram: %@"
         case .latex: key = "Unsupported LaTeX: %@"
         case .overflow:
             switch issue.element {
@@ -98,6 +99,7 @@ enum PrintIssueText {
             }
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
+        case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."
         case .latex: key = "Replace this part with an image or supported LaTeX in the source document."
         }
         return PrintModeText.string(key, language: language)

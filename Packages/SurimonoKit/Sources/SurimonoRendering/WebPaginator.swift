@@ -72,6 +72,13 @@ public final class WebPaginator: NSObject {
     /// Receives whether the document may draw below the paper (observed by tests).
     var didCheckPageRules: (@MainActor (Bool) -> Void)?
 
+    /// One retained world: a world made by each `.world(name:)` call can be released between calls, which drops the
+    /// globals a library loaded in one preparation call leaves for the next.
+    static let preparationWorld = WKContentWorld.world(name: "surimono")
+
+    /// Observed by tests to keep documents without diagrams free of the library load.
+    private(set) var mermaidLoadCount = 0
+
     public override init() {}
 
     /// CSS pixels to a point of the printed page. WebKit lays a page out 1.25 times as wide as its paper and shrinks
@@ -100,7 +107,7 @@ public final class WebPaginator: NSObject {
     public func paginateWithResult(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
-        drawsBackground: Bool = true, timeout: Duration = .seconds(15)
+        drawsBackground: Bool = true, rendersMermaid: Bool = false, timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
         let session = PaginationSession(
@@ -118,6 +125,11 @@ public final class WebPaginator: NSObject {
 
         didStartWaitingForResources?()
         try await Self.waitForResources(in: session.webView, timeout: timeout)
+        if rendersMermaid,
+            try await runPreparationScript(MermaidScript.probe, in: session.webView, timeout: timeout) == "yes"
+        {
+            try await prepareMermaid(in: session.webView, timeout: timeout)
+        }
         // Before the preparation, whose presets may remove the document's style elements.
         let pageRules =
             readsPageRules
@@ -190,6 +202,29 @@ public final class WebPaginator: NSObject {
         }
     }
 
+    private func prepareMermaid(in webView: WKWebView, timeout: Duration) async throws {
+        do {
+            // The document's own resources have loaded. Diagram-generated resources must never use the network.
+            try await MermaidScript.preventResourceLoads(in: webView)
+            guard let library = MermaidScript.library else {
+                _ = try await runPreparationScript(MermaidScript.fallback, in: webView, timeout: timeout)
+                return
+            }
+            mermaidLoadCount += 1
+            guard
+                try await runPreparationScript(
+                    MermaidScript.loading(library), in: webView, timeout: timeout) == "function"
+            else { throw PaginationError.timedOut }
+            let seconds = Double(timeout.components.seconds) + Double(timeout.components.attoseconds) / 1e18
+            let budget = Int(max(0, min(10000, seconds * 1000 - 1000)))
+            _ = try await runPreparationScript(
+                MermaidScript.rendering(budgetMilliseconds: budget), in: webView, timeout: timeout)
+        } catch {
+            try Task.checkCancellation()
+            _ = try await runPreparationScript(MermaidScript.fallback, in: webView, timeout: timeout)
+        }
+    }
+
     private func runPreparationScript(_ script: String, in webView: WKWebView, timeout: Duration) async throws
         -> String?
     {
@@ -199,7 +234,7 @@ public final class WebPaginator: NSObject {
             // Runs in an isolated world so it still works when the page's own JavaScript is disabled.
             // A failing cleanup script must not block printing, so its error is deliberately ignored.
             let value = try? await webView.callAsyncJavaScript(
-                script, arguments: [:], in: nil, contentWorld: .world(name: "surimono"))
+                script, arguments: [:], in: nil, contentWorld: Self.preparationWorld)
             result = value as? String
             finished = true
         }

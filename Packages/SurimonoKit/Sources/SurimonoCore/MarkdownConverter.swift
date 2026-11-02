@@ -181,6 +181,8 @@ public enum MarkdownConverter {
             let formula =
                 MathRenderer.html(code.code, display: true) ?? MathRenderer.fallback(code.code, display: true)
             return "<div class=\"math-block\">\(formula)</div>\n"
+        case let code as CodeBlock where code.language?.lowercased() == "mermaid":
+            return MermaidBlock.html(code.code)
         case let code as CodeBlock:
             let highlighted = code.language.flatMap { SyntaxHighlighter.highlight(code.code, language: $0) }
             let language =

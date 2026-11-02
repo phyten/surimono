@@ -130,6 +130,7 @@ public struct PaginationRequest: Sendable {
     /// Whether a page without a background of its own is laid on white; false leaves it clear, for a paper laid under
     /// it (`WebPaginator.drawsClearPages`).
     public var drawsBackground = true
+    public var rendersMermaid = false
 }
 
 /// The logical pages of a render, ready to show before the printed sheets are composed.
@@ -292,7 +293,8 @@ public final class DocumentRenderer {
                 try await WebPaginator().paginateWithResult(
                     request.source, pageSize: request.pageSize, margins: request.margins,
                     allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
-                    readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground)
+                    readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
+                    rendersMermaid: request.rendersMermaid)
             }
         }
     }
@@ -689,7 +691,9 @@ public final class DocumentRenderer {
                     margins: .uniform(millimeters: margin),
                     allowsJavaScript: false,
                     preparationScript: preparation,
-                    readsPageRules: false, drawsBackground: !separatesPaper), source: source)
+                    readsPageRules: false, drawsBackground: !separatesPaper,
+                    rendersMermaid: (source.format == .markdown || source.format == .org)
+                        && fragment.body.contains("class=\"mermaid-block\"")), source: source)
             if missingImage { text.requiredFolderAccess = directory }
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
@@ -727,7 +731,8 @@ public final class DocumentRenderer {
             allowsJavaScript: request.allowsJavaScript,
             preparationScript: PrintIssueAnchors.following(
                 request.preparationScript, themed: source.format.usesPrintTheme),
-            readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground)
+            readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
+            rendersMermaid: request.rendersMermaid)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
@@ -743,7 +748,7 @@ public final class DocumentRenderer {
                     (file ?? url).map {
                         PrintIssue.imageName($0, directory: source.fileURL?.deletingLastPathComponent())
                     } ?? ""
-            } else if issue.kind == .math {
+            } else if issue.kind == .math || issue.kind == .mermaid {
                 issue.detail = PrintIssue.excerpt(issue.detail)
             }
             return issue

@@ -95,6 +95,11 @@ enum PrintIssueAnchors {
             const key = locationKey('math', detail);
             if (visible(el)) add(el, 'math', detail, key);
           }
+          for (const el of document.querySelectorAll('.mermaid-error')) {
+            const detail = el.textContent || '';
+            const key = locationKey('mermaid', detail);
+            if (visible(el)) add(el, 'mermaid', detail, key);
+          }
           for (const el of document.querySelectorAll('.latex-unsupported')) {
             const detail = el.textContent || '';
             const key = locationKey('latex', detail);

@@ -201,3 +201,8 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
 }
 .callout > :first-child { margin-top: 0; }
 .callout > :last-child { margin-bottom: 0; }
+
+.mermaid-block { margin-block: 0.8em; text-align: center; break-inside: avoid; page-break-inside: avoid; }
+.mermaid-block > svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
+.mermaid-source { text-align: start; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mermaid-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0.4em; }
