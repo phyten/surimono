@@ -1105,6 +1105,32 @@ final class DocumentViewModel {
             ignoresSlides: usesHTMLPresentation && ignoresSlides ? true : nil)
     }
 
+    func savePrintSettingSet(named name: String) {
+        preferences.savePrintSettingSet(PrintSettingSet(name: name, settings: rememberedSettings))
+    }
+
+    private func applicablePrintSettingSet(_ set: PrintSettingSet) -> PrintSettingSet {
+        set.applicable(
+            to: format, themeIDs: Set(library.themes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
+    }
+
+    func matchesPrintSettingSet(_ set: PrintSettingSet) -> Bool {
+        applicablePrintSettingSet(set).matches(rememberedSettings)
+    }
+
+    func applyPrintSettingSet(_ set: PrintSettingSet) {
+        let set = applicablePrintSettingSet(set)
+        if let id = set.layoutID { layoutID = id }
+        if let orientation = set.paperOrientation { paperOrientation = orientation }
+        if let margin = set.marginsInMillimeters { printOptions.marginsInMillimeters = margin }
+        if let numbers = set.showsPageNumbers { printOptions.showsPageNumbers = numbers }
+        if let id = set.themeID { themeID = id }
+        if let scale = set.textScale { setTextScale(scale) }
+        if let id = set.presetID { presetID = id }
+        // Applying a set is a user change, not a new baseline or a theme-menu selection.
+        rememberedSettingsDidChange()
+    }
+
     /// What this document has when the user changes nothing. Until the pages are known, the reading layout is the
     /// initial guess, so a layout chosen while the pages are prepared still counts as a change.
     private var defaultSettings: DocumentSettings {

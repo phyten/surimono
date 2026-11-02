@@ -2,6 +2,7 @@ import SurimonoCore
 import SwiftUI
 
 struct DocumentCommands: Commands {
+    let preferences: AppPreferences
     private var model: DocumentViewModel? { DocumentWindows.shared.activeModel }
     private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
 
@@ -78,6 +79,8 @@ struct DocumentCommands: Commands {
                 "Float on Top",
                 isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { model?.isAlwaysOnTop = $0 })
             )
+            Divider()
+            SettingSetMenu(preferences: preferences, model: { model })
         }
         CommandGroup(replacing: .help) {
             Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
