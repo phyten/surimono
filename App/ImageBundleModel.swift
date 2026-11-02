@@ -19,19 +19,22 @@ final class ImageBundleModel {
     var selection: URL?
     /// The ZIP archive the images come from, if any.
     let archiveURL: URL?
-    /// Files in the archive that are not images, by path.
+    /// Excluded files from a multi-file selection or ZIP, by path.
     let excludedPaths: [String]
     private let nameOrder: [Item]
     private(set) var hashes: [URL: ContentHash] = [:]
     private var needsFreshHashes = false
     private let read: @Sendable (Item) throws -> Data
 
-    init(urls: [URL], readImage: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }) {
+    init(
+        urls: [URL], excludedURLs: [URL] = [],
+        readImage: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }
+    ) {
         let items = urls.map { Item(url: $0, name: $0.lastPathComponent) }
         self.items = items
         nameOrder = items
         archiveURL = nil
-        excludedPaths = []
+        excludedPaths = excludedURLs.map(\.path)
         read = { try readImage($0.url) }
         selection = items.first?.url
     }

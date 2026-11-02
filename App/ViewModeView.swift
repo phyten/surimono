@@ -20,6 +20,13 @@ struct ViewModeView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
+            if model.binder != nil, model.isDrawerOpen {
+                BinderDrawer(model: model)
+                    .padding(.top, ViewerWindow.bandHeight + 8)
+                    .padding([.leading, .bottom], 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            }
             if model.isReviewingSmartRemoval {
                 SmartRemovalPanel(model: model)
                     .padding(.top, ViewerWindow.bandHeight + 8)

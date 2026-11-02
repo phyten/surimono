@@ -269,6 +269,10 @@ extension DocumentRenderer {
     /// A sampler of this document's first page, laid out like its logical pages under `settings`; nil for the
     /// formats that print without a theme.
     public static func themeSampler(for source: DocumentSource, settings: RenderSettings) throws -> ThemeSampler? {
+        if let children = source.children {
+            guard let first = children.first(where: { $0.format.usesPrintTheme }) else { return nil }
+            return try themeSampler(for: first, settings: settings)
+        }
         let access =
             SandboxEnvironment.isSandboxed
             ? source.fileURL.map { LocalResourceAccess(documentURL: $0, folders: source.allowedResourceFolders) } : nil

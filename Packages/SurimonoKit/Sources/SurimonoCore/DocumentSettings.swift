@@ -37,6 +37,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var printOptions: PrintOptions?
     /// SHA-256 digests (lowercase hex) of the images in their display order.
     public var imageOrder: [String]?
+    public var binderOrder: [String]?
+    public var binderStartsOnFront: Bool?
     /// Whether an HTML document shows as a live web page or as paper.
     public var htmlPresentation: HTMLPresentation?
     /// The reader said the live page is not a slide deck, although it looks like one.
@@ -46,7 +48,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
         themeID: String? = nil, textScale: Double? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
         printOptions: PrintOptions? = nil, imageOrder: [String]? = nil, paperOrientation: PaperOrientation? = nil,
-        htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil
+        htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil,
+        binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -59,6 +62,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.smartRemoval = smartRemoval
         self.printOptions = printOptions
         self.imageOrder = imageOrder
+        self.binderOrder = binderOrder
+        self.binderStartsOnFront = binderStartsOnFront
         self.htmlPresentation = htmlPresentation
         self.ignoresSlides = ignoresSlides
     }
@@ -66,7 +71,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, imageOrder
-        case htmlPresentation, ignoresSlides
+        case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront
     }
 
     /// Decodes each field on its own, so a value this version cannot read (such as a transition added later) falls
@@ -87,6 +92,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         smartRemoval = field(SmartRemoval.self, .smartRemoval)
         printOptions = field(PrintOptions.self, .printOptions)
         imageOrder = field([String].self, .imageOrder)
+        binderOrder = field([String].self, .binderOrder)
+        binderStartsOnFront = field(Bool.self, .binderStartsOnFront)
         htmlPresentation = field(HTMLPresentation.self, .htmlPresentation)
         ignoresSlides = field(Bool.self, .ignoresSlides)
     }

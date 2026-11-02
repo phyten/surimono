@@ -49,15 +49,21 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
 
     /// Applying and checking a set use the same projection onto the document's available choices.
     public func applicable(to format: DocumentFormat, themeIDs: Set<String>, presetIDs: Set<String>) -> Self {
+        applicable(to: [format], themeIDs: themeIDs, presetIDs: presetIDs)
+    }
+
+    public func applicable(to formats: Set<DocumentFormat>, themeIDs: Set<String>, presetIDs: Set<String>) -> Self {
         var result = self
         if let layoutID, !PrintLayout.presets.contains(where: { $0.id == layoutID }) { result.layoutID = nil }
-        if !format.usesPrintTheme {
+        if !formats.contains(where: \.usesPrintTheme) {
             result.themeID = nil
             result.textScale = nil
         } else if let themeID, !themeIDs.contains(themeID) {
             result.themeID = nil
         }
-        if !format.usesHTMLPreset || presetID.map({ !presetIDs.contains($0) }) == true { result.presetID = nil }
+        if !formats.contains(where: \.usesHTMLPreset) || presetID.map({ !presetIDs.contains($0) }) == true {
+            result.presetID = nil
+        }
         if let value = result.marginsInMillimeters, !value.isFinite || value < 0 { result.marginsInMillimeters = nil }
         if let value = result.textScale, !TextScale.steps.contains(value) { result.textScale = nil }
         return result

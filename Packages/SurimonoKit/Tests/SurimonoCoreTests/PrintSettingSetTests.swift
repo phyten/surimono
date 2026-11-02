@@ -4,6 +4,20 @@ import Testing
 @testable import SurimonoCore
 
 struct PrintSettingSetTests {
+    @Test("形式の集合からテーマと文字サイズとHTMLプリセットを同時に適用する")
+    func mixedFormats() {
+        let set = PrintSettingSet(
+            name: "Mixed",
+            settings: DocumentSettings(
+                themeID: "mincho", textScale: 1.5, presetID: "article"))
+        let mixed = set.applicable(to: [.markdown, .html, .pdf], themeIDs: ["mincho"], presetIDs: ["article"])
+        #expect(mixed == set)
+        let images = set.applicable(to: [.pdf, .image], themeIDs: ["mincho"], presetIDs: ["article"])
+        #expect(images.themeID == nil && images.textScale == nil && images.presetID == nil)
+        let missing = set.applicable(to: [.org, .html], themeIDs: [], presetIDs: [])
+        #expect(missing.themeID == nil && missing.textScale == 1.5 && missing.presetID == nil)
+    }
+
     @Test("設定セットは印刷に使う項目だけを取り出し往復できる")
     func roundTrip() throws {
         let settings = DocumentSettings(

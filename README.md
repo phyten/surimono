@@ -27,6 +27,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)
 - Quick viewer for Markdown, PDF, images, Org, plain text, HTML, CSV, and LaTeX
 - LaTeX documents printed with the print themes: titles, numbered sections and references, lists (enumitem), code (listings), math through SwaTex with equation numbers, footnotes, hyperref, xcolor, figures (graphicx), tables (booktabs), theorems and proofs (amsthm), the bibliography and citations, and units (siunitx). Surimono reads the common subset rather than running TeX; TikZ pictures are marked where they would be
+- Combine Markdown, Org, text, CSV, LaTeX, HTML, PDFs, and images into one binder: add, reorder, remove, and print or export as one PDF or booklet, optionally starting each document on a front page.
 - Open multiple images together as one image bundle, including mixed image formats
 - Reorder images by dragging thumbnails or with Option-Command-Up/Down
 - Export an image bundle as a PDF in its current order and print layout

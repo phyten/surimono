@@ -41,6 +41,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 印刷前の確認: `-SurimonoPopover issues`（刷り台へ入り、問題の一覧を開く。`Samples/preflight.md` で確かめる）
      - Release ビルドには含まれない。表示の引数で設定を変えると、その文書の設定として `~/Library/Application Support/Surimono Dev/DocumentSettings/` に保存される（次に開くと「戻しました」が出る）。確認用のファイルの記録は確認後に消す
      - 画像の束を撮るときは、`open` に画像を複数まとめて渡す（例: `open -n -W -a "$APP" a.png b.jpg c.heic --args …`）。束のウィンドウが撮られる。
+     - 合本を撮るときは、`open` に種類の違うファイルを複数まとめて渡し、`-SurimonoDrawer YES` で引き出しを開く（例: `open -n -W -a "$APP" "$PWD/Samples/sample.md" "$PWD/Samples/sample.csv" --args -SurimonoDrawer YES …`）。
      - 前回のウィンドウの復元が混ざらないよう、確認用の起動には `-ApplePersistenceIgnoreState YES` も付けるとよい（`pkill` などで落とすと次の起動で文書が復元される）。
    - **PR に貼る注釈付きスクリーンショット**: 撮ったスナップショットに `swift .agents/skills/project-surimono-dev/scripts/annotate-screenshot.swift <入力.png> <出力.png> "x,y,w,h:ラベル" …` で赤い枠と番号付きのラベルを付ける（macOS 標準の CoreGraphics と AppKit だけで動く）。置き場と書き方は AGENTS.md の「Git / PR」。
    - **開き方の確認（ウィンドウの数と題名）**: `swift .agents/skills/project-surimono-dev/scripts/list-windows.swift` が開発版の画面上のウィンドウを前面から順に、レイヤー・位置・大きさ・題名つきで出す（題名は画面収録の許可がないと空になる。レイヤー 8 はアラートなどのモーダル。数えるのは名前が Surimono Dev の全プロセスの画面上のウィンドウで、公開版と最小化したものは含まない。一覧を取れなければ終了コード 1）。Finder や Dock からの開き方は `open -a "$APP" <ファイル…>` で再現し、AGENTS.md の「ウィンドウとファイルの開き方」の規則どおりの数と題名になるかを見る。

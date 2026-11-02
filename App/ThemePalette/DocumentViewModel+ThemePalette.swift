@@ -61,7 +61,7 @@ extension DocumentViewModel {
 
     /// Opens the palette from the band's style button or from "…" when the band has folded the style into it.
     func openThemePalette() {
-        guard format.usesPrintTheme, mode == .view else { return }
+        guard usesPrintTheme, mode == .view else { return }
         isThemePalettePresented = true
     }
 

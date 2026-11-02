@@ -32,6 +32,38 @@ struct PrintSettingSetFlowTests {
         }
     }
 
+    @Test("合本の設定セットはテーマと文字サイズとHTMLプリセットを保存し再適用する")
+    func binderSettings() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .pdf, preferences: environment.preferences,
+            library: UserLibrary(root: environment.directory.appendingPathComponent("Library")),
+            settingsStore: environment.store,
+            binder: BinderModel(urls: [URL(fileURLWithPath: "/fixture/a.md"), URL(fileURLWithPath: "/fixture/b.html")]))
+        defer { model.stop() }
+        let preset = try #require(model.library.presets.first { $0.id != "none" })
+        model.themeID = "mincho"
+        model.setTextScale(1.5)
+        model.presetID = preset.id
+        model.savePrintSettingSet(named: "Mixed")
+        let set = try #require(model.preferences.printSettingSets.first)
+        #expect(set.themeID == "mincho" && set.textScale == 1.5 && set.presetID == preset.id)
+        #expect(model.matchesPrintSettingSet(set))
+        model.themeID = "standard"
+        #expect(!model.matchesPrintSettingSet(set))
+        model.applyPrintSettingSet(set)
+        #expect(model.themeID == "mincho" && model.matchesPrintSettingSet(set))
+        model.setTextScale(1)
+        #expect(!model.matchesPrintSettingSet(set))
+        model.applyPrintSettingSet(set)
+        #expect(model.textScale == 1.5 && model.matchesPrintSettingSet(set))
+        model.presetID = "none"
+        #expect(!model.matchesPrintSettingSet(set))
+        model.applyPrintSettingSet(set)
+        #expect(model.presetID == preset.id && model.matchesPrintSettingSet(set))
+    }
+
     @Test("別の文書へ設定セットを当てると印刷の設定が変わり内容のハッシュで保存される", .timeLimit(.minutes(1)))
     func applyAndRemember() async throws {
         let environment = Environment()

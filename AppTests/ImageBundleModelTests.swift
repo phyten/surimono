@@ -8,8 +8,8 @@ import Testing
 struct ImageBundleModelTests {
     private let urls = ["富士.jpg", "2.png", "10.png"].map { URL(fileURLWithPath: "/fixtures/" + $0) }
 
-    @Test("ZIP は画像以外を除いたときだけ知らせ、開き直さずに再開しても繰り返さない", arguments: [false, true])
-    func archiveNoticeRequiresExclusions(excludesFiles: Bool) throws {
+    @Test("画像の束とZIPは除外があるときだけ知らせ、再開しても繰り返さない", arguments: [false, true], [false, true])
+    func archiveNoticeRequiresExclusions(excludesFiles: Bool, fromArchive: Bool) throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let suite = TestDefaultsSuite()
         defer {
@@ -23,9 +23,16 @@ struct ImageBundleModelTests {
         let url = directory.appendingPathComponent("images.zip")
         try data.write(to: url)
         let archive = try ZipArchive(data: data)
-        let bundle = ImageBundleModel(archive: archive, selection: ZipImageSelection(archive: archive), archiveURL: url)
+        let bundle =
+            fromArchive
+            ? ImageBundleModel(archive: archive, selection: ZipImageSelection(archive: archive), archiveURL: url)
+            : ImageBundleModel(
+                urls: [directory.appendingPathComponent("image.png")],
+                excludedURLs: excludesFiles ? [directory.appendingPathComponent("notes.txt")] : [])
+        #expect(bundle.excludedSummary == (excludesFiles ? ["notes.txt"] : []))
         let model = DocumentViewModel(
-            data: data, fileURL: url, format: .zipArchive,
+            data: fromArchive ? data : Data(), fileURL: fromArchive ? url : nil,
+            format: fromArchive ? .zipArchive : .image,
             preferences: AppPreferences(defaults: suite.defaults),
             library: UserLibrary(root: directory.appendingPathComponent("Library")), imageBundle: bundle)
         defer { model.stop() }

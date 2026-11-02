@@ -77,7 +77,8 @@ struct PaperLinkTests {
             openDocument: { url, completion in
                 opened.append(url)
                 completion(true)
-            }, openBundle: { _ in Issue.record("画像の束にしない") }, warn: { _ in Issue.record("警告しない") },
+            }, openBundle: { _, _ in Issue.record("画像の束にしない") }, openBinder: { _, _ in Issue.record("合本は開かない") },
+            warn: { _ in Issue.record("警告しない") },
             hasOpenWindows: { true }, showWelcome: { Issue.record("ウェルカム画面を出さない") })
         let handler = PaperLinkHandler(
             openExternal: { _ in Issue.record("外部アプリへ渡さない") },

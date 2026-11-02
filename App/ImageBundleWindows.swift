@@ -12,12 +12,12 @@ final class ImageBundleWindows {
     var sourceURLs: [URL] { controllers.values.flatMap { $0.model.sourceURLs } }
     var hasWindows: Bool { !controllers.isEmpty }
 
-    func open(_ urls: [URL]) {
+    func open(_ urls: [URL], excluded: [URL] = []) {
         let id = UUID()
         let model = DocumentViewModel(
             data: Data(), fileURL: nil, format: .image,
             preferences: preferences ?? AppPreferences(), library: library ?? UserLibrary(),
-            imageBundle: ImageBundleModel(urls: urls), settingsStore: settingsStore)
+            imageBundle: ImageBundleModel(urls: urls, excludedURLs: excluded), settingsStore: settingsStore)
         let controller = MemoryDocumentWindowController(model: model) { [weak self] in
             self?.controllers.removeValue(forKey: id)
         }

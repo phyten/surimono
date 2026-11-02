@@ -53,6 +53,98 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("合本のHTMLを外で変更しても再読み込みまでは組版内容と保存の集合キーが一致する", .timeLimit(.minutes(1)))
+    func binderHTMLSnapshot() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        try FileManager.default.createDirectory(at: environment.directory, withIntermediateDirectories: true)
+        let htmlURL = environment.directory.appendingPathComponent("a.html")
+        let pdfURL = environment.directory.appendingPathComponent("b.pdf")
+        let before = "<p>Before</p>"
+        let after = "<p>After</p>"
+        let pdfData = pdf("PDF", pages: 1)
+        try Data(before.utf8).write(to: htmlURL)
+        try pdfData.write(to: pdfURL)
+        var inputs: [String] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            guard case .sandboxed(let html?, _) = request.source else {
+                Issue.record("合本のHTMLは読み込み済み本文で組版する")
+                return PDFDocument(data: pdfData)!
+            }
+            inputs.append(html)
+            return PDFDocument(data: pdfData)!
+        })
+        let binder = BinderModel(urls: [htmlURL, pdfURL])
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .pdf,
+            preferences: environment.preferences, library: environment.library, renderer: renderer,
+            settingsStore: environment.store, binder: binder)
+        defer { model.stop() }
+        try await open(model)
+        let originalKey = ContentHash.binderSet([.of(Data(before.utf8)), .of(pdfData)])
+        let updatedKey = ContentHash.binderSet([.of(Data(after.utf8)), .of(pdfData)])
+        #expect(model.contentHash == originalKey)
+        #expect(inputs == [before])
+        try Data(after.utf8).write(to: htmlURL)
+        model.printOptions.marginsInMillimeters = 11
+        model.render()
+        try await waitUntil { !model.isRendering }
+        model.rememberedSettingsDidChange()
+        #expect(inputs == [before, before])
+        #expect(model.contentHash == originalKey && binder.setHash == originalKey)
+        try await waitUntil { environment.store.record(for: originalKey.hex)?.printOptions?.marginsInMillimeters == 11 }
+        #expect(environment.store.record(for: updatedKey.hex) == nil)
+        model.reload()
+        try await waitUntil { !model.isRendering && model.contentHash == updatedKey }
+        #expect(inputs == [before, before, after])
+        #expect(binder.setHash == updatedKey)
+        #expect(environment.store.record(for: updatedKey.hex)?.printOptions?.marginsInMillimeters == 11)
+    }
+
+    @Test("合本の並び順と表面開始を集合の鍵で保存し開き直して復元する", .timeLimit(.minutes(1)))
+    func binderSettings() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let a = URL(fileURLWithPath: "/fixture/a.pdf")
+        let b = URL(fileURLWithPath: "/fixture/b.pdf")
+        let bytes = [a: pdf("A", pages: 1), b: pdf("B", pages: 2)]
+        func makeModel() -> DocumentViewModel {
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .pdf,
+                preferences: environment.preferences, library: environment.library,
+                settingsStore: environment.store,
+                binder: BinderModel(urls: [a, b], read: { bytes[$0]! }))
+        }
+        let first = makeModel()
+        defer { first.stop() }
+        try await open(first)
+        #expect(!first.hasSavedSettings)
+        first.binder?.moveSelection(by: 1)
+        first.binderStartsOnFront = true
+        first.render()
+        try await waitUntil { !first.isRendering }
+        first.rememberedSettingsDidChange()
+        first.stop()
+        let key = try #require(first.contentHash)
+        let saved = try #require(environment.store.record(for: key.hex))
+        #expect(saved.binderOrder == [ContentHash.of(bytes[b]!).hex, ContentHash.of(bytes[a]!).hex])
+        #expect(saved.binderStartsOnFront == true)
+        let second = makeModel()
+        defer { second.stop() }
+        try await open(second)
+        #expect(second.contentHash == key)
+        #expect(second.binder?.urls == [b, a])
+        #expect(second.binderStartsOnFront)
+        #expect(second.renderSettings?.layout == .a4Single)
+        // The fixture labels are PDF metadata; its pages intentionally contain no text.
+        #expect(second.binder?.orderDigests == [ContentHash.of(bytes[b]!).hex, ContentHash.of(bytes[a]!).hex])
+        #expect(second.result?.logicalDocument.pageCount == 3)
+        second.resetDocumentSettings()
+        #expect(second.binder?.urls == [a, b])
+        #expect(!second.binderStartsOnFront)
+        #expect(environment.store.keys().isEmpty)
+    }
+
     @Test("冊子を覚えた文書を開き直しても表示は A4 片面で、刷り台には冊子を復元する", .timeLimit(.minutes(1)))
     func rememberedBookletOnlyAffectsPrinting() async throws {
         let environment = try environment()

@@ -12,25 +12,27 @@ final class OpenRouter {
                 completion(document != nil)
             }
         },
-        openBundle: { ImageBundleWindows.shared.open($0) },
+        openBundle: { ImageBundleWindows.shared.open($0, excluded: $1) },
+        openBinder: { BinderWindows.shared.open($0, excluded: $1) },
         warn: { window in
             let alert = NSAlert()
-            alert.messageText = String(localized: "Only images can be opened together")
+            alert.messageText = String(localized: "No supported documents to combine")
             alert.informativeText = String(
                 localized:
-                    "Open Markdown, PDF, and other documents one at a time. Images can be opened together even if their types differ."
+                    "Choose Markdown, Org, text, CSV, LaTeX, HTML, PDF, or image files. Folders and ZIP archives cannot be combined."
             )
             alert.addButton(withTitle: String(localized: "OK"))
             if let window { alert.beginSheetModal(for: window) } else { alert.runModal() }
         },
         hasOpenWindows: {
             !NSDocumentController.shared.documents.isEmpty || ImageBundleWindows.shared.hasWindows
-                || ClipboardWindows.shared.hasWindows
+                || ClipboardWindows.shared.hasWindows || BinderWindows.shared.hasWindows
         },
         showWelcome: { WelcomeController.shared.show() })
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
-    private let openBundle: ([URL]) -> Void
+    private let openBundle: ([URL], [URL]) -> Void
+    private let openBinder: ([URL], [URL]) -> Void
     private let warn: (NSWindow?) -> Void
     private let hasOpenWindows: () -> Bool
     private let showWelcome: () -> Void
@@ -49,11 +51,13 @@ final class OpenRouter {
     }
 
     init(
-        openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void, openBundle: @escaping ([URL]) -> Void,
+        openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void, openBundle: @escaping ([URL], [URL]) -> Void,
+        openBinder: @escaping ([URL], [URL]) -> Void,
         warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void
     ) {
         self.openDocument = openDocument
         self.openBundle = openBundle
+        self.openBinder = openBinder
         self.warn = warn
         self.hasOpenWindows = hasOpenWindows
         self.showWelcome = showWelcome
@@ -67,8 +71,9 @@ final class OpenRouter {
         case .single(let url):
             pendingOpens += 1
             openDocument(url) { [weak self] opened in self?.finishOpening(opened) }
-        case .imageBundle(let urls): openBundle(urls)
-        case .rejectedMultipleNonImages: warn(window)
+        case .imageBundle(let urls, let excluded): openBundle(urls, excluded)
+        case .binder(let urls, let excluded): openBinder(urls, excluded)
+        case .unsupported: warn(window)
         case .empty: break
         }
         return true
