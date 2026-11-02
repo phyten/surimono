@@ -24,6 +24,9 @@ struct SurimonoApp: App {
         ImageBundleWindows.shared.preferences = preferences
         ImageBundleWindows.shared.library = library
         ImageBundleWindows.shared.settingsStore = settingsStore
+        ClipboardWindows.shared.preferences = preferences
+        ClipboardWindows.shared.library = library
+        ClipboardWindows.shared.settingsStore = settingsStore
         // Sparkle keeps its schedule from launch, not from the first time the menu is opened.
         _ = AppUpdater.shared
     }

@@ -19,6 +19,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 
 ## 機能
 
+- ⌘N でクリップボードの Markdown・テキスト・HTML ソース・画像を、元のファイルを保存せずそのまま開く
 - Markdown・Org のコードをシンタックスハイライトし、Markdown の囲み（`:::` と `> [!note]`）を表示。JavaScript を使わずオフラインで処理
 - Markdown の拡張記法: 脚注、`==ハイライト==`、`^上付き^`・`~下付き~`、ルビ `{漢字|かんじ}`、絵文字 `:tada:`、定義リスト、見出しの ID と目次 `[TOC]`
 - Markdown の数式（`$…$`・`$$…$$`・```` ```math ````）を、純 Swift の KaTeX 互換の組版（[SwaTex](https://github.com/PhraseHQ/SwaTex)）で JavaScript なしに描画。化学式（mhchem）も

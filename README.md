@@ -20,6 +20,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 
 ## Features
 
+- Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
 - Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`), rendered offline without JavaScript
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)

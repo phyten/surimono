@@ -91,6 +91,7 @@ private struct WelcomeView: View {
                 .background(isTargeted ? Color.accentColor.opacity(0.12) : Color.clear)
             Button("Open…") { OpenRouter.shared.showOpenPanel() }
                 .keyboardShortcut("o")
+            Button("Open from Clipboard") { ClipboardWindows.shared.open() }
             if !recent.isEmpty {
                 Text("Recent Files").font(.headline)
                 List(recent.prefix(6), id: \.self) { url in
