@@ -6,9 +6,12 @@ struct DocumentCommands: Commands {
     private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
 
     var body: some Commands {
-        // A viewer creates nothing. The standard Open… item stays: AppDelegate answers its action so that a multi-file
+        // The standard Open… item stays: AppDelegate answers its action so that a multi-file
         // selection reaches OpenRouter, and Open Recent opens a single file.
-        CommandGroup(replacing: .newItem) {}
+        CommandGroup(replacing: .newItem) {
+            Button("Open from Clipboard") { ClipboardWindows.shared.open() }
+                .keyboardShortcut("n")
+        }
         // SwiftUI applies a new enabled state to these items only when a menu opens, so a state derived from the key
         // window's model goes stale and swallows the shortcuts. The items stay enabled; the model ignores what it
         // cannot do.

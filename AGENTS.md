@@ -116,6 +116,7 @@ make clean
   - ファイル > 開く…: 標準の項目が送る `openDocument:` を `AppDelegate` が受ける（SwiftUI の AppDelegate が応答チェーンで転送する）。独自の「開く…」をメニューに足さない（標準の項目と重複し、標準の側は文書コントローラが 1 つずつ開いてしまう）
   - ドロップ: 文書・画像の束・ウェルカム画面の `.dropDestination`
   - 最近使った項目: 標準メニューの項目は文書コントローラが 1 ファイルを開く（規則と同じ結果になるので、ルーターを通さないままでよい）。ウェルカム画面の最近使ったファイルは `OpenRouter` を通す
+- クリップボードは「ファイル > クリップボードから開く」（⌘N）とウェルカム画面から開く。ファイル URL は `OpenRouter` へ渡し、文字列（Markdown / テキスト / HTML の推定）・PNG / TIFF は `ClipboardContent` で判定し、`ClipboardWindows` が原文の一時ファイルを作らずメモリから開く。同じ内容の窓は前面へ出す。画像の束と `MemoryDocumentWindowController` を共有し、最近使った項目には載せない。
 - 画像の束は NSDocument ではなく、`ImageBundleWindows` が AppKit の NSWindow に SwiftUI の `DocumentContent` を載せて開く。メニュー操作は `DocumentWindows.activeModel`（キーウィンドウのモデル）に届ける。
 - ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。開いた枚数のトーストは、画像以外を除いたなど `excludedSummary` が空でないときだけ、除いたものと一緒に出す。
 - 新しい「開く」経路を足すときは `OpenRouter` を通し、`OpenRouterTests` にケースを足す。

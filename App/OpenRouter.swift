@@ -3,7 +3,7 @@ import SurimonoCore
 
 @MainActor
 final class OpenRouter {
-    static let shared = OpenRouter(
+    static let shared: OpenRouter = OpenRouter(
         openDocument: { url, completion in
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error { NSApp.presentError(error) }
@@ -23,7 +23,10 @@ final class OpenRouter {
             alert.addButton(withTitle: String(localized: "OK"))
             if let window { alert.beginSheetModal(for: window) } else { alert.runModal() }
         },
-        hasOpenWindows: { !NSDocumentController.shared.documents.isEmpty || ImageBundleWindows.shared.hasWindows },
+        hasOpenWindows: {
+            !NSDocumentController.shared.documents.isEmpty || ImageBundleWindows.shared.hasWindows
+                || ClipboardWindows.shared.hasWindows
+        },
         showWelcome: { WelcomeController.shared.show() })
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void

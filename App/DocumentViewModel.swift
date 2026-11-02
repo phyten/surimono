@@ -25,6 +25,7 @@ struct Toast: Equatable, Identifiable {
 final class DocumentViewModel {
     private var folderLease: FolderAccess.Lease?
     let fileURL: URL?
+    private let title: String?
     let imageBundle: ImageBundleModel?
     private(set) var unreadableImageURLs: [URL] = []
     private var renderedSourceURLs: [URL] = []
@@ -172,13 +173,14 @@ final class DocumentViewModel {
         data: Data, fileURL: URL?, format: DocumentFormat,
         preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer(),
         imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil,
-        trialRenderer: DocumentRenderer = DocumentRenderer()
+        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil
     ) {
         themeTrial = ThemeTrial(renderer: trialRenderer)
         self.imageBundle = imageBundle
         self.settingsStore = settingsStore
         self.data = data
         self.fileURL = fileURL
+        self.title = title
         self.format = format
         self.preferences = preferences
         openingViewDefaults = preferences.viewDefaults
@@ -217,10 +219,11 @@ final class DocumentViewModel {
     }
     var exportName: String {
         imageBundle?.exportName(layout: renderedSettings?.layout ?? layout, language: language)
-            ?? Self.exportName(fileURL: fileURL, layout: renderedSettings?.layout ?? layout, language: language)
+            ?? Self.exportName(
+                fileURL: fileURL, layout: renderedSettings?.layout ?? layout, language: language, title: title)
     }
     var displayName: String {
-        imageBundle?.title(language: language) ?? fileURL?.lastPathComponent ?? String(localized: "Document")
+        imageBundle?.title(language: language) ?? title ?? fileURL?.lastPathComponent ?? String(localized: "Document")
     }
     /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
     var formatBadge: String { imageBundle == nil || format == .zipArchive ? format.badge : "IMG" }
@@ -1564,8 +1567,10 @@ final class DocumentViewModel {
         }
     }
 
-    static func exportName(fileURL: URL?, layout: PrintLayout, language: String) -> String {
-        let name = fileURL?.deletingPathExtension().lastPathComponent ?? String(localized: "Document")
+    static func exportName(fileURL: URL?, layout: PrintLayout, language: String, title: String? = nil) -> String {
+        // A clipboard title carries a time such as "0:13"; Finder shows ":" in a file name as "/".
+        let name = (title ?? fileURL?.deletingPathExtension().lastPathComponent ?? String(localized: "Document"))
+            .replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: "/", with: "-")
         return "\(name)（\(layout.displayName(language: language))）.pdf"
     }
 
