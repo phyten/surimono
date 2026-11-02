@@ -67,6 +67,8 @@ struct ViewOptionsPopover: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+                SettingSetMenu(preferences: model.preferences, model: { model })
+                    .fixedSize()
                 Button("Reset to Defaults") { model.resetDocumentSettings() }
                     .buttonStyle(.link)
                     .disabled(!model.hasSavedSettings)

@@ -1,0 +1,193 @@
+import Foundation
+import PDFKit
+import SurimonoCore
+import SurimonoRendering
+import Testing
+
+@testable import Surimono
+
+@MainActor
+struct PrintSettingSetFlowTests {
+    @MainActor private struct Environment {
+        let suite = TestDefaultsSuite()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        var preferences: AppPreferences { AppPreferences(defaults: suite.defaults) }
+        var store: DocumentSettingsStore {
+            DocumentSettingsStore(directory: directory.appendingPathComponent("Settings"))
+        }
+
+        func model(_ label: String, format: DocumentFormat = .markdown, preferences: AppPreferences)
+            -> DocumentViewModel
+        {
+            DocumentViewModel(
+                data: Data(label.utf8), fileURL: nil, format: format, preferences: preferences,
+                library: UserLibrary(root: directory.appendingPathComponent("Library")),
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: TestFixtures.pdf("Set", pages: 1))! }),
+                settingsStore: store)
+        }
+
+        func cleanUp() {
+            try? FileManager.default.removeItem(at: directory)
+            suite.remove()
+        }
+    }
+
+    @Test("別の文書へ設定セットを当てると印刷の設定が変わり内容のハッシュで保存される", .timeLimit(.minutes(1)))
+    func applyAndRemember() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        let first = environment.model("First", preferences: preferences)
+        first.layoutID = "a4BookletA5"
+        first.themeID = "mincho"
+        first.setTextScale(1.25)
+        first.paperOrientation = .landscape
+        first.printOptions = PrintOptions(marginsInMillimeters: 10, showsPageNumbers: true)
+        first.savePrintSettingSet(named: "Book")
+        let saved = try #require(preferences.printSettingSets.first)
+        let second = environment.model("Second", preferences: preferences)
+        defer { second.stop() }
+        second.start()
+        for _ in 0..<500 where second.contentHash == nil || second.isRendering {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try #require(second.contentHash != nil)
+        #expect(!second.hasSavedSettings)
+        second.printOptions.rotatesBackSides = true
+        let view = second.viewOptions
+        second.zoom = 2
+        second.applyPrintSettingSet(saved)
+        #expect(second.layoutID == "a4BookletA5")
+        #expect(second.themeID == "mincho" && second.textScale == 1.25)
+        #expect(second.paperOrientation == .landscape)
+        #expect(
+            second.printOptions
+                == PrintOptions(marginsInMillimeters: 10, showsPageNumbers: true, rotatesBackSides: true))
+        #expect(second.viewOptions == view && second.zoom == 2)
+        #expect(second.matchesPrintSettingSet(saved))
+        for _ in 0..<500 where !second.hasSavedSettings { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(second.hasSavedSettings)
+        let record = try #require(environment.store.record(for: ContentHash.of(Data("Second".utf8)).hex))
+        #expect(record.layoutID == "a4BookletA5")
+        #expect(record.themeID == "mincho" && record.textScale == 1.25)
+        #expect(record.printOptions?.marginsInMillimeters == 10)
+        #expect(record.printOptions?.rotatesBackSides == true)
+    }
+
+    @Test("テーマを使わない文書にはテーマと文字の大きさを当てない", arguments: [DocumentFormat.pdf, .image, .html, .zipArchive])
+    func nonThemedFormats(format: DocumentFormat) {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("Other", format: format, preferences: environment.preferences)
+        let set = PrintSettingSet(
+            name: "Theme", settings: DocumentSettings(layoutID: "a4Duplex", themeID: "mincho", textScale: 1.5))
+        model.applyPrintSettingSet(set)
+        #expect(model.themeID == "standard" && model.textScale == 1)
+        #expect(model.layoutID == "a4Duplex")
+        #expect(model.matchesPrintSettingSet(set))
+        model.savePrintSettingSet(named: "Other")
+        #expect(model.preferences.printSettingSets.first?.themeID == nil)
+        #expect(model.preferences.printSettingSets.first?.textScale == nil)
+    }
+
+    @Test("消えたテーマとレイアウトだけを飛ばし最近使ったスタイルには記録しない")
+    func unavailableIDsAndRecentThemes() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("Missing", preferences: environment.preferences)
+        let set = PrintSettingSet(
+            name: "Missing", settings: DocumentSettings(layoutID: "missing", themeID: "missing", textScale: 1.5))
+        model.applyPrintSettingSet(set)
+        #expect(model.themeID == "standard" && model.layoutID == "a4Single")
+        #expect(model.textScale == 1.5)
+        #expect(model.matchesPrintSettingSet(set))
+        model.applyPrintSettingSet(PrintSettingSet(name: "Valid", settings: DocumentSettings(themeID: "mincho")))
+        #expect(model.themeID == "mincho")
+        #expect(model.preferences.recentThemeIDs.isEmpty)
+    }
+
+    @Test("HTML のプリセットだけを保存しスマート削除と表示方法は当てても変わらない")
+    func htmlPreset() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("HTML", format: .html, preferences: environment.preferences)
+        let preset = try #require(model.library.presets.first { $0.id != "none" })
+        model.presetID = preset.id
+        model.savePrintSettingSet(named: "Article")
+        let set = try #require(model.preferences.printSettingSets.first)
+        #expect(set.presetID == preset.id && set.themeID == nil)
+        model.presetID = "none"
+        model.isSmartRemovalEnabled = true
+        model.smartRemovalKeptIDs = ["keep"]
+        model.applyPrintSettingSet(set)
+        #expect(model.presetID == preset.id)
+        #expect(model.isSmartRemovalEnabled && model.smartRemovalKeptIDs == ["keep"])
+        #expect(model.htmlPresentation == .web)
+        var missing = set
+        missing.presetID = "missing"
+        model.applyPrintSettingSet(missing)
+        #expect(model.presetID == preset.id)
+    }
+
+    @Test("同名の上書きは識別子と作成順を保ち名前変更と削除も永続化する")
+    func persistenceAndManagement() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        let model = environment.model("Save", preferences: preferences)
+        model.savePrintSettingSet(named: "One")
+        model.savePrintSettingSet(named: "Two")
+        let first = try #require(preferences.printSettingSets.first)
+        model.layoutID = "a4Duplex"
+        model.savePrintSettingSet(named: " One ")
+        let reloaded = environment.preferences
+        #expect(reloaded.printSettingSets.map(\.name) == ["One", "Two"])
+        #expect(reloaded.printSettingSets[0].id == first.id)
+        #expect(reloaded.printSettingSets[0].layoutID == "a4Duplex")
+        #expect(!reloaded.renamePrintSettingSet(first.id, to: "Two"))
+        #expect(!reloaded.renamePrintSettingSet(first.id, to: "  "))
+        #expect(reloaded.renamePrintSettingSet(first.id, to: "Renamed"))
+        #expect(environment.preferences.printSettingSets.map(\.name) == ["Renamed", "Two"])
+        reloaded.removePrintSettingSet(first.id)
+        #expect(environment.preferences.printSettingSets.map(\.name) == ["Two"])
+    }
+
+    @Test("保存時の既定名は空でなく既存の名前と重ならない")
+    func numberedName() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        let first = preferences.nextPrintSettingSetName
+        #expect(!first.isEmpty)
+        preferences.savePrintSettingSet(PrintSettingSet(name: first, settings: DocumentSettings()))
+        #expect(preferences.nextPrintSettingSetName != first)
+    }
+
+    @Test("セットにない項目は当てても現在の値を保つ")
+    func partialSet() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("Partial", preferences: environment.preferences)
+        model.setTextScale(1.75)
+        model.themeID = "mincho"
+        model.printOptions.rotatesBackSides = true
+        let before = model.rememberedSettings
+        model.applyPrintSettingSet(PrintSettingSet(name: "Layout", settings: DocumentSettings(layoutID: "a4Duplex")))
+        var expected = before
+        expected.layoutID = "a4Duplex"
+        #expect(model.rememberedSettings == expected)
+    }
+
+    @Test("配列の壊れた要素や重複だけを捨て読める設定セットを残す")
+    func lossyArray() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let first = PrintSettingSet(name: "One", settings: DocumentSettings(layoutID: "a4Duplex"))
+        let second = PrintSettingSet(name: "Two", settings: DocumentSettings(themeID: "mincho"))
+        let firstJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(first))
+        let secondJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(second))
+        let data = try JSONSerialization.data(withJSONObject: [firstJSON, 3, ["name": "Broken"], firstJSON, secondJSON])
+        environment.suite.defaults.set(data, forKey: "printSettingSets")
+        #expect(environment.preferences.printSettingSets == [first, second])
+    }
+}

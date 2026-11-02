@@ -6,6 +6,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case view = "View & Page Turn"
     case pageNumbers = "Page Numbers"
     case printing = "Printing"
+    case settingSets = "Setting Sets"
     case styles = "Styles"
     case html = "HTML"
 
@@ -16,6 +17,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .view: "book"
         case .pageNumbers: "number"
         case .printing: "printer"
+        case .settingSets: "slider.horizontal.3"
         case .styles: "textformat"
         case .html: "globe"
         }
@@ -95,6 +97,8 @@ struct SettingsView: View {
                     defaultsNote
                     PrintPageOrderPicker(order: $preferences.printPageOrder)
                     Text(PrintPageOrderPicker.hint).font(.caption).foregroundStyle(.secondary)
+                case .settingSets:
+                    SettingSetsSettings(preferences: preferences)
                 case .styles:
                     Picker("Default Print Theme", selection: $preferences.themeID) {
                         DefaultStyleChoices(library: library)

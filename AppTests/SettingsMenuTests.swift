@@ -77,6 +77,16 @@ struct SettingsMenuTests {
             })
     }
 
+    @Test("表示メニューの設定セットは文書がなくても保存と管理の項目を有効に保つ")
+    func settingSetCommands() throws {
+        let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        let sets = try #require(menu.items.first { $0.title == localized("Setting Sets") }?.submenu)
+        for key in ["Save Current Settings…", "Manage Setting Sets…"] {
+            let item = try #require(sets.items.first { $0.title == localized(key) })
+            #expect(item.isEnabled)
+        }
+    }
+
     @Test("表示の既定値は保存され未設定や不正な値なら自動に戻る")
     func preferencesPersistence() {
         let suite = TestDefaultsSuite()

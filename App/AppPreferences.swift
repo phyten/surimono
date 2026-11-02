@@ -51,6 +51,13 @@ final class AppPreferences {
     private(set) var favoriteThemeIDs: [String] {
         didSet { defaults.set(favoriteThemeIDs, forKey: "favoriteThemes") }
     }
+    private(set) var printSettingSets: [PrintSettingSet] {
+        didSet {
+            if let data = try? JSONEncoder().encode(printSettingSets) {
+                defaults.set(data, forKey: "printSettingSets")
+            }
+        }
+    }
 
     init(defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier) {
         self.defaults = defaults
@@ -78,6 +85,61 @@ final class AppPreferences {
         printPageOrder = PrintPageOrder(rawValue: defaults.string(forKey: "printPageOrder") ?? "") ?? .lastSheetFirst
         recentThemeIDs = defaults.stringArray(forKey: "recentThemes") ?? []
         favoriteThemeIDs = defaults.stringArray(forKey: "favoriteThemes") ?? []
+        let storedSets =
+            defaults.data(forKey: "printSettingSets").flatMap {
+                try? JSONDecoder().decode([StoredSettingSet].self, from: $0)
+            } ?? []
+        var ids: Set<UUID> = []
+        var names: Set<String> = []
+        printSettingSets = storedSets.compactMap(\.value).filter {
+            guard !ids.contains($0.id), !names.contains($0.name) else { return false }
+            ids.insert($0.id)
+            names.insert($0.name)
+            return true
+        }
+    }
+
+    /// Confirmation belongs to the caller; replacing a name keeps its original place and identity.
+    func savePrintSettingSet(_ set: PrintSettingSet) {
+        var set = set
+        set.name = set.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !set.name.isEmpty else { return }
+        if let index = printSettingSets.firstIndex(where: { $0.name == set.name }) {
+            set.id = printSettingSets[index].id
+            printSettingSets[index] = set
+        } else {
+            printSettingSets.append(set)
+        }
+    }
+
+    @discardableResult
+    func renamePrintSettingSet(_ id: UUID, to name: String) -> Bool {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, let index = printSettingSets.firstIndex(where: { $0.id == id }),
+            !printSettingSets.contains(where: { $0.id != id && $0.name == name })
+        else { return false }
+        printSettingSets[index].name = name
+        return true
+    }
+
+    func removePrintSettingSet(_ id: UUID) {
+        printSettingSets.removeAll { $0.id == id }
+    }
+
+    var nextPrintSettingSetName: String {
+        var number = 1
+        while true {
+            let name = String(format: String(localized: "Setting Set %lld"), Int64(number))
+            if !printSettingSets.contains(where: { $0.name == name }) { return name }
+            number += 1
+        }
+    }
+
+    private struct StoredSettingSet: Decodable {
+        let value: PrintSettingSet?
+        init(from decoder: any Decoder) throws {
+            value = try? PrintSettingSet(from: decoder)
+        }
     }
 
     func recordThemeChoice(_ id: String) {

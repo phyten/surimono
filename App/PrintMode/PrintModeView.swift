@@ -161,6 +161,28 @@ struct PrintTopBar: View {
             .layoutPriority(-1)
             Spacer(minLength: 12)
             PrintStyleMenu(model: model)
+            // Drawn like the style menu beside it, so the tray's top bar keeps one kind of control.
+            SettingSetMenu(preferences: model.preferences, model: { model }) {
+                HStack(spacing: 7) {
+                    Text("Setting Sets")
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(PrintPalette.ink2)
+                }
+                .font(.system(size: 12.5))
+                .foregroundStyle(PrintPalette.ink)
+                .padding(.leading, 10)
+                .padding(.trailing, 8)
+                .frame(height: 28)
+                .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .padding(.leading, 8)
         }
         .padding(.leading, trafficLightInset)
         .padding(.trailing, 12)
