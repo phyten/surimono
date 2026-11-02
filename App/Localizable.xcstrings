@@ -1613,58 +1613,6 @@
         }
       }
     },
-    "Applies to all documents. Last Sheet First keeps sheets that come out face up in page order.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Applies to all documents. Last Sheet First keeps sheets that come out face up in page order."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すべての文書に効きます。後ろの紙からにすると、表を上にして出てくるプリンターでもページの順に重なります。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "适用于所有文档。选择从最后一张开始时，正面朝上出纸的打印机也会按页序叠放。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "適用於所有文件。選擇從最後一張開始時，正面朝上出紙的印表機也會依頁序疊放。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "모든 문서에 적용됩니다. 마지막 장부터 인쇄하면 앞면이 위로 나오는 프린터에서도 페이지 순서대로 쌓입니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "S’applique à tous les documents. Avec Dernière feuille d’abord, les feuilles qui sortent face imprimée vers le haut restent dans l’ordre des pages."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gilt für alle Dokumente. Mit „Letztes Blatt zuerst“ liegen Blätter, die mit der bedruckten Seite nach oben herauskommen, in Seitenreihenfolge."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se aplica a todos los documentos. Con Última hoja primero, las hojas que salen boca arriba quedan en orden de página."
-          }
-        }
-      }
-    },
     "Automatic (Match Document)": {
       "localizations": {
         "ja": {
@@ -12399,59 +12347,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se aplica a textos e imágenes. Los PDF conservan sus márgenes."
-          }
-        }
-      }
-    },
-    "For printers that print back sides upside down, or when feeding the back sides by hand.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "裏面が上下逆に出るプリンタや、手差しで裏面を刷るときに。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "For printers that print back sides upside down, or when feeding the back sides by hand."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "适用于背面倒置的打印机，或手动送纸打印背面时。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "適用於背面倒置的印表機，或手動送紙列印背面時。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "뒷면을 거꾸로 프린트하는 프린터나 뒷면을 수동 급지할 때 사용합니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pour les imprimantes dont le verso est inversé, ou pour une alimentation manuelle des versos."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Für Drucker mit kopfstehenden Rückseiten oder beim manuellen Einlegen der Rückseiten."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Para impresoras que imprimen el reverso invertido o al alimentar los reversos a mano."
           }
         }
       }
@@ -24012,6 +23907,907 @@
           "stringUnit": {
             "state": "translated",
             "value": "請選擇 Markdown、Org、文字、CSV、LaTeX、HTML、PDF 或影像檔案。無法合併資料夾和 ZIP 壓縮檔。"
+          }
+        }
+      }
+    },
+    "Duplex Test Print…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplex Test Print…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両面のテスト印刷…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplex-Testdruck …"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impresión de prueba a doble cara…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test d’impression recto verso…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "양면 테스트 인쇄…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "双面测试打印…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "雙面測試列印…"
+          }
+        }
+      }
+    },
+    "Choose a duplex layout to test back-side orientation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a duplex layout to test back-side orientation."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両面のレイアウトを選ぶと、裏面の向きをテストできます。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle ein Duplex-Layout, um die Ausrichtung der Rückseite zu testen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un diseño a doble cara para probar la orientación del reverso."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une mise en page recto verso pour tester l’orientation du verso."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "양면 레이아웃을 선택하면 뒷면 방향을 테스트할 수 있습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择双面布局以测试背面方向。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇雙面配置以測試背面方向。"
+          }
+        }
+      }
+    },
+    "Choose a printer to remember its settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a printer to remember its settings."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリンターを選ぶと、その設定を覚えます。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle einen Drucker, um seine Einstellungen zu speichern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una impresora para guardar sus ajustes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez une imprimante pour mémoriser ses réglages."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "프린터를 선택하면 해당 설정을 기억합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择打印机以记住其设置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇印表機以記住其設定。"
+          }
+        }
+      }
+    },
+    "Remembered for %@. Last Sheet First keeps face-up sheets in page order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remembered for %@. Last Sheet First keeps face-up sheets in page order."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ の設定として覚えます。印刷面を上にして出すプリンターは「後ろの紙から」でページ順に重なります。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird für %@ gespeichert. „Letztes Blatt zuerst“ hält mit der Druckseite nach oben ausgegebene Blätter in Seitenreihenfolge."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guarda para %@. «Última hoja primero» mantiene en orden las hojas que salen boca arriba."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mémorisé pour %@. « Dernière feuille d’abord » garde dans l’ordre les feuilles qui sortent face imprimée vers le haut."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@의 설정으로 기억합니다. 인쇄면이 위로 나오는 프린터는 «마지막 용지부터»로 페이지 순서를 맞춥니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记住 %@ 的设置。“从最后一张开始”可让打印面朝上输出的纸张按页码堆叠。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記住 %@ 的設定。「從最後一張開始」可讓列印面朝上輸出的紙張按頁碼堆疊。"
+          }
+        }
+      }
+    },
+    "Remembered for %@ with long-edge binding.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remembered for %@ with long-edge binding."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ で、長辺とじのときの設定として覚えます。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird für %@ bei Bindung an der langen Kante gespeichert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guarda para %@ con encuadernación por el borde largo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mémorisé pour %@ avec une reliure sur le bord long."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에서 긴 쪽 제본을 사용할 때의 설정으로 기억합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记住 %@ 使用长边装订时的设置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記住 %@ 使用長邊裝訂時的設定。"
+          }
+        }
+      }
+    },
+    "Remembered for %@ with short-edge binding.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remembered for %@ with short-edge binding."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ で、短辺とじのときの設定として覚えます。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird für %@ bei Bindung an der kurzen Kante gespeichert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se guarda para %@ con encuadernación por el borde corto."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mémorisé pour %@ avec une reliure sur le bord court."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에서 짧은 쪽 제본을 사용할 때의 설정으로 기억합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记住 %@ 使用短边装订时的设置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記住 %@ 使用短邊裝訂時的設定。"
+          }
+        }
+      }
+    },
+    "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を覚えていないプリンターの初期値です。印刷面を上にして出すプリンターは「後ろの紙から」でページ順に重なります。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfangswerte für Drucker ohne gespeicherte Einstellungen. „Letztes Blatt zuerst“ hält mit der Druckseite nach oben ausgegebene Blätter in Seitenreihenfolge."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valores iniciales para impresoras sin ajustes guardados. «Última hoja primero» mantiene en orden las hojas que salen boca arriba."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Valeurs initiales des imprimantes sans réglages mémorisés. « Dernière feuille d’abord » garde dans l’ordre les feuilles qui sortent face imprimée vers le haut."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 설정이 없는 프린터의 초기값입니다. 인쇄면이 위로 나오는 프린터는 «마지막 용지부터»로 페이지 순서를 맞춥니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未记住设置的打印机使用这些初始值。“从最后一张开始”可让打印面朝上输出的纸张按页码堆叠。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未記住設定的印表機使用這些初始值。「從最後一張開始」可讓列印面朝上輸出的紙張按頁碼堆疊。"
+          }
+        }
+      }
+    },
+    "Used for printers and bindings without a remembered rotation.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Used for printers and bindings without a remembered rotation."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回転を覚えていないプリンター・綴じ方の初期値です。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für Drucker und Bindungsarten ohne gespeicherte Drehung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se usa para impresoras y encuadernaciones sin rotación guardada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisé pour les imprimantes et les reliures sans rotation mémorisée."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "회전 설정을 저장하지 않은 프린터와 제본 방식의 초기값입니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用于尚未记住旋转设置的打印机和装订方式。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用於尚未記住旋轉設定的印表機和裝訂方式。"
+          }
+        }
+      }
+    },
+    "Top": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Top"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oben"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arriba"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haut"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上"
+          }
+        }
+      }
+    },
+    "Long-edge binding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Long-edge binding"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長辺とじ"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bindung an der langen Kante"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encuadernación por el borde largo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reliure sur le bord long"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "긴 쪽 제본"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "长边装订"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長邊裝訂"
+          }
+        }
+      }
+    },
+    "Short-edge binding": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Short-edge binding"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "短辺とじ"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bindung an der kurzen Kante"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encuadernación por el borde corto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reliure sur le bord court"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "짧은 쪽 제본"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "短边装订"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "短邊裝訂"
+          }
+        }
+      }
+    },
+    "Turn the sheet along its long edge. The back arrow should point up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn the sheet along its long edge. The back arrow should point up."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長辺でめくって、裏の矢印が上を向いていれば正しい向きです。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wende das Blatt an der langen Kante. Der Pfeil auf der Rückseite sollte nach oben zeigen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Da la vuelta a la hoja por el borde largo. La flecha del reverso debe apuntar hacia arriba."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retournez la feuille sur son bord long. La flèche au verso doit pointer vers le haut."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "긴 쪽으로 넘겼을 때 뒷면 화살표가 위를 향하면 올바른 방향입니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沿长边翻页，背面箭头朝上即为正确方向。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沿長邊翻頁，背面箭頭朝上即為正確方向。"
+          }
+        }
+      }
+    },
+    "Turn the sheet along its short edge. The back arrow should point up.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn the sheet along its short edge. The back arrow should point up."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "短辺でめくって、裏の矢印が上を向いていれば正しい向きです。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wende das Blatt an der kurzen Kante. Der Pfeil auf der Rückseite sollte nach oben zeigen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Da la vuelta a la hoja por el borde corto. La flecha del reverso debe apuntar hacia arriba."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retournez la feuille sur son bord court. La flèche au verso doit pointer vers le haut."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "짧은 쪽으로 넘겼을 때 뒷면 화살표가 위를 향하면 올바른 방향입니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沿短边翻页，背面箭头朝上即为正确方向。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沿短邊翻頁，背面箭頭朝上即為正確方向。"
+          }
+        }
+      }
+    },
+    "Which way did the back arrow point?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Which way did the back arrow point?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裏の矢印はどちらを向いていましたか？"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In welche Richtung zeigte der Pfeil auf der Rückseite?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Hacia dónde apuntaba la flecha del reverso?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dans quel sens pointait la flèche au verso ?"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "뒷면 화살표는 어느 쪽을 향했나요?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "背面的箭头朝向哪里？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "背面的箭頭朝向哪裡？"
+          }
+        }
+      }
+    },
+    "Up (same as front)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up (same as front)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上（表と同じ）"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oben (wie vorne)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arriba (igual que el anverso)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En haut (comme au recto)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위 (앞면과 같음)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上（与正面相同）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上（與正面相同）"
+          }
+        }
+      }
+    },
+    "Down (upside down)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Down (upside down)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下（逆さ）"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unten (auf dem Kopf)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abajo (invertida)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En bas (à l’envers)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아래 (거꾸로)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下（倒置）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下（倒置）"
+          }
+        }
+      }
+    },
+    "The binding changed in the print dialog. Run the duplex test again without changing the binding.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The binding changed in the print dialog. Run the duplex test again without changing the binding."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷画面で綴じ方が変わりました。綴じ方を変えずに、もう一度両面のテスト印刷をしてください。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Bindung wurde im Druckdialog geändert. Wiederhole den Duplex-Test, ohne die Bindung zu ändern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La encuadernación cambió en el diálogo de impresión. Repite la prueba a doble cara sin cambiarla."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La reliure a été modifiée dans la boîte de dialogue d’impression. Relancez le test recto verso sans changer la reliure."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인쇄 대화상자에서 제본 방식이 변경되었습니다. 제본 방식을 바꾸지 않고 양면 테스트를 다시 실행하세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打印对话框中的装订方式已更改。请保持装订方式不变，重新进行双面测试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "列印對話框中的裝訂方式已變更。請保持裝訂方式不變，重新進行雙面測試。"
           }
         }
       }

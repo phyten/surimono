@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import OSLog
 import Observation
 import PDFKit
@@ -103,6 +104,18 @@ final class DocumentViewModel {
     @ObservationIgnored private(set) var outputAfterReview: Output?
     /// Replaces the system output UI in tests, after readiness checks, with the exact sheets being output.
     @ObservationIgnored var outputOverride: ((Output, RenderResult) -> Void)?
+    /// Replaces submission after resolving the destination and matching its settings to the composed sheets.
+    @ObservationIgnored var printSubmit: ((RenderResult, PrintRequest, PrintPageOrder) -> Void)?
+    private struct PendingPrint {
+        var request: PrintRequest
+        let quick: Bool
+    }
+    private var pendingPrint: PendingPrint?
+    var duplexTestResult: DuplexTestResult?
+    /// Replaces submission in tests so calibration never sends a physical print job.
+    @ObservationIgnored var duplexTestSubmit:
+        ((PDFDocument, PrintLayout, PrintRequest, @escaping (DuplexTestResult?) -> Void) -> Void)?
+    private var duplexTestTask: Task<Void, Never>?
     var toast: Toast?
     /// The logical pages the paper shows. They are published before the sheets are composed.
     private(set) var result: PreparedRender?
@@ -116,6 +129,7 @@ final class DocumentViewModel {
     private(set) var isPrinting = false
     /// The printers the tray offers; refreshed when the tray opens and before each print.
     private(set) var printers = PrinterList.empty
+    @ObservationIgnored var printerListSource: () -> PrinterList = { PrinterList.current() }
     private(set) var isExporting = false
     var error: String?
     var outputError: String?
@@ -277,7 +291,7 @@ final class DocumentViewModel {
                 ?? library.presets.first(where: { $0.id == "none" })
         else { return nil }
         var settings = RenderSettings(
-            layout: renderLayout, theme: theme, preset: preset, options: printOptions,
+            layout: renderLayout, theme: theme, preset: preset, options: effectivePrintOptions,
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
@@ -464,6 +478,9 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        pendingPrint = nil
+        duplexTestTask?.cancel()
+        duplexTestTask = nil
         pendingPrintIssue = nil
         if let textSizeKeyMonitor { NSEvent.removeMonitor(textSizeKeyMonitor) }
         textSizeKeyMonitor = nil
@@ -638,11 +655,13 @@ final class DocumentViewModel {
         // A trial was laid out under the previous settings or file.
         themeTrial.end()
         if let openFailure {
+            pendingPrint = nil
             error = openFailure
             isRendering = false
             return
         }
         guard let settings = renderSettings else {
+            pendingPrint = nil
             error = String(localized: "Print styles could not be loaded. Reload them in Settings.")
             isRendering = false
             return
@@ -707,6 +726,7 @@ final class DocumentViewModel {
                 retriedChangedImages = false
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 // A render that a later change made stale leaves the output to the render that follows it.
+                if pendingPrint != nil, settings == renderSettings { resumePendingPrint() }
                 if let output = outputAfterReview, mode == .print, settings == renderSettings {
                     outputAfterReview = nil
                     run(output)
@@ -727,6 +747,7 @@ final class DocumentViewModel {
                 }
                 if case DocumentRenderer.RenderingError.noReadableDocuments(let urls) = error { binder?.didFail(urls) }
                 self.error = Self.message(for: error)
+                pendingPrint = nil
                 pendingPrintIssue = nil
                 outputAfterReview = nil
                 chosenTrial = nil
@@ -860,6 +881,7 @@ final class DocumentViewModel {
     }
 
     func exitPrintMode() {
+        pendingPrint = nil
         guard mode != .view else { return }
         isPrintIssuesPresented = false
         outputAfterReview = nil
@@ -1579,16 +1601,38 @@ final class DocumentViewModel {
         return true
     }
 
+    var rotatesBackSides: Bool {
+        get {
+            preferences.printerProfile(for: selectedPrinterName).rotation(
+                for: layout.duplex, default: preferences.rotateBack)
+        }
+        set {
+            guard let name = selectedPrinterName, layout.duplex != .none else { return }
+            preferences.setPrinterRotation(newValue, for: name, duplex: layout.duplex)
+        }
+    }
+
+    var effectivePrintOptions: PrintOptions {
+        var options = printOptions
+        options.rotatesBackSides = mode == .print && rotatesBackSides
+        return options
+    }
+
     var printPageOrder: PrintPageOrder {
-        get { preferences.printPageOrder }
-        set { preferences.printPageOrder = newValue }
+        get {
+            preferences.printerProfile(for: selectedPrinterName).resolvedPageOrder(default: preferences.printPageOrder)
+        }
+        set {
+            guard let name = selectedPrinterName else { return }
+            preferences.setPrinterPageOrder(newValue, for: name)
+        }
     }
 
     /// The printer Print sends to: the one chosen on the tray while it is set up, otherwise the system's default.
     var selectedPrinterName: String? { printers.resolve(preferences.printerName) }
 
     func refreshPrinters() {
-        let current = PrinterList.current()
+        let current = printerListSource()
         if current != printers { printers = current }
     }
 
@@ -1596,28 +1640,167 @@ final class DocumentViewModel {
         preferences.printerName = name
     }
 
+    struct DuplexTestResult: Identifiable {
+        let id = UUID()
+        let printerName: String
+        let duplex: DuplexMode
+    }
+
+    var canPrintDuplexTest: Bool {
+        layout.duplex != .none && !isPrinting && pendingPrint == nil && duplexTestResult == nil
+    }
+
+    func answerDuplexTest(rotatesBackSides: Bool?) {
+        guard let test = duplexTestResult else { return }
+        if let rotatesBackSides {
+            preferences.setPrinterRotation(rotatesBackSides, for: test.printerName, duplex: test.duplex)
+        }
+        duplexTestResult = nil
+    }
+
+    func printDuplexTest() {
+        guard canPrintDuplexTest, window != nil || duplexTestSubmit != nil else { return }
+        let shown = selectedPrinterName
+        let layout = layout
+        refreshPrinters()
+        let request = printers.request(quick: true, shown: shown, remembered: preferences.printerName)
+        let language = language
+        isPrinting = true
+        outputError = nil
+        duplexTestTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let renderer = DuplexTestRenderer()
+                let testLayout = try renderer.layout(for: layout)
+                let labels = DuplexTestRenderer.Labels(
+                    front: PrintModeText.string("Front", language: language),
+                    back: PrintModeText.string("Back", language: language),
+                    top: PrintModeText.string("Top", language: language),
+                    binding: PrintModeText.string(
+                        layout.duplex == .longEdge ? "Long-edge binding" : "Short-edge binding", language: language),
+                    printer: request.printerName ?? PrintModeText.string("No Printers", language: language),
+                    instruction: PrintModeText.string(
+                        layout.duplex == .longEdge
+                            ? "Turn the sheet along its long edge. The back arrow should point up."
+                            : "Turn the sheet along its short edge. The back arrow should point up.", language: language
+                    ))
+                let document = try await renderer.document(sheet: layout.sheet, labels: labels)
+                try Task.checkCancellation()
+                let complete: (DuplexTestResult?) -> Void = { [weak self] result in
+                    self?.isPrinting = false
+                    self?.duplexTestResult = result
+                }
+                if let duplexTestSubmit {
+                    duplexTestSubmit(document, testLayout, request, complete)
+                } else {
+                    submitDuplexTest(document, layout: testLayout, request: request, complete: complete)
+                }
+            } catch {
+                isPrinting = false
+                if !(error is CancellationError) {
+                    outputError = String(localized: "The print job could not be created.")
+                }
+            }
+        }
+    }
+
+    private func submitDuplexTest(
+        _ document: PDFDocument, layout: PrintLayout, request: PrintRequest,
+        complete: @escaping (DuplexTestResult?) -> Void
+    ) {
+        let destination = request.printerName.flatMap(NSPrinter.init(name:))
+        guard let window,
+            let operation = PrintJobFactory().printOperation(
+                for: document, layout: layout, showsPrintPanel: request.showsPanel || destination == nil,
+                printer: destination, pageOrder: .firstSheetFirst)
+        else {
+            outputError = String(localized: "The print job could not be created.")
+            complete(nil)
+            return
+        }
+        // A single test sheet must not inherit a previous job's copies or page range.
+        let info = operation.printInfo
+        info.dictionary()[NSPrintInfo.AttributeKey.copies] = 1
+        info.dictionary()[NSPrintInfo.AttributeKey.allPages] = true
+        let completion = PrintCompletion { [weak self] success in
+            guard let self else { return }
+            printOperation = nil
+            printCompletion = nil
+            guard success, info.jobDisposition == .spool else {
+                complete(nil)
+                return
+            }
+            var duplex = PMDuplexMode(kPMDuplexNone)
+            let expected = layout.duplex == .longEdge ? kPMDuplexNoTumble : kPMDuplexTumble
+            guard PMGetDuplex(OpaquePointer(info.pmPrintSettings()), &duplex) == noErr,
+                duplex == PMDuplexMode(expected)
+            else {
+                outputError = String(
+                    localized:
+                        "The binding changed in the print dialog. Run the duplex test again without changing the binding."
+                )
+                complete(nil)
+                return
+            }
+            // The system dialog can select another printer. Save only the printer that actually received the job.
+            complete(DuplexTestResult(printerName: info.printer.name, duplex: layout.duplex))
+        }
+        printCompletion = completion
+        printOperation = operation
+        operation.runModal(
+            for: window, delegate: completion,
+            didRun: #selector(PrintCompletion.didRun(_:success:context:)), contextInfo: nil)
+    }
+
     /// Prints the sheets: right away to the selected printer when `quick`, otherwise through the system dialog,
     /// which starts on that printer.
     func printDocument(quick: Bool = false) {
+        guard pendingPrint == nil else { return }
         guard !deferUntilPrintMode(.print(quick: quick)),
             !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick))
         else {
             return
         }
-        guard canOutput, let result = printResult else { return }
-        if let outputOverride { return outputOverride(.print(quick: quick), result) }
+        guard canOutput else { return }
+        pendingPrint = PendingPrint(
+            request: PrintRequest(printerName: selectedPrinterName, showsPanel: !quick), quick: quick)
+        resumePendingPrint()
+    }
+
+    private func resumePendingPrint() {
+        guard var pending = pendingPrint else { return }
+        guard mode == .print else {
+            pendingPrint = nil
+            return
+        }
+        refreshPrinters()
+        // Once a destination change required the panel, later refreshes must not turn the job into a quick print.
+        pending.request = printers.request(
+            quick: !pending.request.showsPanel, shown: pending.request.printerName,
+            remembered: preferences.printerName)
+        pendingPrint = pending
+        guard renderedSettings == renderSettings else {
+            render()
+            return
+        }
+        guard canOutput, let result = printResult else {
+            pendingPrint = nil
+            return
+        }
+        let request = pending.request
+        let pageOrder = printPageOrder
+        pendingPrint = nil
+        if let printSubmit { return printSubmit(result, request, pageOrder) }
+        if let outputOverride { return outputOverride(.print(quick: pending.quick), result) }
         guard let window else { return }
         outputError = nil
-        let shown = selectedPrinterName
-        refreshPrinters()
-        let request = printers.request(quick: quick, shown: shown, remembered: preferences.printerName)
         let destination = request.printerName.flatMap(NSPrinter.init(name:))
         // Without a printer the system dialog still offers saving a PDF or adding a printer.
         let quick = !request.showsPanel && destination != nil
         guard
             let operation = PrintJobFactory().printOperation(
                 for: result.sheetDocument, layout: result.layout, showsPrintPanel: !quick,
-                printer: destination, pageOrder: preferences.printPageOrder)
+                printer: destination, pageOrder: pageOrder)
         else {
             outputError = String(localized: "The print job could not be created.")
             return

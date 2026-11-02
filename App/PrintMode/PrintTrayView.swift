@@ -40,7 +40,7 @@ struct PrintTrayView: View {
                                             sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
                                             language: model.language, imageNames: imageNames,
                                             // The sheets were drawn with the options of their render.
-                                            options: model.renderedSettings?.options ?? model.printOptions)
+                                            options: model.renderedSettings?.options ?? model.effectivePrintOptions)
                                     }
                                 }
                                 .id(row.id)

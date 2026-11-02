@@ -163,7 +163,7 @@ struct PrintPressBar: View {
     }
 
     private var optionsText: String? {
-        PrintModeText.options(model.printOptions, layout: model.layout, language: model.language)
+        PrintModeText.options(model.effectivePrintOptions, layout: model.layout, language: model.language)
     }
 
     private var printAccessibilityLabel: String {
@@ -200,6 +200,10 @@ private struct PrinterPicker: View {
                 }
                 .pickerStyle(.inline)
             }
+            Divider()
+            Button("Duplex Test Print…") { model.printDuplexTest() }
+                .disabled(!model.canPrintDuplexTest)
+            if model.layout.duplex == .none { Text("Choose a duplex layout to test back-side orientation.") }
             Divider()
             Button("Print with System Dialog…") { model.printDocument(quick: false) }
                 .disabled(!model.canOutput)
@@ -413,29 +417,41 @@ struct PrintOptionsPopover: View {
                     MarginControl(model: model).controlSize(.small)
                 }
             }
-            row("Print Order", hint: PrintPageOrderPicker.hint) {
+            row("Print Order", hint: printerOrderHint) {
                 PrintPageOrderPicker(order: $model.printPageOrder)
+                    .disabled(model.selectedPrinterName == nil)
                     .labelsHidden()
                     .controlSize(.small)
                     .fixedSize()
             }
             row(
                 "Rotate Back Sides 180°",
-                hint: isDuplex
-                    ? "For printers that print back sides upside down, or when feeding the back sides by hand."
-                    : "Available for duplex layouts (A4 Duplex and booklets)."
+                hint: rotationHint
             ) {
-                Toggle("Rotate Back Sides 180°", isOn: $model.printOptions.rotatesBackSides)
+                Toggle("Rotate Back Sides 180°", isOn: $model.rotatesBackSides)
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .labelsHidden()
-                    .disabled(!isDuplex)
+                    .disabled(!isDuplex || model.selectedPrinterName == nil)
             }
         }
         .foregroundStyle(PrintPalette.ink)
         .tint(PrintPalette.ai)
         .padding(EdgeInsets(top: 14, leading: 16, bottom: 6, trailing: 16))
         .frame(width: 460)
+    }
+
+    private var printerOrderHint: LocalizedStringKey {
+        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
+        return "Remembered for \(name). Last Sheet First keeps face-up sheets in page order."
+    }
+
+    private var rotationHint: LocalizedStringKey {
+        guard isDuplex else { return "Available for duplex layouts (A4 Duplex and booklets)." }
+        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
+        return model.layout.duplex == .longEdge
+            ? "Remembered for \(name) with long-edge binding."
+            : "Remembered for \(name) with short-edge binding."
     }
 
     private var isDuplex: Bool { model.layout.duplex != .none }
@@ -473,7 +489,7 @@ struct PrintPageOrderPicker: View {
     @Binding var order: PrintPageOrder
 
     static let hint: LocalizedStringKey =
-        "Applies to all documents. Last Sheet First keeps sheets that come out face up in page order."
+        "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order."
 
     var body: some View {
         Picker("Print Order", selection: $order) {
