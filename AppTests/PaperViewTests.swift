@@ -8,6 +8,18 @@ import Testing
 
 @MainActor
 struct PaperViewTests {
+    @Test("組版結果を指定したページ移動は別のPDFが表示中なら送らない")
+    func navigationRequiresMatchingDocument() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("source", pages: 3)))
+        let replacement = try #require(PDFDocument(data: TestFixtures.pdf("replacement", pages: 3)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.goToPage(index: 2, in: replacement)
+        #expect(view.currentPageIndex == 0)
+        view.goToPage(index: 2, in: source)
+        #expect(view.currentPageIndex == 2)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("縦横混在でも基準は縦のままで横ページと見開き全体が窓に収まる", arguments: [false, true])
     func mixedPagesFit(spread: Bool) throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("mixed", pages: 4)))

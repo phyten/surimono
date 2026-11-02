@@ -58,8 +58,8 @@ struct SmartRemovalRenderingTests {
         var calls = 0
         let renderer = DocumentRenderer(paginateWithResult: { request in
             calls += 1
-            // Only the question whether the theme has paper, which every themed page asks.
-            #expect(request.preparationScript == nil || request.preparationScript == PaperBackground.detectionScript)
+            #expect(request.preparationScript?.contains("const request = ") == false)
+            #expect(request.preparationScript?.contains("surimono-issue:") == true)
             return WebPaginator.Result(
                 document: try RenderingFixtures.pdf(),
                 preparationResult: ##"[{"id":"#ad","category":"advertisement","excerpt":"Ad","reason":"ad"}]"##)
@@ -91,7 +91,7 @@ struct SmartRemovalRenderingTests {
             HTMLCleanupScript.javaScript(for: changed.preset) + "\n"
             + PaperCleanupScript.following(SmartRemovalScript.javaScript(for: SmartRemovalRequest()))
         let renderer = DocumentRenderer(paginateWithResult: { request in
-            #expect(request.preparationScript == expected)
+            #expect(request.preparationScript?.contains(expected) == true)
             #expect(!request.allowsJavaScript)
             return WebPaginator.Result(document: try RenderingFixtures.pdf(), preparationResult: "invalid")
         })

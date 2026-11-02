@@ -150,6 +150,7 @@ public struct PreparedRender {
     public let requiredFolderAccess: URL?
     public let unreadableImageURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
+    public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
     let sheetKey: SheetKey
     let options: PrintOptions
@@ -184,6 +185,7 @@ public struct RenderResult {
     public let requiredFolderAccess: URL?
     public let unreadableImageURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
+    public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
 
     init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
@@ -198,6 +200,7 @@ public struct RenderResult {
         requiredFolderAccess = prepared.requiredFolderAccess
         unreadableImageURLs = prepared.unreadableImageURLs
         smartRemovalCandidates = prepared.smartRemovalCandidates
+        issues = prepared.issues
         changeMarks = prepared.changeMarks
     }
 }
@@ -248,6 +251,7 @@ public final class DocumentRenderer {
         var requiredFolderAccess: URL?
         let unreadable: [URL]
         let candidates: [SmartRemovalCandidate]
+        var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
         var markRequests: [MarkdownMarkRequest] = []
         /// The serialized pages the sheets are drawn from, made once for all compositions.
@@ -424,6 +428,7 @@ public final class DocumentRenderer {
                 logical = cache.logical
             } else {
                 var requiredFolderAccess: URL?
+                var issues: [PrintIssue] = []
                 let document: PDFDocument
                 let unreadable: [URL]
                 let candidates: [SmartRemovalCandidate]
@@ -438,6 +443,7 @@ public final class DocumentRenderer {
                         sourcePageRule = (source, PageRule.orientation(of: result.pageRules))
                     }
                     requiredFolderAccess = result.requiredFolderAccess
+                    issues = result.issues
                     document = result.document
                     candidates =
                         source.format == .html && settings.smartRemoval != nil
@@ -452,6 +458,7 @@ public final class DocumentRenderer {
                     viewDocument: source.format == .image ? ImagePageRenderer.viewDocument(of: document) : document,
                     unreadable: unreadable, candidates: candidates)
                 logical.requiredFolderAccess = requiredFolderAccess
+                logical.issues = issues
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
                 if generation == currentGeneration { cache = (key, logical) }
@@ -471,7 +478,7 @@ public final class DocumentRenderer {
                 logicalDocument: logical.document, viewDocument: logical.viewDocument, plan: plan,
                 summary: PrintSummary(plan: plan),
                 requiredFolderAccess: logical.requiredFolderAccess, unreadableImageURLs: logical.unreadable,
-                smartRemovalCandidates: logical.candidates,
+                smartRemovalCandidates: logical.candidates, issues: logical.issues,
                 changeMarks: requests.isEmpty ? [] : logical.changeMarks,
                 sheetKey: SheetKey(
                     logicalID: logical.id, layout: settings.layout, options: settings.options,
@@ -623,14 +630,14 @@ public final class DocumentRenderer {
             } else {
                 preparation += "\n" + PaperCleanupScript.javaScript
             }
-            return try await paginate(
+            return try await paginateCheckingIssues(
                 PaginationRequest(
                     source: sandboxSource(input, for: source),
                     pageSize: settings.layout.logicalPageSize(options: settings.options),
                     margins: .uniform(
                         millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
-                    readsPageRules: true))
+                    readsPageRules: true), source: source)
         case .markdown, .org, .plainText, .csv, .latex:
             var missingImage = false
             let access = resourceAccess(for: source)
@@ -676,13 +683,13 @@ public final class DocumentRenderer {
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
             let parts = [marksScript, themeScript].filter { !$0.isEmpty }
             let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")
-            var text = try await paginate(
+            var text = try await paginateCheckingIssues(
                 PaginationRequest(
                     source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
                     margins: .uniform(millimeters: margin),
                     allowsJavaScript: false,
                     preparationScript: preparation,
-                    readsPageRules: false, drawsBackground: !separatesPaper))
+                    readsPageRules: false, drawsBackground: !separatesPaper), source: source)
             if missingImage { text.requiredFolderAccess = directory }
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
@@ -704,10 +711,49 @@ public final class DocumentRenderer {
             guard let paperPage = paper.document.page(at: 0),
                 let composed = PaperComposer.compose(text.document, paper: paperPage)
             else { return text }
-            return WebPaginator.Result(
+            var result = WebPaginator.Result(
                 document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules,
                 requiredFolderAccess: text.requiredFolderAccess ?? paper.requiredFolderAccess)
+            result.issues = text.issues
+            return result
         }
+    }
+
+    private func paginateCheckingIssues(_ request: PaginationRequest, source: DocumentSource) async throws
+        -> WebPaginator.Result
+    {
+        let wrapped = PaginationRequest(
+            source: request.source, pageSize: request.pageSize, margins: request.margins,
+            allowsJavaScript: request.allowsJavaScript,
+            preparationScript: PrintIssueAnchors.following(
+                request.preparationScript, themed: source.format.usesPrintTheme),
+            readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground)
+        let output = try await paginate(wrapped)
+        let preparation = output.preparationResult.flatMap {
+            try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
+        }
+        let access = resourceAccess(for: source)
+        let issues = (preparation?.issues ?? []).map { issue in
+            var issue = issue
+            if issue.kind == .image {
+                let url = URL(string: issue.detail)
+                let file = url.flatMap { $0.isFileURL ? $0 : LocalResourceSchemeHandler.fileURL(for: $0) }
+                issue.imageFailure = file.map { PrintIssueAnchors.imageFailure($0, access: access) } ?? .other
+                issue.detail =
+                    (file ?? url).map {
+                        PrintIssue.imageName($0, directory: source.fileURL?.deletingLastPathComponent())
+                    } ?? ""
+            } else if issue.kind == .math {
+                issue.detail = PrintIssue.excerpt(issue.detail)
+            }
+            return issue
+        }
+        var result = WebPaginator.Result(
+            document: output.document,
+            preparationResult: preparation.map { $0.previous } ?? output.preparationResult,
+            pageRules: output.pageRules, requiredFolderAccess: output.requiredFolderAccess)
+        result.issues = PrintIssueAnchors.extract(from: output.document, issues: issues)
+        return result
     }
 
     private func resourceAccess(for source: DocumentSource) -> LocalResourceAccess? {

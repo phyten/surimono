@@ -522,7 +522,11 @@ struct WebCaptureTests {
         try await waitUntil { model.canOutput }
         let request = try #require(fixture.requests().last)
         #expect(fixture.requests().count == before + 1)
-        #expect(request.preparationScript?.hasPrefix(HTMLSnapshotScript.openDetailsJavaScript) == true)
+        let preparation = try #require(request.preparationScript)
+        let openingDetails = try #require(preparation.range(of: HTMLSnapshotScript.openDetailsJavaScript))
+        let checkingImages = try #require(preparation.range(of: "for (const el of document.querySelectorAll('img'))"))
+        // Preparation may be wrapped, but hidden content must be opened before checking its images.
+        #expect(openingDetails.upperBound <= checkingImages.lowerBound)
         if case .snapshot = request.source {} else { Issue.record("開くのは写しの組版") }
 
         // The original page has its own details; the count is that of the copy.

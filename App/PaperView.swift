@@ -13,7 +13,7 @@ final class PaperController {
     func zoomOut() { view?.stepZoom(up: false) }
     func zoomToFit() { view?.setZoom(1, anchor: nil) }
     func turnPage(forward: Bool) { view?.turnPage(forward: forward) }
-    func goToPage(index: Int) { view?.goToPage(index: index) }
+    func goToPage(index: Int, in document: PDFDocument? = nil) { view?.goToPage(index: index, in: document) }
     func focus() {
         guard let view else { return }
         view.window?.makeFirstResponder(view)
@@ -591,7 +591,8 @@ final class PaperPDFView: PDFView {
 
     // MARK: - Turning pages
 
-    func goToPage(index: Int) {
+    func goToPage(index: Int, in source: PDFDocument? = nil) {
+        guard source == nil || sourceDocument === source else { return }
         guard let document, let pagePlan, let requested = pagePlan.viewIndex(for: index),
             let first = pagePlan.readingIndex(at: requested), let viewIndex = pagePlan.viewIndex(for: first),
             let page = document.page(at: viewIndex)

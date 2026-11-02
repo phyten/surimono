@@ -55,6 +55,8 @@ final class DocumentViewModel {
     var isSelectingText = false
     var isViewOptionsPresented = false
     var isPrintOptionsPresented = false
+    var isPrintIssuesPresented = false
+    @ObservationIgnored private var pendingPrintIssue: (issue: PrintIssue, pageCount: Int)?
     /// The style palette is open beside the paper.
     var isThemePalettePresented = false
     /// The first page of the document in each theme, for the palette and the comparison stage.
@@ -306,6 +308,58 @@ final class DocumentViewModel {
         return Self.summaryText(result.summary, layout: renderedSettings.layout, locale: Locale(identifier: language))
     }
     var pageCount: Int { result?.logicalDocument.pageCount ?? 0 }
+    var printIssues: [PrintIssue] { result?.issues ?? [] }
+    var printIssueCount: Int { printIssues.count }
+
+    func reviewPrintIssues() {
+        guard !printIssues.isEmpty else { return }
+        isPrintOptionsPresented = false
+        isPrintIssuesPresented = true
+        enterPrintMode()
+    }
+
+    func showPrintIssue(_ issue: PrintIssue) {
+        guard let page = issue.pageNumber else { return }
+        isPrintIssuesPresented = false
+        setHTMLPresentation(.paper, capturesWeb: false)
+        if (renderedSettings?.layout ?? renderLayout) == .a4Single {
+            pendingPrintIssue = nil
+            currentPageIndex = max(0, page - 1)
+        } else {
+            pendingPrintIssue = (issue, pageCount)
+        }
+        exitPrintMode()
+    }
+
+    private func resumePrintIssueNavigation() {
+        guard pendingPrintIssue != nil else { return }
+        if isUpToDate {
+            resolvePrintIssueNavigation()
+        } else {
+            render()
+        }
+    }
+
+    private func resolvePrintIssueNavigation() {
+        guard mode == .view, isUpToDate, let pendingPrintIssue, let result else { return }
+        let index = pendingPrintIssue.issue.pageIndex(
+            in: result.issues, pageCount: result.logicalDocument.pageCount,
+            sourcePageCount: pendingPrintIssue.pageCount)
+        self.pendingPrintIssue = nil
+        currentPageIndex = index
+        // SwiftUI may still show the old PDF. A newly attached paper uses currentPageIndex instead.
+        paper.goToPage(index: index, in: result.viewDocument)
+    }
+
+    func useLandscapeForPrintIssue() {
+        paperOrientation = .landscape
+    }
+
+    func revealPrintIssueFolder() {
+        guard let fileURL else { return }
+        NSWorkspace.shared.open(fileURL.deletingLastPathComponent())
+    }
+
     var smartRemovalCandidates: [SmartRemovalCandidate] { result?.smartRemovalCandidates ?? [] }
     var removedPartCount: Int { smartRemovalCandidates.filter { !smartRemovalKeptIDs.contains($0.id) }.count }
     var displayUnits: [DisplayUnit] {
@@ -398,6 +452,7 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        pendingPrintIssue = nil
         if let textSizeKeyMonitor { NSEvent.removeMonitor(textSizeKeyMonitor) }
         textSizeKeyMonitor = nil
         renderTask?.cancel()
@@ -529,6 +584,7 @@ final class DocumentViewModel {
     }
 
     private func applyReload(reloadsWeb: Bool) {
+        pendingPrintIssue = nil
         reloadOwnsProgress = false
         reloadRequiresRefresh = false
         reloadRequiresWebRefresh = false
@@ -625,6 +681,7 @@ final class DocumentViewModel {
                     plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
                     sheetOrientations: output.sheetOrientations)
                 isRendering = false
+                resolvePrintIssueNavigation()
                 retriedChangedImages = false
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 // A render that a later change made stale leaves the output to the render that follows it.
@@ -647,6 +704,7 @@ final class DocumentViewModel {
                     unreadableImageURLs = urls
                 }
                 self.error = Self.message(for: error)
+                pendingPrintIssue = nil
                 outputAfterReview = nil
                 chosenTrial = nil
                 isRendering = false
@@ -718,6 +776,7 @@ final class DocumentViewModel {
     }
 
     func enterPrintMode() {
+        pendingPrintIssue = nil
         guard mode != .print else { return }
         guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
         // The tray prints the page as it is now.
@@ -753,6 +812,7 @@ final class DocumentViewModel {
 
     func enterCompareMode() {
         guard mode == .view, format.usesPrintTheme else { return }
+        pendingPrintIssue = nil
         isThemePalettePresented = false
         themeTrial.end()
         isViewOptionsPresented = false
@@ -778,10 +838,12 @@ final class DocumentViewModel {
 
     func exitPrintMode() {
         guard mode != .view else { return }
+        isPrintIssuesPresented = false
         outputAfterReview = nil
         guard let window else {
             resetPrintChoices()
             mode = .view
+            resumePrintIssueNavigation()
             return
         }
         resetPrintChoices()
@@ -793,6 +855,7 @@ final class DocumentViewModel {
             // The view mode shows only the paper, and the print layout may have changed the pages' shape on the
             // stage, so the window keeps its height and takes the pages' width again.
             sizeWindowToPaper(keepHeight: true)
+            resumePrintIssueNavigation()
         }
     }
 

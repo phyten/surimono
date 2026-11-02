@@ -228,6 +228,9 @@ struct BandMoreMenu: View {
                     isOn: Binding(get: { model.ignoresSlides }, set: { model.setIgnoresSlides($0) }))
                 Divider()
             }
+            if model.printIssueCount > 0 {
+                Button("Before Printing (\(model.printIssueCount))…") { model.reviewPrintIssues() }
+            }
             Button("View Options…") { model.isViewOptionsPresented = true }
                 .help("View Options (V)")
             Divider()
