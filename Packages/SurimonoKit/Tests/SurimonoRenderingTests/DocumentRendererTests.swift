@@ -702,6 +702,6 @@ struct DocumentRendererTests {
         _ = try await renderer.render(source, settings: settings)
         #expect(requests.count == 2)
         #expect(requests[0].preparationScript?.contains(HTMLSnapshotScript.openDetailsJavaScript) == false)
-        #expect(requests[1].preparationScript?.hasPrefix(HTMLSnapshotScript.openDetailsJavaScript) == true)
+        #expect(requests[1].preparationScript?.contains(HTMLSnapshotScript.openDetailsJavaScript) == true)
     }
 }

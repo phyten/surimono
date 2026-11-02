@@ -47,6 +47,7 @@ public final class WebPaginator: NSObject {
         /// The document's own `@page` rules with a size, read before the preparation script ran; empty unless asked.
         public let pageRules: [PageRule]
         public var requiredFolderAccess: URL?
+        public var issues: [PrintIssue] = []
 
         public init(
             document: PDFDocument, preparationResult: String? = nil, pageRules: [PageRule] = [],

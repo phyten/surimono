@@ -18,6 +18,13 @@ struct PrintPressBar: View {
         .frame(maxWidth: .infinity)
         .background(PrintPalette.chrome)
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
+        .onChange(of: model.printIssueCount) { _, count in
+            if count == 0 { model.isPrintIssuesPresented = false }
+        }
+        .popover(isPresented: $model.isPrintIssuesPresented, arrowEdge: .top) {
+            // The popover can lie over the white paper, where a bare material turns mid-grey and its hints fade.
+            PrintIssuesPopover(model: model).presentationBackground(PrintPalette.raised)
+        }
         .popover(isPresented: $model.isPrintOptionsPresented, arrowEdge: .top) {
             PrintOptionsPopover(model: model)
         }
@@ -76,6 +83,15 @@ struct PrintPressBar: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     if model.isRendering { ProgressView().controlSize(.mini) }
+                }
+                if model.printIssueCount > 0 {
+                    Button("Check \(model.printIssueCount)") { model.reviewPrintIssues() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(PrintPalette.ai)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(PrintPalette.aiTint, in: RoundedRectangle(cornerRadius: 5))
                 }
                 if let note {
                     // Notes about blank pages run long; they may take a second line.

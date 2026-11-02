@@ -126,7 +126,7 @@
                     try? await Task.sleep(for: .milliseconds(600))
                 default: break
                 }
-                if argument("SurimonoMode") == "print" {
+                if argument("SurimonoMode") == "print" || argument("SurimonoPopover") == "issues" {
                     // After the page script, so that the tray shows the page as it was left.
                     model.enterPrintMode()
                     try? await Task.sleep(for: .milliseconds(1500))
@@ -141,6 +141,10 @@
                     }
                     if argument("SurimonoTray") != nil { try? await Task.sleep(for: .milliseconds(1500)) }
                     // The press bar exists only in print mode, so its popover opens after entering it.
+                    if argument("SurimonoPopover") == "issues" {
+                        model.reviewPrintIssues()
+                        try? await Task.sleep(for: .milliseconds(800))
+                    }
                     if argument("SurimonoPopover") == "printOptions" {
                         model.isPrintOptionsPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
