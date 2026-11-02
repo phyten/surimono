@@ -57,7 +57,7 @@ struct PrintIssuesPopover: View {
                 .help(
                     PaperOrientationControl(model: model).isFixed
                         ? Text("This layout uses a fixed paper orientation.") : Text("Paper Orientation"))
-            if model.format.usesPrintTheme {
+            if model.usesPrintTheme {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }

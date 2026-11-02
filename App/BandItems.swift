@@ -35,9 +35,9 @@ extension BandLayout.Item {
             case .presentation: model.usesHTMLPresentation
             // On the web, only a slide deck has pages to count.
             case .pageIndicator: model.pageIndicator != nil
-            case .style: paper && (model.format.usesPrintTheme || model.format.usesHTMLPreset)
+            case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
-            case .thumbnails: model.imageBundle != nil
+            case .thumbnails: model.imageBundle != nil || model.binder != nil
             }
         }
     }
@@ -276,14 +276,14 @@ private struct BandMenuItem: View {
             }
         case .style:
             Menu {
-                if model.format.usesPrintTheme {
+                if model.usesPrintTheme {
                     Button("Choose from Samples…") { model.openThemePalette() }
                     Divider()
                 }
                 StyleMenuItems(model: model)
             } label: {
                 let title =
-                    model.format.usesHTMLPreset ? String(localized: "HTML Preset") : String(localized: "Print Theme")
+                    model.usesHTMLPreset ? String(localized: "HTML Preset") : String(localized: "Print Theme")
                 Text(verbatim: choice(title, model.styleName))
             }
         case .layout:

@@ -27,6 +27,10 @@ final class DocumentViewModel {
     let fileURL: URL?
     private let title: String?
     let imageBundle: ImageBundleModel?
+    let binder: BinderModel?
+    var binderStartsOnFront = false
+    var usesPrintTheme: Bool { binder?.usesPrintTheme ?? format.usesPrintTheme }
+    var usesHTMLPreset: Bool { binder?.usesHTMLPreset ?? format.usesHTMLPreset }
     private(set) var unreadableImageURLs: [URL] = []
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
@@ -145,7 +149,7 @@ final class DocumentViewModel {
     @ObservationIgnored private var hashTask: Task<Void, Never>?
     @ObservationIgnored private var openFailure: String?
     @ObservationIgnored private var retriedChangedImages = false
-    @ObservationIgnored private var hasShownArchiveSummary = false
+    @ObservationIgnored private var hasShownBundleSummary = false
     private var hasResolvedViewOptions = false
     @ObservationIgnored private var defaultViewOptions: ViewOptions?
     /// The guess shown before the pages are known; a different value then can only come from the user.
@@ -175,10 +179,11 @@ final class DocumentViewModel {
         data: Data, fileURL: URL?, format: DocumentFormat,
         preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer(),
         imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil,
-        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil
+        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, binder: BinderModel? = nil
     ) {
         themeTrial = ThemeTrial(renderer: trialRenderer)
         self.imageBundle = imageBundle
+        self.binder = binder
         self.settingsStore = settingsStore
         self.data = data
         self.fileURL = fileURL
@@ -209,26 +214,31 @@ final class DocumentViewModel {
         #endif
     }
 
-    var sourceURLs: [URL] { imageBundle?.urls ?? [fileURL].compactMap { $0 } }
+    var sourceURLs: [URL] { binder?.urls ?? imageBundle?.urls ?? [fileURL].compactMap { $0 } }
     /// The document as the print themes lay it out; nil for the formats that print without a theme.
     var themedSource: DocumentSource? {
-        format.usesPrintTheme && imageBundle == nil
+        if let binder { return binder.cachedSource }
+        return format.usesPrintTheme && imageBundle == nil
             ? withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format)) : nil
     }
     var protectedSourceURLs: [URL] {
         NSDocumentController.shared.documents.compactMap(\.fileURL)
-            + ImageBundleWindows.shared.sourceURLs + sourceURLs
+            + ImageBundleWindows.shared.sourceURLs + BinderWindows.shared.sourceURLs + sourceURLs
     }
     var exportName: String {
-        imageBundle?.exportName(layout: renderedSettings?.layout ?? layout, language: language)
+        binder?.exportName(layout: renderedSettings?.layout ?? layout, language: language)
+            ?? imageBundle?.exportName(layout: renderedSettings?.layout ?? layout, language: language)
             ?? Self.exportName(
                 fileURL: fileURL, layout: renderedSettings?.layout ?? layout, language: language, title: title)
     }
     var displayName: String {
-        imageBundle?.title(language: language) ?? title ?? fileURL?.lastPathComponent ?? String(localized: "Document")
+        binder?.title(language: language) ?? imageBundle?.title(language: language) ?? title ?? fileURL?
+            .lastPathComponent ?? String(localized: "Document")
     }
     /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
-    var formatBadge: String { imageBundle == nil || format == .zipArchive ? format.badge : "IMG" }
+    var formatBadge: String {
+        binder != nil ? String(localized: "Binder") : imageBundle == nil || format == .zipArchive ? format.badge : "IMG"
+    }
 
     var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
@@ -261,22 +271,24 @@ final class DocumentViewModel {
 
     var renderSettings: RenderSettings? {
         guard
-            let theme = library.themes.first(where: { $0.id == (format.usesPrintTheme ? themeID : "standard") })
+            let theme = library.themes.first(where: { $0.id == (usesPrintTheme ? themeID : "standard") })
                 ?? library.themes.first(where: { $0.id == "standard" }),
-            let preset = library.presets.first(where: { $0.id == (format.usesHTMLPreset ? presetID : "none") })
+            let preset = library.presets.first(where: { $0.id == (usesHTMLPreset ? presetID : "none") })
                 ?? library.presets.first(where: { $0.id == "none" })
         else { return nil }
-        return RenderSettings(
+        var settings = RenderSettings(
             layout: renderLayout, theme: theme, preset: preset, options: printOptions,
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
                 : nil,
-            textScale: format.usesPrintTheme ? textScale : 1, paperOrientation: paperOrientation,
+            textScale: usesPrintTheme ? textScale : 1, paperOrientation: paperOrientation,
             opensDetails: rendersSnapshot && opensClosedDetails,
             slides: slideDeck.map {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
             }, markdownChanges: format == .markdown ? markdownChanges : [])
+        settings.binderStartsOnFront = binder != nil && binderStartsOnFront
+        return settings
     }
     /// Paper and printing show the copy of the live page, unless there is none or the tray asks for the file.
     var rendersSnapshot: Bool { usesHTMLPresentation && liveSnapshot != nil && !printsOriginalPage }
@@ -428,8 +440,8 @@ final class DocumentViewModel {
                     handleFileEvent(event)
                 })
         }
-        if let imageBundle, imageBundle.archiveURL != nil, !hasShownArchiveSummary, openFailure == nil {
-            hasShownArchiveSummary = true
+        if let imageBundle, !hasShownBundleSummary, openFailure == nil {
+            hasShownBundleSummary = true
             let excluded = imageBundle.excludedSummary
             if !excluded.isEmpty {
                 showToast(
@@ -471,6 +483,7 @@ final class DocumentViewModel {
         watcher = nil
         cancelCapture()
         web.close()
+        binder?.stop()
         themeTrial.end()
         themeSamples.invalidate()
         folderLease?.close()
@@ -593,6 +606,7 @@ final class DocumentViewModel {
         themeTrial.clear()
         themeSamples.invalidate()
         imageBundle?.clearCache()
+        binder?.clearCache()
         if reloadsWeb {
             // The page starts over from the new file, and paper follows it; a copy of the old page is not used.
             cancelCapture()
@@ -647,7 +661,14 @@ final class DocumentViewModel {
             guard let self else { return }
             do {
                 let source: DocumentSource
-                if let imageBundle {
+                if let binder {
+                    source = try await binder.source()
+                    if let hash = binder.setHash { didComputeHash(hash) }
+                    if sourceURLs != self.sourceURLs || settings != renderSettings {
+                        render()
+                        return
+                    }
+                } else if let imageBundle {
                     source = try await imageBundle.source()
                     // The digests and the key of their set change together, so nothing is saved under a mixed state.
                     if imageBundle.archiveURL == nil, let hash = imageBundle.setHash { didComputeHash(hash) }
@@ -665,6 +686,7 @@ final class DocumentViewModel {
                 renderedSourceURLs = sourceURLs
                 renderedFromSnapshot = fromSnapshot
                 unreadableImageURLs = prepared.unreadableImageURLs
+                binder?.didRender(prepared)
                 resolveViewOptionsIfNeeded(for: prepared.viewDocument)
                 if let imageBundle {
                     // The digests of the images are known now, so a remembered order can be restored.
@@ -703,6 +725,7 @@ final class DocumentViewModel {
                 if case DocumentRenderer.RenderingError.noReadableImages(let urls) = error {
                     unreadableImageURLs = urls
                 }
+                if case DocumentRenderer.RenderingError.noReadableDocuments(let urls) = error { binder?.didFail(urls) }
                 self.error = Self.message(for: error)
                 pendingPrintIssue = nil
                 outputAfterReview = nil
@@ -713,7 +736,7 @@ final class DocumentViewModel {
     }
 
     func setTextScale(_ value: Double) {
-        guard format.usesPrintTheme, TextScale.steps.contains(value) else { return }
+        guard usesPrintTheme, TextScale.steps.contains(value) else { return }
         textScale = value
     }
 
@@ -735,10 +758,10 @@ final class DocumentViewModel {
 
     /// Whether the margin shows on the pages view mode displays. PDFs keep their own margins, and the 3-up handout
     /// insets the sheet instead of its logical pages.
-    var marginsApply: Bool { format != .pdf && renderLayout.kind != .handout3 }
+    var marginsApply: Bool { (binder != nil || format != .pdf) && renderLayout.kind != .handout3 }
 
     /// Whether the margin changes the printed sheets: everything but PDFs, including the 3-up handout's sheet.
-    var marginsAffectPrinting: Bool { format != .pdf }
+    var marginsAffectPrinting: Bool { binder != nil || format != .pdf }
 
     /// The presets, plus the current margin when it is none of them, so the menu always checks the current value.
     var marginChoices: [Double] {
@@ -811,7 +834,7 @@ final class DocumentViewModel {
     }
 
     func enterCompareMode() {
-        guard mode == .view, format.usesPrintTheme else { return }
+        guard mode == .view, usesPrintTheme else { return }
         pendingPrintIssue = nil
         isThemePalettePresented = false
         themeTrial.end()
@@ -1158,14 +1181,16 @@ final class DocumentViewModel {
     var rememberedSettings: DocumentSettings {
         DocumentSettings(
             view: viewOptions, zoom: (zoom * 100).rounded() / 100, layoutID: layoutID,
-            themeID: format.usesPrintTheme ? themeID : nil,
-            textScale: format.usesPrintTheme ? textScale : nil, presetID: format.usesHTMLPreset ? presetID : nil,
+            themeID: usesPrintTheme ? themeID : nil,
+            textScale: usesPrintTheme ? textScale : nil, presetID: usesHTMLPreset ? presetID : nil,
             smartRemoval: format == .html && (isSmartRemovalEnabled || !smartRemovalKeptIDs.isEmpty)
                 ? DocumentSettings.SmartRemoval(isEnabled: isSmartRemovalEnabled, keptIDs: smartRemovalKeptIDs) : nil,
             printOptions: printOptions,
             imageOrder: imageBundle.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
             paperOrientation: paperOrientation, htmlPresentation: usesHTMLPresentation ? htmlPresentation : nil,
-            ignoresSlides: usesHTMLPresentation && ignoresSlides ? true : nil)
+            ignoresSlides: usesHTMLPresentation && ignoresSlides ? true : nil,
+            binderOrder: binder.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
+            binderStartsOnFront: binder != nil ? binderStartsOnFront : nil)
     }
 
     func savePrintSettingSet(named name: String) {
@@ -1174,7 +1199,8 @@ final class DocumentViewModel {
 
     private func applicablePrintSettingSet(_ set: PrintSettingSet) -> PrintSettingSet {
         set.applicable(
-            to: format, themeIDs: Set(library.themes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
+            to: Set(binder?.items.map(\.format) ?? [format]),
+            themeIDs: Set(library.themes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
     }
 
     func matchesPrintSettingSet(_ set: PrintSettingSet) -> Bool {
@@ -1199,11 +1225,12 @@ final class DocumentViewModel {
     private var defaultSettings: DocumentSettings {
         DocumentSettings(
             view: defaultViewOptions ?? initialViewOptions, zoom: 1, layoutID: Self.defaultLayoutID(preferences),
-            themeID: format.usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
-            textScale: format.usesPrintTheme ? 1 : nil,
-            presetID: format.usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
+            themeID: usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
+            textScale: usesPrintTheme ? 1 : nil,
+            presetID: usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
             printOptions: preferences.printOptions, paperOrientation: .auto,
-            htmlPresentation: usesHTMLPresentation ? .web : nil)
+            htmlPresentation: usesHTMLPresentation ? .web : nil,
+            binderStartsOnFront: binder != nil ? false : nil)
     }
 
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
@@ -1221,7 +1248,7 @@ final class DocumentViewModel {
 
     /// Single files and ZIPs are keyed by their bytes; a bundle of image files once its images are read.
     private func computeContentHash() {
-        guard imageBundle == nil || imageBundle?.archiveURL != nil else { return }
+        guard binder == nil, imageBundle == nil || imageBundle?.archiveURL != nil else { return }
         hashTask?.cancel()
         let data = data
         hashTask = Task { [weak self] in
@@ -1252,6 +1279,8 @@ final class DocumentViewModel {
     }
 
     private func apply(_ saved: DocumentSettings) {
+        binderStartsOnFront = saved.binderStartsOnFront ?? false
+        if let order = saved.binderOrder { binder?.applyOrder(order) }
         setTextScale(saved.textScale ?? 1)
         if let view = saved.view {
             viewOptions = view
@@ -1281,6 +1310,7 @@ final class DocumentViewModel {
 
     /// Saves shortly after the user changes something remembered for this document.
     func rememberedSettingsDidChange() {
+        if let binder, binder.setHash != contentHash { return }
         guard contentHash != nil, let settingsBaseline, rememberedSettings != settingsBaseline else { return }
         scheduleSave()
     }
@@ -1298,6 +1328,7 @@ final class DocumentViewModel {
         saveTask?.cancel()
         saveTask = nil
         guard let contentHash, let settingsStore else { return }
+        if let binder, binder.setHash != contentHash { return }
         // A change that was undone before the save (for example a transient zoom) is not a change.
         guard force || hasSavedSettings || rememberedSettings != settingsBaseline || didResizeWindow else { return }
         var settings = rememberedSettings
@@ -1333,6 +1364,8 @@ final class DocumentViewModel {
         setIgnoresSlides(false)
         setHTMLPresentation(.web)
         imageBundle?.sortByName()
+        binder?.sortByName()
+        binderStartsOnFront = false
         if let defaultViewOptions { viewOptions = defaultViewOptions }
         if mode == .view, let window, let unit = paperUnitSize {
             ViewerWindow.setPaperSize(
@@ -1437,7 +1470,8 @@ final class DocumentViewModel {
     }
 
     func requestFolderAccess() {
-        guard SandboxEnvironment.isSandboxed, fileURL != nil, toast?.action != .allowFolderAccess else { return }
+        guard SandboxEnvironment.isSandboxed, fileURL != nil || binder != nil, toast?.action != .allowFolderAccess
+        else { return }
         showToast(
             Toast(
                 systemImage: "folder",
@@ -1447,7 +1481,9 @@ final class DocumentViewModel {
     }
 
     func allowFolderAccess() {
-        guard SandboxEnvironment.isSandboxed, let fileURL, let window else { return }
+        guard SandboxEnvironment.isSandboxed,
+            let fileURL = fileURL ?? binder?.fileRequiringAccess(result?.requiredFolderAccess), let window
+        else { return }
         let folder = fileURL.deletingLastPathComponent()
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -1469,6 +1505,14 @@ final class DocumentViewModel {
                 try FolderAccess.shared.remember(selected)
                 guard let lease = FolderAccess.shared.acquire(for: fileURL) else {
                     throw CocoaError(.fileReadNoPermission)
+                }
+                if let binder {
+                    lease.close()
+                    binder.clearCache()
+                    dismissToast()
+                    renderer.clearCache()
+                    render()
+                    return
                 }
                 folderLease?.close()
                 folderLease = lease
@@ -1682,6 +1726,7 @@ final class DocumentViewModel {
     private static func message(for error: Error) -> String {
         guard let error = error as? DocumentRenderer.RenderingError else { return error.localizedDescription }
         switch error {
+        case .noReadableDocuments: return String(localized: "None of the documents could be opened.")
         case .noReadableImages: return String(localized: "None of the images could be opened.")
         case .imageChanged: return String(localized: "The images keep changing. Try reloading the document.")
         case .invalidPDF: return String(localized: "This PDF could not be opened.")

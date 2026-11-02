@@ -10,6 +10,14 @@ import PDFKit
 public enum StandalonePage {
     private static let documentKey = UnsafeRawPointer(UnsafeMutableRawPointer.allocate(byteCount: 1, alignment: 1))
 
+    public static func copy(of page: PDFPage) -> PDFPage? {
+        guard let copy = page.copy() as? PDFPage else { return nil }
+        if let source = page.pageRef?.document {
+            objc_setAssociatedObject(copy, documentKey, source, .OBJC_ASSOCIATION_RETAIN)
+        }
+        return copy
+    }
+
     public static func first(of data: Data) -> PDFPage? {
         guard let document = PDFDocument(data: data) else { return nil }
         return first(of: document)

@@ -19,6 +19,10 @@ struct PrintModeView: View {
                         .background(PrintPalette.chrome)
                     Rectangle().fill(PrintPalette.line).frame(width: 1)
                 }
+                if model.binder != nil {
+                    BinderDrawer(model: model)
+                    Rectangle().fill(PrintPalette.line).frame(width: 1)
+                }
                 stage
             }
             PrintPressBar(model: model).zIndex(1)
@@ -204,7 +208,7 @@ struct PrintStyleMenu: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        if model.format.usesPrintTheme {
+        if model.usesPrintTheme {
             Menu {
                 ThemeMenuContent(model: model)
                 TextSizeMenuItems(model: model)
@@ -220,7 +224,8 @@ struct PrintStyleMenu: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .help("Print Theme")
-        } else if model.format.usesHTMLPreset {
+        }
+        if model.usesHTMLPreset {
             Menu {
                 Picker("HTML Preset", selection: $model.presetID) {
                     ForEach(model.library.presets) { preset in
@@ -228,7 +233,7 @@ struct PrintStyleMenu: View {
                     }
                 }
                 .pickerStyle(.inline)
-                SmartRemovalMenuItems(model: model)
+                if model.binder == nil { SmartRemovalMenuItems(model: model) }
                 Divider()
                 Button("Open Presets Folder") { model.library.openFolder("Presets") }
             } label: {
@@ -242,7 +247,7 @@ struct PrintStyleMenu: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .help("HTML Preset")
-        } else {
+        } else if !model.usesPrintTheme {
             label(
                 "Style",
                 value: String(

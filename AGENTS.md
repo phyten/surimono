@@ -100,7 +100,7 @@ make clean
 - 依存の向き: App → SurimonoRendering → SurimonoCore。Core から AppKit / WebKit を import しない。
 - アプリの既定値（既定のレイアウト・余白など）と、スタイルの最近使ったもの・お気に入り（アプリ全体）は `AppPreferences` が `UserDefaults` に保存する。スタイルを選んだと記録するのは利用者がメニューで選んだとき（`DocumentViewModel.selectTheme`）だけで、復元・既定に戻す・代わりのテーマへの切り替えでは記録しない。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`。Debug ビルドは `Surimono Dev/` 配下）。
 - 文書ごとの設定（表示の型・向き・送り方・表紙・拡大率・窓の大きさ・印刷レイアウト・スタイル / プリセット・文字の大きさ・印刷のオプション・画像の並び順）は `DocumentSettings` にまとめ、**ファイル名ではなく内容の SHA-256（`ContentHash`）をキーに** `~/Library/Application Support/Surimono/DocumentSettings/`（`KeyedRecordStore`。Debug ビルドは `Surimono Dev/` 配下）へ保存する。
-  - キー: 1 ファイルはその内容、ZIP は ZIP ファイル自体、画像の束は各画像のハッシュを並べ替えて作る集合のハッシュ（`ContentHash.imageSet`。書式は永続化の形式なので変えない）。並び順は各画像のハッシュの列で保存する。
+  - キー: 1 ファイルはその内容、ZIP は ZIP ファイル自体、画像の束は各画像のハッシュを並べ替えて作る集合のハッシュ（`ContentHash.imageSet`。書式は永続化の形式なので変えない）。合本は子の内容のハッシュを並べ替えた集合のハッシュ（`ContentHash.binderSet`、別の接頭辞）を使う。並び順はそれぞれ `imageOrder`・`binderOrder` にハッシュの列で保存し、合本の「各文書を表面から始める」は `binderStartsOnFront` に保存する。
   - 復元のトーストは出さない。表示のオプションの最下段は、保存した設定があるときに「この文書の設定を使っています」と「既定に戻す」を出し、ハッシュは見せない。保存した設定がなければ状態の文言は出さず、「既定に戻す」は無効のまま表示する。
   - 保存は利用者が何かを変えたときだけ（`DocumentViewModel` が読み込み・復元・既定に戻した時点の値と比べる）。開いている間にファイルが変わったら、表示中の設定を新しいハッシュへ引き継ぐ。
   - 保存した印刷レイアウトは刷り台と出力だけに効く。表示モードと見比べ台は常に A4 片面で組み、向き・余白などは共有する（PDF・画像は向きが自動なら元のページを保つ）。
@@ -109,11 +109,11 @@ make clean
 
 ## ウィンドウとファイルの開き方
 
-- **1 つの刷り物（1 ファイル、または画像の束）= 1 つのウィンドウ**。表示中のウィンドウにドロップしても置き換えず、新しいウィンドウで開く。すでに開いているファイルは前面に出す。
+- **1 つの刷り物（1 ファイル、画像の束、または合本）= 1 つのウィンドウ**。表示中のウィンドウにドロップしても置き換えず、新しいウィンドウで開く。すでに開いているファイルは前面に出す。
 - ユーザーがファイルを選ぶ・渡す・ドロップする経路は、標準メニューの「最近使った項目」を除いて `OpenRouter`（App）を通す。分類は `OpenRequest`（SurimonoCore）:
   - 1 つ → 文書として開く（DocumentGroup / `NSDocumentController`）
   - 2 つ以上ですべて画像（種類の混在は可）→ 画像の束（ファイル名の自然順）
-  - 2 つ以上で画像以外を含む → 何も開かずに警告（ウィンドウへのドロップならそのウィンドウのシート）
+  - 2 つ以上で画像以外を含む → ファイル名の自然順の合本（Markdown / Org / テキスト / CSV / LaTeX / HTML / PDF / 画像）。ZIP・フォルダー・未対応形式は除き、引き出しで知らせる。除外後に画像だけが残れば画像の束で開き、既存のトーストと引き出しで除外を知らせる。対応する文書が 1 つもなければ警告（ドロップならその窓のシート）
 - 経路ごとの入口:
   - Finder / Dock / 「このアプリケーションで開く」: `AppDelegate` が open-documents の Apple Event を受ける（`applicationWillFinishLaunching` で登録）
   - ファイル > 開く…: 標準の項目が送る `openDocument:` を `AppDelegate` が受ける（SwiftUI の AppDelegate が応答チェーンで転送する）。独自の「開く…」をメニューに足さない（標準の項目と重複し、標準の側は文書コントローラが 1 つずつ開いてしまう）
@@ -121,6 +121,8 @@ make clean
   - 最近使った項目: 標準メニューの項目は文書コントローラが 1 ファイルを開く（規則と同じ結果になるので、ルーターを通さないままでよい）。ウェルカム画面の最近使ったファイルは `OpenRouter` を通す
 - クリップボードは「ファイル > クリップボードから開く」（⌘N）とウェルカム画面から開く。ファイル URL は `OpenRouter` へ渡し、文字列（Markdown / テキスト / HTML の推定）・PNG / TIFF は `ClipboardContent` で判定し、`ClipboardWindows` が原文の一時ファイルを作らずメモリから開く。同じ内容の窓は前面へ出す。画像の束と `MemoryDocumentWindowController` を共有し、最近使った項目には載せない。
 - 画像の束は NSDocument ではなく、`ImageBundleWindows` が AppKit の NSWindow に SwiftUI の `DocumentContent` を載せて開く。メニュー操作は `DocumentWindows.activeModel`（キーウィンドウのモデル）に届ける。
+- 合本は `BinderWindows` が `MemoryDocumentWindowController` で開き、`DocumentViewModel.binder`（`BinderModel`）が子と並び順を持つ。引き出しで追加・ドラッグ / ⌥⌘↑↓による並べ替え・取り除き・名前順を操作する。追加は末尾、読み取り・組版に失敗した子は除いて一覧に示す。監視はせず、再読み込みで子と隣のリソースを読み直す。子のフォルダー許可は `FolderAccess` の lease を窓が保持する。合本の保存ファイルは作らない。
+- `DocumentSource.binder` は子の `DocumentSource` の配列。`DocumentRenderer` が子ごとの renderer で論理ページを作り、安全にコピーして結合し、既存の面付けへ渡す。子の比較は内容のハッシュ・URL・形式・リソース許可で行い、並べ替え・取り除き・表面開始だけなら子の組版を再利用する。テーマと文字サイズはテーマ形式、プリセットは HTML に適用する。印刷設定セットの適用・一致判定も子の形式の集合で決める。自動の出力方向は、白紙を除いた子の論理ページの多数決（同数なら先頭）で決め、冊子は固定方向を保つ。HTML の子は再読み込みまで保持した原文のバイト列から組版し、本文と集合ハッシュを一致させる。相対リソースは元の文書 URL とフォルダー許可で読む。`BinderPagination` は表面開始がオンのとき、次の読める子が奇数ページから始まるよう文書間だけに白紙を足す。`PrintIssue` は白紙を含む先頭オフセットを加え、ID と原文の鍵に子の識別子を付ける。表示は他の文書と同じく A4 片面。
 - ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。開いた枚数のトーストは、画像以外を除いたなど `excludedSummary` が空でないときだけ、除いたものと一緒に出す。
 - 新しい「開く」経路を足すときは `OpenRouter` を通し、`OpenRouterTests` にケースを足す。
 

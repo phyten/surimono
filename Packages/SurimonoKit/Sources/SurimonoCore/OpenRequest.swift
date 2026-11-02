@@ -3,8 +3,9 @@ import UniformTypeIdentifiers
 
 public enum OpenRequest: Equatable, Sendable {
     case single(URL)
-    case imageBundle([URL])
-    case rejectedMultipleNonImages
+    case imageBundle([URL], excluded: [URL] = [])
+    case binder([URL], excluded: [URL])
+    case unsupported
     case empty
 
     public init(urls: [URL]) {
@@ -16,28 +17,33 @@ public enum OpenRequest: Equatable, Sendable {
             self = .single(first)
             return
         }
-        guard urls.allSatisfy(Self.isImage) else {
-            self = .rejectedMultipleNonImages
+        var seen = Set<URL>()
+        let unique = urls.map(\.standardizedFileURL).filter { seen.insert($0).inserted }
+        let ordered = unique.sorted {
+            let comparison = NaturalOrder.compare($0.lastPathComponent, $1.lastPathComponent)
+            return comparison == .orderedSame
+                ? $0.absoluteString < $1.absoluteString : comparison == .orderedAscending
+        }
+        let readable = ordered.filter { Self.binderFormat($0) != nil }
+        let excluded = ordered.filter { Self.binderFormat($0) == nil }
+        guard !readable.isEmpty else {
+            self = .unsupported
             return
         }
-        var seen = Set<URL>()
-        let unique = urls.filter { seen.insert($0).inserted }
-        self = .imageBundle(
-            unique.sorted {
-                let comparison = NaturalOrder.compare($0.lastPathComponent, $1.lastPathComponent)
-                // Preserve a deterministic order for identical names in different directories.
-                return comparison == .orderedSame
-                    ? $0.absoluteString < $1.absoluteString : comparison == .orderedAscending
-            })
+        if readable.allSatisfy({ Self.binderFormat($0) == .image }) {
+            self = .imageBundle(readable, excluded: excluded)
+        } else {
+            self = .binder(readable, excluded: excluded)
+        }
     }
 
-    /// Resolves the format as a single opened document does: the extension table first, then the content type, which
-    /// covers readable images such as PSD that the table does not list.
-    private static func isImage(_ url: URL) -> Bool {
-        let fileExtension = url.pathExtension
+    public static func binderFormat(_ url: URL) -> DocumentFormat? {
+        guard url.isFileURL,
+            (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
+        else { return nil }
         let format =
-            DocumentFormat(fileExtension: fileExtension)
-            ?? UTType(filenameExtension: fileExtension).flatMap { DocumentFormat(contentType: $0) }
-        return format == .image
+            DocumentFormat(fileExtension: url.pathExtension)
+            ?? UTType(filenameExtension: url.pathExtension).flatMap { DocumentFormat(contentType: $0) }
+        return format == .zipArchive ? nil : format
     }
 }

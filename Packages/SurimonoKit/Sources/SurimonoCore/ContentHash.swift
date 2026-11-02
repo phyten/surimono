@@ -49,6 +49,11 @@ public struct ContentHash: Hashable, Comparable, Codable, Sendable, CustomString
         return ContentHash(digest: hasher.finalize())
     }
 
+    /// A separate persistent namespace from image sets; duplicates retain their multiplicity.
+    public static func binderSet(_ hashes: [ContentHash]) -> ContentHash {
+        of(Data(("surimono-binder-v1\n\(hashes.count)\n" + hashes.sorted().map(\.hex).joined()).utf8))
+    }
+
     /// The first 6 hex characters, for display ("sha256 1ae2a7…").
     public var abbreviated: String { String(hex.prefix(6)) }
 

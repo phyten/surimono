@@ -9,13 +9,15 @@ struct OpenRouterTests {
 
     private func router(
         openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, _ in Issue.record("単独では開かない") },
-        openBundle: @escaping ([URL]) -> Void = { _ in Issue.record("束は開かない") },
+        openBundle: @escaping ([URL], [URL]) -> Void = { _, _ in Issue.record("束は開かない") },
+        openBinder: @escaping ([URL], [URL]) -> Void = { _, _ in Issue.record("合本は開かない") },
         warn: @escaping (NSWindow?) -> Void = { _ in Issue.record("警告しない") },
         hasOpenWindows: @escaping () -> Bool = { false },
         showWelcome: @escaping () -> Void = { Issue.record("ウェルカム画面は出さない") }
     ) -> OpenRouter {
         OpenRouter(
-            openDocument: openDocument, openBundle: openBundle, warn: warn, hasOpenWindows: hasOpenWindows,
+            openDocument: openDocument, openBundle: openBundle, openBinder: openBinder, warn: warn,
+            hasOpenWindows: hasOpenWindows,
             showWelcome: showWelcome)
     }
 
@@ -30,36 +32,52 @@ struct OpenRouterTests {
     @Test("画像3つは自然順の束として開く")
     func bundle() {
         var opened: [URL] = []
-        let router = router(openBundle: { opened = $0 })
+        let router = router(openBundle: { urls, excluded in
+            opened = urls
+            #expect(excluded.isEmpty)
+        })
         router.open([url("10.png"), url("2.jpg"), url("1.heic")])
         #expect(opened == [url("1.heic"), url("2.jpg"), url("10.png")])
     }
 
-    @Test("画像とPDFは何も開かずアプリの警告を出す")
-    func rejected() {
-        var warnings = 0
-        let router = router(warn: { window in
-            warnings += 1
-            #expect(window == nil)
+    @Test("画像とZIPの選択は除外一覧付きの画像の束として開き警告しない")
+    func imagesWithExclusions() {
+        var opened: [URL] = []
+        var exclusions: [URL] = []
+        let router = router(openBundle: { urls, excluded in
+            opened = urls
+            exclusions = excluded
         })
-        router.open([url("a.png"), url("b.pdf")])
-        #expect(warnings == 1)
+        router.open([url("b.zip"), url("a.png")])
+        #expect(opened == [url("a.png")])
+        #expect(exclusions == [url("b.zip")])
     }
 
-    @Test("ドロップの警告は対象ウィンドウをシートの親として渡す")
+    @Test("MarkdownとPDFは合本を開いて警告しない")
+    func binder() {
+        var opened: [URL] = []
+        let router = router(openBinder: { urls, excluded in
+            opened = urls
+            #expect(excluded.isEmpty)
+        })
+        router.open([url("b.pdf"), url("a.md")])
+        #expect(opened == [url("a.md"), url("b.pdf")])
+    }
+
+    @Test("対応する文書がないドロップは対象ウィンドウで警告する")
     func sheet() {
         let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
         var parent: NSWindow?
         let router = router(warn: { parent = $0 })
-        router.open([url("a.md"), url("b.md")], from: window)
+        router.open([url("a.zip"), url("b.unknown")], from: window)
         #expect(parent === window)
     }
 
-    @Test("画像以外の複数選択を拒否して何も開いていなければウェルカム画面を出す")
+    @Test("対応する文書がなく何も開いていなければウェルカム画面を出す")
     func welcomeAfterRejection() {
         var welcomes = 0
         let router = router(warn: { _ in }, showWelcome: { welcomes += 1 })
-        router.open([url("a.md"), url("b.md")])
+        router.open([url("a.zip"), url("b.unknown")])
         router.showWelcomeIfIdle()
         #expect(welcomes == 1)
     }

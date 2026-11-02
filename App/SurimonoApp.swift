@@ -24,6 +24,9 @@ struct SurimonoApp: App {
         ImageBundleWindows.shared.preferences = preferences
         ImageBundleWindows.shared.library = library
         ImageBundleWindows.shared.settingsStore = settingsStore
+        BinderWindows.shared.preferences = preferences
+        BinderWindows.shared.library = library
+        BinderWindows.shared.settingsStore = settingsStore
         ClipboardWindows.shared.preferences = preferences
         ClipboardWindows.shared.library = library
         ClipboardWindows.shared.settingsStore = settingsStore

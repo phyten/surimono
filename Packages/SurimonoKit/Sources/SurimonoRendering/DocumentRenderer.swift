@@ -7,9 +7,12 @@ public struct DocumentSource: Equatable, Sendable {
     public let fileURL: URL?
     public let format: DocumentFormat
     public let images: [Image]?
-    /// The HTML is a copy of a live page's current state rather than the file's bytes; its own scripts already ran.
+    public let children: [DocumentSource]?
+    public private(set) var contentHash: ContentHash?
     public var allowedResourceFolders: [URL] = []
+    /// The HTML is a copy of a live page's current state rather than the file's bytes; its own scripts already ran.
     public let isLiveSnapshot: Bool
+    fileprivate var usesLoadedHTML = false
 
     /// One image of a bundle. Its bytes are read only while its page is drawn and released afterwards, so a large
     /// bundle such as a ZIP of photos is never held in memory at once. Images compare by file and content hash.
@@ -47,6 +50,37 @@ public struct DocumentSource: Equatable, Sendable {
         }
     }
 
+    public static func binder(_ children: [DocumentSource]) -> Self {
+        Self(
+            data: Data(), fileURL: nil, format: .pdf, isLiveSnapshot: false,
+            children: children.map {
+                var child = $0.hashed()
+                child.usesLoadedHTML = child.format == .html
+                return child
+            })
+    }
+
+    /// Binder loading computes this off the main actor once; ordinary single-document renders keep their existing
+    /// byte comparison and do not hash a large PDF on every settings change.
+    public func hashed() -> Self {
+        var source = self
+        if source.contentHash == nil { source.contentHash = .of(data) }
+        return source
+    }
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        let sameContent: Bool
+        if let left = lhs.contentHash, let right = rhs.contentHash {
+            sameContent = left == right
+        } else {
+            sameContent = lhs.data == rhs.data
+        }
+        return sameContent && lhs.fileURL == rhs.fileURL && lhs.format == rhs.format
+            && lhs.images == rhs.images && lhs.children == rhs.children
+            && lhs.allowedResourceFolders == rhs.allowedResourceFolders && lhs.isLiveSnapshot == rhs.isLiveSnapshot
+            && lhs.usesLoadedHTML == rhs.usesLoadedHTML
+    }
+
     public static func images(_ images: [Image]) -> Self { Self(images: images) }
 
     /// The current state of a live HTML page, laid out against the directory of `fileURL` without running scripts.
@@ -59,6 +93,8 @@ public struct DocumentSource: Equatable, Sendable {
         fileURL = nil
         format = .image
         self.images = images
+        children = nil
+        contentHash = .imageSet(images.map(\.contentHash))
         isLiveSnapshot = false
     }
 
@@ -66,8 +102,12 @@ public struct DocumentSource: Equatable, Sendable {
         self.init(data: data, fileURL: fileURL, format: format, isLiveSnapshot: false)
     }
 
-    private init(data: Data, fileURL: URL?, format: DocumentFormat, isLiveSnapshot: Bool) {
+    private init(
+        data: Data, fileURL: URL?, format: DocumentFormat, isLiveSnapshot: Bool, children: [DocumentSource]? = nil
+    ) {
         self.data = data
+        self.children = children
+        contentHash = nil
         self.fileURL = fileURL
         self.format = format
         images = nil
@@ -93,6 +133,7 @@ public struct RenderSettings: Equatable, Sendable {
     public var opensDetails: Bool
     /// HTML that is a slide deck: print its slides one to a page, landscape in Auto.
     public var slides: SlidePrintRequest?
+    public var binderStartsOnFront = false
     public var markdownChanges: [MarkdownMarkRequest]
 
     var usesPerPageOrientation: Bool {
@@ -153,6 +194,8 @@ public struct PreparedRender {
     public let smartRemovalCandidates: [SmartRemovalCandidate]
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
+    public var unreadableDocumentURLs: [URL] = []
+    public var binderDocuments: [URL: PDFDocument] = [:]
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -185,6 +228,7 @@ public struct RenderResult {
     public let summary: PrintSummary
     public let requiredFolderAccess: URL?
     public let unreadableImageURLs: [URL]
+    public let unreadableDocumentURLs: [URL]
     public let smartRemovalCandidates: [SmartRemovalCandidate]
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
@@ -200,6 +244,7 @@ public struct RenderResult {
         summary = prepared.summary
         requiredFolderAccess = prepared.requiredFolderAccess
         unreadableImageURLs = prepared.unreadableImageURLs
+        unreadableDocumentURLs = prepared.unreadableDocumentURLs
         smartRemovalCandidates = prepared.smartRemovalCandidates
         issues = prepared.issues
         changeMarks = prepared.changeMarks
@@ -211,6 +256,7 @@ public struct RenderResult {
 public final class DocumentRenderer {
     public enum RenderingError: Error, Equatable {
         case noReadableImages([URL])
+        case noReadableDocuments([URL])
         /// An image's content no longer matches the hash it was identified by; hash the images again and retry.
         case imageChanged(URL)
         case unsupportedFormat
@@ -234,6 +280,8 @@ public final class DocumentRenderer {
     /// Runs before each composition that the sheet cache cannot serve. Tests hold or fail a composition with it to
     /// pin what the app shows between the logical pages and their sheets.
     public var willComposeSheet: (@MainActor () async throws -> Void)?
+    private var childRenderers: [String: DocumentRenderer] = [:]
+    public private(set) var binderChildRenderCount = 0
     private var cache: (key: CacheKey, logical: Logical)?
     /// The most recent composed sheets, so that going back to a recent layout or option does not compose again.
     private var sheets: [(key: SheetKey, document: PDFDocument, orientations: [PaperOrientation])] = []
@@ -252,6 +300,9 @@ public final class DocumentRenderer {
         var requiredFolderAccess: URL?
         let unreadable: [URL]
         let candidates: [SmartRemovalCandidate]
+        var unreadableDocuments: [URL] = []
+        var binderDocuments: [URL: PDFDocument] = [:]
+        var binderPageSizes: [CGSize] = []
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
         var markRequests: [MarkdownMarkRequest] = []
@@ -282,6 +333,9 @@ public final class DocumentRenderer {
         let smartRemoval: SmartRemovalRequest?
         let opensDetails: Bool
         let slides: SlidePrintRequest?
+        let binderStartsOnFront: Bool
+        let binderOrientation: PaperOrientation?
+        let binderLayout: PrintLayout?
     }
 
     public init(isSandboxed: @escaping () -> Bool = { SandboxEnvironment.isSandboxed }, paginate: Paginate? = nil) {
@@ -311,6 +365,7 @@ public final class DocumentRenderer {
     public func clearCache() {
         generation += 1
         cache = nil
+        childRenderers.removeAll()
         sheets = []
         sourcePageSizes = nil
         sourcePageRule = nil
@@ -394,8 +449,10 @@ public final class DocumentRenderer {
         let currentGeneration = generation
         do {
             var settings = settings
-            let landscape: Bool
-            if settings.layout.kind == .booklet {
+            var landscape: Bool
+            if source.children != nil {
+                landscape = settings.paperOrientation == .landscape && settings.layout.kind != .booklet
+            } else if settings.layout.kind == .booklet {
                 landscape = false
             } else if settings.paperOrientation == .auto, source.format == .html, let slides = settings.slides {
                 // A slide prints best on paper of its own shape, whatever the deck's `@page` says.
@@ -414,27 +471,40 @@ public final class DocumentRenderer {
                 throw RenderingError.invalidMargins
             }
             let key = CacheKey(
-                source: source, pageSize: source.format == .pdf ? .zero : pageSize,
+                source: source, pageSize: source.format == .pdf && source.children == nil ? .zero : pageSize,
                 mixesImagePages: source.format == .image && settings.usesPerPageOrientation
                     && Set(sourcePageSizes?.sizes.map { $0.width > $0.height } ?? []).count > 1,
-                theme: source.format.usesPrintTheme ? settings.theme : nil,
-                textScale: source.format.usesPrintTheme ? settings.textScale : nil,
-                preset: source.format.usesHTMLPreset ? settings.preset : nil,
-                margin: source.format == .pdf ? 0 : margin,
-                allowsJavaScript: source.allowsJavaScript(settings),
+                theme: source.children != nil || source.format.usesPrintTheme ? settings.theme : nil,
+                textScale: source.children != nil || source.format.usesPrintTheme ? settings.textScale : nil,
+                preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
+                margin: source.format == .pdf && source.children == nil ? 0 : margin,
+                allowsJavaScript: source.children != nil
+                    ? settings.allowsJavaScriptInHTML : source.allowsJavaScript(settings),
                 smartRemoval: source.format == .html ? settings.smartRemoval : nil,
                 opensDetails: source.format == .html && settings.opensDetails,
-                slides: source.format == .html ? settings.slides : nil)
+                slides: source.format == .html ? settings.slides : nil,
+                binderStartsOnFront: source.children != nil && settings.binderStartsOnFront,
+                binderOrientation: source.children == nil ? nil : settings.paperOrientation,
+                binderLayout: source.children == nil ? nil : settings.layout)
             let logical: Logical
             if let cache, cache.key == key {
                 logical = cache.logical
             } else {
                 var requiredFolderAccess: URL?
                 var issues: [PrintIssue] = []
+                var binderOutput: BinderOutput?
                 let document: PDFDocument
                 let unreadable: [URL]
                 let candidates: [SmartRemovalCandidate]
-                if let images = source.images {
+                if let children = source.children {
+                    let output = try await binder(children, settings: settings)
+                    binderOutput = output
+                    document = output.document
+                    unreadable = []
+                    candidates = []
+                    issues = output.issues
+                    requiredFolderAccess = output.requiredFolderAccess
+                } else if let images = source.images {
                     (document, unreadable) = try await imageBundle(images, settings: settings)
                     candidates = []
                 } else {
@@ -461,6 +531,9 @@ public final class DocumentRenderer {
                     unreadable: unreadable, candidates: candidates)
                 logical.requiredFolderAccess = requiredFolderAccess
                 logical.issues = issues
+                logical.unreadableDocuments = binderOutput?.unreadable ?? []
+                logical.binderDocuments = binderOutput?.documents ?? [:]
+                logical.binderPageSizes = binderOutput?.pageSizes ?? []
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
                 if generation == currentGeneration { cache = (key, logical) }
@@ -474,6 +547,11 @@ public final class DocumentRenderer {
                 logical.changeMarks = ChangeMarkAnchors.extract(from: marked.document, requests: requests)
                 logical.markRequests = requests
             }
+            if source.children != nil, settings.paperOrientation == .auto, settings.layout.kind != .booklet {
+                // Children keep their own logical orientation; only the shared output follows the majority.
+                landscape = PaperOrientation.auto.isLandscape(pageSizes: logical.binderPageSizes)
+                settings.layout = settings.layout.oriented(landscape)
+            }
             let plan = Imposition.plan(pageCount: logical.document.pageCount, layout: settings.layout)
             return PreparedRender(
                 id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
@@ -482,6 +560,7 @@ public final class DocumentRenderer {
                 requiredFolderAccess: logical.requiredFolderAccess, unreadableImageURLs: logical.unreadable,
                 smartRemovalCandidates: logical.candidates, issues: logical.issues,
                 changeMarks: requests.isEmpty ? [] : logical.changeMarks,
+                unreadableDocumentURLs: logical.unreadableDocuments, binderDocuments: logical.binderDocuments,
                 sheetKey: SheetKey(
                     logicalID: logical.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: settings.usesPerPageOrientation
@@ -489,6 +568,87 @@ public final class DocumentRenderer {
                 options: settings.options)
         } catch {
             throw Self.renderingError(error)
+        }
+    }
+
+    private struct BinderOutput {
+        let document = PDFDocument()
+        var documents: [URL: PDFDocument] = [:]
+        var pageSizes: [CGSize] = []
+        var unreadable: [URL] = []
+        var issues: [PrintIssue] = []
+        var requiredFolderAccess: URL?
+    }
+
+    private func binder(_ children: [DocumentSource], settings: RenderSettings) async throws -> BinderOutput {
+        var output = BinderOutput()
+        var occurrences: [String: Int] = [:]
+        for child in children {
+            try Task.checkCancellation()
+            let key =
+                (child.fileURL?.absoluteString ?? child.contentHash?.hex ?? ContentHash.of(child.data).hex) + ":"
+                + child.format.rawValue
+            let occurrence = occurrences[key, default: 0]
+            occurrences[key] = occurrence + 1
+            let renderer: DocumentRenderer
+            if let cached = childRenderers[key] {
+                renderer = cached
+            } else {
+                renderer = DocumentRenderer(isSandboxed: isSandboxed, paginateWithResult: paginate)
+                childRenderers[key] = renderer
+            }
+            let count = renderer.logicalRenderCount
+            do {
+                var childSettings = settings
+                childSettings.binderStartsOnFront = false
+                childSettings.markdownChanges = []
+                let prepared = try await renderer.prepare(child, settings: childSettings)
+                try Task.checkCancellation()
+                binderChildRenderCount += renderer.logicalRenderCount - count
+                let document = prepared.logicalDocument
+                let offset = BinderPagination.offsets(
+                    pageCounts: [output.document.pageCount, document.pageCount],
+                    startsOnFront: settings.binderStartsOnFront)[1]
+                let pages = try (0..<document.pageCount).map { index in
+                    guard let page = document.page(at: index), let copy = StandalonePage.copy(of: page) else {
+                        throw RenderingError.invalidPDF
+                    }
+                    return copy
+                }
+                if offset > output.document.pageCount {
+                    let blank = PDFPage()
+                    blank.setBounds(
+                        CGRect(origin: .zero, size: settings.layout.logicalPageSize(options: settings.options)),
+                        for: .mediaBox)
+                    output.document.insert(blank, at: output.document.pageCount)
+                }
+                output.pageSizes += Self.pageSizes(of: document)
+                for page in pages { output.document.insert(page, at: output.document.pageCount) }
+                if let url = child.fileURL { output.documents[url] = document }
+                let prefix = "\(key):\(occurrence):"
+                output.issues += prepared.issues.map { issue in
+                    PrintIssue(
+                        id: prefix + issue.id, kind: issue.kind, detail: issue.detail,
+                        imageFailure: issue.imageFailure, element: issue.element,
+                        pageNumber: issue.pageNumber.map { $0 + offset }, rect: issue.rect,
+                        locationKey: issue.locationKey.map { prefix + $0 })
+                }
+                output.requiredFolderAccess = output.requiredFolderAccess ?? prepared.requiredFolderAccess
+            } catch {
+                if error is CancellationError { throw error }
+                try Task.checkCancellation()
+                if let url = child.fileURL { output.unreadable.append(url) }
+            }
+        }
+        guard output.document.pageCount > 0 else { throw RenderingError.noReadableDocuments(output.unreadable) }
+        return output
+    }
+
+    private static func pageSizes(of document: PDFDocument) -> [CGSize] {
+        (0..<document.pageCount).compactMap { index in
+            guard let page = document.page(at: index), let ref = page.pageRef else { return nil }
+            let size = ref.getBoxRect(.cropBox).intersection(ref.getBoxRect(.mediaBox)).size
+            return page.rotation % 180 == 0 ? size : CGSize(width: size.height, height: size.width)
         }
     }
 
@@ -507,11 +667,7 @@ public final class DocumentRenderer {
         if source.format == .pdf {
             guard let document = PDFDocument(data: source.data) else { throw RenderingError.invalidPDF }
             guard !document.isEncrypted && !document.isLocked else { throw RenderingError.encryptedPDF }
-            sizes = (0..<document.pageCount).compactMap { index in
-                guard let page = document.page(at: index), let ref = page.pageRef else { return nil }
-                let size = ref.getBoxRect(.cropBox).intersection(ref.getBoxRect(.mediaBox)).size
-                return page.rotation % 180 == 0 ? size : CGSize(width: size.height, height: size.width)
-            }
+            sizes = Self.pageSizes(of: document)
         } else {
             let loading = Task.detached(priority: Task.currentPriority) {
                 guard let images = source.images else {
@@ -612,6 +768,12 @@ public final class DocumentRenderer {
                 input =
                     source.fileURL.map { .snapshot(html, directory: $0.deletingLastPathComponent()) }
                     ?? .html(html, baseURL: nil)
+            } else if source.usesLoadedHTML, let url = source.fileURL {
+                // The bytes identified by the binder hash stay authoritative until an explicit reload.
+                let access =
+                    resourceAccess(for: source)
+                    ?? LocalResourceAccess(documentURL: url, folders: [url.deletingLastPathComponent()])
+                input = .sandboxed(try Self.decodedText(source.data), access: access)
             } else if let url = source.fileURL {
                 input = .file(url, readAccessURL: url.deletingLastPathComponent())
             } else {

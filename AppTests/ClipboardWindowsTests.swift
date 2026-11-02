@@ -37,7 +37,8 @@ struct ClipboardWindowsTests {
         #expect(first.model.exportName.hasPrefix(first.model.displayName.replacingOccurrences(of: ":", with: "-")))
         #expect(windows.hasWindows)
         let router = OpenRouter(
-            openDocument: { _, _ in }, openBundle: { _ in }, warn: { _ in },
+            openDocument: { _, _ in }, openBundle: { _, _ in }, openBinder: { _, _ in Issue.record("合本は開かない") },
+            warn: { _ in },
             hasOpenWindows: { windows.hasWindows }, showWelcome: { Issue.record("窓があるのでウェルカム画面は出さない") })
         router.showWelcomeIfIdle()
         first.window?.orderOut(nil)
@@ -90,8 +91,13 @@ struct ClipboardWindowsTests {
         board.setString("# ファイルを優先", forType: .string)
         var opened: [URL] = []
         let router = OpenRouter(
-            openDocument: { _, _ in Issue.record("単独では開かない") }, openBundle: { opened = $0 },
-            warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { false }, showWelcome: {})
+            openDocument: { _, _ in Issue.record("単独では開かない") },
+            openBundle: { urls, excluded in
+                opened = urls
+                #expect(excluded.isEmpty)
+            },
+            openBinder: { _, _ in Issue.record("合本は開かない") }, warn: { _ in Issue.record("警告しない") },
+            hasOpenWindows: { false }, showWelcome: {})
         let windows = ClipboardWindows(
             openFiles: { urls, window in router.open(urls, from: window) },
             warn: { _ in

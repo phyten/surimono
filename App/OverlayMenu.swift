@@ -270,7 +270,7 @@ struct StyleMenu: View {
     let showsName: Bool
 
     var body: some View {
-        if model.format.usesPrintTheme {
+        if model.usesPrintTheme, model.binder == nil {
             // Print themes open the palette of samples beside the paper, where it leaves the paper in view.
             Button {
                 model.openThemePalette()
@@ -292,12 +292,12 @@ struct StyleMenu: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
-            .help(model.format.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
+            .help(model.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
         }
     }
 
     @ViewBuilder private var label: some View {
-        let label = Label(model.styleName, systemImage: model.format.usesHTMLPreset ? "wand.and.rays" : "textformat")
+        let label = Label(model.styleName, systemImage: model.usesHTMLPreset ? "wand.and.rays" : "textformat")
         if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
     }
 }
@@ -305,12 +305,12 @@ struct StyleMenu: View {
 extension DocumentViewModel {
     /// The chosen print theme, or for HTML the cleanup preset and whether Smart Removal follows it.
     var styleName: String {
-        if format.usesHTMLPreset {
+        if usesHTMLPreset && !usesPrintTheme {
             let preset = library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
             return isSmartRemovalEnabled ? preset + " + β" : preset
         }
         let theme = library.themes.first { $0.id == themeID }?.displayName(language: language) ?? themeID
-        return format.usesPrintTheme && textScale != 1 ? theme + " · " + textScalePercentage : theme
+        return usesPrintTheme && textScale != 1 ? theme + " · " + textScalePercentage : theme
     }
 
     var textScalePercentage: String { "\(Int((textScale * 100).rounded()))%" }
@@ -322,17 +322,18 @@ struct StyleMenuItems: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        if model.format.usesPrintTheme {
+        if model.usesPrintTheme {
             ThemeMenuContent(model: model)
             TextSizeMenuItems(model: model)
-        } else if model.format.usesHTMLPreset {
+        }
+        if model.usesHTMLPreset {
             Picker("HTML Preset", selection: $model.presetID) {
                 ForEach(model.library.presets) { preset in
                     Text(verbatim: preset.displayName(language: model.language)).tag(preset.id)
                 }
             }
             .pickerStyle(.inline)
-            SmartRemovalMenuItems(model: model)
+            if model.binder == nil { SmartRemovalMenuItems(model: model) }
         }
     }
 }

@@ -26,6 +26,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 - Markdown の数式（`$…$`・`$$…$$`・```` ```math ````）を、純 Swift の KaTeX 互換の組版（[SwaTex](https://github.com/PhraseHQ/SwaTex)）で JavaScript なしに描画。化学式（mhchem）も
 - Markdown・PDF・画像・Org・テキスト・HTML・CSV・LaTeX のクイックビューア
 - LaTeX の文書を印刷テーマで刷る: 表題、番号つきの節と参照、リスト（enumitem）、コード（listings）、SwaTex による数式と式番号、脚注、hyperref、xcolor、図（graphicx）、表（booktabs）、定理と証明（amsthm）、参考文献と引用、単位（siunitx）。TeX を動かすのではなく、よく使う部分集合を読む。TikZ の図は場所を枠で示す
+- Markdown・Org・テキスト・CSV・LaTeX・HTML・PDF・画像を「合本」にまとめ、追加・並べ替え・取り除きの後、1 つの PDF や冊子として出力（各文書を表面から始める設定付き）
 - 種類が混ざった複数の画像を、1 つの「画像の束」としてまとめて開く
 - サムネイルのドラッグや ⌥⌘↑ / ⌥⌘↓ で画像を並び替え
 - 画像の束を現在の並び順と印刷レイアウトで PDF に書き出し
