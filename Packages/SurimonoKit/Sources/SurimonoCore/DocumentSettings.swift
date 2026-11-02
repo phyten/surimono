@@ -60,7 +60,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.textScale = textScale
         self.presetID = presetID
         self.smartRemoval = smartRemoval
-        self.printOptions = printOptions
+        self.printOptions = printOptions.map { StoredPrintOptions($0).options }
         self.imageOrder = imageOrder
         self.binderOrder = binderOrder
         self.binderStartsOnFront = binderStartsOnFront
@@ -72,6 +72,40 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront
+    }
+
+    // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
+    private struct StoredPrintOptions: Codable {
+        var marginsInMillimeters: Double
+        var showsPageNumbers: Bool
+
+        init(_ options: PrintOptions) {
+            marginsInMillimeters = options.marginsInMillimeters
+            showsPageNumbers = options.showsPageNumbers
+        }
+
+        var options: PrintOptions {
+            PrintOptions(marginsInMillimeters: marginsInMillimeters, showsPageNumbers: showsPageNumbers)
+        }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encodeIfPresent(view, forKey: .view)
+        try values.encodeIfPresent(zoom, forKey: .zoom)
+        try values.encodeIfPresent(windowSize, forKey: .windowSize)
+        try values.encodeIfPresent(layoutID, forKey: .layoutID)
+        try values.encodeIfPresent(paperOrientation, forKey: .paperOrientation)
+        try values.encodeIfPresent(themeID, forKey: .themeID)
+        try values.encodeIfPresent(textScale, forKey: .textScale)
+        try values.encodeIfPresent(presetID, forKey: .presetID)
+        try values.encodeIfPresent(smartRemoval, forKey: .smartRemoval)
+        try values.encodeIfPresent(imageOrder, forKey: .imageOrder)
+        try values.encodeIfPresent(binderOrder, forKey: .binderOrder)
+        try values.encodeIfPresent(binderStartsOnFront, forKey: .binderStartsOnFront)
+        try values.encodeIfPresent(htmlPresentation, forKey: .htmlPresentation)
+        try values.encodeIfPresent(ignoresSlides, forKey: .ignoresSlides)
+        try values.encodeIfPresent(printOptions.map(StoredPrintOptions.init), forKey: .printOptions)
     }
 
     /// Decodes each field on its own, so a value this version cannot read (such as a transition added later) falls
@@ -90,7 +124,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         textScale = field(Double.self, .textScale)
         presetID = field(String.self, .presetID)
         smartRemoval = field(SmartRemoval.self, .smartRemoval)
-        printOptions = field(PrintOptions.self, .printOptions)
+        printOptions = field(StoredPrintOptions.self, .printOptions)?.options
         imageOrder = field([String].self, .imageOrder)
         binderOrder = field([String].self, .binderOrder)
         binderStartsOnFront = field(Bool.self, .binderStartsOnFront)

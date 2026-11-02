@@ -96,6 +96,9 @@ struct DocumentContent: View {
             model.start()
         }
         .onDisappear { model.stop() }
+        .sheet(item: $model.duplexTestResult) { test in
+            DuplexTestSheet(model: model, test: test)
+        }
         .onChange(of: model.renderSettings) { _, _ in model.render() }
         .onChange(of: model.preferences.allowsJavaScript) { _, _ in model.javaScriptSettingDidChange() }
         .onChange(of: model.imageBundle?.urls) { _, _ in

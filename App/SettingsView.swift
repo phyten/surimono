@@ -93,8 +93,10 @@ struct SettingsView: View {
                         }
                     }
                     TextField("Margins (mm)", value: $preferences.margin, format: .number)
-                    Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
                     defaultsNote
+                    Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
+                    Text("Used for printers and bindings without a remembered rotation.")
+                        .font(.caption).foregroundStyle(.secondary)
                     PrintPageOrderPicker(order: $preferences.printPageOrder)
                     Text(PrintPageOrderPicker.hint).font(.caption).foregroundStyle(.secondary)
                 case .settingSets:

@@ -43,8 +43,32 @@ final class AppPreferences {
     var allowsJavaScript: Bool { didSet { defaults.set(allowsJavaScript, forKey: "allowsJavaScript") } }
     /// The printer the tray's Print sends to; nil means the system's default printer.
     var printerName: String? { didSet { defaults.set(printerName, forKey: "printer") } }
-    /// Which sheet comes out first, for every document: it depends on the printer, not on the document.
+    /// Initial values for printers or bindings that have not been configured.
     var printPageOrder: PrintPageOrder { didSet { defaults.set(printPageOrder.rawValue, forKey: "printPageOrder") } }
+    private(set) var printerProfiles: [String: PrinterProfile] {
+        didSet {
+            if let data = try? JSONEncoder().encode(printerProfiles) {
+                defaults.set(data, forKey: "printerProfiles")
+            }
+        }
+    }
+
+    func printerProfile(for name: String?) -> PrinterProfile {
+        name.flatMap { printerProfiles[$0] } ?? PrinterProfile()
+    }
+
+    func setPrinterRotation(_ rotates: Bool, for name: String, duplex: DuplexMode) {
+        var profile = printerProfile(for: name)
+        profile.setRotation(rotates, for: duplex)
+        printerProfiles[name] = profile
+    }
+
+    func setPrinterPageOrder(_ order: PrintPageOrder, for name: String) {
+        var profile = printerProfile(for: name)
+        profile.pageOrder = order
+        printerProfiles[name] = profile
+    }
+
     /// Print themes the user chose in any window, most recent first.
     private(set) var recentThemeIDs: [String] { didSet { defaults.set(recentThemeIDs, forKey: "recentThemes") } }
     /// Print themes the user marked as favorites, in the order they were added.
@@ -83,6 +107,10 @@ final class AppPreferences {
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
         printerName = defaults.string(forKey: "printer")
         printPageOrder = PrintPageOrder(rawValue: defaults.string(forKey: "printPageOrder") ?? "") ?? .lastSheetFirst
+        printerProfiles =
+            defaults.data(forKey: "printerProfiles").flatMap {
+                try? JSONDecoder().decode([String: StoredPrinterProfile].self, from: $0)
+            }?.compactMapValues(\.value) ?? [:]
         recentThemeIDs = defaults.stringArray(forKey: "recentThemes") ?? []
         favoriteThemeIDs = defaults.stringArray(forKey: "favoriteThemes") ?? []
         let storedSets =
@@ -135,6 +163,13 @@ final class AppPreferences {
         }
     }
 
+    private struct StoredPrinterProfile: Decodable {
+        let value: PrinterProfile?
+        init(from decoder: any Decoder) throws {
+            value = try? PrinterProfile(from: decoder)
+        }
+    }
+
     private struct StoredSettingSet: Decodable {
         let value: PrintSettingSet?
         init(from decoder: any Decoder) throws {
@@ -151,6 +186,6 @@ final class AppPreferences {
     }
 
     var printOptions: PrintOptions {
-        PrintOptions(marginsInMillimeters: margin, showsPageNumbers: pageNumbers, rotatesBackSides: rotateBack)
+        PrintOptions(marginsInMillimeters: margin, showsPageNumbers: pageNumbers)
     }
 }

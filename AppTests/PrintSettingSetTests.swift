@@ -85,7 +85,9 @@ struct PrintSettingSetFlowTests {
         }
         try #require(second.contentHash != nil)
         #expect(!second.hasSavedSettings)
-        second.printOptions.rotatesBackSides = true
+        second.printerListSource = { PrinterList(names: ["A"], defaultName: "A") }
+        second.refreshPrinters()
+        preferences.setPrinterRotation(true, for: "A", duplex: .shortEdge)
         let view = second.viewOptions
         second.zoom = 2
         second.applyPrintSettingSet(saved)
@@ -94,7 +96,9 @@ struct PrintSettingSetFlowTests {
         #expect(second.paperOrientation == .landscape)
         #expect(
             second.printOptions
-                == PrintOptions(marginsInMillimeters: 10, showsPageNumbers: true, rotatesBackSides: true))
+                == PrintOptions(marginsInMillimeters: 10, showsPageNumbers: true)
+        )
+        #expect(second.rotatesBackSides)
         #expect(second.viewOptions == view && second.zoom == 2)
         #expect(second.matchesPrintSettingSet(saved))
         for _ in 0..<500 where !second.hasSavedSettings { try await Task.sleep(for: .milliseconds(20)) }
@@ -103,7 +107,7 @@ struct PrintSettingSetFlowTests {
         #expect(record.layoutID == "a4BookletA5")
         #expect(record.themeID == "mincho" && record.textScale == 1.25)
         #expect(record.printOptions?.marginsInMillimeters == 10)
-        #expect(record.printOptions?.rotatesBackSides == true)
+        #expect(record.printOptions?.rotatesBackSides == false)
     }
 
     @Test("テーマを使わない文書にはテーマと文字の大きさを当てない", arguments: [DocumentFormat.pdf, .image, .html, .zipArchive])
@@ -202,7 +206,9 @@ struct PrintSettingSetFlowTests {
         let model = environment.model("Partial", preferences: environment.preferences)
         model.setTextScale(1.75)
         model.themeID = "mincho"
-        model.printOptions.rotatesBackSides = true
+        model.printerListSource = { PrinterList(names: ["A"], defaultName: "A") }
+        model.refreshPrinters()
+        model.preferences.setPrinterRotation(true, for: "A", duplex: .longEdge)
         let before = model.rememberedSettings
         model.applyPrintSettingSet(PrintSettingSet(name: "Layout", settings: DocumentSettings(layoutID: "a4Duplex")))
         var expected = before

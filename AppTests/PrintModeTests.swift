@@ -363,7 +363,7 @@ struct PrintModeTests {
         #expect(model.mode == .view)
     }
 
-    @Test("印刷オプションは既定値から始まり、描画設定はウィンドウの印刷オプションを使う")
+    @Test("描画設定は文書の余白と番号を使い、文書の裏面回転は無視する")
     func renderSettingsUsePrintOptions() throws {
         let fixture = Fixture()
         fixture.preferences.margin = 12
@@ -375,7 +375,7 @@ struct PrintModeTests {
         model.printOptions.marginsInMillimeters = 20
         model.printOptions.rotatesBackSides = true
         let options = try #require(model.renderSettings).options
-        #expect(options == PrintOptions(marginsInMillimeters: 20, showsPageNumbers: true, rotatesBackSides: true))
+        #expect(options == PrintOptions(marginsInMillimeters: 20, showsPageNumbers: true, rotatesBackSides: false))
     }
 
     @Test("ウィンドウの印刷オプションを変えても既定値と別のウィンドウは変わらない")
