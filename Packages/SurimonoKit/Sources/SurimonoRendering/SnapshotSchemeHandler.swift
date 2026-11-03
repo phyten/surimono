@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import UniformTypeIdentifiers
 import WebKit
@@ -17,7 +18,7 @@ final class SnapshotSchemeHandler: NSObject, WKURLSchemeHandler {
     /// A name no document file is likely to have; the copy is served under it at the root of the directory.
     static let pageURL = rootURL.appendingPathComponent("surimono-snapshot-page.html")
     /// Larger files, such as videos, are not worth holding in memory for a printout.
-    static let maximumFileSize = 50 * 1024 * 1024
+    nonisolated static let maximumFileSize = 50 * 1024 * 1024
 
     private var html = ""
     private var directory: URL?
@@ -38,12 +39,11 @@ final class SnapshotSchemeHandler: NSObject, WKURLSchemeHandler {
             // Only the copy is known to be UTF-8; it was made from a string.
             return Self.respond(to: task, url: url, data: Data(html.utf8), mimeType: "text/html", encoding: "utf-8")
         }
-        guard let file = Self.servableFile(for: url.path, in: directory) else {
-            return task.didFailWithError(URLError(.fileDoesNotExist))
-        }
         let id = ObjectIdentifier(task as AnyObject)
         runningTasks.insert(id)
-        let reading = Task.detached(priority: .userInitiated) { try? Data(contentsOf: file) }
+        let reading = Task.detached(priority: .userInitiated) {
+            try? Self.readFile(for: url.path, in: directory)
+        }
         let pending = PendingTask(task)
         Task { [weak self] in
             let data = await reading.value
@@ -51,7 +51,7 @@ final class SnapshotSchemeHandler: NSObject, WKURLSchemeHandler {
             guard let data else { return pending.task.didFailWithError(URLError(.cannotOpenFile)) }
             // Other files keep their own encoding, such as a Shift_JIS page in a frame.
             let mimeType =
-                UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
             Self.respond(to: pending.task, url: url, data: data, mimeType: mimeType, encoding: nil)
         }
     }
@@ -69,6 +69,58 @@ final class SnapshotSchemeHandler: NSObject, WKURLSchemeHandler {
         task.didFinish()
     }
 
+    nonisolated static func readFile(
+        for path: String, in directory: URL, maximumSize: Int = maximumFileSize,
+        afterValidation: (() throws -> Void)? = nil
+    ) throws -> Data {
+        // Foundation may keep /var as an alias; compare against the canonical spelling used by F_GETPATH.
+        let root = try directory.withUnsafeFileSystemRepresentation { path -> URL in
+            guard let path, let resolved = Darwin.realpath(path, nil) else { throw posixError() }
+            defer { Darwin.free(resolved) }
+            return URL(fileURLWithPath: String(cString: resolved))
+        }
+        guard maximumSize >= 0, maximumSize < Int.max, let file = fileURL(for: path, in: root) else {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        // Resolve legitimate in-directory links first; reject a new final symlink and never wait on a FIFO.
+        let descriptor = file.withUnsafeFileSystemRepresentation { path in
+            path.map { Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW) } ?? -1
+        }
+        guard descriptor >= 0 else { throw posixError() }
+        defer { Darwin.close(descriptor) }
+        var opened = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        guard Darwin.fcntl(descriptor, F_GETPATH, &opened) == 0 else { throw posixError() }
+        let actualPath = opened.withUnsafeBufferPointer { buffer in
+            buffer.baseAddress.flatMap { String(validatingCString: $0) }
+        }
+        let prefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
+        guard let actualPath, actualPath.hasPrefix(prefix) else { throw CocoaError(.fileReadNoPermission) }
+        var info = stat()
+        guard Darwin.fstat(descriptor, &info) == 0 else { throw posixError() }
+        guard (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0, info.st_size <= maximumSize else {
+            throw CocoaError(.fileReadNoPermission)
+        }
+        try afterValidation?()
+        // The same descriptor survives path replacement; the read limit also covers growth after fstat.
+        var data = Data()
+        data.reserveCapacity(Int(info.st_size))
+        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let count = Darwin.read(descriptor, &buffer, min(buffer.count, maximumSize - data.count + 1))
+            if count < 0 {
+                if errno == EINTR { continue }
+                throw posixError()
+            }
+            if count == 0 { return data }
+            guard count <= maximumSize - data.count else { throw CocoaError(.fileReadTooLarge) }
+            data.append(contentsOf: buffer.prefix(count))
+        }
+    }
+
+    nonisolated private static func posixError() -> POSIXError {
+        POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
+
     /// A regular file under the directory, small enough to serve; nil for anything else, so that a pipe or a device
     /// can never block the read.
     static func servableFile(for path: String, in directory: URL, maximumSize: Int = maximumFileSize) -> URL? {
@@ -80,7 +132,7 @@ final class SnapshotSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     /// The file a path of the scheme names, or nil when it would leave the directory, also through a symbolic link.
-    static func fileURL(for path: String, in directory: URL) -> URL? {
+    nonisolated static func fileURL(for path: String, in directory: URL) -> URL? {
         let root = directory.standardizedFileURL.resolvingSymlinksInPath()
         let relative = String(path.drop { $0 == "/" })
         guard !relative.isEmpty else { return nil }
