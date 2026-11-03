@@ -107,12 +107,15 @@ extension SlideDeck {
     static let aspectTolerance = 0.03
     /// Smaller elements of a screen's shape are thumbnails or cards, not slides.
     static let minimumWidth = 400.0
+    // Bound both page reports and direct callers before pairwise gallery checks on the main actor.
+    static let maximumMembers = 500
+    static let maximumGroups = 40
 
     /// The deck the facts describe, or nil for an ordinary page. A deck is a group of at least two siblings of one
     /// fixed size, shaped like a screen, of which no two are laid out side by side (that would be a gallery). Class
     /// names and key handlers are not looked at: pages call anything a slide, and listeners cannot be seen.
     public static func detect(_ facts: SlideFacts) -> SlideDeck? {
-        let decks = facts.groups.compactMap(deck(of:))
+        let decks = facts.groups.prefix(maximumGroups).compactMap(deck(of:))
         return decks.max { lhs, rhs in
             lhs.count != rhs.count
                 ? lhs.count < rhs.count : lhs.size.width * lhs.size.height < rhs.size.width * rhs.size.height
@@ -125,7 +128,8 @@ extension SlideDeck {
 
     private static func deck(of group: SlideFacts.Group) -> SlideDeck? {
         let members = group.members
-        guard members.count >= 2, let first = members.first, first.width >= minimumWidth, first.height > 0,
+        guard members.count >= 2, members.count <= maximumMembers, let first = members.first,
+            first.width >= minimumWidth, first.height > 0,
             members.allSatisfy(\.fixed)
         else { return nil }
         let sameSize = members.allSatisfy {

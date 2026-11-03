@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import JavaScriptCore
 import SurimonoCore
 import Testing
 
@@ -18,6 +19,41 @@ struct SlideDeckTests {
 
     private func facts(_ groups: SlideFacts.Group...) -> SlideFacts {
         SlideFacts(viewportWidth: 1280, viewportHeight: 720, groups: groups)
+    }
+
+    @Test("ページ側でも500枚を測定し501枚以上の群は測定前に除外する")
+    func scriptMemberLimit() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(
+            #"""
+            class HTMLElement {
+              tagName = 'SECTION';
+              style = { getPropertyValue: property => property === 'width' ? '1280px' : '720px',
+                        getPropertyPriority: () => '' };
+              getClientRects() { return []; }
+            }
+            let sizeReads = 0;
+            const getComputedStyle = () => {
+              sizeReads++;
+              return { width: '1280px', height: '720px', getPropertyValue: () => '' };
+            };
+            const document = { body: { children: [], querySelectorAll: () => [] }, styleSheets: [] };
+            """#)
+        context.evaluateScript(
+            SlideDeckScript.javaScript.replacingOccurrences(
+                of: "return surimonoSlideFactsJSON(surimonoSlideGroups());", with: ""))
+        context.evaluateScript("document.body.children = Array.from({length: 500}, () => new HTMLElement());")
+        #expect(context.evaluateScript("surimonoSlideCandidates()[0].elements.length")?.toInt32() == 500)
+        context.evaluateScript("document.body.children.push(new HTMLElement()); sizeReads = 0;")
+        #expect(context.evaluateScript("surimonoSlideCandidates().length")?.toInt32() == 0)
+        #expect(context.evaluateScript("sizeReads")?.toInt32() == 0)
+        #expect(context.exception == nil)
+    }
+
+    @Test("500枚のスライドを検出し上限を超えた群は部分的なデッキにしない")
+    func boundedMembers() {
+        #expect(SlideDeck.detect(facts(oneAtATime(count: 500, width: 1280, height: 720)))?.count == 500)
+        #expect(SlideDeck.detect(facts(oneAtATime(count: 501, width: 1280, height: 720))) == nil)
     }
 
     @Test("1280×720 の固定の区画が 6 枚あり 1 枚ずつ見せる文書はスライドで、見えている 3 枚目が今のスライド")
