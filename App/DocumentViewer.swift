@@ -124,6 +124,7 @@ struct DocumentContent: View {
             // Switching between one page and a spread keeps the height and changes the width.
             if (old == .single) != (new == .single) { model.sizeWindowToPaper(keepHeight: true) }
         }
+        .onChange(of: model.showsNarrowCover) { _, _ in model.coverWidthDidChange() }
         .onChange(of: model.isMenuPinned) { old, new in model.updateBand(pinned: new, wasPinned: old) }
         .onChange(of: model.isAlwaysOnTop) { _, onTop in
             if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }

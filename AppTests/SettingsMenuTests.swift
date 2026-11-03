@@ -10,6 +10,58 @@ struct SettingsMenuTests {
         Bundle.main.localizedString(forKey: key, value: key, table: nil)
     }
 
+    @Test("新しい表示・ウィンドウ・印刷の既定値は保存され再読み込みできる")
+    func viewerDefaultsPersistence() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        #expect(preferences.defaultReadingDirection == nil)
+        #expect(preferences.defaultScrollAxis == nil)
+        #expect(preferences.defaultShowsCoverAlone == nil)
+        #expect(preferences.loneCoverWidth == .onePage)
+        #expect(!preferences.defaultAlwaysOnTop && !preferences.defaultMenuPinned)
+        #expect(preferences.defaultTextScale == 1)
+        #expect(preferences.defaultPaperOrientation == .auto)
+        preferences.defaultReadingDirection = .rightToLeft
+        preferences.defaultScrollAxis = .horizontal
+        preferences.defaultShowsCoverAlone = false
+        preferences.loneCoverWidth = .twoPages
+        preferences.defaultAlwaysOnTop = true
+        preferences.defaultMenuPinned = true
+        preferences.defaultTextScale = 1.25
+        preferences.defaultPaperOrientation = .landscape
+        let restored = AppPreferences(defaults: suite.defaults)
+        #expect(
+            restored.viewDefaults
+                == ViewDefaultPreferences(
+                    direction: .rightToLeft, scrollAxis: .horizontal, showsCoverAlone: false))
+        #expect(restored.loneCoverWidth == .twoPages)
+        #expect(restored.defaultAlwaysOnTop && restored.defaultMenuPinned)
+        #expect(restored.defaultTextScale == 1.25)
+        #expect(restored.defaultPaperOrientation == .landscape)
+        restored.defaultShowsCoverAlone = true
+        #expect(AppPreferences(defaults: suite.defaults).defaultShowsCoverAlone == true)
+        restored.defaultReadingDirection = nil
+        restored.defaultScrollAxis = nil
+        restored.defaultShowsCoverAlone = nil
+        #expect(AppPreferences(defaults: suite.defaults).viewDefaults == ViewDefaultPreferences())
+    }
+
+    @Test("不正な新しい既定値は従来の動作に戻る")
+    func invalidViewerDefaults() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        for key in ["defaultReadingDirection", "defaultScrollAxis", "loneCoverWidth", "defaultPaperOrientation"] {
+            suite.defaults.set("unknown", forKey: key)
+        }
+        suite.defaults.set(9, forKey: "defaultTextScale")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        #expect(preferences.viewDefaults == ViewDefaultPreferences())
+        #expect(preferences.loneCoverWidth == .onePage)
+        #expect(preferences.defaultTextScale == 1)
+        #expect(preferences.defaultPaperOrientation == .auto)
+    }
+
     @Test("ヘルプメニューから文書がなくてもキーと操作の一覧を開ける")
     func keyGuideInHelp() throws {
         let menu = try #require(NSApp.mainMenu?.items.last?.submenu)

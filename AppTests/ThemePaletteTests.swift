@@ -124,6 +124,35 @@ struct ThemePaletteTests {
         #expect(model.currentPageIndex == 3)
     }
 
+    @Test("試しのページが表紙になったら窓も表紙 1 ページの幅になり、試しを終えると読んでいた見開きに戻る", .timeLimit(.minutes(1)))
+    func trialCoverWidthFollowsTheShownPage() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = DocumentViewModel(
+            data: Data("# Cover width fixture".utf8), fileURL: nil, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: library(), renderer: renderer(pages: 10),
+            trialRenderer: renderer(pages: 1))
+        model.render()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.viewOptions = ViewOptions(
+            layout: .spread, scrollAxis: .horizontal, transition: .slide, showsCoverAlone: true)
+        model.paperDidChangePage(5)
+        #expect(!model.showsNarrowCover)
+
+        model.tryTheme("mincho")
+        try await waitUntil { model.themeTrial.document != nil }
+        #expect(model.paperShowsTrial)
+        // A one-page trial can only show its cover.
+        model.paperDidChangePage(0)
+        #expect(model.showsNarrowCover)
+        #expect(model.currentPageIndex == 5)
+
+        model.endThemeTrial()
+        model.paperDidChangePage(5)
+        #expect(!model.showsNarrowCover)
+        #expect(model.currentPageIndex == 5)
+    }
+
     @Test("組版に時間のかかる文書では、乗せてもテーマを試さない", .timeLimit(.minutes(1)))
     func longDocumentsDoNotTryOnHover() async throws {
         let suite = TestDefaultsSuite()

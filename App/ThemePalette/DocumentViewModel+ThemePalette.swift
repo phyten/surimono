@@ -26,6 +26,7 @@ extension DocumentViewModel {
     /// The paper turned to `index`. A trial's pages do not move the reading position: a theme with fewer pages shows
     /// its last page, and the document opens at the page the reader was on again once the trial ends.
     func paperDidChangePage(_ index: Int) {
+        shownPageIndex = index
         guard !paperShowsTrial else { return }
         currentPageIndex = index
     }

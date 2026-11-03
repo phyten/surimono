@@ -78,8 +78,36 @@ struct SettingsView: View {
                         Text("Automatic (Match Document)").tag(nil as ViewOptions.Transition?)
                         ForEach(ViewOptions.Transition.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
+                    Picker("Default Reading Direction", selection: $preferences.defaultReadingDirection) {
+                        Text("Automatic (Match Document)").tag(nil as ViewOptions.Direction?)
+                        Text("Left to Right").tag(Optional(ViewOptions.Direction.leftToRight))
+                        Text("Right to Left").tag(Optional(ViewOptions.Direction.rightToLeft))
+                    }
+                    Picker("Default Scroll Direction", selection: $preferences.defaultScrollAxis) {
+                        Text("Automatic (Match Document)").tag(nil as ViewOptions.ScrollAxis?)
+                        Text("Vertical").tag(Optional(ViewOptions.ScrollAxis.vertical))
+                        Text("Horizontal").tag(Optional(ViewOptions.ScrollAxis.horizontal))
+                    }
+                    Picker("Show Cover Alone by Default", selection: $preferences.defaultShowsCoverAlone) {
+                        Text("Automatic (Match Document)").tag(nil as Bool?)
+                        Text("On").tag(Optional(true))
+                        Text("Off").tag(Optional(false))
+                    }
                     Toggle("Join Pages in Single-Page Scrolling", isOn: $preferences.defaultJoinsPages)
                     defaultsNote
+                    // Unlike the defaults above, this applies to open windows as well.
+                    Section {
+                        Picker("Lone Cover Width", selection: $preferences.loneCoverWidth) {
+                            Text("One Page").tag(LoneCoverWidth.onePage)
+                            Text("Two Pages").tag(LoneCoverWidth.twoPages)
+                        }
+                        Text("With One Page, the window narrows to the cover while a spread shows it alone.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Section("When Opening a Window") {
+                        Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
+                        Toggle("Keep Menu Visible", isOn: $preferences.defaultMenuPinned)
+                    }
                 case .pageNumbers:
                     Toggle("In View Mode", isOn: $preferences.viewPageNumbers)
                     Text("Page numbers are never shown in single-page scrolling.")
@@ -91,6 +119,11 @@ struct SettingsView: View {
                         ForEach(PrintLayout.presets) { layout in
                             Text(verbatim: layout.displayName(language: language)).tag(layout.id)
                         }
+                    }
+                    Picker("Default Paper Orientation", selection: $preferences.defaultPaperOrientation) {
+                        Text("Automatic").tag(PaperOrientation.auto)
+                        Text("Portrait").tag(PaperOrientation.portrait)
+                        Text("Landscape").tag(PaperOrientation.landscape)
                     }
                     TextField("Margins (mm)", value: $preferences.margin, format: .number)
                     defaultsNote
@@ -104,6 +137,11 @@ struct SettingsView: View {
                 case .styles:
                     Picker("Default Print Theme", selection: $preferences.themeID) {
                         DefaultStyleChoices(library: library)
+                    }
+                    Picker("Default Text Size", selection: $preferences.defaultTextScale) {
+                        ForEach(TextScale.steps, id: \.self) { scale in
+                            Text(verbatim: "\(Int((scale * 100).rounded()))%").tag(scale)
+                        }
                     }
                     HStack {
                         Button("Open Styles Folder") { library.openFolder("Styles") }

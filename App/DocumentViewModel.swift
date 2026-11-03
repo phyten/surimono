@@ -38,22 +38,29 @@ final class DocumentViewModel {
     private var data: Data
     let preferences: AppPreferences
     let library: UserLibrary
-    var paperOrientation: PaperOrientation = .auto
+    var paperOrientation: PaperOrientation
     var layoutID: String
     /// Set directly only when restoring or falling back; a theme the user picks goes through `selectTheme(_:)`.
     var themeID: String
-    private(set) var textScale: Double = 1
+    private(set) var textScale: Double
     var presetID: String
     var printOptions: PrintOptions
     var mode: ViewerMode = .view
-    private let openingViewDefaults: ViewDefaultPreferences
+    private var openingViewDefaults: ViewDefaultPreferences
+    // Keep the baseline stable if Settings changes while the document is still opening.
+    private var defaultTextScale: Double
+    private var defaultPaperOrientation: PaperOrientation
+    var loneCoverWidth: LoneCoverWidth { preferences.loneCoverWidth }
     var viewOptions: ViewOptions
     /// Magnification relative to fitting the current page or spread into the window.
     var zoom: Double = 1
     /// The 0-based index of the first visible logical page.
-    var currentPageIndex = 0
-    var isMenuPinned = false
-    var isAlwaysOnTop = false
+    var currentPageIndex = 0 { didSet { shownPageIndex = currentPageIndex } }
+    /// The page the paper shows, which is a trial's page while a theme is tried; `currentPageIndex` keeps the reading
+    /// position in the document's own pages for when the trial ends.
+    var shownPageIndex = 0
+    var isMenuPinned: Bool
+    var isAlwaysOnTop: Bool
     var isDrawerOpen = false
     /// Dragging the paper selects text instead of moving the window. It belongs to the window and is never saved, so
     /// a document always opens with the paper as the window and a drag never selects text by surprise.
@@ -205,6 +212,12 @@ final class DocumentViewModel {
         self.format = format
         self.preferences = preferences
         openingViewDefaults = preferences.viewDefaults
+        defaultTextScale = preferences.defaultTextScale
+        defaultPaperOrientation = preferences.defaultPaperOrientation
+        textScale = (binder?.usesPrintTheme ?? format.usesPrintTheme) ? preferences.defaultTextScale : 1
+        paperOrientation = preferences.defaultPaperOrientation
+        isAlwaysOnTop = preferences.defaultAlwaysOnTop
+        isMenuPinned = preferences.defaultMenuPinned
         self.library = library
         self.renderer = renderer
         layoutID = Self.defaultLayoutID(preferences)
@@ -1250,9 +1263,9 @@ final class DocumentViewModel {
         DocumentSettings(
             view: defaultViewOptions ?? initialViewOptions, zoom: 1, layoutID: Self.defaultLayoutID(preferences),
             themeID: usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
-            textScale: usesPrintTheme ? 1 : nil,
+            textScale: usesPrintTheme ? defaultTextScale : nil,
             presetID: usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
-            printOptions: preferences.printOptions, paperOrientation: .auto,
+            printOptions: preferences.printOptions, paperOrientation: defaultPaperOrientation,
             htmlPresentation: usesHTMLPresentation ? .web : nil,
             binderStartsOnFront: binder != nil ? false : nil)
     }
@@ -1305,7 +1318,7 @@ final class DocumentViewModel {
     private func apply(_ saved: DocumentSettings) {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         if let order = saved.binderOrder { binder?.applyOrder(order) }
-        setTextScale(saved.textScale ?? 1)
+        if let scale = saved.textScale { setTextScale(scale) }
         if let view = saved.view {
             viewOptions = view
             hasResolvedViewOptions = true
@@ -1375,8 +1388,10 @@ final class DocumentViewModel {
         hasSavedSettings = false
         pendingImageOrder = nil
         restoredPaperSize = nil
-        textScale = 1
-        paperOrientation = .auto
+        defaultTextScale = preferences.defaultTextScale
+        defaultPaperOrientation = preferences.defaultPaperOrientation
+        textScale = usesPrintTheme ? defaultTextScale : 1
+        paperOrientation = defaultPaperOrientation
         layoutID = Self.defaultLayoutID(preferences)
         themeID = Self.defaultThemeID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
@@ -1390,6 +1405,11 @@ final class DocumentViewModel {
         imageBundle?.sortByName()
         binder?.sortByName()
         binderStartsOnFront = false
+        openingViewDefaults = preferences.viewDefaults
+        if let document = result?.viewDocument {
+            defaultViewOptions = ViewOptions.resolved(
+                for: viewDefaultsContext(for: document), preferences: openingViewDefaults)
+        }
         if let defaultViewOptions { viewOptions = defaultViewOptions }
         if mode == .view, let window, let unit = paperUnitSize {
             ViewerWindow.setPaperSize(
@@ -1410,7 +1430,19 @@ final class DocumentViewModel {
                 return PageSizes.displayed(page.bounds(for: .cropBox).size, rotation: page.rotation)
             })
         guard page.width > 0, page.height > 0 else { return nil }
-        return viewOptions.layout == .single ? page : CGSize(width: page.width * 2, height: page.height)
+        return viewOptions.layout == .single || showsNarrowCover
+            ? page : CGSize(width: page.width * 2, height: page.height)
+    }
+
+    /// The paper shows the cover of a spread alone, one page wide.
+    var showsNarrowCover: Bool {
+        mode == .view && !isWebPresentation && viewOptions.narrowsCover(at: shownPageIndex, width: loneCoverWidth)
+    }
+
+    /// Opening the cover or closing back onto it changes the window's width; the edge of the binding stays where it
+    /// is, as when a book opens: the cover of a left-to-right book is a right-hand page.
+    func coverWidthDidChange() {
+        sizeWindowToPaper(keepHeight: true, keepsRightEdge: viewOptions.direction == .leftToRight)
     }
 
     private var bandInset: CGFloat { isMenuPinned ? ViewerWindow.bandHeight : 0 }
@@ -1422,7 +1454,7 @@ final class DocumentViewModel {
     }
 
     /// Fits the window to the paper: the first time at a comfortable or remembered size, later keeping the height.
-    func sizeWindowToPaper(keepHeight: Bool = false, initialOnly: Bool = false) {
+    func sizeWindowToPaper(keepHeight: Bool = false, initialOnly: Bool = false, keepsRightEdge: Bool = false) {
         guard !initialOnly || !hasSizedWindow else { return }
         guard mode == .view, let window, let unit = paperUnitSize else { return }
         guard hasSizedWindow else {
@@ -1442,7 +1474,7 @@ final class DocumentViewModel {
         let height = ViewerWindow.paperHeight(of: window, band: bandInset)
         ViewerWindow.setPaperSize(
             CGSize(width: (height * unit.width / unit.height).rounded(), height: height), band: bandInset,
-            of: window, animate: keepHeight)
+            of: window, animate: keepHeight, keepsRightEdge: keepsRightEdge)
     }
 
     private func applyRestoredPaperSize() {

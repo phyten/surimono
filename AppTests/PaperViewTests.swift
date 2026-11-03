@@ -184,6 +184,68 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("表紙を 1 ページ幅にする設定では、表紙だけを 1 ページで出し、めくると見開きに戻る", arguments: ViewOptions.Direction.allCases)
+    func narrowCover(direction: ViewOptions.Direction) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("narrow-cover", pages: 5)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.narrowsLoneCover = true
+        var reported: [Int] = []
+        view.onPageChange = { reported.append($0) }
+        view.apply(
+            ViewOptions(
+                layout: .spread, direction: direction, scrollAxis: .horizontal, transition: .instant,
+                showsCoverAlone: true))
+        #expect(view.currentPageIndex == 0)
+        #expect(view.displayMode == .singlePage)
+        // The cover itself is shown, not the blank page put before it in the view copy.
+        let document = try #require(view.document)
+        #expect(view.currentPage.map { document.index(for: $0) } == 1)
+        view.turnPage(forward: true)
+        #expect(view.currentPageIndex == 1)
+        #expect(view.displayMode == .twoUp)
+        view.turnPage(forward: false)
+        #expect(view.currentPageIndex == 0)
+        #expect(view.displayMode == .singlePage)
+        #expect(reported.last == 0)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("表紙を 2 ページ幅にする設定・スクロール・表紙を単独にしない見開きでは、表紙でも見開きのまま")
+    func coverKeepsSpread() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("wide-cover", pages: 5)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        let book = ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: true)
+        view.apply(book)
+        #expect(view.displayMode == .twoUp)
+        view.narrowsLoneCover = true
+        #expect(view.displayMode == .singlePage)
+        var scrolling = book
+        scrolling.transition = .scroll
+        view.apply(scrolling)
+        #expect(view.displayMode == .twoUpContinuous)
+        var withoutCover = book
+        withoutCover.showsCoverAlone = false
+        view.apply(withoutCover)
+        #expect(view.displayMode == .twoUp)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("PDFKit が自分で表紙の先へ送ったときも見開きに戻して報告する")
+    func pdfKitTurnPastNarrowCover() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("pdfkit-turn", pages: 5)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.narrowsLoneCover = true
+        var reported: [Int] = []
+        view.onPageChange = { reported.append($0) }
+        view.apply(ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: true))
+        let document = try #require(view.document)
+        view.go(to: try #require(document.page(at: 2)))
+        #expect(view.displayMode == .twoUp)
+        #expect(view.currentPageIndex == 1)
+        #expect(reported.last == 1)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("送り方や向きだけの変更では番号入り表示PDFを作り直さない")
     func reusesViewDocument() throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("reuse", pages: 4)))

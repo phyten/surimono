@@ -26,11 +26,37 @@ final class AppPreferences {
         didSet { defaults.set(defaultPageTurn?.rawValue, forKey: "defaultPageTurn") }
     }
     var defaultJoinsPages: Bool { didSet { defaults.set(defaultJoinsPages, forKey: "defaultJoinsPages") } }
+    var defaultReadingDirection: ViewOptions.Direction? {
+        didSet { defaults.set(defaultReadingDirection?.rawValue, forKey: "defaultReadingDirection") }
+    }
+    var defaultScrollAxis: ViewOptions.ScrollAxis? {
+        didSet { defaults.set(defaultScrollAxis?.rawValue, forKey: "defaultScrollAxis") }
+    }
+    var defaultShowsCoverAlone: Bool? {
+        didSet { defaults.set(defaultShowsCoverAlone, forKey: "defaultShowsCoverAlone") }
+    }
+    var loneCoverWidth: LoneCoverWidth {
+        didSet { defaults.set(loneCoverWidth.rawValue, forKey: "loneCoverWidth") }
+    }
+    var defaultAlwaysOnTop: Bool {
+        didSet { defaults.set(defaultAlwaysOnTop, forKey: "defaultAlwaysOnTop") }
+    }
+    var defaultMenuPinned: Bool {
+        didSet { defaults.set(defaultMenuPinned, forKey: "defaultMenuPinned") }
+    }
+    var defaultTextScale: Double {
+        didSet { defaults.set(defaultTextScale, forKey: "defaultTextScale") }
+    }
+    var defaultPaperOrientation: PaperOrientation {
+        didSet { defaults.set(defaultPaperOrientation.rawValue, forKey: "defaultPaperOrientation") }
+    }
     /// Kept for this app run, including when the Settings window is closed and reopened.
     var settingsSection: SettingsSection = .general
 
     var viewDefaults: ViewDefaultPreferences {
-        ViewDefaultPreferences(layout: defaultViewLayout, transition: defaultPageTurn, joinsPages: defaultJoinsPages)
+        ViewDefaultPreferences(
+            layout: defaultViewLayout, transition: defaultPageTurn, joinsPages: defaultJoinsPages,
+            direction: defaultReadingDirection, scrollAxis: defaultScrollAxis, showsCoverAlone: defaultShowsCoverAlone)
     }
 
     var layoutID: String { didSet { defaults.set(layoutID, forKey: "layout") } }
@@ -97,6 +123,17 @@ final class AppPreferences {
         defaultViewLayout = ViewOptions.Layout(rawValue: defaults.string(forKey: "defaultViewLayout") ?? "")
         defaultPageTurn = ViewOptions.Transition(rawValue: defaults.string(forKey: "defaultPageTurn") ?? "")
         defaultJoinsPages = defaults.object(forKey: "defaultJoinsPages") as? Bool ?? true
+        defaultReadingDirection = ViewOptions.Direction(
+            rawValue: defaults.string(forKey: "defaultReadingDirection") ?? "")
+        defaultScrollAxis = ViewOptions.ScrollAxis(rawValue: defaults.string(forKey: "defaultScrollAxis") ?? "")
+        defaultShowsCoverAlone = defaults.object(forKey: "defaultShowsCoverAlone") as? Bool
+        loneCoverWidth = LoneCoverWidth(rawValue: defaults.string(forKey: "loneCoverWidth") ?? "") ?? .onePage
+        defaultAlwaysOnTop = defaults.bool(forKey: "defaultAlwaysOnTop")
+        defaultMenuPinned = defaults.bool(forKey: "defaultMenuPinned")
+        let scale = defaults.double(forKey: "defaultTextScale")
+        defaultTextScale = TextScale.steps.contains(scale) ? scale : 1
+        defaultPaperOrientation =
+            PaperOrientation(rawValue: defaults.string(forKey: "defaultPaperOrientation") ?? "") ?? .auto
         layoutID = defaults.string(forKey: "layout") ?? "a4Single"
         themeID = defaults.string(forKey: "theme") ?? "standard"
         presetID = defaults.string(forKey: "preset") ?? "none"

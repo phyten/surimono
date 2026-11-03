@@ -7,6 +7,79 @@ import Testing
 
 @MainActor
 struct DocumentViewModelTests {
+    @Test("単独文書・画像の束・合本・クリップボードは共通のウィンドウ既定値を使う")
+    func allWindowDefaults() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.defaultAlwaysOnTop = true
+        preferences.defaultMenuPinned = true
+        preferences.defaultTextScale = 1.5
+        preferences.defaultPaperOrientation = .portrait
+        preferences.loneCoverWidth = .twoPages
+        let library = UserLibrary(root: directory)
+        let models = [
+            DocumentViewModel(
+                data: Data(), fileURL: directory.appendingPathComponent("a.md"), format: .markdown,
+                preferences: preferences, library: library),
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .image, preferences: preferences, library: library,
+                imageBundle: ImageBundleModel(urls: [])),
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .pdf, preferences: preferences, library: library,
+                binder: BinderModel(urls: [directory.appendingPathComponent("a.md")])),
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .plainText, preferences: preferences, library: library,
+                title: "Clipboard"),
+        ]
+        defer {
+            for model in models { model.stop() }
+        }
+        for model in models {
+            #expect(model.isAlwaysOnTop && model.isMenuPinned)
+            #expect(model.paperOrientation == .portrait)
+            #expect(model.loneCoverWidth == .twoPages)
+            #expect(model.textScale == (model.usesPrintTheme ? 1.5 : 1))
+            #expect(model.rememberedSettings.textScale == (model.usesPrintTheme ? 1.5 : nil))
+        }
+        let freshPreferences = AppPreferences(defaults: suite.defaults)
+        freshPreferences.defaultAlwaysOnTop = false
+        freshPreferences.defaultMenuPinned = false
+        let next = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .pdf,
+            preferences: freshPreferences, library: library)
+        defer { next.stop() }
+        #expect(!next.isAlwaysOnTop && !next.isMenuPinned)
+        #expect(models.allSatisfy { $0.isAlwaysOnTop && $0.isMenuPinned })
+    }
+
+    @Test("1 ページ幅の設定では、見開きで表紙を見ている表示モードの間だけ表紙を 1 ページ幅で出す")
+    func narrowCoverFollowsPageAndSetting() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        #expect(preferences.loneCoverWidth == .onePage)
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .pdf, preferences: preferences, library: UserLibrary(root: directory))
+        defer { model.stop() }
+        model.viewOptions = ViewOptions(
+            layout: .spread, scrollAxis: .horizontal, transition: .slide, showsCoverAlone: true)
+        model.currentPageIndex = 0
+        #expect(model.showsNarrowCover)
+        model.currentPageIndex = 1
+        #expect(!model.showsNarrowCover)
+        model.currentPageIndex = 0
+        model.mode = .print
+        #expect(!model.showsNarrowCover)
+        model.mode = .view
+        preferences.loneCoverWidth = .twoPages
+        #expect(!model.showsNarrowCover)
+    }
+
     @Test("表示と見比べ台は印刷レイアウトに関係なく A4 片面で組む", arguments: [ViewerMode.view, .compare])
     func readingLayoutIgnoresPrintLayout(mode: ViewerMode) throws {
         let suite = TestDefaultsSuite()
@@ -100,6 +173,8 @@ struct DocumentViewModelTests {
         model.viewOptions.layout = .single
         #expect(model.paperUnitSize == CGSize(width: 595, height: 842))
         model.viewOptions.layout = .spread
+        // Past the cover, which a PDF shows alone and one page wide by default.
+        model.currentPageIndex = 1
         #expect(model.paperUnitSize == CGSize(width: 1190, height: 842))
     }
 
