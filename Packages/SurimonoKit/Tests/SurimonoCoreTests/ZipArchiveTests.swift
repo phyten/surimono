@@ -1,8 +1,10 @@
 import Compression
 import Foundation
-import SurimonoCore
 import Testing
 
+@testable import SurimonoCore
+
+@Suite(.timeLimit(.minutes(1)))
 struct ZipArchiveTests {
     @Test("無圧縮とDEFLATEの内容をメモリ上で読み戻せる", arguments: [UInt16(0), UInt16(8)])
     func roundTrip(method: UInt16) throws {
@@ -306,6 +308,119 @@ struct ZipArchiveTests {
                 #expect(error is ZipArchive.ReadError)
             }
         }
+    }
+
+    @Test("キャッシュしたエントリはコピーから読み直しても再展開せず生涯予算で読めなくならない")
+    func cachedReadsDoNotExpandAgain() throws {
+        let archive = try ZipArchive(
+            data: makeZip([Item("a.jpg", method: 8), Item("b.jpg", method: 8)]),
+            limits: .init(maximumTotalSize: 3), cacheCapacity: 6)
+        let copy = archive
+        for _ in 0..<10 { #expect(try copy.contents(of: archive.entries[0]) == Data("abc".utf8)) }
+        #expect(archive.expansionCount == 1)
+        #expect(try archive.contents(of: archive.entries[1]) == Data("abc".utf8))
+        #expect(archive.expansionCount == 2)
+        #expect(archive.cachedByteCount == 6)
+    }
+
+    @Test("容量を超えると最も長く使われていないエントリを除き再読込では再展開する")
+    func leastRecentlyUsedEviction() throws {
+        let archive = try ZipArchive(
+            data: makeZip([Item("a.jpg", method: 8), Item("b.jpg", method: 8), Item("c.jpg", method: 8)]),
+            cacheCapacity: 6)
+        for index in [0, 1, 0, 2, 0] {
+            #expect(try archive.contents(of: archive.entries[index]) == Data("abc".utf8))
+            #expect(archive.cachedByteCount <= 6)
+        }
+        #expect(archive.expansionCount == 3)
+        #expect(try archive.contents(of: archive.entries[1]) == Data("abc".utf8))
+        #expect(archive.expansionCount == 4)
+        #expect(archive.cachedByteCount == 6)
+    }
+
+    @Test("キャッシュ容量より大きい画像も毎回読めて既存のキャッシュを追い出さない", arguments: [UInt16(0), UInt16(8)])
+    func oversizedEntriesAreNotCached(method: UInt16) throws {
+        let large = Data(repeating: 0x61, count: 9)
+        let archive = try ZipArchive(
+            data: makeZip([Item("small.jpg", method: method), Item("large.jpg", content: large, method: method)]),
+            cacheCapacity: 3)
+        #expect(try archive.contents(of: archive.entries[0]) == Data("abc".utf8))
+        for _ in 0..<2 {
+            #expect(try archive.contents(of: archive.entries[1]) == large)
+            #expect(archive.cachedByteCount == 3)
+        }
+        #expect(try archive.contents(of: archive.entries[0]) == Data("abc".utf8))
+        #expect(archive.expansionCount == 3)
+    }
+
+    @Test("大きさの違うエントリを保持するときも必要なだけ追い出して容量を守る")
+    func byteCapacity() throws {
+        let archive = try ZipArchive(
+            data: makeZip([
+                Item("a.jpg"), Item("b.jpg"), Item("c.jpg"),
+                Item("larger.jpg", content: Data(repeating: 0x61, count: 8)),
+            ]), cacheCapacity: 9)
+        for entry in archive.entries {
+            _ = try archive.contents(of: entry)
+            #expect(archive.cachedByteCount <= 9)
+        }
+        #expect(archive.cachedByteCount == 8)
+        #expect(archive.expansionCount == 4)
+        #expect(ZipArchive.defaultCacheCapacity == 128 * 1024 * 1024)
+    }
+
+    @Test("容量ゼロでも画像を繰り返し読める")
+    func zeroCapacity() throws {
+        let archive = try ZipArchive(data: makeZip([Item("a.jpg", method: 8)]), cacheCapacity: 0)
+        for _ in 0..<2 { #expect(try archive.contents(of: archive.entries[0]) == Data("abc".utf8)) }
+        #expect(archive.cachedByteCount == 0)
+        #expect(archive.expansionCount == 2)
+    }
+
+    @Test("破損と暗号化の失敗は画像の追い出し後も保持して処理を繰り返さない")
+    func failuresSurviveEviction() throws {
+        var corrupt = Item("corrupt.jpg", method: 8)
+        corrupt.checksum = 0
+        let archive = try ZipArchive(
+            data: makeZip([corrupt, Item("encrypted.jpg", flags: 1), Item("a.jpg"), Item("b.jpg")]),
+            cacheCapacity: 3)
+        #expect(throws: ZipArchive.ReadError.checksumMismatch) { try archive.contents(of: archive.entries[0]) }
+        #expect(throws: ZipArchive.ReadError.encrypted) { try archive.contents(of: archive.entries[1]) }
+        for entry in archive.entries.dropFirst(2) { _ = try archive.contents(of: entry) }
+        #expect(throws: ZipArchive.ReadError.checksumMismatch) { try archive.contents(of: archive.entries[0]) }
+        #expect(throws: ZipArchive.ReadError.encrypted) { try archive.contents(of: archive.entries[1]) }
+        #expect(archive.expansionCount == 4)
+        #expect(archive.cachedByteCount == 3)
+    }
+
+    @Test("同じZIPのコピーを並行して読んでも各エントリを一度だけ展開する")
+    func concurrentCachedReads() async throws {
+        let archive = try ZipArchive(
+            data: makeZip([Item("a.jpg", method: 8), Item("b.jpg", method: 8)]), cacheCapacity: 6)
+        try await withThrowingTaskGroup(of: Data.self) { group in
+            for index in 0..<20 {
+                let copy = archive
+                group.addTask { try copy.contents(of: copy.entries[index % 2]) }
+            }
+            for try await data in group { #expect(data == Data("abc".utf8)) }
+        }
+        #expect(archive.expansionCount == 2)
+        #expect(archive.cachedByteCount == 6)
+    }
+
+    @Test("同じ位置でも別の属性のエントリを受け付けない")
+    func foreignEntry() throws {
+        let archive = try ZipArchive(data: makeZip([Item("a.jpg")]))
+        let other = try ZipArchive(data: makeZip([Item("b.jpg")]))
+        #expect(throws: ZipArchive.ReadError.corrupted) { try archive.contents(of: other.entries[0]) }
+    }
+
+    @Test("一万件のエントリを順に読み容量内のキャッシュで最後まで内容を返す")
+    func largeMembership() throws {
+        let archive = try ZipArchive(data: makeZip((0..<10000).map { Item("image\($0).jpg") }), cacheCapacity: 6)
+        for entry in archive.entries { #expect(try archive.contents(of: entry) == Data("abc".utf8)) }
+        #expect(archive.expansionCount == 10000)
+        #expect(archive.cachedByteCount == 6)
     }
 
     private struct Item {
