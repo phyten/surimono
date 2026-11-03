@@ -246,7 +246,7 @@ make clean
 - 根要素に margin を付けても、繰り返さない背景画像は紙面の原点から描かれる（繰り返す画像は margin の内側から）。紙のページは padding と `background-origin: content-box` で根要素の中身を本文の範囲に置く。
 - `body` に透明な部分のあるグラデーションを付けると、`html` にも背景があるとき印刷で黒く塗られた（v0.3.0 の「宿題ノート」）。
 - WebKit の印刷は、文書の `@page` の size と margin を NSPrintInfo より優先することがあり、ページの高さを CSS の整数ピクセルで区切る。用紙ちょうどの大きさの紙片を並べた HTML（`@page { size: A4; margin: 0 }` と A4 の `.sheet` など）は、A4 が 1122.52px なので 0.52px はみ出し、1 枚が 2 ページに分かれていた。WebPaginator は用紙と下の余白をともに 2pt 高くして組み、できたページを上をそろえて元の大きさに切り戻す（`pageHeightAllowance`。測った環境では +0.5pt は標準の用紙の大きさに丸め戻され、+1pt で効いた）。文書が `@page` の規則を持つ（余白を上書きしうる）ときは、切り落とす帯を白地に描き、文字・罫・画像・背景など何か描かれたページがあれば切り戻さず、面付けで用紙へ縮めて収める。箱を変えたページは PDFKit が一部の文字の位置を 0 と返すので、切り戻した PDF は書き出して読み直したものを返す（面付けした用紙の PDF でも文字の位置は当てにならないので、テストで見えているかを文字の位置で確かめない）。
-- `loadHTMLString(_:baseURL:)` は基準 URL が file URL でもローカルのファイルを読む権限を与えないため、文書の隣の画像が表示されない。WebPaginator は生成した HTML を一時ファイルに書いて `loadFileURL` で読み込む（生成 HTML では JavaScript を止めている）。
+- `loadHTMLString(_:baseURL:)` は基準 URL が file URL でもローカルのファイルを読む権限を与えないため、文書の隣の画像が表示されない。WebPaginator は生成した HTML を一時ファイルに書いて `loadFileURL` で読み込む（生成 HTML では JavaScript を止めている）。`../images/` を読めるよう読み取りは `/` 全体に許すので、生成したページ自身のほかは文書として読み込まない（`NavigationTracker.generatedPageURL`。生の HTML の iframe・object・embed・meta refresh で、開いていないファイルの中身が紙に出ていた）。
 - DocumentGroup のアプリでは、open-documents を `application(_:open:)` だけで受けると複数選択が文書コントローラに 1 つずつ渡ることがある。Apple Event のハンドラで一括して受けている。
 - 文書なしで起動すると、文書コントローラが「開く」パネルを自動で出す（このパネルの複数選択はルーターを通らない）。`NSShowAppCentricOpenPanelInsteadOfUntitledFile` を false で登録して止め、ウェルカム画面を出している。
 - `@FocusedValue` / `focusedSceneValue` は AppKit で開いたウィンドウ（画像の束・ウェルカム画面）に届かない。メニューからは `DocumentWindows.activeModel` を使う。
