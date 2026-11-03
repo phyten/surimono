@@ -59,6 +59,24 @@ struct HTMLPresentationTests {
         #expect(condition())
     }
 
+    @Test("ライブHTMLも全体設定とプリセットの両方が許すときだけJavaScriptを許可する")
+    func liveJavaScriptPolicy() throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = try model(environment)
+        environment.preferences.allowsJavaScript = true
+        model.presetID = "none"
+        #expect(model.allowsLiveJavaScript)
+        model.presetID = "clean"
+        #expect(!model.allowsLiveJavaScript)
+        model.presetID = "none"
+        #expect(model.allowsLiveJavaScript)
+        environment.preferences.allowsJavaScript = false
+        #expect(!model.allowsLiveJavaScript)
+        model.presetID = "print"
+        #expect(!model.allowsLiveJavaScript)
+    }
+
     @Test("紙面のHTMLはページ余白ゼロでもアプリの余白で内容を切り取らない", .timeLimit(.minutes(1)))
     func htmlMarginsAreNotKnownBlank() async throws {
         let environment = try environment()

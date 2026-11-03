@@ -83,7 +83,7 @@ private struct PaperArea: View {
         ZStack {
             if model.showsWeb, let fileURL = model.fileURL {
                 WebPageView(
-                    controller: model.web, fileURL: fileURL, allowsJavaScript: model.preferences.allowsJavaScript,
+                    controller: model.web, fileURL: fileURL, allowsJavaScript: model.allowsLiveJavaScript,
                     onEscape: { menu.hideForEscape(pinned: model.isMenuPinned) })
             } else if let document = model.paperDocument, !model.isCapturingWeb {
                 PaperView(

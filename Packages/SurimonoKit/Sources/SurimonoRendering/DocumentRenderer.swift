@@ -116,7 +116,7 @@ public struct DocumentSource: Equatable, Sendable {
 
     /// Whether the page's own JavaScript runs while it is laid out.
     func allowsJavaScript(_ settings: RenderSettings) -> Bool {
-        format == .html && !isLiveSnapshot && settings.allowsJavaScriptInHTML && !settings.preset.disablesJavaScript
+        format == .html && !isLiveSnapshot && settings.allowsPageJavaScript
     }
 }
 
@@ -128,6 +128,8 @@ public struct RenderSettings: Equatable, Sendable {
     public var preset: HTMLCleanupPreset
     public var options: PrintOptions
     public var allowsJavaScriptInHTML: Bool
+    /// Live HTML and paper must enforce the same combination of user and preset policy.
+    public var allowsPageJavaScript: Bool { allowsJavaScriptInHTML && !preset.disablesJavaScript }
     public var smartRemoval: SmartRemovalRequest?
     /// HTML: open every `<details>` of the copy being laid out.
     public var opensDetails: Bool
