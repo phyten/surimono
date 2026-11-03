@@ -401,9 +401,10 @@ private final class PaginationSession {
             // loadHTMLString does not grant file read access, so images next to the document would not load.
             // Load a temporary copy instead. Reading is allowed broadly so that references such as ../images/
             // keep working, which is acceptable only because the page cannot run JavaScript to read and send
-            // local files.
+            // local files, and no other local file is loaded as a document (`generatedPageURL`).
             let url = temporaryURL(extension: "html")
             try Data(WebPaginator.injectingBase(baseURL, into: html).utf8).write(to: url)
+            navigationTracker.generatedPageURL = url
             webView.loadFileURL(url, allowingReadAccessTo: URL(fileURLWithPath: "/"))
         case .html(let html, let baseURL):
             // With JavaScript enabled, grant no file access beyond what loadHTMLString allows.
@@ -571,6 +572,27 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     }
 
     private(set) var state = State.loading
+    /// Set for generated pages, which may read any local file so that references such as ../images/ work. Images and
+    /// style sheets only draw what they are, but a document shows a file's content: `<iframe>`, `<object>`, `<embed>`
+    /// or a `<meta http-equiv="refresh">` in the document's raw HTML could otherwise put an unopened file, such as a
+    /// private key, onto the paper. Only this page itself is loaded as a document; no frame loads a local file.
+    var generatedPageURL: URL?
+
+    func webView(
+        _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+    ) {
+        decisionHandler(Self.allows(navigationAction, generatedPageURL: generatedPageURL) ? .allow : .cancel)
+    }
+
+    private static func allows(_ action: WKNavigationAction, generatedPageURL: URL?) -> Bool {
+        guard let generatedPageURL else { return true }
+        let url = action.request.url
+        if action.targetFrame?.isMainFrame ?? true {
+            return url?.absoluteURL.standardizedFileURL == generatedPageURL.absoluteURL.standardizedFileURL
+        }
+        return url?.isFileURL != true
+    }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         state = .finished

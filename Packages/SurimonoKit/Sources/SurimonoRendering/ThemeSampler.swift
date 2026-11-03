@@ -246,11 +246,13 @@ public final class ThemeSampler {
                 return
             }
             // As in pagination: a temporary copy lets images next to the document load. Reading broadly is
-            // acceptable only because the page cannot run JavaScript to read and send local files.
+            // acceptable only because the page cannot run JavaScript to read and send local files and cannot load
+            // them as documents.
             let url = FileManager.default.temporaryDirectory
                 .appending(path: "surimono-sample-\(UUID().uuidString).html")
             try Data(WebPaginator.injectingBase(baseURL, into: html).utf8).write(to: url)
             temporaryFile = url
+            navigation.generatedPageURL = url
             webView.loadFileURL(url, allowingReadAccessTo: URL(fileURLWithPath: "/"))
         }
 
