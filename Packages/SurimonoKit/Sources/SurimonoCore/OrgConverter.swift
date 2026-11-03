@@ -17,10 +17,29 @@ public enum OrgConverter {
 
 private struct OrgParser {
     let lines: [String]
+    let depth: Int
+    private let regionEnds: [String: [Int]]
     var index = 0
     var metadata: [String: String] = [:]
 
+    init(lines: [String], depth: Int = 0) {
+        self.lines = lines
+        self.depth = depth
+        // Index all kinds together: distinct unmatched block names must not each rescan the suffix.
+        var ends: [String: [Int]] = [:]
+        for (index, line) in lines.enumerated() {
+            let marker = line.trimmingCharacters(in: .whitespaces).uppercased()
+            if marker == ":END:" || marker.hasPrefix("#+END_") {
+                ends[marker, default: []].append(index)
+            }
+        }
+        regionEnds = ends
+    }
+
     mutating func render(isListItem: Bool = false) -> String {
+        // Lists and quote/center blocks share the bound so alternating them cannot bypass it.
+        guard depth < 32 else { return "<p>\(HTML.escape(lines.joined(separator: "\n")))</p>\n" }
+
         var output = ""
         var paragraph: [String] = []
         func flush() {
@@ -106,7 +125,7 @@ private struct OrgParser {
         case "EXAMPLE": return "<pre>\(HTML.escape(text))</pre>\n"
         case "VERSE": return "<div class=\"org-verse\">\(OrgInline.render(text))</div>\n"
         case "QUOTE", "CENTER":
-            var nested = OrgParser(lines: content)
+            var nested = OrgParser(lines: content, depth: depth + 1)
             let body = nested.render()
             return kind == "QUOTE" ? "<blockquote>\(body)</blockquote>\n" : "<div class=\"org-center\">\(body)</div>\n"
         default:
@@ -188,7 +207,7 @@ private struct OrgParser {
             let firstLine = definition?[1] ?? item.content
             index += 1
             let content = [firstLine] + collectListItemContinuation(indent: indent)
-            var nested = OrgParser(lines: content)
+            var nested = OrgParser(lines: content, depth: depth + 1)
             let body = nested.render(isListItem: definition == nil)
             if let definition {
                 output += "<dt>\(OrgInline.render(definition[0]))</dt><dd>\(body)</dd>"
@@ -223,9 +242,14 @@ private struct OrgParser {
     }
 
     private func endOfRegion(_ region: DelimitedRegion, after start: Int) -> Int? {
-        ((start + 1)..<lines.count).first {
-            lines[$0].trimmingCharacters(in: .whitespaces).uppercased() == region.endMarker
+        guard let ends = regionEnds[region.endMarker] else { return nil }
+        var lower = 0
+        var upper = ends.count
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            if ends[middle] <= start { lower = middle + 1 } else { upper = middle }
         }
+        return lower < ends.count ? ends[lower] : nil
     }
 
     private mutating func collectListItemContinuation(indent: Int) -> [String] {

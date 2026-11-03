@@ -12,24 +12,26 @@ enum MarkdownExtensions {
     final class Footnotes {
         let definitions: [String: String]
         private(set) var order: [String] = []
+        private var numbers: [String: Int] = [:]
         private var referenceCounts: [String: Int] = [:]
 
         init(definitions: [String: String]) {
             self.definitions = definitions
         }
 
-        func number(of id: String) -> Int? { order.firstIndex(of: id).map { $0 + 1 } }
+        func number(of id: String) -> Int? { numbers[id] }
 
         /// The reference's HTML, or nil for an id without a definition, which stays as written.
         fileprivate func reference(to label: String) -> String? {
             let id = label.lowercased()
             guard definitions[id] != nil else { return nil }
             let number: Int
-            if let index = order.firstIndex(of: id) {
-                number = index + 1
+            if let existing = numbers[id] {
+                number = existing
             } else {
                 order.append(id)
                 number = order.count
+                numbers[id] = number
             }
             let count = referenceCounts[id, default: 0] + 1
             referenceCounts[id] = count

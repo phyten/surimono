@@ -65,7 +65,8 @@ struct LaTeXTable {
                     attributes += " rowspan=\"\(cell.rows)\""
                     pendingRowspans[column] = cell.rows - 1
                 }
-                cells += "<\(tag)\(attributes)>\(inline(cell.content))</\(tag)>"
+                cells +=
+                    "<\(tag)\(attributes)>\(cell.isPlainText ? HTML.escape(cell.content) : inline(cell.content))</\(tag)>"
                 column += cell.columns
             }
             html += "<tr>\(cells)</tr>\n"
@@ -276,19 +277,22 @@ struct LaTeXTable {
 
     private struct Cell {
         var content: String
+        var isPlainText = false
         var columns = 1
         var rows = 1
         var alignment: String?
     }
 
     /// `\multicolumn{n}{spec}{text}` and `\multirow{n}{width}{text}` around a cell's text.
-    private static func cell(_ source: String) -> Cell {
+    private static func cell(_ source: String, depth: Int = 0) -> Cell {
+        // Preserve excessive nesting as text without sending it into another recursive parser.
+        guard depth < 32 else { return Cell(content: source, isPlainText: true) }
         let reader = Arguments(source)
         if reader.take("\\multicolumn") {
             let count = Int(reader.group().trimmingCharacters(in: .whitespaces)) ?? 1
             var budget = 1
             let spec = columns(Array(reader.group()), budget: &budget)
-            var inner = cell(reader.group())
+            var inner = cell(reader.group(), depth: depth + 1)
             inner.columns = min(max(count, 1), 100)
             inner.alignment = spec.first?.alignment
             return inner
@@ -299,7 +303,7 @@ struct LaTeXTable {
             reader.optional()
             _ = reader.group()
             reader.optional()
-            var inner = cell(reader.group())
+            var inner = cell(reader.group(), depth: depth + 1)
             inner.rows = min(max(count, 1), 1000)
             return inner
         }
