@@ -123,13 +123,15 @@ enum ViewerWindow {
         window.contentRect(forFrameRect: window.frame).height - band
     }
 
-    /// Resizes the window so that the paper area is `paper`, keeping the top-left corner in place and the window on
-    /// screen, and locks resizing to the paper's aspect ratio.
-    static func setPaperSize(_ paper: CGSize, band: CGFloat, of window: NSWindow, animate: Bool) {
+    /// Resizes the window so that the paper area is `paper`, keeping the top-left (or top-right) corner in place and
+    /// the window on screen, and locks resizing to the paper's aspect ratio.
+    static func setPaperSize(
+        _ paper: CGSize, band: CGFloat, of window: NSWindow, animate: Bool, keepsRightEdge: Bool = false
+    ) {
         guard paper.width > 0, paper.height > 0 else { return }
         let content = NSRect(x: 0, y: 0, width: paper.width, height: paper.height + band)
         var frame = window.frameRect(forContentRect: content)
-        frame.origin.x = window.frame.minX
+        frame.origin.x = keepsRightEdge ? window.frame.maxX - frame.width : window.frame.minX
         frame.origin.y = window.frame.maxY - frame.height
         setFrame(constrained(frame, on: window.screen), of: window, animate: animate)
         lockAspectRatio(of: window, unit: paper, band: band)

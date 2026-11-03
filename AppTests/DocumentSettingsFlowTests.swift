@@ -53,6 +53,145 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("文字サイズと用紙の向きの既定値は開くだけでは保存せず文書の操作を優先する", .timeLimit(.minutes(1)))
+    func textAndOrientationDefaults() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultTextScale = 1.25
+        environment.preferences.defaultPaperOrientation = .landscape
+        let data = Data("# Viewer defaults".utf8)
+        let pageData = pdf("Theme", pages: 1)
+        func model() -> DocumentViewModel {
+            DocumentViewModel(
+                data: data, fileURL: nil, format: .markdown,
+                preferences: environment.preferences, library: environment.library,
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+                settingsStore: environment.store)
+        }
+        let first = model()
+        defer { first.stop() }
+        #expect(first.textScale == 1.25)
+        #expect(first.paperOrientation == .landscape)
+        environment.preferences.defaultTextScale = 1.5
+        environment.preferences.defaultPaperOrientation = .portrait
+        try await open(first)
+        #expect(first.rememberedSettings.textScale == 1.25)
+        #expect(first.rememberedSettings.paperOrientation == .landscape)
+        first.rememberedSettingsDidChange()
+        try await Task.sleep(for: .milliseconds(550))
+        #expect(!first.hasSavedSettings)
+        #expect(environment.store.keys().isEmpty)
+        first.setTextScale(1.75)
+        first.paperOrientation = .auto
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        let reopened = model()
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.textScale == 1.75)
+        #expect(reopened.paperOrientation == .auto)
+        reopened.resetDocumentSettings()
+        #expect(reopened.textScale == 1.5)
+        #expect(reopened.paperOrientation == .portrait)
+        reopened.rememberedSettingsDidChange()
+        try await Task.sleep(for: .milliseconds(550))
+        #expect(!reopened.hasSavedSettings)
+        #expect(environment.store.keys().isEmpty)
+    }
+
+    @Test("新しい窓は最前面とメニュー固定の既定値を使い固定した帯を初期サイズに含める", .timeLimit(.minutes(1)))
+    func openingWindowDefaults() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultAlwaysOnTop = true
+        environment.preferences.defaultMenuPinned = true
+        let model = environment.model(pdf("Pinned"))
+        defer { model.stop() }
+        #expect(model.isAlwaysOnTop && model.isMenuPinned)
+        #expect(model.loneCoverWidth == .onePage)
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        try await waitUntil { window.level == .floating }
+        let unit = try #require(model.paperUnitSize)
+        let paper = ViewerWindow.initialPaperSize(unit: unit, on: window.screen)
+        let content = window.contentRect(forFrameRect: window.frame).size
+        #expect(abs(content.height - paper.height - ViewerWindow.bandHeight) <= 1)
+        #expect(abs(content.width - paper.width) <= 1)
+        environment.preferences.defaultAlwaysOnTop = false
+        environment.preferences.defaultMenuPinned = false
+        #expect(model.isAlwaysOnTop && model.isMenuPinned)
+        model.toggleAlwaysOnTop()
+        model.toggleMenuPinned()
+        model.rememberedSettingsDidChange()
+        try await Task.sleep(for: .milliseconds(550))
+        #expect(!model.hasSavedSettings)
+        #expect(environment.store.keys().isEmpty)
+    }
+
+    @Test("表紙では窓を 1 ページ幅にし、めくると綴じ側の端を動かさずに見開きの幅へ広げ、自動の大きさは保存しない", .timeLimit(.minutes(1)))
+    func coverWindowWidth() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(pdf("Cover", pages: 6))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        // A PDF of six portrait pages opens as a left-to-right book with its cover alone.
+        #expect(model.viewOptions.layout == .spread && model.viewOptions.showsCoverAlone)
+        model.sizeWindowToPaper(initialOnly: true)
+        #expect(model.showsNarrowCover)
+        func paperRatio() -> CGFloat {
+            let content = window.contentRect(forFrameRect: window.frame).size
+            return content.width / content.height
+        }
+        let page: CGFloat = 595.0 / 842.0
+        #expect(abs(paperRatio() - page) < 0.02)
+        // Leave room on the left: a window at the edge of the screen is kept on it rather than at its right edge.
+        let visible = try #require(window.screen?.visibleFrame)
+        window.setFrameTopLeftPoint(NSPoint(x: visible.midX, y: window.frame.maxY))
+        let rightEdge = window.frame.maxX
+
+        // Turn the paper itself, so that PDFKit's page change and the window's reaction to it are what move.
+        try await waitUntil { model.paper.isConnected }
+        model.paper.turnPage(forward: true)
+        try await waitUntil { model.currentPageIndex == 1 && abs(paperRatio() - 2 * page) < 0.02 }
+        #expect(!model.showsNarrowCover)
+        #expect(abs(window.frame.maxX - rightEdge) <= 1)
+
+        model.paper.turnPage(forward: false)
+        try await waitUntil { model.currentPageIndex == 0 && abs(paperRatio() - page) < 0.02 }
+        #expect(abs(window.frame.maxX - rightEdge) <= 1)
+        try await Task.sleep(for: .milliseconds(550))
+        #expect(!model.hasSavedSettings)
+    }
+
+    @Test("既定に戻すと現在の表示の既定値を使いウィンドウの固定状態は変えない", .timeLimit(.minutes(1)))
+    func resetViewerDefaults() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(pdf("Reset"))
+        defer { model.stop() }
+        try await open(model)
+        environment.preferences.defaultReadingDirection = .rightToLeft
+        environment.preferences.defaultScrollAxis = .vertical
+        environment.preferences.defaultShowsCoverAlone = false
+        model.isAlwaysOnTop = true
+        model.isMenuPinned = true
+        model.resetDocumentSettings()
+        #expect(model.viewOptions.direction == .rightToLeft)
+        #expect(model.viewOptions.scrollAxis == .vertical)
+        #expect(!model.viewOptions.showsCoverAlone)
+        #expect(model.isAlwaysOnTop && model.isMenuPinned)
+        model.rememberedSettingsDidChange()
+        try await Task.sleep(for: .milliseconds(550))
+        #expect(environment.store.keys().isEmpty)
+    }
+
     @Test("合本のHTMLを外で変更しても再読み込みまでは組版内容と保存の集合キーが一致する", .timeLimit(.minutes(1)))
     func binderHTMLSnapshot() async throws {
         let environment = try environment()

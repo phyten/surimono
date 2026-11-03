@@ -13,6 +13,8 @@ final class PaperController {
     func zoomOut() { view?.stepZoom(up: false) }
     func zoomToFit() { view?.setZoom(1, anchor: nil) }
     func turnPage(forward: Bool) { view?.turnPage(forward: forward) }
+    /// Whether a paper view is on screen to receive turns (observed by tests).
+    var isConnected: Bool { view != nil }
     func goToPage(index: Int, in document: PDFDocument? = nil) { view?.goToPage(index: index, in: document) }
     func focus() {
         guard let view else { return }
@@ -34,6 +36,8 @@ struct PaperView: NSViewRepresentable {
     var logicalMargin: CGFloat? = nil
     var showsPageNumbers = false
     var changeMarks: [ChangeMark] = []
+    /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
+    var narrowsLoneCover = false
     let controller: PaperController
     var onZoomChange: (Double) -> Void
     var onPageChange: (Int) -> Void
@@ -55,6 +59,7 @@ struct PaperView: NSViewRepresentable {
         view.onPageChange = onPageChange
         view.onTurn = onTurn
         view.onKey = onKey
+        view.narrowsLoneCover = narrowsLoneCover
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
             showsPageNumbers: showsPageNumbers, changeMarks: changeMarks)
@@ -142,6 +147,13 @@ final class PaperPDFView: PDFView {
     private var changeMarks: [ChangeMark] = []
     private var drawnChangeMarks: [ChangeMark] = []
     private var isUpdatingDocument = false
+    private var isSwitchingSpreadMode = false
+    var narrowsLoneCover = false {
+        didSet {
+            guard narrowsLoneCover != oldValue, document != nil else { return }
+            goToPage(index: currentPageIndex)
+        }
+    }
 
     func configure(
         _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool,
@@ -336,7 +348,7 @@ final class PaperPDFView: PDFView {
 
     private var fittedUnitSize: CGSize {
         guard options?.isContinuous != true, let document, let currentPage else { return unitSize }
-        let count = options?.layout == .spread ? 2 : 1
+        let count = displayMode == .twoUp || displayMode == .twoUpContinuous ? 2 : 1
         let index = document.index(for: currentPage)
         let start = index - index % count
         var size = CGSize.zero
@@ -484,7 +496,19 @@ final class PaperPDFView: PDFView {
     }
 
     @objc private func pageDidChange() {
-        guard !isMeasuringFit, !isUpdatingDocument, !isSettingScale else { return }
+        guard !isMeasuringFit, !isUpdatingDocument, !isSettingScale, !isSwitchingSpreadMode else { return }
+        // PDFKit may turn pages itself, such as onto the blank before the cover or past the cover while showing one
+        // page; show what the reader expects there.
+        if let document, let page = currentPage, options?.layout == .spread, options?.isContinuous != true {
+            let index = document.index(for: page)
+            let narrow = isNarrowCover(at: index)
+            if narrow != (displayMode == .singlePage) || (narrow && index == 0) {
+                goToPage(index: pagePlan?.readingIndex(at: index) ?? 0)
+                // Going to the page PDFKit already shows may post no notification of its own.
+                onPageChange?(currentPageIndex)
+                return
+            }
+        }
         if options?.isContinuous != true { refit() }
         onPageChange?(currentPageIndex)
     }
@@ -598,8 +622,30 @@ final class PaperPDFView: PDFView {
             let page = document.page(at: viewIndex)
         else { return }
         finishZoomReturnForNavigation()
+        applySpreadMode(narrow: isNarrowCover(at: viewIndex))
         go(to: page)
         if options?.isContinuous != true { refit() }
+    }
+
+    /// The cover of a paged spread, shown alone: the view copy puts a blank page before it (view index 0), and the
+    /// cover itself is view index 1.
+    private func isNarrowCover(at viewIndex: Int) -> Bool {
+        guard narrowsLoneCover, let options, let pagePlan,
+            options.layout == .spread, options.showsCoverAlone, !options.isContinuous,
+            pagePlan.logicalIndex(at: 0) == nil
+        else { return false }
+        return viewIndex < 2
+    }
+
+    /// PDFKit shows two pages side by side or one; the lone cover takes one so that the window can be one page wide
+    /// instead of showing a blank page beside it.
+    private func applySpreadMode(narrow: Bool) {
+        guard let options, options.layout == .spread, !options.isContinuous else { return }
+        let mode: PDFDisplayMode = narrow ? .singlePage : .twoUp
+        guard displayMode != mode else { return }
+        isSwitchingSpreadMode = true
+        displayMode = mode
+        isSwitchingSpreadMode = false
     }
 
     func turnPage(forward: Bool) {

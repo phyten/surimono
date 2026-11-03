@@ -5,6 +5,77 @@ import Testing
 struct ViewDefaultPreferencesTests {
     private let preferences = ViewDefaultPreferences(layout: .spread, transition: .fade, joinsPages: false)
 
+    @Test("読む向き・スクロール方向・表紙は指定した項目だけを上書きする")
+    func newIndependentOverrides() {
+        let context = ViewDefaultsContext(kind: .flowingText, pageCount: 10, firstPageSize: .zero)
+        let original = ViewOptions.defaults(for: context)
+        var expected = original
+        expected.direction = .rightToLeft
+        #expect(ViewOptions.resolved(for: context, preferences: .init(direction: .rightToLeft)) == expected)
+        expected = original
+        expected.scrollAxis = .horizontal
+        #expect(ViewOptions.resolved(for: context, preferences: .init(scrollAxis: .horizontal)) == expected)
+        expected = original
+        expected.showsCoverAlone = true
+        #expect(ViewOptions.resolved(for: context, preferences: .init(showsCoverAlone: true)) == expected)
+    }
+
+    @Test("表紙のオフも画像の束とPDFの既定値を上書きする", arguments: [ViewDefaultsContext.Kind.imageBundle, .pdf])
+    func coverOff(kind: ViewDefaultsContext.Kind) {
+        let context = ViewDefaultsContext(kind: kind, pageCount: 10, firstPageSize: CGSize(width: 100, height: 200))
+        let result = ViewOptions.resolved(for: context, preferences: .init(showsCoverAlone: false))
+        #expect(result.layout == .spread)
+        #expect(!result.showsCoverAlone)
+    }
+
+    @Test("PDFの方向指定は読む向きだけを優先しスクロールと表紙はアプリの設定を使う", arguments: ["L2R", "R2L"])
+    func pdfDirectionWins(direction: String) {
+        let context = ViewDefaultsContext(
+            kind: .pdf, pageCount: 10, firstPageSize: CGSize(width: 100, height: 200), pdfDirection: direction)
+        let result = ViewOptions.resolved(
+            for: context,
+            preferences: .init(
+                direction: direction == "L2R" ? .rightToLeft : .leftToRight,
+                scrollAxis: .vertical, showsCoverAlone: false))
+        #expect(result.direction == (direction == "L2R" ? .leftToRight : .rightToLeft))
+        #expect(result.scrollAxis == .vertical)
+        #expect(!result.showsCoverAlone)
+    }
+
+    @Test(
+        "PDFの表示型は方向指定がなくても新しい表示の既定値より優先する",
+        arguments: ["SinglePage", "OneColumn", "TwoColumnLeft", "TwoColumnRight", "TwoPageLeft", "TwoPageRight"])
+    func pdfLayoutWins(hint: String) {
+        let context = ViewDefaultsContext(kind: .pdf, pageCount: 10, firstPageSize: .zero, pdfPageLayout: hint)
+        let original = ViewOptions.defaults(for: context)
+        let preferences = ViewDefaultPreferences(
+            direction: .rightToLeft, scrollAxis: original.scrollAxis == .vertical ? .horizontal : .vertical,
+            showsCoverAlone: !original.showsCoverAlone)
+        #expect(ViewOptions.resolved(for: context, preferences: preferences) == original)
+    }
+
+    @Test("保存済みの読む向き・スクロール方向・表紙はアプリの指定より優先する")
+    func savedNewFieldsWin() {
+        let context = ViewDefaultsContext(kind: .flowingText, pageCount: 10, firstPageSize: .zero)
+        let saved = ViewOptions.defaults(for: context)
+        #expect(
+            ViewOptions.resolved(
+                for: context,
+                preferences: .init(direction: .rightToLeft, scrollAxis: .horizontal, showsCoverAlone: true),
+                saved: saved) == saved)
+    }
+
+    @Test("ヒントのないPDFは新しい表示の既定値を使う")
+    func unhintedNewDefaults() {
+        let context = ViewDefaultsContext(kind: .pdf, pageCount: 10, firstPageSize: CGSize(width: 100, height: 200))
+        let result = ViewOptions.resolved(
+            for: context,
+            preferences: .init(direction: .rightToLeft, scrollAxis: .vertical, showsCoverAlone: false))
+        #expect(result.direction == .rightToLeft)
+        #expect(result.scrollAxis == .vertical)
+        #expect(!result.showsCoverAlone)
+    }
+
     @Test("自動は文書の種類・寸法・PDFヒントごとの従来の既定値を変えない")
     func automaticPreservesDocumentDefaults() {
         for kind in [ViewDefaultsContext.Kind.flowingText, .image, .imageBundle, .pdf] {
@@ -60,6 +131,9 @@ struct ViewDefaultPreferencesTests {
 
     @Test("単独画像と短いPDFと横長PDFは単ページを保つ")
     func forcedSingle() {
+        let preferences = ViewDefaultPreferences(
+            layout: .spread, transition: .fade, direction: .rightToLeft, scrollAxis: .vertical,
+            showsCoverAlone: true)
         for context in [
             ViewDefaultsContext(kind: .image, pageCount: 1, firstPageSize: .zero),
             ViewDefaultsContext(kind: .pdf, pageCount: 2, firstPageSize: CGSize(width: 100, height: 200)),
