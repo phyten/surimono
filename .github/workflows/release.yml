@@ -21,6 +21,17 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # A tag or a manually selected ref can point at any commit, including one from an unmerged branch. This guards
+      # against releasing such a revision by mistake. It applies only when this version of the workflow runs, so it is
+      # not a security boundary: protecting the signing key and the release tags takes repository settings.
+      - name: Check that the commit is on master
+        shell: bash
+        run: |
+          git fetch --no-tags --filter=blob:none origin '+refs/heads/master:refs/remotes/origin/master'
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/master; then
+            echo "::error::$GITHUB_SHA is not on master. Release only commits that are merged into master."
+            exit 1
+          fi
       - name: Determine version
         id: version
         env:
