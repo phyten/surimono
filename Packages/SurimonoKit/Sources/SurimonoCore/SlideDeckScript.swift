@@ -33,6 +33,7 @@ public enum SlideDeckScript {
     ///   cheap enough for every scroll.
     /// - `surimonoSlideGroups()` does both; `surimonoSlideFactsJSON(facts)` turns the facts into JSON.
     static let collector = #"""
+        const surimonoSlideMaximumMembers = \#(SlideDeck.maximumMembers);
         const surimonoSlideRendered = element => element.getClientRects().length > 0;
         // A hidden slide has no layout box; its computed size is what its rules declare.
         const surimonoSlideSize = element => {
@@ -56,11 +57,12 @@ public enum SlideDeckScript {
             for (const child of Array.from(parent.children)) {
               if (!(child instanceof HTMLElement) || skipped.has(child.tagName)) continue;
               const list = byTag.get(child.tagName) || [];
-              list.push(child);
+              // Keep only a sentinel past the limit, and reject the whole group rather than losing slides.
+              if (list.length <= surimonoSlideMaximumMembers) list.push(child);
               byTag.set(child.tagName, list);
             }
             for (const elements of byTag.values()) {
-              if (elements.length < 2) continue;
+              if (elements.length < 2 || elements.length > surimonoSlideMaximumMembers) continue;
               const sizes = elements.map(surimonoSlideSize);
               const [width, height] = sizes[0];
               if (width < 1 || height < 1) continue;
