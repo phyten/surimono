@@ -246,6 +246,123 @@ struct WebPaginatorTests {
         #expect(text(of: document).contains("IMAGE-MISSING"))
     }
 
+    /// `<root>/docs` for the document, `<root>/images/dot.png` and `<root>/private/secret.txt` outside it.
+    private func makeDocumentWithSecretNearby() throws -> (root: URL, directory: URL, secret: URL) {
+        let root = try makeImageDirectory(relativePath: "images/dot.png")
+        let secret = root.appending(path: "private/secret.txt")
+        try FileManager.default.createDirectory(
+            at: secret.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("SECRET-MARKER".utf8).write(to: secret)
+        let directory = root.appending(path: "docs")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return (root, directory, secret)
+    }
+
+    @Test("生成した HTML の iframe・object・embed・srcdoc は文書の外のファイルを表示せず、外の画像は読める")
+    func refusesLocalFramesInGeneratedHTML() async throws {
+        let (root, directory, secret) = try makeDocumentWithSecretNearby()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let html = """
+            <!doctype html><meta charset="utf-8"><body><p>BODY-MARKER</p>
+            <iframe src="\(secret.absoluteString)"></iframe>
+            <object data="../private/secret.txt" type="text/plain"></object>
+            <embed src="../private/secret.txt" type="text/plain">
+            <iframe srcdoc="<meta http-equiv='refresh' content='0;url=\(secret.absoluteString)'>"></iframe>
+            <img id="pic" src="../images/dot.png"></body>
+            """
+        let document = try await WebPaginator().paginate(
+            .html(html, baseURL: directory), pageSize: a4, margins: .uniform(millimeters: 15),
+            allowsJavaScript: false, preparationScript: imageReport)
+        let text = text(of: document)
+        #expect(text.contains("BODY-MARKER"))
+        #expect(!text.contains("SECRET-MARKER"))
+        #expect(text.contains("IMAGE-LOADED"))
+    }
+
+    @Test("生成した HTML の meta refresh は別のファイルへ移らない")
+    func refusesMetaRefreshInGeneratedHTML() async throws {
+        let (root, directory, secret) = try makeDocumentWithSecretNearby()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let html = """
+            <!doctype html><meta charset="utf-8">
+            <meta http-equiv="refresh" content="0;url=\(secret.absoluteString)"><body><p>BODY-MARKER</p></body>
+            """
+        // Give a refresh time to happen before the page is printed.
+        let wait = "await new Promise(resolve => setTimeout(resolve, 300));"
+        let document = try await WebPaginator().paginate(
+            .html(html, baseURL: directory), pageSize: a4, margins: .uniform(millimeters: 15),
+            allowsJavaScript: false, preparationScript: wait)
+        let text = text(of: document)
+        #expect(text.contains("BODY-MARKER"))
+        #expect(!text.contains("SECRET-MARKER"))
+    }
+
+    @Test("HTML 文書のスクリプトは隣のファイルの中身を読めない")
+    func pageScriptCannotReadSiblingFiles() async throws {
+        let directory = try makeImageDirectory(relativePath: "dot.png")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try Data("SECRET-MARKER".utf8).write(to: directory.appending(path: "secret.txt"))
+        // The page tries each way a script could read a file next to it and reports how each attempt ended; a
+        // marker says when all of them have.
+        let page = directory.appending(path: "page.html")
+        try Data(
+            """
+            <!doctype html><meta charset="utf-8"><body><p>BODY-MARKER</p>
+            <iframe id="frame" src="secret.txt"></iframe><img id="pic" src="dot.png">
+            <script>
+            function report(name, value) {
+              document.body.insertAdjacentHTML('beforeend', '<p>' + name + ':' + value + '</p>');
+            }
+            try {
+              const request = new XMLHttpRequest();
+              request.open('GET', 'secret.txt', false);
+              request.send();
+              report('xhr', request.responseText);
+            } catch (error) { report('xhr', error.name); }
+            const asyncRead = new Promise(resolve => {
+              const request = new XMLHttpRequest();
+              request.onload = () => { report('asyncxhr', request.responseText); resolve(); };
+              request.onerror = () => { report('asyncxhr', 'error'); resolve(); };
+              request.open('GET', 'secret.txt');
+              request.send();
+            });
+            const fetchRead = fetch('secret.txt').then(response => response.text())
+              .then(text => report('fetch', text), error => report('fetch', error.name));
+            const loaded = new Promise(resolve => window.addEventListener('load', () => {
+              const frame = document.getElementById('frame');
+              report('frame', frame.contentDocument === null ? 'null' : frame.contentDocument.body.innerText);
+              const image = document.getElementById('pic');
+              report('image', image.naturalWidth > 0 ? 'loaded' : 'missing');
+              try {
+                const canvas = document.createElement('canvas');
+                canvas.getContext('2d').drawImage(image, 0, 0);
+                report('canvas', canvas.toDataURL().length);
+              } catch (error) { report('canvas', error.name); }
+              resolve();
+            }));
+            Promise.all([asyncRead, fetchRead, loaded]).then(() => report('done', 'yes'));
+            </script></body>
+            """.utf8
+        ).write(to: page)
+        let waitForReports = """
+            await new Promise(resolve => {
+              const check = () => document.body.innerText.includes('done:yes') ? resolve() : setTimeout(check, 20);
+              check();
+            });
+            """
+        let document = try await WebPaginator().paginate(
+            .file(page, readAccessURL: directory), pageSize: a4, margins: .uniform(millimeters: 15),
+            allowsJavaScript: true, preparationScript: waitForReports)
+        let text = text(of: document)
+        #expect(text.contains("done:yes"))
+        #expect(text.contains("xhr:NetworkError"))
+        #expect(text.contains("asyncxhr:error"))
+        #expect(text.contains("fetch:TypeError"))
+        #expect(text.contains("frame:null"))
+        #expect(text.contains("image:loaded"))
+        #expect(text.contains("canvas:SecurityError"))
+    }
+
     @Test("base 要素は doctype の直後に入り、既存の相対 base href は解決済みの URL になる")
     func injectsResolvedBaseAfterDoctype() {
         let base = URL(fileURLWithPath: "/docs/", isDirectory: true)
