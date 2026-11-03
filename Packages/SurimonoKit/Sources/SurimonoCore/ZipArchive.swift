@@ -69,6 +69,9 @@ public struct ZipArchive: Sendable {
         private var leastRecent: Entry?
         private var mostRecent: Entry?
 
+        // Older compilers make the memberwise initializer private because of the private properties.
+        init(capacity: Int) { self.capacity = capacity }
+
         mutating func data(for entry: Entry) -> Data? {
             guard let data = remove(entry) else { return nil }
             insert(data, for: entry)
