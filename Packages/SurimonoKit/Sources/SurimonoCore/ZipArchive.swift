@@ -1,10 +1,11 @@
 import Compression
 import CoreFoundation
 import Foundation
+import Synchronization
 
 /// An in-memory ZIP reader; no entry is extracted to the filesystem.
 public struct ZipArchive: Sendable {
-    public struct Entry: Equatable, Sendable {
+    public struct Entry: Hashable, Sendable {
         public let path: String
         public let compressedSize: UInt64
         public let uncompressedSize: UInt64
@@ -18,7 +19,7 @@ public struct ZipArchive: Sendable {
     public struct Limits: Equatable, Sendable {
         public var maximumEntryCount: Int
         public var maximumEntrySize: UInt64
-        /// Callers must account for this budget across reads, including repeated reads.
+        /// Callers use this to bound a selected batch, not the lifetime total of repeated reads.
         public var maximumTotalSize: UInt64
 
         public init(
@@ -41,14 +42,81 @@ public struct ZipArchive: Sendable {
     }
 
     public let entries: [Entry]
-    /// Before each read, callers must compare the declared size with their remaining total budget.
-    /// Subtract accepted sizes from `maximumTotalSize` to avoid overflowing a running sum.
     public let limits: Limits
+    private let members: Set<Entry>
+    private let cache: SharedExpansionCache
+    static let defaultCacheCapacity = 128 * 1024 * 1024
+
+    // Hashing, orientation, rendering and thumbnails reread images. Share recent expansions, but bound their
+    // retained bytes so opening a comic does not keep every expanded image resident for the window's lifetime.
+    private final class SharedExpansionCache: Sendable {
+        let state: Mutex<ExpansionCache>
+        init(capacity: Int) { state = Mutex(ExpansionCache(capacity: max(0, capacity))) }
+    }
+
+    private struct ExpansionCache: Sendable {
+        private struct CachedEntry: Sendable {
+            let data: Data
+            var previous: Entry?
+            var next: Entry?
+        }
+
+        let capacity: Int
+        var expansionCount = 0
+        private(set) var byteCount = 0
+        var failures: [Entry: any Error] = [:]
+        private var values: [Entry: CachedEntry] = [:]
+        private var leastRecent: Entry?
+        private var mostRecent: Entry?
+
+        mutating func data(for entry: Entry) -> Data? {
+            guard let data = remove(entry) else { return nil }
+            insert(data, for: entry)
+            return data
+        }
+
+        mutating func insert(_ data: Data, for entry: Entry) {
+            guard data.count <= capacity else { return }
+            while data.count > capacity - byteCount, let oldest = leastRecent {
+                _ = remove(oldest)
+            }
+            values[entry] = CachedEntry(data: data, previous: mostRecent)
+            if let mostRecent { values[mostRecent]?.next = entry } else { leastRecent = entry }
+            mostRecent = entry
+            byteCount += data.count
+        }
+
+        // Linked dictionary entries keep both hits and evictions constant-time, including large batches.
+        private mutating func remove(_ entry: Entry) -> Data? {
+            guard let value = values.removeValue(forKey: entry) else { return nil }
+            if let previous = value.previous {
+                values[previous]?.next = value.next
+            } else {
+                leastRecent = value.next
+            }
+            if let next = value.next {
+                values[next]?.previous = value.previous
+            } else {
+                mostRecent = value.previous
+            }
+            byteCount -= value.data.count
+            return value.data
+        }
+    }
+
+    // Internal diagnostics make reuse and the memory bound testable without wall-clock thresholds.
+    var expansionCount: Int { cache.state.withLock { $0.expansionCount } }
+    var cachedByteCount: Int { cache.state.withLock { $0.byteCount } }
+
     private let bytes: ZipBytes
     private let directoryOffset: Int
 
     /// Parses only the central directory; entry data is validated and expanded on demand.
     public init(data: Data, limits: Limits = .default) throws {
+        try self.init(data: data, limits: limits, cacheCapacity: Self.defaultCacheCapacity)
+    }
+
+    init(data: Data, limits: Limits = .default, cacheCapacity: Int) throws {
         let bytes = ZipBytes(data: data)
         let directory = try Self.directory(in: bytes)
         guard limits.maximumEntryCount >= 0, directory.count <= UInt64(limits.maximumEntryCount) else {
@@ -113,11 +181,31 @@ public struct ZipArchive: Sendable {
         self.bytes = bytes
         self.directoryOffset = directory.offset
         self.entries = entries
+        members = Set(entries)
+        cache = SharedExpansionCache(capacity: cacheCapacity)
         self.limits = limits
     }
 
     public func contents(of entry: Entry) throws -> Data {
-        guard entries.contains(entry) else { throw ReadError.corrupted }
+        guard members.contains(entry) else { throw ReadError.corrupted }
+        // Serialize cache misses so concurrent consumers share a cached expansion as well as its failures.
+        return try cache.state.withLock { state in
+            if let failure = state.failures[entry] { throw failure }
+            if let data = state.data(for: entry) { return data }
+            state.expansionCount += 1
+            do {
+                let data = try expandedContents(of: entry)
+                state.insert(data, for: entry)
+                return data
+            } catch {
+                // Failures retain no expanded bytes and must survive eviction to avoid retrying corrupt streams.
+                state.failures[entry] = error
+                throw error
+            }
+        }
+    }
+
+    private func expandedContents(of entry: Entry) throws -> Data {
         guard !entry.isEncrypted else { throw ReadError.encrypted }
         guard entry.uncompressedSize <= limits.maximumEntrySize,
             let expectedSize = Int(exactly: entry.uncompressedSize)
