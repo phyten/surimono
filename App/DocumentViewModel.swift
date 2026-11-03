@@ -1106,9 +1106,11 @@ final class DocumentViewModel {
         }
     }
 
-    /// The JavaScript setting changed in Settings; the kept page follows it even while it is not shown.
+    var allowsLiveJavaScript: Bool { format == .html && renderSettings?.allowsPageJavaScript == true }
+
+    /// A global or preset policy change must also stop scripts in a page kept off screen.
     func javaScriptSettingDidChange() {
-        web.applyJavaScriptSetting(preferences.allowsJavaScript)
+        web.applyJavaScriptSetting(allowsLiveJavaScript)
     }
 
     private func showCaptureFailure() {

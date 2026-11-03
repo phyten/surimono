@@ -100,7 +100,7 @@ struct DocumentContent: View {
             DuplexTestSheet(model: model, test: test)
         }
         .onChange(of: model.renderSettings) { _, _ in model.render() }
-        .onChange(of: model.preferences.allowsJavaScript) { _, _ in model.javaScriptSettingDidChange() }
+        .onChange(of: model.allowsLiveJavaScript) { _, _ in model.javaScriptSettingDidChange() }
         .onChange(of: model.imageBundle?.urls) { _, _ in
             if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }
             model.render()
