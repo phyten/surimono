@@ -88,7 +88,8 @@ struct HTMLScanner {
     private static func tag(_ source: String) -> Tag? {
         guard source.hasPrefix("<"), !source.hasPrefix("<!"), !source.hasPrefix("<?") else { return nil }
         let isClosing = source.hasPrefix("</")
-        let name = source.dropFirst(isClosing ? 2 : 1).prefix { $0.isLetter || $0.isNumber }.lowercased()
+        let name = source.dropFirst(isClosing ? 2 : 1).prefix { !$0.isWhitespace && $0 != "/" && $0 != ">" }
+            .lowercased()
         return Tag(source: source, name: name, isClosing: isClosing, isSelfClosing: source.hasSuffix("/>"))
     }
 
@@ -97,13 +98,18 @@ struct HTMLScanner {
         var index = start
         while index + wanted.count <= bytes.count {
             if bytes[index] == UInt8(ascii: "<"),
-                wanted.indices.allSatisfy({ lowercased(bytes[index + $0]) == wanted[$0] })
+                wanted.indices.allSatisfy({ lowercased(bytes[index + $0]) == wanted[$0] }),
+                index + wanted.count == bytes.count || endsTagName(bytes[index + wanted.count])
             {
                 return index
             }
             index += 1
         }
         return bytes.count
+    }
+
+    private static func endsTagName(_ byte: UInt8) -> Bool {
+        byte == UInt8(ascii: ">") || byte == UInt8(ascii: "/") || byte == UInt8(ascii: " ") || (9...13).contains(byte)
     }
 
     private static func offset(after text: String, in bytes: [UInt8], from start: Int) -> Int? {
@@ -151,7 +157,7 @@ struct HTMLScanner {
                     rest = rest.dropFirst(body.count)
                 }
             }
-            if name.lowercased() == wanted { return value }
+            if name.lowercased() == wanted { return decodingEntities(value) }
             if name.isEmpty { rest = rest.dropFirst() }
         }
     }
