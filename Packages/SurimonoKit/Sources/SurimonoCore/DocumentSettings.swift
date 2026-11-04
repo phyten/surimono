@@ -35,6 +35,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var presetID: String?
     public var smartRemoval: SmartRemoval?
     public var printOptions: PrintOptions?
+    public var printFinish: PrintFinish?
     /// SHA-256 digests (lowercase hex) of the images in their display order.
     public var imageOrder: [String]?
     public var binderOrder: [String]?
@@ -49,7 +50,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         themeID: String? = nil, textScale: Double? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
         printOptions: PrintOptions? = nil, imageOrder: [String]? = nil, paperOrientation: PaperOrientation? = nil,
         htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil,
-        binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil
+        binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -61,6 +62,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.presetID = presetID
         self.smartRemoval = smartRemoval
         self.printOptions = printOptions.map { StoredPrintOptions($0).options }
+        self.printFinish = printFinish
         self.imageOrder = imageOrder
         self.binderOrder = binderOrder
         self.binderStartsOnFront = binderStartsOnFront
@@ -70,23 +72,24 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
-            printOptions, imageOrder
+            printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront
     }
 
     // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
     private struct StoredPrintOptions: Codable {
-        var marginsInMillimeters: Double
-        var showsPageNumbers: Bool
+        var options: PrintOptions
 
         init(_ options: PrintOptions) {
-            marginsInMillimeters = options.marginsInMillimeters
-            showsPageNumbers = options.showsPageNumbers
+            self.options = options
+            self.options.rotatesBackSides = false
         }
 
-        var options: PrintOptions {
-            PrintOptions(marginsInMillimeters: marginsInMillimeters, showsPageNumbers: showsPageNumbers)
+        init(from decoder: any Decoder) throws {
+            self.init(try PrintOptions(from: decoder))
         }
+
+        func encode(to encoder: any Encoder) throws { try options.encode(to: encoder) }
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -106,6 +109,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(htmlPresentation, forKey: .htmlPresentation)
         try values.encodeIfPresent(ignoresSlides, forKey: .ignoresSlides)
         try values.encodeIfPresent(printOptions.map(StoredPrintOptions.init), forKey: .printOptions)
+        try values.encodeIfPresent(printFinish, forKey: .printFinish)
     }
 
     /// Decodes each field on its own, so a value this version cannot read (such as a transition added later) falls
@@ -125,6 +129,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         presetID = field(String.self, .presetID)
         smartRemoval = field(SmartRemoval.self, .smartRemoval)
         printOptions = field(StoredPrintOptions.self, .printOptions)?.options
+        printFinish = field(PrintFinish.self, .printFinish)
         imageOrder = field([String].self, .imageOrder)
         binderOrder = field([String].self, .binderOrder)
         binderStartsOnFront = field(Bool.self, .binderStartsOnFront)

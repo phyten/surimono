@@ -162,9 +162,12 @@ public final class ThemeSampler {
     /// The theme's paper over the whole page, drawn in a web view of its own that holds only the paper.
     private func paperPage(for theme: PrintTheme) async throws -> PDFPage {
         // The samples are captured at the screen's scale, a pixel to a point.
-        let margin = Double(margins.top) * 25.4 / 72
+        func millimeters(_ points: CGFloat) -> Double { Double(points) * 25.4 / 72 }
+        let paperMargins = PageMargins(
+            top: millimeters(margins.top), left: millimeters(margins.left), bottom: millimeters(margins.bottom),
+            right: millimeters(margins.right))
         let css = PaperBackground.styleSheet(
-            theme: theme, textScale: textScale, pageSize: pageSize, marginInMillimeters: margin, pixelsPerPoint: 1)
+            theme: theme, textScale: textScale, pageSize: pageSize, margins: paperMargins, pixelsPerPoint: 1)
         let session: Session
         if let paperSession, paperSession.isReady {
             session = paperSession
@@ -172,7 +175,7 @@ public final class ThemeSampler {
             paperSession?.close()
             let html = PaperBackground.document(
                 theme: theme, format: format, baseURL: baseURL, textScale: textScale, pageSize: pageSize,
-                marginInMillimeters: margin, pixelsPerPoint: 1)
+                margins: paperMargins, pixelsPerPoint: 1)
             session = Session(size: pageSize, resourceAccess: resourceAccess, html: html)
             paperSession = session
             do {
@@ -280,7 +283,7 @@ extension DocumentRenderer {
             ? source.fileURL.map { LocalResourceAccess(documentURL: $0, folders: source.allowedResourceFolders) } : nil
         guard source.format.usesPrintTheme,
             let fragment = try themedFragment(
-                source,
+                source, pageBreakLine: settings.finish.breaks.customLine,
                 imageExists: { url in
                     (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
                 })
@@ -291,11 +294,12 @@ extension DocumentRenderer {
         let directory = source.fileURL?.deletingLastPathComponent()
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
-            textScale: settings.textScale, removesPaper: WebPaginator.drawsClearPages)
+            textScale: settings.textScale, removesPaper: WebPaginator.drawsClearPages,
+            finish: settings.finish.styleSheet)
         return ThemeSampler(
             html: html, format: source.format, baseURL: directory,
             pageSize: layout.logicalPageSize(options: settings.options),
-            margins: .uniform(millimeters: layout.logicalMarginsInMillimeters(options: settings.options)),
+            margins: WebPaginator.Margins(layout.logicalMargins(options: settings.options)),
             textScale: settings.textScale, resourceAccess: access)
     }
 }

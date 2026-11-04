@@ -3,11 +3,14 @@ import Foundation
 public enum HTMLDocumentBuilder {
     /// - Parameter removesPaper: Whether the page is laid out without the theme's paper, which then goes on a page of
     ///   its own (`PaperBackground`).
+    /// - Parameter finish: Style rules of the print finish, laid over the theme in an element of their own, which a
+    ///   theme picker leaves in place.
     public static func build(
         fragment: HTMLFragment, format: DocumentFormat, theme: PrintTheme, baseURL: URL? = nil, language: String = "ja",
-        textScale: Double = 1, removesPaper: Bool = false
+        textScale: Double = 1, removesPaper: Bool = false, finish: String = ""
     ) -> String {
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
+        let finishStyle = finish.isEmpty ? "" : "\n<style id=\"surimono-finish\">\n\(finish)\n</style>"
         return """
             <!doctype html>
             <html lang="\(HTML.escape(language))">
@@ -16,7 +19,7 @@ public enum HTMLDocumentBuilder {
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
             \(styleSheet(theme: theme, textScale: textScale))
-            </style>\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
+            </style>\(finishStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)">
             \(LongTokenMarks.marked(fragment.body))

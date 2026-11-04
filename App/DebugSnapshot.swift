@@ -33,12 +33,15 @@
             if let value = argument("SurimonoLayout"), PrintLayout.presets.contains(where: { $0.id == value }) {
                 model.layoutID = value
             }
+            // Screenshots that leave the machine should not name the printers set up on it.
+            if flag("SurimonoHidePrinters") { model.printerListSource = { .empty } }
         }
 
         /// Overrides that must wait until the document's own defaults are known.
         private static func applyOverrides(to model: DocumentViewModel) {
             guard !appliedOverrides else { return }
             appliedOverrides = true
+            applyFinishOverrides(to: model)
             if let value = argument("SurimonoViewLayout"), let layout = ViewOptions.Layout(rawValue: value) {
                 model.setLayout(layout)
             }
@@ -77,6 +80,42 @@
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.openThemePalette()
             }
+        }
+
+        /// The tray's finish, as if chosen on its strip.
+        private static func applyFinishOverrides(to model: DocumentViewModel) {
+            if let index = argument("SurimonoSet").flatMap(Int.init) {
+                let sets = PrintSettingSet.builtIns(language: model.language)
+                if sets.indices.contains(index) { model.applyPrintSettingSet(sets[index]) }
+            }
+            if let value = argument("SurimonoSeries"), let series = PaperSeries(rawValue: value) {
+                // A screenshot leaves the reader's remembered series alone.
+                let remembered = model.preferences.paperSeries
+                model.choosePaperSeries(series)
+                model.preferences.paperSeries = remembered
+            }
+            if let value = argument("SurimonoHeader"), let preset = PageFurniture.Preset(rawValue: value) {
+                model.printOptions.furniture.apply(preset)
+            }
+            switch argument("SurimonoBreak") {
+            case "h1": model.printFinish.breaks.h1 = .page
+            case "right": model.printFinish.breaks.h1 = .rightPage
+            default: break
+            }
+            switch argument("SurimonoTOC") {
+            case "head": model.printFinish.toc.mode = .front
+            case "hidden": model.printFinish.toc.mode = .hidden
+            default: break
+            }
+            if let value = argument("SurimonoMargins") {
+                let sides = value.split(separator: ",").compactMap { Double($0) }
+                if sides.count == 4 {
+                    model.printOptions.linksMargins = false
+                    model.printOptions.margins = PageMargins(
+                        top: sides[0], left: sides[1], bottom: sides[2], right: sides[3])
+                }
+            }
+            if flag("SurimonoMirror") { model.printOptions.mirrorsMargins = true }
         }
 
         static func captureIfReady(_ model: DocumentViewModel) {
@@ -132,6 +171,12 @@
                     try? await Task.sleep(for: .milliseconds(1500))
                 }
                 if model.mode == .print {
+                    if let size = argument("SurimonoTraySize")?.split(separator: "x").compactMap({ Double($0) }),
+                        size.count == 2
+                    {
+                        model.window?.setContentSize(NSSize(width: size[0], height: size[1]))
+                        try? await Task.sleep(for: .milliseconds(800))
+                    }
                     // The tray's choices of what to print a web page as.
                     switch argument("SurimonoTray") {
                     case "original": model.setPrintsOriginalPage(true)
@@ -147,6 +192,10 @@
                     }
                     if argument("SurimonoPopover") == "printOptions" {
                         model.isPrintOptionsPresented = true
+                        try? await Task.sleep(for: .milliseconds(800))
+                    }
+                    if flag("SurimonoFinishSheet") {
+                        model.isPrintFinishPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }
                 }

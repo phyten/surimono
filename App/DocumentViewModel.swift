@@ -39,12 +39,18 @@ final class DocumentViewModel {
     let preferences: AppPreferences
     let library: UserLibrary
     var paperOrientation: PaperOrientation
-    var layoutID: String
+    var layoutID: String { didSet { if shownPaperSeries != layout.series { shownPaperSeries = nil } } }
+    /// The series of paper the tray's cards show, once the reader switched it for this window.
+    private var shownPaperSeries: PaperSeries?
     /// Set directly only when restoring or falling back; a theme the user picks goes through `selectTheme(_:)`.
     var themeID: String
     private(set) var textScale: Double
     var presetID: String
     var printOptions: PrintOptions
+    /// Where a text breaks and how it shows its contents; only texts have any.
+    var printFinish: PrintFinish
+    /// The setting set last applied or saved in this window, which the tray compares the settings with.
+    var selectedSettingSetID: UUID?
     var mode: ViewerMode = .view
     private var openingViewDefaults: ViewDefaultPreferences
     // Keep the baseline stable if Settings changes while the document is still opening.
@@ -67,6 +73,7 @@ final class DocumentViewModel {
     var isSelectingText = false
     var isViewOptionsPresented = false
     var isPrintOptionsPresented = false
+    var isPrintFinishPresented = false
     var isPrintIssuesPresented = false
     @ObservationIgnored private var pendingPrintIssue: (issue: PrintIssue, pageCount: Int)?
     /// The style palette is open beside the paper.
@@ -224,6 +231,7 @@ final class DocumentViewModel {
         themeID = Self.defaultThemeID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
+        printFinish = preferences.printFinish
         // A guess until the pages are known; most documents have more than two pages.
         let guess = ViewOptions.resolved(
             for: ViewDefaultsContext(
@@ -315,6 +323,9 @@ final class DocumentViewModel {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
             }, markdownChanges: format == .markdown ? markdownChanges : [])
         settings.binderStartsOnFront = binder != nil && binderStartsOnFront
+        if finishAppliesToText { settings.finish = printFinish }
+        settings.documentName = displayName
+        settings.pageLanguage = language
         return settings
     }
     /// Paper and printing show the copy of the live page, unless there is none or the tray asks for the file.
@@ -346,6 +357,30 @@ final class DocumentViewModel {
         guard let result, let renderedSettings else { return nil }
         return Self.summaryText(result.summary, layout: renderedSettings.layout, locale: Locale(identifier: language))
     }
+    /// The page breaks and the contents are read from a text; a binder keeps its documents as they are.
+    var finishAppliesToText: Bool { binder == nil && format.usesPrintTheme }
+
+    /// The series of the tray's cards. A document on the default layout shows the series last chosen on a tray, and
+    /// any other document the series of its own paper.
+    var paperSeries: PaperSeries {
+        if let shownPaperSeries { return shownPaperSeries }
+        if layoutID == Self.defaultLayoutID(preferences), let series = preferences.paperSeries { return series }
+        return layout.series
+    }
+
+    /// Switching the series brings the layout along, so the sheets on the tray follow the switch.
+    func choosePaperSeries(_ series: PaperSeries) {
+        preferences.paperSeries = series
+        layoutID = layout.counterpart(in: series).id
+        shownPaperSeries = series
+    }
+
+    /// ⌘1–⌘6: the cards the tray shows, in their order. The 3-up handout has no B counterpart and keeps ⌘6.
+    func chooseCard(at index: Int) {
+        let cards = PrintLayout.presets(in: paperSeries)
+        chooseLayout((cards.indices.contains(index) ? cards[index] : PrintLayout.a4Handout3).id)
+    }
+
     var pageCount: Int { result?.logicalDocument.pageCount ?? 0 }
     var printIssues: [PrintIssue] { result?.issues ?? [] }
     var printIssueCount: Int { printIssues.count }
@@ -353,6 +388,7 @@ final class DocumentViewModel {
     func reviewPrintIssues() {
         guard !printIssues.isEmpty else { return }
         isPrintOptionsPresented = false
+        isPrintFinishPresented = false
         isPrintIssuesPresented = true
         enterPrintMode()
     }
@@ -733,7 +769,7 @@ final class DocumentViewModel {
                 printResult = output
                 printTray = PrintTray(
                     plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
-                    sheetOrientations: output.sheetOrientations)
+                    sheetOrientations: output.sheetOrientations, blankPages: output.blankPages)
                 isRendering = false
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false
@@ -787,7 +823,8 @@ final class DocumentViewModel {
         guard imageBundle == nil, format.usesPrintTheme else { return nil }
         // Keep the margin attached to the pages still on screen while a new layout is being prepared.
         guard let settings = renderedSettings else { return nil }
-        return CGFloat(settings.layout.logicalMarginsInMillimeters(options: settings.options) * 72 / 25.4)
+        // Joined pages lose this much on every side, which uneven margins must not take out of the text.
+        return CGFloat(settings.layout.logicalMargins(options: settings.options).smallest * 72 / 25.4)
     }
 
     /// Whether the margin shows on the pages view mode displays. PDFs keep their own margins, and the 3-up handout
@@ -799,16 +836,36 @@ final class DocumentViewModel {
 
     /// The presets, plus the current margin when it is none of them, so the menu always checks the current value.
     var marginChoices: [Double] {
-        let current = printOptions.marginsInMillimeters
-        return Self.marginPresets.contains(current) ? Self.marginPresets : (Self.marginPresets + [current]).sorted()
+        guard let current = printOptions.margins.uniformValue, !Self.marginPresets.contains(current) else {
+            return Self.marginPresets
+        }
+        return (Self.marginPresets + [current]).sorted()
     }
 
-    /// The one way the viewer and the tray change the margin, so both re-paginate and remember it the same way.
+    private static func clampedMargin(_ millimeters: Double) -> Double {
+        // Margins go in whole millimeters; a record from an earlier version can still hold a fraction.
+        min(max(millimeters.rounded(), marginRange.lowerBound), marginRange.upperBound)
+    }
+
+    /// The one way to give all four margins one value, so the viewer and the tray re-paginate and remember it the same
+    /// way.
     func setMargins(_ millimeters: Double) {
         guard millimeters.isFinite else { return }
-        // Tenths of a millimeter are as fine as the labels show, so two choices never read the same.
-        let rounded = (millimeters * 10).rounded() / 10
-        printOptions.marginsInMillimeters = min(max(rounded, Self.marginRange.lowerBound), Self.marginRange.upperBound)
+        printOptions.margins = .uniform(Self.clampedMargin(millimeters))
+        printOptions.linksMargins = true
+    }
+
+    /// Changes one margin, or all four while the tray keeps them together.
+    func setMargin(_ side: WritableKeyPath<PageMargins, Double>, to millimeters: Double) {
+        guard millimeters.isFinite else { return }
+        guard !printOptions.linksMargins else { return setMargins(millimeters) }
+        printOptions.margins[keyPath: side] = Self.clampedMargin(millimeters)
+    }
+
+    /// Keeping the margins together evens them out to the top margin.
+    func setMarginsLinked(_ linked: Bool) {
+        printOptions.linksMargins = linked
+        if linked { printOptions.margins = .uniform(printOptions.margins.top) }
     }
 
     /// The unshifted US key for ⌥⌘+ must work in both the viewer and the print tray, before PDFKit handles ⌘=.
@@ -1227,11 +1284,30 @@ final class DocumentViewModel {
             paperOrientation: paperOrientation, htmlPresentation: usesHTMLPresentation ? htmlPresentation : nil,
             ignoresSlides: usesHTMLPresentation && ignoresSlides ? true : nil,
             binderOrder: binder.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
-            binderStartsOnFront: binder != nil ? binderStartsOnFront : nil)
+            binderStartsOnFront: binder != nil ? binderStartsOnFront : nil,
+            printFinish: finishAppliesToText ? printFinish : nil)
     }
 
     func savePrintSettingSet(named name: String) {
         preferences.savePrintSettingSet(PrintSettingSet(name: name, settings: rememberedSettings))
+        selectedSettingSetID = preferences.printSettingSets.first { $0.name == name }?.id
+    }
+
+    /// The set the tray names: the one last chosen, or else one that happens to match.
+    var activeSettingSet: PrintSettingSet? {
+        let sets = PrintSettingSet.builtIns(language: language) + preferences.printSettingSets
+        return sets.first { $0.id == selectedSettingSetID } ?? sets.first(where: matchesPrintSettingSet)
+    }
+
+    var isSettingSetChanged: Bool {
+        guard let set = activeSettingSet else { return false }
+        return !matchesPrintSettingSet(set)
+    }
+
+    /// Saves the current settings over the active set, which only the reader's own sets allow.
+    func overwriteActiveSettingSet() {
+        guard let set = activeSettingSet, !set.isBuiltIn else { return }
+        savePrintSettingSet(named: set.name)
     }
 
     private func applicablePrintSettingSet(_ set: PrintSettingSet) -> PrintSettingSet {
@@ -1248,8 +1324,12 @@ final class DocumentViewModel {
         let set = applicablePrintSettingSet(set)
         if let id = set.layoutID { layoutID = id }
         if let orientation = set.paperOrientation { paperOrientation = orientation }
-        if let margin = set.marginsInMillimeters { printOptions.marginsInMillimeters = margin }
-        if let numbers = set.showsPageNumbers { printOptions.showsPageNumbers = numbers }
+        if let margins = set.margins { printOptions.margins = margins }
+        printOptions.linksMargins = set.linksMargins ?? (printOptions.margins.uniformValue != nil)
+        if let mirrors = set.mirrorsMargins { printOptions.mirrorsMargins = mirrors }
+        if let furniture = set.furniture { printOptions.furniture = furniture }
+        if let finish = set.finish, finishAppliesToText { printFinish = finish }
+        selectedSettingSetID = set.id
         if let id = set.themeID { themeID = id }
         if let scale = set.textScale { setTextScale(scale) }
         if let id = set.presetID { presetID = id }
@@ -1267,7 +1347,8 @@ final class DocumentViewModel {
             presetID: usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
             printOptions: preferences.printOptions, paperOrientation: defaultPaperOrientation,
             htmlPresentation: usesHTMLPresentation ? .web : nil,
-            binderStartsOnFront: binder != nil ? false : nil)
+            binderStartsOnFront: binder != nil ? false : nil,
+            printFinish: finishAppliesToText ? preferences.printFinish : nil)
     }
 
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
@@ -1329,6 +1410,7 @@ final class DocumentViewModel {
         if let id = saved.themeID, library.themes.contains(where: { $0.id == id }) { themeID = id }
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if let options = saved.printOptions { printOptions = options }
+        if let finish = saved.printFinish, finishAppliesToText { printFinish = finish }
         if let presentation = saved.htmlPresentation { setHTMLPresentation(presentation, capturesWeb: false) }
         if saved.ignoresSlides == true { setIgnoresSlides(true) }
         if let removal = saved.smartRemoval, format == .html {
@@ -1396,6 +1478,8 @@ final class DocumentViewModel {
         themeID = Self.defaultThemeID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
+        printFinish = preferences.printFinish
+        selectedSettingSetID = nil
         isSmartRemovalEnabled = false
         smartRemovalKeptIDs = []
         isReviewingSmartRemoval = false

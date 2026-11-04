@@ -57,7 +57,7 @@ struct PrintLayoutTests {
         "用紙の縦置き寸法は規格値に一致する",
         arguments: [
             (PaperSize.a3, 297.0, 420.0), (.a4, 210, 297), (.a5, 148, 210),
-            (.b4, 257, 364), (.b5, 182, 257), (.letter, 215.9, 279.4), (.tabloid, 279.4, 431.8),
+            (.b4, 257, 364), (.b5, 182, 257), (.b6, 128, 182), (.letter, 215.9, 279.4), (.tabloid, 279.4, 431.8),
         ])
     func dimensions(paper: PaperSize, width: Double, height: Double) {
         #expect(abs(paper.size.width - width * 72 / 25.4) < 0.001)
@@ -66,8 +66,12 @@ struct PrintLayoutTests {
 
     @Test("半裁対応とプリセットの順番を固定する")
     func presets() {
-        #expect(PaperSize.allCases.map(\.halved) == [.a4, .a5, nil, .b5, nil, nil, .letter])
-        #expect(PrintLayout.presets == [.a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3])
+        #expect(PaperSize.allCases.map(\.halved) == [.a4, .a5, nil, .b5, .b6, nil, nil, .letter])
+        #expect(
+            PrintLayout.presets == [
+                .a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3, .b5Single, .b5Duplex,
+                .b4BookletB5, .b5BookletB6, .b4TwoUp,
+            ])
         #expect(PrintLayout.a3BookletA4.logicalPageSize == PaperSize.a4.size)
         #expect(PrintLayout.a4BookletA5.logicalPageSize == PaperSize.a5.size)
         #expect(PrintLayout.a3TwoUp.sheetSize.width == PaperSize.a3.size.height)
@@ -86,6 +90,65 @@ struct PrintLayoutTests {
         }
         let json = Data(#"{"id":"bad","kind":"booklet","sheet":"a4","duplex":"none"}"#.utf8)
         #expect(throws: (any Error).self) { try JSONDecoder().decode(PrintLayout.self, from: json) }
+    }
+
+    @Test("A判とB判のカードは同じ順で、もう一方の判の同じ刷り方に写せる")
+    func series() {
+        #expect(PrintLayout.presets(in: .b) == [.b5Single, .b5Duplex, .b4BookletB5, .b5BookletB6, .b4TwoUp])
+        let pairs = zip(PrintLayout.presets(in: .a), PrintLayout.presets(in: .b))
+        for (a, b) in pairs {
+            #expect(a.counterpart(in: .b) == b)
+            #expect(b.counterpart(in: .a) == a)
+            #expect(a.kind == b.kind && a.duplex == b.duplex)
+        }
+        #expect(PrintLayout.a4Handout3.counterpart(in: .b) == .b5Single)
+        #expect(PrintLayout.b5Single.counterpart(in: .b) == .b5Single)
+        #expect(PrintLayout.b5BookletB6.logicalPageSize == PaperSize.b6.size)
+        #expect(PrintLayout.b4TwoUp.logicalPageSize == PaperSize.b5.size)
+        #expect(PrintLayout.b5BookletB6.displayName(language: "ja") == "B5 (JIS) 中綴じ → B6 (JIS)")
+    }
+
+    @Test("上下左右の余白は片面では左右を入れ替えず、両面と冊子だけで入れ替えられる")
+    func mirroring() {
+        var options = PrintOptions()
+        options.mirrorsMargins = true
+        #expect(!PrintLayout.a4Single.mirrorsMargins(options: options))
+        #expect(!PrintLayout.a3TwoUp.mirrorsMargins(options: options))
+        #expect(PrintLayout.a4Duplex.mirrorsMargins(options: options))
+        #expect(PrintLayout.a4BookletA5.mirrorsMargins(options: options))
+    }
+
+    @Test("3枚＋メモの枠は上下左右の余白に従う")
+    func handoutSides() {
+        var options = PrintOptions()
+        options.margins = PageMargins(top: 20, left: 10, bottom: 30, right: 15)
+        let slot = PrintLayout.a4Handout3.slotRect(at: 0, options: options)
+        #expect(abs(slot.minX * 210 - 10) < 0.01)
+        #expect(abs(slot.minY * 297 - 20) < 0.01)
+        let memo = PrintLayout.a4Handout3.memoRect(options: options)
+        #expect(abs((memo?.maxX ?? 0) * 210 - 195) < 0.01)
+        #expect(abs((memo?.maxY ?? 0) * 297 - 267) < 0.01)
+    }
+
+    @Test("1つの余白とページ番号のスイッチだった記録は、4辺の余白と番号のヘッダーとして読む")
+    func oldOptions() throws {
+        let old = Data(#"{"marginsInMillimeters":12,"showsPageNumbers":true,"rotatesBackSides":false}"#.utf8)
+        let decoded = try JSONDecoder().decode(PrintOptions.self, from: old)
+        #expect(decoded.margins == .uniform(12))
+        #expect(decoded.linksMargins)
+        #expect(decoded.furniture == .pageNumber)
+        #expect(decoded.showsPageNumbers)
+    }
+
+    @Test("4辺の余白とヘッダーを持つ印刷オプションはJSONで往復する")
+    func sidesRoundTrip() throws {
+        var options = PrintOptions()
+        options.margins = PageMargins(top: 20, left: 10, bottom: 30, right: 15)
+        options.linksMargins = false
+        options.mirrorsMargins = true
+        options.furniture.topLeft = "{題名}"
+        let decoded = try JSONDecoder().decode(PrintOptions.self, from: JSONEncoder().encode(options))
+        #expect(decoded == options)
     }
 
     @Test("レイアウトと印刷オプションはJSONで往復する")

@@ -10,7 +10,7 @@ struct PrintModeView: View {
     var body: some View {
         VStack(spacing: 0) {
             // The bars stay above the tray's scroll view, whose backdrop reaches under them.
-            PrintTopBar(model: model, cancelsWithEscape: !showsFold).zIndex(1)
+            PrintTopBar(model: model, cancelsWithEscape: !showsFold && !model.isPrintFinishPresented).zIndex(1)
             HStack(spacing: 0) {
                 if let bundle = model.imageBundle {
                     ImageBundleList(model: bundle)
@@ -25,6 +25,7 @@ struct PrintModeView: View {
                 }
                 stage
             }
+            PrintFinishStrip(model: model).zIndex(1)
             PrintPressBar(model: model).zIndex(1)
         }
         .foregroundStyle(PrintPalette.ink)
@@ -69,6 +70,12 @@ struct PrintModeView: View {
             if showsFold, model.hasCurrentPrintPreview, model.printTray?.isBooklet == true {
                 PrintFoldView(model: model) { showsFold = false }
                     .transition(.opacity)
+            }
+            if model.isPrintFinishPresented {
+                // At the side rather than over the middle: the changes show on the sheets while it is open.
+                PrintFinishSheet(model: model)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(14)
             }
         }
         .overlay(alignment: .top) { errorBanner }
@@ -168,7 +175,11 @@ struct PrintTopBar: View {
             // Drawn like the style menu beside it, so the tray's top bar keeps one kind of control.
             SettingSetMenu(preferences: model.preferences, model: { model }) {
                 HStack(spacing: 7) {
-                    Text("Setting Sets")
+                    Text("Setting Sets").foregroundStyle(
+                        model.activeSettingSet == nil ? PrintPalette.ink : PrintPalette.ink2)
+                    if let set = model.activeSettingSet {
+                        Text(verbatim: set.name).fontWeight(.semibold).lineLimit(1)
+                    }
                     Image(systemName: "chevron.down")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(PrintPalette.ink2)
@@ -187,6 +198,7 @@ struct PrintTopBar: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .padding(.leading, 8)
+            if model.isSettingSetChanged { changedSetControls }
         }
         .padding(.leading, trafficLightInset)
         .padding(.trailing, 12)
@@ -194,6 +206,27 @@ struct PrintTopBar: View {
         .frame(maxWidth: .infinity)
         .background(PrintPalette.chrome)
         .overlay(alignment: .bottom) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
+    }
+
+    /// A changed set can be saved over the reader's own set, or as a new one from any set.
+    @ViewBuilder private var changedSetControls: some View {
+        Text("Modified")
+            .font(.system(size: 11.5, weight: .semibold))
+            .foregroundStyle(PrintPalette.ai)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.leading, 8)
+        if model.activeSettingSet?.isBuiltIn == false {
+            setButton("Overwrite") { model.overwriteActiveSettingSet() }
+        }
+        setButton("Save New…") { SettingSetDialogs.save(model) }
+    }
+
+    private func setButton(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Text(title).padding(.horizontal, 9) }
+            .buttonStyle(PrintBorderedButtonStyle())
+            .fixedSize()
+            .padding(.leading, 8)
     }
 
     /// The traffic lights stay where the window draws them; the bar starts after them.

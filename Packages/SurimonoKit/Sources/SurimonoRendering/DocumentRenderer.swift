@@ -137,6 +137,12 @@ public struct RenderSettings: Equatable, Sendable {
     public var slides: SlidePrintRequest?
     public var binderStartsOnFront = false
     public var markdownChanges: [MarkdownMarkRequest]
+    /// Where a text breaks and how it shows its table of contents.
+    public var finish = PrintFinish()
+    /// The name the header and footer call the document by; without one, the name of its file.
+    public var documentName: String?
+    /// The language of what the app itself puts on the page, such as the title of the contents.
+    public var pageLanguage = "ja"
 
     var usesPerPageOrientation: Bool {
         layout.kind == .normal && layout.duplex == .none && paperOrientation == .auto
@@ -176,6 +182,13 @@ public struct PaginationRequest: Sendable {
     public var rendersMermaid = false
 }
 
+/// What the renderer adds to the pages of a text and what it reads from the text on the way.
+struct FinishedPages {
+    var facts: DocumentFacts?
+    var contentsPageCount = 0
+    var blankPages: Set<Int> = []
+}
+
 /// The logical pages of a render, ready to show before the printed sheets are composed.
 @MainActor
 public struct PreparedRender {
@@ -198,6 +211,12 @@ public struct PreparedRender {
     public let changeMarks: [ChangeMark]
     public var unreadableDocumentURLs: [URL] = []
     public var binderDocuments: [URL: PDFDocument] = [:]
+    /// What the text says about itself, for a format that prints with a theme.
+    public var facts: DocumentFacts?
+    /// What was added to the text's pages.
+    public var addedContentsPages = 0
+    /// The logical pages that were added as blanks.
+    public var blankPages: Set<Int> = []
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -208,6 +227,7 @@ struct SheetKey: Equatable {
     let layout: PrintLayout
     let options: PrintOptions
     let orientsEachPage: Bool
+    let furniture: PageFurniture.Context
 }
 
 @MainActor
@@ -234,6 +254,9 @@ public struct RenderResult {
     public let smartRemovalCandidates: [SmartRemovalCandidate]
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
+    public let facts: DocumentFacts?
+    public let addedContentsPages: Int
+    public let blankPages: Set<Int>
 
     init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
         id = prepared.id
@@ -250,6 +273,9 @@ public struct RenderResult {
         smartRemovalCandidates = prepared.smartRemovalCandidates
         issues = prepared.issues
         changeMarks = prepared.changeMarks
+        facts = prepared.facts
+        addedContentsPages = prepared.addedContentsPages
+        blankPages = prepared.blankPages
     }
 }
 
@@ -282,6 +308,8 @@ public final class DocumentRenderer {
     /// Runs before each composition that the sheet cache cannot serve. Tests hold or fail a composition with it to
     /// pin what the app shows between the logical pages and their sheets.
     public var willComposeSheet: (@MainActor () async throws -> Void)?
+    /// The day the header and footer print as today.
+    public var now: @MainActor () -> Date = { Date() }
     private var childRenderers: [String: DocumentRenderer] = [:]
     public private(set) var binderChildRenderCount = 0
     private var cache: (key: CacheKey, logical: Logical)?
@@ -308,6 +336,7 @@ public final class DocumentRenderer {
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
         var markRequests: [MarkdownMarkRequest] = []
+        var finishing = FinishedPages()
         /// The serialized pages the sheets are drawn from, made once for all compositions.
         var composingSource: CGPDFDocument?
 
@@ -330,7 +359,7 @@ public final class DocumentRenderer {
         let theme: PrintTheme?
         let textScale: Double?
         let preset: HTMLCleanupPreset?
-        let margin: Double
+        let margins: PageMargins
         let allowsJavaScript: Bool
         let smartRemoval: SmartRemovalRequest?
         let opensDetails: Bool
@@ -338,6 +367,10 @@ public final class DocumentRenderer {
         let binderStartsOnFront: Bool
         let binderOrientation: PaperOrientation?
         let binderLayout: PrintLayout?
+        let finish: PrintFinish?
+        let usesRightPages: Bool
+        let mirrorsMargins: Bool
+        let contentsLanguage: String?
     }
 
     public init(isSandboxed: @escaping () -> Bool = { SandboxEnvironment.isSandboxed }, paginate: Paginate? = nil) {
@@ -412,12 +445,13 @@ public final class DocumentRenderer {
                 guard let source = logical.composingSource else { throw RenderingError.invalidPDF }
                 sheet = try await composer.compose(
                     source, pageCount: logical.document.pageCount, layout: prepared.layout,
-                    options: prepared.options, orientsEachPage: prepared.sheetKey.orientsEachPage)
+                    options: prepared.options, orientsEachPage: prepared.sheetKey.orientsEachPage,
+                    furniture: prepared.sheetKey.furniture)
             } else {
                 // The cache has moved on to other pages; compose from the document itself.
                 sheet = try await composer.compose(
                     prepared.logicalDocument, layout: prepared.layout, options: prepared.options,
-                    orientsEachPage: prepared.sheetKey.orientsEachPage)
+                    orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture)
             }
             try Task.checkCancellation()
             sheetCompositionCount += 1
@@ -466,20 +500,22 @@ public final class DocumentRenderer {
             }
             settings.layout = settings.layout.oriented(landscape)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
-            let margin = settings.layout.logicalMarginsInMillimeters(options: settings.options)
-            guard settings.options.marginsInMillimeters.isFinite, settings.options.marginsInMillimeters >= 0,
-                PDFDrawing.validGeometry(pageSize: pageSize, margin: margin * 72 / 25.4)
+            let margins = settings.layout.logicalMargins(options: settings.options)
+            guard settings.options.margins.isValid,
+                PDFDrawing.validGeometry(pageSize: pageSize, margins: WebPaginator.Margins(margins))
             else {
                 throw RenderingError.invalidMargins
             }
+            let isThemed = source.children == nil && source.format.usesPrintTheme
+            let isPlainPDF = source.format == .pdf && source.children == nil
             let key = CacheKey(
-                source: source, pageSize: source.format == .pdf && source.children == nil ? .zero : pageSize,
+                source: source, pageSize: isPlainPDF ? .zero : pageSize,
                 mixesImagePages: source.format == .image && settings.usesPerPageOrientation
                     && Set(sourcePageSizes?.sizes.map { $0.width > $0.height } ?? []).count > 1,
                 theme: source.children != nil || source.format.usesPrintTheme ? settings.theme : nil,
                 textScale: source.children != nil || source.format.usesPrintTheme ? settings.textScale : nil,
                 preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
-                margin: source.format == .pdf && source.children == nil ? 0 : margin,
+                margins: isPlainPDF ? .zero : margins,
                 allowsJavaScript: source.children != nil
                     ? settings.allowsJavaScriptInHTML : source.allowsJavaScript(settings),
                 smartRemoval: source.format == .html ? settings.smartRemoval : nil,
@@ -487,7 +523,12 @@ public final class DocumentRenderer {
                 slides: source.format == .html ? settings.slides : nil,
                 binderStartsOnFront: source.children != nil && settings.binderStartsOnFront,
                 binderOrientation: source.children == nil ? nil : settings.paperOrientation,
-                binderLayout: source.children == nil ? nil : settings.layout)
+                binderLayout: source.children == nil ? nil : settings.layout,
+                finish: isThemed ? settings.finish : nil,
+                usesRightPages: isThemed && settings.layout.hasFacingPages && settings.finish.breaks.usesRightPages,
+                mirrorsMargins: !isPlainPDF && source.children == nil
+                    && settings.layout.mirrorsMargins(options: settings.options),
+                contentsLanguage: isThemed && settings.finish.toc.mode == .front ? settings.pageLanguage : nil)
             let logical: Logical
             if let cache, cache.key == key {
                 logical = cache.logical
@@ -495,6 +536,7 @@ public final class DocumentRenderer {
                 var requiredFolderAccess: URL?
                 var issues: [PrintIssue] = []
                 var binderOutput: BinderOutput?
+                var finishing = FinishedPages()
                 let document: PDFDocument
                 let unreadable: [URL]
                 let candidates: [SmartRemovalCandidate]
@@ -506,6 +548,7 @@ public final class DocumentRenderer {
                     candidates = []
                     issues = output.issues
                     requiredFolderAccess = output.requiredFolderAccess
+                    finishing.blankPages = output.blankPages
                 } else if let images = source.images {
                     (document, unreadable) = try await imageBundle(images, settings: settings)
                     candidates = []
@@ -519,6 +562,7 @@ public final class DocumentRenderer {
                     requiredFolderAccess = result.requiredFolderAccess
                     issues = result.issues
                     document = result.document
+                    finishing = result.finishing
                     candidates =
                         source.format == .html && settings.smartRemoval != nil
                         ? SmartRemovalScript.candidates(fromJSON: result.preparationResult ?? "") : []
@@ -536,6 +580,7 @@ public final class DocumentRenderer {
                 logical.unreadableDocuments = binderOutput?.unreadable ?? []
                 logical.binderDocuments = binderOutput?.documents ?? [:]
                 logical.binderPageSizes = binderOutput?.pageSizes ?? []
+                logical.finishing = finishing
                 logicalRenderCount += 1
                 // An older suspended render must not overwrite the cache of a newer request.
                 if generation == currentGeneration { cache = (key, logical) }
@@ -563,10 +608,13 @@ public final class DocumentRenderer {
                 smartRemovalCandidates: logical.candidates, issues: logical.issues,
                 changeMarks: requests.isEmpty ? [] : logical.changeMarks,
                 unreadableDocumentURLs: logical.unreadableDocuments, binderDocuments: logical.binderDocuments,
+                facts: logical.finishing.facts, addedContentsPages: logical.finishing.contentsPageCount,
+                blankPages: logical.finishing.blankPages,
                 sheetKey: SheetKey(
                     logicalID: logical.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: settings.usesPerPageOrientation
-                        && (source.format == .pdf || source.format == .image)),
+                        && (source.format == .pdf || source.format == .image),
+                    furniture: furnitureContext(source, logical: logical, settings: settings)),
                 options: settings.options)
         } catch {
             throw Self.renderingError(error)
@@ -580,6 +628,7 @@ public final class DocumentRenderer {
         var unreadable: [URL] = []
         var issues: [PrintIssue] = []
         var requiredFolderAccess: URL?
+        var blankPages: Set<Int> = []
     }
 
     private func binder(_ children: [DocumentSource], settings: RenderSettings) async throws -> BinderOutput {
@@ -604,6 +653,8 @@ public final class DocumentRenderer {
                 var childSettings = settings
                 childSettings.binderStartsOnFront = false
                 childSettings.markdownChanges = []
+                // Left and right belong to the bound pages, which a document on its own does not know.
+                childSettings.options.mirrorsMargins = false
                 let prepared = try await renderer.prepare(child, settings: childSettings)
                 try Task.checkCancellation()
                 binderChildRenderCount += renderer.logicalRenderCount - count
@@ -622,6 +673,7 @@ public final class DocumentRenderer {
                     blank.setBounds(
                         CGRect(origin: .zero, size: settings.layout.logicalPageSize(options: settings.options)),
                         for: .mediaBox)
+                    output.blankPages.insert(output.document.pageCount)
                     output.document.insert(blank, at: output.document.pageCount)
                 }
                 output.pageSizes += Self.pageSizes(of: document)
@@ -727,7 +779,7 @@ public final class DocumentRenderer {
             do {
                 let rendered = try await ImagePageRenderer().render(
                     data, pageSize: imagePageSize(settings),
-                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options),
+                    margins: settings.layout.logicalMargins(options: settings.options),
                     autoRotatesPage: settings.usesPerPageOrientation)
                 guard let page = StandalonePage.first(of: rendered) else {
                     throw ImagePageRenderer.RenderingError.invalidImage
@@ -738,7 +790,7 @@ public final class DocumentRenderer {
             }
         }
         guard document.pageCount > 0 else { throw RenderingError.noReadableImages(unreadable) }
-        return (document, unreadable)
+        return (Self.mirroringMargins(of: document, settings: settings), unreadable)
     }
 
     private func imagePageSize(_ settings: RenderSettings) -> CGSize {
@@ -761,7 +813,7 @@ public final class DocumentRenderer {
             return WebPaginator.Result(
                 document: try await ImagePageRenderer().render(
                     source.data, pageSize: imagePageSize(settings),
-                    marginsInMillimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options),
+                    margins: settings.layout.logicalMargins(options: settings.options),
                     autoRotatesPage: settings.usesPerPageOrientation))
         case .html:
             let input: WebPaginator.Source
@@ -786,9 +838,11 @@ public final class DocumentRenderer {
                 + HTMLCleanupScript.javaScript(for: settings.preset)
             if let slides = settings.slides {
                 let pageSize = settings.layout.logicalPageSize(options: settings.options)
-                let margin = settings.layout.logicalMarginsInMillimeters(options: settings.options) * 72 / 25.4
+                let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
                 // The paginating web view lays out one CSS pixel to a point.
-                let printable = CGSize(width: pageSize.width - 2 * margin, height: pageSize.height - 2 * margin)
+                let printable = CGSize(
+                    width: pageSize.width - margins.left - margins.right,
+                    height: pageSize.height - margins.top - margins.bottom)
                 preparation += "\n" + SlideDeckScript.printJavaScript(slides, printableSize: printable)
             }
             if let smartRemoval = settings.smartRemoval {
@@ -796,24 +850,33 @@ public final class DocumentRenderer {
             } else {
                 preparation += "\n" + PaperCleanupScript.javaScript
             }
-            return try await paginateCheckingIssues(
+            let page = try await paginateCheckingIssues(
                 PaginationRequest(
                     source: sandboxSource(input, for: source),
                     pageSize: settings.layout.logicalPageSize(options: settings.options),
-                    margins: .uniform(
-                        millimeters: settings.layout.logicalMarginsInMillimeters(options: settings.options)),
+                    margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
                     readsPageRules: true), source: source)
+            guard settings.layout.mirrorsMargins(options: settings.options) else { return page }
+            var mirrored = WebPaginator.Result(
+                document: Self.mirroringMargins(of: page.document, settings: settings),
+                preparationResult: page.preparationResult, pageRules: page.pageRules,
+                requiredFolderAccess: page.requiredFolderAccess)
+            mirrored.issues = page.issues
+            return mirrored
         case .markdown, .org, .plainText, .csv, .latex:
             var missingImage = false
             let access = resourceAccess(for: source)
             let fragment: HTMLFragment
             if source.format == .markdown, !settings.markdownChanges.isEmpty {
-                fragment = MarkdownConverter.convertWithSourceMap(try Self.decodedText(source.data)).fragment
+                fragment =
+                    MarkdownConverter.convertWithSourceMap(
+                        try Self.decodedText(source.data), pageBreakLine: settings.finish.breaks.customLine
+                    ).fragment
             } else {
                 guard
                     let themed = try Self.themedFragment(
-                        source,
+                        source, pageBreakLine: settings.finish.breaks.customLine,
                         imageExists: { url in
                             if let access, !access.permits(url) {
                                 missingImage = true
@@ -842,9 +905,9 @@ public final class DocumentRenderer {
             let separatesPaper = WebPaginator.drawsClearPages
             let html = HTMLDocumentBuilder.build(
                 fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
-                textScale: settings.textScale, removesPaper: separatesPaper)
+                textScale: settings.textScale, removesPaper: separatesPaper, finish: settings.finish.styleSheet)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
-            let margin = settings.layout.logicalMarginsInMillimeters(options: settings.options)
+            let margins = settings.layout.logicalMargins(options: settings.options)
             let marksScript = source.format == .markdown ? ChangeMarkAnchors.javaScript(settings.markdownChanges) : ""
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
             let parts = [marksScript, themeScript].filter { !$0.isEmpty }
@@ -852,17 +915,18 @@ public final class DocumentRenderer {
             var text = try await paginateCheckingIssues(
                 PaginationRequest(
                     source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
-                    margins: .uniform(millimeters: margin),
+                    margins: WebPaginator.Margins(margins),
                     allowsJavaScript: false,
                     preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !separatesPaper,
                     rendersMermaid: (source.format == .markdown || source.format == .org)
                         && fragment.body.contains("class=\"mermaid-block\"")), source: source)
             if missingImage { text.requiredFolderAccess = directory }
+            text = try await finished(text, fragment: fragment, source: source, settings: settings)
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
                 theme: settings.theme, format: source.format, baseURL: directory, textScale: settings.textScale,
-                pageSize: pageSize, marginInMillimeters: margin, pixelsPerPoint: WebPaginator.printPixelsPerPoint)
+                pageSize: pageSize, margins: margins, pixelsPerPoint: WebPaginator.printPixelsPerPoint)
             // A paper that cannot be drawn leaves the text on white, as a theme without one; a cancelled render stops.
             let paper: WebPaginator.Result
             do {
@@ -883,8 +947,150 @@ public final class DocumentRenderer {
                 document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules,
                 requiredFolderAccess: text.requiredFolderAccess ?? paper.requiredFolderAccess)
             result.issues = text.issues
+            result.finishing = text.finishing
             return result
         }
+    }
+
+    /// The pages of a text with what the print finish adds to them: the contents in front, a blank before a chapter
+    /// that would fall on a left-hand page, and the margins of the left-hand pages turned the other way round.
+    private func finished(
+        _ text: WebPaginator.Result, fragment: HTMLFragment, source: DocumentSource, settings: RenderSettings
+    ) async throws -> WebPaginator.Result {
+        var result = text
+        let facts = DocumentFacts(fragment: fragment)
+        result.finishing.facts = facts
+        let finish = settings.finish
+        let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
+        let wantsContents = finish.toc.mode == .front && !facts.headings.isEmpty
+        let mirrors = settings.layout.mirrorsMargins(options: settings.options)
+        guard usesRightPages || wantsContents || mirrors else { return result }
+        let pageCount = text.document.pageCount
+        var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
+        var contents: PDFDocument?
+        if usesRightPages || wantsContents {
+            let showsSourceContents = finish.toc.mode == .source || finish.toc.keepsSourceTOC
+            let headingPages = DocumentOutline.pages(
+                of: facts.headings, inPageTexts: (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" },
+                contentsEntries: showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: fragment.body) : []
+            )
+            let starts =
+                usesRightPages
+                ? FinishedPagePlan.rightPageStarts(
+                    headings: facts.headings, pages: headingPages,
+                    followsHeading: DocumentOutline.headingsUnderHeadings(inHTML: fragment.body), rules: finish.breaks)
+                : []
+            plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: starts)
+            // The numbers in the contents depend on how many pages the contents take, which the numbers can change.
+            var contentsPageCount = 1
+            for _ in 0..<(wantsContents ? 3 : 0) {
+                plan = FinishedPagePlan(
+                    bodyPageCount: pageCount, contentsPageCount: contentsPageCount, rightPageStarts: starts)
+                let pages = try await contentsPages(
+                    PaperContents.entries(
+                        headings: facts.headings,
+                        pageNumbers: headingPages.map { $0.map { plan.bodyPageIndices[$0] + 1 } },
+                        depth: finish.toc.depth), source: source, settings: settings)
+                contents = pages
+                if pages.pageCount == contentsPageCount { break }
+                contentsPageCount = pages.pageCount
+            }
+            if let contents, contents.pageCount != contentsPageCount {
+                plan = FinishedPagePlan(
+                    bodyPageCount: pageCount, contentsPageCount: contents.pageCount, rightPageStarts: starts)
+            }
+        }
+        let document = Self.assembled(text.document, contents: contents, plan: plan, settings: settings)
+        var finished = WebPaginator.Result(
+            document: Self.mirroringMargins(of: document, settings: settings),
+            preparationResult: text.preparationResult, pageRules: text.pageRules,
+            requiredFolderAccess: text.requiredFolderAccess)
+        finished.issues = text.issues.map { issue in
+            var issue = issue
+            issue.pageNumber = issue.pageNumber.flatMap { number in
+                plan.bodyPageIndices.indices.contains(number - 1) ? plan.bodyPageIndices[number - 1] + 1 : number
+            }
+            return issue
+        }
+        finished.finishing = FinishedPages(
+            facts: facts, contentsPageCount: contents?.pageCount ?? 0, blankPages: plan.blankPages)
+        return finished
+    }
+
+    /// The contents laid out like the text: the same theme, paper size and margins.
+    private func contentsPages(
+        _ entries: [PaperContents.Entry], source: DocumentSource, settings: RenderSettings
+    ) async throws -> PDFDocument {
+        let directory = source.fileURL?.deletingLastPathComponent()
+        let separatesPaper = WebPaginator.drawsClearPages
+        let fragment = PaperContents.fragment(
+            entries: entries, look: settings.finish.toc.look,
+            title: PaperContents.title(language: settings.pageLanguage))
+        let html = HTMLDocumentBuilder.build(
+            fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
+            textScale: settings.textScale, removesPaper: separatesPaper)
+        let script = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script
+        return try await paginate(
+            PaginationRequest(
+                source: sandboxSource(.html(html, baseURL: directory), for: source),
+                pageSize: settings.layout.logicalPageSize(options: settings.options),
+                margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
+                allowsJavaScript: false, preparationScript: script?.isEmpty == false ? script : nil,
+                readsPageRules: false, drawsBackground: !separatesPaper)
+        ).document
+    }
+
+    /// Adds to the document itself, so that the links between its pages keep pointing at them.
+    private static func assembled(
+        _ body: PDFDocument, contents: PDFDocument?, plan: FinishedPagePlan, settings: RenderSettings
+    ) -> PDFDocument {
+        guard !plan.isUnchanged else { return body }
+        for (index, page) in plan.pages.enumerated() {
+            switch page {
+            case .body: continue
+            case .contents(let number):
+                if let page = contents?.page(at: number), let copy = StandalonePage.copy(of: page) {
+                    body.insert(copy, at: index)
+                }
+            case .blank:
+                let blank = PDFPage()
+                blank.setBounds(
+                    CGRect(origin: .zero, size: settings.layout.logicalPageSize(options: settings.options)),
+                    for: .mediaBox)
+                body.insert(blank, at: index)
+            }
+        }
+        return body
+    }
+
+    /// Moves the content of the even pages, which are left-hand pages, so that the side of the binding keeps its
+    /// margin. The pages were laid out with the same width, so moving them is all it takes.
+    private static func mirroringMargins(of document: PDFDocument, settings: RenderSettings) -> PDFDocument {
+        guard settings.layout.mirrorsMargins(options: settings.options) else { return document }
+        let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
+        let shift = margins.right - margins.left
+        guard shift != 0, document.pageCount > 1 else { return document }
+        return PaperComposer.compose(document, paper: nil, shift: { $0 % 2 == 1 ? shift : 0 }) ?? document
+    }
+
+    private func furnitureContext(
+        _ source: DocumentSource, logical: Logical, settings: RenderSettings
+    ) -> PageFurniture.Context {
+        let furniture = settings.options.furniture
+        guard !furniture.isEmpty else { return PageFurniture.Context() }
+        let fileName = settings.documentName ?? source.fileURL?.lastPathComponent ?? ""
+        let fallback = (fileName as NSString).deletingPathExtension
+        let title: String?
+        switch source.format {
+        case .pdf where source.children == nil:
+            title = logical.document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String
+        case .html: title = DocumentOutline.title(ofHTML: String(decoding: source.data, as: UTF8.self))
+        default: title = logical.finishing.facts?.title
+        }
+        return PageFurniture.Context(
+            fileName: fileName, title: title.flatMap { $0.isEmpty ? nil : $0 } ?? fallback,
+            date: furniture.dateText(now(), language: settings.pageLanguage),
+            blankPages: logical.finishing.blankPages)
     }
 
     private func paginateCheckingIssues(_ request: PaginationRequest, source: DocumentSource) async throws
@@ -953,11 +1159,11 @@ public final class DocumentRenderer {
 
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     static func themedFragment(
-        _ source: DocumentSource,
+        _ source: DocumentSource, pageBreakLine: String = "",
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
         switch source.format {
-        case .markdown: MarkdownConverter.convert(try decodedText(source.data))
+        case .markdown: MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine)
         case .latex:
             LaTeXConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),

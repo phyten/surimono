@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import PDFKit
+import SurimonoCore
 
 @MainActor
 public struct ImagePageRenderer {
@@ -16,11 +17,20 @@ public struct ImagePageRenderer {
     public func render(
         _ data: Data, pageSize: CGSize, marginsInMillimeters: Double = 15, autoRotatesPage: Bool = false
     ) async throws -> PDFDocument {
+        try await render(
+            data, pageSize: pageSize, margins: .uniform(marginsInMillimeters), autoRotatesPage: autoRotatesPage)
+    }
+
+    public func render(
+        _ data: Data, pageSize: CGSize, margins pageMargins: PageMargins, autoRotatesPage: Bool = false
+    ) async throws -> PDFDocument {
         try Task.checkCancellation()
-        let margin = CGFloat(marginsInMillimeters * 72 / 25.4)
-        guard PDFDrawing.validGeometry(pageSize: pageSize, margin: margin) else { throw RenderingError.invalidGeometry }
+        let margins = WebPaginator.Margins(pageMargins)
+        guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins) else {
+            throw RenderingError.invalidGeometry
+        }
         let decoding = Task.detached(priority: Task.currentPriority) {
-            try Self.decode(data, pageSize: pageSize, margin: margin, autoRotatesPage: autoRotatesPage)
+            try Self.decode(data, pageSize: pageSize, margins: margins, autoRotatesPage: autoRotatesPage)
         }
         let (image, size) = try await withTaskCancellationHandler {
             do {
@@ -34,12 +44,16 @@ public struct ImagePageRenderer {
         } onCancel: {
             decoding.cancel()
         }
-        let rect = PDFDrawing.fittedRect(
-            size: CGSize(width: image.width, height: image.height),
-            in: CGRect(origin: .zero, size: size).insetBy(dx: margin, dy: margin))
+        let textArea = CGRect(
+            x: margins.left, y: margins.bottom, width: size.width - margins.left - margins.right,
+            height: size.height - margins.top - margins.bottom)
+        let rect = PDFDrawing.fittedRect(size: CGSize(width: image.width, height: image.height), in: textArea)
         // The art box marks the image and its margins, so the screen can leave out the paper the image's shape does
         // not fill; printing still places the whole page.
-        var artBox = rect.insetBy(dx: -margin, dy: -margin).intersection(CGRect(origin: .zero, size: size))
+        var artBox = CGRect(
+            x: rect.minX - margins.left, y: rect.minY - margins.bottom,
+            width: rect.width + margins.left + margins.right, height: rect.height + margins.top + margins.bottom
+        ).intersection(CGRect(origin: .zero, size: size))
         let pageInfo = [kCGPDFContextArtBox: Data(bytes: &artBox, count: MemoryLayout<CGRect>.size)] as CFDictionary
         do {
             return try await PDFDrawing.document(pageSize: size) { context in
@@ -82,7 +96,7 @@ public struct ImagePageRenderer {
     }
 
     private nonisolated static func decode(
-        _ data: Data, pageSize: CGSize, margin: CGFloat, autoRotatesPage: Bool
+        _ data: Data, pageSize: CGSize, margins: WebPaginator.Margins, autoRotatesPage: Bool
     ) throws -> (CGImage, CGSize) {
         try Task.checkCancellation()
         guard
@@ -102,7 +116,9 @@ public struct ImagePageRenderer {
         if autoRotatesPage && imageWidth > imageHeight && size.width < size.height {
             size = CGSize(width: size.height, height: size.width)
         }
-        let fitScale = min((size.width - 2 * margin) / imageWidth, (size.height - 2 * margin) / imageHeight)
+        let fitScale = min(
+            (size.width - margins.left - margins.right) / imageWidth,
+            (size.height - margins.top - margins.bottom) / imageHeight)
         // 300 dpi at the fitted print size preserves print detail without decoding unused native pixels.
         // Capping by the source's long edge also prevents upsampling small images.
         let maximumPixelSize = max(

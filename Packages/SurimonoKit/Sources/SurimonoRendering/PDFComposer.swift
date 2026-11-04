@@ -1,5 +1,4 @@
 import AppKit
-import CoreText
 import PDFKit
 import SurimonoCore
 
@@ -15,13 +14,14 @@ public struct PDFComposer {
     public init() {}
 
     public func compose(
-        _ document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool = false
+        _ document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool = false,
+        furniture: PageFurniture.Context = PageFurniture.Context()
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
         return try await compose(
             try Self.composingSource(of: document), pageCount: document.pageCount, layout: layout, options: options,
-            orientsEachPage: orientsEachPage)
+            orientsEachPage: orientsEachPage, furniture: furniture)
     }
 
     /// The pages of `document` as drawn into the sheets. A caller composing the same document again may keep it.
@@ -34,15 +34,14 @@ public struct PDFComposer {
     }
 
     func compose(
-        _ source: CGPDFDocument, pageCount: Int, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool
+        _ source: CGPDFDocument, pageCount: Int, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool,
+        furniture: PageFurniture.Context = PageFurniture.Context()
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard pageCount > 0 else { throw CompositionError.emptyDocument }
         let logicalSize = layout.logicalPageSize(options: options)
-        let margin = CGFloat(layout.logicalMarginsInMillimeters(options: options) * 72 / 25.4)
-        guard options.marginsInMillimeters.isFinite, options.marginsInMillimeters >= 0,
-            PDFDrawing.validGeometry(pageSize: logicalSize, margin: margin)
-        else {
+        let margins = WebPaginator.Margins(layout.logicalMargins(options: options))
+        guard options.margins.isValid, PDFDrawing.validGeometry(pageSize: logicalSize, margins: margins) else {
             throw CompositionError.invalidMargins
         }
         let plan = Imposition.plan(pageCount: pageCount, layout: layout)
@@ -82,14 +81,17 @@ public struct PDFComposer {
                             x: slotRect.minX * size.width, y: (1 - slotRect.maxY) * size.height,
                             width: slotRect.width * size.width, height: slotRect.height * size.height)
                         try draw(page, in: rect, context: context, index: index)
-                        if options.showsPageNumbers {
+                        if let lines = options.furniture.lines(
+                            forPage: index, pageCount: pageCount, context: furniture,
+                            hasFacingPages: layout.hasFacingPages)
+                        {
                             if layout.kind == .handout3 {
-                                let spaceBelow = slot < 2 ? 8 * 72 / 25.4 : options.marginsInMillimeters * 72 / 25.4
-                                drawHandoutNumber(index + 1, below: rect, space: spaceBelow, context: context)
+                                drawHandout(lines, slot: slot, in: rect, options: options, context: context)
                             } else {
-                                drawNumber(
-                                    index + 1, in: rect, margin: margin, logicalSize: logicalSize,
-                                    context: context)
+                                let verso = layout.mirrorsMargins(options: options) && index % 2 == 1
+                                drawFurniture(
+                                    lines, in: rect, margins: verso ? margins.mirrored : margins,
+                                    logicalSize: logicalSize, context: context)
                             }
                         }
                     }
@@ -147,37 +149,29 @@ public struct PDFComposer {
         context.drawPDFPage(page)
     }
 
-    private func drawHandoutNumber(_ number: Int, below rect: CGRect, space: CGFloat, context: CGContext) {
-        let text = NSAttributedString(
-            string: String(number),
-            attributes: [.font: NSFont.systemFont(ofSize: 8), .foregroundColor: NSColor.black])
-        let line = CTLineCreateWithAttributedString(text)
-        var ascent: CGFloat = 0
-        var descent: CGFloat = 0
-        let width = CTLineGetTypographicBounds(line, &ascent, &descent, nil)
-        let height = ascent + descent
-        let padding: CGFloat = 2
-        context.saveGState()
-        defer { context.restoreGState() }
-        context.textMatrix = .identity
-        if space >= height + 2 * padding {
-            context.textPosition = CGPoint(
-                x: rect.midX - width / 2, y: rect.minY - space / 2 - (ascent - descent) / 2)
-        } else {
-            // The last slot has no usable footer with zero or tiny margins; white backing preserves contrast.
-            let backing = CGRect(x: rect.minX, y: rect.minY, width: width + 2 * padding, height: height + 2 * padding)
-            context.setFillColor(CGColor(gray: 1, alpha: 1))
-            context.fill(backing)
-            context.textPosition = CGPoint(x: backing.minX + padding, y: backing.minY + padding + descent)
-        }
-        CTLineDraw(line, context)
+    private func drawHandout(
+        _ lines: PageFurniture.Lines, slot: Int, in rect: CGRect, options: PrintOptions, context: CGContext
+    ) {
+        func points(_ millimeters: Double) -> CGFloat { CGFloat(millimeters * 72 / 25.4) }
+        let gap = points(PrintLayout.handoutGapInMillimeters)
+        PageFurnitureDrawing.drawHandoutRow(
+            lines.top, beside: rect, above: true, space: slot == 0 ? points(options.margins.top) : gap,
+            context: context)
+        PageFurnitureDrawing.drawHandoutRow(
+            lines.bottom, beside: rect, above: false, space: slot < 2 ? gap : points(options.margins.bottom),
+            context: context)
     }
 
-    private func drawNumber(
-        _ number: Int, in rect: CGRect, margin: CGFloat, logicalSize: CGSize, context: CGContext
+    private func drawFurniture(
+        _ lines: PageFurniture.Lines, in rect: CGRect, margins: WebPaginator.Margins, logicalSize: CGSize,
+        context: CGContext
     ) {
         let logicalRect = PDFDrawing.fittedRect(size: logicalSize, in: rect)
         let scale = logicalRect.width / logicalSize.width
-        PageNumberDrawing.draw(number, in: logicalRect, margin: margin * scale, scale: scale, context: context)
+        PageFurnitureDrawing.draw(
+            lines, in: logicalRect,
+            margins: WebPaginator.Margins(
+                top: margins.top * scale, left: margins.left * scale, bottom: margins.bottom * scale,
+                right: margins.right * scale), scale: scale, context: context)
     }
 }

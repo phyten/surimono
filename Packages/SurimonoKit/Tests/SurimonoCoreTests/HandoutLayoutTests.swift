@@ -30,7 +30,7 @@ struct HandoutLayoutTests {
         #expect(throws: (any Error).self) { try JSONDecoder().decode(PrintLayout.self, from: json) }
         let layout = PrintLayout.a4Handout3
         #expect(try JSONDecoder().decode(PrintLayout.self, from: JSONEncoder().encode(layout)) == layout)
-        #expect(PrintLayout.presets.last == layout)
+        #expect(PrintLayout.presets(in: .a).last == layout)
         #expect(layout.displayName(language: "ja") == "A4 3枚＋メモ")
         #expect(layout.displayName() == "A4 3-up + Notes")
     }

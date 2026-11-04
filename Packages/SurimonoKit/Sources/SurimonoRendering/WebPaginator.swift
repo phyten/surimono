@@ -27,10 +27,17 @@ public final class WebPaginator: NSObject {
             self.right = right
         }
 
-        public static func uniform(millimeters: Double) -> Margins {
-            let points = CGFloat(millimeters * 72 / 25.4)
-            return Margins(top: points, left: points, bottom: points, right: points)
+        public init(_ margins: PageMargins) {
+            func points(_ millimeters: Double) -> CGFloat { CGFloat(millimeters * 72 / 25.4) }
+            self.init(
+                top: points(margins.top), left: points(margins.left), bottom: points(margins.bottom),
+                right: points(margins.right))
         }
+
+        public static func uniform(millimeters: Double) -> Margins { Margins(.uniform(millimeters)) }
+
+        /// The margins of a left-hand page, whose outer side is on the left.
+        public var mirrored: Margins { Margins(top: top, left: right, bottom: bottom, right: left) }
     }
 
     public enum PaginationError: Error, Equatable {
@@ -48,6 +55,8 @@ public final class WebPaginator: NSObject {
         public let pageRules: [PageRule]
         public var requiredFolderAccess: URL?
         public var issues: [PrintIssue] = []
+        /// What the renderer added to the pages of a text and read from it.
+        var finishing = FinishedPages()
 
         public init(
             document: PDFDocument, preparationResult: String? = nil, pageRules: [PageRule] = [],

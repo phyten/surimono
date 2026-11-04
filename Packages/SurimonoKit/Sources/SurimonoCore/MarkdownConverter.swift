@@ -2,15 +2,18 @@ import Foundation
 import Markdown
 
 public enum MarkdownConverter {
-    public static func convert(_ text: String) -> HTMLFragment {
-        convertDocument(text, mapsSource: false).fragment
+    /// - Parameter pageBreakLine: A line of the reader's own that stands for a page break, besides the usual ones.
+    public static func convert(_ text: String, pageBreakLine: String = "") -> HTMLFragment {
+        convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine).fragment
     }
 
-    public static func convertWithSourceMap(_ text: String) -> MarkdownMappedDocument {
-        convertDocument(text, mapsSource: true)
+    public static func convertWithSourceMap(_ text: String, pageBreakLine: String = "") -> MarkdownMappedDocument {
+        convertDocument(text, mapsSource: true, pageBreakLine: pageBreakLine)
     }
 
-    private static func convertDocument(_ text: String, mapsSource: Bool) -> MarkdownMappedDocument {
+    private static func convertDocument(
+        _ text: String, mapsSource: Bool, pageBreakLine: String
+    ) -> MarkdownMappedDocument {
         let original = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
         var source = mapsSource ? MarkdownSourceLines(original) : .unmapped(original)
         var lines = original
@@ -29,6 +32,7 @@ public enum MarkdownConverter {
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
         }
+        source.lines = MarkdownPageBreaks.marking(source.lines, customLine: pageBreakLine)
         let extracted = MarkdownExtensions.extractFootnotes(source)
         let footnotes = MarkdownExtensions.Footnotes(
             definitions: extracted.definitions.mapValues { $0.lines.joined(separator: "\n") })
@@ -209,7 +213,7 @@ public enum MarkdownConverter {
         case is ThematicBreak: return "<hr>\n"
         case is LineBreak: return "<br>\n"
         case is SoftBreak: return "\n"
-        case let html as HTMLBlock: return html.rawHTML
+        case let html as HTMLBlock: return MarkdownPageBreaks.html(forBlock: html.rawHTML) ?? html.rawHTML
         case let html as InlineHTML: return html.rawHTML
         case let link as Link:
             let title = link.title.map { " title=\"\(HTML.escape($0))\"" } ?? ""
@@ -499,5 +503,61 @@ public enum MarkdownConverter {
         let head = "<thead><tr>\(cells(table.head, tag: "th"))</tr></thead>"
         let body = table.body.children.map { "<tr>\(cells($0, tag: "td"))</tr>" }.joined()
         return "<table>\(head)<tbody>\(body)</tbody></table>\n"
+    }
+}
+
+/// The page break syntaxes of other Markdown tools. A line asking for a page break becomes an HTML comment, which ends
+/// on its own line and may interrupt a paragraph, so no other line changes its meaning or its number.
+enum MarkdownPageBreaks {
+    private static let markerPrefix = "<!--surimono-page-break:"
+
+    static func marking(_ lines: [String], customLine: String) -> [String] {
+        let custom = customLine.trimmingCharacters(in: .whitespaces)
+        var fence: (mark: Character, length: Int)?
+        return lines.map { line in
+            let indent = line.prefix { $0 == " " }.count
+            let text = line.dropFirst(indent)
+            if let open = fence {
+                let run = text.prefix { $0 == open.mark }.count
+                if indent <= 3, run >= open.length, text.dropFirst(run).allSatisfy({ $0 == " " || $0 == "\t" }) {
+                    fence = nil
+                }
+                return line
+            }
+            guard indent <= 3 else { return line }
+            if let mark = text.first, mark == "`" || mark == "~" {
+                let run = text.prefix { $0 == mark }.count
+                if run >= 3, mark == "~" || !text.dropFirst(run).contains("`") { fence = (mark, run) }
+                return line
+            }
+            guard let syntax = syntax(ofLine: text.trimmingCharacters(in: .whitespaces), custom: custom) else {
+                return line
+            }
+            return markerPrefix + syntax.rawValue + "-->"
+        }
+    }
+
+    private static func syntax(ofLine line: String, custom: String) -> PageBreakSyntax? {
+        if !custom.isEmpty, line == custom { return .custom }
+        switch line {
+        case "\\newpage": return .newpage
+        case "{::pagebreak /}", "{::pagebreak/}": return .kramdown
+        default: break
+        }
+        guard line.hasPrefix("<!--"), line.hasSuffix("-->"), line.count >= 7 else { return nil }
+        let word = line.dropFirst(4).dropLast(3).trimmingCharacters(in: .whitespaces).lowercased()
+        switch word {
+        case "break": return .comment
+        case "pagebreak": return .pagebreak
+        default: return nil
+        }
+    }
+
+    static func html(forBlock block: String) -> String? {
+        let block = block.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard block.hasPrefix(markerPrefix), block.hasSuffix("-->"),
+            let syntax = PageBreakSyntax(rawValue: String(block.dropFirst(markerPrefix.count).dropLast(3)))
+        else { return nil }
+        return "<div class=\"page-break\" data-syntax=\"\(syntax.rawValue)\"></div>\n"
     }
 }

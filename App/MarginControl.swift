@@ -7,16 +7,25 @@ struct MarginControl: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            TextField("Margins (mm)", value: margin, format: .number.precision(.fractionLength(0...1)))
-                .labelsHidden()
-                .multilineTextAlignment(.trailing)
-                .frame(width: 52)
+            // Uneven margins show as mixed, and typing a value here evens them out.
+            TextField(
+                "Margins (mm)", value: uniformMargin, format: .number.precision(.fractionLength(0...1)),
+                prompt: Text("Mixed")
+            )
+            .labelsHidden()
+            .multilineTextAlignment(.trailing)
+            .frame(width: 52)
             Stepper("Margins (mm)", value: margin, in: DocumentViewModel.marginRange, step: 1).labelsHidden()
         }
     }
 
+    private var uniformMargin: Binding<Double?> {
+        Binding(
+            get: { model.printOptions.margins.uniformValue }, set: { if let value = $0 { model.setMargins(value) } })
+    }
+
     private var margin: Binding<Double> {
-        Binding(get: { model.printOptions.marginsInMillimeters }, set: { model.setMargins($0) })
+        Binding(get: { model.printOptions.margins.top }, set: { model.setMargins($0) })
     }
 }
 
@@ -28,15 +37,20 @@ struct MarginMenu: View {
         Menu {
             Picker(
                 "Margins",
-                selection: Binding(get: { model.printOptions.marginsInMillimeters }, set: { model.setMargins($0) })
+                selection: Binding(
+                    get: { model.printOptions.margins.uniformValue },
+                    set: { if let value = $0 { model.setMargins(value) } })
             ) {
                 ForEach(model.marginChoices, id: \.self) { millimeters in
-                    Text(verbatim: Self.label(millimeters)).tag(millimeters)
+                    Text(verbatim: Self.label(millimeters)).tag(Optional(millimeters))
                 }
             }
             .pickerStyle(.inline).labelsHidden()
         } label: {
-            Text(verbatim: choice(String(localized: "Margins"), Self.label(model.printOptions.marginsInMillimeters)))
+            Text(
+                verbatim: choice(
+                    String(localized: "Margins"),
+                    model.printOptions.margins.uniformValue.map(Self.label) ?? String(localized: "Mixed")))
         }
     }
 

@@ -36,6 +36,12 @@ enum PDFDrawing {
             && pageSize.width > margin * 2 && pageSize.height > margin * 2
     }
 
+    static func validGeometry(pageSize: CGSize, margins: WebPaginator.Margins) -> Bool {
+        let sides = [margins.top, margins.left, margins.bottom, margins.right]
+        return pageSize.width.isFinite && pageSize.height.isFinite && sides.allSatisfy { $0.isFinite && $0 >= 0 }
+            && pageSize.width > margins.left + margins.right && pageSize.height > margins.top + margins.bottom
+    }
+
     static func fittedRect(size: CGSize, in rect: CGRect) -> CGRect {
         let scale = min(rect.width / size.width, rect.height / size.height)
         let fitted = CGSize(width: size.width * scale, height: size.height * scale)
