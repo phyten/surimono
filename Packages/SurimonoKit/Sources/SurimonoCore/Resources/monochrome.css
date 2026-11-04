@@ -17,4 +17,7 @@ blockquote { border-left-color: #000; }
 }
 .hl-addition, .hl-deletion { background: none; }
 .hl-deletion { font-style: italic; }
-.callout[class] { --callout-color: #000; --callout-tint: transparent; border: 0.5pt solid #000; border-left-width: 3pt; }
+:root {
+    --callout-info: #000; --callout-success: #000; --callout-warning: #000; --callout-danger: #000;
+    --callout-plain: #000; --callout-tint-amount: 0%; --callout-frame: 0.5pt;
+}

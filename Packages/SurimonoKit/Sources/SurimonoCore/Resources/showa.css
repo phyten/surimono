@@ -32,8 +32,9 @@ code { font-size: 0.9em; }
 th, td { border-color: #7a6a58; }
 th { background: #efe6d2; color: #2f4868; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 blockquote { border-left: 3pt double #8c3b2a; }
-.callout { --callout-tint: #f3ecdc; }
-.callout-note, .callout-tip, .callout-quote, .callout-neutral { --callout-color: #2f4868; }
-.callout-important, .callout-warning, .callout-danger { --callout-color: #8c3b2a; }
 :root { --hl-keyword: #8c3b2a; --hl-type: #2f4868; --hl-function: #2f4868; --hl-string: #4f5a2a; --hl-comment: #6a5f52; }
 hr { border: none; border-top: 1pt dotted #7a6a58; margin: 1.3em 0; }
+:root {
+    --callout-info: #2f4868; --callout-success: #2f4868; --callout-warning: #8c3b2a; --callout-danger: #8c3b2a;
+    --callout-plain: #2f4868; --callout-paper: #fbf8ee; --callout-tint-amount: 6%;
+}

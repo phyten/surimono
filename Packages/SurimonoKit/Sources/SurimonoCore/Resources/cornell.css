@@ -50,3 +50,8 @@ hr {
     overflow: visible;
 }
 hr::after { content: "まとめ Summary"; display: block; font-size: 0.8em; font-weight: 700; color: #24435f; letter-spacing: 0.1em; }
+:root {
+    --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;
+    --callout-plain: #4f5a63; --callout-frame: 0.9pt; --callout-radius: 2.25pt; --callout-tag-radius: 2.25pt;
+    --callout-title-weight: 600;
+}

@@ -19,6 +19,74 @@ struct PrintThemeRenderingTests {
         return result.logicalDocument
     }
 
+    /// The page drawn on white at twice its size, as RGB rows from the top.
+    private func pixels(of page: PDFPage) throws -> (width: Int, height: Int, data: [UInt8]) {
+        let bounds = page.bounds(for: .mediaBox)
+        let width = Int(bounds.width * 2)
+        let height = Int(bounds.height * 2)
+        var data = [UInt8](repeating: 255, count: width * height * 4)
+        let drawn = try data.withUnsafeMutableBytes { buffer in
+            let context = try #require(
+                CGContext(
+                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                    space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.scaleBy(x: 2, y: 2)
+            page.draw(with: .mediaBox, to: context)
+            return true
+        }
+        #expect(drawn)
+        return (width, height, data)
+    }
+
+    @Test("囲みの札と地とアイコンは印刷でも色のまま出る", .timeLimit(.minutes(1)))
+    func calloutPrintsItsTagGroundAndIcon() async throws {
+        let document = try await render(":::warning 表題\n本文\n:::", theme: "standard")
+        let page = try #require(document.page(at: 0))
+        let image = try pixels(of: page)
+        func isClose(_ index: Int, _ color: [Int]) -> Bool {
+            (0..<3).allSatisfy { abs(Int(image.data[index + $0]) - color[$0]) <= 3 }
+        }
+        var tagRows: [Int] = []
+        var groundPixels = 0
+        var tagLeft = image.width
+        for row in 0..<image.height {
+            var tagPixels = 0
+            for column in 0..<image.width {
+                let index = (row * image.width + column) * 4
+                if isClose(index, [0x79, 0x50, 0x0d]) {
+                    tagPixels += 1
+                    tagLeft = min(tagLeft, column)
+                }
+                // --callout-warning at 8% on white paper.
+                if isClose(index, [0xf4, 0xf0, 0xeb]) { groundPixels += 1 }
+            }
+            if tagPixels > 40 { tagRows.append(row) }
+        }
+        #expect(tagRows.count > 20)
+        #expect(groundPixels > 10000)
+        // The icon is drawn in the tag's ink between the tag's left edge and the title's first letter.
+        let title = ((page.string ?? "") as NSString).range(of: "表題").location
+        try #require(title != NSNotFound)
+        let titleLeft = Int(page.characterBounds(at: title).minX * 2)
+        var iconPixels = 0
+        for row in tagRows {
+            for column in tagLeft..<titleLeft where isClose((row * image.width + column) * 4, [255, 255, 255]) {
+                iconPixels += 1
+            }
+        }
+        #expect(iconPixels > 20)
+    }
+
+    @Test("文書の先頭の囲みの札はページの余白の中で切れない", .timeLimit(.minutes(1)))
+    func leadingCalloutKeepsItsTag() async throws {
+        let page = try #require(try await render(":::note 表題\n本文\n:::", theme: "standard").page(at: 0))
+        let index = ((page.string ?? "") as NSString).range(of: "表題").location
+        try #require(index != NSNotFound)
+        let gap = page.bounds(for: .mediaBox).maxY - page.characterBounds(at: index).maxY
+        #expect(gap >= 15 * 72 / 25.4 - 1)
+    }
+
     @Test("先頭の見出しは、見出しの上余白を足さずにページの余白のすぐ下から始まる", .timeLimit(.minutes(1)))
     func leadingHeadingStartsAtThePageMargin() async throws {
         let document = try await render("# 見出し\n\n本文", theme: "standard")

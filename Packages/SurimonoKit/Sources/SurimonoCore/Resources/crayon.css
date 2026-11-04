@@ -28,4 +28,8 @@ blockquote { border-left: none; padding: 0.4em 0.9em; border: 2pt dashed #e07b1a
     border-radius: 225px 18px 255px 18px / 18px 255px 18px 225px; }
 th, td { border: 1.5pt solid #555; }
 th { color: #d2372f; }
-.callout { border: 2pt solid var(--callout-color); border-radius: 225px 15px 255px 15px / 15px 255px 15px 225px; }
+:root {
+    --callout-info: #2862b8; --callout-success: #2a7d37; --callout-warning: #b05f10; --callout-danger: #d2372f;
+    --callout-plain: #6a5a4a; --callout-frame: 1.5pt;
+    --callout-radius: 225px 15px 255px 15px / 15px 255px 15px 225px; --callout-tag-radius: 6pt;
+}

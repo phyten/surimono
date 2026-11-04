@@ -16,5 +16,5 @@ th code { color: #1d1d1f; }
 tbody tr:nth-child(even) td { background: #f3f5f8; }
 blockquote { border-left-color: #9fb3cc; color: #3a3a3c; }
 a { color: #1f4e8c; }
-.callout { border-radius: 0 4pt 4pt 0; }
 pre, th, tbody tr:nth-child(even) td, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root { --callout-radius: 4pt; --callout-tag-radius: 2.5pt; }

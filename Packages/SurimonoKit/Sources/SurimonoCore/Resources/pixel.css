@@ -36,6 +36,10 @@ code { font-size: 1em; }
 th, td { border: 2pt solid #111; }
 th { background: #e3f0e3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 blockquote { border-left: 4pt solid #111; }
-.callout { border: 2pt solid var(--callout-color); border-left-width: 6pt; box-shadow: 3pt 3pt 0 var(--callout-color); }
 img { border: 2pt solid #111; }
 hr { border: none; height: 4pt; margin: 1.2em 0; background: repeating-linear-gradient(to right, #111 0, #111 4pt, transparent 4pt, transparent 8pt); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1565c0; --callout-success: #2e7d32; --callout-warning: #8a5a00; --callout-danger: #c62828;
+    --callout-plain: #444444; --callout-frame: 2pt;
+}
+.callout::before { box-shadow: 3pt 3pt 0 var(--callout-color); }

@@ -17,3 +17,7 @@ th, td { border: none; padding: 0.25em 0.8em; }
 thead th { border-bottom: 0.5pt solid #111; }
 blockquote { font-size: 0.95em; border-left: none; margin-inline: 2em; padding-left: 0; }
 img { display: block; margin: 0.8em auto; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-frame: 0.6pt; --callout-title-weight: 600;
+}

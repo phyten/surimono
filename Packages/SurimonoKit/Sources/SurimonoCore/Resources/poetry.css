@@ -16,6 +16,11 @@ code { font-size: 0.85em; letter-spacing: 0; }
 pre { font-size: 8.8pt; line-height: 1.6; letter-spacing: 0; margin-inline: 3em; padding: 0.6em 0; border-top: 0.4pt solid #bbb; border-bottom: 0.4pt solid #bbb; }
 table { margin: 1.2em auto; }
 th, td { border: none; border-bottom: 0.4pt solid #bbb; padding: 0.3em 1em; }
-.callout { background: none; border-left: 0.5pt solid var(--callout-color); margin-inline: 3em; }
 hr { border: none; text-align: center; height: auto; margin: 2.2em 0; }
 hr::after { content: "◇"; color: #999; font-size: 0.8em; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-tint-amount: 0%; --callout-frame: 0.5pt;
+}
+.callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }
+.callout { margin-inline: 3em; }

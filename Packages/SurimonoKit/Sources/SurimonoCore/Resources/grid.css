@@ -29,3 +29,11 @@ th, td { border-color: #7f9db5; padding: 0 2mm; line-height: 6mm; background: rg
 th { color: #1d4e72; }
 blockquote { border-left-color: #1d4e72; }
 hr { border: none; border-top: 1pt dashed #1d4e72; margin: 3mm 0; }
+:root {
+    --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;
+    --callout-plain: #4f5a63; --callout-frame: 0.9pt; --callout-radius: 2.25pt; --callout-tag-radius: 2.25pt;
+    --callout-title-weight: 600;
+}
+/* A band of paper keeps the grid from touching the frame. */
+.callout::before { outline: 1.5pt solid var(--callout-paper); }
+.callout-quote::before { outline: none; }

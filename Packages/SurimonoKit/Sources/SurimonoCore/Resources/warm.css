@@ -17,3 +17,7 @@ hr { border: none; border-top: 0.75pt solid #d9b893; margin: 1.5em 0; }
 a { color: #8c4a1c; }
 :root { --hl-comment: #6e5a48; }
 pre, th, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #6e4a2e; --callout-success: #4f5f2a; --callout-warning: #8a5a14; --callout-danger: #a33a22;
+    --callout-plain: #6b5d50; --callout-radius: 3pt; --callout-tag-radius: 2pt;
+}

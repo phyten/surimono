@@ -29,3 +29,7 @@ img { display: block; margin: 0.8em auto; }
 /* LaTeX's footnote rule: a short line, not the full width. */
 .footnotes { border-top: none; padding-top: 0; font-size: 0.85em; }
 .footnotes::before { content: ""; display: block; width: 30%; border-top: 0.4pt solid #000; margin-bottom: 0.5em; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-frame: 0.6pt; --callout-title-weight: 600;
+}

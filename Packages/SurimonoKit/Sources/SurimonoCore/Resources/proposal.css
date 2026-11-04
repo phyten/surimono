@@ -20,3 +20,7 @@ blockquote { border-left: 3pt solid #0f7b8a; color: #33404b; font-size: 1.05em; 
 hr { border: none; border-top: 1pt solid #cfd8de; margin: 2em 0; }
 a { color: #0d6673; }
 h2, pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460;
+}

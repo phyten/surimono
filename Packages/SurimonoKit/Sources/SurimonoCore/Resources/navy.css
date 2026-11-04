@@ -19,3 +19,7 @@ blockquote { border-left-color: #6b7685; color: #3a414c; }
 hr { border: none; border-top: 1pt solid #9aa3ae; margin: 1.4em 0; }
 a { color: #13294b; }
 h1, pre, th, tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460;
+}

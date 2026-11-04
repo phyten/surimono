@@ -27,5 +27,8 @@ table { margin: 0.8em 0; background: white; border: 1.2pt solid #1d4e89; }
 th, td { border: 0.5pt solid #4a7fc1; }
 th { color: #1d4e89; font-family: "Avenir Next Condensed", "Hiragino Sans", sans-serif; text-transform: uppercase; letter-spacing: 0.04em; }
 blockquote { border-left: 2pt dashed #4a7fc1; color: #22406a; }
-.callout { border: 0.75pt solid var(--callout-color); border-left-width: 3pt; }
 hr { border: none; border-top: 1pt dashed #4a7fc1; margin: 1.4em 0; }
+:root {
+    --callout-info: #1d4e89; --callout-success: #1f6b5a; --callout-warning: #7a5a10; --callout-danger: #a8322a;
+    --callout-plain: #5a5f6a;
+}

@@ -25,3 +25,7 @@ pre { background: #fffaf0; border: 1pt solid #e2c27a; padding: 0.6em 0.8em; font
 blockquote { border-left-color: #b8860b; }
 th { background: #fbe9e9; color: #8e1020; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #d9b46a; }
+:root {
+    --callout-info: #8a6200; --callout-success: #2f6b4a; --callout-warning: #b05a0a; --callout-danger: #b5172b;
+    --callout-plain: #5a4a40;
+}

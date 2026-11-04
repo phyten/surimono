@@ -30,3 +30,8 @@ blockquote { border-left: 3pt solid #ffcc4d; background: #fffbea; padding: 0.3em
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th { background: #eef4fb; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #a9c4e4; }
+:root {
+    --callout-info: #2a6390; --callout-success: #3a6b2e; --callout-warning: #85560c; --callout-danger: #b53a32;
+    --callout-plain: #635a52; --callout-frame: 1.1pt; --callout-radius: 10.5pt; --callout-tag-radius: 7pt;
+    --callout-title-weight: 600;
+}

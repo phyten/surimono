@@ -16,5 +16,8 @@ th { background: #e2e8f0; color: #1e293b; font-weight: 600; }
 blockquote { border-left: 3pt solid #94a3b8; color: #475569; }
 hr { border: none; border-top: 0.75pt solid #cbd5e1; margin: 1.5em 0; }
 a { color: #3b5b85; }
-.callout { border-radius: 0 4pt 4pt 0; }
 pre, th, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460; --callout-radius: 4pt; --callout-tag-radius: 2.5pt;
+}

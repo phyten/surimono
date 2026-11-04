@@ -29,4 +29,9 @@ blockquote { border-left: 3pt solid #e0b13a; background: #fffaf0; padding: 0.3em
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th { background: #ffeaf3; color: #8a1144; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #ebbfd2; }
-.callout { border-radius: 8pt; }
+:root {
+    --callout-info: #7b3fa0; --callout-success: #2e7d6b; --callout-warning: #8a6100; --callout-danger: #c2185b;
+    --callout-plain: #6b4a5e; --callout-frame: 1.5pt; --callout-radius: 7.5pt; --callout-tag-radius: 5pt;
+}
+.callout::before { box-shadow: 2.25pt 2.25pt 0 var(--callout-color); }
+.callout-quote::before { box-shadow: none; }

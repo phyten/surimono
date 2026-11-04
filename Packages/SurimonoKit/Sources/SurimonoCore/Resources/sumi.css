@@ -16,4 +16,7 @@ hr { border: none; border-top: 2pt solid #000; width: 30%; margin: 1.6em 0; }
 a { color: #000; }
 /* Keep code and callouts monochrome to stay true to black ink. */
 :root { --hl-keyword: #000; --hl-type: #222; --hl-builtin: #222; --hl-function: #000; --hl-literal: #000; --hl-number: #333; --hl-string: #333; --hl-comment: #666; --hl-meta: #333; --hl-tag: #000; --hl-attr: #333; --hl-variable: #222; --hl-addition: #000; --hl-deletion: #444; --hl-section: #000; }
-.callout { --callout-color: #000; --callout-tint: #f4f4f4; }
+:root {
+    --callout-info: #000; --callout-success: #000; --callout-warning: #000; --callout-danger: #000;
+    --callout-plain: #000; --callout-tint-amount: 4%;
+}

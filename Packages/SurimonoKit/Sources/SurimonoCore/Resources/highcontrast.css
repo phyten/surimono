@@ -20,7 +20,6 @@ code { font-size: 0.92em; }
 th, td { border: 1pt solid #000; padding: 0.3em 0.6em; color: #000; }
 th { border-bottom-width: 2pt; font-weight: 800; }
 blockquote { border-left: 3pt solid #000; }
-.callout { --callout-color: #000; --callout-tint: #fff; border: 1.5pt solid #000; border-left-width: 5pt; }
 :root {
     --hl-keyword: #000; --hl-type: #000; --hl-builtin: #000; --hl-function: #000; --hl-literal: #000;
     --hl-number: #000; --hl-string: #000; --hl-comment: #000; --hl-meta: #000; --hl-tag: #000;
@@ -30,3 +29,7 @@ blockquote { border-left: 3pt solid #000; }
 .hl-deletion { text-decoration: line-through; }
 del { text-decoration-thickness: 1.5pt; }
 hr { border: none; border-top: 2pt solid #000; margin: 1em 0; }
+:root {
+    --callout-info: #000; --callout-success: #000; --callout-warning: #000; --callout-danger: #000;
+    --callout-plain: #000; --callout-tint-amount: 0%; --callout-frame: 1.5pt;
+}

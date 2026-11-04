@@ -18,5 +18,8 @@ pre { font-size: 8pt; line-height: 1.4; border: 0.5pt solid #555; padding: 0.4em
 table { margin: 0.6em 0; font-family: "Hiragino Sans", sans-serif; font-size: 0.88em; border-top: 1.5pt solid #111; border-bottom: 1.5pt solid #111; }
 th, td { border: none; border-bottom: 0.4pt solid #999; padding: 0.15em 0.5em; }
 thead th { border-bottom: 0.75pt solid #111; }
-.callout { background: none; border: 0.75pt solid #111; border-left-width: 3pt; padding: 0.5em 0.8em; }
 hr { border: none; border-top: 0.75pt solid #111; border-bottom: 0.4pt solid #111; height: 1.5pt; margin: 1em 0; }
+:root {
+    --callout-info: #111; --callout-success: #111; --callout-warning: #111; --callout-danger: #111;
+    --callout-plain: #111; --callout-tint-amount: 0%;
+}

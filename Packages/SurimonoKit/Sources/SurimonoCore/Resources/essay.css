@@ -18,6 +18,10 @@ pre { font-size: 8.8pt; line-height: 1.6; letter-spacing: 0; background: #fafafa
 table { margin: 1em 0; }
 th, td { border: none; border-bottom: 0.5pt solid #ccc; padding: 0.3em 0.8em; }
 th { font-weight: 600; }
-.callout { background: none; border-left-width: 1pt; }
 hr { border: none; text-align: center; height: auto; margin: 2em 0; }
 hr::after { content: "·\2003·\2003·"; color: #888; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-tint-amount: 0%; --callout-frame: 0.5pt;
+}
+.callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }

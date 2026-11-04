@@ -8,3 +8,8 @@ p, ul, ol, table { margin: 0.5em 0; }
 pre { line-height: 1.8; font-size: 9pt; }
 code { font-size: 0.9em; }
 td, th { padding: 0.3em 0.6em; line-height: 1.6; }
+:root {
+    --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;
+    --callout-plain: #4f5a63; --callout-frame: 0.9pt; --callout-radius: 2.25pt; --callout-tag-radius: 2.25pt;
+    --callout-title-weight: 600;
+}

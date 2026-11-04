@@ -8,29 +8,101 @@ struct MarkdownCalloutTests {
         let result = MarkdownConverter.convert(":::warning 気をつける <script>\n# 見出し\n\n**本文**\n:::")
         #expect(result.title == "見出し")
         #expect(result.body.contains("class=\"callout callout-warning\" data-callout=\"warning\""))
-        #expect(result.body.contains("<p class=\"callout-title\">気をつける &lt;script&gt;</p>"))
+        #expect(result.body.contains("</svg>気をつける &lt;script&gt;</p>"))
         #expect(result.body.contains("<strong>本文</strong>"))
     }
 
     @Test(
         "別名を共通の見た目にし既定の表題を付ける",
         arguments: [
-            ("info", "note", "Info"), ("done", "tip", "Done"), ("example", "important", "Example"),
+            ("info", "note", "Info"), ("done", "tip", "Done"), ("example", "note", "Example"),
             ("faq", "warning", "Faq"), ("bug", "danger", "Bug"), ("cite", "quote", "Cite"),
             ("custom", "neutral", "Custom"), ("details", "neutral", "Details"),
         ])
     func styles(type: String, style: String, title: String) {
         let body = MarkdownConverter.convert(":::\(type)\n本文\n:::").body
         #expect(body.contains("callout-\(style)\" data-callout=\"\(type)\""))
-        #expect(body.contains("class=\"callout-title\">\(title)</p>"))
+        #expect(body.contains(">\(title)</p>"))
     }
 
-    @Test("Zennのメッセージには表題を付けずalertを警告にする")
+    @Test(
+        "12 の名前は 4 つの群と引用に分かれる",
+        arguments: [
+            ("note", "note"), ("info", "note"), ("todo", "note"), ("example", "note"),
+            ("tip", "tip"), ("success", "tip"),
+            ("important", "warning"), ("warning", "warning"), ("question", "warning"),
+            ("danger", "danger"), ("bug", "danger"), ("quote", "quote"),
+        ])
+    func groups(name: String, style: String) {
+        let body = MarkdownConverter.convert(":::\(name)\n本文\n:::").body
+        #expect(body.contains("class=\"callout callout-\(style)\" data-callout=\"\(name)\""))
+    }
+
+    @Test("12 の名前と無地の囲みはそれぞれ別のアイコンを札に付ける")
+    func icons() {
+        let names = [
+            "note", "info", "todo", "example", "tip", "success", "important", "warning", "question", "danger", "bug",
+            "quote", "neutral",
+        ]
+        let paths = names.map { name in
+            MarkdownConverter.convert(":::\(name)\n本文\n:::").body
+                .components(separatedBy: "<path d=\"").dropFirst().first?.prefix { $0 != "\"" } ?? ""
+        }
+        #expect(paths.allSatisfy { !$0.isEmpty })
+        #expect(Set(paths).count == 13)
+    }
+
+    @Test("別名は元の名前のアイコンを使う")
+    func aliasIcon() {
+        func icon(_ name: String) -> String? {
+            MarkdownConverter.convert(":::\(name)\n本文\n:::").body
+                .components(separatedBy: "<path d=\"").last?.components(separatedBy: "\"/>").first
+        }
+        #expect(icon("faq") == icon("question"))
+        #expect(icon("done") == icon("success"))
+    }
+
+    @Test("アイコンは文字の色を受け取れるようにインラインのSVGにする")
+    func inlineIcon() {
+        let body = MarkdownConverter.convert("> [!tip] 表題").body
+        #expect(body.contains("<p class=\"callout-title\"><svg class=\"callout-icon\" viewBox=\"0 0 16 16\""))
+        #expect(!body.contains("url("))
+    }
+
+    @Test("未知の名前は名前を札で出し、無地の囲みと区別する")
+    func unknownName() {
+        let body = MarkdownConverter.convert(":::recipe 観望会の甘酒\n本文\n:::").body
+        #expect(body.contains("class=\"callout callout-unknown callout-neutral\" data-callout=\"recipe\""))
+        #expect(body.contains("<p class=\"callout-title\">観望会の甘酒<span class=\"callout-name\">recipe</span></p>"))
+    }
+
+    @Test("未知の名前の表題が名前と同じなら二度は出さない", arguments: [":::recipe", ":::recipe Recipe"])
+    func unknownNameShownOnce(opening: String) {
+        let body = MarkdownConverter.convert("\(opening)\n本文\n:::").body
+        #expect(body.contains("<p class=\"callout-title\">Recipe</p>"))
+    }
+
+    @Test("無地の名前は未知の名前の扱いにしない", arguments: ["neutral", "details"])
+    func plainNames(name: String) {
+        let body = MarkdownConverter.convert(":::\(name) 出力\n本文\n:::").body
+        #expect(body.contains("class=\"callout callout-neutral\" data-callout=\"\(name)\""))
+        #expect(!body.contains("callout-name"))
+    }
+
+    @Test("未知の名前はエスケープして札に出す")
+    func unknownNameIsEscaped() {
+        let body = MarkdownConverter.convert("> [!my-box] 表題").body
+        #expect(body.contains("<span class=\"callout-name\">my-box</span>"))
+    }
+
+    @Test("Zennのメッセージも名前の見出し語を札に出し、alertを危険の群にする")
     func zenn() {
-        for (marker, style, type) in [("message", "note", "message"), ("message alert", "danger", "alert")] {
+        for (marker, style, type, title) in [
+            ("message", "note", "message", "Message"), ("message alert", "danger", "alert", "Alert"),
+        ] {
             let body = MarkdownConverter.convert(":::\(marker)\n本文\n:::").body
             #expect(body.contains("callout-\(style)\" data-callout=\"\(type)\""))
-            #expect(!body.contains("callout-title"))
+            #expect(body.contains(">\(title)</p>"))
         }
     }
 
@@ -38,7 +110,7 @@ struct MarkdownCalloutTests {
     func nested() {
         let body = MarkdownConverter.convert("::::details 出力\n:::tip\n本文\n:::\n::::\n:::note\n最後").body
         #expect(body.components(separatedBy: "</div>").count == 4)
-        #expect(body.contains("class=\"callout-title\">出力</p>"))
+        #expect(body.contains(">出力</p>"))
         #expect(!body.contains("<details"))
     }
 
@@ -63,7 +135,7 @@ struct MarkdownCalloutTests {
     @Test("引用の表題のインライン書式と本文を保持する")
     func quoteTitle() {
         let body = MarkdownConverter.convert("> [!tip] **太字**の表題\n> 本文\n> 次の行").body
-        #expect(body.contains("<p class=\"callout-title\"><strong>太字</strong>の表題</p>"))
+        #expect(body.contains("</svg><strong>太字</strong>の表題</p>"))
         #expect(body.contains("<p>本文\n次の行</p>"))
         #expect(!body.contains("[!tip]"))
     }
@@ -71,7 +143,7 @@ struct MarkdownCalloutTests {
     @Test("引用の既定表題と折りたたみ記号と空本文を扱う", arguments: ["", "-", "+"])
     func quoteMarker(suffix: String) {
         let body = MarkdownConverter.convert("> [!NOTE]\(suffix)").body
-        #expect(body.contains("class=\"callout-title\">Note</p>"))
+        #expect(body.contains(">Note</p>"))
         #expect(!body.contains("<blockquote>"))
     }
 

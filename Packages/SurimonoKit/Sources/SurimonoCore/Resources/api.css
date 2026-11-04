@@ -18,5 +18,9 @@ th { background: #dfe4ea; font-weight: 700; -webkit-print-color-adjust: exact; p
 td:first-child { font-family: Menlo, "Hiragino Sans", monospace; font-size: 0.95em; }
 tbody tr:nth-child(even) td { background: #f5f7f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 blockquote { margin-inline: 0.5em; border-left-color: #94a3b8; color: #3b4450; }
-.callout { padding: 0.45em 0.7em; margin-block: 0.6em; }
 hr { border: none; border-top: 0.5pt solid #94a3b8; margin: 1em 0; }
+:root {
+    --callout-info: #0b5cad; --callout-success: #1a6b32; --callout-warning: #7d5500; --callout-danger: #b3262e;
+    --callout-plain: #57606a; --callout-radius: 4.5pt; --callout-tag-radius: 3pt;
+}
+.callout { padding: 0 0.7em 0.45em; margin-block: 0.6em; }

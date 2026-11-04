@@ -24,4 +24,8 @@ pre { background: #f5faf0; border: 1.5pt solid #b9dca2; border-radius: 10pt; pad
 blockquote { border-left: 4pt solid #e9b872; }
 th { background: #eef7e6; color: #2f5f1f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #b9cfa6; }
-.callout { border-radius: 10pt; }
+:root {
+    --callout-info: #2a6390; --callout-success: #3a6b2e; --callout-warning: #85560c; --callout-danger: #b53a32;
+    --callout-plain: #635a52; --callout-frame: 1.1pt; --callout-radius: 10.5pt; --callout-tag-radius: 7pt;
+    --callout-title-weight: 600;
+}

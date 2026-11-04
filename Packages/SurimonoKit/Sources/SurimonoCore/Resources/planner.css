@@ -35,3 +35,8 @@ pre { font-size: 8pt; line-height: 1.5; padding: 0.4em 0.6em; border: 0.5pt soli
 code { font-size: 0.9em; }
 blockquote { border-left-color: #2f4858; }
 hr { border: none; border-top: 0.5pt solid #2f4858; border-bottom: 0.5pt solid #2f4858; height: 2pt; margin: 0.8em 0; }
+:root {
+    --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;
+    --callout-plain: #4f5a63; --callout-frame: 0.9pt; --callout-radius: 2.25pt; --callout-tag-radius: 2.25pt;
+    --callout-title-weight: 600;
+}

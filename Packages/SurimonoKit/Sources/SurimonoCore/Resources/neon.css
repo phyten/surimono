@@ -22,3 +22,10 @@ blockquote { border-left: 2pt solid #9dff4a; box-shadow: -2pt 0 5pt -2pt #9dff4a
 th { border-bottom: 1.5pt solid #ff4fb8; }
 th, td { border-color: #b8b8c8; }
 a { color: #8a1fd1; }
+:root {
+    --callout-info: #00739e; --callout-success: #3d7a00; --callout-warning: #8a5a00; --callout-danger: #d1006f;
+    --callout-plain: #7a2bc4; --callout-frame: 1pt; --callout-radius: 4pt; --callout-tag-radius: 3pt;
+}
+/* The tube again: a soft halo round the frame in its own colour. */
+.callout::before { box-shadow: 0 0 3pt var(--callout-color); }
+.callout-quote::before { box-shadow: none; }

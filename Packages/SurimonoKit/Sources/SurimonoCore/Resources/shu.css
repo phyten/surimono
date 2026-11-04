@@ -18,3 +18,7 @@ blockquote { border-left-color: #c0392b; color: #4a3a35; }
 hr { border: none; border-top: 0.75pt solid #c0392b; width: 25%; margin: 1.6em auto; }
 a { color: #a5301f; }
 h2::before, pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-frame: 0.6pt; --callout-title-weight: 600;
+}

@@ -182,28 +182,121 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
 .hl-section { color: var(--hl-section); font-weight: 600; }
 .hl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
+/* Callouts. A theme gives the four meanings their colours here, and --callout-paper when its paper is not white; the
+   tints, tags and lines follow. The meanings also differ by line and each name has its own icon, so they stay apart
+   when printed in black and white or in a theme that has one ink. */
+:root {
+    --callout-paper: #fff;
+    --callout-on: #fff;
+    --callout-info: #245c88;
+    --callout-success: #28603c;
+    --callout-warning: #79500d;
+    --callout-danger: #922e35;
+    --callout-plain: #595959;
+    --callout-tint-amount: 8%;
+    --callout-info-tint: color-mix(in srgb, var(--callout-info) var(--callout-tint-amount), var(--callout-paper));
+    --callout-success-tint: color-mix(in srgb, var(--callout-success) var(--callout-tint-amount), var(--callout-paper));
+    --callout-warning-tint: color-mix(in srgb, var(--callout-warning) var(--callout-tint-amount), var(--callout-paper));
+    --callout-danger-tint: color-mix(in srgb, var(--callout-danger) var(--callout-tint-amount), var(--callout-paper));
+    --callout-plain-tint: color-mix(in srgb, var(--callout-plain) var(--callout-tint-amount), var(--callout-paper));
+    --callout-frame: 0.75pt;
+    --callout-radius: 0;
+    --callout-tag-radius: 0;
+    --callout-title-weight: 700;
+}
 .callout {
+    --callout-line: solid;
+    --callout-line-width: var(--callout-frame);
+    --callout-tag-fill: var(--callout-color);
+    --callout-tag-ink: var(--callout-on);
+    position: relative;
+    isolation: isolate;
     margin-block: 1em;
-    padding: 0.75em 1em;
-    border-left: 3pt solid var(--callout-color);
-    background: var(--callout-tint);
+    padding: 0 0.85em 0.6em;
+    break-inside: avoid;
+    page-break-inside: avoid;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
-.callout-note { --callout-color: #245c88; --callout-tint: #eff5fa; }
-.callout-tip { --callout-color: #28603c; --callout-tint: #eff6f0; }
-.callout-important { --callout-color: #713a8a; --callout-tint: #f7f0fa; }
-.callout-warning { --callout-color: #79500d; --callout-tint: #fcf5e8; }
-.callout-danger { --callout-color: #922e35; --callout-tint: #fbefef; }
-.callout-quote, .callout-neutral { --callout-color: #595959; --callout-tint: #f3f3f3; }
+.callout-note { --callout-color: var(--callout-info); --callout-tint: var(--callout-info-tint); }
+.callout-tip {
+    --callout-color: var(--callout-success);
+    --callout-tint: var(--callout-success-tint);
+    --callout-line: dotted;
+    --callout-line-width: calc(var(--callout-frame) + 0.35pt);
+}
+.callout-warning {
+    --callout-color: var(--callout-warning);
+    --callout-tint: var(--callout-warning-tint);
+    --callout-line: dashed;
+    --callout-line-width: calc(var(--callout-frame) + 0.35pt);
+}
+.callout-danger {
+    --callout-color: var(--callout-danger);
+    --callout-tint: var(--callout-danger-tint);
+    --callout-line: double;
+    --callout-line-width: calc(var(--callout-frame) + 2.25pt);
+}
+.callout-quote, .callout-neutral { --callout-color: var(--callout-plain); --callout-tint: var(--callout-plain-tint); }
+/* The frame starts half a tag down, so the tag sits on its top line yet stays inside the callout's box: a tag that
+   stuck out of the box would be cut in two by a page break or by the top of the page. */
+.callout::before {
+    content: "";
+    position: absolute;
+    inset: 0.78em 0 0;
+    z-index: -1;
+    border: var(--callout-line-width) var(--callout-line) var(--callout-color);
+    border-radius: var(--callout-radius);
+    background: var(--callout-tint);
+}
 .callout > .callout-title {
-    color: var(--callout-color);
-    font-weight: 700;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 0 0.3em -0.15em;
+    padding: 0.08em 0.6em;
+    border: 0.75pt solid var(--callout-color);
+    border-radius: var(--callout-tag-radius);
+    background: var(--callout-tag-fill);
+    color: var(--callout-tag-ink);
+    font-weight: var(--callout-title-weight);
+    line-height: 1.4;
+    text-align: left;
+    text-indent: 0;
     break-after: avoid;
     page-break-after: avoid;
 }
 .callout > :first-child { margin-top: 0; }
 .callout > :last-child { margin-bottom: 0; }
+.callout-icon {
+    width: 1.15em;
+    height: 1.15em;
+    margin-right: 0.38em;
+    vertical-align: -0.2em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.35;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.callout-name {
+    margin-left: 0.5em;
+    padding: 0 0.4em;
+    border: 0.75pt solid currentColor;
+    border-radius: 2pt;
+    font: 500 0.8em/1.45 "SFMono-Regular", Menlo, monospace;
+}
+/* A quotation is someone's words rather than a remark on the text, so it keeps a quotation's shape: a rule beside it
+   and a small heading, on the paper itself. */
+.callout-quote { margin-inline: 1em; padding: 0.1em 0 0.1em 0.9em; }
+.callout-quote::before { inset: 0; border: none; border-left: 2.25pt solid var(--callout-color); border-radius: 0; background: none; }
+.callout-quote > .callout-title {
+    margin: 0 0 0.15em;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--callout-color);
+}
 
 .mermaid-block { margin-block: 0.8em; text-align: center; break-inside: avoid; page-break-inside: avoid; }
 .mermaid-block > svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }

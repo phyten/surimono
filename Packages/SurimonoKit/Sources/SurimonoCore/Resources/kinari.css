@@ -17,3 +17,10 @@ hr { border: none; border-top: 0.75pt solid #cdb89c; margin: 1.5em 0; }
 a { color: #6e4a2a; }
 :root { --hl-comment: #6b5d50; }
 pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #2b4c6f; --callout-success: #3e5f3a; --callout-warning: #7a5a14; --callout-danger: #a63a22;
+    --callout-plain: #5c5a55; --callout-paper: #f8f3e8; --callout-title-weight: 600;
+    --callout-info-tint: #eae9e0; --callout-success-tint: #ebead8; --callout-warning-tint: #f2e8ce;
+    --callout-danger-tint: #f4e2d4; --callout-plain-tint: #ede7db;
+}
+.callout > .callout-title { letter-spacing: 0.06em; }

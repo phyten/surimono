@@ -1,0 +1,42 @@
+/* Class newsletter: wavy rules as if drawn by hand, speech bubbles and dotted frames. */
+body { font-family: "Hiragino Maru Gothic ProN", sans-serif; font-size: 11pt; line-height: 1.85; color: #26303a; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { color: #1f5f8b; line-height: 1.4; margin: 1.2em 0 0.5em; }
+h1, h2 {
+    padding-bottom: 0.4em;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8'%3E%3Cpath d='M0 4 Q6 0 12 4 T24 4' fill='none' stroke='%231f5f8b' stroke-width='1.5'/%3E%3C/svg%3E") left bottom / 18pt 6pt repeat-x;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h1 { font-size: 1.9em; text-align: center; }
+h2 { font-size: 1.35em; }
+h3 { font-size: 1.12em; color: #b03a2e; }
+h4, h5, h6 { font-size: 1em; }
+p, ul, ol, table, pre { margin: 0.65em 0; }
+pre { font-size: 9pt; line-height: 1.5; padding: 0.6em 0.8em; border: 1pt dashed #1f5f8b; border-radius: 6pt; }
+th, td { border: 1pt dotted #1f5f8b; padding: 0.3em 0.6em; }
+th { color: #1f5f8b; }
+blockquote { border-left: 4pt dotted #b03a2e; }
+hr { border: none; border-top: 2pt dotted #1f5f8b; margin: 1.4em 0; }
+a { color: #1f5f8b; }
+:root {
+    --callout-info: #1f5f8b; --callout-success: #2f6b3a; --callout-warning: #8a5a10; --callout-danger: #b03a2e;
+    --callout-plain: #5a6470; --callout-frame: 1.1pt; --callout-radius: 11pt; --callout-tag-radius: 7pt;
+}
+/* The bubble's tail: a corner of the same frame, turned to point down. */
+.callout { margin-bottom: 1.5em; }
+.callout::after {
+    content: "";
+    position: absolute;
+    left: 1.6em;
+    bottom: -5.5pt;
+    width: 10pt;
+    height: 10pt;
+    box-sizing: border-box;
+    transform: rotate(45deg);
+    border-right: var(--callout-line-width) var(--callout-line) var(--callout-color);
+    border-bottom: var(--callout-line-width) var(--callout-line) var(--callout-color);
+    background: var(--callout-tint);
+}
+.callout-quote { margin-bottom: 1em; }
+.callout-quote::after { content: none; }

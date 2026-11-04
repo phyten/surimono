@@ -17,6 +17,10 @@ table { margin: 1em auto; border-top: 1pt solid #000; border-bottom: 1pt solid #
 th, td { border: none; padding: 0.15em 0.9em; }
 thead th { border-bottom: 0.5pt solid #000; }
 blockquote { border-left: none; margin-inline: 2.5em; padding-left: 0; }
-.callout { background: none; border-left: 0.75pt solid var(--callout-color); }
 hr { border: none; border-top: 0.5pt solid #444; margin: 1.5em 4em; }
 img { display: block; margin: 1em auto; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-tint-amount: 0%; --callout-frame: 0.6pt;
+}
+.callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }

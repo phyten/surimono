@@ -29,3 +29,9 @@ pre { background: #f7f7fb; border-left: 3pt solid #9b5de5; padding: 0.6em 0.8em;
 blockquote { border-left-color: #ffb703; color: #333; }
 th { background: #fff6dc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #c9c3d9; }
+:root {
+    --callout-info: #2a62c9; --callout-success: #06735a; --callout-warning: #8a5a00; --callout-danger: #c2255c;
+    --callout-plain: #1d2a4d; --callout-frame: 1.5pt; --callout-radius: 7.5pt; --callout-tag-radius: 5pt;
+}
+.callout::before { box-shadow: 2.25pt 2.25pt 0 var(--callout-color); }
+.callout-quote::before { box-shadow: none; }

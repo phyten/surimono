@@ -19,3 +19,7 @@ table { margin: 1em auto; font-family: "Hiragino Sans", sans-serif; font-size: 0
 th { background: #f0f0f0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .callout { font-family: "Hiragino Sans", sans-serif; font-size: 0.92em; line-height: 1.7; }
 hr { border: none; border-top: 0.5pt solid #777; margin: 1.6em 30%; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-frame: 0.6pt;
+}

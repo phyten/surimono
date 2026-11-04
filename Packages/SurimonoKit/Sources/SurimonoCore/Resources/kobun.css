@@ -20,3 +20,7 @@ blockquote { border-left: none; margin-inline: 2em; padding-left: 0; color: #3a3
 hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
 hr::after { content: "◇"; color: #5a5048; }
 a { color: inherit; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-frame: 0.6pt; --callout-title-weight: 600;
+}

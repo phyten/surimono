@@ -175,7 +175,7 @@ struct MarkdownExtensionBoundaryTests {
     @Test("コロン囲みの表題は素の文字のままにし、生成した HTML を見せない")
     func calloutTitleStaysPlain() {
         let html = body(":::note ==重要==\n本文は ==強調== する\n:::")
-        #expect(html.contains("<p class=\"callout-title\">==重要==</p>"))
+        #expect(html.contains("</svg>==重要==</p>"))
         #expect(html.contains("本文は <mark>強調</mark> する"))
     }
 

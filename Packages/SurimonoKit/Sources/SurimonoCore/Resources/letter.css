@@ -16,3 +16,7 @@ blockquote { border-left: none; margin-inline: 2em; padding-left: 0; color: #444
 hr { border: none; text-align: center; margin: 1.6em 0; height: auto; }
 hr::after { content: "＊　＊　＊"; color: #777; font-size: 0.9em; }
 a { color: inherit; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-title-weight: 600;
+}
