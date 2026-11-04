@@ -67,9 +67,9 @@ public struct CodeStyle: Equatable, Sendable {
     /// The theme's own code blocks, with nothing added to the page.
     public var isDefault: Bool { palette == nil && block == CodeBlockOptions() }
 
-    // Plain text, diagrams and math errors are `pre` elements too, but none of them is code. The classes also outrank
-    // any theme's selector for a block.
-    private static let block = "body.surimono pre:not(.surimono-plain, .mermaid-source, .math-error)"
+    // Only `CodeBlockMarkup` decides what is a code block, for the style sheet and `CodeFitScript` alike. The classes
+    // also outrank any theme's selector for a block.
+    private static let block = "body.surimono pre.\(CodeBlockMarkup.blockClass)"
     private static let padding = "0.65em 0.85em"
     private static let rule = "#8b8b86"
 
@@ -125,7 +125,6 @@ public struct CodeStyle: Equatable, Sendable {
         let number = "var(--code-no, #5f5f5b)"
         if block.lineNumbers != .none || block.longLines == .cut {
             rules.append(".code-line, .code-src { display: block; }")
-            rules.append(".code-src:empty::after { content: \"\\200b\"; }")
         }
         if block.lineNumbers != .none {
             rules.append(
@@ -159,8 +158,8 @@ public struct CodeStyle: Equatable, Sendable {
         case .none: return []
         case .corner:
             return [
-                "pre[data-code-label] { position: relative; }",
-                "pre[data-code-label]::before { \(label) position: absolute; right: 0.7em; top: 0.35em; }",
+                // In the flow rather than laid over the block, so that a long first line never runs under it.
+                "pre[data-code-label]::before { \(label) display: block; text-align: right; }"
             ]
         case .band:
             return [
@@ -177,12 +176,15 @@ public enum CodeBlockMarkup {
     /// The form every converter writes a code block in; `pre` elements with attributes are something else.
     private static let open = "<pre>"
     private static let close = "</pre>"
+    /// Marks what counts as a code block for the style sheet and `CodeFitScript`.
+    static let blockClass = "code-block"
 
     public static func containsCode(_ html: String) -> Bool { html.contains(open) }
 
-    public static func apply(_ options: CodeBlockOptions, to html: String) -> String {
+    public static func apply(_ style: CodeStyle, to html: String) -> String {
+        guard !style.isDefault else { return html }
+        let options = style.block
         let splitsLines = options.lineNumbers != .none || options.longLines == .cut
-        guard splitsLines || options.languageLabel != .none else { return html }
         var result = ""
         result.reserveCapacity(html.utf8.count)
         var rest = html[...]
@@ -195,14 +197,14 @@ public enum CodeBlockMarkup {
     }
 
     private static func block(_ content: Substring, options: CodeBlockOptions, splitsLines: Bool) -> String {
-        var codeTag = ""
+        // A block without a `code` element, such as Org's EXAMPLE, gets one: every block then has the same insides.
+        var codeTag = "<code>"
         var body = content
-        var codeEnd = ""
         if content.hasPrefix("<code"), content.hasSuffix("</code>"), let tagEnd = content.firstIndex(of: ">") {
             codeTag = String(content[...tagEnd])
             body = content[content.index(after: tagEnd)...].dropLast("</code>".count)
-            codeEnd = "</code>"
         }
+        var classes = [blockClass]
         var attributes = ""
         // A block with markup of its own, from raw HTML, keeps its lines.
         let lines = splitsLines ? self.lines(of: body) : nil
@@ -211,16 +213,19 @@ public enum CodeBlockMarkup {
             let digits = String(lines.count).count
             text = lines.enumerated().map { index, line in
                 let number = options.lineNumbers.shows(line: index + 1) ? " data-no=\"\(index + 1)\"" : ""
-                return "<span class=\"code-line\"\(number)><span class=\"code-src\">\(line)</span></span>"
+                // A line break holds a blank line's height without adding a character to the page.
+                let source = line.isEmpty ? "<br>" : line
+                return "<span class=\"code-line\"\(number)><span class=\"code-src\">\(source)</span></span>"
             }.joined()
             if options.lineNumbers != .none {
-                attributes += " class=\"code-numbered\" style=\"--code-digits: \(digits)\""
+                classes.append("code-numbered")
+                attributes += " style=\"--code-digits: \(digits)\""
             }
         }
         if options.languageLabel != .none, let label = label(inTag: codeTag) {
             attributes += " data-code-label=\"\(HTML.escape(label))\""
         }
-        return "<pre\(attributes)>\(codeTag)\(text)\(codeEnd)\(close)"
+        return "<pre class=\"\(classes.joined(separator: " "))\"\(attributes)>\(codeTag)\(text)</code>\(close)"
     }
 
     private static func label(inTag tag: String) -> String? {
@@ -229,10 +234,12 @@ public enum CodeBlockMarkup {
         return info.isEmpty ? nil : SyntaxHighlighter.displayName(for: info)
     }
 
-    /// The lines of highlighted code, each closing the spans it leaves open for the next to open again.
+    /// The lines of highlighted code, each closing the spans it leaves open for the next to open again. A line with no
+    /// text is empty, even inside a token that goes on after it.
     static func lines(of body: Substring) -> [String]? {
         var lines: [String] = []
         var current = ""
+        var hasText = false
         var open: [String] = []
         var index = body.startIndex
         while index < body.endIndex {
@@ -254,15 +261,17 @@ public enum CodeBlockMarkup {
                 continue
             }
             if character.isNewline {
-                lines.append(current + String(repeating: "</span>", count: open.count))
+                lines.append(hasText ? current + String(repeating: "</span>", count: open.count) : "")
                 current = open.joined()
+                hasText = false
             } else {
                 current.append(character)
+                hasText = true
             }
             index = body.index(after: index)
         }
         guard open.isEmpty else { return nil }
-        if !current.isEmpty { lines.append(current) }
+        if hasText { lines.append(current) }
         return lines
     }
 }
@@ -281,20 +290,22 @@ extension CodeBlockOptions.LineNumbers {
 /// paddings. Runs with the theme's decorations in the app's isolated world; the document's own JavaScript stays off.
 public enum CodeFitScript {
     /// nil when the lines need no fitting.
-    /// - Parameter pixelsPerPoint: CSS pixels to a point of the page. The script measures at that width, which printing
-    ///   lays out wider than the web view; a capture at the screen's scale draws a pixel to a point.
-    public static func javaScript(for style: CodeStyle, pixelsPerPoint: Double) -> String? {
+    /// - Parameter layoutWidth: The width the text is laid out at in the end, in the page's CSS pixels. Printing lays
+    ///   out wider than the web view, whose own width is rounded besides, so the script measures at this width.
+    public static func javaScript(for style: CodeStyle, layoutWidth: Double) -> String? {
         let body: String
         switch style.block.longLines {
         case .wrap: return nil
-        case .shrink: body = shrink
+        case .shrink: body = shrink.replacingOccurrences(of: "$BLOCK", with: CodeBlockMarkup.blockClass)
         case .cut: body = cut.replacingOccurrences(of: "$FORMAT", with: quoted(style.cutFormat))
         }
         return """
             {
               const root = document.documentElement;
               const width = root.style.width;
-              root.style.width = (root.clientWidth * \(pixelsPerPoint)) + 'px';
+              // A width set on the root counts in pixels of the root's own zoom, the text size.
+              const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
+              root.style.width = (\(layoutWidth) / zoom) + 'px';
             \(body)
               root.style.width = width;
             }
@@ -309,7 +320,7 @@ public enum CodeFitScript {
     // The floor keeps code legible; a line still too long then wraps, as it does in the default. Font sizes round, so
     // the scale leaves a little room.
     private static let shrink = """
-          for (const code of document.querySelectorAll('pre > code')) {
+          for (const code of document.querySelectorAll('pre.$BLOCK > code')) {
             const block = code.parentElement;
             block.style.removeProperty('--code-shrink');
             const style = getComputedStyle(block);

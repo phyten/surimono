@@ -92,7 +92,7 @@ make clean
 
 - コードの配色（`CodePalette`、目録は `Resources/code-palettes.json`）はスタイルとは別の軸で、スタイルを変えても残る。文書ごとに `DocumentSettings.codePaletteID`、既定は `AppPreferences.defaultCodePaletteID`。`match`（スタイルに合わせる）は配色なしで、テーマの `--hl-*` をそのまま使う。重ねる順は common → テーマ → コードの配色と枠（`CodeStyle`）→ 文字の大きさ。既定の `CodeStyle` はスタイルシートも本文も変えない。HTML 文書には効かない。
   - 配色を足すときの決まり: 15 個のトークンすべてに色を持ち、地を持たない配色は `lightGrounds`（白・淡い地・最も濃いテーマの地）の上で、地を持つ配色は自分の地の上で 4.5:1 以上にする（`CodePaletteTests` が全配色の全トークンを見る）。`inkIndex` は標準テーマを 100 としたインクの量で、300 以上の配色は `inkHeavy` にして候補から外し、選ぶと注意を出す。
-  - 枠のオプション（`CodeBlockOptions`、文書ごとに `DocumentSettings.codeBlock`）: 行番号と切る印の行の要素、言語名の札は、`CodeBlockMarkup` が組み上がった断片の属性のない `<pre>` に足す（どの変換器のコードにも効く。`pre.surimono-plain` などは別物）。長い行の「縮める」「切る印」はテーマの書体と余白で幅が決まるので、`CodeFitScript` が組版の準備としてアプリの隔離された世界で測る。WebKit の印刷は web view の 1.25 倍の幅で組むので、`WebPaginator.printPixelsPerPoint` の幅に広げて測り、見本は 1 倍で測る。テーマの判定が結果を返すので、準備の台本ではテーマの部分を最後に置く。
+  - 枠のオプション（`CodeBlockOptions`、文書ごとに `DocumentSettings.codeBlock`）: 何がコードのブロックかは `CodeBlockMarkup` だけが決める。組み上がった断片の属性のない `<pre>` に `code-block` の印と `<code>` を足し、スタイルシートと `CodeFitScript` はこの印を見る（`pre.surimono-plain` などは別物）。行番号と切る印の行の要素、言語名の札も同じ所で足す。長い行の「縮める」「切る印」はテーマの書体と余白で幅が決まるので、`CodeFitScript` が組版の準備としてアプリの隔離された世界で測る。WebKit の印刷は web view の 1.25 倍の幅で組むので、`WebPaginator.printPixelsPerPoint` を掛けた本当の組版の幅に広げて測り（web view の幅は丸めてあり、根の `zoom` の分も割り戻す）、見本は 1 倍で測る。テーマの判定が結果を返すので、準備の台本ではテーマの部分を最後に置く。
 - 論理ページ寸法: 通常は用紙そのもの。冊子と 2アップは用紙の半分（A3 → A4、A4 → A5、B4 → B5、B5 → B6）。Web 系の文書は論理ページ寸法で組版し直し、PDF と画像は縮小して収める。
 - 中綴じ面付け（ページは 1 始まり、n は元のページ数）:
 

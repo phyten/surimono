@@ -22,7 +22,7 @@ public enum HTMLDocumentBuilder {
             </style>\(finishStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)">
-            \(LongTokenMarks.marked(CodeBlockMarkup.apply(code.block, to: fragment.body)))
+            \(LongTokenMarks.marked(CodeBlockMarkup.apply(code, to: fragment.body)))
             </body>
             </html>
             """
