@@ -51,17 +51,16 @@ public enum PaperBackground {
     /// The document that draws only the paper of `theme` on one logical page laid out without margins.
     /// - Parameters:
     ///   - pageSize: The logical page, in points.
-    ///   - marginInMillimeters: The margin the text pages are laid out with.
+    ///   - margins: The margins the text pages are laid out with.
     ///   - pixelsPerPoint: CSS pixels to a point of the page, as the text pages are drawn. WebKit lays a printed page
     ///     out wider than its paper and shrinks it to fit; a capture at the screen's scale draws a pixel to a point.
     public static func document(
         theme: PrintTheme, format: DocumentFormat, baseURL: URL? = nil, language: String = "ja", textScale: Double = 1,
-        pageSize: CGSize, marginInMillimeters: Double, pixelsPerPoint: Double
+        pageSize: CGSize, margins: PageMargins, pixelsPerPoint: Double
     ) -> String {
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let css = styleSheet(
-            theme: theme, textScale: textScale, pageSize: pageSize, marginInMillimeters: marginInMillimeters,
-            pixelsPerPoint: pixelsPerPoint)
+            theme: theme, textScale: textScale, pageSize: pageSize, margins: margins, pixelsPerPoint: pixelsPerPoint)
         return """
             <!doctype html>
             <html lang="\(HTML.escape(language))">
@@ -79,16 +78,18 @@ public enum PaperBackground {
     /// The paper page's one style element: the theme's style sheet, then the root's content box placed over the text
     /// area. The images start from that box: WebKit places a root's images that do not repeat without its margins.
     public static func styleSheet(
-        theme: PrintTheme, textScale: Double = 1, pageSize: CGSize, marginInMillimeters: Double, pixelsPerPoint: Double
+        theme: PrintTheme, textScale: Double = 1, pageSize: CGSize, margins: PageMargins, pixelsPerPoint: Double
     ) -> String {
         // The text pages scale the root with zoom, its own box included, so its place is given unscaled.
         let zoom = textScale.isFinite && textScale > 0 ? textScale : 1
         let ratio = pixelsPerPoint.isFinite && pixelsPerPoint > 0 ? pixelsPerPoint : 1
-        let margin = max(marginInMillimeters.isFinite ? marginInMillimeters : 0, 0) * 72 / 25.4
-        let height = max(Double(pageSize.height) - 2 * margin, 0)
+        func points(_ millimeters: Double) -> Double { max(millimeters.isFinite ? millimeters : 0, 0) * 72 / 25.4 }
+        func pixels(_ millimeters: Double) -> String { "\(points(millimeters) * ratio / zoom)px" }
+        let height = max(Double(pageSize.height) - points(margins.top) - points(margins.bottom), 0)
+        let padding = [margins.top, margins.right, margins.bottom, margins.left].map(pixels).joined(separator: " ")
         return HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale) + """
 
-            html { margin: 0 !important; padding: \(margin * ratio / zoom)px !important; border: 0 !important; \
+            html { margin: 0 !important; padding: \(padding) !important; border: 0 !important; \
             height: \(height * ratio / zoom)px !important; min-height: 0 !important; \
             box-sizing: content-box !important; background-origin: content-box !important; }
             body { margin: 0 !important; padding: 0 !important; border: 0 !important; height: 0 !important; \

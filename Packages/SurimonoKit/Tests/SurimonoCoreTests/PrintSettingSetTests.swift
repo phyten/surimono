@@ -31,8 +31,8 @@ struct PrintSettingSetTests {
         let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         #expect(
             Set(object.keys) == [
-                "id", "name", "layoutID", "paperOrientation", "marginsInMillimeters", "showsPageNumbers", "themeID",
-                "textScale",
+                "id", "name", "layoutID", "paperOrientation", "margins", "linksMargins", "mirrorsMargins", "furniture",
+                "themeID", "textScale",
             ])
     }
 

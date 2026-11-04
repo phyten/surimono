@@ -23,6 +23,8 @@ struct PrintPressLayout: Layout {
         let available = width ?? sizes.map(\.width).reduce(0, +) + 36
         let arrangement = Arrangement(width: available, minimumWidths: sizes.map(\.width))
         sizes[1] = subviews[1].sizeThatFits(ProposedViewSize(width: arrangement.summaryWidth, height: nil))
+        // On a row of their own the cards fold into as many rows as the window needs.
+        if arrangement.wraps { sizes[0] = subviews[0].sizeThatFits(ProposedViewSize(width: available, height: nil)) }
         let rowHeight = max(88, sizes.dropFirst(arrangement.wraps ? 1 : 0).map(\.height).max() ?? 0)
         var frames: [CGRect] = []
         var x: CGFloat = 0

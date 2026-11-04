@@ -18,13 +18,24 @@ public enum DocumentOutline {
     private static let hiddenElements: Set<String> = ["rt", "rp", "svg", "math"]
 
     public static func headings(inHTML html: String) -> [DocumentHeading] {
-        var headings: [DocumentHeading] = []
-        var open: (tag: HTMLScanner.Tag, level: Int, text: String)?
+        scan(html).map(\.heading)
+    }
+
+    /// For each of `headings(inHTML:)`, whether it stands right under another heading.
+    public static func headingsUnderHeadings(inHTML html: String) -> [Bool] {
+        scan(html).map(\.followsHeading)
+    }
+
+    private static func scan(_ html: String) -> [(heading: DocumentHeading, followsHeading: Bool)] {
+        var headings: [(heading: DocumentHeading, followsHeading: Bool)] = []
+        var open: (tag: HTMLScanner.Tag, level: Int, text: String, follows: Bool)?
         var hidden: (name: String, depth: Int)?
+        var afterHeading = false
         for token in HTMLScanner.tokens(html) {
             switch token {
             case .text(let text):
                 if hidden == nil { open?.text += text }
+                if open == nil, !text.allSatisfy(\.isWhitespace) { afterHeading = false }
             case .opaque: break
             case .tag(let tag):
                 if updateHidden(&hidden, with: tag) { continue }
@@ -33,23 +44,58 @@ public enum DocumentOutline {
                     let text = HTMLScanner.decodingEntities(current.text).trimmingCharacters(
                         in: .whitespacesAndNewlines)
                     if !text.isEmpty {
-                        headings.append(
-                            DocumentHeading(level: current.level, text: text, id: current.tag.attribute("id")))
+                        let heading = DocumentHeading(
+                            level: current.level, text: text, id: current.tag.attribute("id"))
+                        headings.append((heading, current.follows))
+                        afterHeading = true
                     }
                     open = nil
                 } else if !tag.isClosing, let level = headingLevel(tag.name) {
-                    open = (tag, level, "")
+                    open = (tag, level, "", afterHeading)
+                } else if !tag.isClosing {
+                    afterHeading = false
                 }
             }
         }
         return headings
     }
 
+    /// The entries of the text's own table of contents, which repeat its headings wherever it stands on the pages.
+    public static func sourceContentsEntries(inHTML html: String) -> [String] {
+        var entries: [String] = []
+        var depth = 0
+        var link: String?
+        for token in HTMLScanner.tokens(html) {
+            switch token {
+            case .text(let text): link? += text
+            case .opaque: break
+            case .tag(let tag):
+                if tag.name == "nav" {
+                    let isContents = tag.attribute("class")?.split(separator: " ").contains("toc") == true
+                    if tag.isClosing, depth > 0 { depth -= 1 } else if depth > 0 || isContents { depth += 1 }
+                } else if depth > 0, tag.name == "a" {
+                    if tag.isClosing, let text = link {
+                        entries.append(
+                            HTMLScanner.decodingEntities(text).trimmingCharacters(in: .whitespacesAndNewlines))
+                        link = nil
+                    } else if !tag.isClosing {
+                        link = ""
+                    }
+                }
+            }
+        }
+        return entries
+    }
+
     /// The zero-based page each heading stands on, in order. A heading stands on lines of its own, wrapped or with a
     /// number in front of it, so the same words in a sentence do not count. The search only moves forward, past each
-    /// heading it found. The lines are indexed by their text, so a heading that cannot be found costs one lookup.
-    public static func pages(of headings: [DocumentHeading], inPageTexts pages: [String]) -> [Int?] {
-        let index = LineIndex(pages: pages)
+    /// heading it found. The lines are indexed by their text, so a heading that cannot be found costs one lookup. The
+    /// lines of `contentsEntries`, where the text lists its headings itself, are not taken for them.
+    public static func pages(
+        of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
+    ) -> [Int?] {
+        var index = LineIndex(pages: pages)
+        index.exclude(contentsEntries.map(normalized))
         var cursor = 0
         return headings.map { heading in
             let target = normalized(heading.text)
@@ -61,11 +107,12 @@ public enum DocumentOutline {
 
     private struct LineIndex {
         /// A heading wraps only when it is long, so a wrapped one shares at least this much with its first line.
-        private static let wrappedPrefixLength = 6
+        private static let wrappedPrefixLength = 4
 
         private var lines: [(page: Int, forms: [String])] = []
         private var whole: [String: [Int]] = [:]
         private var wrapped: [String: [Int]] = [:]
+        private var excluded: Set<Int> = []
 
         init(pages: [String]) {
             for (page, text) in pages.enumerated() {
@@ -83,10 +130,22 @@ public enum DocumentOutline {
             }
         }
 
+        mutating func exclude(_ entries: [String]) {
+            var position = 0
+            for entry in entries where !entry.isEmpty {
+                guard let line = Self.first(in: whole[entry] ?? [], atLeast: position) else { continue }
+                excluded.insert(line)
+                position = line + 1
+            }
+        }
+
         func firstMatch(of target: String, from cursor: Int) -> (page: Int, end: Int)? {
             var best: (page: Int, end: Int, start: Int)?
-            if let start = Self.first(in: whole[target] ?? [], atLeast: cursor) {
-                best = (lines[start].page, start + 1, start)
+            let exact = whole[target] ?? []
+            var start = Self.firstPosition(in: exact, atLeast: cursor)
+            while start < exact.count, excluded.contains(exact[start]) { start += 1 }
+            if start < exact.count {
+                best = (lines[exact[start]].page, exact[start] + 1, exact[start])
             }
             guard target.count > Self.wrappedPrefixLength else { return best.map { ($0.page, $0.end) } }
             let candidates = wrapped[String(target.prefix(Self.wrappedPrefixLength))] ?? []
@@ -164,8 +223,13 @@ public enum DocumentOutline {
         return true
     }
 
+    /// Only letters and digits take part: a PDF's text can come back with its own ligatures and widths, and WebKit's
+    /// PDF returns an em dash as a combining stroke, which `CharacterSet.alphanumerics` would keep.
     private static func normalized(_ text: String) -> String {
-        String(text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) }.map(Character.init))
+        String(
+            text.precomposedStringWithCompatibilityMapping.unicodeScalars
+                .filter { $0.properties.isAlphabetic || $0.properties.numericType != nil }
+                .map(Character.init))
     }
 
     static func plainText(ofHTML html: String) -> String {
@@ -180,6 +244,31 @@ public enum DocumentOutline {
             }
         }
         return HTMLScanner.decodingEntities(text)
+    }
+}
+
+/// What the tray tells about a text: its headings, its amount of text, and its own page breaks.
+public struct DocumentFacts: Equatable, Sendable {
+    public var title: String?
+    public var headings: [DocumentHeading]
+    public var statistics: DocumentStatistics
+    /// How often each page break syntax stands in the text.
+    public var pageBreakCounts: [PageBreakSyntax: Int]
+    public var thematicBreakCount: Int
+    public var hasSourceContents: Bool
+
+    public init(fragment: HTMLFragment) {
+        title = fragment.title
+        headings = DocumentOutline.headings(inHTML: fragment.body)
+        statistics = DocumentStatistics(html: fragment.body)
+        var counts: [PageBreakSyntax: Int] = [:]
+        for syntax in PageBreakSyntax.allCases {
+            let count = fragment.body.components(separatedBy: "data-syntax=\"\(syntax.rawValue)\"").count - 1
+            if count > 0 { counts[syntax] = count }
+        }
+        pageBreakCounts = counts
+        thematicBreakCount = fragment.body.components(separatedBy: "<hr").count - 1
+        hasSourceContents = fragment.body.contains("<nav class=\"toc\"")
     }
 }
 

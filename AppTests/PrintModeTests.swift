@@ -186,6 +186,7 @@ struct PrintTrayTests {
         #expect(
             PrintLayout.presets.map { PrintModeText.cardTitle($0, language: "ja") } == [
                 "A4 片面", "A4 両面", "A3 中綴じ", "A4 中綴じ", "A3 2アップ", "A4 3枚＋メモ",
+                "B5 片面", "B5 両面", "B4 中綴じ", "B5 中綴じ", "B4 2アップ",
             ])
     }
 

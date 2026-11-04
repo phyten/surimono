@@ -5,6 +5,10 @@ struct DocumentCommands: Commands {
     let preferences: AppPreferences
     private var model: DocumentViewModel? { DocumentWindows.shared.activeModel }
     private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
+    private var layoutCards: [PrintLayout] {
+        let cards = PrintLayout.presets(in: model?.paperSeries ?? .a)
+        return cards.contains(.a4Handout3) ? cards : cards + [.a4Handout3]
+    }
 
     var body: some Commands {
         // The standard Open… item stays: AppDelegate answers its action so that a multi-file
@@ -87,8 +91,9 @@ struct DocumentCommands: Commands {
         }
         CommandMenu("Document") {
             Menu("Print Layout") {
-                ForEach(Array(PrintLayout.presets.enumerated()), id: \.element.id) { index, layout in
-                    Button(layout.displayName(language: language)) { model?.chooseLayout(layout.id) }
+                // The shortcuts stay six and ask the model, whose cards can change before the menu next opens.
+                ForEach(Array(layoutCards.enumerated()), id: \.element.id) { index, layout in
+                    Button(layout.displayName(language: language)) { model?.chooseCard(at: index) }
                         .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
                 }
             }

@@ -42,13 +42,16 @@ struct PrintTray: Equatable {
     /// 2-up sheets sit two to a row; built once, since the tray reads it on every update.
     let rows: [Row]
 
-    init(plan: ImpositionPlan, layout: PrintLayout, rotatesBackSides: Bool, sheetOrientations: [PaperOrientation] = [])
-    {
+    /// - Parameter blankPages: Logical pages added as blanks, which the tray names as blanks too.
+    init(
+        plan: ImpositionPlan, layout: PrintLayout, rotatesBackSides: Bool, sheetOrientations: [PaperOrientation] = [],
+        blankPages: Set<Int> = []
+    ) {
         self.layout = layout
         let sides = plan.sides.enumerated().map { index, side in
             Side(
                 face: plan.isDuplex ? (side.isBack ? .back : .front) : .single, documentIndex: index,
-                pages: side.slots.map { $0.map { $0 + 1 } },
+                pages: side.slots.map { slot in slot.flatMap { blankPages.contains($0) ? nil : $0 + 1 } },
                 // PDFComposer turns exactly these sides, so the labels must follow the drawing.
                 isRotated: rotatesBackSides && side.isBack)
         }
@@ -266,7 +269,7 @@ enum PrintModeText {
 
     /// The short name on a layout card, for example "A3 Booklet".
     static func cardTitle(_ layout: PrintLayout, language: String) -> String {
-        let paper = layout.sheet.displayName
+        let paper = layout.sheet.shortName
         switch layout.kind {
         case .handout3: return format("%@ 3-up + Notes", language: language, paper)
         case .booklet: return format("%@ Booklet", language: language, paper)
@@ -278,12 +281,34 @@ enum PrintModeText {
     /// Active options worth a reminder under the summary, or nil.
     static func options(_ options: PrintOptions, layout: PrintLayout, language: String) -> String? {
         var parts: [String] = []
-        if options.showsPageNumbers { parts.append(string("Page numbers", language: language)) }
+        switch options.furniture.preset {
+        case .none: break
+        case .number: parts.append(string("Page numbers", language: language))
+        default: parts.append(string("Header and footer", language: language))
+        }
         if options.rotatesBackSides && layout.duplex != .none {
             parts.append(string("Back sides rotated 180°", language: language))
         }
         guard let first = parts.first else { return nil }
         return parts.dropFirst().reduce(first) { format("%@ · %@", language: language, $0, $1) }
+    }
+
+    /// The amount of text, for the summary of a text.
+    static func statistics(_ statistics: DocumentStatistics, language: String) -> String {
+        format(
+            "%1$@ characters · about %2$lld min to read", language: language,
+            statistics.characters.formatted(.number.locale(Locale(identifier: language))), statistics.readingMinutes)
+    }
+
+    /// What the finish added to the pages of a text, or nil.
+    static func additions(contents: Int, blanks: Int, language: String) -> String? {
+        switch (contents > 0, blanks > 0) {
+        case (false, false): nil
+        case (true, false): format("Added: contents %lld", language: language, contents)
+        case (false, true): format("Added: blank pages %lld", language: language, blanks)
+        case (true, true):
+            format("Added: contents %1$lld, blank pages %2$lld", language: language, contents, blanks)
+        }
     }
 
     static func pageCount(_ count: Int, language: String) -> String {

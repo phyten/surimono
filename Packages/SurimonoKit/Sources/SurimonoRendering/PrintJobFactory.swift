@@ -24,6 +24,7 @@ public struct PrintJobFactory {
             case .a5: "A5"
             case .b4: "B4"
             case .b5: "B5"
+            case .b6: "B6"
             case .letter: "Letter"
             case .tabloid: "Tabloid"
             }

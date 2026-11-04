@@ -26,7 +26,7 @@ struct PrintPressBar: View {
             PrintIssuesPopover(model: model).presentationBackground(PrintPalette.raised)
         }
         .popover(isPresented: $model.isPrintOptionsPresented, arrowEdge: .top) {
-            PrintOptionsPopover(model: model)
+            PrintOptionsPopover(model: model).presentationBackground(PrintPalette.raised)
         }
     }
 
@@ -54,18 +54,18 @@ struct PrintPressBar: View {
     }
 
     private func layouts(_ density: Density) -> some View {
-        HStack(spacing: 3) {
-            ForEach(Array(PrintLayout.presets.enumerated()), id: \.element.id) { index, layout in
+        PrintFlowLayout(spacing: 3, lineSpacing: 3, alignment: .center) {
+            PrintSeriesSwitch(model: model).padding(.trailing, 3)
+            ForEach(Array(PrintLayout.presets(in: model.paperSeries).enumerated()), id: \.element.id) { index, layout in
                 LayoutCard(
                     layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
                     help: "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
                     shortcut: index + 1, isSelected: model.layoutID == layout.id, density: density
                 ) {
-                    model.chooseLayout(layout.id)
+                    model.chooseCard(at: index)
                 }
             }
         }
-        .fixedSize()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Layout"))
     }
@@ -101,9 +101,9 @@ struct PrintPressBar: View {
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if let options = optionsText {
-                    Text(verbatim: options).font(.system(size: 11)).foregroundStyle(PrintPalette.ai)
-                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                if let line = reminderLine {
+                    Text(verbatim: line).font(.system(size: 11)).foregroundStyle(PrintPalette.ai)
+                        .monospacedDigit().lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
             }
             Button {
@@ -120,7 +120,7 @@ struct PrintPressBar: View {
                     }
             }
             .buttonStyle(PrintBorderedButtonStyle(height: 27))
-            .help("Page numbers, margins, and back side rotation")
+            .help("Margins, print order, and back side rotation")
             .accessibilityLabel(Text("Print Options"))
         }
         .padding(.leading, 16)
@@ -158,8 +158,24 @@ struct PrintPressBar: View {
 
     private var note: String? {
         guard model.hasCurrentPrintPreview, let result = model.printResult else { return nil }
-        return PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
+        let note =
+            PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
             ?? PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
+        guard model.finishAppliesToText,
+            let additions = PrintModeText.additions(
+                contents: result.addedContentsPages, blanks: result.blankPages.count, language: model.language)
+        else { return note }
+        return PrintModeText.format("%@ · %@", language: model.language, note, additions)
+    }
+
+    /// The options in effect and the amount of text, in one line so the sheets keep their room.
+    private var reminderLine: String? {
+        let statistics = model.result?.facts.map {
+            PrintModeText.statistics($0.statistics, language: model.language)
+        }
+        guard let first = optionsText ?? statistics else { return nil }
+        guard optionsText != nil, let statistics else { return first }
+        return PrintModeText.format("%@ · %@", language: model.language, first, statistics)
     }
 
     private var optionsText: String? {
@@ -265,7 +281,7 @@ private struct LayoutCard: View {
             }
             .padding(.horizontal, 2)
             .frame(
-                width: density == .regular ? 90 : density == .medium ? 80 : 68, height: density == .regular ? 80 : 76
+                width: density == .regular ? 90 : density == .medium ? 80 : 66, height: density == .regular ? 80 : 76
             )
             .background {
                 RoundedRectangle(cornerRadius: 7)
@@ -362,7 +378,7 @@ struct LayoutPictogram: View {
                     CGRect(x: 20, y: 2.5, width: 13, height: 18.5), CGRect(x: 13.5, y: 7, width: 13, height: 18.5),
                 ],
                 extra: arrow, text: lines([(16.5, 11.5, 7), (16.5, 14.5, 7), (16.5, 17.5, 5)]))
-        case .booklet where layout.sheet == .a3:
+        case .booklet where layout.sheet == .a3 || layout.sheet == .b4:
             var fold = Path()
             fold.move(to: CGPoint(x: 23, y: 4.5))
             fold.addLine(to: CGPoint(x: 23, y: 26.5))
@@ -394,7 +410,7 @@ struct LayoutPictogram: View {
     }
 }
 
-/// Page numbers, margins and the back side rotation for this window, applied to the sheets right away.
+/// Margins and the back side rotation for this window, applied to the sheets right away.
 struct PrintOptionsPopover: View {
     @Bindable var model: DocumentViewModel
 
@@ -406,16 +422,9 @@ struct PrintOptionsPopover: View {
                 .foregroundStyle(PrintPalette.ink3)
                 .padding(.top, 3)
                 .padding(.bottom, 8)
-            row("Page Numbers", hint: "Adds the page number at the bottom of each page.") {
-                Toggle("Page Numbers", isOn: $model.printOptions.showsPageNumbers)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .labelsHidden()
-            }
             if model.marginsAffectPrinting {
-                row("Margins (mm)", hint: "Applies to text documents and images. PDFs keep their own margins.") {
-                    MarginControl(model: model).controlSize(.small)
-                }
+                Rectangle().fill(PrintPalette.line).frame(height: 1)
+                PrintMarginEditor(model: model).padding(.vertical, 9)
             }
             row("Print Order", hint: printerOrderHint) {
                 PrintPageOrderPicker(order: $model.printPageOrder)

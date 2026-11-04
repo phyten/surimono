@@ -62,8 +62,32 @@ final class AppPreferences {
     var layoutID: String { didSet { defaults.set(layoutID, forKey: "layout") } }
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
     var presetID: String { didSet { defaults.set(presetID, forKey: "preset") } }
-    var margin: Double { didSet { defaults.set(margin, forKey: "margin") } }
-    var pageNumbers: Bool { didSet { defaults.set(pageNumbers, forKey: "pageNumbers") } }
+    var margin: Double {
+        didSet {
+            defaults.set(margin, forKey: "margin")
+            if finishDefaults?.options.margins.uniformValue != margin {
+                finishDefaults?.options.margins = .uniform(margin)
+            }
+        }
+    }
+    var pageNumbers: Bool {
+        didSet {
+            defaults.set(pageNumbers, forKey: "pageNumbers")
+            if finishDefaults?.options.showsPageNumbers != pageNumbers {
+                finishDefaults?.options.showsPageNumbers = pageNumbers
+            }
+        }
+    }
+    /// The last series of paper chosen on a tray.
+    var paperSeries: PaperSeries? { didSet { defaults.set(paperSeries?.rawValue, forKey: "paperSeries") } }
+    /// What the reader made the default from the tray; the margin and page number above stay for Settings.
+    private var finishDefaults: FinishDefaults? {
+        didSet {
+            if let data = try? JSONEncoder().encode(finishDefaults) {
+                defaults.set(data, forKey: "printFinishDefaults")
+            }
+        }
+    }
     var viewPageNumbers: Bool { didSet { defaults.set(viewPageNumbers, forKey: "viewPageNumbers") } }
     var rotateBack: Bool { didSet { defaults.set(rotateBack, forKey: "rotateBack") } }
     var allowsJavaScript: Bool { didSet { defaults.set(allowsJavaScript, forKey: "allowsJavaScript") } }
@@ -139,6 +163,10 @@ final class AppPreferences {
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
         pageNumbers = defaults.bool(forKey: "pageNumbers")
+        paperSeries = PaperSeries(rawValue: defaults.string(forKey: "paperSeries") ?? "")
+        finishDefaults = defaults.data(forKey: "printFinishDefaults").flatMap {
+            try? JSONDecoder().decode(FinishDefaults.self, from: $0)
+        }
         viewPageNumbers = defaults.bool(forKey: "viewPageNumbers")
         rotateBack = defaults.bool(forKey: "rotateBack")
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
@@ -222,7 +250,23 @@ final class AppPreferences {
         favoriteThemeIDs = PrintThemeMenu.toggling(id, in: favoriteThemeIDs)
     }
 
+    private struct FinishDefaults: Codable {
+        var options: PrintOptions
+        var finish: PrintFinish
+    }
+
     var printOptions: PrintOptions {
-        PrintOptions(marginsInMillimeters: margin, showsPageNumbers: pageNumbers)
+        finishDefaults?.options ?? PrintOptions(marginsInMillimeters: margin, showsPageNumbers: pageNumbers)
+    }
+
+    var printFinish: PrintFinish { finishDefaults?.finish ?? PrintFinish() }
+
+    /// New documents start with these margins, header and footer, page breaks and contents.
+    func setFinishDefaults(options: PrintOptions, finish: PrintFinish) {
+        var options = options
+        options.rotatesBackSides = false
+        finishDefaults = FinishDefaults(options: options, finish: finish)
+        if let margin = options.margins.uniformValue { self.margin = margin }
+        pageNumbers = options.showsPageNumbers
     }
 }

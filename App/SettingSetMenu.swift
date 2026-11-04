@@ -8,18 +8,23 @@ struct SettingSetMenu<Label: View>: View {
     var model: () -> DocumentViewModel?
     @ViewBuilder var label: () -> Label
     @Environment(\.openSettings) private var openSettings
+    private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
+
+    private func item(_ set: PrintSettingSet) -> some View {
+        Toggle(
+            isOn: Binding(
+                get: { model()?.matchesPrintSettingSet(set) ?? false },
+                set: { _ in model()?.applyPrintSettingSet(set) })
+        ) {
+            Text(verbatim: set.name)
+        }
+    }
 
     var body: some View {
         Menu {
-            ForEach(preferences.printSettingSets) { set in
-                Toggle(
-                    isOn: Binding(
-                        get: { model()?.matchesPrintSettingSet(set) ?? false },
-                        set: { _ in model()?.applyPrintSettingSet(set) })
-                ) {
-                    Text(verbatim: set.name)
-                }
-            }
+            ForEach(PrintSettingSet.builtIns(language: language), content: item)
+            if !preferences.printSettingSets.isEmpty { Divider() }
+            ForEach(preferences.printSettingSets, content: item)
             Divider()
             Button("Save Current Settings…") {
                 guard let model = model() else { return }

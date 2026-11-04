@@ -6,9 +6,12 @@ import PDFKit
 enum PaperComposer {
     /// Each page of `document` drawn over `paper`, as vectors. The paper is stretched to each page, which it matches
     /// unless the page kept the paginator's allowance. Links and other annotations move along with their page.
-    static func compose(_ document: PDFDocument, paper: PDFPage) -> PDFDocument? {
-        let paperBox = paper.bounds(for: .cropBox).intersection(paper.bounds(for: .mediaBox))
-        guard paperBox.width > 0, paperBox.height > 0 else { return nil }
+    /// - Parameter shift: How far the content of the page at an index moves to the right, on a paper that stays.
+    static func compose(
+        _ document: PDFDocument, paper: PDFPage?, shift: (Int) -> CGFloat = { _ in 0 }
+    ) -> PDFDocument? {
+        let paperBox = paper.map { $0.bounds(for: .cropBox).intersection($0.bounds(for: .mediaBox)) }
+        if let paperBox, paperBox.width <= 0 || paperBox.height <= 0 { return nil }
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
             let context = CGContext(consumer: consumer, mediaBox: nil, nil)
@@ -20,11 +23,16 @@ enum PaperComposer {
             boxes.append(box)
             var mediaBox = CGRect(origin: .zero, size: box.size)
             context.beginPage(mediaBox: &mediaBox)
+            if let paper, let paperBox {
+                context.saveGState()
+                context.scaleBy(x: box.width / paperBox.width, y: box.height / paperBox.height)
+                paper.draw(with: .cropBox, to: context)
+                context.restoreGState()
+            }
             context.saveGState()
-            context.scaleBy(x: box.width / paperBox.width, y: box.height / paperBox.height)
-            paper.draw(with: .cropBox, to: context)
-            context.restoreGState()
+            context.translateBy(x: shift(index), y: 0)
             page.draw(with: .cropBox, to: context)
+            context.restoreGState()
             context.endPage()
         }
         context.closePDF()
@@ -37,7 +45,7 @@ enum PaperComposer {
             let box = boxes[index]
             let point = destination.point
             // PDFKit marks an unspecified coordinate with a huge value, which must stay as it is.
-            let x = point.x == kPDFDestinationUnspecifiedValue ? point.x : point.x - box.minX
+            let x = point.x == kPDFDestinationUnspecifiedValue ? point.x : point.x - box.minX + shift(index)
             let y = point.y == kPDFDestinationUnspecifiedValue ? point.y : point.y - box.minY
             return PDFDestination(page: target, at: CGPoint(x: x, y: y))
         }
@@ -45,7 +53,7 @@ enum PaperComposer {
             guard let source = document.page(at: index), let target = composed.page(at: index) else { continue }
             for annotation in source.annotations {
                 guard let copy = annotation.copy() as? PDFAnnotation else { continue }
-                copy.bounds = annotation.bounds.offsetBy(dx: -box.minX, dy: -box.minY)
+                copy.bounds = annotation.bounds.offsetBy(dx: shift(index) - box.minX, dy: -box.minY)
                 if let destination = moved(annotation.destination) { copy.destination = destination }
                 if let action = annotation.action as? PDFActionGoTo, let destination = moved(action.destination) {
                     copy.action = PDFActionGoTo(destination: destination)

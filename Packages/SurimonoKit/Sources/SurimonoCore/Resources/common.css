@@ -82,6 +82,7 @@ dd { margin: 0.15em 0 0.5em 1.5em; }
 .footnotes { margin-top: 2em; padding-top: 0.5em; border-top: 0.5pt solid #888; font-size: 0.9em; }
 .footnotes ol { padding-left: 1.6em; }
 .footnotes li > p { margin-block: 0.2em; }
+.page-break { height: 0; break-after: page; page-break-after: always; }
 nav.toc { margin-block: 1em; }
 nav.toc ul { list-style: none; margin-block: 0.15em; padding-left: 1.2em; }
 nav.toc > ul { padding-left: 0; }

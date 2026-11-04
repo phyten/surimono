@@ -185,4 +185,53 @@ struct MarkdownExtensionBoundaryTests {
         #expect(html.contains("<li id=\"fn-1\"><p>一段落目</p>\n<p>二段落目</p>\n</li>"))
         #expect(html.contains("<p>次の段落</p>"))
     }
+
+    @Test(
+        "行に単独の改ページの記法を読む",
+        arguments: [
+            ("<!--BREAK-->", "break"), ("<!-- pagebreak -->", "pagebreak"), ("\\newpage", "newpage"),
+            ("{::pagebreak /}", "kramdown"),
+        ])
+    func pageBreakSyntax(line: String, syntax: String) {
+        let body = MarkdownConverter.convert("前\n\n\(line)\n\n後").body
+        #expect(body.contains("<div class=\"page-break\" data-syntax=\"\(syntax)\"></div>"))
+        #expect(body.contains("<p>前</p>"))
+        #expect(body.contains("<p>後</p>"))
+    }
+
+    @Test("段落の途中の行でも改ページの記法で段落を分ける")
+    func pageBreakInsideParagraph() {
+        let body = MarkdownConverter.convert("前\n\\newpage\n後").body
+        #expect(body.contains("<p>前</p>"))
+        #expect(body.contains("data-syntax=\"newpage\""))
+        #expect(body.contains("<p>後</p>"))
+    }
+
+    @Test(
+        "コードブロックの中と文の途中の記法は読まない",
+        arguments: [
+            "```\\n<!--BREAK-->\\n```", "~~~\\n\\\\newpage\\n~~~", "    \\\\newpage", "文の中 <!--BREAK--> です",
+        ])
+    func pageBreakIgnored(text: String) {
+        let source = text.replacingOccurrences(of: "\\n", with: "\n").replacingOccurrences(of: "\\\\", with: "\\")
+        #expect(!MarkdownConverter.convert(source).body.contains("page-break"))
+    }
+
+    @Test("自分の改ページの記法は渡されたときだけ読む")
+    func customPageBreak() {
+        let text = "前\n\n＝＝改ページ＝＝\n\n後"
+        #expect(!MarkdownConverter.convert(text).body.contains("page-break"))
+        #expect(
+            MarkdownConverter.convert(text, pageBreakLine: "＝＝改ページ＝＝").body.contains(
+                "<div class=\"page-break\" data-syntax=\"custom\"></div>"))
+    }
+
+    @Test("改ページの記法を読んでも原文の行番号は変わらない")
+    func pageBreakKeepsLines() {
+        let plain = MarkdownConverter.convertWithSourceMap("a\n\nb\n\nc")
+        let broken = MarkdownConverter.convertWithSourceMap("a\n\n\\newpage\n\nc")
+        #expect(plain.blocks.first?.lines == broken.blocks.first?.lines)
+        #expect(broken.blocks.last?.lines == [5])
+        #expect(broken.fragment.body.contains("<div class=\"page-break\""))
+    }
 }
