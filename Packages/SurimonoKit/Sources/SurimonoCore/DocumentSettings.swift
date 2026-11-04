@@ -47,6 +47,10 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var htmlPresentation: HTMLPresentation?
     /// The reader said the live page is not a slide deck, although it looks like one.
     public var ignoresSlides: Bool?
+    /// Nil follows the app-wide default.
+    public var bandVisibility: BandVisibility?
+    /// Nil is the A sizes, which is what every record before the choice existed was laid out on.
+    public var paperSeries: ViewPaperSeries?
 
     public init(
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
@@ -54,7 +58,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         printOptions: PrintOptions? = nil, imageOrder: [String]? = nil, paperOrientation: PaperOrientation? = nil,
         htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil,
         binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
-        codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil
+        codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil, bandVisibility: BandVisibility? = nil,
+        paperSeries: ViewPaperSeries? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -74,12 +79,15 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.binderStartsOnFront = binderStartsOnFront
         self.htmlPresentation = htmlPresentation
         self.ignoresSlides = ignoresSlides
+        self.bandVisibility = bandVisibility
+        self.paperSeries = paperSeries
     }
 
     private enum CodingKeys: String, CodingKey {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
+        case bandVisibility, paperSeries
     }
 
     // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
@@ -116,6 +124,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(binderStartsOnFront, forKey: .binderStartsOnFront)
         try values.encodeIfPresent(htmlPresentation, forKey: .htmlPresentation)
         try values.encodeIfPresent(ignoresSlides, forKey: .ignoresSlides)
+        try values.encodeIfPresent(bandVisibility, forKey: .bandVisibility)
+        try values.encodeIfPresent(paperSeries, forKey: .paperSeries)
         try values.encodeIfPresent(printOptions.map(StoredPrintOptions.init), forKey: .printOptions)
         try values.encodeIfPresent(printFinish, forKey: .printFinish)
     }
@@ -145,6 +155,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         binderStartsOnFront = field(Bool.self, .binderStartsOnFront)
         htmlPresentation = field(HTMLPresentation.self, .htmlPresentation)
         ignoresSlides = field(Bool.self, .ignoresSlides)
+        bandVisibility = field(BandVisibility.self, .bandVisibility)
+        paperSeries = field(ViewPaperSeries.self, .paperSeries)
     }
 }
 

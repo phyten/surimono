@@ -59,7 +59,7 @@
             if argument("SurimonoSelectText")?.uppercased() == "YES" { model.isSelectingText = true }
             if argument("SurimonoDrawer")?.uppercased() == "YES" { model.isDrawerOpen = true }
             switch argument("SurimonoMenu") {
-            case "pinned": model.isMenuPinned = true
+            case "pinned", "always": model.bandVisibility = .always
             case "compact", "full":
                 // Keep older snapshot commands usable with the single visible state.
                 NotificationCenter.default.post(name: showMenu, object: model)
@@ -93,6 +93,18 @@
             if argument("SurimonoPopover") == "style" {
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.openThemePalette()
+            }
+            if let value = argument("SurimonoPaperSeries"), let series = ViewPaperSeries(rawValue: value) {
+                model.paperSeries = series
+            }
+            if let value = argument("SurimonoPaperHeight"), let height = Double(value), let window = model.window,
+                let unit = model.paperUnitSize
+            {
+                // A small window, to see what the bands fold away.
+                ViewerWindow.setPaperSize(
+                    CGSize(width: height * unit.width / unit.height, height: height),
+                    band: ViewerWindow.bandHeight * CGFloat(model.menuArrangement.bandCount), of: window,
+                    animate: false)
             }
         }
 
@@ -178,6 +190,24 @@
                     model.setHTMLPresentation(.web)
                     try? await Task.sleep(for: .milliseconds(600))
                 default: break
+                }
+                // The table of contents is read after the pages are laid out.
+                if ["toc", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer") {
+                    NotificationCenter.default.post(name: showMenu, object: model)
+                    try? await Task.sleep(for: .milliseconds(600))
+                    switch argument("SurimonoPopover") {
+                    case "toc": model.toggleOutline()
+                    case "stats": model.isFiguresPresented = true
+                    default: model.isOutlineDrawerOpen = true
+                    }
+                    try? await Task.sleep(for: .milliseconds(800))
+                }
+                if flag("SurimonoWaitForChange") {
+                    // The caller saves the file while this waits, as a reader does in an editor.
+                    for _ in 0..<150 where model.paperChangeMarks.isEmpty {
+                        try? await Task.sleep(for: .milliseconds(100))
+                    }
+                    try? await Task.sleep(for: .milliseconds(1200))
                 }
                 if argument("SurimonoMode") == "print" || argument("SurimonoPopover") == "issues" {
                     // After the page script, so that the tray shows the page as it was left.

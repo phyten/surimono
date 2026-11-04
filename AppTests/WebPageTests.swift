@@ -97,7 +97,7 @@ struct WebPageKeyTests {
         let controller = WebPageController()
         let menu = OverlayMenuState()
         controller.container.frame = NSRect(x: 0, y: 0, width: 500, height: 400)
-        controller.container.onEscape = { menu.hideForEscape(pinned: false) }
+        controller.container.onEscape = { menu.hideForEscape(alwaysVisible: false) }
         window.contentView = controller.container
         controller.show(file, allowsJavaScript: true)
         window.orderFrontRegardless()

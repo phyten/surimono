@@ -410,9 +410,10 @@ struct PrintModeTests {
         #expect(window.frame == original)
         window.setFrame(NSRect(x: 100, y: 100, width: 1000, height: 640), display: false)
         model.exitPrintMode()
-        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 960, height: 640) }
+        // The bands keep 76pt of the 640: the paper is 564 high and 846 wide.
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 846, height: 640) }
         #expect(window.frame.height == 640)
-        #expect(window.frame.width == 960)
+        #expect(window.frame.width == 846)
     }
 
     @Test("刷り台でレイアウトを変えると復帰時の幅は新しい紙の形に合う", .timeLimit(.minutes(1)))
@@ -446,9 +447,10 @@ struct PrintModeTests {
         #expect(newPaper != firstPaper)
         #expect(renderer.logicalRenderCount == 2)
         model.exitPrintMode()
-        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 423, height: 600) }
+        // The bands keep 76pt of the 600: the paper is 524 high.
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 369, height: 600) }
         #expect(window.frame.height == 600)
-        #expect(window.frame.width == 423)
+        #expect(window.frame.width == 369)
     }
 
     @Test("復帰後の初回限定のサイズ調整は枠を変えない", .timeLimit(.minutes(1)))
@@ -467,7 +469,7 @@ struct PrintModeTests {
         ViewerWindow.setPaperSize(CGSize(width: 900, height: 600), band: 0, of: window, animate: false)
         model.enterPrintMode()
         model.exitPrintMode()
-        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 900, height: 600) }
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 786, height: 600) }
         // A deliberately non-paper frame makes an accidental second fit observable.
         ViewerWindow.unlockAspectRatio(of: window)
         let chosen = NSRect(x: 100, y: 100, width: 1000, height: 650)

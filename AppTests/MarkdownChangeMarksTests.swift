@@ -12,6 +12,7 @@ struct MarkdownChangeMarksTests {
     @MainActor private final class Probe {
         var calls = 0
         var fails = false
+        var markPage = 0
 
         func paginate(_ request: PaginationRequest) throws -> PDFDocument {
             calls += 1
@@ -25,7 +26,7 @@ struct MarkdownChangeMarksTests {
                         bounds: CGRect(x: 50, y: 100 + calls, width: 1, height: 80), forType: .link, withProperties: nil
                     )
                     anchor.url = URL(string: "surimono-mark:\(html[range])")
-                    document.page(at: 0)?.addAnnotation(anchor)
+                    document.page(at: markPage)?.addAnnotation(anchor)
                 }
             }
             return document
@@ -180,6 +181,65 @@ struct MarkdownChangeMarksTests {
             preferences: model.preferences, library: model.library,
             settingsStore: DocumentSettingsStore(directory: fixture.directory.appendingPathComponent("Settings")))
         #expect(reopened.markdownChanges.isEmpty)
+    }
+
+    @Test("既定では変わった所の数をトーストで知らせ、次の変更へ進む操作を付ける")
+    func asksWithToast() async throws {
+        let fixture = try await fixture("First\n\nSecond")
+        defer { fixture.close() }
+        try await reload("Edited\n\nSecond", fixture)
+        #expect(fixture.model.toast?.action == .nextChange)
+        #expect(fixture.model.toast?.title.contains("1") == true)
+    }
+
+    @Test("印だけの設定ではトーストを出さず今の場所のままにする")
+    func marksOnly() async throws {
+        let fixture = try await fixture("First\n\nSecond")
+        defer { fixture.close() }
+        fixture.model.preferences.changeFollowing = .mark
+        fixture.model.currentPageIndex = 2
+        try await reload("Edited\n\nSecond", fixture)
+        #expect(fixture.model.paperChangeMarks.count == 1)
+        #expect(fixture.model.toast == nil)
+        #expect(fixture.model.currentPageIndex == 2)
+    }
+
+    @Test("飛ぶ設定では今より後ろに変更がなければ最初の変更のページへ移る")
+    func jumps() async throws {
+        let fixture = try await fixture("First\n\nSecond")
+        defer { fixture.close() }
+        fixture.model.preferences.changeFollowing = .jump
+        fixture.model.currentPageIndex = 2
+        try await reload("Edited\n\nSecond", fixture)
+        #expect(fixture.model.toast == nil)
+        #expect(fixture.model.currentPageIndex == 0)
+    }
+
+    @Test("飛ぶ設定では画面の紙も変わったページを出す")
+    func jumpMovesThePaper() async throws {
+        let fixture = try await fixture("First\n\nSecond")
+        defer { fixture.close() }
+        let controller = MemoryDocumentWindowController(model: fixture.model, onClose: {})
+        defer { controller.close() }
+        try await wait { fixture.model.paper.isConnected }
+        fixture.model.setLayout(.single)
+        fixture.model.preferences.changeFollowing = .jump
+        fixture.probe.markPage = 2
+        try await reload("Edited\n\nSecond", fixture)
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(fixture.model.currentPageIndex == 2)
+    }
+
+    @Test("同じ内容の再読み込みでは変更を知らせ直さない")
+    func announcesOnce() async throws {
+        let fixture = try await fixture("First\n\nSecond")
+        defer { fixture.close() }
+        try await reload("Edited\n\nSecond", fixture)
+        fixture.model.dismissToast()
+        let calls = fixture.probe.calls
+        fixture.model.reload()
+        try await wait { fixture.probe.calls > calls && !fixture.model.isRendering }
+        #expect(fixture.model.toast == nil)
     }
 
     @Test("テーマと用紙と文字の大きさを変えても同じ変更ブロックの矩形を組み直す")

@@ -79,7 +79,7 @@ struct DocumentContent: View {
                 model.window = window
                 DocumentWindows.shared.register(model, for: window)
                 // SwiftUI moves the content to the window again when the print mode adds its toolbar.
-                ViewerWindow.setTrafficLightsVisible(model.isMenuPinned || model.mode != .view, in: window)
+                ViewerWindow.setTrafficLightsVisible(model.isBandAlwaysVisible || model.mode != .view, in: window)
                 ViewerWindow.setAlwaysOnTop(model.isAlwaysOnTop, in: window)
                 // Reattaching after a stage must preserve the frame chosen for the return to reading.
                 model.sizeWindowToPaper(initialOnly: true)
@@ -125,7 +125,7 @@ struct DocumentContent: View {
             if (old == .single) != (new == .single) { model.sizeWindowToPaper(keepHeight: true) }
         }
         .onChange(of: model.showsNarrowCover) { _, _ in model.coverWidthDidChange() }
-        .onChange(of: model.isMenuPinned) { old, new in model.updateBand(pinned: new, wasPinned: old) }
+        .onChange(of: model.menuArrangement) { old, _ in model.menuArrangementDidChange(from: old) }
         .onChange(of: model.isAlwaysOnTop) { _, onTop in
             if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }
         }

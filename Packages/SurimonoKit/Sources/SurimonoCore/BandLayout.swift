@@ -1,6 +1,6 @@
 import CoreGraphics
 
-/// Decides what the view mode's band shows at a given width. Labels give way first, then tools leave for the "…"
+/// Decides what the view mode's bands show at a given width. Labels give way first, then tools leave for the "…"
 /// menu one at a time, the least used first, and the file name shrinks last. One fixed order makes the result
 /// predictable at any width, and the "…" button stays put so that its popover never closes on a resize.
 public enum BandLayout {
@@ -8,22 +8,33 @@ public enum BandLayout {
     public enum Item: CaseIterable, Hashable, Sendable {
         case formatBadge, pageIndicator
         case presentation
-        case style
+        case style, outline
         case layout, transition
         case zoom, thumbnails
+        case pageTurn
         case print
 
         /// Tools of one group sit together, and a thin separator divides neighbouring groups. The title's parts and
         /// Print stand outside the groups.
         public var group: Int? {
             switch self {
-            case .formatBadge, .pageIndicator, .print: nil
+            case .formatBadge, .pageIndicator, .pageTurn, .print: nil
             case .presentation: 0
-            case .style: 1
+            case .style, .outline: 1
             case .layout, .transition: 2
             case .zoom, .thumbnails: 3
             }
         }
+    }
+
+    public enum Position: Equatable, Sendable {
+        case top, bottom
+    }
+
+    /// Split, the top band names the document and prints; everything about reading it moves to the bottom band.
+    public static func position(of item: Item, in arrangement: MenuArrangement) -> Position {
+        guard arrangement == .split else { return .top }
+        return item == .formatBadge || item == .print ? .top : .bottom
     }
 
     public enum Form: Equatable, Sendable {
@@ -52,9 +63,17 @@ public enum BandLayout {
     /// is used while reading; Print, the second of the two steps to print, stays to the end. The switch between web
     /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone.
     public static let steps: [Step] = [
-        .compact(.style), .compact(.transition), .compact(.presentation),
+        .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
         .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
-        .remove(.layout), .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .compact(.print),
+        .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
+        .compact(.print),
+    ]
+
+    /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.
+    public static let bottomSteps: [Step] = [
+        .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+        .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style), .remove(.outline),
+        .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
     ]
 
     /// The file name keeps this much room until every step has been taken.
@@ -79,8 +98,10 @@ public enum BandLayout {
     ///   - separator: The width of one separator between groups, with its spacing.
     ///   - name: The natural width of the file name.
     ///   - available: The width of the band.
+    ///   - steps: The order in which this band gives up room.
     public static func plan(
-        widths: [Item: Widths], fixed: CGFloat, separator: CGFloat, name: CGFloat, available: CGFloat
+        widths: [Item: Widths], fixed: CGFloat, separator: CGFloat, name: CGFloat, available: CGFloat,
+        steps: [Step] = steps
     ) -> Plan {
         var forms = widths.mapValues { _ in Form.full }
         var removed = Set<Item>()

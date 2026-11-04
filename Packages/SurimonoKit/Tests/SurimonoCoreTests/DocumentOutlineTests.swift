@@ -127,4 +127,58 @@ struct DocumentOutlineTests {
         #expect(DocumentStatistics(characters: 10).readingMinutes == 1)
         #expect(DocumentStatistics(characters: 1784).readingMinutes == 4)
     }
+
+    @Test("PDF の文字で記号や合字が変わっても見出しのページを見つける")
+    func toleratesExtractedPunctuation() {
+        let headings = [DocumentHeading(level: 1, text: "冊子確認用 — ﬁeld"), DocumentHeading(level: 2, text: "Ａ４")]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["冊子確認用 \u{336} field\nA4"]) == [0, 0])
+    }
+
+    @Test("見出しと見つかったページから目次の項目を作る")
+    func entriesCarryPages() {
+        let headings = [DocumentHeading(level: 1, text: "はじめに"), DocumentHeading(level: 2, text: "ない見出し")]
+        #expect(
+            DocumentOutline.entries(of: headings, inPageTexts: ["はじめに\n本文"]) == [
+                OutlineEntry(level: 1, title: "はじめに", pageIndex: 0),
+                OutlineEntry(level: 2, title: "ない見出し", pageIndex: nil),
+            ])
+    }
+
+    @Test("今読んでいる章は、そのページまでで最後に始まった項目になる")
+    func currentEntry() {
+        let entries = [
+            OutlineEntry(level: 1, title: "一", pageIndex: 0), OutlineEntry(level: 2, title: "ページ不明", pageIndex: nil),
+            OutlineEntry(level: 1, title: "二", pageIndex: 3), OutlineEntry(level: 1, title: "三", pageIndex: 3),
+        ]
+        #expect(DocumentOutline.currentEntry(in: entries, page: 2) == 0)
+        #expect(DocumentOutline.currentEntry(in: entries, page: 3) == 3)
+        #expect(DocumentOutline.currentEntry(in: entries, page: 9) == 3)
+    }
+
+    @Test("最初の見出しより前のページでは今の章がない")
+    func noCurrentEntryBeforeFirstHeading() {
+        #expect(DocumentOutline.currentEntry(in: [OutlineEntry(level: 1, title: "一", pageIndex: 2)], page: 1) == nil)
+    }
+
+    @Test("複数行のスタイルとスクリプトと head は文字数に入れない")
+    func countsVisibleTextOnly() {
+        let html = """
+            <html><head>
+            <title>題</title>
+            </head><body><style>
+            b{}
+            </style><script>
+            var a;
+            </script>本文</body></html>
+            """
+        #expect(DocumentStatistics(html: html).characters == 2)
+    }
+
+    @Test("両面なら表裏で 2 ページずつの枚数になる")
+    func duplexSheets() {
+        #expect(DocumentStatistics.duplexSheets(pageCount: 0) == 0)
+        #expect(DocumentStatistics.duplexSheets(pageCount: 1) == 1)
+        #expect(DocumentStatistics.duplexSheets(pageCount: 6) == 3)
+        #expect(DocumentStatistics.duplexSheets(pageCount: 7) == 4)
+    }
 }

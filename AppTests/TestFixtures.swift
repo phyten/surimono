@@ -20,6 +20,25 @@ enum TestFixtures {
         return data as Data
     }
 
+    /// A PDF with one line of text on each page, for what reads the pages' text.
+    static func textPDF(_ pages: [String]) -> Data {
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: 595, height: 842)
+        guard let consumer = CGDataConsumer(data: data as CFMutableData),
+            let context = CGContext(consumer: consumer, mediaBox: &box, nil)
+        else { return Data() }
+        for text in pages {
+            context.beginPDFPage(nil)
+            let line = CTLineCreateWithAttributedString(
+                NSAttributedString(string: text, attributes: [.font: NSFont.systemFont(ofSize: 14)]))
+            context.textPosition = CGPoint(x: 72, y: 720)
+            CTLineDraw(line, context)
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return data as Data
+    }
+
     /// A tiny PNG in one colour; different colours give different bytes.
     static func png(red: CGFloat, green: CGFloat = 0.5, blue: CGFloat = 0.5) -> Data {
         guard

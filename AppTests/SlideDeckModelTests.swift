@@ -56,8 +56,9 @@ struct SlideDeckModelTests {
         #expect(condition())
     }
 
+    /// The shape of the page area, without the room of the bands the window's ratio includes.
     private func aspect(of window: NSWindow) -> Double {
-        Double(window.contentAspectRatio.width / window.contentAspectRatio.height)
+        Double(window.contentAspectRatio.width / (window.contentAspectRatio.height - 2 * ViewerWindow.bandHeight))
     }
 
     @Test("ウェブでスライドと分かると窓を 16:9 にして 1 枚を合わせ、「スライドとして扱わない」で縦横比を外す")
@@ -68,7 +69,7 @@ struct SlideDeckModelTests {
         model.slideDeckDidChange(deck)
         #expect(abs(aspect(of: fixture.window) - 16.0 / 9.0) < 0.01)
         let content = fixture.window.contentRect(forFrameRect: fixture.window.frame).size
-        #expect(abs(Double(content.width / content.height) - 16.0 / 9.0) < 0.01)
+        #expect(abs(Double(content.width / (content.height - 2 * ViewerWindow.bandHeight)) - 16.0 / 9.0) < 0.01)
         #expect(model.web.fitSize == CGSize(width: 1280, height: 720))
 
         model.setIgnoresSlides(true)

@@ -99,15 +99,15 @@ struct DocumentSettingsFlowTests {
         #expect(environment.store.keys().isEmpty)
     }
 
-    @Test("新しい窓は最前面とメニュー固定の既定値を使い固定した帯を初期サイズに含める", .timeLimit(.minutes(1)))
+    @Test("新しい窓は最前面と帯の出し方の既定値を使い帯の場所を初期サイズに含める", .timeLimit(.minutes(1)))
     func openingWindowDefaults() async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
         environment.preferences.defaultAlwaysOnTop = true
-        environment.preferences.defaultMenuPinned = true
+        environment.preferences.defaultBandVisibility = .always
         let model = environment.model(pdf("Pinned"))
         defer { model.stop() }
-        #expect(model.isAlwaysOnTop && model.isMenuPinned)
+        #expect(model.isAlwaysOnTop && model.isBandAlwaysVisible)
         #expect(model.loneCoverWidth == .onePage)
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
         let window = try #require(controller.window)
@@ -118,13 +118,12 @@ struct DocumentSettingsFlowTests {
         let unit = try #require(model.paperUnitSize)
         let paper = ViewerWindow.initialPaperSize(unit: unit, on: window.screen)
         let content = window.contentRect(forFrameRect: window.frame).size
-        #expect(abs(content.height - paper.height - ViewerWindow.bandHeight) <= 1)
+        #expect(abs(content.height - paper.height - 2 * ViewerWindow.bandHeight) <= 1)
         #expect(abs(content.width - paper.width) <= 1)
         environment.preferences.defaultAlwaysOnTop = false
-        environment.preferences.defaultMenuPinned = false
-        #expect(model.isAlwaysOnTop && model.isMenuPinned)
+        environment.preferences.defaultBandVisibility = .onHover
+        #expect(model.isAlwaysOnTop && model.isBandAlwaysVisible)
         model.toggleAlwaysOnTop()
-        model.toggleMenuPinned()
         model.rememberedSettingsDidChange()
         try await Task.sleep(for: .milliseconds(550))
         #expect(!model.hasSavedSettings)
@@ -147,7 +146,7 @@ struct DocumentSettingsFlowTests {
         #expect(model.showsNarrowCover)
         func paperRatio() -> CGFloat {
             let content = window.contentRect(forFrameRect: window.frame).size
-            return content.width / content.height
+            return content.width / (content.height - 2 * ViewerWindow.bandHeight)
         }
         let page: CGFloat = 595.0 / 842.0
         #expect(abs(paperRatio() - page) < 0.02)
@@ -181,12 +180,12 @@ struct DocumentSettingsFlowTests {
         environment.preferences.defaultScrollAxis = .vertical
         environment.preferences.defaultShowsCoverAlone = false
         model.isAlwaysOnTop = true
-        model.isMenuPinned = true
+        model.bandVisibility = .always
         model.resetDocumentSettings()
         #expect(model.viewOptions.direction == .rightToLeft)
         #expect(model.viewOptions.scrollAxis == .vertical)
         #expect(!model.viewOptions.showsCoverAlone)
-        #expect(model.isAlwaysOnTop && model.isMenuPinned)
+        #expect(model.isAlwaysOnTop && !model.isBandAlwaysVisible)
         model.rememberedSettingsDidChange()
         try await Task.sleep(for: .milliseconds(550))
         #expect(environment.store.keys().isEmpty)
@@ -773,7 +772,7 @@ struct DocumentSettingsFlowTests {
         model.rememberedSettingsDidChange()
         model.stop()
         let saved = try #require(environment.store.record(for: ContentHash.of(data).hex))
-        #expect(saved.windowSize == CGSize(width: 600, height: 848))
+        #expect(saved.windowSize == CGSize(width: 600, height: 848 - 2 * ViewerWindow.bandHeight))
         #expect(saved.printOptions?.showsPageNumbers == true)
         withExtendedLifetime(window) {}
     }

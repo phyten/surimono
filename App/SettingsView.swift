@@ -104,9 +104,33 @@ struct SettingsView: View {
                         Text("With One Page, the window narrows to the cover while a spread shows it alone.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
+                    Section("Menu") {
+                        Picker("Menu Arrangement", selection: $preferences.menuArrangement) {
+                            Text("Top Only").tag(MenuArrangement.top)
+                            Text("Split Top and Bottom").tag(MenuArrangement.split)
+                        }
+                        BandVisibilityPicker(selection: $preferences.defaultBandVisibility)
+                        Text("The menu keeps its room above the paper, so it never covers the paper.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Section("Contents") {
+                        Picker("Show Contents As", selection: $preferences.outlinePresentation) {
+                            Text("Popover").tag(OutlinePresentation.popover)
+                            Text("Left Drawer").tag(OutlinePresentation.drawer)
+                        }
+                        Toggle("Put Contents on the Menu", isOn: $preferences.showsOutlineOnBand)
+                    }
+                    Section {
+                        Picker("After a File Is Saved", selection: $preferences.changeFollowing) {
+                            Text("Jump to the Change").tag(ChangeFollowing.jump)
+                            Text("Stay Here, Marks Only").tag(ChangeFollowing.mark)
+                            Text("Ask with a Notice").tag(ChangeFollowing.ask)
+                        }
+                        Text("Changes are marked in Markdown documents.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     Section("When Opening a Window") {
                         Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
-                        Toggle("Keep Menu Visible", isOn: $preferences.defaultMenuPinned)
                     }
                 case .pageNumbers:
                     Toggle("In View Mode", isOn: $preferences.viewPageNumbers)
