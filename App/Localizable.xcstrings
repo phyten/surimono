@@ -37183,54 +37183,54 @@
         }
       }
     },
-    "Before Each Page": {
+    "Before Each Page and at the End": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Before Each Page"
+            "value": "Before Each Page and at the End"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "各ページの前"
+            "value": "各ページの前と最後"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "每页之前"
+            "value": "每页之前和末尾"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "每頁之前"
+            "value": "每頁之前和末尾"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "각 페이지 앞"
+            "value": "각 페이지 앞과 끝"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Avant chaque page"
+            "value": "Avant chaque page et à la fin"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vor jeder Seite"
+            "value": "Vor jeder Seite und am Ende"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Antes de cada página"
+            "value": "Antes de cada página y al final"
           }
         }
       }

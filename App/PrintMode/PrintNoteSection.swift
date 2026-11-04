@@ -68,7 +68,7 @@ struct PrintNoteSection: View {
     private var placements: [PrintChoice<NotePagePlan.Placement>] {
         let chapters = PrintChoice(NotePagePlan.Placement.chapterEnd, "After Chapters")
         if isOneSided {
-            return [.init(.duplexBack, "After Each Page"), .init(.spreadRight, "Before Each Page"), chapters]
+            return [.init(.duplexBack, "After Each Page"), .init(.spreadRight, "Before Each Page and at the End"), chapters]
         }
         if model.layout.kind == .twoUp {
             return [.init(.spreadLeft, "Left of the Sheet"), .init(.spreadRight, "Right of the Sheet"), chapters]
