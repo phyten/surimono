@@ -44,6 +44,27 @@ enum RenderingFixtures {
         return data as Data
     }
 
+    /// The columns of a page that hold anything darker than the paper.
+    static func inkColumns(_ page: PDFPage) throws -> ClosedRange<Int> {
+        let size = page.bounds(for: .mediaBox).size
+        let width = Int(ceil(size.width))
+        let height = Int(ceil(size.height))
+        let context = try #require(
+            CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.drawPDFPage(try #require(page.pageRef))
+        let bytes = try #require(context.data).assumingMemoryBound(to: UInt8.self)
+        var columns: [Int] = []
+        for x in 0..<width where (0..<height).contains(where: { bytes[($0 * width + x) * 4] < 200 }) {
+            columns.append(x)
+        }
+        return try #require(columns.first)...(try #require(columns.last))
+    }
+
     static func pixel(_ page: PDFPage, x: Int, y: Int) throws -> [UInt8] {
         let size = page.bounds(for: .mediaBox).size
         let width = Int(ceil(size.width))

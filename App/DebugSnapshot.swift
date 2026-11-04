@@ -160,6 +160,17 @@
             case "hidden": model.printFinish.toc.mode = .hidden
             default: break
             }
+            if let value = argument("SurimonoNote"), let preset = NotePaperPreset.preset(id: value) {
+                model.chooseNotePreset(id: preset.id, style: preset.style)
+                model.notes.isEnabled = true
+            }
+            switch argument("SurimonoNoteSide") {
+            case "left": model.notes.placement = .spreadLeft
+            case "right": model.notes.placement = .spreadRight
+            case "back": model.notes.placement = .duplexBack
+            case "chapter": model.notes.placement = .chapterEnd
+            default: break
+            }
             if let value = argument("SurimonoMargins") {
                 let sides = value.split(separator: ",").compactMap { Double($0) }
                 if sides.count == 4 {
@@ -272,7 +283,8 @@
                         model.isPrintOptionsPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }
-                    if flag("SurimonoFinishSheet") {
+                    if flag("SurimonoFinishSheet") || argument("SurimonoFinishSheet") == "notes" {
+                        model.showsNoteSettings = argument("SurimonoFinishSheet") == "notes"
                         model.isPrintFinishPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }

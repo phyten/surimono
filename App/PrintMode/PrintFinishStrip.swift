@@ -130,6 +130,22 @@ struct PrintFinishStrip: View {
                     group("Page Breaks") { PrintChapterBreakChoice(model: model) }
                     group("Paper Contents") { PrintContentsChoice(model: model) }
                 }
+                if showsNotes {
+                    group("Notes") {
+                        PrintNoteChoice(model: model)
+                        if model.notes.isEnabled { noteSettingsButton }
+                    }
+                }
+                detailsButton
+            }
+            // The notes are the first to shrink, so that a tray of the usual width keeps the choices it always had.
+            HStack(spacing: 8) {
+                group("Header & Footer", spacing: 4) { PrintFurnitureChoice(model: model) }
+                if model.finishAppliesToText {
+                    group("Page Breaks", spacing: 4) { PrintChapterBreakChoice(model: model) }
+                    group("Paper Contents", spacing: 4) { PrintContentsChoice(model: model) }
+                }
+                if showsNotes { noteChip }
                 detailsButton
             }
             HStack(spacing: 8) {
@@ -137,6 +153,11 @@ struct PrintFinishStrip: View {
                 if model.finishAppliesToText {
                     menu("Page Breaks", value: breakTitle) { PrintChapterBreakChoice(model: model).menuItems }
                     menu("Paper Contents", value: contentsTitle) { PrintContentsChoice(model: model).menuItems }
+                }
+                if showsNotes {
+                    menu("Notes", value: model.notes.isEnabled ? "Notes On" : "None") {
+                        PrintNoteChoice(model: model).menuItems
+                    }
                 }
                 detailsButton
             }
@@ -146,6 +167,48 @@ struct PrintFinishStrip: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(PrintPalette.chrome)
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
+    }
+
+    /// The notes as one word: in color when they are on, with the choices in its menu.
+    private var noteChip: some View {
+        Menu {
+            PrintNoteChoice(model: model).menuItems
+        } label: {
+            Text("Notes")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(model.notes.isEnabled ? PrintPalette.raised : PrintPalette.ink)
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .frame(height: 26)
+                .background(
+                    RoundedRectangle(cornerRadius: 6).fill(model.notes.isEnabled ? PrintPalette.ai : PrintPalette.hover)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Notes")
+    }
+
+    private var showsNotes: Bool { model.offersNotes && model.notes.applies(to: model.layout) }
+
+    private var noteSettingsButton: some View {
+        Button {
+            model.presentNoteSettings()
+        } label: {
+            Text(verbatim: model.notePresetName ?? String(localized: "Custom"))
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 6)
+                .frame(height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(PrintPalette.ai)
+        .help("Note page lines and presets")
     }
 
     private var detailsButton: some View {
@@ -163,9 +226,9 @@ struct PrintFinishStrip: View {
     }
 
     private func group<Content: View>(
-        _ title: LocalizedStringKey, @ViewBuilder content: () -> Content
+        _ title: LocalizedStringKey, spacing: CGFloat = 7, @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(spacing: 7) {
+        HStack(spacing: spacing) {
             Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1).fixedSize()
             content()
         }
@@ -255,6 +318,29 @@ struct PrintChapterBreakChoice: View {
     @ViewBuilder var menuItems: some View {
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.printFinish.breaks.h1 = choice.value }
+        }
+    }
+}
+
+struct PrintNoteChoice: View {
+    @Bindable var model: DocumentViewModel
+
+    static let choices: [PrintChoice<Bool>] = [.init(false, "None"), .init(true, "Notes On")]
+
+    var body: some View {
+        PrintSegments(label: "Notes", options: Self.choices, selection: model.notes.isEnabled) {
+            model.notes.isEnabled = $0
+        }
+    }
+
+    @ViewBuilder var menuItems: some View {
+        ForEach(Self.choices, id: \.value) { choice in
+            Button(choice.title) { model.notes.isEnabled = choice.value }
+        }
+        Divider()
+        Button("Note Settings…") {
+            model.notes.isEnabled = true
+            model.presentNoteSettings()
         }
     }
 }

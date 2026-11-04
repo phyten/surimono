@@ -56,7 +56,8 @@ struct PrintPressBar: View {
     private func layouts(_ density: Density) -> some View {
         PrintFlowLayout(spacing: 3, lineSpacing: 3, alignment: .center) {
             PrintSeriesSwitch(model: model).padding(.trailing, 3)
-            ForEach(Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated()), id: \.element.id) { index, layout in
+            let cards = Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated())
+            ForEach(cards, id: \.element.id) { index, layout in
                 LayoutCard(
                     layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
                     help: "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
@@ -190,7 +191,18 @@ struct PrintPressBar: View {
     }
 
     private var optionsText: String? {
-        PrintModeText.options(model.effectivePrintOptions, layout: model.layout, language: model.language)
+        var parts = [
+            PrintModeText.options(model.effectivePrintOptions, layout: model.layout, language: model.language)
+        ].compactMap { $0 }
+        if model.hasCurrentPrintPreview, let notes = model.printResult?.addedNotePages, notes > 0 {
+            parts.append(PrintModeText.format("Note pages: %lld", language: model.language, notes))
+            if model.notes.style.isFaint {
+                parts.append(
+                    PrintModeText.string("The lines are faint and may fade when printed", language: model.language))
+            }
+        }
+        guard let first = parts.first else { return nil }
+        return parts.dropFirst().reduce(first) { PrintModeText.format("%@ · %@", language: model.language, $0, $1) }
     }
 
     private var printAccessibilityLabel: String {

@@ -14,55 +14,15 @@ struct PrintFinishSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Paper Finish").font(.system(size: 14, weight: .bold))
-                    Text("Added only when printing. The document does not change.")
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(PrintPalette.ink2)
-                        .padding(.top, 3)
-                        .padding(.bottom, 6)
-                    section("Header & Footer") {
-                        PrintFurnitureChoice(model: model)
-                        furnitureDetails
-                    }
-                    if model.finishAppliesToText {
-                        section("Page Breaks") {
-                            PrintChapterBreakChoice(model: model)
-                            hint(breakHint)
-                            breakDetails
-                        }
-                        section("Paper Contents") {
-                            PrintContentsChoice(model: model)
-                            hint(contentsHint)
-                            contentsDetails
-                        }
-                    }
+            ScrollViewReader { scroller in
+                ScrollView {
+                    content
                 }
-                .padding(16)
+                .onAppear { scrollToNotes(scroller) }
+                .onChange(of: model.showsNoteSettings) { _, _ in scrollToNotes(scroller) }
             }
             Rectangle().fill(PrintPalette.line).frame(height: 1)
-            HStack(spacing: 8) {
-                Button {
-                    model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
-                } label: {
-                    Text("Use as Default").padding(.horizontal, 10)
-                }
-                .buttonStyle(PrintBorderedButtonStyle())
-                .fixedSize()
-                .help("New documents start with these margins, header and footer, page breaks and contents")
-                Spacer(minLength: 0)
-                Button {
-                    model.isPrintFinishPresented = false
-                } label: {
-                    Text("Close").padding(.horizontal, 10)
-                }
-                .buttonStyle(PrintBorderedButtonStyle())
-                .fixedSize()
-                .keyboardShortcut(.cancelAction)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            footer
         }
         .frame(maxWidth: 460)
         .foregroundStyle(PrintPalette.ink)
@@ -72,6 +32,69 @@ struct PrintFinishSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PrintPalette.line, lineWidth: 1))
         .shadow(color: PrintPalette.popShadow, radius: 20, y: 6)
         .onAppear { customLine = model.printFinish.breaks.customLine }
+    }
+
+    private func scrollToNotes(_ scroller: ScrollViewProxy) {
+        guard model.showsNoteSettings else { return }
+        model.showsNoteSettings = false
+        scroller.scrollTo(Self.notesID, anchor: .top)
+    }
+
+    private static let notesID = "notes"
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Paper Finish").font(.system(size: 14, weight: .bold))
+            Text("Added only when printing. The document does not change.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(PrintPalette.ink2)
+                .padding(.top, 3)
+                .padding(.bottom, 6)
+            section("Header & Footer") {
+                PrintFurnitureChoice(model: model)
+                furnitureDetails
+            }
+            if model.finishAppliesToText {
+                section("Page Breaks") {
+                    PrintChapterBreakChoice(model: model)
+                    hint(breakHint)
+                    breakDetails
+                }
+                section("Paper Contents") {
+                    PrintContentsChoice(model: model)
+                    hint(contentsHint)
+                    contentsDetails
+                }
+            }
+            if model.offersNotes {
+                section("Note Pages") { PrintNoteSection(model: model) }.id(Self.notesID)
+            }
+        }
+        .padding(16)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Button {
+                model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
+            } label: {
+                Text("Use as Default").padding(.horizontal, 10)
+            }
+            .buttonStyle(PrintBorderedButtonStyle())
+            .fixedSize()
+            .help("New documents start with these margins, header and footer, page breaks and contents")
+            Spacer(minLength: 0)
+            Button {
+                model.isPrintFinishPresented = false
+            } label: {
+                Text("Close").padding(.horizontal, 10)
+            }
+            .buttonStyle(PrintBorderedButtonStyle())
+            .fixedSize()
+            .keyboardShortcut(.cancelAction)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     private func section<Content: View>(

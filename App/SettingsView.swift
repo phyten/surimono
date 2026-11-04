@@ -110,7 +110,7 @@ struct SettingsView: View {
                             Text("Split Top and Bottom").tag(MenuArrangement.split)
                         }
                         BandVisibilityPicker(selection: $preferences.defaultBandVisibility)
-                        Text("The menu keeps its room above the paper, so it never covers the paper.")
+                        Text("The menu has its own room outside the paper, so it never covers the paper.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Section("Contents") {

@@ -216,6 +216,54 @@ public enum DocumentOutline {
         }
     }
 
+    /// The level of the chapters: the largest headings, unless the largest is a single title over everything else.
+    public static func chapterLevel(of levels: [Int]) -> Int? {
+        guard let top = levels.min() else { return nil }
+        guard levels.filter({ $0 == top }).count == 1, let next = levels.filter({ $0 > top }).min() else { return top }
+        return next
+    }
+
+    /// The pages that end a chapter. A chapter that opens a page leaves the page before it as the end of the one
+    /// before; one that starts halfway down a page shares that page with it.
+    public static func chapterEnds(of headings: [DocumentHeading], pages: [Int?], inPageTexts texts: [String]) -> Set<
+        Int
+    > {
+        var opening: [Int: Bool] = [:]
+        let levels = headings.enumerated().map { index, heading -> (level: Int, page: Int?) in
+            if pages.indices.contains(index), let page = pages[index], texts.indices.contains(page) {
+                opening[index] = opens(texts[page], with: heading)
+            }
+            return (heading.level, pages.indices.contains(index) ? pages[index] : nil)
+        }
+        return chapterEnds(of: levels) { opening[$0] ?? true }
+    }
+
+    /// The pages that end a chapter of a PDF, from its bookmarks, which point at the page a chapter opens.
+    public static func chapterEnds(of entries: [OutlineEntry]) -> Set<Int> {
+        chapterEnds(of: entries.map { ($0.level, $0.pageIndex) }) { _ in true }
+    }
+
+    private static func chapterEnds(of headings: [(level: Int, page: Int?)], opensPage: (Int) -> Bool) -> Set<Int> {
+        guard let level = chapterLevel(of: headings.map(\.level)) else { return [] }
+        let chapters = headings.indices.filter { headings[$0].level == level }
+        var ends: Set<Int> = []
+        for index in chapters.dropFirst() {
+            guard let page = headings[index].page else { continue }
+            let end = opensPage(index) ? page - 1 : page
+            if end >= 0 { ends.insert(end) }
+        }
+        return ends
+    }
+
+    /// Whether a heading stands first on a page. A theme can put a number in front of it, so the line only has to
+    /// hold the heading; a long heading wraps, so it may also go on past the line.
+    private static func opens(_ text: String, with heading: DocumentHeading) -> Bool {
+        let target = normalized(heading.text)
+        let lines = text.components(separatedBy: .newlines).lazy.map(normalized)
+        guard !target.isEmpty, let first = lines.first(where: { !$0.isEmpty }) else { return false }
+        return first.contains(target) || target.hasPrefix(first)
+    }
+
     public static func entries(of headings: [DocumentHeading], inPageTexts pages: [String]) -> [OutlineEntry] {
         zip(headings, self.pages(of: headings, inPageTexts: pages)).map { heading, page in
             OutlineEntry(level: heading.level, title: heading.text, pageIndex: page)
@@ -242,7 +290,6 @@ public enum DocumentOutline {
         else { preconditionFailure("Invalid title pattern") }
         return pattern
     }()
-
 
     private static func headingLevel(_ name: String) -> Int? {
         guard name.count == 2, name.first == "h", let level = name.last?.wholeNumberValue, (1...6).contains(level)

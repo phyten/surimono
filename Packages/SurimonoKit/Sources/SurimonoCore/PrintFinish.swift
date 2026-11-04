@@ -157,13 +157,28 @@ public struct PrintFinish: Codable, Hashable, Sendable {
     }
 }
 
-/// Where the pages of a finished text come from: the laid-out pages of the text, with contents pages in front and
-/// blanks that bring a chapter to a right-hand page.
+/// Where the pages of a finished document come from: the laid-out pages, with contents pages in front, blanks that
+/// bring a chapter to a right-hand page and note pages.
 public struct FinishedPagePlan: Equatable, Sendable {
     public enum Page: Equatable, Sendable {
         case contents(Int)
         case body(Int)
         case blank
+        case note
+    }
+
+    /// How note pages go in among the pages.
+    public struct Notes: Equatable, Sendable {
+        public var placement: NotePagePlan.Placement
+        public var layoutKind: LayoutKind
+        /// The pages of the text that end a chapter; the last page always does.
+        public var chapterEnds: Set<Int>
+
+        public init(placement: NotePagePlan.Placement, layoutKind: LayoutKind, chapterEnds: Set<Int> = []) {
+            self.placement = placement
+            self.layoutKind = layoutKind
+            self.chapterEnds = chapterEnds
+        }
     }
 
     public let pages: [Page]
@@ -171,13 +186,30 @@ public struct FinishedPagePlan: Equatable, Sendable {
     public let bodyPageIndices: [Int]
 
     /// - Parameter rightPageStarts: Pages of the text that must come out as a right-hand page, which is an odd page.
-    public init(bodyPageCount: Int, contentsPageCount: Int, rightPageStarts: Set<Int>) {
+    ///   Notes on a side of each spread keep every page of the text on one side, so these then take no blanks.
+    public init(bodyPageCount: Int, contentsPageCount: Int, rightPageStarts: Set<Int>, notes: Notes? = nil) {
         var pages = (0..<contentsPageCount).map(Page.contents)
         var indices: [Int] = []
-        for body in 0..<bodyPageCount {
-            if rightPageStarts.contains(body), pages.count % 2 == 1 { pages.append(.blank) }
+        func addBody(_ body: Int) {
             indices.append(pages.count)
             pages.append(.body(body))
+        }
+        if let notes, notes.placement != .chapterEnd {
+            for page in NotePagePlan.pages(
+                bodyPageIndices: Array(0..<bodyPageCount), placement: notes.placement, layoutKind: notes.layoutKind,
+                leadingPageCount: contentsPageCount)
+            {
+                switch page {
+                case .body(let body): addBody(body)
+                case .note: pages.append(.note)
+                }
+            }
+        } else {
+            for body in 0..<bodyPageCount {
+                if rightPageStarts.contains(body), pages.count % 2 == 1 { pages.append(.blank) }
+                addBody(body)
+                if let notes, notes.chapterEnds.contains(body) || body == bodyPageCount - 1 { pages.append(.note) }
+            }
         }
         self.pages = pages
         bodyPageIndices = indices
@@ -185,6 +217,11 @@ public struct FinishedPagePlan: Equatable, Sendable {
 
     public var blankPages: Set<Int> {
         Set(pages.indices.filter { pages[$0] == .blank })
+    }
+
+    /// The final indices of the note pages, in order.
+    public var notePages: [Int] {
+        pages.indices.filter { pages[$0] == .note }
     }
 
     public var isUnchanged: Bool { pages.count == bodyPageIndices.count }
@@ -223,11 +260,7 @@ public enum PaperContents {
     /// The entries of the headings. The chapters are the largest headings of the text, unless the largest is a single
     /// title over everything else; `pageNumbers` holds the printed number of each heading.
     public static func entries(headings: [DocumentHeading], pageNumbers: [Int?], depth: PaperTOC.Depth) -> [Entry] {
-        guard var top = headings.map(\.level).min() else { return [] }
-        if headings.filter({ $0.level == top }).count == 1, let next = headings.map(\.level).filter({ $0 > top }).min()
-        {
-            top = next
-        }
+        guard let top = DocumentOutline.chapterLevel(of: headings.map(\.level)) else { return [] }
         let deepest = depth == .chapters ? top : top + 1
         return headings.enumerated().compactMap { index, heading in
             guard (top...deepest).contains(heading.level) else { return nil }

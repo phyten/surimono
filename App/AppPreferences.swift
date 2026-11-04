@@ -144,6 +144,12 @@ final class AppPreferences {
             }
         }
     }
+    /// The note pages the reader saved, in the order they were saved.
+    private(set) var notePresets: [NoteUserPreset] {
+        didSet {
+            if let data = try? JSONEncoder().encode(notePresets) { defaults.set(data, forKey: "notePresets") }
+        }
+    }
 
     init(defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier) {
         self.defaults = defaults
@@ -216,6 +222,10 @@ final class AppPreferences {
             names.insert($0.name)
             return true
         }
+        notePresets =
+            defaults.data(forKey: "notePresets").flatMap {
+                try? JSONDecoder().decode([StoredNotePreset].self, from: $0)
+            }?.compactMap(\.value) ?? []
     }
 
     /// A choice for this run only. It takes part in the first assignment because any later one would be saved.
@@ -268,6 +278,40 @@ final class AppPreferences {
         let value: PrinterProfile?
         init(from decoder: any Decoder) throws {
             value = try? PrinterProfile(from: decoder)
+        }
+    }
+
+    @discardableResult
+    func saveNotePreset(named name: String, style: NotePaperStyle) -> NoteUserPreset {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let preset = NoteUserPreset(name: name.isEmpty ? nextNotePresetName : name, style: style)
+        notePresets.append(preset)
+        return preset
+    }
+
+    /// Only the reader's own presets are stored, so a built-in one cannot be replaced.
+    func overwriteNotePreset(_ id: String, style: NotePaperStyle) {
+        guard let index = notePresets.firstIndex(where: { $0.id == id }) else { return }
+        notePresets[index].style = style
+    }
+
+    func removeNotePreset(_ id: String) {
+        notePresets.removeAll { $0.id == id }
+    }
+
+    var nextNotePresetName: String {
+        var number = notePresets.count + 1
+        while true {
+            let name = String(format: String(localized: "My Notes %lld"), Int64(number))
+            if !notePresets.contains(where: { $0.name == name }) { return name }
+            number += 1
+        }
+    }
+
+    private struct StoredNotePreset: Decodable {
+        let value: NoteUserPreset?
+        init(from decoder: any Decoder) throws {
+            value = try? NoteUserPreset(from: decoder)
         }
     }
 
