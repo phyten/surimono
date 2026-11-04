@@ -15,80 +15,131 @@ public struct DocumentHeading: Equatable, Sendable {
 
 /// Reads the structure of a document's HTML: the headings for tables of contents and the amount of text.
 public enum DocumentOutline {
+    private static let hiddenElements: Set<String> = ["rt", "rp", "svg", "math"]
+
     public static func headings(inHTML html: String) -> [DocumentHeading] {
-        let range = NSRange(html.startIndex..., in: html)
-        return headingPattern.matches(in: html, range: range).compactMap { match in
-            guard let level = Range(match.range(at: 1), in: html).flatMap({ Int(html[$0]) }),
-                let attributes = Range(match.range(at: 2), in: html),
-                let body = Range(match.range(at: 3), in: html)
-            else { return nil }
-            let text = plainText(ofHTML: String(html[body])).trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { return nil }
-            return DocumentHeading(level: level, text: text, id: anchor(in: String(html[attributes])))
+        var headings: [DocumentHeading] = []
+        var open: (tag: HTMLScanner.Tag, level: Int, text: String)?
+        var hidden: (name: String, depth: Int)?
+        for token in HTMLScanner.tokens(html) {
+            switch token {
+            case .text(let text):
+                if hidden == nil { open?.text += text }
+            case .opaque: break
+            case .tag(let tag):
+                if updateHidden(&hidden, with: tag) { continue }
+                if let current = open {
+                    guard tag.isClosing, tag.name == current.tag.name else { continue }
+                    let text = HTMLScanner.decodingEntities(current.text).trimmingCharacters(
+                        in: .whitespacesAndNewlines)
+                    if !text.isEmpty {
+                        headings.append(
+                            DocumentHeading(level: current.level, text: text, id: current.tag.attribute("id")))
+                    }
+                    open = nil
+                } else if !tag.isClosing, let level = headingLevel(tag.name) {
+                    open = (tag, level, "")
+                }
+            }
         }
+        return headings
     }
 
-    /// The zero-based page each heading stands on, in order. Pages are searched forward only, so a heading quoted in
-    /// the text before it does not count, and a heading that cannot be found leaves the next one to search from the
-    /// same page.
+    /// The zero-based page each heading stands on, in order. A heading stands on lines of its own, wrapped or with a
+    /// number in front of it, so the same words in a sentence do not count. The search only moves forward, past each
+    /// heading it found, and the lines are indexed so that headings it cannot find do not rescan the document.
     public static func pages(of headings: [DocumentHeading], inPageTexts pages: [String]) -> [Int?] {
-        let lines = pages.map { $0.components(separatedBy: .newlines).map(normalized).filter { !$0.isEmpty } }
+        var lines: [(page: Int, text: String)] = []
+        for (page, text) in pages.enumerated() {
+            for line in text.components(separatedBy: .newlines) {
+                let normalized = withoutNumbering(normalized(line))
+                if !normalized.isEmpty { lines.append((page, normalized)) }
+            }
+        }
+        var starts: [Character: [Int]] = [:]
+        for (index, line) in lines.enumerated() {
+            if let first = line.text.first { starts[first, default: []].append(index) }
+        }
         var cursor = 0
         return headings.map { heading in
-            let target = normalized(heading.text)
-            guard !target.isEmpty, cursor < lines.count else { return nil }
-            for page in cursor..<lines.count where contains(target, in: lines[page]) {
-                cursor = page
-                return page
+            let target = withoutNumbering(normalized(heading.text))
+            guard let first = target.first, let candidates = starts[first] else { return nil }
+            for index in candidates[firstIndex(in: candidates, atLeast: cursor)...] {
+                guard let end = endOfHeading(target, in: lines, from: index) else { continue }
+                cursor = end
+                return lines[index].page
             }
             return nil
         }
     }
 
-    private static let headingPattern: NSRegularExpression = {
-        // The pattern is a constant, so failing here is a programming error caught by the first test.
-        guard
-            let pattern = try? NSRegularExpression(
-                pattern: "<h([1-6])((?:\\s[^>]*)?)>(.*?)</h\\1>",
-                options: [.caseInsensitive, .dotMatchesLineSeparators])
-        else { preconditionFailure("Invalid heading pattern") }
-        return pattern
-    }()
-
-    private static func anchor(in attributes: String) -> String? {
-        guard let start = attributes.range(of: "id=\"") else { return nil }
-        let rest = attributes[start.upperBound...]
-        return rest.firstIndex(of: "\"").map { String(rest[..<$0]) }
+    private static func headingLevel(_ name: String) -> Int? {
+        guard name.count == 2, name.first == "h", let level = name.last?.wholeNumberValue, (1...6).contains(level)
+        else { return nil }
+        return level
     }
 
-    /// A heading can wrap over several lines, and a theme can number it, which puts text in front of it.
-    private static func contains(_ target: String, in lines: [String]) -> Bool {
-        for start in lines.indices {
-            if lines[start].hasSuffix(target) { return true }
-            var joined = ""
-            for line in lines[start...] {
-                joined += line
-                if joined == target || joined.hasSuffix(target) { return true }
-                guard joined.count < target.count + 16 else { break }
+    /// Whether the tag belongs to an element whose text is not read, keeping track of the one being skipped.
+    private static func updateHidden(_ hidden: inout (name: String, depth: Int)?, with tag: HTMLScanner.Tag) -> Bool {
+        if let current = hidden {
+            if tag.name == current.name, !tag.isSelfClosing {
+                let depth = current.depth + (tag.isClosing ? -1 : 1)
+                hidden = depth == 0 ? nil : (current.name, depth)
             }
+            return true
         }
-        return false
+        guard hiddenElements.contains(tag.name), !tag.isClosing, !tag.isSelfClosing else { return false }
+        hidden = (tag.name, 1)
+        return true
+    }
+
+    private static func firstIndex(in sorted: [Int], atLeast value: Int) -> Int {
+        var low = 0
+        var high = sorted.count
+        while low < high {
+            let middle = (low + high) / 2
+            if sorted[middle] < value { low = middle + 1 } else { high = middle }
+        }
+        return low
+    }
+
+    /// The index after the last line of the heading, when one starts at `start`. It stays on one page.
+    private static func endOfHeading(
+        _ target: String, in lines: [(page: Int, text: String)], from start: Int
+    ) -> Int? {
+        var joined = ""
+        var index = start
+        while index < lines.count, lines[index].page == lines[start].page {
+            joined += lines[index].text
+            index += 1
+            if joined == target { return index }
+            guard target.hasPrefix(joined) else { return nil }
+        }
+        return nil
     }
 
     private static func normalized(_ text: String) -> String {
         String(text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) }.map(Character.init))
     }
 
+    /// A theme can number a heading with a counter, which puts text in front of it on the page only.
+    private static func withoutNumbering(_ text: String) -> String {
+        let stripped = text.drop { $0.isNumber || ".．、:：-–—)）(（".contains($0) }
+        return stripped.isEmpty ? text : String(stripped)
+    }
+
     static func plainText(ofHTML html: String) -> String {
-        var text = html
-        for pattern in ["<rt[^>]*>.*?</rt>", "<rp[^>]*>.*?</rp>", "<style[^>]*>.*?</style>", "<svg[^>]*>.*?</svg>"] {
-            text = text.replacingOccurrences(
-                of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        var text = ""
+        var hidden: (name: String, depth: Int)?
+        for token in HTMLScanner.tokens(html) {
+            switch token {
+            case .text(let value):
+                if hidden == nil { text += value }
+            case .opaque: break
+            case .tag(let tag): _ = updateHidden(&hidden, with: tag)
+            }
         }
-        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        let entities = ["&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#39;": "'", "&nbsp;": " ", "&amp;": "&"]
-        for (entity, value) in entities { text = text.replacingOccurrences(of: entity, with: value) }
-        return text
+        return HTMLScanner.decodingEntities(text)
     }
 }
 
