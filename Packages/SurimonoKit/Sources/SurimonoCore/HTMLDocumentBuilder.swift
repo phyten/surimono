@@ -19,7 +19,7 @@ public enum HTMLDocumentBuilder {
             </style>\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)">
-            \(fragment.body)
+            \(LongTokenMarks.marked(fragment.body))
             </body>
             </html>
             """
