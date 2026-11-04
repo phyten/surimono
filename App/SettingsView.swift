@@ -138,6 +138,12 @@ struct SettingsView: View {
                     Picker("Default Print Theme", selection: $preferences.themeID) {
                         DefaultStyleChoices(library: library)
                     }
+                    Picker("Default Code Colors", selection: $preferences.defaultCodePaletteID) {
+                        Text("Match Style").tag(CodePalette.matchesStyleID)
+                        ForEach(library.codePalettes) { palette in
+                            Text(verbatim: palette.displayName(language: language)).tag(palette.id)
+                        }
+                    }
                     Picker("Default Text Size", selection: $preferences.defaultTextScale) {
                         ForEach(TextScale.steps, id: \.self) { scale in
                             Text(verbatim: "\(Int((scale * 100).rounded()))%").tag(scale)

@@ -365,6 +365,9 @@ struct ThemeMenuContent: View {
                 }
             }
         }
+        Menu("Code Colors") {
+            CodePaletteMenuContent(model: model)
+        }
         Divider()
         // Always enabled: a disabled state derived from the key window's model would not update until the menu opens.
         Button(model.isFavoriteTheme ? "Remove from Favorites" : "Add to Favorites") { model.toggleFavoriteTheme() }
@@ -378,6 +381,24 @@ struct ThemeMenuContent: View {
             }
         } label: {
             if let title { Text(title) }
+        }
+        .pickerStyle(.inline)
+    }
+}
+
+/// The code palettes for the style menus, where the palette's column is not at hand.
+struct CodePaletteMenuContent: View {
+    let model: DocumentViewModel
+
+    var body: some View {
+        Picker(selection: Binding(get: { model.codePaletteID }, set: { model.selectCodePalette($0) })) {
+            Text("Match Style").tag(CodePalette.matchesStyleID)
+            Divider()
+            ForEach(model.library.codePalettes) { palette in
+                Text(verbatim: palette.displayName(language: model.language)).tag(palette.id)
+            }
+        } label: {
+            EmptyView()
         }
         .pickerStyle(.inline)
     }

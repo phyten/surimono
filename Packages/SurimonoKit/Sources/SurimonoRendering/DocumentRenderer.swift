@@ -125,6 +125,8 @@ public struct RenderSettings: Equatable, Sendable {
     public var layout: PrintLayout
     public var theme: PrintTheme
     public var textScale: Double
+    /// The colors and blocks of the document's code; the print theme's own by default.
+    public var code = CodeStyle()
     public var preset: HTMLCleanupPreset
     public var options: PrintOptions
     public var allowsJavaScriptInHTML: Bool
@@ -358,6 +360,7 @@ public final class DocumentRenderer {
         let mixesImagePages: Bool
         let theme: PrintTheme?
         let textScale: Double?
+        let code: CodeStyle?
         let preset: HTMLCleanupPreset?
         let margins: PageMargins
         let allowsJavaScript: Bool
@@ -514,6 +517,7 @@ public final class DocumentRenderer {
                     && Set(sourcePageSizes?.sizes.map { $0.width > $0.height } ?? []).count > 1,
                 theme: source.children != nil || source.format.usesPrintTheme ? settings.theme : nil,
                 textScale: source.children != nil || source.format.usesPrintTheme ? settings.textScale : nil,
+                code: source.children != nil || source.format.usesPrintTheme ? settings.code : nil,
                 preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
                 margins: isPlainPDF ? .zero : margins,
                 allowsJavaScript: source.children != nil
@@ -905,12 +909,16 @@ public final class DocumentRenderer {
             let separatesPaper = WebPaginator.drawsClearPages
             let html = HTMLDocumentBuilder.build(
                 fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
-                textScale: settings.textScale, removesPaper: separatesPaper, finish: settings.finish.styleSheet)
+                textScale: settings.textScale, removesPaper: separatesPaper, finish: settings.finish.styleSheet,
+                code: settings.code)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margins = settings.layout.logicalMargins(options: settings.options)
             let marksScript = source.format == .markdown ? ChangeMarkAnchors.javaScript(settings.markdownChanges) : ""
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
-            let parts = [marksScript, themeScript].filter { !$0.isEmpty }
+            let codeScript =
+                CodeFitScript.javaScript(for: settings.code, pixelsPerPoint: WebPaginator.printPixelsPerPoint) ?? ""
+            // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
+            let parts = [marksScript, codeScript, themeScript].filter { !$0.isEmpty }
             let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")
             var text = try await paginateCheckingIssues(
                 PaginationRequest(

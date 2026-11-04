@@ -61,6 +61,8 @@ final class AppPreferences {
 
     var layoutID: String { didSet { defaults.set(layoutID, forKey: "layout") } }
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
+    /// The code palette a document starts with; `CodePalette.matchesStyleID` follows its style.
+    var defaultCodePaletteID: String { didSet { defaults.set(defaultCodePaletteID, forKey: "codePalette") } }
     var presetID: String { didSet { defaults.set(presetID, forKey: "preset") } }
     var margin: Double {
         didSet {
@@ -160,6 +162,7 @@ final class AppPreferences {
             PaperOrientation(rawValue: defaults.string(forKey: "defaultPaperOrientation") ?? "") ?? .auto
         layoutID = defaults.string(forKey: "layout") ?? "a4Single"
         themeID = defaults.string(forKey: "theme") ?? "standard"
+        defaultCodePaletteID = defaults.string(forKey: "codePalette") ?? CodePalette.matchesStyleID
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
         pageNumbers = defaults.bool(forKey: "pageNumbers")

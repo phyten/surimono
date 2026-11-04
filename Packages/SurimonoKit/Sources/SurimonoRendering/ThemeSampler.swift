@@ -35,6 +35,7 @@ public final class ThemeSampler {
     private let format: DocumentFormat
     private let baseURL: URL?
     private let textScale: Double
+    private let code: CodeStyle
     private let timeout: Duration
     private var session: Session?
     private var paperSession: Session?
@@ -47,8 +48,8 @@ public final class ThemeSampler {
     /// - Parameter html: A whole document as `HTMLDocumentBuilder` builds it, with exactly one style element.
     public init(
         html: String, format: DocumentFormat = .markdown, baseURL: URL?, pageSize: CGSize,
-        margins: WebPaginator.Margins, textScale: Double = 1, timeout: Duration = .seconds(15),
-        resourceAccess: LocalResourceAccess? = nil
+        margins: WebPaginator.Margins, textScale: Double = 1, code: CodeStyle = CodeStyle(),
+        timeout: Duration = .seconds(15), resourceAccess: LocalResourceAccess? = nil
     ) {
         self.resourceAccess = resourceAccess
         self.html = html
@@ -57,6 +58,7 @@ public final class ThemeSampler {
         self.pageSize = pageSize
         self.margins = margins
         self.textScale = textScale
+        self.code = code
         self.timeout = timeout
     }
 
@@ -142,11 +144,16 @@ public final class ThemeSampler {
             for (const element of document.querySelectorAll('[data-deco]')) { element.removeAttribute('data-deco'); }
             return document.documentElement.getBoundingClientRect().height;
             """
-        let css = HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale)
+        let css = HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, code: code)
         _ = try await webView.callAsyncJavaScript(swap, arguments: ["css": css], in: nil, contentWorld: world)
         // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
         // show the fallback font and be kept that way.
         if css.contains("@font-face") { try await WebPaginator.waitForResources(in: webView, timeout: timeout) }
+        // Each theme has its own fonts and paddings, so its lines are fitted anew, as the samples are drawn a pixel to
+        // a point.
+        if let script = CodeFitScript.javaScript(for: code, pixelsPerPoint: 1) {
+            _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
+        }
         if let script = theme.script, !script.isEmpty {
             // A failing decoration leaves the page undecorated rather than failing the sample, as in printing.
             _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
@@ -295,11 +302,18 @@ extension DocumentRenderer {
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
             textScale: settings.textScale, removesPaper: WebPaginator.drawsClearPages,
-            finish: settings.finish.styleSheet)
+            finish: settings.finish.styleSheet, code: settings.code)
         return ThemeSampler(
             html: html, format: source.format, baseURL: directory,
             pageSize: layout.logicalPageSize(options: settings.options),
             margins: WebPaginator.Margins(layout.logicalMargins(options: settings.options)),
-            textScale: settings.textScale, resourceAccess: access)
+            textScale: settings.textScale, code: settings.code, resourceAccess: access)
+    }
+
+    /// Whether the document has code that the code palette and the block's options would change.
+    public static func containsCode(_ source: DocumentSource) -> Bool {
+        if let children = source.children { return children.contains(where: containsCode) }
+        guard source.format.usesPrintTheme, let fragment = try? themedFragment(source) else { return false }
+        return CodeBlockMarkup.containsCode(fragment.body)
     }
 }

@@ -12,6 +12,8 @@ final class ThemeSamples {
     /// The paper the samples stand for and its margins, in points.
     private(set) var paperSize = PaperSize.a4.size
     private(set) var margins = WebPaginator.Margins.uniform(millimeters: 15)
+    /// The document has code, so the palette puts the code colors forward.
+    private(set) var containsCode = false
     /// What the samples are drawn from; the window's model provides it.
     @ObservationIgnored var inputs: () -> (source: DocumentSource?, settings: RenderSettings?) = { (nil, nil) }
     /// The samples drawn so far, by theme id, with the theme as drawn.
@@ -50,6 +52,7 @@ final class ThemeSamples {
         settings.theme = PrintTheme(id: "", name: "", css: "")
         let key = Key(source: source, settings: settings)
         guard key != self.key else { return }
+        if source != self.key?.source { containsCode = DocumentRenderer.containsCode(source) }
         // After `invalidate()` the views are already drawing again; a first start needs no new round either.
         let replacesSamples = self.key != nil
         sampler?.close()

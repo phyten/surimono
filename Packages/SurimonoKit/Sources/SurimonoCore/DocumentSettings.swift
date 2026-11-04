@@ -31,6 +31,9 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var layoutID: String?
     public var paperOrientation: PaperOrientation?
     public var themeID: String?
+    /// An axis of its own: it stays when the theme changes. `CodePalette.matchesStyleID` follows the theme.
+    public var codePaletteID: String?
+    public var codeBlock: CodeBlockOptions?
     public var textScale: Double?
     public var presetID: String?
     public var smartRemoval: SmartRemoval?
@@ -50,7 +53,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         themeID: String? = nil, textScale: Double? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
         printOptions: PrintOptions? = nil, imageOrder: [String]? = nil, paperOrientation: PaperOrientation? = nil,
         htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil,
-        binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil
+        binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
+        codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -58,6 +62,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.layoutID = layoutID
         self.paperOrientation = paperOrientation
         self.themeID = themeID
+        self.codePaletteID = codePaletteID
+        self.codeBlock = codeBlock
         self.textScale = textScale
         self.presetID = presetID
         self.smartRemoval = smartRemoval
@@ -73,7 +79,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
-        case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront
+        case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
     }
 
     // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
@@ -100,6 +106,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(layoutID, forKey: .layoutID)
         try values.encodeIfPresent(paperOrientation, forKey: .paperOrientation)
         try values.encodeIfPresent(themeID, forKey: .themeID)
+        try values.encodeIfPresent(codePaletteID, forKey: .codePaletteID)
+        try values.encodeIfPresent(codeBlock, forKey: .codeBlock)
         try values.encodeIfPresent(textScale, forKey: .textScale)
         try values.encodeIfPresent(presetID, forKey: .presetID)
         try values.encodeIfPresent(smartRemoval, forKey: .smartRemoval)
@@ -125,6 +133,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         layoutID = field(String.self, .layoutID)
         paperOrientation = field(PaperOrientation.self, .paperOrientation)
         themeID = field(String.self, .themeID)
+        codePaletteID = field(String.self, .codePaletteID)
+        codeBlock = field(CodeBlockOptions.self, .codeBlock)
         textScale = field(Double.self, .textScale)
         presetID = field(String.self, .presetID)
         smartRemoval = field(SmartRemoval.self, .smartRemoval)

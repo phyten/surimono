@@ -6,6 +6,8 @@ import SurimonoCore
 final class UserLibrary {
     private(set) var themes: [PrintTheme] = []
     private(set) var themeCategories: [PrintThemeCategory] = []
+    /// The built-in code palettes in the order they are offered, without "Match Style".
+    private(set) var codePalettes: [CodePalette] = []
     private(set) var presets: [HTMLCleanupPreset] = []
     private(set) var presetErrors: [HTMLCleanupPresetLoadError] = []
     private(set) var error: String?
@@ -46,6 +48,13 @@ final class UserLibrary {
             themeCategories = []
         }
         do {
+            codePalettes = try CodePaletteLibrary.load()
+        } catch {
+            self.error = error.localizedDescription
+            // Without the catalog every document keeps its style's own colors.
+            codePalettes = []
+        }
+        do {
             let loaded = try HTMLCleanupPresetLibrary.load(userDirectory: root.appendingPathComponent("Presets"))
             presets = loaded.presets
             presetErrors = loaded.errors
@@ -57,6 +66,9 @@ final class UserLibrary {
         }
         revision += 1
     }
+
+    /// nil for "Match Style" and for an id this version does not know.
+    func codePalette(_ id: String) -> CodePalette? { codePalettes.first { $0.id == id } }
 
     func openFolder(_ name: String) {
         do {

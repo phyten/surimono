@@ -36,6 +36,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 印刷モード: `-SurimonoMode print`（刷り台で撮る）、`-SurimonoMode roundtrip`（刷り台に入って表示モードへ戻ったところを撮る）、`-SurimonoMode compare`（見比べ台で撮る）、`-SurimonoTry <テーマの id>`（パレットで乗せたように紙で試したところを撮る）、`-SurimonoFold YES`（折ってみる）、`-SurimonoTray original|openDetails|currentSlide`（HTML の刷り台で「最初の状態で刷る」/「開いて刷る」/ スライドの「今の 1 枚」を選ぶ）、`-SurimonoSlides off`（「スライドとして扱わない」）
      - 紙の仕上げ: `-SurimonoHeader none|number|name|nameAndDate`、`-SurimonoBreak h1|right`、`-SurimonoTOC head|hidden`、`-SurimonoMargins <上,左,下,右>`、`-SurimonoMirror YES`（内側・外側）、`-SurimonoSeries a|b`、`-SurimonoSet <組み込みの設定セットの番号>`、`-SurimonoFinishSheet YES`（詳細を開く）、`-SurimonoTraySize <幅>x<高さ>`（刷り台の窓の大きさ）、`-SurimonoHidePrinters YES`（プリンター名を写さない）
      - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
+     - コード: `-SurimonoCodePalette <配色の id>`、`-SurimonoCodeFrame style|none|tint|rule|left`、`-SurimonoCodeNumbers none|all|everyFive`、`-SurimonoCodeLong wrap|shrink|cut`、`-SurimonoCodeLabel none|corner|band`、`-SurimonoTryCode <配色の id>`（パレットの行に乗せたように紙で試す）
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）
      - ページ: `-SurimonoPage <n>`（撮る前に n ページ目へ移る。`-SurimonoMode roundtrip` と合わせると、印刷モードから戻っても同じページかを見られる）
      - クリップボード: `-SurimonoOpenClipboard <テキストファイルの絶対パス>`（起動時に、その文字列を専用のペーストボードから「クリップボードから開く」で開き、その窓を撮る。一般のクリップボードは触らない）

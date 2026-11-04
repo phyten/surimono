@@ -72,6 +72,20 @@
                 model.reviewSmartRemoval()
             default: break
             }
+            if let value = argument("SurimonoCodePalette") { model.selectCodePalette(value) }
+            if let value = argument("SurimonoCodeFrame"), let frame = CodeBlockOptions.Frame(rawValue: value) {
+                model.codeBlock.frame = frame
+            }
+            if let value = argument("SurimonoCodeNumbers"), let numbers = CodeBlockOptions.LineNumbers(rawValue: value)
+            {
+                model.codeBlock.lineNumbers = numbers
+            }
+            if let value = argument("SurimonoCodeLong"), let lines = CodeBlockOptions.LongLines(rawValue: value) {
+                model.codeBlock.longLines = lines
+            }
+            if let value = argument("SurimonoCodeLabel"), let label = CodeBlockOptions.LanguageLabel(rawValue: value) {
+                model.codeBlock.languageLabel = label
+            }
             if argument("SurimonoPopover") == "view" {
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.isViewOptionsPresented = true
@@ -211,6 +225,11 @@
                 if let theme = argument("SurimonoTry") {
                     // As if the pointer rested on the theme in the palette.
                     model.tryTheme(theme)
+                    try? await Task.sleep(for: .milliseconds(2500))
+                }
+                if let palette = argument("SurimonoTryCode") {
+                    // As if the pointer rested on the palette's row.
+                    model.tryCodePalette(palette)
                     try? await Task.sleep(for: .milliseconds(2500))
                 }
                 if argument("SurimonoMode") == "roundtrip" {
