@@ -98,6 +98,30 @@ struct DocumentOutlineTests {
         #expect(DocumentStatistics(html: html).characters == 1)
     }
 
+    @Test("原文の目次の行を見出しに取らない")
+    func skipsSourceContents() {
+        let headings = [DocumentHeading(level: 1, text: "第一章"), DocumentHeading(level: 1, text: "第二章")]
+        let entries = ["第一章", "第二章"]
+        #expect(
+            DocumentOutline.pages(
+                of: headings, inPageTexts: ["目次\n第一章\n第二章", "第一章\n本文", "第二章\n本文"], contentsEntries: entries)
+                == [1, 2])
+    }
+
+    @Test("本文の後の目次でも本物の見出しを消さない")
+    func keepsHeadingsBeforeSourceContents() {
+        let headings = [DocumentHeading(level: 1, text: "第一章"), DocumentHeading(level: 1, text: "第二章")]
+        let pages = ["第一章\n本文", "第二章\n本文", "第一章\n第二章"]
+        #expect(
+            DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["第一章", "第二章"]) == [0, 1])
+    }
+
+    @Test("短い先頭の行で折り返した見出しも見つける")
+    func findsHeadingWrappedAfterShortLine() {
+        let headings = [DocumentHeading(level: 1, text: "導入方法について")]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["導入方法\nについて\n本文"]) == [0])
+    }
+
     @Test("コメントの中の見出しは読まない")
     func skipsComments() {
         #expect(DocumentOutline.headings(inHTML: "<!-- <h1>隠す</h1> --><h1>本文</h1>").map(\.text) == ["本文"])

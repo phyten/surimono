@@ -143,12 +143,31 @@ public enum DocumentOutline {
             }
         }
 
+        /// The text's own table of contents repeats the headings line after line, wherever it stands; a heading
+        /// with text under it never does, so the first unbroken run of the entries is the table.
         mutating func exclude(_ entries: [String]) {
-            var position = 0
-            for entry in entries where !entry.isEmpty {
-                guard let line = Self.first(in: whole[entry] ?? [], atLeast: position) else { continue }
-                excluded.insert(line)
-                position = line + 1
+            let entries = entries.filter { !$0.isEmpty }
+            guard let first = entries.first else { return }
+            for start in whole[first] ?? [] {
+                var line = start
+                var covered: [Int] = []
+                for entry in entries {
+                    guard line < lines.count else { break }
+                    if lines[line].forms.contains(entry) {
+                        covered.append(line)
+                        line += 1
+                    } else if let end = endOfWrappedHeading(entry, from: line) {
+                        covered += Array(line..<end)
+                        line = end
+                    } else {
+                        covered = []
+                        break
+                    }
+                }
+                if !covered.isEmpty, covered.count >= entries.count {
+                    excluded.formUnion(covered)
+                    return
+                }
             }
         }
 
@@ -165,7 +184,7 @@ public enum DocumentOutline {
             var position = Self.firstPosition(in: candidates, atLeast: cursor)
             while position < candidates.count, candidates[position] < best?.start ?? .max {
                 let start = candidates[position]
-                if let end = endOfWrappedHeading(target, from: start) {
+                if !excluded.contains(start), let end = endOfWrappedHeading(target, from: start) {
                     best = (lines[start].page, end, start)
                     break
                 }
@@ -264,8 +283,11 @@ public enum DocumentOutline {
         return first.contains(target) || target.hasPrefix(first)
     }
 
-    public static func entries(of headings: [DocumentHeading], inPageTexts pages: [String]) -> [OutlineEntry] {
-        zip(headings, self.pages(of: headings, inPageTexts: pages)).map { heading, page in
+    public static func entries(
+        of headings: [DocumentHeading], inPageTexts pages: [String], contentsEntries: [String] = []
+    ) -> [OutlineEntry] {
+        zip(headings, self.pages(of: headings, inPageTexts: pages, contentsEntries: contentsEntries)).map {
+            heading, page in
             OutlineEntry(level: heading.level, title: heading.text, pageIndex: page)
         }
     }
