@@ -1229,6 +1229,7 @@ final class DocumentViewModel {
         case .drawer:
             // The drawer takes its width from the paper, which a narrow window does not have to spare.
             if (window?.frame.width ?? .infinity) < Self.outlineDrawerMinimumWindowWidth {
+                isOutlineDrawerOpen = false
                 isOutlinePresented.toggle()
             } else {
                 isOutlineDrawerOpen.toggle()
@@ -1315,7 +1316,8 @@ final class DocumentViewModel {
             }
             let headings = read.headings
             let pages = texts
-            let contents = read.contents
+            // A table the finish hides is not on the pages, and its lines would be taken from the real headings.
+            let contents = !finishAppliesToText || printFinish.toc.showsSourceContents ? read.contents : []
             let entries = await Task.detached(priority: .utility) {
                 DocumentOutline.entries(of: headings, inPageTexts: pages, contentsEntries: contents)
             }.value

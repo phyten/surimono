@@ -87,6 +87,9 @@ public struct PaperTOC: Codable, Hashable, Sendable {
     /// With `front`, the text's own `[TOC]` stays where it stands as well.
     public var keepsSourceTOC = false
 
+    /// Whether the text's own `[TOC]` stays on the pages.
+    public var showsSourceContents: Bool { mode == .source || (mode == .front && keepsSourceTOC) }
+
     public init() {}
 
     private enum CodingKeys: String, CodingKey { case mode, depth, look, keepsSourceTOC }
@@ -150,7 +153,7 @@ public struct PrintFinish: Codable, Hashable, Sendable {
             // A table that fits on a page already moves as a whole (common.css); a longer one breaks between its rows.
             rules.append("table, tr { break-inside: avoid; page-break-inside: avoid; }")
         }
-        if toc.mode == .hidden || (toc.mode == .front && !toc.keepsSourceTOC) {
+        if !toc.showsSourceContents {
             rules.append("nav.toc { display: none !important; }")
         }
         return rules.joined(separator: "\n")

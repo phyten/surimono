@@ -744,7 +744,8 @@ public final class DocumentRenderer {
             guard let html = structureHTML(of: source) else { return [] }
             let headings = DocumentOutline.headings(inHTML: html)
             let texts = (0..<document.pageCount).map { document.page(at: $0)?.string ?? "" }
-            let pages = DocumentOutline.pages(of: headings, inPageTexts: texts)
+            let pages = DocumentOutline.pages(
+                of: headings, inPageTexts: texts, contentsEntries: DocumentOutline.sourceContentsEntries(inHTML: html))
             return DocumentOutline.chapterEnds(of: headings, pages: pages, inPageTexts: texts)
         default: return []
         }
@@ -1108,7 +1109,7 @@ public final class DocumentRenderer {
         var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
         var contents: PDFDocument?
         if usesRightPages || wantsContents || notes != nil {
-            let showsSourceContents = finish.toc.mode == .source || finish.toc.keepsSourceTOC
+            let showsSourceContents = finish.toc.showsSourceContents
             let pageTexts = (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" }
             let headingPages = DocumentOutline.pages(
                 of: facts.headings, inPageTexts: pageTexts,
