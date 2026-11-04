@@ -9,39 +9,28 @@ enum LongTokenMarks {
     static let opening = "<span class=\"long-token\">"
     private static let minimumLength = 20
     private static let separators = Set("/\\._-:=?&@#".unicodeScalars)
-    private static let skippedElements: Set<String> = ["pre", "script", "style", "svg", "math", "textarea", "title"]
+    private static let skippedElements: Set<String> = ["pre", "svg", "math"]
 
     static func marked(_ html: String) -> String {
         var output = ""
-        output.reserveCapacity(html.count)
-        var skipped: String?
-        var rest = html[...]
-        while !rest.isEmpty {
-            guard let tagStart = rest.firstIndex(of: "<") else {
-                output += skipped == nil ? markedText(rest) : String(rest)
-                break
-            }
-            let text = rest[..<tagStart]
-            output += skipped == nil ? markedText(text) : String(text)
-            guard let tagEnd = rest[tagStart...].firstIndex(of: ">") else {
-                output += rest[tagStart...]
-                break
-            }
-            let tag = rest[tagStart...tagEnd]
-            output += tag
-            rest = rest[rest.index(after: tagEnd)...]
-            let name = elementName(of: tag)
-            if let current = skipped {
-                if tag.hasPrefix("</"), name == current { skipped = nil }
-            } else if skippedElements.contains(name), !tag.hasPrefix("</"), !tag.hasSuffix("/>") {
-                skipped = name
+        output.reserveCapacity(html.utf8.count)
+        var skipped: (name: String, depth: Int)?
+        for token in HTMLScanner.tokens(html) {
+            switch token {
+            case .opaque(let source): output += source
+            case .text(let text): output += skipped == nil ? markedText(text[...]) : text
+            case .tag(let tag):
+                output += tag.source
+                if let current = skipped {
+                    guard tag.name == current.name, !tag.isSelfClosing else { continue }
+                    let depth = current.depth + (tag.isClosing ? -1 : 1)
+                    skipped = depth == 0 ? nil : (current.name, depth)
+                } else if skippedElements.contains(tag.name), !tag.isClosing, !tag.isSelfClosing {
+                    skipped = (tag.name, 1)
+                }
             }
         }
         return output
-    }
-
-    private static func elementName(of tag: Substring) -> String {
-        tag.dropFirst().drop { $0 == "/" }.prefix { $0.isLetter || $0.isNumber }.lowercased()
     }
 
     private static func markedText(_ text: Substring) -> String {

@@ -25,6 +25,32 @@ struct LongTokenMarksTests {
         #expect(LongTokenMarks.marked(html) == html)
     }
 
+    @Test("属性の中の > の後の長いパスは変えない")
+    func leavesQuotedGreaterThan() {
+        let html = "<a title=\"x > \(path)\" href=\"ok\">本文</a>"
+        #expect(LongTokenMarks.marked(html) == html)
+    }
+
+    @Test("コメントの中の開きタグで印を止めない")
+    func readsPastComments() {
+        #expect(LongTokenMarks.marked("<!-- > <pre> --><p>\(path)</p>").contains("long-token"))
+    }
+
+    @Test("スクリプトの中の < の後も閉じタグで元に戻る")
+    func resumesAfterScript() {
+        let marked = LongTokenMarks.marked("<script>if (a < b) x = 1;</script><p>\(path)</p>")
+        #expect(marked.hasPrefix("<script>if (a < b) x = 1;</script>"))
+        #expect(marked.contains("long-token"))
+    }
+
+    @Test("入れ子のコードブロック要素の後で元に戻る")
+    func tracksNesting() {
+        #expect(
+            LongTokenMarks.marked("<svg><svg>\(path)</svg>\(path)</svg><p>\(path)</p>").components(
+                separatedBy: "long-token"
+            ).count == 2)
+    }
+
     @Test("リンクの文字とインラインのコードには印を付ける")
     func marksInlineElements() {
         #expect(LongTokenMarks.marked("<code>\(path)</code>").contains("long-token"))
