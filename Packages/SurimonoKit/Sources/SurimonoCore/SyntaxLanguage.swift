@@ -32,6 +32,13 @@ struct SyntaxLanguage: Sendable {
         return result
     }()
 
+    /// The names that are not just the id capitalized.
+    static let displayNames = [
+        "javascript": "JavaScript", "typescript": "TypeScript", "cpp": "C++", "csharp": "C#",
+        "objectivec": "Objective-C", "php": "PHP", "json": "JSON", "yaml": "YAML", "toml": "TOML", "ini": "INI",
+        "html": "HTML", "xml": "XML", "css": "CSS", "sql": "SQL", "diff": "diff",
+    ]
+
     static func definition(_ id: String) -> Self {
         var language = Self(id: id)
         func words(_ text: String) -> Set<String> { Set(text.split(separator: " ").map(String.init)) }

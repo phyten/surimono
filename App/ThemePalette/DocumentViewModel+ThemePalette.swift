@@ -6,15 +6,21 @@ extension DocumentViewModel {
     /// The pages the paper shows: a theme being tried, a trial just chosen, or the document's own pages.
     var paperDocument: PDFDocument? {
         if themeTrial.themeID != nil, let document = themeTrial.document { return document }
-        if let chosenTrial, chosenTrial.themeID == themeID { return chosenTrial.document }
+        if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.document }
         return result?.viewDocument
     }
 
     var paperChangeMarks: [ChangeMark] {
         guard mode == .view else { return [] }
         if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.changeMarks }
-        if let chosenTrial, chosenTrial.themeID == themeID { return chosenTrial.changeMarks }
+        if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.changeMarks }
         return result?.changeMarks ?? []
+    }
+
+    private func isCurrentLook(
+        _ trial: (themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark])
+    ) -> Bool {
+        trial.themeID == themeID && trial.codePaletteID == codePaletteID
     }
 
     /// The paper shows pages of a trial rather than the document's own.
@@ -33,11 +39,37 @@ extension DocumentViewModel {
 
     var canTryThemesOnHover: Bool { (lastLayoutDuration ?? .zero) < hoverTrialLimit }
 
-    /// The name of the theme being tried, while the pointer rests on one.
+    /// The name of the theme or code palette being tried, while the pointer rests on one.
     var trialThemeName: String? {
         themeTrial.themeID.map { id in
-            library.themes.first { $0.id == id }?.displayName(language: language) ?? id
+            if id.hasPrefix(Self.codeTrialPrefix) {
+                return codePaletteName(String(id.dropFirst(Self.codeTrialPrefix.count)))
+            }
+            return library.themes.first { $0.id == id }?.displayName(language: language) ?? id
         }
+    }
+
+    private static let codeTrialPrefix = "code:"
+
+    /// What a trial of a code palette goes by, apart from the theme ids.
+    static func codeTrialID(_ id: String) -> String { codeTrialPrefix + id }
+
+    func codePaletteName(_ id: String) -> String {
+        library.codePalette(id)?.displayName(language: language) ?? String(localized: "Match Style")
+    }
+
+    /// Shows the code in `id` on the paper until the pointer moves on; the current palette ends the trial.
+    func tryCodePalette(_ id: String) {
+        guard mode == .view, canTryThemesOnHover, id != codePaletteID, let source = themedSource,
+            var settings = renderSettings
+        else {
+            themeTrial.end()
+            return
+        }
+        settings.code.palette = library.codePalette(id)
+        themeTrial.begin(
+            id: Self.codeTrialID(id), source: source, settings: settings,
+            isBusy: { [weak self] in self?.isRendering ?? false })
     }
 
     func theme(_ id: String) -> PrintTheme? { library.themes.first { $0.id == id } }
@@ -63,6 +95,8 @@ extension DocumentViewModel {
     /// Opens the palette from the band's style button or from "…" when the band has folded the style into it.
     func openThemePalette() {
         guard usesPrintTheme, mode == .view else { return }
+        // Before it opens, so that it opens at its size with or without the code colors.
+        followThemeSamples()
         isThemePalettePresented = true
     }
 

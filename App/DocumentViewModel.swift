@@ -44,6 +44,10 @@ final class DocumentViewModel {
     private var shownPaperSeries: PaperSeries?
     /// Set directly only when restoring or falling back; a theme the user picks goes through `selectTheme(_:)`.
     var themeID: String
+    /// An axis of its own: choosing another style leaves it as it is. A palette the user picks goes through
+    /// `selectCodePalette(_:)`.
+    var codePaletteID: String
+    var codeBlock = CodeBlockOptions()
     private(set) var textScale: Double
     var presetID: String
     var printOptions: PrintOptions
@@ -83,7 +87,8 @@ final class DocumentViewModel {
     /// The theme the pointer rests on in the palette, laid out on the paper.
     let themeTrial: ThemeTrial
     /// A trial the user then chose: the paper keeps it until the document's own pages in that theme are ready.
-    private(set) var chosenTrial: (themeID: String, document: PDFDocument, changeMarks: [ChangeMark])?
+    private(set) var chosenTrial:
+        (themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark])?
     /// The candidates on the comparison stage, kept while the window lives.
     var themeComparison: ThemeComparison?
     /// How long the last fresh layout of the logical pages took. A long document is not laid out again on hover.
@@ -229,6 +234,7 @@ final class DocumentViewModel {
         self.renderer = renderer
         layoutID = Self.defaultLayoutID(preferences)
         themeID = Self.defaultThemeID(preferences, library)
+        codePaletteID = Self.defaultCodePaletteID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
         printFinish = preferences.printFinish
@@ -281,12 +287,27 @@ final class DocumentViewModel {
     func selectTheme(_ id: String) {
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
-            chosenTrial = (id, document, themeTrial.changeMarks)
+            chosenTrial = (id, codePaletteID, document, themeTrial.changeMarks)
         }
         themeTrial.end()
         themeComparison?.choose(id)
         themeID = id
         preferences.recordThemeChoice(id)
+    }
+
+    /// The user picked a code palette. The pages of a trial of it stay on the paper as they do for a theme.
+    func selectCodePalette(_ id: String) {
+        if id != codePaletteID, themeTrial.themeID == Self.codeTrialID(id), let document = themeTrial.document {
+            chosenTrial = (themeID, id, document, themeTrial.changeMarks)
+        }
+        themeTrial.end()
+        codePaletteID = id
+        if library.codePalette(id)?.group == .inkHeavy {
+            showToast(
+                Toast(
+                    systemImage: "drop.fill", title: String(localized: "Dark code blocks use a lot of ink"),
+                    detail: String(localized: "About seven times the ink of code on white paper.")))
+        }
     }
 
     var isFavoriteTheme: Bool { preferences.favoriteThemeIDs.contains(themeID) }
@@ -326,6 +347,11 @@ final class DocumentViewModel {
         if finishAppliesToText { settings.finish = printFinish }
         settings.documentName = displayName
         settings.pageLanguage = language
+        if usesPrintTheme {
+            settings.code = CodeStyle(
+                palette: library.codePalette(codePaletteID), block: codeBlock,
+                cutFormat: String(localized: "+%d characters"))
+        }
         return settings
     }
     /// Paper and printing show the copy of the live page, unless there is none or the tray asks for the file.
@@ -686,6 +712,7 @@ final class DocumentViewModel {
 
     func reloadLibrary() {
         if !library.themes.contains(where: { $0.id == themeID }) { themeID = "standard" }
+        codePaletteID = Self.knownCodePaletteID(codePaletteID, library) ?? CodePalette.matchesStyleID
         if !library.presets.contains(where: { $0.id == presetID }) { presetID = "none" }
         reload(reloadsWeb: false)
     }
@@ -1285,7 +1312,9 @@ final class DocumentViewModel {
             ignoresSlides: usesHTMLPresentation && ignoresSlides ? true : nil,
             binderOrder: binder.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
             binderStartsOnFront: binder != nil ? binderStartsOnFront : nil,
-            printFinish: finishAppliesToText ? printFinish : nil)
+            printFinish: finishAppliesToText ? printFinish : nil,
+            codePaletteID: usesPrintTheme ? codePaletteID : nil,
+            codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil)
     }
 
     func savePrintSettingSet(named name: String) {
@@ -1348,7 +1377,8 @@ final class DocumentViewModel {
             printOptions: preferences.printOptions, paperOrientation: defaultPaperOrientation,
             htmlPresentation: usesHTMLPresentation ? .web : nil,
             binderStartsOnFront: binder != nil ? false : nil,
-            printFinish: finishAppliesToText ? preferences.printFinish : nil)
+            printFinish: finishAppliesToText ? preferences.printFinish : nil,
+            codePaletteID: usesPrintTheme ? Self.defaultCodePaletteID(preferences, library) : nil)
     }
 
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
@@ -1358,6 +1388,14 @@ final class DocumentViewModel {
 
     private static func defaultThemeID(_ preferences: AppPreferences, _ library: UserLibrary) -> String {
         library.themes.contains(where: { $0.id == preferences.themeID }) ? preferences.themeID : "standard"
+    }
+
+    private static func defaultCodePaletteID(_ preferences: AppPreferences, _ library: UserLibrary) -> String {
+        knownCodePaletteID(preferences.defaultCodePaletteID, library) ?? CodePalette.matchesStyleID
+    }
+
+    private static func knownCodePaletteID(_ id: String, _ library: UserLibrary) -> String? {
+        id == CodePalette.matchesStyleID || library.codePalette(id) != nil ? id : nil
     }
 
     private static func defaultPresetID(_ preferences: AppPreferences, _ library: UserLibrary) -> String {
@@ -1408,6 +1446,8 @@ final class DocumentViewModel {
         if let orientation = saved.paperOrientation { paperOrientation = orientation }
         if let id = saved.layoutID, PrintLayout.presets.contains(where: { $0.id == id }) { layoutID = id }
         if let id = saved.themeID, library.themes.contains(where: { $0.id == id }) { themeID = id }
+        if let id = saved.codePaletteID.flatMap({ Self.knownCodePaletteID($0, library) }) { codePaletteID = id }
+        if let block = saved.codeBlock { codeBlock = block }
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if let options = saved.printOptions { printOptions = options }
         if let finish = saved.printFinish, finishAppliesToText { printFinish = finish }
@@ -1476,6 +1516,8 @@ final class DocumentViewModel {
         paperOrientation = defaultPaperOrientation
         layoutID = Self.defaultLayoutID(preferences)
         themeID = Self.defaultThemeID(preferences, library)
+        codePaletteID = Self.defaultCodePaletteID(preferences, library)
+        codeBlock = CodeBlockOptions()
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
         printFinish = preferences.printFinish

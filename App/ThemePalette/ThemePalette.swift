@@ -6,13 +6,35 @@ import SwiftUI
 struct ThemePalette: View {
     @Bindable var model: DocumentViewModel
     @State private var query = ""
+    /// The reader's choice to show or hide the code colors; until then a document with code shows them.
+    @State private var showsCodeColumn: Bool?
 
     static let columns = 5
+    /// Beside the code colors the samples give up two columns, so that the palette still fits next to the window: a
+    /// palette too wide for that lands on the paper it tries things on.
+    static let columnsBesideCode = 3
     static let cellWidth: CGFloat = 104
     static let width: CGFloat = 628
+    static let widthBesideCode: CGFloat = 400
     static let height: CGFloat = 660
 
+    private var isCodeColumnShown: Bool { showsCodeColumn ?? model.themeSamples.containsCode }
+
     var body: some View {
+        HStack(spacing: 0) {
+            styles
+            if isCodeColumnShown {
+                Divider()
+                CodePaletteColumn(model: model)
+            }
+        }
+        .frame(height: Self.height)
+        .onAppear { model.followThemeSamples() }
+        .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
+        .onDisappear { model.themePaletteDidClose() }
+    }
+
+    private var styles: some View {
         VStack(spacing: 0) {
             header
                 .padding(.horizontal, 16)
@@ -32,10 +54,7 @@ struct ThemePalette: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
         }
-        .frame(width: Self.width, height: Self.height)
-        .onAppear { model.followThemeSamples() }
-        .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
-        .onDisappear { model.themePaletteDidClose() }
+        .frame(width: isCodeColumnShown ? Self.widthBesideCode : Self.width)
     }
 
     private var header: some View {
@@ -108,7 +127,8 @@ struct ThemePalette: View {
             } else {
                 LazyVGrid(
                     columns: Array(
-                        repeating: GridItem(.fixed(Self.cellWidth), spacing: 10, alignment: .top), count: Self.columns),
+                        repeating: GridItem(.fixed(Self.cellWidth), spacing: 10, alignment: .top),
+                        count: isCodeColumnShown ? Self.columnsBesideCode : Self.columns),
                     alignment: .leading, spacing: 12
                 ) {
                     ForEach(themes) { theme in
@@ -127,8 +147,16 @@ struct ThemePalette: View {
                 Label("Compare…", systemImage: "square.grid.2x2")
             }
             .help("Lay a few styles side by side")
+            Toggle(isOn: Binding(get: { isCodeColumnShown }, set: { showsCodeColumn = $0 })) {
+                Label("Code Colors", systemImage: "curlybraces")
+                    .labelStyle(CodeColorsToggleLabelStyle(showsTitle: !isCodeColumnShown))
+            }
+            .toggleStyle(.button)
+            .help("Code Colors")
             Spacer(minLength: 8)
-            Text("Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary)
+            if !isCodeColumnShown {
+                Text("Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary)
+            }
             ControlGroup {
                 Button {
                     model.decreaseTextSize()
@@ -161,6 +189,18 @@ struct ThemePalette: View {
         case .favorites: String(localized: "Favorites")
         case .featured: String(localized: "Suggested")
         case .user: String(localized: "My Styles")
+        }
+    }
+}
+
+/// The open column says its own name, so the narrower footer beside it keeps only the icon.
+private struct CodeColorsToggleLabelStyle: LabelStyle {
+    let showsTitle: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon
+            if showsTitle { configuration.title }
         }
     }
 }

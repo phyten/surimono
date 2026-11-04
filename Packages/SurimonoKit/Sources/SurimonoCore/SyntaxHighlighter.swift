@@ -16,6 +16,14 @@ public enum SyntaxHighlighter {
         let name = infoString.prefix { !$0.isWhitespace && $0 != "{" && $0 != "," }.lowercased()
         return SyntaxLanguage.aliases[name]
     }
+
+    /// The language as a label shows it; an unknown one keeps the name the document gave it.
+    public static func displayName(for infoString: String) -> String {
+        guard let id = canonicalLanguage(for: infoString) else {
+            return String(infoString.prefix { !$0.isWhitespace && $0 != "{" && $0 != "," })
+        }
+        return SyntaxLanguage.displayNames[id] ?? id.prefix(1).uppercased() + id.dropFirst()
+    }
 }
 
 private struct SyntaxScanner: Sendable {

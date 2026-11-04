@@ -10,7 +10,8 @@ import SurimonoRendering
 /// across the palette does not lay out every theme on the way, and a newer request cancels an older one.
 @Observable
 final class ThemeTrial {
-    /// The theme being tried, from the moment the pointer rests on it.
+    /// What is being tried, from the moment the pointer rests on it: a theme's id, or a code palette's
+    /// (`DocumentViewModel.codeTrialID(_:)`).
     private(set) var themeID: String?
     /// Its logical pages, once laid out.
     private(set) var document: PDFDocument?
@@ -28,11 +29,13 @@ final class ThemeTrial {
         self.renderer = renderer
     }
 
-    /// Tries `settings`, whose theme is the one to try.
-    /// - Parameter isBusy: Whether the document is being laid out for real; a trial waits for that to finish rather
-    ///   than run two layouts at once.
-    func begin(source: DocumentSource, settings: RenderSettings, isBusy: @escaping () -> Bool) {
-        let id = settings.theme.id
+    /// Tries `settings`, which hold the theme or the code palette to try.
+    /// - Parameters:
+    ///   - id: What is being tried; the theme of `settings` unless given.
+    ///   - isBusy: Whether the document is being laid out for real; a trial waits for that to finish rather than run
+    ///     two layouts at once.
+    func begin(id: String? = nil, source: DocumentSource, settings: RenderSettings, isBusy: @escaping () -> Bool) {
+        let id = id ?? settings.theme.id
         // The same theme again, loaded or still on its way, needs nothing more.
         guard themeID != id else { return }
         task?.cancel()
