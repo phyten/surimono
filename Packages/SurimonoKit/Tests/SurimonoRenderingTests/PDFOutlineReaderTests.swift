@@ -4,6 +4,7 @@ import SurimonoCore
 import SurimonoRendering
 import Testing
 
+@MainActor
 @Suite("PDF のしおり")
 struct PDFOutlineReaderTests {
     private func document(pages: Int) throws -> PDFDocument {

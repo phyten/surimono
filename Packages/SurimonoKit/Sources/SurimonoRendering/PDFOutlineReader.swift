@@ -2,6 +2,7 @@ import PDFKit
 import SurimonoCore
 
 /// A PDF's own bookmarks as a table of contents.
+@MainActor
 public enum PDFOutlineReader {
     public static func entries(of document: PDFDocument) -> [OutlineEntry] {
         guard let root = document.outlineRoot else { return [] }

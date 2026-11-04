@@ -232,7 +232,7 @@ final class DocumentViewModel {
     private(set) var documentStatistics: DocumentStatistics?
     @ObservationIgnored private var structureTask: Task<Void, Never>?
     @ObservationIgnored private var readStructure:
-        (source: DocumentSource, headings: [DocumentHeading], statistics: DocumentStatistics)?
+        (source: DocumentSource, headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String])?
     @ObservationIgnored private var structureDocument: PDFDocument?
     @ObservationIgnored private var textSizeKeyMonitor: Any?
     private var printCompletion: PrintCompletion?
@@ -1209,10 +1209,18 @@ final class DocumentViewModel {
     }
     var isOutlineShown: Bool { isOutlinePresented || showsOutlineDrawer }
 
+    private static let outlineDrawerMinimumWindowWidth: CGFloat = 560
+
     func toggleOutline() {
         switch preferences.outlinePresentation {
         case .popover: isOutlinePresented.toggle()
-        case .drawer: isOutlineDrawerOpen.toggle()
+        case .drawer:
+            // The drawer takes its width from the paper, which a narrow window does not have to spare.
+            if (window?.frame.width ?? .infinity) < Self.outlineDrawerMinimumWindowWidth {
+                isOutlinePresented.toggle()
+            } else {
+                isOutlineDrawerOpen.toggle()
+            }
         }
     }
 
@@ -1254,18 +1262,21 @@ final class DocumentViewModel {
         structureTask = Task { [weak self] in
             guard let self else { return }
             let known = readStructure?.source == source ? readStructure : nil
-            let read: (headings: [DocumentHeading], statistics: DocumentStatistics)?
+            let read: (headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String])?
             if let known {
-                read = (known.headings, known.statistics)
+                read = (known.headings, known.statistics, known.contents)
             } else {
                 read = await Task.detached(priority: .utility) {
                     DocumentRenderer.structureHTML(of: source).map {
-                        (DocumentOutline.headings(inHTML: $0), DocumentStatistics(html: $0))
+                        (
+                            DocumentOutline.headings(inHTML: $0), DocumentStatistics(html: $0),
+                            DocumentOutline.sourceContentsEntries(inHTML: $0)
+                        )
                     }
                 }.value
             }
             guard !Task.isCancelled, let read else { return }
-            readStructure = (source, read.headings, read.statistics)
+            readStructure = (source, read.headings, read.statistics, read.contents)
             documentStatistics = read.statistics
             var texts: [String] = []
             for index in 0..<(read.headings.isEmpty ? 0 : document.pageCount) {
@@ -1275,8 +1286,9 @@ final class DocumentViewModel {
             }
             let headings = read.headings
             let pages = texts
+            let contents = read.contents
             let entries = await Task.detached(priority: .utility) {
-                DocumentOutline.entries(of: headings, inPageTexts: pages)
+                DocumentOutline.entries(of: headings, inPageTexts: pages, contentsEntries: contents)
             }.value
             guard !Task.isCancelled else { return }
             outlineEntries = entries
