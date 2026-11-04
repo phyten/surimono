@@ -208,6 +208,15 @@ struct ChapterEndTests {
         #expect(DocumentOutline.chapterEnds(of: entries) == [2, 4])
     }
 
+    @Test("途中までしか一致しない折り返しは、文書の目次として除外しない")
+    func partialContents() {
+        let long = "とても長い見出しが二行に折り返されている"
+        let page = "とても長い見出しが\n二行に折り返されている\n本文の続き"
+        #expect(
+            DocumentOutline.pages(
+                of: [heading(1, long)], inPageTexts: [page], contentsEntries: [long, "ほかの項目"]) == [0])
+    }
+
     @Test("見出しがなければ章の終わりもない")
     func noHeadings() {
         #expect(DocumentOutline.chapterEnds(of: [], pages: [], inPageTexts: ["本文"]).isEmpty)

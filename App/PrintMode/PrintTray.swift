@@ -41,13 +41,16 @@ struct PrintTray: Equatable {
     let sheets: [Sheet]
     /// 2-up sheets sit two to a row; built once, since the tray reads it on every update.
     let rows: [Row]
+    /// The page numbers that are note pages.
+    let notePages: Set<Int>
 
     /// - Parameter blankPages: Logical pages added as blanks, which the tray names as blanks too.
     init(
         plan: ImpositionPlan, layout: PrintLayout, rotatesBackSides: Bool, sheetOrientations: [PaperOrientation] = [],
-        blankPages: Set<Int> = []
+        blankPages: Set<Int> = [], notePages: [Int] = []
     ) {
         self.layout = layout
+        self.notePages = Set(notePages.map { $0 + 1 })
         let sides = plan.sides.enumerated().map { index, side in
             Side(
                 face: plan.isDuplex ? (side.isBack ? .back : .front) : .single, documentIndex: index,
@@ -279,14 +282,18 @@ enum PrintModeText {
         switch layout.kind {
         case .handout3: return string("3 Pages + Notes Column", language: language)
         case .booklet: return format("%@ Booklet", language: language, (layout.sheet.halved ?? layout.sheet).shortName)
-        case .twoUp: return string("2 Pages Side by Side", language: language)
+        case .twoUp: return string("2 Pages on One Sheet", language: language)
         case .normal: return format(layout.duplex == .none ? "%@ Single" : "%@ Duplex", language: language, paper)
         }
     }
 
     /// The paper of a card whose title names something else.
     static func cardPaper(_ layout: PrintLayout, language: String) -> String? {
-        layout.kind == .normal ? nil : format("Prints on %@", language: language, layout.sheet.shortName)
+        switch layout.kind {
+        case .normal: nil
+        case .booklet: format("Paper: %@, Two-Sided", language: language, layout.sheet.shortName)
+        case .twoUp, .handout3: format("Paper: %@", language: language, layout.sheet.shortName)
+        }
     }
 
     /// The printer's rotation is not on the sheets' choices, so it is told under the summary.
@@ -295,15 +302,26 @@ enum PrintModeText {
             ? string("Back sides rotated 180°", language: language) : nil
     }
 
-    /// What the finish added to the pages of a text, or nil.
-    static func additions(contents: Int, blanks: Int, language: String) -> String? {
-        switch (contents > 0, blanks > 0) {
-        case (false, false): nil
-        case (true, false): format("Added: contents %lld", language: language, contents)
-        case (false, true): format("Added: blank pages %lld", language: language, blanks)
-        case (true, true):
-            format("Added: contents %1$lld, blank pages %2$lld", language: language, contents, blanks)
-        }
+    /// The finished piece: how many pages it has and, when they are not all the document's, what they are.
+    static func finished(
+        pages: Int, body: Int, contents: Int, notes: Int, blanks: Int, language: String
+    ) -> String {
+        let parts = [
+            contents + notes + blanks > 0 ? format("Body %lld", language: language, body) : nil,
+            contents > 0 ? format("Contents %lld", language: language, contents) : nil,
+            notes > 0 ? format("Notes %lld", language: language, notes) : nil,
+            blanks > 0 ? format("Blank %lld", language: language, blanks) : nil,
+        ].compactMap { $0 }
+        guard let first = parts.first else { return format("Finished: %lld pages", language: language, pages) }
+        let detail = parts.dropFirst().reduce(first) { format("%1$@, %2$@", language: language, $0, $1) }
+        return format("Finished: %1$lld pages / %2$@", language: language, pages, detail)
+    }
+
+    /// The paper the finished piece takes.
+    static func paper(_ name: String, sheets: Int, duplex: DuplexMode, language: String) -> String {
+        format(
+            "Paper: %1$@, %2$lld sheets (%3$@)", language: language, name, sheets,
+            string(duplex == .none ? "One-Sided" : "Two-Sided", language: language))
     }
 
     static func pageCount(_ count: Int, language: String) -> String {

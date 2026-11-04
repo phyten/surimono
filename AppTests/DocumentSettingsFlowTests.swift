@@ -534,7 +534,7 @@ struct DocumentSettingsFlowTests {
         try await open(model)
         model.setLayout(.single)
         model.layoutID = PrintLayout.a4BookletA5.id
-        model.printOptions.showsPageNumbers = true
+        model.printOptions.furniture = .pageNumber
         model.rememberedSettingsDidChange()
         try await waitUntil { model.hasSavedSettings }
         model.resetDocumentSettings()
@@ -768,7 +768,7 @@ struct DocumentSettingsFlowTests {
         try await open(model)
         model.enterPrintMode()
         #expect(window.contentRect(forFrameRect: window.frame).size != NSSize(width: 600, height: 848))
-        model.printOptions.showsPageNumbers = true
+        model.printOptions.furniture = .pageNumber
         model.rememberedSettingsDidChange()
         model.stop()
         let saved = try #require(environment.store.record(for: ContentHash.of(data).hex))

@@ -82,17 +82,18 @@ final class AppPreferences {
             }
         }
     }
-    var pageNumbers: Bool {
+    /// The header and footer new documents start with.
+    var defaultFurniture: PageFurniture {
         didSet {
-            defaults.set(pageNumbers, forKey: "pageNumbers")
-            if finishDefaults?.options.showsPageNumbers != pageNumbers {
-                finishDefaults?.options.showsPageNumbers = pageNumbers
+            if let data = try? JSONEncoder().encode(defaultFurniture) { defaults.set(data, forKey: "defaultFurniture") }
+            if finishDefaults?.options.furniture != defaultFurniture {
+                finishDefaults?.options.furniture = defaultFurniture
             }
         }
     }
     /// The last series of paper chosen on a tray.
     var paperSeries: PaperSeries? { didSet { defaults.set(paperSeries?.rawValue, forKey: "paperSeries") } }
-    /// What the reader made the default from the tray; the margin and page number above stay for Settings.
+    /// What the reader made the default from the tray; the margin and header above stay for Settings.
     private var finishDefaults: FinishDefaults? {
         didSet {
             if let data = try? JSONEncoder().encode(finishDefaults) {
@@ -194,11 +195,18 @@ final class AppPreferences {
         defaultCodePaletteID = defaults.string(forKey: "codePalette") ?? CodePalette.matchesStyleID
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
-        pageNumbers = defaults.bool(forKey: "pageNumbers")
         paperSeries = PaperSeries(rawValue: defaults.string(forKey: "paperSeries") ?? "")
-        finishDefaults = defaults.data(forKey: "printFinishDefaults").flatMap {
+        let storedFinish = defaults.data(forKey: "printFinishDefaults").flatMap {
             try? JSONDecoder().decode(FinishDefaults.self, from: $0)
         }
+        // Earlier versions kept a switch for the page number beside the defaults made from the tray.
+        defaultFurniture =
+            defaults.data(forKey: "defaultFurniture").flatMap {
+                try? JSONDecoder().decode(PageFurniture.self, from: $0)
+            }
+            ?? storedFinish?.options.furniture
+            ?? (defaults.bool(forKey: "pageNumbers") ? .pageNumber : PageFurniture())
+        finishDefaults = storedFinish
         viewPageNumbers = defaults.bool(forKey: "viewPageNumbers")
         rotateBack = defaults.bool(forKey: "rotateBack")
         allowsJavaScript = defaults.object(forKey: "allowsJavaScript") as? Bool ?? true
@@ -336,7 +344,9 @@ final class AppPreferences {
     }
 
     var printOptions: PrintOptions {
-        finishDefaults?.options ?? PrintOptions(marginsInMillimeters: margin, showsPageNumbers: pageNumbers)
+        var options = finishDefaults?.options ?? PrintOptions(marginsInMillimeters: margin)
+        options.furniture = defaultFurniture
+        return options
     }
 
     var printFinish: PrintFinish { finishDefaults?.finish ?? PrintFinish() }
@@ -347,6 +357,6 @@ final class AppPreferences {
         options.rotatesBackSides = false
         finishDefaults = FinishDefaults(options: options, finish: finish)
         if let margin = options.margins.uniformValue { self.margin = margin }
-        pageNumbers = options.showsPageNumbers
+        defaultFurniture = options.furniture
     }
 }

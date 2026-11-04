@@ -14,7 +14,8 @@ final class StreamingPreviewWindows {
     private(set) var controller: MemoryDocumentWindowController?
     private var board: NSPasteboard?
     private var timer: Timer?
-    private var seenChangeCount = 0
+    /// The pasteboard's state last taken in, which is none until it has given text.
+    private var seenChangeCount: Int?
     private var isWaiting = false
     private let closeWelcome: () -> Void
 
@@ -37,12 +38,15 @@ final class StreamingPreviewWindows {
 
     private func makeController(_ board: NSPasteboard) -> MemoryDocumentWindowController {
         self.board = board
-        seenChangeCount = board.changeCount
+        seenChangeCount = nil
         var data = Data()
         var format = DocumentFormat.markdown
+        // As in `poll()`: a writer that has only cleared the pasteboard so far has its text still to come.
+        let changeCount = board.changeCount
         if case .document(let text, let kind) = ClipboardContent.streaming(text: board.string(forType: .string)) {
             data = text
             format = kind
+            seenChangeCount = changeCount
         }
         // Each state of the feed would otherwise leave a record of its own; settings last as long as the window.
         let model = DocumentViewModel(

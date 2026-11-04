@@ -148,13 +148,19 @@ struct DocumentFiguresPopover: View {
                     } else {
                         figure(
                             String(
-                                format: String(localized: "Estimate: Double-Sided %@, No Added Pages"),
+                                format: String(localized: "For Reference: %@, Double-Sided"),
                                 model.paperSeries.sheetName),
                             String(
                                 format: String(localized: "%lld sheets"),
                                 DocumentStatistics.duplexSheets(pageCount: model.pageCount)))
                     }
                 }
+            }
+            if model.currentTrayFigures == nil {
+                Text("Does not count added contents or note pages.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Divider().padding(.top, 4)
             Button("Check on the Print Screen") { model.checkFiguresOnTray() }

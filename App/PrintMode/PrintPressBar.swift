@@ -53,7 +53,10 @@ struct PrintPressBar: View {
     private func layouts(_ density: Density) -> some View {
         // The switch stands still at the left and the cards start beside it, so that switching moves nothing.
         HStack(alignment: .top, spacing: 6) {
-            PrintSeriesSwitch(model: model)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Paper to Use").font(.system(size: 10.5)).foregroundStyle(PrintPalette.ink2).fixedSize()
+                PrintSeriesSwitch(model: model)
+            }
             PrintFlowLayout(spacing: 3, lineSpacing: 3, alignment: .leading) {
                 let cards = Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated())
                 ForEach(cards, id: \.element.id) { index, layout in
@@ -78,11 +81,16 @@ struct PrintPressBar: View {
                 .controlSize(.small)
                 .fixedSize()
             HStack(spacing: 6) {
-                Text(verbatim: model.summary ?? String(localized: "Preparing pages…"))
-                    .font(.system(size: density == .regular ? 13.5 : 12.5))
-                    .monospacedDigit()
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: outcome?.finished ?? String(localized: "Preparing pages…"))
+                        .font(.system(size: density == .regular ? 13.5 : 12.5, weight: .semibold))
+                    if let paper = outcome?.paper {
+                        Text(verbatim: paper).font(.system(size: density == .regular ? 13.5 : 12.5))
+                    }
+                }
+                .monospacedDigit()
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 if model.isRendering { ProgressView().controlSize(.mini) }
             }
             if model.printIssueCount > 0 {
@@ -153,14 +161,25 @@ struct PrintPressBar: View {
 
     private var note: String? {
         guard model.hasCurrentPrintPreview, let result = model.printResult else { return nil }
-        let note =
-            PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
+        return PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
             ?? PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
-        guard model.finishAppliesToText,
-            let additions = PrintModeText.additions(
-                contents: result.addedContentsPages, blanks: result.blankPages.count, language: model.language)
-        else { return note }
-        return PrintModeText.format("%@ · %@", language: model.language, note, additions)
+    }
+
+    /// What comes out, and what it takes: the pages of the finished piece and the paper for them.
+    private var outcome: (finished: String, paper: String)? {
+        guard let result = model.printResult, model.summary != nil else { return nil }
+        let slots = result.plan.sides.flatMap(\.slots)
+        let blanks = slots.filter { $0 == nil }.count + result.blankPages.count
+        let contents = model.finishAppliesToText ? result.addedContentsPages : 0
+        let notes = result.addedNotePages
+        return (
+            PrintModeText.finished(
+                pages: slots.count, body: slots.count - blanks - contents - notes, contents: contents, notes: notes,
+                blanks: blanks, language: model.language),
+            PrintModeText.paper(
+                result.plan.paper.shortName, sheets: result.plan.sheetCount, duplex: result.layout.duplex,
+                language: model.language)
+        )
     }
 
     /// What the choices add to the sheets beyond the summary; the amount of text belongs to the document's information.
@@ -168,8 +187,7 @@ struct PrintPressBar: View {
         var parts = [
             PrintModeText.options(model.effectivePrintOptions, layout: model.layout, language: model.language)
         ].compactMap { $0 }
-        if model.hasCurrentPrintPreview, let notes = model.printResult?.addedNotePages, notes > 0 {
-            parts.append(PrintModeText.format("Note pages: %lld", language: model.language, notes))
+        if model.hasCurrentPrintPreview, model.printResult?.addedNotePages ?? 0 > 0 {
             if model.coverIsNotePage {
                 parts.append(PrintModeText.string("The cover is a note page too", language: model.language))
             }
@@ -430,7 +448,7 @@ struct PrintPageOrderPicker: View {
         "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order."
 
     var body: some View {
-        Picker("Print Order", selection: $order) {
+        Picker("Output Order", selection: $order) {
             Text("Last Sheet First").tag(PrintPageOrder.lastSheetFirst)
             Text("First Sheet First").tag(PrintPageOrder.firstSheetFirst)
         }

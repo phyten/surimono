@@ -319,10 +319,10 @@ struct PaperViewTests {
         defer { suite.remove() }
         suite.defaults.set(true, forKey: "pageNumbers")
         let preferences = AppPreferences(defaults: suite.defaults)
-        #expect(preferences.pageNumbers)
+        #expect(preferences.defaultFurniture == .pageNumber)
         #expect(!preferences.viewPageNumbers)
         preferences.viewPageNumbers = true
-        preferences.pageNumbers = false
+        preferences.defaultFurniture = PageFurniture()
         let restored = AppPreferences(defaults: suite.defaults)
         #expect(restored.viewPageNumbers)
         #expect(!restored.printOptions.showsPageNumbers)

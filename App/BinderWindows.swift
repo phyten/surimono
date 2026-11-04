@@ -23,14 +23,18 @@ final class BinderWindows {
     func open(_ plan: MarkdownIncludes.Plan) -> DocumentViewModel {
         open(
             (plan.hasPreface ? [plan.parent] : []) + plan.documents,
-            origin: .parent(plan.parent, hasPreface: plan.hasPreface)
+            origin: .parent(plan.parent, hasPreface: plan.hasPreface, documents: plan.documents)
         ) { BinderModel(plan: plan) }
     }
 
     private func open(_ urls: [URL], origin: BinderModel.Origin, binder: () -> BinderModel) -> DocumentViewModel {
-        // A preface reads differently from the same file on its own, so the same URLs can be two different binders.
+        // A preface reads differently from the same file on its own, so the same URLs can be two different binders. A
+        // parent's plan names its binder, in its order: the window may since have been rearranged by hand, and stays
+        // the one to come back to until the parent itself changes.
         let existing = controllers.values.first {
-            $0.model.binder?.origin == origin && Set($0.model.sourceURLs) == Set(urls)
+            guard $0.model.binder?.origin == origin else { return false }
+            if case .parent = origin { return true }
+            return Set($0.model.sourceURLs) == Set(urls)
         }
         if let existing {
             existing.showWindow(nil)

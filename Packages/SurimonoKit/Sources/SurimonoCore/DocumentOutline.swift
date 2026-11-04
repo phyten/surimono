@@ -155,6 +155,7 @@ public enum DocumentOutline {
             for start in Set(starts).sorted() {
                 var line = start
                 var covered: [Int] = []
+                var matched = 0
                 for entry in entries {
                     guard line < lines.count else { break }
                     if lines[line].forms.contains(entry) {
@@ -164,11 +165,12 @@ public enum DocumentOutline {
                         covered += Array(line..<end)
                         line = end
                     } else {
-                        covered = []
                         break
                     }
+                    matched += 1
                 }
-                if !covered.isEmpty, covered.count >= entries.count {
+                // A wrapped entry takes several lines, so only the entries themselves can tell the table is whole.
+                if matched == entries.count {
                     excluded.formUnion(covered)
                     return
                 }

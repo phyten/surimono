@@ -455,4 +455,25 @@ struct CodeFitScriptTests {
         let script = try #require(CodeFitScript.javaScript(for: style, layoutWidth: 600))
         #expect(script.contains(#"const format = "+%d \"字\"";"#))
     }
+
+    @Test("変更の印の id が付いたコードも同じマークアップになり、id は残る")
+    func codeWithSourceMap() {
+        let style = CodeStyle(block: CodeBlockOptions(lineNumbers: .all, languageLabel: .corner))
+        let plain = "<pre><code class=\"language-swift\">let a\nlet b\n</code></pre>\n"
+        let mapped = plain.replacingOccurrences(of: "<pre>", with: "<pre data-surimono-block=\"md-1-0\">")
+        let marked = CodeBlockMarkup.apply(style, to: mapped)
+        #expect(marked.contains("data-surimono-block=\"md-1-0\""))
+        #expect(marked.contains("class=\"code-block"))
+        #expect(
+            marked.replacingOccurrences(of: " data-surimono-block=\"md-1-0\"", with: "")
+                == CodeBlockMarkup.apply(style, to: plain))
+        #expect(CodeBlockMarkup.containsCode(mapped))
+    }
+
+    @Test("ほかの属性のある pre はコードとして扱わない")
+    func otherPreStays() {
+        let html = "<pre class=\"art\">図</pre>"
+        #expect(!CodeBlockMarkup.containsCode(html))
+        #expect(CodeBlockMarkup.apply(CodeStyle(block: CodeBlockOptions(lineNumbers: .all)), to: html) == html)
+    }
 }

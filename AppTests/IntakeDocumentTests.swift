@@ -379,9 +379,32 @@ struct IntakeDocumentTests {
         defer { bound.window?.close() }
         #expect(plain !== bound)
         #expect(plain.binder?.origin == .files)
-        #expect(bound.binder?.origin == .parent(plan.parent, hasPreface: true))
+        #expect(bound.binder?.origin == .parent(plan.parent, hasPreface: true, documents: plan.documents))
         #expect(windows.open(urls) === plain)
         #expect(windows.open(plan) === bound)
+    }
+
+    @Test("親の順が変わると新しい順で開き、同じなら手で並べ替えた窓へ戻る", .timeLimit(.minutes(1)))
+    func parentOrderNamesTheBinder() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let first = try fixture.file("a.md")
+        let second = try fixture.file("b.md")
+        let parent = try fixture.file("index.md", "<<[a.md]\n<<[b.md]\n")
+        let plan = try #require(MarkdownIncludes(markdown: "<<[a.md]\n<<[b.md]\n")).plan(parent: parent)
+        let windows = BinderWindows()
+        windows.preferences = AppPreferences(defaults: fixture.suite.defaults)
+        windows.library = UserLibrary(root: fixture.root.appendingPathComponent("Library"))
+        let bound = windows.open(plan)
+        defer { bound.window?.close() }
+        try #require(bound.binder).move(fromOffsets: IndexSet(integer: 0), toOffset: 2)
+        #expect(windows.open(plan) === bound)
+
+        let swapped = try #require(MarkdownIncludes(markdown: "<<[b.md]\n<<[a.md]\n")).plan(parent: parent)
+        let reopened = windows.open(swapped)
+        defer { reopened.window?.close() }
+        #expect(reopened !== bound)
+        #expect(reopened.binder?.items.map(\.url) == [second, first].map { $0.standardizedFileURL })
     }
 
     @Test("目次の文書は前書きを持たず、読み直しても前書きの規則を保つ", .timeLimit(.minutes(1)))

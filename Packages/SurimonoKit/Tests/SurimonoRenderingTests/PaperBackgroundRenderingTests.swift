@@ -256,4 +256,26 @@ struct PaperBackgroundRenderingTests {
             _ = try await renderFailingPaper(with: CancellationError())
         }
     }
+
+    @Test("ノートと内側・外側の余白があっても紙は用紙に固定し、本文だけが動く", .timeLimit(.minutes(1)))
+    func paperStaysWithNotes() async throws {
+        let previous = WebPaginator.clearBackground
+        WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
+        defer { WebPaginator.clearBackground = previous }
+        _ = NSApplication.shared
+        var settings = RenderSettings(
+            layout: .a4Duplex, theme: try builtIn("washi"), preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.options.margins = PageMargins(top: 15, left: 35, bottom: 15, right: 10)
+        settings.options.mirrorsMargins = true
+        settings.notes = NotePages(isEnabled: true, placement: .spreadRight)
+        let source = DocumentSource(data: Data("本文".utf8), format: .markdown)
+        let document = try await DocumentRenderer().prepare(source, settings: settings).logicalDocument
+        #expect(document.pageCount == 3)
+        // 右がノートなら本文は 2 ページ目（左）に来て、綴じ側は右になる
+        let page = try #require(document.page(at: 1))
+        let pixels = try PagePixels(page)
+        let washi = (0xfc, 0xfa, 0xf5)
+        #expect(isClose(pixels.color(atX: 3, y: 400), to: washi))
+        #expect(isClose(pixels.color(atX: 590, y: 400), to: washi))
+    }
 }

@@ -14,11 +14,6 @@ struct PrintNoteSection: View {
 
     private enum Shelf: Hashable { case practical, cute, own }
 
-    private static let placements: [PrintChoice<NotePagePlan.Placement>] = [
-        .init(.spreadLeft, "Left of the Spread"), .init(.spreadRight, "Right of the Spread"),
-        .init(.duplexBack, "Behind Each Page"), .init(.chapterEnd, "After Chapters"),
-    ]
-
     private static let kinds: [(kind: NotePaperStyle.Kind, title: LocalizedStringKey)] = [
         (.ruled, "Ruled"), (.grid, "Grid"), (.dot, "Dots"), (.dotted, "Dotted Lines"), (.dashed, "Dashed Lines"),
         (.wavy, "Wavy Lines"), (.plain, "Plain"), (.cornell, "Cornell"), (.genko, "Manuscript Paper"),
@@ -69,27 +64,68 @@ struct PrintNoteSection: View {
 
     // MARK: Placement
 
-    @ViewBuilder private var placement: some View {
-        subheading("Placement")
-        PrintSegments(label: "Placement", options: Self.placements, selection: model.notes.placement) {
-            model.notes.placement = $0
+    /// The choices in the words of what the layout can do: one-sided sheets have no spreads or backs, 2-up no backs.
+    private var placements: [PrintChoice<NotePagePlan.Placement>] {
+        let chapters = PrintChoice(NotePagePlan.Placement.chapterEnd, "After Chapters")
+        if isOneSided {
+            return [.init(.duplexBack, "After Each Page"), .init(.spreadRight, "Before Each Page"), chapters]
         }
-        if let text = placementHint { hint(text) }
+        if model.layout.kind == .twoUp {
+            return [.init(.spreadLeft, "Left of the Sheet"), .init(.spreadRight, "Right of the Sheet"), chapters]
+        }
+        return [
+            .init(.spreadLeft, "Left of the Spread"), .init(.spreadRight, "Right of the Spread"),
+            .init(.duplexBack, "Behind Each Page"), chapters,
+        ]
     }
 
-    private var placementHint: LocalizedStringKey? {
+    private var isOneSided: Bool { model.layout.kind == .normal && model.layout.duplex == .none }
+
+    /// The choice a placement comes out as on this layout, where two of them can be the same thing.
+    private var selectedPlacement: NotePagePlan.Placement {
+        switch model.notes.placement {
+        case .spreadLeft where isOneSided: .duplexBack
+        case .duplexBack where model.layout.kind == .twoUp: .spreadRight
+        default: model.notes.placement
+        }
+    }
+
+    @ViewBuilder private var placement: some View {
+        subheading("Where to Add Notes")
+        PrintSegments(label: "Where to Add Notes", options: placements, selection: selectedPlacement) {
+            model.notes.placement = $0
+        }
+        if let result = placementResult {
+            Text(verbatim: result)
+                .font(.system(size: 12.5))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6)
+        }
+        if model.coverIsNotePage {
+            warning("With this setting, the cover is a note page.")
+        }
+    }
+
+    /// What the choice comes to with the document as it is.
+    private var placementResult: String? {
+        guard model.hasCurrentPrintPreview, let count = model.printResult?.addedNotePages, count > 0 else { return nil }
+        let language = model.language
         if model.notes.placement == .chapterEnd {
-            return "One page after each chapter, or after the last page when the document has no chapters."
+            return PrintModeText.format(
+                "Adds %lld note pages after the chapters, or after the last page without chapters.", language: language,
+                count)
         }
-        if model.coverIsNotePage { return "This is the spread once folded. The cover is a note page too." }
-        if model.layout.kind == .normal, model.layout.duplex == .none {
-            return "One-sided sheets have no backs or spreads, so note pages print on sheets of their own."
+        if isOneSided {
+            return PrintModeText.format(
+                "One-sided: adds %lld note pages on sheets of their own.", language: language, count)
         }
-        if model.layout.kind == .twoUp, model.notes.placement == .duplexBack {
-            return "2-up sheets have no backs, so each note page prints beside its page."
+        if model.layout.kind == .twoUp {
+            return PrintModeText.format("Adds %lld note pages beside the pages.", language: language, count)
         }
-        if model.notes.placement != .duplexBack { return "This is the spread once folded." }
-        return nil
+        return model.notes.placement == .duplexBack
+            ? PrintModeText.format("Adds %lld note pages on the backs of the pages.", language: language, count)
+            : PrintModeText.format(
+                "Adds %lld note pages on the spreads of the finished piece.", language: language, count)
     }
 
     // MARK: Presets
@@ -216,8 +252,10 @@ struct PrintNoteSection: View {
         }
     }
 
-    private var faintLineWarning: some View {
-        Text("The lines are faint and may fade when printed")
+    private var faintLineWarning: some View { warning("The lines are faint and may fade when printed") }
+
+    private func warning(_ text: LocalizedStringKey) -> some View {
+        Text(text)
             .font(.system(size: 11.5))
             .foregroundStyle(PrintPalette.warn)
             .padding(.horizontal, 7)

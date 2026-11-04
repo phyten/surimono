@@ -88,6 +88,7 @@ struct PrintSegments<Value: Hashable>: View {
                         .lineLimit(1)
                         .fixedSize()
                         .padding(.horizontal, 9)
+                        .frame(maxWidth: isVertical ? .infinity : nil, alignment: .leading)
                         .frame(height: 24)
                         .background(RoundedRectangle(cornerRadius: 5).fill(isOn ? PrintPalette.ai : .clear))
                         .contentShape(RoundedRectangle(cornerRadius: 5))
@@ -111,62 +112,37 @@ struct PrintSeriesSwitch: View {
 
     var body: some View {
         PrintSegments(
-            label: "Paper Size", options: [.init(PaperSeries.a, "A4 / A3"), .init(PaperSeries.b, "B5 / B4")],
+            label: "Paper to Use", options: [.init(PaperSeries.a, "A4 / A3"), .init(PaperSeries.b, "B5 / B4")],
             selection: model.trayPaperSeries, help: "A4 and A3, or B5 and B4 (JIS)", isVertical: true
         ) { model.choosePaperSeries($0) }
     }
 }
 
-/// The quick choices of the paper's finish, between the sheets and the press bar. Everything else is in the sheet. It
-/// stays one line high: a narrow window shows the choices as menus, so the sheets keep their room.
+/// The quick choices of the print settings, between the sheets and the press bar. Everything else is in the sheet.
+/// Each is its name, its value and a menu at any width, so that the same setting never changes its look with the window.
 struct PrintFinishStrip: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 16) {
-                group("Header & Footer", section: .furniture) { PrintFurnitureChoice(model: model) }
-                if model.finishAppliesToText {
-                    group("Page Breaks", section: .breaks) { PrintChapterBreakChoice(model: model) }
-                    group("Printed Contents", section: .contents) { PrintContentsChoice(model: model) }
-                }
-                if showsNotes {
-                    group("Notes", section: .notes) {
-                        PrintNoteChoice(model: model)
-                        if model.notes.isEnabled { noteSettingsButton }
-                    }
-                }
-                detailsButton
+        // A narrow tray takes a second row: the values are long, and each must stay readable in full.
+        PrintFlowLayout(spacing: 8, lineSpacing: 6) {
+            menu("Header & Footer", value: furnitureTitle, section: .furniture) {
+                PrintFurnitureChoice(model: model).menuItems
             }
-            // The notes are the first to shrink, so that a tray of the usual width keeps the choices it always had.
-            HStack(spacing: 8) {
-                group("Header & Footer", section: .furniture, spacing: 4) { PrintFurnitureChoice(model: model) }
-                if model.finishAppliesToText {
-                    group("Page Breaks", section: .breaks, spacing: 4) { PrintChapterBreakChoice(model: model) }
-                    group("Printed Contents", section: .contents, spacing: 4) { PrintContentsChoice(model: model) }
+            if model.finishAppliesToText {
+                menu("Page Breaks", value: breakTitle, section: .breaks) {
+                    PrintChapterBreakChoice(model: model).menuItems
                 }
-                if showsNotes { noteChip }
-                detailsButton
+                menu("Contents Page", value: contentsTitle, section: .contents) {
+                    PrintContentsChoice(model: model).menuItems
+                }
             }
-            HStack(spacing: 8) {
-                menu("Header & Footer", value: furnitureTitle, section: .furniture) {
-                    PrintFurnitureChoice(model: model).menuItems
+            if showsNotes {
+                menu("Notes", value: model.notes.isEnabled ? "Notes On" : "None", section: .notes) {
+                    PrintNoteChoice(model: model).menuItems
                 }
-                if model.finishAppliesToText {
-                    menu("Page Breaks", value: breakTitle, section: .breaks) {
-                        PrintChapterBreakChoice(model: model).menuItems
-                    }
-                    menu("Printed Contents", value: contentsTitle, section: .contents) {
-                        PrintContentsChoice(model: model).menuItems
-                    }
-                }
-                if showsNotes {
-                    menu("Notes", value: model.notes.isEnabled ? "Notes On" : "None", section: .notes) {
-                        PrintNoteChoice(model: model).menuItems
-                    }
-                }
-                detailsButton
             }
+            detailsButton
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
@@ -175,52 +151,10 @@ struct PrintFinishStrip: View {
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
     }
 
-    /// The notes as one word: in color when they are on, with the choices in its menu.
-    private var noteChip: some View {
-        Menu {
-            PrintNoteChoice(model: model).menuItems
-            Divider()
-            Button("Open in All Settings") { model.presentFinish(.notes) }
-        } label: {
-            Text("Notes")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(model.notes.isEnabled ? PrintPalette.raised : PrintPalette.ink)
-                .lineLimit(1)
-                .padding(.horizontal, 6)
-                .frame(height: 26)
-                .background(
-                    RoundedRectangle(cornerRadius: 6).fill(model.notes.isEnabled ? PrintPalette.ai : PrintPalette.hover)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 6))
-        }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("Notes")
-    }
-
     private var showsNotes: Bool { model.offersNotes && model.notes.applies(to: model.layout) }
 
-    private var noteSettingsButton: some View {
-        Button {
-            model.presentFinish(.notes)
-        } label: {
-            Text(verbatim: model.notePresetName ?? String(localized: "Own Lines"))
-                .font(.system(size: 12))
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.horizontal, 6)
-                .frame(height: 26)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(PrintPalette.ai)
-        .help("Note page lines and templates")
-    }
-
     private var detailsButton: some View {
-        Button("All Settings…") { model.isPrintFinishPresented.toggle() }
+        Button("All Print Settings…") { model.isPrintFinishPresented.toggle() }
             .font(.system(size: 12, weight: .semibold))
             .buttonStyle(.plain)
             .foregroundStyle(PrintPalette.ai)
@@ -231,23 +165,6 @@ struct PrintFinishStrip: View {
             )
             .fixedSize()
             .help("Paper, margins, header and footer, page breaks, contents and note pages")
-    }
-
-    /// The title opens the item's section of the print settings.
-    private func group<Content: View>(
-        _ title: LocalizedStringKey, section: PrintFinishSection, spacing: CGFloat = 7,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        HStack(spacing: spacing) {
-            Button {
-                model.presentFinish(section)
-            } label: {
-                Text(title).font(.system(size: 12, weight: .semibold)).lineLimit(1).fixedSize()
-            }
-            .buttonStyle(.plain)
-            .help("Open in All Settings")
-            content()
-        }
     }
 
     private func menu<Content: View>(
@@ -298,13 +215,14 @@ struct PrintFurnitureChoice: View {
     @Bindable var model: DocumentViewModel
 
     static let choices: [PrintChoice<PageFurniture.Preset>] = [
-        .init(.none, "None"), .init(.number, "Number"), .init(.name, "Name"), .init(.nameAndDate, "Name & Date"),
-        .init(.custom, "Custom"),
+        .init(.none, "None"), .init(.number, "Page Number"), .init(.name, "File Name + Number"),
+        .init(.nameAndDate, "File Name, Date + Number"), .init(.custom, "Specify Contents…"),
     ]
 
     var body: some View {
+        // The names are long for one row of the sheet.
         PrintSegments(
-            label: "Header & Footer", options: Self.choices, selection: model.furnitureChoice,
+            label: "Header & Footer", options: Self.choices, selection: model.furnitureChoice, isVertical: true,
             choose: model.chooseFurniture)
     }
 
@@ -319,7 +237,8 @@ struct PrintChapterBreakChoice: View {
     @Bindable var model: DocumentViewModel
 
     static let choices: [PrintChoice<HeadingBreak>] = [
-        .init(.none, "None"), .init(.page, "Before Chapters"), .init(.rightPage, "From Right Page"),
+        .init(.none, "Do Not Break at Headings"), .init(.page, "New Page for Each Chapter"),
+        .init(.rightPage, "Chapters from Right Page"),
     ]
 
     var body: some View {
@@ -357,11 +276,12 @@ struct PrintContentsChoice: View {
     @Bindable var model: DocumentViewModel
 
     static let choices: [PrintChoice<PaperTOC.Mode>] = [
-        .init(.source, "As in the Document"), .init(.front, "Add to Front"), .init(.hidden, "Do Not Print"),
+        .init(.source, "Follow the Text's Contents"), .init(.front, "Add Contents to Front"),
+        .init(.hidden, "Do Not Print Contents"),
     ]
 
     var body: some View {
-        PrintSegments(label: "Printed Contents", options: Self.choices, selection: model.printFinish.toc.mode) {
+        PrintSegments(label: "Contents Page", options: Self.choices, selection: model.printFinish.toc.mode) {
             model.printFinish.toc.mode = $0
         }
     }

@@ -173,13 +173,35 @@ public struct CodeStyle: Equatable, Sendable {
 /// Adds to a fragment's code blocks what the style sheet alone cannot: an element for each line and the language's
 /// name. Done on the finished fragment, so every converter's blocks get it and a default document stays as it is.
 public enum CodeBlockMarkup {
-    /// The form every converter writes a code block in; `pre` elements with attributes are something else.
-    private static let open = "<pre>"
+    /// The form every converter writes a code block in, with the one attribute `MarkdownConverter` adds for its source
+    /// map; `pre` elements with other attributes are something else.
+    private static let open = "<pre"
+    private static let sourceAttribute = " data-surimono-block=\""
     private static let close = "</pre>"
     /// Marks what counts as a code block for the style sheet and `CodeFitScript`.
     static let blockClass = "code-block"
 
-    public static func containsCode(_ html: String) -> Bool { html.contains(open) }
+    public static func containsCode(_ html: String) -> Bool { nextBlock(in: html[...]) != nil }
+
+    /// The next code block's opening tag and the source map's attribute it carries, if any.
+    private static func nextBlock(in html: Substring) -> (tag: Range<Substring.Index>, attribute: Substring)? {
+        var rest = html
+        while let start = rest.range(of: open) {
+            let after = rest[start.upperBound...]
+            if after.hasPrefix(">") {
+                return (start.lowerBound..<after.index(after: after.startIndex), "")
+            }
+            if after.hasPrefix(sourceAttribute) {
+                let value = after.dropFirst(sourceAttribute.count)
+                if let quote = value.firstIndex(of: "\""), value[value.index(after: quote)...].hasPrefix(">") {
+                    let end = value.index(quote, offsetBy: 2)
+                    return (start.lowerBound..<end, after[..<value.index(after: quote)])
+                }
+            }
+            rest = after
+        }
+        return nil
+    }
 
     public static func apply(_ style: CodeStyle, to html: String) -> String {
         guard !style.isDefault else { return html }
@@ -188,15 +210,19 @@ public enum CodeBlockMarkup {
         var result = ""
         result.reserveCapacity(html.utf8.count)
         var rest = html[...]
-        while let start = rest.range(of: open), let end = rest[start.upperBound...].range(of: close) {
-            result += rest[..<start.lowerBound]
-            result += block(rest[start.upperBound..<end.lowerBound], options: options, splitsLines: splitsLines)
+        while let start = nextBlock(in: rest), let end = rest[start.tag.upperBound...].range(of: close) {
+            result += rest[..<start.tag.lowerBound]
+            result += block(
+                rest[start.tag.upperBound..<end.lowerBound], attribute: start.attribute, options: options,
+                splitsLines: splitsLines)
             rest = rest[end.upperBound...]
         }
         return result + rest
     }
 
-    private static func block(_ content: Substring, options: CodeBlockOptions, splitsLines: Bool) -> String {
+    private static func block(
+        _ content: Substring, attribute: Substring, options: CodeBlockOptions, splitsLines: Bool
+    ) -> String {
         // A block without a `code` element, such as Org's EXAMPLE, gets one: every block then has the same insides.
         var codeTag = "<code>"
         var body = content
@@ -205,7 +231,7 @@ public enum CodeBlockMarkup {
             body = content[content.index(after: tagEnd)...].dropLast("</code>".count)
         }
         var classes = [blockClass]
-        var attributes = ""
+        var attributes = String(attribute)
         // A block with markup of its own, from raw HTML, keeps its lines.
         let lines = splitsLines ? self.lines(of: body) : nil
         var text = String(body)

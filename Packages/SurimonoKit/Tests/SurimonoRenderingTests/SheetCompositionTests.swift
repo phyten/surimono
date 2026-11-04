@@ -34,7 +34,7 @@ struct SheetCompositionTests {
         let source = try pdfSource(count: 4)
         var settings = settings(.a4Single)
         let first = try await renderer.prepare(source, settings: settings)
-        settings.options.showsPageNumbers = true
+        settings.options.furniture = .pageNumber
         settings.layout = .a3BookletA4
         let second = try await renderer.prepare(source, settings: settings)
         #expect(second.logicalDocument === first.logicalDocument)
@@ -47,12 +47,12 @@ struct SheetCompositionTests {
         let source = try pdfSource(count: 4)
         var settings = settings(.a4Duplex)
         let plain = try await renderer.render(source, settings: settings)
-        settings.options.showsPageNumbers = true
+        settings.options.furniture = .pageNumber
         let numbered = try await renderer.render(source, settings: settings)
         #expect(renderer.sheetCompositionCount == 2)
         #expect(numbered.sheetDocument !== plain.sheetDocument)
         #expect(numbered.sheetDocument.string?.contains("3") == true)
-        settings.options.showsPageNumbers = false
+        settings.options.furniture = PageFurniture()
         let again = try await renderer.render(source, settings: settings)
         #expect(renderer.sheetCompositionCount == 2)
         #expect(again.sheetDocument === plain.sheetDocument)
@@ -93,7 +93,7 @@ struct SheetCompositionTests {
         try #require(pdf.page(at: 3)).rotation = 90
         let source = DocumentSource(data: try #require(pdf.dataRepresentation()), format: .pdf)
         var settings = settings(layout)
-        settings.options.showsPageNumbers = true
+        settings.options.furniture = .pageNumber
         settings.options.rotatesBackSides = true
         // The first composition serializes the logical pages; the second reuses them.
         _ = try await renderer.render(source, settings: settings)

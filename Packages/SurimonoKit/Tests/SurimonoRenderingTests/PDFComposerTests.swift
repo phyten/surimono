@@ -233,4 +233,42 @@ struct PDFComposerTests {
         task.cancel()
         await #expect(throws: CancellationError.self) { _ = try await task.value }
     }
+
+    @Test("3枚＋メモの段のあいだでは、上のページのフッターと下のページのヘッダーが重ならない")
+    func handoutFurnitureKeepsApart() async throws {
+        let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 800, height: 450))
+        var options = PrintOptions()
+        options.furniture.topCenter = "HHHHHH"
+        options.furniture.bottomCenter = "FFFFFF"
+        let output = try await PDFComposer().compose(source, layout: .a4Handout3, options: options)
+        let page = try #require(output.page(at: 0))
+        let size = page.bounds(for: .mediaBox).size
+        let layout = PrintLayout.a4Handout3
+        let upper = layout.slotRect(at: 0, options: options)
+        let lower = layout.slotRect(at: 1, options: options)
+        let top = Int(upper.maxY * size.height) + 1
+        let bottom = Int(lower.minY * size.height) - 1
+        let columns = Int(upper.midX * size.width) - 30...Int(upper.midX * size.width) + 30
+        var runs = 0
+        var inInk = false
+        for y in top...bottom {
+            let hasInk = try columns.contains { try RenderingFixtures.pixel(page, x: $0, y: y)[0] < 160 }
+            if hasInk, !inInk { runs += 1 }
+            inInk = hasInk
+        }
+        #expect(runs == 2)
+    }
+
+    @Test("欄に入らない文字は全文に戻さず、隣の欄と重ねない")
+    func furnitureNeverOverflows() async throws {
+        let source = try RenderingFixtures.pdf(count: 1, size: CGSize(width: 595, height: 842))
+        var options = PrintOptions()
+        options.furniture.bottomLeft = String(repeating: "左", count: 80)
+        options.furniture.bottomCenter = String(repeating: "中", count: 80)
+        options.furniture.bottomRight = String(repeating: "右", count: 80)
+        let output = try await PDFComposer().compose(source, layout: .a4Single, options: options)
+        let text = try #require(output.page(at: 0)?.string)
+        #expect(text.filter { $0 == "左" }.count < 80)
+        #expect(text.filter { $0 == "中" }.count < 80)
+    }
 }

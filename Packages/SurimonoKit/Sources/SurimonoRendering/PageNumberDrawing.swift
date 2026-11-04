@@ -67,10 +67,9 @@ enum PageFurnitureDrawing {
 
     /// One line of the handout's page: the text of the three places around its slot, in `space` above or below it.
     static func drawHandoutRow(
-        _ texts: [String], beside rect: CGRect, above: Bool, space: CGFloat, context: CGContext
+        _ texts: [String], beside rect: CGRect, above: Bool, space: CGFloat, padding: CGFloat, context: CGContext
     ) {
         let row = row(texts, width: rect.width, scale: 1)
-        let padding: CGFloat = 2
         context.saveGState()
         defer { context.restoreGState() }
         context.textMatrix = .identity
@@ -103,14 +102,21 @@ enum PageFurnitureDrawing {
             CTLineCreateWithAttributedString(
                 NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black]))
         }
+        // What does not fit its place stays out: drawn whole, it would run into the place beside it.
         func fitted(_ text: String, to limit: CGFloat) -> CTLine? {
-            guard !text.isEmpty else { return nil }
+            guard !text.isEmpty, limit > 0 else { return nil }
             let whole = line(text)
             guard CTLineGetTypographicBounds(whole, nil, nil, nil) > limit else { return whole }
-            return CTLineCreateTruncatedLine(whole, max(limit, 0), .end, line("…")) ?? whole
+            return CTLineCreateTruncatedLine(whole, limit, .end, line("…"))
+        }
+        func natural(_ text: String) -> CGFloat {
+            text.isEmpty ? 0 : CGFloat(CTLineGetTypographicBounds(line(text), nil, nil, nil))
         }
         let gap = 8 * scale
-        let middle = fitted(texts[1], to: width)
+        let middle = fitted(
+            texts[1],
+            to: PageFurniture.centerLimit(left: natural(texts[0]), right: natural(texts[2]), available: width, gap: gap)
+        )
         let middleWidth = middle.map { CGFloat(CTLineGetTypographicBounds($0, nil, nil, nil)) } ?? 0
         let bothSides = !texts[0].isEmpty && !texts[2].isEmpty
         let side = middle != nil ? (width - middleWidth) / 2 - gap : bothSides ? (width - gap) / 2 : width

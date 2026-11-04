@@ -172,4 +172,26 @@ struct StreamingPreviewTests {
         let items = (NSApp.mainMenu?.items ?? []).flatMap { $0.submenu?.items ?? [] }
         #expect(items.contains { $0.title == String(localized: "Streaming Preview") })
     }
+
+    @Test("消した直後に開いても、そのあと書かれた本文を受け取る", .timeLimit(.minutes(1)))
+    func textAfterClearing() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let library = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: library) }
+        let board = NSPasteboard(name: NSPasteboard.Name("surimono-test-\(UUID().uuidString)"))
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        let windows = StreamingPreviewWindows(closeWelcome: {})
+        windows.preferences = AppPreferences(defaults: suite.defaults)
+        windows.library = UserLibrary(root: library)
+        let controller = windows.open(from: board)
+        defer { controller.close() }
+        // Writing after clearing does not change the count again.
+        board.setString("# 後から書いた本文", forType: .string)
+        try await settle(controller.model)
+        windows.poll()
+        try await settle(controller.model)
+        #expect(controller.model.memoryContent == Data("# 後から書いた本文".utf8))
+    }
 }

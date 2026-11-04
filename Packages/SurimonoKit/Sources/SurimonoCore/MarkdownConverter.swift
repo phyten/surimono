@@ -528,7 +528,9 @@ enum MarkdownPageBreaks {
             let index = candidate.index
             let isInBlock = protection.lines[index] && !html.ownLines.contains(index)
             if isInBlock || protection.spans[index] != nil || html.coveredLines.contains(index) { continue }
-            result[index] = markerPrefix + candidate.syntax.rawValue + "-->"
+            // The indent keeps the marker in the list item it continues, which the next paragraph then stays in too.
+            let indent = lines[index].prefix { $0 == " " }
+            result[index] = indent + markerPrefix + candidate.syntax.rawValue + "-->"
         }
         return result
     }

@@ -912,7 +912,8 @@ final class DocumentViewModel {
                 }
                 printTray = PrintTray(
                     plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
-                    sheetOrientations: output.sheetOrientations, blankPages: output.blankPages)
+                    sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
+                    notePages: output.notePages)
                 isRendering = false
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false

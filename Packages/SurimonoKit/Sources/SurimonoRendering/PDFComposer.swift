@@ -153,13 +153,14 @@ public struct PDFComposer {
         _ lines: PageFurniture.Lines, slot: Int, in rect: CGRect, options: PrintOptions, context: CGContext
     ) {
         func points(_ millimeters: Double) -> CGFloat { CGFloat(millimeters * 72 / 25.4) }
-        let gap = points(PrintLayout.handoutGapInMillimeters)
+        // The gap between two slots holds one page's footer and the next page's header: each keeps to its half.
+        let half = points(PrintLayout.handoutGapInMillimeters) / 2
         PageFurnitureDrawing.drawHandoutRow(
-            lines.top, beside: rect, above: true, space: slot == 0 ? points(options.margins.top) : gap,
-            context: context)
+            lines.top, beside: rect, above: true, space: slot == 0 ? points(options.margins.top) : half,
+            padding: slot == 0 ? 2 : 0.5, context: context)
         PageFurnitureDrawing.drawHandoutRow(
-            lines.bottom, beside: rect, above: false, space: slot < 2 ? gap : points(options.margins.bottom),
-            context: context)
+            lines.bottom, beside: rect, above: false, space: slot < 2 ? half : points(options.margins.bottom),
+            padding: slot < 2 ? 0.5 : 2, context: context)
     }
 
     private func drawFurniture(
