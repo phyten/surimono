@@ -47,29 +47,100 @@ public enum DocumentOutline {
 
     /// The zero-based page each heading stands on, in order. A heading stands on lines of its own, wrapped or with a
     /// number in front of it, so the same words in a sentence do not count. The search only moves forward, past each
-    /// heading it found, and the lines are indexed so that headings it cannot find do not rescan the document.
+    /// heading it found. The lines are indexed by their text, so a heading that cannot be found costs one lookup.
     public static func pages(of headings: [DocumentHeading], inPageTexts pages: [String]) -> [Int?] {
-        var lines: [(page: Int, text: String)] = []
-        for (page, text) in pages.enumerated() {
-            for line in text.components(separatedBy: .newlines) {
-                let normalized = withoutNumbering(normalized(line))
-                if !normalized.isEmpty { lines.append((page, normalized)) }
-            }
-        }
-        var starts: [Character: [Int]] = [:]
-        for (index, line) in lines.enumerated() {
-            if let first = line.text.first { starts[first, default: []].append(index) }
-        }
+        let index = LineIndex(pages: pages)
         var cursor = 0
         return headings.map { heading in
-            let target = withoutNumbering(normalized(heading.text))
-            guard let first = target.first, let candidates = starts[first] else { return nil }
-            for index in candidates[firstIndex(in: candidates, atLeast: cursor)...] {
-                guard let end = endOfHeading(target, in: lines, from: index) else { continue }
-                cursor = end
-                return lines[index].page
+            let target = normalized(heading.text)
+            guard !target.isEmpty, let match = index.firstMatch(of: target, from: cursor) else { return nil }
+            cursor = match.end
+            return match.page
+        }
+    }
+
+    private struct LineIndex {
+        /// A heading wraps only when it is long, so a wrapped one shares at least this much with its first line.
+        private static let wrappedPrefixLength = 6
+
+        private var lines: [(page: Int, forms: [String])] = []
+        private var whole: [String: [Int]] = [:]
+        private var wrapped: [String: [Int]] = [:]
+
+        init(pages: [String]) {
+            for (page, text) in pages.enumerated() {
+                for line in text.components(separatedBy: .newlines) {
+                    let forms = Self.forms(of: line)
+                    guard let first = forms.first, !first.isEmpty else { continue }
+                    for form in forms {
+                        whole[form, default: []].append(lines.count)
+                        if form.count >= Self.wrappedPrefixLength {
+                            wrapped[String(form.prefix(Self.wrappedPrefixLength)), default: []].append(lines.count)
+                        }
+                    }
+                    lines.append((page, forms))
+                }
+            }
+        }
+
+        func firstMatch(of target: String, from cursor: Int) -> (page: Int, end: Int)? {
+            var best: (page: Int, end: Int, start: Int)?
+            if let start = Self.first(in: whole[target] ?? [], atLeast: cursor) {
+                best = (lines[start].page, start + 1, start)
+            }
+            guard target.count > Self.wrappedPrefixLength else { return best.map { ($0.page, $0.end) } }
+            let candidates = wrapped[String(target.prefix(Self.wrappedPrefixLength))] ?? []
+            var position = Self.firstPosition(in: candidates, atLeast: cursor)
+            while position < candidates.count, candidates[position] < best?.start ?? .max {
+                let start = candidates[position]
+                if let end = endOfWrappedHeading(target, from: start) {
+                    best = (lines[start].page, end, start)
+                    break
+                }
+                position += 1
+            }
+            return best.map { ($0.page, $0.end) }
+        }
+
+        /// The index after the last line of a heading that wraps from `start`. It stays on one page.
+        private func endOfWrappedHeading(_ target: String, from start: Int) -> Int? {
+            for form in lines[start].forms where target.hasPrefix(form) {
+                var joined = form
+                var index = start + 1
+                while index < lines.count, lines[index].page == lines[start].page {
+                    joined += lines[index].forms[0]
+                    index += 1
+                    if joined == target { return index }
+                    guard target.hasPrefix(joined) else { break }
+                }
             }
             return nil
+        }
+
+        /// The line as it stands, and without a number when it has one: a theme can number a heading with a counter,
+        /// which puts text in front of it on the page only.
+        private static func forms(of line: String) -> [String] {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let number = trimmed.prefix { $0.isNumber || ".．、:：-)）(（".contains($0) }
+            let rest = trimmed.dropFirst(number.count)
+            let endsNumber = rest.first?.isWhitespace == true || number.last.map { !$0.isNumber } == true
+            guard !number.isEmpty, !rest.isEmpty, endsNumber else { return [normalized(line)] }
+            return [normalized(line), normalized(String(rest))]
+        }
+
+        private static func first(in sorted: [Int], atLeast value: Int) -> Int? {
+            let position = firstPosition(in: sorted, atLeast: value)
+            return position < sorted.count ? sorted[position] : nil
+        }
+
+        private static func firstPosition(in sorted: [Int], atLeast value: Int) -> Int {
+            var low = 0
+            var high = sorted.count
+            while low < high {
+                let middle = (low + high) / 2
+                if sorted[middle] < value { low = middle + 1 } else { high = middle }
+            }
+            return low
         }
     }
 
@@ -93,39 +164,8 @@ public enum DocumentOutline {
         return true
     }
 
-    private static func firstIndex(in sorted: [Int], atLeast value: Int) -> Int {
-        var low = 0
-        var high = sorted.count
-        while low < high {
-            let middle = (low + high) / 2
-            if sorted[middle] < value { low = middle + 1 } else { high = middle }
-        }
-        return low
-    }
-
-    /// The index after the last line of the heading, when one starts at `start`. It stays on one page.
-    private static func endOfHeading(
-        _ target: String, in lines: [(page: Int, text: String)], from start: Int
-    ) -> Int? {
-        var joined = ""
-        var index = start
-        while index < lines.count, lines[index].page == lines[start].page {
-            joined += lines[index].text
-            index += 1
-            if joined == target { return index }
-            guard target.hasPrefix(joined) else { return nil }
-        }
-        return nil
-    }
-
     private static func normalized(_ text: String) -> String {
         String(text.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) }.map(Character.init))
-    }
-
-    /// A theme can number a heading with a counter, which puts text in front of it on the page only.
-    private static func withoutNumbering(_ text: String) -> String {
-        let stripped = text.drop { $0.isNumber || ".．、:：-–—)）(（".contains($0) }
-        return stripped.isEmpty ? text : String(stripped)
     }
 
     static func plainText(ofHTML html: String) -> String {
