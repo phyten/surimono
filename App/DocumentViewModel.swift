@@ -414,10 +414,11 @@ final class DocumentViewModel {
     /// The page breaks and the contents are read from a text; a binder keeps its documents as they are.
     var finishAppliesToText: Bool { binder == nil && format.usesPrintTheme }
 
-    /// The series of the tray's cards. A document on the default layout shows the series last chosen on a tray, and
-    /// any other document the series of its own paper.
-    var paperSeries: PaperSeries {
+    /// The series of the tray's cards. A document shown on B sizes opens the tray on them, one on the default layout
+    /// shows the series last chosen on a tray, and any other the series of its own paper.
+    var trayPaperSeries: PaperSeries {
         if let shownPaperSeries { return shownPaperSeries }
+        if paperSeries == .b { return .b }
         if layoutID == Self.defaultLayoutID(preferences), let series = preferences.paperSeries { return series }
         return layout.series
     }
@@ -431,7 +432,7 @@ final class DocumentViewModel {
 
     /// ⌘1–⌘6: the cards the tray shows, in their order. The 3-up handout has no B counterpart and keeps ⌘6.
     func chooseCard(at index: Int) {
-        let cards = PrintLayout.presets(in: paperSeries)
+        let cards = PrintLayout.presets(in: trayPaperSeries)
         chooseLayout((cards.indices.contains(index) ? cards[index] : PrintLayout.a4Handout3).id)
     }
 

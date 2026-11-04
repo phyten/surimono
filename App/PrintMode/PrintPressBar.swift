@@ -56,7 +56,7 @@ struct PrintPressBar: View {
     private func layouts(_ density: Density) -> some View {
         PrintFlowLayout(spacing: 3, lineSpacing: 3, alignment: .center) {
             PrintSeriesSwitch(model: model).padding(.trailing, 3)
-            ForEach(Array(PrintLayout.presets(in: model.paperSeries).enumerated()), id: \.element.id) { index, layout in
+            ForEach(Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated()), id: \.element.id) { index, layout in
                 LayoutCard(
                     layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
                     help: "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
