@@ -1,5 +1,6 @@
 import AppKit
 import SurimonoCore
+import SurimonoRendering
 import Testing
 
 @testable import Surimono
@@ -199,6 +200,190 @@ struct IntakeDocumentTests {
         #expect(model.rememberedSettings.binderOrder?.count == 2)
     }
 
+    private func unreadableNames(_ binder: BinderModel) -> [String] {
+        binder.unreadableURLs.map(\.lastPathComponent)
+    }
+
+    private func outsideFolder(_ fixture: Fixture) throws -> URL {
+        let outside = fixture.root.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try Data("外の秘密".utf8).write(to: outside.appendingPathComponent("a.md"))
+        try Data("外の秘密".utf8).write(to: outside.appendingPathComponent("b.md"))
+        return outside
+    }
+
+    private func book(_ fixture: Fixture) throws -> (folder: URL, plan: MarkdownIncludes.Plan) {
+        let folder = fixture.root.appendingPathComponent("book")
+        try FileManager.default.createDirectory(
+            at: folder.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        try Data("中の a".utf8).write(to: folder.appendingPathComponent("a.md"))
+        try Data("中の b".utf8).write(to: folder.appendingPathComponent("sub/b.md"))
+        let text = "<<[a.md]\n<<[sub/b.md]\n"
+        let parent = folder.appendingPathComponent("index.md")
+        try Data(text.utf8).write(to: parent)
+        return (folder, try #require(MarkdownIncludes(markdown: text)).plan(parent: parent))
+    }
+
+    private func containsSecret(_ source: DocumentSource) -> Bool {
+        source.children?.contains { $0.data == Data("外の秘密".utf8) } == true
+    }
+
+    @Test("計画のあとで子をリンクへ差し替えても、読み直しで親のフォルダーの外を読まない", .timeLimit(.minutes(1)))
+    func swappedChild() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let outside = try outsideFolder(fixture)
+        let (folder, plan) = try book(fixture)
+        let binder = BinderModel(plan: plan)
+        defer { binder.stop() }
+        #expect(try await binder.source().children?.count == 2)
+        let child = folder.appendingPathComponent("a.md")
+        try FileManager.default.removeItem(at: child)
+        try FileManager.default.createSymbolicLink(
+            at: child, withDestinationURL: outside.appendingPathComponent("a.md"))
+        binder.clearCache()
+        let source = try await binder.source()
+        #expect(!containsSecret(source))
+        #expect(source.children?.count == 1)
+        #expect(unreadableNames(binder) == ["a.md"])
+    }
+
+    @Test("計画のあとで途中のフォルダーをリンクへ差し替えても外を読まない", .timeLimit(.minutes(1)))
+    func swappedFolder() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let outside = try outsideFolder(fixture)
+        let (folder, plan) = try book(fixture)
+        let binder = BinderModel(plan: plan)
+        defer { binder.stop() }
+        let sub = folder.appendingPathComponent("sub")
+        try FileManager.default.removeItem(at: sub)
+        try FileManager.default.createSymbolicLink(at: sub, withDestinationURL: outside)
+        let source = try await binder.source()
+        #expect(!containsSecret(source))
+        #expect(unreadableNames(binder) == ["b.md"])
+    }
+
+    @Test("計画のあとで親のフォルダーごと差し替えても外を読まない", .timeLimit(.minutes(1)))
+    func swappedRoot() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let outside = try outsideFolder(fixture)
+        let (folder, plan) = try book(fixture)
+        let binder = BinderModel(plan: plan)
+        defer { binder.stop() }
+        try FileManager.default.moveItem(at: folder, to: fixture.root.appendingPathComponent("moved"))
+        try FileManager.default.createSymbolicLink(at: folder, withDestinationURL: outside)
+        let source = try await binder.source()
+        #expect(!containsSecret(source))
+    }
+
+    @Test("利用者が足した文書は親のフォルダーの外でも読む", .timeLimit(.minutes(1)))
+    func addedDocumentIsNotConfined() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let outside = try outsideFolder(fixture)
+        let (_, plan) = try book(fixture)
+        let binder = BinderModel(plan: plan)
+        defer { binder.stop() }
+        binder.add([outside.appendingPathComponent("a.md")])
+        let source = try await binder.source()
+        #expect(source.children?.count == 3)
+    }
+
+    private func pdfBook(_ fixture: Fixture, store: DocumentSettingsStore) throws -> () -> DocumentViewModel {
+        try TestFixtures.pdf("Z", pages: 1).write(to: fixture.root.appendingPathComponent("z.pdf"))
+        try TestFixtures.pdf("A", pages: 2).write(to: fixture.root.appendingPathComponent("a.pdf"))
+        let text = "<<[z.pdf]\n<<[a.pdf]\n"
+        let parent = try fixture.file("index.md", text)
+        let plan = try #require(MarkdownIncludes(markdown: text)).plan(parent: parent)
+        return {
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .pdf, preferences: AppPreferences(defaults: fixture.suite.defaults),
+                library: UserLibrary(root: fixture.root.appendingPathComponent("Library")), settingsStore: store,
+                binder: BinderModel(plan: plan))
+        }
+    }
+
+    private func open(_ model: DocumentViewModel) async throws {
+        model.start()
+        for _ in 0..<500 where model.isRendering || model.contentHash == nil {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    @Test("親の並びを変えると保存して復元し、既定に戻すと名前順でなく親の並びへ戻す", .timeLimit(.minutes(1)))
+    func orderSavedRestoredAndReset() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let store = DocumentSettingsStore(directory: fixture.root.appendingPathComponent("Settings"))
+        let makeModel = try pdfBook(fixture, store: store)
+        let first = makeModel()
+        defer { first.stop() }
+        try await open(first)
+        #expect(first.binder?.urls.map(\.lastPathComponent) == ["z.pdf", "a.pdf"])
+        #expect(!first.hasSavedSettings)
+        #expect(store.keys().isEmpty)
+        first.binder?.moveSelection(by: 1)
+        first.render()
+        for _ in 0..<500 where first.isRendering { try await Task.sleep(for: .milliseconds(20)) }
+        first.rememberedSettingsDidChange()
+        first.stop()
+        #expect(store.keys().count == 1)
+        let second = makeModel()
+        defer { second.stop() }
+        try await open(second)
+        #expect(second.binder?.urls.map(\.lastPathComponent) == ["a.pdf", "z.pdf"])
+        second.resetDocumentSettings()
+        #expect(second.binder?.urls.map(\.lastPathComponent) == ["z.pdf", "a.pdf"])
+        #expect(second.binder?.isInStartingOrder == true)
+        #expect(second.rememberedSettings.binderOrder == nil)
+        #expect(store.keys().isEmpty)
+    }
+
+    @Test("親の並びの合本は文書を取り除いても順序を覚えず、後から足した文書は最後に続く")
+    func startingOrderWithChanges() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        for name in ["z.md", "m.md", "a.md", "extra.md"] { _ = try fixture.file(name) }
+        let text = "<<[z.md]\n<<[m.md]\n<<[a.md]\n"
+        let parent = try fixture.file("index.md", text)
+        let binder = BinderModel(plan: try #require(MarkdownIncludes(markdown: text)).plan(parent: parent))
+        defer { binder.stop() }
+        binder.removeSelection()
+        #expect(binder.isInStartingOrder)
+        binder.add([fixture.root.appendingPathComponent("extra.md")])
+        #expect(binder.isInStartingOrder)
+        binder.sortByName()
+        #expect(!binder.isInStartingOrder)
+        binder.resetOrder()
+        #expect(binder.urls.map(\.lastPathComponent) == ["m.md", "a.md", "extra.md"])
+    }
+
+    @Test("同じファイルでも通常の合本と親の合本は別の窓で、同じ生まれなら窓を再利用する", .timeLimit(.minutes(1)))
+    func binderIdentity() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        _ = try fixture.file("a.md")
+        _ = try fixture.file("b.md")
+        let text = "本文\n<<[a.md]\n<<[b.md]\n"
+        let parent = try fixture.file("index.md", text)
+        let plan = try #require(MarkdownIncludes(markdown: text)).plan(parent: parent)
+        let windows = BinderWindows()
+        windows.preferences = AppPreferences(defaults: fixture.suite.defaults)
+        windows.library = UserLibrary(root: fixture.root.appendingPathComponent("Library"))
+        let urls = [plan.parent] + plan.documents
+        let plain = windows.open(urls)
+        defer { plain.window?.close() }
+        let bound = windows.open(plan)
+        defer { bound.window?.close() }
+        #expect(plain !== bound)
+        #expect(plain.binder?.origin == .files)
+        #expect(bound.binder?.origin == .parent(plan.parent, hasPreface: true))
+        #expect(windows.open(urls) === plain)
+        #expect(windows.open(plan) === bound)
+    }
+
     @Test("目次の文書は前書きを持たず、読み直しても前書きの規則を保つ", .timeLimit(.minutes(1)))
     func summaryBinder() async throws {
         let fixture = try Fixture()
@@ -217,7 +402,7 @@ struct IntakeDocumentTests {
     func routerOpensPlan() throws {
         var opened: [MarkdownIncludes.Plan] = []
         let router = OpenRouter(
-            openDocument: { _, _ in }, openBundle: { _, _ in }, openBinder: { _, _ in }, warn: { _ in },
+            openDocument: { _, _ in }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
             hasOpenWindows: { false }, showWelcome: {}, openIncludes: { opened.append($0) })
         let plan = try #require(MarkdownIncludes(markdown: "<<[a.md]\n"))
             .plan(parent: URL(fileURLWithPath: "/fixtures/index.md"), exists: { _ in true })

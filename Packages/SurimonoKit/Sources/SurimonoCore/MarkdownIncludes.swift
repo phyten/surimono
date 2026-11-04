@@ -176,6 +176,9 @@ extension MarkdownIncludes {
     /// What a parent file can be bound from, as found on disk.
     public struct Plan: Equatable, Sendable {
         public let parent: URL
+        /// The parent's folder as it really was when the plan was made. Every read of a document stays under it, so
+        /// that nothing swapped in later, the folder itself included, leads anywhere else.
+        public let root: String
         public let hasPreface: Bool
         /// The documents that can be read, in reading order.
         public let documents: [URL]
@@ -211,6 +214,7 @@ extension MarkdownIncludes {
         }
         let hasText = preface?.contains { !$0.isWhitespace } == true
         return Plan(
-            parent: parent, hasPreface: hasText, documents: documents, missing: missing + refused, excluded: excluded)
+            parent: parent, root: (try? ConfinedFile.canonicalPath(folder)) ?? folder.path, hasPreface: hasText,
+            documents: documents, missing: missing + refused, excluded: excluded)
     }
 }

@@ -13,20 +13,29 @@ final class BinderWindows {
     var sourceURLs: [URL] { controllers.values.flatMap { $0.model.sourceURLs } }
     var hasWindows: Bool { !controllers.isEmpty }
 
-    func open(_ urls: [URL], excluded: [URL] = []) {
-        open(urls) { BinderModel(urls: urls, excluded: excluded) }
+    @discardableResult
+    func open(_ urls: [URL], excluded: [URL] = []) -> DocumentViewModel {
+        open(urls, origin: .files) { BinderModel(urls: urls, excluded: excluded) }
     }
 
     /// A parent file's documents, with the parent's own text in front when it has any.
-    func open(_ plan: MarkdownIncludes.Plan) {
-        open((plan.hasPreface ? [plan.parent] : []) + plan.documents) { BinderModel(plan: plan) }
+    @discardableResult
+    func open(_ plan: MarkdownIncludes.Plan) -> DocumentViewModel {
+        open(
+            (plan.hasPreface ? [plan.parent] : []) + plan.documents,
+            origin: .parent(plan.parent, hasPreface: plan.hasPreface)
+        ) { BinderModel(plan: plan) }
     }
 
-    private func open(_ urls: [URL], binder: () -> BinderModel) {
-        if let existing = controllers.values.first(where: { Set($0.model.sourceURLs) == Set(urls) }) {
+    private func open(_ urls: [URL], origin: BinderModel.Origin, binder: () -> BinderModel) -> DocumentViewModel {
+        // A preface reads differently from the same file on its own, so the same URLs can be two different binders.
+        let existing = controllers.values.first {
+            $0.model.binder?.origin == origin && Set($0.model.sourceURLs) == Set(urls)
+        }
+        if let existing {
             existing.showWindow(nil)
             existing.window?.makeKeyAndOrderFront(nil)
-            return
+            return existing.model
         }
         let id = UUID()
         let model = DocumentViewModel(
@@ -43,5 +52,6 @@ final class BinderWindows {
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         WelcomeController.shared.close()
+        return model
     }
 }

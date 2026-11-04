@@ -117,8 +117,8 @@ struct DocumentContent: View {
         .onChange(of: model.isRendering) { _, rendering in
             if !rendering {
                 model.sizeWindowToPaper()
-                // After the window has taken the paper's shape, which the tray keeps for the way back.
                 OpenRouter.shared.printIfRequested(model)
+                model.enterRequestedPrintMode()
             }
             #if DEBUG
                 if !rendering { DebugSnapshot.captureIfReady(model) }

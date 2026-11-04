@@ -16,7 +16,16 @@ struct OpenRouterTests {
         showWelcome: @escaping () -> Void = { Issue.record("ウェルカム画面は出さない") }
     ) -> OpenRouter {
         OpenRouter(
-            openDocument: openDocument, openBundle: openBundle, openBinder: openBinder, warn: warn,
+            openDocument: openDocument,
+            openBundle: {
+                openBundle($0, $1)
+                return nil
+            },
+            openBinder: {
+                openBinder($0, $1)
+                return nil
+            },
+            warn: warn,
             hasOpenWindows: hasOpenWindows,
             showWelcome: showWelcome)
     }

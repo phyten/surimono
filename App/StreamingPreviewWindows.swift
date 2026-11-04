@@ -73,10 +73,12 @@ final class StreamingPreviewWindows {
     func poll() {
         guard let board, let model = controller?.model, board.changeCount != seenChangeCount, !model.isRendering
         else { return }
-        seenChangeCount = board.changeCount
-        // A writer clears the pasteboard before it writes, so an empty look is only a moment in between.
+        // A writer clears the pasteboard first, which alone counts as the change: writing the text afterwards does not
+        // change the count. So the change stays unread until there is text, or that text would never be seen.
+        let changeCount = board.changeCount
         guard case .document(let data, let format) = ClipboardContent.streaming(text: board.string(forType: .string))
         else { return }
+        seenChangeCount = changeCount
         if isWaiting {
             isWaiting = false
             model.dismissToast()

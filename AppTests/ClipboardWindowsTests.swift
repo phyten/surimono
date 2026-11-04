@@ -37,7 +37,11 @@ struct ClipboardWindowsTests {
         #expect(first.model.exportName.hasPrefix(first.model.displayName.replacingOccurrences(of: ":", with: "-")))
         #expect(windows.hasWindows)
         let router = OpenRouter(
-            openDocument: { _, _ in }, openBundle: { _, _ in }, openBinder: { _, _ in Issue.record("合本は開かない") },
+            openDocument: { _, _ in }, openBundle: { _, _ in nil },
+            openBinder: { _, _ in
+                Issue.record("合本は開かない")
+                return nil
+            },
             warn: { _ in },
             hasOpenWindows: { windows.hasWindows }, showWelcome: { Issue.record("窓があるのでウェルカム画面は出さない") })
         router.showWelcomeIfIdle()
@@ -95,8 +99,12 @@ struct ClipboardWindowsTests {
             openBundle: { urls, excluded in
                 opened = urls
                 #expect(excluded.isEmpty)
+                return nil
             },
-            openBinder: { _, _ in Issue.record("合本は開かない") }, warn: { _ in Issue.record("警告しない") },
+            openBinder: { _, _ in
+                Issue.record("合本は開かない")
+                return nil
+            }, warn: { _ in Issue.record("警告しない") },
             hasOpenWindows: { false }, showWelcome: {})
         let windows = ClipboardWindows(
             openFiles: { urls, window in router.open(urls, from: window) },

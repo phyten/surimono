@@ -12,7 +12,8 @@ final class ImageBundleWindows {
     var sourceURLs: [URL] { controllers.values.flatMap { $0.model.sourceURLs } }
     var hasWindows: Bool { !controllers.isEmpty }
 
-    func open(_ urls: [URL], excluded: [URL] = []) {
+    @discardableResult
+    func open(_ urls: [URL], excluded: [URL] = []) -> DocumentViewModel {
         let id = UUID()
         let model = DocumentViewModel(
             data: Data(), fileURL: nil, format: .image,
@@ -27,5 +28,6 @@ final class ImageBundleWindows {
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         WelcomeController.shared.close()
+        return model
     }
 }
