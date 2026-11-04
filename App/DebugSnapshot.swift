@@ -23,6 +23,33 @@
 
         static func flag(_ name: String) -> Bool { argument(name)?.uppercased() == "YES" }
 
+        /// Stands in for another app: a service's selection and a streaming feed come through private pasteboards, leaving
+        /// the shared ones alone.
+        static func openFeeds() {
+            if let path = argument("SurimonoServiceText"), let text = try? String(contentsOfFile: path, encoding: .utf8)
+            {
+                let board = NSPasteboard(name: .init("SurimonoDebugService"))
+                board.clearContents()
+                board.setString(text, forType: .string)
+                var message: NSString?
+                if argument("SurimonoService") == "print" {
+                    ServiceProvider.shared.printSelection(board, userData: nil, error: &message)
+                } else {
+                    ServiceProvider.shared.openSelection(board, userData: nil, error: &message)
+                }
+            }
+            if argument("SurimonoStreaming") == "live" {
+                StreamingPreviewWindows.shared.open()
+            } else if let path = argument("SurimonoStreaming") {
+                let board = NSPasteboard(name: .init("SurimonoDebugStreaming"))
+                board.clearContents()
+                if let text = try? String(contentsOfFile: path, encoding: .utf8) {
+                    board.setString(text, forType: .string)
+                }
+                StreamingPreviewWindows.shared.open(from: board)
+            }
+        }
+
         static func configure(_ model: DocumentViewModel) {
             // The app follows the system appearance; screenshots of both appearances force one for the whole app.
             switch argument("SurimonoAppearance") {
@@ -156,6 +183,13 @@
                 // Allow SwiftUI, the window resize and PDFKit to settle.
                 try? await Task.sleep(for: .milliseconds(1200))
                 guard model.isUpToDate else { return }
+                if flag("SurimonoOpenIncludes"), model.includePlan != nil {
+                    // The binder's window replaces this one and is the one to capture.
+                    firstDocument = nil
+                    appliedOverrides = false
+                    model.openIncludesAsBinder()
+                    return
+                }
                 if let value = argument("SurimonoPage"), let page = Int(value) {
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))

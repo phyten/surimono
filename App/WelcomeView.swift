@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSAppleEventManager.shared().setEventHandler(
             self, andSelector: #selector(openDocuments(_:reply:)),
             forEventClass: AEEventClass(kCoreEventClass), andEventID: AEEventID(kAEOpenDocuments))
+        // A service can be what launches the app, and its request comes right after launch.
+        ServiceProvider.shared.register()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -49,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 board.setString(text, forType: .string)
                 ClipboardWindows.shared.open(from: board)
             }
+            DebugSnapshot.openFeeds()
         #endif
         // Restored windows appear shortly after launch; do not cover them with the welcome window. A rejected
         // multi-file selection opens nothing, so the welcome window still follows its alert.

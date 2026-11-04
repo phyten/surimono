@@ -98,6 +98,31 @@ struct ClipboardContentTests {
         #expect(ClipboardContent(tiff: Data([2])) == .document(data: Data([2]), format: .image))
     }
 
+    @Test("流し込まれる文字は印がなくても Markdown として読む", arguments: ["こんにちは", "# 見出し", "<p>断片</p>"])
+    func streamedMarkdown(text: String) {
+        #expect(ClipboardContent.streaming(text: text) == .document(data: Data(text.utf8), format: .markdown))
+    }
+
+    @Test("流し込まれた HTML 文書は HTML として読む")
+    func streamedHTML() {
+        let text = "<!doctype html><html>本文</html>"
+        #expect(ClipboardContent.streaming(text: text) == .document(data: Data(text.utf8), format: .html))
+    }
+
+    @Test("流し込まれた文字が空か空白だけなら何もしない", arguments: [nil, "", " \n"] as [String?])
+    func streamedNothing(text: String?) {
+        #expect(ClipboardContent.streaming(text: text) == .empty)
+    }
+
+    @Test("メモリ上の文書は形式と中身に合う拡張子で保存する")
+    func fileExtensions() {
+        #expect(ClipboardContent.fileExtension(of: Data("# a".utf8), format: .markdown) == "md")
+        #expect(ClipboardContent.fileExtension(of: Data("a".utf8), format: .plainText) == "txt")
+        #expect(ClipboardContent.fileExtension(of: Data("<html>".utf8), format: .html) == "html")
+        #expect(ClipboardContent.fileExtension(of: Data([0x89, 0x50, 0x4E, 0x47, 0x0D]), format: .image) == "png")
+        #expect(ClipboardContent.fileExtension(of: Data([0x4D, 0x4D, 0x00, 0x2A]), format: .image) == "tiff")
+    }
+
     @Test("何もなければ開けない")
     func empty() {
         #expect(ClipboardContent() == .empty)

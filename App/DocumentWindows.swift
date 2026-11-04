@@ -8,6 +8,9 @@ final class DocumentWindows: NSObject {
     private(set) weak var activeModel: DocumentViewModel?
     @ObservationIgnored private let models = NSMapTable<NSWindow, DocumentViewModel>.weakToWeakObjects()
 
+    /// The windows' models that are still open; a window can only leave this table by going away.
+    var openModels: [DocumentViewModel] { models.objectEnumerator()?.allObjects as? [DocumentViewModel] ?? [] }
+
     override private init() {
         super.init()
         for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {

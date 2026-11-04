@@ -10,14 +10,23 @@ final class BinderModel {
     struct Item: Identifiable, Equatable, Sendable {
         let url: URL
         let format: DocumentFormat
+        /// The parent file's own text, without the lines that name the other documents.
+        var isPreface = false
         var id: URL { url }
-        var name: String { url.lastPathComponent }
+        var name: String {
+            isPreface
+                ? String(format: String(localized: "%@ (Preface)"), url.lastPathComponent) : url.lastPathComponent
+        }
     }
 
     private(set) var items: [Item] = []
     var selection: URL?
     private(set) var excludedURLs: [URL] = []
     private(set) var unreadableURLs: [URL] = []
+    /// What a parent file names but cannot be read, as the parent writes it.
+    private(set) var missingPaths: [String] = []
+    /// The order a parent file names; a binder without a parent starts in name order.
+    private var startingOrder: [URL]?
     private(set) var pageCounts: [URL: Int] = [:]
     private(set) var thumbnails: [URL: NSImage] = [:]
     private var sources: [URL: DocumentSource] = [:]
@@ -31,6 +40,23 @@ final class BinderModel {
         self.read = read
         excludedURLs = excluded
         add(urls)
+    }
+
+    /// The documents a parent file names, in its order. Only the parent's text changes, and only in memory.
+    init(plan: MarkdownIncludes.Plan, read: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }) {
+        let parent = plan.parent
+        self.read = { url in
+            let data = try read(url)
+            return url == parent ? MarkdownIncludes.prefaceData(data) : data
+        }
+        excludedURLs = plan.excluded
+        missingPaths = plan.missing
+        if plan.hasPreface { items.append(Item(url: parent, format: .markdown, isPreface: true)) }
+        items += plan.documents.compactMap { url in
+            OpenRequest.binderFormat(url).map { Item(url: url, format: $0) }
+        }
+        startingOrder = items.map(\.url)
+        selection = items.first?.url
     }
 
     var cachedSource: DocumentSource? {
@@ -61,6 +87,8 @@ final class BinderModel {
         return items.compactMap { sources[$0.url]?.contentHash?.hex }
     }
     var isSortedByName: Bool { items == sorted(items) }
+    /// Only an order the reader made is worth remembering.
+    var isInStartingOrder: Bool { startingOrder.map { $0 == urls } ?? isSortedByName }
 
     private func sorted(_ items: [Item]) -> [Item] {
         items.sorted {

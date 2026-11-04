@@ -23,6 +23,24 @@ public enum ClipboardContent: Equatable, Sendable {
         }
     }
 
+    /// Text fed to a live preview. Editors stream whatever is being typed, so the guess between Markdown and plain text
+    /// would flip as the first markup appears; Markdown shows plain text and HTML fragments as they are anyway.
+    public static func streaming(text: String?) -> ClipboardContent {
+        guard let text, text.contains(where: { !$0.isWhitespace }) else { return .empty }
+        let format = format(of: text.trimmingCharacters(in: .whitespacesAndNewlines))
+        return .document(data: Data(text.utf8), format: format == .html ? .html : .markdown)
+    }
+
+    /// The extension of a file that keeps what opened from memory as it is.
+    public static func fileExtension(of data: Data, format: DocumentFormat) -> String {
+        switch format {
+        case .markdown: "md"
+        case .html: "html"
+        case .image: data.starts(with: [0x89, 0x50, 0x4E, 0x47]) ? "png" : "tiff"
+        default: "txt"
+        }
+    }
+
     private static func format(of text: String) -> DocumentFormat {
         var htmlStart = text[...]
         while true {

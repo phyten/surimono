@@ -315,6 +315,10 @@ struct BandMoreMenu: View {
             Button("View Options…") { model.isViewOptionsPresented = true }
                 .help("View Options (V)")
             Divider()
+            if model.canSaveAsFile {
+                Button("Save as File…") { model.saveAsFile() }
+                Divider()
+            }
             Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
         } label: {
             Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)

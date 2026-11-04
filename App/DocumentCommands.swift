@@ -16,6 +16,14 @@ struct DocumentCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("Open from Clipboard") { ClipboardWindows.shared.open() }
                 .keyboardShortcut("n")
+            Button("Streaming Preview") { StreamingPreviewWindows.shared.open() }
+        }
+        // Next to the document's own save items, which stay hidden: this one writes a new file for a document that has
+        // none, and never touches a file that was opened.
+        CommandGroup(after: .saveItem) {
+            if model?.canSaveAsFile == true {
+                Button("Save as File…") { model?.saveAsFile() }
+            }
         }
         // SwiftUI applies a new enabled state to these items only when a menu opens, so a state derived from the key
         // window's model goes stale and swallows the shortcuts. The items stay enabled; the model ignores what it
@@ -99,6 +107,9 @@ struct DocumentCommands: Commands {
                 }
             }
             Button("Choose Style…") { model?.openThemePalette() }
+            if model?.includePlan != nil {
+                Button("Open as Binder") { model?.openIncludesAsBinder() }
+            }
             Menu(LocalizedStringKey(model?.binder == nil ? "Images" : "Binder")) {
                 Toggle(
                     "Show Thumbnails",

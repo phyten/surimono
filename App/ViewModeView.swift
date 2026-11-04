@@ -258,6 +258,8 @@ struct ToastOverlay: View {
                                 .controlSize(.small)
                         case .nextChange?:
                             Button("Next Change") { model.goToNextChange() }
+                        case .openIncludes?:
+                            Button("Open as Binder") { model.openIncludesAsBinder() }
                                 .controlSize(.small)
                         case nil:
                             EmptyView()

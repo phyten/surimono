@@ -22,6 +22,9 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 ## 機能
 
 - ⌘N でクリップボードの Markdown・テキスト・HTML ソース・画像を、元のファイルを保存せずそのまま開く
+- どのアプリでも、選んだ文字をサービスのメニュー（Surimono で開く・Surimono で刷る）から開いて刷れる。「ファイルとして保存…」を選ぶまでメモリの上だけに置く
+- Markdown の親ファイルを合本で開ける: `<<[file]`（Marked）・`{{file}}`（MultiMarkdown）・`/file`（iA Writer）と、リンクだけの SUMMARY.md を読み、親の本文を前書きにして並べる
+- [Marked と互換](https://markedapp.com/help/Streaming_Preview)のストリーミングプレビュー: `mkStreamingPreview` ペーストボードへ書くアプリの文字を、ファイルを作らずその場で見せる（相対パスの画像の基準 URL は使わない）
 - Markdown・Org のコードをシンタックスハイライトし、Markdown の囲み（`:::` と `> [!note]`）を札・アイコン・線の種類で分けて表示（白黒で刷っても種類が分かる）。JavaScript を使わずオフラインで処理
 - Markdown の拡張記法: 脚注、`==ハイライト==`、`^上付き^`・`~下付き~`、ルビ `{漢字|かんじ}`、絵文字 `:tada:`、定義リスト、見出しの ID と目次 `[TOC]`
 - Markdown の ```` ```mermaid ```` と Org の `#+begin_src mermaid` を、オフラインで SVG の図にして印刷。描けない図は原文を残し、印刷前の確認に表示します。

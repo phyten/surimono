@@ -23,6 +23,9 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 ## Features
 
 - Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
+- Open or print selected text from any app with the Services menu (Open in Surimono, Print with Surimono). It stays in memory until you choose Save as File…
+- Bind a Markdown file's parts: `<<[file]` (Marked), `{{file}}` (MultiMarkdown), `/file` (iA Writer), or a SUMMARY.md of links open as a binder when you ask, with the parent's text as a preface
+- Streaming Preview, compatible with [Marked's](https://markedapp.com/help/Streaming_Preview): apps that write to the `mkStreamingPreview` pasteboard appear live, without a file (the base URL for relative images is not used)
 - Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`) with a tag, an icon and a line of their own that tell the kinds apart even in black and white, rendered offline without JavaScript
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents
 - Mermaid diagrams in Markdown (```` ```mermaid ````) and Org (`#+begin_src mermaid`) rendered as printable SVG offline. Invalid diagrams keep their source and appear in the preflight checks.
