@@ -116,6 +116,15 @@ struct DocumentOutlineTests {
             DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["第一章", "第二章"]) == [0, 1])
     }
 
+    @Test("先頭の項目が折り返した原文の目次も見出しに取らない")
+    func skipsSourceContentsWithWrappedFirstEntry() {
+        let headings = [DocumentHeading(level: 1, text: "導入方法について"), DocumentHeading(level: 1, text: "第二章")]
+        let pages = ["導入方法\nについて\n第二章", "導入方法について\n本文", "第二章\n本文"]
+        #expect(
+            DocumentOutline.pages(of: headings, inPageTexts: pages, contentsEntries: ["導入方法について", "第二章"])
+                == [1, 2])
+    }
+
     @Test("短い先頭の行で折り返した見出しも見つける")
     func findsHeadingWrappedAfterShortLine() {
         let headings = [DocumentHeading(level: 1, text: "導入方法について")]

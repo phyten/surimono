@@ -148,7 +148,11 @@ public enum DocumentOutline {
         mutating func exclude(_ entries: [String]) {
             let entries = entries.filter { !$0.isEmpty }
             guard let first = entries.first else { return }
-            for start in whole[first] ?? [] {
+            var starts = whole[first] ?? []
+            if first.count > Self.wrappedPrefixLength {
+                starts += wrapped[String(first.prefix(Self.wrappedPrefixLength))] ?? []
+            }
+            for start in Set(starts).sorted() {
                 var line = start
                 var covered: [Int] = []
                 for entry in entries {
