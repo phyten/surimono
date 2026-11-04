@@ -17,6 +17,7 @@ struct CodePaletteColumn: View {
             Divider()
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
+                    groupTitle("Color Schemes")
                     CodePaletteRow(model: model, palette: nil)
                     groupTitle("Suggested")
                     ForEach(palettes(in: .candidate)) { CodePaletteRow(model: model, palette: $0) }
@@ -36,7 +37,7 @@ struct CodePaletteColumn: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("Code Colors").font(.system(size: 14, weight: .semibold)).fixedSize()
+            Text("Code Appearance").font(.system(size: 14, weight: .semibold)).fixedSize()
             Spacer(minLength: 4)
             Text("Chosen apart from the style")
                 .font(.system(size: 11))

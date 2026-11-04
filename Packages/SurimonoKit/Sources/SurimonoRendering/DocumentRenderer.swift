@@ -676,8 +676,10 @@ public final class DocumentRenderer {
         let pageSize = settings.layout.logicalPageSize(options: settings.options)
         let isPlainPDF = source.format == .pdf
         let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
-        let shift =
-            !isPlainPDF && settings.layout.mirrorsMargins(options: settings.options) ? margins.right - margins.left : 0
+        // A text is already on its sides: it moves before its paper goes under it, which must not move with it.
+        let moves =
+            !isPlainPDF && logical.finishing.plan == nil && settings.layout.mirrorsMargins(options: settings.options)
+        let shift = moves ? margins.right - margins.left : 0
         let key = NotedKey(
             notes: notes, layoutKind: settings.layout.kind, pageSize: pageSize, mirrorShift: shift)
         if let noted = logical.noted, noted.key == key { return noted.logical }
@@ -1155,7 +1157,7 @@ public final class DocumentRenderer {
         }
         let document = Self.assembled(text.document, contents: contents, plan: plan, settings: settings)
         var finished = WebPaginator.Result(
-            document: Self.mirroringMargins(of: document, settings: settings),
+            document: Self.mirroringMargins(of: document, settings: settings, plan: notes != nil ? plan : nil),
             preparationResult: text.preparationResult, pageRules: text.pageRules,
             requiredFolderAccess: text.requiredFolderAccess)
         finished.issues = text.issues.map { issue in
@@ -1225,12 +1227,22 @@ public final class DocumentRenderer {
 
     /// Moves the content of the even pages, which are left-hand pages, so that the side of the binding keeps its
     /// margin. The pages were laid out with the same width, so moving them is all it takes.
-    private static func mirroringMargins(of document: PDFDocument, settings: RenderSettings) -> PDFDocument {
-        guard settings.mirrorsLaidOutPages else { return document }
+    /// - Parameter plan: Where the pages end up once the notes are in, when that is what decides their sides.
+    private static func mirroringMargins(
+        of document: PDFDocument, settings: RenderSettings, plan: FinishedPagePlan? = nil
+    ) -> PDFDocument {
+        guard settings.mirrorsLaidOutPages || plan != nil else { return document }
+        guard settings.layout.mirrorsMargins(options: settings.options) else { return document }
         let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
         let shift = margins.right - margins.left
-        guard shift != 0, document.pageCount > 1 else { return document }
-        return PaperComposer.compose(document, paper: nil, shift: { $0 % 2 == 1 ? shift : 0 }) ?? document
+        let places = plan.map { plan in plan.pages.indices.filter { plan.pages[$0] != .note } }
+        guard shift != 0, document.pageCount > 1 || places != nil else { return document }
+        return PaperComposer.compose(
+            document, paper: nil,
+            shift: { index in
+                let place = places.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? index
+                return place % 2 == 1 ? shift : 0
+            }) ?? document
     }
 
     private func furnitureContext(

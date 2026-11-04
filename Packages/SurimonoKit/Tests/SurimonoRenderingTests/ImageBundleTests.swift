@@ -52,7 +52,7 @@ struct ImageBundleTests {
         #expect(renderer.logicalRenderCount == 2)
         var duplex = settings
         duplex.layout = .a4Duplex
-        duplex.options.showsPageNumbers = true
+        duplex.options.furniture = .pageNumber
         duplex.options.rotatesBackSides = true
         _ = try await renderer.render(.images([images[2], images[0], images[1]]), settings: duplex)
         #expect(renderer.logicalRenderCount == 2)

@@ -141,7 +141,25 @@ struct ThemePalette: View {
         }
     }
 
-    private var footer: some View {
+    /// Beside the code column the two groups take a row each: the row is too narrow to name the text size otherwise.
+    @ViewBuilder private var footer: some View {
+        if isCodeColumnShown {
+            VStack(alignment: .leading, spacing: 8) {
+                actions
+                textSize
+            }
+            .controlSize(.small)
+        } else {
+            HStack(spacing: 8) {
+                actions
+                Spacer(minLength: 8)
+                textSize
+            }
+            .controlSize(.small)
+        }
+    }
+
+    private var actions: some View {
         HStack(spacing: 8) {
             Button {
                 model.enterCompareMode()
@@ -150,14 +168,16 @@ struct ThemePalette: View {
             }
             .help("Lay a few styles side by side")
             Toggle(isOn: Binding(get: { isCodeColumnShown }, set: { showsCodeColumn = $0 })) {
-                Text("Code Colors")
+                Text("Code Appearance")
             }
             .toggleStyle(.button)
-            .help("Code Colors")
-            Spacer(minLength: 8)
-            if !isCodeColumnShown {
-                Text("Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary)
-            }
+            .help("Code Appearance")
+        }
+    }
+
+    private var textSize: some View {
+        HStack(spacing: 8) {
+            Text("Body Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
             ControlGroup {
                 Button {
                     model.decreaseTextSize()
@@ -180,7 +200,6 @@ struct ThemePalette: View {
             }
             .fixedSize()
         }
-        .controlSize(.small)
     }
 
     private func groupTitle(_ group: PrintThemeMenu.Section) -> String {

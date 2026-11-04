@@ -179,7 +179,7 @@ struct PrintSheetFlowTests {
         #expect(model.hasCurrentPrintPreview)
 
         gate.isHeld = true
-        model.printOptions.showsPageNumbers = true
+        model.printOptions.furniture = .pageNumber
         model.render()
         try await waitUntil { gate.waiting == 1 }
         // The paper already has the new render, with the same logical document; its sheets are not composed yet.
@@ -210,7 +210,7 @@ struct PrintSheetFlowTests {
         defer { model.stop() }
 
         gate.isHeld = true
-        model.printOptions.showsPageNumbers = true
+        model.printOptions.furniture = .pageNumber
         model.render()
         try await waitUntil { gate.waiting == 1 }
         let superseded = try #require(model.result?.id)
@@ -245,7 +245,7 @@ struct PrintSheetFlowTests {
         let old = try #require(model.printResult)
 
         gate.failure = CompositionFailure()
-        model.printOptions.showsPageNumbers = true
+        model.printOptions.furniture = .pageNumber
         model.render()
         try await waitUntil { !model.isRendering }
         #expect(model.error != nil)

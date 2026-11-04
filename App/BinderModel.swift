@@ -10,7 +10,8 @@ final class BinderModel {
     /// Where a binder comes from. The same files make a different binder when a parent file names them.
     enum Origin: Equatable {
         case files
-        case parent(URL, hasPreface: Bool)
+        /// The plan of the parent: its order is what makes it this binder.
+        case parent(URL, hasPreface: Bool, documents: [URL])
     }
 
     struct Item: Identifiable, Equatable, Sendable {
@@ -61,7 +62,7 @@ final class BinderModel {
             if url == parent { return MarkdownIncludes.prefaceData(try Data(contentsOf: url)) }
             return named.contains(url) ? try ConfinedFile.read(url, within: root) : try Data(contentsOf: url)
         }
-        origin = .parent(parent, hasPreface: plan.hasPreface)
+        origin = .parent(parent, hasPreface: plan.hasPreface, documents: plan.documents)
         excludedURLs = plan.excluded
         missingPaths = plan.missing
         if plan.hasPreface { items.append(Item(url: parent, format: .markdown, isPreface: true)) }

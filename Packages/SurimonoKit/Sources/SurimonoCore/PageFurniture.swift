@@ -124,6 +124,13 @@ public struct PageFurniture: Codable, Hashable, Sendable {
     }
 
     /// The text for the logical page at `index`, or nil for a page that carries none.
+    /// How wide the middle of a row may be. It leaves each side the room its own text needs, up to a fifth of the row;
+    /// the middle is centered, so the wider side decides.
+    public static func centerLimit(left: CGFloat, right: CGFloat, available: CGFloat, gap: CGFloat) -> CGFloat {
+        let reserved = min(max(left, right), available / 5)
+        return reserved > 0 ? available - 2 * (reserved + gap) : available
+    }
+
     public func lines(forPage index: Int, pageCount: Int, context: Context, hasFacingPages: Bool) -> Lines? {
         guard !isEmpty, !context.blankPages.contains(index), !(skipsFirstPage && index == 0) else { return nil }
         func filled(_ text: String) -> String {

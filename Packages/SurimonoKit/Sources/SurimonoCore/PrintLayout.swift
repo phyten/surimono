@@ -306,11 +306,8 @@ public struct PrintOptions: Codable, Equatable, Sendable {
         set { margins = .uniform(newValue) }
     }
 
-    /// Whether the pages carry the plain page number. Any other header or footer is left to `furniture`.
-    public var showsPageNumbers: Bool {
-        get { furniture.preset != .none }
-        set { furniture.apply(newValue ? .number : .none) }
-    }
+    /// Whether the pages carry a header or footer at all. Records used to keep this switch; `furniture` holds it now.
+    public var showsPageNumbers: Bool { furniture.preset != .none }
 
     public init(marginsInMillimeters: Double = 15, showsPageNumbers: Bool = false, rotatesBackSides: Bool = false) {
         margins = .uniform(marginsInMillimeters)

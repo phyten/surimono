@@ -30,6 +30,15 @@ struct SettingsView: View {
     private let updater = AppUpdater.shared
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
+    private var furnitureChoice: Binding<PageFurniture.Preset> {
+        Binding(
+            get: { preferences.defaultFurniture.preset },
+            set: { preset in
+                guard preset != .custom else { return }
+                preferences.defaultFurniture.apply(preset)
+            })
+    }
+
     var body: some View {
         NavigationSplitView {
             List(
@@ -136,7 +145,15 @@ struct SettingsView: View {
                     Toggle("In View Mode", isOn: $preferences.viewPageNumbers)
                     Text("Page numbers are never shown in single-page scrolling.")
                         .font(.caption).foregroundStyle(.secondary)
-                    Toggle("In Print", isOn: $preferences.pageNumbers)
+                    Picker("In Print", selection: furnitureChoice) {
+                        ForEach(PrintFurnitureChoice.choices.filter { $0.value != .custom }, id: \.value) { choice in
+                            Text(choice.title).tag(choice.value)
+                        }
+                        // Written on the print screen; it stays until another choice replaces it.
+                        if preferences.defaultFurniture.preset == .custom {
+                            Text("Specify Contents…").tag(PageFurniture.Preset.custom)
+                        }
+                    }
                     defaultsNote
                 case .printing:
                     Picker("Default Print Layout", selection: $preferences.layoutID) {

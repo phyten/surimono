@@ -213,4 +213,36 @@ struct PrintFinishTests {
         #expect(set.furniture == .pageNumber)
         #expect(set.finish == nil)
     }
+
+    @Test("リストの続きの本文にある改ページはリストを割らず、後の段落も同じ項目に残る")
+    func breakInsideListItem() {
+        let html = MarkdownConverter.convert("- 一\n\n  \\newpage\n\n  二\n\n- 三\n").body
+        #expect(html.components(separatedBy: "<ul>").count == 2)
+        let item = html.components(separatedBy: "</li>")[0]
+        #expect(item.contains("class=\"page-break\""))
+        #expect(item.contains("二"))
+    }
+
+    @Test("字下げのない改ページはリストを終える")
+    func breakAfterList() {
+        let html = MarkdownConverter.convert("- 一\n\n\\newpage\n\n二\n").body
+        #expect(html.components(separatedBy: "</ul>")[0].contains("page-break") == false)
+    }
+
+    @Test("中央の欄は左右の文字の場所を残した幅までにする")
+    func centerLimit() {
+        #expect(PageFurniture.centerLimit(left: 0, right: 0, available: 100, gap: 8) == 100)
+        #expect(PageFurniture.centerLimit(left: 10, right: 0, available: 100, gap: 8) == 64)
+        #expect(PageFurniture.centerLimit(left: 90, right: 20, available: 100, gap: 8) == 44)
+    }
+
+    @Test("印刷オプションのページ番号の有無はヘッダーの設定から読むだけで、中身を消さない")
+    func showsPageNumbersReadsOnly() throws {
+        var options = PrintOptions()
+        #expect(!options.showsPageNumbers)
+        options.furniture.topLeft = "{題名}"
+        #expect(options.showsPageNumbers)
+        let old = Data(#"{"marginsInMillimeters":12,"showsPageNumbers":true}"#.utf8)
+        #expect(try JSONDecoder().decode(PrintOptions.self, from: old).furniture == .pageNumber)
+    }
 }

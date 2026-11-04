@@ -95,7 +95,7 @@ struct PrintSettingSetTests {
             settings: DocumentSettings(
                 layoutID: "a4Duplex", printOptions: PrintOptions(marginsInMillimeters: 10, showsPageNumbers: true)))
         #expect(set.matches(current))
-        current.printOptions?.showsPageNumbers = false
+        current.printOptions?.furniture = PageFurniture()
         #expect(!set.matches(current))
         #expect(!PrintSettingSet(name: "Empty", settings: DocumentSettings()).matches(current))
     }
@@ -115,7 +115,7 @@ struct PrintSettingSetTests {
         case "layout": current.layoutID = "a4Single"
         case "orientation": current.paperOrientation = .landscape
         case "margin": current.printOptions?.marginsInMillimeters = 20
-        case "numbers": current.printOptions?.showsPageNumbers = true
+        case "numbers": current.printOptions?.furniture = .pageNumber
         case "theme": current.themeID = "standard"
         case "scale": current.textScale = 1.5
         case "preset": current.presetID = "article"

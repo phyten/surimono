@@ -188,14 +188,21 @@ struct PrintTrayTests {
     func cardTitles() {
         #expect(
             PrintLayout.presets.map { PrintModeText.cardTitle($0, language: "ja") } == [
-                "A4 片面", "A4 両面", "A4 冊子", "A5 冊子", "2 ページ並べ", "3 ページ＋\nメモ欄",
-                "B5 片面", "B5 両面", "B5 冊子", "B6 冊子", "2 ページ並べ",
+                "A4 片面", "A4 両面", "A4 の冊子", "A5 の冊子", "2 ページを\n1 枚に", "3 ページ＋\nメモ欄",
+                "B5 片面", "B5 両面", "B5 の冊子", "B6 の冊子", "2 ページを\n1 枚に",
             ])
         #expect(
             PrintLayout.presets.map { PrintModeText.cardPaper($0, language: "ja") } == [
-                nil, nil, "A3 に刷る", "A4 に刷る", "A3 に刷る", "A4 に刷る",
-                nil, nil, "B4 に刷る", "B5 に刷る", "B4 に刷る",
+                nil, nil, "用紙：A3・両面", "用紙：A4・両面", "用紙：A3", "用紙：A4",
+                nil, nil, "用紙：B4・両面", "用紙：B5・両面", "用紙：B4",
             ])
+    }
+
+    @Test("刷り台はノートのページを 1 始まりの番号で覚える")
+    func trayKnowsNotes() {
+        let plan = Imposition.plan(pageCount: 4, layout: .a4BookletA5)
+        let tray = PrintTray(plan: plan, layout: .a4BookletA5, rotatesBackSides: false, notePages: [0, 2])
+        #expect(tray.notePages == [1, 3])
     }
 
     @Test("ノートのあるページ数は本文とノートの内訳を出す")
@@ -382,7 +389,7 @@ struct PrintModeTests {
     func renderSettingsUsePrintOptions() throws {
         let fixture = Fixture()
         fixture.preferences.margin = 12
-        fixture.preferences.pageNumbers = true
+        fixture.preferences.defaultFurniture = .pageNumber
         let model = fixture.model()
         #expect(
             model.printOptions
@@ -398,9 +405,9 @@ struct PrintModeTests {
         let fixture = Fixture()
         let first = fixture.model()
         let second = fixture.model()
-        first.printOptions.showsPageNumbers = true
+        first.printOptions.furniture = .pageNumber
         first.printOptions.marginsInMillimeters = 5
-        #expect(!fixture.preferences.pageNumbers)
+        #expect(fixture.preferences.defaultFurniture.isEmpty)
         #expect(fixture.preferences.margin == 15)
         #expect(second.printOptions == PrintOptions())
     }

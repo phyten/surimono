@@ -8,7 +8,7 @@ struct ViewOptionsPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("View").font(.headline)
+                Text("View & Text Settings").font(.headline)
                 Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
             SpreadSample(options: model.viewOptions, unit: currentUnit)
@@ -16,7 +16,7 @@ struct ViewOptionsPopover: View {
                 if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
-                heading("On Screen")
+                heading("Screen Only")
                 GridRow {
                     rowLabel("Reading Direction")
                     Picker("Reading Direction", selection: option(\.direction)) {
@@ -53,25 +53,22 @@ struct ViewOptionsPopover: View {
                     rowLabel("Toolbar")
                     BandVisibilityPicker(selection: $model.bandVisibility)
                 }
-                if model.offersPaperSeries || model.marginsApply {
-                    heading("Text Layout")
-                }
                 if model.offersPaperSeries {
                     GridRow {
-                        rowLabel("Paper Size")
+                        rowLabel("Paper on Screen")
                         VStack(alignment: .leading, spacing: 3) {
                             PaperSeriesPicker(selection: $model.paperSeries)
-                            caption("The paper shown here. Printing uses the layout on the print screen.")
+                            caption("Choose the paper for printing on the print screen.")
                         }
                     }
                 }
                 if model.marginsApply {
+                    heading("Text Settings — Also Used for Printing")
                     GridRow {
-                        rowLabel("Margins")
+                        rowLabel("Text Margins")
                         HStack(spacing: 4) {
                             MarginControl(model: model)
                             Text("mm").foregroundStyle(.secondary)
-                            caption("Shared by the view and printing").padding(.leading, 6)
                         }
                     }
                 }
@@ -157,7 +154,7 @@ struct PaperSeriesPicker: View {
     @Binding var selection: ViewPaperSeries
 
     var body: some View {
-        Picker("Paper Size", selection: $selection) {
+        Picker("Paper on Screen", selection: $selection) {
             ForEach(ViewPaperSeries.allCases, id: \.self) { series in
                 Text(series.title).tag(series)
             }

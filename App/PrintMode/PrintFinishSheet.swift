@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The sections of the print settings, which the tray's items open directly.
 enum PrintFinishSection: Hashable {
-    case furniture, breaks, contents, notes
+    case furniture, breaks, contents, notes, printer
 }
 
 /// All the print settings. It stays beside the sheets, which show each change right away.
@@ -19,6 +19,8 @@ struct PrintFinishSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            heading
+            Rectangle().fill(PrintPalette.line).frame(height: 1)
             ScrollViewReader { scroller in
                 ScrollView {
                     content
@@ -48,14 +50,10 @@ struct PrintFinishSheet: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Print Settings").font(.system(size: 14, weight: .bold))
-            Text("Added only when printing. The document does not change.")
-                .font(.system(size: 11.5))
-                .foregroundStyle(PrintPalette.ink2)
-                .padding(.top, 3)
-                .padding(.bottom, 6)
-            section("Paper & Margins") { PrintPaperOptions(model: model) }
-            section("Header & Footer") {
+            if model.marginsAffectPrinting {
+                section("Paper & Margins", isFirst: true) { PrintMarginEditor(model: model) }
+            }
+            section("Header & Footer", isFirst: !model.marginsAffectPrinting) {
                 PrintFurnitureChoice(model: model)
                 furnitureDetails
             }
@@ -67,36 +65,43 @@ struct PrintFinishSheet: View {
                     breakDetails
                 }
                 .id(PrintFinishSection.breaks)
-                section("Printed Contents") {
+                section("Contents Page") {
                     PrintContentsChoice(model: model)
                     hint(contentsHint)
                     contentsDetails
                 }
                 .id(PrintFinishSection.contents)
             }
-            // Above the notes, which it does not keep: it stands under what it applies to.
-            useForNewDocuments
             if model.offersNotes {
                 section("Note Pages") { PrintNoteSection(model: model) }.id(PrintFinishSection.notes)
             }
+            section("Printer Adjustments") { PrintPrinterOptions(model: model) }.id(PrintFinishSection.printer)
         }
         .padding(16)
     }
 
-    private var useForNewDocuments: some View {
-        Button {
-            model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
-        } label: {
-            Text("Use for New Documents").padding(.horizontal, 10)
+    private var heading: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Print Settings").font(.system(size: 14, weight: .bold))
+            Text("Added only when printing. The document does not change.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(PrintPalette.ink2)
         }
-        .buttonStyle(PrintBorderedButtonStyle())
-        .fixedSize()
-        .help("New documents start with these margins, header and footer, page breaks and contents")
-        .padding(.bottom, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var footer: some View {
         HStack(spacing: 8) {
+            Button {
+                model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
+            } label: {
+                Text("Use These Print Settings for New Documents").padding(.horizontal, 10)
+            }
+            .buttonStyle(PrintBorderedButtonStyle())
+            .fixedSize()
+            .help("New documents start with these margins, header and footer, page breaks and contents")
             Spacer(minLength: 0)
             Button {
                 model.isPrintFinishPresented = false
@@ -112,10 +117,10 @@ struct PrintFinishSheet: View {
     }
 
     private func section<Content: View>(
-        _ title: LocalizedStringKey, @ViewBuilder content: () -> Content
+        _ title: LocalizedStringKey, isFirst: Bool = false, @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Rectangle().fill(PrintPalette.line).frame(height: 1).padding(.bottom, 11)
+            if !isFirst { Rectangle().fill(PrintPalette.line).frame(height: 1).padding(.bottom, 11) }
             Text(title).font(.system(size: 13, weight: .semibold)).padding(.bottom, 7)
             content()
         }
@@ -357,7 +362,10 @@ struct PrintFinishSheet: View {
         let hasSource = facts?.hasSourceContents == true
         switch model.printFinish.toc.mode {
         case .hidden: return hasSource ? "The text's [TOC] does not print." : "No contents on the paper."
-        case .source: return hasSource ? "Prints where the text's [TOC] stands." : "This text has no [TOC]."
+        case .source:
+            return hasSource
+                ? "Prints where the text's [TOC] stands."
+                : "This document does not say where contents go. To add them, choose “Add Contents to Front”."
         case .front: return "Adds pages of contents in front, with or without a [TOC] in the text."
         }
     }
@@ -432,6 +440,11 @@ struct PrintMarginEditor: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Text("Margins (mm)")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(PrintPalette.ink2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 5)
             Grid(horizontalSpacing: 6, verticalSpacing: 6) {
                 GridRow {
                     Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
@@ -517,16 +530,13 @@ struct PrintMarginEditor: View {
     }
 }
 
-/// The first section of the print settings: the margins, and how the printer handles the sheets.
-struct PrintPaperOptions: View {
+/// How the chosen printer handles the sheets.
+struct PrintPrinterOptions: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if model.marginsAffectPrinting {
-                PrintMarginEditor(model: model).padding(.bottom, 9)
-            }
-            row("Print Order", hint: printerOrderHint) {
+            row("Output Order", hint: printerOrderHint) {
                 PrintPageOrderPicker(order: $model.printPageOrder)
                     .disabled(model.selectedPrinterName == nil)
                     .labelsHidden()

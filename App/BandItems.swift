@@ -245,8 +245,11 @@ struct TransitionMenu: View {
             TransitionPicker(model: model)
         } label: {
             let transition = model.viewOptions.transition
-            let label = Label(transition.title, systemImage: transition.symbol)
-            if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+            if showsName {
+                Label("Page Turn: \(transition.name)", systemImage: transition.symbol).labelStyle(.titleAndIcon)
+            } else {
+                Label(transition.title, systemImage: transition.symbol).labelStyle(.iconOnly)
+            }
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -444,7 +447,7 @@ private struct SecondaryViewMenuItem: View {
                 PaperSeriesPicker(selection: $model.paperSeries)
                     .pickerStyle(.inline).labelsHidden()
             } label: {
-                Text(verbatim: choice(String(localized: "Paper Size"), model.paperSeries.name))
+                Text(verbatim: choice(String(localized: "Paper on Screen"), model.paperSeries.name))
             }
         case .scrollAxis:
             Menu {

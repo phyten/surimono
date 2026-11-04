@@ -206,11 +206,17 @@ struct PrintFinishFlowTests {
         #expect(model.printOptions.furniture == .pageNumber)
     }
 
-    @Test("足したページは数えて知らせ、何も足さないときは言わない")
-    func additions() {
-        #expect(PrintModeText.additions(contents: 0, blanks: 0, language: "ja") == nil)
-        #expect(PrintModeText.additions(contents: 1, blanks: 0, language: "ja") == "目次 1 ページを足しました")
-        #expect(PrintModeText.additions(contents: 1, blanks: 2, language: "ja") == "目次 1 ページ・白紙 2 ページを足しました")
+    @Test("要約は仕上がりのページの内訳と使う用紙に分ける")
+    func outcome() {
+        #expect(
+            PrintModeText.finished(pages: 4, body: 1, contents: 0, notes: 2, blanks: 1, language: "ja")
+                == "仕上がり 4 ページ / 本文 1・ノート 2・白紙 1")
+        #expect(
+            PrintModeText.finished(pages: 6, body: 6, contents: 0, notes: 0, blanks: 0, language: "ja")
+                == "仕上がり 6 ページ")
+        #expect(
+            PrintModeText.paper("A4", sheets: 1, duplex: .shortEdge, language: "ja") == "使う用紙 A4 1 枚（両面）")
+        #expect(PrintModeText.paper("A4", sheets: 3, duplex: .none, language: "ja") == "使う用紙 A4 3 枚（片面）")
     }
 
     @Test("ヘッダーは刷り台の行で見えるので、要約の下には裏面の回転だけを知らせる")
@@ -266,5 +272,33 @@ struct PrintFinishFlowTests {
         model.resetDocumentSettings()
         #expect(model.printFinish == PrintFinish())
         #expect(model.printOptions.furniture == PageFurniture())
+    }
+
+    @Test("設定の既定のヘッダーは PageFurniture で覚え、ページ番号の古い記録は読むときに移す")
+    func defaultFurniture() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.suite.defaults.set(true, forKey: "pageNumbers")
+        #expect(environment.preferences.defaultFurniture == .pageNumber)
+        var custom = PageFurniture()
+        custom.topLeft = "{題名}"
+        let preferences = environment.preferences
+        preferences.defaultFurniture = custom
+        #expect(environment.preferences.defaultFurniture == custom)
+        #expect(environment.preferences.printOptions.furniture == custom)
+    }
+
+    @Test("既定にしたヘッダーは、設定で別の物を選ぶまで消えない")
+    func customFurnitureStays() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        var options = PrintOptions()
+        options.furniture.topLeft = "{題名}"
+        preferences.setFinishDefaults(options: options, finish: PrintFinish())
+        preferences.margin = 12
+        #expect(environment.preferences.printOptions.furniture.topLeft == "{題名}")
+        preferences.defaultFurniture = .pageNumber
+        #expect(environment.preferences.printOptions.furniture == .pageNumber)
     }
 }

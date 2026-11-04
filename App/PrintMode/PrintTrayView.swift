@@ -38,7 +38,8 @@ struct PrintTrayView: View {
                                     ForEach(row.sheets) { sheet in
                                         TraySheetView(
                                             sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
-                                            language: model.language, imageNames: imageNames,
+                                            language: model.language, notePages: tray.notePages,
+                                            imageNames: imageNames,
                                             // The sheets were drawn with the options of their render.
                                             options: model.renderedSettings?.options ?? model.effectivePrintOptions)
                                     }
@@ -160,6 +161,7 @@ private struct TraySheetView: View {
     let metrics: TrayMetrics
     let document: PDFDocument
     let language: String
+    let notePages: Set<Int>
     let imageNames: [String]?
     let options: PrintOptions
 
@@ -186,7 +188,8 @@ private struct TraySheetView: View {
                 ForEach(sheet.sides, id: \.documentIndex) { side in
                     TraySideView(
                         side: side, page: document.page(at: side.documentIndex), size: sideSize,
-                        scale: metrics.scale, layout: layout, language: language, imageNames: imageNames,
+                        scale: metrics.scale, layout: layout, language: language, notePages: notePages,
+                        imageNames: imageNames,
                         options: options)
                 }
             }
@@ -213,6 +216,7 @@ private struct TraySideView: View {
     let scale: CGFloat
     let layout: PrintLayout
     let language: String
+    let notePages: Set<Int>
     let imageNames: [String]?
     let options: PrintOptions
 
@@ -281,7 +285,7 @@ private struct TraySideView: View {
             } else {
                 HStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
-                        pageLabel(page)
+                        pageLabel(page, slot: index)
                             // The first label stays clear of the front and back tag at the left edge.
                             .padding(.leading, index == 0 && face != nil ? (side.isRotated ? 56 : 28) : 4)
                             .padding(.trailing, 4)
@@ -294,12 +298,16 @@ private struct TraySideView: View {
         .frame(width: size.width, height: 20)
     }
 
-    @ViewBuilder private func pageLabel(_ page: Int?) -> some View {
-        if let page {
-            if let imageNames, imageNames.indices.contains(page - 1) {
+    @ViewBuilder private func pageLabel(_ page: Int?, slot: Int) -> some View {
+        if let page, notePages.contains(page) {
+            Text("Page **\(page)** · Note").font(.system(size: 12)).monospacedDigit().lineLimit(1)
+        } else if let page {
+            // The names follow the images, which the note pages do not count among.
+            let image = page - 1 - notePages.filter { $0 < page }.count
+            if let imageNames, imageNames.indices.contains(image) {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(verbatim: "\(page)").font(.system(size: 13, weight: .semibold)).monospacedDigit()
-                    Text(verbatim: imageNames[page - 1])
+                    Text(verbatim: imageNames[image])
                         .font(.system(size: 10.5))
                         .foregroundStyle(PrintPalette.ink2)
                         .truncationMode(.middle)
@@ -311,6 +319,8 @@ private struct TraySideView: View {
                     .monospacedDigit()
                     .lineLimit(1)
             }
+        } else if layout.kind == .booklet, side.documentIndex == 0, slot == 0 {
+            Text("Blank (Back Cover)").font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2).lineLimit(1)
         } else {
             Text("Blank").font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2).lineLimit(1)
         }
@@ -376,7 +386,7 @@ private struct TrayNavigator: View {
             }
             .disabled(current <= 0)
             .help("Previous Sheet")
-            Text(verbatim: "\(sheetNumber)/\(sheetCount)")
+            Text("Sheet \(sheetNumber)/\(sheetCount)")
                 .font(.system(size: 10.5))
                 .monospacedDigit()
                 .foregroundStyle(PrintPalette.ink2)

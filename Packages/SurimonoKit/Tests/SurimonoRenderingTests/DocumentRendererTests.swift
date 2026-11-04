@@ -148,7 +148,7 @@ struct DocumentRendererTests {
         _ = try await renderer.render(source, settings: settings)
         settings.paperOrientation = .landscape
         let result = try await renderer.render(source, settings: settings)
-        settings.options.showsPageNumbers = true
+        settings.options.furniture = .pageNumber
         _ = try await renderer.render(source, settings: settings)
         #expect(sizes.count == 2)
         #expect(abs(sizes[1].width - 841.89) < 0.1)
@@ -306,7 +306,7 @@ struct DocumentRendererTests {
         var settings = settings
         let first = try await renderer.render(source, settings: settings)
         settings.layout = .a4Duplex
-        settings.options.showsPageNumbers = true
+        settings.options.furniture = .pageNumber
         settings.options.rotatesBackSides = true
         let second = try await renderer.render(source, settings: settings)
         #expect(second.logicalDocument === first.logicalDocument)

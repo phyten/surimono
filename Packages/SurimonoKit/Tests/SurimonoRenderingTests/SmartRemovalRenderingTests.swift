@@ -25,7 +25,7 @@ struct SmartRemovalRenderingTests {
         let source = DocumentSource(data: Data("<p>Article</p>".utf8), format: .html)
         let first = try await renderer.render(source, settings: settings)
         var changed = settings
-        changed.options.showsPageNumbers = true
+        changed.options.furniture = .pageNumber
         let second = try await renderer.render(source, settings: changed)
         #expect(first.smartRemovalCandidates == [candidate])
         #expect(second.smartRemovalCandidates == [candidate])
