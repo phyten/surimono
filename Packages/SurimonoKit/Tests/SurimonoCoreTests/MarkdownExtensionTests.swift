@@ -217,6 +217,36 @@ struct MarkdownExtensionBoundaryTests {
         #expect(!MarkdownConverter.convert(source).body.contains("page-break"))
     }
 
+    @Test(
+        "pre・複数行のコメント・複数行のコードスパンの中の記法は読まず、原文のまま残す",
+        arguments: [
+            ("<pre>\n\\newpage\n</pre>", "\\newpage"),
+            ("<pre>\n\n<!--BREAK-->\n\n</pre>", "<!--BREAK-->"),
+            ("<div>\n\\newpage\n</div>", "\\newpage"),
+            ("<!-- メモ\n\\newpage\n-->", "\\newpage"),
+            ("<!-- メモ\n<!--BREAK-->\n続き", "<!--BREAK-->"),
+            ("文 <!-- メモ\n\\newpage\nここまで --> 文", "\\newpage"),
+            ("`コード\n\\newpage\nここまで`", "\\newpage"),
+            ("`コード\n{::pagebreak /}\nここまで`", "{::pagebreak /}"),
+        ])
+    func pageBreakInsideHTMLAndSpans(text: String, kept: String) {
+        let body = MarkdownConverter.convert(text).body
+        #expect(!body.contains("page-break\""))
+        #expect(!body.contains("surimono-page-break"))
+        #expect(body.contains(kept) || body.contains(kept.replacingOccurrences(of: "<", with: "&lt;")))
+    }
+
+    @Test("HTML ブロックの間の空行の後に単独である記法は読む")
+    func pageBreakBetweenHTMLBlocks() {
+        let body = MarkdownConverter.convert("<div>a</div>\n\n<!--BREAK-->\n\n<div>b</div>").body
+        #expect(body.contains("data-syntax=\"break\""))
+    }
+
+    @Test("閉じていないコードフェンスの後の記法は読まない")
+    func pageBreakInOpenFence() {
+        #expect(!MarkdownConverter.convert("```\n\\newpage").body.contains("page-break"))
+    }
+
     @Test("自分の改ページの記法は渡されたときだけ読む")
     func customPageBreak() {
         let text = "前\n\n＝＝改ページ＝＝\n\n後"

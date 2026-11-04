@@ -64,6 +64,24 @@ struct PrintSettingSetFlowTests {
         #expect(model.presetID == preset.id && model.matchesPrintSettingSet(set))
     }
 
+    @Test("テキストを含む合本に仕上げのあるセットを当てても、直後は変更ありにならず改ページも持ち込まない")
+    func binderIgnoresFinish() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .pdf, preferences: environment.preferences,
+            library: UserLibrary(root: environment.directory.appendingPathComponent("Library")),
+            settingsStore: environment.store,
+            binder: BinderModel(urls: [URL(fileURLWithPath: "/fixture/a.md"), URL(fileURLWithPath: "/fixture/b.md")]))
+        defer { model.stop() }
+        for set in PrintSettingSet.builtIns(language: model.language) {
+            model.applyPrintSettingSet(set)
+            #expect(model.matchesPrintSettingSet(set))
+            #expect(!model.isSettingSetChanged)
+            #expect(model.printFinish == PrintFinish())
+        }
+    }
+
     @Test("別の文書へ設定セットを当てると印刷の設定が変わり内容のハッシュで保存される", .timeLimit(.minutes(1)))
     func applyAndRemember() async throws {
         let environment = Environment()

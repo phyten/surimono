@@ -513,28 +513,50 @@ enum MarkdownPageBreaks {
 
     static func marking(_ lines: [String], customLine: String) -> [String] {
         let custom = customLine.trimmingCharacters(in: .whitespaces)
-        var fence: (mark: Character, length: Int)?
-        return lines.map { line in
-            let indent = line.prefix { $0 == " " }.count
-            let text = line.dropFirst(indent)
-            if let open = fence {
-                let run = text.prefix { $0 == open.mark }.count
-                if indent <= 3, run >= open.length, text.dropFirst(run).allSatisfy({ $0 == " " || $0 == "\t" }) {
-                    fence = nil
-                }
-                return line
-            }
-            guard indent <= 3 else { return line }
-            if let mark = text.first, mark == "`" || mark == "~" {
-                let run = text.prefix { $0 == mark }.count
-                if run >= 3, mark == "~" || !text.dropFirst(run).contains("`") { fence = (mark, run) }
-                return line
-            }
-            guard let syntax = syntax(ofLine: text.trimmingCharacters(in: .whitespaces), custom: custom) else {
-                return line
-            }
-            return markerPrefix + syntax.rawValue + "-->"
+        let candidates = lines.indices.compactMap { index -> (index: Int, syntax: PageBreakSyntax)? in
+            let line = lines[index]
+            // Four spaces make a code block or the continuation of a list item, neither a line of its own.
+            guard line.prefix(while: { $0 == " " }).count <= 3 else { return nil }
+            return syntax(ofLine: line.trimmingCharacters(in: .whitespaces), custom: custom).map { (index, $0) }
         }
+        // Most texts have none, and they need no parsing here.
+        guard !candidates.isEmpty else { return lines }
+        let protection = MarkdownExtensions.protection(lines)
+        let html = htmlRegions(lines)
+        var result = lines
+        for candidate in candidates {
+            let index = candidate.index
+            let isInBlock = protection.lines[index] && !html.ownLines.contains(index)
+            if isInBlock || protection.spans[index] != nil || html.coveredLines.contains(index) { continue }
+            result[index] = markerPrefix + candidate.syntax.rawValue + "-->"
+        }
+        return result
+    }
+
+    /// The lines that are an HTML block all by themselves, which is what a comment asking for a page break is, and the
+    /// lines of HTML that runs over several lines. Source positions do not tell how far either goes: an inline node's
+    /// stop at its first line and a block closed by its own last line can end one line short, so its text decides.
+    private static func htmlRegions(_ lines: [String]) -> (ownLines: Set<Int>, coveredLines: Set<Int>) {
+        var ownLines: Set<Int> = []
+        var coveredLines: Set<Int> = []
+        func record(_ html: String, at first: Int, isBlock: Bool) {
+            let breaks = html.trimmingCharacters(in: .newlines).filter(\.isNewline).count
+            if breaks > 0 {
+                coveredLines.formUnion(first...(first + breaks))
+            } else if isBlock {
+                ownLines.insert(first)
+            }
+        }
+        func visit(_ node: any Markup) {
+            if let block = node as? HTMLBlock, let range = block.range {
+                record(block.rawHTML, at: range.lowerBound.line - 1, isBlock: true)
+            } else if let inline = node as? InlineHTML, let range = inline.range {
+                record(inline.rawHTML, at: range.lowerBound.line - 1, isBlock: false)
+            }
+            for child in node.children { visit(child) }
+        }
+        visit(Document(parsing: lines.joined(separator: "\n"), options: [.disableSmartOpts]))
+        return (ownLines, coveredLines)
     }
 
     private static func syntax(ofLine line: String, custom: String) -> PageBreakSyntax? {

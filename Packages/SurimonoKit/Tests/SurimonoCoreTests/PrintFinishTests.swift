@@ -74,6 +74,7 @@ struct PrintFinishTests {
         #expect(plan.pages == [.body(0), .body(1), .body(2), .blank, .body(3), .body(4)])
         #expect(plan.bodyPageIndices == [0, 1, 2, 4, 5])
         #expect(plan.blankPages == [3])
+        #expect(plan.contentsPageCount == 0)
     }
 
     @Test("目次のページ数も右ページの判定に数える")
