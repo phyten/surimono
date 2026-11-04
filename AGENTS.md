@@ -67,8 +67,8 @@ make clean
 
 - これらを束ねるのが `DocumentRenderer`（SurimonoRendering）。文書ごとに 1 つ持ち、論理ページの PDF を使い回す（両面設定やページ番号の変更だけなら組版し直さない）。ファイルが変わったら `clearCache()` を呼ぶ。
 - Markdown と Org のコードは SurimonoCore の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
-- 囲み（`MarkdownCallouts`）: 表題を札にし、名前を意味の 4 群へ畳む。情報（note・info・todo・example）は `callout-note`、成功（tip・success）は `callout-tip`、注意（important・warning・question）は `callout-warning`、危険（danger・bug）は `callout-danger`（クラス名は以前のもので、ユーザー CSS のために変えない）。ほかに `callout-quote` と無地の `callout-neutral`（neutral・details）。`data-callout` には書いた名前がそのまま残る。
-  - 未知の名前は `callout-unknown callout-neutral` で、アイコンの代わりに名前の札（`.callout-name`）を出す。表題を書かなければ名前の見出し語が札の文字になる（Zenn の `:::message` も同じ）。
+- 囲み（`MarkdownCallouts`）: 表題を札にし、名前を意味の 4 群へ畳む。情報（note・info・todo・example）は `callout-note`、成功（tip・success）は `callout-tip`、注意（important・warning・question）は `callout-warning`、危険（danger・bug）は `callout-danger`（クラス名は以前のもので、ユーザー CSS のために変えない）。important と example には、以前のクラス `callout-important` を群のクラスの前に併記する。手書きの HTML の `callout callout-important` は注意の見た目になる。ほかに `callout-quote` と無地の `callout-neutral`（neutral・details）。`data-callout` には書いた名前がそのまま残る。
+  - 未知の名前は `callout-unknown callout-neutral` で、アイコンの代わりに名前の札（`.callout-name`）を出す。表題を書かなければ名前の見出し語が札の文字になる。Zenn の `:::message`（`alert` も）は、Zenn と同じく表題がなければ札を出さず、枠と地だけの箱にする。
   - アイコンは表題の中のインラインの SVG。CSS の画像では `currentColor` が届かず、テーマごとの札の文字色にならない。
 - `:::` は markdown-it-container と同じく、段落・参照定義・引用・リストの続きを打ち切る（コード・HTML・明示的な引用行・字下げしたリスト本文・AST のブロックに属さない行は除く）。
 - Markdown の拡張記法（`MarkdownExtensions`、SurimonoCore）: 脚注 `[^id]`、`==ハイライト==`、`^上付き^`、`~下付き~`（pandoc と同じく `~~` は取り消し線）、ルビ `{漢字|かんじ}`・`{漢字|かん|じ}`、絵文字 `:name:`、定義リスト（語の次の行の `: 説明`）、見出しの ID（GitHub と同じ slug、`{#id}` で指定）と目次 `[TOC]`。

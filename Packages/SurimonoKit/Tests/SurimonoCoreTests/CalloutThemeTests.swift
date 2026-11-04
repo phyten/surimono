@@ -200,9 +200,14 @@ struct CalloutThemeTests {
         #expect(css.contains("--callout-line: solid;"))
     }
 
-    @Test("テーマは今はない囲みの種類を指定しない")
-    func noStaleSelectors() throws {
-        for theme in try themes() { #expect(!theme.css.contains(".callout-important"), "\(theme.id)") }
+    @Test("全テーマで以前のクラスだけの囲みは注意の群の色になる")
+    func compatibilityClassReadsAsWarning() throws {
+        for theme in try themes() {
+            let colors = CalloutColors(css: theme.css)
+            let scoped = colors.scoped(toClass: "important")
+            #expect(scoped.color("--callout-color") == colors.color("--callout-warning"), "\(theme.id)")
+            #expect(scoped.color("--callout-tint") == colors.color("--callout-warning-tint"), "\(theme.id)")
+        }
     }
 
     @Test("ソラライズドのコードの色は自分の地の上で 4.5:1 以上ある")

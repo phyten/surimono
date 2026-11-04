@@ -42,9 +42,20 @@ enum MarkdownCallouts {
 
         var defaultTitle: String { name.prefix(1).uppercased() + name.dropFirst() }
 
+        /// Kept beside the group's class for a user's CSS: these names had this class before the four groups.
+        private var compatibilityClass: String? {
+            switch canonicalName {
+            case "important", "example": "callout-important"
+            default: nil
+            }
+        }
+
         var opening: String {
-            let unknown = canonicalName == nil ? " callout-unknown" : ""
-            return "<div class=\"callout\(unknown) callout-\(style)\" data-callout=\"\(HTML.escape(name))\">"
+            let classes = [
+                "callout", canonicalName == nil ? "callout-unknown" : nil, compatibilityClass, "callout-\(style)",
+            ]
+            return
+                "<div class=\"\(classes.compactMap(\.self).joined(separator: " "))\" data-callout=\"\(HTML.escape(name))\">"
         }
 
         func title(_ html: String) -> String {
@@ -136,15 +147,17 @@ enum MarkdownCallouts {
             }
             var type = name.lowercased()
             var title = rest.dropFirst(name.count).trimmingCharacters(in: .whitespaces)
-            if type == "message", title.split(whereSeparator: \.isWhitespace).first?.lowercased() == "alert" {
+            let isMessage = type == "message"
+            if isMessage, title.split(whereSeparator: \.isWhitespace).first?.lowercased() == "alert" {
                 type = "alert"
                 title = String(title.dropFirst(5)).trimmingCharacters(in: .whitespaces)
             }
             let kind = Kind(name: type)
-            if title.isEmpty { title = kind.defaultTitle }
+            // Zenn's message is a box without a heading, so it gets no tag unless the author wrote a title.
+            if !isMessage, title.isEmpty { title = kind.defaultTitle }
             let opening = output.lines.count + 1
             output.append("\n\(kind.opening)\n", from: mapped.origins[index])
-            output.append("\(kind.title(HTML.escape(title)))\n", from: mapped.origins[index])
+            if !title.isEmpty { output.append("\(kind.title(HTML.escape(title)))\n", from: mapped.origins[index]) }
             stack.append((length, index, opening))
         }
         // Close an unfinished code fence first so generated closing divs cannot become code text.
