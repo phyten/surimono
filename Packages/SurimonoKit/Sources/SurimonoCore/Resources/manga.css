@@ -26,4 +26,9 @@ pre { border: 1.5pt solid #111; padding: 0.6em 0.8em; font-size: 9pt; box-shadow
 pre code { border: none; padding: 0; }
 th { background: var(--tone); border-bottom: 1.5pt solid #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #111; }
-.callout { border: 1.5pt solid #111; border-left-width: 6pt; box-shadow: 3pt 3pt 0 #111; }
+:root {
+    --callout-info: #111; --callout-success: #111; --callout-warning: #111; --callout-danger: #e0182d;
+    --callout-plain: #111; --callout-frame: 1.5pt;
+}
+.callout::before { box-shadow: 3pt 3pt 0 #111; }
+.callout-quote::before { box-shadow: none; }

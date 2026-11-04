@@ -23,3 +23,8 @@ th { background: #eef4fb; -webkit-print-color-adjust: exact; print-color-adjust:
 th, td { border-color: #555; padding: 0.35em 0.7em; }
 td:empty { min-width: 4em; }
 input[type="checkbox"] { transform: scale(1.25); margin-right: 0.4em; }
+:root {
+    --callout-info: #2a6390; --callout-success: #3a6b2e; --callout-warning: #85560c; --callout-danger: #b53a32;
+    --callout-plain: #635a52; --callout-frame: 1.1pt; --callout-radius: 10.5pt; --callout-tag-radius: 7pt;
+    --callout-title-weight: 600;
+}

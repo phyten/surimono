@@ -26,3 +26,9 @@ thead th { border-bottom: 1.5pt solid #1a1a1a; text-transform: uppercase; letter
 .callout > .callout-title { font-family: "Futura", "Hiragino Sans", sans-serif; text-transform: uppercase; letter-spacing: 0.06em; }
 hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
 hr::after { content: "■ ■ ■"; color: var(--mag-red); font-size: 0.6em; letter-spacing: 0.8em; }
+:root {
+    --callout-info: #1f4e79; --callout-success: #2a6048; --callout-warning: #7d5500; --callout-danger: #b4122a;
+    --callout-plain: #4a4a4a;
+}
+/* A drop cap taller than its short paragraph stays inside it, so it does not run into the callout below. */
+h1 + p, h2 + p { display: flow-root; }

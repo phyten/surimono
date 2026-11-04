@@ -21,3 +21,7 @@ pre { background: #f2f9fd; border: 1pt solid #cfe8f6; border-radius: 4pt; paddin
 blockquote { border-left-color: #a9d3ec; color: #33475a; }
 th { background: #edf6fc; color: #1f5f8b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #b7d5e8; }
+:root {
+    --callout-info: #1f5f8b; --callout-success: #1f7a6e; --callout-warning: #7a6418; --callout-danger: #a83a4a;
+    --callout-plain: #5e6066; --callout-radius: 4pt; --callout-tag-radius: 2.5pt;
+}

@@ -1,0 +1,37 @@
+/* Letterpress: black and a dark crimson, thick-and-thin rules above and below the headings, frames doubled like a job printer's. */
+html, body { background: #fdfcf8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Hoefler Text", "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.85; color: #1e1c1a; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { color: #1e1c1a; font-weight: 600; line-height: 1.45; margin: 1.4em 0 0.55em; }
+/* The thick-and-thin rule (komochi-kei): a heavy line paired with a fine one, the fine sides facing the heading. */
+h1, h2 {
+    padding-block: 0.4em;
+    background:
+        linear-gradient(#1e1c1a, #1e1c1a) left top / 100% 2.25pt no-repeat,
+        linear-gradient(#1e1c1a, #1e1c1a) left 3.5pt / 100% 0.5pt no-repeat,
+        linear-gradient(#1e1c1a, #1e1c1a) left calc(100% - 3.5pt) / 100% 0.5pt no-repeat,
+        linear-gradient(#1e1c1a, #1e1c1a) left bottom / 100% 2.25pt no-repeat;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h1 { font-size: 1.8em; text-align: center; letter-spacing: 0.1em; }
+h2 { font-size: 1.3em; text-align: center; letter-spacing: 0.06em; }
+h3 { font-size: 1.12em; color: #7c1f2c; }
+h3::before { content: "❧ "; }
+h4, h5, h6 { font-size: 1em; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+pre { font-size: 8.8pt; line-height: 1.6; padding: 0.6em 0.9em; border: 0.5pt solid #1e1c1a; }
+th, td { border: none; border-bottom: 0.5pt solid #1e1c1a; padding: 0.3em 0.7em; }
+thead th { border-top: 2.25pt solid #1e1c1a; border-bottom: 0.5pt solid #1e1c1a; font-weight: 600; }
+blockquote { border-left: 0.5pt solid #7c1f2c; }
+hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
+hr::after { content: "❦"; color: #7c1f2c; }
+a { color: #7c1f2c; }
+:root {
+    --callout-info: #1e1c1a; --callout-success: #1e1c1a; --callout-warning: #7c1f2c; --callout-danger: #7c1f2c;
+    --callout-plain: #4a4640; --callout-paper: #fdfcf8; --callout-tint-amount: 0%; --callout-title-weight: 600;
+}
+/* A second frame outside the first, whatever the first one's line. */
+.callout { margin-inline: 2.5pt; }
+.callout::before { outline: 0.5pt solid var(--callout-color); outline-offset: 1.75pt; }
+.callout-quote::before { outline: none; }

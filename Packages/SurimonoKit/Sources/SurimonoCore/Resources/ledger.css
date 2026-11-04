@@ -19,3 +19,7 @@ blockquote { border-left: 1pt solid #111; color: #222; }
 hr { border: none; border-top: 0.75pt double #111; border-bottom: 0.75pt solid #111; height: 1.5pt; margin: 1em 0; }
 a { color: inherit; }
 th, tbody tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460;
+}

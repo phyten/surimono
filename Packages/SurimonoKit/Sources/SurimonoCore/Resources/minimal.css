@@ -14,4 +14,5 @@ th { font-weight: 500; color: #555; }
 blockquote { border-left: 0.25pt solid #999; color: #555; }
 hr { border: none; border-top: 0.25pt solid #bbb; margin: 1.5em 0; }
 a { color: inherit; text-decoration-thickness: 0.25pt; }
-.callout { background: none; border-left-width: 1pt; }
+:root { --callout-tint-amount: 0%; --callout-frame: 0.5pt; }
+.callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }

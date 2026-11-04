@@ -21,5 +21,9 @@ del { color: #8c959f; }
 table { margin: 0.6em 0; font-size: 0.95em; }
 th, td { border-color: #d0d7de; }
 blockquote { border-left-color: #d0d7de; color: #57606a; }
-.callout { padding: 0.5em 0.8em; margin-block: 0.7em; }
 hr { border: none; border-top: 0.5pt solid #d0d7de; margin: 1.2em 0; }
+:root {
+    --callout-info: #0b5cad; --callout-success: #1a6b32; --callout-warning: #7d5500; --callout-danger: #b3262e;
+    --callout-plain: #57606a; --callout-radius: 4.5pt; --callout-tag-radius: 3pt;
+}
+.callout { padding: 0 0.8em 0.5em; margin-block: 0.7em; }

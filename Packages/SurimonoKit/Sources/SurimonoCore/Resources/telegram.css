@@ -36,3 +36,7 @@ th { text-transform: uppercase; letter-spacing: 0.1em; }
 blockquote { border-left: 2pt solid #c8bc95; }
 hr { border: none; text-align: center; height: auto; margin: 1.2em 0; }
 hr::after { content: "\2014\2014  STOP  \2014\2014"; letter-spacing: 0.3em; font-weight: 700; color: #8b1e1e; }
+:root {
+    --callout-info: #1d1d1d; --callout-success: #1d1d1d; --callout-warning: #8b1e1e; --callout-danger: #8b1e1e;
+    --callout-plain: #4a4a4a;
+}

@@ -47,5 +47,8 @@ code { font-size: 0.9em; }
 th, td { border-color: #111; padding: 0.15em 0.4em; }
 th { font-family: "Hiragino Sans", sans-serif; }
 blockquote { border-left: 3pt solid #c4161c; }
-.callout { border-left-color: #c4161c; }
 hr { border: none; border-top: 1.5pt solid #111; border-bottom: 0.5pt solid #111; height: 2pt; margin: 0.8em 0; }
+:root {
+    --callout-info: #111; --callout-success: #111; --callout-warning: #c4161c; --callout-danger: #c4161c;
+    --callout-plain: #444444;
+}

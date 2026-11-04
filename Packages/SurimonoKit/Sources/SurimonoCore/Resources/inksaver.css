@@ -18,6 +18,8 @@ pre { font-size: 9pt; line-height: 1.5; padding-left: 0.8em; border-left: 0.4pt 
 code { font-size: 0.9em; }
 th, td { border: none; border-bottom: 0.4pt solid #999; }
 blockquote { border-left: 0.4pt solid #888; }
-.callout { background: none; border-left-width: 0.75pt; padding: 0.2em 0.9em; }
 .hl-addition, .hl-deletion { background: none; }
 hr { border: none; border-top: 0.4pt solid #999; margin: 1em 0; }
+:root { --callout-tint-amount: 0%; --callout-frame: 0.5pt; }
+.callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }
+.callout { padding: 0 0.9em 0.3em; }

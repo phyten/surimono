@@ -20,3 +20,7 @@ blockquote { border-left-color: #8a9ab3; color: #333; }
 hr { border: none; border-top: 0.75pt solid #c3ccd8; margin: 1.4em 0; }
 a { color: #1b2f4f; }
 pre, thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460;
+}

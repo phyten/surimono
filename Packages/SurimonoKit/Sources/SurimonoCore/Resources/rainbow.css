@@ -30,3 +30,7 @@ pre { border-left: 4pt solid #1b6fd1; background: #f6f8fc; padding: 0.6em 0.8em;
 blockquote { border-left: 3pt solid #b0258f; }
 thead { border-bottom: 2.5pt solid #e2a400; }
 th, td { border-color: #c4c4d4; }
+:root {
+    --callout-info: #1b6fd1; --callout-success: #2e7d3a; --callout-warning: #8f6000; --callout-danger: #d7263d;
+    --callout-plain: #6a3fb5; --callout-frame: 1.5pt; --callout-radius: 7.5pt; --callout-tag-radius: 5pt;
+}

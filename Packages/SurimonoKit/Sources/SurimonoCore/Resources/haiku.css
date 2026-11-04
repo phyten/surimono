@@ -18,4 +18,9 @@ blockquote { border-left: none; padding: 0; color: #555; margin-inline: 0; }
 hr { border: none; text-align: center; height: auto; margin: 2.2em 0; }
 hr::after { content: "・"; color: #888; }
 a { color: inherit; }
-.callout { text-align: left; letter-spacing: normal; background: none; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-tint-amount: 0%; --callout-frame: 0.5pt;
+}
+.callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }
+.callout { text-align: left; letter-spacing: normal; }

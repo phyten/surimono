@@ -18,7 +18,11 @@ pre { font-size: 8.5pt; line-height: 1.5; padding: 0.5em 1em; border-top: 0.4pt 
 table { margin: 1em auto; border-top: 0.75pt solid #1c1a17; border-bottom: 0.75pt solid #1c1a17; }
 th, td { border: none; padding: 0.2em 0.8em; }
 th { font-variant: small-caps; font-weight: 400; letter-spacing: 0.06em; }
-.callout { background: none; border-left: 0.75pt solid var(--callout-color); font-style: italic; }
-.callout > .callout-title { font-style: normal; font-variant: small-caps; }
+.callout > .callout-title { font-variant: small-caps; }
 hr { border: none; text-align: center; height: auto; margin: 1.2em 0; }
 hr::after { content: "⁂"; color: #6b5536; font-size: 1.1em; }
+:root {
+    --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
+    --callout-plain: #555555; --callout-tint-amount: 0%; --callout-frame: 0.5pt;
+}
+.callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }

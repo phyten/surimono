@@ -203,6 +203,23 @@ public enum DocumentOutline {
         }
     }
 
+    public static func title(ofHTML html: String) -> String? {
+        let range = NSRange(html.startIndex..., in: html)
+        guard let match = titlePattern.firstMatch(in: html, range: range),
+            let title = Range(match.range(at: 1), in: html)
+        else { return nil }
+        return plainText(ofHTML: String(html[title])).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static let titlePattern: NSRegularExpression = {
+        guard
+            let pattern = try? NSRegularExpression(
+                pattern: "<title(?:\\s[^>]*)?>(.*?)</title>", options: [.caseInsensitive, .dotMatchesLineSeparators])
+        else { preconditionFailure("Invalid title pattern") }
+        return pattern
+    }()
+
+
     private static func headingLevel(_ name: String) -> Int? {
         guard name.count == 2, name.first == "h", let level = name.last?.wholeNumberValue, (1...6).contains(level)
         else { return nil }

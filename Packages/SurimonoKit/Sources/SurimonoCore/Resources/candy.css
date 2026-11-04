@@ -23,4 +23,7 @@ blockquote { border-left: 4pt solid #ffc2dc; border-radius: 4pt; }
 table { border-radius: 8pt; }
 th { background: #e9fbf5; color: #1e6f5c; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #f3c6da; }
-.callout { border-radius: 10pt; }
+:root {
+    --callout-info: #8a3fb0; --callout-success: #1e7f6a; --callout-warning: #8a5a1a; --callout-danger: #b0306a;
+    --callout-plain: #6b5a73; --callout-frame: 1.1pt; --callout-radius: 10pt; --callout-tag-radius: 8pt;
+}

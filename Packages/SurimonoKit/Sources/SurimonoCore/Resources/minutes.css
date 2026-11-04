@@ -20,5 +20,9 @@ th { background: #e9edf1; font-weight: 700; }
 blockquote { margin-inline: 0.5em; border-left-color: #2f5d7c; color: #333; }
 hr { border: none; border-top: 0.75pt dashed #9aa5ae; margin: 0.9em 0; }
 a { color: #2f5d7c; }
-.callout { margin-block: 0.6em; padding: 0.5em 0.8em; }
 h2, pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460;
+}
+.callout { margin-block: 0.6em; padding: 0 0.8em 0.5em; }

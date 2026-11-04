@@ -17,5 +17,5 @@ th { background: #fcefe9; color: #6e3d2f; }
 blockquote { border-left: 3pt solid #e9c2b4; border-radius: 2pt; color: #5e524d; }
 hr { border: none; border-top: 1.5pt dotted #e2a48f; margin: 1.6em 0; }
 a { color: #a2533d; }
-.callout { border-radius: 8pt; }
 h2, pre, th, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root { --callout-radius: 8pt; --callout-tag-radius: 5pt; }

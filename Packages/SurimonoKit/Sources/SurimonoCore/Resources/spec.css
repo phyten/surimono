@@ -1,0 +1,29 @@
+/* Specification: section numbers hang in the left margin and tables are set in monospace; nothing else decorates it. */
+body { padding-left: 3.2em; font-family: "Helvetica Neue", "Hiragino Sans", sans-serif; font-size: 10pt; line-height: 1.7;
+    color: #1b1f24; counter-reset: sec; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { position: relative; color: #22304a; font-weight: 700; line-height: 1.35; margin: 1.3em 0 0.4em; }
+h1 { font-size: 1.7em; margin-left: -1.9em; padding-bottom: 0.3em; border-bottom: 1.25pt solid #22304a; }
+h2 { font-size: 1.25em; counter-increment: sec; counter-reset: sub; }
+h3 { font-size: 1.05em; counter-increment: sub; }
+h4, h5, h6 { font-size: 1em; }
+/* Numbering is generated so a Markdown source need not number its sections by hand. */
+body:not(.format-latex) h2::before, body:not(.format-latex) h3::before {
+    position: absolute; left: -3.2em; width: 2.7em; text-align: right; font-family: "SFMono-Regular", Menlo, monospace;
+    font-size: 0.9em; font-weight: 400; color: #7a3e00;
+}
+body:not(.format-latex) h2::before { content: counter(sec); }
+body:not(.format-latex) h3::before { content: counter(sec) "." counter(sub); }
+p, ul, ol, table, pre { margin: 0.55em 0; }
+pre { font-size: 8.5pt; line-height: 1.5; padding: 0.5em 0.8em; border: 0.5pt solid #b7bfca; }
+table { width: 100%; font-family: "SFMono-Regular", Menlo, "Hiragino Sans", monospace; font-size: 0.86em; }
+th, td { border: 0.5pt solid #8d97a5; padding: 0.25em 0.5em; }
+th { color: #22304a; }
+blockquote { border-left: 1pt solid #8d97a5; color: #333a44; }
+hr { border: none; border-top: 0.5pt solid #8d97a5; margin: 1.3em 0; }
+a { color: #22304a; }
+:root {
+    --callout-info: #22304a; --callout-success: #27563a; --callout-warning: #7a3e00; --callout-danger: #8f2424;
+    --callout-plain: #4a5260; --callout-tint-amount: 0%; --callout-frame: 0.5pt;
+}
+.callout > .callout-title { font-family: "SFMono-Regular", Menlo, "Hiragino Sans", monospace; font-size: 0.9em; font-weight: 500; }

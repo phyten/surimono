@@ -1,0 +1,26 @@
+/* Nishiki-e: three colours as a woodblock print would lay them, indigo and crimson rules over a warm paper. */
+html, body { background: #fdfbf6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Hiragino Mincho ProN", "YuMincho", serif; font-size: 10.5pt; line-height: 1.85; color: #22262e; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { color: #27476b; font-weight: 600; line-height: 1.45; margin: 1.3em 0 0.5em; }
+/* Two rules, one thick and one thin, as two blocks would print them. */
+h1 { font-size: 1.85em; padding-bottom: 0.3em;
+    background: linear-gradient(#27476b, #27476b) left calc(100% - 3pt) / 100% 3pt no-repeat,
+        linear-gradient(#a8322a, #a8322a) left bottom / 100% 1pt no-repeat; }
+h2 { font-size: 1.35em; padding-bottom: 0.2em;
+    background: linear-gradient(#27476b, #27476b) left calc(100% - 2pt) / 100% 1.5pt no-repeat,
+        linear-gradient(#a8322a, #a8322a) left bottom / 30% 0.75pt no-repeat; }
+h3 { font-size: 1.12em; color: #a8322a; }
+h4, h5, h6 { font-size: 1em; }
+p, ul, ol, table, pre { margin: 0.7em 0; }
+pre { font-size: 8.8pt; line-height: 1.6; padding: 0.6em 0.9em; background: #f6f1e4; }
+th, td { border: 0.5pt solid #b9ae98; padding: 0.3em 0.6em; }
+th { background: #f3ecdc; color: #27476b; font-weight: 600; }
+blockquote { border-left: 2pt solid #a8322a; color: #3c3f47; }
+hr { border: none; border-top: 0.75pt solid #27476b; margin: 1.5em 0; }
+a { color: #27476b; }
+pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #27476b; --callout-success: #3f6044; --callout-warning: #8a6418; --callout-danger: #a8322a;
+    --callout-plain: #5a5a5a; --callout-paper: #fdfbf6; --callout-frame: 0.75pt; --callout-title-weight: 600;
+}

@@ -15,9 +15,12 @@ a { color: var(--docs-accent); text-decoration: none; border-bottom: 0.5pt solid
 code { font-size: 0.86em; color: #3730a3; background: #eef0fb; padding: 0.05em 0.35em; border-radius: 3pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 pre { font-size: 8.8pt; line-height: 1.55; background: #f4f5fb; border-radius: 6pt; padding: 0.8em 1em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 pre code { color: inherit; background: none; padding: 0; }
-.callout { border-left: none; border: 0.75pt solid var(--callout-color); border-radius: 6pt; }
 table { margin: 0.9em 0; width: 100%; }
 th, td { border: none; border-bottom: 0.5pt solid #e2e5ec; padding: 0.4em 0.7em; }
 thead th { border-bottom: 1pt solid #c7cbe0; font-weight: 600; color: #374151; }
 blockquote { border-left: 2.5pt solid #c7d2fe; color: #4b5563; }
 hr { border: none; border-top: 0.5pt solid #e2e5ec; margin: 1.6em 0; }
+:root {
+    --callout-info: #0b5cad; --callout-success: #1a6b32; --callout-warning: #7d5500; --callout-danger: #b3262e;
+    --callout-plain: #57606a; --callout-radius: 4.5pt; --callout-tag-radius: 3pt;
+}

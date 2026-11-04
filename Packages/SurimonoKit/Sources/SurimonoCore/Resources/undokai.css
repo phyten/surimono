@@ -1,0 +1,30 @@
+/* Sports day: red and white bands under the headings, and sky blue for the programme. */
+body { font-family: "Hiragino Maru Gothic ProN", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #1f2733; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { color: #1d4f91; line-height: 1.4; margin: 1.2em 0 0.45em; }
+/* Drawn as an image: WebKit printed tiles of hard-edged gradients as thin stripes. */
+h1, h2 {
+    padding-bottom: 0.4em;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='8'%3E%3Crect width='16' height='8' fill='%23c21f30'/%3E%3Crect x='16' width='16' height='8' fill='%23fff'/%3E%3Crect x='.25' y='.25' width='31.5' height='7.5' fill='none' stroke='%23c21f30' stroke-width='.5'/%3E%3C/svg%3E") left bottom / 24pt 6pt repeat-x;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+h1 { font-size: 1.9em; text-align: center; }
+h2 { font-size: 1.35em; background-size: 16pt 4pt; }
+h3 { font-size: 1.12em; color: #c21f30; }
+h4, h5, h6 { font-size: 1em; }
+p, ul, ol, table, pre { margin: 0.65em 0; }
+pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; background: #eef4fb; border-radius: 4pt; }
+table { width: 100%; }
+th, td { border: 0.75pt solid #9db8d9; padding: 0.3em 0.6em; }
+th { background: #1d4f91; color: #fff; }
+blockquote { border-left: 4pt solid #c21f30; }
+hr { border: none; border-top: 2pt dotted #1d4f91; margin: 1.4em 0; }
+a { color: #1d4f91; }
+pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1d4f91; --callout-success: #1f6f4a; --callout-warning: #8a5a10; --callout-danger: #c21f30;
+    --callout-plain: #4a5568; --callout-frame: 1pt; --callout-radius: 5pt; --callout-tag-radius: 3pt;
+}
+/* The white team wears white: good news takes an outlined tag beside the red team's solid one. */
+.callout-tip { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }

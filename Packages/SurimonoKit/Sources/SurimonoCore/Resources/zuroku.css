@@ -1,0 +1,38 @@
+/* Exhibition catalogue: a narrow column in wide margins, small captions, and notes that are only an indent and a heading. */
+body { padding-inline: 11%; font-family: "Baskerville", "Hiragino Mincho ProN", serif; font-size: 10pt; line-height: 1.95;
+    color: #26262a; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { color: #26262a; font-weight: 400; line-height: 1.5; margin: 2.2em 0 0.7em; }
+h1 { font-size: 1.9em; letter-spacing: 0.08em; margin: 0 0 1.6em; }
+h2 { font-size: 1.25em; letter-spacing: 0.06em; }
+h3 { font-size: 1.02em; color: #6e5a3a; }
+h4, h5, h6 { font-size: 0.95em; }
+p, ul, ol, table, pre { margin: 0.9em 0; }
+img { display: block; margin: 1.6em auto 0.5em; }
+figcaption, img + em { display: block; font-size: 0.78em; font-style: normal; color: #55504a; }
+pre { font-size: 8.4pt; line-height: 1.6; }
+table { font-size: 0.88em; }
+th, td { border: none; border-bottom: 0.4pt solid #a8a29a; padding: 0.3em 0.8em 0.3em 0; font-weight: 400; }
+th { color: #6e5a3a; }
+blockquote { border-left: none; margin-inline: 2em; padding: 0; color: #3c3a38; }
+hr { border: none; height: 2.4em; }
+a { color: inherit; }
+:root {
+    --callout-info: #4a5568; --callout-success: #4f5f3f; --callout-warning: #6e5a3a; --callout-danger: #7a3a2e;
+    --callout-plain: #5a5a5a; --callout-tint-amount: 0%;
+}
+/* No frame and no ground: the kind shows in the heading's icon and in the line under it. */
+.callout { --callout-tag-fill: transparent; --callout-tag-ink: var(--callout-color); padding: 0 0 0 2em; }
+.callout::before { border: none; }
+.callout > .callout-title {
+    margin-left: 0;
+    padding: 0 0 0.1em;
+    border: none;
+    border-bottom: var(--callout-line-width) var(--callout-line) var(--callout-color);
+    font-size: 0.88em;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+}
+.callout-quote { margin-inline: 0; padding-left: 2em; }
+.callout-quote::before { border-left: none; }
+.callout-quote > .callout-title { border-bottom: none; }

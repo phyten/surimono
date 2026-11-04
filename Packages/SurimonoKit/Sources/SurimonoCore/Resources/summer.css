@@ -23,3 +23,7 @@ blockquote { border-left: 3pt solid #f2c46d; background: #fffaf0; padding: 0.3em
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th { background: #e6f5fb; color: #0a4f7a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #9cc9de; }
+:root {
+    --callout-info: #0a5c8f; --callout-success: #0f7382; --callout-warning: #8a5a00; --callout-danger: #c0392b;
+    --callout-plain: #4a6272; --callout-radius: 4pt; --callout-tag-radius: 2.5pt;
+}

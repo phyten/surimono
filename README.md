@@ -5,7 +5,9 @@
 > Open it casually, glance at it, print it right away.
 > 雑に開いて、雑に見て、さっと刷る。
 
-**Surimono** is a macOS app for quickly viewing and printing everyday documents and images — Markdown, PDF, images, Org, plain text, HTML and LaTeX. It is built around printing: swappable print stylesheets, HTML noise-removal presets, and saddle-stitch booklet printing (two A4 pages side by side on A3, printed double-sided, folded and stapled in the middle).
+**Surimono** is a macOS app for quickly viewing and printing everyday documents and images — Markdown, PDF, images, Org, plain text, HTML and LaTeX. It is built around printing: **108 print styles**, HTML noise-removal presets, and saddle-stitch booklet printing (two A4 pages side by side on A3, printed double-sided, folded and stapled in the middle).
+
+**108 styles to print in** — from letters and reports to woodblock-print headings and a sports-day programme — picked from samples of your own document's first page.
 
 The name comes from *surimono* (摺物), privately commissioned Japanese woodblock prints; *suru* (摺る) means "to print".
 
@@ -21,7 +23,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 ## Features
 
 - Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
-- Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`), rendered offline without JavaScript
+- Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`) with a tag, an icon and a line of their own that tell the kinds apart even in black and white, rendered offline without JavaScript
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents
 - Mermaid diagrams in Markdown (```` ```mermaid ````) and Org (`#+begin_src mermaid`) rendered as printable SVG offline. Invalid diagrams keep their source and appear in the preflight checks.
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)
@@ -32,7 +34,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Reorder images by dragging thumbnails or with Option-Command-Up/Down
 - Export an image bundle as a PDF in its current order and print layout
 - A print mode that lays out the sheets as they come out of the printer — fronts and backs side by side, booklet sheets with their fold, and a "Fold It" preview that turns the pages of the folded booklet
-- 95 print stylesheets for Markdown, Org, text and LaTeX in 12 categories (everyday, Japanese, business, academic, technical, reading, notes, print-friendly, retro, pop, seasons, kids), chosen from a palette of samples of your document's first page — in one searchable, scrolling list: Recent, Favorites and Suggested, followed by categories and your own styles — that tries a style on the paper as you point at it, or by laying up to four side by side, plus your own CSS. A LaTeX-style one sets the text in Computer Modern (the bundled KaTeX fonts) with LaTeX's numbered sections and indented paragraphs. Some playful styles sprinkle emoji that stay the same for a document on screen and on paper
+- 108 print stylesheets for Markdown, Org, text and LaTeX in 12 categories (everyday, Japanese, business, academic, technical, reading, notes, print-friendly, retro, pop, seasons, kids), chosen from a palette of samples of your document's first page — in one searchable, scrolling list: Recent, Favorites and Suggested, followed by categories and your own styles — that tries a style on the paper as you point at it, or by laying up to four side by side, plus your own CSS. A LaTeX-style one sets the text in Computer Modern (the bundled KaTeX fonts) with LaTeX's numbered sections and indented paragraphs. Some playful styles sprinkle emoji that stay the same for a document on screen and on paper
 - Text size from 80% to 200% layered over any print theme for Markdown, Org, text, CSV, and LaTeX; keeps the window and paper size, with the same result in print and PDF export
 - HTML noise-removal presets (navigation, ads, sidebars, cookie banners, …) that you can extend
 - Smart Removal (beta) for HTML: finds ads, recommended articles, share buttons, cookie banners and the like, removes them, and lets you review and keep any of them; detection runs on your Mac only
@@ -92,7 +94,7 @@ make clean                      # Remove build products
 
 You can also open `Surimono.xcodeproj` and use the shared `Surimono` scheme. Override `CONFIGURATION` or `DERIVED_DATA` for builds, and `VERSION` / `BUILD_NUMBER` for packaging (for a prerelease such as `0.2.0-beta.1`, also set `MARKETING_VERSION=0.2.0`). The app is ad-hoc signed; no developer account is required. The app connects document conversion, print preview, printing, and PDF export through SurimonoKit.
 
-Sample documents in `Samples/` cover Markdown, Org, UTF-8 and Shift_JIS text, HTML, and CSV. `booklet-demo.md` is a long, image-free document for checking booklet page order. Settings include print margins, page numbers, back-side rotation, and JavaScript for HTML. Add CSS in `~/Library/Application Support/Surimono/Styles/` and JSON presets in `Presets/`, then reload them in Settings. For Markdown and the other themed formats, a background a style (your CSS included) gives `html`, such as a paper tint or ruling, covers the margins too, with its pattern starting at the top left of the text (a document much wider than the page keeps it inside the text area). Open documents automatically reload after external saves (Markdown marks the blocks that changed with a thin red line on the left, never in print); source files are never edited.
+Sample documents in `Samples/` cover Markdown, Org, UTF-8 and Shift_JIS text, HTML, and CSV. `booklet-demo.md` is a long, image-free document for checking booklet page order, and `callouts.md` shows every kind of callout. Settings include print margins, page numbers, back-side rotation, and JavaScript for HTML. Add CSS in `~/Library/Application Support/Surimono/Styles/` and JSON presets in `Presets/`, then reload them in Settings. For Markdown and the other themed formats, a background a style (your CSS included) gives `html`, such as a paper tint or ruling, covers the margins too, with its pattern starting at the top left of the text (a document much wider than the page keeps it inside the text area). Open documents automatically reload after external saves (Markdown marks the blocks that changed with a thin red line on the left, never in print); source files are never edited.
 
 ## Contributing
 

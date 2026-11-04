@@ -1,0 +1,35 @@
+/* Two-colour print: blue and vermilion only, knocked-out headings and tints made by screens rather than by a third ink. */
+body { font-family: "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #17254a; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { color: #17358c; font-weight: 800; line-height: 1.35; margin: 1.2em 0 0.45em; }
+h1, h2 { background: #17358c; color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1 { font-size: 1.9em; padding: 0.25em 0.5em; }
+h2 { width: fit-content; max-width: 100%; box-sizing: border-box; font-size: 1.25em; padding: 0.15em 0.6em; }
+h3 { font-size: 1.12em; color: #c7321f; }
+h4, h5, h6 { font-size: 1em; }
+strong { color: #c7321f; }
+p, ul, ol, table, pre { margin: 0.65em 0; }
+li::marker { color: #c7321f; }
+pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; border: 1pt solid #17358c; }
+th, td { border: 0.75pt solid #17358c; padding: 0.3em 0.6em; }
+th { background: #17358c; color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+blockquote { border-left: 3pt solid #c7321f; }
+hr { border: none; border-top: 2pt solid #c7321f; margin: 1.4em 0; }
+a { color: #17358c; }
+:root {
+    --callout-info: #17358c; --callout-success: #17358c; --callout-warning: #c7321f; --callout-danger: #c7321f;
+    --callout-plain: #17358c; --callout-tint-amount: 0%; --callout-frame: 1pt;
+    --hl-keyword: #17358c; --hl-type: #17358c; --hl-builtin: #17358c; --hl-function: #17358c; --hl-tag: #17358c;
+    --hl-attr: #c7321f; --hl-literal: #c7321f; --hl-number: #c7321f; --hl-string: #b02c1b; --hl-meta: #17254a;
+    --hl-variable: #17254a; --hl-comment: #4a5573; --hl-section: #17358c; --hl-addition: #17358c; --hl-deletion: #c7321f;
+}
+/* Screens, drawn as images: WebKit printed tiles of hard-edged gradients as thin stripes. */
+.callout-tip::before {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Ccircle cx='3' cy='3' r='0.7' fill='%23dfe3f0'/%3E%3C/svg%3E") 0 0 / 4.5pt 4.5pt;
+}
+.callout-warning::before {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M-2 2L2 -2M0 8L8 0M6 10L10 6' stroke='%23fae6e2' stroke-width='1'/%3E%3C/svg%3E") 0 0 / 6pt 6pt;
+}
+.callout-danger::before {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath d='M-2 2L2 -2M0 8L8 0M6 10L10 6M-2 6L2 10M0 0L8 8M6 -2L10 2' stroke='%23fae6e2' stroke-width='1'/%3E%3C/svg%3E") 0 0 / 6pt 6pt;
+}

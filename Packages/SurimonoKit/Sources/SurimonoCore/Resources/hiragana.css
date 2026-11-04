@@ -18,3 +18,8 @@ blockquote { border-left: 4pt solid #f2d27a; }
 th, td { padding: 0.3em 0.6em; border-color: #aaa; }
 th { background: #fdf6e3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 input[type="checkbox"] { transform: scale(1.3); margin-right: 0.4em; }
+:root {
+    --callout-info: #2a6390; --callout-success: #3a6b2e; --callout-warning: #85560c; --callout-danger: #b53a32;
+    --callout-plain: #635a52; --callout-frame: 1.1pt; --callout-radius: 10.5pt; --callout-tag-radius: 7pt;
+    --callout-title-weight: 600;
+}

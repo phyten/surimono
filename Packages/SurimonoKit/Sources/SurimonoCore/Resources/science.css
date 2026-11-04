@@ -20,3 +20,7 @@ img { display: block; margin: 0.9em auto; }
 blockquote { border-left-color: #7fb3c3; color: #333; }
 .callout > .callout-title { font-family: "Helvetica Neue", "Hiragino Sans", sans-serif; }
 hr { border: none; border-top: 0.5pt solid #9db8c2; margin: 1.2em 0; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460;
+}

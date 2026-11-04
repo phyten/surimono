@@ -5,20 +5,83 @@ import Markdown
 enum MarkdownCallouts {
     struct Kind: Sendable {
         let name: String
-        var style: String {
+
+        /// The name this one is another spelling of; nil for a name Surimono does not know.
+        var canonicalName: String? {
             switch name {
-            case "note", "info", "todo", "abstract", "summary", "tldr", "message": "note"
-            case "tip", "hint", "success", "check", "done": "tip"
-            case "important", "example": "important"
-            case "warning", "attention", "question", "help", "faq": "warning"
-            case "caution", "danger", "error", "failure", "fail", "missing", "bug", "alert": "danger"
+            case "note", "abstract", "summary", "tldr", "message": "note"
+            case "info": "info"
+            case "todo": "todo"
+            case "example": "example"
+            case "tip", "hint": "tip"
+            case "success", "check", "done": "success"
+            case "important": "important"
+            case "warning", "attention": "warning"
+            case "question", "help", "faq": "question"
+            case "danger", "caution", "error", "failure", "fail", "missing", "alert": "danger"
+            case "bug": "bug"
             case "quote", "cite": "quote"
+            case "neutral", "details": "neutral"
+            default: nil
+            }
+        }
+
+        /// The class of the kind's meaning: information, success, care and danger each share a colour and a line, so a
+        /// print theme styles six classes however many names there are. The class names predate the groups; a user's
+        /// CSS keeps working on them.
+        var style: String {
+            switch canonicalName {
+            case "note", "info", "todo", "example": "note"
+            case "tip", "success": "tip"
+            case "important", "warning", "question": "warning"
+            case "danger", "bug": "danger"
+            case "quote": "quote"
             default: "neutral"
             }
         }
+
         var defaultTitle: String { name.prefix(1).uppercased() + name.dropFirst() }
-        var opening: String { "<div class=\"callout callout-\(style)\" data-callout=\"\(HTML.escape(name))\">" }
-        func title(_ html: String) -> String { html.isEmpty ? "" : "<p class=\"callout-title\">\(html)</p>" }
+
+        var opening: String {
+            let unknown = canonicalName == nil ? " callout-unknown" : ""
+            return "<div class=\"callout\(unknown) callout-\(style)\" data-callout=\"\(HTML.escape(name))\">"
+        }
+
+        func title(_ html: String) -> String {
+            "<p class=\"callout-title\">\(icon)\(html)\(nameTag(title: html))</p>"
+        }
+
+        /// Inline rather than a CSS image, so the mark takes the colour of the tag it sits on: `currentColor` does not
+        /// reach into an image, and each theme chooses its own tag colours.
+        private var icon: String {
+            guard let canonicalName, let path = Self.iconPaths[canonicalName] else { return "" }
+            return "<svg class=\"callout-icon\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"\(path)\"/></svg>"
+        }
+
+        /// An unknown name has no colour or icon of its own, so its name is what tells it from a plain callout.
+        private func nameTag(title: String) -> String {
+            guard canonicalName == nil, title.lowercased() != name else { return "" }
+            return "<span class=\"callout-name\">\(HTML.escape(name))</span>"
+        }
+
+        private static let iconPaths: [String: String] = [
+            "note": "M3 13l.6-2.6 6.8-6.8a1.1 1.1 0 0 1 1.6 0l.4.4a1.1 1.1 0 0 1 0 1.6l-6.8 6.8z M9.4 4.6l2 2",
+            "info": "M8 14.2A6.2 6.2 0 1 0 8 1.8a6.2 6.2 0 0 0 0 12.4z M8 7.4v4 M8 4.8v.4",
+            "tip": "M8 1.8a4.4 4.4 0 0 0-2.6 8c.5.4.8 1 .8 1.6h3.6c0-.6.3-1.2.8-1.6A4.4 4.4 0 0 0 8 1.8z M6.4 13.8h3.2",
+            "success": "M8 14.2A6.2 6.2 0 1 0 8 1.8a6.2 6.2 0 0 0 0 12.4z M5.2 8.2l2 2 3.6-4.2",
+            "important": "M4 14.4V2 M4 2.6h7.8l-1.8 2.8 1.8 2.8H4",
+            "example": "M3.6 1.8h6l2.8 2.8v9.6H3.6z M9.6 1.8v2.8h2.8 M5.8 8h4.4 M5.8 10.6h4.4",
+            "warning": "M8 2.2l6.4 11.4H1.6z M8 6.4v3.6 M8 11.6v.3",
+            "question":
+                "M8 14.2A6.2 6.2 0 1 0 8 1.8a6.2 6.2 0 0 0 0 12.4z M6 6.2a2 2 0 1 1 3 1.8c-.7.4-1 .9-1 1.6 M8 11.6v.3",
+            "danger": "M5.4 1.8h5.2l3.6 3.6v5.2l-3.6 3.6H5.4l-3.6-3.6V5.4z M5.8 5.8l4.4 4.4 M10.2 5.8l-4.4 4.4",
+            "bug":
+                "M5.2 6.2a2.8 2.8 0 0 1 5.6 0v4a2.8 2.8 0 0 1-5.6 0z M5.2 8H2.4 M13.6 8h-2.8 M5.6 5L3.4 3.4 "
+                + "M10.4 5l2.2-1.6 M5.6 11l-2.2 1.6 M10.4 11l2.2 1.6 M8 6v7",
+            "quote": "M3 8.6c0-2.6 1.2-4 3.2-4.6 M3 8.6h2.8v3H3z M9 8.6c0-2.6 1.2-4 3.2-4.6 M9 8.6h2.8v3H9z",
+            "todo": "M2.6 2.6h10.8v10.8H2.6z M5.2 8.2l2 2 3.6-4.2",
+            "neutral": "M2.4 2.4h5.4l5.8 5.8-5.4 5.4-5.8-5.8z M5.2 5.2v.1",
+        ]
     }
 
     struct Marker: Sendable {
@@ -73,16 +136,15 @@ enum MarkdownCallouts {
             }
             var type = name.lowercased()
             var title = rest.dropFirst(name.count).trimmingCharacters(in: .whitespaces)
-            let isMessage = type == "message"
-            if isMessage, title.split(whereSeparator: \.isWhitespace).first?.lowercased() == "alert" {
+            if type == "message", title.split(whereSeparator: \.isWhitespace).first?.lowercased() == "alert" {
                 type = "alert"
                 title = String(title.dropFirst(5)).trimmingCharacters(in: .whitespaces)
             }
             let kind = Kind(name: type)
-            if !isMessage, title.isEmpty { title = kind.defaultTitle }
+            if title.isEmpty { title = kind.defaultTitle }
             let opening = output.lines.count + 1
             output.append("\n\(kind.opening)\n", from: mapped.origins[index])
-            if !isMessage { output.append("\(kind.title(HTML.escape(title)))\n", from: mapped.origins[index]) }
+            output.append("\(kind.title(HTML.escape(title)))\n", from: mapped.origins[index])
             stack.append((length, index, opening))
         }
         // Close an unfinished code fence first so generated closing divs cannot become code text.

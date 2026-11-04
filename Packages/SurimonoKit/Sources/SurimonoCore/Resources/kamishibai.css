@@ -1,0 +1,20 @@
+/* Kamishibai: thick frames and large round type that reads from across the room. */
+html, body { background: #fffdf7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Hiragino Maru Gothic ProN", sans-serif; font-size: 14pt; line-height: 1.8; color: #2a2420; }
+body > :first-child { margin-top: 0; }
+h1, h2, h3, h4, h5, h6 { color: #8c3a12; line-height: 1.35; margin: 1em 0 0.5em; }
+h1 { font-size: 1.9em; text-align: center; padding: 0.3em 0.5em; border: 4pt solid #8c3a12; border-radius: 12pt; }
+h2 { font-size: 1.4em; padding: 0.15em 0.6em; border: 3pt solid #8c3a12; border-radius: 9pt; }
+h3 { font-size: 1.15em; color: #1d5f7a; }
+h4, h5, h6 { font-size: 1em; }
+p, ul, ol, table, pre { margin: 0.6em 0; }
+pre { font-size: 11pt; line-height: 1.5; padding: 0.6em 0.8em; border: 2pt solid #8c3a12; border-radius: 6pt; }
+th, td { border: 1.5pt solid #8c3a12; padding: 0.3em 0.6em; }
+blockquote { border-left: 6pt solid #1d5f7a; }
+hr { border: none; border-top: 4pt dotted #8c3a12; margin: 1.2em 0; }
+a { color: #1d5f7a; }
+:root {
+    --callout-info: #1d5f7a; --callout-success: #3a6b2e; --callout-warning: #8a5610; --callout-danger: #a83a24;
+    --callout-plain: #635a52; --callout-paper: #fffdf7; --callout-frame: 2.25pt; --callout-radius: 10pt;
+    --callout-tag-radius: 7pt;
+}

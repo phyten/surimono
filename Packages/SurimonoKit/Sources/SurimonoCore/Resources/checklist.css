@@ -40,3 +40,8 @@ ol > li::marker { font-weight: 700; }
 pre { font-size: 9.5pt; line-height: 1.55; }
 code { font-size: 0.9em; }
 hr { border: none; border-top: 1pt solid #1a1a1a; margin: 1em 0; }
+:root {
+    --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;
+    --callout-plain: #4f5a63; --callout-frame: 0.9pt; --callout-radius: 2.25pt; --callout-tag-radius: 2.25pt;
+    --callout-title-weight: 600;
+}

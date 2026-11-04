@@ -19,3 +19,7 @@ hr { border: none; text-align: center; height: auto; margin: 1.8em 0; }
 hr::after { content: "◆"; color: #8a6a2b; font-size: 0.7em; letter-spacing: 1em; }
 a { color: #6e5320; }
 pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;
+    --callout-plain: #4d5460;
+}

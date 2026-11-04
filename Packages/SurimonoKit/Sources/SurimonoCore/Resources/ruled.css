@@ -33,5 +33,15 @@ code { font-size: 0.9em; }
 th, td { border: none; border-right: 0.5pt solid #9fb4c9; padding: 0 0.6em; line-height: 21pt; }
 th { color: #22406a; }
 blockquote { border-left-color: #e3a1a1; }
-.callout { margin-block: 0; padding: 0 1em; }
 hr { border: none; height: 21pt; margin: 0; }
+:root {
+    --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;
+    --callout-plain: #4f5a63; --callout-frame: 0.9pt; --callout-radius: 2.25pt; --callout-tag-radius: 2.25pt;
+    --callout-title-weight: 600;
+}
+/* Margins and tags are whole rules, so the text below a callout still rests on the rules. */
+.callout { margin-block: 21pt 10.5pt; padding: 0 1em 10.5pt; }
+.callout::before { inset: 10.5pt 0 0; outline: 1.5pt solid var(--callout-paper); }
+.callout > .callout-title { box-sizing: content-box; margin-block: 0; padding-block: 0; border-block: none; line-height: 21pt; }
+.callout-quote { margin-block: 21pt 0; padding: 0 0 0 0.9em; }
+.callout-quote::before { inset: 0; outline: none; }

@@ -15,3 +15,10 @@ th { font-weight: 600; background: #f3eee4; -webkit-print-color-adjust: exact; p
 blockquote { border-left: 0.75pt solid #a89d90; color: #4a423b; }
 hr { border: none; border-top: 0.4pt solid #a89d90; width: 40%; margin: 1.6em auto; }
 a { color: #5a4636; }
+:root {
+    --callout-info: #2b4c6f; --callout-success: #3e5f3a; --callout-warning: #7a5a14; --callout-danger: #a63a22;
+    --callout-plain: #5c5a55; --callout-paper: #fcfaf5; --callout-title-weight: 600;
+    --callout-info-tint: #eef0ec; --callout-success-tint: #eff1e4; --callout-warning-tint: #f6efd9;
+    --callout-danger-tint: #f8e8df; --callout-plain-tint: #f1eee7;
+}
+.callout > .callout-title { letter-spacing: 0.06em; }

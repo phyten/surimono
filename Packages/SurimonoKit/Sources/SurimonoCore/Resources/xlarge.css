@@ -17,9 +17,9 @@ pre { font-size: 15pt; line-height: 1.45; }
 code { font-size: 0.95em; }
 th, td { border: 1pt solid #000; padding: 0.3em 0.5em; }
 blockquote { border-left: 3pt solid #000; }
-.callout { border-left-width: 5pt; }
 a { text-decoration-thickness: 1.5pt; }
 :root { --hl-comment: #333; }
 hr { border: none; border-top: 2pt solid #000; margin: 0.9em 0; }
 /* Form controls do not inherit the font size, so the task box would stay at the small UI size. */
 li.task-list-item > input[type="checkbox"] { font-size: inherit; }
+:root { --callout-frame: 1.25pt; }

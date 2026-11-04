@@ -1,0 +1,27 @@
+/* Matchbox label: bold type centred in a heavy frame, two inks on cream, boxes with their corners cut off. */
+html, body { background: #fffaf0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Hiragino Sans", sans-serif; font-size: 10.5pt; line-height: 1.75; color: #2a1f1a; }
+body > :first-child { margin-top: 0; margin-inline: 3pt; }
+h1, h2, h3, h4, h5, h6 { color: #b1321e; font-weight: 800; line-height: 1.35; margin: 1.2em 0 0.5em; }
+h1 { font-size: 1.9em; margin-inline: 3pt; padding: 0.3em 0.5em; text-align: center; letter-spacing: 0.08em; border: 3pt solid #b1321e;
+    outline: 1pt solid #14506b; outline-offset: 2pt; }
+h2 { font-size: 1.3em; text-align: center; padding: 0.1em 0; border-block: 2pt solid #b1321e; }
+h3 { font-size: 1.1em; color: #14506b; }
+h4, h5, h6 { font-size: 1em; }
+p, ul, ol, table, pre { margin: 0.65em 0; }
+pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; background: #fbf0dc; }
+table { width: 100%; }
+th, td { border: 1pt solid #14506b; padding: 0.3em 0.6em; }
+th { background: #14506b; color: #fff; }
+blockquote { border-left: 4pt solid #14506b; }
+hr { border: none; border-top: 3pt double #b1321e; margin: 1.4em 0; }
+a { color: #14506b; }
+pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+:root {
+    --callout-info: #14506b; --callout-success: #2f6b3a; --callout-warning: #8a5a14; --callout-danger: #b1321e;
+    --callout-plain: #5a4a40; --callout-paper: #fffaf0; --callout-frame: 1.5pt;
+}
+.callout::before {
+    clip-path: polygon(7pt 0, calc(100% - 7pt) 0, 100% 7pt, 100% calc(100% - 7pt), calc(100% - 7pt) 100%, 7pt 100%, 0 calc(100% - 7pt), 0 7pt);
+}
+.callout-quote::before { clip-path: none; }
