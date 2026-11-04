@@ -148,7 +148,7 @@
                 model.preferences.paperSeries = remembered
             }
             if let value = argument("SurimonoHeader"), let preset = PageFurniture.Preset(rawValue: value) {
-                model.printOptions.furniture.apply(preset)
+                model.chooseFurniture(preset)
             }
             switch argument("SurimonoBreak") {
             case "h1": model.printFinish.breaks.h1 = .page
@@ -280,11 +280,12 @@
                         try? await Task.sleep(for: .milliseconds(800))
                     }
                     if argument("SurimonoPopover") == "printOptions" {
-                        model.isPrintOptionsPresented = true
+                        model.isPrintFinishPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }
                     if flag("SurimonoFinishSheet") || argument("SurimonoFinishSheet") == "notes" {
-                        model.showsNoteSettings = argument("SurimonoFinishSheet") == "notes"
+                        if argument("SurimonoFinishSheet") == "notes" { model.finishSection = .notes }
+                        model.showsNoteAdjustments = flag("SurimonoNoteAdjust")
                         model.isPrintFinishPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }

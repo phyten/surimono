@@ -96,7 +96,7 @@ struct PrintTrayView: View {
                     Button {
                         showsFold = true
                     } label: {
-                        Label("Fold It", systemImage: "book")
+                        Label("See It Folded", systemImage: "book")
                             .font(.system(size: 12.5, weight: .semibold))
                             .foregroundStyle(PrintPalette.ai)
                             .padding(.leading, 11)

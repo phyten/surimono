@@ -171,10 +171,10 @@ final class AppPreferences {
         defaultShowsCoverAlone = defaults.object(forKey: "defaultShowsCoverAlone") as? Bool
         loneCoverWidth = LoneCoverWidth(rawValue: defaults.string(forKey: "loneCoverWidth") ?? "") ?? .onePage
         defaultAlwaysOnTop = defaults.bool(forKey: "defaultAlwaysOnTop")
-        // Earlier versions could only pin the band open when a window opened.
+        // Earlier versions could only pin the band open when a window opened. Unpinned was then a choice of hiding it.
         defaultBandVisibility =
             BandVisibility(rawValue: defaults.string(forKey: "defaultBandVisibility") ?? "")
-            ?? (defaults.bool(forKey: "defaultMenuPinned") ? .always : .onHover)
+            ?? (defaults.object(forKey: "defaultMenuPinned") as? Bool == false ? .onHover : .always)
         menuArrangement =
             Self.screenshotChoice("SurimonoMenuArrangement")
             ?? MenuArrangement(rawValue: defaults.string(forKey: "menuArrangement") ?? "") ?? .split

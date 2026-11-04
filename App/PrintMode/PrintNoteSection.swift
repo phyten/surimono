@@ -15,8 +15,8 @@ struct PrintNoteSection: View {
     private enum Shelf: Hashable { case practical, cute, own }
 
     private static let placements: [PrintChoice<NotePagePlan.Placement>] = [
-        .init(.spreadLeft, "Notes on Left"), .init(.spreadRight, "Notes on Right"), .init(.duplexBack, "On the Back"),
-        .init(.chapterEnd, "After Chapters"),
+        .init(.spreadLeft, "Left of the Spread"), .init(.spreadRight, "Right of the Spread"),
+        .init(.duplexBack, "Behind Each Page"), .init(.chapterEnd, "After Chapters"),
     ]
 
     private static let kinds: [(kind: NotePaperStyle.Kind, title: LocalizedStringKey)] = [
@@ -35,13 +35,13 @@ struct PrintNoteSection: View {
             if model.notes.isEnabled, model.notes.applies(to: model.layout) {
                 placement
                 presets
-                lineKinds
-                lineSettings
-                headerChoices
-                savedPresets
+                if model.notes.style.isFaint { faintLineWarning }
+                adjustments
             }
         }
         .onAppear {
+            // Lines changed by hand stay in view; otherwise the choice of a template is all most need.
+            if model.isNoteStyleChanged { model.showsNoteAdjustments = true }
             if model.selectedOwnNotePreset != nil {
                 shelf = .own
             } else if let id = model.notes.presetID, NotePaperPreset.preset(id: id)?.group == .cute {
@@ -81,12 +81,14 @@ struct PrintNoteSection: View {
         if model.notes.placement == .chapterEnd {
             return "One page after each chapter, or after the last page when the document has no chapters."
         }
+        if model.coverIsNotePage { return "This is the spread once folded. The cover is a note page too." }
         if model.layout.kind == .normal, model.layout.duplex == .none {
             return "One-sided sheets have no backs or spreads, so note pages print on sheets of their own."
         }
         if model.layout.kind == .twoUp, model.notes.placement == .duplexBack {
             return "2-up sheets have no backs, so each note page prints beside its page."
         }
+        if model.notes.placement != .duplexBack { return "This is the spread once folded." }
         return nil
     }
 
@@ -94,11 +96,11 @@ struct PrintNoteSection: View {
 
     private var presets: some View {
         VStack(alignment: .leading, spacing: 8) {
-            subheading("Presets").padding(.bottom, -3)
+            subheading("Choose a Template").padding(.bottom, -3)
             PrintSegments(
-                label: "Presets",
+                label: "Choose a Template",
                 options: [
-                    .init(Shelf.practical, "Practical"), .init(Shelf.cute, "Cute"), .init(Shelf.own, "Yours"),
+                    .init(Shelf.practical, "Practical"), .init(Shelf.cute, "Cute"), .init(Shelf.own, "Your Notes"),
                 ], selection: shelf
             ) { shelf = $0 }
             switch shelf {
@@ -106,7 +108,7 @@ struct PrintNoteSection: View {
             case .cute: shelfGrid(builtIn(.cute))
             case .own:
                 if model.preferences.notePresets.isEmpty {
-                    Text("Presets you save appear here.")
+                    Text("Templates you save appear here.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(PrintPalette.ink2)
                 } else {
@@ -187,6 +189,43 @@ struct PrintNoteSection: View {
 
     // MARK: Lines
 
+    private var adjustments: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                model.showsNoteAdjustments.toggle()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .rotationEffect(.degrees(model.showsNoteAdjustments ? 90 : 0))
+                    Text("Adjust the Lines").font(.system(size: 11.5, weight: .semibold))
+                }
+                .foregroundStyle(PrintPalette.ink2)
+                .frame(minHeight: 26)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
+            .accessibilityValue(model.showsNoteAdjustments ? Text("Open") : Text("Closed"))
+            if model.showsNoteAdjustments {
+                lineKinds
+                lineSettings
+                headerChoices
+                savedPresets
+            }
+        }
+    }
+
+    private var faintLineWarning: some View {
+        Text("The lines are faint and may fade when printed")
+            .font(.system(size: 11.5))
+            .foregroundStyle(PrintPalette.warn)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.warnTint))
+            .padding(.top, 8)
+    }
+
     @ViewBuilder private var lineKinds: some View {
         subheading("Line Style")
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3, alignment: .top), count: 4), spacing: 3) {
@@ -237,21 +276,11 @@ struct PrintNoteSection: View {
                 "Spacing", value: $model.notes.style.spacingInMillimeters, range: 3...15, step: 0.5,
                 text: String(format: "%.1f mm", model.notes.style.spacingInMillimeters))
             slider(
-                "Margin", value: $model.notes.style.marginInMillimeters, range: 5...25, step: 1,
+                "Margin Around Lines", value: $model.notes.style.marginInMillimeters, range: 5...25, step: 1,
                 text: String(format: "%.0f mm", model.notes.style.marginInMillimeters))
             colors
         }
         .padding(.top, 10)
-        if model.notes.style.isFaint {
-            Text("The lines are faint and may fade when printed")
-                .font(.system(size: 11.5))
-                .foregroundStyle(PrintPalette.warn)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 2)
-                .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.warnTint))
-                .padding(.top, 6)
-                .accessibilityAddTraits(.isStaticText)
-        }
     }
 
     private func slider(
@@ -261,7 +290,7 @@ struct PrintNoteSection: View {
             Text(title)
                 .font(.system(size: 12))
                 .foregroundStyle(PrintPalette.ink2)
-                .frame(width: 60, alignment: .leading)
+                .frame(width: 84, alignment: .leading)
             // Rounded here rather than with the slider's step, which would draw a tick for every value.
             Slider(
                 value: Binding(
@@ -283,7 +312,7 @@ struct PrintNoteSection: View {
             Text("Color")
                 .font(.system(size: 12))
                 .foregroundStyle(PrintPalette.ink2)
-                .frame(width: 60, alignment: .leading)
+                .frame(width: 84, alignment: .leading)
             HStack(spacing: 7) {
                 ForEach(NotePaperStyle.palette, id: \.hex) { color in
                     let isOn = color.hex == model.notes.style.colorHex
@@ -348,7 +377,7 @@ struct PrintNoteSection: View {
 
     @ViewBuilder private var savedPresets: some View {
         HStack(spacing: 6) {
-            Text("Your Presets").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(PrintPalette.ink2)
+            Text("Your Templates").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(PrintPalette.ink2)
             if let name = model.notePresetName {
                 Group {
                     if model.isNoteStyleChanged {
@@ -365,7 +394,7 @@ struct PrintNoteSection: View {
         .padding(.top, 12)
         .padding(.bottom, 5)
         HStack(spacing: 6) {
-            TextField("Preset Name", text: $saveName, prompt: Text(verbatim: ""))
+            TextField("Template Name", text: $saveName, prompt: Text(verbatim: ""))
                 .labelsHidden()
                 .textFieldStyle(.roundedBorder)
                 .controlSize(.small)
@@ -398,7 +427,7 @@ struct PrintNoteSection: View {
                 hint("Using “\(preset.name)”.")
             }
         } else {
-            hint("Built-in presets are saved under a new name.")
+            hint("Built-in templates are saved under a new name.")
         }
     }
 }

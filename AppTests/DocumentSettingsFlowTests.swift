@@ -185,7 +185,7 @@ struct DocumentSettingsFlowTests {
         #expect(model.viewOptions.direction == .rightToLeft)
         #expect(model.viewOptions.scrollAxis == .vertical)
         #expect(!model.viewOptions.showsCoverAlone)
-        #expect(model.isAlwaysOnTop && !model.isBandAlwaysVisible)
+        #expect(model.isAlwaysOnTop && model.isBandAlwaysVisible)
         model.rememberedSettingsDidChange()
         try await Task.sleep(for: .milliseconds(550))
         #expect(environment.store.keys().isEmpty)

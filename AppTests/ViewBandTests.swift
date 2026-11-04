@@ -50,13 +50,13 @@ struct ViewBandTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
-    @Test("新しい設定の既定は上と下に分ける・乗せたときに出す・ポップオーバー・帯に目次・トースト")
+    @Test("新しい設定の既定は上と下に分ける・常に表示・ポップオーバー・ツールバーに目次・トースト")
     func defaults() {
         let environment = Environment()
         defer { environment.cleanUp() }
         let preferences = environment.preferences
         #expect(preferences.menuArrangement == .split)
-        #expect(preferences.defaultBandVisibility == .onHover)
+        #expect(preferences.defaultBandVisibility == .always)
         #expect(preferences.outlinePresentation == .popover)
         #expect(preferences.showsOutlineOnBand)
         #expect(preferences.changeFollowing == .ask)
@@ -83,6 +83,14 @@ struct ViewBandTests {
         defer { suite.remove() }
         suite.defaults.set(true, forKey: "defaultMenuPinned")
         #expect(AppPreferences(defaults: suite.defaults).defaultBandVisibility == .always)
+    }
+
+    @Test("旧版で固定しないと決めていた記録は、乗せたときだけのまま読む")
+    func keepsUnpinnedRecord() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(false, forKey: "defaultMenuPinned")
+        #expect(AppPreferences(defaults: suite.defaults).defaultBandVisibility == .onHover)
     }
 
     @Test("新しい設定を選んだあとは旧版の記録より優先する")
@@ -146,16 +154,16 @@ struct ViewBandTests {
         let first = environment.model(data)
         try await open(first)
         #expect(first.rememberedSettings.bandVisibility == nil)
-        first.bandVisibility = .always
+        first.bandVisibility = .onHover
         first.rememberedSettingsDidChange()
         try await waitUntil { first.hasSavedSettings }
         first.stop()
         let second = environment.model(data)
         defer { second.stop() }
         try await open(second)
-        #expect(second.bandVisibility == .always)
-        second.resetDocumentSettings()
         #expect(second.bandVisibility == .onHover)
+        second.resetDocumentSettings()
+        #expect(second.bandVisibility == .always)
     }
 
     @Test("文字の文書は A判 / B判 を切り替えられ、B判は B5 の用紙で組み、記録に残す")

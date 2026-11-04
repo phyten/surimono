@@ -91,6 +91,25 @@ struct NotePagesFlowTests {
         #expect(second.notes.style.spacingInMillimeters == 9)
     }
 
+    @Test("冊子の 1 ページ目がノートになるとき、そうと分かる")
+    func coverNote() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.chooseLayout("a4BookletA5")
+        model.notes.isEnabled = true
+        model.notes.placement = .spreadRight
+        model.start()
+        try await waitUntil { model.hasCurrentPrintPreview && !model.isRendering }
+        #expect(model.coverIsNotePage)
+        model.notes.placement = .spreadLeft
+        model.render()
+        try await waitUntil {
+            model.hasCurrentPrintPreview && !model.isRendering && model.renderedSettings?.notes.placement == .spreadLeft
+        }
+        #expect(!model.coverIsNotePage)
+    }
+
     @Test("既定に戻すとノートも切れる")
     func reset() {
         let environment = Environment()

@@ -27,9 +27,10 @@ extension DocumentViewModel {
         notes.style = style
     }
 
-    func presentNoteSettings() {
-        showsNoteSettings = true
-        isPrintFinishPresented = true
+    /// The first page of a booklet is a note page: its cover comes out ruled.
+    var coverIsNotePage: Bool {
+        guard hasCurrentPrintPreview, let result = printResult else { return false }
+        return result.layout.kind == .booklet && result.notePages.first == 0
     }
 
     /// Keeps the note pages' current style under a new name and goes on from there.

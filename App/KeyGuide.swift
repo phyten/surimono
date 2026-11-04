@@ -23,16 +23,16 @@ enum KeyGuideEntry: CaseIterable {
 
     var explanation: String {
         switch self {
-        case .menu: String(localized: "Show or hide the menu band")
+        case .menu: String(localized: "Show or hide the toolbar")
         case .viewOptions: String(localized: "Open view options")
         case .selectText: String(localized: "Select text ⇄ move paper")
         case .alternateDrag: String(localized: "Swap what dragging the paper does")
         case .pageEdge: String(localized: "Turn the page")
         case .doubleClick: String(localized: "Zoom ⇄ fit to window")
-        case .print: String(localized: "Open the print tray; print when on the tray")
+        case .print: String(localized: "Open the print screen; print when on it")
         case .systemPrint: String(localized: "Open the system print dialog")
-        case .printLayouts: String(localized: "Choose a layout and open the print tray")
-        case .escape: String(localized: "Hide the menu band; leave the print tray")
+        case .printLayouts: String(localized: "Choose a layout and open the print screen")
+        case .escape: String(localized: "Hide the toolbar; leave the print screen")
         }
     }
 
@@ -65,11 +65,11 @@ struct KeyGuide: View {
                 }
                 .foregroundStyle(Color.primary)
                 Divider()
-                Text("Paper keys work when the paper has focus. A menu band set to always show stays visible.")
+                Text("Paper keys work when the paper has focus. A toolbar set to always show stays visible.")
                 Text(
                     "Edge clicks and double-click zoom work when text selection is off. Edge clicks also require fit-to-window and non-continuous page turns."
                 )
-                Text("On the print tray, Esc closes the folded preview first if it is open.")
+                Text("On the print screen, Esc closes the folded preview first if it is open.")
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)

@@ -25,9 +25,6 @@ struct PrintPressBar: View {
             // The popover can lie over the white paper, where a bare material turns mid-grey and its hints fade.
             PrintIssuesPopover(model: model).presentationBackground(PrintPalette.raised)
         }
-        .popover(isPresented: $model.isPrintOptionsPresented, arrowEdge: .top) {
-            PrintOptionsPopover(model: model).presentationBackground(PrintPalette.raised)
-        }
     }
 
     enum Density {
@@ -54,16 +51,20 @@ struct PrintPressBar: View {
     }
 
     private func layouts(_ density: Density) -> some View {
-        PrintFlowLayout(spacing: 3, lineSpacing: 3, alignment: .center) {
-            PrintSeriesSwitch(model: model).padding(.trailing, 3)
-            let cards = Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated())
-            ForEach(cards, id: \.element.id) { index, layout in
-                LayoutCard(
-                    layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
-                    help: "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
-                    shortcut: index + 1, isSelected: model.layoutID == layout.id, density: density
-                ) {
-                    model.chooseCard(at: index)
+        // The switch stands still at the left and the cards start beside it, so that switching moves nothing.
+        HStack(alignment: .top, spacing: 6) {
+            PrintSeriesSwitch(model: model)
+            PrintFlowLayout(spacing: 3, lineSpacing: 3, alignment: .leading) {
+                let cards = Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated())
+                ForEach(cards, id: \.element.id) { index, layout in
+                    LayoutCard(
+                        layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
+                        paper: PrintModeText.cardPaper(layout, language: model.language),
+                        help: "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
+                        shortcut: index + 1, isSelected: model.layoutID == layout.id, density: density
+                    ) {
+                        model.chooseCard(at: index)
+                    }
                 }
             }
         }
@@ -72,68 +73,50 @@ struct PrintPressBar: View {
     }
 
     private func summary(_ density: Density) -> some View {
-        HStack(spacing: 10) {
-            PrintSummaryColumnLayout {
-                PaperOrientationControl(model: model)
-                    .controlSize(.small)
-                    .fixedSize()
-                HStack(spacing: 6) {
-                    Text(verbatim: model.summary ?? String(localized: "Preparing pages…"))
-                        .font(.system(size: density == .regular ? 13.5 : 12.5))
-                        .monospacedDigit()
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if model.isRendering { ProgressView().controlSize(.mini) }
-                }
-                if model.printIssueCount > 0 {
-                    Button("Check \(model.printIssueCount)") { model.reviewPrintIssues() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(PrintPalette.ai)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(PrintPalette.aiTint, in: RoundedRectangle(cornerRadius: 5))
-                }
-                if let note {
-                    // Notes about blank pages run long; they may take a second line.
-                    Text(verbatim: note)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(PrintPalette.ink2)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let line = reminderLine {
-                    Text(verbatim: line).font(.system(size: 11)).foregroundStyle(PrintPalette.ai)
-                        .monospacedDigit().lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                }
-                if model.canSaveAsFile {
-                    Button {
-                        model.saveAsFile()
-                    } label: {
-                        Text("Save as File…").underline()
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11))
-                    .foregroundStyle(PrintPalette.ink2)
-                    .help("Kept in memory only")
-                }
+        PrintSummaryColumnLayout {
+            PaperOrientationControl(model: model)
+                .controlSize(.small)
+                .fixedSize()
+            HStack(spacing: 6) {
+                Text(verbatim: model.summary ?? String(localized: "Preparing pages…"))
+                    .font(.system(size: density == .regular ? 13.5 : 12.5))
+                    .monospacedDigit()
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                if model.isRendering { ProgressView().controlSize(.mini) }
             }
-            Button {
-                model.isPrintOptionsPresented.toggle()
-            } label: {
-                Image(systemName: "slider.horizontal.3")
+            if model.printIssueCount > 0 {
+                Button("Check \(model.printIssueCount)") { model.reviewPrintIssues() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ai)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(PrintPalette.aiTint, in: RoundedRectangle(cornerRadius: 5))
+            }
+            if let note {
+                // Notes about blank pages run long; they may take a second line.
+                Text(verbatim: note)
                     .font(.system(size: 12))
                     .foregroundStyle(PrintPalette.ink2)
-                    .frame(width: 30)
-                    .overlay(alignment: .topTrailing) {
-                        if optionsText != nil {
-                            Circle().fill(PrintPalette.ai).frame(width: 6, height: 6).offset(x: 2, y: 3)
-                        }
-                    }
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(PrintBorderedButtonStyle(height: 27))
-            .help("Margins, print order, and back side rotation")
-            .accessibilityLabel(Text("Print Options"))
+            if let line = reminderLine {
+                Text(verbatim: line).font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
+                    .monospacedDigit().lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            }
+            if model.canSaveAsFile {
+                Button {
+                    model.saveAsFile()
+                } label: {
+                    Text("Save as File…").underline()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(PrintPalette.ink2)
+                .help("Kept in memory only")
+            }
         }
         .padding(.leading, 16)
         .overlay(alignment: .leading) { Rectangle().fill(PrintPalette.line).frame(width: 1, height: 50) }
@@ -180,22 +163,16 @@ struct PrintPressBar: View {
         return PrintModeText.format("%@ · %@", language: model.language, note, additions)
     }
 
-    /// The options in effect and the amount of text, in one line so the sheets keep their room.
+    /// What the choices add to the sheets beyond the summary; the amount of text belongs to the document's information.
     private var reminderLine: String? {
-        let statistics = model.result?.facts.map {
-            PrintModeText.statistics($0.statistics, language: model.language)
-        }
-        guard let first = optionsText ?? statistics else { return nil }
-        guard optionsText != nil, let statistics else { return first }
-        return PrintModeText.format("%@ · %@", language: model.language, first, statistics)
-    }
-
-    private var optionsText: String? {
         var parts = [
             PrintModeText.options(model.effectivePrintOptions, layout: model.layout, language: model.language)
         ].compactMap { $0 }
         if model.hasCurrentPrintPreview, let notes = model.printResult?.addedNotePages, notes > 0 {
             parts.append(PrintModeText.format("Note pages: %lld", language: model.language, notes))
+            if model.coverIsNotePage {
+                parts.append(PrintModeText.string("The cover is a note page too", language: model.language))
+            }
             if model.notes.style.isFaint {
                 parts.append(
                     PrintModeText.string("The lines are faint and may fade when printed", language: model.language))
@@ -282,6 +259,8 @@ private struct PrinterPicker: View {
 private struct LayoutCard: View {
     let layout: PrintLayout
     let title: String
+    /// The paper it prints on, where the title names what comes out.
+    let paper: String?
     let help: String
     let shortcut: Int
     let isSelected: Bool
@@ -301,10 +280,19 @@ private struct LayoutCard: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.8)
+                if let paper {
+                    Text(verbatim: paper)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
             .padding(.horizontal, 2)
+            .padding(.top, 8)
             .frame(
-                width: density == .regular ? 90 : density == .medium ? 80 : 66, height: density == .regular ? 80 : 76
+                width: density == .regular ? 90 : density == .medium ? 80 : 74, height: density == .regular ? 92 : 88,
+                alignment: .top
             )
             .background {
                 RoundedRectangle(cornerRadius: 7)
@@ -429,88 +417,6 @@ struct LayoutPictogram: View {
             text.addRect(CGRect(x: 8, y: 7.5, width: 13, height: 16))
             text.addRect(CGRect(x: 25, y: 7.5, width: 13, height: 16))
             return Parts(papers: [CGRect(x: 5, y: 4.5, width: 36, height: 22)], text: text)
-        }
-    }
-}
-
-/// Margins and the back side rotation for this window, applied to the sheets right away.
-struct PrintOptionsPopover: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Print Options").font(.system(size: 12.5, weight: .semibold))
-            Text(verbatim: subtitle)
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink3)
-                .padding(.top, 3)
-                .padding(.bottom, 8)
-            if model.marginsAffectPrinting {
-                Rectangle().fill(PrintPalette.line).frame(height: 1)
-                PrintMarginEditor(model: model).padding(.vertical, 9)
-            }
-            row("Print Order", hint: printerOrderHint) {
-                PrintPageOrderPicker(order: $model.printPageOrder)
-                    .disabled(model.selectedPrinterName == nil)
-                    .labelsHidden()
-                    .controlSize(.small)
-                    .fixedSize()
-            }
-            row(
-                "Rotate Back Sides 180°",
-                hint: rotationHint
-            ) {
-                Toggle("Rotate Back Sides 180°", isOn: $model.rotatesBackSides)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .labelsHidden()
-                    .disabled(!isDuplex || model.selectedPrinterName == nil)
-            }
-        }
-        .foregroundStyle(PrintPalette.ink)
-        .tint(PrintPalette.ai)
-        .padding(EdgeInsets(top: 14, leading: 16, bottom: 6, trailing: 16))
-        .frame(width: 460)
-    }
-
-    private var printerOrderHint: LocalizedStringKey {
-        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
-        return "Remembered for \(name). Last Sheet First keeps face-up sheets in page order."
-    }
-
-    private var rotationHint: LocalizedStringKey {
-        guard isDuplex else { return "Available for duplex layouts (A4 Duplex and booklets)." }
-        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
-        return model.layout.duplex == .longEdge
-            ? "Remembered for \(name) with long-edge binding."
-            : "Remembered for \(name) with short-edge binding."
-    }
-
-    private var isDuplex: Bool { model.layout.duplex != .none }
-
-    private var subtitle: String {
-        PrintModeText.format(
-            "%@ · Changes appear on the sheets right away", language: model.language,
-            model.layout.displayName(language: model.language))
-    }
-
-    private func row<Control: View>(
-        _ title: LocalizedStringKey, hint: LocalizedStringKey, @ViewBuilder control: () -> Control
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Rectangle().fill(PrintPalette.line).frame(height: 1)
-            HStack(alignment: .top, spacing: 10) {
-                Text(title).font(.system(size: 12.5)).frame(width: 145, alignment: .leading).padding(.top, 3)
-                VStack(alignment: .leading, spacing: 5) {
-                    control()
-                    Text(hint)
-                        .font(.system(size: 11))
-                        .foregroundStyle(PrintPalette.ink3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.vertical, 9)
         }
     }
 }

@@ -160,7 +160,7 @@ struct PageIndicatorText: View {
         if let indicator = model.pageIndicator {
             Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
                 .overlay(alignment: .leading) { Text(verbatim: indicator) }
-                .font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
+                .font(.system(size: 11)).monospacedDigit().foregroundStyle(PrintPalette.ink)
                 .lineLimit(1)
                 .fixedSize()
         }
@@ -187,7 +187,7 @@ struct PageIndicatorButton: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Document Figures")
+            .help("Document Info")
         }
     }
 }
@@ -204,7 +204,7 @@ struct OutlineButton: View {
             Group {
                 if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
             }
-            .foregroundStyle(model.isOutlineShown ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(.primary))
+            .foregroundStyle(model.isOutlineShown ? PrintPalette.ai : PrintPalette.ink)
         }
         .fixedSize()
         .help("Contents")
@@ -289,7 +289,7 @@ struct BandMoreMenu: View {
             }
             if !tools.isEmpty { Divider() }
             if overflow.contains(.pageIndicator), model.pageCount > 0, !model.showsWeb {
-                Button("Document Figures…") { model.isFiguresPresented = true }
+                Button("Document Info…") { model.isFiguresPresented = true }
             }
             // Taken off the band on purpose, the contents stay within reach here.
             if model.hasOutline, !model.preferences.showsOutlineOnBand {
@@ -368,7 +368,7 @@ private struct BandMenuItem: View {
                 StyleMenuItems(model: model)
             } label: {
                 let title =
-                    model.usesHTMLPreset ? String(localized: "HTML Preset") : String(localized: "Print Theme")
+                    model.usesHTMLPreset ? String(localized: "HTML Preset") : String(localized: "Style")
                 Text(verbatim: choice(title, model.styleName))
             }
         case .layout:
@@ -427,7 +427,7 @@ private struct SecondaryViewMenuItem: View {
         switch item {
         case .direction:
             Menu {
-                Picker("Direction", selection: model.viewOption(\.direction)) {
+                Picker("Reading Direction", selection: model.viewOption(\.direction)) {
                     Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
                     Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
                 }
@@ -436,7 +436,7 @@ private struct SecondaryViewMenuItem: View {
                 let value =
                     model.viewOptions.direction == .leftToRight
                     ? String(localized: "Left to Right") : String(localized: "Right to Left")
-                Text(verbatim: choice(String(localized: "Direction"), value))
+                Text(verbatim: choice(String(localized: "Reading Direction"), value))
             }
         case .paperOrientation: PaperOrientationControl(model: model)
         case .paperSeries:
@@ -444,11 +444,11 @@ private struct SecondaryViewMenuItem: View {
                 PaperSeriesPicker(selection: $model.paperSeries)
                     .pickerStyle(.inline).labelsHidden()
             } label: {
-                Text(verbatim: choice(String(localized: "Paper Series"), model.paperSeries.name))
+                Text(verbatim: choice(String(localized: "Paper Size"), model.paperSeries.name))
             }
         case .scrollAxis:
             Menu {
-                Picker("Scrolling", selection: model.viewOption(\.scrollAxis)) {
+                Picker("Scroll Direction", selection: model.viewOption(\.scrollAxis)) {
                     Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
                     Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
                 }
@@ -457,19 +457,19 @@ private struct SecondaryViewMenuItem: View {
                 let value =
                     model.viewOptions.scrollAxis == .vertical
                     ? String(localized: "Vertical") : String(localized: "Horizontal")
-                Text(verbatim: choice(String(localized: "Scrolling"), value))
+                Text(verbatim: choice(String(localized: "Scroll Direction"), value))
             }
             .disabled(!model.viewOptions.usesScrollAxis)
         case .cover:
-            Toggle("Show Cover Alone", isOn: model.viewOption(\.showsCoverAlone))
+            Toggle("Show First Page Alone", isOn: model.viewOption(\.showsCoverAlone))
         case .selectText:
             Toggle("Select Text", isOn: $model.isSelectingText)
                 .help("Select Text (T)")
         case .floatOnTop:
             Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
         case .alwaysShowMenu:
-            Toggle("Always Show Menu", isOn: $model.isBandAlwaysVisible)
-                .help("Always Show Menu (⌥⌘T)")
+            Toggle("Always Show Toolbar", isOn: $model.isBandAlwaysVisible)
+                .help("Always Show Toolbar (⌥⌘T)")
         }
     }
 }

@@ -38,7 +38,7 @@ struct CodePaletteColumn: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("Code Colors").font(.system(size: 14, weight: .semibold)).fixedSize()
             Spacer(minLength: 4)
-            Text("Stays when the style changes")
+            Text("Chosen apart from the style")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -111,7 +111,10 @@ private struct CodePaletteRow: View {
             if inside { model.tryCodePalette(id) }
         }
         .accessibilityLabel(Text(verbatim: model.codePaletteName(id)))
-        .accessibilityValue(Text(verbatim: [note, badge ?? ""].filter { !$0.isEmpty }.joined(separator: ", ")))
+        .help(contrast.map { Text(verbatim: $0) } ?? Text(verbatim: ""))
+        .accessibilityValue(
+            Text(verbatim: [note, badge ?? "", contrast ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
+        )
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
     }
 
@@ -130,14 +133,18 @@ private struct CodePaletteRow: View {
 
     private var badge: String? {
         guard let palette else { return nil }
-        let ink =
-            switch palette.inkLevel {
-            case .low: String(localized: "Ink: Low")
-            case .normal: String(localized: "Ink: Normal")
-            case .raised: String(localized: "Ink: Slightly High")
-            case .high: String(localized: "Ink: High")
-            }
-        return String(format: "%.1f:1", palette.minimumContrast) + " · " + ink
+        return switch palette.inkLevel {
+        case .low: String(localized: "Ink: Low")
+        case .normal: String(localized: "Ink: Normal")
+        case .raised: String(localized: "Ink: Slightly High")
+        case .high: String(localized: "Ink: High")
+        }
+    }
+
+    private var contrast: String? {
+        palette.map {
+            String(format: String(localized: "Text contrast %@"), String(format: "%.1f:1", $0.minimumContrast))
+        }
     }
 
     /// Always on paper, in both appearances: the sample shows how the code prints.
@@ -199,7 +206,7 @@ private struct CodeBlockControls: View {
                 Text("Shrink the Text").tag(CodeBlockOptions.LongLines.shrink)
                 Text("Cut with a Mark").tag(CodeBlockOptions.LongLines.cut)
             }
-            row("Language Label", selection: $model.codeBlock.languageLabel) {
+            row("Show Language Name", selection: $model.codeBlock.languageLabel) {
                 Text("No Label").tag(CodeBlockOptions.LanguageLabel.none)
                 Text("Top Right").tag(CodeBlockOptions.LanguageLabel.corner)
                 Text("Top Band").tag(CodeBlockOptions.LanguageLabel.band)
