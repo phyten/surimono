@@ -184,10 +184,12 @@ public struct FinishedPagePlan: Equatable, Sendable {
     public let pages: [Page]
     /// The final index of each page of the text.
     public let bodyPageIndices: [Int]
+    public let contentsPageCount: Int
 
     /// - Parameter rightPageStarts: Pages of the text that must come out as a right-hand page, which is an odd page.
     ///   Notes on a side of each spread keep every page of the text on one side, so these then take no blanks.
     public init(bodyPageCount: Int, contentsPageCount: Int, rightPageStarts: Set<Int>, notes: Notes? = nil) {
+        self.contentsPageCount = contentsPageCount
         var pages = (0..<contentsPageCount).map(Page.contents)
         var indices: [Int] = []
         func addBody(_ body: Int) {

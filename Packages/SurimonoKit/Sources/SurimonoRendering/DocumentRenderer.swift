@@ -1124,10 +1124,11 @@ public final class DocumentRenderer {
             plan = FinishedPagePlan(
                 bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: starts, notes: insertion)
             // The numbers in the contents depend on how many pages the contents take, which the numbers can change.
-            var contentsPageCount = 1
-            for _ in 0..<(wantsContents ? 3 : 0) {
+            // A layout counts once it takes the pages it was numbered for.
+            var plannedPageCount = 1
+            for _ in 0..<(wantsContents ? Self.contentsLayoutLimit : 0) {
                 plan = FinishedPagePlan(
-                    bodyPageCount: pageCount, contentsPageCount: contentsPageCount, rightPageStarts: starts,
+                    bodyPageCount: pageCount, contentsPageCount: plannedPageCount, rightPageStarts: starts,
                     notes: insertion)
                 let pages = try await contentsPages(
                     PaperContents.entries(
@@ -1135,10 +1136,11 @@ public final class DocumentRenderer {
                         pageNumbers: headingPages.map { $0.map { plan.bodyPageIndices[$0] + 1 } },
                         depth: finish.toc.depth), source: source, settings: settings)
                 contents = pages
-                if pages.pageCount == contentsPageCount { break }
-                contentsPageCount = pages.pageCount
+                if pages.pageCount == plannedPageCount { break }
+                plannedPageCount = pages.pageCount
             }
-            if let contents, contents.pageCount != contentsPageCount {
+            // A contents that never settled keeps all its pages, so the pages after it stay in step with the last one.
+            if let contents, contents.pageCount != plan.contentsPageCount {
                 plan = FinishedPagePlan(
                     bodyPageCount: pageCount, contentsPageCount: contents.pageCount, rightPageStarts: starts,
                     notes: insertion)
@@ -1161,6 +1163,8 @@ public final class DocumentRenderer {
             plan: notes != nil ? plan : nil)
         return finished
     }
+
+    private static let contentsLayoutLimit = 3
 
     /// The contents laid out like the text: the same theme, paper size and margins.
     private func contentsPages(

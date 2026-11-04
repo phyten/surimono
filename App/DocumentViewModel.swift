@@ -1581,6 +1581,8 @@ final class DocumentViewModel {
             to: Set(binder?.items.map(\.format) ?? [format]),
             themeIDs: Set(library.themes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
         if !offersNotes { set.notes = nil }
+        // A binder can hold texts and still have no page breaks or contents of its own to compare.
+        if !finishAppliesToText { set.finish = nil }
         return set
     }
 
@@ -1596,7 +1598,7 @@ final class DocumentViewModel {
         printOptions.linksMargins = set.linksMargins ?? (printOptions.margins.uniformValue != nil)
         if let mirrors = set.mirrorsMargins { printOptions.mirrorsMargins = mirrors }
         if let furniture = set.furniture { printOptions.furniture = furniture }
-        if let finish = set.finish, finishAppliesToText { printFinish = finish }
+        if let finish = set.finish { printFinish = finish }
         if let notes = set.notes { self.notes = notes }
         selectedSettingSetID = set.id
         if let id = set.themeID { themeID = id }

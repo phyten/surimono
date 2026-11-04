@@ -121,6 +121,44 @@ struct PrintFinishRenderingTests {
         #expect(row?.contains("3") == true)
     }
 
+    /// A renderer whose contents take the next of `contentsPages` pages at each layout, with one page of text.
+    private func renderer(contentsPages: [Int], layouts: @escaping @MainActor (Int) -> Void) -> DocumentRenderer {
+        var count = 0
+        return DocumentRenderer(paginate: { request in
+            guard case .html(let html, _) = request.source, html.contains("paper-toc-title") else {
+                return try RenderingFixtures.pdf(size: request.pageSize)
+            }
+            let pages = contentsPages[min(count, contentsPages.count - 1)]
+            count += 1
+            layouts(count)
+            return try RenderingFixtures.pdf(count: pages, size: request.pageSize)
+        })
+    }
+
+    @Test("目次を組み直してページ数が落ち着いたら、そこで止める", .timeLimit(.minutes(1)))
+    func contentsSettle() async throws {
+        var layouts = 0
+        let renderer = renderer(contentsPages: [2, 2, 9]) { layouts = $0 }
+        var settings = try settings()
+        settings.finish.toc.mode = .front
+        let prepared = try await renderer.prepare(markdown("# 一\n\n本文\n"), settings: settings)
+        #expect(layouts == 2)
+        #expect(prepared.addedContentsPages == 2)
+        #expect(prepared.logicalDocument.pageCount == 3)
+    }
+
+    @Test("最後の組み直しでページ数が変わっても、目次のページを落とさず本文を続ける", .timeLimit(.minutes(1)))
+    func contentsNeverSettle() async throws {
+        var layouts = 0
+        let renderer = renderer(contentsPages: [2, 3, 4]) { layouts = $0 }
+        var settings = try settings()
+        settings.finish.toc.mode = .front
+        let prepared = try await renderer.prepare(markdown("# 一\n\n本文\n"), settings: settings)
+        #expect(layouts == 3)
+        #expect(prepared.addedContentsPages == 4)
+        #expect(prepared.logicalDocument.pageCount == 5)
+    }
+
     @Test("切った記法の直後の見出しは見出しの規則で改ページする", .timeLimit(.minutes(1)))
     func headingAfterIgnoredBreak() async throws {
         var settings = try settings()

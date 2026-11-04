@@ -164,14 +164,14 @@ make clean
 
 ## 紙の仕上げ
 
-- 刷り台のバーの上の帯（`PrintFinishStrip`）に簡易の選択と「詳細…」、「詳細…」で刷り台の右に開く `PrintFinishSheet` に全部がある。シートにしないのは、紙を見ながら変えるため。帯は 1 行に保ち、入らない幅ではメニューになる（まずノートだけが 1 語のメニューに縮み、次に全部がメニューになる）。既定はすべてオフで今の刷り上がりと同じ。
+- 刷り台のバーの上の帯（`PrintFinishStrip`）に簡易の選択と「詳細…」、「詳細…」で刷り台の右に開く `PrintFinishSheet` に全部がある。シートにしないのは、紙を見ながら変えるため。帯は 1 行に保ち、入らない幅ではメニューになる（まずノートだけが 1 語のメニューに縮み、次に全部がメニューになる）。既定はすべてオフで今の刷り上がりと同じ。例外は、原文の 4 つの改ページ記法（`<!--BREAK-->`・`<!-- pagebreak -->`・`\newpage`・`{::pagebreak /}`）で、既定で読んでその位置で改ページする（依頼で決めた例外。切れば何も出ない）。
 - 持ち方: 余白とヘッダー・フッターは `PrintOptions`、改ページと目次は `PrintFinish`（`RenderSettings.finish`・`DocumentSettings.printFinish`）。ヘッダーを変えても組版し直さず、面付けだけやり直す。`PrintFinish` はテーマを使う形式の 1 文書だけに効き、合本には渡さない。
 - 余白は `PrintOptions.margins`（`PageMargins`）。1mm 単位で 0〜40。古い `marginsInMillimeters`・`showsPageNumbers` の記録は `PrintOptions` と `PrintSettingSet` の decode で読む。内側・外側は、組版は同じ幅のまま、偶数ページの中身を `PaperComposer.compose(_:paper:shift:)` で横へ動かす（紙の上の位置だけが変わる。`PDFPage.setBounds` で箱をずらしても、書き出すと媒体の箱が戻るので使えない）。`margins.left` が綴じ側（1 ページ目の左）。
 - ヘッダー・フッターは `PageFurniture`。描くのは `PDFComposer`（`PageFurnitureDrawing`）なので全形式で効く。「番号」プリセットは今までのページ番号と同じ場所に同じ大きさで出す。足した白紙（`PageFurniture.Context.blankPages`）には入れない。日付は描く日の今日で、`SheetKey` に文字列で入る。
 - 見出しの改ページは `PrintFinish.styleSheet` の CSS で、テーマの後の `<style id="surimono-finish">` に入る。最初の見出しと見出しの直下の見出しでは改ページしない。原文の改ページの直後の見出しにも `break-before: auto` を当てる（WebKit は `break-after` と次の `break-before` を別々に数え、白紙が 1 枚できる）。
 - 右ページからは、CSS で改ページしてから `DocumentOutline.pages(of:inPageTexts:)` で章のページを探し、`FinishedPagePlan` の通りに白紙を差す。両面と冊子だけ。`DocumentRenderer.finished` が文字の文書の論理ページの列を組み替える場所で、紙（`PaperComposer`）を重ねる前に通る。列の順は `FinishedPagePlan` が決め、面を足す物はここに足す（ノートページの差し込みは「ノートページ」の節）。
 - 紙の目次（先頭に足す）は、目次だけの HTML を同じテーマ・用紙・余白で組む。番号は目次のページ数で変わるので、1 ページと仮定して組み、ページ数が違えば組み直す。章は一番大きい見出しで、題名が 1 つだけのときは次の大きさを章にする。原文の `[TOC]` は既定で隠す。
-- Markdown の改ページの記法（`MarkdownPageBreaks`）は、行を HTML コメントの目印に置き換えて `<div class="page-break" data-syntax="…">` にする。コメントはその行で終わり段落も切れるので、他の行の意味も行番号も変えない。`common.css` が改ページし、切った記法だけを `PrintFinish.styleSheet` が打ち消す。
+- Markdown の改ページの記法（`MarkdownPageBreaks`）は、単独の行だけを読む。`MarkdownExtensions.protection` と同じく AST の領域で、コードブロック・HTML ブロック（`<pre>` や複数行のコメントの中）・複数行のコードスパンと inline HTML を除く。読んだ行は HTML コメントの目印に置き換えて `<div class="page-break" data-syntax="…">` にする。コメントはその行で終わり段落も切れるので、他の行の意味も行番号も変えない。`common.css` が改ページし、切った記法だけを `PrintFinish.styleSheet` が打ち消す。
 - 表は `common.css` の `break-inside: avoid` で、1 ページに入るものはもともと分かれない（実測）。「表を途中で分けない」はそれより長い表の行を分けないだけ。
 - `PrintLayout.presets(in:)` が判ごとのカードの順で、⌘1〜⌘6 もこの順。B判に 3枚＋メモはなく、⌘6 は A4 3枚＋メモのまま。判の切替は同じ位置のカードへ移り（`counterpart(in:)`）、`AppPreferences.paperSeries` に覚える。既定のレイアウトのままの文書では覚えた判のカードを出す。用紙は変えない。
 - 組み込みの設定セットは `PrintSettingSet.builtIns(language:)` で、保存しない（id だけ固定）。
