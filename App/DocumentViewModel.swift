@@ -85,10 +85,13 @@ final class DocumentViewModel {
     var isOutlinePresented = false
     var isOutlineDrawerOpen = false
     var isFiguresPresented = false
-    var isPrintOptionsPresented = false
     var isPrintFinishPresented = false
-    /// The sheet of the paper's finish scrolls to the note pages when this is set.
-    var showsNoteSettings = false
+    /// The section the print settings sheet scrolls to when it is set.
+    var finishSection: PrintFinishSection?
+    /// The note section's fine adjustments are open.
+    var showsNoteAdjustments = false
+    /// The reader chose to write the header and footer themselves, which an empty one does not show by its content.
+    var isWritingFurniture = false
     var isPrintIssuesPresented = false
     @ObservationIgnored private var pendingPrintIssue: (issue: PrintIssue, pageCount: Int)?
     /// The style palette is open beside the paper.
@@ -160,6 +163,7 @@ final class DocumentViewModel {
     /// The composed sheets for the tray and the outputs. It may still belong to an earlier `result` while the sheets
     /// of the current one are composed; `canOutput` checks that it matches.
     private(set) var printResult: RenderResult?
+    private var trayFigures: TrayFigures?
     /// The sheets of `printResult`, grouped as they come out of the printer; built once per composition.
     private(set) var printTray: PrintTray?
     private(set) var renderedSettings: RenderSettings?
@@ -355,11 +359,15 @@ final class DocumentViewModel {
     }
     var layout: PrintLayout { PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single }
     /// Reading and comparing keep the paper's shape independent of how pages are arranged for printing.
-    var renderLayout: PrintLayout { mode == .print ? layout : paperSeries.layout }
+    var renderLayout: PrintLayout { renderLayout(in: mode) }
+
+    private func renderLayout(in mode: ViewerMode) -> PrintLayout { mode == .print ? layout : paperSeries.layout }
     /// Text can be laid out again on other paper; PDFs and images keep their pages, and a binder its documents.
     var offersPaperSeries: Bool { !showsWeb && binder == nil && imageBundle == nil && format.isWebRendered }
 
-    var renderSettings: RenderSettings? {
+    var renderSettings: RenderSettings? { renderSettings(in: mode) }
+
+    private func renderSettings(in mode: ViewerMode) -> RenderSettings? {
         guard
             let theme = library.themes.first(where: { $0.id == (usesPrintTheme ? themeID : "standard") })
                 ?? library.themes.first(where: { $0.id == "standard" }),
@@ -367,7 +375,7 @@ final class DocumentViewModel {
                 ?? library.presets.first(where: { $0.id == "none" })
         else { return nil }
         var settings = RenderSettings(
-            layout: renderLayout, theme: theme, preset: preset, options: effectivePrintOptions,
+            layout: renderLayout(in: mode), theme: theme, preset: preset, options: effectivePrintOptions,
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
@@ -449,7 +457,6 @@ final class DocumentViewModel {
 
     func reviewPrintIssues() {
         guard !printIssues.isEmpty else { return }
-        isPrintOptionsPresented = false
         isPrintFinishPresented = false
         isPrintIssuesPresented = true
         enterPrintMode()
@@ -898,6 +905,11 @@ final class DocumentViewModel {
                 let output = try await renderer.composeSheet(for: prepared)
                 try Task.checkCancellation()
                 printResult = output
+                if mode == .print, settings == renderSettings {
+                    trayFigures = TrayFigures(
+                        settings: settings, data: data, sourceURLs: sourceURLs, sheetCount: output.plan.sheetCount,
+                        paper: output.plan.paper.shortName)
+                }
                 printTray = PrintTray(
                     plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
                     sheetOrientations: output.sheetOrientations, blankPages: output.blankPages)
@@ -1240,6 +1252,23 @@ final class DocumentViewModel {
     }
 
     /// 「刷り台で確かめる」 in the figures.
+    /// What the print screen last came to, for the document's information.
+    struct TrayFigures {
+        let settings: RenderSettings
+        let data: Data
+        let sourceURLs: [URL]
+        let sheetCount: Int
+        let paper: String
+    }
+
+    /// The sheets of the print screen, as long as nothing they were counted from has changed since.
+    var currentTrayFigures: TrayFigures? {
+        guard let trayFigures, trayFigures.settings == renderSettings(in: .print), trayFigures.data == data,
+            trayFigures.sourceURLs == sourceURLs
+        else { return nil }
+        return trayFigures
+    }
+
     func checkFiguresOnTray() {
         isFiguresPresented = false
         enterPrintMode()
@@ -1797,6 +1826,7 @@ final class DocumentViewModel {
         printOptions = preferences.printOptions
         printFinish = preferences.printFinish
         notes = NotePages()
+        isWritingFurniture = false
         selectedSettingSetID = nil
         isSmartRemovalEnabled = false
         smartRemovalKeptIDs = []
@@ -2341,7 +2371,7 @@ final class DocumentViewModel {
         let template = bundle.localizedString(forKey: "%ld pages → %@ %ld sheets (%@)", value: nil, table: nil)
         return String(
             format: template, locale: locale,
-            summary.logicalPageCount, summary.paper.displayName, summary.sheetCount, binding)
+            summary.logicalPageCount, summary.paper.shortName, summary.sheetCount, binding)
     }
 
     private static func message(for error: Error) -> String {

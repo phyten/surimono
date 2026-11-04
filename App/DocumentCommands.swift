@@ -83,7 +83,7 @@ struct DocumentCommands: Commands {
                     get: { model?.isSelectingText ?? false }, set: { _ in model?.toggleSelectingText() })
             )
             Toggle(
-                "Always Show Menu",
+                "Always Show Toolbar",
                 isOn: Binding(
                     get: { model?.isBandAlwaysVisible ?? false }, set: { model?.isBandAlwaysVisible = $0 })
             )

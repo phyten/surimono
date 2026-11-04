@@ -17,6 +17,24 @@ extension DocumentViewModel {
         }
     }
 
+    /// Opens the print settings at one of their sections.
+    func presentFinish(_ section: PrintFinishSection) {
+        finishSection = section
+        isPrintFinishPresented = true
+    }
+
+    /// What the tray's header and footer choice shows: Custom from the moment it is chosen, while the fields are empty.
+    var furnitureChoice: PageFurniture.Preset { isWritingFurniture ? .custom : printOptions.furniture.preset }
+
+    func chooseFurniture(_ preset: PageFurniture.Preset) {
+        isWritingFurniture = preset == .custom
+        if preset == .custom {
+            presentFinish(.furniture)
+        } else {
+            printOptions.furniture.apply(preset)
+        }
+    }
+
     /// ⌘1–⌘6 and the layout cards: choose the layout and show it on the tray.
     func chooseLayout(_ id: String) {
         guard PrintLayout.presets.contains(where: { $0.id == id }) else { return }

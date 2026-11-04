@@ -19,7 +19,7 @@ struct SettingsMenuTests {
         #expect(preferences.defaultScrollAxis == nil)
         #expect(preferences.defaultShowsCoverAlone == nil)
         #expect(preferences.loneCoverWidth == .onePage)
-        #expect(!preferences.defaultAlwaysOnTop && preferences.defaultBandVisibility == .onHover)
+        #expect(!preferences.defaultAlwaysOnTop && preferences.defaultBandVisibility == .always)
         #expect(preferences.defaultTextScale == 1)
         #expect(preferences.defaultPaperOrientation == .auto)
         preferences.defaultReadingDirection = .rightToLeft
@@ -104,11 +104,11 @@ struct SettingsMenuTests {
     @Test("帯から移した文字選択と固定操作は表示メニューに残る")
     func secondaryViewCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
-        for key in ["Select Text", "Always Show Menu", "Float on Top", "View Options…"] {
+        for key in ["Select Text", "Always Show Toolbar", "Float on Top", "View Options…"] {
             let item = try #require(menu.items.first { $0.title == localized(key) })
             #expect(item.isEnabled)
         }
-        let pin = try #require(menu.items.first { $0.title == localized("Always Show Menu") })
+        let pin = try #require(menu.items.first { $0.title == localized("Always Show Toolbar") })
         #expect(pin.keyEquivalent == "t")
         #expect(pin.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == [.option, .command])
     }

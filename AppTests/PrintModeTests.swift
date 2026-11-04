@@ -35,8 +35,8 @@ struct PrintTrayTests {
         let sheets = tray(.a4Handout3, pages: 7).sheets
         #expect(sheets.count == 3)
         #expect(sheets[2].sides[0].pages == [7, nil, nil])
-        #expect(PrintModeText.cardTitle(.a4Handout3, language: "ja") == "A4 3枚＋メモ")
-        #expect(PrintModeText.cardTitle(.a4Handout3, language: "en") == "A4 3-up + Notes")
+        #expect(PrintModeText.cardTitle(.a4Handout3, language: "ja") == "3 ページ＋\nメモ欄")
+        #expect(PrintModeText.cardTitle(.a4Handout3, language: "en") == "3 Pages + Notes Column")
         #expect(PrintModeText.handoutCaption([1, 2, 3], language: "ja") == "1–3 ページ")
         #expect(PrintModeText.handoutCaption([7, nil, nil], language: "ja") == "7 ページ")
         #expect(PrintModeText.handoutCaption([4, 5, nil], language: "en") == "Pages 4–5")
@@ -178,16 +178,30 @@ struct PrintTrayTests {
         #expect(PrintModeText.note(.a3BookletA4, pageCount: 12, language: "ja") == "重ねて中央で折ると A4 冊子・白紙なし")
         #expect(
             PrintModeText.note(.a4BookletA5, pageCount: 5, language: "ja")
-                == "重ねて中央で折ると A5 冊子・白紙 3 ページ（裏表紙の手前）")
+                == "重ねて中央で折ると A5 冊子・白紙 3 ページ（最後の 3 ページ）")
+        #expect(
+            PrintModeText.note(.a4BookletA5, pageCount: 7, language: "ja")
+                == "重ねて中央で折ると A5 冊子・白紙 1 ページ（裏表紙）")
     }
 
-    @Test("レイアウトのカードは用紙と刷り方を短く示す")
+    @Test("レイアウトのカードは上に結果、下に用紙を示す")
     func cardTitles() {
         #expect(
             PrintLayout.presets.map { PrintModeText.cardTitle($0, language: "ja") } == [
-                "A4 片面", "A4 両面", "A3 中綴じ", "A4 中綴じ", "A3 2アップ", "A4 3枚＋メモ",
-                "B5 片面", "B5 両面", "B4 中綴じ", "B5 中綴じ", "B4 2アップ",
+                "A4 片面", "A4 両面", "A4 冊子", "A5 冊子", "2 ページ並べ", "3 ページ＋\nメモ欄",
+                "B5 片面", "B5 両面", "B5 冊子", "B6 冊子", "2 ページ並べ",
             ])
+        #expect(
+            PrintLayout.presets.map { PrintModeText.cardPaper($0, language: "ja") } == [
+                nil, nil, "A3 に刷る", "A4 に刷る", "A3 に刷る", "A4 に刷る",
+                nil, nil, "B4 に刷る", "B5 に刷る", "B4 に刷る",
+            ])
+    }
+
+    @Test("ノートのあるページ数は本文とノートの内訳を出す")
+    func pageCountWithNotes() {
+        #expect(PrintModeText.pageCount(3, notes: 2, language: "ja") == "3 ページ（本文 1＋ノート 2）")
+        #expect(PrintModeText.pageCount(3, notes: 0, language: "ja") == "3 ページ")
     }
 
     @Test("ページ数は英語では単数と複数を使い分け、日本語ではページと数える")

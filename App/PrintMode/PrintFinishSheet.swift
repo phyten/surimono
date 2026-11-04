@@ -1,7 +1,12 @@
 import SurimonoCore
 import SwiftUI
 
-/// Everything about the paper's finish. It stays beside the sheets, which show each change right away.
+/// The sections of the print settings, which the tray's items open directly.
+enum PrintFinishSection: Hashable {
+    case furniture, breaks, contents, notes
+}
+
+/// All the print settings. It stays beside the sheets, which show each change right away.
 struct PrintFinishSheet: View {
     @Bindable var model: DocumentViewModel
     @State private var slot = PageFurniture.Slot.bottomCenter
@@ -18,8 +23,8 @@ struct PrintFinishSheet: View {
                 ScrollView {
                     content
                 }
-                .onAppear { scrollToNotes(scroller) }
-                .onChange(of: model.showsNoteSettings) { _, _ in scrollToNotes(scroller) }
+                .onAppear { scrollToSection(scroller) }
+                .onChange(of: model.finishSection) { _, _ in scrollToSection(scroller) }
             }
             Rectangle().fill(PrintPalette.line).frame(height: 1)
             footer
@@ -31,58 +36,67 @@ struct PrintFinishSheet: View {
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PrintPalette.line, lineWidth: 1))
         .shadow(color: PrintPalette.popShadow, radius: 20, y: 6)
+        .clearsInitialFocus()
         .onAppear { customLine = model.printFinish.breaks.customLine }
     }
 
-    private func scrollToNotes(_ scroller: ScrollViewProxy) {
-        guard model.showsNoteSettings else { return }
-        model.showsNoteSettings = false
-        scroller.scrollTo(Self.notesID, anchor: .top)
+    private func scrollToSection(_ scroller: ScrollViewProxy) {
+        guard let section = model.finishSection else { return }
+        model.finishSection = nil
+        scroller.scrollTo(section, anchor: .top)
     }
-
-    private static let notesID = "notes"
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Paper Finish").font(.system(size: 14, weight: .bold))
+            Text("Print Settings").font(.system(size: 14, weight: .bold))
             Text("Added only when printing. The document does not change.")
                 .font(.system(size: 11.5))
                 .foregroundStyle(PrintPalette.ink2)
                 .padding(.top, 3)
                 .padding(.bottom, 6)
+            section("Paper & Margins") { PrintPaperOptions(model: model) }
             section("Header & Footer") {
                 PrintFurnitureChoice(model: model)
                 furnitureDetails
             }
+            .id(PrintFinishSection.furniture)
             if model.finishAppliesToText {
                 section("Page Breaks") {
                     PrintChapterBreakChoice(model: model)
                     hint(breakHint)
                     breakDetails
                 }
-                section("Paper Contents") {
+                .id(PrintFinishSection.breaks)
+                section("Printed Contents") {
                     PrintContentsChoice(model: model)
                     hint(contentsHint)
                     contentsDetails
                 }
+                .id(PrintFinishSection.contents)
             }
+            // Above the notes, which it does not keep: it stands under what it applies to.
+            useForNewDocuments
             if model.offersNotes {
-                section("Note Pages") { PrintNoteSection(model: model) }.id(Self.notesID)
+                section("Note Pages") { PrintNoteSection(model: model) }.id(PrintFinishSection.notes)
             }
         }
         .padding(16)
     }
 
+    private var useForNewDocuments: some View {
+        Button {
+            model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
+        } label: {
+            Text("Use for New Documents").padding(.horizontal, 10)
+        }
+        .buttonStyle(PrintBorderedButtonStyle())
+        .fixedSize()
+        .help("New documents start with these margins, header and footer, page breaks and contents")
+        .padding(.bottom, 12)
+    }
+
     private var footer: some View {
         HStack(spacing: 8) {
-            Button {
-                model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
-            } label: {
-                Text("Use as Default").padding(.horizontal, 10)
-            }
-            .buttonStyle(PrintBorderedButtonStyle())
-            .fixedSize()
-            .help("New documents start with these margins, header and footer, page breaks and contents")
             Spacer(minLength: 0)
             Button {
                 model.isPrintFinishPresented = false
@@ -150,43 +164,51 @@ struct PrintFinishSheet: View {
 
     // MARK: Header and footer
 
+    /// The fields are for writing one's own; the presets fill them, so with a preset there is nothing to type.
     private var furnitureDetails: some View {
         VStack(alignment: .leading, spacing: 0) {
-            slotFields([.topLeft, .topCenter, .topRight]).padding(.top, 10)
-            Text("Text")
-                .font(.system(size: 11))
-                .foregroundStyle(Color(.sRGB, red: 0.33, green: 0.34, blue: 0.35, opacity: 1))
-                .frame(maxWidth: .infinity)
-                .frame(height: 64)
-                .background(RoundedRectangle(cornerRadius: 2).fill(PrintPalette.paper))
-                .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(PrintPalette.line2, lineWidth: 1))
-                .padding(.vertical, 5)
-            slotFields([.bottomLeft, .bottomCenter, .bottomRight])
-            subheading("Items to Insert")
-            HStack(spacing: 4) {
-                chip("File Name", .fileName)
-                chip("Title", .title)
-                chip("Date", .date)
-                chip("Page", .page)
-                chip("Total Pages", .pageCount)
-            }
-            subheading("Date Format")
-            HStack(spacing: 8) {
-                Picker("Date Format", selection: dateChoice) {
-                    ForEach(Self.dateFormats, id: \.self) { format in
-                        Text(verbatim: sample(format)).tag(format)
-                    }
-                    Text("Write Your Own").tag("")
+            let choice = model.furnitureChoice
+            if choice == .custom {
+                slotFields([.topLeft, .topCenter, .topRight]).padding(.top, 10)
+                Text("Text")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(.sRGB, red: 0.33, green: 0.34, blue: 0.35, opacity: 1))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 64)
+                    .background(RoundedRectangle(cornerRadius: 2).fill(PrintPalette.paper))
+                    .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(PrintPalette.line2, lineWidth: 1))
+                    .padding(.vertical, 5)
+                slotFields([.bottomLeft, .bottomCenter, .bottomRight])
+                subheading("Items to Insert")
+                HStack(spacing: 4) {
+                    chip("File Name", .fileName)
+                    chip("Title", .title)
+                    chip("Date", .date)
+                    chip("Page", .page)
+                    chip("Total Pages", .pageCount)
                 }
-                .labelsHidden()
-                .controlSize(.small)
-                .fixedSize()
-                PrintTextField(title: "Date Format", text: $model.printOptions.furniture.dateFormat)
             }
-            switchRow("Leave Out of the First Page", isOn: $model.printOptions.furniture.skipsFirstPage)
-                .padding(.top, 8)
-            switchRow("Swap Left and Right on Spreads", isOn: $model.printOptions.furniture.swapsOnSpreads)
-                .disabled(!model.layout.hasFacingPages)
+            if choice == .custom || choice == .nameAndDate {
+                subheading("Date Format")
+                HStack(spacing: 8) {
+                    Picker("Date Format", selection: dateChoice) {
+                        ForEach(Self.dateFormats, id: \.self) { format in
+                            Text(verbatim: sample(format)).tag(format)
+                        }
+                        Text("Write Your Own").tag("")
+                    }
+                    .labelsHidden()
+                    .controlSize(.small)
+                    .fixedSize()
+                    PrintTextField(title: "Date Format", text: $model.printOptions.furniture.dateFormat)
+                }
+            }
+            if choice != .none {
+                switchRow("Leave Out of the First Page", isOn: $model.printOptions.furniture.skipsFirstPage)
+                    .padding(.top, 8)
+                switchRow("Swap Left and Right on Spreads", isOn: $model.printOptions.furniture.swapsOnSpreads)
+                    .disabled(!model.layout.hasFacingPages)
+            }
         }
     }
 
@@ -266,9 +288,9 @@ struct PrintFinishSheet: View {
     private var breakDetails: some View {
         VStack(alignment: .leading, spacing: 0) {
             subheading("By Heading")
-            levelRow("H1", level: 1, rule: $model.printFinish.breaks.h1)
-            levelRow("H2", level: 2, rule: $model.printFinish.breaks.h2)
-            levelRow("H3", level: 3, rule: $model.printFinish.breaks.h3)
+            levelRow(level: 1, rule: $model.printFinish.breaks.h1)
+            levelRow(level: 2, rule: $model.printFinish.breaks.h2)
+            levelRow(level: 3, rule: $model.printFinish.breaks.h3)
             if model.format == .markdown {
                 subheading("Syntax in the Text (Read Only; the Text Does Not Change)")
                 codeRow("<!--BREAK-->", isOn: syntax(.comment), count: facts?.pageBreakCounts[.comment] ?? 0)
@@ -297,10 +319,11 @@ struct PrintFinishSheet: View {
         }
     }
 
-    private func levelRow(_ name: String, level: Int, rule: Binding<HeadingBreak>) -> some View {
+    private func levelRow(level: Int, rule: Binding<HeadingBreak>) -> some View {
         let count = facts?.headings.filter { $0.level == level }.count ?? 0
         return HStack(spacing: 8) {
-            Text(verbatim: name).font(.system(size: 12.5))
+            Text(verbatim: PrintModeText.format("Heading %lld", language: model.language, level))
+                .font(.system(size: 12.5))
             Text(verbatim: PrintModeText.format("%lld places", language: model.language, count))
                 .font(.system(size: 11))
                 .foregroundStyle(PrintPalette.ink2)
@@ -308,7 +331,7 @@ struct PrintFinishSheet: View {
             PrintSegments(
                 label: "Page Breaks",
                 options: [
-                    .init(HeadingBreak.none, "None"), .init(.page, "Page Break"), .init(.rightPage, "Right Page"),
+                    .init(HeadingBreak.none, "None"), .init(.page, "Page Break"), .init(.rightPage, "From Right Page"),
                 ],
                 selection: rule.wrappedValue
             ) { rule.wrappedValue = $0 }
@@ -491,5 +514,70 @@ struct PrintMarginEditor: View {
         .frame(width: 80, height: 112)
         .overlay(Rectangle().strokeBorder(PrintPalette.line3, lineWidth: 1))
         .accessibilityHidden(true)
+    }
+}
+
+/// The first section of the print settings: the margins, and how the printer handles the sheets.
+struct PrintPaperOptions: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if model.marginsAffectPrinting {
+                PrintMarginEditor(model: model).padding(.bottom, 9)
+            }
+            row("Print Order", hint: printerOrderHint) {
+                PrintPageOrderPicker(order: $model.printPageOrder)
+                    .disabled(model.selectedPrinterName == nil)
+                    .labelsHidden()
+                    .controlSize(.small)
+                    .fixedSize()
+            }
+            row(
+                "Rotate Back Sides 180°",
+                hint: rotationHint
+            ) {
+                Toggle("Rotate Back Sides 180°", isOn: $model.rotatesBackSides)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .labelsHidden()
+                    .disabled(!isDuplex || model.selectedPrinterName == nil)
+            }
+        }
+    }
+
+    private var printerOrderHint: LocalizedStringKey {
+        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
+        return "Remembered for \(name). Last Sheet First keeps face-up sheets in page order."
+    }
+
+    private var rotationHint: LocalizedStringKey {
+        guard isDuplex else { return "Available for duplex layouts (A4 Duplex and booklets)." }
+        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
+        return model.layout.duplex == .longEdge
+            ? "Remembered for \(name) with long-edge binding."
+            : "Remembered for \(name) with short-edge binding."
+    }
+
+    private var isDuplex: Bool { model.layout.duplex != .none }
+
+    private func row<Control: View>(
+        _ title: LocalizedStringKey, hint: LocalizedStringKey, @ViewBuilder control: () -> Control
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle().fill(PrintPalette.line).frame(height: 1)
+            HStack(alignment: .top, spacing: 10) {
+                Text(title).font(.system(size: 12.5)).frame(width: 145, alignment: .leading).padding(.top, 3)
+                VStack(alignment: .leading, spacing: 5) {
+                    control()
+                    Text(hint)
+                        .font(.system(size: 11))
+                        .foregroundStyle(PrintPalette.ink3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 9)
+        }
     }
 }

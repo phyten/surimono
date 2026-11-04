@@ -36,7 +36,7 @@ struct NotePagesRenderingTests {
     func offByDefault() async throws {
         let prepared = try await DocumentRenderer().prepare(try pdf(3), settings: try settings())
         #expect(prepared.logicalDocument.pageCount == 3)
-        #expect(prepared.addedNotePages == 0)
+        #expect(prepared.notePages.isEmpty)
     }
 
     @Test("左がノートの 4 ページの PDF は 8 ページになり、冊子の用紙 2 枚に刷る")
@@ -168,7 +168,7 @@ struct NotePagesRenderingTests {
         #expect(pages[2].contains("一"))
         #expect(pages[4].contains("二"))
         #expect(prepared.addedContentsPages == 1)
-        #expect(prepared.addedNotePages == 3)
+        #expect(prepared.notePages.count == 3)
     }
 
     @Test("章の終わりのノートは見出しのページで決まり、右ページ始まりは数え直す", .timeLimit(.minutes(1)))

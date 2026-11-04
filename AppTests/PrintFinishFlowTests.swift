@@ -206,12 +206,6 @@ struct PrintFinishFlowTests {
         #expect(model.printOptions.furniture == .pageNumber)
     }
 
-    @Test("要約の行に文字数と読む時間を出す")
-    func statistics() {
-        let text = PrintModeText.statistics(DocumentStatistics(characters: 1784), language: "ja")
-        #expect(text == "1,784 字・読む時間 約 4 分")
-    }
-
     @Test("足したページは数えて知らせ、何も足さないときは言わない")
     func additions() {
         #expect(PrintModeText.additions(contents: 0, blanks: 0, language: "ja") == nil)
@@ -219,14 +213,47 @@ struct PrintFinishFlowTests {
         #expect(PrintModeText.additions(contents: 1, blanks: 2, language: "ja") == "目次 1 ページ・白紙 2 ページを足しました")
     }
 
-    @Test("ヘッダーのある印刷オプションは番号と別の言葉で知らせる")
+    @Test("ヘッダーは刷り台の行で見えるので、要約の下には裏面の回転だけを知らせる")
     func reminder() {
         var options = PrintOptions()
-        #expect(PrintModeText.options(options, layout: .a4Single, language: "ja") == nil)
-        options.furniture = .pageNumber
-        #expect(PrintModeText.options(options, layout: .a4Single, language: "ja") == "ページ番号あり")
         options.furniture = .name
-        #expect(PrintModeText.options(options, layout: .a4Single, language: "ja") == "ヘッダー・フッター")
+        #expect(PrintModeText.options(options, layout: .a4Duplex, language: "ja") == nil)
+        options.rotatesBackSides = true
+        #expect(PrintModeText.options(options, layout: .a4Single, language: "ja") == nil)
+        #expect(PrintModeText.options(options, layout: .a4Duplex, language: "ja") == "裏面 180° 回転")
+    }
+
+    @Test("ヘッダーの「自分で入れる」は入力欄が空でも選んだままで、ほかを選ぶと戻る")
+    func writingFurniture() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        #expect(model.furnitureChoice == .none)
+        model.chooseFurniture(.custom)
+        #expect(model.furnitureChoice == .custom)
+        #expect(model.isPrintFinishPresented)
+        #expect(model.finishSection == .furniture)
+        #expect(model.printOptions.furniture == PageFurniture())
+        model.chooseFurniture(.number)
+        #expect(model.furnitureChoice == .number)
+        #expect(model.printOptions.furniture == .pageNumber)
+    }
+
+    @Test("文書の情報は、印刷画面を開いて組んだあとだけ今の設定の枚数を出す")
+    func trayFigures() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.start()
+        try await waitUntil { model.printResult != nil && !model.isRendering }
+        #expect(model.currentTrayFigures == nil)
+        model.chooseLayout("a4BookletA5")
+        model.render()
+        try await waitUntil { model.printResult?.layout.id == "a4BookletA5" && !model.isRendering }
+        #expect(model.currentTrayFigures?.sheetCount == 1)
+        #expect(model.currentTrayFigures?.paper == "A4")
+        model.layoutID = "a4Duplex"
+        #expect(model.currentTrayFigures == nil)
     }
 
     @Test("文書の設定を消すと仕上げも既定に戻る")

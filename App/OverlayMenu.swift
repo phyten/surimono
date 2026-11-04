@@ -382,16 +382,18 @@ struct PrintButton: View {
             model.performPrintCommand()
         } label: {
             if iconOnly {
-                Label("Print", systemImage: "printer").labelStyle(.iconOnly)
+                Label("Print…", systemImage: "printer").labelStyle(.iconOnly)
             } else {
-                Label("Print", systemImage: "printer").labelStyle(.titleAndIcon)
+                Label("Print…", systemImage: "printer").labelStyle(.titleAndIcon)
             }
         }
         .buttonStyle(.borderedProminent)
+        // Vermilion is the color of printing, whatever accent color the Mac is set to.
+        .tint(PrintPalette.shu)
         .controlSize(.regular)
         // The file name gives way to the one button that must always show in full.
         .fixedSize()
-        .help("Show the sheets and print (⌘P)")
+        .help("Open the print screen (⌘P)")
     }
 }
 
@@ -412,10 +414,10 @@ struct StyleMenu: View {
                     Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
-                .foregroundStyle(model.isThemePalettePresented ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                .foregroundStyle(model.isThemePalettePresented ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
             }
             .fixedSize()
-            .help("Print Theme")
+            .help("Style")
         } else {
             Menu {
                 StyleMenuItems(model: model)
@@ -424,7 +426,7 @@ struct StyleMenu: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
-            .help(model.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Print Theme"))
+            .help(model.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Style"))
         }
     }
 

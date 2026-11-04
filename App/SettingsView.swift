@@ -88,7 +88,7 @@ struct SettingsView: View {
                         Text("Vertical").tag(Optional(ViewOptions.ScrollAxis.vertical))
                         Text("Horizontal").tag(Optional(ViewOptions.ScrollAxis.horizontal))
                     }
-                    Picker("Show Cover Alone by Default", selection: $preferences.defaultShowsCoverAlone) {
+                    Picker("Show First Page Alone by Default", selection: $preferences.defaultShowsCoverAlone) {
                         Text("Automatic (Match Document)").tag(nil as Bool?)
                         Text("On").tag(Optional(true))
                         Text("Off").tag(Optional(false))
@@ -97,20 +97,20 @@ struct SettingsView: View {
                     defaultsNote
                     // Unlike the defaults above, this applies to open windows as well.
                     Section {
-                        Picker("Lone Cover Width", selection: $preferences.loneCoverWidth) {
+                        Picker("Width of a Lone First Page", selection: $preferences.loneCoverWidth) {
                             Text("One Page").tag(LoneCoverWidth.onePage)
                             Text("Two Pages").tag(LoneCoverWidth.twoPages)
                         }
-                        Text("With One Page, the window narrows to the cover while a spread shows it alone.")
+                        Text("With One Page, the window narrows to the first page while a spread shows it alone.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Section("Menu") {
-                        Picker("Menu Arrangement", selection: $preferences.menuArrangement) {
+                    Section("Toolbar") {
+                        Picker("Toolbar Arrangement", selection: $preferences.menuArrangement) {
                             Text("Top Only").tag(MenuArrangement.top)
                             Text("Split Top and Bottom").tag(MenuArrangement.split)
                         }
                         BandVisibilityPicker(selection: $preferences.defaultBandVisibility)
-                        Text("The menu has its own room outside the paper, so it never covers the paper.")
+                        Text("The toolbar has its own room outside the paper, so it never covers the paper.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Section("Contents") {
@@ -118,7 +118,7 @@ struct SettingsView: View {
                             Text("Popover").tag(OutlinePresentation.popover)
                             Text("Left Drawer").tag(OutlinePresentation.drawer)
                         }
-                        Toggle("Put Contents on the Menu", isOn: $preferences.showsOutlineOnBand)
+                        Toggle("Show Contents on the Toolbar", isOn: $preferences.showsOutlineOnBand)
                     }
                     Section {
                         Picker("After a File Is Saved", selection: $preferences.changeFollowing) {
@@ -159,7 +159,7 @@ struct SettingsView: View {
                 case .settingSets:
                     SettingSetsSettings(preferences: preferences)
                 case .styles:
-                    Picker("Default Print Theme", selection: $preferences.themeID) {
+                    Picker("Default Style", selection: $preferences.themeID) {
                         DefaultStyleChoices(library: library)
                     }
                     Picker("Default Code Colors", selection: $preferences.defaultCodePaletteID) {

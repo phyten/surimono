@@ -29,6 +29,8 @@ struct ThemePalette: View {
             }
         }
         .frame(height: Self.height)
+        // The controls stay readable over whatever shows through the popover behind them.
+        .background(PrintPalette.raised.opacity(0.94))
         .onAppear { model.followThemeSamples() }
         .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
         .onDisappear { model.themePaletteDidClose() }
@@ -60,7 +62,7 @@ struct ThemePalette: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Text("Print Theme").font(.system(size: 14, weight: .semibold)).fixedSize()
+                Text("Style").font(.system(size: 14, weight: .semibold)).fixedSize()
                 Text(verbatim: model.theme(model.themeID)?.displayName(language: model.language) ?? model.themeID)
                     .font(.system(size: 12))
                     .foregroundStyle(.tint)
@@ -148,8 +150,7 @@ struct ThemePalette: View {
             }
             .help("Lay a few styles side by side")
             Toggle(isOn: Binding(get: { isCodeColumnShown }, set: { showsCodeColumn = $0 })) {
-                Label("Code Colors", systemImage: "curlybraces")
-                    .labelStyle(CodeColorsToggleLabelStyle(showsTitle: !isCodeColumnShown))
+                Text("Code Colors")
             }
             .toggleStyle(.button)
             .help("Code Colors")
@@ -189,18 +190,6 @@ struct ThemePalette: View {
         case .favorites: String(localized: "Favorites")
         case .featured: String(localized: "Suggested")
         case .user: String(localized: "My Styles")
-        }
-    }
-}
-
-/// The open column says its own name, so the narrower footer beside it keeps only the icon.
-private struct CodeColorsToggleLabelStyle: LabelStyle {
-    let showsTitle: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            configuration.icon
-            if showsTitle { configuration.title }
         }
     }
 }

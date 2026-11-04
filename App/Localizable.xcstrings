@@ -3297,59 +3297,6 @@
         }
       }
     },
-    "Print Theme": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "印刷テーマ"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Print Theme"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打印主题"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "列印主題"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "프린트 테마"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Thème d’impression"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckthema"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tema de impresión"
-          }
-        }
-      }
-    },
     "HTML Preset": {
       "extractionState": "manual",
       "localizations": {
@@ -4039,55 +3986,54 @@
         }
       }
     },
-    "Default Print Theme": {
-      "extractionState": "manual",
+    "Default Style": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "既定の印刷テーマ"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Default Print Theme"
+            "value": "Default Style"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定のスタイル"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认打印主题"
+            "value": "默认样式"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "預設列印主題"
+            "value": "預設樣式"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기본 프린트 테마"
+            "value": "기본 스타일"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Thème d’impression par défaut"
+            "value": "Style par défaut"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Standard-Druckthema"
+            "value": "Standardstil"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tema de impresión predeterminado"
+            "value": "Estilo predeterminado"
           }
         }
       }
@@ -7021,55 +6967,54 @@
         }
       }
     },
-    "Direction": {
-      "extractionState": "manual",
+    "Reading Direction": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "向き"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Direction"
+            "value": "Reading Direction"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読む向き"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "方向"
+            "value": "阅读方向"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "方向"
+            "value": "閱讀方向"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "방향"
+            "value": "읽는 방향"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sens"
+            "value": "Sens de lecture"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Richtung"
+            "value": "Leserichtung"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dirección"
+            "value": "Dirección de lectura"
           }
         }
       }
@@ -7180,55 +7125,54 @@
         }
       }
     },
-    "Scrolling": {
-      "extractionState": "manual",
+    "Scroll Direction": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "スクロール"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scrolling"
+            "value": "Scroll Direction"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スクロールの方向"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "滚动"
+            "value": "滚动方向"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "捲動"
+            "value": "捲動方向"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "스크롤"
+            "value": "스크롤 방향"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Défilement"
+            "value": "Sens de défilement"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scrollen"
+            "value": "Scrollrichtung"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desplazamiento"
+            "value": "Dirección de desplazamiento"
           }
         }
       }
@@ -7657,161 +7601,54 @@
         }
       }
     },
-    "Cover": {
-      "extractionState": "manual",
+    "Reset This Document": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "表紙"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cover"
+            "value": "Reset This Document"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書の設定を戻す"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "封面"
+            "value": "还原此文档的设置"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "封面"
+            "value": "還原此文件的設定"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "표지"
+            "value": "이 문서의 설정 되돌리기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Couverture"
+            "value": "Réinitialiser ce document"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deckblatt"
+            "value": "Dieses Dokument zurücksetzen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Portada"
-          }
-        }
-      }
-    },
-    "Show Alone": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "単独で表示"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show Alone"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "单独显示"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "單獨顯示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "단독 표시"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Afficher seule"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Einzeln anzeigen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar por separado"
-          }
-        }
-      }
-    },
-    "Reset to Defaults": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "既定に戻す"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset to Defaults"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "恢复默认设置"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "回復預設值"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기본값으로 재설정"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rétablir les valeurs par défaut"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auf Standardwerte zurücksetzen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restablecer valores predeterminados"
+            "value": "Restablecer este documento"
           }
         }
       }
@@ -9118,54 +8955,53 @@
       }
     },
     "Reset Document Settings": {
-      "extractionState": "manual",
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この文書の設定を既定に戻す"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Reset Document Settings"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書の設定を戻す"
+          }
+        },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "重置文档设置"
+            "value": "还原此文档的设置"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "重置文件設定"
+            "value": "還原此文件的設定"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서 설정 재설정"
+            "value": "이 문서의 설정 되돌리기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réinitialiser les réglages du document"
+            "value": "Réinitialiser ce document"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokumenteinstellungen zurücksetzen"
+            "value": "Dieses Dokument zurücksetzen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restablecer ajustes del documento"
+            "value": "Restablecer este documento"
           }
         }
       }
@@ -10078,55 +9914,54 @@
         }
       }
     },
-    "Fold It": {
-      "extractionState": "manual",
+    "See It Folded": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "折ってみる"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fold It"
+            "value": "See It Folded"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折った仕上がりを見る"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "折叠预览"
+            "value": "查看折叠效果"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "摺疊預覽"
+            "value": "查看摺疊效果"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "접어 보기"
+            "value": "접은 모습 보기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plier"
+            "value": "Voir le résultat plié"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Falten"
+            "value": "Gefaltet ansehen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plegar"
+            "value": "Ver el resultado doblado"
           }
         }
       }
@@ -11086,18 +10921,17 @@
       }
     },
     "%@ Booklet": {
-      "extractionState": "manual",
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 中綴じ"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ Booklet"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 冊子"
           }
         },
         "zh-Hans": {
@@ -11127,66 +10961,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ Broschüre"
+            "value": "Broschüre %@"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
             "value": "Folleto %@"
-          }
-        }
-      }
-    },
-    "%@ 2-up": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 2アップ"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 2-up"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 每页2张"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 每頁2張"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 2쪽 모아찍기"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 2 pages/feuille"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 2 Seiten/Blatt"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 2 páginas/hoja"
           }
         }
       }
@@ -11244,155 +11025,54 @@
         }
       }
     },
-    "%1$@ booklet when folded in the middle · blank pages before the back cover: %2$lld": {
-      "extractionState": "manual",
+    "%1$@ booklet when folded in the middle · %2$lld blank pages (the last %3$lld)": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重ねて中央で折ると %1$@ 冊子・白紙 %2$lld ページ（裏表紙の手前）"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%#@count@"
-          },
-          "substitutions": {
-            "count": {
-              "argNum": 2,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "%1$@ booklet when folded in the middle · blank page before the back cover: %arg"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "%1$@ booklet when folded in the middle · blank pages before the back cover: %arg"
-                    }
-                  }
-                }
-              }
-            }
+            "value": "%1$@ booklet when folded in the middle · %2$lld blank pages (the last %3$lld)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重ねて中央で折ると %1$@ 冊子・白紙 %2$lld ページ（最後の %3$lld ページ）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "对折后为 %1$@ 小册子 · 封底前空白页：%2$lld"
+            "value": "叠放后对折成 %1$@ 小册子 · 空白 %2$lld 页（最后 %3$lld 页）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "對摺後為 %1$@ 小冊子 · 封底前空白頁：%2$lld"
+            "value": "疊放後對折成 %1$@ 小冊子 · 空白 %2$lld 頁（最後 %3$lld 頁）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "가운데를 접으면 %1$@ 소책자 · 뒤표지 앞 빈 페이지: %2$lld"
+            "value": "겹쳐서 가운데를 접으면 %1$@ 소책자 · 빈 페이지 %2$lld쪽(마지막 %3$lld쪽)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%#@count@"
-          },
-          "substitutions": {
-            "count": {
-              "argNum": 2,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Livret %1$@ après pliage · page vierge avant le dos : %arg"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Livret %1$@ après pliage · pages vierges avant le dos : %arg"
-                    }
-                  },
-                  "many": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Livret %1$@ après pliage · pages vierges avant le dos : %arg"
-                    }
-                  }
-                }
-              }
-            }
+            "value": "Livret %1$@ une fois plié au milieu · %2$lld pages blanches (les %3$lld dernières)"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%#@count@"
-          },
-          "substitutions": {
-            "count": {
-              "argNum": 2,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Mittig gefaltet: %1$@-Broschüre · Leerseite vor dem Rückdeckel: %arg"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Mittig gefaltet: %1$@-Broschüre · Leerseiten vor dem Rückdeckel: %arg"
-                    }
-                  }
-                }
-              }
-            }
+            "value": "Broschüre %1$@, in der Mitte gefaltet · %2$lld leere Seiten (die letzten %3$lld)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "%#@count@"
-          },
-          "substitutions": {
-            "count": {
-              "argNum": 2,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Folleto %1$@ al plegar · página en blanco antes de la contraportada: %arg"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Folleto %1$@ al plegar · páginas en blanco antes de la contraportada: %arg"
-                    }
-                  },
-                  "many": {
-                    "stringUnit": {
-                      "state": "translated",
-                      "value": "Folleto %1$@ al plegar · páginas en blanco antes de la contraportada: %arg"
-                    }
-                  }
-                }
-              }
-            }
+            "value": "Folleto %1$@ al doblar por la mitad · %2$lld páginas en blanco (las últimas %3$lld)"
           }
         }
       }
@@ -11662,59 +11342,6 @@
         }
       }
     },
-    "Page numbers": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ページ番号あり"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Page numbers"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "页码"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "頁碼"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "페이지 번호"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Numéros de page"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seitenzahlen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Números de página"
-          }
-        }
-      }
-    },
     "Back sides rotated 180°": {
       "extractionState": "manual",
       "localizations": {
@@ -11817,112 +11444,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ · %@"
-          }
-        }
-      }
-    },
-    "Print Options": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "印刷のオプション"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Print Options"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打印选项"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "列印選項"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "프린트 옵션"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Options d’impression"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckoptionen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opciones de impresión"
-          }
-        }
-      }
-    },
-    "%@ · Changes appear on the sheets right away": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@・用紙のプレビューにすぐ反映します"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · Changes appear on the sheets right away"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · 更改立即显示在纸张上"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · 更改立即顯示在紙張上"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · 변경 사항이 용지에 바로 반영됨"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · Les changements apparaissent aussitôt sur les feuilles"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · Änderungen erscheinen sofort auf den Blättern"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ · Los cambios se reflejan al instante en las hojas"
           }
         }
       }
@@ -12616,55 +12137,54 @@
         }
       }
     },
-    "Show the sheets and print (⌘P)": {
-      "extractionState": "manual",
+    "Open the print screen (⌘P)": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "刷り台を出して印刷する（⌘P）"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show the sheets and print (⌘P)"
+            "value": "Open the print screen (⌘P)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷画面を開く（⌘P）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示纸张并打印（⌘P）"
+            "value": "打开打印画面（⌘P）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示紙張並列印（⌘P）"
+            "value": "開啟列印畫面（⌘P）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "용지를 표시하고 프린트(⌘P)"
+            "value": "인쇄 화면 열기 (⌘P)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Afficher les feuilles et imprimer (⌘P)"
+            "value": "Ouvrir l’écran d’impression (⌘P)"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Blätter anzeigen und drucken (⌘P)"
+            "value": "Druckbildschirm öffnen (⌘P)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar las hojas e imprimir (⌘P)"
+            "value": "Abrir la pantalla de impresión (⌘P)"
           }
         }
       }
@@ -13988,55 +13508,54 @@
         }
       }
     },
-    "Show Cover Alone": {
-      "extractionState": "manual",
+    "Show First Page Alone": {
       "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "表紙を単独で表示"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show Cover Alone"
+            "value": "Show First Page Alone"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最初のページを単独で表示"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "单独显示封面"
+            "value": "单独显示第一页"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "單獨顯示封面"
+            "value": "單獨顯示第一頁"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "표지 단독 표시"
+            "value": "첫 페이지를 단독으로 표시"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Afficher la couverture seule"
+            "value": "Afficher la première page seule"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Deckblatt einzeln anzeigen"
+            "value": "Erste Seite einzeln zeigen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar portada por separado"
+            "value": "Mostrar la primera página sola"
           }
         }
       }
@@ -15840,58 +15359,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se ha podido copiar el estado actual de la página web."
-          }
-        }
-      }
-    },
-    "%@ 3-up + Notes": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 3枚＋メモ"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 3-up + Notes"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 每页3张＋笔记"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 每頁3張＋筆記"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 3쪽 + 메모"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 3 pages + notes"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 3 Seiten + Notizen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 3 páginas + notas"
           }
         }
       }
@@ -20365,54 +19832,54 @@
         }
       }
     },
-    "Show or hide the menu band": {
+    "Show or hide the toolbar": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show or hide the menu band"
+            "value": "Show or hide the toolbar"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "帯を出す・隠す"
+            "value": "ツールバーを出す・隠す"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示或隐藏菜单栏"
+            "value": "显示或隐藏工具栏"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示或隱藏選單帶"
+            "value": "顯示或隱藏工具列"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴 띠 표시·숨기기"
+            "value": "도구 막대 표시 또는 숨기기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Afficher ou masquer le bandeau"
+            "value": "Afficher ou masquer la barre d’outils"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menüleiste ein- oder ausblenden"
+            "value": "Symbolleiste ein- oder ausblenden"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar u ocultar la banda de menú"
+            "value": "Mostrar u ocultar la barra"
           }
         }
       }
@@ -20677,54 +20144,54 @@
         }
       }
     },
-    "Open the print tray; print when on the tray": {
+    "Open the print screen; print when on it": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open the print tray; print when on the tray"
+            "value": "Open the print screen; print when on it"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "刷り台へ。刷り台では刷る"
+            "value": "印刷画面へ。印刷画面では刷る"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开打印台；在打印台上则打印"
+            "value": "打开打印画面；在打印画面中则打印"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟列印台；在列印台上則列印"
+            "value": "開啟列印畫面；在列印畫面中則列印"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "인쇄대로 이동·인쇄대에서는 인쇄"
+            "value": "인쇄 화면 열기, 인쇄 화면에서는 인쇄"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrir le plateau ; y lancer l’impression"
+            "value": "Ouvrir l’écran d’impression ; y imprimer"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Druckansicht öffnen; dort drucken"
+            "value": "Druckbildschirm öffnen; dort drucken"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir la bandeja; imprimir desde ella"
+            "value": "Abrir la pantalla de impresión; allí, imprimir"
           }
         }
       }
@@ -20781,106 +20248,106 @@
         }
       }
     },
-    "Choose a layout and open the print tray": {
+    "Choose a layout and open the print screen": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose a layout and open the print tray"
+            "value": "Choose a layout and open the print screen"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "レイアウトを選んで刷り台へ"
+            "value": "レイアウトを選んで印刷画面へ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择布局并打开打印台"
+            "value": "选择布局并打开打印画面"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇版面並開啟列印台"
+            "value": "選擇版面並開啟列印畫面"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "레이아웃을 선택하고 인쇄대로 이동"
+            "value": "레이아웃을 선택하고 인쇄 화면 열기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choisir une mise en page et ouvrir le plateau"
+            "value": "Choisir une disposition et ouvrir l’écran d’impression"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Layout wählen und Druckansicht öffnen"
+            "value": "Layout wählen und Druckbildschirm öffnen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elegir un diseño y abrir la bandeja"
+            "value": "Elegir un diseño y abrir la pantalla de impresión"
           }
         }
       }
     },
-    "Hide the menu band; leave the print tray": {
+    "Hide the toolbar; leave the print screen": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide the menu band; leave the print tray"
+            "value": "Hide the toolbar; leave the print screen"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "帯を隠す・刷り台から戻る"
+            "value": "ツールバーを隠す・印刷画面から戻る"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "隐藏菜单栏；退出打印台"
+            "value": "隐藏工具栏；离开打印画面"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "隱藏選單帶；離開列印台"
+            "value": "隱藏工具列；離開列印畫面"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴 띠 숨기기·인쇄대에서 돌아가기"
+            "value": "도구 막대 숨기기, 인쇄 화면에서 나가기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masquer le bandeau ; quitter le plateau"
+            "value": "Masquer la barre d’outils ; quitter l’écran d’impression"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menüleiste ausblenden; Druckansicht verlassen"
+            "value": "Symbolleiste ausblenden; Druckbildschirm verlassen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ocultar la banda; salir de la bandeja"
+            "value": "Ocultar la barra; salir de la pantalla de impresión"
           }
         }
       }
@@ -20937,54 +20404,54 @@
         }
       }
     },
-    "On the print tray, Esc closes the folded preview first if it is open.": {
+    "On the print screen, Esc closes the folded preview first if it is open.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On the print tray, Esc closes the folded preview first if it is open."
+            "value": "On the print screen, Esc closes the folded preview first if it is open."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "刷り台で「折ってみる」を開いているときは、Esc で先にそれを閉じます。"
+            "value": "印刷画面で「折った仕上がりを見る」を開いているときは、Esc で先にそれを閉じます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在打印台上，若折叠预览已打开，Esc 会先关闭它。"
+            "value": "在打印画面打开折叠效果时，按 Esc 会先将其关闭。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在列印台上，若摺疊預覽已開啟，Esc 會先關閉它。"
+            "value": "在列印畫面開啟摺疊效果時，按 Esc 會先將其關閉。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "인쇄대에서 접기 미리보기가 열려 있으면 Esc로 먼저 닫습니다."
+            "value": "인쇄 화면에서 접은 모습을 열어 둔 경우 Esc는 먼저 그것을 닫습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sur le plateau, Esc ferme d’abord l’aperçu plié s’il est ouvert."
+            "value": "Sur l’écran d’impression, Échap ferme d’abord l’aperçu plié s’il est ouvert."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In der Druckansicht schließt Esc zuerst die geöffnete Faltvorschau."
+            "value": "Im Druckbildschirm schließt Esc zuerst die gefaltete Vorschau, falls sie offen ist."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En la bandeja, Esc cierra primero la vista plegada si está abierta."
+            "value": "En la pantalla de impresión, Esc cierra primero la vista doblada si está abierta."
           }
         }
       }
@@ -24491,54 +23958,54 @@
         }
       }
     },
-    "Lone Cover Width": {
+    "Width of a Lone First Page": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lone Cover Width"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Breite des einzelnen Deckblatts"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ancho de la portada sola"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Largeur de la couverture seule"
+            "value": "Width of a Lone First Page"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "表紙を単独表示するときの幅"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "단독 표지의 너비"
+            "value": "最初のページを単独で表示するときの幅"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "单独封面的宽度"
+            "value": "单独显示第一页时的宽度"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "單獨封面的寬度"
+            "value": "單獨顯示第一頁時的寬度"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "첫 페이지를 단독 표시할 때의 폭"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Largeur de la première page seule"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Breite der einzelnen ersten Seite"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancho de la primera página sola"
           }
         }
       }
@@ -24699,54 +24166,54 @@
         }
       }
     },
-    "Show Cover Alone by Default": {
+    "Show First Page Alone by Default": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show Cover Alone by Default"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deckblatt standardmäßig einzeln zeigen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar la portada sola por defecto"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Afficher la couverture seule par défaut"
+            "value": "Show First Page Alone by Default"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "既定で表紙を単独表示"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기본으로 표지를 단독 표시"
+            "value": "既定で最初のページを単独で表示"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认单独显示封面"
+            "value": "默认单独显示第一页"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "預設單獨顯示封面"
+            "value": "預設單獨顯示第一頁"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기본으로 첫 페이지를 단독 표시"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher par défaut la première page seule"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erste Seite standardmäßig einzeln zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar por defecto la primera página sola"
           }
         }
       }
@@ -24855,54 +24322,54 @@
         }
       }
     },
-    "With One Page, the window narrows to the cover while a spread shows it alone.": {
+    "With One Page, the window narrows to the first page while a spread shows it alone.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "With One Page, the window narrows to the cover while a spread shows it alone."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bei „Eine Seite“ wird das Fenster auf das Deckblatt verkleinert, solange eine Doppelseite es einzeln zeigt."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Con «Una página», la ventana se estrecha a la portada mientras la doble página la muestra sola."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Avec « Une page », la fenêtre se réduit à la couverture tant que la double page l’affiche seule."
+            "value": "With One Page, the window narrows to the first page while a spread shows it alone."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「1ページ分」にすると、見開きで表紙を単独表示している間は、ウィンドウを表紙1ページ分の幅にします。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“한 페이지”로 하면 펼침 보기에서 표지를 단독으로 표시하는 동안 창을 표지 한 페이지 너비로 줄입니다."
+            "value": "「1ページ分」にすると、見開きで最初のページを単独で表示している間は、ウィンドウを1ページ分の幅にします。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择“一页”时，双页显示中单独显示封面期间，窗口会缩小为封面一页的宽度。"
+            "value": "选择“一页”时，跨页单独显示第一页期间，窗口会收窄到一页宽。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇「一頁」時，雙頁顯示中單獨顯示封面期間，視窗會縮小為封面一頁的寬度。"
+            "value": "選擇「一頁」時，跨頁單獨顯示第一頁期間，視窗會縮到一頁寬。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘한 페이지’를 선택하면 펼침면에서 첫 페이지를 단독 표시하는 동안 창이 한 페이지 폭으로 좁아집니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avec Une page, la fenêtre se réduit à la première page tant qu’une double page l’affiche seule."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei „Eine Seite“ wird das Fenster auf die erste Seite verkleinert, solange die Doppelseite sie einzeln zeigt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con Una página, la ventana se estrecha a la primera página mientras la doble página la muestra sola."
           }
         }
       }
@@ -25013,373 +24480,366 @@
         }
       }
     },
-    "Paper Contents": {
-      "extractionState": "manual",
+    "Printed Contents": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Contents"
+            "value": "Printed Contents"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙の目次"
+            "value": "印刷する目次"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "目录"
+            "value": "打印的目录"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "目錄"
+            "value": "列印的目錄"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "목차"
+            "value": "인쇄할 목차"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sommaire"
+            "value": "Sommaire imprimé"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Inhaltsverzeichnis"
+            "value": "Gedruckter Inhalt"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Índice"
+            "value": "Índice impreso"
           }
         }
       }
     },
-    "Details…": {
-      "extractionState": "manual",
+    "All Settings…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Details…"
+            "value": "All Settings…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "詳細…"
+            "value": "すべての設定…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "详细信息…"
+            "value": "所有设置…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "詳細資訊…"
+            "value": "所有設定…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "자세히…"
+            "value": "모든 설정…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Détails…"
+            "value": "Tous les réglages…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Details …"
+            "value": "Alle Einstellungen…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Detalles…"
+            "value": "Todos los ajustes…"
           }
         }
       }
     },
-    "All the options for the paper's finish": {
-      "extractionState": "manual",
+    "Paper, margins, header and footer, page breaks, contents and note pages": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "All the options for the paper's finish"
+            "value": "Paper, margins, header and footer, page breaks, contents and note pages"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙の仕上げをすべて設定します"
+            "value": "用紙と余白・ヘッダー / フッター・改ページ・目次・ノートページ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "纸张成品的全部选项"
+            "value": "纸张和边距、页眉 / 页脚、分页、目录、笔记页"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙張成品的全部選項"
+            "value": "紙張與邊界、頁首 / 頁尾、分頁、目錄、筆記頁"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "용지 마무리의 모든 옵션"
+            "value": "용지와 여백, 머리글 / 바닥글, 페이지 나누기, 목차, 노트 페이지"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toutes les options de finition du papier"
+            "value": "Papier, marges, en-tête et pied de page, sauts de page, sommaire et pages de notes"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Optionen für die Ausführung des Papiers"
+            "value": "Papier, Ränder, Kopf- und Fußzeile, Seitenumbrüche, Inhalt und Notizseiten"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Todas las opciones del acabado del papel"
+            "value": "Papel, márgenes, encabezado y pie, saltos de página, índice y páginas de notas"
           }
         }
       }
     },
-    "Paper Series": {
-      "extractionState": "manual",
+    "Paper Size": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paper Series"
+            "value": "Paper Size"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙の判"
+            "value": "用紙サイズ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "纸张系列"
+            "value": "纸张尺寸"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙張系列"
+            "value": "紙張尺寸"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "용지 계열"
+            "value": "용지 크기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Série de papier"
+            "value": "Format du papier"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Papierreihe"
+            "value": "Papierformat"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Serie de papel"
+            "value": "Tamaño de papel"
           }
         }
       }
     },
-    "A Sizes": {
-      "extractionState": "manual",
+    "A4 / A3": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A Sizes"
+            "value": "A4 / A3"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "A判"
+            "value": "A4・A3"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "A 系列"
+            "value": "A4・A3"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "A 系列"
+            "value": "A4・A3"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "A 판형"
+            "value": "A4・A3"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Format A"
+            "value": "A4 / A3"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "A-Formate"
+            "value": "A4 / A3"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Serie A"
+            "value": "A4 / A3"
           }
         }
       }
     },
-    "B Sizes": {
-      "extractionState": "manual",
+    "B5 / B4": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "B Sizes"
+            "value": "B5 / B4"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "B判"
+            "value": "B5・B4"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "B 系列"
+            "value": "B5・B4"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "B 系列"
+            "value": "B5・B4"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "B 판형"
+            "value": "B5・B4"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Format B"
+            "value": "B5 / B4"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "B-Formate"
+            "value": "B5 / B4"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Serie B"
+            "value": "B5 / B4"
           }
         }
       }
     },
-    "A sizes, or B sizes (JIS)": {
-      "extractionState": "manual",
+    "A4 and A3, or B5 and B4 (JIS)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A sizes, or B sizes (JIS)"
+            "value": "A4 and A3, or B5 and B4 (JIS)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "A判、または B判（JIS）"
+            "value": "A4・A3 か、B5・B4（JIS）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "A 系列或 B 系列（JIS）"
+            "value": "A4、A3 或 B5、B4（JIS）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "A 系列或 B 系列（JIS）"
+            "value": "A4、A3 或 B5、B4（JIS）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "A 판형 또는 B 판형(JIS)"
+            "value": "A4·A3 또는 B5·B4(JIS)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Format A ou format B (JIS)"
+            "value": "A4 et A3, ou B5 et B4 (JIS)"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "A-Formate oder B-Formate (JIS)"
+            "value": "A4 und A3 oder B5 und B4 (JIS)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Serie A o serie B (JIS)"
+            "value": "A4 y A3, o B5 y B4 (JIS)"
           }
         }
       }
@@ -25544,7 +25004,6 @@
       }
     },
     "Custom": {
-      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -25555,25 +25014,25 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自由"
+            "value": "自分で入れる"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "自定义"
+            "value": "自行输入"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "自訂"
+            "value": "自行輸入"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "사용자 설정"
+            "value": "직접 입력"
           }
         },
         "fr": {
@@ -25585,7 +25044,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eigene"
+            "value": "Eigener Text"
           }
         },
         "es": {
@@ -25702,114 +25161,111 @@
         }
       }
     },
-    "Hide": {
-      "extractionState": "manual",
+    "Do Not Print": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hide"
+            "value": "Do Not Print"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "出さない"
+            "value": "印刷しない"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "不显示"
+            "value": "不打印"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "不顯示"
+            "value": "不列印"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "표시 안 함"
+            "value": "인쇄 안 함"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masquer"
+            "value": "Ne pas imprimer"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ausblenden"
+            "value": "Nicht drucken"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ocultar"
+            "value": "No imprimir"
           }
         }
       }
     },
-    "As Written": {
-      "extractionState": "manual",
+    "As in the Document": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "As Written"
+            "value": "As in the Document"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "原文のまま"
+            "value": "文書のまま"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "保持原文"
+            "value": "与文档相同"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "保持原文"
+            "value": "與文件相同"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "원문대로"
+            "value": "문서 그대로"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comme écrit"
+            "value": "Comme le document"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wie im Text"
+            "value": "Wie im Dokument"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Como en el texto"
+            "value": "Como en el documento"
           }
         }
       }
     },
     "Add to Front": {
-      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -25820,7 +25276,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "先頭に足す"
+            "value": "先頭に追加"
           }
         },
         "zh-Hans": {
@@ -25838,7 +25294,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "앞에 추가"
+            "value": "맨 앞에 추가"
           }
         },
         "fr": {
@@ -25850,66 +25306,65 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vorne einfügen"
+            "value": "Vorn hinzufügen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Añadir al inicio"
+            "value": "Añadir al principio"
           }
         }
       }
     },
-    "Paper Finish": {
-      "extractionState": "manual",
+    "Print Settings": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paper Finish"
+            "value": "Print Settings"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙の仕上げ"
+            "value": "印刷の設定"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "纸张成品"
+            "value": "打印设置"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙張成品"
+            "value": "列印設定"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "용지 마무리"
+            "value": "인쇄 설정"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Finition du papier"
+            "value": "Réglages d’impression"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Papierausführung"
+            "value": "Druckeinstellungen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Acabado del papel"
+            "value": "Ajustes de impresión"
           }
         }
       }
@@ -25967,108 +25422,106 @@
         }
       }
     },
-    "Use as Default": {
-      "extractionState": "manual",
+    "Use for New Documents": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Use as Default"
+            "value": "Use for New Documents"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "既定にする"
+            "value": "新しい文書にも使う"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "设为默认"
+            "value": "也用于新文档"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "設為預設"
+            "value": "也用於新文件"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기본값으로 사용"
+            "value": "새 문서에도 사용"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Utiliser par défaut"
+            "value": "Utiliser pour les nouveaux documents"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Als Standard verwenden"
+            "value": "Für neue Dokumente verwenden"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usar como predeterminado"
+            "value": "Usar en documentos nuevos"
           }
         }
       }
     },
     "New documents start with these margins, header and footer, page breaks and contents": {
-      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "New documents start with these margins, header and footer, page breaks and contents"
+            "value": "New documents start with these margins, header and footer, page breaks and contents. Note pages are not included."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "新しい文書をこの余白・ヘッダー・改ページ・目次で始めます"
+            "value": "新しい文書を、この余白・ヘッダー / フッター・改ページ・目次で始めます。ノートページは含みません"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "新文稿使用这些边距、页眉页脚、分页和目录"
+            "value": "新文档将使用这些边距、页眉 / 页脚、分页和目录。不包括笔记页。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "新文件使用這些邊界、頁首頁尾、分頁和目錄"
+            "value": "新文件將使用這些邊界、頁首 / 頁尾、分頁和目錄。不包括筆記頁。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "새 문서는 이 여백, 머리글·바닥글, 페이지 나누기, 목차로 시작합니다"
+            "value": "새 문서를 이 여백, 머리글 / 바닥글, 페이지 나누기, 목차로 시작합니다. 노트 페이지는 포함되지 않습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les nouveaux documents commencent avec ces marges, en-têtes, sauts de page et sommaire"
+            "value": "Les nouveaux documents commencent avec ces marges, en-tête et pied de page, sauts de page et sommaire. Les pages de notes ne sont pas incluses."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Neue Dokumente beginnen mit diesen Rändern, Kopf- und Fußzeilen, Umbrüchen und Inhalten"
+            "value": "Neue Dokumente beginnen mit diesen Rändern, Kopf- und Fußzeilen, Seitenumbrüchen und diesem Inhalt. Notizseiten gehören nicht dazu."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los documentos nuevos empiezan con estos márgenes, encabezados, saltos e índice"
+            "value": "Los documentos nuevos empiezan con estos márgenes, encabezado y pie, saltos de página e índice. No incluye las páginas de notas."
           }
         }
       }
@@ -27610,59 +27063,6 @@
         }
       }
     },
-    "Right Page": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Right Page"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "右から"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "右页"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "右頁"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "오른쪽"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Page de droite"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rechte Seite"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Página derecha"
-          }
-        }
-      }
-    },
     "%lld places": {
       "extractionState": "manual",
       "localizations": {
@@ -28829,165 +28229,6 @@
         }
       }
     },
-    "Margins, print order, and back side rotation": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Margins, print order, and back side rotation"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "余白・印刷の順序・裏面の回転"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "边距、打印顺序和背面旋转"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "邊界、列印順序和背面旋轉"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "여백, 인쇄 순서, 뒷면 회전"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Marges, ordre d’impression et rotation du verso"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ränder, Druckreihenfolge und Drehung der Rückseiten"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Márgenes, orden de impresión y giro del reverso"
-          }
-        }
-      }
-    },
-    "Header and footer": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Header and footer"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ヘッダー・フッター"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "页眉和页脚"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "頁首與頁尾"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "머리글·바닥글"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "En-tête et pied de page"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kopf- und Fußzeile"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Encabezado y pie"
-          }
-        }
-      }
-    },
-    "%1$@ characters · about %2$lld min to read": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ characters · about %2$lld min to read"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ 字・読む時間 約 %2$lld 分"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ 字·阅读约 %2$lld 分钟"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ 字·閱讀約 %2$lld 分鐘"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@자·읽는 시간 약 %2$lld분"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ caractères · environ %2$lld min de lecture"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ Zeichen · etwa %2$lld Min. Lesezeit"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ caracteres · unos %2$lld min de lectura"
-          }
-        }
-      }
-    },
     "Added: contents %lld": {
       "extractionState": "manual",
       "localizations": {
@@ -29515,54 +28756,54 @@
         }
       }
     },
-    "Stays when the style changes": {
+    "Chosen apart from the style": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stays when the style changes"
+            "value": "Chosen apart from the style"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スタイルを変えても残る"
+            "value": "スタイルとは別に選べます"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "更改样式后仍保留"
+            "value": "可独立于样式选择"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "變更樣式後仍保留"
+            "value": "可獨立於樣式選擇"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "스타일을 바꿔도 유지됨"
+            "value": "스타일과 별도로 선택할 수 있습니다"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reste si le style change"
+            "value": "Se choisit à part du style"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bleibt beim Stilwechsel"
+            "value": "Unabhängig vom Stil wählbar"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se mantiene al cambiar de estilo"
+            "value": "Se elige aparte del estilo"
           }
         }
       }
@@ -30607,54 +29848,54 @@
         }
       }
     },
-    "Language Label": {
+    "Show Language Name": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Language Label"
+            "value": "Show Language Name"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "言語名の札"
+            "value": "言語名を表示"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "语言标签"
+            "value": "显示语言名称"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "語言標籤"
+            "value": "顯示語言名稱"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "언어 라벨"
+            "value": "언어 이름 표시"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Étiquette de langage"
+            "value": "Afficher le nom du langage"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sprachetikett"
+            "value": "Sprachnamen zeigen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Etiqueta de lenguaje"
+            "value": "Mostrar el nombre del lenguaje"
           }
         }
       }
@@ -30815,273 +30056,267 @@
         }
       }
     },
-    "Always Show Menu": {
-      "extractionState": "manual",
+    "Always Show Toolbar": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Always Show Menu"
+            "value": "Always Show Toolbar"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "メニューを常に出す"
+            "value": "ツールバーを常に表示"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "始终显示菜单"
+            "value": "始终显示工具栏"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "永遠顯示選單"
+            "value": "永遠顯示工具列"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴 항상 표시"
+            "value": "도구 막대 항상 표시"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toujours afficher le menu"
+            "value": "Toujours afficher la barre d’outils"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menü immer einblenden"
+            "value": "Symbolleiste immer zeigen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar siempre el menú"
+            "value": "Mostrar siempre la barra"
           }
         }
       }
     },
-    "Always Show Menu (⌥⌘T)": {
-      "extractionState": "manual",
+    "Always Show Toolbar (⌥⌘T)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Always Show Menu (⌥⌘T)"
+            "value": "Always Show Toolbar (⌥⌘T)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "メニューを常に出す (⌥⌘T)"
+            "value": "ツールバーを常に表示 (⌥⌘T)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "始终显示菜单 (⌥⌘T)"
+            "value": "始终显示工具栏 (⌥⌘T)"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "永遠顯示選單 (⌥⌘T)"
+            "value": "永遠顯示工具列 (⌥⌘T)"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴 항상 표시 (⌥⌘T)"
+            "value": "도구 막대 항상 표시 (⌥⌘T)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Toujours afficher le menu (⌥⌘T)"
+            "value": "Toujours afficher la barre d’outils (⌥⌘T)"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menü immer einblenden (⌥⌘T)"
+            "value": "Symbolleiste immer zeigen (⌥⌘T)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar siempre el menú (⌥⌘T)"
+            "value": "Mostrar siempre la barra (⌥⌘T)"
           }
         }
       }
     },
-    "Paper keys work when the paper has focus. A menu band set to always show stays visible.": {
-      "extractionState": "manual",
+    "Paper keys work when the paper has focus. A toolbar set to always show stays visible.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paper keys work when the paper has focus. A menu band set to always show stays visible."
+            "value": "Paper keys work when the paper has focus. A toolbar set to always show stays visible."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙にフォーカスがあるときにキーが効きます。「常に出す」にした帯は隠れません。"
+            "value": "紙にフォーカスがあるときにキーが効きます。「常に表示」のツールバーは隠れません。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "纸张获得焦点时，纸张快捷键才有效。设为始终显示的菜单栏不会隐藏。"
+            "value": "纸张获得焦点时按键才有效。设为“始终显示”的工具栏不会隐藏。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "紙張取得焦點時，紙張快捷鍵才有效。設為永遠顯示的選單帶不會隱藏。"
+            "value": "紙張取得焦點時按鍵才有效。設為「永遠顯示」的工具列不會隱藏。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "용지에 포커스가 있을 때 용지 키가 작동합니다. 항상 표시로 설정한 메뉴 띠는 숨겨지지 않습니다."
+            "value": "용지에 포커스가 있을 때 키가 동작합니다. ‘항상 표시’로 설정한 도구 막대는 숨겨지지 않습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les touches du papier fonctionnent lorsque le papier a le focus. Un bandeau réglé sur Toujours reste visible."
+            "value": "Les touches agissent quand le papier a le focus. Une barre d’outils réglée sur Toujours reste visible."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Papiertasten funktionieren, wenn das Papier den Fokus hat. Eine immer eingeblendete Menüleiste bleibt sichtbar."
+            "value": "Die Tasten wirken, wenn das Papier den Fokus hat. Eine auf „Immer“ gestellte Symbolleiste bleibt sichtbar."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Las teclas del papel funcionan cuando el papel tiene el foco. Una banda de menú configurada para mostrarse siempre permanece visible."
+            "value": "Las teclas funcionan cuando el papel tiene el foco. Una barra en «Siempre» sigue visible."
           }
         }
       }
     },
-    "Show Menu": {
-      "extractionState": "manual",
+    "Toolbar": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Show Menu"
+            "value": "Toolbar"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "帯の出し方"
+            "value": "ツールバー"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "显示菜单"
+            "value": "工具栏"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示選單"
+            "value": "工具列"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴 표시"
+            "value": "도구 막대"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Afficher le menu"
+            "value": "Barre d’outils"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menü einblenden"
+            "value": "Symbolleiste"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar el menú"
+            "value": "Barra de herramientas"
           }
         }
       }
     },
     "On Hover": {
-      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On Hover"
+            "value": "Only on Hover"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "乗せたときに出す"
+            "value": "ポインタを乗せたときだけ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "悬停时显示"
+            "value": "仅在指针悬停时"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "游標移入時顯示"
+            "value": "僅在指標停留時"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "포인터를 올릴 때"
+            "value": "포인터를 올렸을 때만"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Au survol"
+            "value": "Seulement au survol"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beim Überfahren"
+            "value": "Nur beim Darüberfahren"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Al pasar el puntero"
+            "value": "Solo al pasar el puntero"
           }
         }
       }
     },
     "Always": {
-      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -31092,7 +30327,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "常に出す"
+            "value": "常に表示"
           }
         },
         "zh-Hans": {
@@ -31110,7 +30345,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "항상"
+            "value": "항상 표시"
           }
         },
         "fr": {
@@ -31133,108 +30368,54 @@
         }
       }
     },
-    "Menu": {
-      "extractionState": "manual",
+    "Toolbar Arrangement": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menu"
+            "value": "Toolbar Arrangement"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "メニュー"
+            "value": "ツールバーの組み方"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "菜单"
+            "value": "工具栏排列"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選單"
+            "value": "工具列排列"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴"
+            "value": "도구 막대 배치"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menu"
+            "value": "Disposition de la barre d’outils"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menü"
+            "value": "Anordnung der Symbolleiste"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Menú"
-          }
-        }
-      }
-    },
-    "Menu Arrangement": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Menu Arrangement"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "メニューの組み方"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "菜单布局"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "選單配置"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "메뉴 배치"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Disposition du menu"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Menüanordnung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Disposición del menú"
+            "value": "Disposición de la barra"
           }
         }
       }
@@ -31345,55 +30526,54 @@
         }
       }
     },
-    "The menu has its own room outside the paper, so it never covers the paper.": {
-      "extractionState": "manual",
+    "The toolbar has its own room outside the paper, so it never covers the paper.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The menu has its own room outside the paper, so it never covers the paper."
+            "value": "The toolbar has its own room outside the paper, so it never covers the paper."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "メニューは紙の外に場所を取るので、紙に重なりません。"
+            "value": "ツールバーは紙の外に場所を取るので、紙に重なりません。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "菜单在纸张之外占有自己的位置，不会遮住纸张。"
+            "value": "工具栏位于纸张之外，不会遮住纸张。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "選單在紙張之外佔有自己的位置，不會遮住紙張。"
+            "value": "工具列位於紙張之外，不會遮住紙張。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴는 용지 밖에 자리를 차지하므로 용지를 가리지 않습니다."
+            "value": "도구 막대는 용지 바깥에 자리를 잡으므로 용지를 가리지 않습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le menu a sa propre place hors du papier et ne le recouvre jamais."
+            "value": "La barre d’outils a sa place hors du papier et ne le couvre jamais."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Menü hat seinen eigenen Platz außerhalb des Papiers und verdeckt es nie."
+            "value": "Die Symbolleiste hat ihren Platz außerhalb des Papiers und verdeckt es nie."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El menú tiene su propio espacio fuera del papel y nunca lo cubre."
+            "value": "La barra tiene su sitio fuera del papel y nunca lo cubre."
           }
         }
       }
@@ -31663,55 +30843,54 @@
         }
       }
     },
-    "Put Contents on the Menu": {
-      "extractionState": "manual",
+    "Show Contents on the Toolbar": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Put Contents on the Menu"
+            "value": "Show Contents on the Toolbar"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "帯に目次を置く"
+            "value": "ツールバーに目次を表示"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在菜单中放置目录"
+            "value": "在工具栏显示目录"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在選單中放置目錄"
+            "value": "在工具列顯示目錄"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "메뉴에 목차 두기"
+            "value": "도구 막대에 목차 표시"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Placer le sommaire dans le menu"
+            "value": "Afficher le sommaire dans la barre d’outils"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Inhalt im Menü zeigen"
+            "value": "Inhalt in der Symbolleiste zeigen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Poner el índice en el menú"
+            "value": "Mostrar el índice en la barra"
           }
         }
       }
@@ -32034,108 +31213,106 @@
         }
       }
     },
-    "Document Figures": {
-      "extractionState": "manual",
+    "Document Info": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Document Figures"
+            "value": "Document Info"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文書の数字"
+            "value": "文書の情報"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "文稿数据"
+            "value": "文档信息"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "文件資料"
+            "value": "文件資訊"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서 수치"
+            "value": "문서 정보"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chiffres du document"
+            "value": "Infos du document"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokumentdaten"
+            "value": "Dokumentinfo"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Datos del documento"
+            "value": "Información del documento"
           }
         }
       }
     },
-    "Document Figures…": {
-      "extractionState": "manual",
+    "Document Info…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Document Figures…"
+            "value": "Document Info…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "文書の数字…"
+            "value": "文書の情報…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "文稿数据…"
+            "value": "文档信息…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "文件資料…"
+            "value": "文件資訊…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "문서 수치…"
+            "value": "문서 정보…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chiffres du document…"
+            "value": "Infos du document…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokumentdaten …"
+            "value": "Dokumentinfo…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Datos del documento…"
+            "value": "Información del documento…"
           }
         }
       }
@@ -32405,108 +31582,106 @@
         }
       }
     },
-    "If printed double-sided on %@": {
-      "extractionState": "manual",
+    "Estimate: Double-Sided %@, No Added Pages": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "If printed double-sided on %@"
+            "value": "Estimate: Double-Sided %@, No Added Pages"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 両面なら"
+            "value": "目安（%@ 両面・ページの追加なし）"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 双面打印时"
+            "value": "估算（%@ 双面，不添加页面）"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 雙面列印時"
+            "value": "估算（%@ 雙面，不加頁）"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 양면 인쇄 시"
+            "value": "예상(%@ 양면, 페이지 추가 없음)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "En recto verso sur %@"
+            "value": "Estimation : %@ recto verso, sans page ajoutée"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beidseitig auf %@"
+            "value": "Schätzung: %@ beidseitig, ohne Zusatzseiten"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "A doble cara en %@"
+            "value": "Estimación: %@ a doble cara, sin páginas añadidas"
           }
         }
       }
     },
-    "Check on the Print Tray": {
-      "extractionState": "manual",
+    "Check on the Print Screen": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Check on the Print Tray"
+            "value": "Check on the Print Screen"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "刷り台で確かめる"
+            "value": "印刷画面で確かめる"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在打印台上确认"
+            "value": "在打印画面确认"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在列印台上確認"
+            "value": "在列印畫面確認"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "인쇄대에서 확인"
+            "value": "인쇄 화면에서 확인"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vérifier sur le plateau d’impression"
+            "value": "Vérifier sur l’écran d’impression"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auf dem Drucktisch prüfen"
+            "value": "Im Druckbildschirm prüfen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Comprobar en la bandeja de impresión"
+            "value": "Comprobar en la pantalla de impresión"
           }
         }
       }
@@ -33703,42 +32878,42 @@
         }
       }
     },
-    "Note page lines and presets": {
+    "Note page lines and templates": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Note page lines and presets"
+            "value": "Note page lines and templates"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ノートページの線とプリセット"
+            "value": "ノートページの線とひな形"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "笔记页的线条和预设"
+            "value": "笔记页的线条和模板"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "筆記頁的線條與預設"
+            "value": "筆記頁的線條與範本"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "노트 페이지의 선과 프리셋"
+            "value": "노트 페이지의 선과 서식"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lignes et préréglages des pages de notes"
+            "value": "Lignes et modèles des pages de notes"
           }
         },
         "de": {
@@ -33750,7 +32925,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Líneas y preajustes de las páginas de notas"
+            "value": "Líneas y plantillas de las páginas de notas"
           }
         }
       }
@@ -33870,25 +33045,25 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このノートの線はページに収まりません。余白か間隔を小さくしてください。"
+            "value": "このノートの線はページに収まりません。線の外の余白か間隔を小さくしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这些笔记页线条放不下。请减小边距或间距。"
+            "value": "这些笔记页线条放不下。请减小线条外边距或间距。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這些筆記頁線條放不下。請減少邊界或間距。"
+            "value": "這些筆記頁線條放不下。請減少線條外邊界或間距。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "이 노트 페이지의 선이 페이지에 들어가지 않습니다. 여백이나 간격을 줄이세요."
+            "value": "이 노트 페이지의 선이 페이지에 들어가지 않습니다. 선 바깥 여백이나 간격을 줄이세요."
           }
         },
         "fr": {
@@ -33963,36 +33138,36 @@
         }
       }
     },
-    "Notes on Left": {
+    "Left of the Spread": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notes on Left"
+            "value": "Left of the Spread"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "左がノート"
+            "value": "見開きの左にノート"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "左侧笔记"
+            "value": "跨页左侧为笔记"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "左側筆記"
+            "value": "跨頁左側為筆記"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "왼쪽이 노트"
+            "value": "펼침면 왼쪽에 노트"
           }
         },
         "fr": {
@@ -34015,36 +33190,36 @@
         }
       }
     },
-    "Notes on Right": {
+    "Right of the Spread": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notes on Right"
+            "value": "Right of the Spread"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "右がノート"
+            "value": "見開きの右にノート"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "右侧笔记"
+            "value": "跨页右侧为笔记"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "右側筆記"
+            "value": "跨頁右側為筆記"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오른쪽이 노트"
+            "value": "펼침면 오른쪽에 노트"
           }
         },
         "fr": {
@@ -34067,54 +33242,54 @@
         }
       }
     },
-    "On the Back": {
+    "Behind Each Page": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "On the Back"
+            "value": "Behind Each Page"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "両面の裏"
+            "value": "各ページの裏"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "背面"
+            "value": "每页背面"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "背面"
+            "value": "每頁背面"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "뒷면"
+            "value": "각 페이지 뒷면"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Au verso"
+            "value": "Au dos des pages"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rückseite"
+            "value": "Seitenrückseite"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Al dorso"
+            "value": "Dorso de cada página"
           }
         }
       }
@@ -34431,54 +33606,54 @@
         }
       }
     },
-    "Presets": {
+    "Choose a Template": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Presets"
+            "value": "Choose a Template"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "プリセット"
+            "value": "ひな形を選ぶ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "预设"
+            "value": "选择模板"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "預設"
+            "value": "選擇範本"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프리셋"
+            "value": "서식 선택"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Préréglages"
+            "value": "Choisir un modèle"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vorlagen"
+            "value": "Vorlage wählen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Preajustes"
+            "value": "Elegir una plantilla"
           }
         }
       }
@@ -34587,64 +33762,64 @@
         }
       }
     },
-    "Yours": {
+    "Your Notes": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yours"
+            "value": "Your Notes"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自分の"
+            "value": "自分のノート"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的"
+            "value": "我的笔记"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的"
+            "value": "我的筆記"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "내 것"
+            "value": "내 노트"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les vôtres"
+            "value": "Vos notes"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eigene"
+            "value": "Eigene Notizen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tuyos"
+            "value": "Tus notas"
           }
         }
       }
     },
-    "Presets you save appear here.": {
+    "Templates you save appear here.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Presets you save appear here."
+            "value": "Templates you save appear here."
           }
         },
         "ja": {
@@ -34656,25 +33831,25 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "保存后会显示在这里。"
+            "value": "保存的模板会显示在这里。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "儲存後會顯示在這裡。"
+            "value": "儲存的範本會顯示在這裡。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "저장하면 여기에 표시됩니다."
+            "value": "저장한 서식이 여기에 표시됩니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les préréglages enregistrés apparaissent ici."
+            "value": "Les modèles enregistrés apparaissent ici."
           }
         },
         "de": {
@@ -34686,7 +33861,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los preajustes guardados aparecen aquí."
+            "value": "Las plantillas guardadas aparecen aquí."
           }
         }
       }
@@ -35419,54 +34594,54 @@
         }
       }
     },
-    "Margin": {
+    "Margin Around Lines": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Margin"
+            "value": "Margin Around Lines"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "余白"
+            "value": "線の外の余白"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "边距"
+            "value": "线条外边距"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "邊界"
+            "value": "線條外邊界"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여백"
+            "value": "선 바깥 여백"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Marge"
+            "value": "Marge autour"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rand"
+            "value": "Außenrand"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Margen"
+            "value": "Margen exterior"
           }
         }
       }
@@ -35731,42 +34906,42 @@
         }
       }
     },
-    "Your Presets": {
+    "Your Templates": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your Presets"
+            "value": "Your Templates"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "自分のプリセット"
+            "value": "自分のひな形"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的预设"
+            "value": "我的模板"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "我的預設"
+            "value": "我的範本"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "내 프리셋"
+            "value": "내 서식"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Vos préréglages"
+            "value": "Vos modèles"
           }
         },
         "de": {
@@ -35778,7 +34953,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tus preajustes"
+            "value": "Tus plantillas"
           }
         }
       }
@@ -35835,42 +35010,42 @@
         }
       }
     },
-    "Preset Name": {
+    "Template Name": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Preset Name"
+            "value": "Template Name"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "プリセットの名前"
+            "value": "ひな形の名前"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "预设名称"
+            "value": "模板名称"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "預設名稱"
+            "value": "範本名稱"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "프리셋 이름"
+            "value": "서식 이름"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nom du préréglage"
+            "value": "Nom du modèle"
           }
         },
         "de": {
@@ -35882,7 +35057,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nombre del preajuste"
+            "value": "Nombre de la plantilla"
           }
         }
       }
@@ -35991,42 +35166,42 @@
         }
       }
     },
-    "Built-in presets are saved under a new name.": {
+    "Built-in templates are saved under a new name.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Built-in presets are saved under a new name."
+            "value": "Built-in templates are saved under a new name."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "組み込みのプリセットは別の名前で保存します"
+            "value": "組み込みのひな形は別の名前で保存します"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "内置预设需以新名称保存。"
+            "value": "内置模板需以新名称保存。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "內建預設需以新名稱儲存。"
+            "value": "內建範本需以新名稱儲存。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "기본 프리셋은 새 이름으로 저장합니다."
+            "value": "기본 서식은 새 이름으로 저장합니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les préréglages intégrés s’enregistrent sous un nouveau nom."
+            "value": "Les modèles intégrés s’enregistrent sous un nouveau nom."
           }
         },
         "de": {
@@ -36038,7 +35213,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los preajustes integrados se guardan con otro nombre."
+            "value": "Las plantillas integradas se guardan con otro nombre."
           }
         }
       }
@@ -37239,54 +36414,1198 @@
         }
       }
     },
-    "Note Settings…": {
+    "Paper & Margins": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Note Settings…"
+            "value": "Paper & Margins"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ノートの設定…"
+            "value": "用紙と余白"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "笔记设置…"
+            "value": "纸张和边距"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "筆記設定…"
+            "value": "紙張與邊界"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "노트 설정…"
+            "value": "용지와 여백"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réglages des notes…"
+            "value": "Papier et marges"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Notizeinstellungen…"
+            "value": "Papier und Ränder"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajustes de notas…"
+            "value": "Papel y márgenes"
+          }
+        }
+      }
+    },
+    "Open in All Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in All Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての設定で開く"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在所有设置中打开"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在所有設定中開啟"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "모든 설정에서 열기"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir dans tous les réglages"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In allen Einstellungen öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir en todos los ajustes"
+          }
+        }
+      }
+    },
+    "The paper shown here. Printing uses the layout on the print screen.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The paper shown here. Printing uses the layout on the print screen."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示用の用紙です。印刷は印刷画面のレイアウトに従います"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此处显示用的纸张。打印时使用打印画面的布局。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此處顯示用的紙張。列印時使用列印畫面的版面。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "여기에 표시할 용지입니다. 인쇄는 인쇄 화면의 레이아웃을 따릅니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papier affiché ici. L’impression suit la disposition de l’écran d’impression."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das hier angezeigte Papier. Gedruckt wird nach dem Layout im Druckbildschirm."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papel que se muestra aquí. La impresión usa el diseño de la pantalla de impresión."
+          }
+        }
+      }
+    },
+    "Shared by the view and printing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared by the view and printing"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示と印刷に共通"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示和打印共用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示與列印共用"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "표시와 인쇄에 공통"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commun à l’affichage et à l’impression"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für Anzeige und Druck gleich"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Común a la vista y la impresión"
+          }
+        }
+      }
+    },
+    "On Screen": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On Screen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面の表示"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "屏幕显示"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "螢幕顯示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "화면 표시"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À l’écran"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am Bildschirm"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pantalla"
+          }
+        }
+      }
+    },
+    "Text Layout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text Layout"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本文の組版"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正文排版"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "內文排版"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "본문 조판"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mise en page du texte"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textsatz"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Composición del texto"
+          }
+        }
+      }
+    },
+    "All Documents": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Documents"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリ共通"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有文档"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有文件"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱 공통"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les documents"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Dokumente"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todos los documentos"
+          }
+        }
+      }
+    },
+    "Own Lines": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Own Lines"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分の線"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义线条"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自訂線條"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "내 선"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lignes personnelles"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eigene Linien"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Líneas propias"
+          }
+        }
+      }
+    },
+    "Heading %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heading %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見出し %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标题 %lld"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "標題 %lld"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "제목 %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titre %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überschrift %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Título %lld"
+          }
+        }
+      }
+    },
+    "3 Pages + Notes Column": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 Pages + Notes Column"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 ページ＋\nメモ欄"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 页＋笔记栏"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 頁＋筆記欄"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3쪽 + 메모란"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 pages + notes"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 Seiten + Notizen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "3 páginas + notas"
+          }
+        }
+      }
+    },
+    "2 Pages Side by Side": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 Pages Side by Side"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 ページ並べ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 页并排"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 頁並排"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2쪽 나란히"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 pages côte à côte"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 Seiten nebeneinander"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2 páginas juntas"
+          }
+        }
+      }
+    },
+    "Prints on %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prints on %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ に刷る"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打印到 %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "列印到 %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 인쇄"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur du %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf %@ drucken"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se imprime en %@"
+          }
+        }
+      }
+    },
+    "%@ booklet when folded in the middle · 1 blank page (the back cover)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ booklet when folded in the middle · 1 blank page (the back cover)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重ねて中央で折ると %@ 冊子・白紙 1 ページ（裏表紙）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "叠放后对折成 %@ 小册子 · 空白 1 页（封底）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "疊放後對折成 %@ 小冊子 · 空白 1 頁（封底）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "겹쳐서 가운데를 접으면 %@ 소책자 · 빈 페이지 1쪽(뒤표지)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Livret %@ une fois plié au milieu · 1 page blanche (la quatrième de couverture)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Broschüre %@, in der Mitte gefaltet · 1 leere Seite (Rückseite)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folleto %@ al doblar por la mitad · 1 página en blanco (la contraportada)"
+          }
+        }
+      }
+    },
+    "%1$lld pages (body %2$lld + notes %3$lld)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld pages (body %2$lld + notes %3$lld)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld ページ（本文 %2$lld＋ノート %3$lld）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld 页（正文 %2$lld＋笔记 %3$lld）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld 頁（內文 %2$lld＋筆記 %3$lld）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld쪽(본문 %2$lld + 노트 %3$lld)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld pages (texte %2$lld + notes %3$lld)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld Seiten (Text %2$lld + Notizen %3$lld)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld páginas (texto %2$lld + notas %3$lld)"
+          }
+        }
+      }
+    },
+    "The cover is a note page too": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The cover is a note page too"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表紙もノートになります"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "封面也会成为笔记页"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "封面也會成為筆記頁"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "표지도 노트 페이지가 됩니다"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La couverture devient aussi une page de notes"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auch der Umschlag wird eine Notizseite"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La portada también será una página de notas"
+          }
+        }
+      }
+    },
+    "This is the spread once folded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the spread once folded."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折ったあとの見開きの配置です。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这是折叠后的跨页位置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是摺疊後的跨頁位置。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "접은 뒤 펼침면의 배치입니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C’est la double page une fois pliée."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist die Doppelseite nach dem Falten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es la doble página una vez doblada."
+          }
+        }
+      }
+    },
+    "This is the spread once folded. The cover is a note page too.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is the spread once folded. The cover is a note page too."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "折ったあとの見開きの配置です。表紙もノートになります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这是折叠后的跨页位置。封面也会成为笔记页。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這是摺疊後的跨頁位置。封面也會成為筆記頁。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "접은 뒤 펼침면의 배치입니다. 표지도 노트 페이지가 됩니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "C’est la double page une fois pliée. La couverture devient aussi une page de notes."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist die Doppelseite nach dem Falten. Auch der Umschlag wird eine Notizseite."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es la doble página una vez doblada. La portada también será una página de notas."
+          }
+        }
+      }
+    },
+    "With the Current Print Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With the Current Print Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今の印刷の設定で"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按当前打印设置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按目前列印設定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "현재 인쇄 설정으로"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avec les réglages d’impression actuels"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit den aktuellen Druckeinstellungen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con los ajustes de impresión actuales"
+          }
+        }
+      }
+    },
+    "%1$@, %2$lld sheets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$lld sheets"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld 枚"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld 张"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld 張"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld장"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$lld feuilles"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$lld Blatt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$lld hojas"
+          }
+        }
+      }
+    },
+    "Text contrast %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text contrast %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字のコントラスト %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字对比度 %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文字對比度 %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "글자 대비 %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraste du texte %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Textkontrast %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contraste del texto %@"
+          }
+        }
+      }
+    },
+    "Adjust the Lines": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust the Lines"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "線を調整する"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调整线条"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "調整線條"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선 조정"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajuster les lignes"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Linien anpassen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustar las líneas"
+          }
+        }
+      }
+    },
+    "Open": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開いている"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已展开"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已展開"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열림"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvert"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abierto"
+          }
+        }
+      }
+    },
+    "Closed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Closed"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じている"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已折叠"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已摺疊"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "닫힘"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermé"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschlossen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrado"
           }
         }
       }

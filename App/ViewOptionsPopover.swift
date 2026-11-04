@@ -16,26 +16,27 @@ struct ViewOptionsPopover: View {
                 if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                heading("On Screen")
                 GridRow {
-                    rowLabel("Direction")
-                    Picker("Direction", selection: option(\.direction)) {
+                    rowLabel("Reading Direction")
+                    Picker("Reading Direction", selection: option(\.direction)) {
                         Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
                         Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
                     }
                     .pickerStyle(.menu)
                 }
                 GridRow {
-                    rowLabel("Scrolling")
-                    Picker("Scrolling", selection: option(\.scrollAxis)) {
+                    rowLabel("Scroll Direction")
+                    Picker("Scroll Direction", selection: option(\.scrollAxis)) {
                         Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
                         Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
                     }
                     .disabled(!model.viewOptions.usesScrollAxis)
                 }
                 GridRow {
-                    rowLabel("Cover")
+                    rowLabel("Show First Page Alone")
                     HStack(spacing: 8) {
-                        Toggle("Show Alone", isOn: option(\.showsCoverAlone))
+                        Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
                             .toggleStyle(.switch).controlSize(.small)
                         Text(verbatim: coverSample).font(.caption).monospaced().foregroundStyle(.secondary)
                     }
@@ -48,10 +49,20 @@ struct ViewOptionsPopover: View {
                             .toggleStyle(.switch).controlSize(.small)
                     }
                 }
+                GridRow {
+                    rowLabel("Toolbar")
+                    BandVisibilityPicker(selection: $model.bandVisibility)
+                }
+                if model.offersPaperSeries || model.marginsApply {
+                    heading("Text Layout")
+                }
                 if model.offersPaperSeries {
                     GridRow {
-                        rowLabel("Paper Series")
-                        PaperSeriesPicker(selection: $model.paperSeries)
+                        rowLabel("Paper Size")
+                        VStack(alignment: .leading, spacing: 3) {
+                            PaperSeriesPicker(selection: $model.paperSeries)
+                            caption("The paper shown here. Printing uses the layout on the print screen.")
+                        }
                     }
                 }
                 if model.marginsApply {
@@ -60,17 +71,15 @@ struct ViewOptionsPopover: View {
                         HStack(spacing: 4) {
                             MarginControl(model: model)
                             Text("mm").foregroundStyle(.secondary)
+                            caption("Shared by the view and printing").padding(.leading, 6)
                         }
                     }
                 }
-                GridRow {
-                    rowLabel("Show Menu")
-                    BandVisibilityPicker(selection: $model.bandVisibility)
-                }
                 if !model.outlineEntries.isEmpty {
+                    heading("All Documents")
                     GridRow {
-                        rowLabel("Put Contents on the Menu")
-                        Toggle("Put Contents on the Menu", isOn: Bindable(model.preferences).showsOutlineOnBand)
+                        rowLabel("Show Contents on the Toolbar")
+                        Toggle("Show Contents on the Toolbar", isOn: Bindable(model.preferences).showsOutlineOnBand)
                             .toggleStyle(.switch).controlSize(.small)
                     }
                 }
@@ -86,7 +95,7 @@ struct ViewOptionsPopover: View {
                 Spacer()
                 SettingSetMenu(preferences: model.preferences, model: { model })
                     .fixedSize()
-                Button("Reset to Defaults") { model.resetDocumentSettings() }
+                Button("Reset This Document") { model.resetDocumentSettings() }
                     .buttonStyle(.link)
                     .disabled(!model.hasSavedSettings)
             }
@@ -94,6 +103,7 @@ struct ViewOptionsPopover: View {
         .padding(16)
         .frame(width: 560)
         .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
+        .clearsInitialFocus()
     }
 
     private var currentUnitIndex: Int? {
@@ -111,7 +121,19 @@ struct ViewOptionsPopover: View {
     }
 
     private func rowLabel(_ key: LocalizedStringKey) -> some View {
-        Text(key).foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+        Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
+    }
+
+    private func heading(_ key: LocalizedStringKey) -> some View {
+        Text(key)
+            .font(.system(size: 11.5, weight: .semibold))
+            .padding(.top, 2)
+            .gridCellColumns(2)
+            .gridCellAnchor(.leading)
+    }
+
+    private func caption(_ key: LocalizedStringKey) -> some View {
+        Text(key).font(.caption).foregroundStyle(PrintPalette.ink2)
     }
 
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
@@ -124,9 +146,9 @@ struct BandVisibilityPicker: View {
     @Binding var selection: BandVisibility
 
     var body: some View {
-        Picker("Show Menu", selection: $selection) {
-            Text("On Hover").tag(BandVisibility.onHover)
+        Picker("Toolbar", selection: $selection) {
             Text("Always").tag(BandVisibility.always)
+            Text("On Hover").tag(BandVisibility.onHover)
         }
     }
 }
@@ -135,7 +157,7 @@ struct PaperSeriesPicker: View {
     @Binding var selection: ViewPaperSeries
 
     var body: some View {
-        Picker("Paper Series", selection: $selection) {
+        Picker("Paper Size", selection: $selection) {
             ForEach(ViewPaperSeries.allCases, id: \.self) { series in
                 Text(series.title).tag(series)
             }
@@ -146,15 +168,15 @@ struct PaperSeriesPicker: View {
 extension ViewPaperSeries {
     var title: LocalizedStringKey {
         switch self {
-        case .a: "A Sizes"
-        case .b: "B Sizes"
+        case .a: "A4 / A3"
+        case .b: "B5 / B4"
         }
     }
 
     var name: String {
         switch self {
-        case .a: String(localized: "A Sizes")
-        case .b: String(localized: "B Sizes")
+        case .a: String(localized: "A4 / A3")
+        case .b: String(localized: "B5 / B4")
         }
     }
 

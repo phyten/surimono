@@ -123,7 +123,7 @@ struct DocumentFiguresPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Document Figures").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+            Text("Document Info").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 10) {
                 if let statistics = model.documentStatistics {
                     GridRow {
@@ -141,15 +141,23 @@ struct DocumentFiguresPopover: View {
                     figure(
                         String(localized: "Pages"),
                         String(format: String(localized: "%lld pages"), model.pageCount))
-                    figure(
-                        String(format: String(localized: "If printed double-sided on %@"), model.paperSeries.sheetName),
-                        String(
-                            format: String(localized: "%lld sheets"),
-                            DocumentStatistics.duplexSheets(pageCount: model.pageCount)))
+                    if let tray = model.currentTrayFigures {
+                        figure(
+                            String(localized: "With the Current Print Settings"),
+                            String(format: String(localized: "%1$@, %2$lld sheets"), tray.paper, tray.sheetCount))
+                    } else {
+                        figure(
+                            String(
+                                format: String(localized: "Estimate: Double-Sided %@, No Added Pages"),
+                                model.paperSeries.sheetName),
+                            String(
+                                format: String(localized: "%lld sheets"),
+                                DocumentStatistics.duplexSheets(pageCount: model.pageCount)))
+                    }
                 }
             }
             Divider().padding(.top, 4)
-            Button("Check on the Print Tray") { model.checkFiguresOnTray() }
+            Button("Check on the Print Screen") { model.checkFiguresOnTray() }
                 .buttonStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(PrintPalette.ai)
@@ -162,6 +170,7 @@ struct DocumentFiguresPopover: View {
     private func figure(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(verbatim: title).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
             Text(verbatim: value).font(.system(size: 15, weight: .semibold)).monospacedDigit()
                 .foregroundStyle(PrintPalette.ink)
         }

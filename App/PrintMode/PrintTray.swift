@@ -154,7 +154,7 @@ enum PrintModeText {
     }
 
     static func sheetSubtitle(_ sheet: PrintTray.Sheet, layout: PrintLayout, language: String) -> String {
-        let paper = layout.sheet.displayName
+        let paper = layout.sheet.shortName
         switch sheet.position {
         case .outermost: return format("%@ landscape · outermost", language: language, paper)
         case .innermost: return format("%@ landscape · innermost (center spread)", language: language, paper)
@@ -174,7 +174,7 @@ enum PrintModeText {
 
     /// How the sheets are printed and finished, with Markdown emphasis.
     static func instructions(_ layout: PrintLayout, language: String) -> String {
-        let paper = layout.sheet.displayName
+        let paper = layout.sheet.shortName
         switch layout.kind {
         case .handout3:
             return format(
@@ -183,7 +183,7 @@ enum PrintModeText {
         case .booklet:
             return format(
                 "Print on **both sides of %1$@ landscape** (short-edge binding). Stack the sheets with sheet 1 outermost, fold them in the middle and staple twice along the fold to get the **%2$@ booklet**.",
-                language: language, paper, (layout.sheet.halved ?? layout.sheet).displayName)
+                language: language, paper, (layout.sheet.halved ?? layout.sheet).shortName)
         case .twoUp:
             return format(
                 layout.landscapeContent
@@ -218,13 +218,18 @@ enum PrintModeText {
                     : "Three pages on the left · notes on the right · unused slots on the last sheet are blank",
                 language: language)
         case .booklet:
-            let booklet = (layout.sheet.halved ?? layout.sheet).displayName
+            let booklet = (layout.sheet.halved ?? layout.sheet).shortName
             let blanks = (pageCount + 3) / 4 * 4 - pageCount
-            return blanks == 0
-                ? format("%@ booklet when folded in the middle · no blank pages", language: language, booklet)
-                : format(
-                    "%1$@ booklet when folded in the middle · blank pages before the back cover: %2$lld",
-                    language: language, booklet, blanks)
+            switch blanks {
+            case 0: return format("%@ booklet when folded in the middle · no blank pages", language: language, booklet)
+            case 1:
+                return format(
+                    "%@ booklet when folded in the middle · 1 blank page (the back cover)", language: language, booklet)
+            default:
+                return format(
+                    "%1$@ booklet when folded in the middle · %2$lld blank pages (the last %3$lld)",
+                    language: language, booklet, blanks, blanks)
+            }
         case .twoUp:
             if layout.hasStackedSlots {
                 return string(
@@ -241,7 +246,7 @@ enum PrintModeText {
             case .none:
                 return format(
                     layout.landscapeContent ? "%@ landscape · one page per sheet" : "%@ portrait · one page per sheet",
-                    language: language, layout.sheet.displayName)
+                    language: language, layout.sheet.shortName)
             case .longEdge, .shortEdge:
                 return string(
                     pageCount % 2 == 1
@@ -267,37 +272,27 @@ enum PrintModeText {
             : format("Pages %1$lld–%2$lld", language: language, first, last)
     }
 
-    /// The short name on a layout card, for example "A3 Booklet".
+    /// What a layout card makes, for example "A5 Booklet". A booklet is named by what comes out, which is half its
+    /// paper, so that the reader who wants an A4 booklet does not pick A4 paper.
     static func cardTitle(_ layout: PrintLayout, language: String) -> String {
         let paper = layout.sheet.shortName
         switch layout.kind {
-        case .handout3: return format("%@ 3-up + Notes", language: language, paper)
-        case .booklet: return format("%@ Booklet", language: language, paper)
-        case .twoUp: return format("%@ 2-up", language: language, paper)
+        case .handout3: return string("3 Pages + Notes Column", language: language)
+        case .booklet: return format("%@ Booklet", language: language, (layout.sheet.halved ?? layout.sheet).shortName)
+        case .twoUp: return string("2 Pages Side by Side", language: language)
         case .normal: return format(layout.duplex == .none ? "%@ Single" : "%@ Duplex", language: language, paper)
         }
     }
 
-    /// Active options worth a reminder under the summary, or nil.
-    static func options(_ options: PrintOptions, layout: PrintLayout, language: String) -> String? {
-        var parts: [String] = []
-        switch options.furniture.preset {
-        case .none: break
-        case .number: parts.append(string("Page numbers", language: language))
-        default: parts.append(string("Header and footer", language: language))
-        }
-        if options.rotatesBackSides && layout.duplex != .none {
-            parts.append(string("Back sides rotated 180°", language: language))
-        }
-        guard let first = parts.first else { return nil }
-        return parts.dropFirst().reduce(first) { format("%@ · %@", language: language, $0, $1) }
+    /// The paper of a card whose title names something else.
+    static func cardPaper(_ layout: PrintLayout, language: String) -> String? {
+        layout.kind == .normal ? nil : format("Prints on %@", language: language, layout.sheet.shortName)
     }
 
-    /// The amount of text, for the summary of a text.
-    static func statistics(_ statistics: DocumentStatistics, language: String) -> String {
-        format(
-            "%1$@ characters · about %2$lld min to read", language: language,
-            statistics.characters.formatted(.number.locale(Locale(identifier: language))), statistics.readingMinutes)
+    /// The printer's rotation is not on the sheets' choices, so it is told under the summary.
+    static func options(_ options: PrintOptions, layout: PrintLayout, language: String) -> String? {
+        options.rotatesBackSides && layout.duplex != .none
+            ? string("Back sides rotated 180°", language: language) : nil
     }
 
     /// What the finish added to the pages of a text, or nil.
@@ -313,6 +308,13 @@ enum PrintModeText {
 
     static func pageCount(_ count: Int, language: String) -> String {
         format("%lld pages", language: language, count)
+    }
+
+    /// The pages of the tray, and how many of them are the document's and how many notes.
+    static func pageCount(_ count: Int, notes: Int, language: String) -> String {
+        guard notes > 0 else { return pageCount(count, language: language) }
+        return format(
+            "%1$lld pages (body %2$lld + notes %3$lld)", language: language, count, count - notes, notes)
     }
 
     static func string(_ key: String, language: String) -> String {

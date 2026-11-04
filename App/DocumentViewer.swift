@@ -140,6 +140,20 @@ struct DocumentContent: View {
     }
 }
 
+extension View {
+    /// AppKit hands a new popover or panel's first text field the focus, where the next key press would type into it.
+    func clearsInitialFocus() -> some View {
+        background(
+            WindowReader { window in
+                Task { @MainActor in
+                    // After AppKit's own choice, which comes once the view is on screen.
+                    try? await Task.sleep(for: .milliseconds(60))
+                    window.makeFirstResponder(nil)
+                }
+            })
+    }
+}
+
 struct WindowReader: NSViewRepresentable {
     let onWindow: (NSWindow) -> Void
     func makeNSView(context: Context) -> ReaderView { ReaderView(onWindow: onWindow) }

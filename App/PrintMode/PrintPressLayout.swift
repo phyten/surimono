@@ -32,7 +32,7 @@ struct PrintPressLayout: Layout {
         for index in sizes.indices {
             let size = sizes[index]
             if index == 0 && arrangement.wraps {
-                frames.append(CGRect(x: (available - size.width) / 2, y: 0, width: size.width, height: size.height))
+                frames.append(CGRect(x: 0, y: 0, width: size.width, height: size.height))
             } else {
                 frames.append(
                     CGRect(x: x, y: rowY + (rowHeight - size.height) / 2, width: size.width, height: size.height))

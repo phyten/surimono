@@ -229,8 +229,8 @@ public struct PreparedRender {
     public var addedContentsPages = 0
     /// The logical pages that were added as blanks.
     public var blankPages: Set<Int> = []
-    /// How many of the logical pages are note pages.
-    public var addedNotePages = 0
+    /// The logical pages that are note pages.
+    public var notePages: [Int] = []
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -271,7 +271,8 @@ public struct RenderResult {
     public let facts: DocumentFacts?
     public let addedContentsPages: Int
     public let blankPages: Set<Int>
-    public let addedNotePages: Int
+    public let notePages: [Int]
+    public var addedNotePages: Int { notePages.count }
 
     init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
         id = prepared.id
@@ -291,7 +292,7 @@ public struct RenderResult {
         facts = prepared.facts
         addedContentsPages = prepared.addedContentsPages
         blankPages = prepared.blankPages
-        addedNotePages = prepared.addedNotePages
+        notePages = prepared.notePages
     }
 }
 
@@ -656,7 +657,7 @@ public final class DocumentRenderer {
                 changeMarks: requests.isEmpty ? [] : logical.changeMarks,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
-                blankPages: pages.finishing.blankPages, addedNotePages: pages.finishing.notePages.count,
+                blankPages: pages.finishing.blankPages, notePages: pages.finishing.notePages,
                 sheetKey: SheetKey(
                     logicalID: pages.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: settings.usesPerPageOrientation

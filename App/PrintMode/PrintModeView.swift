@@ -161,7 +161,7 @@ struct PrintTopBar: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let count = model.result?.plan.logicalPageCount {
-                    Text(verbatim: PrintModeText.pageCount(count, language: model.language))
+                    Text(verbatim: PrintModeText.pageCount(count, notes: noteCount, language: model.language))
                         .font(.system(size: 12))
                         .foregroundStyle(PrintPalette.ink2)
                         .lineLimit(1)
@@ -207,6 +207,8 @@ struct PrintTopBar: View {
         .background(PrintPalette.chrome)
         .overlay(alignment: .bottom) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
     }
+
+    private var noteCount: Int { model.hasCurrentPrintPreview ? model.printResult?.addedNotePages ?? 0 : 0 }
 
     /// A changed set can be saved over the reader's own set, or as a new one from any set.
     @ViewBuilder private var changedSetControls: some View {
@@ -256,7 +258,7 @@ struct PrintStyleMenu: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("Print Theme")
+            .help("Style")
         }
         if model.usesHTMLPreset {
             Menu {
