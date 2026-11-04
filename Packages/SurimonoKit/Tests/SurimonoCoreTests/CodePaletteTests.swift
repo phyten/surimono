@@ -212,11 +212,11 @@ struct CodeStyleSheetTests {
         #expect(css.contains("print-color-adjust: exact"))
     }
 
-    @Test("枠の形は文字の平文の pre に付かない")
+    @Test("枠の形はコードのブロックの印にだけ付く")
     func frameLeavesPlainText() {
         for frame in CodeBlockOptions.Frame.allCases where frame != .style {
             let css = CodeStyle(block: CodeBlockOptions(frame: frame)).css
-            #expect(css.hasPrefix("body.surimono pre:not(.surimono-plain, .mermaid-source, .math-error) {"), "\(frame)")
+            #expect(css.hasPrefix("body.surimono pre.code-block {"), "\(frame)")
         }
     }
 
@@ -231,17 +231,36 @@ struct CodeStyleSheetTests {
 struct CodeBlockMarkupTests {
     private let block = "<pre><code class=\"language-swift hl\">let a\nlet b\n</code></pre>\n"
 
+    private func apply(_ options: CodeBlockOptions, to html: String) -> String {
+        CodeBlockMarkup.apply(CodeStyle(block: options), to: html)
+    }
+
     @Test("既定のオプションでは本文を変えない")
     func defaultLeavesHTML() {
-        #expect(CodeBlockMarkup.apply(CodeBlockOptions(), to: block) == block)
-        #expect(CodeBlockMarkup.apply(CodeBlockOptions(frame: .rule, longLines: .shrink), to: block) == block)
+        #expect(CodeBlockMarkup.apply(CodeStyle(), to: block) == block)
+    }
+
+    @Test("既定でないときは、コードのブロックに印だけを付ける")
+    func marksBlocks() {
+        #expect(
+            apply(CodeBlockOptions(frame: .rule, longLines: .shrink), to: block)
+                == "<pre class=\"code-block\"><code class=\"language-swift hl\">let a\nlet b\n</code></pre>\n")
+    }
+
+    @Test("配色だけを選んでもブロックに印が付く")
+    func paletteMarksBlocks() {
+        let palette = CodePalette(id: "x", name: "x", colors: [:])
+        #expect(
+            CodeBlockMarkup.apply(CodeStyle(palette: palette), to: "<pre><code>a</code></pre>")
+                == "<pre class=\"code-block\"><code>a</code></pre>")
     }
 
     @Test("行番号はコードの行ごとに要素を足し、桁数を伝える")
     func numbersEveryLine() {
-        let html = CodeBlockMarkup.apply(CodeBlockOptions(lineNumbers: .all), to: block)
+        let html = apply(CodeBlockOptions(lineNumbers: .all), to: block)
         #expect(
-            html == "<pre class=\"code-numbered\" style=\"--code-digits: 1\"><code class=\"language-swift hl\">"
+            html == "<pre class=\"code-block code-numbered\" style=\"--code-digits: 1\">"
+                + "<code class=\"language-swift hl\">"
                 + "<span class=\"code-line\" data-no=\"1\"><span class=\"code-src\">let a</span></span>"
                 + "<span class=\"code-line\" data-no=\"2\"><span class=\"code-src\">let b</span></span>"
                 + "</code></pre>\n")
@@ -250,8 +269,7 @@ struct CodeBlockMarkupTests {
     @Test("5 行ごとの番号は 5 の倍数の行にだけ付く")
     func numbersEveryFifthLine() {
         let code = (1...10).map { "line\($0)" }.joined(separator: "\n")
-        let html = CodeBlockMarkup.apply(
-            CodeBlockOptions(lineNumbers: .everyFive), to: "<pre><code>\(code)</code></pre>")
+        let html = apply(CodeBlockOptions(lineNumbers: .everyFive), to: "<pre><code>\(code)</code></pre>")
         #expect(html.components(separatedBy: "data-no=").count == 3)
         #expect(html.contains("data-no=\"5\""))
         #expect(html.contains("data-no=\"10\""))
@@ -279,34 +297,66 @@ struct CodeBlockMarkupTests {
         #expect(try #require(CodeBlockMarkup.lines(of: "a\n\nb\n"[...])) == ["a", "", "b"])
     }
 
+    @Test("トークンの途中の空の行も、本文のない行として見分ける")
+    func blankLineInsideToken() throws {
+        let body = "<span class=\"hl-comment\">/* a\n\nb */</span>\n"
+        #expect(
+            try #require(CodeBlockMarkup.lines(of: body[...])) == [
+                "<span class=\"hl-comment\">/* a</span>", "", "<span class=\"hl-comment\">b */</span>",
+            ])
+    }
+
+    @Test("空の行には改行を入れて、行の高さを保つ")
+    func blankLineKeepsItsHeight() {
+        let plain = apply(CodeBlockOptions(lineNumbers: .all), to: "<pre><code>a\n\nb</code></pre>")
+        let token = apply(
+            CodeBlockOptions(lineNumbers: .all),
+            to: "<pre><code><span class=\"hl-comment\">/* a\n\nb */</span></code></pre>")
+        for html in [plain, token] {
+            #expect(
+                html.contains("<span class=\"code-line\" data-no=\"2\"><span class=\"code-src\"><br></span></span>"))
+        }
+        let cut = apply(CodeBlockOptions(longLines: .cut), to: "<pre><code>a\n\nb</code></pre>")
+        #expect(cut.contains("<span class=\"code-line\"><span class=\"code-src\"><br></span></span>"))
+    }
+
     @Test("生の HTML のマークアップを持つブロックは行に分けない")
     func rawMarkup() {
-        let raw = "<pre><code>a<b>c</b>\nd</code></pre>"
-        #expect(CodeBlockMarkup.apply(CodeBlockOptions(lineNumbers: .all), to: raw) == raw)
+        #expect(
+            apply(CodeBlockOptions(lineNumbers: .all), to: "<pre><code>a<b>c</b>\nd</code></pre>")
+                == "<pre class=\"code-block\"><code>a<b>c</b>\nd</code></pre>")
     }
 
     @Test("属性を持つ pre はコードとして扱わない")
     func otherPreElements() {
         let plain = "<pre class=\"surimono-plain\">a\nb</pre>"
-        #expect(CodeBlockMarkup.apply(CodeBlockOptions(lineNumbers: .all), to: plain) == plain)
+        #expect(apply(CodeBlockOptions(lineNumbers: .all), to: plain) == plain)
+        #expect(apply(CodeBlockOptions(frame: .rule), to: plain) == plain)
         #expect(!CodeBlockMarkup.containsCode(plain))
         #expect(CodeBlockMarkup.containsCode(block))
     }
 
     @Test("Org の EXAMPLE の pre にも行番号が付く")
     func preWithoutCode() {
-        let html = CodeBlockMarkup.apply(CodeBlockOptions(lineNumbers: .all), to: "<pre>a\nb</pre>")
+        let html = apply(CodeBlockOptions(lineNumbers: .all), to: "<pre>a\nb</pre>")
         #expect(html.contains("<span class=\"code-line\" data-no=\"2\">"))
+    }
+
+    @Test("code のない pre も、枠のときは同じ中身のコードのブロックになる")
+    func preWithoutCodeBecomesABlock() {
+        #expect(
+            apply(CodeBlockOptions(longLines: .shrink), to: "<pre>a\nb</pre>")
+                == "<pre class=\"code-block\"><code>a\nb</code></pre>")
     }
 
     @Test("言語名の札は表示名を pre に持たせる")
     func languageLabel() {
         func label(_ language: String) -> String {
-            CodeBlockMarkup.apply(
+            apply(
                 CodeBlockOptions(languageLabel: .corner),
                 to: "<pre><code class=\"language-\(language) hl\">a</code></pre>")
         }
-        #expect(label("swift").hasPrefix("<pre data-code-label=\"Swift\"><code"))
+        #expect(label("swift").hasPrefix("<pre class=\"code-block\" data-code-label=\"Swift\"><code"))
         #expect(label("js").contains("data-code-label=\"JavaScript\""))
         #expect(label("c++").contains("data-code-label=\"C++\""))
         #expect(label("diff").contains("data-code-label=\"diff\""))
@@ -315,13 +365,14 @@ struct CodeBlockMarkupTests {
 
     @Test("言語のないブロックには札を付けない")
     func noLanguage() {
-        let plain = "<pre><code>a</code></pre>"
-        #expect(CodeBlockMarkup.apply(CodeBlockOptions(languageLabel: .band), to: plain) == plain)
+        #expect(
+            apply(CodeBlockOptions(languageLabel: .band), to: "<pre><code>a</code></pre>")
+                == "<pre class=\"code-block\"><code>a</code></pre>")
     }
 
     @Test("切る印のために、番号なしでも行の要素を足す")
     func cutNeedsLines() {
-        let html = CodeBlockMarkup.apply(CodeBlockOptions(longLines: .cut), to: block)
+        let html = apply(CodeBlockOptions(longLines: .cut), to: block)
         #expect(html.contains("<span class=\"code-line\"><span class=\"code-src\">let a</span></span>"))
         #expect(!html.contains("code-numbered"))
     }
@@ -337,7 +388,7 @@ struct CodeBlockMarkupTests {
             ).body,
         ]
         for body in bodies {
-            let html = CodeBlockMarkup.apply(options, to: body)
+            let html = CodeBlockMarkup.apply(CodeStyle(block: options), to: body)
             #expect(html.contains("data-code-label=\"Swift\""), "\(body)")
             #expect(html.contains("data-no=\"1\""), "\(body)")
         }
@@ -386,21 +437,22 @@ struct CodeBlockOptionsTests {
 struct CodeFitScriptTests {
     @Test("折り返しでは台本を走らせない")
     func wrapNeedsNothing() {
-        #expect(CodeFitScript.javaScript(for: CodeStyle(), pixelsPerPoint: 1.25) == nil)
+        #expect(CodeFitScript.javaScript(for: CodeStyle(), layoutWidth: 600) == nil)
     }
 
-    @Test("印刷の幅で測る")
+    @Test("組版の幅で測り、根の zoom の座標に直す")
     func measuresAtPrintWidth() throws {
         let script = try #require(
             CodeFitScript.javaScript(
-                for: CodeStyle(block: CodeBlockOptions(longLines: .shrink)), pixelsPerPoint: 1.25))
-        #expect(script.contains("root.clientWidth * 1.25"))
+                for: CodeStyle(block: CodeBlockOptions(longLines: .shrink)), layoutWidth: 637.8))
+        #expect(script.contains("(637.8 / zoom)"))
+        #expect(script.contains("'pre.code-block > code'"))
     }
 
     @Test("切る印の文言は文字列として埋め込む")
     func quotesTheFormat() throws {
         let style = CodeStyle(block: CodeBlockOptions(longLines: .cut), cutFormat: "+%d \"字\"")
-        let script = try #require(CodeFitScript.javaScript(for: style, pixelsPerPoint: 1))
+        let script = try #require(CodeFitScript.javaScript(for: style, layoutWidth: 600))
         #expect(script.contains(#"const format = "+%d \"字\"";"#))
     }
 }

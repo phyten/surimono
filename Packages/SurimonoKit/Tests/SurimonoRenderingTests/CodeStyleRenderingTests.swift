@@ -12,11 +12,45 @@ struct CodeStyleRenderingTests {
         try #require(try PrintThemeLibrary.load().first { $0.id == "standard" })
     }
 
-    private func settings(_ code: CodeStyle) throws -> RenderSettings {
+    private func settings(_ code: CodeStyle, textScale: Double = 1) throws -> RenderSettings {
         var settings = RenderSettings(
             layout: .a4Single, theme: try standard(), preset: HTMLCleanupPreset(id: "none", name: "None"))
         settings.code = code
+        settings.textScale = textScale
         return settings
+    }
+
+    private func document(
+        _ text: String, _ code: CodeStyle, format: DocumentFormat = .markdown, textScale: Double = 1
+    ) async throws -> PDFDocument {
+        _ = NSApplication.shared
+        let source = DocumentSource(data: Data(text.utf8), format: format)
+        return try await DocumentRenderer().render(source, settings: settings(code, textScale: textScale))
+            .logicalDocument
+    }
+
+    private func lines(_ document: PDFDocument) -> [Substring] {
+        (document.string ?? "").split(whereSeparator: \.isNewline)
+    }
+
+    /// How many characters print on a line at `textScale`: where a plain block wraps a long line in the real layout.
+    private func fittingCharacters(textScale: Double) async throws -> Int {
+        let wrapped = try await document(
+            "```\n\(String(repeating: "m", count: 600))\n```\n", CodeStyle(), textScale: textScale)
+        return try #require(lines(wrapped).first).count
+    }
+
+    /// The width of the text on the first page.
+    private func textWidth(_ document: PDFDocument) throws -> CGFloat {
+        let page = try #require(document.page(at: 0))
+        let selection = try #require(page.selection(for: page.bounds(for: .mediaBox)))
+        return selection.bounds(for: page).width
+    }
+
+    private func bounds(of text: String, in document: PDFDocument) throws -> CGRect {
+        let selection = try #require(document.findString(text, withOptions: []).first)
+        let page = try #require(selection.pages.first)
+        return selection.bounds(for: page)
     }
 
     private func text(_ markdown: String, _ code: CodeStyle) async throws -> String {
@@ -53,6 +87,74 @@ struct CodeStyleRenderingTests {
         #expect(text.contains("1"))
         #expect(text.contains("2"))
         #expect(text.contains("second"))
+    }
+
+    @Test("切る印は文字の大きさによらず、紙に入る行に付かず入らない行に付く", .timeLimit(.minutes(1)), arguments: [0.8, 1, 1.5, 2])
+    func cutFollowsTextScale(textScale: Double) async throws {
+        let style = CodeStyle(block: CodeBlockOptions(longLines: .cut), cutFormat: "+%d chars")
+        let fit = try await fittingCharacters(textScale: textScale)
+        func text(_ count: Int) async throws -> String {
+            let line = String(repeating: "m", count: count)
+            return try await document("```\n\(line)\n```\n", style, textScale: textScale).string ?? ""
+        }
+        #expect(try await !text(fit).contains("chars"))
+        #expect(try await text(fit + 1).contains("chars"))
+        let total = fit * 3
+        let long = try await text(total)
+        let match = try #require(long.firstMatch(of: /\+(\d+) chars/))
+        let hidden = try #require(Int(match.1))
+        // The mark takes the room of a few characters at the end of the line.
+        #expect(total - hidden < fit)
+        #expect(total - hidden > fit - 12)
+    }
+
+    @Test("文字を縮めるのは文字の大きさによらず、紙に入らない行のブロックだけで、幅いっぱいまで縮める", .timeLimit(.minutes(1)), arguments: [0.8, 1, 1.5, 2])
+    func shrinkFollowsTextScale(textScale: Double) async throws {
+        let style = CodeStyle(block: CodeBlockOptions(longLines: .shrink))
+        let fit = try await fittingCharacters(textScale: textScale)
+        let full = String(repeating: "m", count: fit)
+        let plainWidth = try textWidth(try await document("```\n\(full)\n```\n", CodeStyle(), textScale: textScale))
+        let fitting = try await document("```\n\(full)\n```\n", style, textScale: textScale)
+        #expect(abs(try textWidth(fitting) - plainWidth) < 1)
+
+        // Short of WebKit's smallest font, which at a small text size comes before the floor of the shrinking.
+        let long = String(repeating: "m", count: fit * 9 / 8)
+        let shrunk = try await document("```\n\(long)\n```\n", style, textScale: textScale)
+        #expect(lines(shrunk).count == 1)
+        #expect(try textWidth(shrunk) > plainWidth * 0.93)
+        #expect(try textWidth(shrunk) <= plainWidth + 1)
+    }
+
+    @Test("トークンの途中の空の行も行の高さを保つ", .timeLimit(.minutes(1)), arguments: [CodeBlockOptions.LongLines.wrap, .cut])
+    func blankLineInsideToken(longLines: CodeBlockOptions.LongLines) async throws {
+        let style = CodeStyle(block: CodeBlockOptions(lineNumbers: .all, longLines: longLines))
+        func gap(_ middle: String) async throws -> CGFloat {
+            let code = "```swift\n/* firstline\n\(middle)\nlastline */\n```\n"
+            let page = try await document(code, style)
+            return try bounds(of: "firstline", in: page).minY - bounds(of: "lastline", in: page).minY
+        }
+        let blank = try await gap("")
+        let filled = try await gap("middle")
+        #expect(abs(blank - filled) < 1)
+    }
+
+    @Test("右上の言語名は、長い 1 行目に重ならない", .timeLimit(.minutes(1)), arguments: [CodeBlockOptions.Frame.none, .style, .rule])
+    func cornerLabelLeavesTheFirstLine(frame: CodeBlockOptions.Frame) async throws {
+        let style = CodeStyle(block: CodeBlockOptions(frame: frame, languageLabel: .corner))
+        let page = try await document("```swift\n\(String(repeating: "m", count: 300))\n```\n", style)
+        let label = try bounds(of: "Swift", in: page)
+        let line = try bounds(of: "mmmmmmmm", in: page)
+        #expect(label.minY >= line.maxY - 1)
+    }
+
+    @Test("Org の EXAMPLE も文字を縮めると 1 行に収まる", .timeLimit(.minutes(1)))
+    func shrinkReachesOrgExample() async throws {
+        let line = String(repeating: "m", count: 90)
+        let org = "#+BEGIN_EXAMPLE\n\(line)\n#+END_EXAMPLE\n"
+        let wrapped = try await document(org, CodeStyle(block: CodeBlockOptions(frame: .rule)), format: .org)
+        let shrunk = try await document(org, CodeStyle(block: CodeBlockOptions(longLines: .shrink)), format: .org)
+        #expect(lines(wrapped).count > 1)
+        #expect(lines(shrunk).count == 1)
     }
 
     @Test("配色を変えると組み直し、同じ配色なら組み直さない", .timeLimit(.minutes(1)))

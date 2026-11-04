@@ -1040,8 +1040,12 @@ public final class DocumentRenderer {
             let margins = settings.layout.logicalMargins(options: settings.options)
             let marksScript = source.format == .markdown ? ChangeMarkAnchors.javaScript(settings.markdownChanges) : ""
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
+            let margins = WebPaginator.Margins.uniform(millimeters: margin)
             let codeScript =
-                CodeFitScript.javaScript(for: settings.code, pixelsPerPoint: WebPaginator.printPixelsPerPoint) ?? ""
+                CodeFitScript.javaScript(
+                    for: settings.code,
+                    layoutWidth: (pageSize.width - margins.left - margins.right) * WebPaginator.printPixelsPerPoint)
+                ?? ""
             // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
             let parts = [marksScript, codeScript, themeScript].filter { !$0.isEmpty }
             let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")

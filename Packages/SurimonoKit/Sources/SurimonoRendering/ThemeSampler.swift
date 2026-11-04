@@ -151,7 +151,7 @@ public final class ThemeSampler {
         if css.contains("@font-face") { try await WebPaginator.waitForResources(in: webView, timeout: timeout) }
         // Each theme has its own fonts and paddings, so its lines are fitted anew, as the samples are drawn a pixel to
         // a point.
-        if let script = CodeFitScript.javaScript(for: code, pixelsPerPoint: 1) {
+        if let script = CodeFitScript.javaScript(for: code, layoutWidth: printableSize.width) {
             _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
         }
         if let script = theme.script, !script.isEmpty {
