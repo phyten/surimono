@@ -10,8 +10,13 @@ struct PrintThemeRenderingTests {
     private func render(_ text: String, theme id: String, format: DocumentFormat = .markdown) async throws
         -> PDFDocument
     {
+        try await render(text, theme: try #require(PrintThemeLibrary.load().first { $0.id == id }), format: format)
+    }
+
+    private func render(_ text: String, theme: PrintTheme, format: DocumentFormat = .markdown) async throws
+        -> PDFDocument
+    {
         _ = NSApplication.shared
-        let theme = try #require(PrintThemeLibrary.load().first { $0.id == id })
         let settings = RenderSettings(
             layout: .a4Single, theme: theme, preset: HTMLCleanupPreset(id: "none", name: "None"))
         let result = try await DocumentRenderer().render(
@@ -41,40 +46,29 @@ struct PrintThemeRenderingTests {
 
     @Test("囲みの札と地とアイコンは印刷でも色のまま出る", .timeLimit(.minutes(1)))
     func calloutPrintsItsTagGroundAndIcon() async throws {
-        let document = try await render(":::warning 表題\n本文\n:::", theme: "standard")
-        let page = try #require(document.page(at: 0))
-        let image = try pixels(of: page)
-        func isClose(_ index: Int, _ color: [Int]) -> Bool {
-            (0..<3).allSatisfy { abs(Int(image.data[index + $0]) - color[$0]) <= 3 }
+        let text = ":::warning 表題\n本文\n:::"
+        let image = try pixels(of: try #require(try await render(text, theme: "standard").page(at: 0)))
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        // The same page with only the icon gone: hidden keeps the layout, so the two differ by the icon alone.
+        let hidden = standard.css + "\n.callout-icon { visibility: hidden; }"
+        let plain = PrintTheme(id: "plain", name: "Plain", css: hidden)
+        let control = try pixels(of: try #require(try await render(text, theme: plain).page(at: 0)))
+        func isClose(_ data: [UInt8], _ index: Int, _ color: [Int]) -> Bool {
+            (0..<3).allSatisfy { abs(Int(data[index + $0]) - color[$0]) <= 3 }
         }
-        var tagRows: [Int] = []
+        let tag = [0x79, 0x50, 0x0d]
+        var tagPixels = 0
         var groundPixels = 0
-        var tagLeft = image.width
-        for row in 0..<image.height {
-            var tagPixels = 0
-            for column in 0..<image.width {
-                let index = (row * image.width + column) * 4
-                if isClose(index, [0x79, 0x50, 0x0d]) {
-                    tagPixels += 1
-                    tagLeft = min(tagLeft, column)
-                }
-                // --callout-warning at 8% on white paper.
-                if isClose(index, [0xf4, 0xf0, 0xeb]) { groundPixels += 1 }
-            }
-            if tagPixels > 40 { tagRows.append(row) }
-        }
-        #expect(tagRows.count > 20)
-        #expect(groundPixels > 10000)
-        // The icon is drawn in the tag's ink between the tag's left edge and the title's first letter.
-        let title = ((page.string ?? "") as NSString).range(of: "表題").location
-        try #require(title != NSNotFound)
-        let titleLeft = Int(page.characterBounds(at: title).minX * 2)
         var iconPixels = 0
-        for row in tagRows {
-            for column in tagLeft..<titleLeft where isClose((row * image.width + column) * 4, [255, 255, 255]) {
-                iconPixels += 1
-            }
+        for index in stride(from: 0, to: image.data.count, by: 4) {
+            if isClose(image.data, index, tag) { tagPixels += 1 }
+            // --callout-warning at 8% on white paper.
+            if isClose(image.data, index, [0xf4, 0xf0, 0xeb]) { groundPixels += 1 }
+            // The icon's ink in the tag's ink, on what is otherwise the tag's fill.
+            if isClose(image.data, index, [255, 255, 255]), isClose(control.data, index, tag) { iconPixels += 1 }
         }
+        #expect(tagPixels > 1000)
+        #expect(groundPixels > 10000)
         #expect(iconPixels > 20)
     }
 

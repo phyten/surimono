@@ -35,7 +35,7 @@ struct MarkdownCalloutTests {
         ])
     func groups(name: String, style: String) {
         let body = MarkdownConverter.convert(":::\(name)\n本文\n:::").body
-        #expect(body.contains("class=\"callout callout-\(style)\" data-callout=\"\(name)\""))
+        #expect(body.contains("callout-\(style)\" data-callout=\"\(name)\""))
     }
 
     @Test("12 の名前と無地の囲みはそれぞれ別のアイコンを札に付ける")
@@ -95,15 +95,26 @@ struct MarkdownCalloutTests {
         #expect(body.contains("<span class=\"callout-name\">my-box</span>"))
     }
 
-    @Test("Zennのメッセージも名前の見出し語を札に出し、alertを危険の群にする")
+    @Test("Zennのメッセージは表題がなければ札を出さず、alertを危険の群にする")
     func zenn() {
-        for (marker, style, type, title) in [
-            ("message", "note", "message", "Message"), ("message alert", "danger", "alert", "Alert"),
-        ] {
+        for (marker, style, type) in [("message", "note", "message"), ("message alert", "danger", "alert")] {
             let body = MarkdownConverter.convert(":::\(marker)\n本文\n:::").body
             #expect(body.contains("callout-\(style)\" data-callout=\"\(type)\""))
-            #expect(body.contains(">\(title)</p>"))
+            #expect(!body.contains("callout-title"))
         }
+    }
+
+    @Test("Zennのメッセージに表題を書けば札に出す", arguments: [":::message 見出し", ":::message alert 見出し"])
+    func zennWithTitle(opening: String) {
+        #expect(MarkdownConverter.convert("\(opening)\n本文\n:::").body.contains("</svg>見出し</p>"))
+    }
+
+    @Test(
+        "以前 important のクラスだった名前は群のクラスの横に以前のクラスも持つ",
+        arguments: [("important", "warning"), ("example", "note")])
+    func compatibilityClass(name: String, style: String) {
+        let body = MarkdownConverter.convert(":::\(name)\n本文\n:::").body
+        #expect(body.contains("class=\"callout callout-important callout-\(style)\" data-callout=\"\(name)\""))
     }
 
     @Test("囲みを入れ子にでき未終了の囲みも閉じる")

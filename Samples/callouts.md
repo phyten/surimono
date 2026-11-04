@@ -81,6 +81,10 @@
 > [!caution] 別名は同じ群へ
 > `caution` は `danger` と同じ形です。
 
+:::message
+Zenn の `:::message` は札を出さず、枠と地だけの箱になります。
+:::
+
 :::tip
 入れ子もできます。
 

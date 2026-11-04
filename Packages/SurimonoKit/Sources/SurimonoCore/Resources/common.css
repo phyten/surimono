@@ -218,7 +218,20 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
-.callout-note { --callout-color: var(--callout-info); --callout-tint: var(--callout-info-tint); }
+/* Before the groups below, so a generated callout that carries this class beside its group takes the group's look. A
+   callout written by hand as raw HTML with this class alone reads as a warning. */
+.callout-important {
+    --callout-color: var(--callout-warning);
+    --callout-tint: var(--callout-warning-tint);
+    --callout-line: dashed;
+    --callout-line-width: calc(var(--callout-frame) + 0.35pt);
+}
+.callout-note {
+    --callout-color: var(--callout-info);
+    --callout-tint: var(--callout-info-tint);
+    --callout-line: solid;
+    --callout-line-width: var(--callout-frame);
+}
 .callout-tip {
     --callout-color: var(--callout-success);
     --callout-tint: var(--callout-success-tint);
@@ -266,8 +279,15 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
     break-after: avoid;
     page-break-after: avoid;
 }
+/* Links, emphasis and code keep the tag's ink: a theme's colour for them can be the tag's own ground, and a code or mark
+   background would sit under the tag's light ink. */
+.callout > .callout-title * { color: inherit; }
+.callout > .callout-title :is(code, kbd, mark) { background: none; }
 .callout > :first-child { margin-top: 0; }
 .callout > :last-child { margin-bottom: 0; }
+/* With no title there is no tag to sit on the frame: Zenn's message, or a callout written as raw HTML. */
+.callout:not(:has(> .callout-title)) { padding: 0.6em 0.85em; }
+.callout:not(:has(> .callout-title))::before { inset: 0; }
 .callout-icon {
     width: 1.15em;
     height: 1.15em;
