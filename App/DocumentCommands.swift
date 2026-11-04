@@ -75,8 +75,9 @@ struct DocumentCommands: Commands {
                     get: { model?.isSelectingText ?? false }, set: { _ in model?.toggleSelectingText() })
             )
             Toggle(
-                "Keep Menu Visible",
-                isOn: Binding(get: { model?.isMenuPinned ?? false }, set: { model?.isMenuPinned = $0 })
+                "Always Show Menu",
+                isOn: Binding(
+                    get: { model?.isBandAlwaysVisible ?? false }, set: { model?.isBandAlwaysVisible = $0 })
             )
             .keyboardShortcut("t", modifiers: [.option, .command])
             Toggle(

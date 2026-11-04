@@ -1,9 +1,9 @@
 import AppKit
 
-/// Window handling for the borderless view mode: the paper fills the window, the title bar is hidden, and the
-/// traffic lights appear together with the overlay menu.
+/// Window handling for the borderless view mode: the title bar is hidden, room for the bands is kept beside the paper,
+/// and the traffic lights appear together with the bands.
 enum ViewerWindow {
-    /// Shorter than the top margin of an A4 page in the standard style, so the band rarely covers text.
+    /// The room of one band. It is kept whether or not the band shows, so showing it never resizes the window.
     static let bandHeight: CGFloat = 38
     private static let minimumPaperHeight: CGFloat = 280
     /// Animated frame changes post live-resize notifications; these windows are being resized by the app itself.
@@ -118,7 +118,7 @@ enum ViewerWindow {
         return CGSize(width: size.width.rounded(), height: size.height.rounded())
     }
 
-    /// The current paper height of the window, excluding the band.
+    /// The current paper height of the window, excluding the room of the bands.
     static func paperHeight(of window: NSWindow, band: CGFloat) -> CGFloat {
         window.contentRect(forFrameRect: window.frame).height - band
     }
@@ -135,14 +135,6 @@ enum ViewerWindow {
         frame.origin.y = window.frame.maxY - frame.height
         setFrame(constrained(frame, on: window.screen), of: window, animate: animate)
         lockAspectRatio(of: window, unit: paper, band: band)
-    }
-
-    /// Adds or removes the band above the paper without moving the paper: the window grows or shrinks at the top.
-    static func setBand(_ band: CGFloat, previous: CGFloat, of window: NSWindow, unit: CGSize) {
-        var frame = window.frame
-        frame.size.height += band - previous
-        setFrame(constrained(frame, on: window.screen), of: window, animate: true)
-        lockAspectRatio(of: window, unit: unit, band: band)
     }
 
     static func lockAspectRatio(of window: NSWindow, unit: CGSize, band: CGFloat) {

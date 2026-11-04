@@ -41,8 +41,18 @@ final class AppPreferences {
     var defaultAlwaysOnTop: Bool {
         didSet { defaults.set(defaultAlwaysOnTop, forKey: "defaultAlwaysOnTop") }
     }
-    var defaultMenuPinned: Bool {
-        didSet { defaults.set(defaultMenuPinned, forKey: "defaultMenuPinned") }
+    var defaultBandVisibility: BandVisibility {
+        didSet { defaults.set(defaultBandVisibility.rawValue, forKey: "defaultBandVisibility") }
+    }
+    var menuArrangement: MenuArrangement {
+        didSet { defaults.set(menuArrangement.rawValue, forKey: "menuArrangement") }
+    }
+    var outlinePresentation: OutlinePresentation {
+        didSet { defaults.set(outlinePresentation.rawValue, forKey: "outlinePresentation") }
+    }
+    var showsOutlineOnBand: Bool { didSet { defaults.set(showsOutlineOnBand, forKey: "showsOutlineOnBand") } }
+    var changeFollowing: ChangeFollowing {
+        didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
     }
     var defaultTextScale: Double {
         didSet { defaults.set(defaultTextScale, forKey: "defaultTextScale") }
@@ -155,7 +165,20 @@ final class AppPreferences {
         defaultShowsCoverAlone = defaults.object(forKey: "defaultShowsCoverAlone") as? Bool
         loneCoverWidth = LoneCoverWidth(rawValue: defaults.string(forKey: "loneCoverWidth") ?? "") ?? .onePage
         defaultAlwaysOnTop = defaults.bool(forKey: "defaultAlwaysOnTop")
-        defaultMenuPinned = defaults.bool(forKey: "defaultMenuPinned")
+        // Earlier versions could only pin the band open when a window opened.
+        defaultBandVisibility =
+            BandVisibility(rawValue: defaults.string(forKey: "defaultBandVisibility") ?? "")
+            ?? (defaults.bool(forKey: "defaultMenuPinned") ? .always : .onHover)
+        menuArrangement =
+            Self.screenshotChoice("SurimonoMenuArrangement")
+            ?? MenuArrangement(rawValue: defaults.string(forKey: "menuArrangement") ?? "") ?? .split
+        outlinePresentation =
+            Self.screenshotChoice("SurimonoOutline")
+            ?? OutlinePresentation(rawValue: defaults.string(forKey: "outlinePresentation") ?? "") ?? .popover
+        showsOutlineOnBand = defaults.object(forKey: "showsOutlineOnBand") as? Bool ?? true
+        changeFollowing =
+            Self.screenshotChoice("SurimonoChanges")
+            ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .ask
         let scale = defaults.double(forKey: "defaultTextScale")
         defaultTextScale = TextScale.steps.contains(scale) ? scale : 1
         defaultPaperOrientation =
@@ -193,6 +216,16 @@ final class AppPreferences {
             names.insert($0.name)
             return true
         }
+    }
+
+    /// A choice for this run only. It takes part in the first assignment because any later one would be saved.
+    private static func screenshotChoice<Choice: RawRepresentable>(_ name: String) -> Choice?
+    where Choice.RawValue == String {
+        #if DEBUG
+            DebugSnapshot.argument(name).flatMap(Choice.init(rawValue:))
+        #else
+            nil
+        #endif
     }
 
     /// Confirmation belongs to the caller; replacing a name keeps its original place and identity.

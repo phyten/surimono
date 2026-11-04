@@ -15,6 +15,11 @@ final class OverlayMenuState {
     @ObservationIgnored private var pointerY: CGFloat?
     @ObservationIgnored private var menuTracking = 0
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    /// The window's content height; the bottom band's room is measured from it.
+    @ObservationIgnored var contentHeight: CGFloat = 0
+    @ObservationIgnored var hasBottomBand = false
+    /// Where the band's items stand in their band, for the popovers the band hangs off them.
+    @ObservationIgnored var itemFrames: [BandLayout.Item: CGRect] = [:]
     // Measurements outlive the band so it reopens with the tools that fit.
     var bandWidths: [BandSlot: CGFloat] = [:]
     var bandWidth: CGFloat = 0
@@ -51,7 +56,9 @@ final class OverlayMenuState {
 
     private var isHeld: Bool { isHolding || menuTracking > 0 }
     private var isPointerOverBand: Bool {
-        pointerY.map { $0 >= 0 && $0 <= Self.revealZone } ?? false
+        guard let pointerY else { return false }
+        if pointerY >= 0, pointerY <= Self.revealZone { return true }
+        return hasBottomBand && pointerY >= contentHeight - Self.revealZone && pointerY <= contentHeight
     }
 
     func pointerMoved(to point: CGPoint) {
@@ -87,8 +94,8 @@ final class OverlayMenuState {
         stage = .hidden
     }
 
-    func hideForEscape(pinned: Bool) -> Bool {
-        guard stage != .hidden, !pinned else { return false }
+    func hideForEscape(alwaysVisible: Bool) -> Bool {
+        guard stage != .hidden, !alwaysVisible else { return false }
         hideNow()
         return true
     }
@@ -113,13 +120,127 @@ final class OverlayMenuState {
     }
 }
 
-/// The band at the top of the view mode window. It shows as many tools as fit and folds the rest into "…" in one fixed
+/// What each band shows at the current width. The "…" menu is on the top band and takes in what left either band.
+struct BandPlans {
+    let top: BandLayout.Plan
+    /// Nil when the arrangement has no bottom band.
+    let bottom: BandLayout.Plan?
+
+    var overflow: [BandLayout.Item] {
+        let left = Set(top.overflow + (bottom?.overflow ?? []))
+        return BandLayout.Item.allCases.filter(left.contains)
+    }
+
+    init(model: DocumentViewModel, menu: OverlayMenuState) {
+        let measured = menu.bandWidths
+        let arrangement = model.menuArrangement
+        let available = menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude
+        func widths(at position: BandLayout.Position) -> [BandLayout.Item: BandLayout.Widths] {
+            var widths: [BandLayout.Item: BandLayout.Widths] = [:]
+            for item in BandLayout.Item.applicable(for: model)
+            where BandLayout.position(of: item, in: arrangement) == position {
+                let gap = item.bandGap(in: arrangement)
+                widths[item] = BandLayout.Widths(
+                    full: (measured[.item(item, .full)] ?? 0) + gap,
+                    compact: item.hasCompactForm ? (measured[.item(item, .compact)] ?? 0) + gap : nil)
+            }
+            return widths
+        }
+        let separator = 1 + OverlayBand.toolSpacing
+        // Until the band has been laid out once, its width is unknown: show everything rather than guess.
+        top = BandLayout.plan(
+            widths: widths(at: .top), fixed: OverlayBand.fixedWidth + (measured[.more] ?? 0), separator: separator,
+            name: measured[.name] ?? .greatestFiniteMagnitude, available: available)
+        bottom =
+            arrangement == .split
+            ? BandLayout.plan(
+                widths: widths(at: .bottom), fixed: BottomBand.fixedWidth, separator: separator, name: 0,
+                available: available, steps: BandLayout.bottomSteps)
+            : nil
+    }
+}
+
+/// The room of one band beside the paper. It stays whether or not the band shows, so that the window never changes
+/// with the pointer, and what the band leaves empty moves the window.
+struct BandZone<Content: View>: View {
+    static var coordinateSpace: String { "band" }
+
+    let edge: VerticalEdge
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ZStack {
+            WindowDragArea()
+            content
+        }
+        .frame(height: ViewerWindow.bandHeight)
+        .frame(maxWidth: .infinity)
+        .background(PrintPalette.raised)
+        .overlay(alignment: edge == .top ? .bottom : .top) { Divider() }
+        .coordinateSpace(name: Self.coordinateSpace)
+    }
+}
+
+/// An empty place that moves the window, as a title bar does.
+struct WindowDragArea: NSViewRepresentable {
+    final class DragView: NSView {
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    }
+
+    func makeNSView(context: Context) -> DragView { DragView() }
+    func updateNSView(_ view: DragView, context: Context) {}
+}
+
+extension View {
+    /// Records where a band's item stands, for the popover that hangs off it.
+    func bandItemFrame(_ item: BandLayout.Item, in menu: OverlayMenuState) -> some View {
+        onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named(BandZone<EmptyView>.coordinateSpace))
+        } action: { frame in
+            menu.itemFrames[item] = frame
+        }
+    }
+}
+
+/// The popovers of the table of contents and the document's figures. They hang off the band's room rather than off
+/// their buttons: `BandMeasurements` draws every item a second time, a folded item has no button, and the room stays
+/// when the band hides or rearranges.
+struct BandPopovers: View {
+    @Bindable var model: DocumentViewModel
+    let menu: OverlayMenuState
+    let plan: BandLayout.Plan?
+    let arrowEdge: Edge
+
+    var body: some View {
+        // One popover to a view: two on the same view would compete for its presentation.
+        ZStack {
+            Color.clear.popover(
+                isPresented: $model.isOutlinePresented, attachmentAnchor: anchor(.outline), arrowEdge: arrowEdge
+            ) {
+                OutlinePopover(model: model)
+            }
+            Color.clear.popover(
+                isPresented: $model.isFiguresPresented, attachmentAnchor: anchor(.pageIndicator), arrowEdge: arrowEdge
+            ) {
+                DocumentFiguresPopover(model: model)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func anchor(_ item: BandLayout.Item) -> PopoverAttachmentAnchor {
+        let frame = plan?.forms[item] != nil ? menu.itemFrames[item] : nil
+        return .rect(.rect(frame ?? CGRect(x: 16, y: 0, width: 80, height: ViewerWindow.bandHeight)))
+    }
+}
+
+/// The top band of the view mode window. It shows as many tools as fit and folds the rest into "…" in one fixed
 /// order (`BandLayout`). Every part keeps its identity whatever fits, so a popover opened from the band stays open
 /// when a layout change resizes the window.
 struct OverlayBand: View {
     @Bindable var model: DocumentViewModel
     let menu: OverlayMenuState
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     static let spacing: CGFloat = 10
     static let toolSpacing: CGFloat = 8
@@ -128,52 +249,21 @@ struct OverlayBand: View {
     private static let lightsWidth: CGFloat = 64
     private static let spacerMinimum: CGFloat = 8
     private static let trailingPadding: CGFloat = 8
+    /// What always stays apart from the "…" button: the room for the traffic lights, spacing and padding.
+    static var fixedWidth: CGFloat { lightsWidth + spacerMinimum + trailingPadding + spacing * 4 }
+
     var body: some View {
-        let items = BandLayout.Item.applicable(for: model)
-        let plan = plan(for: items)
+        let plans = BandPlans(model: model, menu: menu)
+        let plan = plans.top
         HStack(spacing: Self.spacing) {
             // Room for the traffic lights.
             Color.clear.frame(width: Self.lightsWidth, height: 1)
             title(plan)
             Spacer(minLength: Self.spacerMinimum)
-            tools(plan)
+            tools(plans)
             PrintButton(model: model, iconOnly: plan.forms[.print] == .compact)
         }
         .padding(.trailing, Self.trailingPadding)
-        .frame(height: ViewerWindow.bandHeight)
-        .frame(maxWidth: .infinity)
-        .background {
-            if reduceTransparency {
-                Color(nsColor: .windowBackgroundColor)
-            } else {
-                Rectangle().fill(.bar)
-            }
-        }
-        .overlay(alignment: .bottom) { Divider() }
-        .background(alignment: .topLeading) { BandMeasurements(model: model, items: items, menu: menu) }
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: { width in
-            if menu.bandWidth != width { menu.bandWidth = width }
-        }
-    }
-
-    private func plan(for items: [BandLayout.Item]) -> BandLayout.Plan {
-        let measured = menu.bandWidths
-        var widths: [BandLayout.Item: BandLayout.Widths] = [:]
-        for item in items {
-            widths[item] = BandLayout.Widths(
-                full: (measured[.item(item, .full)] ?? 0) + item.bandGap,
-                compact: item.hasCompactForm ? (measured[.item(item, .compact)] ?? 0) + item.bandGap : nil)
-        }
-        let fixed =
-            Self.lightsWidth + Self.spacerMinimum + Self.trailingPadding
-            + Self.spacing * 4 + (measured[.more] ?? 0)
-        // Until the band has been laid out once, its width is unknown: show everything rather than guess.
-        return BandLayout.plan(
-            widths: widths, fixed: fixed, separator: 1 + Self.toolSpacing,
-            name: measured[.name] ?? .greatestFiniteMagnitude,
-            available: menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude)
     }
 
     private func title(_ plan: BandLayout.Plan) -> some View {
@@ -187,24 +277,19 @@ struct OverlayBand: View {
                     .help(model.fileURL?.path ?? model.displayName)
             }
             if plan.forms[.formatBadge] != nil { FormatBadge(text: model.formatBadge) }
-            if plan.forms[.pageIndicator] != nil { PageIndicatorText(model: model) }
+            if plan.forms[.pageIndicator] != nil {
+                PageIndicatorButton(model: model).bandItemFrame(.pageIndicator, in: menu)
+            }
         }
     }
 
-    private func tools(_ plan: BandLayout.Plan) -> some View {
-        let shown = BandLayout.Item.allCases.filter { $0.group != nil && plan.forms[$0] != nil }
-        return HStack(spacing: Self.toolSpacing) {
-            ForEach(Array(shown.enumerated()), id: \.element) { index, item in
-                if index > 0, shown[index - 1].group != item.group {
-                    Divider().frame(height: 16)
-                }
-                BandItemView(model: model, item: item, form: plan.forms[item] ?? .full)
-            }
-            BandMoreMenu(model: model, overflow: plan.overflow, header: header(plan))
+    private func tools(_ plans: BandPlans) -> some View {
+        HStack(spacing: Self.toolSpacing) {
+            BandTools(model: model, menu: menu, plan: plans.top)
+            BandMoreMenu(model: model, overflow: plans.overflow, header: header(plans))
                 .popover(isPresented: $model.isViewOptionsPresented, arrowEdge: .bottom) {
                     ViewOptionsPopover(model: model)
                 }
-
         }
         .buttonStyle(.borderless)
         .controlSize(.regular)
@@ -213,15 +298,62 @@ struct OverlayBand: View {
         .fixedSize()
     }
 
-    /// The document's name, format and page, when the band no longer shows them in full.
-    private func header(_ plan: BandLayout.Plan) -> String? {
+    /// The document's name, format and page, when the bands no longer show them in full.
+    private func header(_ plans: BandPlans) -> String? {
+        let plan = plans.top
         let truncated = plan.nameWidth + 0.5 < (menu.bandWidths[.name] ?? 0)
         guard
-            !plan.showsName || truncated || plan.overflow.contains(.formatBadge)
-                || plan.overflow.contains(.pageIndicator)
+            !plan.showsName || truncated || plans.overflow.contains(.formatBadge)
+                || plans.overflow.contains(.pageIndicator)
         else { return nil }
         return ([model.displayName, model.formatBadge] + [model.pageIndicator].compactMap { $0 })
             .joined(separator: " · ")
+    }
+}
+
+/// The band under the paper when the menu is split: the reading tools on the left, the page on the right.
+struct BottomBand: View {
+    @Bindable var model: DocumentViewModel
+    let menu: OverlayMenuState
+    let plan: BandLayout.Plan
+
+    private static let padding: CGFloat = 10
+    private static let spacerMinimum: CGFloat = 8
+    static var fixedWidth: CGFloat { padding * 2 + spacerMinimum }
+
+    var body: some View {
+        HStack(spacing: OverlayBand.toolSpacing) {
+            BandTools(model: model, menu: menu, plan: plan)
+            Spacer(minLength: Self.spacerMinimum)
+            if plan.forms[.pageIndicator] != nil {
+                PageIndicatorButton(model: model).bandItemFrame(.pageIndicator, in: menu)
+            }
+            if plan.forms[.pageTurn] != nil { PageTurnButtons(model: model) }
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.regular)
+        .padding(.horizontal, Self.padding)
+    }
+}
+
+/// The grouped tools of one band, with a thin separator between the groups.
+struct BandTools: View {
+    @Bindable var model: DocumentViewModel
+    let menu: OverlayMenuState
+    let plan: BandLayout.Plan
+
+    var body: some View {
+        let shown = BandLayout.Item.allCases.filter { $0.group != nil && plan.forms[$0] != nil }
+        HStack(spacing: OverlayBand.toolSpacing) {
+            ForEach(Array(shown.enumerated()), id: \.element) { index, item in
+                if index > 0, shown[index - 1].group != item.group {
+                    Divider().frame(height: 16)
+                }
+                BandItemView(model: model, item: item, form: plan.forms[item] ?? .full)
+                    .bandItemFrame(item, in: menu)
+            }
+        }
+        .fixedSize()
     }
 }
 

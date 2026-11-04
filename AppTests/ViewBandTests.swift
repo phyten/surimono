@@ -1,0 +1,342 @@
+import AppKit
+import Foundation
+import PDFKit
+import SurimonoCore
+import SurimonoRendering
+import Testing
+
+@testable import Surimono
+
+@MainActor
+@Suite(.timeLimit(.minutes(1)))
+struct ViewBandTests {
+    @MainActor private struct Environment {
+        let preferences: AppPreferences
+        let library: UserLibrary
+        let store: DocumentSettingsStore
+        let directory: URL
+        let suite: TestDefaultsSuite
+
+        init() {
+            directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            suite = TestDefaultsSuite()
+            preferences = AppPreferences(defaults: suite.defaults)
+            library = UserLibrary(root: directory.appendingPathComponent("Library"))
+            store = DocumentSettingsStore(directory: directory.appendingPathComponent("Settings"))
+        }
+
+        func cleanUp() {
+            try? FileManager.default.removeItem(at: directory)
+            suite.remove()
+        }
+
+        func model(_ data: Data, format: DocumentFormat = .pdf, pages: Data? = nil) -> DocumentViewModel {
+            let renderer = DocumentRenderer(paginate: { _ in
+                try #require(PDFDocument(data: pages ?? TestFixtures.pdf("Pages")))
+            })
+            return DocumentViewModel(
+                data: data, fileURL: nil, format: format, preferences: preferences, library: library,
+                renderer: renderer, settingsStore: store)
+        }
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        for _ in 0..<500 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(condition())
+    }
+
+    private func open(_ model: DocumentViewModel) async throws {
+        model.start()
+        try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
+    }
+
+    @Test("新しい設定の既定は上と下に分ける・乗せたときに出す・ポップオーバー・帯に目次・トースト")
+    func defaults() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        #expect(preferences.menuArrangement == .split)
+        #expect(preferences.defaultBandVisibility == .onHover)
+        #expect(preferences.outlinePresentation == .popover)
+        #expect(preferences.showsOutlineOnBand)
+        #expect(preferences.changeFollowing == .ask)
+    }
+
+    @Test("設定は次の起動でも覚えている")
+    func preferencesPersist() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .top
+        environment.preferences.outlinePresentation = .drawer
+        environment.preferences.showsOutlineOnBand = false
+        environment.preferences.changeFollowing = .jump
+        let restored = AppPreferences(defaults: environment.suite.defaults)
+        #expect(restored.menuArrangement == .top)
+        #expect(restored.outlinePresentation == .drawer)
+        #expect(!restored.showsOutlineOnBand)
+        #expect(restored.changeFollowing == .jump)
+    }
+
+    @Test("旧版の常に固定の記録は常に出すとして読む")
+    func migratesPinnedDefault() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(true, forKey: "defaultMenuPinned")
+        #expect(AppPreferences(defaults: suite.defaults).defaultBandVisibility == .always)
+    }
+
+    @Test("新しい設定を選んだあとは旧版の記録より優先する")
+    func newChoiceWinsOverPinnedRecord() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(true, forKey: "defaultMenuPinned")
+        AppPreferences(defaults: suite.defaults).defaultBandVisibility = .onHover
+        #expect(AppPreferences(defaults: suite.defaults).defaultBandVisibility == .onHover)
+    }
+
+    @Test("帯を出しても隠しても窓の大きさは変わらない")
+    func visibilityKeepsWindow() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(TestFixtures.pdf("Window"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        let frame = window.frame
+        model.toggleBandVisibility()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(window.frame == frame)
+        model.toggleBandVisibility()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(window.frame == frame)
+    }
+
+    @Test("上だけなら帯 1 本ぶん、上と下に分けると 2 本ぶんの場所を紙の外に取る")
+    func bandRoomFollowsArrangement() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .top
+        let model = environment.model(TestFixtures.pdf("Room"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        let unit = try #require(model.paperUnitSize)
+        let paper = ViewerWindow.initialPaperSize(unit: unit, on: window.screen)
+        #expect(abs(window.contentRect(forFrameRect: window.frame).height - paper.height - 38) <= 1)
+        // Room below the window, or it would be moved to stay on the screen.
+        let visible = try #require(window.screen?.visibleFrame)
+        window.setFrameTopLeftPoint(NSPoint(x: visible.minX, y: visible.maxY))
+        let top = window.frame.maxY
+        environment.preferences.menuArrangement = .split
+        try await waitUntil { abs(window.contentRect(forFrameRect: window.frame).height - paper.height - 76) <= 1 }
+        #expect(abs(window.frame.maxY - top) <= 1)
+    }
+
+    @Test("帯の出し方は文書ごとに覚え、既定と同じなら記録を増やさない")
+    func visibilityIsRememberedPerDocument() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let data = TestFixtures.pdf("Remember")
+        let first = environment.model(data)
+        try await open(first)
+        #expect(first.rememberedSettings.bandVisibility == nil)
+        first.bandVisibility = .always
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        first.stop()
+        let second = environment.model(data)
+        defer { second.stop() }
+        try await open(second)
+        #expect(second.bandVisibility == .always)
+        second.resetDocumentSettings()
+        #expect(second.bandVisibility == .onHover)
+    }
+
+    @Test("文字の文書は A判 / B判 を切り替えられ、B判は B5 の用紙で組み、記録に残す")
+    func paperSeriesChangesLayout() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let data = Data("# 見出し\n\n本文".utf8)
+        let first = environment.model(data, format: .markdown)
+        try await open(first)
+        #expect(first.offersPaperSeries)
+        #expect(first.renderSettings?.layout == .a4Single)
+        #expect(first.rememberedSettings.paperSeries == nil)
+        first.paperSeries = .b
+        #expect(first.renderSettings?.layout == .b5Single)
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        first.stop()
+        let second = environment.model(data, format: .markdown)
+        defer { second.stop() }
+        try await open(second)
+        #expect(second.paperSeries == .b)
+        #expect(second.renderSettings?.layout == .b5Single)
+    }
+
+    @Test("刷り台は紙の判ではなく印刷レイアウトで組む")
+    func trayKeepsPrintLayout() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(Data("本文".utf8), format: .markdown)
+        defer { model.stop() }
+        model.paperSeries = .b
+        model.layoutID = PrintLayout.a4Duplex.id
+        model.mode = .print
+        #expect(model.renderSettings?.layout == .a4Duplex)
+    }
+
+    @Test("PDF と画像には紙の判の切り替えを出さない")
+    func paperSeriesNeedsText() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let pdf = environment.model(TestFixtures.pdf("PDF"))
+        let image = environment.model(TestFixtures.png(red: 1), format: .image)
+        defer {
+            pdf.stop()
+            image.stop()
+        }
+        #expect(!pdf.offersPaperSeries)
+        #expect(!image.offersPaperSeries)
+        #expect(!SecondaryViewControl.applicable(for: pdf).contains(.paperSeries))
+    }
+
+    @Test("Markdown の見出しは [TOC] がなくても目次になり、そのページを持つ")
+    func markdownOutline() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(
+            Data("# First Chapter\n\nbody\n\n# Second Chapter\n\nbody".utf8), format: .markdown,
+            pages: TestFixtures.textPDF(["First Chapter", "Body", "Second Chapter"]))
+        defer { model.stop() }
+        try await open(model)
+        try await waitUntil { !model.outlineEntries.isEmpty }
+        #expect(
+            model.outlineEntries == [
+                OutlineEntry(level: 1, title: "First Chapter", pageIndex: 0),
+                OutlineEntry(level: 1, title: "Second Chapter", pageIndex: 2),
+            ])
+        #expect(model.hasOutline)
+        #expect(BandLayout.Item.applicable(for: model).contains(.outline))
+    }
+
+    @Test("今のページに応じて読んでいる章を選ぶ")
+    func currentChapter() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(
+            Data("# First Chapter\n\n# Second Chapter".utf8), format: .markdown,
+            pages: TestFixtures.textPDF(["First Chapter", "Body", "Second Chapter", "Body"]))
+        defer { model.stop() }
+        try await open(model)
+        try await waitUntil { !model.outlineEntries.isEmpty }
+        model.setLayout(.single)
+        model.currentPageIndex = 1
+        #expect(model.currentOutlineEntry == 0)
+        model.currentPageIndex = 3
+        #expect(model.currentOutlineEntry == 1)
+    }
+
+    @Test("見出しのない文書には目次を出さない")
+    func noHeadingsNoOutline() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(Data("本文だけ".utf8), format: .markdown)
+        defer { model.stop() }
+        try await open(model)
+        try await waitUntil { model.documentStatistics != nil }
+        #expect(!model.hasOutline)
+        #expect(!BandLayout.Item.applicable(for: model).contains(.outline))
+    }
+
+    @Test("帯から外す設定では目次の部品を帯に置かない")
+    func outlineCanLeaveTheBand() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.showsOutlineOnBand = false
+        let model = environment.model(
+            Data("# First Chapter".utf8), format: .markdown, pages: TestFixtures.textPDF(["First Chapter"]))
+        defer { model.stop() }
+        try await open(model)
+        try await waitUntil { model.hasOutline }
+        #expect(!BandLayout.Item.applicable(for: model).contains(.outline))
+    }
+
+    @Test("目次の出し方に従ってポップオーバーか引き出しを開く")
+    func outlinePresentation() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(
+            Data("# First Chapter".utf8), format: .markdown, pages: TestFixtures.textPDF(["First Chapter"]))
+        defer { model.stop() }
+        try await open(model)
+        try await waitUntil { model.hasOutline }
+        model.toggleOutline()
+        #expect(model.isOutlinePresented)
+        #expect(!model.showsOutlineDrawer)
+        model.toggleOutline()
+        environment.preferences.outlinePresentation = .drawer
+        model.toggleOutline()
+        #expect(!model.isOutlinePresented)
+        #expect(model.showsOutlineDrawer)
+    }
+
+    @Test("ポップオーバーの目次は項目を選ぶと閉じる")
+    func choosingEntryClosesPopover() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(TestFixtures.pdf("Choose"))
+        defer { model.stop() }
+        model.isOutlinePresented = true
+        model.goToOutlineEntry(OutlineEntry(level: 1, title: "章", pageIndex: 1))
+        #expect(!model.isOutlinePresented)
+    }
+
+    @Test("文字の文書は文字数を持ち、PDF は持たない")
+    func statisticsNeedText() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let text = environment.model(Data("# 見出し\n\n本文です".utf8), format: .markdown)
+        let pdf = environment.model(TestFixtures.pdf("Figures"))
+        defer {
+            text.stop()
+            pdf.stop()
+        }
+        try await open(text)
+        try await open(pdf)
+        try await waitUntil { text.documentStatistics != nil }
+        #expect(text.documentStatistics?.characters == 7)
+        #expect(pdf.documentStatistics == nil)
+    }
+
+    @Test("文書の数字から刷り台へ移ると数字を閉じる")
+    func figuresLeadToTray() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(TestFixtures.pdf("Tray"))
+        defer { model.stop() }
+        model.isFiguresPresented = true
+        model.checkFiguresOnTray()
+        #expect(!model.isFiguresPresented)
+        #expect(model.mode == .print)
+    }
+
+    @Test("ページ送りのボタンは 2 ページ以上ある上下分割の下の帯にだけ置く")
+    func pageTurnNeedsPagesAndSplit() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(TestFixtures.pdf("Turn"))
+        defer { model.stop() }
+        #expect(!BandLayout.Item.applicable(for: model).contains(.pageTurn))
+        try await open(model)
+        #expect(BandLayout.Item.applicable(for: model).contains(.pageTurn))
+        environment.preferences.menuArrangement = .top
+        #expect(!BandLayout.Item.applicable(for: model).contains(.pageTurn))
+    }
+}

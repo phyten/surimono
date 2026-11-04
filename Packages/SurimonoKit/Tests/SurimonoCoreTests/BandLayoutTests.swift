@@ -10,6 +10,17 @@ struct BandLayoutTests {
         .zoom: .init(full: 50), .thumbnails: .init(full: 30), .print: .init(full: 70, compact: 34),
     ]
 
+    private let bottomWidths: [BandLayout.Item: BandLayout.Widths] = [
+        .style: .init(full: 90, compact: 40), .outline: .init(full: 60, compact: 30), .layout: .init(full: 60),
+        .transition: .init(full: 100, compact: 40), .pageIndicator: .init(full: 50), .pageTurn: .init(full: 60),
+    ]
+
+    private func bottomPlan(_ available: CGFloat) -> BandLayout.Plan {
+        BandLayout.plan(
+            widths: bottomWidths, fixed: 30, separator: 10, name: 0, available: available,
+            steps: BandLayout.bottomSteps)
+    }
+
     private func plan(_ available: CGFloat, name: CGFloat = 120) -> BandLayout.Plan {
         BandLayout.plan(widths: widths, fixed: 150, separator: 10, name: name, available: available)
     }
@@ -18,7 +29,8 @@ struct BandLayoutTests {
     func itemsFollowTheSpecification() {
         #expect(
             BandLayout.Item.allCases == [
-                .formatBadge, .pageIndicator, .presentation, .style, .layout, .transition, .zoom, .thumbnails, .print,
+                .formatBadge, .pageIndicator, .presentation, .style, .outline, .layout, .transition, .zoom,
+                .thumbnails, .pageTurn, .print,
             ])
     }
 
@@ -26,10 +38,58 @@ struct BandLayoutTests {
     func stepsFollowTheSpecification() {
         #expect(
             BandLayout.steps == [
-                .compact(.style), .compact(.transition), .compact(.presentation),
+                .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
                 .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
-                .remove(.layout), .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .compact(.print),
+                .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
+                .compact(.print),
             ])
+    }
+
+    @Test("下の帯は名前を省いたあと、見方の操作から畳み、ページ表示を最後まで残す")
+    func bottomStepsFollowTheSpecification() {
+        #expect(
+            BandLayout.bottomSteps == [
+                .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
+                .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style), .remove(.outline),
+                .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
+            ])
+    }
+
+    @Test("上と下に分けると、上の帯には形式の印と印刷だけが残る")
+    func splitPlacesItems() {
+        let top = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .top }
+        #expect(top == [.formatBadge, .print])
+    }
+
+    @Test("上だけなら、すべての部品が上の帯に並ぶ")
+    func topKeepsEverything() {
+        #expect(BandLayout.Item.allCases.allSatisfy { BandLayout.position(of: $0, in: .top) == .top })
+    }
+
+    @Test(
+        "下の帯も幅の境界を1pt下回ると次の部品だけが場所を空ける",
+        arguments: [
+            (460, [], []),
+            (459, [], [.style]),
+            (409, [], [.style, .transition]),
+            (349, [], [.outline, .style, .transition]),
+            (319, [.transition], [.outline, .style]),
+            (279, [.layout, .transition], [.outline, .style]),
+            (209, [.layout, .transition, .pageTurn], [.outline, .style]),
+            (149, [.style, .layout, .transition, .pageTurn], [.outline]),
+            (109, [.style, .outline, .layout, .transition, .pageTurn], []),
+            (79, [.pageIndicator, .style, .outline, .layout, .transition, .pageTurn], []),
+        ] as [(CGFloat, [BandLayout.Item], Set<BandLayout.Item>)])
+    func bottomBoundaries(available: CGFloat, overflow: [BandLayout.Item], compact: Set<BandLayout.Item>) {
+        let result = bottomPlan(available)
+        #expect(result.overflow == overflow)
+        #expect(Set(result.forms.filter { $0.value == .compact }.keys) == compact)
+    }
+
+    @Test("下の帯は名前を持たないので、名前の場所を取らない")
+    func bottomBandHasNoName() {
+        #expect(bottomPlan(480).nameWidth == 0)
+        #expect(!bottomPlan(480).showsName)
     }
 
     @Test("すべて入る幅では元の形で並びファイル名も元の幅になる")

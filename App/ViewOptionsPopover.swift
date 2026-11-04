@@ -48,6 +48,12 @@ struct ViewOptionsPopover: View {
                             .toggleStyle(.switch).controlSize(.small)
                     }
                 }
+                if model.offersPaperSeries {
+                    GridRow {
+                        rowLabel("Paper Series")
+                        PaperSeriesPicker(selection: $model.paperSeries)
+                    }
+                }
                 if model.marginsApply {
                     GridRow {
                         rowLabel("Margins")
@@ -55,6 +61,17 @@ struct ViewOptionsPopover: View {
                             MarginControl(model: model)
                             Text("mm").foregroundStyle(.secondary)
                         }
+                    }
+                }
+                GridRow {
+                    rowLabel("Show Menu")
+                    BandVisibilityPicker(selection: $model.bandVisibility)
+                }
+                if !model.outlineEntries.isEmpty {
+                    GridRow {
+                        rowLabel("Put Contents on the Menu")
+                        Toggle("Put Contents on the Menu", isOn: Bindable(model.preferences).showsOutlineOnBand)
+                            .toggleStyle(.switch).controlSize(.small)
                     }
                 }
             }
@@ -100,6 +117,49 @@ struct ViewOptionsPopover: View {
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
         model.viewOption(keyPath)
     }
+}
+
+/// The settings' default and the document's own choice of when the bands show.
+struct BandVisibilityPicker: View {
+    @Binding var selection: BandVisibility
+
+    var body: some View {
+        Picker("Show Menu", selection: $selection) {
+            Text("On Hover").tag(BandVisibility.onHover)
+            Text("Always").tag(BandVisibility.always)
+        }
+    }
+}
+
+struct PaperSeriesPicker: View {
+    @Binding var selection: ViewPaperSeries
+
+    var body: some View {
+        Picker("Paper Series", selection: $selection) {
+            ForEach(ViewPaperSeries.allCases, id: \.self) { series in
+                Text(series.title).tag(series)
+            }
+        }
+    }
+}
+
+extension ViewPaperSeries {
+    var title: LocalizedStringKey {
+        switch self {
+        case .a: "A Sizes"
+        case .b: "B Sizes"
+        }
+    }
+
+    var name: String {
+        switch self {
+        case .a: String(localized: "A Sizes")
+        case .b: String(localized: "B Sizes")
+        }
+    }
+
+    /// The sheet the figures count, without the "(JIS)" the print layouts carry.
+    var sheetName: String { self == .a ? "A4" : "B5" }
 }
 
 extension ViewOptions.Transition {

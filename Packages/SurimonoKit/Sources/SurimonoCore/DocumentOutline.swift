@@ -13,6 +13,19 @@ public struct DocumentHeading: Equatable, Sendable {
     }
 }
 
+/// One line of a table of contents; a heading that was not found on any page has no page to go to.
+public struct OutlineEntry: Equatable, Sendable {
+    public var level: Int
+    public var title: String
+    public var pageIndex: Int?
+
+    public init(level: Int, title: String, pageIndex: Int?) {
+        self.level = level
+        self.title = title
+        self.pageIndex = pageIndex
+    }
+}
+
 /// Reads the structure of a document's HTML: the headings for tables of contents and the amount of text.
 public enum DocumentOutline {
     private static let hiddenElements: Set<String> = ["rt", "rp", "svg", "math"]
@@ -203,6 +216,17 @@ public enum DocumentOutline {
         }
     }
 
+    public static func entries(of headings: [DocumentHeading], inPageTexts pages: [String]) -> [OutlineEntry] {
+        zip(headings, self.pages(of: headings, inPageTexts: pages)).map { heading, page in
+            OutlineEntry(level: heading.level, title: heading.text, pageIndex: page)
+        }
+    }
+
+    /// The entry the reader is in on `page`: the last one that started by then.
+    public static func currentEntry(in entries: [OutlineEntry], page: Int) -> Int? {
+        entries.lastIndex { entry in entry.pageIndex.map { $0 <= page } ?? false }
+    }
+
     public static func title(ofHTML html: String) -> String? {
         let range = NSRange(html.startIndex..., in: html)
         guard let match = titlePattern.firstMatch(in: html, range: range),
@@ -298,6 +322,9 @@ public struct DocumentStatistics: Equatable, Sendable {
     public var readingMinutes: Int { characters == 0 ? 0 : max(1, Int((Double(characters) / 500).rounded())) }
 
     public init(characters: Int) { self.characters = characters }
+
+    /// Two pages to a sheet.
+    public static func duplexSheets(pageCount: Int) -> Int { (pageCount + 1) / 2 }
 
     public init(html: String) {
         characters = DocumentOutline.plainText(ofHTML: html).unicodeScalars.reduce(into: 0) { count, scalar in

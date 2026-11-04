@@ -15,7 +15,7 @@ struct DocumentViewModelTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let preferences = AppPreferences(defaults: suite.defaults)
         preferences.defaultAlwaysOnTop = true
-        preferences.defaultMenuPinned = true
+        preferences.defaultBandVisibility = .always
         preferences.defaultTextScale = 1.5
         preferences.defaultPaperOrientation = .portrait
         preferences.loneCoverWidth = .twoPages
@@ -38,7 +38,7 @@ struct DocumentViewModelTests {
             for model in models { model.stop() }
         }
         for model in models {
-            #expect(model.isAlwaysOnTop && model.isMenuPinned)
+            #expect(model.isAlwaysOnTop && model.isBandAlwaysVisible)
             #expect(model.paperOrientation == .portrait)
             #expect(model.loneCoverWidth == .twoPages)
             #expect(model.textScale == (model.usesPrintTheme ? 1.5 : 1))
@@ -46,13 +46,13 @@ struct DocumentViewModelTests {
         }
         let freshPreferences = AppPreferences(defaults: suite.defaults)
         freshPreferences.defaultAlwaysOnTop = false
-        freshPreferences.defaultMenuPinned = false
+        freshPreferences.defaultBandVisibility = .onHover
         let next = DocumentViewModel(
             data: Data(), fileURL: nil, format: .pdf,
             preferences: freshPreferences, library: library)
         defer { next.stop() }
-        #expect(!next.isAlwaysOnTop && !next.isMenuPinned)
-        #expect(models.allSatisfy { $0.isAlwaysOnTop && $0.isMenuPinned })
+        #expect(!next.isAlwaysOnTop && !next.isBandAlwaysVisible)
+        #expect(models.allSatisfy { $0.isAlwaysOnTop && $0.isBandAlwaysVisible })
     }
 
     @Test("1 ページ幅の設定では、見開きで表紙を見ている表示モードの間だけ表紙を 1 ページ幅で出す")

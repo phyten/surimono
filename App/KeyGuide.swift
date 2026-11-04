@@ -65,7 +65,7 @@ struct KeyGuide: View {
                 }
                 .foregroundStyle(Color.primary)
                 Divider()
-                Text("Paper keys work when the paper has focus. A pinned menu band stays visible.")
+                Text("Paper keys work when the paper has focus. A menu band set to always show stays visible.")
                 Text(
                     "Edge clicks and double-click zoom work when text selection is off. Edge clicks also require fit-to-window and non-continuous page turns."
                 )

@@ -15,6 +15,25 @@ struct OverlayMenuStateTests {
         #expect(menu.stage == .full)
     }
 
+    @Test("上と下に分けると下の帯の場所でも全体を表示する")
+    func bottomZoneShowsBands() {
+        let menu = OverlayMenuState()
+        menu.hasBottomBand = true
+        menu.contentHeight = 800
+        menu.pointerMoved(to: CGPoint(x: 200, y: 761))
+        #expect(menu.stage == .hidden)
+        menu.pointerMoved(to: CGPoint(x: 200, y: 762))
+        #expect(menu.stage == .full)
+    }
+
+    @Test("上だけのときは窓の下端に乗せても帯を出さない")
+    func noBottomZoneWithoutBottomBand() {
+        let menu = OverlayMenuState()
+        menu.contentHeight = 800
+        menu.pointerMoved(to: CGPoint(x: 200, y: 790))
+        #expect(menu.stage == .hidden)
+    }
+
     @Test("帯から本文へ離れると1秒後に隠れ、本文で動いても延長しない", .timeLimit(.minutes(1)))
     func leavingBandStartsOneTimer() async throws {
         let menu = OverlayMenuState()
@@ -106,9 +125,9 @@ struct OverlayMenuStateTests {
     func escapeAndPin() async throws {
         let menu = OverlayMenuState()
         menu.pointerMoved(to: CGPoint(x: 200, y: 20))
-        #expect(!menu.hideForEscape(pinned: true))
+        #expect(!menu.hideForEscape(alwaysVisible: true))
         #expect(menu.stage == .full)
-        #expect(menu.hideForEscape(pinned: false))
+        #expect(menu.hideForEscape(alwaysVisible: false))
         try await Task.sleep(for: .milliseconds(300))
         #expect(menu.stage == .hidden)
     }

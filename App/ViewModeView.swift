@@ -2,20 +2,38 @@ import AppKit
 import SurimonoCore
 import SwiftUI
 
-// The paper keeps its space while the band appears above it.
+// The bands have their own room beside the paper and never cover it. The pointer only shows and hides what is in that
+// room, so the window keeps its size.
 struct ViewModeView: View {
     @Bindable var model: DocumentViewModel
     @State private var menu = OverlayMenuState()
 
-    private var bandVisible: Bool { model.isMenuPinned || menu.stage != .hidden }
+    private var bandVisible: Bool { model.isBandAlwaysVisible || menu.stage != .hidden }
+    private var isSplit: Bool { model.menuArrangement == .split }
+    /// What floats over the paper stays clear of the bottom band's room.
+    private var bottomInset: CGFloat { isSplit ? ViewerWindow.bandHeight : 0 }
+    private var holdsBand: Bool {
+        model.isViewOptionsPresented || model.isThemePalettePresented || model.isOutlinePresented
+            || model.isFiguresPresented
+    }
 
     var body: some View {
+        let plans = BandPlans(model: model, menu: menu)
         ZStack(alignment: .top) {
-            PaperArea(model: model, menu: menu)
-                .padding(.top, model.isMenuPinned ? ViewerWindow.bandHeight : 0)
+            VStack(spacing: 0) {
+                topZone(plans)
+                HStack(spacing: 0) {
+                    if model.showsOutlineDrawer {
+                        OutlineDrawer(model: model).transition(.move(edge: .leading))
+                    }
+                    PaperArea(model: model, menu: menu)
+                }
+                if isSplit, let plan = plans.bottom { bottomZone(plan) }
+            }
             if let bundle = model.imageBundle, model.isDrawerOpen {
                 ImageBundleDrawer(model: bundle, onClose: { model.isDrawerOpen = false })
                     .padding(.top, ViewerWindow.bandHeight + 8)
+                    .padding(.bottom, bottomInset)
                     .padding([.leading, .bottom], 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
@@ -23,6 +41,7 @@ struct ViewModeView: View {
             if model.binder != nil, model.isDrawerOpen {
                 BinderDrawer(model: model)
                     .padding(.top, ViewerWindow.bandHeight + 8)
+                    .padding(.bottom, bottomInset)
                     .padding([.leading, .bottom], 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
@@ -30,21 +49,19 @@ struct ViewModeView: View {
             if model.isReviewingSmartRemoval {
                 SmartRemovalPanel(model: model)
                     .padding(.top, ViewerWindow.bandHeight + 8)
+                    .padding(.bottom, bottomInset)
                     .padding([.trailing, .bottom], 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
-            if bandVisible {
-                OverlayBand(model: model, menu: menu)
-                    .transition(.opacity)
-            }
-            ToastOverlay(model: model)
+            ToastOverlay(model: model).padding(.bottom, bottomInset)
             ThemePaletteAnchor(model: model)
         }
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
         .animation(.easeOut(duration: 0.16), value: menu.stage)
         .animation(.easeOut(duration: 0.2), value: model.isDrawerOpen)
+        .animation(.easeOut(duration: 0.2), value: model.showsOutlineDrawer)
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
         .onContinuousHover(coordinateSpace: .local) { phase in
             switch phase {
@@ -52,17 +69,19 @@ struct ViewModeView: View {
             case .ended: menu.pointerExited()
             }
         }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.height
+        } action: { height in
+            menu.contentHeight = height
+        }
+        .onChange(of: isSplit, initial: true) { _, split in menu.hasBottomBand = split }
         .onChange(of: bandVisible) { _, visible in
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
         }
-        .onChange(of: model.isViewOptionsPresented) { _, presented in
-            // The band, which anchors the popover, must stay while the popover is open, however it was opened.
-            if presented { menu.showFull() }
-            menu.isHolding = presented || model.isThemePalettePresented
-        }
-        .onChange(of: model.isThemePalettePresented) { _, presented in
-            if presented { menu.showFull() }
-            menu.isHolding = presented || model.isViewOptionsPresented
+        // The band, which anchors its popovers, must stay while one is open, however it was opened.
+        .onChange(of: holdsBand) { _, held in
+            if held { menu.showFull() }
+            menu.isHolding = held
         }
         #if DEBUG
             .onReceive(NotificationCenter.default.publisher(for: DebugSnapshot.showMenu)) { note in
@@ -71,6 +90,34 @@ struct ViewModeView: View {
                 menu.showFull()
             }
         #endif
+    }
+
+    private func topZone(_ plans: BandPlans) -> some View {
+        BandZone(edge: .top) {
+            if bandVisible {
+                OverlayBand(model: model, menu: menu).transition(.opacity)
+            }
+        }
+        .background(alignment: .topLeading) {
+            BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu)
+        }
+        .background {
+            if !isSplit { BandPopovers(model: model, menu: menu, plan: plans.top, arrowEdge: .bottom) }
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: { width in
+            if menu.bandWidth != width { menu.bandWidth = width }
+        }
+    }
+
+    private func bottomZone(_ plan: BandLayout.Plan) -> some View {
+        BandZone(edge: .bottom) {
+            if bandVisible {
+                BottomBand(model: model, menu: menu, plan: plan).transition(.opacity)
+            }
+        }
+        .background { BandPopovers(model: model, menu: menu, plan: plan, arrowEdge: .top) }
     }
 }
 
@@ -84,7 +131,7 @@ private struct PaperArea: View {
             if model.showsWeb, let fileURL = model.fileURL {
                 WebPageView(
                     controller: model.web, fileURL: fileURL, allowsJavaScript: model.allowsLiveJavaScript,
-                    onEscape: { menu.hideForEscape(pinned: model.isMenuPinned) })
+                    onEscape: { menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible) })
             } else if let document = model.paperDocument, !model.isCapturingWeb {
                 PaperView(
                     document: document, initialPageIndex: model.currentPageIndex, options: model.viewOptions,
@@ -146,7 +193,7 @@ private struct PaperArea: View {
             menu.toggle()
             return true
         case .escape:
-            return menu.hideForEscape(pinned: model.isMenuPinned)
+            return menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible)
         case .viewOptions:
             menu.showFull()
             model.isViewOptionsPresented = true
@@ -208,6 +255,9 @@ struct ToastOverlay: View {
                                 .controlSize(.small)
                         case .retryWebCapture?:
                             Button("Try Again") { model.retryWebCapture() }
+                                .controlSize(.small)
+                        case .nextChange?:
+                            Button("Next Change") { model.goToNextChange() }
                                 .controlSize(.small)
                         case nil:
                             EmptyView()

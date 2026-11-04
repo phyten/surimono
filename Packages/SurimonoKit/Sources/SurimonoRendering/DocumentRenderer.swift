@@ -1165,8 +1165,15 @@ public final class DocumentRenderer {
         return "try {\n  await (async () => {\n\(script)\n  })();\n} catch (_) {}\n" + PaperBackground.detectionScript
     }
 
+    /// The HTML a document's headings and amount of text are read from, or nil for formats without one. It converts
+    /// the whole source, so it is meant to run away from the main actor.
+    public nonisolated static func structureHTML(of source: DocumentSource) -> String? {
+        if source.format == .html { return TextDecoding.decode(source.data).text }
+        return (try? themedFragment(source))??.body
+    }
+
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
-    static func themedFragment(
+    nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "",
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
@@ -1186,7 +1193,7 @@ public final class DocumentRenderer {
         }
     }
 
-    private static func decodedText(_ data: Data) throws -> String {
+    private nonisolated static func decodedText(_ data: Data) throws -> String {
         let decoded = TextDecoding.decode(data)
         // Core deliberately tolerates invalid byte sequences; printing must surface that data loss.
         guard String(data: data, encoding: decoded.encoding) != nil else { throw RenderingError.textDecodingFailed }

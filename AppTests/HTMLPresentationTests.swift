@@ -151,7 +151,7 @@ struct HTMLPresentationTests {
             BandLayout.Item.applicable(for: model) == [
                 .formatBadge, .presentation, .print,
             ])
-        #expect(SecondaryViewControl.applicable(for: model) == [.floatOnTop, .keepMenuVisible])
+        #expect(SecondaryViewControl.applicable(for: model) == [.floatOnTop, .alwaysShowMenu])
         model.setHTMLPresentation(.paper)
         let paper = BandLayout.Item.applicable(for: model)
         #expect(paper.contains(.presentation))
