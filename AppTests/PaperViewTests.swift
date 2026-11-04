@@ -8,6 +8,59 @@ import Testing
 
 @MainActor
 struct PaperViewTests {
+    @Test("PDFKit がスクロールバーを出し直しても紙の幅を取らず何も見せない", arguments: [NSScroller.Style.legacy, .overlay])
+    func scrollersStayInvisible(style: NSScroller.Style) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("scrollers", pages: 1)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.layoutSubtreeIfNeeded()
+        let scrollView = try #require(view.documentView?.enclosingScrollView)
+        // PDFKit does this on its own when the scroll view's bounds change, with no layout of the paper after it.
+        scrollView.scrollerStyle = style
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
+        scrollView.tile()
+        #expect(scrollView.scrollerStyle == style)
+        #expect(scrollView.verticalScroller is InvisibleScroller)
+        #expect(scrollView.horizontalScroller is InvisibleScroller)
+        #expect(scrollView.contentView.frame.width == scrollView.bounds.width)
+        #expect(scrollView.contentView.frame.height == scrollView.bounds.height)
+        #expect(scrollView.verticalScroller?.frame.width == 0)
+        #expect(scrollView.horizontalScroller?.frame.height == 0)
+        let edge = view.convert(NSPoint(x: view.bounds.maxX - 1, y: view.bounds.midY), to: view.superview)
+        #expect(!(view.hitTest(edge) is NSScroller))
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("文書と表示の型を切り替えても見えないスクロールバーのまま")
+    func scrollersSurviveDocumentAndLayoutChanges() throws {
+        let (view, window) = try makeSinglePagePaper()
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("swap", pages: 4)))
+        let spread = ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: false)
+        view.configure(source, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
+        view.layoutSubtreeIfNeeded()
+        let scrollView = try #require(view.documentView?.enclosingScrollView)
+        #expect(scrollView.verticalScroller is InvisibleScroller)
+        #expect(scrollView.horizontalScroller is InvisibleScroller)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("拡大中は見えないスクロールバーのままホイールで紙が動く")
+    func zoomedPaperScrollsWithInvisibleScrollers() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("wheel", pages: 1)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.setZoom(3, anchor: NSPoint(x: view.bounds.midX, y: view.bounds.midY))
+        view.layoutSubtreeIfNeeded()
+        let scrollView = try #require(view.documentView?.enclosingScrollView)
+        scrollView.hasVerticalScroller = true
+        scrollView.tile()
+        let before = scrollView.contentView.bounds.origin
+        let wheel = try #require(
+            CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: -80, wheel2: 0, wheel3: 0))
+        scrollView.scrollWheel(with: try #require(NSEvent(cgEvent: wheel)))
+        #expect(scrollView.contentView.bounds.origin != before)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("組版結果を指定したページ移動は別のPDFが表示中なら送らない")
     func navigationRequiresMatchingDocument() throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("source", pages: 3)))

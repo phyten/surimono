@@ -69,6 +69,18 @@ struct PaperView: NSViewRepresentable {
     }
 }
 
+/// A scroller for a scroll view that must not show one, even when something else turns its scrollers on.
+final class InvisibleScroller: NSScroller {
+    override class var isCompatibleWithOverlayScrollers: Bool { true }
+
+    override class func scrollerWidth(for controlSize: ControlSize, scrollerStyle: Style) -> CGFloat { 0 }
+
+    // Overlay scrollers fade the knob and the slot apart, so these are what they draw through, not draw(_:).
+    override func drawKnob() {}
+
+    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {}
+}
+
 final class PaperPDFView: PDFView {
     static let zoomSteps: [Double] = [1, 1.25, 1.5, 2, 3, 4, 6]
     /// Slows page-turn animations down; development screenshots use it to capture a turn halfway.
@@ -374,12 +386,13 @@ final class PaperPDFView: PDFView {
         if bounds.size != fittedSize { refit() }
     }
 
-    /// The paper is the window: legacy scroll bars would narrow it, and scrolling still works without them. PDFKit
-    /// adds them again when the document or the display mode changes, so this runs after those too.
+    /// The paper is the window: scroll bars would narrow it, and scrolling still works without them. PDFKit turns them
+    /// back on by itself whenever the scroll view's bounds change, with no layout after it to turn them off again, so
+    /// the scroll view keeps scrollers that take no room and draw nothing, whatever PDFKit asks of them.
     private func hideScrollersAndInsets() {
         guard let scrollView = documentView?.enclosingScrollView else { return }
-        if scrollView.hasVerticalScroller { scrollView.hasVerticalScroller = false }
-        if scrollView.hasHorizontalScroller { scrollView.hasHorizontalScroller = false }
+        if !(scrollView.verticalScroller is InvisibleScroller) { scrollView.verticalScroller = InvisibleScroller() }
+        if !(scrollView.horizontalScroller is InvisibleScroller) { scrollView.horizontalScroller = InvisibleScroller() }
         if scrollView.scrollerStyle != .overlay { scrollView.scrollerStyle = .overlay }
         // Under the hidden title bar, the scroll view would inset the paper by the title bar's height.
         if scrollView.automaticallyAdjustsContentInsets {
