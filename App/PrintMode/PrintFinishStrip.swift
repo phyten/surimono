@@ -112,7 +112,7 @@ struct PrintSeriesSwitch: View {
     var body: some View {
         PrintSegments(
             label: "Paper Series", options: [.init(PaperSeries.a, "A Sizes"), .init(PaperSeries.b, "B Sizes")],
-            selection: model.paperSeries, help: "A sizes, or B sizes (JIS)", isVertical: true
+            selection: model.trayPaperSeries, help: "A sizes, or B sizes (JIS)", isVertical: true
         ) { model.choosePaperSeries($0) }
     }
 }

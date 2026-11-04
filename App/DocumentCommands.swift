@@ -6,7 +6,7 @@ struct DocumentCommands: Commands {
     private var model: DocumentViewModel? { DocumentWindows.shared.activeModel }
     private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
     private var layoutCards: [PrintLayout] {
-        let cards = PrintLayout.presets(in: model?.paperSeries ?? .a)
+        let cards = PrintLayout.presets(in: model?.trayPaperSeries ?? .a)
         return cards.contains(.a4Handout3) ? cards : cards + [.a4Handout3]
     }
 

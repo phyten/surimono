@@ -116,10 +116,10 @@ struct PrintFinishFlowTests {
         let preferences = environment.preferences
         let model = environment.model(preferences: preferences)
         model.layoutID = PrintLayout.a4BookletA5.id
-        #expect(model.paperSeries == .a)
+        #expect(model.trayPaperSeries == .a)
         model.choosePaperSeries(.b)
         #expect(model.layoutID == PrintLayout.b5BookletB6.id)
-        #expect(model.paperSeries == .b)
+        #expect(model.trayPaperSeries == .b)
         #expect(AppPreferences(defaults: environment.suite.defaults).paperSeries == .b)
         model.choosePaperSeries(.a)
         #expect(model.layoutID == PrintLayout.a4BookletA5.id)
@@ -132,10 +132,10 @@ struct PrintFinishFlowTests {
         let preferences = environment.preferences
         preferences.paperSeries = .b
         let fresh = environment.model(preferences: preferences)
-        #expect(fresh.paperSeries == .b)
+        #expect(fresh.trayPaperSeries == .b)
         #expect(fresh.layoutID == PrintLayout.a4Single.id)
         fresh.layoutID = PrintLayout.a3BookletA4.id
-        #expect(fresh.paperSeries == .a)
+        #expect(fresh.trayPaperSeries == .a)
     }
 
     @Test("⌘1〜⌘6 は表示中の判のカードの順に当たる")
@@ -150,7 +150,7 @@ struct PrintFinishFlowTests {
         #expect(model.layoutID == PrintLayout.b5BookletB6.id)
         model.chooseCard(at: 5)
         #expect(model.layoutID == PrintLayout.a4Handout3.id)
-        #expect(model.paperSeries == .a)
+        #expect(model.trayPaperSeries == .a)
     }
 
     @Test("組み込みのセットを選ぶと名前が出て、変えると変更ありになり、戻すと消える")
