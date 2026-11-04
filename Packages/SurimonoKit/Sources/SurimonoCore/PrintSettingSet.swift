@@ -10,6 +10,8 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     public var mirrorsMargins: Bool?
     public var furniture: PageFurniture?
     public var finish: PrintFinish?
+    /// Nil in sets saved before note pages, which leave the document's notes as they are.
+    public var notes: NotePages?
     public var themeID: String?
     public var textScale: Double?
     public var presetID: String?
@@ -28,14 +30,15 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         mirrorsMargins = settings.printOptions?.mirrorsMargins
         furniture = settings.printOptions?.furniture
         finish = settings.printFinish
+        notes = settings.notes
         themeID = settings.themeID
         textScale = settings.textScale
         presetID = settings.presetID
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, layoutID, paperOrientation, margins, linksMargins, mirrorsMargins, furniture, finish, themeID,
-            textScale, presetID
+        case id, name, layoutID, paperOrientation, margins, linksMargins, mirrorsMargins, furniture, finish, notes,
+            themeID, textScale, presetID
         case marginsInMillimeters, showsPageNumbers
     }
 
@@ -50,6 +53,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         try values.encodeIfPresent(mirrorsMargins, forKey: .mirrorsMargins)
         try values.encodeIfPresent(furniture, forKey: .furniture)
         try values.encodeIfPresent(finish, forKey: .finish)
+        try values.encodeIfPresent(notes, forKey: .notes)
         try values.encodeIfPresent(themeID, forKey: .themeID)
         try values.encodeIfPresent(textScale, forKey: .textScale)
         try values.encodeIfPresent(presetID, forKey: .presetID)
@@ -77,6 +81,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             field(PageFurniture.self, .furniture)
             ?? field(Bool.self, .showsPageNumbers).map { $0 ? .pageNumber : PageFurniture() }
         finish = field(PrintFinish.self, .finish)
+        notes = field(NotePages.self, .notes)
         themeID = field(String.self, .themeID)
         textScale = field(Double.self, .textScale)
         presetID = field(String.self, .presetID)
@@ -113,6 +118,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             mirrorsMargins.map { $0 == settings.printOptions?.mirrorsMargins },
             furniture.map { $0 == settings.printOptions?.furniture },
             finish.map { $0 == (settings.printFinish ?? PrintFinish()) },
+            notes.map { $0 == (settings.notes ?? NotePages()) },
             themeID.map { $0 == settings.themeID },
             textScale.map { $0 == settings.textScale },
             presetID.map { $0 == settings.presetID },
@@ -142,7 +148,8 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             finish.toc.mode = contents
             return PrintSettingSet(
                 id: id, name: UILanguage.name(names, language: language, english: names["en"] ?? ""),
-                settings: DocumentSettings(layoutID: layout.id, printOptions: options, printFinish: finish))
+                settings: DocumentSettings(
+                    layoutID: layout.id, printOptions: options, printFinish: finish, notes: NotePages()))
         }
         return [
             set(

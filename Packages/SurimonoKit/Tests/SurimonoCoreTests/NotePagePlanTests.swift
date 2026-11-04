@@ -78,4 +78,17 @@ struct NotePagePlanTests {
             Imposition.plan(pageCount: pages.count, layout: .a4BookletA5).sides.map(\.slots)
                 == [[nil, 0], [1, 2]])
     }
+
+    @Test("目次の後ろから始めても本文は同じ側に並び、足りない所だけノートで埋める")
+    func leadingPages() {
+        #expect(
+            NotePagePlan.pages(bodyPageIndices: [0, 1], placement: .spreadRight, leadingPageCount: 1)
+                == [.body(0), .note, .body(1), .note])
+        #expect(
+            NotePagePlan.pages(bodyPageIndices: [0, 1], placement: .spreadLeft, leadingPageCount: 1)
+                == [.note, .body(0), .note, .body(1), .note])
+        #expect(
+            NotePagePlan.pages(bodyPageIndices: [0], placement: .duplexBack, leadingPageCount: 2)
+                == [.body(0), .note])
+    }
 }

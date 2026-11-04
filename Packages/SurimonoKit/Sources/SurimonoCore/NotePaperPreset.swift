@@ -15,6 +15,11 @@ public struct NotePaperPreset: Identifiable, Equatable, Sendable {
         self.style = style
     }
 
+    /// The preset a document's note pages start from.
+    public static var standard: NotePaperPreset { all[0] }
+
+    public static func preset(id: String) -> NotePaperPreset? { all.first { $0.id == id } }
+
     public static let all: [NotePaperPreset] = [
         NotePaperPreset(
             id: "daigaku", englishName: "College Ruled", japaneseName: "大学ノート", group: .practical,

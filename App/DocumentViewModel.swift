@@ -53,6 +53,8 @@ final class DocumentViewModel {
     var printOptions: PrintOptions
     /// Where a text breaks and how it shows its contents; only texts have any.
     var printFinish: PrintFinish
+    /// Pages to write on among the document's own. They belong to the paper, so the reading view leaves them out.
+    var notes = NotePages()
     /// The setting set last applied or saved in this window, which the tray compares the settings with.
     var selectedSettingSetID: UUID?
     var mode: ViewerMode = .view
@@ -85,6 +87,8 @@ final class DocumentViewModel {
     var isFiguresPresented = false
     var isPrintOptionsPresented = false
     var isPrintFinishPresented = false
+    /// The sheet of the paper's finish scrolls to the note pages when this is set.
+    var showsNoteSettings = false
     var isPrintIssuesPresented = false
     @ObservationIgnored private var pendingPrintIssue: (issue: PrintIssue, pageCount: Int)?
     /// The style palette is open beside the paper.
@@ -373,6 +377,7 @@ final class DocumentViewModel {
             }, markdownChanges: format == .markdown ? markdownChanges : [])
         settings.binderStartsOnFront = binder != nil && binderStartsOnFront
         if finishAppliesToText { settings.finish = printFinish }
+        if mode == .print, offersNotes { settings.notes = notes }
         settings.documentName = displayName
         settings.pageLanguage = language
         if usesPrintTheme {
@@ -1542,11 +1547,15 @@ final class DocumentViewModel {
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
             codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
-            paperSeries: paperSeries == .a ? nil : paperSeries)
+            paperSeries: paperSeries == .a ? nil : paperSeries,
+            notes: offersNotes && notes != NotePages() ? notes : nil)
     }
 
     func savePrintSettingSet(named name: String) {
-        preferences.savePrintSettingSet(PrintSettingSet(name: name, settings: rememberedSettings))
+        var set = PrintSettingSet(name: name, settings: rememberedSettings)
+        // A set saved without notes turns them off, which a document's record has no need to say.
+        if offersNotes { set.notes = notes }
+        preferences.savePrintSettingSet(set)
         selectedSettingSetID = preferences.printSettingSets.first { $0.name == name }?.id
     }
 
@@ -1568,9 +1577,11 @@ final class DocumentViewModel {
     }
 
     private func applicablePrintSettingSet(_ set: PrintSettingSet) -> PrintSettingSet {
-        set.applicable(
+        var set = set.applicable(
             to: Set(binder?.items.map(\.format) ?? [format]),
             themeIDs: Set(library.themes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
+        if !offersNotes { set.notes = nil }
+        return set
     }
 
     func matchesPrintSettingSet(_ set: PrintSettingSet) -> Bool {
@@ -1586,6 +1597,7 @@ final class DocumentViewModel {
         if let mirrors = set.mirrorsMargins { printOptions.mirrorsMargins = mirrors }
         if let furniture = set.furniture { printOptions.furniture = furniture }
         if let finish = set.finish, finishAppliesToText { printFinish = finish }
+        if let notes = set.notes { self.notes = notes }
         selectedSettingSetID = set.id
         if let id = set.themeID { themeID = id }
         if let scale = set.textScale { setTextScale(scale) }
@@ -1681,6 +1693,7 @@ final class DocumentViewModel {
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
         if let options = saved.printOptions { printOptions = options }
         if let finish = saved.printFinish, finishAppliesToText { printFinish = finish }
+        if let notes = saved.notes, offersNotes { self.notes = notes }
         if let presentation = saved.htmlPresentation { setHTMLPresentation(presentation, capturesWeb: false) }
         if saved.ignoresSlides == true { setIgnoresSlides(true) }
         if let removal = saved.smartRemoval, format == .html {
@@ -1754,6 +1767,7 @@ final class DocumentViewModel {
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
         printFinish = preferences.printFinish
+        notes = NotePages()
         selectedSettingSetID = nil
         isSmartRemovalEnabled = false
         smartRemovalKeptIDs = []
@@ -2312,6 +2326,8 @@ final class DocumentViewModel {
         case .textDecodingFailed: return String(localized: "The text encoding could not be read without data loss.")
         case .invalidMargins:
             return String(localized: "The margins are too large for this page. Change them in Settings.")
+        case .invalidNotePage:
+            return String(localized: "These note page lines do not fit on the page. Reduce the margin or the spacing.")
         case .image: return String(localized: "This image could not be opened.")
         case .unsupportedFormat: return String(localized: "This document format is not supported.")
         case .pagination(.timedOut):

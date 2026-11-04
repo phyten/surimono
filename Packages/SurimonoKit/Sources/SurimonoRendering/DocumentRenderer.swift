@@ -141,6 +141,8 @@ public struct RenderSettings: Equatable, Sendable {
     public var markdownChanges: [MarkdownMarkRequest]
     /// Where a text breaks and how it shows its table of contents.
     public var finish = PrintFinish()
+    /// Pages to write on among the document's own; only a document of its own takes them, not a binder.
+    public var notes = NotePages()
     /// The name the header and footer call the document by; without one, the name of its file.
     public var documentName: String?
     /// The language of what the app itself puts on the page, such as the title of the contents.
@@ -149,6 +151,11 @@ public struct RenderSettings: Equatable, Sendable {
     var usesPerPageOrientation: Bool {
         layout.kind == .normal && layout.duplex == .none && paperOrientation == .auto
     }
+
+    var activeNotes: NotePages? { notes.isEnabled && notes.applies(to: layout) ? notes : nil }
+
+    /// Note pages move the pages to other sides, so the margins are then turned round after the notes went in.
+    var mirrorsLaidOutPages: Bool { layout.mirrorsMargins(options: options) && activeNotes == nil }
 
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
@@ -189,6 +196,9 @@ struct FinishedPages {
     var facts: DocumentFacts?
     var contentsPageCount = 0
     var blankPages: Set<Int> = []
+    /// Where the note pages go, for pages laid out knowing about them.
+    var plan: FinishedPagePlan?
+    var notePages: [Int] = []
 }
 
 /// The logical pages of a render, ready to show before the printed sheets are composed.
@@ -219,6 +229,8 @@ public struct PreparedRender {
     public var addedContentsPages = 0
     /// The logical pages that were added as blanks.
     public var blankPages: Set<Int> = []
+    /// How many of the logical pages are note pages.
+    public var addedNotePages = 0
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -259,6 +271,7 @@ public struct RenderResult {
     public let facts: DocumentFacts?
     public let addedContentsPages: Int
     public let blankPages: Set<Int>
+    public let addedNotePages: Int
 
     init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
         id = prepared.id
@@ -278,6 +291,7 @@ public struct RenderResult {
         facts = prepared.facts
         addedContentsPages = prepared.addedContentsPages
         blankPages = prepared.blankPages
+        addedNotePages = prepared.addedNotePages
     }
 }
 
@@ -294,6 +308,8 @@ public final class DocumentRenderer {
         case invalidPDF
         case encryptedPDF
         case invalidMargins
+        /// The note pages' lines and margins do not fit on the page.
+        case invalidNotePage
         case pagination(WebPaginator.PaginationError)
         case paginationFailed
         case image(ImagePageRenderer.RenderingError)
@@ -341,6 +357,9 @@ public final class DocumentRenderer {
         var finishing = FinishedPages()
         /// The serialized pages the sheets are drawn from, made once for all compositions.
         var composingSource: CGPDFDocument?
+        /// These pages with note pages among them. Note pages are drawn without WebKit, so changing their lines does
+        /// not lay the document out again.
+        var noted: (key: NotedKey, logical: Logical)?
 
         init(
             id: Int, document: PDFDocument, viewDocument: PDFDocument, unreadable: [URL],
@@ -352,6 +371,13 @@ public final class DocumentRenderer {
             self.unreadable = unreadable
             self.candidates = candidates
         }
+    }
+
+    private struct NotedKey: Equatable {
+        let notes: NotePages
+        let layoutKind: LayoutKind
+        let pageSize: CGSize
+        let mirrorShift: CGFloat
     }
 
     private struct CacheKey: Equatable {
@@ -374,6 +400,9 @@ public final class DocumentRenderer {
         let usesRightPages: Bool
         let mirrorsMargins: Bool
         let contentsLanguage: String?
+        let hasNotes: Bool
+        /// A text numbers its contents and places its blanks knowing where the notes go.
+        let textNotes: FinishedPagePlan.Notes?
     }
 
     public init(isSandboxed: @escaping () -> Bool = { SandboxEnvironment.isSandboxed }, paginate: Paginate? = nil) {
@@ -441,7 +470,7 @@ public final class DocumentRenderer {
             try await willComposeSheet?()
             let composer = PDFComposer()
             let sheet: PDFDocument
-            if let logical = cache?.logical, logical.id == prepared.sheetKey.logicalID {
+            if let logical = cachedLogical(id: prepared.sheetKey.logicalID) {
                 if logical.composingSource == nil {
                     logical.composingSource = try? PDFComposer.composingSource(of: logical.document)
                 }
@@ -471,10 +500,16 @@ public final class DocumentRenderer {
         }
     }
 
+    private func cachedLogical(id: Int) -> Logical? {
+        [cache?.logical, cache?.logical.noted?.logical].compactMap { $0 }.first { $0.id == id }
+    }
+
     private static func renderingError(_ error: any Error) -> any Error {
         if Task.isCancelled || error is CancellationError { return CancellationError() }
         switch error {
         case let error as RenderingError: return error
+        case NotePageDrawing.DrawingError.invalidStyle, NotePageDrawing.DrawingError.invalidGeometry:
+            return RenderingError.invalidNotePage
         case let error as WebPaginator.PaginationError: return RenderingError.pagination(error)
         case let error as ImagePageRenderer.RenderingError: return RenderingError.image(error)
         case let error as PDFComposer.CompositionError: return RenderingError.composition(error)
@@ -488,6 +523,7 @@ public final class DocumentRenderer {
         let currentGeneration = generation
         do {
             var settings = settings
+            if source.children != nil { settings.notes = NotePages() }
             var landscape: Bool
             if source.children != nil {
                 landscape = settings.paperOrientation == .landscape && settings.layout.kind != .booklet
@@ -532,7 +568,12 @@ public final class DocumentRenderer {
                 usesRightPages: isThemed && settings.layout.hasFacingPages && settings.finish.breaks.usesRightPages,
                 mirrorsMargins: !isPlainPDF && source.children == nil
                     && settings.layout.mirrorsMargins(options: settings.options),
-                contentsLanguage: isThemed && settings.finish.toc.mode == .front ? settings.pageLanguage : nil)
+                contentsLanguage: isThemed && settings.finish.toc.mode == .front ? settings.pageLanguage : nil,
+                hasNotes: settings.activeNotes != nil,
+                textNotes: isThemed
+                    ? settings.activeNotes.map {
+                        FinishedPagePlan.Notes(placement: $0.placement, layoutKind: settings.layout.kind)
+                    } : nil)
             let logical: Logical
             if let cache, cache.key == key {
                 logical = cache.logical
@@ -603,25 +644,108 @@ public final class DocumentRenderer {
                 landscape = PaperOrientation.auto.isLandscape(pageSizes: logical.binderPageSizes)
                 settings.layout = settings.layout.oriented(landscape)
             }
-            let plan = Imposition.plan(pageCount: logical.document.pageCount, layout: settings.layout)
+            let pages = try await noted(logical, source: source, settings: settings)
+            try Task.checkCancellation()
+            let plan = Imposition.plan(pageCount: pages.document.pageCount, layout: settings.layout)
             return PreparedRender(
                 id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
-                logicalDocument: logical.document, viewDocument: logical.viewDocument, plan: plan,
+                logicalDocument: pages.document, viewDocument: pages.viewDocument, plan: plan,
                 summary: PrintSummary(plan: plan),
-                requiredFolderAccess: logical.requiredFolderAccess, unreadableImageURLs: logical.unreadable,
-                smartRemovalCandidates: logical.candidates, issues: logical.issues,
+                requiredFolderAccess: pages.requiredFolderAccess, unreadableImageURLs: pages.unreadable,
+                smartRemovalCandidates: pages.candidates, issues: pages.issues,
                 changeMarks: requests.isEmpty ? [] : logical.changeMarks,
-                unreadableDocumentURLs: logical.unreadableDocuments, binderDocuments: logical.binderDocuments,
-                facts: logical.finishing.facts, addedContentsPages: logical.finishing.contentsPageCount,
-                blankPages: logical.finishing.blankPages,
+                unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
+                facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
+                blankPages: pages.finishing.blankPages, addedNotePages: pages.finishing.notePages.count,
                 sheetKey: SheetKey(
-                    logicalID: logical.id, layout: settings.layout, options: settings.options,
+                    logicalID: pages.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: settings.usesPerPageOrientation
                         && (source.format == .pdf || source.format == .image),
-                    furniture: furnitureContext(source, logical: logical, settings: settings)),
+                    furniture: furnitureContext(source, logical: pages, settings: settings)),
                 options: settings.options)
         } catch {
             throw Self.renderingError(error)
+        }
+    }
+
+    /// The pages with their note pages, or the pages themselves without any. Everything here is drawn, so it stays
+    /// quick enough to follow the sheet's sliders; the pages laid out by WebKit come from the cache as they are.
+    private func noted(_ logical: Logical, source: DocumentSource, settings: RenderSettings) async throws -> Logical {
+        guard let notes = settings.activeNotes else { return logical }
+        let pageSize = settings.layout.logicalPageSize(options: settings.options)
+        let isPlainPDF = source.format == .pdf
+        let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
+        let shift =
+            !isPlainPDF && settings.layout.mirrorsMargins(options: settings.options) ? margins.right - margins.left : 0
+        let key = NotedKey(
+            notes: notes, layoutKind: settings.layout.kind, pageSize: pageSize, mirrorShift: shift)
+        if let noted = logical.noted, noted.key == key { return noted.logical }
+        let plan =
+            logical.finishing.plan
+            ?? FinishedPagePlan(
+                bodyPageCount: logical.document.pageCount, contentsPageCount: 0, rightPageStarts: [],
+                notes: .init(
+                    placement: notes.placement, layoutKind: settings.layout.kind,
+                    chapterEnds: notes.placement == .chapterEnd
+                        ? Self.chapterEnds(of: source, in: logical.document) : []
+                ))
+        let notePages = try await NotePageDrawing.document(
+            style: notes.style, pageSize: pageSize, pageNumbers: plan.notePages.map { $0 + 1 })
+        // The cached pages stay as they are for the view mode, which shows the document without notes.
+        guard let data = logical.document.dataRepresentation(), let document = PDFDocument(data: data) else {
+            throw RenderingError.invalidPDF
+        }
+        for (offset, index) in plan.notePages.enumerated() {
+            guard let page = notePages.page(at: offset), let copy = StandalonePage.copy(of: page) else {
+                throw RenderingError.invalidPDF
+            }
+            document.insert(copy, at: index)
+        }
+        let output: PDFDocument
+        if shift != 0 {
+            // A note page keeps the margins of its own style.
+            let notes = Set(plan.notePages)
+            output =
+                PaperComposer.compose(document, paper: nil, shift: { !notes.contains($0) && $0 % 2 == 1 ? shift : 0 })
+                ?? document
+        } else {
+            output = document
+        }
+        logicalSerial += 1
+        let noted = Logical(
+            id: logicalSerial, document: output, viewDocument: output, unreadable: logical.unreadable,
+            candidates: logical.candidates)
+        noted.requiredFolderAccess = logical.requiredFolderAccess
+        noted.unreadableDocuments = logical.unreadableDocuments
+        // A text already counted its issues with the notes in place.
+        noted.issues =
+            logical.finishing.plan != nil
+            ? logical.issues
+            : logical.issues.map { issue in
+                var issue = issue
+                issue.pageNumber = issue.pageNumber.flatMap { number in
+                    plan.bodyPageIndices.indices.contains(number - 1) ? plan.bodyPageIndices[number - 1] + 1 : number
+                }
+                return issue
+            }
+        noted.finishing = logical.finishing
+        noted.finishing.blankPages = plan.blankPages
+        noted.finishing.notePages = plan.notePages
+        logical.noted = (key, noted)
+        return noted
+    }
+
+    /// The pages that end a chapter of a document that does not go through the finish of a text.
+    private static func chapterEnds(of source: DocumentSource, in document: PDFDocument) -> Set<Int> {
+        switch source.format {
+        case .pdf: return DocumentOutline.chapterEnds(of: PDFOutlineReader.entries(of: document))
+        case .html:
+            guard let html = structureHTML(of: source) else { return [] }
+            let headings = DocumentOutline.headings(inHTML: html)
+            let texts = (0..<document.pageCount).map { document.page(at: $0)?.string ?? "" }
+            let pages = DocumentOutline.pages(of: headings, inPageTexts: texts)
+            return DocumentOutline.chapterEnds(of: headings, pages: pages, inPageTexts: texts)
+        default: return []
         }
     }
 
@@ -659,6 +783,7 @@ public final class DocumentRenderer {
                 childSettings.markdownChanges = []
                 // Left and right belong to the bound pages, which a document on its own does not know.
                 childSettings.options.mirrorsMargins = false
+                childSettings.notes = NotePages()
                 let prepared = try await renderer.prepare(child, settings: childSettings)
                 try Task.checkCancellation()
                 binderChildRenderCount += renderer.logicalRenderCount - count
@@ -861,7 +986,7 @@ public final class DocumentRenderer {
                     margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
                     allowsJavaScript: source.allowsJavaScript(settings), preparationScript: preparation,
                     readsPageRules: true), source: source)
-            guard settings.layout.mirrorsMargins(options: settings.options) else { return page }
+            guard settings.mirrorsLaidOutPages else { return page }
             var mirrored = WebPaginator.Result(
                 document: Self.mirroringMargins(of: page.document, settings: settings),
                 preparationResult: page.preparationResult, pageRules: page.pageRules,
@@ -971,29 +1096,39 @@ public final class DocumentRenderer {
         let finish = settings.finish
         let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
         let wantsContents = finish.toc.mode == .front && !facts.headings.isEmpty
-        let mirrors = settings.layout.mirrorsMargins(options: settings.options)
-        guard usesRightPages || wantsContents || mirrors else { return result }
+        let notes = settings.activeNotes
+        guard usesRightPages || wantsContents || settings.mirrorsLaidOutPages || notes != nil else { return result }
         let pageCount = text.document.pageCount
         var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
         var contents: PDFDocument?
-        if usesRightPages || wantsContents {
+        if usesRightPages || wantsContents || notes != nil {
             let showsSourceContents = finish.toc.mode == .source || finish.toc.keepsSourceTOC
+            let pageTexts = (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" }
             let headingPages = DocumentOutline.pages(
-                of: facts.headings, inPageTexts: (0..<pageCount).map { text.document.page(at: $0)?.string ?? "" },
+                of: facts.headings, inPageTexts: pageTexts,
                 contentsEntries: showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: fragment.body) : []
             )
+            let insertion = notes.map {
+                FinishedPagePlan.Notes(
+                    placement: $0.placement, layoutKind: settings.layout.kind,
+                    chapterEnds: $0.placement == .chapterEnd
+                        ? DocumentOutline.chapterEnds(of: facts.headings, pages: headingPages, inPageTexts: pageTexts)
+                        : [])
+            }
             let starts =
                 usesRightPages
                 ? FinishedPagePlan.rightPageStarts(
                     headings: facts.headings, pages: headingPages,
                     followsHeading: DocumentOutline.headingsUnderHeadings(inHTML: fragment.body), rules: finish.breaks)
                 : []
-            plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: starts)
+            plan = FinishedPagePlan(
+                bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: starts, notes: insertion)
             // The numbers in the contents depend on how many pages the contents take, which the numbers can change.
             var contentsPageCount = 1
             for _ in 0..<(wantsContents ? 3 : 0) {
                 plan = FinishedPagePlan(
-                    bodyPageCount: pageCount, contentsPageCount: contentsPageCount, rightPageStarts: starts)
+                    bodyPageCount: pageCount, contentsPageCount: contentsPageCount, rightPageStarts: starts,
+                    notes: insertion)
                 let pages = try await contentsPages(
                     PaperContents.entries(
                         headings: facts.headings,
@@ -1005,7 +1140,8 @@ public final class DocumentRenderer {
             }
             if let contents, contents.pageCount != contentsPageCount {
                 plan = FinishedPagePlan(
-                    bodyPageCount: pageCount, contentsPageCount: contents.pageCount, rightPageStarts: starts)
+                    bodyPageCount: pageCount, contentsPageCount: contents.pageCount, rightPageStarts: starts,
+                    notes: insertion)
             }
         }
         let document = Self.assembled(text.document, contents: contents, plan: plan, settings: settings)
@@ -1021,7 +1157,8 @@ public final class DocumentRenderer {
             return issue
         }
         finished.finishing = FinishedPages(
-            facts: facts, contentsPageCount: contents?.pageCount ?? 0, blankPages: plan.blankPages)
+            facts: facts, contentsPageCount: contents?.pageCount ?? 0, blankPages: plan.blankPages,
+            plan: notes != nil ? plan : nil)
         return finished
     }
 
@@ -1048,14 +1185,17 @@ public final class DocumentRenderer {
         ).document
     }
 
-    /// Adds to the document itself, so that the links between its pages keep pointing at them.
+    /// Adds to the document itself, so that the links between its pages keep pointing at them. The note pages go in
+    /// later, in `noted(_:source:settings:)`.
     private static func assembled(
         _ body: PDFDocument, contents: PDFDocument?, plan: FinishedPagePlan, settings: RenderSettings
     ) -> PDFDocument {
         guard !plan.isUnchanged else { return body }
-        for (index, page) in plan.pages.enumerated() {
+        var index = 0
+        for page in plan.pages {
             switch page {
-            case .body: continue
+            case .note: continue
+            case .body: break
             case .contents(let number):
                 if let page = contents?.page(at: number), let copy = StandalonePage.copy(of: page) {
                     body.insert(copy, at: index)
@@ -1067,6 +1207,7 @@ public final class DocumentRenderer {
                     for: .mediaBox)
                 body.insert(blank, at: index)
             }
+            index += 1
         }
         return body
     }
@@ -1074,7 +1215,7 @@ public final class DocumentRenderer {
     /// Moves the content of the even pages, which are left-hand pages, so that the side of the binding keeps its
     /// margin. The pages were laid out with the same width, so moving them is all it takes.
     private static func mirroringMargins(of document: PDFDocument, settings: RenderSettings) -> PDFDocument {
-        guard settings.layout.mirrorsMargins(options: settings.options) else { return document }
+        guard settings.mirrorsLaidOutPages else { return document }
         let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
         let shift = margins.right - margins.left
         guard shift != 0, document.pageCount > 1 else { return document }
@@ -1098,7 +1239,7 @@ public final class DocumentRenderer {
         return PageFurniture.Context(
             fileName: fileName, title: title.flatMap { $0.isEmpty ? nil : $0 } ?? fallback,
             date: furniture.dateText(now(), language: settings.pageLanguage),
-            blankPages: logical.finishing.blankPages)
+            blankPages: logical.finishing.blankPages.union(logical.finishing.notePages))
     }
 
     private func paginateCheckingIssues(_ request: PaginationRequest, source: DocumentSource) async throws

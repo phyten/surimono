@@ -11,9 +11,10 @@ struct ViewBandChoicesTests {
         #expect(ViewPaperSeries.b.layout.duplex == .none)
     }
 
-    @Test("B判の表示用レイアウトは印刷レイアウトの一覧に増やさない")
-    func paperSeriesKeepsPresets() {
-        #expect(!PrintLayout.presets.contains(ViewPaperSeries.b.layout))
+    @Test("B判の表示用レイアウトは刷り台の B判の片面と同じものを使う")
+    func paperSeriesSharesPresets() {
+        #expect(ViewPaperSeries.b.layout == .b5Single)
+        #expect(PrintLayout.presets(in: .b).contains(ViewPaperSeries.b.layout))
     }
 
     @Test("上だけなら帯は 1 本、上と下に分けるなら 2 本ぶんの場所を取る")

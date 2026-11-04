@@ -1,6 +1,6 @@
 import Foundation
 
-public struct NotePaperStyle: Codable, Equatable, Sendable {
+public struct NotePaperStyle: Codable, Hashable, Sendable {
     public enum Kind: String, Codable, CaseIterable, Sendable {
         case ruled, grid, dot, dotted, dashed, wavy, plain, cornell, genko, staff, table
     }
@@ -9,7 +9,7 @@ public struct NotePaperStyle: Codable, Equatable, Sendable {
         case none, minutes, gingham, mizutama, stripe, ichigo, hoshizora, kumo, ribbon, nikukyu, hana
     }
 
-    public struct Header: Codable, Equatable, Sendable {
+    public struct Header: Codable, Hashable, Sendable {
         public var date: Bool
         public var title: Bool
         public var pageNumber: Bool
@@ -67,5 +67,30 @@ public struct NotePaperStyle: Codable, Equatable, Sendable {
             colorHex: (try? values.decode(String.self, forKey: .colorHex)) ?? "#7FA3C7",
             header: (try? values.decode(Header.self, forKey: .header)) ?? Header(),
             decoration: (try? values.decode(Decoration.self, forKey: .decoration)) ?? .none)
+    }
+}
+
+extension NotePaperStyle {
+    /// The colors the sheet offers, with their names in the string catalog.
+    public static let palette: [(hex: String, name: String)] = [
+        ("#7FA3C7", "Sky"), ("#2B4C6F", "Indigo"), ("#9A9A96", "Gray"), ("#3A3A3D", "Ink"), ("#B08A5E", "Brown"),
+        ("#7FA65B", "Young Green"), ("#E59AAE", "Cherry"), ("#A99BD1", "Wisteria"), ("#D9A63E", "Gold"),
+        ("#B86A5A", "Red Ochre"),
+    ]
+
+    /// Lines this thin and pale can fade or break up on an office printer.
+    public var isFaint: Bool {
+        guard kind != .plain, let contrast = contrastOnWhite else { return false }
+        return (weightInMillimeters <= 0.15 && contrast < 3.2) || (weightInMillimeters <= 0.25 && contrast < 1.9)
+    }
+
+    private var contrastOnWhite: Double? {
+        let digits = colorHex.hasPrefix("#") ? String(colorHex.dropFirst()) : colorHex
+        guard digits.count == 6, let value = UInt32(digits, radix: 16) else { return nil }
+        let channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map { channel -> Double in
+            let level = Double(channel) / 255
+            return level <= 0.03928 ? level / 12.92 : pow((level + 0.055) / 1.055, 2.4)
+        }
+        return 1.05 / (0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2] + 0.05)
     }
 }

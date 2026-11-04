@@ -55,6 +55,29 @@ public enum NotePageDrawing {
         try canvas.draw(pageNumber: pageNumber)
     }
 
+    /// The top of a note page as a small picture for the sheet's shelves.
+    /// - Parameters:
+    ///   - size: The size of the picture in points of the screen.
+    ///   - lineScale: How much thicker the lines are than on paper, which would all but vanish at this size.
+    public static func swatch(
+        style: NotePaperStyle, pageSize: CGSize, size: CGSize, lineScale: Double = 1, pixelScale: CGFloat = 2
+    ) -> CGImage? {
+        var style = style
+        style.weightInMillimeters = min(style.weightInMillimeters * lineScale, 5)
+        let width = Int((size.width * pixelScale).rounded(.up))
+        let height = Int((size.height * pixelScale).rounded(.up))
+        guard width > 0, height > 0, let space = CGColorSpace(name: CGColorSpace.sRGB),
+            let context = CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        let scale = CGFloat(width) / pageSize.width
+        context.scaleBy(x: scale, y: scale)
+        context.translateBy(x: 0, y: CGFloat(height) / scale - pageSize.height)
+        guard (try? draw(style: style, pageSize: pageSize, in: context)) != nil else { return nil }
+        return context.makeImage()
+    }
+
     private static func validate(style: NotePaperStyle, pageSize: CGSize) throws {
         // Bound density before iterating: malformed persisted settings must not stall printing.
         guard style.weightInMillimeters.isFinite, (0.01...5).contains(style.weightInMillimeters),
@@ -209,7 +232,8 @@ struct NotePaperCanvas {
         case .ruled, .dotted, .dashed:
             if style.kind == .dotted {
                 context.setLineCap(.round)
-                context.setLineDash(phase: 0, lengths: [0, max(weight * 3, 1)])
+                // A dash of no length at all draws nothing on a bitmap, however round its caps.
+                context.setLineDash(phase: 0, lengths: [0.01, max(weight * 3, 1)])
             } else if style.kind == .dashed {
                 context.setLineDash(phase: 0, lengths: [weight * 5 + 1.6, weight * 3 + 1.2])
             }
