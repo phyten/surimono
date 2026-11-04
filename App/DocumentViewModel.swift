@@ -195,7 +195,9 @@ final class DocumentViewModel {
     @ObservationIgnored private var restoredPaperSize: CGSize?
     /// The view mode's paper size when the print mode began; the tray's size is not the document's window size.
     @ObservationIgnored private var viewPaperSizeBeforePrinting: CGSize?
-    @ObservationIgnored private var hasSizedWindow = false
+    @ObservationIgnored private(set) var hasSizedWindow = false
+    /// The tray was asked for before the first pages were there.
+    @ObservationIgnored private(set) var isPrintModeRequested = false
     @ObservationIgnored private var didResizeWindow = false
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var hashTask: Task<Void, Never>?
@@ -1045,6 +1047,19 @@ final class DocumentViewModel {
         isFiguresPresented = false
     }
 
+    /// The tray keeps the window's frame for the way back, so a new window goes there only after it has taken the
+    /// paper's shape; until then the request waits for `enterRequestedPrintMode()`.
+    func requestPrintMode() {
+        isPrintModeRequested = true
+        if !isRendering, hasSizedWindow || error != nil { enterRequestedPrintMode() }
+    }
+
+    func enterRequestedPrintMode() {
+        guard isPrintModeRequested, !isRendering else { return }
+        isPrintModeRequested = false
+        enterPrintMode()
+    }
+
     private func showPrintTray() {
         guard mode != .print else { return }
         refreshPrinters()
@@ -1778,7 +1793,7 @@ final class DocumentViewModel {
         setIgnoresSlides(false)
         setHTMLPresentation(.web)
         imageBundle?.sortByName()
-        binder?.sortByName()
+        binder?.resetOrder()
         binderStartsOnFront = false
         openingViewDefaults = preferences.viewDefaults
         if let document = result?.viewDocument {

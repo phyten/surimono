@@ -108,6 +108,28 @@ struct StreamingPreviewTests {
         #expect(model.memoryContent == Data("本文".utf8))
     }
 
+    @Test("書き手が消してから書くあいだに見ても、本文を取り逃さない", .timeLimit(.minutes(1)))
+    func pollBetweenClearAndWrite() async throws {
+        let board = board()
+        defer { board.releaseGlobally() }
+        board.setString("# 一", forType: .string)
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let windows = windows(suite, library: directory)
+        let controller = windows.open(from: board)
+        defer { controller.window?.close() }
+        let model = controller.model
+        try await settle(model)
+        board.clearContents()
+        windows.poll()
+        #expect(model.memoryContent == Data("# 一".utf8))
+        board.setString("# 二", forType: .string)
+        windows.poll()
+        #expect(model.memoryContent == Data("# 二".utf8))
+    }
+
     @Test("窓は一つで、閉じると監視をやめて変更を読まない", .timeLimit(.minutes(1)))
     func watchesWhileOpen() throws {
         let board = board()

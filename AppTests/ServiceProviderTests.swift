@@ -16,12 +16,19 @@ struct ServiceProviderTests {
 
     private func router(
         openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void = { _, _ in Issue.record("文書は開かない") },
-        openBinder: @escaping ([URL], [URL]) -> Void = { _, _ in Issue.record("合本は開かない") },
+        openBinder: @escaping ([URL], [URL]) -> DocumentViewModel? = { _, _ in
+            Issue.record("合本は開かない")
+            return nil
+        },
         openMemory: @escaping (Data, DocumentFormat, Bool) -> Void = { _, _, _ in Issue.record("メモリからは開かない") },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }
     ) -> OpenRouter {
         OpenRouter(
-            openDocument: openDocument, openBundle: { _, _ in Issue.record("束は開かない") }, openBinder: openBinder,
+            openDocument: openDocument,
+            openBundle: { _, _ in
+                Issue.record("束は開かない")
+                return nil
+            }, openBinder: openBinder,
             warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { false },
             showWelcome: { Issue.record("ウェルカム画面は出さない") }, openMemory: openMemory, openWindows: openWindows)
     }
@@ -133,13 +140,17 @@ struct ServiceProviderTests {
         let urls = [URL(fileURLWithPath: "/fixtures/b.pdf"), URL(fileURLWithPath: "/fixtures/a.md")]
         board.writeObjects(urls as [NSURL])
         var opened: [URL] = []
-        let provider = ServiceProvider(router: router(openBinder: { urls, _ in opened = urls }), activate: {})
+        let provider = ServiceProvider(
+            router: router(openBinder: { urls, _ in
+                opened = urls
+                return nil
+            }), activate: {})
         var message: NSString?
         provider.openSelection(board, userData: nil, error: &message)
         #expect(opened == [urls[1], urls[0]])
     }
 
-    @Test("「Surimono で刷る」で渡したファイルは窓ができたときに刷り台へ入る")
+    @Test("「Surimono で刷る」で渡したファイルは、その文書の窓だけが刷り台を頼まれる")
     func printFileOnceOpen() {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -153,15 +164,16 @@ struct ServiceProviderTests {
         let other = model(url: URL(fileURLWithPath: "/fixtures/b.md"), suite: suite, library: directory)
         defer { other.stop() }
         router.printIfRequested(other)
-        #expect(other.mode == .view)
+        #expect(!other.isPrintModeRequested)
         router.printIfRequested(opened)
-        #expect(opened.mode == .print)
-        opened.mode = .view
-        router.printIfRequested(opened)
-        #expect(opened.mode == .view)
+        #expect(opened.isPrintModeRequested)
+        let again = model(url: url, suite: suite, library: directory)
+        defer { again.stop() }
+        router.printIfRequested(again)
+        #expect(!again.isPrintModeRequested)
     }
 
-    @Test("すでに開いているファイルを「Surimono で刷る」で渡すとその窓が刷り台へ入る")
+    @Test("すでに開いているファイルを「Surimono で刷る」で渡すとその窓が頼まれる")
     func printOpenFile() {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -172,7 +184,49 @@ struct ServiceProviderTests {
         defer { existing.stop() }
         let router = router(openDocument: { _, completion in completion(true) }, openWindows: { [existing] })
         router.open(.files([url]), printing: true)
-        #expect(existing.mode == .print)
+        #expect(existing.isPrintModeRequested)
+    }
+
+    private func binder(_ urls: [URL], suite: TestDefaultsSuite, library: URL) -> DocumentViewModel {
+        DocumentViewModel(
+            data: Data(), fileURL: nil, format: .pdf, preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: library), binder: BinderModel(urls: urls, read: { _ in Data() }))
+    }
+
+    @Test("単独の文書を刷るとき、同じファイルを含む合本の窓は要求を受け取らない")
+    func singleFileBesideBinder() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let a = URL(fileURLWithPath: "/fixtures/a.md")
+        let b = URL(fileURLWithPath: "/fixtures/b.md")
+        let document = model(url: a, suite: suite, library: directory)
+        defer { document.stop() }
+        let bound = binder([a, b], suite: suite, library: directory)
+        defer { bound.stop() }
+        let router = router(openDocument: { _, completion in completion(true) }, openWindows: { [bound, document] })
+        router.open(.files([a]), printing: true)
+        #expect(document.isPrintModeRequested)
+        #expect(!bound.isPrintModeRequested)
+    }
+
+    @Test("合本を刷るとき、中のファイルを単独で開いた窓は要求を受け取らない")
+    func binderBesideSingleFile() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let a = URL(fileURLWithPath: "/fixtures/a.md")
+        let b = URL(fileURLWithPath: "/fixtures/b.md")
+        let document = model(url: a, suite: suite, library: directory)
+        defer { document.stop() }
+        let bound = binder([a, b], suite: suite, library: directory)
+        defer { bound.stop() }
+        let router = router(openBinder: { _, _ in bound }, openWindows: { [bound, document] })
+        router.open(.files([a, b]), printing: true)
+        #expect(bound.isPrintModeRequested)
+        #expect(!document.isPrintModeRequested)
     }
 
     @Test("開けなかったファイルの刷り台の依頼は残らない")
@@ -183,17 +237,18 @@ struct ServiceProviderTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = URL(fileURLWithPath: "/fixtures/a.md")
         let router = OpenRouter(
-            openDocument: { _, completion in completion(false) }, openBundle: { _, _ in }, openBinder: { _, _ in },
+            openDocument: { _, completion in completion(false) }, openBundle: { _, _ in nil },
+            openBinder: { _, _ in nil },
             warn: { _ in }, hasOpenWindows: { true }, showWelcome: {})
         router.open(.files([url]), printing: true)
         let later = model(url: url, suite: suite, library: directory)
         defer { later.stop() }
         router.printIfRequested(later)
-        #expect(later.mode == .view)
+        #expect(!later.isPrintModeRequested)
     }
 
-    @Test("サービスの文字はクリップボードと同じ窓の仕組みで開き、刷り台へ入って最近使った項目に載らない", .timeLimit(.minutes(1)))
-    func memoryWindowOnTray() throws {
+    @Test("サービスから新しく開く文字は、初回の組版と窓の大きさの調整のあとで刷り台へ入る", .timeLimit(.minutes(1)))
+    func memoryWindowOnTray() async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -205,11 +260,23 @@ struct ServiceProviderTests {
         let recent = NSDocumentController.shared.recentDocumentURLs
         let controller = windows.open(Data("本文".utf8), format: .plainText, title: "Selected Text", printing: true)
         defer { controller.window?.close() }
-        #expect(controller.model.mode == .print)
-        #expect(controller.model.fileURL == nil)
-        #expect(controller.model.displayName == "Selected Text")
+        let model = controller.model
+        #expect(model.mode == .view)
+        #expect(model.isPrintModeRequested)
+        #expect(model.result == nil)
+        #expect(!model.hasSizedWindow)
+        for _ in 0..<1500 where model.mode != .print { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(model.mode == .print)
+        #expect(model.result != nil)
+        #expect(model.hasSizedWindow)
+        #expect(!model.isPrintModeRequested)
+        #expect(model.fileURL == nil)
+        #expect(model.displayName == "Selected Text")
         #expect(NSDocumentController.shared.recentDocumentURLs == recent)
-        let same = windows.open(Data("本文".utf8), format: .plainText, title: "Other")
+        for _ in 0..<500 where model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
+        model.mode = .view
+        let same = windows.open(Data("本文".utf8), format: .plainText, title: "Other", printing: true)
         #expect(same === controller)
+        #expect(model.mode == .print)
     }
 }

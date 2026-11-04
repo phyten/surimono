@@ -76,28 +76,24 @@ public final class LocalResourceSchemeHandler: NSObject, WKURLSchemeHandler {
             return Resource(
                 data: Data(LocalResourceURLRewriter.html(html).utf8), mimeType: "text/html", encoding: "utf-8")
         }
-        let documentPath = try? canonicalPath(access.documentURL)
-        let roots = access.folders.compactMap { try? canonicalPath($0) }
-        // Nonblocking open lets fstat reject a FIFO without waiting for a writer.
-        let descriptor = named.withUnsafeFileSystemRepresentation { path in
-            path.map { Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NONBLOCK) } ?? -1
-        }
-        guard descriptor >= 0 else { throw posixError() }
+        let documentPath = try? ConfinedFile.canonicalPath(access.documentURL)
+        let roots = access.folders.compactMap { try? ConfinedFile.canonicalPath($0) }
+        let descriptor = try ConfinedFile.open(named)
         defer { Darwin.close(descriptor) }
-        let path = try openedPath(descriptor)
+        let path = try ConfinedFile.openedPath(descriptor)
         guard
             path == documentPath
                 || roots.contains(where: { path.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") })
         else { throw CocoaError(.fileReadNoPermission) }
         var info = stat()
-        guard Darwin.fstat(descriptor, &info) == 0 else { throw posixError() }
+        guard Darwin.fstat(descriptor, &info) == 0 else { throw ConfinedFile.posixError() }
         let maximumSize = 50 * 1024 * 1024
         guard (info.st_mode & S_IFMT) == S_IFREG, info.st_size >= 0, info.st_size <= maximumSize else {
             throw CocoaError(.fileReadNoPermission)
         }
         try afterValidation?()
         // The checked descriptor survives replacement of the file or any directory in its original path.
-        let data = try readBytes(descriptor, size: Int(info.st_size), maximumSize: maximumSize)
+        let data = try ConfinedFile.readBytes(descriptor, size: Int(info.st_size), maximumSize: maximumSize)
         let file = URL(fileURLWithPath: path)
         let mime = UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
         if ["text/html", "text/css", "image/svg+xml"].contains(mime) {
@@ -110,46 +106,6 @@ public final class LocalResourceSchemeHandler: NSObject, WKURLSchemeHandler {
                 mimeType: mime, encoding: "utf-8")
         }
         return Resource(data: data, mimeType: mime, encoding: nil)
-    }
-
-    nonisolated private static func canonicalPath(_ url: URL) throws -> String {
-        try url.withUnsafeFileSystemRepresentation { path in
-            guard let path, let resolved = Darwin.realpath(path, nil) else { throw posixError() }
-            defer { Darwin.free(resolved) }
-            return String(cString: resolved)
-        }
-    }
-
-    nonisolated private static func openedPath(_ descriptor: Int32) throws -> String {
-        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
-        guard Darwin.fcntl(descriptor, F_GETPATH, &path) == 0 else { throw posixError() }
-        return try path.withUnsafeBufferPointer { buffer in
-            guard let base = buffer.baseAddress, let path = String(validatingCString: base) else {
-                throw CocoaError(.fileReadNoPermission)
-            }
-            return path
-        }
-    }
-
-    nonisolated private static func readBytes(_ descriptor: Int32, size: Int, maximumSize: Int) throws -> Data {
-        var data = Data()
-        data.reserveCapacity(size)
-        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
-        while true {
-            // A file can grow after fstat, so enforce the limit while reading as well.
-            let count = Darwin.read(descriptor, &buffer, min(buffer.count, maximumSize - data.count + 1))
-            if count < 0 {
-                if errno == EINTR { continue }
-                throw posixError()
-            }
-            if count == 0 { return data }
-            guard count <= maximumSize - data.count else { throw CocoaError(.fileReadTooLarge) }
-            data.append(contentsOf: buffer.prefix(count))
-        }
-    }
-
-    nonisolated private static func posixError() -> POSIXError {
-        POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
     }
 
     private func deny() {

@@ -69,7 +69,7 @@ final class ClipboardWindows {
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         closeWelcome()
-        if printing { controller.model.enterPrintMode() }
+        if printing { controller.model.requestPrintMode() }
         return controller
     }
 

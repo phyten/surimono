@@ -7,6 +7,12 @@ import SwiftUI
 
 @Observable
 final class BinderModel {
+    /// Where a binder comes from. The same files make a different binder when a parent file names them.
+    enum Origin: Equatable {
+        case files
+        case parent(URL, hasPreface: Bool)
+    }
+
     struct Item: Identifiable, Equatable, Sendable {
         let url: URL
         let format: DocumentFormat
@@ -19,6 +25,7 @@ final class BinderModel {
         }
     }
 
+    let origin: Origin
     private(set) var items: [Item] = []
     var selection: URL?
     private(set) var excludedURLs: [URL] = []
@@ -38,17 +45,23 @@ final class BinderModel {
         urls: [URL], excluded: [URL] = [], read: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }
     ) {
         self.read = read
+        origin = .files
         excludedURLs = excluded
         add(urls)
     }
 
-    /// The documents a parent file names, in its order. Only the parent's text changes, and only in memory.
-    init(plan: MarkdownIncludes.Plan, read: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }) {
+    /// The documents a parent file names, in its order. Only the parent's text changes, and only in memory. The reader
+    /// chose the parent and the documents added later, but the parent's text chose its documents, so each read of those
+    /// stays under the parent's folder, whatever has been swapped in since the plan was made.
+    init(plan: MarkdownIncludes.Plan) {
         let parent = plan.parent
-        self.read = { url in
-            let data = try read(url)
-            return url == parent ? MarkdownIncludes.prefaceData(data) : data
+        let root = plan.root
+        let named = Set(plan.documents)
+        read = { url in
+            if url == parent { return MarkdownIncludes.prefaceData(try Data(contentsOf: url)) }
+            return named.contains(url) ? try ConfinedFile.read(url, within: root) : try Data(contentsOf: url)
         }
+        origin = .parent(parent, hasPreface: plan.hasPreface)
         excludedURLs = plan.excluded
         missingPaths = plan.missing
         if plan.hasPreface { items.append(Item(url: parent, format: .markdown, isPreface: true)) }
@@ -88,7 +101,14 @@ final class BinderModel {
     }
     var isSortedByName: Bool { items == sorted(items) }
     /// Only an order the reader made is worth remembering.
-    var isInStartingOrder: Bool { startingOrder.map { $0 == urls } ?? isSortedByName }
+    var isInStartingOrder: Bool { items == startingItems(items) }
+
+    /// The parent's order, or name order without a parent. Documents added later follow by name.
+    private func startingItems(_ items: [Item]) -> [Item] {
+        guard let startingOrder else { return sorted(items) }
+        let named = startingOrder.compactMap { url in items.first { $0.url == url } }
+        return named + sorted(items.filter { !startingOrder.contains($0.url) })
+    }
 
     private func sorted(_ items: [Item]) -> [Item] {
         items.sorted {
@@ -133,6 +153,8 @@ final class BinderModel {
     }
 
     func sortByName() { items = sorted(items) }
+
+    func resetOrder() { items = startingItems(items) }
 
     @discardableResult
     func applyOrder(_ digests: [String]) -> Bool {
