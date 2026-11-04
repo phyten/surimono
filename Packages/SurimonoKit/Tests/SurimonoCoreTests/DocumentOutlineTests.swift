@@ -69,6 +69,35 @@ struct DocumentOutlineTests {
         #expect(DocumentOutline.pages(of: headings, inPageTexts: ["一つ目\n本文\n一つ目"]) == [0, 0])
     }
 
+    @Test("見出しの中の数字を番号と取り違えない")
+    func keepsNumbersInHeadings() {
+        let headings = [DocumentHeading(level: 1, text: "2026年の計画")]
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: ["2025年の計画", "2026年の計画"]) == [1])
+    }
+
+    @Test("見つからない見出しが多くても同じ行を読み直さずに終わる")
+    func handlesManyMissingHeadings() {
+        let headings = (0..<2000).map { DocumentHeading(level: 2, text: "節\($0)の見出しはこの文書にありません") }
+        let pages = Array(repeating: String(repeating: "節本文の行はここにあります\n", count: 40), count: 500)
+        #expect(DocumentOutline.pages(of: headings, inPageTexts: pages).allSatisfy { $0 == nil })
+    }
+
+    @Test("似た名前の要素を見出しにしない")
+    func requiresWholeTagName() {
+        #expect(DocumentOutline.headings(inHTML: "<h1-note>項目</h1-note><h2>節</h2>").map(\.text) == ["節"])
+    }
+
+    @Test("ID の文字の参照を解く")
+    func decodesIdentifier() {
+        #expect(DocumentOutline.headings(inHTML: #"<h1 id="a&amp;b">見出し</h1>"#).first?.id == "a&b")
+    }
+
+    @Test("スタイルの中の似た閉じタグで終わらない")
+    func keepsRawTextUntilItsClosingTag() {
+        let html = #"<style>p::after{content:"</stylesheet>本文"}</style><p>字</p>"#
+        #expect(DocumentStatistics(html: html).characters == 1)
+    }
+
     @Test("コメントの中の見出しは読まない")
     func skipsComments() {
         #expect(DocumentOutline.headings(inHTML: "<!-- <h1>隠す</h1> --><h1>本文</h1>").map(\.text) == ["本文"])
