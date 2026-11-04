@@ -1,5 +1,7 @@
 html, body { background: white; color: #111; }
 body { margin: 0; overflow-wrap: anywhere; }
+/* Keeps a long path from leaving the rest of its line empty; see LongTokenMarks. */
+.long-token { word-break: break-all; }
 /* The page margin already frames the text, so the first block adds no space of its own above it. An Org title block or
    a quote has no top border or padding, so its first child's margin would show through it. */
 body > :first-child,
