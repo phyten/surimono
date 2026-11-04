@@ -37,6 +37,14 @@ struct BinderDrawer: View {
                     .help(binder.unreadableURLs.map(\.lastPathComponent).joined(separator: "\n"))
                 }
                 BinderList(model: binder)
+                ForEach(binder.missingPaths, id: \.self) { path in
+                    HStack(spacing: 8) {
+                        Text(verbatim: path).lineLimit(1).truncationMode(.middle)
+                        Spacer(minLength: 0)
+                        Text("Not Found")
+                    }
+                    .font(.caption).foregroundStyle(.secondary).help(path)
+                }
                 HStack {
                     Button("Add Documents…") { model.addBinderDocuments() }
                     Spacer()

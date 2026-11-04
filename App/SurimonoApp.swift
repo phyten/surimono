@@ -30,6 +30,8 @@ struct SurimonoApp: App {
         ClipboardWindows.shared.preferences = preferences
         ClipboardWindows.shared.library = library
         ClipboardWindows.shared.settingsStore = settingsStore
+        StreamingPreviewWindows.shared.preferences = preferences
+        StreamingPreviewWindows.shared.library = library
         // Sparkle keeps its schedule from launch, not from the first time the menu is opened.
         _ = AppUpdater.shared
     }

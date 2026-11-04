@@ -28,3 +28,8 @@ INFOPLIST_KEY_CFBundleDisplayName[config=Debug] = Surimono Dev
 // xcconfig, hence "$()"). Debug builds name no feed, so Surimono Dev never replaces itself with the release.
 SURIMONO_UPDATE_FEED_URL = https:/$()/github.com/phyten/surimono/releases/latest/download/appcast.xml
 SURIMONO_UPDATE_FEED_URL[config=Debug] =
+
+// The Services menu lists every installed app's items, and a service reaches its app by port name, so a development
+// build answers under its own name next to the release.
+SURIMONO_SERVICE_APP_NAME = Surimono
+SURIMONO_SERVICE_APP_NAME[config=Debug] = Surimono Dev

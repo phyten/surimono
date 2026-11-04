@@ -27,8 +27,15 @@ final class OpenRouter {
         hasOpenWindows: {
             !NSDocumentController.shared.documents.isEmpty || ImageBundleWindows.shared.hasWindows
                 || ClipboardWindows.shared.hasWindows || BinderWindows.shared.hasWindows
+                || StreamingPreviewWindows.shared.hasWindow
         },
-        showWelcome: { WelcomeController.shared.show() })
+        showWelcome: { WelcomeController.shared.show() },
+        openMemory: { data, format, printing in
+            ClipboardWindows.shared.open(
+                data, format: format, title: String(localized: "Selected Text"), printing: printing)
+        },
+        openIncludes: { BinderWindows.shared.open($0) },
+        openWindows: { DocumentWindows.shared.openModels })
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
     private let openBundle: ([URL], [URL]) -> Void
@@ -36,6 +43,11 @@ final class OpenRouter {
     private let warn: (NSWindow?) -> Void
     private let hasOpenWindows: () -> Bool
     private let showWelcome: () -> Void
+    private let openMemory: (Data, DocumentFormat, Bool) -> Void
+    private let openIncludes: (MarkdownIncludes.Plan) -> Void
+    private let openWindows: () -> [DocumentViewModel]
+    /// Files asked to open on the print tray whose windows have not appeared yet.
+    private var printRequests: Set<URL> = []
     /// Opens that have not finished, so that the welcome window does not cover a document that is still loading.
     private(set) var pendingOpens = 0
 
@@ -53,7 +65,10 @@ final class OpenRouter {
     init(
         openDocument: @escaping (URL, @escaping (Bool) -> Void) -> Void, openBundle: @escaping ([URL], [URL]) -> Void,
         openBinder: @escaping ([URL], [URL]) -> Void,
-        warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void
+        warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void,
+        openMemory: @escaping (Data, DocumentFormat, Bool) -> Void = { _, _, _ in },
+        openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
+        openWindows: @escaping () -> [DocumentViewModel] = { [] }
     ) {
         self.openDocument = openDocument
         self.openBundle = openBundle
@@ -61,22 +76,61 @@ final class OpenRouter {
         self.warn = warn
         self.hasOpenWindows = hasOpenWindows
         self.showWelcome = showWelcome
+        self.openMemory = openMemory
+        self.openIncludes = openIncludes
+        self.openWindows = openWindows
     }
 
     @discardableResult
-    func open(_ urls: [URL], from window: NSWindow? = nil) -> Bool {
+    func open(_ urls: [URL], from window: NSWindow? = nil, printing: Bool = false) -> Bool {
         let request = OpenRequest(urls: urls.filter(\.isFileURL))
         guard request != .empty else { return false }
         switch request {
         case .single(let url):
+            if printing { printRequests.insert(url.standardizedFileURL) }
             pendingOpens += 1
-            openDocument(url) { [weak self] opened in self?.finishOpening(opened) }
-        case .imageBundle(let urls, let excluded): openBundle(urls, excluded)
-        case .binder(let urls, let excluded): openBinder(urls, excluded)
+            openDocument(url) { [weak self] opened in
+                if !opened { self?.printRequests.remove(url.standardizedFileURL) }
+                self?.finishOpening(opened)
+            }
+        case .imageBundle(let urls, let excluded):
+            if printing { printRequests.formUnion(urls.map(\.standardizedFileURL)) }
+            openBundle(urls, excluded)
+        case .binder(let urls, let excluded):
+            if printing { printRequests.formUnion(urls.map(\.standardizedFileURL)) }
+            openBinder(urls, excluded)
         case .unsupported: warn(window)
         case .empty: break
         }
+        // A window that was open already shows nothing new, so nothing else would notice the request.
+        for model in openWindows() { printIfRequested(model) }
         return true
+    }
+
+    /// What a service hands over: files take the way of any other file, and text and images open from memory, as the
+    /// clipboard's do.
+    @discardableResult
+    func open(_ content: ClipboardContent, printing: Bool) -> Bool {
+        switch content {
+        case .files(let urls): return open(urls, printing: printing)
+        case .document(let data, let format):
+            openMemory(data, format, printing)
+            return true
+        case .empty: return false
+        }
+    }
+
+    /// A parent file's binder, in the order the parent names its documents.
+    func open(includes plan: MarkdownIncludes.Plan) {
+        openIncludes(plan)
+    }
+
+    /// Takes the window to the print tray if it shows a file that was asked to open there.
+    func printIfRequested(_ model: DocumentViewModel) {
+        let requested = printRequests.intersection(model.sourceURLs.map(\.standardizedFileURL))
+        guard !requested.isEmpty else { return }
+        printRequests.subtract(requested)
+        model.enterPrintMode()
     }
 
     func showOpenPanel() {
@@ -90,6 +144,7 @@ final class OpenRouter {
 
     private func finishOpening(_ opened: Bool) {
         pendingOpens -= 1
+        for model in openWindows() { printIfRequested(model) }
         // A document that fails to open, for example at launch, must not leave the app without any window.
         if !opened { showWelcomeIfIdle() }
     }

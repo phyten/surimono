@@ -34,8 +34,10 @@ final class ClipboardWindows {
 
     static func content(from pasteboard: NSPasteboard) -> ClipboardContent {
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        // Apps that keep only rich text offer no plain string.
+        let richText = pasteboard.data(forType: .rtf).flatMap { NSAttributedString(rtf: $0, documentAttributes: nil) }
         return ClipboardContent(
-            fileURLs: urls ?? [], text: pasteboard.string(forType: .string),
+            fileURLs: urls ?? [], text: pasteboard.string(forType: .string) ?? richText?.string,
             png: pasteboard.data(forType: .png), tiff: pasteboard.data(forType: .tiff))
     }
 
@@ -51,28 +53,38 @@ final class ClipboardWindows {
             warn(window)
             return nil
         case .document(let data, let format):
-            let hash = ContentHash.of(data)
-            if let existing = controllers[hash] {
-                existing.window?.deminiaturize(nil)
-                existing.showWindow(nil)
-                existing.window?.makeKeyAndOrderFront(nil)
-                closeWelcome()
-                return existing
-            }
             let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
-            let model = DocumentViewModel(
-                data: data, fileURL: nil, format: format,
-                preferences: preferences ?? AppPreferences(), library: library ?? UserLibrary(),
-                settingsStore: settingsStore, title: String(localized: "Clipboard") + " " + time)
-            let controller = MemoryDocumentWindowController(model: model) { [weak self] in
-                self?.controllers.removeValue(forKey: hash)
-            }
-            controllers[hash] = controller
-            if let window = controller.window { cascadePoint = window.cascadeTopLeft(from: cascadePoint) }
-            controller.showWindow(nil)
-            controller.window?.makeKeyAndOrderFront(nil)
-            closeWelcome()
-            return controller
+            return open(data, format: format, title: String(localized: "Clipboard") + " " + time)
         }
+    }
+
+    /// Opens bytes that have no file. The same content has one window, whichever way it came in.
+    @discardableResult
+    func open(_ data: Data, format: DocumentFormat, title: String, printing: Bool = false)
+        -> MemoryDocumentWindowController
+    {
+        let hash = ContentHash.of(data)
+        let controller = controllers[hash] ?? makeController(data, format: format, title: title, hash: hash)
+        controller.window?.deminiaturize(nil)
+        controller.showWindow(nil)
+        controller.window?.makeKeyAndOrderFront(nil)
+        closeWelcome()
+        if printing { controller.model.enterPrintMode() }
+        return controller
+    }
+
+    private func makeController(_ data: Data, format: DocumentFormat, title: String, hash: ContentHash)
+        -> MemoryDocumentWindowController
+    {
+        let model = DocumentViewModel(
+            data: data, fileURL: nil, format: format,
+            preferences: preferences ?? AppPreferences(), library: library ?? UserLibrary(),
+            settingsStore: settingsStore, title: title)
+        let controller = MemoryDocumentWindowController(model: model) { [weak self] in
+            self?.controllers.removeValue(forKey: hash)
+        }
+        controllers[hash] = controller
+        if let window = controller.window { cascadePoint = window.cascadeTopLeft(from: cascadePoint) }
+        return controller
     }
 }

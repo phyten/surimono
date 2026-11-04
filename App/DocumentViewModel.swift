@@ -13,7 +13,7 @@ typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
 /// A short message near the bottom of the window, optionally with one action.
 struct Toast: Equatable, Identifiable {
-    enum Action: Equatable { case retryWebCapture, allowFolderAccess, nextChange }
+    enum Action: Equatable { case retryWebCapture, allowFolderAccess, nextChange, openIncludes }
 
     let id = UUID()
     var systemImage: String
@@ -143,6 +143,14 @@ final class DocumentViewModel {
         ((PDFDocument, PrintLayout, PrintRequest, @escaping (DuplexTestResult?) -> Void) -> Void)?
     private var duplexTestTask: Task<Void, Never>?
     var toast: Toast?
+    /// What the document can be bound from; nil unless it names at least two documents that can be read.
+    private(set) var includePlan: MarkdownIncludes.Plan?
+    @ObservationIgnored private var includeTask: Task<Void, Never>?
+    @ObservationIgnored private var hasOfferedIncludes = false
+    /// The folder is being allowed on the way to the binder, which opens once the folder can be read.
+    @ObservationIgnored private var opensIncludesWithAccess = false
+    /// Replaces the save panel in tests.
+    @ObservationIgnored var chooseSaveDestination: ((String, @escaping (URL?) -> Void) -> Void)?
     /// The logical pages the paper shows. They are published before the sheets are composed.
     private(set) var result: PreparedRender?
     /// The composed sheets for the tray and the outputs. It may still belong to an earlier `result` while the sheets
@@ -563,6 +571,7 @@ final class DocumentViewModel {
             }
         }
         computeContentHash()
+        refreshIncludePlan()
         render()
     }
 
@@ -592,6 +601,7 @@ final class DocumentViewModel {
         reloadOwnsProgress = false
         reconciliationTask?.cancel()
         reconciliationTask = nil
+        includeTask?.cancel()
         watcher?.stop()
         watcher = nil
         cancelCapture()
@@ -729,7 +739,69 @@ final class DocumentViewModel {
             webZoom = web.zoom
         }
         computeContentHash()
+        refreshIncludePlan()
         render()
+    }
+
+    /// A window without a file takes what its feed sends, as a file's window takes a change of the file.
+    func replaceContent(_ bytes: Data, format: DocumentFormat) {
+        guard fileURL == nil, binder == nil, imageBundle == nil, bytes != data || format != self.format else { return }
+        data = bytes
+        self.format = format
+        applyReload(reloadsWeb: false)
+    }
+
+    /// The bytes of a document that exists only in this window.
+    var memoryContent: Data? { fileURL == nil && binder == nil && imageBundle == nil ? data : nil }
+
+    private func refreshIncludePlan() {
+        includeTask?.cancel()
+        guard format == .markdown, imageBundle == nil, binder == nil, let fileURL else {
+            includePlan = nil
+            return
+        }
+        let data = data
+        // A sandboxed app cannot look next to the file before the folder is allowed, so all it names counts until then.
+        let canReadFolder = !SandboxEnvironment.isSandboxed || folderLease != nil
+        includeTask = Task { [weak self] in
+            let plan = await Task.detached(priority: .utility) {
+                MarkdownIncludes(markdown: TextDecoding.decode(data).text).map {
+                    canReadFolder ? $0.plan(parent: fileURL) : $0.plan(parent: fileURL, exists: { _ in true })
+                }
+            }.value
+            guard let self, !Task.isCancelled else { return }
+            includePlan = plan?.offersBinder == true ? plan : nil
+            offerIncludes()
+        }
+    }
+
+    private func offerIncludes() {
+        guard let includePlan, !hasOfferedIncludes, toast == nil else { return }
+        hasOfferedIncludes = true
+        // It only invites: the document is open and readable as it is, and the Document menu keeps the way there.
+        showToast(
+            Toast(
+                systemImage: "books.vertical",
+                title: String(format: String(localized: "%lld documents can be loaded"), includePlan.documents.count),
+                action: .openIncludes),
+            dismissAfter: .seconds(10))
+    }
+
+    /// The toast's and the Document menu's Open as Binder. The binder takes the place of this window.
+    func openIncludesAsBinder() {
+        guard includePlan != nil, let fileURL else { return }
+        dismissToast()
+        if SandboxEnvironment.isSandboxed, folderLease == nil {
+            opensIncludesWithAccess = true
+            allowFolderAccess()
+            return
+        }
+        // The files may have come or gone since the plan was made.
+        guard let plan = MarkdownIncludes(markdown: TextDecoding.decode(data).text)?.plan(parent: fileURL),
+            !plan.documents.isEmpty
+        else { return }
+        OpenRouter.shared.open(includes: plan)
+        window?.close()
     }
 
     func reloadLibrary() {
@@ -1463,7 +1535,7 @@ final class DocumentViewModel {
             imageOrder: imageBundle.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
             paperOrientation: paperOrientation, htmlPresentation: usesHTMLPresentation ? htmlPresentation : nil,
             ignoresSlides: usesHTMLPresentation && ignoresSlides ? true : nil,
-            binderOrder: binder.flatMap { $0.isSortedByName ? nil : $0.orderDigests },
+            binderOrder: binder.flatMap { $0.isInStartingOrder ? nil : $0.orderDigests },
             binderStartsOnFront: binder != nil ? binderStartsOnFront : nil,
             printFinish: finishAppliesToText ? printFinish : nil,
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
@@ -1836,6 +1908,8 @@ final class DocumentViewModel {
             localized: "Choose the document’s folder or a parent folder to display images and other resources.")
         panel.prompt = String(localized: "Allow Access")
         panel.beginSheetModal(for: window) { [weak self] response in
+            let opensIncludes = self?.opensIncludesWithAccess == true
+            self?.opensIncludesWithAccess = false
             guard let self, response == .OK, let selected = panel.url else { return }
             guard LocalResourceAccess.contains(folder, in: selected) else {
                 showToast(
@@ -1866,6 +1940,7 @@ final class DocumentViewModel {
                 liveSnapshot = nil
                 web.reload()
                 render()
+                if opensIncludes { openIncludesAsBinder() }
             } catch {
                 showToast(
                     Toast(

@@ -105,6 +105,17 @@ struct PrintPressBar: View {
                     Text(verbatim: line).font(.system(size: 11)).foregroundStyle(PrintPalette.ai)
                         .monospacedDigit().lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
+                if model.canSaveAsFile {
+                    Button {
+                        model.saveAsFile()
+                    } label: {
+                        Text("Save as File…").underline()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+                    .help("Kept in memory only")
+                }
             }
             Button {
                 model.isPrintOptionsPresented.toggle()

@@ -1,4 +1,5 @@
 import AppKit
+import SurimonoCore
 import SwiftUI
 
 final class BinderWindows {
@@ -13,6 +14,15 @@ final class BinderWindows {
     var hasWindows: Bool { !controllers.isEmpty }
 
     func open(_ urls: [URL], excluded: [URL] = []) {
+        open(urls) { BinderModel(urls: urls, excluded: excluded) }
+    }
+
+    /// A parent file's documents, with the parent's own text in front when it has any.
+    func open(_ plan: MarkdownIncludes.Plan) {
+        open((plan.hasPreface ? [plan.parent] : []) + plan.documents) { BinderModel(plan: plan) }
+    }
+
+    private func open(_ urls: [URL], binder: () -> BinderModel) {
         if let existing = controllers.values.first(where: { Set($0.model.sourceURLs) == Set(urls) }) {
             existing.showWindow(nil)
             existing.window?.makeKeyAndOrderFront(nil)
@@ -22,7 +32,7 @@ final class BinderWindows {
         let model = DocumentViewModel(
             data: Data(), fileURL: nil, format: .pdf,
             preferences: preferences ?? AppPreferences(), library: library ?? UserLibrary(),
-            settingsStore: settingsStore, binder: BinderModel(urls: urls, excluded: excluded))
+            settingsStore: settingsStore, binder: binder())
         model.isDrawerOpen = true
         let controller = MemoryDocumentWindowController(model: model) { [weak self] in
             self?.controllers.removeValue(forKey: id)
