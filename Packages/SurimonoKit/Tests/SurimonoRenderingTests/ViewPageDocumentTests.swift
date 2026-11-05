@@ -356,33 +356,23 @@ struct ViewPageDocumentTests {
         }
     }
 
-    @Test("結合する辺だけを切り取り縦横と左右の読む順に応じて外端を残す", arguments: ViewOptions.ScrollAxis.allCases, ViewOptions.Direction.allCases)
+    @Test(
+        "結合は縦スクロールの上下の辺だけを切り取り、横スクロールは左右の余白を残す", arguments: ViewOptions.ScrollAxis.allCases,
+        ViewOptions.Direction.allCases)
     func cropAxes(axis: ViewOptions.ScrollAxis, direction: ViewOptions.Direction) throws {
         let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 300, height: 500))
         let options = ViewOptions(
             layout: .single, direction: direction, scrollAxis: axis, transition: .scroll, showsCoverAlone: false)
         let plan = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false)
         let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 42))
-        let expected: [CGRect]
-        if axis == .vertical {
-            expected = [
+        let expected =
+            axis == .vertical
+            ? [
                 CGRect(x: 0, y: 42, width: 300, height: 458),
                 CGRect(x: 0, y: 42, width: 300, height: 416),
                 CGRect(x: 0, y: 0, width: 300, height: 458),
             ]
-        } else if direction == .leftToRight {
-            expected = [
-                CGRect(x: 0, y: 0, width: 258, height: 500),
-                CGRect(x: 42, y: 0, width: 216, height: 500),
-                CGRect(x: 42, y: 0, width: 258, height: 500),
-            ]
-        } else {
-            expected = [
-                CGRect(x: 42, y: 0, width: 258, height: 500),
-                CGRect(x: 42, y: 0, width: 216, height: 500),
-                CGRect(x: 0, y: 0, width: 258, height: 500),
-            ]
-        }
+            : Array(repeating: CGRect(x: 0, y: 0, width: 300, height: 500), count: 3)
         for index in 0..<3 {
             #expect(copy.page(at: index)?.bounds(for: .cropBox) == expected[index])
             #expect(source.page(at: index)?.bounds(for: .cropBox) == CGRect(x: 0, y: 0, width: 300, height: 500))

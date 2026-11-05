@@ -85,13 +85,35 @@ struct ViewPageLayoutTests {
     @Test("単ページ連続送りは結合を切っても番号を隠しPDFと画像は切り取らない", arguments: [false, true])
     func eligibility(join: Bool) {
         let options = ViewOptions(
-            layout: .single, scrollAxis: .horizontal, transition: .scroll, showsCoverAlone: false, joinsPages: join)
+            layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false, joinsPages: join)
         let pdf = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: false, showsNumbers: true)
         #expect(!pdf.cropsMargins)
         #expect(!pdf.showsNumbers)
         let text = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: true)
         #expect(text.cropsMargins == join)
         #expect(!text.showsNumbers)
+    }
+
+    @Test("横スクロールは結合の設定によらず左右の余白を残す", arguments: ViewOptions.Direction.allCases)
+    func horizontalKeepsMargins(direction: ViewOptions.Direction) {
+        let options = ViewOptions(
+            layout: .single, direction: direction, scrollAxis: .horizontal, transition: .scroll,
+            showsCoverAlone: false, joinsPages: true)
+        let plan = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false)
+        #expect(!plan.cropsMargins)
+        #expect(!plan.crops(at: 1).top && !plan.crops(at: 1).bottom)
+        #expect(!options.canJoinPages)
+    }
+
+    @Test("ページの結合を選べるのは単ページの縦スクロールだけ")
+    func joinablePages() {
+        var options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        #expect(options.canJoinPages)
+        options.transition = .slide
+        #expect(!options.canJoinPages)
+        options.transition = .scroll
+        options.layout = .spread
+        #expect(!options.canJoinPages)
     }
 
     @Test("表示用PDFのキーは送り方や切り取らない方向変更では変わらない")
@@ -120,9 +142,10 @@ struct ViewPageLayoutTests {
         #expect(key(options) != vertical)
         let horizontal = key(options)
         options.direction = .rightToLeft
-        #expect(key(options) != horizontal)
+        #expect(key(options) == horizontal)
         options.joinsPages = false
         let unjoined = key(options)
+        #expect(unjoined == horizontal)
         options.scrollAxis = .vertical
         #expect(key(options) == unjoined)
         #expect(key(options, margin: 20) == unjoined)

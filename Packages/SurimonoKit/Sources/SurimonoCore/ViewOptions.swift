@@ -80,6 +80,8 @@ public struct ViewOptions: Codable, Equatable, Sendable {
     }
 
     public var isSinglePageContinuous: Bool { layout == .single && isContinuous }
+    /// Pages join only one above the other: side by side, the lines of one page would run into those of the next.
+    public var canJoinPages: Bool { isSinglePageContinuous && scrollAxis == .vertical }
 
     /// A single page has no facing page, so the cover option only applies to spreads.
     public var usesCoverOption: Bool { layout != .single }

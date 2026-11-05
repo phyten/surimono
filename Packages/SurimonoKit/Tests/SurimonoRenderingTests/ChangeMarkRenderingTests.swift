@@ -138,11 +138,8 @@ struct ChangeMarkRenderingTests {
         #expect(copy.page(at: 1)?.string == source.page(at: 0)?.string)
     }
 
-    @Test("結合で左余白を切ったページでは残った左端に短い削除マークを描く")
-    func croppedEdge() throws {
-        let source = try RenderingFixtures.pdf(count: 2, size: CGSize(width: 300, height: 500))
-        let options = ViewOptions(layout: .single, scrollAxis: .horizontal, transition: .scroll, showsCoverAlone: false)
-        let plan = ViewPageLayout(pageCount: 2, options: options, hasLogicalMargins: true, showsNumbers: false)
+    @Test("見えている範囲の左端に短い削除マークを描き、本文の左端があればその外にそろえる")
+    func croppedEdge() {
         let mark = ChangeMark(pageIndex: 1, rect: CGRect(x: 40, y: 100, width: 1, height: 100), isShort: true)
         #expect(
             mark.bar(in: CGRect(x: 40, y: 0, width: 260, height: 500)) == CGRect(x: 40, y: 192, width: 2, height: 8))
@@ -151,11 +148,6 @@ struct ChangeMarkRenderingTests {
         #expect(
             item.bar(in: CGRect(x: 0, y: 0, width: 300, height: 500), textLeft: 42)
                 == CGRect(x: 36, y: 100, width: 2, height: 20))
-        let copy = try #require(ViewPageDocument.make(source, plan: plan, margin: 40, changeMarks: [mark]))
-        let page = try #require(copy.page(at: 1))
-        #expect(page.bounds(for: .cropBox).minX == 40)
-        #expect(try RenderingFixtures.pixel(page, x: 41, y: 196)[1] < 180)
-        #expect(try RenderingFixtures.pixel(page, x: 41, y: 180)[1] > 240)
     }
 
     @Test("実際のMarkdown印刷で各ブロックのアンカーは画素を変えず出力から消える", .timeLimit(.minutes(1)))
