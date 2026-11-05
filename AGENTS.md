@@ -306,6 +306,7 @@ make clean
 - 長さ 0 の破線は丸い線端でも、ビットマップには何も描かれない（PDF には残る）。点線の `setLineDash` は長さを 0 にしない。
 - PDFKit は、内側のスクロールビューの bounds が変わると、`positionInternalViews` で `hasVerticalScroller` と `hasHorizontalScroller` を自分で true に戻す。そのあとにレイアウトが走るとは限らない（パレットを開いたときに、太いスクロールバーが出たままになった）ので、false にし直す方法では止まらない。`PaperPDFView` は幅 0 で何も描かない `InvisibleScroller` を入れておき、PDFKit がいつ戻しても紙の幅を取らないようにしている。
 - 帯の部品を `ViewThatFits` で丸ごと別の組み立てに切り替えると、中のボタンが作り直され、そこから出したポップオーバーが閉じる（表示の型を変えて窓の幅が変わったときに起きた）。帯は `ViewThatFits` を使わずに測った幅から出す物を決め、表示のオプションのポップオーバーはいつも帯にある「…」から出す。
+- PDFView は表示したページを裏で Vision に解析させる（公開の API で止められない）。CI の runner では解析が追いつかず、PDF を表示するテストが増えると待ちのスレッドが dispatch の上限を使い切り、主スレッドで `NSDocumentController.recentDocumentURLs` などを待っていたテストの本体が固まった（単独では通り、全体でだけ `.timeLimit` で落ちる）。Debug のテスト中だけ `PageTextPDFView` が非公開の `documentAnalysisEnabled` を切る。
 - PDFView の `go(to:)` は、単ページの横スクロールでは現在のページだけを進めて紙を動かさない（見開きの横スクロールと縦は動く）。`PaperPDFView` が `go(to:)` を上書きして、そのページを窓の左端へ自分でスクロールする。
 - 見開きなどで窓の幅が画面に入らないときは、高さも同じ比率で縮める。幅だけを止めると紙の上下が空く。縮める前の高さは `DocumentViewModel` が覚えて、形が入るようになると戻す（利用者が窓の大きさを変えたら忘れる）。
 - `setFrame(_:display:animate:)` のアニメーションは、呼び出しから戻ったあとにライブリサイズの終了を通知する。アプリが窓の大きさを変えるときは `ViewerWindow` を通し、利用者のリサイズと区別する。
