@@ -65,7 +65,7 @@ struct PrintFoldView: View {
         // Rebuild the book whenever the pages are rendered again, for example after a style change.
         .task(id: FoldSource.current(model)) {
             guard let source = FoldSource.current(model) else { return }
-            book.load(
+            await book.load(
                 source.document, pageSize: source.pageSize,
                 blankLabel: PrintModeText.string("Blank", language: model.language))
         }
@@ -167,8 +167,10 @@ final class FoldBook {
         view.go(to: page)
     }
 
-    func load(_ logical: PDFDocument, pageSize: CGSize, blankLabel: String) {
-        guard let data = logical.dataRepresentation(), let book = PDFDocument(data: data) else { return }
+    /// A PDF's logical pages keep their own size, so they are fitted like on the sheets: the blanks are made at the
+    /// size of a page of the booklet, and PDFKit shows every page at its own size.
+    func load(_ logical: PDFDocument, pageSize: CGSize, blankLabel: String) async {
+        guard let book = try? await PDFComposer().fitted(logical, pageSize: pageSize), !Task.isCancelled else { return }
         pageIndex = 0
         contentPageCount = book.pageCount
         let padded = (book.pageCount + 3) / 4 * 4

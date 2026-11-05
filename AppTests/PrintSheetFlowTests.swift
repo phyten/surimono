@@ -256,7 +256,7 @@ struct PrintSheetFlowTests {
         #expect(FoldSource.current(model) == nil)
     }
 
-    @Test("冊子の大きさを変えると、同じ論理 PDF でも折ってみるの白紙は新しい大きさで作り直す", .timeLimit(.minutes(1)))
+    @Test("冊子の大きさを変えると、同じ論理 PDF でも折ってみるの紙は中身も白紙も新しい大きさで作り直す", .timeLimit(.minutes(1)))
     func foldFollowsBookletSize() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -274,10 +274,10 @@ struct PrintSheetFlowTests {
         #expect(a5 != a4)
 
         let book = FoldBook()
-        book.load(a5.document, pageSize: a5.pageSize, blankLabel: "Blank")
+        await book.load(a5.document, pageSize: a5.pageSize, blankLabel: "Blank")
         #expect(book.contentPageCount == 5)
         #expect(book.pageCount == 8)
-        for index in 5..<8 {
+        for index in 0..<8 {
             let size = try #require(book.document?.page(at: index)).bounds(for: .mediaBox).size
             // A5 is 148 × 210 mm.
             #expect(abs(size.width - 419.53) < 0.5)
