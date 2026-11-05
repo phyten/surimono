@@ -42,7 +42,7 @@ struct ViewOptionsPopover: View {
                     }
                     .disabled(!model.viewOptions.usesCoverOption)
                 }
-                if model.viewOptions.isSinglePageContinuous, model.viewLogicalMargin != nil {
+                if model.viewOptions.canJoinPages, model.viewLogicalMargin != nil {
                     GridRow {
                         rowLabel("Join Pages")
                         Toggle("Join Pages", isOn: option(\.joinsPages))

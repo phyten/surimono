@@ -18,12 +18,8 @@ public enum ViewPageDocument {
                 var box = original.bounds(for: .cropBox)
                 let top = crop.top ? margin : 0
                 let bottom = crop.bottom ? margin : 0
-                let left = crop.left ? margin : 0
-                let right = crop.right ? margin : 0
-                if margin.isFinite, margin >= 0, top + bottom < box.height, left + right < box.width {
-                    box.origin.x += left
+                if margin.isFinite, margin >= 0, top + bottom < box.height {
                     box.origin.y += bottom
-                    box.size.width -= left + right
                     box.size.height -= top + bottom
                 }
                 let page: PDFPage

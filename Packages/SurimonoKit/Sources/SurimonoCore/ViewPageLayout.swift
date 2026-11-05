@@ -7,15 +7,11 @@ public struct ViewPageLayout: Equatable, Sendable {
     public let cropsMargins: Bool
     public let showsNumbers: Bool
     private let pagesPerUnit: Int
-    private let scrollAxis: ViewOptions.ScrollAxis
-    private let direction: ViewOptions.Direction
     private let pageScales: [CGFloat]
 
     public struct CropEdges: Equatable, Sendable {
         public var top = false
         public var bottom = false
-        public var left = false
-        public var right = false
     }
 
     /// Only inputs that change PDF content, excluding options whose effects are confined to PDFView.
@@ -47,11 +43,9 @@ public struct ViewPageLayout: Equatable, Sendable {
             if options.showsCoverAlone { indices.insert(nil, at: 0) }
             if !indices.count.isMultiple(of: 2) { indices.append(nil) }
         }
-        scrollAxis = options.scrollAxis
-        direction = options.direction
         pagesPerUnit = options.layout == .spread ? 2 : 1
         logicalIndices = indices
-        cropsMargins = hasLogicalMargins && options.isSinglePageContinuous && options.joinsPages
+        cropsMargins = hasLogicalMargins && options.canJoinPages && options.joinsPages
         self.showsNumbers = showsNumbers && !options.isSinglePageContinuous
         let representative = PageSizes.representative(pageSizes)
         if options.isContinuous, pageSizes.contains(where: { !PageSizes.matches($0, representative) }) {
@@ -104,12 +98,7 @@ public struct ViewPageLayout: Equatable, Sendable {
 
     public func crops(at viewIndex: Int) -> CropEdges {
         guard cropsMargins, logicalIndex(at: viewIndex) != nil else { return CropEdges() }
-        let hasPrevious = viewIndex > 0
-        let hasNext = viewIndex < logicalIndices.count - 1
-        if scrollAxis == .vertical { return CropEdges(top: hasPrevious, bottom: hasNext) }
-        return direction == .leftToRight
-            ? CropEdges(left: hasPrevious, right: hasNext)
-            : CropEdges(left: hasNext, right: hasPrevious)
+        return CropEdges(top: viewIndex > 0, bottom: viewIndex < logicalIndices.count - 1)
     }
 
     public func number(at viewIndex: Int) -> Int? {
