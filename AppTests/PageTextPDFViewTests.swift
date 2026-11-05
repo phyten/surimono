@@ -16,6 +16,11 @@ struct PageTextPDFViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("テストの中では PDFKit のページ解析を止める（CI でスレッドを使い切って本体が固まるため）")
+    func analysisStopsInTests() {
+        #expect(PageTextPDFView().value(forKey: "documentAnalysisEnabled") as? Bool == false)
+    }
+
     @Test("ページの要素は、そのページの文字を読める")
     func elementReadsItsPage() throws {
         let (view, window) = try makePaper(pages: ["first page"])

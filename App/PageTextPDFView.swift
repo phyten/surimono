@@ -13,6 +13,29 @@ class PageTextPDFView: PDFView {
     private var elements: [ObjectIdentifier: PageTextElement] = [:]
     private weak var elementsDocument: PDFDocument?
 
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        #if DEBUG
+            stopPageAnalysisInTests()
+        #endif
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    #if DEBUG
+        /// PDFKit hands every page it shows to Vision. Tests show the pages of far more documents than a reader does,
+        /// and on a CI runner the waiting work took all of dispatch's threads: the recent documents, which the main
+        /// thread waits for, then never ran and the test host hung. The switch is private, so only tests use it.
+        private func stopPageAnalysisInTests() {
+            guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil,
+                responds(to: NSSelectorFromString("setDocumentAnalysisEnabled:"))
+            else { return }
+            setValue(false, forKey: "documentAnalysisEnabled")
+        }
+    #endif
+
     override func isAccessibilityElement() -> Bool { true }
 
     override func accessibilityRole() -> NSAccessibility.Role? { .group }
