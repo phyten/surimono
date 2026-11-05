@@ -21,7 +21,9 @@ class PageTextPDFView: PDFView {
 
     // AppKit asks these on the main thread, though NSObject declares them outside the main actor.
     nonisolated override func accessibilityHitTest(_ point: NSPoint) -> Any? {
-        MainActor.assumeIsolated { visibleElements.first { $0.accessibilityFrame().contains(point) } } ?? self
+        nonisolated(unsafe) var element: Any?
+        MainActor.assumeIsolated { element = visibleElements.first { $0.accessibilityFrame().contains(point) } }
+        return element ?? self
     }
 
     nonisolated override var accessibilityFocusedUIElement: Any? { self }
@@ -47,7 +49,7 @@ class PageTextPDFView: PDFView {
             (scrollView, #selector(NSView.isAccessibilityElement), unsafeBitCast(isElement, to: AnyObject.self)),
             (scrollView, #selector(NSView.accessibilityChildren), unsafeBitCast(children, to: AnyObject.self)),
         ]
-        for (target, selector, answer) in answers {
+        for (target, selector, answer): (AnyClass, Selector, AnyObject) in answers {
             guard let method = class_getInstanceMethod(target, selector) else { continue }
             class_replaceMethod(target, selector, imp_implementationWithBlock(answer), method_getTypeEncoding(method))
         }
@@ -68,24 +70,34 @@ class PageTextPDFView: PDFView {
             return element
         }
     }
+
+    /// Where a page of the shown document lies on screen; nothing, once `documentID` is no longer the one shown.
+    fileprivate func screenFrame(ofPageAt index: Int, documentID: ObjectIdentifier) -> NSRect {
+        guard let document, ObjectIdentifier(document) == documentID, let page = document.page(at: index),
+            let window
+        else { return .zero }
+        return window.convertToScreen(convert(convert(page.bounds(for: displayBox), from: page), to: nil))
+    }
 }
 
 /// A page's text for screen readers. See `PageTextPDFView`.
-nonisolated final class PageTextElement: NSAccessibilityElement, @unchecked Sendable {
+nonisolated final class PageTextElement: NSAccessibilityElement {
     private let page: PDFPage
     /// A page does not keep the document behind it, and its text is read through that document.
     private let document: PDFDocument
-    private weak var view: PDFView?
+    private let index: Int
+    private weak var view: PageTextPDFView?
     private var text: String { page.string ?? "" }
 
-    init(page: PDFPage, document: PDFDocument, view: PDFView) {
+    init(page: PDFPage, document: PDFDocument, view: PageTextPDFView) {
         self.page = page
         self.document = document
+        self.index = document.index(for: page)
         self.view = view
         super.init()
         setAccessibilityRole(.staticText)
         setAccessibilityParent(view)
-        setAccessibilityLabel(String(localized: "Page \(document.index(for: page) + 1)"))
+        setAccessibilityLabel(String(localized: "Page \(index + 1)"))
     }
 
     override func isAccessibilityElement() -> Bool { true }
@@ -95,10 +107,8 @@ nonisolated final class PageTextElement: NSAccessibilityElement, @unchecked Send
     override func accessibilityNumberOfCharacters() -> Int { text.utf16.count }
 
     override func accessibilityFrame() -> NSRect {
-        MainActor.assumeIsolated {
-            guard let view, let window = view.window else { return .zero }
-            let bounds = view.convert(page.bounds(for: view.displayBox), from: page)
-            return window.convertToScreen(view.convert(bounds, to: nil))
-        }
+        guard let view else { return .zero }
+        let (index, documentID) = (index, ObjectIdentifier(document))
+        return MainActor.assumeIsolated { view.screenFrame(ofPageAt: index, documentID: documentID) }
     }
 }
