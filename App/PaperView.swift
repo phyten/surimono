@@ -640,6 +640,29 @@ final class PaperPDFView: PageTextPDFView {
         if options?.isContinuous != true { refit() }
     }
 
+    override func go(to page: PDFPage) {
+        super.go(to: page)
+        alignHorizontalScroll(to: page)
+    }
+
+    override func go(to destination: PDFDestination) {
+        super.go(to: destination)
+        if let page = destination.page { alignHorizontalScroll(to: page) }
+    }
+
+    /// In one page after another across the window, PDFKit moves its current page but not the paper.
+    private func alignHorizontalScroll(to page: PDFPage) {
+        guard let options, options.isSinglePageContinuous, options.scrollAxis == .horizontal,
+            let scrollView = documentView?.enclosingScrollView
+        else { return }
+        layoutDocumentView()
+        let clip = scrollView.contentView
+        var origin = clip.convert(convert(page.bounds(for: displayBox), from: page).origin, from: self)
+        origin.y = clip.bounds.minY
+        clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: origin, size: clip.bounds.size)).origin)
+        scrollView.reflectScrolledClipView(clip)
+    }
+
     /// The cover of a paged spread, shown alone: the view copy puts a blank page before it (view index 0), and the
     /// cover itself is view index 1.
     private func isNarrowCover(at viewIndex: Int) -> Bool {
