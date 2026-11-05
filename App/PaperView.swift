@@ -81,7 +81,7 @@ final class InvisibleScroller: NSScroller {
     override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {}
 }
 
-final class PaperPDFView: PDFView {
+final class PaperPDFView: PageTextPDFView {
     static let zoomSteps: [Double] = [1, 1.25, 1.5, 2, 3, 4, 6]
     /// Slows page-turn animations down; development screenshots use it to capture a turn halfway.
     static var animationScale: Double = 1
@@ -142,9 +142,9 @@ final class PaperPDFView: PDFView {
     private var pagePlan: ViewPageLayout?
     private var documentKey: ViewPageLayout.DocumentKey?
     /// Every document this view has shown, kept alive for as long as the view lives. PDFKit's accessibility nodes keep
-    /// unretained references to the pages they describe and are asked about them long after the document is replaced
-    /// (VoiceOver, apps that read the screen); freeing those pages crashed inside PDFKit. Dropping even the oldest of
-    /// sixteen still crashed, so there is no limit. View copies are reused for the same source, layout and marks, so
+    /// unretained references to the pages they describe, and freeing those pages crashed inside PDFKit even when only
+    /// the oldest of sixteen was dropped, so there is no limit. Other apps no longer reach those nodes
+    /// (`PageTextPDFView`). View copies are reused for the same source, layout and marks, so
     /// switching between spread and single pages does not keep adding copies; the list grows only with new content
     /// or new page decorations.
     private struct ShownDocument {
