@@ -267,7 +267,7 @@ private struct FoldBookView: NSViewRepresentable {
 
 /// A spread always fits, so an idle scroll bar would only draw a stripe beside the book. PDFKit turns its scroll bars
 /// back on in every layout pass, so its scroll view uses overlay scroll bars, which stay hidden while nothing scrolls.
-private final class FoldPDFView: PDFView {
+private final class FoldPDFView: PageTextPDFView {
     override func layout() {
         super.layout()
         if let scrollView = documentView?.enclosingScrollView, scrollView.scrollerStyle != .overlay {
