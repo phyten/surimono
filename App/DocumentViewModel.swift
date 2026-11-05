@@ -197,6 +197,8 @@ final class DocumentViewModel {
     @ObservationIgnored private var settingsBaseline: DocumentSettings?
     @ObservationIgnored private var pendingImageOrder: [String]?
     @ObservationIgnored private var restoredPaperSize: CGSize?
+    /// The paper's height before the screen's width made it shorter; it comes back once the pages fit at that height.
+    @ObservationIgnored private var heightBeforeScreenLimit: CGFloat?
     /// The view mode's paper size when the print mode began; the tray's size is not the document's window size.
     @ObservationIgnored private var viewPaperSizeBeforePrinting: CGSize?
     @ObservationIgnored private(set) var hasSizedWindow = false
@@ -1915,16 +1917,24 @@ final class DocumentViewModel {
         guard !isWebPresentation else { return applyWebShape() }
         let height = ViewerWindow.paperHeight(of: window, band: bandInset)
         ViewerWindow.setPaperSize(
-            CGSize(width: (height * unit.width / unit.height).rounded(), height: height), band: bandInset,
-            of: window, animate: keepHeight, keepsRightEdge: keepsRightEdge)
+            paperSize(unit: unit, height: height, in: window), band: bandInset, of: window, animate: keepHeight,
+            keepsRightEdge: keepsRightEdge)
+    }
+
+    /// The paper of the unit's shape at `height`. A window stopped at the screen's edge at full height would leave
+    /// empty room above and below the paper, so the height gives way too.
+    private func paperSize(unit: CGSize, height: CGFloat, in window: NSWindow) -> CGSize {
+        let wanted = heightBeforeScreenLimit ?? height
+        let size = ViewerWindow.paperSize(unit: unit, height: wanted, on: window.screen, widthShare: 1)
+        heightBeforeScreenLimit = size.height < wanted - 1 ? wanted : nil
+        return size
     }
 
     private func applyRestoredPaperSize() {
         guard let window, let unit = paperUnitSize, let size = restoredPaperSize else { return }
         // Keep the remembered height; the width follows the pages as they are now.
         ViewerWindow.setPaperSize(
-            CGSize(width: (size.height * unit.width / unit.height).rounded(), height: size.height), band: bandInset,
-            of: window, animate: false)
+            paperSize(unit: unit, height: size.height, in: window), band: bandInset, of: window, animate: false)
     }
 
     /// The paper keeps its size and place when the bands change: the window grows or shrinks at the bottom.
@@ -1942,6 +1952,7 @@ final class DocumentViewModel {
         guard mode == .view, !isWebPresentation, let window, !ViewerWindow.isResizingProgrammatically(window),
             let unit = paperUnitSize
         else { return }
+        heightBeforeScreenLimit = nil
         // The aspect ratio can only approximate "paper plus fixed bands"; settle on the exact size for the width the
         // user chose.
         let width = window.contentRect(forFrameRect: window.frame).width

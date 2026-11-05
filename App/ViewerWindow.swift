@@ -107,11 +107,13 @@ enum ViewerWindow {
     }
 
     /// The paper size of the unit's shape at `height`, made smaller to fit the screen when it is too wide.
-    static func paperSize(unit: CGSize, height: CGFloat, on screen: NSScreen?) -> CGSize {
+    static func paperSize(
+        unit: CGSize, height: CGFloat, on screen: NSScreen?, widthShare: CGFloat = 0.9
+    ) -> CGSize {
         guard unit.width > 0, unit.height > 0, height > 0 else { return initialPaperSize(unit: unit, on: screen) }
         let visible = (screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
         var size = CGSize(width: height * unit.width / unit.height, height: height)
-        let maximumWidth = visible.width * 0.9
+        let maximumWidth = visible.width * widthShare
         if size.width > maximumWidth {
             size = CGSize(width: maximumWidth, height: maximumWidth * unit.height / unit.width)
         }
