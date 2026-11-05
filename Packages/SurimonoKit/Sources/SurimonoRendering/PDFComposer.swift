@@ -24,6 +24,35 @@ public struct PDFComposer {
             orientsEachPage: orientsEachPage, furniture: furniture)
     }
 
+    /// The logical pages as they stand on the sheets: a page of `pageSize` each, fitted the way `compose` fits them
+    /// into a slot. A PDF's pages keep their own size until then. Pages already at that size are copied as they are.
+    public func fitted(_ document: PDFDocument, pageSize: CGSize) async throws -> PDFDocument {
+        try Task.checkCancellation()
+        guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
+        guard let data = document.dataRepresentation(), let copy = PDFDocument(data: data) else {
+            throw CompositionError.pdfCreationFailed
+        }
+        let isFitted = (0..<copy.pageCount).allSatisfy { index in
+            guard let page = copy.page(at: index) else { return false }
+            let box = page.bounds(for: .cropBox).size
+            let size = page.rotation % 180 == 0 ? box : CGSize(width: box.height, height: box.width)
+            return abs(size.width - pageSize.width) < 0.5 && abs(size.height - pageSize.height) < 0.5
+        }
+        if isFitted { return copy }
+        return try await PDFDrawing.document(pageSize: pageSize) { context in
+            for index in 0..<copy.pageCount {
+                await Task.yield()
+                try Task.checkCancellation()
+                guard let page = copy.page(at: index)?.pageRef else {
+                    throw CompositionError.invalidPage(index + 1)
+                }
+                context.beginPDFPage(nil)
+                try draw(page, in: CGRect(origin: .zero, size: pageSize), context: context, index: index)
+                context.endPDFPage()
+            }
+        }
+    }
+
     /// The pages of `document` as drawn into the sheets. A caller composing the same document again may keep it.
     static func composingSource(of document: PDFDocument) throws -> CGPDFDocument {
         // PDFPage edits (including rotation) are not necessarily reflected in pageRef until serialized.

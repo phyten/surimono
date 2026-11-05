@@ -143,6 +143,30 @@ struct PDFComposerTests {
         #expect(try RenderingFixtures.pixel(page, x: 5, y: 5)[0] > 240)
     }
 
+    @Test("論理ページは用紙の中の場所と同じ大きさになり、縦横比を保って中央に収まる")
+    func fittedPages() async throws {
+        let source = try RenderingFixtures.pdf(count: 3, size: CGSize(width: 800, height: 450))
+        let size = CGSize(width: 420, height: 595)
+        let output = try await PDFComposer().fitted(source, pageSize: size)
+        #expect(output.pageCount == 3)
+        for index in 0..<3 {
+            let page = try #require(output.page(at: index))
+            #expect(page.bounds(for: .mediaBox).size == size)
+            #expect(try RenderingFixtures.pixel(page, x: 210, y: 40)[0] > 240)
+            #expect(page.string?.contains("PAGE-\(index + 1)") == true)
+        }
+    }
+
+    @Test("用紙の中の場所と同じ大きさのページは描き直さない")
+    func fittedPagesKeepsMatchingPages() async throws {
+        let size = CGSize(width: 420, height: 595)
+        let source = try RenderingFixtures.pdf(count: 2, size: size)
+        let output = try await PDFComposer().fitted(source, pageSize: size)
+        #expect(output !== source)
+        #expect(output.pageCount == 2)
+        #expect(output.page(at: 0)?.bounds(for: .mediaBox).size == size)
+    }
+
     @Test("ページ番号は下余白に置かれ白紙には描かれない")
     func pageNumbers() async throws {
         let source = try RenderingFixtures.pdf(count: 1, size: PaperSize.a4.size)
