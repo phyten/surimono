@@ -329,6 +329,78 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test(
+        "横スクロールでページへ移ると、そのページか見開きが窓の左端に来る",
+        arguments: ViewOptions.Layout.allCases, ViewOptions.Direction.allCases)
+    func horizontalScrollMovesToPage(layout: ViewOptions.Layout, direction: ViewOptions.Direction) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("horizontal-move", pages: 6)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.configure(
+            source, at: 0,
+            options: ViewOptions(
+                layout: layout, direction: direction, scrollAxis: .horizontal, transition: .scroll,
+                showsCoverAlone: false),
+            logicalMargin: nil, showsPageNumbers: false)
+        view.layoutSubtreeIfNeeded()
+        for index in [2, 4, 2, 0] {
+            view.goToPage(index: index)
+            view.layoutSubtreeIfNeeded()
+            #expect(view.currentPageIndex == index)
+            #expect(abs(try leftEdge(of: index, layout: layout, in: view)) < 1)
+        }
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("横スクロールはホイールでも紙が横へ動く")
+    func horizontalScrollFollowsWheel() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("horizontal-wheel", pages: 4)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.configure(
+            source, at: 0,
+            options: ViewOptions(layout: .single, scrollAxis: .horizontal, transition: .scroll, showsCoverAlone: false),
+            logicalMargin: nil, showsPageNumbers: false)
+        view.layoutSubtreeIfNeeded()
+        let scrollView = try #require(view.documentView?.enclosingScrollView)
+        let before = scrollView.contentView.bounds.minX
+        let wheel = try #require(
+            CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: -120, wheel3: 0))
+        scrollView.scrollWheel(with: try #require(NSEvent(cgEvent: wheel)))
+        view.layoutSubtreeIfNeeded()
+        #expect(scrollView.contentView.bounds.minX > before)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("縦から横へ切り替えても読んでいたページのまま窓の左端に来る")
+    func switchingToHorizontalKeepsPage() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("axis-switch", pages: 6)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        var options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: false)
+        view.layoutSubtreeIfNeeded()
+        view.goToPage(index: 3)
+        view.layoutSubtreeIfNeeded()
+        options.scrollAxis = .horizontal
+        view.configure(source, at: 0, options: options, logicalMargin: 42, showsPageNumbers: false)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.currentPageIndex == 3)
+        #expect(abs(try leftEdge(of: 3, layout: .single, in: view)) < 1)
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("横スクロールでは 1 ページが窓の幅いっぱいで、隣のページがのぞかない")
+    func horizontalPageFillsWindow() throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("axis-fill", pages: 4)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.configure(
+            source, at: 1,
+            options: ViewOptions(layout: .single, scrollAxis: .horizontal, transition: .scroll, showsCoverAlone: false),
+            logicalMargin: 42, showsPageNumbers: false)
+        view.layoutSubtreeIfNeeded()
+        let page = try #require(view.document?.page(at: 1))
+        #expect(abs(view.convert(page.bounds(for: .cropBox), from: page).width - view.bounds.width) < 1)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("結合中は実際の切り取りが同じ向き変更で表示PDFを再利用し辺が変われば作り直す")
     func cropCache() throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("crop-cache", pages: 3)))
@@ -970,6 +1042,15 @@ struct PaperViewTests {
         view.configure(source, at: 0, options: spread, logicalMargin: nil, showsPageNumbers: true)
         #expect(view.document === spreadCopy)
         withExtendedLifetime(window) {}
+    }
+
+    /// The left edge in the view of the page at `index`, or of the spread it belongs to.
+    private func leftEdge(of index: Int, layout: ViewOptions.Layout, in view: PaperPDFView) throws -> CGFloat {
+        let indices = layout == .spread ? [index, index + 1] : [index]
+        return try indices.map { index in
+            let page = try #require(view.document?.page(at: index))
+            return view.convert(page.bounds(for: .cropBox), from: page).minX
+        }.min() ?? .infinity
     }
 
     private func makeSinglePagePaper(document: PDFDocument? = nil) throws -> (PaperPDFView, NSWindow) {
