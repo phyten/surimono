@@ -307,6 +307,7 @@ make clean
 - PDFKit は、内側のスクロールビューの bounds が変わると、`positionInternalViews` で `hasVerticalScroller` と `hasHorizontalScroller` を自分で true に戻す。そのあとにレイアウトが走るとは限らない（パレットを開いたときに、太いスクロールバーが出たままになった）ので、false にし直す方法では止まらない。`PaperPDFView` は幅 0 で何も描かない `InvisibleScroller` を入れておき、PDFKit がいつ戻しても紙の幅を取らないようにしている。
 - 帯の部品を `ViewThatFits` で丸ごと別の組み立てに切り替えると、中のボタンが作り直され、そこから出したポップオーバーが閉じる（表示の型を変えて窓の幅が変わったときに起きた）。帯は `ViewThatFits` を使わずに測った幅から出す物を決め、表示のオプションのポップオーバーはいつも帯にある「…」から出す。
 - PDFView の `go(to:)` は、単ページの横スクロールでは現在のページだけを進めて紙を動かさない（見開きの横スクロールと縦は動く）。`PaperPDFView` が `go(to:)` を上書きして、そのページを窓の左端へ自分でスクロールする。
+- 見開きなどで窓の幅が画面に入らないときは、高さも同じ比率で縮める。幅だけを止めると紙の上下が空く。縮める前の高さは `DocumentViewModel` が覚えて、形が入るようになると戻す（利用者が窓の大きさを変えたら忘れる）。
 - `setFrame(_:display:animate:)` のアニメーションは、呼び出しから戻ったあとにライブリサイズの終了を通知する。アプリが窓の大きさを変えるときは `ViewerWindow` を通し、利用者のリサイズと区別する。
 - PDFView の `displaysAsBook` は単独の表紙を中央に置くため使わない。表示用コピーに白紙を足し、`ViewPageLayout` で表示ページと論理ページを対応づける。ページを送る見開きで表紙だけを見ている間は、既定（`LoneCoverWidth.onePage`）で PDFView を単ページにして表紙を出し、窓を 1 ページの幅にする（`PaperPDFView.narrowsLoneCover`・`DocumentViewModel.showsNarrowCover`。綴じ側の端を動かさない）。テーマを試している間も、幅は表示中のページ（`shownPageIndex`）で決める。単ページの縦の連続スクロールは `joinsPages`（既定オン）でテーマ付き文書の既知の上下の余白だけを詰める（`ViewOptions.canJoinPages`）。HTML は `@page` による余白変更を表示側で保証できないため切り取らない。表示用 PDF は、元の PDF・白紙の位置・切り取る辺と量・番号が同じなら再利用する。表示番号は `AppPreferences.viewPageNumbers`（既定オフ）で印刷番号と別に描き、単ページの連続スクロールと白紙には出さない。元の論理 PDF と印刷・書き出しには影響させない。
 - メニューの `.disabled(...)` をキーウィンドウのモデルから作ると、SwiftUI はメニューを開くまで更新せず、ショートカットが効かないままになる。項目は有効のままにして、できないときはモデル側で何もしない。

@@ -45,6 +45,25 @@ struct ViewBandTests {
         #expect(condition())
     }
 
+    private func wideDocument(page: CGSize) throws -> Data {
+        let data = NSMutableData()
+        var box = CGRect(origin: .zero, size: page)
+        let consumer = try #require(CGDataConsumer(data: data as CFMutableData))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        for _ in 0..<4 {
+            context.beginPDFPage(nil)
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return data as Data
+    }
+
+    private func paperSize(of window: NSWindow, _ model: DocumentViewModel) -> CGSize {
+        let content = window.contentRect(forFrameRect: window.frame).size
+        let band = ViewerWindow.bandHeight * CGFloat(model.menuArrangement.bandCount)
+        return CGSize(width: content.width, height: content.height - band)
+    }
+
     private func open(_ model: DocumentViewModel) async throws {
         model.start()
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
@@ -144,6 +163,58 @@ struct ViewBandTests {
         environment.preferences.menuArrangement = .split
         try await waitUntil { abs(window.contentRect(forFrameRect: window.frame).height - paper.height - 76) <= 1 }
         #expect(abs(window.frame.maxY - top) <= 1)
+    }
+
+    @Test("見開きの幅が画面に入らないときは高さも縮めて形を保ち、単ページへ戻すと元の高さになる")
+    func tooWideSpreadKeepsItsShape() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let visible = try #require(NSScreen.main?.visibleFrame)
+        let page = CGSize(width: (visible.width * 0.7).rounded(), height: (visible.width * 0.4).rounded())
+        let model = environment.model(try wideDocument(page: page))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.updateViewOptions { $0.showsCoverAlone = false }
+        model.sizeWindowToPaper(initialOnly: true)
+        let height = paperSize(of: window, model).height
+
+        model.setLayout(.spread)
+        model.sizeWindowToPaper()
+        let spread = paperSize(of: window, model)
+        #expect(spread.width <= visible.width + 1)
+        #expect(abs(spread.width / spread.height - page.width * 2 / page.height) < 0.02)
+
+        model.setLayout(.single)
+        model.sizeWindowToPaper()
+        #expect(abs(paperSize(of: window, model).height - height) <= 1)
+    }
+
+    @Test("見開きで利用者が窓の大きさを変えたら、単ページへ戻しても前の高さに戻さない")
+    func resizingForgetsTheOlderHeight() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let visible = try #require(NSScreen.main?.visibleFrame)
+        let page = CGSize(width: (visible.width * 0.7).rounded(), height: (visible.width * 0.4).rounded())
+        let model = environment.model(try wideDocument(page: page))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.updateViewOptions { $0.showsCoverAlone = false }
+        model.sizeWindowToPaper(initialOnly: true)
+        model.setLayout(.spread)
+        model.sizeWindowToPaper()
+        try await Task.sleep(for: .milliseconds(50))
+        model.windowDidEndLiveResize()
+        let height = paperSize(of: window, model).height
+
+        model.setLayout(.single)
+        model.sizeWindowToPaper()
+        #expect(abs(paperSize(of: window, model).height - height) <= 1)
     }
 
     @Test("帯の出し方は文書ごとに覚え、既定と同じなら記録を増やさない")
