@@ -24,6 +24,22 @@ struct BinderRenderingTests {
         ]
     }
 
+    @Test("合本の先頭位置は文書間の白紙を含みキャッシュでも残る")
+    func pageStarts() async throws {
+        let renderer = DocumentRenderer()
+        let a = URL(fileURLWithPath: "/fixture/a.pdf")
+        let b = URL(fileURLWithPath: "/fixture/b.pdf")
+        let data = try #require(RenderingFixtures.pdf().dataRepresentation())
+        let source = DocumentSource.binder([a, b].map { DocumentSource(data: data, fileURL: $0, format: .pdf) })
+        var settings = settings
+        settings.binderStartsOnFront = true
+        for _ in 0..<2 {
+            let prepared = try await renderer.prepare(source, settings: settings)
+            #expect(prepared.binderPageStarts == [a: 0, b: 2])
+            #expect(prepared.blankPages == [1])
+        }
+    }
+
     @Test("合本のHTML本文は外部更新から独立し隣の画像とスクリプトを読み込める", .timeLimit(.minutes(1)))
     func htmlSnapshotWebKit() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
