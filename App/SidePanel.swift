@@ -116,7 +116,7 @@ struct PanelIconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
+            Image(systemName: symbol).font(.system(size: 10, weight: .semibold))
                 .frame(width: 22, height: 22)
                 .background(RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear))
                 .contentShape(Rectangle())

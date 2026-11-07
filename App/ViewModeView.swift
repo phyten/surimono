@@ -159,13 +159,13 @@ private struct PaperArea: View {
         .animation(.easeOut(duration: 0.15), value: model.trialThemeName)
         .overlay(alignment: .bottom) {
             if !model.unreadableImageURLs.isEmpty {
-                Text(
-                    String(
+                NoticePlate(
+                    text: String(
                         format: String(localized: "Could not open: %@"),
                         model.unreadableImageURLs.map(\.lastPathComponent).joined(separator: ", "))
                 )
-                .font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-                .padding(8).paperOverlayBackground(cornerRadius: 8).padding(10)
+                .textSelection(.enabled)
+                .padding(10)
             }
         }
         .alert(
@@ -262,16 +262,11 @@ struct ToastOverlay: View {
                         }
                     }
                     .buttonStyle(ToastActionButtonStyle())
-                    Button {
-                        model.dismissToast()
-                    } label: {
-                        Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-                    }
-                    .buttonStyle(.plain).opacity(0.6).help("Dismiss")
+                    PanelIconButton("xmark", label: "Dismiss") { model.dismissToast() }
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(PrintPalette.toastInk)
                 .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.78)))
+                .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 18)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -280,6 +275,20 @@ struct ToastOverlay: View {
         }
         .frame(maxWidth: .infinity)
         .animation(.easeOut(duration: 0.2), value: model.toast)
+    }
+}
+
+/// A line that stays on the paper for as long as it is true, in the look of the toasts.
+struct NoticePlate: View {
+    let text: String
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(.system(size: 12))
+            .foregroundStyle(PrintPalette.toastInk)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
     }
 }
 
@@ -307,13 +316,13 @@ struct ThemeTrialBadge: View {
         HStack(spacing: 8) {
             if !isReady { ProgressView().controlSize(.mini) }
             Text(verbatim: String(format: String(localized: "Trying %@"), name)).font(
-                .system(size: 12.5, weight: .semibold))
-            Text("Click to choose. Move away to go back.").font(.system(size: 11.5)).opacity(0.75)
+                .system(size: 13, weight: .semibold))
+            Text("Click to choose. Move away to go back.").font(.system(size: 11)).opacity(0.75)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .foregroundStyle(PrintPalette.toastInk)
-        .background(RoundedRectangle(cornerRadius: 9).fill(PrintPalette.toast))
+        .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
         .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
     }
 }
