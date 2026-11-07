@@ -125,6 +125,13 @@ extension DocumentViewModel {
         themeSamples.refresh()
     }
 
+    /// Reads the document's places for the stage. A place chosen before the document changed follows its words, or
+    /// gives way to the first page when they are gone.
+    func followComparePlaces() async {
+        guard await themeSamples.loadPlaces() else { return }
+        comparePlace = comparePlace?.found(in: themeSamples.places)
+    }
+
     var themeGroups: [PrintThemeMenu.Section] {
         themeMenu.sections.filter { section in
             switch section.kind {

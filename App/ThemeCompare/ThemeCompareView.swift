@@ -1,8 +1,10 @@
+import PDFKit
 import SurimonoCore
 import SwiftUI
 
-/// The comparison stage (見比べ台, 案 D): up to four themes side by side on this document's first page, in the print
-/// tray's colours. A candidate becomes the current theme with 「これにする」; the row below adds and takes out others.
+/// The comparison stage (見比べ台, 案 D): up to four themes side by side on this document's first page, or from a heading
+/// or a code block chosen in the bar, in the print tray's colours. A candidate becomes the current theme with
+/// 「これにする」; the row below adds and takes out others.
 struct ThemeCompareView: View {
     @Bindable var model: DocumentViewModel
     @State private var filterID = "featured"
@@ -23,6 +25,7 @@ struct ThemeCompareView: View {
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(true, in: window) }
         }
         .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
+        .task(id: model.themeSamples.generation) { await model.followComparePlaces() }
         .onDisappear { noticeTask?.cancel() }
     }
 
@@ -187,15 +190,22 @@ private struct CompareTopBar: View {
             .fixedSize()
             VStack(alignment: .leading, spacing: 1) {
                 Text("Compare Styles").font(.system(size: 13, weight: .semibold))
-                Text(verbatim: String(format: String(localized: "First page of %@"), model.displayName))
-                    .font(.system(size: 11))
-                    .foregroundStyle(PrintPalette.ink2)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                // A chosen place is told by the button that chose it.
+                Text(
+                    verbatim: model.comparePlace == nil
+                        ? String(format: String(localized: "First page of %@"), model.displayName) : model.displayName
+                )
+                .font(.system(size: 11))
+                .foregroundStyle(PrintPalette.ink2)
+                .lineLimit(1)
+                .truncationMode(.middle)
             }
             .padding(.leading, 16)
             .layoutPriority(-1)
             Spacer(minLength: 12)
+            if !model.themeSamples.places.isEmpty {
+                ComparePlacePicker(model: model).padding(.trailing, 8)
+            }
             Button(action: onShuffle) {
                 Label("Shuffle", systemImage: "dice").padding(.horizontal, 9)
             }
@@ -218,6 +228,146 @@ private struct CompareTopBar: View {
     }
 }
 
+/// 「比べる箇所」: where the stage's pages start. Themes fit different amounts on a page, so their first pages rarely
+/// show the same text; from one heading or code block they all do.
+private struct ComparePlacePicker: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Button {
+            model.isComparePlacePickerPresented.toggle()
+        } label: {
+            HStack(spacing: 7) {
+                Text("Compare At").foregroundStyle(PrintPalette.ink2)
+                Text(verbatim: model.comparePlace?.title ?? String(localized: "First Page"))
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                    .frame(maxWidth: 180)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink2)
+            }
+            .padding(.leading, 10)
+            .padding(.trailing, 8)
+        }
+        .buttonStyle(PrintBorderedButtonStyle())
+        .fixedSize()
+        .help("Start every page at the same heading or code")
+        .popover(isPresented: $model.isComparePlacePickerPresented, arrowEdge: .bottom) {
+            ComparePlaceList(model: model).presentationBackground(PrintPalette.raised)
+        }
+    }
+}
+
+/// The places to choose from: the first page, then the headings, deepest indented, and the code blocks.
+private struct ComparePlaceList: View {
+    @Bindable var model: DocumentViewModel
+
+    private static let firstPageID = "first-page"
+    private static let rowHeight: CGFloat = 30
+    private static let titleHeight: CGFloat = 28
+    private static let rowSpacing: CGFloat = 1
+    private static let padding: CGFloat = 6
+    private static let maximumHeight: CGFloat = 420
+
+    var body: some View {
+        let headings = model.themeSamples.places.filter { $0.kind == .heading }
+        let code = model.themeSamples.places.filter { $0.kind == .code }
+        let top = headings.compactMap(\.level).min() ?? 1
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: Self.rowSpacing) {
+                    ComparePlaceRow(
+                        title: String(localized: "First Page"), height: Self.rowHeight,
+                        isCurrent: model.comparePlace == nil
+                    ) { choose(nil) }
+                    .id(Self.firstPageID)
+                    if !headings.isEmpty { sectionTitle("Headings") }
+                    ForEach(headings) { place in
+                        ComparePlaceRow(
+                            title: place.title, indent: (place.level ?? top) - top, height: Self.rowHeight,
+                            isCurrent: place == model.comparePlace
+                        ) { choose(place) }
+                        .id(place.id)
+                    }
+                    if !code.isEmpty { sectionTitle("Code") }
+                    ForEach(code) { place in
+                        ComparePlaceRow(
+                            title: place.title, isCode: true, height: Self.rowHeight,
+                            isCurrent: place == model.comparePlace
+                        ) { choose(place) }
+                        .id(place.id)
+                    }
+                }
+                .padding(Self.padding)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            .onAppear { proxy.scrollTo(model.comparePlace?.id ?? Self.firstPageID, anchor: .center) }
+        }
+        .frame(width: 320, height: height(headings: headings.count, code: code.count))
+        .accessibilityLabel("Compare At")
+    }
+
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(PrintPalette.ink2)
+            .padding(.horizontal, 8)
+            .frame(height: Self.titleHeight, alignment: .bottomLeading)
+    }
+
+    private func height(headings: Int, code: Int) -> CGFloat {
+        let rows = 1 + headings + code
+        let titles = (headings > 0 ? 1 : 0) + (code > 0 ? 1 : 0)
+        let content =
+            CGFloat(rows) * Self.rowHeight + CGFloat(titles) * Self.titleHeight
+            + CGFloat(rows + titles - 1) * Self.rowSpacing + Self.padding * 2
+        return min(content, Self.maximumHeight)
+    }
+
+    private func choose(_ place: SamplePlace?) {
+        model.comparePlace = place
+        model.isComparePlacePickerPresented = false
+    }
+}
+
+private struct ComparePlaceRow: View {
+    let title: String
+    var indent = 0
+    var isCode = false
+    let height: CGFloat
+    let isCurrent: Bool
+    let onSelect: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            Text(verbatim: title)
+                .font(
+                    isCode
+                        ? .system(size: 12, design: .monospaced)
+                        : .system(size: 13, weight: isCurrent ? .semibold : .regular)
+                )
+                // The raised paper colour reads on the indigo in both appearances.
+                .foregroundStyle(isCurrent ? PrintPalette.raised : PrintPalette.ink)
+                .lineLimit(isCode ? 1 : 2)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 8 + CGFloat(min(indent, 4)) * 12)
+                .padding(.trailing, 8)
+                .frame(minHeight: height)
+                .background {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isCurrent ? PrintPalette.ai : isHovered ? PrintPalette.hover : .clear)
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+}
+
 /// One candidate: its page, name and category, a star, 「外す」 and 「これにする」. The current style is marked by its tag
 /// alone: a frame, a fill and a button of the same strength on every card would outweigh the pages.
 private struct CompareCard: View {
@@ -226,8 +376,12 @@ private struct CompareCard: View {
     let width: CGFloat
     let onChoose: () -> Void
     let onRemove: () -> Void
+    /// The page last drawn, which stays up while the next place is drawn rather than leaving a blank sheet for a moment.
+    @State private var lastPage: PDFPage?
 
     var body: some View {
+        let place = model.comparePlace
+        let page = model.themeSamples.page(for: theme, at: place)
         let isCurrent = theme.id == model.themeID
         let isFavorite = model.isFavoriteTheme(theme.id)
         let name = theme.displayName(language: model.language)
@@ -245,7 +399,7 @@ private struct CompareCard: View {
             }
             .frame(height: ThemeCompareLayout.tagRowHeight)
             ThemeSampleView(
-                page: model.themeSamples.page(for: theme), paperSize: model.themeSamples.paperSize,
+                page: page ?? lastPage, paperSize: model.themeSamples.paperSize,
                 margins: model.themeSamples.margins, cornerRadius: 2
             )
             .frame(width: width)
@@ -285,7 +439,8 @@ private struct CompareCard: View {
                     .frame(width: width)
             }
         }
-        .task(id: model.themeSamples.taskID(for: theme)) { await model.themeSamples.load(theme) }
+        .task(id: model.themeSamples.taskID(for: theme, at: place)) { await model.themeSamples.load(theme, at: place) }
+        .onChange(of: page) { _, page in if let page { lastPage = page } }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: name))
     }
