@@ -19,11 +19,7 @@ public enum OpenRequest: Equatable, Sendable {
         }
         var seen = Set<URL>()
         let unique = urls.map(\.standardizedFileURL).filter { seen.insert($0).inserted }
-        let ordered = unique.sorted {
-            let comparison = NaturalOrder.compare($0.lastPathComponent, $1.lastPathComponent)
-            return comparison == .orderedSame
-                ? $0.absoluteString < $1.absoluteString : comparison == .orderedAscending
-        }
+        let ordered = Self.sorted(unique)
         let readable = ordered.filter { Self.binderFormat($0) != nil }
         let excluded = ordered.filter { Self.binderFormat($0) == nil }
         guard !readable.isEmpty else {
@@ -37,13 +33,28 @@ public enum OpenRequest: Equatable, Sendable {
         }
     }
 
+    /// In file name order.
+    public static func sorted(_ urls: [URL]) -> [URL] {
+        urls.sorted {
+            let comparison = NaturalOrder.compare($0.lastPathComponent, $1.lastPathComponent)
+            return comparison == .orderedSame
+                ? $0.absoluteString < $1.absoluteString : comparison == .orderedAscending
+        }
+    }
+
     public static func binderFormat(_ url: URL) -> DocumentFormat? {
+        let format = fileFormat(url)
+        return format == .zipArchive ? nil : format
+    }
+
+    /// A ZIP archive opens as a window of its own and cannot join a binder.
+    public static func isArchive(_ url: URL) -> Bool { fileFormat(url) == .zipArchive }
+
+    private static func fileFormat(_ url: URL) -> DocumentFormat? {
         guard url.isFileURL,
             (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
         else { return nil }
-        let format =
-            DocumentFormat(fileExtension: url.pathExtension)
+        return DocumentFormat(fileExtension: url.pathExtension)
             ?? UTType(filenameExtension: url.pathExtension).flatMap { DocumentFormat(contentType: $0) }
-        return format == .zipArchive ? nil : format
     }
 }
