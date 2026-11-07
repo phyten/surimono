@@ -151,6 +151,12 @@ final class AppPreferences {
             if let data = try? JSONEncoder().encode(notePresets) { defaults.set(data, forKey: "notePresets") }
         }
     }
+    /// Binders the reader closed lately, newest first, for the File menu's Recent Binders.
+    private(set) var recentBinders: RecentBinders {
+        didSet {
+            if let data = try? JSONEncoder().encode(recentBinders) { defaults.set(data, forKey: "recentBinders") }
+        }
+    }
 
     init(defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier) {
         self.defaults = defaults
@@ -234,6 +240,10 @@ final class AppPreferences {
             defaults.data(forKey: "notePresets").flatMap {
                 try? JSONDecoder().decode([StoredNotePreset].self, from: $0)
             }?.compactMap(\.value) ?? []
+        recentBinders =
+            defaults.data(forKey: "recentBinders").flatMap {
+                try? JSONDecoder().decode(RecentBinders.self, from: $0)
+            } ?? RecentBinders()
     }
 
     /// A choice for this run only. It takes part in the first assignment because any later one would be saved.
@@ -336,6 +346,18 @@ final class AppPreferences {
 
     func toggleFavoriteTheme(_ id: String) {
         favoriteThemeIDs = PrintThemeMenu.toggling(id, in: favoriteThemeIDs)
+    }
+
+    func recordRecentBinder(_ binder: RecentBinder) {
+        recentBinders.record(binder)
+    }
+
+    func replaceRecentBinder(_ binder: RecentBinder, with moved: RecentBinder) {
+        recentBinders.replace(binder, with: moved)
+    }
+
+    func clearRecentBinders() {
+        recentBinders.clear()
     }
 
     private struct FinishDefaults: Codable {

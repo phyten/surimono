@@ -10,6 +10,11 @@ struct DocumentCommands: Commands {
         return cards.contains(.a4Handout3) ? cards : cards + [.a4Handout3]
     }
 
+    /// Named as the binder's window is.
+    private func title(of binder: RecentBinder) -> String {
+        BinderModel.title(firstName: binder.firstName, count: binder.files.count, language: language)
+    }
+
     var body: some Commands {
         // The standard Open… item stays: AppDelegate answers its action so that a multi-file
         // selection reaches OpenRouter, and Open Recent opens a single file.
@@ -17,6 +22,16 @@ struct DocumentCommands: Commands {
             Button("Open from Clipboard") { ClipboardWindows.shared.open() }
                 .keyboardShortcut("n")
             Button("Streaming Preview") { StreamingPreviewWindows.shared.open() }
+            // A binder has no file of its own, so the standard Open Recent cannot list it.
+            if !preferences.recentBinders.isEmpty {
+                Menu("Recent Binders") {
+                    ForEach(preferences.recentBinders.entries) { binder in
+                        Button(title(of: binder)) { OpenRouter.shared.open(recentBinder: binder) }
+                    }
+                    Divider()
+                    Button("Clear Menu") { preferences.clearRecentBinders() }
+                }
+            }
         }
         // Next to the document's own save items, which stay hidden: this one writes a new file for a document that has
         // none, and never touches a file that was opened.

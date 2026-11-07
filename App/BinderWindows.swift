@@ -7,6 +7,7 @@ final class BinderWindows {
     var preferences: AppPreferences?
     var library: UserLibrary?
     var settingsStore: DocumentSettingsStore?
+    var recentFiles = RecentBinderFiles()
     private var controllers: [UUID: MemoryDocumentWindowController] = [:]
     private var cascadePoint = NSPoint.zero
     /// Binders being laid out before their windows open.
@@ -54,10 +55,19 @@ final class BinderWindows {
     private func makeController(for model: DocumentViewModel) -> MemoryDocumentWindowController {
         let id = UUID()
         let controller = MemoryDocumentWindowController(model: model) { [weak self] in
+            self?.remember(model)
             self?.controllers.removeValue(forKey: id)
         }
         controllers[id] = controller
         return controller
+    }
+
+    /// Keeps a binder whose window is closing for the File menu's Recent Binders, so that the reader can open it again
+    /// without choosing its files. One a parent file names comes back by opening the parent, and one document is no
+    /// binder.
+    func remember(_ model: DocumentViewModel) {
+        guard let binder = model.binder, binder.origin == .files, binder.urls.count > 1 else { return }
+        preferences?.recordRecentBinder(recentFiles.binder(of: binder.urls))
     }
 
     private func open(_ urls: [URL], origin: BinderModel.Origin, binder: () -> BinderModel) -> DocumentViewModel {

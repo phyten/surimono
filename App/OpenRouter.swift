@@ -54,6 +54,13 @@ final class OpenRouter {
     /// Opens that have not finished, so that the welcome window does not cover a document that is still loading.
     private(set) var pendingOpens = 0
 
+    /// Replaceable so that tests can open a recent binder without the sandbox.
+    var recentFiles = RecentBinderFiles()
+    /// Replaceable so that tests can follow a recent binder's moved files without the app's preferences.
+    var replaceRecentBinder: (RecentBinder, RecentBinder) -> Void = {
+        BinderWindows.shared.preferences?.replaceRecentBinder($0, with: $1)
+    }
+
     /// Replaceable so that tests can follow the menu action without presenting a panel.
     var presentOpenPanel: (@escaping ([URL]) -> Void) -> Void = { completion in
         let panel = NSOpenPanel()
@@ -127,6 +134,15 @@ final class OpenRouter {
     /// A parent file's binder, in the order the parent names its documents.
     func open(includes plan: MarkdownIncludes.Plan) {
         openIncludes(plan)
+    }
+
+    /// A binder the reader closed, from the Recent Binders menu. The reader made these files a binder, so it stays one
+    /// even when they are all images, which `OpenRequest` would open as an image bundle. A file that is gone opens
+    /// anyway and shows as unreadable in the list.
+    func open(recentBinder binder: RecentBinder) {
+        let located = recentFiles.locate(binder)
+        if located.binder != binder { replaceRecentBinder(binder, located.binder) }
+        located.keep(until: openBinder(located.urls, [])?.window)
     }
 
     /// Opens a document again where it was when a binder took its place.
