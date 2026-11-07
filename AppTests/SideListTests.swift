@@ -190,6 +190,13 @@ struct SideListTests {
         #expect(abs(paper.height - 400 * 842 / 595) < 1)
     }
 
+    @Test("一覧のある刷り台は窓を一覧の分だけ広く取る")
+    func traySizeMakesRoomForTheList() {
+        let fixture = Fixture()
+        #expect(fixture.model.traySize.width == PrintModeWindow.traySize.width + SidePanelMetrics.width)
+        #expect(fixture.model.traySize.height == PrintModeWindow.traySize.height)
+    }
+
     @Test("見比べ台には一覧の幅を足さない")
     func comparisonHasNoSideInset() {
         let fixture = Fixture()
