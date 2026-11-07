@@ -200,14 +200,81 @@ struct PrintTrayTests {
     func cardTitles() {
         #expect(
             PrintLayout.presets.map { PrintModeText.cardTitle($0, language: "ja") } == [
-                "A4 片面", "A4 両面", "A4 の冊子", "A5 の冊子", "2 ページを\n1 枚に", "3 ページ＋\nメモ欄",
-                "B5 片面", "B5 両面", "B5 の冊子", "B6 の冊子", "2 ページを\n1 枚に",
+                "A4 片面", "A4 両面", "A4 中綴じ", "A5 中綴じ", "2 ページを\n1 枚に", "3 ページ＋\nメモ欄",
+                "B5 片面", "B5 両面", "B5 中綴じ", "B6 中綴じ", "2 ページを\n1 枚に",
             ])
         #expect(
             PrintLayout.presets.map { PrintModeText.cardPaper($0, language: "ja") } == [
                 nil, nil, "用紙：A3・両面", "用紙：A4・両面", "用紙：A3", "用紙：A4",
                 nil, nil, "用紙：B4・両面", "用紙：B5・両面", "用紙：B4",
             ])
+    }
+
+    @Test("上の説明は1行目に何を何に刷るか、2行目に綴じ方を書き、折り方の手順は含めない")
+    func instructionsAreTwoLines() {
+        func lines(_ layout: PrintLayout, sheets: Int, pages: Int, _ language: String) -> [String] {
+            PrintModeText.instructions(layout, sheets: sheets, pages: pages, language: language)
+                .split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+                .map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") }
+        }
+        #expect(
+            lines(.a4BookletA5, sheets: 2, pages: 8, "ja") == ["**A4 2 枚から A5 の中綴じ 8 ページ**", "両面・短辺とじ"])
+        #expect(
+            lines(.a4BookletA5, sheets: 2, pages: 8, "en")
+                == ["**A5 booklet, 8 pages, from 2 sheets of A4**", "Duplex, short edge"])
+        #expect(lines(.a3BookletA4, sheets: 3, pages: 12, "ja") == ["**A3 3 枚から A4 の中綴じ 12 ページ**", "両面・短辺とじ"])
+        #expect(lines(.a4Duplex, sheets: 2, pages: 4, "ja") == ["**A4 縦 2 枚に 4 ページ**", "両面・長辺とじ"])
+        #expect(lines(.a4Single, sheets: 3, pages: 3, "ja") == ["**A4 縦 3 枚に 3 ページ**", "片面"])
+        #expect(lines(PrintLayout.a4Single.oriented(true), sheets: 3, pages: 3, "ja")[0] == "**A4 横 3 枚に 3 ページ**")
+        #expect(lines(.a3TwoUp, sheets: 2, pages: 4, "ja") == ["**A3 横 2 枚に 4 ページ**", "片面"])
+        #expect(lines(.a3TwoUp.oriented(true), sheets: 2, pages: 4, "ja")[0] == "**A3 縦 2 枚に 4 ページ**")
+        #expect(lines(.a4Handout3, sheets: 3, pages: 9, "ja") == ["**A4 縦 3 枚に 9 ページ**", "片面"])
+        #expect(
+            lines(.a4Single, sheets: 1, pages: 1, "en") == ["**1 page on 1 sheet of A4 portrait**", "Single-sided"])
+    }
+
+    @Test("上の説明は、数と単位の間で行が折れないように、その間を行末で分けない空白にする")
+    func instructionsKeepNumbersWithUnits() {
+        let text = PrintModeText.instructions(.a4Single, sheets: 1, pages: 12, language: "ja")
+        #expect(text.contains("1\u{00A0}枚"))
+        #expect(text.contains("12\u{00A0}ページ"))
+        #expect(text.contains("A4\u{00A0}縦"))
+    }
+
+    @Test("折り方や重ね方の手順は、どのレイアウトの上の説明にも出さない")
+    func instructionsLeaveFoldingToTheFoldView() {
+        for layout in PrintLayout.presets {
+            for language in ["ja", "en"] {
+                let text = PrintModeText.instructions(layout, sheets: 2, pages: 8, language: language)
+                for word in ["ホチキス", "重ねて", "折り", "staple", "fold", "Stack"] {
+                    #expect(!text.contains(word), "\(layout.id) \(language): \(word)")
+                }
+            }
+        }
+    }
+
+    @Test("刷り台の頁数は白紙の半面も数え、要約の「仕上がり」と同じになる")
+    func trayCountsBlankHalves() {
+        #expect(tray(.a4BookletA5, pages: 5).pageCount == 8)
+        #expect(tray(.a4Duplex, pages: 3).pageCount == 4)
+        #expect(tray(.a3TwoUp, pages: 3).pageCount == 4)
+        #expect(tray(.a4Single, pages: 3).pageCount == 3)
+        #expect(tray(.a4Handout3, pages: 7).pageCount == 9)
+    }
+
+    @Test("上の帯のメニューは、設定が既定のままなら値を出さず、変えたときだけ値を出す")
+    func stripShowsValuesOnlyWhenSet() {
+        #expect(PrintFurnitureChoice.stripTitle(.none) == nil)
+        #expect(PrintFurnitureChoice.stripTitle(.number) != nil)
+        #expect(PrintFurnitureChoice.stripTitle(.nameAndDate) != nil)
+        #expect(PrintChapterBreakChoice.stripTitle(.none) == nil)
+        #expect(PrintChapterBreakChoice.stripTitle(.page) != nil)
+        #expect(PrintChapterBreakChoice.stripTitle(.rightPage) != nil)
+        #expect(PrintContentsChoice.stripTitle(.source) == nil)
+        #expect(PrintContentsChoice.stripTitle(.front) != nil)
+        #expect(PrintContentsChoice.stripTitle(.hidden) != nil)
+        #expect(PrintNoteChoice.stripTitle(false) == nil)
+        #expect(PrintNoteChoice.stripTitle(true) != nil)
     }
 
     @Test("刷り台はノートのページを 1 始まりの番号で覚える")

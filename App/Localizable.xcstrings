@@ -4939,19 +4939,43 @@
         }
       }
     },
-    "Duplex, long edge": {
+    "Duplex, long edge" : {
       "extractionState": "manual",
       "localizations": {
-        "ja": {
+        "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "両面・長辺綴じ"
+            "value": "Beidseitig, lange Kante"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Duplex, long edge"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doble cara, borde largo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recto verso, bord long"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両面・長辺とじ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "양면, 긴 가장자리"
           }
         },
         "zh-Hans": {
@@ -4965,46 +4989,46 @@
             "state": "translated",
             "value": "雙面，長邊裝訂"
           }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "양면, 긴 가장자리"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recto verso, bord long"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beidseitig, lange Kante"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Doble cara, borde largo"
-          }
         }
       }
     },
-    "Duplex, short edge": {
+    "Duplex, short edge" : {
       "extractionState": "manual",
       "localizations": {
-        "ja": {
+        "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "両面・短辺綴じ"
+            "value": "Beidseitig, kurze Kante"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Duplex, short edge"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Doble cara, borde corto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recto verso, bord court"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "両面・短辺とじ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "양면, 짧은 가장자리"
           }
         },
         "zh-Hans": {
@@ -5017,30 +5041,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "雙面，短邊裝訂"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "양면, 짧은 가장자리"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recto verso, bord court"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beidseitig, kurze Kante"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Doble cara, borde corto"
           }
         }
       }
@@ -9543,271 +9543,6 @@
         }
       }
     },
-    "Print on **both sides of %1$@ landscape** (short-edge binding). Stack the sheets with sheet 1 outermost, fold them in the middle and staple twice along the fold to get the **%2$@ booklet**.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%1$@ 横の両面**に刷り（短辺綴じ）、1 枚目が外側になるように重ねて中央で折り、折り目を 2 か所ホチキスで留めると **%2$@ 冊子**になります。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Print on **both sides of %1$@ landscape** (short-edge binding). Stack the sheets with sheet 1 outermost, fold them in the middle and staple twice along the fold to get the **%2$@ booklet**."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%1$@ 横向纸张上双面打印**（短边装订）。将第 1 张放在最外侧叠好，居中对折，沿折痕装订两次，即可制成 **%2$@ 小册子**。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%1$@ 橫向紙張上雙面列印**（短邊裝訂）。將第 1 張放在最外側疊好，居中對折，沿折痕裝訂兩次，即可製成 **%2$@ 小冊子**。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%1$@ 가로 용지 양면**에 프린트합니다(짧은 가장자리 제본). 1번 용지를 가장 바깥에 놓고 쌓아 가운데를 접은 뒤 접힌 선을 따라 두 번 철하면 **%2$@ 소책자**가 됩니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprimez en **recto verso sur du %1$@ paysage** (reliure bord court). Empilez les feuilles, la feuille 1 à l’extérieur, pliez au milieu et agrafez deux fois le pli pour obtenir un **livret %2$@**."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**Beidseitig auf %1$@ im Querformat** drucken (kurze Kante). Blatt 1 außen auf den Stapel legen, mittig falten und zweimal am Falz heften: So entsteht die **%2$@-Broschüre**."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime por **ambas caras en %1$@ horizontal** (borde corto). Apila las hojas con la hoja 1 por fuera, dóblalas por la mitad y grapa dos veces el pliegue para obtener el **folleto %2$@**."
-          }
-        }
-      }
-    },
-    "Prints **two pages side by side on %@ landscape**, single-sided. No folding.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 横に 2 ページずつ**並べて、片面で刷ります。折りません。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prints **two pages side by side on %@ landscape**, single-sided. No folding."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 横向纸张上并排打印两页**，单面，无需折叠。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 橫向紙張上並排列印兩頁**，單面，無須折疊。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 가로 용지에 두 페이지를 나란히** 단면으로 프린트합니다. 접지 않습니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **deux pages côte à côte sur du %@ paysage**, en recto. Sans pliage."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckt **zwei Seiten nebeneinander auf %@ quer**, einseitig. Ohne Falten."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **dos páginas juntas en %@ horizontal**, a una cara. Sin plegar."
-          }
-        }
-      }
-    },
-    "Prints **one page per %@ portrait sheet**, single-sided.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 縦に 1 ページずつ**、片面で刷ります。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prints **one page per %@ portrait sheet**, single-sided."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 纵向纸张上每张打印一页**，单面。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 直向紙張上每張列印一頁**，單面。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 세로 용지 한 장에 한 페이지씩** 단면으로 프린트합니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **une page par feuille %@ portrait**, en recto."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckt **eine Seite pro Blatt %@ hoch**, einseitig."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **una página por hoja %@ vertical**, a una cara."
-          }
-        }
-      }
-    },
-    "Prints on **both sides of %@** (long-edge binding). Back sides turn like the pages of a book.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ の両面**に刷ります（長辺綴じ）。裏面は本のページをめくる向きです。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prints on **both sides of %@** (long-edge binding). Back sides turn like the pages of a book."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 纸张上双面打印**（长边装订）。背面像书页一样翻转。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 紙張上雙面列印**（長邊裝訂）。背面像書頁一樣翻轉。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 양면**에 프린트합니다(긴 가장자리 제본). 책처럼 넘겨 뒷면을 봅니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime en **recto verso sur du %@** (reliure bord long). Les versos se tournent comme les pages d’un livre."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckt **beidseitig auf %@** (lange Kante). Rückseiten werden wie Buchseiten umgeblättert."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime por **ambas caras en %@** (borde largo). Los reversos se pasan como las páginas de un libro."
-          }
-        }
-      }
-    },
-    "Prints on **both sides of %@** (short-edge binding).": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ の両面**に刷ります（短辺綴じ）。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prints on **both sides of %@** (short-edge binding)."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 纸张上双面打印**（短边装订）。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 紙張上雙面列印**（短邊裝訂）。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 양면**에 프린트합니다(짧은 가장자리 제본)."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime en **recto verso sur du %@** (reliure bord court)."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckt **beidseitig auf %@** (kurze Kante)."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime por **ambas caras en %@** (borde corto)."
-          }
-        }
-      }
-    },
     "See It Folded": {
       "localizations": {
         "en": {
@@ -10814,18 +10549,42 @@
         }
       }
     },
-    "%@ Booklet": {
+    "%@ Booklet" : {
       "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Broschüre %@"
+          }
+        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ Booklet"
           }
         },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folleto %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Livret %@"
+          }
+        },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ の冊子"
+            "value": "%@ 中綴じ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 소책자"
           }
         },
         "zh-Hans": {
@@ -10838,30 +10597,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ 小冊子"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ 소책자"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Livret %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Broschüre %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Folleto %@"
           }
         }
       }
@@ -14568,112 +14303,6 @@
         }
       }
     },
-    "Prints **two pages stacked on %@ portrait**, single-sided. No folding.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 縦に2ページを上下に並べて**、片面で印刷します。折らずに使います。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prints **two pages stacked on %@ portrait**, single-sided. No folding."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 纵向纸张上上下打印两页**，单面，无需折叠。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 直向紙張上上下列印兩頁**，單面，無須摺疊。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 세로 용지에 두 페이지를 위아래로** 단면 프린트합니다. 접지 않습니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **deux pages superposées sur du %@ portrait**, en recto. Sans pliage."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckt **zwei Seiten übereinander auf %@ hoch**, einseitig. Ohne Falten."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **dos páginas apiladas en %@ vertical**, a una cara. Sin plegar."
-          }
-        }
-      }
-    },
-    "Prints **one page per %@ landscape sheet**, single-sided.": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 横の用紙1枚に1ページずつ**、片面で印刷します。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prints **one page per %@ landscape sheet**, single-sided."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 横向纸张上每张打印一页**，单面。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 橫向紙張上每張列印一頁**，單面。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 가로 용지 한 장에 한 페이지씩** 단면 프린트합니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **une page par feuille %@ paysage**, en recto."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckt **eine Seite pro Blatt %@ quer**, einseitig."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **una página por hoja %@ horizontal**, a una cara."
-          }
-        }
-      }
-    },
     "%@ landscape · one page per sheet": {
       "extractionState": "manual",
       "localizations": {
@@ -15253,58 +14882,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No se ha podido copiar el estado actual de la página web."
-          }
-        }
-      }
-    },
-    "Prints **three pages on the left of %@ portrait**, single-sided, with ruled notes on the right.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 縦の左側に3ページ**を片面で印刷し、右側に罫線入りのメモ欄を設けます。"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Prints **three pages on the left of %@ portrait**, single-sided, with ruled notes on the right."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 纵向纸张左侧打印三页**，单面，右侧为横线笔记区。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在 **%@ 直向紙張左側列印三頁**，單面，右側為橫線筆記區。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "**%@ 세로 용지 왼쪽에 세 페이지**를 단면 프린트하며 오른쪽에는 줄이 있는 메모 공간을 둡니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **trois pages à gauche sur du %@ portrait**, en recto, avec des lignes pour les notes à droite."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Druckt **drei Seiten links auf %@ hoch**, einseitig, mit linierten Notizen rechts."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imprime **tres páginas a la izquierda en %@ vertical**, a una cara, con notas pautadas a la derecha."
           }
         }
       }
@@ -41007,6 +40584,112 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "。"
+          }
+        }
+      }
+    },
+    "%3$@ booklet, %4$@, from %2$@ of %1$@" : {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%3$@-Broschüre, %4$@, aus %2$@ %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%3$@ booklet, %4$@, from %2$@ of %1$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folleto %3$@, %4$@, con %2$@ de %1$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Livret %3$@, %4$@, sur %2$@ %1$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@から %3$@ の中綴じ %4$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@으로 %3$@ 소책자 (%4$@)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用 %2$@ %1$@ 制成 %3$@ 小册子（%4$@）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用 %2$@ %1$@ 製成 %3$@ 小冊子（%4$@）"
+          }
+        }
+      }
+    },
+    "%3$@ on %2$@ of %1$@" : {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%3$@ auf %2$@ %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%3$@ on %2$@ of %1$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%3$@ en %2$@ de %1$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%3$@ sur %2$@ %1$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@に %3$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@에 %3$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@，共 %3$@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@，共 %3$@"
           }
         }
       }

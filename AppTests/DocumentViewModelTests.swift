@@ -216,12 +216,12 @@ struct DocumentViewModelTests {
         #expect(preferences.layoutID == "a4Single")
     }
 
-    @Test("冊子の要約は論理ページ数と用紙枚数と短辺綴じを示す")
+    @Test("冊子の要約は論理ページ数と用紙枚数と短辺とじを示す")
     func summary() {
         let summary = PrintSummary(plan: Imposition.plan(pageCount: 12, layout: .a3BookletA4))
         #expect(
             DocumentViewModel.summaryText(summary, layout: .a3BookletA4, locale: Locale(identifier: "ja"))
-                == "12 ページ → A3 3 枚（両面・短辺綴じ）")
+                == "12 ページ → A3 3 枚（両面・短辺とじ）")
         #expect(
             DocumentViewModel.summaryText(summary, layout: .a3BookletA4, locale: Locale(identifier: "en"))
                 == "12 pages → A3 3 sheets (Duplex, short edge)")
