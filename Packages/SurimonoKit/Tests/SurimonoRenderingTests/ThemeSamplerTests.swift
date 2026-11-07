@@ -33,6 +33,180 @@ struct ThemeSamplerTests {
         #expect(abs(sampler.printableSize.width - 510.4) < 1)
     }
 
+    // MARK: Places
+
+    /// Enough headings and text for several pages.
+    private func longDocument(sections: Int = 30) -> String {
+        (1...sections).map { number in
+            "## 見出し\(number)番\n\n" + String(repeating: "段落\(number)の本文が続きます。", count: 40) + "\n"
+        }.joined(separator: "\n")
+    }
+
+    private func firstLine(_ page: PDFPage) -> String {
+        (page.string ?? "").components(separatedBy: .newlines).first { !$0.isEmpty } ?? ""
+    }
+
+    @Test("見出しの箇所を指定すると、1 ページの量が違うテーマでも見本はその見出しから始まる", .timeLimit(.minutes(1)))
+    func samplesStartAtTheHeading() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let large = theme("large", css: "body { font-size: 28px; line-height: 2.4; } h2 { margin-top: 3em; }")
+        let sampler = try sampler(longDocument(), theme: standard)
+        defer { sampler.close() }
+        let places = try await sampler.places()
+        let place = try #require(places.first { $0.title == "見出し20番" })
+        for theme in [standard, large] {
+            let page = try await sampler.page(for: theme, at: place)
+            #expect(firstLine(page).hasPrefix("見出し20番"))
+            #expect(abs(page.bounds(for: .mediaBox).width - 595.3) < 1)
+            #expect(abs(page.bounds(for: .mediaBox).height - 841.9) < 1)
+        }
+    }
+
+    @Test("文書の終わりの見出しでは、見本は同じ大きさのまま下が空く", .timeLimit(.minutes(1)))
+    func lastHeadingLeavesThePageOpen() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let sampler = try sampler(longDocument(sections: 12), theme: standard)
+        defer { sampler.close() }
+        let place = try #require(try await sampler.places().last)
+        let page = try await sampler.page(for: standard, at: place)
+        #expect(firstLine(page).hasPrefix("見出し12番"))
+        #expect(page.string?.contains("段落11") == false)
+        #expect(abs(page.bounds(for: .mediaBox).height - 841.9) < 1)
+    }
+
+    @Test("文字の大きさを変えた文書でも、見本は見出しから始まる", .timeLimit(.minutes(1)))
+    func scaledTextStartsAtTheHeading() async throws {
+        _ = NSApplication.shared
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        var settings = RenderSettings(
+            layout: .a4Single, theme: standard, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.textScale = 1.5
+        let sampler = try #require(
+            try DocumentRenderer.themeSampler(
+                for: DocumentSource(data: Data(longDocument().utf8), format: .markdown), settings: settings))
+        defer { sampler.close() }
+        let place = try #require(try await sampler.places().first { $0.title == "見出し20番" })
+        #expect(firstLine(try await sampler.page(for: standard, at: place)).hasPrefix("見出し20番"))
+    }
+
+    @Test("矩形が CSS の zoom を含まない古い WebKit でも、文字の大きさを変えた見本は見出しから始まる", .timeLimit(.minutes(1)))
+    func unscaledRectanglesStartAtTheHeading() async throws {
+        _ = NSApplication.shared
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        // A theme's script runs in the world that measures the places, so it can stand in for WebKit before Safari 26.4.
+        let older = theme(
+            "older", css: standard.css,
+            script: """
+                if (!Element.prototype.leavesOutZoom) {
+                    const scaled = Element.prototype.getBoundingClientRect;
+                    Element.prototype.leavesOutZoom = true;
+                    Element.prototype.getBoundingClientRect = function () {
+                        const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+                        const box = scaled.call(this);
+                        return new DOMRect(box.x / zoom, box.y / zoom, box.width / zoom, box.height / zoom);
+                    };
+                }
+                """)
+        var settings = RenderSettings(
+            layout: .a4Single, theme: older, preset: HTMLCleanupPreset(id: "none", name: "None"))
+        settings.textScale = 1.5
+        let sampler = try #require(
+            try DocumentRenderer.themeSampler(
+                for: DocumentSource(data: Data(longDocument().utf8), format: .markdown), settings: settings))
+        defer { sampler.close() }
+        let place = try #require(try await sampler.places().first { $0.title == "見出し20番" })
+        #expect(firstLine(try await sampler.page(for: older, at: place)).hasPrefix("見出し20番"))
+    }
+
+    @Test("利用者の CSS がすべての要素の大きさを変えても、見本は見出しから始まる", .timeLimit(.minutes(1)))
+    func stylesOnEveryElementStartAtTheHeading() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let padded = theme(
+            "padded",
+            css: standard.css + """
+
+                * { padding: 10px !important; border: 2px solid gray !important; min-height: 130px !important; }
+                """)
+        let sampler = try sampler(longDocument(), theme: padded)
+        defer { sampler.close() }
+        let place = try #require(try await sampler.places().first { $0.title == "見出し20番" })
+        #expect(firstLine(try await sampler.page(for: padded, at: place)).hasPrefix("見出し20番"))
+    }
+
+    @Test("見出しとコードの箇所を、文書の順に読み取る", .timeLimit(.minutes(1)))
+    func readsThePlaces() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let markdown = """
+            # 星見図書室
+
+            ##
+
+            ## {本|ほん}の  借り方
+
+            ```swift
+
+            let book = "銀河鉄道"
+            print(book)
+            ```
+
+            ### 返し方
+
+            ```
+            ラベルを確かめる
+            ```
+            """
+        let sampler = try sampler(markdown, theme: standard)
+        defer { sampler.close() }
+        #expect(
+            try await sampler.places() == [
+                SamplePlace(kind: .heading, index: 0, level: 1, title: "星見図書室"),
+                SamplePlace(kind: .heading, index: 1, level: 2, title: "本の 借り方"),
+                SamplePlace(kind: .heading, index: 2, level: 3, title: "返し方"),
+                SamplePlace(kind: .code, index: 0, title: "let book = \"銀河鉄道\""),
+                SamplePlace(kind: .code, index: 1, title: "ラベルを確かめる"),
+            ])
+    }
+
+    @Test("見出しのない文書には、箇所がない", .timeLimit(.minutes(1)))
+    func noPlaces() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let sampler = try sampler("本文だけの文書です。", theme: standard)
+        defer { sampler.close() }
+        #expect(try await sampler.places().isEmpty)
+    }
+
+    @Test("コードの箇所を指定すると、見本はそのコードから始まる", .timeLimit(.minutes(1)))
+    func samplesStartAtTheCode() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let sampler = try sampler(longDocument() + "\n\n```\nlet tail = 1\n```\n", theme: standard)
+        defer { sampler.close() }
+        let place = try #require(try await sampler.places().first { $0.kind == .code })
+        #expect(firstLine(try await sampler.page(for: standard, at: place)).hasPrefix("let tail"))
+    }
+
+    @Test("箇所ごとに見本を覚え、同じ箇所はもう一度描かない", .timeLimit(.minutes(1)))
+    func keepsSamplesByPlace() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let sampler = try sampler(longDocument(), theme: standard)
+        defer { sampler.close() }
+        let places = try await sampler.places()
+        _ = try await sampler.firstPage(for: standard)
+        _ = try await sampler.page(for: standard, at: places[3])
+        _ = try await sampler.page(for: standard, at: places[3])
+        _ = try await sampler.page(for: standard, at: places[4])
+        _ = try await sampler.firstPage(for: standard)
+        #expect(sampler.drawCount == 3)
+    }
+
+    @Test("文書にない箇所を指定すると、1 ページ目を描く", .timeLimit(.minutes(1)))
+    func unknownPlaceDrawsTheFirstPage() async throws {
+        let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let sampler = try sampler(longDocument(), theme: standard)
+        defer { sampler.close() }
+        let gone = SamplePlace(kind: .heading, index: 500, level: 2, title: "なくなった見出し")
+        #expect(firstLine(try await sampler.page(for: standard, at: gone)).hasPrefix("見出し1番"))
+    }
+
     @Test("紙のあるテーマの見本は、余白まで紙を敷く", .timeLimit(.minutes(1)))
     func samplesTheWholePaper() async throws {
         let previous = WebPaginator.clearBackground
