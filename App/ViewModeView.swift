@@ -14,7 +14,7 @@ struct ViewModeView: View {
     private var bottomInset: CGFloat { isSplit ? ViewerWindow.bandHeight : 0 }
     private var holdsBand: Bool {
         model.isViewOptionsPresented || model.isThemePalettePresented || model.isOutlinePresented
-            || model.isFiguresPresented
+            || model.isFiguresPresented || model.drop.isActive
     }
 
     var body: some View {
@@ -129,7 +129,8 @@ private struct PaperArea: View {
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
-                    narrowsLoneCover: model.loneCoverWidth == .onePage, keepsSpotInPage: model.binder != nil,
+                    narrowsLoneCover: model.loneCoverWidth == .onePage,
+                    keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
                     controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.paperDidChangePage($0) },
@@ -252,6 +253,9 @@ struct ToastOverlay: View {
                             Button("Next Change") { model.goToNextChange() }
                         case .openIncludes?:
                             Button("Open as Binder") { model.openIncludesAsBinder() }
+                                .controlSize(.small)
+                        case .undoBinder?:
+                            Button("Undo") { model.undoBinderConversion() }
                                 .controlSize(.small)
                         case nil:
                             EmptyView()

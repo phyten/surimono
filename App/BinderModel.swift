@@ -40,6 +40,8 @@ final class BinderModel {
     private var renderedURLs: [URL] = []
     private var renderedPageCount = 0
     private(set) var thumbnails: [URL: NSImage] = [:]
+    private(set) var flashedURLs: Set<URL> = []
+    private var flashTask: Task<Void, Never>?
     private var sources: [URL: DocumentSource] = [:]
     private var leases: [URL: FolderAccess.Lease] = [:]
     private var scopedURLs: Set<URL> = []
@@ -52,6 +54,21 @@ final class BinderModel {
         origin = .files
         excludedURLs = excluded
         add(urls)
+    }
+
+    /// A window turning into a binder keeps what it shows in front, whatever the names say. The order stays the reader's
+    /// own, so it is remembered like one made by hand.
+    init(
+        orderedURLs urls: [URL], excluded: [URL] = [],
+        read: @escaping @Sendable (URL) throws -> Data = { try Data(contentsOf: $0) }
+    ) {
+        self.read = read
+        origin = .files
+        excludedURLs = excluded
+        items = urls.map(\.standardizedFileURL).compactMap { url in
+            OpenRequest.binderFormat(url).map { Item(url: url, format: $0) }
+        }
+        selection = items.first?.url
     }
 
     /// The documents a parent file names, in its order. Only the parent's text changes, and only in memory. The reader
@@ -121,7 +138,9 @@ final class BinderModel {
         }
     }
 
-    func add(_ urls: [URL]) {
+    /// Adds what is not in the list yet, by name among themselves. Returns what was added.
+    @discardableResult
+    func add(_ urls: [URL], at position: Int? = nil) -> [URL] {
         var known = Set(self.urls)
         var added: [Item] = []
         for url in urls.map(\.standardizedFileURL) where known.insert(url).inserted {
@@ -131,8 +150,34 @@ final class BinderModel {
             }
             added.append(Item(url: url, format: format))
         }
-        items += sorted(added)
+        let ordered = sorted(added)
+        items.insert(contentsOf: ordered, at: min(position ?? items.count, items.count))
         if selection == nil { selection = items.first?.url }
+        return ordered.map(\.url)
+    }
+
+    /// Puts a removed document back where it was.
+    func putBack(_ item: Item, at index: Int) {
+        items.insert(item, at: min(index, items.count))
+    }
+
+    /// Takes back what an earlier `add` brought in, and leaves the rest of the list as the reader has it since.
+    func undoAdding(_ urls: [URL], excluded: [URL]) {
+        let added = Set(urls)
+        items.removeAll { added.contains($0.url) }
+        for url in urls { forget(url) }
+        excludedURLs.removeAll(where: excluded.contains)
+        if let selected = selection, added.contains(selected) { selection = items.first?.url }
+    }
+
+    /// Lights the rows up for a moment, to show what came in or what was in the list already.
+    func flash(_ urls: [URL]) {
+        flashTask?.cancel()
+        flashedURLs = Set(urls)
+        flashTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(1.2)) } catch { return }
+            self?.flashedURLs = []
+        }
     }
 
     func move(fromOffsets offsets: IndexSet, toOffset destination: Int) {
@@ -153,12 +198,16 @@ final class BinderModel {
     func remove(_ url: URL) {
         guard items.count > 1, let index = items.firstIndex(where: { $0.url == url }) else { return }
         items.remove(at: index)
+        forget(url)
+        if selection == url { selection = items[min(index, items.count - 1)].url }
+    }
+
+    private func forget(_ url: URL) {
         sources.removeValue(forKey: url)
         pageCounts.removeValue(forKey: url)
         thumbnails.removeValue(forKey: url)
         leases.removeValue(forKey: url)?.close()
         if scopedURLs.remove(url) != nil { url.stopAccessingSecurityScopedResource() }
-        if selection == url { selection = items[min(index, items.count - 1)].url }
     }
 
     func sortByName() { items = sorted(items) }

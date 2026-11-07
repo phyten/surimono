@@ -7,12 +7,13 @@ struct BinderDrawer: View {
     var body: some View {
         if let binder = model.binder {
             SidePanel("Binder", subtitle: summary(binder)) {
-                PanelIconButton("plus", label: "Add Documents…") { model.addBinderDocuments() }
+                PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
                 if model.mode == .view {
                     PanelIconButton("xmark", label: "Close") { model.isDrawerOpen = false }
                 }
             } content: {
                 BinderList(model: model, binder: binder)
+                PanelDropHint()
                 PanelFileIssues(
                     names: binder.unreadableURLs.map(\.lastPathComponent),
                     summary: String(
@@ -52,7 +53,7 @@ private struct BinderList: View {
             ) {
                 ForEach(Array(binder.items.enumerated()), id: \.element.id) { index, item in
                     BinderRow(
-                        binder: binder, item: item, index: index,
+                        binder: binder, item: item, index: index, onRemove: { model.removeFromBinder(item.url) },
                         onPoint: { isOver in
                             if isOver {
                                 pointedRow = item.url
@@ -63,8 +64,18 @@ private struct BinderList: View {
                     )
                     .tag(item.url)
                     .id(item.url)
+                    .background {
+                        if binder.flashedURLs.contains(item.url) {
+                            RoundedRectangle(cornerRadius: 6).fill(PrintPalette.aiTint2)
+                        }
+                    }
+                    .onGeometryChange(for: CGRect.self) {
+                        $0.frame(in: .global)
+                    } action: { frame in
+                        model.drop.rowFrames[item.url] = frame
+                    }
                     .contextMenu {
-                        if binder.items.count > 1 { Button("Remove from List") { binder.remove(item.url) } }
+                        if binder.items.count > 1 { Button("Remove from List") { model.removeFromBinder(item.url) } }
                     }
                 }
                 .onMove { binder.move(fromOffsets: $0, toOffset: $1) }
@@ -76,10 +87,17 @@ private struct BinderList: View {
             .background(
                 SelectedRowClicks(pointedRow: pointedRow, selection: binder.selection) { model.goToBinderDocument($0) }
             )
-            .onDeleteCommand { binder.removeSelection() }
+            .onDeleteCommand { if let url = binder.selection { model.removeFromBinder(url) } }
             .onChange(of: binder.selection) { _, url in
                 if let url { proxy.scrollTo(url) }
             }
+            .animation(.easeOut(duration: 0.2), value: binder.flashedURLs)
+            .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .global)
+            } action: { frame in
+                model.drop.listFrame = frame
+            }
+            .onDisappear { model.drop.listFrame = nil }
             .accessibilityLabel("Binder")
         }
     }
@@ -89,13 +107,18 @@ private struct BinderRow: View {
     let binder: BinderModel
     let item: BinderModel.Item
     let index: Int
+    let onRemove: () -> Void
     let onPoint: (Bool) -> Void
     @State private var isHovered = false
 
-    init(binder: BinderModel, item: BinderModel.Item, index: Int, onPoint: @escaping (Bool) -> Void) {
+    init(
+        binder: BinderModel, item: BinderModel.Item, index: Int, onRemove: @escaping () -> Void,
+        onPoint: @escaping (Bool) -> Void
+    ) {
         self.binder = binder
         self.item = item
         self.index = index
+        self.onRemove = onRemove
         self.onPoint = onPoint
     }
 
@@ -131,7 +154,7 @@ private struct BinderRow: View {
             // The removal button keeps its room whether it shows or not, so the names do not move.
             Group {
                 if binder.items.count > 1 {
-                    PanelIconButton("xmark", label: "Remove from List") { binder.remove(item.url) }
+                    PanelIconButton("xmark", label: "Remove from List", action: onRemove)
                         .opacity(isHovered ? 1 : 0)
                         .allowsHitTesting(isHovered)
                 } else {
@@ -142,23 +165,5 @@ private struct BinderRow: View {
         }
         .onHover { isHovered = $0 }
         .help(item.name)
-    }
-}
-
-extension DocumentViewModel {
-    func addBinderDocuments() {
-        guard let binder else { return }
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = SurimonoDocument.readableContentTypes
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-        let completion: (NSApplication.ModalResponse) -> Void = { response in
-            if response == .OK { binder.add(panel.urls) }
-        }
-        if let window {
-            panel.beginSheetModal(for: window, completionHandler: completion)
-        } else {
-            panel.begin(completionHandler: completion)
-        }
     }
 }

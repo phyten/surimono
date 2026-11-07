@@ -13,7 +13,7 @@ typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
 /// A short message near the bottom of the window, optionally with one action.
 struct Toast: Equatable, Identifiable {
-    enum Action: Equatable { case retryWebCapture, allowFolderAccess, nextChange, openIncludes }
+    enum Action: Equatable { case retryWebCapture, allowFolderAccess, nextChange, openIncludes, undoBinder }
 
     let id = UUID()
     var systemImage: String
@@ -84,6 +84,17 @@ final class DocumentViewModel {
     var requestedTrayRow: Int?
     /// What a row of the list asked the tray to show, until the sheets that hold it are ready.
     @ObservationIgnored private var trayRequest: URL?
+    /// A file drag over this window.
+    let drop = DropSession()
+    /// The window this binder took the place of, for as long as going back can bring it.
+    @ObservationIgnored var binderOrigin: BinderOrigin?
+    /// Called once, when the first pages are ready or could not be made.
+    @ObservationIgnored var onFirstRender: ((Bool) -> Void)?
+    /// What this window shows came from another window, so a record saved for these files gives way to it.
+    @ObservationIgnored private var keepsSettingsOverSaved = false
+    /// A binder of this window's contents is being laid out to take its place. What this window shows is about to be
+    /// out of date, so nothing goes out from it meanwhile.
+    var isBecomingBinder = false
     /// Dragging the paper selects text instead of moving the window. It belongs to the window and is never saved, so
     /// a document always opens with the paper as the window and a drag never selects text by surprise.
     var isSelectingText = false
@@ -206,7 +217,7 @@ final class DocumentViewModel {
     /// The paper's height before the screen's width made it shorter; it comes back once the pages fit at that height.
     @ObservationIgnored private var heightBeforeScreenLimit: CGFloat?
     /// The view mode's paper size when the print mode began; the tray's size is not the document's window size.
-    @ObservationIgnored private var viewPaperSizeBeforePrinting: CGSize?
+    @ObservationIgnored private(set) var viewPaperSizeBeforePrinting: CGSize?
     @ObservationIgnored private(set) var hasSizedWindow = false
     /// The tray was asked for before the first pages were there.
     @ObservationIgnored private(set) var isPrintModeRequested = false
@@ -294,6 +305,7 @@ final class DocumentViewModel {
             self?.showToast(toast, dismissAfter: toast.action == .allowFolderAccess ? nil : .seconds(5))
         }
         web.onFolderAccessRequired = { [weak self] _ in self?.requestFolderAccess() }
+        drop.onSpring = { [weak self] in self?.isDrawerOpen = true }
         #if DEBUG
             DebugSnapshot.configure(self)
         #endif
@@ -429,6 +441,7 @@ final class DocumentViewModel {
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
         isUpToDate && hasCurrentPrintPreview && !isPrinting && !isExporting && !isCapturingWeb && !webCaptureFailed
+            && !isBecomingBinder
     }
     var summary: String? {
         guard let result, let renderedSettings else { return nil }
@@ -595,7 +608,8 @@ final class DocumentViewModel {
         }
         computeContentHash()
         refreshIncludePlan()
-        render()
+        // A window that replaces another has its pages from before it appeared.
+        if result == nil { render() }
     }
 
     /// A document that cannot be opened at all, such as an encrypted ZIP, shows the reason instead of pages.
@@ -866,6 +880,9 @@ final class DocumentViewModel {
         }
     }
 
+    /// The page of the image being read, which keeps its place when images are added in front of it.
+    private var selectedImagePage: Int? { imageBundle?.selection.flatMap(readableImageIndex(of:)) }
+
     private func readableImageIndex(of url: URL) -> Int? {
         imageBundle?.urls.filter { !unreadableImageURLs.contains($0) }.firstIndex(of: url)
     }
@@ -890,12 +907,14 @@ final class DocumentViewModel {
             pendingPrint = nil
             error = openFailure
             isRendering = false
+            finishFirstRender(succeeded: false)
             return
         }
         guard let settings = renderSettings else {
             pendingPrint = nil
             error = String(localized: "Print styles could not be loaded. Reload them in Settings.")
             isRendering = false
+            finishFirstRender(succeeded: false)
             return
         }
         error = nil
@@ -941,7 +960,9 @@ final class DocumentViewModel {
                 unreadableImageURLs = prepared.unreadableImageURLs
                 binder?.didRender(prepared, forReading: mode == .view)
                 // The tray lays the documents out on its own paper, whose pages are not the ones being read.
-                if mode == .view, let page = binder?.settleReadingPage() { currentPageIndex = page }
+                if mode == .view, let page = binder?.settleReadingPage() ?? selectedImagePage {
+                    currentPageIndex = page
+                }
                 resolveViewOptionsIfNeeded(for: prepared.viewDocument)
                 if let imageBundle {
                     // The digests of the images are known now, so a remembered order can be restored.
@@ -965,6 +986,7 @@ final class DocumentViewModel {
                     notePages: output.notePages)
                 isRendering = false
                 resolveTrayRequest()
+                finishFirstRender(succeeded: true)
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
@@ -995,8 +1017,71 @@ final class DocumentViewModel {
                 outputAfterReview = nil
                 chosenTrial = nil
                 isRendering = false
+                finishFirstRender(succeeded: false)
             }
         }
+    }
+
+    private func finishFirstRender(succeeded: Bool) {
+        let report = onFirstRender
+        onFirstRender = nil
+        report?(succeeded)
+    }
+
+    /// The list changed under a tray that showed the old documents: nothing waiting to print may go out with the new
+    /// ones unseen, and the pages are made again.
+    func listDidChange() {
+        pendingPrint = nil
+        outputAfterReview = nil
+        render()
+    }
+
+    /// Whether an output is waiting for pages, to go out by itself once they are ready.
+    var hasWaitingOutput: Bool { pendingPrint != nil || outputAfterReview != nil }
+
+    /// Carries on from the window this one replaces, with the look the reader has and the place being read.
+    func takeOver(from source: DocumentViewModel) {
+        keepsSettingsOverSaved = true
+        if source.usesPrintTheme {
+            themeID = source.themeID
+            setTextScale(source.textScale)
+            codePaletteID = source.codePaletteID
+            codeBlock = source.codeBlock
+        }
+        if source.usesHTMLPreset { presetID = source.presetID }
+        layoutID = source.layoutID
+        shownPaperSeries = source.shownPaperSeries
+        paperSeries = source.paperSeries
+        paperOrientation = source.paperOrientation
+        printOptions = source.printOptions
+        viewOptions = source.viewOptions
+        hasResolvedViewOptions = true
+        zoom = source.zoom
+        bandVisibility = source.bandVisibility
+        isAlwaysOnTop = source.isAlwaysOnTop
+        currentPageIndex = source.currentPageIndex
+        restoredPaperSize = source.currentPaperSize ?? source.viewPaperSizeBeforePrinting
+        viewPaperSizeBeforePrinting = source.viewPaperSizeBeforePrinting
+        // The pages are made for where they will be shown.
+        if source.mode == .print { mode = .print }
+    }
+
+    /// This window opens on the tray, in the place of a window that was there.
+    func settleOnTray() {
+        guard mode == .print, let window else { return }
+        hasSizedWindow = true
+        refreshPrinters()
+        ViewerWindow.setTrafficLightsVisible(true, in: window)
+        PrintModeWindow.enter(window)
+    }
+
+    /// Back where a window was before a binder took its place.
+    func restoreWindow(_ origin: BinderOrigin) {
+        hasSizedWindow = true
+        currentPageIndex = origin.pageIndex
+        paper.goToPage(index: origin.pageIndex)
+        guard let window else { return }
+        ViewerWindow.setFrame(origin.frame, of: window, animate: false)
     }
 
     func setTextScale(_ value: Double) {
@@ -1776,7 +1861,14 @@ final class DocumentViewModel {
             if hasSavedSettings { saveSettings() }
             return
         }
-        guard let saved = settingsStore?.record(for: hash.hex) else {
+        let saved = settingsStore?.record(for: hash.hex)
+        if keepsSettingsOverSaved, saved != nil {
+            // What this window took over replaces the record, even where it equals the defaults.
+            settingsBaseline = defaultSettings
+            saveSettings(force: true)
+            return
+        }
+        guard let saved else {
             // Anything that already differs from the defaults was changed by the user while the content was read.
             settingsBaseline = defaultSettings
             rememberedSettingsDidChange()

@@ -155,6 +155,21 @@ struct PanelFileIssues: View {
     }
 }
 
+/// Says that files can be dropped on the list. The whole window takes them; this is what shows that it does.
+struct PanelDropHint: View {
+    var body: some View {
+        Text("Drop here to add")
+            .font(.system(size: 12))
+            .foregroundStyle(PrintPalette.ink2)
+            .padding(8)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(PrintPalette.line3, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+            }
+    }
+}
+
 struct PanelSortButton: View {
     let action: () -> Void
 

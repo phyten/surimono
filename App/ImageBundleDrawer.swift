@@ -8,11 +8,15 @@ struct ImageBundleDrawer: View {
     var body: some View {
         if let bundle = model.imageBundle {
             SidePanel("Image Order", subtitle: String(format: String(localized: "%lld images"), bundle.items.count)) {
+                if bundle.archiveURL == nil {
+                    PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
+                }
                 if model.mode == .view {
                     PanelIconButton("xmark", label: "Close") { model.isDrawerOpen = false }
                 }
             } content: {
                 ImageBundleList(model: model, bundle: bundle)
+                if bundle.archiveURL == nil { PanelDropHint() }
                 PanelFileIssues(
                     names: bundle.excludedSummary,
                     summary: String(
@@ -49,6 +53,16 @@ private struct ImageBundleList: View {
                         }
                     }
                     .tag(item.url).id(item.url).help(item.name)
+                    .background {
+                        if bundle.flashedURLs.contains(item.url) {
+                            RoundedRectangle(cornerRadius: 6).fill(PrintPalette.aiTint2)
+                        }
+                    }
+                    .onGeometryChange(for: CGRect.self) {
+                        $0.frame(in: .global)
+                    } action: { frame in
+                        model.drop.rowFrames[item.url] = frame
+                    }
                 }
                 .onMove { bundle.move(fromOffsets: $0, toOffset: $1) }
             }
@@ -60,6 +74,13 @@ private struct ImageBundleList: View {
                 SelectedRowClicks(pointedRow: pointedRow, selection: bundle.selection) { model.goToBundleImage($0) }
             )
             .onChange(of: bundle.selection) { _, url in if let url { proxy.scrollTo(url) } }
+            .animation(.easeOut(duration: 0.2), value: bundle.flashedURLs)
+            .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .global)
+            } action: { frame in
+                model.drop.listFrame = frame
+            }
+            .onDisappear { model.drop.listFrame = nil }
             .accessibilityLabel("Images")
         }
     }
