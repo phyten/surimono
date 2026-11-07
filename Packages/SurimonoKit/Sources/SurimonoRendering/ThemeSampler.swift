@@ -10,6 +10,9 @@ import WebKit
 /// page's area is captured as a vector PDF. A theme with paper (`PaperBackground`) has it drawn by a second web view
 /// over the whole page and laid under the text, as in printing. The page is drawn for the screen rather than printed,
 /// so it can differ a little from the printed first page; it is a sample for choosing a look, never output.
+///
+/// A sample can also start at a `SamplePlace` instead of the top: the same area is captured from where that heading or
+/// code block stands under the theme. Laying out pages for each theme would take seconds; the column is already there.
 @MainActor
 public final class ThemeSampler {
     public enum SamplingError: Error, Equatable {
@@ -41,7 +44,11 @@ public final class ThemeSampler {
     private var paperSession: Session?
     private var appliedTheme: PrintTheme?
     private var appliedHasPaper: Bool?
-    private var samples: [String: (theme: PrintTheme, page: PDFPage)] = [:]
+    /// Kept for as long as the sampler lives, because WebKit drops a world nothing holds, and the next one of that name
+    /// starts empty: what a theme's script set up would be gone when the place is measured.
+    private let world = WKContentWorld.world(name: "surimono")
+    private var samples: [SampleKey: (theme: PrintTheme, page: PDFPage)] = [:]
+    private var places: [SamplePlace]?
     private var isBusy = false
     private var isClosed = false
 
@@ -62,14 +69,26 @@ public final class ThemeSampler {
         self.timeout = timeout
     }
 
+    private struct SampleKey: Hashable {
+        let themeID: String
+        let place: SamplePlace?
+    }
+
     /// The sample of `theme`: the whole logical page, with the text of the first page inside its margins and the
     /// theme's paper, if any, under it. Drawn once and then kept until the sampler closes. Requests are served one at
     /// a time.
     public func firstPage(for theme: PrintTheme) async throws -> PDFPage {
-        if let sample = samples[theme.id], sample.theme == theme { return sample.page }
+        try await page(for: theme, at: nil)
+    }
+
+    /// The sample of `theme` starting at `place`, or at the top of the document without one or when the document has no
+    /// such place.
+    public func page(for theme: PrintTheme, at place: SamplePlace?) async throws -> PDFPage {
+        let key = SampleKey(themeID: theme.id, place: place)
+        if let sample = samples[key], sample.theme == theme { return sample.page }
         // The web view shows one theme at a time, so a request waits for the one before it.
         while isBusy { try await Task.sleep(for: .milliseconds(5)) }
-        if let sample = samples[theme.id], sample.theme == theme { return sample.page }
+        if let sample = samples[key], sample.theme == theme { return sample.page }
         guard !isClosed else { throw SamplingError.closed }
         isBusy = true
         defer { isBusy = false }
@@ -77,8 +96,11 @@ public final class ThemeSampler {
         try Task.checkCancellation()
         let hasPaper = try await apply(theme, in: session.webView)
         try Task.checkCancellation()
+        var top: CGFloat = 0
+        if let place { top = try await self.top(of: place, in: session.webView) }
+        try Task.checkCancellation()
         let configuration = WKPDFConfiguration()
-        configuration.rect = CGRect(origin: .zero, size: printableSize)
+        configuration.rect = CGRect(origin: CGPoint(x: 0, y: top), size: printableSize)
         let data = try await session.webView.pdf(configuration: configuration)
         guard !isClosed else { throw SamplingError.closed }
         guard let text = PDFDocument(data: data)?.page(at: 0) else { throw SamplingError.emptyPage }
@@ -91,9 +113,86 @@ public final class ThemeSampler {
             throw SamplingError.emptyPage
         }
         drawCount += 1
-        samples[theme.id] = (theme, page)
+        samples[key] = (theme, page)
         return page
     }
+
+    /// The headings and code blocks a sample can start at, in the order of the document within each kind.
+    public func places() async throws -> [SamplePlace] {
+        if let places { return places }
+        while isBusy { try await Task.sleep(for: .milliseconds(5)) }
+        if let places { return places }
+        guard !isClosed else { throw SamplingError.closed }
+        isBusy = true
+        defer { isBusy = false }
+        let session = try await openSession()
+        let json = try await session.webView.callAsyncJavaScript(
+            Self.placeElements + Self.listing, arguments: [:], in: nil, contentWorld: world)
+        let found = try JSONDecoder().decode([SamplePlace].self, from: Data((json as? String ?? "[]").utf8))
+        places = found
+        return found
+    }
+
+    /// Where `place` starts under the theme in the web view, in the web view's points; the top without such a place.
+    private func top(of place: SamplePlace, in webView: WKWebView) async throws -> CGFloat {
+        let top = try await webView.callAsyncJavaScript(
+            Self.placeElements + Self.locating,
+            arguments: ["kind": place.kind.rawValue, "index": place.index, "lead": Self.placeLead], in: nil,
+            contentWorld: world)
+        return (top as? NSNumber).map { CGFloat(truncating: $0) } ?? 0
+    }
+
+    /// Room kept above a place, out of its own margin, so that a border or a shadow on the element is not cut.
+    private static let placeLead = 8
+
+    /// Listing and finding places share this, so that a place's index means the same to both. Text is read as
+    /// `DocumentOutline` reads it, and a `pre` without `code` is plain text or a diagram's source.
+    private static let placeElements = """
+        const readable = (element) => {
+            const copy = element.cloneNode(true);
+            for (const hidden of copy.querySelectorAll('rt, rp, svg, math')) { hidden.remove(); }
+            return copy.textContent.replace(/\\s+/g, ' ').trim();
+        };
+        const elements = {
+            heading: [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter((heading) => readable(heading)),
+            code: [...document.querySelectorAll('pre > code')].map((code) => code.parentElement),
+        };
+
+        """
+
+    private static let listing = """
+        const firstLine = (block) => {
+            const numbered = [...block.querySelectorAll('.code-src')].map((line) => line.textContent);
+            const lines = numbered.length > 0 ? numbered : block.textContent.split('\\n');
+            return (lines.find((line) => line.trim()) ?? '').trim();
+        };
+        return JSON.stringify([
+            ...elements.heading.map((heading, index) => ({
+                kind: 'heading', index, level: Number(heading.tagName.slice(1)), title: readable(heading),
+            })),
+            ...elements.code.map((block, index) => ({ kind: 'code', index, title: firstLine(block) }))
+                .filter((place) => place.title),
+        ]);
+        """
+
+    /// The text size is a CSS zoom on the root. Rectangles include it from Safari 26.4 on and leave it out before, so a
+    /// box of a known height tells which this WebKit does. Inline `!important` keeps the document's and the reader's
+    /// styles off the box, which would change its height and throw every place off.
+    private static let locating = """
+        const element = elements[kind][index];
+        if (!element) { return 0; }
+        const probe = document.createElement('surimono-probe');
+        probe.style.cssText = `all: initial !important; display: block !important; position: absolute !important;
+            height: 100px !important; visibility: hidden !important;`;
+        document.documentElement.append(probe);
+        const reported = probe.getBoundingClientRect().height / 100;
+        probe.remove();
+        const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+        const unscaled = reported > 0 ? zoom / reported : 1;
+        const margin = parseFloat(getComputedStyle(element).marginTop) || 0;
+        const top = (element.getBoundingClientRect().top + window.scrollY) * unscaled;
+        return Math.max(top - Math.min(margin, lead), 0);
+        """
 
     /// Releases the web view, its window and temporary file. Later requests fail with `SamplingError.closed`.
     public func close() {
@@ -103,6 +202,7 @@ public final class ThemeSampler {
         paperSession?.close()
         paperSession = nil
         samples = [:]
+        places = nil
     }
 
     private func openSession() async throws -> Session {
@@ -134,7 +234,6 @@ public final class ThemeSampler {
     /// paper off with `PaperBackground.removalStyle`; returns whether the theme has paper.
     private func apply(_ theme: PrintTheme, in webView: WKWebView) async throws -> Bool {
         if appliedTheme == theme, let hasPaper = appliedHasPaper { return hasPaper }
-        let world = WKContentWorld.world(name: "surimono")
         // A wide page may have kept the previous theme's paper (`PaperBackground.detectionScript`).
         let swap = """
             const style = document.head.querySelector('style');
@@ -197,7 +296,6 @@ public final class ThemeSampler {
             }
             session.isReady = true
         }
-        let world = WKContentWorld.world(name: "surimono")
         let swap = """
             const style = document.head.querySelector('style');
             if (style) { style.textContent = css; }
