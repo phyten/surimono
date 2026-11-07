@@ -1107,7 +1107,7 @@ final class DocumentViewModel {
         hasSizedWindow = true
         refreshPrinters()
         ViewerWindow.setTrafficLightsVisible(true, in: window)
-        PrintModeWindow.enter(window)
+        PrintModeWindow.enter(window, size: traySize)
     }
 
     /// Back where a window was before a binder took its place.
@@ -1255,7 +1255,14 @@ final class DocumentViewModel {
         guard let window else { return }
         // Stage controls need free resizing and visible traffic lights.
         ViewerWindow.setTrafficLightsVisible(true, in: window)
-        PrintModeWindow.enter(window)
+        PrintModeWindow.enter(window, size: traySize)
+    }
+
+    /// The tray keeps the list beside the sheets, which need their own room next to it.
+    var traySize: NSSize {
+        var size = PrintModeWindow.traySize
+        if binder != nil || imageBundle != nil { size.width += SidePanelMetrics.width }
+        return size
     }
 
     func enterCompareMode() {
