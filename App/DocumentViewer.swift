@@ -99,46 +99,69 @@ struct DocumentContent: View {
         .sheet(item: $model.duplexTestResult) { test in
             DuplexTestSheet(model: model, test: test)
         }
-        .onChange(of: model.renderSettings) { _, _ in model.render() }
-        .onChange(of: model.allowsLiveJavaScript) { _, _ in model.javaScriptSettingDidChange() }
-        .onChange(of: model.imageBundle?.urls) { _, _ in
-            if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }
-            model.render()
-        }
-        .onChange(of: model.binder?.urls) { _, _ in
-            model.window?.title = model.displayName
-            model.render()
-        }
-        .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
-        // The paper is shown before the sheets are composed, so the window takes its shape then too.
-        .onChange(of: model.result.map { ObjectIdentifier($0.logicalDocument) }) { _, document in
-            if document != nil { model.sizeWindowToPaper() }
-        }
-        .onChange(of: model.isRendering) { _, rendering in
-            if !rendering {
-                model.sizeWindowToPaper()
-                OpenRouter.shared.printIfRequested(model)
-                model.enterRequestedPrintMode()
+        .modifier(DocumentContentChanges(model: model))
+        .modifier(DocumentWindowChanges(model: model))
+    }
+}
+
+// The window's reactions stand apart from the view above: the compiler of the oldest supported Xcode gives up on
+// type-checking them as one chain.
+
+/// What follows from changes to the pages and the documents behind them.
+private struct DocumentContentChanges: ViewModifier {
+    let model: DocumentViewModel
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: model.renderSettings) { _, _ in model.render() }
+            .onChange(of: model.allowsLiveJavaScript) { _, _ in model.javaScriptSettingDidChange() }
+            .onChange(of: model.imageBundle?.urls) { _, _ in
+                if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }
+                model.render()
             }
-            #if DEBUG
-                if !rendering { DebugSnapshot.captureIfReady(model) }
-            #endif
-        }
-        .onChange(of: model.viewOptions.layout) { old, new in
-            // Switching between one page and a spread keeps the height and changes the width.
-            if (old == .single) != (new == .single) { model.sizeWindowToPaper(keepHeight: true) }
-        }
-        // At once, in the same update as the list: an animation would first take the room from the paper.
-        .onChange(of: model.showsSideList) { _, _ in model.sizeWindowToPaper(keepsRightEdge: true) }
-        .onChange(of: model.showsNarrowCover) { _, _ in model.coverWidthDidChange() }
-        .onChange(of: model.menuArrangement) { old, _ in model.menuArrangementDidChange(from: old) }
-        .onChange(of: model.isAlwaysOnTop) { _, onTop in
-            if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }
-        }
-        .onChange(of: model.rememberedSettings) { _, _ in model.rememberedSettingsDidChange() }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
-            if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
-        }
+            .onChange(of: model.binder?.urls) { _, _ in
+                model.window?.title = model.displayName
+                model.render()
+            }
+            .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
+            .onChange(of: model.rememberedSettings) { _, _ in model.rememberedSettingsDidChange() }
+    }
+}
+
+/// What follows for the window itself.
+private struct DocumentWindowChanges: ViewModifier {
+    let model: DocumentViewModel
+
+    func body(content: Content) -> some View {
+        content
+            // The paper is shown before the sheets are composed, so the window takes its shape then too.
+            .onChange(of: model.result.map { ObjectIdentifier($0.logicalDocument) }) { _, document in
+                if document != nil { model.sizeWindowToPaper() }
+            }
+            .onChange(of: model.isRendering) { _, rendering in
+                if !rendering {
+                    model.sizeWindowToPaper()
+                    OpenRouter.shared.printIfRequested(model)
+                    model.enterRequestedPrintMode()
+                }
+                #if DEBUG
+                    if !rendering { DebugSnapshot.captureIfReady(model) }
+                #endif
+            }
+            .onChange(of: model.viewOptions.layout) { old, new in
+                // Switching between one page and a spread keeps the height and changes the width.
+                if (old == .single) != (new == .single) { model.sizeWindowToPaper(keepHeight: true) }
+            }
+            // At once, in the same update as the list: an animation would first take the room from the paper.
+            .onChange(of: model.showsSideList) { _, _ in model.sizeWindowToPaper(keepsRightEdge: true) }
+            .onChange(of: model.showsNarrowCover) { _, _ in model.coverWidthDidChange() }
+            .onChange(of: model.menuArrangement) { old, _ in model.menuArrangementDidChange(from: old) }
+            .onChange(of: model.isAlwaysOnTop) { _, onTop in
+                if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
+                if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
+            }
     }
 }
 
