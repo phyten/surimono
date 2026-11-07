@@ -88,6 +88,8 @@ final class DocumentViewModel {
     let drop = DropSession()
     /// The window this binder took the place of, for as long as going back can bring it.
     @ObservationIgnored var binderOrigin: BinderOrigin?
+    /// The reader took this binder back, so its window leaves nothing to open again when it closes.
+    @ObservationIgnored var isBinderUndone = false
     /// Called once, when the first pages are ready or could not be made.
     @ObservationIgnored var onFirstRender: ((Bool) -> Void)?
     /// What this window shows came from another window, so a record saved for these files gives way to it.

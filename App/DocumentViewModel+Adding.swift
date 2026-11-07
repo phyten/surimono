@@ -138,8 +138,10 @@ extension DocumentViewModel {
         dismissToast()
         switch origin.contents {
         case .document(let url):
-            OpenRouter.shared.reopen(url, restoring: origin) { [weak window] opened in
-                if opened { window?.close() }
+            OpenRouter.shared.reopen(url, restoring: origin) { [weak self, weak window] opened in
+                guard opened else { return }
+                self?.isBinderUndone = true
+                window?.close()
             }
         case .images(let state):
             let model = ImageBundleWindows.shared.open(
@@ -148,6 +150,7 @@ extension DocumentViewModel {
             model.imageBundle?.restore(state)
             model.restoreWindow(origin)
             if origin.wasPrinting { model.requestPrintMode() }
+            isBinderUndone = true
             window.close()
         }
     }
