@@ -344,10 +344,15 @@ final class BinderModel {
     }
 
     func title(language: String) -> String {
+        Self.title(firstName: items.first?.name ?? "", count: items.count, language: language)
+    }
+
+    /// How a binder is named, in its window and in the Recent Binders menu: its first document, and how many follow.
+    static func title(firstName: String, count: Int, language: String) -> String {
         let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
         return String(
             format: bundle.localizedString(forKey: "%1$@ and %2$lld more documents", value: nil, table: nil),
-            items.first?.name ?? "", max(0, items.count - 1))
+            firstName, max(0, count - 1))
     }
 
     func exportName(layout: PrintLayout, language: String) -> String {

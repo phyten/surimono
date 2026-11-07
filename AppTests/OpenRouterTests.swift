@@ -1,4 +1,5 @@
 import AppKit
+import SurimonoCore
 import Testing
 
 @testable import Surimono
@@ -71,6 +72,57 @@ struct OpenRouterTests {
         })
         router.open([url("b.pdf"), url("a.md")])
         #expect(opened == [url("a.md"), url("b.pdf")])
+    }
+
+    @Test("最近使った合本は、画像だけの組でも画像の束にせず合本のまま開く")
+    func recentBinderOfImages() {
+        var opened: [[URL]] = []
+        let router = router(openBinder: { urls, excluded in
+            opened.append(urls)
+            #expect(excluded.isEmpty)
+        })
+        router.open(
+            recentBinder: RecentBinder(files: [.init(path: "/fixtures/2.png"), .init(path: "/fixtures/1.png")]))
+        #expect(opened == [[url("2.png"), url("1.png")]])
+    }
+
+    @Test("最近使った合本は、見つからないファイルも含めて開き、警告しない")
+    func recentBinderWithMissingFile() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let present = folder.appendingPathComponent("present.md")
+        try Data("本文".utf8).write(to: present)
+        let missing = folder.appendingPathComponent("missing.md")
+        var opened: [[String]] = []
+        let router = router(openBinder: { urls, _ in opened.append(urls.map(\.path)) })
+        router.open(recentBinder: RecentBinder(files: [.init(path: missing.path), .init(path: present.path)]))
+        #expect(opened == [[missing.path, present.path]])
+    }
+
+    @Test("サンドボックスでは最近使った合本をブックマークで探して開き、窓がなければアクセスをすぐ手放す")
+    func recentBinderInTheSandbox() {
+        let moved = url("moved/a.md")
+        var starts = 0
+        var active = 0
+        var opened: [URL] = []
+        let router = router(openBinder: { urls, _ in opened = urls })
+        router.recentFiles = RecentBinderFiles(
+            backend: FolderAccess.Backend(
+                create: { _ in Data() }, resolve: { _ in (moved, false) },
+                start: { _ in
+                    starts += 1
+                    active += 1
+                    return true
+                }, stop: { _ in active -= 1 }),
+            isSandboxed: { true })
+        router.open(
+            recentBinder: RecentBinder(files: [
+                .init(path: "/fixtures/a.md", bookmark: Data([1])), .init(path: "/fixtures/b.md"),
+            ]))
+        #expect(opened == [moved, url("b.md")])
+        #expect(starts == 1)
+        #expect(active == 0)
     }
 
     @Test("対応する文書がないドロップは対象ウィンドウで警告する")
