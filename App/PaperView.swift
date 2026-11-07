@@ -988,3 +988,212 @@ final class PaperPDFView: PageTextPDFView {
         super.selectAll(sender)
     }
 }
+
+// MARK: - A frame around a spot
+
+/// A spot on the paper to point out: the logical page it is on, and the rectangle that marks it there, in the page's
+/// own coordinates. It belongs to one set of pages, the ones the paper was given (the render's `viewDocument`): the
+/// rectangle means nothing on the pages of another document, not even one of the same number of pages.
+struct PaperSpot: Equatable {
+    let pageIndex: Int
+    let anchor: CGRect
+    let document: PDFDocument
+
+    static func == (left: Self, right: Self) -> Bool {
+        left.pageIndex == right.pageIndex && left.anchor == right.anchor && left.document === right.document
+    }
+}
+
+extension PaperController {
+    /// Frames `spot` for a moment, once the paper is made of the spot's document. It reports false while no such paper
+    /// is on screen, so that a caller that has just changed the window can ask again.
+    @discardableResult
+    func showSpot(_ spot: PaperSpot) -> Bool {
+        view?.showSpot(spot) ?? false
+    }
+}
+
+extension PaperPDFView {
+    /// Frames `spot` once the paper has held still on it, and takes the frame away after `lifetime`.
+    @discardableResult
+    func showSpot(_ spot: PaperSpot, lifetime: Duration = PaperSpotFrameView.defaultLifetime) -> Bool {
+        guard window != nil, !isHiddenOrHasHiddenAncestor, isMade(of: spot.document), viewRect(for: spot) != nil
+        else { return false }
+        let frame: PaperSpotFrameView
+        if let existing = subviews.compactMap({ $0 as? PaperSpotFrameView }).first {
+            frame = existing
+        } else {
+            frame = PaperSpotFrameView()
+            addSubview(frame)
+        }
+        frame.show(spot, lifetime: lifetime)
+        return true
+    }
+
+    /// Whether these are the pages `document` stands for. Showing it another way (spread, single page) is still the
+    /// same pages; being given another document is not.
+    fileprivate func isMade(of document: PDFDocument) -> Bool { sourceDocument === document }
+
+    /// Where `spot` lies in this view, or nil when the paper has no such page or does not show it now. A page that is
+    /// not shown is no place to draw: PDFKit still converts a rectangle on it, to wherever it would lie.
+    fileprivate func viewRect(for spot: PaperSpot) -> NSRect? {
+        guard isMade(of: spot.document), let document, let pagePlan,
+            let viewIndex = pagePlan.viewIndex(for: spot.pageIndex),
+            let page = document.page(at: viewIndex), visiblePages.contains(page)
+        else { return nil }
+        // A page that the continuous layout scales carries its marks with it.
+        let scale = pagePlan.scale(at: viewIndex)
+        let anchor = spot.anchor.applying(CGAffineTransform(scaleX: scale, y: scale))
+        return convert(PrintIssue.spotFrame(around: anchor, in: page.bounds(for: .cropBox)), from: page)
+    }
+
+    /// Scrolls a magnified paper, when the frame would lie out of sight, until the frame's whole height and the end
+    /// where it starts are in view. The other end may run past the window, as it does on a paper that fits. It reports
+    /// whether the paper moved.
+    fileprivate func scrollIntoSight(_ frame: NSRect) -> Bool {
+        let focus = NSRect(x: frame.minX, y: frame.minY, width: min(frame.width, 24), height: frame.height)
+        guard !bounds.contains(focus), let scrollView = documentView?.enclosingScrollView else { return false }
+        let clip = scrollView.contentView
+        let visible = clip.bounds
+        let wanted = clip.convert(focus, from: self)
+        var origin = visible.origin
+        if focus.minY < bounds.minY || focus.maxY > bounds.maxY {
+            origin.y = wanted.midY - visible.height / 2
+        }
+        if focus.minX < bounds.minX || focus.maxX > bounds.maxX {
+            // 16 points in from the window's edge, in the clip view's own units.
+            origin.x = wanted.minX - 16 * visible.width / max(bounds.width, 1)
+        }
+        let moved = clip.constrainBoundsRect(NSRect(origin: origin, size: visible.size)).origin
+        guard moved != visible.origin else { return false }
+        clip.scroll(to: moved)
+        scrollView.reflectScrolledClipView(clip)
+        return true
+    }
+}
+
+/// The frame the paper shows around a spot for a moment. It is a view laid over the paper view and no part of the
+/// pages, so the print and the export never carry it, and it passes every click through to the paper.
+@MainActor
+final class PaperSpotFrameView: NSView {
+    static let defaultLifetime = Duration.seconds(2)
+    /// A frame that the paper has not held still under for this long is dropped.
+    private static let patience = Duration.seconds(5)
+    private static let fadeIn = 0.2
+    private static let fadeOut = 0.3
+    /// How many ticks in a row the spot must stay in one place before the frame shows, so that it does not slide
+    /// along with a window that is still resizing or a page that PDFKit is still placing.
+    private static let steadyTicks = 3
+    /// How often the paper is scrolled towards a spot out of sight before it is left as it is.
+    private static let scrollAttempts = 20
+    private static let tick = Duration.milliseconds(33)
+
+    private var spot: PaperSpot?
+    private var task: Task<Void, Never>?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        alphaValue = 0
+        isHidden = true
+        let indigo = NSColor(PrintPalette.paperAi)
+        layer?.borderColor = indigo.cgColor
+        layer?.borderWidth = 2
+        layer?.cornerRadius = 4
+        layer?.backgroundColor = indigo.withAlphaComponent(0.08).cgColor
+        setAccessibilityElement(false)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func show(_ spot: PaperSpot, lifetime: Duration) {
+        task?.cancel()
+        self.spot = spot
+        alphaValue = 0
+        isHidden = true
+        task = Task { @MainActor [weak self] in await self?.follow(lifetime: lifetime) }
+    }
+
+    /// The spot is meant for the pages the paper was made of when it was found. Once the paper is given others, a
+    /// reload or a new layout, its coordinates would mark some other text.
+    private var isCurrent: Bool {
+        guard let paper = superview as? PaperPDFView, let spot else { return false }
+        return paper.isMade(of: spot.document)
+    }
+
+    /// Scrolls the paper to the spot if it lies out of sight, shows the frame once the spot has held still, keeps it
+    /// on the spot while the paper moves, and takes it away after `lifetime`.
+    private func follow(lifetime: Duration) async {
+        let clock = ContinuousClock()
+        let started = clock.now
+        let reducesMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        var previous: NSRect?
+        var steady = 0
+        var scrolls = 0
+        while !Task.isCancelled, isCurrent {
+            if scrolls < Self.scrollAttempts, scrollToSpot() { scrolls += 1 }
+            let target = place()
+            steady = Self.isSame(target, previous) ? steady + 1 : 0
+            previous = target
+            if steady >= Self.steadyTicks { break }
+            if clock.now - started > Self.patience {
+                removeFromSuperview()
+                return
+            }
+            try? await Task.sleep(for: Self.tick)
+        }
+        let shown = clock.now
+        while !Task.isCancelled, isCurrent {
+            let elapsed = clock.now - shown
+            alphaValue = reducesMotion ? 1 : min(1, elapsed / .seconds(Self.fadeIn))
+            place()
+            if elapsed >= lifetime { break }
+            try? await Task.sleep(for: Self.tick)
+        }
+        let fading = clock.now
+        let faded = alphaValue
+        while !Task.isCancelled, isCurrent, !reducesMotion {
+            let elapsed = (clock.now - fading) / .seconds(Self.fadeOut)
+            if elapsed >= 1 { break }
+            alphaValue = faded * (1 - elapsed)
+            place()
+            try? await Task.sleep(for: Self.tick)
+        }
+        // A newer request owns the frame now.
+        guard !Task.isCancelled else { return }
+        removeFromSuperview()
+    }
+
+    /// Scrolls the paper towards the spot when it lies out of sight, and reports whether the paper moved.
+    private func scrollToSpot() -> Bool {
+        guard let paper = superview as? PaperPDFView, let spot, let target = paper.viewRect(for: spot) else {
+            return false
+        }
+        return paper.scrollIntoSight(target)
+    }
+
+    /// Lays the frame over the spot and says where that is, or nil while the spot is off the screen.
+    @discardableResult
+    private func place() -> NSRect? {
+        guard let paper = superview as? PaperPDFView, let spot, let target = paper.viewRect(for: spot) else {
+            isHidden = true
+            return nil
+        }
+        let visible = target.intersection(paper.bounds)
+        guard !visible.isNull, !visible.isEmpty else {
+            isHidden = true
+            return nil
+        }
+        isHidden = false
+        if frame != visible { frame = visible }
+        return visible
+    }
+
+    private static func isSame(_ left: NSRect?, _ right: NSRect?) -> Bool {
+        guard let left, let right else { return false }
+        return abs(left.minX - right.minX) < 0.5 && abs(left.minY - right.minY) < 0.5
+            && abs(left.width - right.width) < 0.5 && abs(left.height - right.height) < 0.5
+    }
+}

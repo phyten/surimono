@@ -8,28 +8,13 @@ struct PrintIssuesPopover: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Before Printing").font(.headline)
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    ForEach(model.printIssues) { issue in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(verbatim: PrintIssueText.title(issue, language: model.language))
-                                .font(.system(size: 13, weight: .semibold))
-                                .textSelection(.enabled)
-                            if let page = issue.pageNumber {
-                                Text("Page \(page)").font(.caption).foregroundStyle(PrintPalette.ink2)
-                            }
-                            Text(verbatim: PrintIssueText.advice(issue, language: model.language))
-                                .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
-                                .fixedSize(horizontal: false, vertical: true)
-                            ViewThatFits(in: .horizontal) {
-                                HStack { actions(issue) }
-                                VStack(alignment: .leading) { actions(issue) }
-                            }
-                            .controlSize(.small)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        if issue.id != model.printIssues.last?.id { Divider() }
+                // Content that will not print comes first: an unreadable image is not a table that only runs wide.
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(PrintIssue.grouped(model.printIssues), id: \.group) { section in
+                        group(section.group, issues: section.issues)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 360)
         }
@@ -39,10 +24,45 @@ struct PrintIssuesPopover: View {
         .tint(PrintPalette.ai)
     }
 
+    private func group(_ group: PrintIssue.Group, issues: [PrintIssue]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(verbatim: PrintIssueText.groupTitle(group, language: model.language))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(group == .content ? PrintPalette.warn : PrintPalette.ink2)
+                Text(verbatim: "\(issues.count)").font(.system(size: 11)).foregroundStyle(PrintPalette.ink3)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(issues) { issue in
+                    row(issue)
+                    if issue.id != issues.last?.id { Divider() }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func row(_ issue: PrintIssue) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(verbatim: PrintIssueText.title(issue, language: model.language))
+                .font(.system(size: 13, weight: .semibold))
+                .textSelection(.enabled)
+            if let page = issue.pageNumber {
+                Text("Page \(page)").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+            }
+            Text(verbatim: PrintIssueText.advice(issue, language: model.language))
+                .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+            PrintFlowLayout(spacing: 8, lineSpacing: 6) { actions(issue) }
+                .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     @ViewBuilder
     private func actions(_ issue: PrintIssue) -> some View {
         if issue.pageNumber != nil {
-            Button("Go to Page") { model.showPrintIssue(issue) }
+            Button("Check Location") { model.showPrintIssue(issue) }
         }
         switch issue.kind {
         case .image:
@@ -67,6 +87,12 @@ struct PrintIssuesPopover: View {
 }
 
 enum PrintIssueText {
+    /// The two groups of the list: what will not come out on paper, and what is worth a look before it does.
+    static func groupTitle(_ group: PrintIssue.Group, language: String) -> String {
+        PrintModeText.string(
+            group == .content ? "Content That Will Not Print" : "Placement to Check", language: language)
+    }
+
     static func title(_ issue: PrintIssue, language: String) -> String {
         let key: String
         switch issue.kind {

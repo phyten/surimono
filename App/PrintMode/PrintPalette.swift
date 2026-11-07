@@ -40,6 +40,9 @@ enum PrintPalette {
     static let blankPaper = fixed(0xEBEBE8)
     static let blankInk = fixed(0xA2A29E)
     static let foldLine = Color(.sRGB, red: 43 / 255, green: 76 / 255, blue: 111 / 255, opacity: 0.55)
+    /// The indigo for a mark on the paper itself, such as the frame around a spot: `ai` turns pale at night and would
+    /// fade on the white sheet.
+    static let paperAi = fixed(0x2B4C6F)
 
     private static func fixed(_ hex: UInt32) -> Color {
         Color(.sRGB, red: component(hex, 16), green: component(hex, 8), blue: component(hex, 0), opacity: 1)

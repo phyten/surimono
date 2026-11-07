@@ -76,6 +76,7 @@ struct PrintFinishSheet: View {
                 section("Note Pages") { PrintNoteSection(model: model) }.id(PrintFinishSection.notes)
             }
             section("Printer Adjustments") { PrintPrinterOptions(model: model) }.id(PrintFinishSection.printer)
+            newDocumentsDefault
         }
         .padding(16)
     }
@@ -94,26 +95,36 @@ struct PrintFinishSheet: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
-            Button {
-                model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
-            } label: {
-                Text("Use These Print Settings for New Documents").padding(.horizontal, 10)
-            }
-            .buttonStyle(PrintBorderedButtonStyle())
-            .fixedSize()
-            .help("New documents start with these margins, header and footer, page breaks and contents")
             Spacer(minLength: 0)
             Button {
                 model.isPrintFinishPresented = false
             } label: {
-                Text("Close").padding(.horizontal, 10)
+                Text("Close").padding(.horizontal, 12)
             }
             .buttonStyle(PrintBorderedButtonStyle())
             .fixedSize()
             .keyboardShortcut(.cancelAction)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
+    }
+
+    /// What reaches every new document is a wider matter than this sheet's own settings, so it is a quiet text at the
+    /// end of them, not a button in reach of 「閉じる」.
+    private var newDocumentsDefault: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle().fill(PrintPalette.line).frame(height: 1).padding(.bottom, 11)
+            Button {
+                model.preferences.setFinishDefaults(options: model.printOptions, finish: model.printFinish)
+            } label: {
+                Text("Use These Print Settings for New Documents")
+            }
+            .buttonStyle(PrintLinkButtonStyle())
+            Text("New documents start with these margins, header and footer, page breaks and contents")
+                .font(.system(size: 11))
+                .foregroundStyle(PrintPalette.ink3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func section<Content: View>(
@@ -144,28 +155,42 @@ struct PrintFinishSheet: View {
     }
 
     private func switchRow(_ title: LocalizedStringKey, isOn: Binding<Bool>, count: String? = nil) -> some View {
-        HStack(spacing: 10) {
-            Text(title).font(.system(size: 12.5))
-            if let count {
-                Text(verbatim: count).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+        PrintSwitchRow(isOn: isOn) {
+            HStack(spacing: 8) {
+                Text(title).font(.system(size: 13))
+                if let count {
+                    Text(verbatim: count).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                }
             }
-            Spacer(minLength: 0)
-            Toggle(title, isOn: isOn).toggleStyle(.switch).controlSize(.small).labelsHidden()
         }
-        .frame(minHeight: 28)
     }
 
     private func codeRow(_ code: String, isOn: Binding<Bool>, count: Int) -> some View {
-        HStack(spacing: 10) {
-            Text(verbatim: code).font(.system(size: 11.5, design: .monospaced))
-            Text(verbatim: PrintModeText.format("%lld places", language: model.language, count))
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink2)
-            Spacer(minLength: 0)
-            Toggle(code, isOn: isOn).toggleStyle(.switch).controlSize(.small).labelsHidden()
+        PrintSwitchRow(isOn: isOn) {
+            HStack(spacing: 8) {
+                Text(verbatim: code).font(.system(size: 12, design: .monospaced))
+                Text(verbatim: PrintModeText.format("%lld places", language: model.language, count))
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+            }
         }
-        .frame(minHeight: 28)
     }
+
+    /// A name on the left edge and its choice beside it, at the same place in every row. Pushed to the far end of
+    /// the row, the choices swung the eye from side to side.
+    private func choiceRow<Name: View, Choice: View>(
+        @ViewBuilder name: () -> Name, @ViewBuilder choice: () -> Choice
+    ) -> some View {
+        HStack(spacing: 10) {
+            name().frame(width: Self.nameColumnWidth, alignment: .leading)
+            choice()
+            Spacer(minLength: 0)
+        }
+        .frame(minHeight: 32)
+    }
+
+    /// The width of the names in front of the choices, as in the printer adjustments.
+    private static let nameColumnWidth: CGFloat = 145
 
     // MARK: Header and footer
 
@@ -326,13 +351,15 @@ struct PrintFinishSheet: View {
 
     private func levelRow(level: Int, rule: Binding<HeadingBreak>) -> some View {
         let count = facts?.headings.filter { $0.level == level }.count ?? 0
-        return HStack(spacing: 8) {
-            Text(verbatim: PrintModeText.format("Heading %lld", language: model.language, level))
-                .font(.system(size: 12.5))
-            Text(verbatim: PrintModeText.format("%lld places", language: model.language, count))
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink2)
-            Spacer(minLength: 0)
+        return choiceRow {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(verbatim: PrintModeText.format("Heading %lld", language: model.language, level))
+                    .font(.system(size: 13))
+                Text(verbatim: PrintModeText.format("%lld places", language: model.language, count))
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+            }
+        } choice: {
             PrintSegments(
                 label: "Page Breaks",
                 options: [
@@ -341,7 +368,6 @@ struct PrintFinishSheet: View {
                 selection: rule.wrappedValue
             ) { rule.wrappedValue = $0 }
         }
-        .frame(minHeight: 32)
     }
 
     private func syntax(_ syntax: PageBreakSyntax) -> Binding<Bool> {
@@ -371,19 +397,18 @@ struct PrintFinishSheet: View {
     }
 
     @ViewBuilder private var contentsDetails: some View {
-        HStack(spacing: 8) {
-            Text("Depth").font(.system(size: 12.5))
-            Spacer(minLength: 0)
+        choiceRow {
+            Text("Depth").font(.system(size: 13))
+        } choice: {
             PrintSegments(
                 label: "Depth", options: [.init(PaperTOC.Depth.chapters, "Chapters"), .init(.sections, "Sections")],
                 selection: model.printFinish.toc.depth
             ) { model.printFinish.toc.depth = $0 }
         }
-        .frame(minHeight: 32)
         .padding(.top, 8)
-        HStack(spacing: 8) {
-            Text("Look").font(.system(size: 12.5))
-            Spacer(minLength: 0)
+        choiceRow {
+            Text("Look").font(.system(size: 13))
+        } choice: {
             PrintSegments(
                 label: "Look",
                 options: [
@@ -392,10 +417,31 @@ struct PrintFinishSheet: View {
                 selection: model.printFinish.toc.look
             ) { model.printFinish.toc.look = $0 }
         }
-        .frame(minHeight: 32)
         if model.printFinish.toc.mode == .front, facts?.hasSourceContents == true {
             switchRow("Keep the Text's [TOC] as Well", isOn: $model.printFinish.toc.keepsSourceTOC)
         }
+    }
+}
+
+/// A switch with its name beside it, on the left edge of its section like the other controls. At the far end of the
+/// row, the switch sent the eye to the right for the control and back to the left for its name.
+struct PrintSwitchRow<Name: View>: View {
+    @Binding var isOn: Bool
+    @ViewBuilder var label: Name
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Toggle(isOn: $isOn) { label }.toggleStyle(.switch).controlSize(.small).labelsHidden()
+            // The switch carries the name for accessibility; the visible name only lends it a larger place to click.
+            label
+                .contentShape(Rectangle())
+                .onTapGesture { if isEnabled { isOn.toggle() } }
+                .accessibilityHidden(true)
+            Spacer(minLength: 0)
+        }
+        .opacity(isEnabled ? 1 : 0.45)
+        .frame(minHeight: 28)
     }
 }
 
@@ -441,7 +487,7 @@ struct PrintMarginEditor: View {
     var body: some View {
         VStack(spacing: 0) {
             Text("Margins (mm)")
-                .font(.system(size: 11.5, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(PrintPalette.ink2)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 5)
@@ -462,7 +508,7 @@ struct PrintMarginEditor: View {
                     Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, 8)
             toggle(
                 "Keep All Four Sides Even",
@@ -482,19 +528,14 @@ struct PrintMarginEditor: View {
     private var mirrors: Bool { model.layout.mirrorsMargins(options: model.printOptions) }
 
     private func toggle(_ title: LocalizedStringKey, isOn: Binding<Bool>) -> some View {
-        HStack {
-            Text(title).font(.system(size: 12.5))
-            Spacer(minLength: 0)
-            Toggle(title, isOn: isOn).toggleStyle(.switch).controlSize(.small).labelsHidden()
-        }
-        .frame(minHeight: 28)
+        PrintSwitchRow(isOn: isOn) { Text(title).font(.system(size: 13)) }
     }
 
     private func field(
         _ title: LocalizedStringKey, _ side: WritableKeyPath<PageMargins, Double>
     ) -> some View {
         VStack(spacing: 2) {
-            Text(title).font(.system(size: 10.5)).foregroundStyle(PrintPalette.ink2)
+            Text(title).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
             TextField(
                 title,
                 value: Binding(

@@ -283,15 +283,35 @@
                         model.isPrintFinishPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }
-                    if flag("SurimonoFinishSheet") || argument("SurimonoFinishSheet") == "notes" {
-                        if argument("SurimonoFinishSheet") == "notes" { model.finishSection = .notes }
+                    let sections: [String: PrintFinishSection] = [
+                        "furniture": .furniture, "breaks": .breaks, "contents": .contents, "notes": .notes,
+                        "printer": .printer,
+                    ]
+                    let section = argument("SurimonoFinishSheet").flatMap { sections[$0] }
+                    if flag("SurimonoFinishSheet") || section != nil {
+                        model.finishSection = section
                         model.showsNoteAdjustments = flag("SurimonoNoteAdjust")
                         model.isPrintFinishPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }
                 }
+                if let index = argument("SurimonoIssueFrame").flatMap(Int.init), model.mode == .print,
+                    model.printIssues.indices.contains(index)
+                {
+                    // As if 「該当箇所を確認」 were pressed for that problem: the paper shows its page, framed for a moment.
+                    model.showPrintIssue(model.printIssues[index])
+                    try? await Task.sleep(for: .milliseconds(1700))
+                }
                 if argument("SurimonoMode") == "compare" {
                     model.enterCompareMode()
+                    if let size = argument("SurimonoTraySize")?.split(separator: "x").compactMap({ Double($0) }),
+                        size.count == 2
+                    {
+                        // After the window has taken the stage's size, which would undo this one.
+                        try? await Task.sleep(for: .milliseconds(900))
+                        model.window?.setContentSize(NSSize(width: size[0], height: size[1]))
+                        try? await Task.sleep(for: .milliseconds(800))
+                    }
                     // Wait for the four pages and the row to finish sampling.
                     try? await Task.sleep(for: .milliseconds(2500))
                 }

@@ -111,6 +111,10 @@ final class DocumentViewModel {
     var isWritingFurniture = false
     var isPrintIssuesPresented = false
     @ObservationIgnored private var pendingPrintIssue: (issue: PrintIssue, pageCount: Int)?
+    /// Waits for the paper to show the page of a problem the reader was sent to, then frames the spot.
+    @ObservationIgnored private var spotTask: Task<Void, Never>?
+    /// Replaces the paper's frame in tests: the spot, and whether the paper took it.
+    @ObservationIgnored var spotPresenter: ((PaperSpot) -> Bool)?
     /// The style palette is open beside the paper.
     var isThemePalettePresented = false
     /// The first page of the document in each theme, for the palette and the comparison stage.
@@ -490,10 +494,34 @@ final class DocumentViewModel {
         if (renderedSettings?.layout ?? renderLayout) == paperSeries.layout {
             pendingPrintIssue = nil
             currentPageIndex = max(0, page - 1)
+            pointOut(issue, onPage: max(0, page - 1))
         } else {
             pendingPrintIssue = (issue, pageCount)
         }
         exitPrintMode()
+    }
+
+    /// Frames the spot of a problem on the paper for a moment, so that the reader need not look for it on the page.
+    /// The window gives the print stage back and takes the paper's width again first, so the paper may not be there
+    /// yet; a problem with no mark on its page gets no frame. The request is for the pages the problem was found on:
+    /// once a reload or a new layout replaces them, it is dropped, not matched to whatever the paper shows next.
+    private func pointOut(_ issue: PrintIssue, onPage pageIndex: Int) {
+        dropSpot()
+        guard let anchor = issue.rect, let document = result?.viewDocument else { return }
+        let spot = PaperSpot(pageIndex: pageIndex, anchor: anchor, document: document)
+        spotTask = Task { @MainActor [weak self] in
+            for _ in 0..<50 {
+                guard let self, !Task.isCancelled, result?.viewDocument === document else { return }
+                if mode == .view, spotPresenter?(spot) ?? paper.showSpot(spot) { return }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+    }
+
+    /// Withdraws a frame that was asked for and has not been shown yet.
+    private func dropSpot() {
+        spotTask?.cancel()
+        spotTask = nil
     }
 
     private func resumePrintIssueNavigation() {
@@ -510,10 +538,15 @@ final class DocumentViewModel {
         let index = pendingPrintIssue.issue.pageIndex(
             in: result.issues, pageCount: result.logicalDocument.pageCount,
             sourcePageCount: pendingPrintIssue.pageCount)
+        // Only the same problem found again in the new pages has a mark there; a guess at its place has none.
+        let found = pendingPrintIssue.issue.locationKey.flatMap { key in
+            result.issues.first { $0.locationKey == key }
+        }
         self.pendingPrintIssue = nil
         currentPageIndex = index
         // SwiftUI may still show the old PDF. A newly attached paper uses currentPageIndex instead.
         paper.goToPage(index: index, in: result.viewDocument)
+        if let found { pointOut(found, onPage: index) }
     }
 
     func useLandscapeForPrintIssue() {
@@ -623,6 +656,7 @@ final class DocumentViewModel {
         duplexTestTask?.cancel()
         duplexTestTask = nil
         pendingPrintIssue = nil
+        dropSpot()
         if let textSizeKeyMonitor { NSEvent.removeMonitor(textSizeKeyMonitor) }
         textSizeKeyMonitor = nil
         renderTask?.cancel()
@@ -759,6 +793,7 @@ final class DocumentViewModel {
 
     private func applyReload(reloadsWeb: Bool) {
         pendingPrintIssue = nil
+        dropSpot()
         reloadOwnsProgress = false
         reloadRequiresRefresh = false
         reloadRequiresWebRefresh = false
@@ -1170,6 +1205,7 @@ final class DocumentViewModel {
 
     func enterPrintMode() {
         pendingPrintIssue = nil
+        dropSpot()
         guard mode != .print else { return }
         guard mode == .view, isWebPresentation || isCapturingWeb || webCaptureFailed else { return showPrintTray() }
         // The tray prints the page as it is now.
@@ -1225,6 +1261,7 @@ final class DocumentViewModel {
     func enterCompareMode() {
         guard mode == .view, usesPrintTheme else { return }
         pendingPrintIssue = nil
+        dropSpot()
         isThemePalettePresented = false
         themeTrial.end()
         closeBandPopovers()

@@ -139,6 +139,22 @@ struct CodePaletteModelTests {
         #expect(model.toast?.title == String(localized: "Dark code blocks use a lot of ink"))
     }
 
+    @Test("コードの配色の行は、インクの量が標準なら何も書かず、少ないときと多いときだけ書く")
+    func inkNoteSaysOnlyWhatDiffers() {
+        #expect(CodeInkNote.text(for: .normal) == nil)
+        let notes = [CodePalette.InkLevel.low, .raised, .high].map { CodeInkNote.text(for: $0) }
+        #expect(notes.allSatisfy { $0 != nil })
+        #expect(Set(notes.compactMap { $0 }).count == 3)
+    }
+
+    @Test("組み込みの配色のうち、インクの注記が付くのは一部だけで、残りは何も書かない")
+    func mostBuiltInPalettesSayNothingAboutInk() {
+        let palettes = library().codePalettes
+        let noted = palettes.filter { CodeInkNote.text(for: $0.inkLevel) != nil }
+        #expect(!noted.isEmpty)
+        #expect(noted.count < palettes.count / 2)
+    }
+
     @Test("乗せた配色を紙で試し、離すと文書のページに戻る", .timeLimit(.minutes(1)))
     func triesAPalette() async throws {
         let suite = TestDefaultsSuite()

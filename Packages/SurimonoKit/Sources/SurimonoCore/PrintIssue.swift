@@ -47,6 +47,40 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
         }.map(\.element)
     }
 
+    /// What a problem asks of the reader: content that will not print, or a layout worth a look. Told apart, an
+    /// unreadable image is not mistaken for a table that merely runs past the margin.
+    public enum Group: Sendable { case content, layout }
+
+    public var group: Group { kind == .overflow ? .layout : .content }
+
+    /// The issues by group, those that cost content first. A group without issues is left out, and each group keeps
+    /// the order it was given in.
+    public static func grouped(_ issues: [Self]) -> [(group: Group, issues: [Self])] {
+        [Group.content, .layout].compactMap { group in
+            let members = issues.filter { $0.group == group }
+            return members.isEmpty ? nil : (group, members)
+        }
+    }
+
+    private static let spotEdge: CGFloat = 8
+    private static let spotLeading: CGFloat = 8
+    private static let spotAbove: CGFloat = 4
+    private static let spotHeight: CGFloat = 32
+    private static let spotMargin: CGFloat = 2
+    private static let spotMinimumWidth: CGFloat = 24
+
+    /// The frame the paper draws around a problem for a moment, in the page's own coordinates. The link that marks a
+    /// problem is a point at the start of its element and says nothing of the element's size, so the frame starts
+    /// there and runs to the right edge of the page: it holds the first lines of any kind of element, and does not
+    /// claim to know more.
+    public static func spotFrame(around anchor: CGRect, in page: CGRect) -> CGRect {
+        let minX = max(page.minX + spotEdge, anchor.minX - spotLeading)
+        let maxX = max(page.maxX - spotEdge, minX + spotMinimumWidth)
+        let top = min(anchor.maxY + spotAbove, page.maxY - spotMargin)
+        let bottom = max(top - spotHeight, page.minY + spotMargin)
+        return CGRect(x: minX, y: bottom, width: maxX - minX, height: max(top - bottom, 0))
+    }
+
     public static func excerpt(_ text: String) -> String {
         let text = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         return String(text.prefix(40)) + (text.count > 40 ? "…" : "")

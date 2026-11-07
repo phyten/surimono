@@ -13,7 +13,9 @@ struct ThemePalette: View {
     /// Beside the code colors the samples give up two columns, so that the palette still fits next to the window: a
     /// palette too wide for that lands on the paper it tries things on.
     static let columnsBesideCode = 3
-    static let cellWidth: CGFloat = 104
+    /// The columns share the pane's width between them, so that the last sample ends where the search field does; a
+    /// fixed width left the room of a fraction of a column beside the scroll bar.
+    static let cellMinimumWidth: CGFloat = 96
     static let width: CGFloat = 628
     static let widthBesideCode: CGFloat = 400
     static let height: CGFloat = 660
@@ -55,6 +57,7 @@ struct ThemePalette: View {
             footer
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: isCodeColumnShown ? Self.widthBesideCode : Self.width)
     }
@@ -129,14 +132,17 @@ struct ThemePalette: View {
             } else {
                 LazyVGrid(
                     columns: Array(
-                        repeating: GridItem(.fixed(Self.cellWidth), spacing: 10, alignment: .top),
+                        repeating: GridItem(.flexible(minimum: Self.cellMinimumWidth), spacing: 10, alignment: .top),
                         count: isCodeColumnShown ? Self.columnsBesideCode : Self.columns),
                     alignment: .leading, spacing: 12
                 ) {
                     ForEach(themes) { theme in
-                        ThemePaletteCell(model: model, theme: theme, width: Self.cellWidth)
+                        ThemePaletteCell(model: model, theme: theme)
                     }
                 }
+                // A cell keeps 4 pt around its sample for the highlight; the samples themselves stand on the same left
+                // edge as the headings and the footer.
+                .padding(.horizontal, -4)
             }
         }
     }
@@ -217,7 +223,6 @@ struct ThemePalette: View {
 struct ThemePaletteCell: View {
     let model: DocumentViewModel
     let theme: PrintTheme
-    let width: CGFloat
     @State private var isHovering = false
     @FocusState private var isStarFocused: Bool
 
@@ -233,7 +238,7 @@ struct ThemePaletteCell: View {
                     page: model.themeSamples.page(for: theme), paperSize: model.themeSamples.paperSize,
                     margins: model.themeSamples.margins
                 )
-                .frame(width: width)
+                .frame(maxWidth: .infinity)
                 .shadow(color: .black.opacity(0.16), radius: 1.5, y: 0.5)
                 .overlay {
                     RoundedRectangle(cornerRadius: 3)
@@ -241,36 +246,42 @@ struct ThemePaletteCell: View {
                             isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.black.opacity(0.12)),
                             lineWidth: isCurrent ? 2 : 0.5)
                 }
+                .overlay(alignment: .topTrailing) {
+                    if isCurrent {
+                        // Off the page's corner: at its top left it covered the heading the page starts with.
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, .tint)
+                            .background(Circle().fill(.white).padding(-1.5))
+                            .offset(x: 6, y: -6)
+                            .accessibilityHidden(true)
+                    }
+                }
                 Text(verbatim: name)
                     .font(.system(size: 11, weight: isCurrent ? .semibold : .regular))
                     .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(width: width)
+                    .frame(maxWidth: .infinity)
             }
             .padding(4)
-            .background(RoundedRectangle(cornerRadius: 7).fill(isHovering ? Color.primary.opacity(0.06) : .clear))
+            .background(RoundedRectangle(cornerRadius: 6).fill(isHovering ? Color.primary.opacity(0.06) : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .topLeading) {
-            if isCurrent {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 15))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, .tint)
-                    .padding(8)
-                    .accessibilityHidden(true)
-            }
-        }
         .overlay(alignment: .topTrailing) {
-            // Always there, so the keyboard can reach it; it shows on hover, when focused, or on a favorite.
+            // Always there, so the keyboard can reach it; it shows on hover, when focused, or on a favorite. It keeps
+            // clear of the check that hangs off the corner.
             let showsStar = isHovering || isFavorite || isStarFocused
-            FavoriteStarButton(isFavorite: isFavorite, name: name) { model.toggleFavoriteTheme(theme.id) }
-                .focused($isStarFocused)
-                .opacity(showsStar ? 1 : 0)
-                .allowsHitTesting(showsStar)
-                .padding(7)
+            FavoriteStarButton(isFavorite: isFavorite, name: name, onPage: true) {
+                model.toggleFavoriteTheme(theme.id)
+            }
+            .buttonStyle(.plain)
+            .focused($isStarFocused)
+            .opacity(showsStar ? 1 : 0)
+            .allowsHitTesting(showsStar)
+            .padding(10)
         }
         .onHover { inside in
             isHovering = inside
@@ -286,21 +297,29 @@ struct ThemePaletteCell: View {
     }
 }
 
-/// The star that adds a theme to the favorites or takes it out.
+/// The star that adds a theme to the favorites or takes it out: a plain 22 pt glyph, whose button style the caller
+/// chooses. On a sample page `onPage` gives it a pale disc, to be read against the page's own text.
 struct FavoriteStarButton: View {
     let isFavorite: Bool
     let name: String
+    /// The star's color while the theme is not a favorite.
+    var idleColor: Color = .secondary
+    var onPage = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: isFavorite ? "star.fill" : "star")
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundStyle(isFavorite ? Color.orange : Color.secondary)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isFavorite ? Color.orange : idleColor)
                 .frame(width: 22, height: 22)
-                .background(Circle().fill(.background).shadow(color: .black.opacity(0.18), radius: 1, y: 0.5))
+                .background {
+                    if onPage {
+                        Circle().fill(.background).shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+                    }
+                }
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: label))
         .help(isFavorite ? LocalizedStringKey("Remove from Favorites") : LocalizedStringKey("Add to Favorites"))
     }
