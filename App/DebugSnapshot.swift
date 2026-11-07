@@ -314,6 +314,16 @@
                     }
                     // Wait for the four pages and the row to finish sampling.
                     try? await Task.sleep(for: .milliseconds(2500))
+                    if let index = argument("SurimonoComparePlace").flatMap(Int.init) {
+                        await model.followComparePlaces()
+                        let places = model.themeSamples.places
+                        if places.indices.contains(index) { model.comparePlace = places[index] }
+                        try? await Task.sleep(for: .milliseconds(1500))
+                    }
+                    if argument("SurimonoPopover") == "comparePlace" {
+                        model.isComparePlacePickerPresented = true
+                        try? await Task.sleep(for: .milliseconds(500))
+                    }
                 }
                 if argument("SurimonoPopover") == "style" {
                     // The palette samples the themes it shows.

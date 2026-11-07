@@ -128,6 +128,9 @@ final class DocumentViewModel {
         (themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark])?
     /// The candidates on the comparison stage, kept while the window lives.
     var themeComparison: ThemeComparison?
+    /// Where the stage's pages start, kept with the candidates; nil is the first page.
+    var comparePlace: SamplePlace?
+    var isComparePlacePickerPresented = false
     /// How long the last fresh layout of the logical pages took. A long document is not laid out again on hover.
     @ObservationIgnored private(set) var lastLayoutDuration: Duration?
     /// A trial longer than this to lay out would trail the pointer, so longer documents switch on click only.
@@ -1291,6 +1294,7 @@ final class DocumentViewModel {
     /// Back to the view mode, by the same way as from the print tray.
     func exitCompareMode() {
         guard mode == .compare else { return }
+        isComparePlacePickerPresented = false
         exitPrintMode()
     }
 

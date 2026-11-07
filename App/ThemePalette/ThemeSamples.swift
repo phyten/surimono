@@ -4,7 +4,8 @@ import SurimonoCore
 import SurimonoRendering
 
 /// The first page of the window's document in each theme, drawn on demand for the style palette and the comparison
-/// stage. The samples follow the document and its layout, margins and text size; a change to any of them starts over.
+/// stage, which can also start its pages at a place in the document. The samples follow the document and its layout,
+/// margins and text size; a change to any of them starts over.
 @Observable
 final class ThemeSamples {
     /// Counts the fresh starts, so that the samples on screen ask to be drawn again after one.
@@ -14,10 +15,12 @@ final class ThemeSamples {
     private(set) var margins = WebPaginator.Margins.uniform(millimeters: 15)
     /// The document has code, so the palette puts the code colors forward.
     private(set) var containsCode = false
+    /// The headings and code blocks the samples can start at, once `loadPlaces()` has read them.
+    private(set) var places: [SamplePlace] = []
     /// What the samples are drawn from; the window's model provides it.
     @ObservationIgnored var inputs: () -> (source: DocumentSource?, settings: RenderSettings?) = { (nil, nil) }
-    /// The samples drawn so far, by theme id, with the theme as drawn.
-    private var samples: [String: (theme: PrintTheme, page: PDFPage)] = [:]
+    /// The samples drawn so far, with the theme as drawn.
+    private var samples: [SampleID: (theme: PrintTheme, page: PDFPage)] = [:]
     @ObservationIgnored private var sampler: ThemeSampler?
     @ObservationIgnored private var key: Key?
 
@@ -27,17 +30,25 @@ final class ThemeSamples {
         let settings: RenderSettings
     }
 
+    private struct SampleID: Hashable {
+        let themeID: String
+        let place: SamplePlace?
+    }
+
     /// Identifies a sample's drawing in a view's task, so that a fresh start or an edited theme draws it again.
     struct TaskID: Equatable {
         let generation: Int
         let theme: PrintTheme
+        let place: SamplePlace?
     }
 
-    func taskID(for theme: PrintTheme) -> TaskID { TaskID(generation: generation, theme: theme) }
+    func taskID(for theme: PrintTheme, at place: SamplePlace? = nil) -> TaskID {
+        TaskID(generation: generation, theme: theme, place: place)
+    }
 
     /// The sample of `theme` as it is now; a sample of an earlier version of the theme does not count.
-    func page(for theme: PrintTheme) -> PDFPage? {
-        guard let sample = samples[theme.id], sample.theme == theme else { return nil }
+    func page(for theme: PrintTheme, at place: SamplePlace? = nil) -> PDFPage? {
+        guard let sample = samples[SampleID(themeID: theme.id, place: place)], sample.theme == theme else { return nil }
         return sample.page
     }
 
@@ -67,11 +78,25 @@ final class ThemeSamples {
     }
 
     /// Draws the sample of `theme` unless it is there already. A failed sample stays a blank sheet.
-    func load(_ theme: PrintTheme) async {
+    func load(_ theme: PrintTheme, at place: SamplePlace? = nil) async {
         refresh()
-        guard page(for: theme) == nil, let sampler else { return }
-        guard let page = try? await sampler.firstPage(for: theme), sampler === self.sampler else { return }
-        samples[theme.id] = (theme, page)
+        guard page(for: theme, at: place) == nil, let sampler else { return }
+        guard let page = try? await sampler.page(for: theme, at: place), sampler === self.sampler else { return }
+        samples[SampleID(themeID: theme.id, place: place)] = (theme, page)
+    }
+
+    /// Reads the places of the document as it is now. False when that did not happen, because the view asking went away
+    /// or the document moved on, which says nothing about what places it has.
+    @discardableResult
+    func loadPlaces() async -> Bool {
+        refresh()
+        guard let sampler else {
+            places = []
+            return true
+        }
+        guard let found = try? await sampler.places(), sampler === self.sampler else { return false }
+        places = found
+        return true
     }
 
     /// Forgets every sample, for example after the file or a user style changed outside the app; the samples on
