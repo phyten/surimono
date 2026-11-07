@@ -15,8 +15,8 @@ struct ViewOptionsPopover: View {
             SpreadMap(units: model.displayUnits, current: currentUnitIndex) { unit in
                 if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
             }
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
-                heading("Screen Only")
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+                heading("On Screen")
                 GridRow {
                     rowLabel("Reading Direction")
                     Picker("Reading Direction", selection: option(\.direction)) {
@@ -35,10 +35,10 @@ struct ViewOptionsPopover: View {
                 }
                 GridRow {
                     rowLabel("Show First Page Alone")
-                    HStack(spacing: 8) {
+                    HStack(spacing: 12) {
                         Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
                             .toggleStyle(.switch).controlSize(.small)
-                        Text(verbatim: coverSample).font(.caption).monospaced().foregroundStyle(.secondary)
+                        CoverSample(direction: model.viewOptions.direction)
                     }
                     .disabled(!model.viewOptions.usesCoverOption)
                 }
@@ -54,16 +54,17 @@ struct ViewOptionsPopover: View {
                     BandVisibilityPicker(selection: $model.bandVisibility)
                 }
                 if model.offersPaperSeries {
-                    GridRow {
+                    // The label follows the picker, not the note that hangs under it.
+                    GridRow(alignment: .firstTextBaseline) {
                         rowLabel("Paper on Screen")
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 4) {
                             PaperSeriesPicker(selection: $model.paperSeries)
                             caption("Choose the paper for printing on the print screen.")
                         }
                     }
                 }
                 if model.marginsApply {
-                    heading("Text Settings — Also Used for Printing")
+                    heading("Printed Text")
                     GridRow {
                         rowLabel("Text Margins")
                         HStack(spacing: 4) {
@@ -72,29 +73,32 @@ struct ViewOptionsPopover: View {
                         }
                     }
                 }
-                if !model.outlineEntries.isEmpty {
-                    heading("All Documents")
-                    GridRow {
-                        rowLabel("Show Contents on the Toolbar")
-                        Toggle("Show Contents on the Toolbar", isOn: Bindable(model.preferences).showsOutlineOnBand)
-                            .toggleStyle(.switch).controlSize(.small)
-                    }
-                }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             Divider()
-            HStack {
+            HStack(spacing: 8) {
+                // Resetting belongs to the statement that the document has its own settings; the setting sets are a
+                // separate, stronger choice on the other side.
                 if model.hasSavedSettings {
                     Text("Using this document’s settings")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
+                // Words the reader must read stay in ink: an accent color of their choice may not be dark enough.
+                Button {
+                    model.resetDocumentSettings()
+                } label: {
+                    Text("Reset This Document").underline()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11))
+                .foregroundStyle(PrintPalette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+                .disabled(!model.hasSavedSettings)
+                Spacer(minLength: 8)
                 SettingSetMenu(preferences: model.preferences, model: { model })
                     .fixedSize()
-                Button("Reset This Document") { model.resetDocumentSettings() }
-                    .buttonStyle(.link)
-                    .disabled(!model.hasSavedSettings)
             }
         }
         .padding(16)
@@ -111,26 +115,22 @@ struct ViewOptionsPopover: View {
         currentUnitIndex.map { model.displayUnits[$0] }
     }
 
-    private var coverSample: String {
-        let units = SpreadLayout.units(
-            pageCount: 5, layout: .spread, showsCoverAlone: true, direction: model.viewOptions.direction)
-        return units.map(\.compactText).joined(separator: " ") + " …"
-    }
-
     private func rowLabel(_ key: LocalizedStringKey) -> some View {
         Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
     }
 
     private func heading(_ key: LocalizedStringKey) -> some View {
         Text(key)
-            .font(.system(size: 11.5, weight: .semibold))
-            .padding(.top, 2)
+            .font(.system(size: 13, weight: .bold))
+            .padding(.top, 4)
             .gridCellColumns(2)
             .gridCellAnchor(.leading)
     }
 
     private func caption(_ key: LocalizedStringKey) -> some View {
-        Text(key).font(.caption).foregroundStyle(PrintPalette.ink2)
+        // Wraps instead of being cut short: a longer translation must still be readable in full.
+        Text(key).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
@@ -225,22 +225,76 @@ extension ViewOptions.Transition {
     }
 }
 
-/// The label of one tile of the spread map, on one line in the font the tile width is measured with.
-struct SpreadMapLabel: View {
-    let text: String
+extension DisplayUnit {
+    /// The pages as they stand on screen from left to right. An empty side of a spread draws nothing, so a lone cover
+    /// is one sheet.
+    var visualPages: [Int] {
+        switch self {
+        case .single(let page): [page]
+        case .spread(let left, let right): [left, right].compactMap { $0 }
+        }
+    }
 
-    var body: some View {
-        Text(verbatim: text).font(Font(SpreadMap.font as CTFont)).lineLimit(1).fixedSize()
+    /// "3" or "2–3", for VoiceOver.
+    var pageRangeText: String {
+        guard let first = pages.first, let last = pages.last else { return "" }
+        return first == last ? "\(first)" : "\(first)–\(last)"
     }
 }
 
-extension DisplayUnit {
-    /// "[ |1]", "[2|3]" or "[4]".
-    var compactText: String {
-        switch self {
-        case .single(let page): "[\(page)]"
-        case .spread(let left, let right): "[\(left.map(String.init) ?? " ")|\(right.map(String.init) ?? " ")]"
+/// A display unit drawn as small paper: one sheet for a lone page, two joined sheets for a facing pair. The sheets stay
+/// white in the dark appearance, as the paper does.
+struct SpreadGlyph: View {
+    let unit: DisplayUnit
+    var isCurrent = false
+
+    static let paperWidth: CGFloat = 22
+    /// The proportion of the A-series paper on screen (595 × 842).
+    static let paperHeight: CGFloat = 31
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(unit.visualPages.enumerated()), id: \.offset) { _, page in
+                sheet(page)
+            }
         }
+        .shadow(color: PrintPalette.paperShadow.opacity(0.5), radius: 1, y: 0.5)
+        .background {
+            // Outside the sheets, so that picking the current unit does not move its neighbours.
+            if isCurrent {
+                RoundedRectangle(cornerRadius: 4).strokeBorder(Color.accentColor, lineWidth: 2).padding(-4)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func sheet(_ page: Int) -> some View {
+        // Four-digit page numbers shrink to stay on the sheet.
+        Text(verbatim: "\(page)")
+            .font(.system(size: 11, weight: .semibold)).monospacedDigit()
+            .foregroundStyle(.black.opacity(0.75))
+            .lineLimit(1).minimumScaleFactor(0.5).padding(.horizontal, 2)
+            .frame(width: Self.paperWidth, height: Self.paperHeight)
+            .background(PrintPalette.paper)
+            .overlay { Rectangle().strokeBorder(PrintPalette.paperRing, lineWidth: 0.5) }
+    }
+}
+
+/// What "Show First Page Alone" makes of the pages, as the first few groups of a five-page document.
+private struct CoverSample: View {
+    let direction: ViewOptions.Direction
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        let units = SpreadLayout.units(pageCount: 5, layout: .spread, showsCoverAlone: true, direction: direction)
+        HStack(spacing: SpreadMap.spacing) {
+            ForEach(Array(units.enumerated()), id: \.offset) { _, unit in
+                SpreadGlyph(unit: unit)
+            }
+            Text(verbatim: "…").foregroundStyle(.secondary)
+        }
+        .opacity(isEnabled ? 1 : 0.4)
+        .accessibilityHidden(true)
     }
 }
 
@@ -258,16 +312,16 @@ private struct SpreadSample: View {
                 MiniPage(number: right)
             }
         }
-        .frame(height: 96)
+        .frame(height: 72)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.6)))
         .overlay(alignment: .topLeading) {
-            Text("Sample").font(.caption2).foregroundStyle(.secondary).padding(6)
+            Text("Sample").font(.system(size: 11)).foregroundStyle(.secondary).padding(8)
         }
         .animation(.easeInOut(duration: 0.25), value: options)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: unit?.compactText ?? ""))
+        .accessibilityLabel(Text(verbatim: unit?.pageRangeText ?? ""))
     }
 }
 
@@ -289,67 +343,56 @@ private struct MiniPage: View {
     }
 }
 
-/// The display units around the current one as small tiles; the current tile is highlighted and a click jumps to it.
-/// Every tile is as wide as the widest label of the document and never wraps, so the strip keeps its shape at any page
-/// count; units that do not fit are left out behind an ellipsis.
+/// The display units around the current one as small paper; the current unit is outlined and a click jumps to it. A
+/// lone page is one sheet wide and a facing pair two, whatever the page numbers, so the strip keeps its shape at any
+/// page count; units that do not fit are left out behind an ellipsis.
 struct SpreadMap: View {
     let units: [DisplayUnit]
     let current: Int?
     let onSelect: (DisplayUnit) -> Void
 
-    static let font = NSFont.monospacedDigitSystemFont(ofSize: 9.5, weight: .medium)
-    static let spacing: CGFloat = 6
-    static let tileHeight: CGFloat = 18
+    static let spacing: CGFloat = 8
     static let ellipsisWidth: CGFloat = 12
-    private static let horizontalPadding: CGFloat = 4
 
     var body: some View {
         GeometryReader { proxy in
-            let tileWidth = Self.tileWidth(for: units)
             let range = SpreadLayout.visibleRange(
                 unitCount: units.count, current: current,
-                capacity: Self.capacity(unitCount: units.count, width: proxy.size.width, tileWidth: tileWidth))
+                capacity: Self.capacity(
+                    unitCount: units.count, width: proxy.size.width, tileWidth: Self.tileWidth(for: units)))
             HStack(spacing: Self.spacing) {
                 if range.lowerBound > 0 { ellipsis }
                 ForEach(range, id: \.self) { index in
-                    tile(units[index], isCurrent: index == current, width: tileWidth)
+                    tile(units[index], isCurrent: index == current)
                 }
                 if range.upperBound < units.count { ellipsis }
             }
         }
-        .frame(height: Self.tileHeight)
+        .frame(height: SpreadGlyph.paperHeight)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Spreads")
     }
 
-    private func tile(_ unit: DisplayUnit, isCurrent: Bool, width: CGFloat) -> some View {
+    private func tile(_ unit: DisplayUnit, isCurrent: Bool) -> some View {
         Button {
             onSelect(unit)
         } label: {
-            SpreadMapLabel(text: unit.compactText)
-                .frame(width: width, height: Self.tileHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: 3)
-                        .strokeBorder(
-                            isCurrent ? Color.accentColor : Color.secondary.opacity(0.4),
-                            lineWidth: isCurrent ? 1.5 : 0.75)
-                )
-                .contentShape(Rectangle())
+            SpreadGlyph(unit: unit, isCurrent: isCurrent)
+                // Reaches halfway to the next tile, so that the gap between small sheets is not a dead zone.
+                .contentShape(.interaction, Rectangle().inset(by: -Self.spacing / 2))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: unit.pageRangeText))
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
     }
 
     private var ellipsis: some View {
         Text(verbatim: "…").foregroundStyle(.secondary).frame(width: Self.ellipsisWidth)
     }
 
-    /// The width of a tile for the longest label the document can have, with "8" standing for every digit.
+    /// The width of the widest tile of the document: two sheets when it has facing pairs, otherwise one.
     static func tileWidth(for units: [DisplayUnit]) -> CGFloat {
-        let digits = String(repeating: "8", count: String(units.flatMap(\.pages).max() ?? 1).count)
-        let isSpread = units.contains { if case .spread = $0 { true } else { false } }
-        let widest = isSpread ? "[\(digits)|\(digits)]" : "[\(digits)]"
-        let textWidth = (widest as NSString).size(withAttributes: [.font: font]).width
-        return (textWidth + horizontalPadding * 2).rounded(.up)
+        CGFloat(units.map { $0.visualPages.count }.max() ?? 1) * SpreadGlyph.paperWidth
     }
 
     /// How many tiles fit into `width`; when not all of them do, room is kept for an ellipsis on either side.

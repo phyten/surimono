@@ -35298,158 +35298,106 @@
         }
       }
     },
-    "Screen Only": {
+    "On Screen": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Screen Only"
+            "value": "On Screen"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画面だけの設定"
+            "value": "画面の表示"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅屏幕的设置"
+            "value": "屏幕显示"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "僅螢幕的設定"
+            "value": "螢幕顯示"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "화면 전용 설정"
+            "value": "화면 표시"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Écran uniquement"
+            "value": "À l’écran"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nur Bildschirm"
+            "value": "Auf dem Bildschirm"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo pantalla"
+            "value": "En pantalla"
           }
         }
       }
     },
-    "Text Settings — Also Used for Printing": {
+    "Printed Text": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Text Settings — Also Used for Printing"
+            "value": "Printed Text"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "本文の設定 — 印刷にも反映"
+            "value": "印刷される本文"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "正文设置 — 也用于打印"
+            "value": "打印的正文"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "內文設定 — 也用於列印"
+            "value": "列印的內文"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "본문 설정 — 인쇄에도 반영"
+            "value": "인쇄되는 본문"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Texte — s’applique aussi à l’impression"
+            "value": "Texte imprimé"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Text — gilt auch für den Druck"
+            "value": "Gedruckter Text"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Texto — también para imprimir"
-          }
-        }
-      }
-    },
-    "All Documents": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All Documents"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アプリ共通"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "所有文档"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "所有文件"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "앱 공통"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tous les documents"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alle Dokumente"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Todos los documentos"
+            "value": "Texto impreso"
           }
         }
       }
@@ -37634,58 +37582,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Papel: %@"
-          }
-        }
-      }
-    },
-    "Page Turn: %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Page Turn: %@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "送り方：%@"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "翻页：%@"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "翻頁：%@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "넘김: %@"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tourne-page : %@"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Blättern: %@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paso de página: %@"
           }
         }
       }
