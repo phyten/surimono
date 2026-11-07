@@ -20,8 +20,10 @@ final class ImageBundleModel {
     /// The ZIP archive the images come from, if any.
     let archiveURL: URL?
     /// Excluded files from a multi-file selection or ZIP, by path.
-    let excludedPaths: [String]
-    private let nameOrder: [Item]
+    private(set) var excludedPaths: [String]
+    private var nameOrder: [Item]
+    private(set) var flashedURLs: Set<URL> = []
+    private var flashTask: Task<Void, Never>?
     private(set) var hashes: [URL: ContentHash] = [:]
     private var needsFreshHashes = false
     private let read: @Sendable (Item) throws -> Data
@@ -95,6 +97,64 @@ final class ImageBundleModel {
 
     func move(fromOffsets offsets: IndexSet, toOffset destination: Int) {
         items.move(fromOffsets: offsets, toOffset: destination)
+    }
+
+    /// Adds the images that are not in the bundle yet, by name among themselves, and returns them. A ZIP's images keep
+    /// to what the archive holds; `DropPlan` never brings anything to them.
+    @discardableResult
+    func add(_ urls: [URL], excluded: [URL] = [], at position: Int? = nil) -> [URL] {
+        var known = Set(self.urls)
+        let added = Self.sorted(
+            urls.map(\.standardizedFileURL).filter { known.insert($0).inserted }.map {
+                Item(url: $0, name: $0.lastPathComponent)
+            })
+        items.insert(contentsOf: added, at: min(position ?? items.count, items.count))
+        nameOrder = Self.sorted(nameOrder + added)
+        excludedPaths += excluded.map(\.path).filter { !excludedPaths.contains($0) }
+        if selection == nil { selection = items.first?.url }
+        return added.map(\.url)
+    }
+
+    /// Takes back what an earlier `add` brought in, and leaves the rest of the list as the reader has it since.
+    func undoAdding(_ urls: [URL], excluded: [URL]) {
+        let added = Set(urls)
+        items.removeAll { added.contains($0.url) }
+        nameOrder.removeAll { added.contains($0.url) }
+        excludedPaths.removeAll(where: excluded.map(\.path).contains)
+        if let selected = selection, added.contains(selected) { selection = items.first?.url }
+    }
+
+    /// The list as it is, for a window that comes back after a binder took its place.
+    struct ListState {
+        let items: [Item]
+        let excludedPaths: [String]
+        let selection: URL?
+    }
+
+    var listState: ListState { ListState(items: items, excludedPaths: excludedPaths, selection: selection) }
+
+    func restore(_ state: ListState) {
+        items = state.items
+        nameOrder = Self.sorted(state.items)
+        excludedPaths = state.excludedPaths
+        selection = state.selection
+    }
+
+    /// Lights the rows up for a moment, to show what came in or what was in the list already.
+    func flash(_ urls: [URL]) {
+        flashTask?.cancel()
+        flashedURLs = Set(urls)
+        flashTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(1.2)) } catch { return }
+            self?.flashedURLs = []
+        }
+    }
+
+    private static func sorted(_ items: [Item]) -> [Item] {
+        items.sorted {
+            let order = NaturalOrder.compare($0.name, $1.name)
+            return order == .orderedSame ? $0.url.absoluteString < $1.url.absoluteString : order == .orderedAscending
+        }
     }
 
     func canMoveSelection(by offset: Int) -> Bool {

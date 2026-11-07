@@ -119,7 +119,7 @@ struct SettingsMenuTests {
         #expect(
             menu.items.filter { !$0.isSeparatorItem }.map(\.title)
                 == [
-                    "Print Layout", "Choose Style…", "Reset Document Settings", "Reload",
+                    "Print Layout", "Choose Style…", "Add Documents…", "Reset Document Settings", "Reload",
                 ].map(localized))
         let layouts = try #require(menu.items.first?.submenu)
         #expect(layouts.items.map(\.keyEquivalent) == ["1", "2", "3", "4", "5", "6"])
