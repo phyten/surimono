@@ -97,16 +97,11 @@ struct PrintModeView: View {
     @ViewBuilder private var toast: some View {
         VStack(spacing: 8) {
             if !model.unreadableImageURLs.isEmpty {
-                Text(
-                    verbatim: String(
+                NoticePlate(
+                    text: String(
                         format: String(localized: "Could not open: %@"),
                         model.unreadableImageURLs.map(\.lastPathComponent).joined(separator: ", "))
                 )
-                .font(.system(size: 12))
-                .foregroundStyle(PrintPalette.toastInk)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.toast))
                 .padding(.bottom, model.toast == nil ? 18 : 0)
             }
             ToastOverlay(model: model)

@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 extension View {
@@ -8,21 +7,8 @@ extension View {
         background {
             ZStack {
                 RoundedRectangle(cornerRadius: cornerRadius).fill(.regularMaterial)
-                RoundedRectangle(cornerRadius: cornerRadius).fill(PaperOverlayTint.color.opacity(tintOpacity))
+                RoundedRectangle(cornerRadius: cornerRadius).fill(PrintPalette.raised.opacity(tintOpacity))
             }
-        }
-    }
-}
-
-private enum PaperOverlayTint {
-    static let color = Color(nsColor: dynamicColor())
-
-    /// AppKit may resolve a dynamic colour while drawing on any thread, so the provider must not be main-actor bound.
-    private nonisolated static func dynamicColor() -> NSColor {
-        NSColor(name: nil) { @Sendable appearance in
-            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-                ? NSColor(srgbRed: 42 / 255, green: 42 / 255, blue: 44 / 255, alpha: 1)
-                : NSColor(srgbRed: 247 / 255, green: 247 / 255, blue: 248 / 255, alpha: 1)
         }
     }
 }

@@ -15,12 +15,8 @@ struct SmartRemovalPanel: View {
                     .padding(.horizontal, 5).padding(.vertical, 1)
                     .background(Capsule().fill(Color.accentColor.opacity(0.18)))
                 Spacer()
-                Button {
-                    model.endSmartRemovalReview()
-                } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-                }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Close")
+                PanelIconButton("xmark", label: "Close") { model.endSmartRemovalReview() }
+                    .foregroundStyle(.secondary)
             }
             Text(String(format: String(localized: "%lld parts removed"), removedCount))
                 .font(.subheadline.weight(.semibold)).padding(.top, 4)
