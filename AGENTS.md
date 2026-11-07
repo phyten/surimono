@@ -9,7 +9,7 @@
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
   - **オフラインで完結する**（ネットワークは、ユーザーの文書自身が参照するリソースの読み込みと、アップデートの確認（「配布とアップデート」）に限る。テレメトリなし）
-  - **2 手で印刷できる**（開く → 印刷）。迷ったら操作を減らす方を選ぶ
+  - **2 手で印刷できる**（開く → 印刷）。刷り台に着くまでを 2 手と数える（刷り台は刷る前に確かめる場所で、もう一度 ⌘P で送る）。迷ったら操作を減らす方を選ぶ
 
 ## リポジトリ構成
 
@@ -117,7 +117,7 @@ make clean
 
 ## ウィンドウとファイルの開き方
 
-- **1 つの刷り物（1 ファイル、画像の束、または合本）= 1 つのウィンドウ**。表示中のウィンドウにドロップしても置き換えず、新しいウィンドウで開く。すでに開いているファイルは前面に出す。
+- **1 つの刷り物（1 ファイル、画像の束、または合本）= 1 つのウィンドウ**。表示中のウィンドウにドロップしても置き換えない。合本と画像の束は足し、単独の文書は「合本にする」と「新しい窓で開く」を落とす場所で選ぶ（「足す入口とドロップ」）。すでに開いているファイルは前面に出す。
 - ユーザーがファイルを選ぶ・渡す・ドロップする経路は、標準メニューの「最近使った項目」を除いて `OpenRouter`（App）を通す。分類は `OpenRequest`（SurimonoCore）:
   - 1 つ → 文書として開く（DocumentGroup / `NSDocumentController`）
   - 2 つ以上ですべて画像（種類の混在は可）→ 画像の束（ファイル名の自然順）
@@ -125,7 +125,7 @@ make clean
 - 経路ごとの入口:
   - Finder / Dock / 「このアプリケーションで開く」: `AppDelegate` が open-documents の Apple Event を受ける（`applicationWillFinishLaunching` で登録）
   - ファイル > 開く…: 標準の項目が送る `openDocument:` を `AppDelegate` が受ける（SwiftUI の AppDelegate が応答チェーンで転送する）。独自の「開く…」をメニューに足さない（標準の項目と重複し、標準の側は文書コントローラが 1 つずつ開いてしまう）
-  - ドロップ: 文書・画像の束・ウェルカム画面の `.dropDestination`
+  - ドロップ: 文書・画像の束・合本の窓は `DropCatcher`（足す入口とドロップ）、ウェルカム画面は `.dropDestination`
   - 最近使った項目: 標準メニューの項目は文書コントローラが 1 ファイルを開く（規則と同じ結果になるので、ルーターを通さないままでよい）。ウェルカム画面の最近使ったファイルは `OpenRouter` を通す
 - クリップボードは「ファイル > クリップボードから開く」（⌘N）とウェルカム画面から開く。ファイル URL は `OpenRouter` へ渡し、文字列（Markdown / テキスト / HTML の推定）・PNG / TIFF は `ClipboardContent` で判定し、`ClipboardWindows` が原文の一時ファイルを作らずメモリから開く。同じ内容の窓は前面へ出す。画像の束と `MemoryDocumentWindowController` を共有し、最近使った項目には載せない。
 - サービス（「Surimono で開く」「Surimono で刷る」）は `Configs/Info.plist` の `NSServices` で宣言し、`ServiceProvider` が受ける。選んだ文字（RTF は文字にする）は `OpenRouter.open(_:printing:)` から `ClipboardWindows` の同じ窓の仕組みでメモリから開き、ファイルは `OpenRouter` の規則で開く。刷る要求は対象の窓だけに結び付ける。合本・画像の束は開く処理が返すモデルへ、単独の文書は窓ができたときに `fileURL` が同じモデルへ渡す（同じファイルを含む別の窓は受け取らない）。新しい窓は初回の組版と窓の大きさの調整のあとで刷り台へ入る（`requestPrintMode`。先に入ると窓が紙の形にならない）。項目名と窓口（`NSPortName`）は `SURIMONO_SERVICE_APP_NAME` で開発版と公開版を分け、`NSRegisterServicesProvider` で同じ名前を登録する。訳は `App/ServicesMenu.xcstrings`（キーは英語の項目名で、開発版の名前も持つ）。`NSRequiredContext` を消すとメニューに出なくなる。開発版を試すときは `lsregister -f <App>` と `pbs -update` のあと、`NSPerformService` か `pbs -dump` で確かめる。
@@ -137,6 +137,17 @@ make clean
 - `DocumentSource.binder` は子の `DocumentSource` の配列。`DocumentRenderer` が子ごとの renderer で論理ページを作り、安全にコピーして結合し、既存の面付けへ渡す。子の比較は内容のハッシュ・URL・形式・リソース許可で行い、並べ替え・取り除き・奇数ページ開始だけなら子の組版を再利用する。テーマと文字サイズはテーマ形式、プリセットは HTML に適用する。印刷設定セットの適用・一致判定も子の形式の集合で決める。自動の出力方向は、白紙を除いた子の論理ページの多数決（同数なら先頭）で決め、冊子は固定方向を保つ。HTML の子は再読み込みまで保持した原文のバイト列から組版し、本文と集合ハッシュを一致させる。相対リソースは元の文書 URL とフォルダー許可で読む。`BinderPagination` は奇数ページ開始がオンで両面または冊子を刷るとき、次の読める子が奇数ページから始まるよう文書間だけに白紙を足す。`PrintIssue` は白紙を含む先頭オフセットを加え、ID と原文の鍵に子の識別子を付ける。表示は他の文書と同じく A4 片面。
 - ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。開いた枚数のトーストは、画像以外を除いたなど `excludedSummary` が空でないときだけ、除いたものと一緒に出す。
 - 新しい「開く」経路を足すときは `OpenRouter` を通し、`OpenRouterTests` にケースを足す。
+
+## 足す入口とドロップ
+
+- 窓へファイルを持ち込んだときの判断は、純粋な型 `DropPlan`（SurimonoCore）が決める。ドラッグ中の文章（`DropCopy`）と実際の動き（`DocumentViewModel.join`・`OpenRouter`）は同じ判定から作るので、予告と結果がずれない。「文書を足す…」（「文書」メニューと一覧の ＋）も同じ判定を通す。
+- 受け手（`dropReceiver`）: 単独の文書、合本、画像の束、それ以外（メモリ上の文書・ZIP の画像・見比べ台・開けなかった文書）。足せるのは文書と画像のうち窓に入っていない物。ZIP・フォルダー・未対応のファイルは足さず、合本と画像の束では一覧の下に残す。足せる物がなければ `OpenRequest` の振り分けで開き、それもできなければ理由を 1 行だけ出す。1 つだけのフォルダーや未対応のファイルは開く処理へ渡さない。
+- 単独の文書は領域が 2 つ（左 38% が「合本にする」、右が「新しい窓で開く」）。割合は `DropSession.joinShare`。合本と画像の束は窓全体で足す。文書が混ざると画像の束は合本に変わる。
+- `DropCatcher` は窓の一番上に置く AppKit のビューで、`hitTest` は nil を返す。AppKit はドラッグの受け手を hit test なしで探すので、紙の PDFView や Web 表示の WKWebView（どちらも受け口を登録している）より先に受ける。ドラッグ中はファイルの URL を読めるが、サンドボックスのアクセスは落としたときに読み直して得る。
+- 一覧の行の間に落とすとその位置に入る（`DropSession.insertion`）。足す物の中だけ名前の自然順に並べ、今の並びは変えない。足した行は 1 度光らせる。ドラッグ中は帯を出し、帯の一覧の部品に 0.5 秒とどまると一覧が開く。窓に入っただけでは開かない（落とす先が動いてしまう）。
+- 単独の文書（または画像の束）を合本に変えるのは `BinderWindows.turnIntoBinder`。今の文書を 1 行目にした `BinderModel(orderedURLs:)` を窓なしで組版し、できてから元の窓と同じ場所に合本の窓を出して元の窓を閉じる。組版に失敗したら元の窓のまま。同じ組の合本が開いていればその窓を前へ出す。スタイル・文字の大きさ・レイアウト・読んでいるページは `takeOver(from:)` が引き継ぎ、同じ組の保存済みの設定より優先する。刷り台で変えたら刷り台のまま（`settleOnTray`）。引き継げない物はトーストで知らせる（`binderLossNote`）。
+- 取り消し: 1 回の追加は ⌘Z の 1 回で戻す（窓の `undoManager`）。合本への変換はトーストの「取り消す」か ⌘Z で元の窓を同じ場所へ戻す（`BinderOrigin`。文書は `OpenRouter.reopen` で開き直す）。
+- 刷り台で足したときは組み直しが終わるまで `canOutput` が偽で、組み直し前に待っていた印刷は `listDidChange` が取り消す。
 
 ## HTML のスマート削除（ベータ）
 
@@ -318,6 +329,7 @@ make clean
 - 印刷モードとの切り替えで、表示モードのビュー（`PaperPDFView` を含む）は作り直される。戻したい状態はビューの中だけに持たず、モデルから渡す（読んでいたページは `DocumentViewModel.currentPageIndex` から `PaperView.initialPageIndex` で戻す）。
 - PDFKit のアクセシビリティのノードは `CGPDFPage` を保持せずに読むので、画面を読むアプリがノードを持ったままページが解放されると、CoreGraphics の中で落ちる（`CGPDFTaggedNodeGetStringRange` から `CGPDFContentStreamCreate` の `0x10`）。文書を残す対策は紙の寿命の外（刷り台への切り替え、窓を閉じる）で破られたので、ノードを渡さない。`PDFView` は直接使わず `PageTextPDFView` を継承する（子はページの文字の `PageTextElement` だけで、OCR の文字と段落の構造は出ない）。紙をクリックするとファーストレスポンダは PDFKit の内側のビューになるので、塞ぐのは `PDFScrollView` の子で、`PDFDocumentView` の子を空にしてはいけない（PDFKit 自身が読むらしく、テストのホストが終了しなくなった）。描いた PDF の一時的な `PDFDocument` からページだけを取り出すときは `StandalonePage.first(of:)` を使い、紙（`PaperPDFView`）は表示した文書を紙の寿命の間すべて残す。確かめるときは、要素を持ち続けて読み直す AX の読み手を動かしたまま、最適化したビルドをアクティブにして紙をクリックし、画像を含む文書で刷り台へ入る。キーは非アクティブのプロセスに届かないので、操作は AX の押下で行う。
 - `List` の行に `TapGesture` を付けると（`simultaneousGesture` でも）、`onMove` のドラッグが始まらなくなる。リストは押している間の追跡の中で mouseUp を外へ出さないので、ローカルのイベントモニタでも離したことは分からない。選ばれている行をもう一度押したことは、押下だけをモニタで見て、その後のボタンと位置を確かめる `SelectedRowClicks` が知らせる。
+- ホスト付きテストで `NSWindow` を直接作って閉じるときは `isReleasedWhenClosed = false` にする。既定のまま閉じると解放が重なり、あとのアニメーションの後始末で落ちる（テストの本体が再起動し、`Test run with` が 2 回出る）。
 - ページ送りの `CATransition` は紙の枠の外へも描く。紙の隣に部品を置くので、`PaperArea` の `.clipped()` を外さない。
 - 紙（ページ）はダークでも白い。紙の上に浮かべるパネルにマテリアルだけを敷くと、白い紙の上で中間のグレーになり補足の文字が読めない。`paperOverlayBackground` を使う。
 - アドホック署名には Team ID がないため、Hardened Runtime の Library Validation が、埋め込んだ Sparkle.framework を拒んで Release 版が起動時に落ちる（`different Team IDs`）。`Configs/Surimono.entitlements` の `com.apple.security.cs.disable-library-validation` で外している。Developer ID で署名するようになったら消す。Debug は Hardened Runtime が無効なので気づけない。署名や依存を変えたら、`make package` で作ったアプリを起動して確かめる。
