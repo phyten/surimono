@@ -88,8 +88,13 @@ struct DocumentContent: View {
                 #endif
             }
         )
-        .dropDestination(for: URL.self) { urls, _ in
-            OpenRouter.shared.open(urls, from: model.window)
+        .overlay {
+            ZStack {
+                DropOverlay(model: model)
+                DropCatcher(
+                    session: model.drop, onEnter: { model.dragEntered($0, at: $1) }, onPerform: { model.performDrop() })
+            }
+            .ignoresSafeArea()
         }
         .onAppear {
             WelcomeController.shared.close()
@@ -117,11 +122,11 @@ private struct DocumentContentChanges: ViewModifier {
             .onChange(of: model.allowsLiveJavaScript) { _, _ in model.javaScriptSettingDidChange() }
             .onChange(of: model.imageBundle?.urls) { _, _ in
                 if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }
-                model.render()
+                model.listDidChange()
             }
             .onChange(of: model.binder?.urls) { _, _ in
                 model.window?.title = model.displayName
-                model.render()
+                model.listDidChange()
             }
             .onChange(of: model.library.revision) { _, _ in model.reloadLibrary() }
             .onChange(of: model.rememberedSettings) { _, _ in model.rememberedSettingsDidChange() }

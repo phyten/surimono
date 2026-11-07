@@ -49,6 +49,8 @@ final class OpenRouter {
     /// Single files asked to open on the print tray. The document's model appears only with its window, and it is the
     /// one window that shows the file as itself; a binder or a bundle holding the same file is another print job.
     private var printRequests: Set<URL> = []
+    /// Where documents go back to, for a binder made from them that is being undone.
+    private var restorations: [URL: BinderOrigin] = [:]
     /// Opens that have not finished, so that the welcome window does not cover a document that is still loading.
     private(set) var pendingOpens = 0
 
@@ -127,9 +129,27 @@ final class OpenRouter {
         openIncludes(plan)
     }
 
+    /// Opens a document again where it was when a binder took its place.
+    func reopen(_ url: URL, restoring origin: BinderOrigin, completion: @escaping (Bool) -> Void) {
+        let key = url.standardizedFileURL
+        restorations[key] = origin
+        if origin.wasPrinting { printRequests.insert(key) }
+        pendingOpens += 1
+        openDocument(url) { [weak self] opened in
+            if !opened {
+                self?.restorations.removeValue(forKey: key)
+                self?.printRequests.remove(key)
+            }
+            self?.finishOpening(opened)
+            completion(opened)
+        }
+    }
+
     /// Takes the window to the print tray if it is the document of a file that was asked to open there.
     func printIfRequested(_ model: DocumentViewModel) {
-        guard let url = model.fileURL?.standardizedFileURL, printRequests.remove(url) != nil else { return }
+        guard let url = model.fileURL?.standardizedFileURL else { return }
+        if let origin = restorations.removeValue(forKey: url) { model.restoreWindow(origin) }
+        guard printRequests.remove(url) != nil else { return }
         model.requestPrintMode()
     }
 

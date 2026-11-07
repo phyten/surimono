@@ -110,6 +110,7 @@ struct DocumentCommands: Commands {
             if model?.includePlan != nil {
                 Button("Open as Binder") { model?.openIncludesAsBinder() }
             }
+            Button("Add Documents…") { model?.chooseDocumentsToAdd() }
             if model?.binder != nil || model?.imageBundle != nil {
                 Menu(LocalizedStringKey(model?.binder == nil ? "Images" : "Binder")) {
                     Toggle(
@@ -118,8 +119,9 @@ struct DocumentCommands: Commands {
                     )
                     .keyboardShortcut("s", modifiers: [.control, .command])
                     if model?.binder != nil {
-                        Button("Add Documents…") { model?.addBinderDocuments() }
-                        Button("Remove from List") { model?.binder?.removeSelection() }
+                        Button("Remove from List") {
+                            if let url = model?.binder?.selection { model?.removeFromBinder(url) }
+                        }
                         Toggle(
                             "Start Each Document on an Odd Page",
                             isOn: Binding(

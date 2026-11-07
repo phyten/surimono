@@ -351,6 +351,12 @@ struct BandTools: View {
                 }
                 BandItemView(model: model, item: item, form: plan.forms[item] ?? .full)
                     .bandItemFrame(item, in: menu)
+                    // Only the item on the band: `BandMeasurements` draws another one out of sight.
+                    .onGeometryChange(for: CGRect.self) {
+                        $0.frame(in: .global)
+                    } action: { frame in
+                        if item == .thumbnails { model.drop.listButtonFrame = frame }
+                    }
             }
         }
         .fixedSize()
