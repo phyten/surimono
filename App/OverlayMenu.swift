@@ -417,8 +417,7 @@ struct StyleMenu: View {
             } label: {
                 HStack(spacing: 3) {
                     label
-                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                    BandMenuChevron()
                 }
                 .foregroundStyle(model.isThemePalettePresented ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
             }
@@ -428,16 +427,25 @@ struct StyleMenu: View {
             Menu {
                 StyleMenuItems(model: model)
             } label: {
-                label
+                HStack(spacing: 3) {
+                    label
+                    BandMenuChevron()
+                }
+                .foregroundStyle(PrintPalette.ink)
             }
-            .menuStyle(.borderlessButton)
+            // The borderless-button menu style keeps one image and one title of its label and would drop the arrow.
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
             .fixedSize()
             .help(model.usesHTMLPreset ? LocalizedStringKey("HTML Preset") : LocalizedStringKey("Style"))
         }
     }
 
     @ViewBuilder private var label: some View {
-        let label = Label(model.styleName, systemImage: model.usesHTMLPreset ? "wand.and.rays" : "textformat")
+        // "textformat" is drawn as kana in Japanese and as other letters elsewhere, so it does not match the line icons
+        // beside it. The palette symbol is the same in every language.
+        let label = Label(model.styleName, systemImage: model.usesHTMLPreset ? "wand.and.rays" : "paintpalette")
         if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
     }
 }

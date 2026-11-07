@@ -34,6 +34,7 @@ private struct OutlineRow: View {
     let isCurrent: Bool
     let onSelect: () -> Void
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
 
     init(entry: OutlineEntry, indent: Int, isCurrent: Bool, onSelect: @escaping () -> Void) {
         self.entry = entry
@@ -54,13 +55,18 @@ private struct OutlineRow: View {
                 }
             }
             .font(.system(size: 13, weight: isCurrent ? .semibold : .regular))
-            .foregroundStyle(isCurrent ? PrintPalette.ai : PrintPalette.ink)
+            // The chapter being read is picked out by the accent color's tint and the weight; the text stays ink, which
+            // keeps its contrast whatever accent color the Mac is set to.
+            .foregroundStyle(PrintPalette.ink)
             .padding(.leading, 8 + CGFloat(min(indent, 4)) * 12)
             .padding(.trailing, 8)
             .frame(minHeight: 32)
             .background {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isCurrent ? PrintPalette.aiTint2 : isHovered ? PrintPalette.hover : .clear)
+                    .fill(
+                        isCurrent
+                            ? Color.accentColor.opacity(colorScheme == .dark ? 0.28 : 0.16)
+                            : isHovered ? PrintPalette.hover : .clear)
             }
             .contentShape(Rectangle())
         }
@@ -102,15 +108,45 @@ struct OutlineDrawer: View {
     }
 }
 
-/// The figures a reader wants before printing. Only documents laid out from text have an amount of text to tell.
+/// The figures a reader wants before printing: the pages and the sheets they come to first, then, for documents laid
+/// out from text, the amount of text.
 struct DocumentFiguresPopover: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Document Info").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
-            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 10) {
-                if let statistics = model.documentStatistics {
+            // The note belongs to the sheets, so it stays right under them and the text figures follow it.
+            VStack(alignment: .leading, spacing: 4) {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+                    GridRow {
+                        figure(
+                            String(localized: "Pages"),
+                            String(format: String(localized: "%lld pages"), model.pageCount))
+                        if let tray = model.currentTrayFigures {
+                            figure(
+                                String(localized: "With the Current Print Settings"),
+                                String(format: String(localized: "%1$@, %2$lld sheets"), tray.paper, tray.sheetCount))
+                        } else {
+                            figure(
+                                String(
+                                    format: String(localized: "For Reference: %@, Double-Sided"),
+                                    model.paperSeries.sheetName),
+                                String(
+                                    format: String(localized: "%lld sheets"),
+                                    DocumentStatistics.duplexSheets(pageCount: model.pageCount)))
+                        }
+                    }
+                }
+                if model.currentTrayFigures == nil {
+                    Text("Does not count added contents or note pages.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(PrintPalette.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if let statistics = model.documentStatistics {
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
                     GridRow {
                         figure(
                             String(localized: "Characters"),
@@ -122,30 +158,7 @@ struct DocumentFiguresPopover: View {
                             String(format: String(localized: "About %lld min"), statistics.readingMinutes))
                     }
                 }
-                GridRow {
-                    figure(
-                        String(localized: "Pages"),
-                        String(format: String(localized: "%lld pages"), model.pageCount))
-                    if let tray = model.currentTrayFigures {
-                        figure(
-                            String(localized: "With the Current Print Settings"),
-                            String(format: String(localized: "%1$@, %2$lld sheets"), tray.paper, tray.sheetCount))
-                    } else {
-                        figure(
-                            String(
-                                format: String(localized: "For Reference: %@, Double-Sided"),
-                                model.paperSeries.sheetName),
-                            String(
-                                format: String(localized: "%lld sheets"),
-                                DocumentStatistics.duplexSheets(pageCount: model.pageCount)))
-                    }
-                }
-            }
-            if model.currentTrayFigures == nil {
-                Text("Does not count added contents or note pages.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(PrintPalette.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 4)
             }
             Divider().padding(.top, 4)
             Button("Check on the Print Screen") { model.checkFiguresOnTray() }

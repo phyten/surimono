@@ -7,37 +7,54 @@ import Testing
 
 @MainActor
 struct SpreadMapTests {
-    /// The view options popover is 460 pt wide with 16 pt of padding on either side.
-    private let popoverWidth: CGFloat = 428
+    /// The view options popover is 560 pt wide with 16 pt of padding on either side.
+    private let popoverWidth: CGFloat = 528
 
     private func units(_ pageCount: Int, _ layout: ViewOptions.Layout, cover: Bool) -> [DisplayUnit] {
         SpreadLayout.units(pageCount: pageCount, layout: layout, showsCoverAlone: cover, direction: .leftToRight)
     }
 
-    @Test("組み地図のタイルは、その文書でいちばん長い番号も折り返さずに収める", arguments: [9, 99, 999, 9999])
-    func tilesHoldTheLongestLabel(pageCount: Int) {
-        for layout in [ViewOptions.Layout.single, .spread] {
-            for cover in [false, true] {
-                let units = units(pageCount, layout, cover: cover)
-                let tileWidth = SpreadMap.tileWidth(for: units)
-                let widest =
-                    units.map { unit in
-                        (unit.compactText as NSString).size(withAttributes: [.font: SpreadMap.font]).width
-                    }.max() ?? 0
-                #expect(widest <= tileWidth, "\(pageCount) pages, \(layout), cover \(cover)")
-            }
+    @Test("組み地図のタイルは、単ページだけなら紙 1 枚、見開きがあれば紙 2 枚の幅で、ページ数では変わらない", arguments: [9, 99, 999, 9999])
+    func tileWidthFollowsTheSheets(pageCount: Int) {
+        for cover in [false, true] {
+            #expect(SpreadMap.tileWidth(for: units(pageCount, .single, cover: cover)) == 22, "single, cover \(cover)")
+            #expect(SpreadMap.tileWidth(for: units(pageCount, .spread, cover: cover)) == 44, "spread, cover \(cover)")
         }
     }
 
-    @Test("描画したタイルの番号は、ページが 10・100・1000 を超えてもタイルの幅に収まる", arguments: [12, 120, 1500])
-    func renderedLabelsFitTheTiles(pageCount: Int) throws {
-        for layout in [ViewOptions.Layout.single, .spread] {
-            let units = units(pageCount, layout, cover: false)
-            let widest = try #require(units.last?.compactText)
-            let label = NSHostingView(rootView: SpreadMapLabel(text: widest))
-            // The tile keeps 4 pt on either side of its label.
-            #expect(label.fittingSize.width + 8 <= SpreadMap.tileWidth(for: units), "\(widest)")
-            #expect(label.fittingSize.height < SpreadMap.tileHeight, "\(widest)")
+    @Test("1 ページだけの文書は、見開きの設定でも紙 1 枚の幅になる")
+    func onePageDocumentIsOneSheetWide() {
+        #expect(SpreadMap.tileWidth(for: units(1, .spread, cover: false)) == 22)
+        #expect(SpreadMap.tileWidth(for: units(1, .spread, cover: true)) == 22)
+    }
+
+    @Test("単独の表紙も最後に余った 1 ページも紙 1 枚で描き、向かい合う 2 ページは紙 2 枚で描く")
+    func sheetsFollowThePagesOnScreen() {
+        #expect(DisplayUnit.spread(left: nil, right: 1).visualPages == [1])
+        #expect(DisplayUnit.spread(left: 5, right: nil).visualPages == [5])
+        #expect(DisplayUnit.spread(left: 2, right: 3).visualPages == [2, 3])
+        #expect(DisplayUnit.single(7).visualPages == [7])
+    }
+
+    @Test("右綴じの見開きは、画面の左から番号の大きい方を先に並べる")
+    func rightToLeftSpreadKeepsTheOrderOnScreen() {
+        let units = SpreadLayout.units(pageCount: 4, layout: .spread, showsCoverAlone: false, direction: .rightToLeft)
+        #expect(units.map(\.visualPages) == [[2, 1], [4, 3]])
+    }
+
+    @Test("読み上げる名前は、1 ページなら番号、見開きなら番号の範囲")
+    func pageRangeIsReadAsOneName() {
+        #expect(DisplayUnit.single(3).pageRangeText == "3")
+        #expect(DisplayUnit.spread(left: nil, right: 1).pageRangeText == "1")
+        #expect(DisplayUnit.spread(left: 2, right: 3).pageRangeText == "2–3")
+        #expect(DisplayUnit.spread(left: 3, right: 2).pageRangeText == "2–3")
+    }
+
+    @Test("紙の絵は、ページ番号が 4 桁でも 1 枚あたり 幅 22・高さ 31pt のまま")
+    func glyphKeepsItsSizeForLongNumbers() {
+        for unit in [DisplayUnit.single(9999), .spread(left: 9998, right: 9999), .spread(left: nil, right: 1)] {
+            let size = NSHostingView(rootView: SpreadGlyph(unit: unit)).fittingSize
+            #expect(size == CGSize(width: 22 * CGFloat(unit.visualPages.count), height: 31), "\(unit)")
         }
     }
 
@@ -69,6 +86,6 @@ struct SpreadMapTests {
     @Test("すべての組が入るときは、省略の印の場所を取らない")
     func shortDocumentsUseTheWholeStrip() {
         let units = units(12, .spread, cover: true)
-        #expect(SpreadMap.capacity(unitCount: units.count, width: popoverWidth, tileWidth: 40) == units.count)
+        #expect(SpreadMap.capacity(unitCount: units.count, width: popoverWidth, tileWidth: 44) == units.count)
     }
 }

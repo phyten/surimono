@@ -79,8 +79,10 @@ final class WelcomeController {
         }
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 500, height: 420),
-            styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "Surimono"
+        // The washi color runs up under the title bar, as it does on the print screen.
+        window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: WelcomeView(preferences: preferences ?? AppPreferences()))
         window.center()
@@ -99,28 +101,22 @@ private struct WelcomeView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "printer").font(.system(size: 36)).foregroundStyle(.secondary)
-            Text("Drop a file to preview and print")
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, minHeight: 60)
-                .background(isTargeted ? Color.accentColor.opacity(0.12) : Color.clear)
-            Button("Open…") { OpenRouter.shared.showOpenPanel() }
-                .keyboardShortcut("o")
-            Button("Open from Clipboard") { ClipboardWindows.shared.open() }
-            if !recent.isEmpty {
-                Text("Recent Files").font(.headline)
-                List(recent.prefix(6), id: \.self) { url in
-                    Button {
-                        OpenRouter.shared.open([url])
-                    } label: {
-                        Text(verbatim: url.lastPathComponent)
-                    }
-                    .buttonStyle(.plain).help(url.path)
-                }
+            dropZone
+            Button {
+                ClipboardWindows.shared.open()
+            } label: {
+                Text("Open from Clipboard").underline()
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(PrintPalette.ink2)
+            if !recent.isEmpty { recentFiles }
         }
         .padding(24)
+        // The window takes its height from this view, whose minimum width is the window's: at a narrower width the
+        // message would wrap letter by letter and the minimum height would grow with it.
+        .frame(minWidth: 500, maxWidth: .infinity)
+        .background(PrintPalette.chrome)
+        // The whole window takes the drop; the dashed zone only shows where files go.
         .dropDestination(for: URL.self) { urls, _ in
             OpenRouter.shared.open(urls, from: window)
         } isTargeted: {
@@ -130,5 +126,74 @@ private struct WelcomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             recent = NSDocumentController.shared.recentDocumentURLs
         }
+    }
+
+    /// Where files go, always on show: the print screen's stage color with a dashed edge, which turns to the accent
+    /// color while a drag is over the window. Vermilion stays with the Print button.
+    private var dropZone: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "printer").font(.system(size: 36)).foregroundStyle(PrintPalette.ink3)
+            Text("Drop a file to preview and print")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(PrintPalette.ink)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open…") { OpenRouter.shared.showOpenPanel() }
+                .keyboardShortcut("o")
+                .controlSize(.large)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12).fill(PrintPalette.stage)
+                if isTargeted { RoundedRectangle(cornerRadius: 12).fill(Color.accentColor.opacity(0.12)) }
+            }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(
+                    isTargeted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(PrintPalette.line3),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+        }
+    }
+
+    private var recentFiles: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recent Files").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+                .padding(.horizontal, 8)
+            // At most six rows, so the window takes their height and nothing scrolls.
+            VStack(spacing: 0) {
+                ForEach(recent.prefix(6), id: \.self) { url in
+                    RecentFileRow(url: url)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct RecentFileRow: View {
+    let url: URL
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            OpenRouter.shared.open([url])
+        } label: {
+            Text(verbatim: url.lastPathComponent)
+                .font(.system(size: 13))
+                .foregroundStyle(PrintPalette.ink)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .frame(height: 28)
+                .background { RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear) }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help(url.path)
     }
 }

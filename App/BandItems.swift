@@ -210,7 +210,8 @@ struct OutlineButton: View {
             Group {
                 if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
             }
-            .foregroundStyle(model.isOutlineShown ? PrintPalette.ai : PrintPalette.ink)
+            // Open is shown in the accent color, as the style button does: indigo belongs to the print screen.
+            .foregroundStyle(model.isOutlineShown ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
         }
         .fixedSize()
         .help("Contents")
@@ -242,6 +243,17 @@ struct PageTurnButtons: View {
     }
 }
 
+/// The arrow of the band's drop-down parts. It is drawn here, instead of by the menu, so that a menu and a button that
+/// opens a palette show the same arrow.
+struct BandMenuChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.down")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(PrintPalette.ink2)
+            .accessibilityHidden(true)
+    }
+}
+
 struct TransitionMenu: View {
     @Bindable var model: DocumentViewModel
     let showsName: Bool
@@ -251,13 +263,21 @@ struct TransitionMenu: View {
             TransitionPicker(model: model)
         } label: {
             let transition = model.viewOptions.transition
-            if showsName {
-                Label("Page Turn: \(transition.name)", systemImage: transition.symbol).labelStyle(.titleAndIcon)
-            } else {
-                Label(transition.title, systemImage: transition.symbol).labelStyle(.iconOnly)
+            HStack(spacing: 3) {
+                // The value alone, as the other parts of the band show theirs; the tooltip names the choice.
+                if showsName {
+                    Label(transition.title, systemImage: transition.symbol).labelStyle(.titleAndIcon)
+                } else {
+                    Label(transition.title, systemImage: transition.symbol).labelStyle(.iconOnly)
+                }
+                BandMenuChevron()
             }
+            .foregroundStyle(PrintPalette.ink)
         }
-        .menuStyle(.borderlessButton)
+        // The borderless-button menu style keeps one image and one title of its label and would drop the arrow.
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
         .fixedSize()
         .help("Page Turn")
     }
