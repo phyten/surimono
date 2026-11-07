@@ -64,10 +64,9 @@ struct SelectedRowClicks<Row: Equatable>: NSViewRepresentable {
         private var monitor: Any?
         private var pressTask: Task<Void, Never>?
 
-        isolated deinit { stop() }
-
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
+        // A view leaves its window before it goes away, so this is also where the monitor ends.
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             stop()
