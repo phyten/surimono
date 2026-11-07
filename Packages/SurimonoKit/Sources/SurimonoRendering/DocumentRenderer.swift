@@ -223,6 +223,7 @@ public struct PreparedRender {
     public let changeMarks: [ChangeMark]
     public var unreadableDocumentURLs: [URL] = []
     public var binderDocuments: [URL: PDFDocument] = [:]
+    public var binderPageStarts: [URL: Int] = [:]
     /// What the text says about itself, for a format that prints with a theme.
     public var facts: DocumentFacts?
     /// What was added to the text's pages.
@@ -351,6 +352,7 @@ public final class DocumentRenderer {
         let candidates: [SmartRemovalCandidate]
         var unreadableDocuments: [URL] = []
         var binderDocuments: [URL: PDFDocument] = [:]
+        var binderPageStarts: [URL: Int] = [:]
         var binderPageSizes: [CGSize] = []
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
@@ -625,6 +627,7 @@ public final class DocumentRenderer {
                 logical.issues = issues
                 logical.unreadableDocuments = binderOutput?.unreadable ?? []
                 logical.binderDocuments = binderOutput?.documents ?? [:]
+                logical.binderPageStarts = binderOutput?.pageStarts ?? [:]
                 logical.binderPageSizes = binderOutput?.pageSizes ?? []
                 logical.finishing = finishing
                 logicalRenderCount += 1
@@ -656,6 +659,7 @@ public final class DocumentRenderer {
                 smartRemovalCandidates: pages.candidates, issues: pages.issues,
                 changeMarks: requests.isEmpty ? [] : logical.changeMarks,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
+                binderPageStarts: pages.binderPageStarts,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
                 blankPages: pages.finishing.blankPages, notePages: pages.finishing.notePages,
                 sheetKey: SheetKey(
@@ -756,6 +760,7 @@ public final class DocumentRenderer {
     private struct BinderOutput {
         let document = PDFDocument()
         var documents: [URL: PDFDocument] = [:]
+        var pageStarts: [URL: Int] = [:]
         var pageSizes: [CGSize] = []
         var unreadable: [URL] = []
         var issues: [PrintIssue] = []
@@ -811,7 +816,10 @@ public final class DocumentRenderer {
                 }
                 output.pageSizes += Self.pageSizes(of: document)
                 for page in pages { output.document.insert(page, at: output.document.pageCount) }
-                if let url = child.fileURL { output.documents[url] = document }
+                if let url = child.fileURL {
+                    output.documents[url] = document
+                    if document.pageCount > 0 { output.pageStarts[url] = offset }
+                }
                 let prefix = "\(key):\(occurrence):"
                 output.issues += prepared.issues.map { issue in
                     PrintIssue(
