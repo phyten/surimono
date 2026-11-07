@@ -43,11 +43,11 @@ struct SidePanel<Actions: View, Content: View>: View {
 /// Reports a click on the row that is selected already, which the list keeps to itself. A tap gesture on the rows
 /// would hear it too, but it stops the list's drag to reorder, and the list lets no mouse-up out of its tracking, so
 /// the press is seen on its way in and then watched until it ends or turns into a drag.
-struct SelectedRowClicks<Row: Equatable>: NSViewRepresentable {
+struct SelectedRowClicks: NSViewRepresentable {
     /// The row under the pointer, away from the row's buttons.
-    let pointedRow: Row?
-    let selection: Row?
-    let onClick: (Row) -> Void
+    let pointedRow: URL?
+    let selection: URL?
+    let onClick: (URL) -> Void
 
     func makeNSView(context: Context) -> Watcher { Watcher() }
 
@@ -58,9 +58,9 @@ struct SelectedRowClicks<Row: Equatable>: NSViewRepresentable {
     }
 
     final class Watcher: NSView {
-        var pointedRow: Row?
-        var selection: Row?
-        var onClick: ((Row) -> Void)?
+        var pointedRow: URL?
+        var selection: URL?
+        var onClick: ((URL) -> Void)?
         private var monitor: Any?
         private var pressTask: Task<Void, Never>?
 
