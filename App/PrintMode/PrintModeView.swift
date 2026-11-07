@@ -12,17 +12,8 @@ struct PrintModeView: View {
             // The bars stay above the tray's scroll view, whose backdrop reaches under them.
             PrintTopBar(model: model, cancelsWithEscape: !showsFold && !model.isPrintFinishPresented).zIndex(1)
             HStack(spacing: 0) {
-                if let bundle = model.imageBundle {
-                    ImageBundleList(model: bundle)
-                        .frame(width: 220)
-                        .scrollContentBackground(.hidden)
-                        .background(PrintPalette.chrome)
-                    Rectangle().fill(PrintPalette.line).frame(width: 1)
-                }
-                if model.binder != nil {
-                    BinderDrawer(model: model)
-                    Rectangle().fill(PrintPalette.line).frame(width: 1)
-                }
+                if model.imageBundle != nil { ImageBundleDrawer(model: model) }
+                if model.binder != nil { BinderDrawer(model: model) }
                 stage
             }
             PrintFinishStrip(model: model).zIndex(1)

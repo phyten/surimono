@@ -68,6 +68,11 @@ struct PrintTrayView: View {
                 .padding(.bottom, 16)
             }
         }
+        .onChange(of: model.requestedTrayRow, initial: true) { _, row in
+            guard let row, let index = tray.rows.firstIndex(where: { $0.id == row }) else { return }
+            go(to: index)
+            model.requestedTrayRow = nil
+        }
         .onChange(of: tray.layout) { _, _ in
             zoom = 1
             visibleRow = nil

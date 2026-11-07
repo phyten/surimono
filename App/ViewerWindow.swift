@@ -93,12 +93,12 @@ enum ViewerWindow {
     }
 
     /// The paper size for a newly opened document: as tall as comfortably fits the screen, at the unit's aspect.
-    static func initialPaperSize(unit: CGSize, on screen: NSScreen?) -> CGSize {
+    static func initialPaperSize(unit: CGSize, on screen: NSScreen?, side: CGFloat = 0) -> CGSize {
         let visible = (screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
         guard unit.width > 0, unit.height > 0 else { return CGSize(width: 600, height: 800) }
         var height = min(visible.height * 0.86, 1000)
         var width = height * unit.width / unit.height
-        let maximumWidth = visible.width * 0.9
+        let maximumWidth = max(1, visible.width * 0.9 - side)
         if width > maximumWidth {
             width = maximumWidth
             height = width * unit.height / unit.width
@@ -108,12 +108,14 @@ enum ViewerWindow {
 
     /// The paper size of the unit's shape at `height`, made smaller to fit the screen when it is too wide.
     static func paperSize(
-        unit: CGSize, height: CGFloat, on screen: NSScreen?, widthShare: CGFloat = 0.9
+        unit: CGSize, height: CGFloat, on screen: NSScreen?, widthShare: CGFloat = 0.9, side: CGFloat = 0
     ) -> CGSize {
-        guard unit.width > 0, unit.height > 0, height > 0 else { return initialPaperSize(unit: unit, on: screen) }
+        guard unit.width > 0, unit.height > 0, height > 0 else {
+            return initialPaperSize(unit: unit, on: screen, side: side)
+        }
         let visible = (screen ?? NSScreen.main)?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
         var size = CGSize(width: height * unit.width / unit.height, height: height)
-        let maximumWidth = visible.width * widthShare
+        let maximumWidth = max(1, visible.width * widthShare - side)
         if size.width > maximumWidth {
             size = CGSize(width: maximumWidth, height: maximumWidth * unit.height / unit.width)
         }
@@ -128,25 +130,26 @@ enum ViewerWindow {
     /// Resizes the window so that the paper area is `paper`, keeping the top-left (or top-right) corner in place and
     /// the window on screen, and locks resizing to the paper's aspect ratio.
     static func setPaperSize(
-        _ paper: CGSize, band: CGFloat, of window: NSWindow, animate: Bool, keepsRightEdge: Bool = false
+        _ paper: CGSize, band: CGFloat, of window: NSWindow, animate: Bool, keepsRightEdge: Bool = false,
+        side: CGFloat = 0
     ) {
         guard paper.width > 0, paper.height > 0 else { return }
-        let content = NSRect(x: 0, y: 0, width: paper.width, height: paper.height + band)
+        let content = NSRect(x: 0, y: 0, width: paper.width + side, height: paper.height + band)
         var frame = window.frameRect(forContentRect: content)
         frame.origin.x = keepsRightEdge ? window.frame.maxX - frame.width : window.frame.minX
         frame.origin.y = window.frame.maxY - frame.height
         setFrame(constrained(frame, on: window.screen), of: window, animate: animate)
-        lockAspectRatio(of: window, unit: paper, band: band)
+        lockAspectRatio(of: window, unit: paper, band: band, side: side)
     }
 
-    static func lockAspectRatio(of window: NSWindow, unit: CGSize, band: CGFloat) {
+    static func lockAspectRatio(of window: NSWindow, unit: CGSize, band: CGFloat, side: CGFloat = 0) {
         guard unit.width > 0, unit.height > 0 else { return }
         let paperHeight = max(Self.paperHeight(of: window, band: band), 1)
         let paperWidth = paperHeight * unit.width / unit.height
         // An aspect ratio cannot express "paper plus a fixed band", so the band is included at the current size.
-        window.contentAspectRatio = NSSize(width: paperWidth, height: paperHeight + band)
+        window.contentAspectRatio = NSSize(width: paperWidth + side, height: paperHeight + band)
         window.contentMinSize = NSSize(
-            width: minimumPaperHeight * unit.width / unit.height, height: minimumPaperHeight + band)
+            width: minimumPaperHeight * unit.width / unit.height + side, height: minimumPaperHeight + band)
     }
 
     static func unlockAspectRatio(of window: NSWindow) {

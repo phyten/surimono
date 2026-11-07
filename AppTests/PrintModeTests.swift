@@ -15,6 +15,18 @@ struct PrintTrayTests {
             rotatesBackSides: rotatesBackSides)
     }
 
+    @Test("論理ページを含む最初の用紙の行を返す")
+    func rowContainingPage() {
+        #expect(tray(.a4Single, pages: 8).rowID(containing: 3) == 2)
+        #expect(tray(.a4Duplex, pages: 8).rowID(containing: 4) == 1)
+        #expect(tray(.a4BookletA5, pages: 8).rowID(containing: 8) == 0)
+        #expect(tray(.a4BookletA5, pages: 8).rowID(containing: 3) == 1)
+        #expect(tray(.a3TwoUp, pages: 8).rowID(containing: 4) == 0)
+        #expect(tray(.a3TwoUp, pages: 8).rowID(containing: 5) == 2)
+        #expect(tray(.a4Single, pages: 8).rowID(containing: 0) == nil)
+        #expect(tray(.a4Single, pages: 8).rowID(containing: 9) == nil)
+    }
+
     @Test("混在用紙のラベルと枚数を日本語と英語で示す")
     func mixedOrientations() {
         let orientations: [PaperOrientation] = [.portrait, .portrait, .landscape, .landscape, .landscape, .landscape]

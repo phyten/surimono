@@ -78,6 +78,12 @@ final class DocumentViewModel {
     var bandVisibility: BandVisibility
     var isAlwaysOnTop: Bool
     var isDrawerOpen = false
+    var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
+    var sideInset: CGFloat { mode == .view && showsSideList ? SidePanelMetrics.width : 0 }
+    /// The row of the tray to bring into view, for the sheets on it now.
+    var requestedTrayRow: Int?
+    /// What a row of the list asked the tray to show, until the sheets that hold it are ready.
+    @ObservationIgnored private var trayRequest: URL?
     /// Dragging the paper selects text instead of moving the window. It belongs to the window and is never saved, so
     /// a document always opens with the paper as the window and a drag never selects text by surprise.
     var isSelectingText = false
@@ -387,7 +393,7 @@ final class DocumentViewModel {
             slides: slideDeck.map {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
             }, markdownChanges: format == .markdown ? markdownChanges : [])
-        settings.binderStartsOnFront = binder != nil && binderStartsOnFront
+        settings.binderStartsOnFront = binder != nil && binderStartsOnFront && settings.layout.hasFacingPages
         if finishAppliesToText { settings.finish = printFinish }
         if mode == .print, offersNotes { settings.notes = notes }
         settings.documentName = displayName
@@ -836,6 +842,45 @@ final class DocumentViewModel {
         render()
     }
 
+    func goToBinderDocument(_ url: URL) {
+        guard let binder, binder.urls.contains(url) else { return }
+        binder.selection = url
+        if mode == .print {
+            trayRequest = url
+            resolveTrayRequest()
+        } else if mode == .view, let index = binder.pageStarts[url] {
+            currentPageIndex = index
+            paper.goToPage(index: index)
+        }
+    }
+
+    func goToBundleImage(_ url: URL) {
+        guard let bundle = imageBundle else { return }
+        bundle.selection = url
+        if mode == .print {
+            trayRequest = url
+            resolveTrayRequest()
+        } else if mode == .view, let index = readableImageIndex(of: url) {
+            currentPageIndex = index
+            paper.goToPage(index: index)
+        }
+    }
+
+    private func readableImageIndex(of url: URL) -> Int? {
+        imageBundle?.urls.filter { !unreadableImageURLs.contains($0) }.firstIndex(of: url)
+    }
+
+    /// A row of the list stands for its document, not for a place on sheets that may be about to change. It turns into
+    /// a row of the tray once the sheets on it are the ones of the list as it is.
+    private func resolveTrayRequest() {
+        guard mode == .print, let url = trayRequest, isUpToDate, hasCurrentPrintPreview, let printTray else { return }
+        trayRequest = nil
+        let page: Int? =
+            binder != nil
+            ? binder?.pageStarts[url].map { $0 + 1 } : readableImageIndex(of: url).flatMap(printTray.bodyPage(at:))
+        requestedTrayRow = page.flatMap(printTray.rowID(containing:))
+    }
+
     func render() {
         reloadOwnsProgress = false
         renderTask?.cancel()
@@ -894,7 +939,9 @@ final class DocumentViewModel {
                 renderedSourceURLs = sourceURLs
                 renderedFromSnapshot = fromSnapshot
                 unreadableImageURLs = prepared.unreadableImageURLs
-                binder?.didRender(prepared)
+                binder?.didRender(prepared, forReading: mode == .view)
+                // The tray lays the documents out on its own paper, whose pages are not the ones being read.
+                if mode == .view, let page = binder?.settleReadingPage() { currentPageIndex = page }
                 resolveViewOptionsIfNeeded(for: prepared.viewDocument)
                 if let imageBundle {
                     // The digests of the images are known now, so a remembered order can be restored.
@@ -917,6 +964,7 @@ final class DocumentViewModel {
                     sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
                     notePages: output.notePages)
                 isRendering = false
+                resolveTrayRequest()
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
@@ -1117,6 +1165,8 @@ final class DocumentViewModel {
 
     func exitPrintMode() {
         pendingPrint = nil
+        trayRequest = nil
+        requestedTrayRow = nil
         guard mode != .view else { return }
         isPrintIssuesPresented = false
         outputAfterReview = nil
@@ -1850,8 +1900,9 @@ final class DocumentViewModel {
         if let defaultViewOptions { viewOptions = defaultViewOptions }
         if mode == .view, let window, let unit = paperUnitSize {
             ViewerWindow.setPaperSize(
-                ViewerWindow.initialPaperSize(unit: unit, on: window.screen), band: bandInset, of: window,
-                animate: true)
+                ViewerWindow.initialPaperSize(unit: unit, on: window.screen, side: sideInset), band: bandInset,
+                of: window,
+                animate: true, side: sideInset)
         }
         settingsBaseline = rememberedSettings
     }
@@ -1891,10 +1942,10 @@ final class DocumentViewModel {
         ViewerWindow.bandHeight * CGFloat(arrangement.bandCount)
     }
 
-    private var currentPaperSize: CGSize? {
+    var currentPaperSize: CGSize? {
         guard mode == .view, let window else { return nil }
         let content = window.contentRect(forFrameRect: window.frame).size
-        return CGSize(width: content.width.rounded(), height: (content.height - bandInset).rounded())
+        return CGSize(width: (content.width - sideInset).rounded(), height: (content.height - bandInset).rounded())
     }
 
     /// Fits the window to the paper: the first time at a comfortable or remembered size, later keeping the height.
@@ -1907,8 +1958,9 @@ final class DocumentViewModel {
                 applyRestoredPaperSize()
             } else {
                 ViewerWindow.setPaperSize(
-                    ViewerWindow.initialPaperSize(unit: unit, on: window.screen), band: bandInset, of: window,
-                    animate: false)
+                    ViewerWindow.initialPaperSize(unit: unit, on: window.screen, side: sideInset), band: bandInset,
+                    of: window,
+                    animate: false, side: sideInset)
             }
             // A web page opens at the paper's size but reflows to any shape the reader gives the window.
             if isWebPresentation { applyWebShape(animate: false) }
@@ -1918,14 +1970,14 @@ final class DocumentViewModel {
         let height = ViewerWindow.paperHeight(of: window, band: bandInset)
         ViewerWindow.setPaperSize(
             paperSize(unit: unit, height: height, in: window), band: bandInset, of: window, animate: keepHeight,
-            keepsRightEdge: keepsRightEdge)
+            keepsRightEdge: keepsRightEdge, side: sideInset)
     }
 
     /// The paper of the unit's shape at `height`. A window stopped at the screen's edge at full height would leave
     /// empty room above and below the paper, so the height gives way too.
     private func paperSize(unit: CGSize, height: CGFloat, in window: NSWindow) -> CGSize {
         let wanted = heightBeforeScreenLimit ?? height
-        let size = ViewerWindow.paperSize(unit: unit, height: wanted, on: window.screen, widthShare: 1)
+        let size = ViewerWindow.paperSize(unit: unit, height: wanted, on: window.screen, widthShare: 1, side: sideInset)
         heightBeforeScreenLimit = size.height < wanted - 1 ? wanted : nil
         return size
     }
@@ -1934,16 +1986,17 @@ final class DocumentViewModel {
         guard let window, let unit = paperUnitSize, let size = restoredPaperSize else { return }
         // Keep the remembered height; the width follows the pages as they are now.
         ViewerWindow.setPaperSize(
-            paperSize(unit: unit, height: size.height, in: window), band: bandInset, of: window, animate: false)
+            paperSize(unit: unit, height: size.height, in: window), band: bandInset, of: window, animate: false,
+            side: sideInset)
     }
 
     /// The paper keeps its size and place when the bands change: the window grows or shrinks at the bottom.
     func menuArrangementDidChange(from previous: MenuArrangement) {
         guard mode == .view, let window else { return }
         let paper = CGSize(
-            width: window.contentRect(forFrameRect: window.frame).width,
+            width: window.contentRect(forFrameRect: window.frame).width - sideInset,
             height: ViewerWindow.paperHeight(of: window, band: Self.bandInset(of: previous)))
-        ViewerWindow.setPaperSize(paper, band: bandInset, of: window, animate: true)
+        ViewerWindow.setPaperSize(paper, band: bandInset, of: window, animate: true, side: sideInset)
         if isWebPresentation { applyWebShape(animate: false) }
     }
 
@@ -1955,10 +2008,10 @@ final class DocumentViewModel {
         heightBeforeScreenLimit = nil
         // The aspect ratio can only approximate "paper plus fixed bands"; settle on the exact size for the width the
         // user chose.
-        let width = window.contentRect(forFrameRect: window.frame).width
+        let width = window.contentRect(forFrameRect: window.frame).width - sideInset
         ViewerWindow.setPaperSize(
             CGSize(width: width, height: (width * unit.height / unit.width).rounded()), band: bandInset,
-            of: window, animate: false)
+            of: window, animate: false, side: sideInset)
         guard contentHash != nil, settingsBaseline != nil else { return }
         didResizeWindow = true
         scheduleSave()

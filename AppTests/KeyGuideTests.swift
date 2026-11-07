@@ -5,12 +5,12 @@ import Testing
 
 @MainActor
 struct KeyGuideTests {
-    @Test("キーと操作の一覧は紙・印刷・手の操作を10項目で案内する")
+    @Test("キーと操作の一覧は紙・印刷・手の操作を13項目で案内する")
     func entries() {
         #expect(
             KeyGuideEntry.allCases == [
                 .menu, .viewOptions, .selectText, .alternateDrag, .pageEdge, .doubleClick,
-                .print, .systemPrint, .printLayouts, .escape,
+                .print, .systemPrint, .printLayouts, .escape, .moveSelection, .removeFromList, .showList,
             ])
         #expect(KeyGuideEntry.menu.trigger == "Tab / M")
         #expect(KeyGuideEntry.viewOptions.trigger == "V")
@@ -19,6 +19,9 @@ struct KeyGuideTests {
         #expect(KeyGuideEntry.systemPrint.trigger == "⌥⌘P")
         #expect(KeyGuideEntry.printLayouts.trigger == "⌘1–⌘6")
         #expect(KeyGuideEntry.escape.trigger == "Esc")
+        #expect(KeyGuideEntry.moveSelection.trigger == "⌥⌘↑ / ⌥⌘↓")
+        #expect(KeyGuideEntry.removeFromList.trigger == "⌫")
+        #expect(KeyGuideEntry.showList.trigger == "⌃⌘S")
     }
 
     @Test("紙のキー処理は一覧のTab・M・V・T・Escに対応する")

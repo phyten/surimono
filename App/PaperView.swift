@@ -38,6 +38,7 @@ struct PaperView: NSViewRepresentable {
     var changeMarks: [ChangeMark] = []
     /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
     var narrowsLoneCover = false
+    var keepsSpotInPage = false
     let controller: PaperController
     var onZoomChange: (Double) -> Void
     var onPageChange: (Int) -> Void
@@ -62,7 +63,7 @@ struct PaperView: NSViewRepresentable {
         view.narrowsLoneCover = narrowsLoneCover
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
-            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks)
+            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, keepsSpotInPage: keepsSpotInPage)
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
         if abs(view.zoom - zoom) > 0.001 { view.setZoom(zoom, anchor: nil) }
@@ -169,12 +170,13 @@ final class PaperPDFView: PageTextPDFView {
 
     func configure(
         _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool,
-        changeMarks: [ChangeMark] = []
+        changeMarks: [ChangeMark] = [], keepsSpotInPage: Bool = false
     ) {
         guard
             sourceDocument !== source || self.options != options || self.logicalMargin != logicalMargin
                 || self.showsPageNumbers != showsPageNumbers || self.changeMarks != changeMarks
         else { return }
+        let point = keepsSpotInPage && sourceDocument !== source ? currentDestination?.point : nil
         let position = sourceDocument === source ? currentPageIndex : index
         isUpdatingDocument = true
         self.logicalMargin = logicalMargin
@@ -183,6 +185,12 @@ final class PaperPDFView: PageTextPDFView {
         self.options = options
         configureDisplay(options)
         show(source, at: position)
+        if let point, let pagePlan,
+            let viewIndex = pagePlan.viewIndex(for: min(position, max(source.pageCount - 1, 0))),
+            let page = document?.page(at: viewIndex)
+        {
+            go(to: PDFDestination(page: page, at: point))
+        }
         isUpdatingDocument = false
         onPageChange?(currentPageIndex)
     }
