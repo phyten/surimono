@@ -63,10 +63,11 @@ final class BinderWindows {
     }
 
     /// Keeps a binder whose window is closing for the File menu's Recent Binders, so that the reader can open it again
-    /// without choosing its files. One a parent file names comes back by opening the parent, and one document is no
-    /// binder.
+    /// without choosing its files. One a parent file names comes back by opening the parent, one document is no
+    /// binder, and one the reader undid is one they did not want.
     func remember(_ model: DocumentViewModel) {
-        guard let binder = model.binder, binder.origin == .files, binder.urls.count > 1 else { return }
+        guard let binder = model.binder, binder.origin == .files, binder.urls.count > 1, !model.isBinderUndone
+        else { return }
         preferences?.recordRecentBinder(recentFiles.binder(of: binder.urls))
     }
 

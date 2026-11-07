@@ -184,6 +184,23 @@ struct RecentBindersTests {
         #expect(fixture.preferences.recentBinders.isEmpty)
     }
 
+    @Test("合本への変換を取り消したときは、窓が閉じても最近の合本に残らない", .timeLimit(.minutes(1)))
+    func undoingTheConversionLeavesNoEntry() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let image = try fixture.file("a.png")
+        let other = try fixture.file("b.md")
+        try TestFixtures.png(red: 0.2).write(to: image)
+        let model = fixture.windows.open([image, other])
+        model.binderOrigin = BinderOrigin(
+            contents: .images(ImageBundleModel(urls: [image]).listState),
+            frame: NSRect(x: 0, y: 0, width: 400, height: 500), pageIndex: 0, wasPrinting: false)
+        model.undoBinderConversion()
+        defer { DocumentWindows.shared.openModels.first { $0.imageBundle?.urls == [image] }?.window?.close() }
+        #expect(fixture.windows.hasWindows == false)
+        #expect(fixture.preferences.recentBinders.isEmpty)
+    }
+
     @Test("最近使った合本から開くと同じファイルの合本の窓ができ、閉じるとまた先頭に1件だけ残る", .timeLimit(.minutes(1)))
     func reopeningFromTheList() throws {
         let fixture = try Fixture()
