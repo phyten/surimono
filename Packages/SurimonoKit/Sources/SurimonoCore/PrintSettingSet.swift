@@ -168,7 +168,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             set(
                 plainID,
                 [
-                    "en": "Nothing Added", "ja": "何も足さない", "zh-Hans": "不添加内容", "zh-Hant": "不添加內容",
+                    "en": "Nothing Added", "ja": "飾りなし", "zh-Hans": "不添加内容", "zh-Hant": "不添加內容",
                     "ko": "아무것도 넣지 않음", "fr": "Sans ajout", "de": "Nichts hinzufügen", "es": "Sin añadidos",
                 ], layout: .a4Single, furniture: PageFurniture(), h1: .none, contents: .hidden),
         ]

@@ -93,7 +93,7 @@ struct PrintTrayView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 16) {
                 Text(instructions)
-                    .font(.system(size: 12.5))
+                    .font(.system(size: 13))
                     .lineSpacing(3)
                     .foregroundStyle(PrintPalette.ink2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -122,12 +122,18 @@ struct PrintTrayView: View {
         }
     }
 
-    /// The Markdown emphasis of the instructions is drawn in the darker ink, as in the design.
+    /// The Markdown emphasis of the instructions is drawn in the darker ink, as in the design. Its two lines stay two.
     private var instructions: AttributedString {
         let markdown =
             PrintModeText.mixedNote(tray.sheets.map(\.orientation), language: model.language)
-            ?? PrintModeText.instructions(tray.layout, language: model.language)
-        var text = (try? AttributedString(markdown: markdown)) ?? AttributedString(markdown)
+            ?? PrintModeText.instructions(
+                tray.layout, sheets: tray.sheets.count, pages: tray.pageCount, language: model.language)
+        // The default reading turns the line break between the two lines into a space.
+        var text =
+            (try? AttributedString(
+                markdown: markdown,
+                options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+            ?? AttributedString(markdown)
         for run in text.runs where run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true {
             text[run.range].foregroundColor = PrintPalette.ink
         }

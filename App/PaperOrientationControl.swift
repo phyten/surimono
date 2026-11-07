@@ -6,13 +6,7 @@ struct PaperOrientationControl: View {
 
     var body: some View {
         Menu {
-            Picker("Paper Orientation", selection: $model.paperOrientation) {
-                Text("Auto").tag(PaperOrientation.auto)
-                Text("Portrait").tag(PaperOrientation.portrait)
-                Text("Landscape").tag(PaperOrientation.landscape)
-            }
-            .pickerStyle(.inline)
-            .labelsHidden()
+            choices
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "rectangle.portrait.rotate")
@@ -26,6 +20,17 @@ struct PaperOrientationControl: View {
         )
         .accessibilityLabel(Text("Paper Orientation"))
         .accessibilityValue(Text(value))
+    }
+
+    /// The three orientations, for this menu and for the tray's own button.
+    var choices: some View {
+        Picker("Paper Orientation", selection: $model.paperOrientation) {
+            Text("Auto").tag(PaperOrientation.auto)
+            Text("Portrait").tag(PaperOrientation.portrait)
+            Text("Landscape").tag(PaperOrientation.landscape)
+        }
+        .pickerStyle(.inline)
+        .labelsHidden()
     }
 
     var isFixed: Bool { model.renderLayout.kind == .booklet || model.renderLayout.kind == .handout3 }

@@ -113,81 +113,152 @@ struct PrintSeriesSwitch: View {
     var body: some View {
         PrintSegments(
             label: "Paper to Use", options: [.init(PaperSeries.a, "A4 / A3"), .init(PaperSeries.b, "B5 / B4")],
-            selection: model.trayPaperSeries, help: "A4 and A3, or B5 and B4 (JIS)", isVertical: true
+            selection: model.trayPaperSeries, help: "A4 and A3, or B5 and B4 (JIS)"
         ) { model.choosePaperSeries($0) }
     }
 }
 
 /// The quick choices of the print settings, between the sheets and the press bar. Everything else is in the sheet.
-/// Each is its name, its value and a menu at any width, so that the same setting never changes its look with the window.
+/// A menu is its name alone while its setting is the default and its name and value once the reader has set it, at any
+/// width. The row never wraps: "All Print Settings…" stays at its right end and the menus that do not fit fold from the
+/// right (`PrintStripFold`), which the sheet still offers.
 struct PrintFinishStrip: View {
     @Bindable var model: DocumentViewModel
+    /// What each menu takes in its current form, measured from a copy drawn out of sight: a folded menu has no view.
+    @State private var widths: [Item: CGFloat] = [:]
+    @State private var detailsWidth: CGFloat = 0
+    @State private var rowWidth: CGFloat = 0
+
+    enum Item: Hashable {
+        case furniture, breaks, contents, notes
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .furniture: "Header & Footer"
+            case .breaks: "Page Breaks"
+            case .contents: "Contents Page"
+            case .notes: "Notes"
+            }
+        }
+
+        var section: PrintFinishSection {
+            switch self {
+            case .furniture: .furniture
+            case .breaks: .breaks
+            case .contents: .contents
+            case .notes: .notes
+            }
+        }
+    }
+
+    private static let spacing: CGFloat = 8
 
     var body: some View {
-        // A narrow tray takes a second row: the values are long, and each must stay readable in full.
-        PrintFlowLayout(spacing: 8, lineSpacing: 6) {
-            menu("Header & Footer", value: furnitureTitle, section: .furniture) {
-                PrintFurnitureChoice(model: model).menuItems
-            }
-            if model.finishAppliesToText {
-                menu("Page Breaks", value: breakTitle, section: .breaks) {
-                    PrintChapterBreakChoice(model: model).menuItems
-                }
-                menu("Contents Page", value: contentsTitle, section: .contents) {
-                    PrintContentsChoice(model: model).menuItems
-                }
-            }
-            if showsNotes {
-                menu("Notes", value: model.notes.isEnabled ? "Notes On" : "None", section: .notes) {
-                    PrintNoteChoice(model: model).menuItems
-                }
-            }
+        let items = applicableItems
+        let fold = PrintStripFold(
+            available: rowWidth, itemWidths: items.map { widths[$0] ?? 0 }, trailingWidth: detailsWidth,
+            spacing: Self.spacing)
+        HStack(spacing: Self.spacing) {
+            ForEach(items.prefix(fold.visibleCount), id: \.self) { menu($0) }
+            Spacer(minLength: 0)
             detailsButton
         }
+        // Until everything is measured the row would show all the menus and then fold some.
+        .opacity(rowWidth > 0 && detailsWidth > 0 && items.allSatisfy({ widths[$0] != nil }) ? 1 : 0)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: { width in
+            if rowWidth != width { rowWidth = width }
+        }
         .padding(.horizontal, 14)
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(PrintPalette.chrome)
+        .background(alignment: .topLeading) { measurements(items) }
         .overlay(alignment: .top) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
     }
 
-    private var showsNotes: Bool { model.offersNotes && model.notes.applies(to: model.layout) }
-
-    private var detailsButton: some View {
-        Button("All Print Settings…") { model.isPrintFinishPresented.toggle() }
-            .font(.system(size: 12, weight: .semibold))
-            .buttonStyle(.plain)
-            .foregroundStyle(PrintPalette.ai)
-            .padding(.horizontal, 8)
-            .frame(height: 26)
-            .background(
-                RoundedRectangle(cornerRadius: 6).fill(model.isPrintFinishPresented ? PrintPalette.aiTint2 : .clear)
-            )
-            .fixedSize()
-            .help("Paper, margins, header and footer, page breaks, contents and note pages")
+    private var applicableItems: [Item] {
+        var items: [Item] = [.furniture]
+        if model.finishAppliesToText { items += [.breaks, .contents] }
+        if model.offersNotes && model.notes.applies(to: model.layout) { items.append(.notes) }
+        return items
     }
 
-    private func menu<Content: View>(
-        _ title: LocalizedStringKey, value: LocalizedStringKey, section: PrintFinishSection,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        Menu {
-            content()
-            Divider()
-            Button("Open in All Settings") { model.presentFinish(section) }
+    /// The value a menu shows beside its name; nil while the setting is the default.
+    private func value(of item: Item) -> LocalizedStringKey? {
+        switch item {
+        case .furniture: PrintFurnitureChoice.stripTitle(model.furnitureChoice)
+        case .breaks: PrintChapterBreakChoice.stripTitle(model.printFinish.breaks.h1)
+        case .contents: PrintContentsChoice.stripTitle(model.printFinish.toc.mode)
+        case .notes: PrintNoteChoice.stripTitle(model.notes.isEnabled)
+        }
+    }
+
+    private func measurements(_ items: [Item]) -> some View {
+        ZStack(alignment: .leading) {
+            ForEach(items, id: \.self) { item in
+                menu(item)
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.width
+                    } action: { width in
+                        if widths[item] != width { widths[item] = width }
+                    }
+            }
+        }
+        .hidden()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var detailsButton: some View {
+        Button {
+            model.isPrintFinishPresented.toggle()
         } label: {
+            Text("All Print Settings…")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(PrintPalette.ai)
+                .padding(.horizontal, 8)
+                .frame(height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(model.isPrintFinishPresented ? PrintPalette.aiTint2 : .clear)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .help("Paper, margins, header and footer, page breaks, contents and note pages")
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: { width in
+            if detailsWidth != width { detailsWidth = width }
+        }
+    }
+
+    private func menu(_ item: Item) -> some View {
+        Menu {
+            switch item {
+            case .furniture: PrintFurnitureChoice(model: model).menuItems
+            case .breaks: PrintChapterBreakChoice(model: model).menuItems
+            case .contents: PrintContentsChoice(model: model).menuItems
+            case .notes: PrintNoteChoice(model: model).menuItems
+            }
+            Divider()
+            Button("Open in All Settings") { model.presentFinish(item.section) }
+        } label: {
+            let value = value(of: item)
             HStack(spacing: 5) {
-                Text(title).foregroundStyle(PrintPalette.ink2)
-                Text(value).fontWeight(.semibold)
+                Text(item.title).foregroundStyle(value == nil ? PrintPalette.ink : PrintPalette.ink2)
+                if let value { Text(value).fontWeight(.semibold).foregroundStyle(PrintPalette.ink) }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(PrintPalette.ink2)
             }
             .font(.system(size: 12))
             .lineLimit(1)
-            .foregroundStyle(PrintPalette.ink)
             .padding(.horizontal, 8)
-            .frame(height: 26)
+            .frame(height: 28)
             .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.hover))
             .contentShape(RoundedRectangle(cornerRadius: 6))
         }
@@ -195,19 +266,7 @@ struct PrintFinishStrip: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help(Text(title))
-    }
-
-    private var furnitureTitle: LocalizedStringKey {
-        PrintFurnitureChoice.choices.first { $0.value == model.furnitureChoice }?.title ?? "None"
-    }
-
-    private var breakTitle: LocalizedStringKey {
-        PrintChapterBreakChoice.choices.first { $0.value == model.printFinish.breaks.h1 }?.title ?? "None"
-    }
-
-    private var contentsTitle: LocalizedStringKey {
-        PrintContentsChoice.choices.first { $0.value == model.printFinish.toc.mode }?.title ?? "None"
+        .help(Text(item.title))
     }
 }
 
@@ -231,6 +290,11 @@ struct PrintFurnitureChoice: View {
             Button(choice.title) { model.chooseFurniture(choice.value) }
         }
     }
+
+    /// What the strip shows beside the name; nothing while there is no header or footer.
+    static func stripTitle(_ value: PageFurniture.Preset) -> LocalizedStringKey? {
+        value == .none ? nil : choices.first { $0.value == value }?.title
+    }
 }
 
 struct PrintChapterBreakChoice: View {
@@ -252,6 +316,11 @@ struct PrintChapterBreakChoice: View {
             Button(choice.title) { model.printFinish.breaks.h1 = choice.value }
         }
     }
+
+    /// What the strip shows beside the name; nothing while headings do not break the page.
+    static func stripTitle(_ value: HeadingBreak) -> LocalizedStringKey? {
+        value == .none ? nil : choices.first { $0.value == value }?.title
+    }
 }
 
 struct PrintNoteChoice: View {
@@ -269,6 +338,11 @@ struct PrintNoteChoice: View {
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.notes.isEnabled = choice.value }
         }
+    }
+
+    /// What the strip shows beside the name; nothing while there are no notes.
+    static func stripTitle(_ isEnabled: Bool) -> LocalizedStringKey? {
+        isEnabled ? "Notes On" : nil
     }
 }
 
@@ -290,5 +364,10 @@ struct PrintContentsChoice: View {
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.printFinish.toc.mode = choice.value }
         }
+    }
+
+    /// What the strip shows beside the name; nothing while the contents follow the text.
+    static func stripTitle(_ value: PaperTOC.Mode) -> LocalizedStringKey? {
+        value == .source ? nil : choices.first { $0.value == value }?.title
     }
 }

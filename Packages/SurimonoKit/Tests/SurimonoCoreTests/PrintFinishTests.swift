@@ -168,7 +168,7 @@ struct PrintFinishTests {
     @Test("組み込みのセットは 3 つで、名前は言語に従い、id は変わらない")
     func builtInSets() {
         let sets = PrintSettingSet.builtIns(language: "ja")
-        #expect(sets.map(\.name) == ["配布資料", "章立ての冊子", "何も足さない"])
+        #expect(sets.map(\.name) == ["配布資料", "章立ての冊子", "飾りなし"])
         #expect(sets.allSatisfy { $0.isBuiltIn })
         #expect(sets.map(\.id) == PrintSettingSet.builtIns(language: "en").map(\.id))
         #expect(!PrintSettingSet(name: "自分", settings: DocumentSettings()).isBuiltIn)

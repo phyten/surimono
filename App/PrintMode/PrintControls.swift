@@ -91,8 +91,9 @@ private struct SealButton: View {
                         configuration.isPressed
                             ? PrintPalette.shuPress : hovering && isEnabled ? PrintPalette.shuHover : PrintPalette.shu
                     )
-                    .shadow(color: PrintPalette.shuShadow, radius: 1, y: 1)
-                    .shadow(color: PrintPalette.shuShadow.opacity(0.7), radius: 6, y: 5)
+                    // A step weaker than before, so the seal sits with the washi buttons beside it. The colors stay.
+                    .shadow(color: PrintPalette.shuShadow.opacity(0.75), radius: 1, y: 1)
+                    .shadow(color: PrintPalette.shuShadow.opacity(0.4), radius: 4, y: 3)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 3).strokeBorder(.white.opacity(0.62), lineWidth: 1.25).padding(5)

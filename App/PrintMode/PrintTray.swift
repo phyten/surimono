@@ -92,6 +92,9 @@ struct PrintTray: Equatable {
 
     var isBooklet: Bool { layout.kind == .booklet }
 
+    /// The pages of the finished piece, blank halves included, which is what the press bar calls its finished pages.
+    var pageCount: Int { sheets.reduce(0) { $0 + $1.sides.reduce(0) { $0 + $1.pages.count } } }
+
     static func position(of index: Int, count: Int, layout: PrintLayout) -> Position {
         guard layout.kind == .booklet else { return .unstacked }
         if count == 1 { return .only }
@@ -186,40 +189,36 @@ enum PrintModeText {
         }
     }
 
-    /// How the sheets are printed and finished, with Markdown emphasis.
-    static func instructions(_ layout: PrintLayout, language: String) -> String {
+    /// What the sheets make, and how they are printed, in two lines: what is made of how much paper, then the binding.
+    /// How to stack and fold them is left to the fold view. The first line comes in Markdown emphasis.
+    /// - Parameters:
+    ///   - sheets: The sheets of paper it takes.
+    ///   - pages: The pages of the finished piece, blank halves included, as the press bar counts them.
+    static func instructions(_ layout: PrintLayout, sheets: Int, pages: Int, language: String) -> String {
+        // A number stays with its unit when the line folds: "1" and "pages" never part.
+        func together(_ text: String) -> String { text.replacingOccurrences(of: " ", with: "\u{00A0}") }
         let paper = layout.sheet.shortName
-        switch layout.kind {
-        case .handout3:
-            return format(
-                "Prints **three pages on the left of %@ portrait**, single-sided, with ruled notes on the right.",
-                language: language, paper)
-        case .booklet:
-            return format(
-                "Print on **both sides of %1$@ landscape** (short-edge binding). Stack the sheets with sheet 1 outermost, fold them in the middle and staple twice along the fold to get the **%2$@ booklet**.",
-                language: language, paper, (layout.sheet.halved ?? layout.sheet).shortName)
-        case .twoUp:
-            return format(
-                layout.landscapeContent
-                    ? "Prints **two pages stacked on %@ portrait**, single-sided. No folding."
-                    : "Prints **two pages side by side on %@ landscape**, single-sided. No folding.",
-                language: language, paper)
-        case .normal:
-            switch layout.duplex {
-            case .none:
-                return format(
-                    layout.landscapeContent
-                        ? "Prints **one page per %@ landscape sheet**, single-sided."
-                        : "Prints **one page per %@ portrait sheet**, single-sided.",
-                    language: language, paper)
-            case .longEdge:
-                return format(
-                    "Prints on **both sides of %@** (long-edge binding). Back sides turn like the pages of a book.",
-                    language: language, paper)
-            case .shortEdge:
-                return format("Prints on **both sides of %@** (short-edge binding).", language: language, paper)
-            }
+        let sheetCount = together(format("%lld sheets", language: language, sheets))
+        let pageText = together(pageCount(pages, language: language))
+        let headline: String
+        if layout.kind == .booklet {
+            headline = format(
+                "%3$@ booklet, %4$@, from %2$@ of %1$@", language: language, paper, sheetCount,
+                (layout.sheet.halved ?? layout.sheet).shortName, pageText)
+        } else {
+            let landscape = layout.sheetSize.width > layout.sheetSize.height
+            headline = format(
+                "%3$@ on %2$@ of %1$@", language: language,
+                together(format(landscape ? "%@ landscape" : "%@ portrait", language: language, paper)), sheetCount,
+                pageText)
         }
+        let binding =
+            switch layout.duplex {
+            case .none: "Single-sided"
+            case .longEdge: "Duplex, long edge"
+            case .shortEdge: "Duplex, short edge"
+            }
+        return "**\(headline)**\n" + string(binding, language: language)
     }
 
     /// The second line under the summary: what to do with the sheets and where blanks fall.
