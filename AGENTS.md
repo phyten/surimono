@@ -339,6 +339,7 @@ make clean
 - 紙（ページ）はダークでも白い。紙の上に浮かべるパネルにマテリアルだけを敷くと、白い紙の上で中間のグレーになり補足の文字が読めない。`paperOverlayBackground` を使う。
 - アドホック署名には Team ID がないため、Hardened Runtime の Library Validation が、埋め込んだ Sparkle.framework を拒んで Release 版が起動時に落ちる（`different Team IDs`）。`Configs/Surimono.entitlements` の `com.apple.security.cs.disable-library-validation` で外している。Developer ID で署名するようになったら消す。Debug は Hardened Runtime が無効なので気づけない。署名や依存を変えたら、`make package` で作ったアプリを起動して確かめる。
 - xcconfig では `//` から後ろがコメントになる。URL は `https:/$()/…` と書く（`SURIMONO_UPDATE_FEED_URL`）。
+- CI の Xcode 26.6 は、手元の Xcode 27 で通るコードを通さないことがある。SwiftUI の `body` に修飾子を長くつなぐと型の検査が終わらない（`ViewModifier` に分ける）。Release ビルドでは、総称型の中のクラスの `isolated deinit` と、総称型の `NSView` のサブクラスの暗黙の deinit で swift-frontend が落ちた（総称型にしない）。どちらも手元の `make check-appstore` では再現しない。
 - エージェントのサンドボックス（Codex など）では、LaunchServices（UTType の準拠関係）、testmanagerd（ホスト付きテスト）、WebKit の子プロセス、ホーム配下のキャッシュへの書き込みが拒否されることがある。ビルドだけなら `CFFIXED_USER_HOME` などを `build/` 配下に向ける回避策があるが、Makefile には入れない。テストと起動の最終確認は通常の環境で `make test` / `make run` を実行して行う。
 
 ## スキル
