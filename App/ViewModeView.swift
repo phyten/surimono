@@ -26,25 +26,17 @@ struct ViewModeView: View {
                     if model.showsOutlineDrawer {
                         OutlineDrawer(model: model).transition(.move(edge: .leading))
                     }
-                    PaperArea(model: model, menu: menu)
+                    if model.showsSideList {
+                        if model.binder != nil {
+                            BinderDrawer(model: model)
+                        } else if model.imageBundle != nil {
+                            ImageBundleDrawer(model: model)
+                        }
+                    }
+                    // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
+                    PaperArea(model: model, menu: menu).clipped()
                 }
                 if isSplit, let plan = plans.bottom { bottomZone(plan) }
-            }
-            if let bundle = model.imageBundle, model.isDrawerOpen {
-                ImageBundleDrawer(model: bundle, onClose: { model.isDrawerOpen = false })
-                    .padding(.top, ViewerWindow.bandHeight + 8)
-                    .padding(.bottom, bottomInset)
-                    .padding([.leading, .bottom], 8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
-            if model.binder != nil, model.isDrawerOpen {
-                BinderDrawer(model: model)
-                    .padding(.top, ViewerWindow.bandHeight + 8)
-                    .padding(.bottom, bottomInset)
-                    .padding([.leading, .bottom], 8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
             }
             if model.isReviewingSmartRemoval {
                 SmartRemovalPanel(model: model)
@@ -60,7 +52,6 @@ struct ViewModeView: View {
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
         .animation(.easeOut(duration: 0.16), value: menu.stage)
-        .animation(.easeOut(duration: 0.2), value: model.isDrawerOpen)
         .animation(.easeOut(duration: 0.2), value: model.showsOutlineDrawer)
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
         .onContinuousHover(coordinateSpace: .local) { phase in
@@ -138,7 +129,8 @@ private struct PaperArea: View {
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
-                    narrowsLoneCover: model.loneCoverWidth == .onePage, controller: model.paper,
+                    narrowsLoneCover: model.loneCoverWidth == .onePage, keepsSpotInPage: model.binder != nil,
+                    controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.paperDidChangePage($0) },
                     onTurn: { menu.pageTurned() },

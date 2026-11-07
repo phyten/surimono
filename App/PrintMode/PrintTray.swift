@@ -79,6 +79,17 @@ struct PrintTray: Equatable {
         }
     }
 
+    /// The 1-based page number of the `index`th page of the document's own, past the note pages among them.
+    func bodyPage(at index: Int) -> Int? {
+        let pages = sheets.flatMap { $0.sides.flatMap { $0.pages.compactMap { $0 } } }
+        let body = pages.filter { !notePages.contains($0) }.sorted()
+        return body.indices.contains(index) ? body[index] : nil
+    }
+
+    func rowID(containing page: Int) -> Int? {
+        rows.first { row in row.sheets.contains { sheet in sheet.sides.contains { $0.pages.contains(page) } } }?.id
+    }
+
     var isBooklet: Bool { layout.kind == .booklet }
 
     static func position(of index: Int, count: Int, layout: PrintLayout) -> Position {

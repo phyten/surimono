@@ -2,64 +2,66 @@ import AppKit
 import ImageIO
 import SwiftUI
 
-/// The thumbnails of an image bundle, shown from the overlay menu to reorder the images.
 struct ImageBundleDrawer: View {
-    @Bindable var model: ImageBundleModel
-    let onClose: () -> Void
+    @Bindable var model: DocumentViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Image Order").font(.headline)
-                Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
+        if let bundle = model.imageBundle {
+            SidePanel("Image Order", subtitle: String(format: String(localized: "%lld images"), bundle.items.count)) {
+                if model.mode == .view {
+                    PanelIconButton("xmark", label: "Close") { model.isDrawerOpen = false }
                 }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Close")
+            } content: {
+                ImageBundleList(model: model, bundle: bundle)
+                PanelFileIssues(
+                    names: bundle.excludedSummary,
+                    summary: String(
+                        format: String(localized: "%lld non-image files excluded"), bundle.excludedPaths.count))
+                if !bundle.isSortedByName { PanelSortButton { bundle.sortByName() } }
             }
-            Text("Drag to reorder, or move the selected image with ⌥⌘↑ and ⌥⌘↓.")
-                .font(.caption).foregroundStyle(.secondary).padding(.top, 4)
-            if !model.excludedPaths.isEmpty {
-                Text(String(format: String(localized: "%lld non-image files excluded"), model.excludedPaths.count))
-                    .font(.caption).foregroundStyle(.secondary).padding(.top, 2)
-                    .help(model.excludedPaths.joined(separator: "\n"))
-            }
-            ImageBundleList(model: model)
-                .scrollContentBackground(.hidden)
-                .padding(.vertical, 6)
-            Button("Sort by Name") { model.sortByName() }
-                .frame(maxWidth: .infinity)
-                .disabled(model.isSortedByName)
         }
-        .padding(12)
-        .frame(width: 240)
-        .paperOverlayBackground(cornerRadius: 12)
-        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
-        .accessibilityLabel("Images")
     }
 }
 
-/// The images of a bundle in order, with numbers and thumbnails; drag to reorder. Used by the view mode's drawer and
-/// the print mode's sidebar.
-struct ImageBundleList: View {
-    @Bindable var model: ImageBundleModel
+private struct ImageBundleList: View {
+    let model: DocumentViewModel
+    @Bindable var bundle: ImageBundleModel
+    @State private var pointedRow: URL?
 
     var body: some View {
-        List(selection: $model.selection) {
-            ForEach(Array(model.items.enumerated()), id: \.element.id) { index, item in
-                HStack(spacing: 8) {
-                    Text(verbatim: "\(index + 1)").font(.caption2).monospacedDigit().foregroundStyle(.secondary)
-                        .frame(width: 20, alignment: .trailing)
-                    ImageThumbnail(model: model, item: item)
-                    Text(verbatim: item.name).font(.callout).lineLimit(2).truncationMode(.middle)
+        ScrollViewReader { proxy in
+            List(selection: Binding(get: { bundle.selection }, set: { if let url = $0 { model.goToBundleImage(url) } }))
+            {
+                ForEach(Array(bundle.items.enumerated()), id: \.element.id) { index, item in
+                    HStack(spacing: 6) {
+                        Text(verbatim: "\(index + 1)").font(.system(size: 11)).monospacedDigit()
+                            .foregroundStyle(PrintPalette.ink3).frame(width: 16, alignment: .trailing)
+                        ImageThumbnail(model: bundle, item: item)
+                        Text(verbatim: item.name).font(.system(size: 13)).lineLimit(1).truncationMode(.middle)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .contentShape(Rectangle())
+                    .onHover { isOver in
+                        if isOver {
+                            pointedRow = item.url
+                        } else if pointedRow == item.url {
+                            pointedRow = nil
+                        }
+                    }
+                    .tag(item.url).id(item.url).help(item.name)
                 }
-                .tag(item.url)
-                .help(item.name)
+                .onMove { bundle.move(fromOffsets: $0, toOffset: $1) }
             }
-            .onMove { offsets, destination in model.move(fromOffsets: offsets, toOffset: destination) }
+            .listStyle(.sidebar)
+            // The sidebar style insets its rows; here the panel's own padding does that.
+            .padding(.horizontal, -10)
+            .scrollContentBackground(.hidden)
+            .background(
+                SelectedRowClicks(pointedRow: pointedRow, selection: bundle.selection) { model.goToBundleImage($0) }
+            )
+            .onChange(of: bundle.selection) { _, url in if let url { proxy.scrollTo(url) } }
+            .accessibilityLabel("Images")
         }
-        .listStyle(.plain)
-        .accessibilityLabel("Images")
     }
 }
 
@@ -67,6 +69,11 @@ private struct ImageThumbnail: View {
     let model: ImageBundleModel
     let item: ImageBundleModel.Item
     @State private var image: CGImage?
+
+    init(model: ImageBundleModel, item: ImageBundleModel.Item) {
+        self.model = model
+        self.item = item
+    }
 
     var body: some View {
         Group {
@@ -76,7 +83,7 @@ private struct ImageThumbnail: View {
                 Image(systemName: "photo").foregroundStyle(.secondary)
             }
         }
-        .frame(width: 48, height: 48)
+        .frame(width: 30, height: 40)
         .task(id: item) {
             guard let data = await model.data(for: item) else { return }
             image = await Task.detached(priority: .utility) {

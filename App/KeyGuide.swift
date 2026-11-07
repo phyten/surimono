@@ -5,6 +5,7 @@ import SwiftUI
 enum KeyGuideEntry: CaseIterable {
     case menu, viewOptions, selectText, alternateDrag, pageEdge, doubleClick
     case print, systemPrint, printLayouts, escape
+    case moveSelection, removeFromList, showList
 
     var trigger: String {
         switch self {
@@ -18,6 +19,9 @@ enum KeyGuideEntry: CaseIterable {
         case .systemPrint: "⌥⌘P"
         case .printLayouts: "⌘1–⌘6"
         case .escape: "Esc"
+        case .moveSelection: "⌥⌘↑ / ⌥⌘↓"
+        case .removeFromList: "⌫"
+        case .showList: "⌃⌘S"
         }
     }
 
@@ -33,6 +37,9 @@ enum KeyGuideEntry: CaseIterable {
         case .systemPrint: String(localized: "Open the system print dialog")
         case .printLayouts: String(localized: "Choose a layout and open the print screen")
         case .escape: String(localized: "Hide the toolbar; leave the print screen")
+        case .moveSelection: String(localized: "Move the selected document or image")
+        case .removeFromList: String(localized: "Remove from List")
+        case .showList: String(localized: "Show or hide the list")
         }
     }
 

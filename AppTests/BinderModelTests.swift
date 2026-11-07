@@ -1,5 +1,6 @@
 import Foundation
 import SurimonoCore
+import SurimonoRendering
 import Testing
 
 @testable import Surimono
@@ -7,6 +8,44 @@ import Testing
 @MainActor
 struct BinderModelTests {
     private func url(_ name: String) -> URL { URL(fileURLWithPath: "/fixture/" + name) }
+
+    @Test("題は先頭の名前と残りの件数で合本の接頭辞を付けない")
+    func title() {
+        let model = BinderModel(urls: [url("1.md"), url("2.pdf")])
+        #expect(model.title(language: "ja") == "1.md ほか 1 件")
+        #expect(model.title(language: "en") == "1.md and 1 more")
+        #expect(model.exportName(layout: .a4Single, language: "ja").hasPrefix("1.md ほか 1 件"))
+    }
+
+    @Test("指定した文書を外せるが最後の一文書は残す")
+    func remove() {
+        let model = BinderModel(urls: [url("1.md"), url("2.pdf")])
+        model.remove(url("2.pdf"))
+        #expect(model.urls == [url("1.md")])
+        model.removeSelection()
+        model.remove(url("1.md"))
+        #expect(model.urls == [url("1.md")])
+    }
+
+    @Test("並べ替えは文書内のページを保ち外した文書は同じ行の先頭へ移る")
+    func readingSpot() async throws {
+        let data = TestFixtures.pdf("binder", pages: 2)
+        let model = BinderModel(urls: [url("1.pdf"), url("2.pdf"), url("3.pdf")], read: { _ in data })
+        defer { model.stop() }
+        let renderer = DocumentRenderer()
+        let settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        model.didRender(try await renderer.prepare(model.source(), settings: settings))
+        let spot = try #require(model.readingSpot(at: 3))
+        model.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        model.didRender(try await renderer.prepare(model.source(), settings: settings))
+        #expect(model.pageIndex(for: spot) == 1)
+        let removed = try #require(model.readingSpot(at: 1))
+        model.remove(url("2.pdf"))
+        model.didRender(try await renderer.prepare(model.source(), settings: settings))
+        #expect(model.pageIndex(for: removed) == 0)
+    }
 
     @Test("合本を並べ替え取り除いて追加し名前順に戻せる")
     func editing() {

@@ -110,33 +110,35 @@ struct DocumentCommands: Commands {
             if model?.includePlan != nil {
                 Button("Open as Binder") { model?.openIncludesAsBinder() }
             }
-            Menu(LocalizedStringKey(model?.binder == nil ? "Images" : "Binder")) {
-                Toggle(
-                    "Show Thumbnails",
-                    isOn: Binding(get: { model?.isDrawerOpen ?? false }, set: { model?.isDrawerOpen = $0 })
-                )
-                .keyboardShortcut("s", modifiers: [.control, .command])
-                if model?.binder != nil {
-                    Button("Add Documents…") { model?.addBinderDocuments() }
-                    Button("Remove Document") { model?.binder?.removeSelection() }
+            if model?.binder != nil || model?.imageBundle != nil {
+                Menu(LocalizedStringKey(model?.binder == nil ? "Images" : "Binder")) {
                     Toggle(
-                        "Start Each Document on the Front",
-                        isOn: Binding(
-                            get: { model?.binderStartsOnFront ?? false }, set: { model?.binderStartsOnFront = $0 }))
-                }
-                Button(LocalizedStringKey(model?.binder == nil ? "Move Image Up" : "Move Document Up")) {
-                    model?.imageBundle?.moveSelection(by: -1)
-                    model?.binder?.moveSelection(by: -1)
-                }
-                .keyboardShortcut(.upArrow, modifiers: [.option, .command])
-                Button(LocalizedStringKey(model?.binder == nil ? "Move Image Down" : "Move Document Down")) {
-                    model?.imageBundle?.moveSelection(by: 1)
-                    model?.binder?.moveSelection(by: 1)
-                }
-                .keyboardShortcut(.downArrow, modifiers: [.option, .command])
-                Button("Sort by Name") {
-                    model?.imageBundle?.sortByName()
-                    model?.binder?.sortByName()
+                        "Show List",
+                        isOn: Binding(get: { model?.isDrawerOpen ?? false }, set: { model?.isDrawerOpen = $0 })
+                    )
+                    .keyboardShortcut("s", modifiers: [.control, .command])
+                    if model?.binder != nil {
+                        Button("Add Documents…") { model?.addBinderDocuments() }
+                        Button("Remove from List") { model?.binder?.removeSelection() }
+                        Toggle(
+                            "Start Each Document on an Odd Page",
+                            isOn: Binding(
+                                get: { model?.binderStartsOnFront ?? false }, set: { model?.binderStartsOnFront = $0 }))
+                    }
+                    Button(LocalizedStringKey(model?.binder == nil ? "Move Image Up" : "Move Document Up")) {
+                        model?.imageBundle?.moveSelection(by: -1)
+                        model?.binder?.moveSelection(by: -1)
+                    }
+                    .keyboardShortcut(.upArrow, modifiers: [.option, .command])
+                    Button(LocalizedStringKey(model?.binder == nil ? "Move Image Down" : "Move Document Down")) {
+                        model?.imageBundle?.moveSelection(by: 1)
+                        model?.binder?.moveSelection(by: 1)
+                    }
+                    .keyboardShortcut(.downArrow, modifiers: [.option, .command])
+                    Button("Sort by Name") {
+                        model?.imageBundle?.sortByName()
+                        model?.binder?.sortByName()
+                    }
                 }
             }
             Divider()

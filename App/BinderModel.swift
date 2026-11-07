@@ -36,6 +36,9 @@ final class BinderModel {
     /// The order a parent file names; a binder without a parent starts in name order.
     private var startingOrder: [URL]?
     private(set) var pageCounts: [URL: Int] = [:]
+    private(set) var pageStarts: [URL: Int] = [:]
+    private var renderedURLs: [URL] = []
+    private var renderedPageCount = 0
     private(set) var thumbnails: [URL: NSImage] = [:]
     private var sources: [URL: DocumentSource] = [:]
     private var leases: [URL: FolderAccess.Lease] = [:]
@@ -143,14 +146,19 @@ final class BinderModel {
     }
 
     func removeSelection() {
-        guard let index = items.firstIndex(where: { $0.url == selection }) else { return }
-        let url = items.remove(at: index).url
+        guard let selection else { return }
+        remove(selection)
+    }
+
+    func remove(_ url: URL) {
+        guard items.count > 1, let index = items.firstIndex(where: { $0.url == url }) else { return }
+        items.remove(at: index)
         sources.removeValue(forKey: url)
         pageCounts.removeValue(forKey: url)
         thumbnails.removeValue(forKey: url)
         leases.removeValue(forKey: url)?.close()
         if scopedURLs.remove(url) != nil { url.stopAccessingSecurityScopedResource() }
-        selection = items.isEmpty ? nil : items[min(index, items.count - 1)].url
+        if selection == url { selection = items[min(index, items.count - 1)].url }
     }
 
     func sortByName() { items = sorted(items) }
@@ -216,18 +224,80 @@ final class BinderModel {
         return .binder(items.compactMap { loaded[$0.url] })
     }
 
-    func didRender(_ prepared: PreparedRender) {
+    /// - Parameter forReading: Whether these are the pages of the view mode. The tray lays the documents out for its
+    ///   paper, and its pages stay on the paper for a moment on the way back, so they say nothing about the place read.
+    func didRender(_ prepared: PreparedRender, forReading: Bool = true) {
+        pagesAreForReading = forReading
         unreadableURLs = Array(Set(unreadableURLs + prepared.unreadableDocumentURLs)).sorted { $0.path < $1.path }
         pageCounts = prepared.binderDocuments.mapValues(\.pageCount)
+        pageStarts = prepared.binderPageStarts
+        renderedURLs = urls
+        renderedPageCount = prepared.logicalDocument.pageCount
         thumbnails = prepared.binderDocuments.compactMapValues {
             $0.page(at: 0)?.thumbnail(of: NSSize(width: 96, height: 96), for: .mediaBox)
         }
     }
 
+    /// A place in the binder by document, because the page numbers of the whole change with the list.
+    struct ReadingSpot: Equatable {
+        let url: URL
+        let documentIndex: Int
+        let page: Int
+    }
+
+    private var lastReadingSpot: ReadingSpot?
+    private var pagesAreForReading = true
+
+    /// The page of the whole to show for what is being read, after the list or the pages changed.
+    func settleReadingPage() -> Int? {
+        guard let page = lastReadingSpot.flatMap(pageIndex(for:)) else { return nil }
+        // The row counts too: it is where a removed document's place stays.
+        lastReadingSpot = readingSpot(at: page)
+        return page
+    }
+
+    private var paginatedURLs: [URL] {
+        renderedURLs.filter { pageStarts[$0] != nil }.sorted { pageStarts[$0, default: 0] < pageStarts[$1, default: 0] }
+    }
+
+    func readingSpot(at page: Int) -> ReadingSpot? {
+        let urls = paginatedURLs
+        guard
+            let index = BinderPagination.documentIndex(
+                containing: page, starts: urls.compactMap { pageStarts[$0] }, pageCount: renderedPageCount)
+        else { return nil }
+        let url = urls[index]
+        return ReadingSpot(
+            url: url, documentIndex: renderedURLs.firstIndex(of: url) ?? index,
+            page: page - pageStarts[url, default: 0])
+    }
+
+    func pageIndex(for spot: ReadingSpot) -> Int? {
+        if let start = pageStarts[spot.url], let count = pageCounts[spot.url], count > 0 {
+            return start + min(spot.page, count - 1)
+        }
+        // A removed or unreadable child yields to the next readable row, or the last preceding one.
+        let index = min(spot.documentIndex, max(items.count - 1, 0))
+        let candidates = Array(items.dropFirst(index)) + Array(items.prefix(index).reversed())
+        return candidates.compactMap { pageStarts[$0.url] }.first
+    }
+
+    /// The paper turned: remembers the place, and the row of what is on screen comes along.
+    func follow(page: Int, visiblePages: [Int]) {
+        if pagesAreForReading, let spot = readingSpot(at: page) { lastReadingSpot = spot }
+        let urls = paginatedURLs
+        guard
+            let index = BinderPagination.selection(
+                current: selection.flatMap { urls.firstIndex(of: $0) }, visiblePages: visiblePages,
+                starts: urls.compactMap { pageStarts[$0] }, pageCount: renderedPageCount), urls.indices.contains(index)
+        else { return }
+        selection = urls[index]
+    }
+
     func title(language: String) -> String {
         let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
         return String(
-            format: bundle.localizedString(forKey: "Binder: %@ and %lld more", value: nil, table: nil),
+            format: bundle.localizedString(forKey: "%1$@ and %2$lld more documents", value: nil, table: nil),
             items.first?.name ?? "", max(0, items.count - 1))
     }
 

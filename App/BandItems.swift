@@ -79,8 +79,14 @@ struct BandItemView: View {
             }
             .help("Fit to Window (⌘0)")
         case .thumbnails:
-            Toggle(isOn: $model.isDrawerOpen) { Label("Thumbnails", systemImage: "sidebar.left") }
-                .toggleStyle(.button).labelStyle(.iconOnly).help("Thumbnails (⌃⌘S)")
+            Toggle(isOn: $model.isDrawerOpen) {
+                if let binder = model.binder {
+                    Text("Documents \(binder.items.count)")
+                } else if let bundle = model.imageBundle {
+                    Text("Images \(bundle.items.count)")
+                }
+            }
+            .toggleStyle(.button).help("List (⌃⌘S)")
         case .print: PrintButton(model: model, iconOnly: form == .compact)
         }
     }
@@ -398,7 +404,7 @@ private struct BandMenuItem: View {
                 model.zoomToFit()
             }
         case .thumbnails:
-            Toggle("Show Thumbnails", isOn: $model.isDrawerOpen)
+            Toggle("Show List", isOn: $model.isDrawerOpen)
         case .formatBadge, .pageIndicator, .pageTurn, .print:
             EmptyView()
         }

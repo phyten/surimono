@@ -94,26 +94,11 @@ struct OutlineDrawer: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Contents").font(.system(size: 13, weight: .bold))
-                Spacer()
-                Button {
-                    model.isOutlineDrawerOpen = false
-                } label: {
-                    Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-                }
-                .buttonStyle(.plain).foregroundStyle(.secondary).help("Close")
-            }
-            .padding(.horizontal, 8)
+        SidePanel("Contents") {
+            PanelIconButton("xmark", label: "Close") { model.isOutlineDrawerOpen = false }
+        } content: {
             OutlineList(model: model)
         }
-        .foregroundStyle(PrintPalette.ink)
-        .padding(12)
-        .frame(width: 260)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(PrintPalette.raised)
-        .overlay(alignment: .trailing) { Divider() }
     }
 }
 

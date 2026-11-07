@@ -113,13 +113,13 @@ struct SettingsMenuTests {
         #expect(pin.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == [.option, .command])
     }
 
-    @Test("文書メニューに印刷レイアウト・スタイル・画像・リセット・再読み込みをまとめる")
+    @Test("文書メニューに印刷レイアウト・スタイル・リセット・再読み込みをまとめ、一覧の項目は束と合本の窓だけに出す")
     func documentItems() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
         #expect(
             menu.items.filter { !$0.isSeparatorItem }.map(\.title)
                 == [
-                    "Print Layout", "Choose Style…", "Images", "Reset Document Settings", "Reload",
+                    "Print Layout", "Choose Style…", "Reset Document Settings", "Reload",
                 ].map(localized))
         let layouts = try #require(menu.items.first?.submenu)
         #expect(layouts.items.map(\.keyEquivalent) == ["1", "2", "3", "4", "5", "6"])

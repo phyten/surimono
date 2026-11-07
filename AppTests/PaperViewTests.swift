@@ -8,6 +8,25 @@ import Testing
 
 @MainActor
 struct PaperViewTests {
+    @Test("合本の差し替えだけは移動先ページ内の読んでいた点を保つ", arguments: [false, true])
+    func keepsSpotInPage(keep: Bool) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("before", pages: 4)))
+        let replacement = try #require(PDFDocument(data: TestFixtures.pdf("after", pages: 4)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.setZoom(2, anchor: nil)
+        let page = try #require(view.document?.page(at: 0))
+        view.go(to: PDFDestination(page: page, at: CGPoint(x: 0, y: 500)))
+        let point = try #require(view.currentDestination?.point)
+        view.configure(
+            replacement, at: 2,
+            options: ViewOptions(layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false),
+            logicalMargin: nil, showsPageNumbers: false, keepsSpotInPage: keep)
+        #expect(view.currentPageIndex == 2)
+        let after = try #require(view.currentDestination?.point)
+        if keep { #expect(abs(after.y - point.y) < 1) } else { #expect(abs(after.y - point.y) > 10) }
+        withExtendedLifetime(window) {}
+    }
+
     @Test("PDFKit がスクロールバーを出し直しても紙の幅を取らず何も見せない", arguments: [NSScroller.Style.legacy, .overlay])
     func scrollersStayInvisible(style: NSScroller.Style) throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("scrollers", pages: 1)))
