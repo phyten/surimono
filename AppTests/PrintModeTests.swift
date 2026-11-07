@@ -630,7 +630,8 @@ struct PrintModeWindowTests {
         let window = makeWindow(width: 800, height: 600)
         let original = window.frame
         PrintModeWindow.enter(window, size: PrintModeWindow.compareSize)
-        #expect(window.frame.size == NSSize(width: 900, height: 620))
+        let screenHeight = (window.screen ?? NSScreen.main)?.visibleFrame.height ?? 800
+        #expect(window.frame.size == NSSize(width: 900, height: min(800, screenHeight)))
         let comparison = window.frame
         PrintModeWindow.enter(window)
         #expect(window.frame == comparison)
@@ -640,7 +641,7 @@ struct PrintModeWindowTests {
 
     @Test("十分な窓は見比べ台と刷り台を経ても紙の形へ合わせる前の枠を変えない")
     func largeWindowSurvivesBothStages() {
-        let window = makeWindow(width: 1000, height: 700)
+        let window = makeWindow(width: 1000, height: 800)
         let original = window.frame
         PrintModeWindow.enter(window, size: PrintModeWindow.compareSize)
         #expect(window.frame == original)
@@ -671,14 +672,14 @@ struct PrintModeWindowTests {
                 == NSRect(x: 220, y: 100, width: 760, height: 800))
     }
 
-    @Test("見比べ台は900×620まで広げ画面内に収める")
+    @Test("見比べ台は900×800まで広げ画面内に収める")
     func compareFrame() {
         #expect(
             PrintModeWindow.trayFrame(
                 around: NSRect(x: 1200, y: 500, width: 600, height: 400),
                 visibleFrame: NSRect(x: 0, y: 0, width: 1440, height: 875),
                 size: PrintModeWindow.compareSize)
-                == NSRect(x: 540, y: 255, width: 900, height: 620))
+                == NSRect(x: 540, y: 75, width: 900, height: 800))
     }
 
     @Test("小さな画面では画面内まで広げるが既存の大きい寸法は縮めない")

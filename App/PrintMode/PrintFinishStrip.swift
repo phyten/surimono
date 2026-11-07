@@ -279,9 +279,9 @@ struct PrintFurnitureChoice: View {
     ]
 
     var body: some View {
-        // The names are long for one row of the sheet.
-        PrintSegments(
-            label: "Header & Footer", options: Self.choices, selection: model.furnitureChoice, isVertical: true,
+        // The names are long for one row of the sheet, and a gray box of five reads as a menu left open.
+        PrintRadioList(
+            label: "Header & Footer", options: Self.choices, selection: model.furnitureChoice,
             choose: model.chooseFurniture)
     }
 

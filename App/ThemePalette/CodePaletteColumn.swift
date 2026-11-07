@@ -60,6 +60,19 @@ struct CodePaletteColumn: View {
     }
 }
 
+/// How a palette's ink is told on its row. The usual amount goes unsaid, so that the few palettes that use less or
+/// more stand out, instead of every row repeating "Normal".
+enum CodeInkNote {
+    static func text(for level: CodePalette.InkLevel) -> String? {
+        switch level {
+        case .low: String(localized: "Ink: Low")
+        case .normal: nil
+        case .raised: String(localized: "Ink: Slightly High")
+        case .high: String(localized: "Ink: High")
+        }
+    }
+}
+
 /// A palette, or "Match Style" for nil: its name, what it costs on paper, and a line of code in its colors.
 private struct CodePaletteRow: View {
     let model: DocumentViewModel
@@ -133,13 +146,7 @@ private struct CodePaletteRow: View {
     }
 
     private var badge: String? {
-        guard let palette else { return nil }
-        return switch palette.inkLevel {
-        case .low: String(localized: "Ink: Low")
-        case .normal: String(localized: "Ink: Normal")
-        case .raised: String(localized: "Ink: Slightly High")
-        case .high: String(localized: "Ink: High")
-        }
+        palette.flatMap { CodeInkNote.text(for: $0.inkLevel) }
     }
 
     private var contrast: String? {

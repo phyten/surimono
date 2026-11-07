@@ -24,7 +24,7 @@ enum PrintModeWindow {
     private static let saved = NSMapTable<NSWindow, SavedChrome>.weakToStrongObjects()
     private static let leaving = NSHashTable<NSWindow>.weakObjects()
 
-    static let compareSize = NSSize(width: 900, height: 620)
+    static let compareSize = NSSize(width: 900, height: 800)
 
     // Switching stages must keep the frame from before either stage was opened.
     static func enter(_ window: NSWindow, size: NSSize = traySize) {

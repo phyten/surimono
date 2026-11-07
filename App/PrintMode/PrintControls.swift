@@ -124,3 +124,68 @@ struct PrintTag: View {
             .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(border ?? color, lineWidth: 1) }
     }
 }
+
+/// Choices as rows of 28 pt with a radio mark, one chosen. Boxed in gray like `PrintSegments`, five long names read as
+/// a menu left open; as plain rows they read as a choice.
+struct PrintRadioList<Value: Hashable>: View {
+    let label: LocalizedStringKey
+    let options: [PrintChoice<Value>]
+    let selection: Value?
+    let choose: (Value) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(options.indices, id: \.self) { index in
+                let option = options[index]
+                PrintRadioRow(title: option.title, isOn: option.value == selection) { choose(option.value) }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(label))
+    }
+}
+
+private struct PrintRadioRow: View {
+    let title: LocalizedStringKey
+    let isOn: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: isOn ? "circle.inset.filled" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(isOn ? PrintPalette.ai : PrintPalette.ink3)
+                Text(title).font(.system(size: 13, weight: isOn ? .semibold : .regular))
+                Spacer(minLength: 0)
+            }
+            .frame(height: 28)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}
+
+/// A text button in ai, underlined under the pointer, for an action that must not compete with the controls around it.
+struct PrintLinkButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        PrintLinkButton(configuration: configuration)
+    }
+}
+
+private struct PrintLinkButton: View {
+    let configuration: ButtonStyleConfiguration
+    @State private var hovering = false
+
+    var body: some View {
+        configuration.label
+            .font(.system(size: 13))
+            .foregroundStyle(PrintPalette.ai)
+            .underline(hovering)
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .frame(minHeight: 28)
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+    }
+}
