@@ -630,6 +630,40 @@ struct DocumentSettingsFlowTests {
         reopened.stop()
     }
 
+    @Test("最初の描画が終わる前に設定を変えても、紙に合わせる前の窓の大きさは保存しない", .timeLimit(.minutes(1)))
+    func unsizedWindowIsNotRemembered() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let pages = pdf("pages", pages: 3)
+        let slow = DocumentRenderer(paginate: { _ in
+            try await Task.sleep(for: .seconds(5))
+            return PDFDocument(data: pages) ?? PDFDocument()
+        })
+        let data = Data("# 見出し".utf8)
+        let model = DocumentViewModel(
+            data: data, fileURL: nil, format: .markdown, preferences: environment.preferences,
+            library: environment.library, renderer: slow, settingsStore: environment.store)
+        // The window as it opens, before the first pages fit it to the paper.
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 900, height: 450),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        model.window = window
+        model.start()
+        model.setLayout(.spread)
+        model.rememberedSettingsDidChange()
+        let key = ContentHash.of(data).hex
+        // The save shortly after the change, while the pages are still being laid out.
+        try await waitUntil { environment.store.record(for: key) != nil }
+        #expect(model.isRendering)
+        #expect(environment.store.record(for: key)?.windowSize == nil)
+        // And the save as the window closes.
+        model.stop()
+        let saved = try #require(environment.store.record(for: key))
+        #expect(saved.view?.layout == .spread)
+        #expect(saved.windowSize == nil)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("保存した並び順の ZIP は、開いて閉じるだけでは設定を書き換えない", .timeLimit(.minutes(1)))
     func restoringZipOrderDoesNotSave() async throws {
         let environment = try environment()
@@ -766,13 +800,15 @@ struct DocumentSettingsFlowTests {
             styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
         model.window = window
         try await open(model)
+        model.sizeWindowToPaper()
+        let paper = try #require(model.currentPaperSize)
         model.enterPrintMode()
-        #expect(window.contentRect(forFrameRect: window.frame).size != NSSize(width: 600, height: 848))
+        #expect(model.currentPaperSize == nil)
         model.printOptions.furniture = .pageNumber
         model.rememberedSettingsDidChange()
         model.stop()
         let saved = try #require(environment.store.record(for: ContentHash.of(data).hex))
-        #expect(saved.windowSize == CGSize(width: 600, height: 848 - 2 * ViewerWindow.bandHeight))
+        #expect(saved.windowSize == paper)
         #expect(saved.printOptions?.showsPageNumbers == true)
         withExtendedLifetime(window) {}
     }
