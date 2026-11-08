@@ -2084,8 +2084,10 @@ final class DocumentViewModel {
         ViewerWindow.bandHeight * CGFloat(arrangement.bandCount)
     }
 
+    /// The paper the window shows in the view mode. Before the first pages fit the window to the paper, its size is
+    /// only where it opened, and remembering that would open the document that small next time.
     var currentPaperSize: CGSize? {
-        guard mode == .view, let window else { return nil }
+        guard mode == .view, hasSizedWindow, let window else { return nil }
         let content = window.contentRect(forFrameRect: window.frame).size
         return CGSize(width: (content.width - sideInset).rounded(), height: (content.height - bandInset).rounded())
     }
