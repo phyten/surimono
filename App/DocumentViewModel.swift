@@ -2922,7 +2922,7 @@ final class DocumentViewModel {
             summary.logicalPageCount, summary.paper.shortName, summary.sheetCount, binding)
     }
 
-    private static func message(for error: Error) -> String {
+    static func message(for error: Error) -> String {
         guard let error = error as? DocumentRenderer.RenderingError else { return error.localizedDescription }
         switch error {
         case .noReadableDocuments: return String(localized: "None of the documents could be opened.")

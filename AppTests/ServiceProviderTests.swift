@@ -150,6 +150,60 @@ struct ServiceProviderTests {
         #expect(opened == [urls[1], urls[0]])
     }
 
+    @Test("Finder で選んだファイルを「Surimono で刷る」に渡すと、ルーターが印刷モードで開く")
+    func printFiles() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let board = board()
+        defer { board.releaseGlobally() }
+        let url = URL(fileURLWithPath: "/fixtures/a.md")
+        board.writeObjects([url as NSURL])
+        var opened: [URL] = []
+        var activations = 0
+        let router = router(openDocument: { url, completion in
+            opened.append(url)
+            completion(true)
+        })
+        let provider = ServiceProvider(router: router, activate: { activations += 1 })
+        var message: NSString?
+        provider.printSelection(board, userData: nil, error: &message)
+        #expect(message == nil)
+        #expect(opened == [url])
+        #expect(activations == 1)
+        let window = model(url: url, suite: suite, library: directory)
+        defer { window.stop() }
+        router.printIfRequested(window)
+        #expect(window.isPrintModeRequested)
+    }
+
+    @Test("「Surimono で刷る」に渡した複数の画像は、画像の束が刷り台を頼まれる")
+    func printImages() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let board = board()
+        defer { board.releaseGlobally() }
+        let urls = [URL(fileURLWithPath: "/fixtures/2.png"), URL(fileURLWithPath: "/fixtures/1.png")]
+        board.writeObjects(urls as [NSURL])
+        let bundle = model(url: urls[1], suite: suite, library: directory)
+        defer { bundle.stop() }
+        var opened: [URL] = []
+        let router = OpenRouter(
+            openDocument: { _, _ in Issue.record("文書は開かない") },
+            openBundle: { urls, _ in
+                opened = urls
+                return bundle
+            }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { false },
+            showWelcome: { Issue.record("ウェルカム画面は出さない") })
+        var message: NSString?
+        ServiceProvider(router: router, activate: {}).printSelection(board, userData: nil, error: &message)
+        #expect(opened == [urls[1], urls[0]])
+        #expect(bundle.isPrintModeRequested)
+    }
+
     @Test("「Surimono で刷る」で渡したファイルは、その文書の窓だけが刷り台を頼まれる")
     func printFileOnceOpen() {
         let suite = TestDefaultsSuite()

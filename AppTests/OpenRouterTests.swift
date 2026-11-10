@@ -125,6 +125,118 @@ struct OpenRouterTests {
         #expect(active == 0)
     }
 
+    private func model(_ url: URL?, suite: TestDefaultsSuite, library: URL) -> DocumentViewModel {
+        DocumentViewModel(
+            data: Data("# a".utf8), fileURL: url, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: library))
+    }
+
+    @Test("1つのファイルを印刷モードで開くと、その文書の窓ができたときに刷り台を頼む")
+    func singleInPrintMode() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var opened: [URL] = []
+        var windows: [DocumentViewModel] = []
+        let router = OpenRouter(
+            openDocument: { url, completion in
+                opened.append(url)
+                // The document's window appears before the open is reported as finished.
+                windows = [self.model(url, suite: suite, library: directory)]
+                completion(true)
+            }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") },
+            hasOpenWindows: { false }, showWelcome: { Issue.record("ウェルカム画面は出さない") },
+            openWindows: { windows })
+        #expect(router.open([url("a.md")], printing: true))
+        defer { for model in windows { model.stop() } }
+        #expect(opened == [url("a.md")])
+        #expect(windows.first?.isPrintModeRequested == true)
+    }
+
+    @Test("印刷モードを頼まずに開いた文書は表示モードのまま")
+    func singleWithoutPrintMode() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var windows: [DocumentViewModel] = []
+        let router = OpenRouter(
+            openDocument: { url, completion in
+                windows = [self.model(url, suite: suite, library: directory)]
+                completion(true)
+            }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in },
+            hasOpenWindows: { false }, showWelcome: {}, openWindows: { windows })
+        router.open([url("a.md")])
+        defer { for model in windows { model.stop() } }
+        #expect(windows.first?.isPrintModeRequested == false)
+    }
+
+    @Test("複数の画像を印刷モードで開くと、画像の束の窓が刷り台を頼まれる")
+    func bundleInPrintMode() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let bundle = model(nil, suite: suite, library: directory)
+        defer { bundle.stop() }
+        var opened: [URL] = []
+        let router = OpenRouter(
+            openDocument: { _, _ in Issue.record("単独では開かない") },
+            openBundle: { urls, _ in
+                opened = urls
+                return bundle
+            }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { false },
+            showWelcome: {})
+        router.open([url("2.png"), url("1.jpg")], printing: true)
+        #expect(opened == [url("1.jpg"), url("2.png")])
+        #expect(bundle.isPrintModeRequested)
+    }
+
+    @Test("対応する文書がない選択を印刷モードで開こうとすると、警告だけを出して何も開かない")
+    func unsupportedInPrintMode() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let other = model(url("a.md"), suite: suite, library: directory)
+        defer { other.stop() }
+        var warnings = 0
+        let router = OpenRouter(
+            openDocument: { _, _ in Issue.record("単独では開かない") },
+            openBundle: { _, _ in
+                Issue.record("束は開かない")
+                return nil
+            },
+            openBinder: { _, _ in
+                Issue.record("合本は開かない")
+                return nil
+            }, warn: { _ in warnings += 1 }, hasOpenWindows: { true }, showWelcome: {}, openWindows: { [other] })
+        router.open([url("a.zip"), url("b.unknown")], printing: true)
+        #expect(warnings == 1)
+        #expect(!other.isPrintModeRequested)
+    }
+
+    @Test("すでに開いているファイルを印刷モードで開くと、文書を開く処理が前面に出し、その窓が刷り台を頼まれる")
+    func openFileInPrintMode() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let existing = model(url("a.md"), suite: suite, library: directory)
+        defer { existing.stop() }
+        var shown: [URL] = []
+        let router = OpenRouter(
+            openDocument: { url, completion in
+                shown.append(url)
+                completion(true)
+            }, openBundle: { _, _ in nil }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") },
+            hasOpenWindows: { true }, showWelcome: {}, openWindows: { [existing] })
+        router.open([url("a.md")], printing: true)
+        #expect(shown == [url("a.md")])
+        #expect(existing.isPrintModeRequested)
+    }
+
     @Test("対応する文書がないドロップは対象ウィンドウで警告する")
     func sheet() {
         let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
