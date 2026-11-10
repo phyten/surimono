@@ -67,11 +67,14 @@ struct PrintPressBar: View {
                 LayoutCard(
                     layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
                     paper: PrintModeText.cardPaper(layout, language: model.language),
-                    help: "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
+                    help: PrintModeText.cardHelp(
+                        "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
+                        issue: model.printerIssue(for: layout), language: model.language),
                     isSelected: model.layoutID == layout.id
                 ) {
                     model.chooseCard(at: index)
                 }
+                .printerIssueBadge(for: layout, model: model)
             }
         }
         .accessibilityElement(children: .contain)
@@ -114,6 +117,7 @@ struct PrintPressBar: View {
                 Text(verbatim: line).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
                     .monospacedDigit().lineLimit(1).help(Text(verbatim: line))
             }
+            PrinterIssueLine(model: model)
             if model.canSaveAsFile {
                 Button {
                     model.saveAsFile()
@@ -212,6 +216,7 @@ struct PrintPressBar: View {
             return PrintModeText.string(
                 "No printer is set up, so Print opens the system print dialog (⌘P)", language: model.language)
         }
+        if let issue = model.printerIssue { return PrintModeText.issuePrintHelp(issue, language: model.language) }
         return PrintModeText.format("Print to %@ right away (⌘P)", language: model.language, printer)
     }
 }
