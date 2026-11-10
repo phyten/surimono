@@ -19,6 +19,42 @@ struct FinishCacheTests {
         DocumentRenderer(paginate: { _ in try RenderingFixtures.pdf(count: 2) })
     }
 
+    @Test("冊子のとじ方だけなら本文を組み直さず面付けを変える")
+    func bindingComposesOnly() async throws {
+        var settings = try settings(.a4BookletA5)
+        let renderer = renderer()
+        let left = try await renderer.render(source, settings: settings)
+        settings.layout = settings.layout.bound(.right)
+        let right = try await renderer.render(source, settings: settings)
+        #expect(renderer.logicalRenderCount == 1)
+        #expect(renderer.sheetCompositionCount == 2)
+        #expect(left.logicalDocument === right.logicalDocument)
+        #expect(right.plan.sides.map(\.slots) == [[0, nil], [nil, 1]])
+    }
+
+    @Test("内外余白のある冊子はとじ方を変えると本文の移動先も更新する")
+    func bindingMirrorsContent() async throws {
+        var settings = try settings(.a4BookletA5)
+        settings.options.margins = PageMargins(top: 15, left: 15, bottom: 15, right: 10)
+        settings.options.mirrorsMargins = true
+        let renderer = DocumentRenderer(paginate: { request in
+            try RenderingFixtures.pdf(count: 2, size: request.pageSize)
+        })
+        let left = try await renderer.prepare(source, settings: settings)
+        settings.layout = settings.layout.bound(.right)
+        let right = try await renderer.prepare(source, settings: settings)
+        func x(_ document: PDFDocument, index: Int) throws -> CGFloat {
+            let page = try #require(document.page(at: index))
+            let selection = try #require(document.findString("PAGE-\(index + 1)", withOptions: []).first)
+            return selection.bounds(for: page).minX
+        }
+        #expect(renderer.logicalRenderCount == 2)
+        let firstShift = try x(right.logicalDocument, index: 0) - x(left.logicalDocument, index: 0)
+        let secondShift = try x(right.logicalDocument, index: 1) - x(left.logicalDocument, index: 1)
+        #expect(abs(firstShift + 14.173) < 0.1)
+        #expect(abs(secondShift - 14.173) < 0.1)
+    }
+
     @Test("ヘッダーを変えても文書は組み直さず、用紙だけ作り直す")
     func headerComposesOnly() async throws {
         var settings = try settings()

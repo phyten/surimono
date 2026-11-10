@@ -2,9 +2,12 @@ import CoreGraphics
 import Foundation
 
 public enum PaperSize: String, CaseIterable, Codable, Sendable {
-    case a3, a4, a5, b4, b5, b6, letter, tabloid
+    case a3, a4, a5, b4, b5, b6, letter, tabloid, halfLetter
 
     public var size: CGSize {
+        if self == .letter { return CGSize(width: 612, height: 792) }
+        if self == .tabloid { return CGSize(width: 792, height: 1224) }
+        if self == .halfLetter { return CGSize(width: 396, height: 612) }
         let millimeters: (Double, Double) =
             switch self {
             case .a3: (297, 420)
@@ -15,6 +18,7 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
             case .b6: (128, 182)
             case .letter: (215.9, 279.4)
             case .tabloid: (279.4, 431.8)
+            case .halfLetter: (139.7, 215.9)
             }
         return CGSize(width: millimeters.0 * 72 / 25.4, height: millimeters.1 * 72 / 25.4)
     }
@@ -29,6 +33,7 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
         case .b6: "B6 (JIS)"
         case .letter: "Letter"
         case .tabloid: "Tabloid"
+        case .halfLetter: "Half Letter"
         }
     }
 
@@ -49,6 +54,7 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
         case .b4: .b5
         case .b5: .b6
         case .tabloid: .letter
+        case .letter: .halfLetter
         default: nil
         }
     }
@@ -56,14 +62,28 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
     public var series: PaperSeries {
         switch self {
         case .b4, .b5, .b6: .b
+        case .letter, .tabloid, .halfLetter: .letter
         default: .a
         }
     }
 }
 
-/// The two families of paper the tray offers its layouts in. The B sizes are the Japanese JIS ones.
+/// The B sizes use JIS dimensions so existing Japanese documents keep their paper.
 public enum PaperSeries: String, CaseIterable, Codable, Sendable {
-    case a, b
+    case a, b, letter
+
+    public static func initial(locale: Locale, defaultPaperSize: CGSize? = nil) -> PaperSeries {
+        if let size = defaultPaperSize,
+            abs(min(size.width, size.height) - 612) < 1 && abs(max(size.width, size.height) - 792) < 1
+        {
+            return .letter
+        }
+        return locale.measurementSystem == .us ? .letter : .a
+    }
+}
+
+public enum BookletBinding: String, CaseIterable, Codable, Sendable {
+    case left, right
 }
 
 public enum PaperOrientation: String, CaseIterable, Codable, Sendable {
@@ -88,7 +108,7 @@ public enum DuplexMode: String, Codable, Sendable {
 }
 
 public enum LayoutKind: String, Codable, Sendable {
-    case normal, twoUp, booklet, handout3
+    case normal, twoUp, booklet, handout3, fourUp
 }
 
 public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
@@ -97,12 +117,14 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public let sheet: PaperSize
     public let duplex: DuplexMode
     public private(set) var landscapeContent = false
+    public private(set) var bookletBinding: BookletBinding = .left
 
     public enum ValidationError: Error, Sendable {
         case missingHalfSize
         case twoUpMustBeSingleSided
         case bookletMustUseShortEdge
         case handoutMustBeSingleSided
+        case fourUpMustBeSingleSided
     }
 
     public init(id: String, kind: LayoutKind, sheet: PaperSize, duplex: DuplexMode) throws {
@@ -110,6 +132,7 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         if kind == .twoUp && duplex != .none { throw ValidationError.twoUpMustBeSingleSided }
         if kind == .booklet && duplex != .shortEdge { throw ValidationError.bookletMustUseShortEdge }
         if kind == .handout3 && duplex != .none { throw ValidationError.handoutMustBeSingleSided }
+        if kind == .fourUp && duplex != .none { throw ValidationError.fourUpMustBeSingleSided }
         self.init(validatedID: id, kind: kind, sheet: sheet, duplex: duplex)
     }
 
@@ -120,7 +143,7 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         self.duplex = duplex
     }
 
-    private enum CodingKeys: String, CodingKey { case id, kind, sheet, duplex, landscapeContent }
+    private enum CodingKeys: String, CodingKey { case id, kind, sheet, duplex, landscapeContent, bookletBinding }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -129,11 +152,12 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
             sheet: values.decode(PaperSize.self, forKey: .sheet),
             duplex: values.decode(DuplexMode.self, forKey: .duplex))
         landscapeContent =
-            try kind != .booklet && (values.decodeIfPresent(Bool.self, forKey: .landscapeContent) ?? false)
+            try !hasFixedOrientation && (values.decodeIfPresent(Bool.self, forKey: .landscapeContent) ?? false)
+        bookletBinding = try values.decodeIfPresent(BookletBinding.self, forKey: .bookletBinding) ?? .left
     }
 
     public var sheetSize: CGSize {
-        if kind == .handout3 { return sheet.size }
+        if kind == .handout3 || kind == .fourUp { return sheet.size }
         let landscapeSheet = kind == .normal ? landscapeContent : !landscapeContent
         return landscapeSheet ? CGSize(width: sheet.size.height, height: sheet.size.width) : sheet.size
     }
@@ -145,6 +169,7 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public var logicalPageSize: CGSize { logicalPageSize(options: PrintOptions()) }
 
     public func logicalPageSize(options: PrintOptions) -> CGSize {
+        if kind == .fourUp { return CGSize(width: sheet.size.width / 2, height: sheet.size.height / 2) }
         if kind == .handout3 {
             let rect = slotRect(at: 0, options: options)
             return CGSize(width: rect.width * sheetSize.width, height: rect.height * sheetSize.height)
@@ -155,9 +180,21 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
 
     public func oriented(_ landscape: Bool) -> PrintLayout {
         var result = self
-        result.landscapeContent = kind != .booklet && landscape
+        result.landscapeContent = !hasFixedOrientation && landscape
         return result
     }
+
+    public var hasFixedOrientation: Bool { kind == .booklet || kind == .handout3 || kind == .fourUp }
+
+    public func bound(_ binding: BookletBinding) -> PrintLayout {
+        var result = self
+        result.bookletBinding = kind == .booklet ? binding : .left
+        return result
+    }
+
+    public var isRightBound: Bool { kind == .booklet && bookletBinding == .right }
+
+    public func swapsSides(onPage index: Int) -> Bool { (index % 2 == 1) != isRightBound }
 
     public var hasStackedSlots: Bool { kind == .handout3 || (kind == .twoUp && landscapeContent) }
 
@@ -173,6 +210,9 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
             return CGRect(
                 x: margins.left / size.width, y: (margins.top + CGFloat(index) * (height + gap)) / size.height,
                 width: width / size.width, height: height / size.height)
+        }
+        if kind == .fourUp {
+            return CGRect(x: CGFloat(index % 2) / 2, y: CGFloat(index / 2) / 2, width: 0.5, height: 0.5)
         }
         if hasStackedSlots {
             return CGRect(x: 0, y: CGFloat(index) / 2, width: 1, height: 0.5)
@@ -204,18 +244,23 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     /// Whether the even pages take the left and right margins the other way round.
     public func mirrorsMargins(options: PrintOptions) -> Bool { options.mirrorsMargins && hasFacingPages }
 
-    public var pagesPerSide: Int { kind == .handout3 ? 3 : kind == .normal ? 1 : 2 }
+    public var pagesPerSide: Int { kind == .fourUp ? 4 : kind == .handout3 ? 3 : kind == .normal ? 1 : 2 }
 
     public func displayName(language: String = "en") -> String {
         let terms: [String: [String]] = [
-            "en": ["Single-sided", "Duplex", "3-up + Notes", "2-up", "Booklet"],
-            "ja": ["片面", "両面", "3枚＋メモ", "2 ページを 1 枚に", "中綴じ"],
-            "zh-Hans": ["单面", "双面", "每页3张＋笔记", "每页2张", "小册子"],
-            "zh-Hant": ["單面", "雙面", "每頁3張＋筆記", "每頁2張", "小冊子"],
-            "ko": ["단면", "양면", "3쪽 + 메모", "2쪽 모아찍기", "소책자"],
-            "fr": ["Recto", "Recto verso", "3 pages + notes", "2 pages par feuille", "Livret"],
-            "de": ["Einseitig", "Beidseitig", "3 Seiten + Notizen", "2 Seiten pro Blatt", "Broschüre"],
-            "es": ["Una cara", "Doble cara", "3 páginas + notas", "2 páginas por hoja", "Folleto"],
+            "en": ["Single-sided", "Duplex", "3-up + Notes", "2-up", "Booklet", "4 Pages on One Sheet"],
+            "ja": ["片面", "両面", "3枚＋メモ", "2 ページを 1 枚に", "中綴じ", "4 ページを 1 枚に"],
+            "zh-Hans": ["单面", "双面", "每页3张＋笔记", "每页2张", "小册子", "每页4张"],
+            "zh-Hant": ["單面", "雙面", "每頁3張＋筆記", "每頁2張", "小冊子", "每頁4張"],
+            "ko": ["단면", "양면", "3쪽 + 메모", "2쪽 모아찍기", "소책자", "4쪽 모아찍기"],
+            "fr": ["Recto", "Recto verso", "3 pages + notes", "2 pages par feuille", "Livret", "4 pages par feuille"],
+            "de": [
+                "Einseitig", "Beidseitig", "3 Seiten + Notizen", "2 Seiten pro Blatt", "Broschüre",
+                "4 Seiten pro Blatt",
+            ],
+            "es": [
+                "Una cara", "Doble cara", "3 páginas + notas", "2 páginas por hoja", "Folleto", "4 páginas por hoja",
+            ],
         ]
         let index: Int
         switch kind {
@@ -223,6 +268,7 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         case .handout3: index = 2
         case .twoUp: index = 3
         case .booklet: index = 4
+        case .fourUp: index = 5
         }
         let names = terms.mapValues { $0[index] }
         let title = UILanguage.name(names, language: language, english: names["en"] ?? "")
@@ -248,13 +294,45 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public static let b5BookletB6 = PrintLayout(
         validatedID: "b5BookletB6", kind: .booklet, sheet: .b5, duplex: .shortEdge)
     public static let b4TwoUp = PrintLayout(validatedID: "b4TwoUp", kind: .twoUp, sheet: .b4, duplex: .none)
-    public static let presets: [PrintLayout] = presets(in: .a) + presets(in: .b)
+    public static let b5Handout3 = PrintLayout(validatedID: "b5Handout3", kind: .handout3, sheet: .b5, duplex: .none)
+    public static let letterSingle = PrintLayout(
+        validatedID: "letterSingle", kind: .normal, sheet: .letter, duplex: .none)
+    public static let letterDuplex = PrintLayout(
+        validatedID: "letterDuplex", kind: .normal, sheet: .letter, duplex: .longEdge)
+    public static let tabloidBookletLetter = PrintLayout(
+        validatedID: "tabloidBookletLetter", kind: .booklet, sheet: .tabloid, duplex: .shortEdge)
+    public static let letterBookletHalfLetter = PrintLayout(
+        validatedID: "letterBookletHalfLetter", kind: .booklet, sheet: .letter, duplex: .shortEdge)
+    public static let tabloidTwoUp = PrintLayout(
+        validatedID: "tabloidTwoUp", kind: .twoUp, sheet: .tabloid, duplex: .none)
+    public static let letterHandout3 = PrintLayout(
+        validatedID: "letterHandout3", kind: .handout3, sheet: .letter, duplex: .none)
+    public static let a4TwoUp = PrintLayout(validatedID: "a4TwoUp", kind: .twoUp, sheet: .a4, duplex: .none)
+    public static let b5TwoUp = PrintLayout(validatedID: "b5TwoUp", kind: .twoUp, sheet: .b5, duplex: .none)
+    public static let letterTwoUp = PrintLayout(validatedID: "letterTwoUp", kind: .twoUp, sheet: .letter, duplex: .none)
+    public static let a4FourUp = PrintLayout(validatedID: "a4FourUp", kind: .fourUp, sheet: .a4, duplex: .none)
+    public static let b5FourUp = PrintLayout(validatedID: "b5FourUp", kind: .fourUp, sheet: .b5, duplex: .none)
+    public static let letterFourUp = PrintLayout(
+        validatedID: "letterFourUp", kind: .fourUp, sheet: .letter, duplex: .none)
+    public static let presets: [PrintLayout] = PaperSeries.allCases.flatMap { presets(in: $0) + compactPresets(in: $0) }
 
-    /// The layouts of one series in the order of their cards, which is also the order of ⌘1 to ⌘6.
     public static func presets(in series: PaperSeries) -> [PrintLayout] {
         switch series {
         case .a: [.a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3]
-        case .b: [.b5Single, .b5Duplex, .b4BookletB5, .b5BookletB6, .b4TwoUp]
+        case .b: [.b5Single, .b5Duplex, .b4BookletB5, .b5BookletB6, .b4TwoUp, .b5Handout3]
+        case .letter:
+            [
+                .letterSingle, .letterDuplex, .tabloidBookletLetter, .letterBookletHalfLetter, .tabloidTwoUp,
+                .letterHandout3,
+            ]
+        }
+    }
+
+    public static func compactPresets(in series: PaperSeries) -> [PrintLayout] {
+        switch series {
+        case .a: [.a4TwoUp, .a4FourUp]
+        case .b: [.b5TwoUp, .b5FourUp]
+        case .letter: [.letterTwoUp, .letterFourUp]
         }
     }
 
@@ -263,9 +341,10 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     /// The layout that prints the same way on the other series; a layout with no counterpart starts from the first.
     public func counterpart(in series: PaperSeries) -> PrintLayout {
         guard series != self.series else { return self }
-        let index = Self.presets(in: self.series).firstIndex { $0.id == id } ?? 0
-        let others = Self.presets(in: series)
-        return others.indices.contains(index) ? others[index] : others[0]
+        let index =
+            (Self.presets(in: self.series) + Self.compactPresets(in: self.series)).firstIndex { $0.id == id } ?? 0
+        let others = Self.presets(in: series) + Self.compactPresets(in: series)
+        return (others.indices.contains(index) ? others[index] : others[0]).bound(bookletBinding)
     }
 }
 

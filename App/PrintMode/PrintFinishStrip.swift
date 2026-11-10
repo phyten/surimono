@@ -112,8 +112,12 @@ struct PrintSeriesSwitch: View {
 
     var body: some View {
         PrintSegments(
-            label: "Paper to Use", options: [.init(PaperSeries.a, "A4 / A3"), .init(PaperSeries.b, "B5 / B4")],
-            selection: model.trayPaperSeries, help: "A4 and A3, or B5 and B4 (JIS)"
+            label: "Paper to Use",
+            options: [
+                .init(PaperSeries.a, "A4 / A3"), .init(PaperSeries.b, "B5 / B4"),
+                .init(PaperSeries.letter, "Letter / Tabloid"),
+            ],
+            selection: model.trayPaperSeries, help: "Paper to Use"
         ) { model.choosePaperSeries($0) }
     }
 }

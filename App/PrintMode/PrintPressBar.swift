@@ -63,18 +63,37 @@ struct PrintPressBar: View {
     private var cards: some View {
         PrintFlowLayout(spacing: 2, lineSpacing: 4, alignment: .leading) {
             let cards = Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated())
-            ForEach(cards, id: \.element.id) { index, layout in
-                LayoutCard(
-                    layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
-                    paper: PrintModeText.cardPaper(layout, language: model.language),
-                    help: PrintModeText.cardHelp(
-                        "\(layout.displayName(language: model.language)) (⌘\(index + 1))",
-                        issue: model.printerIssue(for: layout), language: model.language),
-                    isSelected: model.layoutID == layout.id
-                ) {
-                    model.chooseCard(at: index)
+            ForEach(cards, id: \.element.id) { index, preset in
+                let compact =
+                    index == 4 && model.layout.series == model.trayPaperSeries
+                    && (model.layout.kind == .twoUp || model.layout.kind == .fourUp)
+                let layout = compact ? model.layout : preset
+                VStack(spacing: 0) {
+                    LayoutCard(
+                        layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
+                        paper: PrintModeText.cardPaper(layout, language: model.language),
+                        help: PrintModeText.cardHelp(
+                            layout.displayName(language: model.language) + (compact ? "" : " (⌘\(index + 1))"),
+                            issue: model.printerIssue(for: layout), language: model.language),
+                        isSelected: model.layoutID == layout.id
+                    ) {
+                        model.chooseLayout(layout.id)
+                    }
+                    .printerIssueBadge(for: layout, model: model)
+                    if index == 4 {
+                        Menu {
+                            ForEach([preset] + PrintLayout.compactPresets(in: model.trayPaperSeries)) { option in
+                                Button(option.displayName(language: model.language)) { model.chooseLayout(option.id) }
+                            }
+                        } label: {
+                            Text("Paper & Pages").font(.system(size: 10)).lineLimit(1).minimumScaleFactor(0.7)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .frame(width: 80, height: 22)
+                        .accessibilityIdentifier("compactLayoutMenu")
+                    }
                 }
-                .printerIssueBadge(for: layout, model: model)
+                .frame(width: 80, height: 110, alignment: .top)
             }
         }
         .accessibilityElement(children: .contain)
@@ -448,7 +467,7 @@ struct LayoutPictogram: View {
                     CGRect(x: 20, y: 2.5, width: 13, height: 18.5), CGRect(x: 13.5, y: 7, width: 13, height: 18.5),
                 ],
                 extra: arrow, text: lines([(16.5, 11.5, 7), (16.5, 14.5, 7), (16.5, 17.5, 5)]))
-        case .booklet where layout.sheet == .a3 || layout.sheet == .b4:
+        case .booklet where layout.sheet == .a3 || layout.sheet == .b4 || layout.sheet == .tabloid:
             var fold = Path()
             fold.move(to: CGPoint(x: 23, y: 4.5))
             fold.addLine(to: CGPoint(x: 23, y: 26.5))
@@ -465,6 +484,12 @@ struct LayoutPictogram: View {
             return Parts(
                 papers: [CGRect(x: 10, y: 8, width: 26, height: 16)], fold: fold,
                 text: lines([(13, 12, 7), (13, 15, 7), (26, 12, 7), (26, 15, 7), (26, 18, 4)]))
+        case .fourUp:
+            var text = Path()
+            for y in [6.0, 16.0] {
+                for x in [15.0, 24.0] { text.addRect(CGRect(x: x, y: y, width: 7, height: 8)) }
+            }
+            return Parts(papers: [CGRect(x: 12, y: 3, width: 22, height: 24)], text: text)
         case .handout3:
             var text = lines([(27, 9, 6), (27, 13, 6), (27, 17, 6), (27, 21, 6)])
             for y in [6.5, 12.5, 18.5] {

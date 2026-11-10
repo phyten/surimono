@@ -182,7 +182,10 @@ final class AppPreferences {
         }
     }
 
-    init(defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier) {
+    init(
+        defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier,
+        locale: Locale = .current, defaultPaperSize: CGSize? = NSPrintInfo.shared.paperSize
+    ) {
         self.defaults = defaults
         languageDomainName = domainName
         let savedLanguages = domainName.flatMap {
@@ -220,7 +223,10 @@ final class AppPreferences {
         defaultTextScale = TextScale.steps.contains(scale) ? scale : 1
         defaultPaperOrientation =
             PaperOrientation(rawValue: defaults.string(forKey: "defaultPaperOrientation") ?? "") ?? .auto
-        layoutID = defaults.string(forKey: "layout") ?? "a4Single"
+        layoutID =
+            defaults.string(forKey: "layout")
+            ?? (PaperSeries.initial(locale: locale, defaultPaperSize: defaultPaperSize) == .letter
+                ? "letterSingle" : "a4Single")
         themeID = defaults.string(forKey: "theme") ?? "standard"
         themeSampleSource =
             defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .document

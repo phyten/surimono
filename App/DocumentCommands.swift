@@ -7,7 +7,7 @@ struct DocumentCommands: Commands {
     private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
     private var layoutCards: [PrintLayout] {
         let cards = PrintLayout.presets(in: model?.trayPaperSeries ?? .a)
-        return cards.contains(.a4Handout3) ? cards : cards + [.a4Handout3]
+        return model?.trayPaperSeries == .b ? Array(cards.prefix(5)) + [.a4Handout3] : cards
     }
 
     /// Named as the binder's window is.
@@ -131,6 +131,10 @@ struct DocumentCommands: Commands {
                 ForEach(Array(layoutCards.enumerated()), id: \.element.id) { index, layout in
                     Button(layout.displayName(language: language)) { model?.chooseCard(at: index) }
                         .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
+                }
+                Divider()
+                ForEach(PrintLayout.compactPresets(in: model?.trayPaperSeries ?? .a)) { layout in
+                    Button(layout.displayName(language: language)) { model?.chooseLayout(layout.id) }
                 }
             }
             Button("Choose Style…") { model?.openThemePalette() }

@@ -28,6 +28,11 @@ public enum Imposition {
                 for index in stride(from: 0, to: count, by: 2) {
                     sides.append(SheetSide(slots: [index, page(index + 1)], isBack: false))
                 }
+            case .fourUp:
+                for index in stride(from: 0, to: count, by: 4) {
+                    sides.append(
+                        SheetSide(slots: [index, page(index + 1), page(index + 2), page(index + 3)], isBack: false))
+                }
             case .handout3:
                 for index in stride(from: 0, to: count, by: 3) {
                     sides.append(SheetSide(slots: [index, page(index + 1), page(index + 2)], isBack: false))
@@ -40,6 +45,9 @@ public enum Imposition {
                     sides.append(SheetSide(slots: [page(2 * sheet + 1), page(padded - 2 * sheet - 2)], isBack: true))
                 }
             }
+        }
+        if layout.isRightBound {
+            sides = sides.map { SheetSide(slots: $0.slots.reversed(), isBack: $0.isBack) }
         }
         return ImpositionPlan(
             sides: sides, sheetCount: duplex ? sides.count / 2 : sides.count, isDuplex: duplex,

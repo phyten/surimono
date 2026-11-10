@@ -50,6 +50,19 @@ struct PrintFinishSheet: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if model.layout.kind == .booklet {
+                section("Booklet Binding", isFirst: true) {
+                    Picker(
+                        "Booklet Binding",
+                        selection: Binding(get: { model.effectiveBookletBinding }, set: { model.bookletBinding = $0 })
+                    ) {
+                        Text("Left Binding").tag(BookletBinding.left)
+                        Text("Right Binding").tag(BookletBinding.right)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+            }
             if model.marginsAffectPrinting {
                 section("Paper & Margins", isFirst: true) { PrintMarginEditor(model: model) }
             }
