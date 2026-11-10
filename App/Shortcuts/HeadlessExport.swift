@@ -34,7 +34,9 @@ struct HeadlessExport {
     func theme(named name: String) -> PrintTheme? {
         let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return library.themes.first { theme in
-            [theme.id, theme.name, theme.displayName(language: language)].contains {
+            // In any language the app speaks, not only the one shown now: a shortcut is written once and may run
+            // on a Mac set to another language.
+            ([theme.id, theme.name] + UILanguage.supported.map { theme.displayName(language: $0) }).contains {
                 $0.compare(wanted, options: [.caseInsensitive, .widthInsensitive]) == .orderedSame
             }
         }
