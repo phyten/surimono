@@ -10,8 +10,9 @@ struct PrintTrayView: View {
     let tray: PrintTray
     let document: PDFDocument
     @Binding var showsFold: Bool
-    /// Owned by the print mode, so the zoom and the place outlive the tray while the sheets are made again.
-    @Bindable var zoomer: TrayZoomer
+    /// Where the tray before this one was, and where this one leaves what it shows.
+    let memory: TrayMemory
+    @State private var zoomer = TrayZoomer()
     @State private var headerHeight: CGFloat = 80
     @State private var headingHeight: CGFloat = 18
     @State private var currentRow = 0
@@ -34,11 +35,17 @@ struct PrintTrayView: View {
                 .padding(.trailing, 14)
                 .padding(.bottom, 16)
             }
-            .onChange(of: context, initial: true) { _, context in zoomer.context = context }
+            .onChange(of: context, initial: true) { _, context in
+                if let kept = memory.kept {
+                    memory.kept = nil
+                    zoomer.adopt(kept)
+                }
+                zoomer.context = context
+            }
         }
         .onAppear { model.trayZoomer = zoomer }
         .onDisappear {
-            zoomer.trayWillLeave()
+            memory.kept = zoomer.leave()
             if model.trayZoomer === zoomer { model.trayZoomer = nil }
         }
         .onChange(of: model.requestedTrayRow, initial: true) { _, row in

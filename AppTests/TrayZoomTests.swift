@@ -283,24 +283,22 @@ struct TrayZoomerTests {
         #expect(zoomer.position.point.map { abs($0.y - 532) < 0.01 } == true)
     }
 
-    @Test("用紙を作り直すあいだ刷り台が外れても、倍率と見ていた用紙が残る", .timeLimit(.minutes(1)))
+    @Test("用紙を作り直すあいだ刷り台が外れても、次の刷り台が倍率と見ていた用紙を引き継ぐ", .timeLimit(.minutes(1)))
     func remakingKeepsZoomAndSheet() async throws {
         let zoomer = zoomer()
         let context = try #require(zoomer.context)
         zoomer.zoomIn()
         zoomer.scroll(to: CGPoint(x: 0, y: 900))
         let offset = zoomer.scroll.offset
-        zoomer.trayWillLeave()
-        // What a fresh scroll view tells before it is told where to go.
-        zoomer.scroll.offset = .zero
-        zoomer.position = ScrollPosition(edge: .top)
-        zoomer.context = context
-        #expect(abs(zoomer.zoom - 1.25) < 0.0001)
-        #expect(zoomer.scroll.offset == offset)
+        let next = TrayZoomer()
+        next.adopt(try #require(zoomer.leave()))
+        next.context = context
+        #expect(abs(next.zoom - 1.25) < 0.0001)
+        #expect(next.scroll.offset == offset)
         // The new scroll view is told a turn later, once it is up.
-        #expect(zoomer.position.point == nil)
-        for _ in 0..<200 where zoomer.position.point == nil { try await Task.sleep(for: .milliseconds(5)) }
-        #expect(zoomer.position.point == offset)
+        #expect(next.position.point == nil)
+        for _ in 0..<200 where next.position.point == nil { try await Task.sleep(for: .milliseconds(5)) }
+        #expect(next.position.point == offset)
     }
 
     @Test("作り直しのあいだに頼まれた用紙への移動は、前の位置に戻されない", .timeLimit(.minutes(1)))
@@ -308,15 +306,17 @@ struct TrayZoomerTests {
         let zoomer = zoomer()
         let context = try #require(zoomer.context)
         zoomer.scroll(to: CGPoint(x: 0, y: 900))
-        zoomer.trayWillLeave()
-        // The third sheet is asked for while the tray is away, as when another document of a binder is chosen.
-        zoomer.show(row: 2, animated: false)
-        zoomer.context = context
-        let asked = zoomer.scroll.offset
+        let next = TrayZoomer()
+        next.adopt(try #require(zoomer.leave()))
+        // The third sheet is asked for before the new tray is laid out, as when another document of a binder is
+        // chosen.
+        next.show(row: 2, animated: false)
+        next.context = context
+        let asked = next.scroll.offset
         #expect(asked.y > 900)
         try await Task.sleep(for: .milliseconds(100))
-        #expect(zoomer.scroll.offset == asked)
-        #expect(zoomer.position.point == asked)
+        #expect(next.scroll.offset == asked)
+        #expect(next.position.point == asked)
     }
 
     @Test("作り直した直後に見出しの高さが測り直されても、外れなかった刷り台と同じ位置になる", .timeLimit(.minutes(1)))
@@ -326,17 +326,18 @@ struct TrayZoomerTests {
         var context = try #require(zoomer.context)
         stayed.scroll(to: CGPoint(x: 0, y: 900))
         zoomer.scroll(to: CGPoint(x: 0, y: 900))
-        zoomer.trayWillLeave()
-        zoomer.context = context
+        let next = TrayZoomer()
+        next.adopt(try #require(zoomer.leave()))
+        next.context = context
         // The fresh scroll view tells of its start at the top, and the header is measured 20 points taller.
-        zoomer.scroll.offset = .zero
+        next.scroll.offset = .zero
         context.headerHeight += 20
-        zoomer.context = context
+        next.context = context
         stayed.context = context
         #expect(stayed.scroll.offset.y != 900)
         try await Task.sleep(for: .milliseconds(100))
-        #expect(zoomer.scroll.offset == stayed.scroll.offset)
-        #expect(zoomer.position.point == stayed.scroll.offset)
+        #expect(next.scroll.offset == stayed.scroll.offset)
+        #expect(next.position.point == stayed.scroll.offset)
     }
 
     @Test("作り直した用紙が別のレイアウトなら、上から窓に収めて始める")
@@ -345,11 +346,53 @@ struct TrayZoomerTests {
         var context = try #require(zoomer.context)
         zoomer.zoomIn()
         zoomer.scroll(to: CGPoint(x: 0, y: 900))
-        zoomer.trayWillLeave()
+        let next = TrayZoomer()
+        next.adopt(try #require(zoomer.leave()))
         context.layout = .a4Duplex
-        zoomer.context = context
-        #expect(zoomer.zoom == 1)
-        #expect(zoomer.scroll.offset == .zero)
+        next.context = context
+        #expect(next.zoom == 1)
+        #expect(next.scroll.offset == .zero)
+        #expect(next.position.point == nil)
+    }
+
+    @Test("窓の刷り台で文字の大きさを変えて用紙を作り直しても、倍率と見ていた用紙が残り、窓は固まらない", .timeLimit(.minutes(2)))
+    func remakingInAWindow() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let windows = ClipboardWindows(
+            openFiles: { _, _ in Issue.record("ファイルは開かない") }, warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
+        windows.preferences = AppPreferences(defaults: suite.defaults)
+        windows.library = UserLibrary(root: directory)
+        let text = (1...400).map { "行 \($0) の本文です。" }.joined(separator: "\n")
+        let controller = windows.open(Data(text.utf8), format: .plainText, title: "Long Text", printing: true)
+        defer { controller.window?.close() }
+        let model = controller.model
+        func settle() async throws {
+            for _ in 0..<1500 where model.mode != .print || model.isRendering || model.trayZoomer?.context == nil {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            try await Task.sleep(for: .milliseconds(300))
+        }
+        try await settle()
+        let zoomer = try #require(model.trayZoomer)
+        #expect((model.printTray?.rows.count ?? 0) >= 4)
+        zoomer.zoomIn()
+        // As a reader does: the next sheet is asked for once the larger sheets are laid out.
+        try await Task.sleep(for: .milliseconds(300))
+        zoomer.show(row: 2, animated: false)
+        try await Task.sleep(for: .milliseconds(300))
+        // What the scroll view itself tells of, not what it was asked for.
+        let before = zoomer.scroll.offset
+        #expect(before.y > 500)
+        model.increaseTextSize()
+        try await settle()
+        let next = try #require(model.trayZoomer)
+        #expect(next !== zoomer)
+        #expect(abs(next.zoom - 1.25) < 0.0001)
+        #expect(abs(next.scroll.offset.y - before.y) < 60)
+        #expect(model.canOutput)
     }
 
     @Test("窓の幅を変えても、見ていた用紙が見える範囲の上端に残る")
