@@ -117,7 +117,7 @@
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.isViewOptionsPresented = true
             }
-            if argument("SurimonoPopover") == "style" {
+            if argument("SurimonoPopover") == "style", argument("SurimonoMode") != "print" {
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.openThemePalette()
             }
@@ -336,12 +336,16 @@
                     }
                 }
                 if argument("SurimonoPopover") == "style" {
+                    if let value = argument("SurimonoSampleSource"), let source = ThemeSampleSource(rawValue: value) {
+                        model.preferences.themeSampleSource = source
+                    }
+                    model.openThemePalette()
                     // The palette samples the themes it shows.
                     try? await Task.sleep(for: .milliseconds(2500))
                 }
                 if let theme = argument("SurimonoTry") {
                     // As if the pointer rested on the theme in the palette.
-                    model.tryTheme(theme)
+                    model.hoverPaletteTheme(theme)
                     try? await Task.sleep(for: .milliseconds(2500))
                 }
                 if let palette = argument("SurimonoTryCode") {

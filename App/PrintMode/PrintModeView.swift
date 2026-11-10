@@ -11,7 +11,10 @@ struct PrintModeView: View {
     var body: some View {
         VStack(spacing: 0) {
             // The bars stay above the tray's scroll view, whose backdrop reaches under them.
-            PrintTopBar(model: model, cancelsWithEscape: !showsFold && !model.isPrintFinishPresented).zIndex(1)
+            PrintTopBar(
+                model: model,
+                cancelsWithEscape: !showsFold && !model.isPrintFinishPresented && !model.isThemePalettePresented
+            ).zIndex(1)
             HStack(spacing: 0) {
                 if model.imageBundle != nil { ImageBundleDrawer(model: model) }
                 if model.binder != nil { BinderDrawer(model: model) }
@@ -20,6 +23,7 @@ struct PrintModeView: View {
             PrintFinishStrip(model: model).zIndex(1)
             PrintPressBar(model: model).zIndex(1)
         }
+        .overlay { ThemePaletteAnchor(model: model) }
         .foregroundStyle(PrintPalette.ink)
         .tint(PrintPalette.ai)
         .ignoresSafeArea(.container, edges: .top)
@@ -236,21 +240,18 @@ struct PrintStyleMenu: View {
 
     var body: some View {
         if model.usesPrintTheme {
-            Menu {
-                ThemeMenuContent(model: model)
-                TextSizeMenuItems(model: model)
-                Divider()
-                Button("Open Styles Folder") { model.library.openFolder("Styles") }
+            Button {
+                model.openThemePalette()
             } label: {
                 label(
                     "Style",
                     value: model.styleName)
             }
-            .menuStyle(.button)
             .buttonStyle(.plain)
-            .menuIndicator(.hidden)
             .fixedSize()
+            .accessibilityIdentifier("printStylePaletteButton")
             .help("Choose how the text and headings look when printed")
+            .modifier(PrintStyleTip(model: model))
         }
         if model.usesHTMLPreset {
             Menu {

@@ -108,7 +108,7 @@ extension DocumentViewModel {
 
     /// Opens the palette from the band's style button or from "…" when the band has folded the style into it.
     func openThemePalette() {
-        guard usesPrintTheme, mode == .view else { return }
+        guard usesPrintTheme, mode == .view || mode == .print else { return }
         // Before it opens, so that it opens at its size with or without the code colors.
         followThemeSamples()
         isThemePalettePresented = true
@@ -117,12 +117,26 @@ extension DocumentViewModel {
     /// Called as the palette closes, however it was closed.
     func themePaletteDidClose() {
         isThemePalettePresented = false
+        palettePreviewThemeID = nil
         themeTrial.end()
     }
 
     /// Keeps the samples in step with the document and its layout while the palette or the stage shows them.
     func followThemeSamples() {
         themeSamples.refresh()
+        if preferences.themeSampleSource == .specimen { specimenSamples.refresh() }
+    }
+
+    var paletteSamples: ThemeSamples {
+        preferences.themeSampleSource == .specimen ? specimenSamples : themeSamples
+    }
+
+    func hoverPaletteTheme(_ id: String) {
+        if mode == .print {
+            palettePreviewThemeID = id
+        } else {
+            tryTheme(id)
+        }
     }
 
     /// Reads the document's places for the stage. A place chosen before the document changed follows its words, or
