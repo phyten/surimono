@@ -7,6 +7,8 @@ final class DocumentWindows: NSObject {
     static let shared = DocumentWindows()
     private(set) weak var activeModel: DocumentViewModel?
     @ObservationIgnored private let models = NSMapTable<NSWindow, DocumentViewModel>.weakToWeakObjects()
+    /// Where access to a file from outside the app waits for the file's window. Replaceable for tests.
+    @ObservationIgnored var router: OpenRouter = .shared
 
     /// The windows' models that are still open; a window can only leave this table by going away.
     var openModels: [DocumentViewModel] { models.objectEnumerator()?.allObjects as? [DocumentViewModel] ?? [] }
@@ -26,6 +28,8 @@ final class DocumentWindows: NSObject {
 
     func register(_ model: DocumentViewModel, for window: NSWindow) {
         models.setObject(model, forKey: window)
+        // The file may have finished opening before its window existed.
+        router.handAccess(to: model)
         updateActive()
     }
 

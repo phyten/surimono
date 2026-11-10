@@ -7,6 +7,14 @@ public final class KeyedRecordStore<Record: Codable> {
         case invalidKey
     }
 
+    /// The state of a stored record: it differs after every write, and after every read by anyone. Whoever wrote a
+    /// record can tell from it that nobody else has used the record since.
+    public struct Token: Equatable, Sendable {
+        let file: UInt64
+        let seconds: Int
+        let nanoseconds: Int
+    }
+
     public let directory: URL
     public let capacity: Int
     private let fileManager = FileManager.default
@@ -31,7 +39,31 @@ public final class KeyedRecordStore<Record: Codable> {
         // The modification date doubles as the last use, so recently opened documents survive pruning.
         var times = [timespec(tv_sec: 0, tv_nsec: Int(UTIME_OMIT)), timespec(tv_sec: 0, tv_nsec: Int(UTIME_NOW))]
         _ = futimens(descriptor, &times)
+        var touched = stat()
+        if fstat(descriptor, &touched) == 0, touched.st_mtimespec.tv_sec == status.st_mtimespec.tv_sec,
+            touched.st_mtimespec.tv_nsec == status.st_mtimespec.tv_nsec
+        {
+            // A read right after the write can land on the same clock tick, and the token must still change.
+            var later = status.st_mtimespec
+            later.tv_nsec += 1000
+            if later.tv_nsec >= 1_000_000_000 {
+                later.tv_sec += 1
+                later.tv_nsec -= 1_000_000_000
+            }
+            times[1] = later
+            _ = futimens(descriptor, &times)
+        }
         return record
+    }
+
+    /// Returns nil when there is no record under the key.
+    public func token(for key: String) -> Token? {
+        guard let url = fileURL(for: key) else { return nil }
+        var status = stat()
+        guard lstat(url.path, &status) == 0 else { return nil }
+        return Token(
+            file: UInt64(status.st_ino), seconds: status.st_mtimespec.tv_sec,
+            nanoseconds: status.st_mtimespec.tv_nsec)
     }
 
     public func save(_ record: Record, for key: String) throws {

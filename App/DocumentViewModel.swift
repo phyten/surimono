@@ -59,6 +59,12 @@ struct Toast: Equatable, Identifiable {
 @Observable
 final class DocumentViewModel {
     private var folderLease: FolderAccess.Lease?
+    /// Access to files handed in from outside the app, which this window reads for as long as it is open.
+    private var fileAccess: [FolderAccess.Lease] = []
+    /// Whether the window of this model has registered and so had its turn to take the access that waited for its
+    /// file. A model that ends before that gives the waiting access up; one that ends after it leaves alone what
+    /// waits, which is then for a newer request to open the same file.
+    @ObservationIgnored var hasTakenItsFileAccess = false
     let fileURL: URL?
     private let title: String?
     let imageBundle: ImageBundleModel?
@@ -309,9 +315,10 @@ final class DocumentViewModel {
     @ObservationIgnored private(set) var isPrintModeRequested = false
     @ObservationIgnored private var didResizeWindow = false
     @ObservationIgnored private var saveTask: Task<Void, Never>?
-    /// The keys under which this window wrote a record where there was none. Only these are removed when the content
-    /// changes; a record from before may belong to a copy of the file that still has that content.
-    @ObservationIgnored private var createdRecordKeys: Set<String> = []
+    /// The state this window left each record in that it wrote where there was none. Such a record is removed when
+    /// the content changes, as long as its state is still this one: a record from before, or one that another window
+    /// has read or written since, may belong to a copy of the file that still has that content.
+    @ObservationIgnored private var ownedRecordTokens: [String: DocumentSettingsStore.Token] = [:]
     /// The files `contentHash` was computed from.
     @ObservationIgnored private var hashedSourceURLs: Set<URL> = []
     @ObservationIgnored private var hashTask: Task<Void, Never>?
@@ -823,6 +830,14 @@ final class DocumentViewModel {
         specimenSamples.invalidate()
         folderLease?.close()
         folderLease = nil
+        for lease in fileAccess { lease.close() }
+        fileAccess = []
+        // A window that goes away before it took the access waiting for its file would leave it waiting for ever.
+        if !hasTakenItsFileAccess, let fileURL { DocumentWindows.shared.router.giveUpAccess(for: fileURL) }
+    }
+
+    func keep(_ access: [FolderAccess.Lease]) {
+        fileAccess += access
     }
 
     func handleFileEvent(_ event: FileWatcher.Event) {
@@ -2113,7 +2128,9 @@ final class DocumentViewModel {
             // The same files no longer have the content the previous record described, so every save in the editor
             // would leave one more record behind and push other documents' settings out of the store. A set that
             // gained or lost a file still exists as it was, and keeps its record.
-            if previousSources == hashedSourceURLs, createdRecordKeys.remove(previous.hex) != nil {
+            if let token = ownedRecordTokens.removeValue(forKey: previous.hex), previousSources == hashedSourceURLs,
+                settingsStore?.token(for: previous.hex) == token
+            {
                 try? settingsStore?.removeRecord(for: previous.hex)
             }
             return
@@ -2210,9 +2227,11 @@ final class DocumentViewModel {
         settings.windowSize = currentPaperSize ?? viewPaperSizeBeforePrinting ?? restoredPaperSize
         do {
             let key = contentHash.hex
-            let isNew = !createdRecordKeys.contains(key) && settingsStore.record(for: key) == nil
+            // Without reading the record, which would itself change its state.
+            let before = settingsStore.token(for: key)
+            let owns = before == nil || before == ownedRecordTokens[key]
             try settingsStore.save(settings, for: key)
-            if isNew { createdRecordKeys.insert(key) }
+            ownedRecordTokens[key] = owns ? settingsStore.token(for: key) : nil
             hasSavedSettings = true
             didResizeWindow = false
             settingsBaseline = rememberedSettings
@@ -2302,7 +2321,7 @@ final class DocumentViewModel {
         saveTask = nil
         if let contentHash {
             try? settingsStore?.removeRecord(for: contentHash.hex)
-            createdRecordKeys.remove(contentHash.hex)
+            ownedRecordTokens[contentHash.hex] = nil
         }
         hasSavedSettings = false
         pendingImageOrder = nil

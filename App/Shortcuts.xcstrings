@@ -2120,6 +2120,59 @@
           }
         }
       }
+    },
+    "These files exist only while the shortcut runs. Save them with a Save File action first, then open the saved files.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These files exist only while the shortcut runs. Save them with a Save File action first, then open the saved files."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "これらのファイルは、ショートカットの実行中だけ存在します。先に「ファイルを保存」アクションで保存してから、保存したファイルを開いてください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这些文件只在快捷指令运行期间存在。请先用“存储文件”操作存储，再打开存储后的文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這些檔案只在捷徑執行期間存在。請先用「儲存檔案」動作儲存，再打開儲存後的檔案。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 파일들은 단축어가 실행되는 동안에만 존재합니다. 먼저 ‘파일 저장’ 동작으로 저장한 다음 저장한 파일을 여십시오."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces fichiers n’existent que pendant l’exécution du raccourci. Enregistrez-les d’abord avec l’action Enregistrer le fichier, puis ouvrez les fichiers enregistrés."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Dateien existieren nur, solange der Kurzbefehl läuft. Sichere sie zuerst mit der Aktion „Datei sichern“ und öffne dann die gesicherten Dateien."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estos archivos solo existen mientras se ejecuta el atajo. Guárdalos primero con la acción Guardar archivo y, después, abre los archivos guardados."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -62,7 +62,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // multi-file selection opens nothing, so the welcome window still follows its alert.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
-            OpenRouter.shared.showWelcomeIfIdle()
+            OpenRouter.shared.showWelcomeAfterLaunch()
+        }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // What brought the app forward may be a file to open, which arrives right after.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            OpenRouter.shared.showWelcomeOnArrival()
         }
     }
 

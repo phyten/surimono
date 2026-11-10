@@ -20,7 +20,8 @@ struct ServiceProviderTests {
             Issue.record("合本は開かない")
             return nil
         },
-        openMemory: @escaping (Data, DocumentFormat, Bool) -> Void = { _, _, _ in Issue.record("メモリからは開かない") },
+        openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in Issue.record("メモリからは開かない")
+        },
         openWindows: @escaping () -> [DocumentViewModel] = { [] }
     ) -> OpenRouter {
         OpenRouter(
@@ -86,7 +87,7 @@ struct ServiceProviderTests {
         var opened: [(Data, DocumentFormat, Bool)] = []
         var activations = 0
         let provider = ServiceProvider(
-            router: router(openMemory: { opened.append(($0, $1, $2)) }), activate: { activations += 1 })
+            router: router(openMemory: { opened.append(($0, $1, $3)) }), activate: { activations += 1 })
         var message: NSString?
         provider.openSelection(board, userData: nil, error: &message)
         #expect(message == nil)
@@ -103,7 +104,7 @@ struct ServiceProviderTests {
         defer { board.releaseGlobally() }
         board.setString("本文", forType: .string)
         var printing: Bool?
-        let provider = ServiceProvider(router: router(openMemory: { _, _, flag in printing = flag }), activate: {})
+        let provider = ServiceProvider(router: router(openMemory: { _, _, _, flag in printing = flag }), activate: {})
         var message: NSString?
         provider.printSelection(board, userData: nil, error: &message)
         #expect(printing == true)

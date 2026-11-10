@@ -30,12 +30,12 @@ final class OpenRouter {
                 || StreamingPreviewWindows.shared.hasWindow
         },
         showWelcome: { WelcomeController.shared.show() },
-        openMemory: { data, format, printing in
+        openMemory: { data, format, title, printing in
             ClipboardWindows.shared.open(
-                data, format: format, title: String(localized: "Selected Text"), printing: printing)
+                data, format: format, title: title ?? String(localized: "Selected Text"), printing: printing)
         },
         openIncludes: { BinderWindows.shared.open($0) },
-        openWindows: { DocumentWindows.shared.openModels })
+        openWindows: { DocumentWindows.shared.openModels }, isActive: { NSApp.isActive })
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
@@ -43,9 +43,16 @@ final class OpenRouter {
     private let warn: (NSWindow?) -> Void
     private let hasOpenWindows: () -> Bool
     private let showWelcome: () -> Void
-    private let openMemory: (Data, DocumentFormat, Bool) -> Void
+    private let openMemory: (Data, DocumentFormat, String?, Bool) -> Void
     private let openIncludes: (MarkdownIncludes.Plan) -> Void
     private let openWindows: () -> [DocumentViewModel]
+    private let isActive: () -> Bool
+    /// Work for a caller outside the app that shows no window, such as an export for Shortcuts.
+    private(set) var headlessWork = 0
+    /// The app was launched without coming forward, so the welcome window waits for the reader to come to the app.
+    private var awaitsReader = false
+    /// Access to files from outside the app, kept until the window of the document that is opening takes it over.
+    private var arrivingAccess: [URL: [FolderAccess.Lease]] = [:]
     /// Single files asked to open on the print tray. The document's model appears only with its window, and it is the
     /// one window that shows the file as itself; a binder or a bundle holding the same file is another print job.
     private var printRequests: Set<URL> = []
@@ -77,10 +84,11 @@ final class OpenRouter {
         openBundle: @escaping ([URL], [URL]) -> DocumentViewModel?,
         openBinder: @escaping ([URL], [URL]) -> DocumentViewModel?,
         warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void,
-        openMemory: @escaping (Data, DocumentFormat, Bool) -> Void = { _, _, _ in },
+        openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in },
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
-        openWindows: @escaping () -> [DocumentViewModel] = { [] }
+        openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true }
     ) {
+        self.isActive = isActive
         self.openDocument = openDocument
         self.openBundle = openBundle
         self.openBinder = openBinder
@@ -92,25 +100,46 @@ final class OpenRouter {
         self.openWindows = openWindows
     }
 
+    /// `access` is what lets the files be read when they come from outside the app's sandbox. It goes to the window
+    /// that opens them and ends with it; access to a file that no new window shows ends here.
     @discardableResult
-    func open(_ urls: [URL], from window: NSWindow? = nil, printing: Bool = false) -> Bool {
+    func open(
+        _ urls: [URL], from window: NSWindow? = nil, printing: Bool = false, access: [FolderAccess.Lease] = []
+    ) -> Bool {
         let request = OpenRequest(urls: urls.filter(\.isFileURL))
-        guard request != .empty else { return false }
+        guard request != .empty else {
+            for lease in access { lease.close() }
+            return false
+        }
         switch request {
         case .single(let url):
-            if printing { printRequests.insert(url.standardizedFileURL) }
+            let key = url.standardizedFileURL
+            if printing { printRequests.insert(key) }
+            // A window that shows the file already reads it by its own means and is only brought forward.
+            if openWindows().contains(where: { $0.fileURL?.standardizedFileURL == key }) {
+                for lease in access { lease.close() }
+            } else if !access.isEmpty {
+                arrivingAccess[key, default: []] += access
+            }
             pendingOpens += 1
             openDocument(url) { [weak self] opened in
-                if !opened { self?.printRequests.remove(url.standardizedFileURL) }
+                if !opened {
+                    self?.printRequests.remove(key)
+                    self?.giveUpAccess(for: key)
+                }
                 self?.finishOpening(opened)
             }
         case .imageBundle(let urls, let excluded):
             let model = openBundle(urls, excluded)
+            Self.hand(access, for: urls, to: model)
             if printing { model?.requestPrintMode() }
         case .binder(let urls, let excluded):
             let model = openBinder(urls, excluded)
+            Self.hand(access, for: urls, to: model)
             if printing { model?.requestPrintMode() }
-        case .unsupported: warn(window)
+        case .unsupported:
+            for lease in access { lease.close() }
+            warn(window)
         case .empty: break
         }
         // A window that was open already shows nothing new, so nothing else would notice the request.
@@ -119,13 +148,13 @@ final class OpenRouter {
     }
 
     /// What a service hands over: files take the way of any other file, and text and images open from memory, as the
-    /// clipboard's do.
+    /// clipboard's do, under `title` when what they came from has a name.
     @discardableResult
-    func open(_ content: ClipboardContent, printing: Bool) -> Bool {
+    func open(_ content: ClipboardContent, printing: Bool, title: String? = nil) -> Bool {
         switch content {
         case .files(let urls): return open(urls, printing: printing)
         case .document(let data, let format):
-            openMemory(data, format, printing)
+            openMemory(data, format, title, printing)
             return true
         case .empty: return false
         }
@@ -161,6 +190,33 @@ final class OpenRouter {
         }
     }
 
+    /// The documents every open window shows.
+    var openModels: [DocumentViewModel] { openWindows() }
+
+    /// The window's model keeps the access to the files it shows; access to the files left out ends at once.
+    private static func hand(_ access: [FolderAccess.Lease], for urls: [URL], to model: DocumentViewModel?) {
+        let shown = Set(urls.map(\.standardizedFileURL))
+        let kept = access.filter { shown.contains($0.url.standardizedFileURL) }
+        for lease in access where !shown.contains(lease.url.standardizedFileURL) { lease.close() }
+        if let model { model.keep(kept) } else { for lease in kept { lease.close() } }
+    }
+
+    /// Gives a document's window the access that waits for its file. The window takes it as soon as it exists, not
+    /// when its pages are done: a window closed while it still lays out its pages would leave the access waiting.
+    func handAccess(to model: DocumentViewModel) {
+        // From here on what waits for this file belongs to a later request, which this model must not give up
+        // when it ends.
+        model.hasTakenItsFileAccess = true
+        guard let url = model.fileURL?.standardizedFileURL, let access = arrivingAccess.removeValue(forKey: url)
+        else { return }
+        model.keep(access)
+    }
+
+    /// Ends the access that waits for a file whose window went away before taking it.
+    func giveUpAccess(for url: URL) {
+        for lease in arrivingAccess.removeValue(forKey: url.standardizedFileURL) ?? [] { lease.close() }
+    }
+
     /// Takes the window to the print tray if it is the document of a file that was asked to open there.
     func printIfRequested(_ model: DocumentViewModel) {
         guard let url = model.fileURL?.standardizedFileURL else { return }
@@ -173,14 +229,44 @@ final class OpenRouter {
         presentOpenPanel { [weak self] urls in self?.open(urls) }
     }
 
-    /// Shows the welcome window unless something is open or still opening, as after a launch that opened nothing.
+    /// Shows the welcome window unless something is open, still opening, or being worked on without a window.
     func showWelcomeIfIdle() {
-        if pendingOpens == 0, !hasOpenWindows() { showWelcome() }
+        if pendingOpens == 0, headlessWork == 0, !hasOpenWindows() { showWelcome() }
+    }
+
+    /// The check a launch makes once restored windows had time to appear. The system launches the app without
+    /// bringing it forward to do work for Shortcuts, whether or not that work has begun by now; a window then would
+    /// greet nobody. The welcome window waits until the reader comes to the app.
+    func showWelcomeAfterLaunch() {
+        guard isActive() else {
+            awaitsReader = true
+            return
+        }
+        showWelcomeIfIdle()
+    }
+
+    /// The reader came to an app that was launched in the background. Only that first arrival counts: coming back
+    /// to the app after closing its last window shows nothing, as before.
+    func showWelcomeOnArrival() {
+        guard awaitsReader else { return }
+        awaitsReader = false
+        showWelcomeIfIdle()
+    }
+
+    func beginHeadlessWork() {
+        headlessWork += 1
+    }
+
+    func endHeadlessWork() {
+        headlessWork -= 1
     }
 
     private func finishOpening(_ opened: Bool) {
         pendingOpens -= 1
-        for model in openWindows() { printIfRequested(model) }
+        for model in openWindows() {
+            handAccess(to: model)
+            printIfRequested(model)
+        }
         // A document that fails to open, for example at launch, must not leave the app without any window.
         if !opened { showWelcomeIfIdle() }
     }
