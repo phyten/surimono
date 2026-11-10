@@ -9,12 +9,7 @@ struct PrintPressLayout: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard subviews.count == Self.partCount else { return .zero }
         let parts = parts(of: subviews)
-        let width =
-            proposal.width.flatMap { $0.isFinite ? $0 : nil }
-            ?? parts.cardsWidth + PrintPressArrangement.ruleSpan
-            + max(
-                parts.actionsWidth.upperBound + PrintPressArrangement.clusterGap + parts.button.width,
-                min(parts.summaryWidth, PrintPressArrangement.summaryLimit))
+        let width = PrintPressArrangement.fittingWidth(for: proposal.width, parts: parts)
         return PrintPressArrangement(width: width, parts: parts).size
     }
 

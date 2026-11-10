@@ -102,6 +102,23 @@ struct PrintPressLayoutTests {
         #expect(layout.size == CGSize(width: 340, height: 338))
     }
 
+    @Test("幅0で大きさを聞かれても、カードが1列に並ぶ幅で答え、帯の高さは190にとどまる")
+    func zeroWidthProposal() {
+        // SwiftUI asks for the size at zero width to set the window's smallest size. Measured at zero width, each card
+        // took a row and the bar was 722 tall, so the print screen could not be made shorter.
+        let width = PrintPressArrangement.fittingWidth(for: 0, parts: parts())
+        #expect(width == 490)
+        #expect(PrintPressArrangement(width: width, parts: parts()).size.height == 190)
+    }
+
+    @Test("帯は渡された幅で測り、幅を渡されなければ左右に並ぶ幅で測る")
+    func fittingWidth() {
+        #expect(PrintPressArrangement.fittingWidth(for: 732, parts: parts()) == 732)
+        // 490 for the cards, 17 around the rule, and the result's 330, wider than the buttons' 275.
+        #expect(PrintPressArrangement.fittingWidth(for: nil, parts: parts()) == 837)
+        #expect(PrintPressArrangement.fittingWidth(for: .infinity, parts: parts()) == 837)
+    }
+
     @Test("どの形でも、印刷ボタンは右端にあり、ボタンの列はその左に並び、どの部品も幅の内に収まる", arguments: [340, 500, 600, 707, 732, 972, 1400])
     func staysInside(width: CGFloat) {
         let layout = PrintPressArrangement(width: width, parts: parts())

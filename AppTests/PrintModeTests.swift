@@ -3,6 +3,7 @@ import Foundation
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
+import SwiftUI
 import Testing
 
 @testable import Surimono
@@ -379,6 +380,27 @@ struct PrintModeTests {
         #expect(model.mode == .print)
         model.exitPrintMode()
         #expect(model.mode == .view)
+    }
+
+    @Test("印刷の帯は幅0で大きさを聞かれても低いままで、刷り台の窓を縦に縮められる")
+    func pressBarStaysLowAtZeroWidth() {
+        let fixture = Fixture()
+        // SwiftUI sets the window's smallest size from this answer. Measured at zero width, every card and word took a
+        // row of its own and the window could not be made shorter than 900.
+        let size = NSHostingController(rootView: PrintPressBar(model: fixture.model())).sizeThatFits(in: .zero)
+        #expect(size.height < 300)
+    }
+
+    @Test("刷り台の窓の最小の高さは、上下の帯と刷り台の操作が収まる高さで、画面より高くならない")
+    func printModeMinimumHeight() {
+        let fixture = Fixture()
+        let model = fixture.model()
+        model.enterPrintMode()
+        let size = NSHostingController(rootView: PrintModeView(model: model)).sizeThatFits(in: .zero)
+        // The stage keeps 200 for the tray's navigator, so the window stops before the tray is gone (it went down to
+        // 302); the press bar answers for the width of its cards, so the window is not stuck at 800 high.
+        #expect(size.height > 450)
+        #expect(size.height < 640)
     }
 
     @Test("表示モードの⌘Pは印刷モードに入り、印刷モードの⌘Pは選んだプリンターですぐ印刷する")
