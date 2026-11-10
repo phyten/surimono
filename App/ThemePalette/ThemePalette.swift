@@ -1,13 +1,16 @@
 import SurimonoCore
 import SwiftUI
 
-/// The style palette (案 A): every print theme as a sample of this document's first page. Resting the pointer on a
-/// sample tries it on the paper; a click chooses it and leaves the palette open for the next look.
+// Both modes share the choices and sample cache; only the viewing mode may replace the paper on hover.
 struct ThemePalette: View {
     @Bindable var model: DocumentViewModel
     @State private var query = ""
     /// The reader's choice to show or hide the code colors; until then a document with code shows them.
     @State private var showsCodeColumn: Bool?
+
+    init(model: DocumentViewModel) {
+        self.model = model
+    }
 
     static let columns = 5
     /// Beside the code colors the samples give up two columns, so that the palette still fits next to the window: a
@@ -20,21 +23,28 @@ struct ThemePalette: View {
     static let widthBesideCode: CGFloat = 400
     static let height: CGFloat = 660
 
-    private var isCodeColumnShown: Bool { showsCodeColumn ?? model.themeSamples.containsCode }
+    private var isPrinting: Bool { model.mode == .print }
+    private var isCodeColumnShown: Bool { showsCodeColumn ?? (!isPrinting && model.themeSamples.containsCode) }
+    private var hasSideColumn: Bool { isPrinting || isCodeColumnShown }
 
     var body: some View {
         HStack(spacing: 0) {
             styles
-            if isCodeColumnShown {
+            if isPrinting {
+                Divider()
+                PrintThemePreview(model: model)
+            } else if isCodeColumnShown {
                 Divider()
                 CodePaletteColumn(model: model)
             }
         }
         .frame(height: Self.height)
         // The controls stay readable over whatever shows through the popover behind them.
-        .background(PrintPalette.raised.opacity(0.94))
+        .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.94)
         .onAppear { model.followThemeSamples() }
         .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
+        .onChange(of: model.preferences.themeSampleSource) { _, _ in model.followThemeSamples() }
+        .onExitCommand { model.themePaletteDidClose() }
         .onDisappear { model.themePaletteDidClose() }
     }
 
@@ -59,7 +69,7 @@ struct ThemePalette: View {
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: isCodeColumnShown ? Self.widthBesideCode : Self.width)
+        .frame(width: hasSideColumn ? Self.widthBesideCode : Self.width)
     }
 
     private var header: some View {
@@ -72,6 +82,17 @@ struct ThemePalette: View {
                     .lineLimit(1)
                 Spacer(minLength: 8)
             }
+            Picker(
+                "Sample Document",
+                selection: Binding(
+                    get: { model.preferences.themeSampleSource },
+                    set: { model.preferences.themeSampleSource = $0 })
+            ) {
+                Text("This Document").tag(ThemeSampleSource.document)
+                Text("Sample Document").tag(ThemeSampleSource.specimen)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Search by name or category", text: $query)
@@ -133,11 +154,14 @@ struct ThemePalette: View {
                 LazyVGrid(
                     columns: Array(
                         repeating: GridItem(.flexible(minimum: Self.cellMinimumWidth), spacing: 10, alignment: .top),
-                        count: isCodeColumnShown ? Self.columnsBesideCode : Self.columns),
+                        count: hasSideColumn ? Self.columnsBesideCode : Self.columns),
                     alignment: .leading, spacing: 12
                 ) {
                     ForEach(themes) { theme in
+                        // One identity per theme and source: the same identity on every cell left the grid with a
+                        // single sample in each group.
                         ThemePaletteCell(model: model, theme: theme)
+                            .id("\(theme.id) \(model.preferences.themeSampleSource.rawValue)")
                     }
                 }
                 // A cell keeps 4 pt around its sample for the highlight; the samples themselves stand on the same left
@@ -149,7 +173,7 @@ struct ThemePalette: View {
 
     /// Beside the code column the two groups take a row each: the row is too narrow to name the text size otherwise.
     @ViewBuilder private var footer: some View {
-        if isCodeColumnShown {
+        if hasSideColumn {
             VStack(alignment: .leading, spacing: 8) {
                 actions
                 textSize
@@ -167,17 +191,24 @@ struct ThemePalette: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
-            Button {
-                model.enterCompareMode()
-            } label: {
-                Label("Compare…", systemImage: "square.grid.2x2")
+            if !isPrinting {
+                Button {
+                    model.enterCompareMode()
+                } label: {
+                    Label("Compare…", systemImage: "square.grid.2x2")
+                }
+                .help("Lay a few styles side by side")
             }
-            .help("Lay a few styles side by side")
-            Toggle(isOn: Binding(get: { isCodeColumnShown }, set: { showsCodeColumn = $0 })) {
-                Text("Code Appearance")
+            if isPrinting {
+                Menu("Code Colors") { CodePaletteMenuContent(model: model) }
+                Button("Open Styles Folder") { model.library.openFolder("Styles") }
+            } else {
+                Toggle(isOn: Binding(get: { isCodeColumnShown }, set: { showsCodeColumn = $0 })) {
+                    Text("Code Appearance")
+                }
+                .toggleStyle(.button)
+                .help("Code Appearance")
             }
-            .toggleStyle(.button)
-            .help("Code Appearance")
         }
     }
 
@@ -226,6 +257,11 @@ struct ThemePaletteCell: View {
     @State private var isHovering = false
     @FocusState private var isStarFocused: Bool
 
+    init(model: DocumentViewModel, theme: PrintTheme) {
+        self.model = model
+        self.theme = theme
+    }
+
     var body: some View {
         let isCurrent = theme.id == model.themeID
         let isFavorite = model.isFavoriteTheme(theme.id)
@@ -235,8 +271,8 @@ struct ThemePaletteCell: View {
         } label: {
             VStack(spacing: 5) {
                 ThemeSampleView(
-                    page: model.themeSamples.page(for: theme), paperSize: model.themeSamples.paperSize,
-                    margins: model.themeSamples.margins
+                    page: model.paletteSamples.page(for: theme), paperSize: model.paletteSamples.paperSize,
+                    margins: model.paletteSamples.margins
                 )
                 .frame(maxWidth: .infinity)
                 .shadow(color: .black.opacity(0.16), radius: 1.5, y: 0.5)
@@ -285,11 +321,12 @@ struct ThemePaletteCell: View {
         }
         .onHover { inside in
             isHovering = inside
-            if inside { model.tryTheme(theme.id) }
+            if inside { model.hoverPaletteTheme(theme.id) }
         }
-        .task(id: model.themeSamples.taskID(for: theme)) { await model.themeSamples.load(theme) }
+        .task(id: model.paletteSamples.taskID(for: theme)) { await model.paletteSamples.load(theme) }
         .help(name)
         .accessibilityLabel(Text(verbatim: name))
+        .accessibilityIdentifier("themePaletteCell.\(theme.id)")
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
         .accessibilityAction(
             named: isFavorite ? Text("Remove from Favorites") : Text("Add to Favorites")

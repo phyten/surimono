@@ -162,6 +162,8 @@ final class DocumentViewModel {
     var isThemePalettePresented = false
     /// The first page of the document in each theme, for the palette and the comparison stage.
     let themeSamples = ThemeSamples()
+    let specimenSamples = ThemeSamples()
+    var palettePreviewThemeID: String?
     /// The theme the pointer rests on in the palette, laid out on the paper.
     let themeTrial: ThemeTrial
     /// A trial the user then chose: the paper keeps it until the document's own pages in that theme are ready.
@@ -357,6 +359,10 @@ final class DocumentViewModel {
         viewOptions = guess
         initialViewOptions = guess
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
+        specimenSamples.inputs = { [weak self] in
+            guard let self else { return (nil, nil) }
+            return (ThemeSpecimen.source(language: language), ThemeSpecimen.settings)
+        }
         paper.onToast = { [weak self] toast in
             self?.showToast(toast, dismissAfter: toast.action == .allowFolderAccess ? nil : .seconds(5))
         }
@@ -732,6 +738,7 @@ final class DocumentViewModel {
         binder?.stop()
         themeTrial.end()
         themeSamples.invalidate()
+        specimenSamples.invalidate()
         folderLease?.close()
         folderLease = nil
     }
@@ -1325,6 +1332,7 @@ final class DocumentViewModel {
     private func showPrintTray() {
         guard mode != .print else { return }
         refreshPrinters()
+        themePaletteDidClose()
         closeBandPopovers()
         // The tray shows what prints, so the review and its outlined pages end here.
         isReviewingSmartRemoval = false
@@ -1377,6 +1385,7 @@ final class DocumentViewModel {
         requestedTrayRow = nil
         guard mode != .view else { return }
         isPrintIssuesPresented = false
+        themePaletteDidClose()
         outputAfterReview = nil
         guard let window else {
             resetPrintChoices()
