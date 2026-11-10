@@ -60,6 +60,13 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Keep a window floating on top of other apps
 - Follows the system light / dark appearance
 
+## From Finder and Shortcuts
+
+- **Finder**: select files, then choose Services → Print with Surimono (in the Finder menu, or at the end of the context menu). The files open in the print mode with the sheets laid out; nothing goes to the printer until you press Print. One file opens as a document, several images as an image bundle, and other mixes as a binder. If the item is missing, turn it on in System Settings → Keyboard → Keyboard Shortcuts → Services.
+- **Shortcuts**: two actions, with no extra app to install.
+  - *Export PDF with Surimono* takes a file and returns the PDF of its sheets. Choose a layout (A4 booklet, 2-up, …) and a style by name, or leave them empty for the defaults in Surimono's settings. It runs without a window, and writes nothing next to your file.
+  - *Open in Surimono's Print Mode* opens files in the print mode, as the Finder service does.
+
 ## Supported formats
 
 | Format | Extensions |
