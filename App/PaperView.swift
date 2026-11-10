@@ -99,6 +99,8 @@ final class PaperPDFView: PageTextPDFView {
     var onToast: ((Toast) -> Void)?
     // PDFView inherits delegate-shaped methods that forward to its delegate, so delegating to self recurses on zoom.
     private let linkDelegate = LinkDelegate()
+    /// Opens the URLs of links; tests replace it so that no browser opens.
+    var linkHandler = PaperLinkHandler()
 
     private final class LinkDelegate: NSObject, PDFViewDelegate {
         weak var view: PaperPDFView?
@@ -106,7 +108,8 @@ final class PaperPDFView: PageTextPDFView {
         func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
             // Only URL actions come here; PDFKit still handles destinations inside this document.
             Task { @MainActor [weak view] in
-                await PaperLinkHandler().open(url) { [weak view] toast in view?.onToast?(toast) }
+                guard let handler = view?.linkHandler else { return }
+                await handler.open(url) { [weak view] toast in view?.onToast?(toast) }
             }
         }
     }
@@ -211,6 +214,8 @@ final class PaperPDFView: PageTextPDFView {
     }
     private var mouseDownEvent: NSEvent?
     private var didDrag = false
+    /// The first click of this run of clicks followed a link, so the clicks after it are not a zoom or a page turn.
+    private var clickFollowedLink = false
     /// Whether the current click or drag belongs to PDFKit's text selection; decided when the button goes down.
     private var dragSelectsText = false
     /// Dragging selects text instead of moving the window or panning the zoomed paper.
@@ -905,6 +910,11 @@ final class PaperPDFView: PageTextPDFView {
             super.mouseDown(with: Self.withoutOption(event))
             return
         }
+        if event.clickCount > 1, clickFollowedLink {
+            mouseDownEvent = nil
+            return
+        }
+        clickFollowedLink = false
         if event.clickCount == 2 {
             setZoom(isZoomed ? 1 : 2, anchor: convert(event.locationInWindow, from: nil))
             mouseDownEvent = nil
@@ -948,7 +958,14 @@ final class PaperPDFView: PageTextPDFView {
             return
         }
         defer { mouseDownEvent = nil }
-        guard mouseDownEvent != nil, !didDrag, let options, !options.isContinuous, !isZoomed else { return }
+        guard let start = mouseDownEvent, !didDrag else { return }
+        // A link wins over the edge it may lie on: the reader aimed at the link, not at the margin.
+        if let link = link(at: convert(start.locationInWindow, from: nil)) {
+            clickFollowedLink = true
+            follow(link)
+            return
+        }
+        guard let options, !options.isContinuous, !isZoomed else { return }
         // Clicking near the left or right edge turns the page towards that side.
         let x = convert(event.locationInWindow, from: nil).x
         let edge = bounds.width * 0.15
@@ -960,18 +977,69 @@ final class PaperPDFView: PageTextPDFView {
         }
     }
 
+    // MARK: - Links
+
+    /// The link under a point of this view. PDFKit follows links only while it tracks the mouse itself, which is
+    /// the text selection; an ordinary click is handled here, so the link has to be found here too.
+    func link(at point: NSPoint) -> PDFAnnotation? {
+        guard let page = page(for: point, nearest: false),
+            let annotation = page.annotation(at: convert(point, to: page)), annotation.type == "Link",
+            annotation.action != nil || annotation.destination != nil || annotation.url != nil
+        else { return nil }
+        return annotation
+    }
+
+    private func follow(_ link: PDFAnnotation) {
+        let destination = link.destination ?? (link.action as? PDFActionGoTo)?.destination
+        if let destination, let page = destination.page, let document, page.document === document {
+            if let options, !options.isContinuous, !isZoomed,
+                let target = pagePlan?.readingIndex(at: document.index(for: page))
+            {
+                // Whole pages are turned the way the keys turn them, so a spread and its lone cover stay right.
+                guard target != currentPageIndex else { return }
+                addTransition(forward: target > currentPageIndex, options: options)
+                goToPage(index: target)
+                onTurn?()
+            } else {
+                go(to: destination)
+            }
+        } else if let action = link.action {
+            // PDFKit hands a URL to the delegate, the same way as for a click while selecting text.
+            perform(action)
+        } else if let url = link.url {
+            perform(PDFActionURL(url: url))
+        }
+    }
+
     // MARK: - Cursor
 
     /// PDFKit shows an I-beam over text; without the selection mode a drag moves the window, so the paper shows the
     /// arrow instead, or the open hand while a drag pans the zoomed paper.
     private var paperCursor: NSCursor { isZoomed ? .openHand : .arrow }
 
+    /// The cursor over a point of the paper when a drag does not select text: a click follows a link, so a link
+    /// shows the pointing hand in every mode.
+    func cursor(at point: NSPoint) -> NSCursor {
+        link(at: point) != nil ? .pointingHand : paperCursor
+    }
+
     override func mouseMoved(with event: NSEvent) {
-        if selectsText(for: event) { super.mouseMoved(with: event) } else { paperCursor.set() }
+        setCursor(for: event) { super.mouseMoved(with: event) }
     }
 
     override func cursorUpdate(with event: NSEvent) {
-        if selectsText(for: event) { super.cursorUpdate(with: event) } else { paperCursor.set() }
+        setCursor(for: event) { super.cursorUpdate(with: event) }
+    }
+
+    private func setCursor(for event: NSEvent, selecting: () -> Void) {
+        let point = convert(event.locationInWindow, from: nil)
+        if link(at: point) != nil {
+            NSCursor.pointingHand.set()
+        } else if selectsText(for: event) {
+            selecting()
+        } else {
+            paperCursor.set()
+        }
     }
 
     override func flagsChanged(with event: NSEvent) {
@@ -985,10 +1053,10 @@ final class PaperPDFView: PageTextPDFView {
         let location = window.mouseLocationOutsideOfEventStream
         guard isPaper(atWindowPoint: location) else { return }
         let point = convert(location, from: nil)
-        if selectsText != modifierFlags.contains(.option) {
+        if link(at: point) == nil, selectsText != modifierFlags.contains(.option) {
             setCursorFor(areaOfInterest(for: point))
         } else {
-            paperCursor.set()
+            cursor(at: point).set()
         }
     }
 
