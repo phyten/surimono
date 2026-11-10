@@ -287,6 +287,33 @@ struct PageRangeFlowTests {
         #expect(book.pageNumber(at: 6) == 10)
     }
 
+    @Test("内外余白のある文書の範囲では、折ってみるも用紙と同じだけページの中身を動かす", .timeLimit(.minutes(1)))
+    func foldFollowsTheSheets() async throws {
+        let environment = environment()
+        defer { environment.cleanUp() }
+        let pages = TestFixtures.pdf("sides", pages: 6)
+        let model = DocumentViewModel(
+            data: Data("# Sides".utf8), fileURL: nil, format: .markdown, preferences: environment.preferences,
+            library: environment.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pages)! }),
+            settingsStore: environment.store)
+        defer { model.stop() }
+        model.layoutID = PrintLayout.a3BookletA4.id
+        model.printOptions.margins = PageMargins(top: 15, left: 10, bottom: 15, right: 20)
+        model.printOptions.mirrorsMargins = true
+        model.enterPrintMode()
+        model.start()
+        try await waitUntil { model.contentHash != nil && model.canOutput }
+        #expect(FoldSource.current(model)?.corrections == [:])
+
+        try await type("2-5", into: model)
+        let corrections = try #require(FoldSource.current(model)?.corrections)
+        // Inside 10 mm, outside 20 mm: 10 mm is 28.35 pt. Page 2 opens the booklet and goes back to a right page.
+        #expect(corrections.keys.sorted() == [1, 2, 3, 4])
+        #expect(abs((corrections[1] ?? 0) + 28.346) < 0.01)
+        #expect(abs((corrections[2] ?? 0) - 28.346) < 0.01)
+        #expect(FoldSource.current(model)?.pages == [1, 2, 3, 4])
+    }
+
     @Test("部数とページの欄を足しても、印刷の帯は幅 0 で聞かれて低いままで、エラーを出していても変わらない")
     func pressBarStaysLow() {
         let environment = environment()

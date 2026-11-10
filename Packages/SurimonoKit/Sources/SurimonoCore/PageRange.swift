@@ -54,30 +54,21 @@ public struct PageRange: Equatable, Sendable {
             return
         }
         var spans: [ClosedRange<Int>] = []
-        var tokens = Self.tokens(of: text)[...]
-        while let token = tokens.popFirst() {
-            switch token {
-            case .comma:
-                continue
-            case .number(let first):
-                guard first >= 1 else { throw ParseError.unreadable }
-                guard tokens.first == .dash else {
-                    spans.append(first...first)
-                    continue
-                }
-                tokens.removeFirst()
-                if case .number(let last)? = tokens.first {
-                    tokens.removeFirst()
-                    // A reversed range is more likely a slip than a wish to print backwards.
-                    guard last >= first else { throw ParseError.unreadable }
-                    spans.append(first...last)
-                } else {
-                    spans.append(first...Self.lastPage)
-                }
-            case .dash:
-                guard case .number(let last)? = tokens.popFirst(), last >= 1 else { throw ParseError.unreadable }
+        // Each item stands between separators and is one whole range, so `5--12` and `1-3-5` are not read as two
+        // ranges that happen to touch.
+        for item in Self.items(of: text) {
+            guard item.count <= 3 else { throw ParseError.unreadable }
+            switch (item[0], item.count > 1 ? item[1] : nil, item.count > 2 ? item[2] : nil) {
+            case (.number(let page), nil, nil) where page >= 1:
+                spans.append(page...page)
+            // A reversed range is more likely a slip than a wish to print backwards.
+            case (.number(let first), .dash?, .number(let last)?) where first >= 1 && last >= first:
+                spans.append(first...last)
+            case (.number(let first), .dash?, nil) where first >= 1:
+                spans.append(first...Self.lastPage)
+            case (.dash, .number(let last)?, nil) where last >= 1:
                 spans.append(1...last)
-            case .other:
+            default:
                 throw ParseError.unreadable
             }
         }
@@ -110,13 +101,38 @@ public struct PageRange: Equatable, Sendable {
         case number(Int)
         case dash
         case comma
+        case space
         case other
     }
 
     private static let dashes: Set<Character> = ["-", "–", "—", "−", "－", "ー", "〜", "~", "～"]
     private static let commas: Set<Character> = [",", "、", "，", ";", "；"]
 
-    /// White space only ends a number: `1 3` is two pages and `5 - 12` one range.
+    /// The text cut at its commas and white space. White space beside a dash belongs to the range (`5 - 12`), so it
+    /// does not cut there; elsewhere it separates like a comma (`1 3`).
+    private static func items(of text: String) -> [[Token]] {
+        let tokens = tokens(of: text)
+        var items: [[Token]] = []
+        var item: [Token] = []
+        for (index, token) in tokens.enumerated() {
+            switch token {
+            case .space:
+                let before = index > 0 ? tokens[index - 1] : .comma
+                let after = index + 1 < tokens.count ? tokens[index + 1] : .comma
+                if before == .dash || after == .dash { continue }
+                fallthrough
+            case .comma:
+                if !item.isEmpty { items.append(item) }
+                item = []
+            case .number, .dash, .other:
+                item.append(token)
+            }
+        }
+        if !item.isEmpty { items.append(item) }
+        return items
+    }
+
+    /// A run of white space is one token.
     private static func tokens(of text: String) -> [Token] {
         var tokens: [Token] = []
         var digits: [Int] = []
@@ -132,8 +148,11 @@ public struct PageRange: Equatable, Sendable {
                 continue
             }
             endNumber()
-            if character.isWhitespace { continue }
-            tokens.append(dashes.contains(character) ? .dash : commas.contains(character) ? .comma : .other)
+            if character.isWhitespace {
+                if tokens.last != .space { tokens.append(.space) }
+            } else {
+                tokens.append(dashes.contains(character) ? .dash : commas.contains(character) ? .comma : .other)
+            }
         }
         endNumber()
         return tokens

@@ -59,6 +59,45 @@ struct NotePagesRenderingTests {
         #expect(texts(prepared.logicalDocument) == ["", "PAGE-1", "", "PAGE-2", ""])
     }
 
+    @Test(
+        "冊子のとじ方を往復してもノートは選んだ側に入り、面付けした本文は反対側に来る",
+        arguments: [NotePagePlan.Placement.spreadLeft, .spreadRight], [DocumentFormat.pdf, .markdown, .html])
+    func bindingKeepsNoteSide(placement: NotePagePlan.Placement, format: DocumentFormat) async throws {
+        var settings = try settings()
+        settings.notes = try notes(placement)
+        let renderer = DocumentRenderer(paginate: { request in
+            try RenderingFixtures.pdf(count: 2, size: request.pageSize)
+        })
+        let source =
+            format == .pdf ? try pdf(2) : DocumentSource(data: Data("本文".utf8), format: format)
+        let left = try await renderer.render(source, settings: settings)
+        settings.layout = settings.layout.bound(.right)
+        let right = try await renderer.render(source, settings: settings)
+        let expectedPages =
+            placement == .spreadLeft ? ["", "PAGE-1", "", "PAGE-2", ""] : ["PAGE-1", "", "PAGE-2", ""]
+        #expect(texts(right.logicalDocument) == expectedPages)
+        let imposed = right.plan.sides.map { side in side.slots.map { $0.map { texts(right.logicalDocument)[$0] } } }
+        if placement == .spreadLeft {
+            #expect(imposed == [["", nil], [nil, "PAGE-1"], ["", nil], ["", "PAGE-2"]])
+        } else {
+            #expect(imposed == [["PAGE-1", ""], ["PAGE-2", ""]])
+        }
+        for label in ["PAGE-1", "PAGE-2"] {
+            let selection = try #require(right.sheetDocument.findString(label, withOptions: []).first)
+            let sheet = try #require(selection.pages.first)
+            let bounds = selection.bounds(for: sheet)
+            let middle = sheet.bounds(for: .mediaBox).midX
+            #expect(placement == .spreadLeft ? bounds.minX > middle : bounds.maxX < middle)
+        }
+        let repeated = try await renderer.render(source, settings: settings)
+        #expect(texts(repeated.logicalDocument) == expectedPages)
+        #expect(renderer.sheetCompositionCount == 2)
+        settings.layout = settings.layout.bound(.left)
+        let restored = try await renderer.render(source, settings: settings)
+        #expect(texts(restored.logicalDocument) == texts(left.logicalDocument))
+        #expect(renderer.logicalRenderCount == (format == .markdown ? 3 : 1))
+    }
+
     @Test("両面の裏は本文の裏にノートを置く")
     func duplexBack() async throws {
         var settings = try settings(.a4Duplex)

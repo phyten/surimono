@@ -123,4 +123,51 @@ struct PageFurnitureTests {
         japanese.timeZone = TimeZone(identifier: "Asia/Tokyo") ?? .current
         #expect(furniture.dateText(november4, language: "ja", calendar: japanese).hasPrefix("8/11/"))
     }
+
+    @Test("範囲の中の位置で見開きの左右を決め、番号と総数は文書のままにする")
+    func positionDecidesTheSide() throws {
+        var furniture = PageFurniture()
+        furniture.topLeft = "L"
+        furniture.topRight = "R"
+        furniture.bottomCenter = "{ページ} / {総ページ}"
+        furniture.swapsOnSpreads = true
+        let context = PageFurniture.Context()
+        // Pages 2-5 of 12: page 2 is printed first, page 3 second.
+        let first = try #require(
+            furniture.lines(forPage: 1, pageCount: 12, context: context, hasFacingPages: true, position: 0))
+        #expect(first.top == ["L", "", "R"])
+        #expect(first.bottom == ["", "2 / 12", ""])
+        let second = try #require(
+            furniture.lines(forPage: 2, pageCount: 12, context: context, hasFacingPages: true, position: 1))
+        #expect(second.top == ["R", "", "L"])
+        #expect(second.bottom == ["", "3 / 12", ""])
+    }
+
+    @Test("右とじでは、範囲の先頭のページから左右を入れ替える")
+    func positionOnRightBinding() throws {
+        var furniture = PageFurniture()
+        furniture.topLeft = "L"
+        furniture.topRight = "R"
+        furniture.swapsOnSpreads = true
+        let context = PageFurniture.Context()
+        let first = try #require(
+            furniture.lines(
+                forPage: 1, pageCount: 12, context: context, hasFacingPages: true, rightBound: true, position: 0))
+        #expect(first.top == ["R", "", "L"])
+        let second = try #require(
+            furniture.lines(
+                forPage: 2, pageCount: 12, context: context, hasFacingPages: true, rightBound: true, position: 1))
+        #expect(second.top == ["L", "", "R"])
+    }
+
+    @Test("位置を渡さなければ、今までどおり文書の中の番号で左右を決める")
+    func sideWithoutPosition() throws {
+        var furniture = PageFurniture()
+        furniture.topLeft = "L"
+        furniture.topRight = "R"
+        furniture.swapsOnSpreads = true
+        let lines = try #require(
+            furniture.lines(forPage: 1, pageCount: 12, context: PageFurniture.Context(), hasFacingPages: true))
+        #expect(lines.top == ["R", "", "L"])
+    }
 }

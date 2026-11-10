@@ -131,8 +131,11 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         return reserved > 0 ? available - 2 * (reserved + gap) : available
     }
 
+    /// - Parameter position: Where the page stands among the pages that are printed, when only some are. It decides
+    ///   which side of a spread the page is on; the number it shows stays the one it has in the document.
     public func lines(
-        forPage index: Int, pageCount: Int, context: Context, hasFacingPages: Bool, rightBound: Bool = false
+        forPage index: Int, pageCount: Int, context: Context, hasFacingPages: Bool, rightBound: Bool = false,
+        position: Int? = nil
     ) -> Lines? {
         guard !isEmpty, !context.blankPages.contains(index), !(skipsFirstPage && index == 0) else { return nil }
         func filled(_ text: String) -> String {
@@ -142,7 +145,7 @@ public struct PageFurniture: Codable, Hashable, Sendable {
                 (Variable.page, String(index + 1)), (Variable.pageCount, String(pageCount)),
             ].reduce(text) { $0.replacingOccurrences(of: $1.0.rawValue, with: $1.1) }
         }
-        let swaps = swapsOnSpreads && hasFacingPages && ((index % 2 == 1) != rightBound)
+        let swaps = swapsOnSpreads && hasFacingPages && (((position ?? index) % 2 == 1) != rightBound)
         func row(_ left: String, _ center: String, _ right: String) -> [String] {
             (swaps ? [right, center, left] : [left, center, right]).map(filled)
         }

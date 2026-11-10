@@ -66,7 +66,7 @@ struct PrintFoldView: View {
         .task(id: FoldSource.current(model)) {
             guard let source = FoldSource.current(model) else { return }
             await book.load(
-                source.document, pages: source.pages, pageSize: source.pageSize,
+                source.document, pages: source.pages, corrections: source.corrections, pageSize: source.pageSize,
                 blankLabel: PrintModeText.string("Blank", language: model.language), rightBound: source.rightBound)
         }
         .accessibilityElement(children: .contain)
@@ -120,6 +120,8 @@ struct FoldSource: Equatable {
     /// The logical pages the booklet is made of; nil for all of them.
     var pages: [Int]?
     var rightBound = false
+    /// How far the content of some of those pages moves to stay on the side of the binding, as on the sheets.
+    var corrections: [Int: CGFloat] = [:]
 
     static func current(_ model: DocumentViewModel) -> FoldSource? {
         guard model.hasCurrentPrintPreview, let result = model.result, let settings = model.renderedSettings else {
@@ -127,12 +129,15 @@ struct FoldSource: Equatable {
         }
         return FoldSource(
             document: result.logicalDocument, pageSize: settings.layout.logicalPageSize,
-            pages: result.pageSelection.pages, rightBound: settings.layout.isRightBound)
+            pages: result.pageSelection.pages, rightBound: settings.layout.isRightBound,
+            corrections: PDFComposer.sideCorrections(
+                pages: result.pageSelection.pages, layout: settings.layout, options: settings.options,
+                sides: result.laidOutSides))
     }
 
     static func == (lhs: FoldSource, rhs: FoldSource) -> Bool {
         lhs.document === rhs.document && lhs.pageSize == rhs.pageSize && lhs.pages == rhs.pages
-            && lhs.rightBound == rhs.rightBound
+            && lhs.rightBound == rhs.rightBound && lhs.corrections == rhs.corrections
     }
 }
 
@@ -189,9 +194,12 @@ final class FoldBook {
     /// size of a page of the booklet, and PDFKit shows every page at its own size.
     /// - Parameter pages: The logical pages that are printed, in order; nil for all of them.
     func load(
-        _ logical: PDFDocument, pages: [Int]? = nil, pageSize: CGSize, blankLabel: String, rightBound: Bool = false
+        _ logical: PDFDocument, pages: [Int]? = nil, corrections: [Int: CGFloat] = [:], pageSize: CGSize,
+        blankLabel: String, rightBound: Bool = false
     ) async {
-        guard let book = try? await PDFComposer().fitted(logical, pageSize: pageSize), !Task.isCancelled else { return }
+        guard let book = try? await PDFComposer().fitted(logical, pageSize: pageSize, corrections: corrections),
+            !Task.isCancelled
+        else { return }
         self.rightBound = rightBound
         if let pages {
             let kept = Set(pages)

@@ -56,9 +56,26 @@ struct PageRangeTests {
 
     @Test(
         "読めない指定はエラーになる",
-        arguments: ["abc", "9-7", "0", "0-3", "-", "1-a", "1.5", "p3", ","])
+        arguments: [
+            "abc", "9-7", "0", "0-3", "-", "1-a", "1.5", "p3", ",", "5--12", "1-3-5", "5 - - 12", "5-–12", "-5-", "--5",
+            "5--", "１〜３〜５", "1-3 -5",
+        ])
     func unreadable(text: String) {
         #expect(throws: PageRange.ParseError.unreadable) { try PageRange(parsing: text) }
+    }
+
+    @Test("終わりを省いた範囲は、区切りか文字の終わりが続くときだけ読む")
+    func openEndNeedsSeparator() throws {
+        #expect(try PageRange(parsing: "2, 5-").spans == [2...2, 5...PageRange.lastPage])
+        #expect(try PageRange(parsing: "5-, 2").spans == [2...2, 5...PageRange.lastPage])
+        #expect(try PageRange(parsing: "-3, 7").spans == [1...3, 7...7])
+        #expect(try PageRange(parsing: "5 -").spans == [5...PageRange.lastPage])
+    }
+
+    @Test("記号の後ろの空白のあとに番号が続けば、1 つの範囲として読む")
+    func spaceAfterMark() throws {
+        #expect(try PageRange(parsing: "5- 12").spans == [5...12])
+        #expect(try PageRange(parsing: "５ 〜 １２").spans == [5...12])
     }
 
     @Test("打っている途中の末尾の読点は無視する")

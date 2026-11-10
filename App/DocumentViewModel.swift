@@ -2622,7 +2622,9 @@ final class DocumentViewModel {
         let shown = selectedPrinterName
         let layout = printerLayout
         refreshPrinters()
-        let request = printers.request(quick: true, shown: shown, remembered: preferences.printerName)
+        // The test is a plain two-sided sheet of the tray's paper, which is what the printer has to be able to do.
+        let request = printRequest(
+            quick: true, shown: shown, layout: (try? DuplexTestRenderer().layout(for: layout)) ?? layout)
         let language = language
         isPrinting = true
         outputError = nil
@@ -2721,8 +2723,8 @@ final class DocumentViewModel {
             return
         }
         guard canOutput else { return }
-        // A layout the printer cannot do is not sent silently: the system dialog lets the reader look first.
-        let quick = quick && printerIssue == nil
+        // Known before the sheets are: an output that waits for them is already one through the dialog.
+        let quick = quick && issue(sending: printerLayout, to: selectedPrinterName) == nil
         pendingPrint = PendingPrint(
             request: PrintRequest(printerName: selectedPrinterName, showsPanel: !quick), quick: quick)
         resumePendingPrint()
@@ -2736,9 +2738,8 @@ final class DocumentViewModel {
         }
         refreshPrinters()
         // Once a destination change required the panel, later refreshes must not turn the job into a quick print.
-        pending.request = printers.request(
-            quick: !pending.request.showsPanel, shown: pending.request.printerName,
-            remembered: preferences.printerName)
+        pending.request = printRequest(
+            quick: !pending.request.showsPanel, shown: pending.request.printerName, layout: printerLayout)
         // The system dialog starts with the same number, where it can still be changed.
         pending.request.copies = copies
         pendingPrint = pending

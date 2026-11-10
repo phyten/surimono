@@ -70,6 +70,49 @@ struct NotePagePlanTests {
                 == [[.note, .body(0)], [.note, .body(3)], [.note, .body(1)], [.note, .body(2)]])
     }
 
+    @Test("右とじの左ノートは面付け後も左に並び、補完の白紙はノートにしない")
+    func rightBoundLeftNotes() {
+        let pages = NotePagePlan.pages(
+            bodyPageIndices: [0, 1, 2, 3], placement: .spreadLeft, bookletBinding: .right)
+        #expect(pages == [.note, .body(0), .note, .body(1), .note, .body(2), .note, .body(3), .note])
+        let imposed = Imposition.plan(pageCount: pages.count, layout: PrintLayout.a4BookletA5.bound(.right))
+        #expect(
+            imposed.sides.map { side in side.slots.map { $0.map { pages[$0] } } }
+                == [
+                    [.note, nil], [nil, .body(0)], [.note, nil], [.note, .body(1)],
+                    [.note, .body(3)], [.note, .body(2)],
+                ])
+    }
+
+    @Test("右とじの右ノートは面付け後も全ての用紙の右に並ぶ")
+    func rightBoundRightNotes() {
+        let pages = NotePagePlan.pages(
+            bodyPageIndices: [0, 1, 2, 3], placement: .spreadRight, bookletBinding: .right)
+        #expect(pages == [.body(0), .note, .body(1), .note, .body(2), .note, .body(3), .note])
+        let imposed = Imposition.plan(pageCount: pages.count, layout: PrintLayout.a4BookletA5.bound(.right))
+        #expect(
+            imposed.sides.map { side in side.slots.map { $0.map { pages[$0] } } }
+                == [[.body(0), .note], [.body(3), .note], [.body(1), .note], [.body(2), .note]])
+    }
+
+    @Test("右とじの指定は2アップの左右と両面の裏と章末の並びを変えない")
+    func bindingOnlyChangesBookletSpreads() {
+        #expect(
+            NotePagePlan.pages(
+                bodyPageIndices: [0, 1], placement: .spreadLeft, layoutKind: .twoUp, bookletBinding: .right)
+                == [.note, .body(0), .note, .body(1)])
+        #expect(
+            NotePagePlan.pages(
+                bodyPageIndices: [0, 1], placement: .spreadRight, layoutKind: .twoUp, bookletBinding: .right)
+                == [.body(0), .note, .body(1), .note])
+        #expect(
+            NotePagePlan.pages(bodyPageIndices: [0, 1], placement: .duplexBack, bookletBinding: .right)
+                == [.body(0), .note, .body(1), .note])
+        #expect(
+            NotePagePlan.pages(bodyPageIndices: [0, 1], placement: .chapterEnd, bookletBinding: .right)
+                == [.body(0), .body(1), .note])
+    }
+
     @Test("右ノートの末尾以降の冊子補完はノートではなく白紙になる")
     func padding() {
         let pages = NotePagePlan.pages(bodyPageIndices: [0], placement: .spreadRight)

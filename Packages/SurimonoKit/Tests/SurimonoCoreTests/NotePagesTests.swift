@@ -50,6 +50,22 @@ struct NotePagesTests {
         #expect(plan.bodyPageIndices == [1, 3])
     }
 
+    @Test("右とじの目次の後でもノートは指定した側に入り本文の番号を決める")
+    func rightBoundContents() {
+        let left = FinishedPagePlan(
+            bodyPageCount: 2, contentsPageCount: 1, rightPageStarts: [0],
+            notes: .init(placement: .spreadLeft, layoutKind: .booklet, bookletBinding: .right))
+        #expect(left.pages == [.contents(0), .body(0), .note, .body(1), .note])
+        #expect(left.bodyPageIndices == [1, 3])
+        #expect(left.notePages == [2, 4])
+        let right = FinishedPagePlan(
+            bodyPageCount: 2, contentsPageCount: 1, rightPageStarts: [0],
+            notes: .init(placement: .spreadRight, layoutKind: .booklet, bookletBinding: .right))
+        #expect(right.pages == [.contents(0), .note, .body(0), .note, .body(1), .note])
+        #expect(right.bodyPageIndices == [2, 4])
+        #expect(right.notePages == [1, 3, 5])
+    }
+
     @Test("章の終わりのノートが入ると、次の章の右ページ始まりは数え直す")
     func chapterEndCountsAgain() {
         let plan = plan(4, starts: [1, 2], placement: .chapterEnd, ends: [0, 1])
