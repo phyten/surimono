@@ -281,6 +281,9 @@ struct ToastOverlay: View {
                         case .undoBinder?:
                             Button("Undo") { model.undoBinderConversion() }
                                 .controlSize(.small)
+                        case .undoReset?:
+                            Button("Undo") { model.undoResetDocumentSettings() }
+                                .controlSize(.small)
                         case nil:
                             EmptyView()
                         }
@@ -317,7 +320,7 @@ struct NoticePlate: View {
 }
 
 /// Toast actions stay legible regardless of the surrounding view's accent color or appearance.
-private struct ToastActionButtonStyle: ButtonStyle {
+struct ToastActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 11, weight: .medium))

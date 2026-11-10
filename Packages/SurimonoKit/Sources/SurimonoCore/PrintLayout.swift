@@ -209,7 +209,7 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public func displayName(language: String = "en") -> String {
         let terms: [String: [String]] = [
             "en": ["Single-sided", "Duplex", "3-up + Notes", "2-up", "Booklet"],
-            "ja": ["片面", "両面", "3枚＋メモ", "2アップ", "中綴じ"],
+            "ja": ["片面", "両面", "3枚＋メモ", "2 ページを 1 枚に", "中綴じ"],
             "zh-Hans": ["单面", "双面", "每页3张＋笔记", "每页2张", "小册子"],
             "zh-Hant": ["單面", "雙面", "每頁3張＋筆記", "每頁2張", "小冊子"],
             "ko": ["단면", "양면", "3쪽 + 메모", "2쪽 모아찍기", "소책자"],
@@ -226,7 +226,11 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         }
         let names = terms.mapValues { $0[index] }
         let title = UILanguage.name(names, language: language, english: names["en"] ?? "")
-        return "\(sheet.displayName) \(title)" + (kind == .booklet ? " → \((sheet.halved ?? sheet).displayName)" : "")
+        guard kind == .booklet else { return "\(sheet.displayName) \(title)" }
+        let made = (sheet.halved ?? sheet).displayName
+        // Japanese names a booklet by what comes out, as its card does, and adds the paper and the binding.
+        if title == names["ja"] { return "\(made) 冊子・\(sheet.displayName) \(title)" }
+        return "\(sheet.displayName) \(title) → \(made)"
     }
 
     public static let a4Single = PrintLayout(validatedID: "a4Single", kind: .normal, sheet: .a4, duplex: .none)

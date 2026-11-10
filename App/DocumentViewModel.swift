@@ -11,9 +11,45 @@ enum ViewerMode { case view, print, compare }
 
 typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 
+/// The settings a reset replaced. A class, so that the toast and the window's history share whether it was used.
+final class ResetOrigin {
+    let settings: DocumentSettings
+    let wasSaved: Bool
+    let selectedSettingSetID: UUID?
+    /// The paper's size in the view mode, which a record only takes in when it is saved.
+    let paperSize: CGSize?
+    let restoredPaperSize: CGSize?
+    let defaultTextScale: Double
+    let defaultPaperOrientation: PaperOrientation
+    let defaultBandVisibility: BandVisibility
+    let openingViewDefaults: ViewDefaultPreferences
+    let defaultViewOptions: ViewOptions?
+    var isRestored = false
+
+    init(
+        settings: DocumentSettings, wasSaved: Bool, selectedSettingSetID: UUID?, paperSize: CGSize?,
+        restoredPaperSize: CGSize?, defaultTextScale: Double, defaultPaperOrientation: PaperOrientation,
+        defaultBandVisibility: BandVisibility, openingViewDefaults: ViewDefaultPreferences,
+        defaultViewOptions: ViewOptions?
+    ) {
+        self.settings = settings
+        self.wasSaved = wasSaved
+        self.selectedSettingSetID = selectedSettingSetID
+        self.paperSize = paperSize
+        self.restoredPaperSize = restoredPaperSize
+        self.defaultTextScale = defaultTextScale
+        self.defaultPaperOrientation = defaultPaperOrientation
+        self.defaultBandVisibility = defaultBandVisibility
+        self.openingViewDefaults = openingViewDefaults
+        self.defaultViewOptions = defaultViewOptions
+    }
+}
+
 /// A short message near the bottom of the window, optionally with one action.
 struct Toast: Equatable, Identifiable {
-    enum Action: Equatable { case retryWebCapture, allowFolderAccess, nextChange, openIncludes, undoBinder }
+    enum Action: Equatable {
+        case retryWebCapture, allowFolderAccess, nextChange, openIncludes, undoBinder, undoReset
+    }
 
     let id = UUID()
     var systemImage: String
@@ -231,6 +267,8 @@ final class DocumentViewModel {
     /// The settings as last loaded, restored, reset or saved; any other value means the user changed something.
     @ObservationIgnored private var settingsBaseline: DocumentSettings?
     @ObservationIgnored private var pendingImageOrder: [String]?
+    /// What the last reset took away, until it is brought back.
+    @ObservationIgnored private(set) var resetOrigin: ResetOrigin?
     @ObservationIgnored private var restoredPaperSize: CGSize?
     /// The paper's height before the screen's width made it shorter; it comes back once the pages fit at that height.
     @ObservationIgnored private var heightBeforeScreenLimit: CGFloat?
@@ -2061,7 +2099,67 @@ final class DocumentViewModel {
         }
     }
 
+    /// Goes back to the defaults at once; the toast and the window's undo are the way back.
     func resetDocumentSettings() {
+        let origin = ResetOrigin(
+            settings: rememberedSettings, wasSaved: hasSavedSettings, selectedSettingSetID: selectedSettingSetID,
+            paperSize: currentPaperSize, restoredPaperSize: restoredPaperSize, defaultTextScale: defaultTextScale,
+            defaultPaperOrientation: defaultPaperOrientation, defaultBandVisibility: defaultBandVisibility,
+            openingViewDefaults: openingViewDefaults, defaultViewOptions: defaultViewOptions)
+        applyDefaultSettings(resizesWindow: true)
+        resetOrigin = origin
+        showToast(
+            Toast(
+                systemImage: "arrow.uturn.backward", title: String(localized: "Settings reset"), action: .undoReset),
+            dismissAfter: Self.undoNoticeDuration)
+        settingsHistory?.registerUndo(withTarget: self) { $0.restoreSettings(origin) }
+        settingsHistory?.setActionName(Self.resetActionName)
+    }
+
+    /// The toast's Undo. It goes through the window's history while the reset is its latest step, so that Redo
+    /// follows; otherwise it restores directly and the step left in the history does nothing.
+    func undoResetDocumentSettings() {
+        guard let origin = resetOrigin, !origin.isRestored else { return }
+        if let undo = settingsHistory, undo.canUndo, undo.undoActionName == Self.resetActionName {
+            undo.undo()
+        } else {
+            restoreSettings(origin)
+        }
+    }
+
+    private func restoreSettings(_ origin: ResetOrigin) {
+        guard !origin.isRestored else { return }
+        origin.isRestored = true
+        resetOrigin = nil
+        dismissToast()
+        // A record leaves out what equals the defaults, so the defaults come first, as they were for this window.
+        applyDefaultSettings(resizesWindow: mode == .view && origin.paperSize == nil)
+        defaultTextScale = origin.defaultTextScale
+        defaultPaperOrientation = origin.defaultPaperOrientation
+        defaultBandVisibility = origin.defaultBandVisibility
+        openingViewDefaults = origin.openingViewDefaults
+        defaultViewOptions = origin.defaultViewOptions
+        apply(origin.settings)
+        selectedSettingSetID = origin.selectedSettingSetID
+        restoredPaperSize = origin.paperSize ?? origin.restoredPaperSize
+        if mode == .view, origin.paperSize != nil { applyRestoredPaperSize() }
+        settingsBaseline = defaultSettings
+        if origin.wasSaved { saveSettings(force: true) } else { rememberedSettingsDidChange() }
+        settingsHistory?.registerUndo(withTarget: self) { $0.resetDocumentSettings() }
+        settingsHistory?.setActionName(Self.resetActionName)
+    }
+
+    /// The history of a window the app opened itself. A file's own window keeps its history with the document, where
+    /// a step would mark the file as edited, and this app never writes one.
+    private var settingsHistory: UndoManager? {
+        window?.windowController?.document == nil ? window?.undoManager : nil
+    }
+
+    private static var resetActionName: String { String(localized: "Reset Document Settings") }
+    /// As long as the binder's notice with Undo stays.
+    static let undoNoticeDuration: Duration = .seconds(8)
+
+    private func applyDefaultSettings(resizesWindow: Bool) {
         dismissToast()
         saveTask?.cancel()
         saveTask = nil
@@ -2101,7 +2199,7 @@ final class DocumentViewModel {
                 for: viewDefaultsContext(for: document), preferences: openingViewDefaults)
         }
         if let defaultViewOptions { viewOptions = defaultViewOptions }
-        if mode == .view, let window, let unit = paperUnitSize {
+        if resizesWindow, mode == .view, let window, let unit = paperUnitSize {
             ViewerWindow.setPaperSize(
                 ViewerWindow.initialPaperSize(unit: unit, on: window.screen, side: sideInset), band: bandInset,
                 of: window,

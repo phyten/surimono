@@ -6443,7 +6443,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ウインドウに合わせる"
+            "value": "窓に合わせる"
           }
         },
         "en": {
@@ -6467,7 +6467,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "윈도우에 맞추기"
+            "value": "창에 맞추기"
           }
         },
         "fr": {
@@ -6773,7 +6773,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视图选项"
+            "value": "显示选项"
           }
         },
         "zh-Hant": {
@@ -6797,13 +6797,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Darstellungsoptionen"
+            "value": "Anzeigeoptionen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opciones de visualización"
+            "value": "Opciones de vista"
           }
         }
       }
@@ -6826,7 +6826,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视图选项…"
+            "value": "显示选项…"
           }
         },
         "zh-Hant": {
@@ -6850,13 +6850,13 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Darstellungsoptionen …"
+            "value": "Anzeigeoptionen …"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opciones de visualización…"
+            "value": "Opciones de vista…"
           }
         }
       }
@@ -7612,7 +7612,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この文書の設定をすべて戻す"
+            "value": "この文書の設定を戻す"
           }
         },
         "zh-Hans": {
@@ -8912,7 +8912,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "この文書の設定をすべて戻す"
+            "value": "この文書の設定を戻す"
           }
         },
         "zh-Hans": {
@@ -10525,7 +10525,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 中綴じ"
+            "value": "%@ 冊子"
           }
         },
         "ko": {
@@ -11083,7 +11083,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "両面のレイアウト（A4 両面・中綴じ）で使えます。"
+            "value": "両面のレイアウト（A4 両面・冊子）で使えます。"
           }
         },
         "en": {
@@ -13142,7 +13142,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ウインドウに合わせる（%@）"
+            "value": "窓に合わせる（%@）"
           }
         },
         "en": {
@@ -13166,7 +13166,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "윈도우에 맞추기(%@)"
+            "value": "창에 맞추기(%@)"
           }
         },
         "fr": {
@@ -14680,7 +14680,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ウェブ / 紙面"
+            "value": "ウェブ／紙面"
           }
         },
         "en": {
@@ -18630,7 +18630,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しい言語は再起動後に反映されます。開いているウィンドウは閉じるため、文書を開き直す必要がある場合があります。作業を続けるには「あとで」を選んでください。"
+            "value" : "新しい言語は再起動後に反映されます。開いている窓は閉じるため、文書を開き直す必要がある場合があります。作業を続けるには「あとで」を選んでください。"
           }
         },
         "en" : {
@@ -18654,7 +18654,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "새 언어는 다시 실행한 후 적용됩니다. 열린 윈도우가 닫히며 문서를 다시 열어야 할 수 있습니다. 계속 작업하려면 ‘나중에’를 선택하세요."
+            "value" : "새 언어는 다시 실행한 후 적용됩니다. 열린 창이 닫히며 문서를 다시 열어야 할 수 있습니다. 계속 작업하려면 ‘나중에’를 선택하세요."
           }
         },
         "fr" : {
@@ -19832,7 +19832,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Web と紙を切り替える（⌃⌘P）"
+            "value": "ウェブ／紙面を切り替える（⌃⌘P）"
           }
         },
         "zh-Hans": {
@@ -19850,7 +19850,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "웹·종이 전환 (⌃⌘P)"
+            "value": "웹 또는 용지 전환 (⌃⌘P)"
           }
         },
         "fr": {
@@ -19988,7 +19988,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ウインドウに合わせる (⌘0)"
+            "value": "窓に合わせる (⌘0)"
           }
         },
         "zh-Hans": {
@@ -20006,7 +20006,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "윈도우에 맞추기 (⌘0)"
+            "value": "창에 맞추기 (⌘0)"
           }
         },
         "fr": {
@@ -23346,7 +23346,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ウィンドウを開くとき"
+            "value": "窓を開くとき"
           }
         },
         "ko": {
@@ -23380,7 +23380,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「1ページ分」にすると、見開きで最初のページを単独で表示している間は、ウィンドウを1ページ分の幅にします。"
+            "value": "「1ページ分」にすると、見開きで最初のページを単独で表示している間は、窓を1ページ分の幅にします。"
           }
         },
         "zh-Hans": {
@@ -35868,58 +35868,6 @@
         }
       }
     },
-    "View & Text Settings": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View & Text Settings"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "表示と本文の設定"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "显示和正文设置"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "顯示與內文設定"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "표시와 본문 설정"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Affichage et texte"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anzeige und Text"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vista y texto"
-          }
-        }
-      }
-    },
     "Paper on Screen": {
       "localizations": {
         "en": {
@@ -40198,7 +40146,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Web 表示での操作は入らず、ファイルの内容を読み込み直して入れます"
+            "value" : "ウェブ表示での操作は入らず、ファイルの内容を読み込み直して入れます"
           }
         },
         "ko" : {
@@ -40304,7 +40252,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ %2$@から %3$@ の中綴じ %4$@"
+            "value": "%1$@ %2$@から %3$@ の冊子 %4$@"
           }
         },
         "ko": {
@@ -42062,6 +42010,165 @@
           "stringUnit": {
             "state": "translated",
             "value": "Volver a cargar el documento"
+          }
+        }
+      }
+    },
+    "Settings reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings reset"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この文書の設定を戻しました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已还原此文档的设置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已還原此文件的設定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 문서의 설정을 되돌렸습니다"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages du document réinitialisés"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen des Dokuments zurückgesetzt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes del documento restablecidos"
+          }
+        }
+      }
+    },
+    "Deleted “%@”": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleted “%@”"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」を削除しました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除“%@”"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已刪除「%@」"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@”을(를) 삭제했습니다"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« %@ » supprimé"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ gelöscht"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminó «%@»"
+          }
+        }
+      }
+    },
+    "Delete Setting Set": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Setting Set"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定セットを削除"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除设置集"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除設定集"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설정 세트 삭제"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer le jeu de réglages"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungssatz löschen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar conjunto de ajustes"
           }
         }
       }

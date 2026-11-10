@@ -201,8 +201,8 @@ struct PrintTrayTests {
     func cardTitles() {
         #expect(
             PrintLayout.presets.map { PrintModeText.cardTitle($0, language: "ja") } == [
-                "A4 片面", "A4 両面", "A4 中綴じ", "A5 中綴じ", "2 ページを\n1 枚に", "3 ページ＋\nメモ欄",
-                "B5 片面", "B5 両面", "B5 中綴じ", "B6 中綴じ", "2 ページを\n1 枚に",
+                "A4 片面", "A4 両面", "A4 冊子", "A5 冊子", "2 ページを\n1 枚に", "3 ページ＋\nメモ欄",
+                "B5 片面", "B5 両面", "B5 冊子", "B6 冊子", "2 ページを\n1 枚に",
             ])
         #expect(
             PrintLayout.presets.map { PrintModeText.cardPaper($0, language: "ja") } == [
@@ -219,11 +219,11 @@ struct PrintTrayTests {
                 .map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") }
         }
         #expect(
-            lines(.a4BookletA5, sheets: 2, pages: 8, "ja") == ["**A4 2 枚から A5 の中綴じ 8 ページ**", "両面・短辺とじ"])
+            lines(.a4BookletA5, sheets: 2, pages: 8, "ja") == ["**A4 2 枚から A5 の冊子 8 ページ**", "両面・短辺とじ"])
         #expect(
             lines(.a4BookletA5, sheets: 2, pages: 8, "en")
                 == ["**A5 booklet, 8 pages, from 2 sheets of A4**", "Duplex, short edge"])
-        #expect(lines(.a3BookletA4, sheets: 3, pages: 12, "ja") == ["**A3 3 枚から A4 の中綴じ 12 ページ**", "両面・短辺とじ"])
+        #expect(lines(.a3BookletA4, sheets: 3, pages: 12, "ja") == ["**A3 3 枚から A4 の冊子 12 ページ**", "両面・短辺とじ"])
         #expect(lines(.a4Duplex, sheets: 2, pages: 4, "ja") == ["**A4 縦 2 枚に 4 ページ**", "両面・長辺とじ"])
         #expect(lines(.a4Single, sheets: 3, pages: 3, "ja") == ["**A4 縦 3 枚に 3 ページ**", "片面"])
         #expect(lines(PrintLayout.a4Single.oriented(true), sheets: 3, pages: 3, "ja")[0] == "**A4 横 3 枚に 3 ページ**")

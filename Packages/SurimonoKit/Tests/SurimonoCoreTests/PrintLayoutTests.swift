@@ -123,7 +123,7 @@ struct PrintLayoutTests {
         #expect(PrintLayout.b5Single.counterpart(in: .b) == .b5Single)
         #expect(PrintLayout.b5BookletB6.logicalPageSize == PaperSize.b6.size)
         #expect(PrintLayout.b4TwoUp.logicalPageSize == PaperSize.b5.size)
-        #expect(PrintLayout.b5BookletB6.displayName(language: "ja") == "B5 (JIS) 中綴じ → B6 (JIS)")
+        #expect(PrintLayout.b5BookletB6.displayName(language: "ja") == "B6 (JIS) 冊子・B5 (JIS) 中綴じ")
     }
 
     @Test("上下左右の余白は片面では左右を入れ替えず、両面と冊子だけで入れ替えられる")
