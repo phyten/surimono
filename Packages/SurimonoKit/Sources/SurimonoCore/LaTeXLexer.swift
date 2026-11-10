@@ -20,6 +20,8 @@ enum LaTeXLexer {
         if let name = word(characters, at: index + 1) {
             let after = index + 1 + name.count
             switch name {
+            case "url", "href", "path", "nolinkurl":
+                return urlArgumentEnd(characters, at: index)
             case "verb":
                 var start = after
                 if start < characters.count, characters[start] == "*" { start += 1 }
@@ -74,6 +76,40 @@ enum LaTeXLexer {
         var end = index
         while end < characters.count, characters[end].isASCII, characters[end].isLetter { end += 1 }
         return end > index ? String(characters[index..<end]) : nil
+    }
+
+    // URL arguments must stay opaque to structural scans: a percent sign cannot hide their closing brace.
+    static func urlArgumentEnd(_ characters: [Character], at index: Int) -> Int? {
+        guard index < characters.count, characters[index] == "\\",
+            let name = word(characters, at: index + 1),
+            ["url", "href", "path", "nolinkurl"].contains(name)
+        else { return nil }
+        var cursor = index + 1 + name.count
+        while cursor < characters.count {
+            if characters[cursor].isWhitespace {
+                cursor += 1
+            } else if characters[cursor] == "%" {
+                while cursor < characters.count, characters[cursor] != "\n" { cursor += 1 }
+            } else {
+                break
+            }
+        }
+        guard cursor < characters.count, characters[cursor] == "{" else { return nil }
+        var depth = 0
+        while cursor < characters.count {
+            let character = characters[cursor]
+            cursor += 1
+            if character == "\\" {
+                cursor = min(cursor + 1, characters.count)
+                continue
+            }
+            if character == "{" { depth += 1 }
+            if character == "}" {
+                depth -= 1
+                if depth == 0 { return cursor }
+            }
+        }
+        return characters.count
     }
 
     private static func delimited(_ characters: [Character], from start: Int) -> Int {
