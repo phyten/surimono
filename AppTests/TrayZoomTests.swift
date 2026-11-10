@@ -375,6 +375,15 @@ struct TrayZoomerTests {
             }
             try await Task.sleep(for: .milliseconds(300))
         }
+        // Where the scroll view itself is, not where it was asked to go.
+        func scrolled() -> CGFloat? {
+            controller.window?.contentView.flatMap { Self.find(TrayGestureMonitorView.self, in: $0) }?
+                .enclosingScrollView?.contentView.bounds.minY
+        }
+        func waitUntilScrolled(past limit: CGFloat) async throws -> CGFloat {
+            for _ in 0..<300 where (scrolled() ?? 0) <= limit { try await Task.sleep(for: .milliseconds(20)) }
+            return try #require(scrolled())
+        }
         try await settle()
         let zoomer = try #require(model.trayZoomer)
         #expect((model.printTray?.rows.count ?? 0) >= 4)
@@ -382,17 +391,24 @@ struct TrayZoomerTests {
         // As a reader does: the next sheet is asked for once the larger sheets are laid out.
         try await Task.sleep(for: .milliseconds(300))
         zoomer.show(row: 2, animated: false)
-        try await Task.sleep(for: .milliseconds(300))
-        // What the scroll view itself tells of, not what it was asked for.
-        let before = zoomer.scroll.offset
-        #expect(before.y > 500)
+        let before = try await waitUntilScrolled(past: 500)
+        #expect(before > 500)
         model.increaseTextSize()
         try await settle()
         let next = try #require(model.trayZoomer)
         #expect(next !== zoomer)
         #expect(abs(next.zoom - 1.25) < 0.0001)
-        #expect(abs(next.scroll.offset.y - before.y) < 60)
+        let after = try await waitUntilScrolled(past: 500)
+        #expect(abs(after - before) < 60)
         #expect(model.canOutput)
+    }
+
+    private static func find<View: NSView>(_ type: View.Type, in view: NSView) -> View? {
+        if let match = view as? View { return match }
+        for subview in view.subviews {
+            if let match = find(type, in: subview) { return match }
+        }
+        return nil
     }
 
     @Test("窓の幅を変えても、見ていた用紙が見える範囲の上端に残る")
