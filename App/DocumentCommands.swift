@@ -54,6 +54,16 @@ struct DocumentCommands: Commands {
             Button("Export as PDF…") { model?.exportPDF() }
                 .keyboardShortcut("e", modifiers: [.shift, .command])
         }
+        // Like the print items, these stay enabled; the model does nothing where there is no paper to search.
+        CommandGroup(after: .pasteboard) {
+            Divider()
+            Button("Find…") { model?.performFind() }
+                .keyboardShortcut("f")
+            Button("Find Next") { model?.findStep(forward: true) }
+                .keyboardShortcut("g")
+            Button("Find Previous") { model?.findStep(forward: false) }
+                .keyboardShortcut("g", modifiers: [.shift, .command])
+        }
         CommandGroup(after: .toolbar) {
             // Names where the item goes, as the print item does; HTML only, and nothing happens for other documents.
             Button(
@@ -77,6 +87,8 @@ struct DocumentCommands: Commands {
                 guard let model, model.mode == .view else { return }
                 model.isViewOptionsPresented = true
             }
+            Button("Go to Page…") { model?.presentGoToPage() }
+                .keyboardShortcut("g", modifiers: [.option, .command])
             Divider()
             Button("Increase Text Size") { model?.increaseTextSize() }
                 .keyboardShortcut("+", modifiers: [.option, .command])
@@ -161,6 +173,7 @@ struct DocumentCommands: Commands {
             Divider()
             Button("Reset Document Settings") { model?.resetDocumentSettings() }
             Button("Reload") { model?.reload() }
+                .keyboardShortcut("r")
         }
     }
 }

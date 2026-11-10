@@ -54,6 +54,7 @@ struct ViewModeView: View {
         .animation(.easeOut(duration: 0.16), value: menu.stage)
         .animation(.easeOut(duration: 0.2), value: model.showsOutlineDrawer)
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
+        .sheet(isPresented: $model.isGoToPagePresented) { GoToPageSheet(model: model) }
         .onContinuousHover(coordinateSpace: .local) { phase in
             switch phase {
             case .active(let point): menu.pointerMoved(to: point)
@@ -135,7 +136,9 @@ private struct PaperArea: View {
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.paperDidChangePage($0) },
                     onTurn: { menu.pageTurned() },
-                    onKey: handleKey)
+                    onKey: handleKey
+                )
+                .paperFind(model)
             } else if model.error == nil {
                 VStack(spacing: 10) {
                     ProgressView().controlSize(.small)
@@ -157,6 +160,12 @@ private struct PaperArea: View {
             }
         }
         .animation(.easeOut(duration: 0.15), value: model.trialThemeName)
+        .overlay(alignment: .topTrailing) {
+            if model.find.isPresented, !model.showsWeb {
+                FindBar(model: model).padding(10).transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.12), value: model.find.isPresented)
         .overlay(alignment: .bottom) {
             if !model.unreadableImageURLs.isEmpty {
                 NoticePlate(
@@ -186,6 +195,11 @@ private struct PaperArea: View {
             menu.toggle()
             return true
         case .escape:
+            // Esc closes the find bar first, also when the paper has the keys.
+            if model.find.isPresented {
+                model.closeFind()
+                return true
+            }
             return menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible)
         case .viewOptions:
             menu.showFull()
@@ -198,6 +212,16 @@ private struct PaperArea: View {
         default:
             return false
         }
+    }
+}
+
+extension PaperView {
+    /// Hands the paper the words of the window's find bar, and the model the hits the paper found.
+    fileprivate func paperFind(_ model: DocumentViewModel) -> PaperView {
+        var view = self
+        view.findQuery = model.find.query
+        view.onFindHits = { pages, query in model.paperFound(pages, for: query) }
+        return view
     }
 }
 

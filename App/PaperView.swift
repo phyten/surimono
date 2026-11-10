@@ -20,6 +20,8 @@ final class PaperController {
         guard let view else { return }
         view.window?.makeFirstResponder(view)
     }
+    /// Marks which of the search's hits is the current one and, with `reveals`, turns and scrolls the paper to it.
+    func markFindHit(_ index: Int?, reveals: Bool) { view?.markFindHit(index, reveals: reveals) }
 }
 
 /// The logical pages of the view mode: no margins, no page shadows, laid out by `ViewOptions`.
@@ -39,6 +41,10 @@ struct PaperView: NSViewRepresentable {
     /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
     var narrowsLoneCover = false
     var keepsSpotInPage = false
+    /// The words to mark on the paper; nothing takes the marks away.
+    var findQuery = ""
+    /// The logical page of every hit, with the words they were found for.
+    var onFindHits: ([Int], String) -> Void = { _, _ in }
     let controller: PaperController
     var onZoomChange: (Double) -> Void
     var onPageChange: (Int) -> Void
@@ -66,6 +72,8 @@ struct PaperView: NSViewRepresentable {
             showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, keepsSpotInPage: keepsSpotInPage)
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
+        view.onFindHits = onFindHits
+        view.find(findQuery)
         if abs(view.zoom - zoom) > 0.001 {
             // A zoom that comes from the model, as when a document's settings are brought back, has no pointer; it
             // opens at the top of the page rather than in its middle.
@@ -168,6 +176,10 @@ final class PaperPDFView: PageTextPDFView {
     private var drawnChangeMarks: [ChangeMark] = []
     private var isUpdatingDocument = false
     private var isSwitchingSpreadMode = false
+    var onFindHits: (([Int], String) -> Void)?
+    private var findQuery = ""
+    private var findSearch: PaperFindSearch?
+    private(set) var findHits: [PDFSelection] = []
     var narrowsLoneCover = false {
         didSet {
             guard narrowsLoneCover != oldValue, document != nil else { return }
@@ -342,6 +354,8 @@ final class PaperPDFView: PageTextPDFView {
         hideScrollersAndInsets()
         refit()
         goToPage(index: min(index, max(source.pageCount - 1, 0)))
+        // The marks were selections of the pages just replaced.
+        restartFind()
     }
 
     func apply(_ options: ViewOptions) {
@@ -1064,6 +1078,122 @@ final class PaperPDFView: PageTextPDFView {
         // Select All would highlight every word while a drag still moves the window.
         guard selectsText else { return }
         super.selectAll(sender)
+    }
+}
+
+// MARK: - Find
+
+/// One search of a document for the find bar.
+///
+/// PDFKit's `beginFindString` returns at once, reads the pages a few at a time between the main run loop's other
+/// work and posts each match on the main thread, so a long document never holds the window up and no page is read off
+/// the main actor, which PDFDocument does not promise to be safe for. The matches are selections of the document:
+/// nothing is added to its pages.
+private final class PaperFindSearch: NSObject {
+    private let document: PDFDocument
+    private let onEnd: ([PDFSelection]) -> Void
+    private var selections: [PDFSelection] = []
+    private var isRunning = false
+
+    init(document: PDFDocument, onEnd: @escaping ([PDFSelection]) -> Void) {
+        self.document = document
+        self.onEnd = onEnd
+    }
+
+    func start(_ query: String) {
+        isRunning = true
+        let center = NotificationCenter.default
+        center.addObserver(self, selector: #selector(didFindMatch), name: .PDFDocumentDidFindMatch, object: document)
+        center.addObserver(self, selector: #selector(didEndFind), name: .PDFDocumentDidEndFind, object: document)
+        // PDFKit honours these two options; it ignores the width-insensitive one.
+        document.beginFindString(query, withOptions: [.caseInsensitive, .diacriticInsensitive])
+    }
+
+    func cancel() {
+        guard isRunning else { return }
+        stopObserving()
+        document.cancelFindString()
+    }
+
+    private func stopObserving() {
+        isRunning = false
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func didFindMatch(_ note: Notification) {
+        guard isRunning, let selection = note.userInfo?["PDFDocumentFoundSelection"] as? PDFSelection else { return }
+        selections.append(selection)
+    }
+
+    @objc private func didEndFind(_ note: Notification) {
+        guard isRunning else { return }
+        stopObserving()
+        onEnd(selections)
+    }
+}
+
+extension PaperPDFView {
+    private static let findHitColor = NSColor.systemYellow.withAlphaComponent(0.55)
+    private static let findCurrentHitColor = NSColor.systemOrange
+
+    /// Marks every place the pages hold `query`, and takes the marks away for no words. The marks are the view's own
+    /// highlights, not annotations, so the pages that are printed and exported never carry them.
+    func find(_ query: String) {
+        guard query != findQuery else { return }
+        findQuery = query
+        restartFind()
+    }
+
+    /// Searches the pages now shown for the words of the bar, dropping a search still under way.
+    private func restartFind() {
+        findSearch?.cancel()
+        findSearch = nil
+        guard !findHits.isEmpty || !findQuery.isEmpty else { return }
+        findHits = []
+        highlightedSelections = nil
+        guard !findQuery.isEmpty, let document else { return }
+        let query = findQuery
+        let search = PaperFindSearch(document: document) { [weak self] selections in
+            self?.finishFind(selections, for: query, in: document)
+        }
+        findSearch = search
+        search.start(query)
+    }
+
+    private func finishFind(_ selections: [PDFSelection], for query: String, in searched: PDFDocument) {
+        findSearch = nil
+        guard query == findQuery, document === searched else { return }
+        findHits = selections
+        let pages = selections.map { selection in
+            guard let page = selection.pages.first else { return 0 }
+            let viewIndex = searched.index(for: page)
+            return pagePlan?.logicalIndex(at: viewIndex) ?? pagePlan?.readingIndex(at: viewIndex) ?? 0
+        }
+        markFindHit(nil, reveals: false)
+        onFindHits?(pages, query)
+    }
+
+    /// Colours the current hit apart from the others and, with `reveals`, turns to its page the way the outline does
+    /// and scrolls a paper that does not fit until the hit is in sight.
+    func markFindHit(_ index: Int?, reveals: Bool) {
+        for (offset, hit) in findHits.enumerated() {
+            hit.color = offset == index ? Self.findCurrentHitColor : Self.findHitColor
+        }
+        // PDFKit draws the highlights again only when it is given others than it has, so the same selections in new
+        // colours go in after none.
+        highlightedSelections = nil
+        if !findHits.isEmpty { highlightedSelections = findHits }
+        guard reveals, let index, findHits.indices.contains(index), let page = findHits[index].pages.first,
+            let document, let pagePlan
+        else { return }
+        let viewIndex = document.index(for: page)
+        if !visiblePages.contains(page),
+            let logical = pagePlan.logicalIndex(at: viewIndex) ?? pagePlan.readingIndex(at: viewIndex)
+        {
+            goToPage(index: logical)
+        }
+        layoutDocumentView()
+        _ = scrollIntoSight(convert(findHits[index].bounds(for: page), from: page))
     }
 }
 

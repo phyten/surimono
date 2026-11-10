@@ -205,6 +205,16 @@
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))
                 }
+                if let words = argument("SurimonoFind") {
+                    // As if the reader pressed ⌘F and typed the words.
+                    model.performFind()
+                    model.find.text = words
+                    try? await Task.sleep(for: .milliseconds(900))
+                }
+                if argument("SurimonoPopover") == "goToPage" {
+                    model.presentGoToPage()
+                    try? await Task.sleep(for: .milliseconds(800))
+                }
                 if let value = argument("SurimonoThenLayout"), let layout = ViewOptions.Layout(rawValue: value) {
                     // Change the layout with everything shown, as a reader does with the view options open; the window
                     // then resizes to the new shape.

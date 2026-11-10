@@ -39,6 +39,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - コード: `-SurimonoCodePalette <配色の id>`、`-SurimonoCodeFrame style|none|tint|rule|left`、`-SurimonoCodeNumbers none|all|everyFive`、`-SurimonoCodeLong wrap|shrink|cut`、`-SurimonoCodeLabel none|corner|band`、`-SurimonoTryCode <配色の id>`（パレットの行に乗せたように紙で試す）
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）
      - ページ: `-SurimonoPage <n>`（撮る前に n ページ目へ移る。`-SurimonoMode roundtrip` と合わせると、印刷モードから戻っても同じページかを見られる）
+     - 検索とページへ移動: `-SurimonoFind <語>`（⌘F で検索バーを開いてその語を打ったところを撮る）、`-SurimonoPopover goToPage`（「ページへ移動…」のシートを開く）
      - クリップボード: `-SurimonoOpenClipboard <テキストファイルの絶対パス>`（起動時に、その文字列を専用のペーストボードから「クリップボードから開く」で開き、その窓を撮る。一般のクリップボードは触らない）
      - サービスとストリーミング: `-SurimonoServiceText <テキストファイルの絶対パス>`（専用のペーストボードからサービスの受け手へ渡す。`-SurimonoService print` で「刷る」、省くと「開く」）、`-SurimonoStreaming <テキストファイルの絶対パス>`（専用のペーストボードでストリーミングプレビューを開く。`live` なら本物の `mkStreamingPreview` を見る）
      - 親ファイルの合本: `-SurimonoOpenIncludes YES`（描画のあと「合本で開く」を押し、合本の窓を撮る）

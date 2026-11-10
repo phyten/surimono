@@ -102,6 +102,9 @@ final class DocumentViewModel {
     /// Dragging the paper selects text instead of moving the window. It belongs to the window and is never saved, so
     /// a document always opens with the paper as the window and a drag never selects text by surprise.
     var isSelectingText = false
+    /// The find bar over the paper. It belongs to the window and is never saved.
+    let find = PaperFind()
+    var isGoToPagePresented = false
     var isViewOptionsPresented = false
     var isOutlinePresented = false
     var isOutlineDrawerOpen = false
