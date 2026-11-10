@@ -10390,59 +10390,6 @@
         }
       }
     },
-    "Fit to Width": {
-      "extractionState": "manual",
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "幅に合わせる"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fit to Width"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "适合宽度"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "符合寬度"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "너비에 맞추기"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adapter à la largeur"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An Breite anpassen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajustar al ancho"
-          }
-        }
-      }
-    },
     "%@ Single": {
       "extractionState": "manual",
       "localizations": {
@@ -41057,6 +41004,271 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ampliar y reducir; arrastrar el papel que no cabe para moverlo"
+          }
+        }
+      }
+    },
+    "Zoom in on the sheets. The printed size does not change.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙を拡大して見ます。刷る大きさは変わりません。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom in on the sheets. The printed size does not change."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放大查看纸张。打印尺寸不变。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放大檢視紙張。列印尺寸不變。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "용지를 확대해서 봅니다. 인쇄 크기는 바뀌지 않습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agrandir l’affichage des feuilles. La taille d’impression ne change pas."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bögen vergrößert anzeigen. Die Druckgröße ändert sich nicht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amplía la vista de las hojas. El tamaño de impresión no cambia."
+          }
+        }
+      }
+    },
+    "Zoom out on the sheets. The printed size does not change.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙を縮小して見ます。刷る大きさは変わりません。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom out on the sheets. The printed size does not change."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缩小查看纸张。打印尺寸不变。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縮小檢視紙張。列印尺寸不變。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "용지를 축소해서 봅니다. 인쇄 크기는 바뀌지 않습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réduire l’affichage des feuilles. La taille d’impression ne change pas."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bögen verkleinert anzeigen. Die Druckgröße ändert sich nicht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reduce la vista de las hojas. El tamaño de impresión no cambia."
+          }
+        }
+      }
+    },
+    "Display zoom. The printed size does not change. Click to fit the sheets to the window.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示倍率です。刷る大きさは変わりません。クリックで用紙を窓に合わせます。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display zoom. The printed size does not change. Click to fit the sheets to the window."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示比例。打印尺寸不变。点按可使纸张适合窗口。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示比例。列印尺寸不變。按一下可讓紙張配合視窗。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "화면 배율입니다. 인쇄 크기는 바뀌지 않습니다. 클릭하면 용지를 창에 맞춥니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom d’affichage. La taille d’impression ne change pas. Cliquez pour ajuster les feuilles à la fenêtre."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anzeigegröße. Die Druckgröße ändert sich nicht. Klicken, um die Bögen ans Fenster anzupassen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom de la vista. El tamaño de impresión no cambia. Haz clic para ajustar las hojas a la ventana."
+          }
+        }
+      }
+    },
+    "Choose how the text and headings look when printed": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷ったときの文字や見出しの見た目を選びます"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose how the text and headings look when printed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择打印时文字和标题的外观"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇列印時文字與標題的外觀"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인쇄했을 때 글자와 제목의 모양을 고릅니다"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir l’apparence du texte et des titres à l’impression"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auswählen, wie Text und Überschriften gedruckt aussehen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige cómo se ven el texto y los títulos al imprimir"
+          }
+        }
+      }
+    },
+    "Choose which parts of the web page to leave out when printing": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷するときにウェブページから省く部分を選びます"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose which parts of the web page to leave out when printing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择打印时要省略的网页部分"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇列印時要省略的網頁部分"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인쇄할 때 웹 페이지에서 뺄 부분을 고릅니다"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir les parties de la page web à omettre à l’impression"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auswählen, welche Teile der Webseite beim Drucken weggelassen werden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige qué partes de la página web se omiten al imprimir"
           }
         }
       }
