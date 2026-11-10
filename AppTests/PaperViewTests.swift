@@ -36,14 +36,16 @@ struct PaperViewTests {
         view.layoutSubtreeIfNeeded()
         let page = try #require(view.page(for: anchor, nearest: false))
         let onPage = view.convert(anchor, to: page)
+        // The scroll position snaps to whole pixels, which on a display that is not Retina are whole points, once
+        // for each zoom; the paper used to move by hundreds of points.
         view.setZoom(2, anchor: anchor)
         let after = view.convert(onPage, from: page)
-        #expect(abs(after.x - anchor.x) < 1)
-        #expect(abs(after.y - anchor.y) < 1)
+        #expect(abs(after.x - anchor.x) < 3)
+        #expect(abs(after.y - anchor.y) < 3)
         view.setZoom(3, anchor: anchor)
         let again = view.convert(onPage, from: page)
-        #expect(abs(again.x - anchor.x) < 1)
-        #expect(abs(again.y - anchor.y) < 1)
+        #expect(abs(again.x - anchor.x) < 3)
+        #expect(abs(again.y - anchor.y) < 3)
         withExtendedLifetime(window) {}
     }
 
