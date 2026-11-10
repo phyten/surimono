@@ -27,6 +27,7 @@ struct LaTeXTable {
 
     let spec: String
     let body: String
+    var isLongtable = false
 
     func html(inline: (String) -> String) -> String {
         var budget = Self.maximumColumns
@@ -34,7 +35,15 @@ struct LaTeXTable {
         let rows = self.rows()
         var pendingRowspans: [Int: Int] = [:]
         var html = "<table class=\"latex-tabular\"><tbody>\n"
+        var captions = ""
         for row in rows {
+            if isLongtable, row.cells.count == 1,
+                Self.dropping("\\caption", from: row.cells[0].trimmingCharacters(in: .whitespacesAndNewlines)[...])
+                    != nil
+            {
+                captions += inline(row.cells[0]) + "\n"
+                continue
+            }
             var column = 0
             var cells = ""
             for source in row.cells {
@@ -71,7 +80,8 @@ struct LaTeXTable {
             }
             html += "<tr>\(cells)</tr>\n"
         }
-        return html + "</tbody></table>\n"
+        html += "</tbody></table>\n"
+        return captions.isEmpty ? html : "<figure class=\"latex-table\">\n\(captions)\(html)</figure>\n"
     }
 
     /// More columns than any page holds; the specification stops growing there, so nested `*{100}{…}` stays small.
@@ -149,6 +159,31 @@ struct LaTeXTable {
     }
 
     private func rows() -> [Row] {
+        guard isLongtable else { return rows(in: body) }
+        let boundaries = ["\\endfirsthead", "\\endhead", "\\endfoot", "\\endlastfoot"]
+        let parts = Self.split(body, at: boundaries, keepingSeparators: true)
+        var sections: [String: String] = [:]
+        var content = ""
+        for part in parts {
+            if boundaries.contains(part) {
+                sections[part] = content
+                content = ""
+            } else {
+                content += part
+            }
+        }
+        // Surimono paginates the HTML itself, so repeated TeX heads and feet must not become body rows.
+        let header = sections["\\endfirsthead"] ?? sections["\\endhead"]
+        let footer = sections["\\endlastfoot"] ?? sections["\\endfoot"] ?? ""
+        let headRows = rows(in: header ?? "", detectHeader: false).map { row in
+            var row = row
+            row.isHeader = true
+            return row
+        }
+        return headRows + rows(in: content + "\\\\\n" + footer, detectHeader: header == nil)
+    }
+
+    private func rows(in body: String, detectHeader: Bool = true) -> [Row] {
         var rows: [Row] = []
         var carriedRule: Rule?
         var sawMidrule = false
@@ -168,7 +203,7 @@ struct LaTeXTable {
                     row.ruleAbove = .thin
                     text = Self.droppingOptional(rest)
                     // booktabs puts the head above the first \midrule.
-                    if !sawMidrule {
+                    if detectHeader, !sawMidrule {
                         sawMidrule = true
                         for index in rows.indices { rows[index].isHeader = true }
                     }
@@ -225,7 +260,7 @@ struct LaTeXTable {
     }
 
     /// The source split at separators outside braces; escaped characters do not separate.
-    private static func split(_ text: String, at separators: [String]) -> [String] {
+    private static func split(_ text: String, at separators: [String], keepingSeparators: Bool = false) -> [String] {
         let characters = Array(text)
         let separators = separators.map(Array.init)
         var parts: [String] = []
@@ -256,6 +291,7 @@ struct LaTeXTable {
                         continue
                     }
                     parts.append(String(current))
+                    if keepingSeparators { parts.append(String(separator)) }
                     current = []
                     index = end
                     continue outer

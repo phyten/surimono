@@ -217,6 +217,11 @@ final class LaTeXReader {
         var depth = 1
         var text: [Character] = []
         while let character = peek() {
+            if comments, character == "\\", let end = LaTeXLexer.urlArgumentEnd(characters, at: index) {
+                text.append(contentsOf: characters[index..<end])
+                index = end
+                continue
+            }
             index += 1
             if character == "\\", let next = peek() {
                 text += [character, next]
@@ -432,6 +437,8 @@ final class LaTeXReader {
         case "url", "nolinkurl":
             let url = unescapedURL(argument(comments: false) ?? "")
             appendHTML("<a class=\"latex-url\" href=\"\(HTML.escape(url))\">\(HTML.escape(url))</a>")
+        case "path":
+            appendHTML("<code>\(HTML.escape(unescapedURL(argument(comments: false) ?? "")))</code>")
         case "verb": verbatimInline()
         case "lstinline", "mintinline":
             _ = optional()
@@ -697,13 +704,14 @@ final class LaTeXReader {
     private func section(_ name: String) {
         let starred = star()
         _ = optional()
-        let title = inline(argument() ?? "")
+        let source = argument() ?? ""
         if name == "part" {
             document.partCounter += 1
             let numeral = LaTeXSymbols.format(document.partCounter, as: "Roman")
             let label = document.isJapanese ? "第\(numeral)部" : "Part \(numeral)"
             let id = "part-\(document.partCounter)"
             document.labelTarget = (numeral, id)
+            let title = inline(source)
             appendBlock(
                 "<h2 class=\"latex-part\" id=\"\(id)\">\(starred ? "" : "<span class=\"secnum\">\(label)</span>")\(title)</h2>\n"
             )
@@ -732,8 +740,9 @@ final class LaTeXReader {
             number.map { "sec-" + $0.replacingOccurrences(of: ".", with: "-") }
             ?? "sec-u\(document.headings.count + 1)"
         let tag = min(level - first + 2, 6)
-        document.headings.append(.init(level: level, number: number, id: id, title: title))
         if let number { document.labelTarget = (number, id) }
+        let title = inline(source)
+        document.headings.append(.init(level: level, number: number, id: id, title: title))
         let numberHTML = display.map { "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
         appendBlock("<h\(tag) id=\"\(id)\">\(numberHTML)\(title)</h\(tag)>\n")
     }
@@ -1229,10 +1238,17 @@ final class LaTeXReader {
             let heading = document.isJapanese ? "概要" : "Abstract"
             appendBlock(
                 "<div class=\"abstract\">\n<p class=\"abstract-title\">\(heading)</p>\n\(blocks(body))</div>\n")
-        case "figure", "table", "wrapfigure", "wraptable", "SCfigure":
-            float(base == "table" || base == "wraptable" ? "table" : "figure", body: body)
+        case "figure", "table", "SCfigure":
+            float(base == "table" ? "table" : "figure", body: body)
+        case "wrapfigure", "wraptable":
+            let reader = LaTeXReader(body, document: document, isBlock: false)
+            _ = reader.optional()
+            _ = reader.argument()
+            _ = reader.optional()
+            _ = reader.argument()
+            float(base == "wraptable" ? "table" : "figure", body: reader.rest)
         case "tabular", "tabularx", "tabulary", "longtable", "tabu":
-            appendBlock(tabular(base, body: body))
+            appendBlock(tabular(name, body: body))
         case "minipage":
             let reader = LaTeXReader(body, document: document, isBlock: false)
             _ = reader.optional()
@@ -1315,7 +1331,10 @@ final class LaTeXReader {
                 ("1", "arabic"), ("a", "alph"), ("A", "Alph"), ("i", "roman"), ("I", "Roman"),
             ]
             if let position = options.firstIndex(where: { character in letters.contains { $0.0 == character } }),
-                let match = letters.first(where: { $0.0 == options[position] })
+                let match = letters.first(where: { $0.0 == options[position] }),
+                options.indices.allSatisfy({
+                    $0 == position || options[$0].isPunctuation || options[$0].isSymbol || options[$0].isWhitespace
+                })
             {
                 template = options.replacingCharacters(in: position...position, with: "\u{E000}")
                 style = match.1
@@ -1421,6 +1440,16 @@ final class LaTeXReader {
     /// sets the body in italics; a Japanese document keeps it upright, as its fonts have no italics.
     private func theorem(_ name: String, _ theorem: LaTeXDocument.Theorem, body: String) {
         let reader = LaTeXReader(body, document: document, isBlock: false)
+        var anchor = ""
+        var numberHTML = ""
+        if let counter = theorem.counter {
+            let number = stepCounter(counter)
+            document.theoremCount += 1
+            let id = "thm-\(document.theoremCount)"
+            document.labelTarget = (number, id)
+            numberHTML = " " + HTML.escape(number)
+            anchor = " id=\"\(id)\""
+        }
         let note = reader.optionalOnLine().map { inline($0) }
         var head: String
         if let cached = document.theoremHeadings[name] {
@@ -1441,15 +1470,7 @@ final class LaTeXReader {
         } else {
             head = HTML.escape(name)
         }
-        var anchor = ""
-        if let counter = theorem.counter {
-            let number = stepCounter(counter)
-            document.theoremCount += 1
-            let id = "thm-\(document.theoremCount)"
-            document.labelTarget = (number, id)
-            head += " " + HTML.escape(number)
-            anchor = " id=\"\(id)\""
-        }
+        head += numberHTML
         let noteHTML = note.map { document.isJapanese ? "（\($0)）" : " (\($0))" } ?? ""
         head =
             document.usesAMSTheorem
@@ -1549,7 +1570,7 @@ final class LaTeXReader {
 
     private func caption() {
         _ = optional()
-        let text = inline(argument() ?? "")
+        let source = argument() ?? ""
         let kind = floatKind ?? "figure"
         let number: Int
         if kind == "table" {
@@ -1561,6 +1582,7 @@ final class LaTeXReader {
         }
         let id = "\(kind == "table" ? "tab" : "fig")-\(number)"
         document.labelTarget = (String(number), id)
+        let text = inline(source)
         let name = kind == "table" ? (document.isJapanese ? "表" : "Table") : (document.isJapanese ? "図" : "Figure")
         let separator = document.isJapanese ? "　" : ": "
         appendBlock(
@@ -1586,10 +1608,13 @@ final class LaTeXReader {
 
     private func tabular(_ name: String, body: String) -> String {
         let reader = LaTeXReader(body, document: document, isBlock: false)
-        if name == "tabularx" || name == "tabulary" || name == "tabu" { _ = reader.argument() }
+        if name == "tabular*" || name == "tabularx" || name == "tabulary" || name == "tabu" {
+            _ = reader.argument()
+        }
         _ = reader.optional()
         let spec = reader.argument() ?? ""
         let rest = reader.rest
-        return LaTeXTable(spec: spec, body: rest).html { [self] in inline($0) }
+        reader.floatKind = name == "longtable" ? "table" : floatKind
+        return LaTeXTable(spec: spec, body: rest, isLongtable: name == "longtable").html { reader.inline($0) }
     }
 }
