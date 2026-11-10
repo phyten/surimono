@@ -498,6 +498,73 @@ struct WebPaginatorTests {
         #expect(paginator.openSessionCount == 0)
     }
 
+    /// A listening socket on the loopback address that completes connections and never answers them.
+    private final class SilentServer {
+        private let descriptor: Int32
+        let port: UInt16
+
+        init() throws {
+            let listener = socket(AF_INET, SOCK_STREAM, 0)
+            guard listener >= 0 else { throw POSIXError(.EIO) }
+            var address = sockaddr_in()
+            address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_addr.s_addr = inet_addr("127.0.0.1")
+            var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let bound = withUnsafeMutablePointer(to: &address) {
+                $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { pointer in
+                    bind(listener, pointer, length) == 0 && listen(listener, 8) == 0
+                        && getsockname(listener, pointer, &length) == 0
+                }
+            }
+            guard bound else {
+                close(listener)
+                throw POSIXError(.EIO)
+            }
+            descriptor = listener
+            port = UInt16(bigEndian: address.sin_port)
+        }
+
+        deinit { close(descriptor) }
+    }
+
+    @Test("応答のない画像とスタイルシートがあっても、期限で読み込みを打ち切って本文を組版する")
+    func paginatesWhatLoadedWhenSubresourcesNeverAnswer() async throws {
+        let server = try SilentServer()
+        let html = """
+            <!doctype html><meta charset="utf-8">
+            <link rel="stylesheet" href="http://127.0.0.1:\(server.port)/style.css">
+            <body><p>BODY-MARKER</p><img src="http://127.0.0.1:\(server.port)/image.png"><p>AFTER-MARKER</p></body>
+            """
+        let paginator = WebPaginator()
+        let started = ContinuousClock.now
+        let document = try await paginator.paginate(
+            .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15), allowsJavaScript: false,
+            timeout: .seconds(1))
+        #expect(text(of: document).contains("BODY-MARKER"))
+        #expect(text(of: document).contains("AFTER-MARKER"))
+        #expect(ContinuousClock.now - started < .seconds(10))
+        #expect(paginator.openSessionCount == 0)
+    }
+
+    @Test("応答のないスクリプトで本文の解析が終わらない文書は、期限で時間切れになる")
+    func timesOutWhenTheDocumentIsNeverParsed() async throws {
+        let server = try SilentServer()
+        // A classic script holds the parser, so the body after it never reaches the DOM.
+        let html = """
+            <!doctype html><meta charset="utf-8">
+            <script src="http://127.0.0.1:\(server.port)/script.js"></script>
+            <body><p>BODY-MARKER</p></body>
+            """
+        let paginator = WebPaginator()
+        await #expect(throws: WebPaginator.PaginationError.timedOut) {
+            _ = try await paginator.paginate(
+                .html(html, baseURL: nil), pageSize: a4, margins: .uniform(millimeters: 15),
+                allowsJavaScript: true, timeout: .seconds(1))
+        }
+        #expect(paginator.openSessionCount == 0)
+    }
+
     @Test("印刷の完了前に期限を過ぎても、片付けは印刷が終わるまで待つ")
     func defersCleanupUntilPrintingFinishes() async throws {
         let paginator = WebPaginator()

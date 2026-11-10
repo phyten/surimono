@@ -38,6 +38,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return (1...list.numberOfItems).compactMap { list.atIndex($0)?.fileURLValue }
     }
 
+    /// A window's settings are saved a moment after a change, and quitting does not close the windows first.
+    func applicationWillTerminate(_ notification: Notification) {
+        DocumentWindows.shared.flushPendingSettings()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         DocumentEditMenu.startHiding()
         #if DEBUG

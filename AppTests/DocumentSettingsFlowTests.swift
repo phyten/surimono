@@ -571,6 +571,103 @@ struct DocumentSettingsFlowTests {
         model.stop()
     }
 
+    @Test("開いたまま 3 回書き換えた文書の記録は最新のハッシュの 1 件だけで、ほかの文書の記録には触れない", .timeLimit(.minutes(1)))
+    func editedDocumentLeavesOneRecord() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        try FileManager.default.createDirectory(at: environment.directory, withIntermediateDirectories: true)
+        let otherKey = ContentHash.of(pdf("other")).hex
+        let other = DocumentSettings(textScale: 1.5)
+        try environment.store.save(other, for: otherKey)
+        let url = environment.directory.appendingPathComponent("doc.pdf")
+        let original = pdf("a")
+        try original.write(to: url)
+        let model = environment.model(original, url: url)
+        try await open(model)
+        model.setLayout(.single)
+        model.rememberedSettingsDidChange()
+        try await waitUntil { model.hasSavedSettings }
+
+        // The fixture's bytes differ from one call to the next, so each edit is made once and kept.
+        let edits = [pdf("b"), pdf("c"), pdf("d")]
+        for edited in edits {
+            try edited.write(to: url)
+            model.reload()
+            try await waitUntil { model.contentHash == ContentHash.of(edited) }
+            try await waitUntil { environment.store.record(for: ContentHash.of(edited).hex) != nil }
+        }
+        model.stop()
+        let newest = ContentHash.of(edits[2]).hex
+        #expect(Set(environment.store.keys()) == [newest, otherKey])
+        #expect(environment.store.record(for: newest)?.view?.layout == .single)
+        #expect(environment.store.record(for: otherKey) == other)
+    }
+
+    @Test("設定を変えていない文書は、開いたまま書き換えられても何も保存しない", .timeLimit(.minutes(1)))
+    func untouchedEditedDocumentIsNotSaved() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        try FileManager.default.createDirectory(at: environment.directory, withIntermediateDirectories: true)
+        let url = environment.directory.appendingPathComponent("doc.pdf")
+        let original = pdf("a")
+        try original.write(to: url)
+        let model = environment.model(original, url: url)
+        try await open(model)
+        for edited in [pdf("b"), pdf("c"), pdf("d")] {
+            try edited.write(to: url)
+            model.reload()
+            try await waitUntil { model.contentHash == ContentHash.of(edited) && !model.isRendering }
+        }
+        model.stop()
+        #expect(environment.store.keys().isEmpty)
+        #expect(!model.hasSavedSettings)
+    }
+
+    @Test("窓を開く前からあった記録は、開いたまま書き換えられても消さない", .timeLimit(.minutes(1)))
+    func recordFromBeforeTheWindowSurvivesEditing() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        try FileManager.default.createDirectory(at: environment.directory, withIntermediateDirectories: true)
+        let url = environment.directory.appendingPathComponent("doc.pdf")
+        let original = pdf("a")
+        try original.write(to: url)
+        let first = environment.model(original, url: url)
+        try await open(first)
+        first.setLayout(.single)
+        first.rememberedSettingsDidChange()
+        first.stop()
+
+        // A copy of the file elsewhere may still have this content, so only this window's own records go away.
+        let model = environment.model(original, url: url)
+        try await open(model)
+        let edits = [pdf("b"), pdf("c")]
+        for edited in edits {
+            try edited.write(to: url)
+            model.reload()
+            try await waitUntil { model.contentHash == ContentHash.of(edited) }
+            try await waitUntil { environment.store.record(for: ContentHash.of(edited).hex) != nil }
+        }
+        model.stop()
+        #expect(Set(environment.store.keys()) == [ContentHash.of(original).hex, ContentHash.of(edits[1]).hex])
+        #expect(environment.store.record(for: ContentHash.of(edits[1]).hex)?.view?.layout == .single)
+    }
+
+    @Test("設定を変えた直後にアプリを終了しても、待っていた保存を終了の前に書き込む", .timeLimit(.minutes(1)))
+    func terminationFlushesPendingSave() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let data = pdf("a")
+        let model = environment.model(data)
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        defer { controller.close() }
+        try await open(model)
+        model.setLayout(.single)
+        model.rememberedSettingsDidChange()
+        #expect(environment.store.keys().isEmpty)
+        AppDelegate().applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+        #expect(environment.store.record(for: ContentHash.of(data).hex)?.view?.layout == .single)
+    }
+
     @Test("最初の描画を待つ間に選んだ表示の型は、描画後の既定値で上書きしない", .timeLimit(.minutes(1)))
     func userChoiceDuringFirstRenderSurvives() async throws {
         let environment = try environment()
@@ -754,20 +851,29 @@ struct DocumentSettingsFlowTests {
         model.stop()
     }
 
-    @Test("中身の変わった画像の束を読み直すと、並び順とキーを同時に切り替え、前の記録は書き換えない", .timeLimit(.minutes(1)))
+    @Test("中身の変わった画像の束を読み直すと、並び順とキーを同時に切り替え、前からあった記録は書き換えない", .timeLimit(.minutes(1)))
     func reloadingChangedBundleSwitchesKeyWithDigests() async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
         let source = SlowImages(["a.png": TestFixtures.png(red: 0.1), "b.png": TestFixtures.png(red: 0.6)])
         let urls = ["a.png", "b.png"].map { URL(fileURLWithPath: "/fixtures/" + $0) }
+        func makeModel(_ bundle: ImageBundleModel) -> DocumentViewModel {
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .image, preferences: environment.preferences,
+                library: environment.library, imageBundle: bundle, settingsStore: environment.store)
+        }
+        // The record of an earlier window: this window must neither rewrite it nor take it away.
+        let earlierBundle = ImageBundleModel(urls: urls, readImage: { try source.read($0) })
+        let earlier = makeModel(earlierBundle)
+        try await open(earlier)
+        earlierBundle.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        earlier.rememberedSettingsDidChange()
+        try await waitUntil { earlier.hasSavedSettings }
+        earlier.stop()
+
         let bundle = ImageBundleModel(urls: urls, readImage: { try source.read($0) })
-        let model = DocumentViewModel(
-            data: Data(), fileURL: nil, format: .image, preferences: environment.preferences,
-            library: environment.library, imageBundle: bundle, settingsStore: environment.store)
+        let model = makeModel(bundle)
         try await open(model)
-        bundle.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
-        model.rememberedSettingsDidChange()
-        try await waitUntil { model.hasSavedSettings }
         let oldKey = try #require(model.contentHash).hex
         let oldRecord = try #require(environment.store.record(for: oldKey))
         let oldDigests = try #require(bundle.orderDigests)
@@ -786,6 +892,31 @@ struct DocumentSettingsFlowTests {
         #expect(environment.store.record(for: oldKey) == oldRecord)
         let newKey = try #require(model.contentHash).hex
         #expect(newKey != oldKey)
+        #expect(environment.store.record(for: newKey)?.imageOrder == bundle.orderDigests)
+    }
+
+    @Test("この窓で並べ替えた画像の束は、画像が書き換えられると新しい組の記録だけを残す", .timeLimit(.minutes(1)))
+    func editedBundleLeavesOneRecord() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let source = SlowImages(["a.png": TestFixtures.png(red: 0.1), "b.png": TestFixtures.png(red: 0.6)])
+        let urls = ["a.png", "b.png"].map { URL(fileURLWithPath: "/fixtures/" + $0) }
+        let bundle = ImageBundleModel(urls: urls, readImage: { try source.read($0) })
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .image, preferences: environment.preferences,
+            library: environment.library, imageBundle: bundle, settingsStore: environment.store)
+        try await open(model)
+        bundle.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        model.rememberedSettingsDidChange()
+        try await waitUntil { model.hasSavedSettings }
+        let oldKey = try #require(model.contentHash).hex
+
+        source.replace("b.png", with: TestFixtures.png(red: 0.9))
+        model.reload()
+        try await waitUntil { model.contentHash?.hex != oldKey && !model.isRendering }
+        model.stop()
+        let newKey = try #require(model.contentHash).hex
+        #expect(environment.store.keys() == [newKey])
         #expect(environment.store.record(for: newKey)?.imageOrder == bundle.orderDigests)
     }
 

@@ -66,9 +66,11 @@ public struct PrintJobFactory {
         }
     }
 
+    /// - Parameter jobTitle: What the printer's queue shows for the job, and the name the system dialog proposes for
+    ///   a PDF saved from it.
     public func printOperation(
         for document: PDFDocument, layout: PrintLayout, showsPrintPanel: Bool, printer: NSPrinter? = nil,
-        pageOrder: PrintPageOrder = .lastSheetFirst, copies: Int = 1
+        pageOrder: PrintPageOrder = .lastSheetFirst, copies: Int = 1, jobTitle: String? = nil
     ) -> NSPrintOperation? {
         let orientations = (0..<document.pageCount).compactMap { index -> Bool? in
             guard let page = document.page(at: index) else { return nil }
@@ -86,6 +88,7 @@ public struct PrintJobFactory {
                 scalingMode: .pageScaleDownToFit, autoRotate: mixed)
         else { return nil }
         operation.showsPrintPanel = showsPrintPanel
+        if let jobTitle, !jobTitle.isEmpty { operation.jobTitle = jobTitle }
         operation.printPanel.options.formUnion([.showsPaperSize, .showsOrientation, .showsCopies, .showsPageRange])
         return operation
     }
