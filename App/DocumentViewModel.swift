@@ -84,6 +84,8 @@ final class DocumentViewModel {
     var requestedTrayRow: Int?
     /// What a row of the list asked the tray to show, until the sheets that hold it are ready.
     @ObservationIgnored private var trayRequest: URL?
+    /// The zoom of the tray on screen, which the menus' zoom commands drive in the print mode.
+    @ObservationIgnored weak var trayZoomer: TrayZoomer?
     /// A file drag over this window.
     let drop = DropSession()
     /// The window this binder took the place of, for as long as going back can bring it.
@@ -617,7 +619,7 @@ final class DocumentViewModel {
                     guard let self, let window = self.window, event.window === window,
                         window.isKeyWindow, window.attachedSheet == nil
                     else { return false }
-                    return self.handleTextSizeKey(event)
+                    return self.handleTextSizeKey(event) || self.handleTrayZoomKey(event)
                 }
                 return handled ? nil : event
             }
@@ -1196,6 +1198,17 @@ final class DocumentViewModel {
         return true
     }
 
+    /// ⌘= is the unshifted Zoom In key on US keyboards, which the menu's ⌘+ does not take. The paper of the view mode
+    /// takes it as a key of its own; the tray has no view that takes keys.
+    func handleTrayZoomKey(_ event: NSEvent) -> Bool {
+        guard mode == .print, let trayZoomer,
+            event.modifierFlags.intersection([.command, .option, .control]) == [.command],
+            event.charactersIgnoringModifiers == "="
+        else { return false }
+        trayZoomer.zoomIn()
+        return true
+    }
+
     // MARK: - View mode
 
     func setLayout(_ layout: ViewOptions.Layout) { updateViewOptions { $0.layout = layout } }
@@ -1720,9 +1733,35 @@ final class DocumentViewModel {
         }
     }
 
-    func zoomIn() { if showsWeb { web.zoomIn() } else { paper.zoomIn() } }
-    func zoomOut() { if showsWeb { web.zoomOut() } else { paper.zoomOut() } }
-    func zoomToFit() { if showsWeb { web.resetZoom() } else { paper.zoomToFit() } }
+    func zoomIn() {
+        if mode == .print {
+            trayZoomer?.zoomIn()
+        } else if showsWeb {
+            web.zoomIn()
+        } else {
+            paper.zoomIn()
+        }
+    }
+
+    func zoomOut() {
+        if mode == .print {
+            trayZoomer?.zoomOut()
+        } else if showsWeb {
+            web.zoomOut()
+        } else {
+            paper.zoomOut()
+        }
+    }
+
+    func zoomToFit() {
+        if mode == .print {
+            trayZoomer?.zoomToFit()
+        } else if showsWeb {
+            web.resetZoom()
+        } else {
+            paper.zoomToFit()
+        }
+    }
 
     /// Images carry no text to select.
     var canSelectText: Bool { imageBundle == nil && format != .image }

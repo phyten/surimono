@@ -40954,6 +40954,112 @@
           }
         }
       }
+    },
+    "Pinch / ⌘-scroll": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピンチ / ⌘＋スクロール"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pinch / ⌘-scroll"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "双指开合 / ⌘ + 滚动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "雙指開合 / ⌘ + 捲動"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "핀치 / ⌘ + 스크롤"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pincer / ⌘ + défilement"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf-/Zuziehen / ⌘ + Scrollen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pellizcar / ⌘ + desplazar"
+          }
+        }
+      }
+    },
+    "Zoom in and out; drag paper that does not fit to move it": {
+      "extractionState": "manual",
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡大・縮小。収まらない紙はドラッグで動かす"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zoom in and out; drag paper that does not fit to move it"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放大与缩小；纸张显示不全时拖动来移动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放大與縮小；紙張顯示不全時拖曳來移動"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "확대·축소. 다 보이지 않는 종이는 드래그해서 옮기기"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agrandir et réduire ; faire glisser le papier qui dépasse pour le déplacer"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vergrößern und verkleinern; Papier, das nicht passt, durch Ziehen bewegen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ampliar y reducir; arrastrar el papel que no cabe para moverlo"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

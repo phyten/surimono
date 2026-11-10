@@ -3,7 +3,7 @@ import SwiftUI
 
 // The paper dispatches through these entries so the guide cannot silently lose a handled key.
 enum KeyGuideEntry: CaseIterable {
-    case menu, viewOptions, selectText, alternateDrag, pageEdge, doubleClick
+    case menu, viewOptions, selectText, alternateDrag, pageEdge, doubleClick, pinch
     case print, systemPrint, printLayouts, escape
     case moveSelection, removeFromList, showList
 
@@ -15,6 +15,7 @@ enum KeyGuideEntry: CaseIterable {
         case .alternateDrag: String(localized: "Hold ⌥")
         case .pageEdge: String(localized: "Click a paper edge")
         case .doubleClick: String(localized: "Double-click")
+        case .pinch: String(localized: "Pinch / ⌘-scroll")
         case .print: "⌘P"
         case .systemPrint: "⌥⌘P"
         case .printLayouts: "⌘1–⌘6"
@@ -33,6 +34,7 @@ enum KeyGuideEntry: CaseIterable {
         case .alternateDrag: String(localized: "Swap what dragging the paper does")
         case .pageEdge: String(localized: "Turn the page")
         case .doubleClick: String(localized: "Zoom ⇄ fit to window")
+        case .pinch: String(localized: "Zoom in and out; drag paper that does not fit to move it")
         case .print: String(localized: "Open the print screen; print when on it")
         case .systemPrint: String(localized: "Open the system print dialog")
         case .printLayouts: String(localized: "Choose a layout and open the print screen")

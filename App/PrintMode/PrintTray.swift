@@ -109,8 +109,18 @@ struct TrayMetrics: Equatable {
     static let padding: CGFloat = 44
     static let sideSpacing: CGFloat = 28
     static let twoUpSpacing: CGFloat = 36
-    static let zoomRange: ClosedRange<CGFloat> = 0.5...2.5
+    /// The tray zooms out to half the size that fits the window.
+    static let minimumZoom: CGFloat = 0.5
+    /// It zooms in to two and a half times the size that fits the window, and always far enough to show the sheets
+    /// at twice their real size: fitted to a small window, a booklet sheet is under a quarter of its real size, so a
+    /// limit on the fitted size alone did not even reach the size it prints at.
+    static let fittedZoomLimit: CGFloat = 2.5
+    static let largestScale: CGFloat = 2
+    /// One step of the zoom buttons and of ⌘+ and ⌘−.
+    static let zoomStep: CGFloat = 1.25
 
+    /// Display points per PDF point at zoom 1, where the sheets fit the window.
+    let fitScale: CGFloat
     /// Display points per PDF point.
     let scale: CGFloat
     let sideSize: CGSize
@@ -137,13 +147,13 @@ struct TrayMetrics: Equatable {
         case .booklet:
             pageWidth = min(max((available - Self.sideSpacing) / 4, 110), 300)
         }
-        let zoom = min(max(zoom, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
         let widthScale = pageWidth / (layout.kind == .handout3 ? layout.sheetSize.width : layout.logicalPageSize.width)
         let sheetHeight =
             mixedOrientations ? max(layout.sheetSize.width, layout.sheetSize.height) : layout.sheetSize.height
         let heightScale =
             viewportHeight.isFinite ? max(viewportHeight - Self.sheetChrome, 120) / sheetHeight : widthScale
-        scale = min(widthScale, heightScale) * zoom
+        fitScale = min(widthScale, heightScale)
+        scale = fitScale * Self.clampedZoom(zoom, fitScale: fitScale)
         sideSize = CGSize(width: layout.sheetSize.width * scale, height: layout.sheetSize.height * scale)
         rowWidth =
             switch layout.kind {
@@ -155,6 +165,263 @@ struct TrayMetrics: Equatable {
     }
 
     var zoomPercent: Int { Int((scale * 100).rounded()) }
+
+    var maximumZoom: CGFloat { Self.maximumZoom(fitScale: fitScale) }
+
+    func clampedZoom(_ zoom: CGFloat) -> CGFloat { Self.clampedZoom(zoom, fitScale: fitScale) }
+
+    private static func maximumZoom(fitScale: CGFloat) -> CGFloat {
+        max(fittedZoomLimit, largestScale / max(fitScale, 0.01))
+    }
+
+    private static func clampedZoom(_ zoom: CGFloat, fitScale: CGFloat) -> CGFloat {
+        min(max(zoom, minimumZoom), maximumZoom(fitScale: fitScale))
+    }
+}
+
+/// A stretch of paper along one direction of the tray: a sheet's height, or the width of one of its sides.
+struct TraySegment: Equatable {
+    var start: CGFloat
+    var length: CGFloat
+    var end: CGFloat { start + length }
+}
+
+/// Where a spot is along one direction of the tray, in terms that survive a zoom. The paper grows with the zoom but
+/// the headings, captions and gaps around it do not, so a spot on paper is kept as a fraction of it, and a spot off
+/// paper as its distance from the paper before it (or before the first).
+enum TrayMark: Equatable {
+    case before(CGFloat)
+    case on(Int, CGFloat)
+    case after(Int, CGFloat)
+
+    init(_ value: CGFloat, along segments: [TraySegment]) {
+        guard let first = segments.first, value >= first.start else {
+            self = .before((segments.first?.start ?? 0) - value)
+            return
+        }
+        let index = segments.lastIndex { $0.start <= value } ?? 0
+        let segment = segments[index]
+        self =
+            value <= segment.end && segment.length > 0
+            ? .on(index, (value - segment.start) / segment.length) : .after(index, value - segment.end)
+    }
+
+    func value(along segments: [TraySegment]) -> CGFloat {
+        switch self {
+        case .before(let distance):
+            return (segments.first?.start ?? 0) - distance
+        case .on(let index, let fraction):
+            guard let segment = segments.last.map({ index < segments.count ? segments[index] : $0 }) else {
+                return 0
+            }
+            return segment.start + fraction * segment.length
+        case .after(let index, let distance):
+            guard let segment = segments.last.map({ index < segments.count ? segments[index] : $0 }) else {
+                return distance
+            }
+            return segment.end + distance
+        }
+    }
+
+    /// The row a vertical mark is in: the one whose paper it is on or follows; the first row above the rows.
+    var row: Int {
+        switch self {
+        case .before: 0
+        case .on(let index, _), .after(let index, _): index
+        }
+    }
+}
+
+/// Where everything sits in the tray's scroll view, worked out from the numbers the tray is drawn with, so that a zoom
+/// can keep the spot under the pointer where it is. The two heights that depend on text are measured by the tray.
+struct TrayGeometry: Equatable {
+    static let topPadding: CGFloat = 22
+    static let headerSpacing: CGFloat = 30
+    /// Room below the first sheet, so its captions do not touch the press bar.
+    static let bottomClearance: CGFloat = 16
+    static let bottomPadding: CGFloat = 40
+    static let rowSpacing: CGFloat = 34
+    /// Between a sheet's heading and its paper.
+    static let headingSpacing: CGFloat = 10
+    /// Between the paper and its captions.
+    static let captionSpacing: CGFloat = 9
+    static let captionHeight: CGFloat = 20
+
+    /// What the tray is laid out from, apart from the zoom.
+    struct Context: Equatable {
+        /// A row of the tray: how many sheets sit in it, how many sides each sheet shows, and a side's full size in
+        /// PDF points.
+        struct Row: Equatable {
+            var sheets: Int
+            var sides: Int
+            var paper: CGSize
+        }
+
+        var layout: PrintLayout
+        var mixedOrientations: Bool
+        var rows: [Row]
+        var showsCaptions: Bool
+        /// The scroll view's size, scroll bars included.
+        var width: CGFloat
+        var height: CGFloat
+        /// How thick a legacy scroll bar is, or 0 where scroll bars lie over the content.
+        var scroller: CGFloat
+        /// The measured heights of the instructions above the sheets and of a sheet's heading.
+        var headerHeight: CGFloat
+        var headingHeight: CGFloat
+
+        init(
+            layout: PrintLayout, mixedOrientations: Bool, rows: [Row], showsCaptions: Bool, width: CGFloat,
+            height: CGFloat, scroller: CGFloat = 0, headerHeight: CGFloat, headingHeight: CGFloat
+        ) {
+            self.layout = layout
+            self.mixedOrientations = mixedOrientations
+            self.rows = rows
+            self.showsCaptions = showsCaptions
+            self.width = width
+            self.height = height
+            self.scroller = scroller
+            self.headerHeight = headerHeight
+            self.headingHeight = headingHeight
+        }
+
+        init(
+            tray: PrintTray, showsCaptions: Bool, width: CGFloat, height: CGFloat, scroller: CGFloat,
+            headerHeight: CGFloat, headingHeight: CGFloat
+        ) {
+            let layout = tray.layout
+            self.init(
+                layout: layout, mixedOrientations: Set(tray.sheets.map(\.orientation)).count > 1,
+                rows: tray.rows.map { row in
+                    let sheet = row.sheets.first
+                    // As `TraySheetView` draws them: plain sheets lie the way they were made, the rest as the layout.
+                    let landscape = sheet?.orientation == .landscape
+                    let paper = (layout.kind == .normal ? layout.oriented(landscape) : layout).sheetSize
+                    return Row(sheets: row.sheets.count, sides: sheet?.sides.count ?? 1, paper: paper)
+                },
+                showsCaptions: showsCaptions, width: width, height: height, scroller: scroller,
+                headerHeight: headerHeight, headingHeight: headingHeight)
+        }
+    }
+
+    let metrics: TrayMetrics
+    /// The instructions keep the width of the sheets at zoom 1, so that they wrap the same at every zoom.
+    let headerWidth: CGFloat
+    /// The header and the rows share this width; rows narrower than the header sit in its middle.
+    let blockWidth: CGFloat
+    /// Wider than the window: the tray scrolls sideways.
+    let scrollsSideways: Bool
+    /// The left edge of the instructions and of the rows' block.
+    let blockLeft: CGFloat
+    let rowsLeft: CGFloat
+    let rowTops: [CGFloat]
+    let rowHeights: [CGFloat]
+    /// Each row's paper, down the tray.
+    let papers: [TraySegment]
+    let contentSize: CGSize
+    let viewportSize: CGSize
+    private let rows: [Context.Row]
+    private let scale: CGFloat
+
+    init(context: Context, zoom: CGFloat) {
+        let layout = context.mixedOrientations ? context.layout.oriented(true) : context.layout
+        let viewportHeight =
+            context.height - Self.topPadding - context.headerHeight - Self.headerSpacing - Self.bottomClearance
+        // The sheets are sized as if a legacy scroll bar always took its width, so that one coming and going does
+        // not resize them.
+        func measure(_ zoom: CGFloat) -> TrayMetrics {
+            TrayMetrics(
+                layout: layout, viewportWidth: context.width - context.scroller, viewportHeight: viewportHeight,
+                mixedOrientations: context.mixedOrientations, zoom: zoom)
+        }
+        let metrics = measure(zoom)
+        self.metrics = metrics
+        rows = context.rows
+        scale = metrics.scale
+        let captions = context.showsCaptions ? Self.captionSpacing + Self.captionHeight : 0
+        var top = Self.topPadding + context.headerHeight + Self.headerSpacing
+        var tops: [CGFloat] = []
+        var heights: [CGFloat] = []
+        var papers: [TraySegment] = []
+        for row in context.rows {
+            let paper = row.paper.height * metrics.scale
+            let height = context.headingHeight + Self.headingSpacing + paper + captions
+            tops.append(top)
+            heights.append(height)
+            papers.append(TraySegment(start: top + context.headingHeight + Self.headingSpacing, length: paper))
+            top += height + Self.rowSpacing
+        }
+        rowTops = tops
+        rowHeights = heights
+        self.papers = papers
+        let contentHeight = (heights.isEmpty ? top : top - Self.rowSpacing) + Self.bottomPadding
+        headerWidth = measure(1).rowWidth
+        blockWidth = max(metrics.rowWidth, headerWidth)
+        // A legacy scroll bar takes its room from what the tray shows only while it is there: down the side when the
+        // tray is taller than what shows, across the bottom when it is wider. Either can bring the other.
+        let contentWidth = blockWidth + 2 * TrayMetrics.padding
+        var tall = contentHeight > context.height
+        // Zoomed out, the instructions keep their width and may be the ones that do not fit.
+        var wide = contentWidth > context.width - (tall ? context.scroller : 0)
+        if !tall, wide, contentHeight > context.height - context.scroller {
+            tall = true
+        }
+        if !wide, tall, contentWidth > context.width - context.scroller {
+            wide = true
+        }
+        let visibleWidth = context.width - (tall ? context.scroller : 0)
+        scrollsSideways = wide
+        blockLeft = wide ? TrayMetrics.padding : (visibleWidth - blockWidth) / 2
+        rowsLeft = blockLeft + (blockWidth - metrics.rowWidth) / 2
+        contentSize = CGSize(width: wide ? contentWidth : visibleWidth, height: contentHeight)
+        viewportSize = CGSize(width: visibleWidth, height: context.height - (wide ? context.scroller : 0))
+    }
+
+    /// The sides of `row`, across the tray: sheets side by side, each with its sides side by side.
+    func sides(ofRow row: Int) -> [TraySegment] {
+        guard let shape = rows.indices.contains(row) ? rows[row] : rows.last else { return [] }
+        let side = shape.paper.width * scale
+        let sheet = side * CGFloat(shape.sides) + TrayMetrics.sideSpacing * CGFloat(shape.sides - 1)
+        return (0..<shape.sheets).flatMap { index in
+            let left = rowsLeft + CGFloat(index) * (sheet + TrayMetrics.twoUpSpacing)
+            return (0..<shape.sides).map {
+                TraySegment(start: left + CGFloat($0) * (side + TrayMetrics.sideSpacing), length: side)
+            }
+        }
+    }
+
+    /// The scroll position that keeps `spot` over the same place on the tray after the zoom changes it from `old` to
+    /// `self`. Positions and spots are the scroll view's: an offset is where its top-left corner is in the content,
+    /// and a spot is a point of the scroll view, which reaches `topInset` up under the bar above the tray.
+    func offset(keeping spot: CGPoint, scrolledTo offset: CGPoint, in old: TrayGeometry, topInset: CGFloat) -> CGPoint {
+        let point = CGPoint(x: offset.x + spot.x, y: offset.y + spot.y)
+        let y = TrayMark(point.y, along: old.papers)
+        // The instructions above the rows keep their size; a spot on them keeps its distance from their left edge.
+        let x =
+            point.y < (old.rowTops.first ?? .infinity)
+            ? blockLeft + point.x - old.blockLeft
+            : TrayMark(point.x, along: old.sides(ofRow: y.row)).value(along: sides(ofRow: y.row))
+        return clamped(CGPoint(x: x - spot.x, y: y.value(along: papers) - spot.y), topInset: topInset)
+    }
+
+    /// The nearest scroll position the tray can take. At the top, the scroll view's corner is `topInset` above the
+    /// content; at the bottom, the content's end meets the bottom of the scroll view.
+    func clamped(_ offset: CGPoint, topInset: CGFloat) -> CGPoint {
+        CGPoint(
+            x: scrollsSideways ? min(max(offset.x, 0), max(contentSize.width - viewportSize.width, 0)) : 0,
+            y: min(max(offset.y, -topInset), max(contentSize.height - viewportSize.height, 0) - topInset))
+    }
+
+    /// The scroll position that shows `row` at the top of the visible area; the first row shows the instructions too.
+    func offset(showingRow row: Int, topInset: CGFloat, x: CGFloat) -> CGPoint {
+        let y = row > 0 && rowTops.indices.contains(row) ? rowTops[row] - topInset : -topInset
+        return clamped(CGPoint(x: x, y: y), topInset: topInset)
+    }
+
+    /// The top-most row with anything showing in the visible area, which starts `top` down the content.
+    func rowIndex(atTop top: CGFloat) -> Int {
+        rowTops.indices.first { rowTops[$0] + rowHeights[$0] > top + 0.5 } ?? max(rowTops.count - 1, 0)
+    }
 }
 
 /// Print mode texts for an explicit language, like `DocumentViewModel.summaryText`, so tests can pin them.
