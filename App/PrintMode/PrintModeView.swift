@@ -248,7 +248,7 @@ struct PrintStyleMenu: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("Style")
+            .help("Choose how the text and headings look when printed")
         }
         if model.usesHTMLPreset {
             Menu {
@@ -271,7 +271,7 @@ struct PrintStyleMenu: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("HTML Preset")
+            .help("Choose which parts of the web page to leave out when printing")
         } else if !model.usesPrintTheme {
             label(
                 "Style",

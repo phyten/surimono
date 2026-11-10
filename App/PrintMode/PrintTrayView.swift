@@ -408,6 +408,7 @@ private struct TrayNavigator: View {
             }
             .disabled(current <= 0)
             .help("Previous Sheet")
+            .accessibilityLabel(Text("Previous Sheet"))
             Text("Sheet \(sheetNumber)/\(sheetCount)")
                 .font(.system(size: 10.5))
                 .monospacedDigit()
@@ -424,22 +425,28 @@ private struct TrayNavigator: View {
             }
             .disabled(current >= rows.count - 1)
             .help("Next Sheet")
+            .accessibilityLabel(Text("Next Sheet"))
             Rectangle().fill(PrintPalette.line2).frame(width: 20, height: 1).padding(.vertical, 4)
             Button(action: zoomIn) {
                 Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
             }
             .disabled(!canZoomIn)
-            .help("Zoom In")
+            .help("Zoom in on the sheets. The printed size does not change.")
+            .accessibilityLabel(Text("Zoom In"))
             Button(action: resetZoom) {
                 Text(verbatim: "\(zoomPercent)%").font(.system(size: 10.5)).monospacedDigit()
             }
             .buttonStyle(PrintIconButtonStyle(size: CGSize(width: 36, height: 22)))
-            .help("Fit to Width")
+            // The zoom of the screen only; told apart from the text size of the style, which changes the print.
+            .help("Display zoom. The printed size does not change. Click to fit the sheets to the window.")
+            .accessibilityLabel(Text("Fit to Window"))
+            .accessibilityValue(Text(verbatim: "\(zoomPercent)%"))
             Button(action: zoomOut) {
                 Image(systemName: "minus").font(.system(size: 11, weight: .semibold))
             }
             .disabled(!canZoomOut)
-            .help("Zoom Out")
+            .help("Zoom out on the sheets. The printed size does not change.")
+            .accessibilityLabel(Text("Zoom Out"))
         }
         .buttonStyle(PrintIconButtonStyle())
         .padding(3)
