@@ -3,90 +3,112 @@ import PDFKit
 import SurimonoCore
 import SwiftUI
 
-/// The tray (刷り台): one row per physical sheet, front and back side by side, drawn from the imposed PDF.
+/// The tray (刷り台): one row per physical sheet, front and back side by side, drawn from the imposed PDF. It zooms
+/// with the buttons, ⌘+ ⌘− ⌘0, pinches, ⌘-scrolls and double-clicks, and a drag moves the sheets when they do not fit.
 struct PrintTrayView: View {
     let model: DocumentViewModel
     let tray: PrintTray
     let document: PDFDocument
     @Binding var showsFold: Bool
-    @State private var zoom: CGFloat = 1
+    @State private var zoomer = TrayZoomer()
     @State private var headerHeight: CGFloat = 80
-    @State private var visibleRow: Int?
+    @State private var headingHeight: CGFloat = 18
+    @State private var currentRow = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        GeometryReader { geometry in
-            // Legacy scroll bars take their width from the visible area; overlay scroll bars take nothing.
-            let width = geometry.size.width - Self.scrollerWidth
-            let mixed = Set(tray.sheets.map(\.orientation)).count > 1
-            let metrics = TrayMetrics(
-                layout: mixed ? tray.layout.oriented(true) : tray.layout,
-                viewportWidth: width,
-                viewportHeight: geometry.size.height - Self.topPadding - headerHeight - Self.headerSpacing
-                    - Self.bottomClearance,
-                mixedOrientations: mixed, zoom: zoom)
-            // Scroll sideways only when zoomed wider than the window, so no idle horizontal scroll bar shows.
-            let scrollsSideways = metrics.rowWidth + 2 * TrayMetrics.padding > width
+        GeometryReader { proxy in
+            let context = TrayGeometry.Context(
+                tray: tray, showsCaptions: showsCaptions, width: proxy.size.width, height: proxy.size.height,
+                scroller: Self.scrollerWidth, headerHeight: headerHeight, headingHeight: headingHeight)
+            let geometry = TrayGeometry(context: context, zoom: zoomer.zoom)
             ZStack(alignment: .bottomTrailing) {
-                ScrollView(scrollsSideways ? [.vertical, .horizontal] : .vertical) {
-                    VStack(alignment: .leading, spacing: Self.headerSpacing) {
-                        header.frame(width: metrics.rowWidth, alignment: .leading)
-                            .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
-                        LazyVStack(alignment: .leading, spacing: 34) {
-                            ForEach(tray.rows) { row in
-                                HStack(alignment: .top, spacing: TrayMetrics.twoUpSpacing) {
-                                    ForEach(row.sheets) { sheet in
-                                        TraySheetView(
-                                            sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
-                                            language: model.language, notePages: tray.notePages,
-                                            imageNames: imageNames,
-                                            // The sheets were drawn with the options of their render.
-                                            options: model.renderedSettings?.options ?? model.effectivePrintOptions)
-                                    }
-                                }
-                                .id(row.id)
-                            }
-                        }
-                        .scrollTargetLayout()
-                        // A lazy stack fills the offered width; pin it so the sheets stay centered.
-                        .frame(width: metrics.rowWidth, alignment: .leading)
-                    }
-                    .padding(.top, Self.topPadding)
-                    .padding(.horizontal, TrayMetrics.padding)
-                    .padding(.bottom, 40)
-                    .frame(minWidth: scrollsSideways ? width : nil, maxWidth: scrollsSideways ? nil : .infinity)
-                }
-                .scrollPosition(id: $visibleRow, anchor: .top)
-                .scrollIndicators(.automatic)
+                scrollView(geometry)
                 TrayNavigator(
-                    current: currentRowIndex, rows: tray.rows, sheetCount: tray.sheets.count,
-                    zoomPercent: metrics.zoomPercent, canZoomIn: zoom < TrayMetrics.zoomRange.upperBound,
-                    canZoomOut: zoom > TrayMetrics.zoomRange.lowerBound, go: go(to:),
-                    zoomIn: { setZoom(zoom * 1.25) }, zoomOut: { setZoom(zoom / 1.25) }, resetZoom: { setZoom(1) }
+                    current: min(currentRow, max(tray.rows.count - 1, 0)), rows: tray.rows,
+                    sheetCount: tray.sheets.count, zoomPercent: geometry.metrics.zoomPercent,
+                    canZoomIn: zoomer.canZoomIn, canZoomOut: zoomer.canZoomOut, go: go(to:), zoomIn: zoomer.zoomIn,
+                    zoomOut: zoomer.zoomOut, resetZoom: zoomer.zoomToFit
                 )
                 .padding(.trailing, 14)
                 .padding(.bottom, 16)
             }
+            .onChange(of: context, initial: true) { _, context in zoomer.context = context }
         }
+        .onAppear { model.trayZoomer = zoomer }
+        .onDisappear { if model.trayZoomer === zoomer { model.trayZoomer = nil } }
         .onChange(of: model.requestedTrayRow, initial: true) { _, row in
             guard let row, let index = tray.rows.firstIndex(where: { $0.id == row }) else { return }
             go(to: index)
             model.requestedTrayRow = nil
         }
-        .onChange(of: tray.layout) { _, _ in
-            zoom = 1
-            visibleRow = nil
-        }
+        .onChange(of: tray.layout) { _, _ in zoomer.reset() }
     }
 
-    private static let topPadding: CGFloat = 22
-    private static let headerSpacing: CGFloat = 30
-    /// Room below the first sheet, so its captions do not touch the press bar.
-    private static let bottomClearance: CGFloat = 16
-
+    /// Legacy scroll bars take their width from the visible area; overlay scroll bars take nothing.
     private static var scrollerWidth: CGFloat {
         NSScroller.preferredScrollerStyle == .legacy
             ? NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy) : 0
+    }
+
+    // Both ways always: turning sideways scrolling on in the same update as a zoom made the scroll view drop the
+    // position the zoom asked for.
+    private func scrollView(_ geometry: TrayGeometry) -> some View {
+        ScrollView([.vertical, .horizontal]) {
+            sheets(geometry)
+        }
+        .scrollPosition($zoomer.position)
+        // A scroll view of both ways centers content smaller than itself; the tray starts at its top left.
+        .defaultScrollAnchor(.topLeading)
+        .scrollIndicators(.automatic)
+        .modifier(TrayScrollReport(zoomer: zoomer, geometry: geometry, currentRow: $currentRow))
+    }
+
+    private func sheets(_ geometry: TrayGeometry) -> some View {
+        VStack(alignment: .leading, spacing: TrayGeometry.headerSpacing) {
+            header.frame(width: geometry.headerWidth, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { headerHeight = $0 }
+            rows(geometry.metrics)
+                .frame(width: geometry.blockWidth)
+        }
+        .padding(.top, TrayGeometry.topPadding)
+        .padding(.horizontal, TrayMetrics.padding)
+        .padding(.bottom, TrayGeometry.bottomPadding)
+        // At least as wide as the scroll view shows, so that narrower sheets stay in the middle of it; any wider and
+        // an idle horizontal scroll bar would show.
+        .frame(minWidth: geometry.viewportSize.width)
+        // The sheets do not fit the window, so a drag can move them.
+        .modifier(
+            TrayPanning(
+                zoomer: zoomer,
+                canPan: geometry.scrollsSideways || geometry.contentSize.height > geometry.viewportSize.height + 1))
+    }
+
+    private func rows(_ metrics: TrayMetrics) -> some View {
+        LazyVStack(alignment: .leading, spacing: TrayGeometry.rowSpacing) {
+            ForEach(tray.rows) { row in
+                HStack(alignment: .top, spacing: TrayMetrics.twoUpSpacing) {
+                    ForEach(row.sheets) { sheet in
+                        TraySheetView(
+                            sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
+                            language: model.language, notePages: tray.notePages, imageNames: imageNames,
+                            // The sheets were drawn with the options of their render.
+                            options: model.renderedSettings?.options ?? model.effectivePrintOptions,
+                            onHeadingHeight: { height in
+                                if abs(headingHeight - height) > 0.01 { headingHeight = height }
+                            })
+                    }
+                }
+                .id(row.id)
+            }
+        }
+        // A lazy stack fills the offered width; pin it so the sheets stay centered.
+        .frame(width: metrics.rowWidth, alignment: .leading)
+    }
+
+    /// As `TraySideView` decides it, for every side of the tray.
+    private var showsCaptions: Bool {
+        tray.layout.kind != .normal || tray.layout.duplex != .none || imageNames != nil
     }
 
     private var header: some View {
@@ -145,23 +167,9 @@ struct PrintTrayView: View {
         model.imageBundle?.urls.filter { !model.unreadableImageURLs.contains($0) }.map(\.lastPathComponent)
     }
 
-    private var currentRowIndex: Int {
-        guard let visibleRow else { return 0 }
-        return tray.rows.firstIndex { $0.id == visibleRow } ?? 0
-    }
-
     private func go(to index: Int) {
         guard tray.rows.indices.contains(index) else { return }
-        if reduceMotion {
-            visibleRow = tray.rows[index].id
-        } else {
-            withAnimation(.easeOut(duration: 0.25)) { visibleRow = tray.rows[index].id }
-        }
-    }
-
-    /// The scroll position follows the top sheet, so the sheet in view stays in view when the rows change height.
-    private func setZoom(_ value: CGFloat) {
-        zoom = min(max(value, TrayMetrics.zoomRange.lowerBound), TrayMetrics.zoomRange.upperBound)
+        zoomer.show(row: index, animated: !reduceMotion)
     }
 }
 
@@ -175,9 +183,11 @@ private struct TraySheetView: View {
     let notePages: Set<Int>
     let imageNames: [String]?
     let options: PrintOptions
+    /// The heading's height, which the tray needs to keep a zoom's spot in place (`TrayGeometry`).
+    let onHeadingHeight: (CGFloat) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: TrayGeometry.headingSpacing) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(verbatim: PrintModeText.sheetTitle(sheet, language: language))
                     .font(.custom("Hiragino Mincho ProN", size: 13).weight(.semibold))
@@ -195,6 +205,7 @@ private struct TraySheetView: View {
                     .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
             }
             .frame(width: width, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self, of: \.size.height) { onHeadingHeight($0) }
             HStack(alignment: .top, spacing: TrayMetrics.sideSpacing) {
                 ForEach(sheet.sides, id: \.documentIndex) { side in
                     TraySideView(
@@ -232,7 +243,7 @@ private struct TraySideView: View {
     let options: PrintOptions
 
     var body: some View {
-        VStack(spacing: 9) {
+        VStack(spacing: TrayGeometry.captionSpacing) {
             paper
             if showsCaption { caption }
         }
@@ -306,7 +317,7 @@ private struct TraySideView: View {
             }
             if let face { PrintTag(text: face) }
         }
-        .frame(width: size.width, height: 20)
+        .frame(width: size.width, height: TrayGeometry.captionHeight)
     }
 
     @ViewBuilder private func pageLabel(_ page: Int?, slot: Int) -> some View {

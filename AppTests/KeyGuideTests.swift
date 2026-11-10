@@ -5,11 +5,11 @@ import Testing
 
 @MainActor
 struct KeyGuideTests {
-    @Test("キーと操作の一覧は紙・印刷・手の操作を13項目で案内する")
+    @Test("キーと操作の一覧は紙・印刷・手の操作を14項目で案内する")
     func entries() {
         #expect(
             KeyGuideEntry.allCases == [
-                .menu, .viewOptions, .selectText, .alternateDrag, .pageEdge, .doubleClick,
+                .menu, .viewOptions, .selectText, .alternateDrag, .pageEdge, .doubleClick, .pinch,
                 .print, .systemPrint, .printLayouts, .escape, .moveSelection, .removeFromList, .showList,
             ])
         #expect(KeyGuideEntry.menu.trigger == "Tab / M")
