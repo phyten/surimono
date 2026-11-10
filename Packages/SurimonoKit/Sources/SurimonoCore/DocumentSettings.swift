@@ -53,6 +53,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var paperSeries: ViewPaperSeries?
     /// Nil is no note pages, which is what every record before them printed.
     public var notes: NotePages?
+    /// Nil is every page, which is what every record before the choice existed printed.
+    public var pageRange: PageRange?
 
     public init(
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
@@ -61,7 +63,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil,
         binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
         codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil, bandVisibility: BandVisibility? = nil,
-        paperSeries: ViewPaperSeries? = nil, notes: NotePages? = nil
+        paperSeries: ViewPaperSeries? = nil, notes: NotePages? = nil, pageRange: PageRange? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -84,13 +86,14 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.bandVisibility = bandVisibility
         self.paperSeries = paperSeries
         self.notes = notes
+        self.pageRange = pageRange
     }
 
     private enum CodingKeys: String, CodingKey {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
-        case bandVisibility, paperSeries, notes
+        case bandVisibility, paperSeries, notes, pageRange
     }
 
     // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
@@ -130,6 +133,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(bandVisibility, forKey: .bandVisibility)
         try values.encodeIfPresent(paperSeries, forKey: .paperSeries)
         try values.encodeIfPresent(notes, forKey: .notes)
+        try values.encodeIfPresent(pageRange, forKey: .pageRange)
         try values.encodeIfPresent(printOptions.map(StoredPrintOptions.init), forKey: .printOptions)
         try values.encodeIfPresent(printFinish, forKey: .printFinish)
     }
@@ -162,6 +166,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         bandVisibility = field(BandVisibility.self, .bandVisibility)
         paperSeries = field(ViewPaperSeries.self, .paperSeries)
         notes = field(NotePages.self, .notes)
+        pageRange = field(PageRange.self, .pageRange)
     }
 }
 

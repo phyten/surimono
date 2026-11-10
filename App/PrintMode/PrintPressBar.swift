@@ -125,6 +125,7 @@ struct PrintPressBar: View {
                 .foregroundStyle(PrintPalette.ink2)
                 .help("Kept in memory only")
             }
+            PrintJobControls(model: model).padding(.top, 2)
         }
     }
 
@@ -168,9 +169,11 @@ struct PrintPressBar: View {
     private var outcome: (finished: String, paper: String)? {
         guard let result = model.printResult, model.summary != nil else { return nil }
         let slots = result.plan.sides.flatMap(\.slots)
-        let blanks = slots.filter { $0 == nil }.count + result.blankPages.count
-        let contents = model.finishAppliesToText ? result.addedContentsPages : 0
-        let notes = result.addedNotePages
+        let printed = Set(slots.compactMap { $0 })
+        let blanks = slots.filter { $0 == nil }.count + result.blankPages.intersection(printed).count
+        // Where the contents are among the pages is not told, so a range counts them with the body.
+        let contents = model.finishAppliesToText && result.pageSelection.pages == nil ? result.addedContentsPages : 0
+        let notes = result.notePages.filter(printed.contains).count
         return (
             PrintModeText.finished(
                 pages: slots.count, body: slots.count - blanks - contents - notes, contents: contents, notes: notes,

@@ -18,6 +18,23 @@ struct DocumentSettingsTests {
         #expect(decoded == settings)
     }
 
+    @Test("ページの範囲を JSON に書いて読み戻せる")
+    func pageRangeRoundTrip() throws {
+        let settings = DocumentSettings(layoutID: "a3BookletA4", pageRange: PageRange([5...12, 20...20]))
+        let data = try JSONEncoder().encode(settings)
+        #expect(String(decoding: data, as: UTF8.self).contains(#""pageRange":"5-12, 20""#))
+        #expect(try JSONDecoder().decode(DocumentSettings.self, from: data) == settings)
+    }
+
+    @Test("ページの範囲のない前の記録は全ページとして読み、読めない範囲は捨ててほかの項目を残す")
+    func pageRangeOfOldRecords() throws {
+        let old = try JSONDecoder().decode(DocumentSettings.self, from: Data(#"{"layoutID":"a4Duplex"}"#.utf8))
+        #expect(old.pageRange == nil)
+        let broken = try JSONDecoder().decode(
+            DocumentSettings.self, from: Data(#"{"layoutID":"a4Duplex","pageRange":"9-7"}"#.utf8))
+        #expect(broken == DocumentSettings(layoutID: "a4Duplex"))
+    }
+
     @Test("書かれていない項目は nil として読み、知らない項目は無視する")
     func partialAndUnknownFields() throws {
         let json = Data(#"{"layoutID":"a4Duplex","futureField":42}"#.utf8)

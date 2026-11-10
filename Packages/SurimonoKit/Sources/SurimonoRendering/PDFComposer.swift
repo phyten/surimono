@@ -15,13 +15,13 @@ public struct PDFComposer {
 
     public func compose(
         _ document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool = false,
-        furniture: PageFurniture.Context = PageFurniture.Context()
+        furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
         return try await compose(
             try Self.composingSource(of: document), pageCount: document.pageCount, layout: layout, options: options,
-            orientsEachPage: orientsEachPage, furniture: furniture)
+            orientsEachPage: orientsEachPage, furniture: furniture, pages: pages)
     }
 
     /// The logical pages as they stand on the sheets: a page of `pageSize` each, fitted the way `compose` fits them
@@ -64,7 +64,7 @@ public struct PDFComposer {
 
     func compose(
         _ source: CGPDFDocument, pageCount: Int, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool,
-        furniture: PageFurniture.Context = PageFurniture.Context()
+        furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard pageCount > 0 else { throw CompositionError.emptyDocument }
@@ -73,7 +73,10 @@ public struct PDFComposer {
         guard options.margins.isValid, PDFDrawing.validGeometry(pageSize: logicalSize, margins: margins) else {
             throw CompositionError.invalidMargins
         }
-        let plan = Imposition.plan(pageCount: pageCount, layout: layout)
+        // Only some of the pages go on the sheets; the header and footer still count the whole document.
+        let plan =
+            pages.map { Imposition.plan(pages: $0, layout: layout) }
+            ?? Imposition.plan(pageCount: pageCount, layout: layout)
         let size = layout.sheetSize
         do {
             return try await PDFDrawing.document(pageSize: size) { context in

@@ -23,6 +23,7 @@ struct PrinterList: Equatable {
 struct PrintRequest: Equatable {
     var printerName: String?
     var showsPanel: Bool
+    var copies = 1
 }
 
 extension PrinterList {

@@ -89,6 +89,19 @@ final class DocumentViewModel {
     var printFinish: PrintFinish
     /// Pages to write on among the document's own. They belong to the paper, so the reading view leaves them out.
     var notes = NotePages()
+    /// How many copies the tray prints. It belongs to the window: it is not remembered, and a new window starts at 1.
+    var copies = 1 {
+        didSet {
+            let range = PrintJobFactory.copiesRange
+            let clamped = min(max(copies, range.lowerBound), range.upperBound)
+            if copies != clamped { copies = clamped }
+        }
+    }
+    /// The pages the tray prints, as last read from the field; what cannot be read leaves it as it was.
+    private(set) var pageRange = PageRange.all
+    /// What the tray's field shows, which may be half typed.
+    private(set) var pageRangeText = ""
+    private(set) var isPageRangeUnreadable = false
     /// The setting set last applied or saved in this window, which the tray compares the settings with.
     var selectedSettingSetID: UUID?
     var mode: ViewerMode = .view
@@ -470,6 +483,8 @@ final class DocumentViewModel {
         settings.binderStartsOnFront = binder != nil && binderStartsOnFront && settings.layout.hasFacingPages
         if finishAppliesToText { settings.finish = printFinish }
         if mode == .print, offersNotes { settings.notes = notes }
+        // The view mode always shows the whole document.
+        if mode == .print { settings.pageRange = pageRange }
         settings.documentName = displayName
         settings.pageLanguage = language
         if usesPrintTheme {
@@ -503,7 +518,38 @@ final class DocumentViewModel {
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
         isUpToDate && hasCurrentPrintPreview && !isPrinting && !isExporting && !isCapturingWeb && !webCaptureFailed
-            && !isBecomingBinder
+            && !isBecomingBinder && !isPageRangeUnreadable
+    }
+
+    enum PageRangeProblem: Equatable { case unreadable, noSuchPages }
+
+    /// Why the field is marked. A range that cannot be read holds the outputs back; one that names no page of the
+    /// document prints everything, which the tray shows.
+    var pageRangeProblem: PageRangeProblem? {
+        if isPageRangeUnreadable { return .unreadable }
+        guard mode == .print, renderedSettings?.pageRange == pageRange, result?.pageSelection.isOutOfDocument == true
+        else { return nil }
+        return .noSuchPages
+    }
+
+    /// The field's text, read as it is typed: Print does not take the focus from the field, so there is no moment
+    /// at which the reader has finished.
+    func setPageRangeText(_ text: String) {
+        guard text != pageRangeText else { return }
+        pageRangeText = text
+        do {
+            pageRange = try PageRange(
+                parsing: text, allWords: ["All", "すべて", PrintModeText.string("All", language: language)])
+            isPageRangeUnreadable = false
+        } catch {
+            isPageRangeUnreadable = true
+        }
+    }
+
+    private func setPageRange(_ range: PageRange) {
+        pageRange = range
+        pageRangeText = range.text
+        isPageRangeUnreadable = false
     }
     var summary: String? {
         guard let result else { return nil }
@@ -535,7 +581,11 @@ final class DocumentViewModel {
     }
 
     var pageCount: Int { result?.logicalDocument.pageCount ?? 0 }
-    var printIssues: [PrintIssue] { result?.issues ?? [] }
+    /// Problems on pages that are not printed are not problems of this print.
+    var printIssues: [PrintIssue] {
+        guard let result else { return [] }
+        return result.issues.filter { issue in issue.pageNumber.map { result.pageSelection.contains($0 - 1) } ?? true }
+    }
     var printIssueCount: Int { printIssues.count }
 
     func reviewPrintIssues() {
@@ -1413,6 +1463,8 @@ final class DocumentViewModel {
 
     /// The tray's choices of what to print last only while it is shown; paper then shows the current state again.
     private func resetPrintChoices() {
+        // A half-typed range is not kept: it would hold back an output asked for from the view mode.
+        if isPageRangeUnreadable { setPageRange(pageRange) }
         opensClosedDetails = false
         printsCurrentSlideOnly = false
         guard printsOriginalPage else { return }
@@ -1907,7 +1959,8 @@ final class DocumentViewModel {
             codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             paperSeries: paperSeries == .a ? nil : paperSeries,
-            notes: offersNotes && notes != NotePages() ? notes : nil)
+            notes: offersNotes && notes != NotePages() ? notes : nil,
+            pageRange: pageRange.isAll ? nil : pageRange)
     }
 
     func savePrintSettingSet(named name: String) {
@@ -2062,6 +2115,7 @@ final class DocumentViewModel {
         if let options = saved.printOptions { printOptions = options }
         if let finish = saved.printFinish, finishAppliesToText { printFinish = finish }
         if let notes = saved.notes, offersNotes { self.notes = notes }
+        if let range = saved.pageRange { setPageRange(range) }
         if let presentation = saved.htmlPresentation { setHTMLPresentation(presentation, capturesWeb: false) }
         if saved.ignoresSlides == true { setIgnoresSlides(true) }
         if let removal = saved.smartRemoval, format == .html {
@@ -2210,6 +2264,7 @@ final class DocumentViewModel {
         printOptions = preferences.printOptions
         printFinish = preferences.printFinish
         notes = NotePages()
+        setPageRange(.all)
         isWritingFurniture = false
         selectedSettingSetID = nil
         isSmartRemovalEnabled = false
@@ -2656,6 +2711,8 @@ final class DocumentViewModel {
         pending.request = printers.request(
             quick: !pending.request.showsPanel, shown: pending.request.printerName,
             remembered: preferences.printerName)
+        // The system dialog starts with the same number, where it can still be changed.
+        pending.request.copies = copies
         pendingPrint = pending
         guard renderedSettings == renderSettings else {
             render()
@@ -2678,11 +2735,13 @@ final class DocumentViewModel {
         guard
             let operation = PrintJobFactory().printOperation(
                 for: result.sheetDocument, layout: result.layout, showsPrintPanel: !quick,
-                printer: destination, pageOrder: pageOrder)
+                printer: destination, pageOrder: pageOrder, copies: request.copies)
         else {
             outputError = String(localized: "The print job could not be created.")
             return
         }
+        // The sheets are already the pages asked for, so a page range left over from another job must not cut them.
+        operation.printInfo.dictionary()[NSPrintInfo.AttributeKey.allPages] = true
         isPrinting = true
         let printer = operation.printInfo.printer.name
         let completion = PrintCompletion { [weak self] success in

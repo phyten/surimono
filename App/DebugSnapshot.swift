@@ -179,6 +179,8 @@
                         top: sides[0], left: sides[1], bottom: sides[2], right: sides[3])
                 }
             }
+            if let value = argument("SurimonoPages") { model.setPageRangeText(value) }
+            if let value = argument("SurimonoCopies").flatMap({ Int($0) }) { model.copies = value }
             if flag("SurimonoMirror") { model.printOptions.mirrorsMargins = true }
         }
 
