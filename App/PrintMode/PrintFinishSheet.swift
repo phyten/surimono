@@ -592,7 +592,7 @@ struct PrintPrinterOptions: View {
                     .toggleStyle(.switch)
                     .controlSize(.small)
                     .labelsHidden()
-                    .disabled(!isDuplex || model.selectedPrinterName == nil)
+                    .disabled(!isDuplex || model.selectedPrinterName == nil || !model.canOutput)
             }
         }
     }
@@ -605,7 +605,7 @@ struct PrintPrinterOptions: View {
     private var rotationHint: LocalizedStringKey {
         guard isDuplex else { return "Available for duplex layouts (A4 Duplex and booklets)." }
         guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
-        return model.layout.duplex == .longEdge
+        return model.printerLayout.sentDuplex == .longEdge
             ? "Remembered for \(name) with long-edge binding."
             : "Remembered for \(name) with short-edge binding."
     }

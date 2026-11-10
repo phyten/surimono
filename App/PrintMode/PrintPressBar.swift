@@ -176,7 +176,7 @@ struct PrintPressBar: View {
                 pages: slots.count, body: slots.count - blanks - contents - notes, contents: contents, notes: notes,
                 blanks: blanks, language: model.language),
             PrintModeText.paper(
-                result.plan.paper.shortName, sheets: result.plan.sheetCount, duplex: result.layout.duplex,
+                result.plan.paper.shortName, sheets: result.plan.sheetCount, duplex: result.layout.sentDuplex,
                 language: model.language)
         )
     }
@@ -184,7 +184,7 @@ struct PrintPressBar: View {
     /// What the choices add to the sheets beyond the summary; the amount of text belongs to the document's information.
     private var reminderLine: String? {
         var parts = [
-            PrintModeText.options(model.effectivePrintOptions, layout: model.layout, language: model.language)
+            PrintModeText.options(model.effectivePrintOptions, layout: model.printerLayout, language: model.language)
         ].compactMap { $0 }
         if model.hasCurrentPrintPreview, model.printResult?.addedNotePages ?? 0 > 0 {
             if model.coverIsNotePage {

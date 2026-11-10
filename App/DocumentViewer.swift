@@ -118,7 +118,7 @@ private struct DocumentContentChanges: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onChange(of: model.renderSettings) { _, _ in model.render() }
+            .onChange(of: model.renderSettings) { _, _ in model.renderForChangedSettings() }
             .onChange(of: model.allowsLiveJavaScript) { _, _ in model.javaScriptSettingDidChange() }
             .onChange(of: model.imageBundle?.urls) { _, _ in
                 if let bundle = model.imageBundle { model.window?.title = bundle.title(language: model.language) }

@@ -6,7 +6,9 @@ import Testing
 
 @MainActor
 struct DuplexTestRendererTests {
-    @Test("両面テストは選んだ用紙の縦向き2ページでどちらも回転しない", arguments: [PrintLayout.a4Duplex, .a3BookletA4, .a4BookletA5])
+    @Test(
+        "両面テストは選んだ用紙の縦向き2ページでどちらも回転しない",
+        arguments: [PrintLayout.a4Duplex, .a4Duplex.oriented(true), .a3BookletA4, .a4BookletA5])
     func pages(layout: PrintLayout) async throws {
         let renderer = DuplexTestRenderer()
         let document = try await renderer.document(
@@ -23,6 +25,7 @@ struct DuplexTestRendererTests {
             #expect(page.rotation == 0)
         }
         let testLayout = try renderer.layout(for: layout)
+        #expect(testLayout.duplex == (layout == .a4Duplex ? .longEdge : .shortEdge))
         let info = PrintJobFactory().printInfo(for: testLayout)
         #expect(info.orientation == .portrait)
         #expect(abs(info.paperSize.width - width) < 1)

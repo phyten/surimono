@@ -180,6 +180,30 @@ struct PDFComposerTests {
         #expect(source.page(at: 0)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) == "PAGE-1")
     }
 
+    @Test("向きの確定後に選んだ補正は面付けとキャッシュだけを変える")
+    func resolvedBackRotation() async throws {
+        let document = try RenderingFixtures.pdf(count: 2, size: CGSize(width: 841.89, height: 595.28))
+        let source = DocumentSource(data: try #require(document.dataRepresentation()), format: .pdf)
+        let renderer = DocumentRenderer()
+        let settings = RenderSettings(
+            layout: .a4Duplex, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        let prepared = try await renderer.prepare(source, settings: settings)
+        #expect(prepared.layout.sentDuplex == .shortEdge)
+        let rotated = try await renderer.composeSheet(for: prepared, rotatesBackSides: true)
+        let front = try #require(rotated.sheetDocument.page(at: 0))
+        let back = try #require(rotated.sheetDocument.page(at: 1))
+        #expect(try RenderingFixtures.pixel(front, x: 5, y: 5)[0] < 30)
+        #expect(try RenderingFixtures.pixel(back, x: 5, y: 5)[0] > 240)
+        #expect(try RenderingFixtures.pixel(back, x: 836, y: 590)[0] < 30)
+        let plain = try await renderer.composeSheet(for: prepared, rotatesBackSides: false)
+        #expect(try RenderingFixtures.pixel(#require(plain.sheetDocument.page(at: 1)), x: 5, y: 5)[0] < 30)
+        let cached = try await renderer.composeSheet(for: prepared, rotatesBackSides: true)
+        #expect(cached.sheetDocument === rotated.sheetDocument)
+        #expect(renderer.logicalRenderCount == 1)
+        #expect(renderer.sheetCompositionCount == 2)
+    }
+
     @Test("裏面回転は裏面の内容だけを用紙中心の周りに180度回す")
     func backRotation() async throws {
         let source = try RenderingFixtures.pdf(count: 2, size: PaperSize.a4.size)

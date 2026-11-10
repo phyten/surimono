@@ -4,6 +4,24 @@ import SurimonoCore
 import Testing
 
 struct PrintLayoutTests {
+    @Test("プリンターへ送る綴じ方は横向きの長辺だけ短辺になる")
+    func sentBinding() {
+        #expect(PrintLayout.a4Duplex.sentDuplex == .longEdge)
+        #expect(PrintLayout.a4Duplex.oriented(true).sentDuplex == .shortEdge)
+        #expect(PrintLayout.b5Duplex.oriented(true).sentDuplex == .shortEdge)
+        #expect(PrintLayout.a3BookletA4.sentDuplex == .shortEdge)
+        #expect(PrintLayout.a4Single.oriented(true).sentDuplex == .none)
+    }
+
+    @Test("横向きの両面は短辺用の補正を使い縦向きと冊子と片面も区別する")
+    func sentBindingRotation() {
+        let profile = PrinterProfile(rotatesBackSides: [.longEdge: false, .shortEdge: true])
+        #expect(!profile.rotation(for: PrintLayout.a4Duplex.sentDuplex, default: true))
+        #expect(profile.rotation(for: PrintLayout.a4Duplex.oriented(true).sentDuplex, default: false))
+        #expect(profile.rotation(for: PrintLayout.a3BookletA4.sentDuplex, default: false))
+        #expect(!profile.rotation(for: PrintLayout.a4Single.sentDuplex, default: true))
+    }
+
     @Test(
         "冊子は手で求めたページ順と白紙位置に一致する",
         arguments: [

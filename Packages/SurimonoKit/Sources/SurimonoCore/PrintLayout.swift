@@ -138,6 +138,10 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         return landscapeSheet ? CGSize(width: sheet.size.height, height: sheet.size.width) : sheet.size
     }
 
+    public var sentDuplex: DuplexMode {
+        duplex == .longEdge && sheetSize.width > sheetSize.height ? .shortEdge : duplex
+    }
+
     public var logicalPageSize: CGSize { logicalPageSize(options: PrintOptions()) }
 
     public func logicalPageSize(options: PrintOptions) -> CGSize {
