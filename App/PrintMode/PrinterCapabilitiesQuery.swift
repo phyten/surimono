@@ -14,11 +14,16 @@ nonisolated enum SystemPrinterCapabilities {
         for index in 0..<CFArrayGetCount(printers) {
             guard let value = CFArrayGetValueAtIndex(printers, index) else { continue }
             let printer = PMPrinter(value)
-            guard let found = PMPrinterGetName(printer), found as String == name else { continue }
+            guard Self.string(PMPrinterGetName(printer)) == name else { continue }
             return PrinterCapabilities(paperSizes: paperSizes(of: printer), ppd: ppd(of: printer))
         }
         return nil
     }
+
+    // The SDK of Xcode 26.6 gives the name as an unmanaged reference and later SDKs as a string reference; one of
+    // the two is chosen by the type, so the same source builds with both. A Get function: nothing to release.
+    private static func string(_ value: Unmanaged<CFString>?) -> String? { value?.takeUnretainedValue() as String? }
+    private static func string(_ value: CFString?) -> String? { value as String? }
 
     private static func paperSizes(of printer: PMPrinter) -> [CGSize] {
         var list: Unmanaged<CFArray>?
