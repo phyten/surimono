@@ -283,6 +283,75 @@ struct TrayZoomerTests {
         #expect(zoomer.position.point.map { abs($0.y - 532) < 0.01 } == true)
     }
 
+    @Test("用紙を作り直すあいだ刷り台が外れても、倍率と見ていた用紙が残る", .timeLimit(.minutes(1)))
+    func remakingKeepsZoomAndSheet() async throws {
+        let zoomer = zoomer()
+        let context = try #require(zoomer.context)
+        zoomer.zoomIn()
+        zoomer.scroll(to: CGPoint(x: 0, y: 900))
+        let offset = zoomer.scroll.offset
+        zoomer.trayWillLeave()
+        // What a fresh scroll view tells before it is told where to go.
+        zoomer.scroll.offset = .zero
+        zoomer.position = ScrollPosition(edge: .top)
+        zoomer.context = context
+        #expect(abs(zoomer.zoom - 1.25) < 0.0001)
+        #expect(zoomer.scroll.offset == offset)
+        // The new scroll view is told a turn later, once it is up.
+        #expect(zoomer.position.point == nil)
+        for _ in 0..<200 where zoomer.position.point == nil { try await Task.sleep(for: .milliseconds(5)) }
+        #expect(zoomer.position.point == offset)
+    }
+
+    @Test("作り直しのあいだに頼まれた用紙への移動は、前の位置に戻されない", .timeLimit(.minutes(1)))
+    func remakingYieldsToARequestedRow() async throws {
+        let zoomer = zoomer()
+        let context = try #require(zoomer.context)
+        zoomer.scroll(to: CGPoint(x: 0, y: 900))
+        zoomer.trayWillLeave()
+        // The third sheet is asked for while the tray is away, as when another document of a binder is chosen.
+        zoomer.show(row: 2, animated: false)
+        zoomer.context = context
+        let asked = zoomer.scroll.offset
+        #expect(asked.y > 900)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(zoomer.scroll.offset == asked)
+        #expect(zoomer.position.point == asked)
+    }
+
+    @Test("作り直した直後に見出しの高さが測り直されても、外れなかった刷り台と同じ位置になる", .timeLimit(.minutes(1)))
+    func remakingSurvivesAMeasuredHeader() async throws {
+        let stayed = zoomer()
+        let zoomer = zoomer()
+        var context = try #require(zoomer.context)
+        stayed.scroll(to: CGPoint(x: 0, y: 900))
+        zoomer.scroll(to: CGPoint(x: 0, y: 900))
+        zoomer.trayWillLeave()
+        zoomer.context = context
+        // The fresh scroll view tells of its start at the top, and the header is measured 20 points taller.
+        zoomer.scroll.offset = .zero
+        context.headerHeight += 20
+        zoomer.context = context
+        stayed.context = context
+        #expect(stayed.scroll.offset.y != 900)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(zoomer.scroll.offset == stayed.scroll.offset)
+        #expect(zoomer.position.point == stayed.scroll.offset)
+    }
+
+    @Test("作り直した用紙が別のレイアウトなら、上から窓に収めて始める")
+    func remakingInAnotherLayoutStartsOver() throws {
+        let zoomer = zoomer()
+        var context = try #require(zoomer.context)
+        zoomer.zoomIn()
+        zoomer.scroll(to: CGPoint(x: 0, y: 900))
+        zoomer.trayWillLeave()
+        context.layout = .a4Duplex
+        zoomer.context = context
+        #expect(zoomer.zoom == 1)
+        #expect(zoomer.scroll.offset == .zero)
+    }
+
     @Test("窓の幅を変えても、見ていた用紙が見える範囲の上端に残る")
     func resizeKeepsTheSheet() {
         let zoomer = zoomer()
