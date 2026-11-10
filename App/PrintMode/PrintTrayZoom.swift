@@ -23,23 +23,30 @@ struct TrayScrollState: Equatable {
         didSet {
             guard let context, context != oldValue else { return }
             guard let oldValue else {
+                if let kept {
+                    self.kept = nil
+                    restore(kept, in: context)
+                }
                 if let row = pendingRow {
                     pendingRow = nil
-                    show(row: row, animated: false)
+                    scrollWhenUp(
+                        to: TrayGeometry(context: context, zoom: zoom).offset(
+                            showingRow: row, topInset: scroll.topInset, x: 0))
                 }
                 return
             }
-            let old = TrayGeometry(context: oldValue, zoom: zoom)
-            // A larger window fits larger sheets and lowers the limit of the zoom; the zoom follows, or the first
-            // step back out would change nothing.
-            let zoom = TrayGeometry(context: context, zoom: 1).metrics.clampedZoom(zoom)
-            let new = TrayGeometry(context: context, zoom: zoom)
-            let spot = CGPoint(x: old.viewportSize.width / 2, y: scroll.topInset)
-            apply(
-                zoom: zoom,
-                offset: new.offset(keeping: spot, scrolledTo: scroll.offset, in: old, topInset: scroll.topInset))
+            let carried = carried(from: oldValue, scrolledTo: pendingOffset ?? scroll.offset, to: context)
+            apply(zoom: carried.zoom, offset: carried.offset)
         }
     }
+    /// The layout and the position of a tray that left the window. While the sheets are made again the tray is
+    /// replaced by a progress view, and the scroll view that comes back starts at the top; without this, changing
+    /// the text size while looking at the third sheet at 110% went back to the first sheet, fitted.
+    @ObservationIgnored private var kept: (context: TrayGeometry.Context, offset: CGPoint)?
+    /// The place a tray that came back is still to be scrolled to. Until it is, the scroll view tells of its own
+    /// start at the top, so this is where the tray counts as being; a newer place replaces it, and going to a row
+    /// or starting over drops it.
+    @ObservationIgnored private var pendingOffset: CGPoint?
     /// A row asked for before the tray was first laid out.
     @ObservationIgnored private var pendingRow: Int?
     /// It changes with every step of a scroll, so it is not observed.
@@ -79,11 +86,19 @@ struct TrayScrollState: Equatable {
         let spot = spot ?? CGPoint(x: old.viewportSize.width / 2, y: scroll.topInset + old.viewportSize.height / 2)
         apply(
             zoom: target,
-            offset: new.offset(keeping: spot, scrolledTo: scroll.offset, in: old, topInset: scroll.topInset))
+            offset: new.offset(
+                keeping: spot, scrolledTo: pendingOffset ?? scroll.offset, in: old, topInset: scroll.topInset))
     }
 
     /// The new size and the new position go to the scroll view together, so the sheets do not jump in between.
     private func apply(zoom: CGFloat, offset: CGPoint) {
+        if pendingOffset != nil {
+            // The scroll view is not up yet; the place waits with the one already waiting.
+            if zoom != self.zoom { self.zoom = zoom }
+            pendingOffset = offset
+            scroll.offset = offset
+            return
+        }
         guard zoom != self.zoom || offset != scroll.offset else { return }
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -98,6 +113,7 @@ struct TrayScrollState: Equatable {
     func scroll(to offset: CGPoint) {
         guard let context else { return }
         let offset = TrayGeometry(context: context, zoom: zoom).clamped(offset, topInset: scroll.topInset)
+        pendingOffset = nil
         guard offset != scroll.offset else { return }
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -113,6 +129,10 @@ struct TrayScrollState: Equatable {
         }
         let offset = TrayGeometry(context: context, zoom: zoom).offset(
             showingRow: row, topInset: scroll.topInset, x: scroll.offset.x)
+        guard pendingOffset == nil else {
+            scrollWhenUp(to: offset)
+            return
+        }
         if animated {
             withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(point: positionPoint(offset)) }
         } else {
@@ -127,8 +147,62 @@ struct TrayScrollState: Equatable {
         CGPoint(x: offset.x, y: offset.y + scroll.topInset)
     }
 
+    /// The zoom and the offset that keep the spot at the top of the visible area where it is, in a tray laid out anew.
+    private func carried(
+        from old: TrayGeometry.Context, scrolledTo offset: CGPoint, to context: TrayGeometry.Context
+    ) -> (zoom: CGFloat, offset: CGPoint) {
+        let oldGeometry = TrayGeometry(context: old, zoom: zoom)
+        // A larger window fits larger sheets and lowers the limit of the zoom; the zoom follows, or the first
+        // step back out would change nothing.
+        let zoom = TrayGeometry(context: context, zoom: 1).metrics.clampedZoom(zoom)
+        let new = TrayGeometry(context: context, zoom: zoom)
+        let spot = CGPoint(x: oldGeometry.viewportSize.width / 2, y: scroll.topInset)
+        return (zoom, new.offset(keeping: spot, scrolledTo: offset, in: oldGeometry, topInset: scroll.topInset))
+    }
+
+    /// The tray is leaving the window; the next one to come picks up from here.
+    func trayWillLeave() {
+        if let context { kept = (context, pendingOffset ?? scroll.offset) }
+        pendingOffset = nil
+        context = nil
+    }
+
+    private func restore(_ kept: (context: TrayGeometry.Context, offset: CGPoint), in context: TrayGeometry.Context) {
+        // Another layout has other sheets; nothing of the old position means anything there.
+        guard kept.context.layout == context.layout else {
+            zoom = 1
+            scrollWhenUp(to: CGPoint(x: 0, y: -scroll.topInset))
+            return
+        }
+        let carried = carried(from: kept.context, scrolledTo: kept.offset, to: context)
+        zoom = carried.zoom
+        scrollWhenUp(to: carried.offset)
+    }
+
+    /// Scrolls a scroll view that is only now being put up, a turn later. Asked for in the same update, the
+    /// request was handed back, asked for again, and the update never ended (the window froze at full load).
+    private func scrollWhenUp(to offset: CGPoint) {
+        let waiting = pendingOffset != nil
+        scroll.offset = offset
+        pendingOffset = offset
+        guard !waiting else { return }
+        Task { @MainActor [weak self] in
+            guard let self, let offset = self.pendingOffset, self.context != nil else { return }
+            self.pendingOffset = nil
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { self.position.scrollTo(point: self.positionPoint(offset)) }
+            self.scroll.offset = offset
+        }
+    }
+
     /// A new layout starts at the top, fitted.
     func reset() {
+        guard pendingOffset == nil else {
+            zoom = 1
+            scrollWhenUp(to: CGPoint(x: 0, y: -scroll.topInset))
+            return
+        }
         zoom = 1
         position.scrollTo(edge: .top)
         scroll.offset = CGPoint(x: 0, y: -scroll.topInset)
