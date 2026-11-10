@@ -29,9 +29,7 @@ struct TrayScrollState: Equatable {
                 }
                 if let row = pendingRow {
                     pendingRow = nil
-                    scrollWhenUp(
-                        to: TrayGeometry(context: context, zoom: zoom).offset(
-                            showingRow: row, topInset: scroll.topInset, x: 0))
+                    show(row: row, animated: false)
                 }
                 return
             }
@@ -39,10 +37,8 @@ struct TrayScrollState: Equatable {
             apply(zoom: carried.zoom, offset: carried.offset)
         }
     }
-    /// The layout and the position of a tray that left the window. While the sheets are made again the tray is
-    /// replaced by a progress view, and the scroll view that comes back starts at the top; without this, changing
-    /// the text size while looking at the third sheet at 110% went back to the first sheet, fitted.
-    @ObservationIgnored private var kept: (context: TrayGeometry.Context, offset: CGPoint)?
+    /// What the tray before this one showed when it left the window, until this one is laid out.
+    @ObservationIgnored private var kept: TrayMemory.Kept?
     /// The place a tray that came back is still to be scrolled to. Until it is, the scroll view tells of its own
     /// start at the top, so this is where the tray counts as being; a newer place replaces it, and going to a row
     /// or starting over drops it.
@@ -160,20 +156,21 @@ struct TrayScrollState: Equatable {
         return (zoom, new.offset(keeping: spot, scrolledTo: offset, in: oldGeometry, topInset: scroll.topInset))
     }
 
-    /// The tray is leaving the window; the next one to come picks up from here.
-    func trayWillLeave() {
-        if let context { kept = (context, pendingOffset ?? scroll.offset) }
-        pendingOffset = nil
-        context = nil
+    /// What this tray shows as it leaves the window, for the tray that comes after it.
+    func leave() -> TrayMemory.Kept? {
+        context.map { TrayMemory.Kept(context: $0, zoom: zoom, offset: pendingOffset ?? scroll.offset) }
     }
 
-    private func restore(_ kept: (context: TrayGeometry.Context, offset: CGPoint), in context: TrayGeometry.Context) {
-        // Another layout has other sheets; nothing of the old position means anything there.
-        guard kept.context.layout == context.layout else {
-            zoom = 1
-            scrollWhenUp(to: CGPoint(x: 0, y: -scroll.topInset))
-            return
-        }
+    /// Takes over from the tray that left, before this one is first laid out.
+    func adopt(_ kept: TrayMemory.Kept) {
+        guard context == nil else { return }
+        self.kept = kept
+    }
+
+    private func restore(_ kept: TrayMemory.Kept, in context: TrayGeometry.Context) {
+        // Another layout has other sheets; the new tray starts as any new tray does, at the top and fitted.
+        guard kept.context.layout == context.layout else { return }
+        zoom = kept.zoom
         let carried = carried(from: kept.context, scrolledTo: kept.offset, to: context)
         zoom = carried.zoom
         scrollWhenUp(to: carried.offset)
@@ -242,6 +239,22 @@ struct TrayPanning: ViewModifier {
             }
             .onEnded { _ in start = nil }
     }
+}
+
+/// What the tray showed when it left the window, kept by the print mode for the tray that comes back. While the
+/// sheets are made again the tray is replaced by a progress view, and the new tray starts at the top, fitted; without
+/// this, changing the text size while looking at the third sheet at 110% went back to the first sheet.
+///
+/// Each tray keeps a zoomer of its own, as before: a zoomer handed down from the print mode made the scroll view and
+/// the tray update each other without end when the tray first came up (the window froze, built with Xcode 26.6).
+@MainActor final class TrayMemory {
+    struct Kept {
+        var context: TrayGeometry.Context
+        var zoom: CGFloat
+        var offset: CGPoint
+    }
+
+    var kept: Kept?
 }
 
 /// Tells the zoomer where the tray is scrolled to, and the navigator which sheet is at the top.

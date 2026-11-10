@@ -6,7 +6,7 @@ import SwiftUI
 struct PrintModeView: View {
     @Bindable var model: DocumentViewModel
     @State private var showsFold = false
-    @State private var trayZoomer = TrayZoomer()
+    @State private var trayMemory = TrayMemory()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,7 +51,7 @@ struct PrintModeView: View {
             if model.hasCurrentPrintPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument
             {
                 PrintTrayView(
-                    model: model, tray: tray, document: document, showsFold: $showsFold, zoomer: trayZoomer)
+                    model: model, tray: tray, document: document, showsFold: $showsFold, memory: trayMemory)
             } else if model.error == nil {
                 VStack(spacing: 10) {
                     if model.isRendering { ProgressView().controlSize(.small) }
