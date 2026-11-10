@@ -131,7 +131,9 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         return reserved > 0 ? available - 2 * (reserved + gap) : available
     }
 
-    public func lines(forPage index: Int, pageCount: Int, context: Context, hasFacingPages: Bool) -> Lines? {
+    public func lines(
+        forPage index: Int, pageCount: Int, context: Context, hasFacingPages: Bool, rightBound: Bool = false
+    ) -> Lines? {
         guard !isEmpty, !context.blankPages.contains(index), !(skipsFirstPage && index == 0) else { return nil }
         func filled(_ text: String) -> String {
             guard text.contains("{") else { return text }
@@ -140,7 +142,7 @@ public struct PageFurniture: Codable, Hashable, Sendable {
                 (Variable.page, String(index + 1)), (Variable.pageCount, String(pageCount)),
             ].reduce(text) { $0.replacingOccurrences(of: $1.0.rawValue, with: $1.1) }
         }
-        let swaps = swapsOnSpreads && hasFacingPages && index % 2 == 1
+        let swaps = swapsOnSpreads && hasFacingPages && ((index % 2 == 1) != rightBound)
         func row(_ left: String, _ center: String, _ right: String) -> [String] {
             (swaps ? [right, center, left] : [left, center, right]).map(filled)
         }

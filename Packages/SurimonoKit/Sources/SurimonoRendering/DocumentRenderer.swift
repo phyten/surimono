@@ -389,6 +389,7 @@ public final class DocumentRenderer {
         let layoutKind: LayoutKind
         let pageSize: CGSize
         let mirrorShift: CGFloat
+        let rightBound: Bool
     }
 
     private struct CacheKey: Equatable {
@@ -410,6 +411,7 @@ public final class DocumentRenderer {
         let finish: PrintFinish?
         let usesRightPages: Bool
         let mirrorsMargins: Bool
+        let rightBound: Bool
         let contentsLanguage: String?
         let hasNotes: Bool
         /// A text numbers its contents and places its blanks knowing where the notes go.
@@ -587,6 +589,8 @@ public final class DocumentRenderer {
                 usesRightPages: isThemed && settings.layout.hasFacingPages && settings.finish.breaks.usesRightPages,
                 mirrorsMargins: !isPlainPDF && source.children == nil
                     && settings.layout.mirrorsMargins(options: settings.options),
+                rightBound: !isPlainPDF && settings.layout.mirrorsMargins(options: settings.options)
+                    && settings.layout.isRightBound,
                 contentsLanguage: isThemed && settings.finish.toc.mode == .front ? settings.pageLanguage : nil,
                 hasNotes: settings.activeNotes != nil,
                 textNotes: isThemed
@@ -705,7 +709,8 @@ public final class DocumentRenderer {
             !isPlainPDF && logical.finishing.plan == nil && settings.layout.mirrorsMargins(options: settings.options)
         let shift = moves ? margins.right - margins.left : 0
         let key = NotedKey(
-            notes: notes, layoutKind: settings.layout.kind, pageSize: pageSize, mirrorShift: shift)
+            notes: notes, layoutKind: settings.layout.kind, pageSize: pageSize, mirrorShift: shift,
+            rightBound: settings.layout.isRightBound)
         if let noted = logical.noted, noted.key == key { return noted.logical }
         let plan =
             logical.finishing.plan
@@ -733,7 +738,9 @@ public final class DocumentRenderer {
             // A note page keeps the margins of its own style.
             let notes = Set(plan.notePages)
             output =
-                PaperComposer.compose(document, paper: nil, shift: { !notes.contains($0) && $0 % 2 == 1 ? shift : 0 })
+                PaperComposer.compose(
+                    document, paper: nil,
+                    shift: { !notes.contains($0) && settings.layout.swapsSides(onPage: $0) ? shift : 0 })
                 ?? document
         } else {
             output = document
@@ -1266,12 +1273,14 @@ public final class DocumentRenderer {
         let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
         let shift = margins.right - margins.left
         let places = plan.map { plan in plan.pages.indices.filter { plan.pages[$0] != .note } }
-        guard shift != 0, document.pageCount > 1 || places != nil else { return document }
+        guard shift != 0, document.pageCount > 1 || places != nil || settings.layout.isRightBound else {
+            return document
+        }
         return PaperComposer.compose(
             document, paper: nil,
             shift: { index in
                 let place = places.flatMap { $0.indices.contains(index) ? $0[index] : nil } ?? index
-                return place % 2 == 1 ? shift : 0
+                return settings.layout.swapsSides(onPage: place) ? shift : 0
             }) ?? document
     }
 

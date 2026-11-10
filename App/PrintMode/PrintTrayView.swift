@@ -307,9 +307,9 @@ private struct TraySideView: View {
         let pages = side.visiblePages
         let face = PrintModeText.faceLabel(side, language: language)
         return ZStack(alignment: .leading) {
-            if layout.hasStackedSlots {
+            if layout.hasStackedSlots || layout.kind == .fourUp {
                 Text(
-                    verbatim: layout.kind == .handout3
+                    verbatim: layout.kind == .handout3 || layout.kind == .fourUp
                         ? PrintModeText.handoutCaption(pages, language: language)
                         : PrintModeText.stackedCaption(pages, language: language)
                 )

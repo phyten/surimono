@@ -29,6 +29,7 @@ public struct PrintJobFactory {
             case .b6: "B6"
             case .letter: "Letter"
             case .tabloid: "Tabloid"
+            case .halfLetter: "Statement"
             }
         info.paperName = NSPrinter.PaperName(name)
         info.paperSize = layout.sheet.size

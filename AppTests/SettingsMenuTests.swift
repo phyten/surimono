@@ -122,9 +122,12 @@ struct SettingsMenuTests {
                     "Print Layout", "Choose Style…", "Add Documents…", "Reset Document Settings", "Reload",
                 ].map(localized))
         let layouts = try #require(menu.items.first?.submenu)
-        #expect(layouts.items.map(\.keyEquivalent) == ["1", "2", "3", "4", "5", "6"])
+        // The six cards keep ⌘1 to ⌘6; the layouts that save paper on the same sheet follow without a key.
+        let items = layouts.items.filter { !$0.isSeparatorItem }
+        #expect(items.prefix(6).map(\.keyEquivalent) == ["1", "2", "3", "4", "5", "6"])
+        #expect(items.dropFirst(6).allSatisfy { $0.keyEquivalent.isEmpty })
         #expect(
-            layouts.items.allSatisfy {
+            items.prefix(6).allSatisfy {
                 $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == .command
             })
     }

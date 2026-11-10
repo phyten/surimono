@@ -32,14 +32,14 @@ struct DocumentSettingsTests {
         #expect(old.pageRange == nil)
         let broken = try JSONDecoder().decode(
             DocumentSettings.self, from: Data(#"{"layoutID":"a4Duplex","pageRange":"9-7"}"#.utf8))
-        #expect(broken == DocumentSettings(layoutID: "a4Duplex"))
+        #expect(broken == DocumentSettings(layoutID: "a4Duplex", bookletBinding: .left))
     }
 
-    @Test("書かれていない項目は nil として読み、知らない項目は無視する")
+    @Test("古い記録のとじ方は左とじとし他の省略項目はnilで読む")
     func partialAndUnknownFields() throws {
         let json = Data(#"{"layoutID":"a4Duplex","futureField":42}"#.utf8)
         let decoded = try JSONDecoder().decode(DocumentSettings.self, from: json)
-        #expect(decoded == DocumentSettings(layoutID: "a4Duplex"))
+        #expect(decoded == DocumentSettings(layoutID: "a4Duplex", bookletBinding: .left))
     }
 
     @Test("読めない表示の設定は捨て、ほかの項目は残す")
@@ -50,30 +50,33 @@ struct DocumentSettingsTests {
             "transition":"warp","showsCoverAlone":true}}
             """#.utf8)
         let decoded = try JSONDecoder().decode(DocumentSettings.self, from: json)
-        #expect(decoded == DocumentSettings(zoom: 1.5))
+        #expect(decoded == DocumentSettings(zoom: 1.5, bookletBinding: .left))
     }
 
     @Test("スマート削除の残す一覧がなければ空として読む")
     func missingKeptIDs() throws {
         let json = Data(#"{"zoom":1.5,"smartRemoval":{"isEnabled":true}}"#.utf8)
         let decoded = try JSONDecoder().decode(DocumentSettings.self, from: json)
-        #expect(decoded == DocumentSettings(zoom: 1.5, smartRemoval: DocumentSettings.SmartRemoval(isEnabled: true)))
+        #expect(
+            decoded
+                == DocumentSettings(
+                    zoom: 1.5, smartRemoval: DocumentSettings.SmartRemoval(isEnabled: true), bookletBinding: .left))
     }
 
     @Test("型の違う項目だけを捨てる")
     func wrongTypeKeepsOtherFields() throws {
         let json = Data(#"{"zoom":"large","layoutID":"a4Duplex"}"#.utf8)
         let decoded = try JSONDecoder().decode(DocumentSettings.self, from: json)
-        #expect(decoded == DocumentSettings(layoutID: "a4Duplex"))
+        #expect(decoded == DocumentSettings(layoutID: "a4Duplex", bookletBinding: .left))
     }
 
     @Test("HTML の見え方はウェブか紙面で、読めない値は捨ててほかの項目を残す")
     func htmlPresentation() throws {
         let paper = try JSONDecoder().decode(DocumentSettings.self, from: Data(#"{"htmlPresentation":"paper"}"#.utf8))
-        #expect(paper == DocumentSettings(htmlPresentation: .paper))
+        #expect(paper == DocumentSettings(htmlPresentation: .paper, bookletBinding: .left))
         let unknown = try JSONDecoder().decode(
             DocumentSettings.self, from: Data(#"{"htmlPresentation":"hologram","layoutID":"a4Duplex"}"#.utf8))
-        #expect(unknown == DocumentSettings(layoutID: "a4Duplex"))
+        #expect(unknown == DocumentSettings(layoutID: "a4Duplex", bookletBinding: .left))
     }
 
     @Test("「スライドとして扱わない」を読み書きし、読めない値は捨ててほかの項目を残す")
@@ -82,7 +85,7 @@ struct DocumentSettingsTests {
         #expect(try JSONDecoder().decode(DocumentSettings.self, from: saved) == DocumentSettings(ignoresSlides: true))
         let broken = try JSONDecoder().decode(
             DocumentSettings.self, from: Data(#"{"ignoresSlides":"yes","layoutID":"a4Duplex"}"#.utf8))
-        #expect(broken == DocumentSettings(layoutID: "a4Duplex"))
+        #expect(broken == DocumentSettings(layoutID: "a4Duplex", bookletBinding: .left))
     }
 
     @Test("保存した画像の順番を内容のハッシュで戻す")

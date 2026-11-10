@@ -81,7 +81,9 @@ struct PrintNoteSection: View {
         ]
     }
 
-    private var isOneSided: Bool { model.layout.kind == .normal && model.layout.duplex == .none }
+    private var isOneSided: Bool {
+        (model.layout.kind == .normal || model.layout.kind == .fourUp) && model.layout.duplex == .none
+    }
 
     /// The choice a placement comes out as on this layout, where two of them can be the same thing.
     private var selectedPlacement: NotePagePlan.Placement {

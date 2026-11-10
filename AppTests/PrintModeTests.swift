@@ -200,12 +200,16 @@ struct PrintTrayTests {
     @Test("レイアウトのカードは上に結果、下に用紙を示す")
     func cardTitles() {
         #expect(
-            PrintLayout.presets.map { PrintModeText.cardTitle($0, language: "ja") } == [
+            (PrintLayout.presets(in: .a) + PrintLayout.presets(in: .b).prefix(5)).map {
+                PrintModeText.cardTitle($0, language: "ja")
+            } == [
                 "A4 片面", "A4 両面", "A4 冊子", "A5 冊子", "2 ページを\n1 枚に", "3 ページ＋\nメモ欄",
                 "B5 片面", "B5 両面", "B5 冊子", "B6 冊子", "2 ページを\n1 枚に",
             ])
         #expect(
-            PrintLayout.presets.map { PrintModeText.cardPaper($0, language: "ja") } == [
+            (PrintLayout.presets(in: .a) + PrintLayout.presets(in: .b).prefix(5)).map {
+                PrintModeText.cardPaper($0, language: "ja")
+            } == [
                 nil, nil, "用紙：A3・両面", "用紙：A4・両面", "用紙：A3", "用紙：A4",
                 nil, nil, "用紙：B4・両面", "用紙：B5・両面", "用紙：B4",
             ])
@@ -219,11 +223,11 @@ struct PrintTrayTests {
                 .map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") }
         }
         #expect(
-            lines(.a4BookletA5, sheets: 2, pages: 8, "ja") == ["**A4 2 枚から A5 の冊子 8 ページ**", "両面・短辺とじ"])
+            lines(.a4BookletA5, sheets: 2, pages: 8, "ja") == ["**A4 2 枚から A5 の冊子 8 ページ**", "両面・短辺とじ · 左とじ"])
         #expect(
             lines(.a4BookletA5, sheets: 2, pages: 8, "en")
-                == ["**A5 booklet, 8 pages, from 2 sheets of A4**", "Duplex, short edge"])
-        #expect(lines(.a3BookletA4, sheets: 3, pages: 12, "ja") == ["**A3 3 枚から A4 の冊子 12 ページ**", "両面・短辺とじ"])
+                == ["**A5 booklet, 8 pages, from 2 sheets of A4**", "Duplex, short edge · Left Binding"])
+        #expect(lines(.a3BookletA4, sheets: 3, pages: 12, "ja") == ["**A3 3 枚から A4 の冊子 12 ページ**", "両面・短辺とじ · 左とじ"])
         #expect(lines(.a4Duplex, sheets: 2, pages: 4, "ja") == ["**A4 縦 2 枚に 4 ページ**", "両面・長辺とじ"])
         #expect(lines(.a4Single, sheets: 3, pages: 3, "ja") == ["**A4 縦 3 枚に 3 ページ**", "片面"])
         #expect(lines(PrintLayout.a4Single.oriented(true), sheets: 3, pages: 3, "ja")[0] == "**A4 横 3 枚に 3 ページ**")
@@ -364,6 +368,67 @@ struct PrintModeTests {
             suite.remove()
             try? FileManager.default.removeItem(at: root)
         }
+    }
+
+    @Test("とじ方を選ぶまでは冊子は読む向きに従い、文書の設定には入らず、選んだあとは保つ")
+    func bindingFollowsReadingOnce() throws {
+        let fixture = Fixture()
+        let model = fixture.model()
+        model.updateViewOptions { $0.direction = .rightToLeft }
+        model.chooseLayout(PrintLayout.a4BookletA5.id)
+        #expect(model.layout.isRightBound)
+        // Not the reader's choice yet, so nothing of it goes into the document's settings.
+        #expect(model.rememberedSettings.bookletBinding == nil)
+        model.updateViewOptions { $0.direction = .leftToRight }
+        #expect(!model.layout.isRightBound)
+        model.updateViewOptions { $0.direction = .rightToLeft }
+        model.bookletBinding = .left
+        model.chooseLayout(PrintLayout.letterBookletHalfLetter.id)
+        #expect(!model.layout.isRightBound)
+        let record = try JSONDecoder().decode(
+            DocumentSettings.self, from: JSONEncoder().encode(model.rememberedSettings))
+        #expect(record.bookletBinding == .left)
+        #expect(FoldBook.spread(row: 1, pageCount: 8, rightBound: true) == .pages(3, 2, isCenter: false))
+        #expect(FoldBook.spread(row: 2, pageCount: 8, rightBound: true) == .pages(5, 4, isCenter: true))
+    }
+
+    @Test("各系列のカードは最小幅の窓でも収まり追加レイアウトへ切り替わる", arguments: PaperSeries.allCases)
+    func compactCardsInWindow(series: PaperSeries) async throws {
+        let fixture = Fixture()
+        let model = fixture.model()
+        model.choosePaperSeries(series)
+        let controller = NSHostingController(rootView: PrintPressBar(model: model))
+        let host = controller.view
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.titled], backing: .buffered,
+            defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        window.orderFront(nil)
+        defer { window.close() }
+        host.layoutSubtreeIfNeeded()
+        #expect(controller.sizeThatFits(in: CGSize(width: 600, height: 300)).width <= 603)
+        #expect(controller.sizeThatFits(in: CGSize(width: 600, height: 300)).height < 300)
+        model.chooseLayout(PrintLayout.compactPresets(in: series)[1].id)
+        try await Task.sleep(for: .milliseconds(100))
+        host.layoutSubtreeIfNeeded()
+        #expect(model.layout.kind == .fourUp)
+        #expect(controller.sizeThatFits(in: CGSize(width: 600, height: 300)).width <= 603)
+        model.chooseCard(at: 4)
+        #expect(model.layout.id == PrintLayout.presets(in: series)[4].id)
+        #expect(model.layout.kind == .twoUp)
+    }
+
+    @Test("地域の初回既定はLetterを選び保存済みレイアウトを変えない")
+    func regionalPreferences() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let first = AppPreferences(defaults: suite.defaults, locale: Locale(identifier: "en_US"), defaultPaperSize: nil)
+        #expect(first.layoutID == "letterSingle")
+        first.layoutID = "b5Duplex"
+        let restored = AppPreferences(
+            defaults: suite.defaults, locale: Locale(identifier: "en_US"), defaultPaperSize: nil)
+        #expect(restored.layoutID == "b5Duplex")
     }
 
     @Test("新しいウィンドウは表示モードで開く")

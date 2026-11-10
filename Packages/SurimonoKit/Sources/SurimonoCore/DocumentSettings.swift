@@ -29,6 +29,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     /// The view mode's content size in points.
     public var windowSize: CGSize?
     public var layoutID: String?
+    /// Null keeps the reading-direction default; an absent key belongs to a legacy left-bound record.
+    public var bookletBinding: BookletBinding?
     public var paperOrientation: PaperOrientation?
     public var themeID: String?
     /// An axis of its own: it stays when the theme changes. `CodePalette.matchesStyleID` follows the theme.
@@ -63,12 +65,14 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil,
         binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
         codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil, bandVisibility: BandVisibility? = nil,
-        paperSeries: ViewPaperSeries? = nil, notes: NotePages? = nil, pageRange: PageRange? = nil
+        paperSeries: ViewPaperSeries? = nil, notes: NotePages? = nil, bookletBinding: BookletBinding? = nil,
+        pageRange: PageRange? = nil
     ) {
         self.view = view
         self.zoom = zoom
         self.windowSize = windowSize
         self.layoutID = layoutID
+        self.bookletBinding = bookletBinding
         self.paperOrientation = paperOrientation
         self.themeID = themeID
         self.codePaletteID = codePaletteID
@@ -93,7 +97,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
-        case bandVisibility, paperSeries, notes, pageRange
+        case bandVisibility, paperSeries, notes, bookletBinding, pageRange
     }
 
     // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
@@ -118,6 +122,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(zoom, forKey: .zoom)
         try values.encodeIfPresent(windowSize, forKey: .windowSize)
         try values.encodeIfPresent(layoutID, forKey: .layoutID)
+        try values.encode(bookletBinding, forKey: .bookletBinding)
         try values.encodeIfPresent(paperOrientation, forKey: .paperOrientation)
         try values.encodeIfPresent(themeID, forKey: .themeID)
         try values.encodeIfPresent(codePaletteID, forKey: .codePaletteID)
@@ -149,6 +154,9 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         zoom = field(Double.self, .zoom)
         windowSize = field(CGSize.self, .windowSize)
         layoutID = field(String.self, .layoutID)
+        bookletBinding =
+            (try? values.decodeNil(forKey: .bookletBinding)) == true
+            ? nil : field(BookletBinding.self, .bookletBinding) ?? .left
         paperOrientation = field(PaperOrientation.self, .paperOrientation)
         themeID = field(String.self, .themeID)
         codePaletteID = field(String.self, .codePaletteID)

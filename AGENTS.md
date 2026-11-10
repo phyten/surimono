@@ -5,7 +5,7 @@
 ## プロダクト
 
 - **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
-- 主な機能: 出てくる用紙をそのまま並べる印刷モード（刷り台。画面の語は「印刷画面」）、印刷テーマ（画面の語は「スタイル」。CSS。12 のカテゴリーに 108 種。文書の 1 ページ目の見本を並べたパレットで、最近使った・お気に入り・定番・カテゴリーから選べ、表示モードでは乗せると紙で試せる（刷り台では見本だけを拡大）。4 つまで並べ、同じ見出しやコードからそろえて比べる見比べ台もある）の切替とユーザー CSS・文字の大きさ、スタイルとは別の軸のコードの配色（12 の候補と枠・行番号などのオプション）、HTML のノイズ除去プリセット（ユーザー追加可）とスマート削除（ベータ）、印刷レイアウト（A判と B判（JIS）の片面・両面、中綴じ冊子 A3→A4 / A4→A5 / B4→B5 / B5→B6、2アップ）、紙の仕上げ（上下左右の余白、ヘッダー・フッター、改ページ、紙の目次、書き込むためのノートページ）、刷り台で選んだプリンターへのダイアログなしの印刷（システムの印刷画面も選べる）、PDF 書き出し、紙に帯を重ねない表示モード（上だけ / 上と下に分けるメニュー、常に表示 / ポインタを乗せたときだけ、目次、文書の数字、A判 / B判、見開き / 単ページ、拡大縮小、最前面に固定）、内容のハッシュごとの設定の保存、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観はシステムの設定に従う（アプリに切替は置かない）。
+- 主な機能: 出てくる用紙をそのまま並べる印刷モード（刷り台。画面の語は「印刷画面」）、印刷テーマ（画面の語は「スタイル」。CSS。12 のカテゴリーに 108 種。文書の 1 ページ目の見本を並べたパレットで、最近使った・お気に入り・定番・カテゴリーから選べ、表示モードでは乗せると紙で試せる（刷り台では見本だけを拡大）。4 つまで並べ、同じ見出しやコードからそろえて比べる見比べ台もある）の切替とユーザー CSS・文字の大きさ、スタイルとは別の軸のコードの配色（12 の候補と枠・行番号などのオプション）、HTML のノイズ除去プリセット（ユーザー追加可）とスマート削除（ベータ）、印刷レイアウト（A判・B判（JIS）・Letter系の片面・両面、左とじ / 右とじの中綴じ冊子 A3→A4 / A4→A5 / B4→B5 / B5→B6 / Tabloid→Letter / Letter→Half Letter、2ページ配置・4ページ配置・3ページ＋メモ）、紙の仕上げ（上下左右の余白、ヘッダー・フッター、改ページ、紙の目次、書き込むためのノートページ）、刷り台で選んだプリンターへのダイアログなしの印刷（システムの印刷画面も選べる）、PDF 書き出し、紙に帯を重ねない表示モード（上だけ / 上と下に分けるメニュー、常に表示 / ポインタを乗せたときだけ、目次、文書の数字、A判 / B判、見開き / 単ページ、拡大縮小、最前面に固定）、内容のハッシュごとの設定の保存、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観はシステムの設定に従う（アプリに切替は置かない）。
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
   - **オフラインで完結する**（ネットワークは、ユーザーの文書自身が参照するリソースの読み込みと、アップデートの確認（「配布とアップデート」）に限る。テレメトリなし）
@@ -61,7 +61,7 @@ make clean
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
 → 論理ページの PDF（WebPaginator: WKWebView を NSPrintOperation で論理ページ寸法に組版）
-→ 面付け（PDFComposer: レイアウトに従って用紙へ配置。冊子・2アップ・ページ番号・裏面回転）
+→ 面付け（PDFComposer: レイアウトに従って用紙へ配置。冊子・2ページ配置・4ページ配置・ページ番号・裏面回転）
 → プレビュー（PDFView）/ 印刷（PrintJobFactory: 用紙・向き・両面を設定した NSPrintInfo）/ PDF 書き出し
 ```
 
@@ -93,16 +93,17 @@ make clean
 - コードの配色（`CodePalette`、目録は `Resources/code-palettes.json`）はスタイルとは別の軸で、スタイルを変えても残る。文書ごとに `DocumentSettings.codePaletteID`、既定は `AppPreferences.defaultCodePaletteID`。`match`（スタイルに合わせる）は配色なしで、テーマの `--hl-*` をそのまま使う。重ねる順は common → テーマ → コードの配色と枠（`CodeStyle`）→ 文字の大きさ。既定の `CodeStyle` はスタイルシートも本文も変えない。HTML 文書には効かない。
   - 配色を足すときの決まり: 15 個のトークンすべてに色を持ち、地を持たない配色は `lightGrounds`（白・淡い地・最も濃いテーマの地）の上で、地を持つ配色は自分の地の上で 4.5:1 以上にする（`CodePaletteTests` が全配色の全トークンを見る）。`inkIndex` は標準テーマを 100 としたインクの量で、300 以上の配色は `inkHeavy` にして候補から外し、選ぶと注意を出す。
   - 枠のオプション（`CodeBlockOptions`、文書ごとに `DocumentSettings.codeBlock`）: 何がコードのブロックかは `CodeBlockMarkup` だけが決める。組み上がった断片の属性のない `<pre>` に `code-block` の印と `<code>` を足し、スタイルシートと `CodeFitScript` はこの印を見る（`pre.surimono-plain` などは別物）。行番号と切る印の行の要素、言語名の札も同じ所で足す。長い行の「縮める」「切る印」はテーマの書体と余白で幅が決まるので、`CodeFitScript` が組版の準備としてアプリの隔離された世界で測る。WebKit の印刷は web view の 1.25 倍の幅で組むので、`WebPaginator.printPixelsPerPoint` を掛けた本当の組版の幅に広げて測り（web view の幅は丸めてあり、根の `zoom` の分も割り戻す）、見本は 1 倍で測る。テーマの判定が結果を返すので、準備の台本ではテーマの部分を最後に置く。
-- 論理ページ寸法: 通常は用紙そのもの。冊子と 2アップは用紙の半分（A3 → A4、A4 → A5、B4 → B5、B5 → B6）。Web 系の文書は論理ページ寸法で組版し直し、PDF と画像は縮小して収める。
+- 論理ページ寸法: 通常は用紙そのもの。冊子と 2ページ配置は用紙の半分（A3 → A4、A4 → A5、B4 → B5、B5 → B6、Tabloid → Letter、Letter → Half Letter）。Letter は 612×792pt、Tabloid は 792×1224pt、Half Letter は 396×612pt。4ページ配置は A4 / B5 / Letter の縦用紙を2×2に分け、左上 → 右上 → 左下 → 右下。論理ページは用紙の幅・高さの半分（A4 なら A6 相当）、片面のみ。Web 系の文書は論理ページ寸法で組版し直し、PDF と画像は縮小して収める。
 - 中綴じ面付け（ページは 1 始まり、n は元のページ数）:
 
   ```text
   N = ceil(n / 4) * 4、用紙枚数 = N / 4
   用紙 s（0 が一番外側）: 表 = [左 N-2s | 右 2s+1]、裏 = [左 2s+2 | 右 N-2s-1]
-  n を超えるページは白紙。両面は短辺綴じ
+  右とじ: 表 = [左 2s+1 | 右 N-2s]、裏 = [左 N-2s-1 | 右 2s+2]
+  n を超えるページは白紙。両面は短辺綴じ（左右のとじ方とは別）
   ```
 
-  例: n = 8 → 用紙1 表[8|1] 裏[2|7]、用紙2 表[6|3] 裏[4|5]。この式はテストで固定している。変更するときはテストと `.agents/skills/project-surimono-print-layout` を先に更新する。
+  例: n = 8 → 用紙1 表[8|1] 裏[2|7]、用紙2 表[6|3] 裏[4|5]。右とじ n = 8 → 用紙1 表[1|8] 裏[7|2]、用紙2 表[3|6] 裏[5|4]。この式はテストで固定している。変更するときはテストと `.agents/skills/project-surimono-print-layout` を先に更新する。
 - 外での保存: `FileWatcher` がパスのメタデータを 250 ms ごとに裏で見て（エディタは保存でファイルを差し替えることが多いので、開いたファイルではなくパスを見る）、変わったら `DocumentViewModel` が裏で読み直す。内容が同じなら組み直さない。手で押した再読み込みはいつも読み直す。イベントの見張り（vnode）と比べ、速さと負荷の差は誤差で、ネットワークやクラウドの場所では届かないことがあるのでポーリングのままにしている。
 - Markdown の変更の印: 読み直したとき、前に表示していた原文と行ごとに比べ（`MarkdownChanges`。前処理をまたいで原文の行とブロックを対応づける）、変わったブロックの位置を、各ブロックに見えないリンク（`surimono-mark:`）を置いた別の組版から WebKit のリンク注釈として受け取る（`ChangeMark`）。表示・印刷に使う組版には何も足さず、線は表示用の写し（`ViewPageDocument`）にだけ、本文の左端のすぐ外に描く。HTML・Org・LaTeX には印を付けない。
 - 依存の向き: App → SurimonoRendering → SurimonoCore。Core から AppKit / WebKit を import しない。
@@ -186,7 +187,7 @@ make clean
 - 「この印刷設定を新しい文書にも使う」（`setFinishDefaults`）は、全部の新しい文書に効く広い操作なので、シートの設定の最後に枠のない文字のボタンと説明で置く（「閉じる」の隣のボタンにしない）。余白・ヘッダー / フッター・改ページ・目次だけを保存し、ノートは含まない（説明に書く）。新しい文書のヘッダーは `AppPreferences.defaultFurniture`（`PageFurniture`）で、設定画面も同じ値を選ぶ。旧 `pageNumbers` と `PrintOptions` の `showsPageNumbers` の記録は読むときに移すだけ。
 - ヘッダーの入力欄は「内容を指定…」のときだけ出す。欄が空でも選んだままに見せるため、`DocumentViewModel.isWritingFurniture` で覚える（`furnitureChoice`）。
 - 持ち方: 余白とヘッダー・フッターは `PrintOptions`、改ページと目次は `PrintFinish`（`RenderSettings.finish`・`DocumentSettings.printFinish`）。ヘッダーを変えても組版し直さず、面付けだけやり直す。`PrintFinish` はテーマを使う形式の 1 文書だけに効き、合本には渡さない。
-- 余白は `PrintOptions.margins`（`PageMargins`）。1mm 単位で 0〜40。古い `marginsInMillimeters`・`showsPageNumbers` の記録は `PrintOptions` と `PrintSettingSet` の decode で読む。内側・外側は、組版は同じ幅のまま、偶数ページの中身を `PaperComposer.compose(_:paper:shift:)` で横へ動かす（紙の上の位置だけが変わる。`PDFPage.setBounds` で箱をずらしても、書き出すと媒体の箱が戻るので使えない）。`margins.left` が綴じ側（1 ページ目の左）。
+- 余白は `PrintOptions.margins`（`PageMargins`）。1mm 単位で 0〜40。古い `marginsInMillimeters`・`showsPageNumbers` の記録は `PrintOptions` と `PrintSettingSet` の decode で読む。内側・外側は、組版は同じ幅のまま、偶数ページの中身を `PaperComposer.compose(_:paper:shift:)` で横へ動かす（紙の上の位置だけが変わる。`PDFPage.setBounds` で箱をずらしても、書き出すと媒体の箱が戻るので使えない）。`margins.left` が綴じ側（左とじは1ページ目の左、右とじは右）。
 - ヘッダー・フッターは `PageFurniture`。描くのは `PDFComposer`（`PageFurnitureDrawing`）なので全形式で効く。「番号」プリセットは今までのページ番号と同じ場所に同じ大きさで出す。足した白紙（`PageFurniture.Context.blankPages`）には入れない。日付は描く日の今日で、`SheetKey` に文字列で入る。
 - 見出しの改ページは `PrintFinish.styleSheet` の CSS で、テーマの後の `<style id="surimono-finish">` に入る。最初の見出しと見出しの直下の見出しでは改ページしない。原文の改ページの直後の見出しにも `break-before: auto` を当てる（WebKit は `break-after` と次の `break-before` を別々に数え、白紙が 1 枚できる）。
 - 右ページからは、CSS で改ページしてから `DocumentOutline.pages(of:inPageTexts:)` で章のページを探し、`FinishedPagePlan` の通りに白紙を差す。両面と冊子だけ。`DocumentRenderer.finished` が文字の文書の論理ページの列を組み替える場所で、紙（`PaperComposer`）を重ねる前に通る。列の順は `FinishedPagePlan` が決め、面を足す物はここに足す（ノートページの差し込みは「ノートページ」の節）。
@@ -194,7 +195,8 @@ make clean
 - Markdown の改ページの記法（`MarkdownPageBreaks`）は、単独の行だけを読む。`MarkdownExtensions.protection` と同じく AST の領域で、コードブロック・HTML ブロック（`<pre>` や複数行のコメントの中）・複数行のコードスパンと inline HTML を除く。読んだ行は HTML コメントの目印に置き換えて `<div class="page-break" data-syntax="…">` にする。コメントはその行で終わり段落も切れるので、他の行の意味も行番号も変えない。`common.css` が改ページし、切った記法だけを `PrintFinish.styleSheet` が打ち消す。
 - 表は `common.css` の `break-inside: avoid` で、1 ページに入るものはもともと分かれない（実測）。「表を途中で分けない」はそれより長い表の行を分けないだけ。
 - レイアウトのカードは上に結果、下に用紙を書く（`PrintModeText.cardTitle`・`cardPaper`。冊子は名前が用紙の半分になるので「A5 中綴じ / 用紙：A4・両面」）。カードは幅 80pt・左右の余白 6pt で、題は 2 行分の高さに固定して用紙の行をそろえる。要約は仕上がりの内訳（本文・目次・ノート・白紙）と使う用紙に分ける（`finished`・`paper`）。刷り台のバー（`PrintPressBar`）は「刷り方を選ぶ」（使う用紙の切替と、用紙の向き。向きが決まっているレイアウトでは向きを出さない。その下にカード）と、「仕上がりを確かめて出力する」（要約・プリンター・PDF・印刷）の 2 つで、幅 760pt では左右に並ぶ。入らない幅では右を左の下の 1 行へ移し、間の線と左の余白をなくして、バーの 3 つの段（上の行・選ぶ側・出力の行）の左端を 14pt にそろえる（`PrintPressArrangement`）。刷り台の上の説明は 2 行で、1 行目に何を何に刷るか、2 行目に綴じ方を書く（`PrintModeText.instructions`。折り方や重ね方は折ってみる画面に任せる）。
-- `PrintLayout.presets(in:)` が判ごとのカードの順で、⌘1〜⌘6 もこの順。B判に 3枚＋メモはなく、⌘6 は A4 3枚＋メモのまま。判の切替は同じ位置のカードへ移り（`counterpart(in:)`）、`AppPreferences.paperSeries` に覚える。既定のレイアウトのままの文書では覚えた判のカードを出す。用紙は変えない。
+- `PrintLayout.presets(in:)` が各系列の6枚のカードの順。片面・両面・大きい冊子・小さい冊子・大きい用紙の2ページ配置・3ページ＋メモで、⌘1〜⌘6 の機能の順を保つ（B判の⌘6は従来どおりA4の3ページ＋メモ。追加のB5版はカードで選ぶ）。2ページ配置のカード下の「用紙とページ数」で `compactPresets(in:)` の小さい用紙の2ページ配置・4ページ配置も選べる。カード本体は `LayoutCard` の80×88ptのままで、札の overlay を追加できる。系列の切替は対応する刷り方へ移り、`AppPreferences.paperSeries` に覚える。保存済みの既定レイアウトは維持し、未設定なら `PaperSeries.initial(locale:defaultPaperSize:)` が米国式の地域または既定のLetter用紙でLetter系列、それ以外でA系列を選ぶ。
+- 冊子のとじ方は印刷の設定で選ぶ。`DocumentSettings.bookletBinding` に保存し、キーのない古い記録では左とじ、新しい未選択の記録はnullで区別する。まだ選択していない新しい文書は冊子へ入るときに表示モードの読む向きから決める。`PrintLayout.bound(_:)` が面付け・折り見本・内外余白・左右を入れ替えるヘッダーへ渡す（既存のレイアウトidは変えない）。右とじでは奇数ページの内側が右になる。
 - 組み込みの設定セットは `PrintSettingSet.builtIns(language:)` で、保存しない（id だけ固定）。
 
 ## ノートページ

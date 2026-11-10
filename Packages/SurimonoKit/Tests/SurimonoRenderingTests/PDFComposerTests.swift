@@ -6,6 +6,77 @@ import Testing
 
 @MainActor
 struct PDFComposerTests {
+    @Test("A4の2ページ配置は横用紙2枚に3ページを収め最後の右を空ける")
+    func a4TwoUp() async throws {
+        let output = try await PDFComposer().compose(
+            RenderingFixtures.pdf(count: 3), layout: .a4TwoUp, options: PrintOptions())
+        #expect(output.pageCount == 2)
+        let first = try #require(output.page(at: 0))
+        let last = try #require(output.page(at: 1))
+        #expect(abs(first.bounds(for: .mediaBox).width - 841.890) < 0.01)
+        #expect(abs(first.bounds(for: .mediaBox).height - 595.276) < 0.01)
+        #expect(
+            first.selection(for: CGRect(x: 0, y: 0, width: 420.945, height: 595.276))?.string?.contains("PAGE-1")
+                == true)
+        #expect(
+            first.selection(for: CGRect(x: 420.945, y: 0, width: 420.945, height: 595.276))?.string?.contains("PAGE-2")
+                == true)
+        #expect(
+            last.selection(for: CGRect(x: 0, y: 0, width: 420.945, height: 595.276))?.string?.contains("PAGE-3") == true
+        )
+        let blank = last.selection(for: CGRect(x: 420.945, y: 0, width: 420.945, height: 595.276))?.string ?? ""
+        #expect(blank.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
+
+    @Test("4ページ配置は10ページを縦用紙3枚の左上から並べる", arguments: [PrintLayout.a4FourUp, .b5FourUp, .letterFourUp])
+    func fourUp(layout: PrintLayout) async throws {
+        let output = try await PDFComposer().compose(
+            RenderingFixtures.pdf(count: 10), layout: layout, options: PrintOptions())
+        #expect(output.pageCount == 3)
+        for index in 0..<3 {
+            let page = try #require(output.page(at: index))
+            let box = page.bounds(for: .mediaBox)
+            #expect(abs(box.width - layout.sheet.size.width) < 0.01)
+            #expect(abs(box.height - layout.sheet.size.height) < 0.01)
+            #expect(page.rotation == 0)
+            for slot in 0..<4 {
+                let rect = CGRect(
+                    x: CGFloat(slot % 2) * box.width / 2, y: slot < 2 ? box.height / 2 : 0, width: box.width / 2,
+                    height: box.height / 2)
+                let text = page.selection(for: rect)?.string ?? ""
+                let number = index * 4 + slot + 1
+                if number <= 10 {
+                    #expect(text.contains("PAGE-\(number)"))
+                } else {
+                    #expect(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    @Test("右とじLetter冊子は裏面補正後も指定した左右のページを持つ", arguments: [false, true])
+    func rightLetterBooklet(rotates: Bool) async throws {
+        let output = try await PDFComposer().compose(
+            RenderingFixtures.pdf(count: 5), layout: PrintLayout.letterBookletHalfLetter.bound(.right),
+            options: PrintOptions(rotatesBackSides: rotates))
+        #expect(output.pageCount == 4)
+        let expected: [[String?]] = [["PAGE-1", nil], [nil, "PAGE-2"], ["PAGE-3", nil], ["PAGE-5", "PAGE-4"]]
+        for index in 0..<4 {
+            let page = try #require(output.page(at: index))
+            #expect(abs(page.bounds(for: .mediaBox).width - 792) < 0.01)
+            #expect(abs(page.bounds(for: .mediaBox).height - 612) < 0.01)
+            for slot in 0..<2 {
+                let target = rotates && index % 2 == 1 ? 1 - slot : slot
+                let text = page.selection(for: CGRect(x: target * 396, y: 0, width: 396, height: 612))?.string ?? ""
+                if let marker = expected[index][slot] {
+                    #expect(text.contains(marker))
+                } else {
+                    #expect(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
     @Test("3枚＋メモは7ページを上から配置し最後も罫線を残す", arguments: [false, true])
     func handout(landscape: Bool) async throws {
         let source = try RenderingFixtures.pdf(count: 7, size: CGSize(width: 800, height: 450))

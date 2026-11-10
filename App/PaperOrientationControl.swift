@@ -33,7 +33,7 @@ struct PaperOrientationControl: View {
         .labelsHidden()
     }
 
-    var isFixed: Bool { model.renderLayout.kind == .booklet || model.renderLayout.kind == .handout3 }
+    var isFixed: Bool { model.renderLayout.hasFixedOrientation }
 
     var value: LocalizedStringKey {
         if isFixed {

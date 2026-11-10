@@ -115,12 +115,12 @@ public struct PDFComposer {
                         try draw(page, in: rect, context: context, index: index)
                         if let lines = options.furniture.lines(
                             forPage: index, pageCount: pageCount, context: furniture,
-                            hasFacingPages: layout.hasFacingPages)
+                            hasFacingPages: layout.hasFacingPages, rightBound: layout.isRightBound)
                         {
                             if layout.kind == .handout3 {
                                 drawHandout(lines, slot: slot, in: rect, options: options, context: context)
                             } else {
-                                let verso = layout.mirrorsMargins(options: options) && index % 2 == 1
+                                let verso = layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: index)
                                 drawFurniture(
                                     lines, in: rect, margins: verso ? margins.mirrored : margins,
                                     logicalSize: logicalSize, context: context)

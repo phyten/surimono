@@ -1,7 +1,9 @@
+import AppKit
 import Foundation
 import PDFKit
 import SurimonoCore
 import SurimonoRendering
+import SwiftUI
 import Testing
 
 @testable import Surimono
@@ -254,6 +256,47 @@ struct PrintSheetFlowTests {
         #expect(!model.hasCurrentPrintPreview)
         #expect(!model.canOutput)
         #expect(FoldSource.current(model) == nil)
+    }
+
+    @Test("窓に載せた折り見本は右とじの見開きを示し左とじへ切り替えられる", .timeLimit(.minutes(1)))
+    func rightFoldInWindow() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = try await renderedModel(suite, directory: directory, pages: 8, layout: .a4BookletA5)
+        defer { model.stop() }
+        model.bookletBinding = .right
+        model.render()
+        try await waitUntil { !model.isRendering }
+        let host = NSHostingView(rootView: PrintFoldView(model: model, close: {}))
+        let window = NSWindow(
+            contentRect: CGRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered,
+            defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        window.orderFront(nil)
+        defer { window.close() }
+        func pdfView(in view: NSView) -> PDFView? {
+            if let pdf = view as? PDFView { return pdf }
+            return view.subviews.lazy.compactMap { pdfView(in: $0) }.first
+        }
+        try await waitUntil { pdfView(in: host)?.document?.pageCount == 8 }
+        let view = try #require(pdfView(in: host))
+        #expect(view.displaysRTL)
+        let second = try #require(view.document?.page(at: 1))
+        let third = try #require(view.document?.page(at: 2))
+        view.go(to: second)
+        try await Task.sleep(for: .milliseconds(100))
+        view.layoutSubtreeIfNeeded()
+        #expect(
+            view.convert(second.bounds(for: .cropBox), from: second).minX > view.convert(
+                third.bounds(for: .cropBox), from: third
+            ).minX + 3)
+        model.bookletBinding = .left
+        model.render()
+        try await waitUntil { !model.isRendering && !view.displaysRTL }
+        #expect(FoldSource.current(model)?.rightBound == false)
     }
 
     @Test("冊子の大きさを変えると、同じ論理 PDF でも折ってみるの紙は中身も白紙も新しい大きさで作り直す", .timeLimit(.minutes(1)))

@@ -146,7 +146,7 @@ struct TrayMetrics: Equatable {
         let available = max(400, viewportWidth - 2 * Self.padding - 100)
         let pageWidth: CGFloat
         switch layout.kind {
-        case .normal, .handout3:
+        case .normal, .handout3, .fourUp:
             pageWidth =
                 layout.duplex == .none ? min(600, available - 120) : min(480, (available - Self.sideSpacing) / 2)
         case .twoUp:
@@ -154,7 +154,10 @@ struct TrayMetrics: Equatable {
         case .booklet:
             pageWidth = min(max((available - Self.sideSpacing) / 4, 110), 300)
         }
-        let widthScale = pageWidth / (layout.kind == .handout3 ? layout.sheetSize.width : layout.logicalPageSize.width)
+        let widthScale =
+            pageWidth
+            / ((layout.kind == .handout3 || layout.kind == .fourUp)
+                ? layout.sheetSize.width : layout.logicalPageSize.width)
         let sheetHeight =
             mixedOrientations ? max(layout.sheetSize.width, layout.sheetSize.height) : layout.sheetSize.height
         let heightScale =
@@ -164,7 +167,7 @@ struct TrayMetrics: Equatable {
         sideSize = CGSize(width: layout.sheetSize.width * scale, height: layout.sheetSize.height * scale)
         rowWidth =
             switch layout.kind {
-            case .handout3: sideSize.width
+            case .handout3, .fourUp: sideSize.width
             case .normal: layout.duplex == .none ? sideSize.width : sideSize.width * 2 + Self.sideSpacing
             case .twoUp: sideSize.width * 2 + Self.twoUpSpacing
             case .booklet: sideSize.width * 2 + Self.sideSpacing
@@ -446,13 +449,15 @@ enum PrintModeText {
 
     static func sheetSubtitle(_ sheet: PrintTray.Sheet, layout: PrintLayout, language: String) -> String {
         let paper = layout.sheet.shortName
+        let text: String
         switch sheet.position {
-        case .outermost: return format("%@ landscape · outermost", language: language, paper)
-        case .innermost: return format("%@ landscape · innermost (center spread)", language: language, paper)
+        case .outermost: text = format("%@ landscape · outermost", language: language, paper)
+        case .innermost: text = format("%@ landscape · innermost (center spread)", language: language, paper)
         case .only, .middle, .unstacked:
             let landscape = sheet.orientation == .landscape
-            return format(landscape ? "%@ landscape" : "%@ portrait", language: language, paper)
+            text = format(landscape ? "%@ landscape" : "%@ portrait", language: language, paper)
         }
+        return layout.isRightBound ? text + " · " + string("Right Binding", language: language) : text
     }
 
     static func faceLabel(_ side: PrintTray.Side, language: String) -> String? {
@@ -492,12 +497,17 @@ enum PrintModeText {
             case .longEdge: "Duplex, long edge"
             case .shortEdge: "Duplex, short edge"
             }
-        return "**\(headline)**\n" + string(binding, language: language)
+        let side =
+            layout.kind == .booklet
+            ? " · " + string(layout.isRightBound ? "Right Binding" : "Left Binding", language: language) : ""
+        return "**\(headline)**\n" + string(binding, language: language) + side
     }
 
     /// The second line under the summary: what to do with the sheets and where blanks fall.
     static func note(_ layout: PrintLayout, pageCount: Int, language: String) -> String {
         switch layout.kind {
+        case .fourUp:
+            return string("Four pages, top left to bottom right · unused slots are blank", language: language)
         case .handout3:
             return string(
                 pageCount % 3 == 0
@@ -567,6 +577,7 @@ enum PrintModeText {
         case .handout3: return string("3 Pages + Notes Column", language: language)
         case .booklet: return format("%@ Booklet", language: language, (layout.sheet.halved ?? layout.sheet).shortName)
         case .twoUp: return string("2 Pages on One Sheet", language: language)
+        case .fourUp: return string("4 Pages on One Sheet", language: language)
         case .normal: return format(layout.duplex == .none ? "%@ Single" : "%@ Duplex", language: language, paper)
         }
     }
@@ -576,7 +587,7 @@ enum PrintModeText {
         switch layout.kind {
         case .normal: nil
         case .booklet: format("Paper: %@, Two-Sided", language: language, layout.sheet.shortName)
-        case .twoUp, .handout3: format("Paper: %@", language: language, layout.sheet.shortName)
+        case .twoUp, .handout3, .fourUp: format("Paper: %@", language: language, layout.sheet.shortName)
         }
     }
 

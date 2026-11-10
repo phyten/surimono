@@ -73,6 +73,14 @@ final class DocumentViewModel {
     let preferences: AppPreferences
     let library: UserLibrary
     var paperOrientation: PaperOrientation
+    /// The side the reader chose to bind booklets on; nil until they choose, when the reading direction decides.
+    /// Entering the tray does not fill it in: that would save the document's settings without the reader having
+    /// changed anything.
+    var bookletBinding: BookletBinding?
+    var effectiveBookletBinding: BookletBinding {
+        bookletBinding ?? (viewOptions.direction == .rightToLeft ? .right : .left)
+    }
+
     var layoutID: String { didSet { if shownPaperSeries != layout.series { shownPaperSeries = nil } } }
     /// The series of paper the tray's cards show, once the reader switched it for this window.
     private var shownPaperSeries: PaperSeries?
@@ -366,6 +374,7 @@ final class DocumentViewModel {
         self.library = library
         self.renderer = renderer
         layoutID = Self.defaultLayoutID(preferences)
+        bookletBinding = nil
         themeID = Self.defaultThemeID(preferences, library)
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
@@ -459,7 +468,9 @@ final class DocumentViewModel {
             themes: library.themes, categories: library.themeCategories, recentIDs: preferences.recentThemeIDs,
             favoriteIDs: preferences.favoriteThemeIDs)
     }
-    var layout: PrintLayout { PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single }
+    var layout: PrintLayout {
+        (PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single).bound(effectiveBookletBinding)
+    }
     /// Reading and comparing keep the paper's shape independent of how pages are arranged for printing.
     var renderLayout: PrintLayout { renderLayout(in: mode) }
 
@@ -581,10 +592,13 @@ final class DocumentViewModel {
         shownPaperSeries = series
     }
 
-    /// ⌘1–⌘6: the cards the tray shows, in their order. The 3-up handout has no B counterpart and keeps ⌘6.
+    /// The compact alternatives have no shortcut, so the six existing positions stay stable.
     func chooseCard(at index: Int) {
         let cards = PrintLayout.presets(in: trayPaperSeries)
-        chooseLayout((cards.indices.contains(index) ? cards[index] : PrintLayout.a4Handout3).id)
+        let choice =
+            trayPaperSeries == .b && index == 5
+            ? PrintLayout.a4Handout3 : (cards.indices.contains(index) ? cards[index] : PrintLayout.a4Handout3)
+        chooseLayout(choice.id)
     }
 
     var pageCount: Int { result?.logicalDocument.pageCount ?? 0 }
@@ -1215,6 +1229,7 @@ final class DocumentViewModel {
             codeBlock = source.codeBlock
         }
         if source.usesHTMLPreset { presetID = source.presetID }
+        bookletBinding = source.bookletBinding
         layoutID = source.layoutID
         shownPaperSeries = source.shownPaperSeries
         paperSeries = source.paperSeries
@@ -1966,7 +1981,7 @@ final class DocumentViewModel {
             codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             paperSeries: paperSeries == .a ? nil : paperSeries,
-            notes: offersNotes && notes != NotePages() ? notes : nil,
+            notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange)
     }
 
@@ -2114,6 +2129,7 @@ final class DocumentViewModel {
         }
         if let zoom = saved.zoom { self.zoom = min(max(zoom, 1), PaperPDFView.maximumZoom) }
         if let orientation = saved.paperOrientation { paperOrientation = orientation }
+        bookletBinding = saved.bookletBinding
         if let id = saved.layoutID, PrintLayout.presets.contains(where: { $0.id == id }) { layoutID = id }
         if let id = saved.themeID, library.themes.contains(where: { $0.id == id }) { themeID = id }
         if let id = saved.codePaletteID.flatMap({ Self.knownCodePaletteID($0, library) }) { codePaletteID = id }
@@ -2264,6 +2280,7 @@ final class DocumentViewModel {
         textScale = usesPrintTheme ? defaultTextScale : 1
         paperOrientation = defaultPaperOrientation
         layoutID = Self.defaultLayoutID(preferences)
+        bookletBinding = nil
         themeID = Self.defaultThemeID(preferences, library)
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
         codeBlock = CodeBlockOptions()

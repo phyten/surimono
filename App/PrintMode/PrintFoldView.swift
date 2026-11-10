@@ -31,22 +31,22 @@ struct PrintFoldView: View {
                 .frame(minHeight: 20)
             HStack(spacing: 8) {
                 Button {
-                    book.turn(by: -1)
+                    book.turn(by: book.rightBound ? 1 : -1)
                 } label: {
                     Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold)).frame(width: 34)
                 }
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
-                .disabled(!book.canTurn(by: -1))
-                .help("Previous Spread")
+                .disabled(!book.canTurn(by: book.rightBound ? 1 : -1))
+                .help(book.rightBound ? "Next Spread" : "Previous Spread")
                 .keyboardShortcut(.leftArrow, modifiers: [])
                 Button {
-                    book.turn(by: 1)
+                    book.turn(by: book.rightBound ? -1 : 1)
                 } label: {
                     Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).frame(width: 34)
                 }
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
-                .disabled(!book.canTurn(by: 1))
-                .help("Next Spread")
+                .disabled(!book.canTurn(by: book.rightBound ? -1 : 1))
+                .help(book.rightBound ? "Previous Spread" : "Next Spread")
                 .keyboardShortcut(.rightArrow, modifiers: [])
                 Rectangle().fill(PrintPalette.line2).frame(width: 1, height: 18).padding(.horizontal, 4)
                 Button(action: close) {
@@ -67,7 +67,7 @@ struct PrintFoldView: View {
             guard let source = FoldSource.current(model) else { return }
             await book.load(
                 source.document, pages: source.pages, pageSize: source.pageSize,
-                blankLabel: PrintModeText.string("Blank", language: model.language))
+                blankLabel: PrintModeText.string("Blank", language: model.language), rightBound: source.rightBound)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: title))
@@ -78,6 +78,8 @@ struct PrintFoldView: View {
     private var title: String {
         PrintModeText.format(
             "%@ booklet, folded", language: model.language, (layout.sheet.halved ?? layout.sheet).displayName)
+            + " · "
+            + PrintModeText.string(layout.isRightBound ? "Right Binding" : "Left Binding", language: model.language)
     }
 
     private var subtitle: String {
@@ -117,6 +119,7 @@ struct FoldSource: Equatable {
     let pageSize: CGSize
     /// The logical pages the booklet is made of; nil for all of them.
     var pages: [Int]?
+    var rightBound = false
 
     static func current(_ model: DocumentViewModel) -> FoldSource? {
         guard model.hasCurrentPrintPreview, let result = model.result, let settings = model.renderedSettings else {
@@ -124,11 +127,12 @@ struct FoldSource: Equatable {
         }
         return FoldSource(
             document: result.logicalDocument, pageSize: settings.layout.logicalPageSize,
-            pages: result.pageSelection.pages)
+            pages: result.pageSelection.pages, rightBound: settings.layout.isRightBound)
     }
 
     static func == (lhs: FoldSource, rhs: FoldSource) -> Bool {
         lhs.document === rhs.document && lhs.pageSize == rhs.pageSize && lhs.pages == rhs.pages
+            && lhs.rightBound == rhs.rightBound
     }
 }
 
@@ -147,6 +151,7 @@ final class FoldBook {
     private(set) var pageIndex = 0
     /// The document's page number of each page of the book that is not a blank added to fill the sheets.
     private var pageNumbers: [Int] = []
+    private(set) var rightBound = false
     @ObservationIgnored private weak var view: PDFView?
     @ObservationIgnored private var observer: NSObjectProtocol?
 
@@ -154,12 +159,13 @@ final class FoldBook {
     var row: Int { (pageIndex + 1) / 2 }
     var lastRow: Int { pageCount / 2 }
 
-    var spread: Spread { Self.spread(row: row, pageCount: pageCount) }
+    var spread: Spread { Self.spread(row: row, pageCount: pageCount, rightBound: rightBound) }
 
-    static func spread(row: Int, pageCount: Int) -> Spread {
+    static func spread(row: Int, pageCount: Int, rightBound: Bool = false) -> Spread {
         if row <= 0 { return .cover(1) }
         if row >= pageCount / 2 { return .backCover(pageCount) }
-        return .pages(row * 2, row * 2 + 1, isCenter: row * 2 == pageCount / 2)
+        return .pages(
+            rightBound ? row * 2 + 1 : row * 2, rightBound ? row * 2 : row * 2 + 1, isCenter: row * 2 == pageCount / 2)
     }
 
     /// The number the document gives the `page`th page of the book (counted from 1), which differs from its place in
@@ -182,8 +188,11 @@ final class FoldBook {
     /// A PDF's logical pages keep their own size, so they are fitted like on the sheets: the blanks are made at the
     /// size of a page of the booklet, and PDFKit shows every page at its own size.
     /// - Parameter pages: The logical pages that are printed, in order; nil for all of them.
-    func load(_ logical: PDFDocument, pages: [Int]? = nil, pageSize: CGSize, blankLabel: String) async {
+    func load(
+        _ logical: PDFDocument, pages: [Int]? = nil, pageSize: CGSize, blankLabel: String, rightBound: Bool = false
+    ) async {
         guard let book = try? await PDFComposer().fitted(logical, pageSize: pageSize), !Task.isCancelled else { return }
+        self.rightBound = rightBound
         if let pages {
             let kept = Set(pages)
             for index in (0..<book.pageCount).reversed() where !kept.contains(index) { book.removePage(at: index) }
@@ -270,6 +279,7 @@ private struct FoldBookView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: FoldPDFView, context: Context) {
+        view.displaysRTL = book.rightBound
         if view.document !== book.document, let document = book.document {
             view.document = document
             view.autoScales = true

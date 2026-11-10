@@ -84,11 +84,14 @@ struct PrintLayoutTests {
 
     @Test("半裁対応とプリセットの順番を固定する")
     func presets() {
-        #expect(PaperSize.allCases.map(\.halved) == [.a4, .a5, nil, .b5, .b6, nil, nil, .letter])
+        #expect(PaperSize.allCases.map(\.halved) == [.a4, .a5, nil, .b5, .b6, nil, .halfLetter, .letter, nil])
         #expect(
             PrintLayout.presets == [
-                .a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3, .b5Single, .b5Duplex,
-                .b4BookletB5, .b5BookletB6, .b4TwoUp,
+                .a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3, .a4TwoUp, .a4FourUp, .b5Single,
+                .b5Duplex,
+                .b4BookletB5, .b5BookletB6, .b4TwoUp, .b5Handout3, .b5TwoUp, .b5FourUp,
+                .letterSingle, .letterDuplex, .tabloidBookletLetter, .letterBookletHalfLetter, .tabloidTwoUp,
+                .letterHandout3, .letterTwoUp, .letterFourUp,
             ])
         #expect(PrintLayout.a3BookletA4.logicalPageSize == PaperSize.a4.size)
         #expect(PrintLayout.a4BookletA5.logicalPageSize == PaperSize.a5.size)
@@ -112,14 +115,15 @@ struct PrintLayoutTests {
 
     @Test("A判とB判のカードは同じ順で、もう一方の判の同じ刷り方に写せる")
     func series() {
-        #expect(PrintLayout.presets(in: .b) == [.b5Single, .b5Duplex, .b4BookletB5, .b5BookletB6, .b4TwoUp])
+        #expect(
+            PrintLayout.presets(in: .b) == [.b5Single, .b5Duplex, .b4BookletB5, .b5BookletB6, .b4TwoUp, .b5Handout3])
         let pairs = zip(PrintLayout.presets(in: .a), PrintLayout.presets(in: .b))
         for (a, b) in pairs {
             #expect(a.counterpart(in: .b) == b)
             #expect(b.counterpart(in: .a) == a)
             #expect(a.kind == b.kind && a.duplex == b.duplex)
         }
-        #expect(PrintLayout.a4Handout3.counterpart(in: .b) == .b5Single)
+        #expect(PrintLayout.a4Handout3.counterpart(in: .b) == .b5Handout3)
         #expect(PrintLayout.b5Single.counterpart(in: .b) == .b5Single)
         #expect(PrintLayout.b5BookletB6.logicalPageSize == PaperSize.b6.size)
         #expect(PrintLayout.b4TwoUp.logicalPageSize == PaperSize.b5.size)
