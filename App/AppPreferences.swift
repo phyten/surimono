@@ -2,6 +2,14 @@ import Observation
 import SurimonoCore
 import SwiftUI
 
+/// A deleted setting set and where it was in the list.
+struct RemovedPrintSettingSet: Equatable {
+    /// Tells two deletions of the same set apart.
+    let id = UUID()
+    let set: PrintSettingSet
+    let index: Int
+}
+
 /// App-wide defaults. Settings a user changes in a document window are remembered per document instead.
 @Observable
 final class AppPreferences {
@@ -138,6 +146,9 @@ final class AppPreferences {
     private(set) var favoriteThemeIDs: [String] {
         didSet { defaults.set(favoriteThemeIDs, forKey: "favoriteThemes") }
     }
+    /// The set deleted last, while its notice with Undo shows.
+    private(set) var removedPrintSettingSet: RemovedPrintSettingSet?
+    @ObservationIgnored private var removalNoticeTask: Task<Void, Never>?
     private(set) var printSettingSets: [PrintSettingSet] {
         didSet {
             if let data = try? JSONEncoder().encode(printSettingSets) {
@@ -279,8 +290,34 @@ final class AppPreferences {
         return true
     }
 
-    func removePrintSettingSet(_ id: UUID) {
-        printSettingSets.removeAll { $0.id == id }
+    /// Deleting acts at once; the notice it leaves is the way back.
+    @discardableResult
+    func removePrintSettingSet(_ id: UUID) -> RemovedPrintSettingSet? {
+        guard let index = printSettingSets.firstIndex(where: { $0.id == id }) else { return nil }
+        let removal = RemovedPrintSettingSet(set: printSettingSets.remove(at: index), index: index)
+        removedPrintSettingSet = removal
+        removalNoticeTask?.cancel()
+        removalNoticeTask = Task { [weak self] in
+            do { try await Task.sleep(for: DocumentViewModel.undoNoticeDuration) } catch { return }
+            if self?.removedPrintSettingSet == removal { self?.removedPrintSettingSet = nil }
+        }
+        return removal
+    }
+
+    /// Puts a deleted set back where it was. A set saved under its name meanwhile keeps the name, and the deleted
+    /// one stays deleted.
+    @discardableResult
+    func restorePrintSettingSet(_ removal: RemovedPrintSettingSet) -> Bool {
+        if removedPrintSettingSet == removal { dismissRemovedPrintSettingSet() }
+        guard !printSettingSets.contains(where: { $0.id == removal.set.id || $0.name == removal.set.name })
+        else { return false }
+        printSettingSets.insert(removal.set, at: min(removal.index, printSettingSets.count))
+        return true
+    }
+
+    func dismissRemovedPrintSettingSet() {
+        removalNoticeTask?.cancel()
+        removedPrintSettingSet = nil
     }
 
     var nextPrintSettingSetName: String {

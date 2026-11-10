@@ -8,7 +8,7 @@ struct ViewOptionsPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("View & Text Settings").font(.headline)
+                Text("View Options").font(.headline)
                 Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
             SpreadSample(options: model.viewOptions, unit: currentUnit)

@@ -225,6 +225,7 @@ struct SettingsView: View {
                 }
             }
             .formStyle(.grouped)
+            .overlay(alignment: .bottom) { SettingSetRemovalNotice(preferences: preferences) }
             .navigationTitle(Text(LocalizedStringKey(preferences.settingsSection.rawValue)))
         }
         .frame(minWidth: 820, idealWidth: 860, minHeight: 540)
