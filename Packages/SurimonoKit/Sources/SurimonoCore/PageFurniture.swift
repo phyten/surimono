@@ -148,27 +148,51 @@ public struct PageFurniture: Codable, Hashable, Sendable {
     }
 
     /// `date` in the date format. `YYYY` is the year, `MM` and `DD` the month and day in two digits, `M` and `D` the
-    /// same without the zero, and `曜` the day of the week; everything else stays as written.
-    public func dateText(_ date: Date, language: String, calendar: Calendar = .current) -> String {
+    /// same without the zero, and `曜` the day of the week; everything else stays as written. The letters stand
+    /// for the date only on their own: next to another letter of the alphabet they are part of a word, so the `D`
+    /// of "Date" and the `M` of "Mar" stay.
+    ///
+    /// The year is counted as the documents of this app write it, in the Gregorian calendar, whichever calendar
+    /// the Mac is set to: a Mac on the Japanese calendar printed the year 8 for 2026.
+    public func dateText(
+        _ date: Date, language: String, calendar: Calendar = Calendar(identifier: .gregorian)
+    ) -> String {
         var calendar = calendar
         calendar.locale = Locale(identifier: language)
         let parts = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
         let weekdays = calendar.shortStandaloneWeekdaySymbols
         let weekday = parts.weekday.flatMap { weekdays.indices.contains($0 - 1) ? weekdays[$0 - 1] : nil } ?? ""
         func padded(_ value: Int?) -> String { String(format: "%02d", value ?? 0) }
-        let tokens: [(String, String)] = [
-            ("YYYY", String(parts.year ?? 0)), ("MM", padded(parts.month)), ("DD", padded(parts.day)),
-            ("M", String(parts.month ?? 0)), ("D", String(parts.day ?? 0)), ("曜", weekday),
+        let tokens: [String: String] = [
+            "YYYY": String(parts.year ?? 0), "MM": padded(parts.month), "DD": padded(parts.day),
+            "M": String(parts.month ?? 0), "D": String(parts.day ?? 0),
         ]
-        var result = ""
+        // The format in runs of one character, so `MMM` is not a month followed by an `M`.
+        var runs: [Substring] = []
         var rest = Substring(dateFormat)
-        while !rest.isEmpty {
-            if let token = tokens.first(where: { rest.hasPrefix($0.0) }) {
-                result += token.1
-                rest = rest.dropFirst(token.0.count)
-            } else {
-                result.append(rest.removeFirst())
+        while let first = rest.first {
+            let run = rest.prefix { $0 == first }
+            runs.append(run)
+            rest = rest.dropFirst(run.count)
+        }
+        func isLatinLetter(_ run: Substring) -> Bool { run.first.map { $0.isASCII && $0.isLetter } ?? false }
+        var result = ""
+        var index = 0
+        while index < runs.count {
+            guard isLatinLetter(runs[index]) else {
+                if runs[index].first == "曜" {
+                    result += String(repeating: weekday, count: runs[index].count)
+                } else {
+                    result += String(runs[index])
+                }
+                index += 1
+                continue
             }
+            // Letters that touch make one word, which is a date only when every part of it is (`YYYYMMDD`).
+            let word = runs[index...].prefix(while: isLatinLetter)
+            let values = word.map { tokens[String($0)] }
+            result += values.contains(nil) ? word.joined() : values.compactMap { $0 }.joined()
+            index += word.count
         }
         return result
     }

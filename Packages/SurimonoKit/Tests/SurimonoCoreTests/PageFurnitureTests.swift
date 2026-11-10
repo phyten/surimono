@@ -103,4 +103,24 @@ struct PageFurnitureTests {
         #expect(furniture.dateFormat == PageFurniture.defaultDateFormat)
         #expect(furniture.skipsFirstPage)
     }
+
+    @Test(
+        "日付の書式の英字は、ほかの英字と並ぶ語の中では日付にならない",
+        arguments: [
+            ("Date: YYYY-MM-DD", "Date: 2026-11-04"), ("Dec D", "Dec 4"), ("MMM", "MMM"), ("M月D日", "11月4日"),
+            ("Printed YYYY/M/D", "Printed 2026/11/4"), ("YYYYMMDD", "20261104"), ("DDay", "DDay"),
+        ])
+    func dateLettersInWords(format: String, expected: String) {
+        #expect(dateText(format) == expected)
+    }
+
+    @Test("Mac の暦が和暦でも、年は西暦で書く")
+    func gregorianYear() {
+        var furniture = PageFurniture()
+        furniture.dateFormat = "YYYY/M/D"
+        #expect(furniture.dateText(november4, language: "ja").hasPrefix("2026/11/"))
+        var japanese = Calendar(identifier: .japanese)
+        japanese.timeZone = TimeZone(identifier: "Asia/Tokyo") ?? .current
+        #expect(furniture.dateText(november4, language: "ja", calendar: japanese).hasPrefix("8/11/"))
+    }
 }
