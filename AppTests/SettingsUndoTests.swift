@@ -205,6 +205,71 @@ struct SettingsUndoTests {
         #expect(bundle.urls.map(\.lastPathComponent) == ["3.png", "1.png", "2.png"])
     }
 
+    /// A PDF in a window whose paper the reader made smaller than it opened, with that saved.
+    private func resizedDocument(_ fixture: Fixture) async throws -> (DocumentViewModel, NSWindow, CGSize) {
+        let model = DocumentViewModel(
+            data: TestFixtures.pdf("Size", pages: 4), fileURL: nil, format: .pdf, preferences: fixture.preferences,
+            library: fixture.library, settingsStore: fixture.store)
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 600, height: 848),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        model.window = window
+        try await open(model)
+        model.sizeWindowToPaper()
+        let opened = try #require(model.currentPaperSize)
+        var frame = window.frame
+        frame.size.width -= (opened.width * 0.25).rounded()
+        frame.size.height -= (opened.height * 0.25).rounded()
+        window.setFrame(frame, display: false)
+        let resized = try #require(model.currentPaperSize)
+        #expect(resized.height < opened.height - 50)
+        model.printOptions.furniture = .pageNumber
+        model.rememberedSettingsDidChange()
+        try await waitUntil { model.hasSavedSettings }
+        return (model, window, resized)
+    }
+
+    private func isClose(_ size: CGSize?, to expected: CGSize) -> Bool {
+        guard let size else { return false }
+        return abs(size.width - expected.width) <= 3 && abs(size.height - expected.height) <= 3
+    }
+
+    @Test("刷り台で設定を戻し、表示に戻ってから取り消すと、窓は変えてあった大きさのままで、記録にもその大きさが残る", .timeLimit(.minutes(1)))
+    func undoInViewAfterResetInTray() async throws {
+        let fixture = Fixture()
+        let (model, window, resized) = try await resizedDocument(fixture)
+        defer { model.stop() }
+        let key = try #require(model.contentHash?.hex)
+        model.enterPrintMode()
+        model.resetDocumentSettings()
+        model.exitPrintMode()
+        try await waitUntil { model.mode == .view }
+        model.undoResetDocumentSettings()
+        #expect(isClose(model.currentPaperSize, to: resized))
+        #expect(model.printOptions.showsPageNumbers)
+        #expect(isClose(fixture.store.record(for: key)?.windowSize, to: resized))
+        withExtendedLifetime(window) {}
+    }
+
+    @Test("表示で設定を戻し、刷り台で取り消すと、記録に元の窓の大きさが戻り、表示に戻ると窓もその大きさになる", .timeLimit(.minutes(1)))
+    func undoInTrayAfterResetInView() async throws {
+        let fixture = Fixture()
+        let (model, window, resized) = try await resizedDocument(fixture)
+        defer { model.stop() }
+        let key = try #require(model.contentHash?.hex)
+        model.resetDocumentSettings()
+        #expect(!isClose(model.currentPaperSize, to: resized))
+        model.enterPrintMode()
+        model.undoResetDocumentSettings()
+        #expect(model.printOptions.showsPageNumbers)
+        #expect(isClose(fixture.store.record(for: key)?.windowSize, to: resized))
+        model.exitPrintMode()
+        try await waitUntil { model.mode == .view }
+        #expect(isClose(model.currentPaperSize, to: resized))
+        withExtendedLifetime(window) {}
+    }
+
     @Test("アプリが開いた窓では、編集メニューの取り消しで設定が戻り、やり直すともう一度既定になる")
     func windowHistory() throws {
         let fixture = Fixture()

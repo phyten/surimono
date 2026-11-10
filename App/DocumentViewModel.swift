@@ -16,9 +16,8 @@ final class ResetOrigin {
     let settings: DocumentSettings
     let wasSaved: Bool
     let selectedSettingSetID: UUID?
-    /// The paper's size in the view mode, which a record only takes in when it is saved.
+    /// The paper's size in the view mode, as a record would take it in, whichever mode the reset was done in.
     let paperSize: CGSize?
-    let restoredPaperSize: CGSize?
     let defaultTextScale: Double
     let defaultPaperOrientation: PaperOrientation
     let defaultBandVisibility: BandVisibility
@@ -28,7 +27,7 @@ final class ResetOrigin {
 
     init(
         settings: DocumentSettings, wasSaved: Bool, selectedSettingSetID: UUID?, paperSize: CGSize?,
-        restoredPaperSize: CGSize?, defaultTextScale: Double, defaultPaperOrientation: PaperOrientation,
+        defaultTextScale: Double, defaultPaperOrientation: PaperOrientation,
         defaultBandVisibility: BandVisibility, openingViewDefaults: ViewDefaultPreferences,
         defaultViewOptions: ViewOptions?
     ) {
@@ -36,7 +35,6 @@ final class ResetOrigin {
         self.wasSaved = wasSaved
         self.selectedSettingSetID = selectedSettingSetID
         self.paperSize = paperSize
-        self.restoredPaperSize = restoredPaperSize
         self.defaultTextScale = defaultTextScale
         self.defaultPaperOrientation = defaultPaperOrientation
         self.defaultBandVisibility = defaultBandVisibility
@@ -276,6 +274,8 @@ final class DocumentViewModel {
     @ObservationIgnored private var heightBeforeScreenLimit: CGFloat?
     /// The view mode's paper size when the print mode began; the tray's size is not the document's window size.
     @ObservationIgnored private(set) var viewPaperSizeBeforePrinting: CGSize?
+    /// An undo on a stage brought back a size for the view mode, which the window takes on the way back.
+    @ObservationIgnored private var returnsToRestoredPaperSize = false
     @ObservationIgnored private(set) var hasSizedWindow = false
     /// The tray was asked for before the first pages were there.
     @ObservationIgnored private(set) var isPrintModeRequested = false
@@ -1401,7 +1401,12 @@ final class DocumentViewModel {
             ViewerWindow.setTrafficLightsVisible(isBandAlwaysVisible, in: window)
             // The view mode shows only the paper, and the print layout may have changed the pages' shape on the
             // stage, so the window keeps its height and takes the pages' width again.
-            sizeWindowToPaper(keepHeight: true)
+            if returnsToRestoredPaperSize {
+                returnsToRestoredPaperSize = false
+                applyRestoredPaperSize()
+            } else {
+                sizeWindowToPaper(keepHeight: true)
+            }
             resumePrintIssueNavigation()
         }
     }
@@ -2112,7 +2117,8 @@ final class DocumentViewModel {
     func resetDocumentSettings() {
         let origin = ResetOrigin(
             settings: rememberedSettings, wasSaved: hasSavedSettings, selectedSettingSetID: selectedSettingSetID,
-            paperSize: currentPaperSize, restoredPaperSize: restoredPaperSize, defaultTextScale: defaultTextScale,
+            paperSize: currentPaperSize ?? viewPaperSizeBeforePrinting ?? restoredPaperSize,
+            defaultTextScale: defaultTextScale,
             defaultPaperOrientation: defaultPaperOrientation, defaultBandVisibility: defaultBandVisibility,
             openingViewDefaults: openingViewDefaults, defaultViewOptions: defaultViewOptions)
         applyDefaultSettings(resizesWindow: true)
@@ -2150,12 +2156,24 @@ final class DocumentViewModel {
         defaultViewOptions = origin.defaultViewOptions
         apply(origin.settings)
         selectedSettingSetID = origin.selectedSettingSetID
-        restoredPaperSize = origin.paperSize ?? origin.restoredPaperSize
-        if mode == .view, origin.paperSize != nil { applyRestoredPaperSize() }
+        restoreViewPaperSize(origin.paperSize)
         settingsBaseline = defaultSettings
         if origin.wasSaved { saveSettings(force: true) } else { rememberedSettingsDidChange() }
         settingsHistory?.registerUndo(withTarget: self) { $0.resetDocumentSettings() }
         settingsHistory?.setActionName(Self.resetActionName)
+    }
+
+    /// The size is the view mode's. On a stage the window is the stage's, so the size waits for the way back and
+    /// is what a save there takes in.
+    private func restoreViewPaperSize(_ size: CGSize?) {
+        restoredPaperSize = size
+        guard let size else { return }
+        if mode == .view {
+            applyRestoredPaperSize()
+        } else {
+            viewPaperSizeBeforePrinting = size
+            returnsToRestoredPaperSize = true
+        }
     }
 
     /// The history of a window the app opened itself. A file's own window keeps its history with the document, where
@@ -2176,6 +2194,7 @@ final class DocumentViewModel {
         hasSavedSettings = false
         pendingImageOrder = nil
         restoredPaperSize = nil
+        returnsToRestoredPaperSize = false
         defaultTextScale = preferences.defaultTextScale
         defaultPaperOrientation = preferences.defaultPaperOrientation
         defaultBandVisibility = preferences.defaultBandVisibility
