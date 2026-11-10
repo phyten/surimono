@@ -236,6 +236,8 @@ public struct PreparedRender {
     public var notePages: [Int] = []
     /// The logical pages on the sheets, as `RenderSettings.pageRange` selects them from these pages.
     public var pageSelection = PageRange.Selection.everything
+    /// How the logical pages took their mirrored margins, for showing a range of them as they print.
+    public var laidOutSides: PDFComposer.LaidOutSides { sheetKey.sides }
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -249,6 +251,7 @@ struct SheetKey: Equatable {
     let furniture: PageFurniture.Context
     /// The logical pages on the sheets; nil for all of them.
     var pages: [Int]?
+    var sides = PDFComposer.LaidOutSides()
 }
 
 @MainActor
@@ -281,6 +284,7 @@ public struct RenderResult {
     public let notePages: [Int]
     public var addedNotePages: Int { notePages.count }
     public let pageSelection: PageRange.Selection
+    public let laidOutSides: PDFComposer.LaidOutSides
 
     init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
         id = prepared.id
@@ -302,6 +306,7 @@ public struct RenderResult {
         blankPages = prepared.blankPages
         notePages = prepared.notePages
         pageSelection = prepared.pageSelection
+        laidOutSides = prepared.laidOutSides
     }
 }
 
@@ -479,7 +484,7 @@ public final class DocumentRenderer {
         let key = SheetKey(
             logicalID: prepared.sheetKey.logicalID, layout: prepared.layout, options: options,
             orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture,
-            pages: prepared.sheetKey.pages)
+            pages: prepared.sheetKey.pages, sides: prepared.sheetKey.sides)
         try Task.checkCancellation()
         if let index = sheets.firstIndex(where: { $0.key == key }) {
             let entry = sheets.remove(at: index)
@@ -498,13 +503,13 @@ public final class DocumentRenderer {
                 sheet = try await composer.compose(
                     source, pageCount: logical.document.pageCount, layout: prepared.layout,
                     options: options, orientsEachPage: prepared.sheetKey.orientsEachPage,
-                    furniture: prepared.sheetKey.furniture, pages: key.pages)
+                    furniture: prepared.sheetKey.furniture, pages: key.pages, sides: key.sides)
             } else {
                 // The cache has moved on to other pages; compose from the document itself.
                 sheet = try await composer.compose(
                     prepared.logicalDocument, layout: prepared.layout, options: options,
                     orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture,
-                    pages: key.pages)
+                    pages: key.pages, sides: key.sides)
             }
             try Task.checkCancellation()
             sheetCompositionCount += 1
@@ -595,7 +600,9 @@ public final class DocumentRenderer {
                 hasNotes: settings.activeNotes != nil,
                 textNotes: isThemed
                     ? settings.activeNotes.map {
-                        FinishedPagePlan.Notes(placement: $0.placement, layoutKind: settings.layout.kind)
+                        FinishedPagePlan.Notes(
+                            placement: $0.placement, layoutKind: settings.layout.kind,
+                            bookletBinding: settings.layout.bookletBinding)
                     } : nil)
             let logical: Logical
             if let cache, cache.key == key {
@@ -690,7 +697,11 @@ public final class DocumentRenderer {
                     logicalID: pages.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: settings.usesPerPageOrientation
                         && (source.format == .pdf || source.format == .image),
-                    furniture: furnitureContext(source, logical: pages, settings: settings), pages: selection.pages),
+                    furniture: furnitureContext(source, logical: pages, settings: settings), pages: selection.pages,
+                    // As `mirroringMargins` and `noted` moved them: texts and images, and never a note page.
+                    sides: PDFComposer.LaidOutSides(
+                        movesContent: source.format != .pdf && source.children == nil,
+                        fixedPages: Set(pages.finishing.notePages))),
                 options: settings.options)
         } catch {
             throw Self.renderingError(error)
@@ -718,6 +729,7 @@ public final class DocumentRenderer {
                 bodyPageCount: logical.document.pageCount, contentsPageCount: 0, rightPageStarts: [],
                 notes: .init(
                     placement: notes.placement, layoutKind: settings.layout.kind,
+                    bookletBinding: settings.layout.bookletBinding,
                     chapterEnds: notes.placement == .chapterEnd
                         ? Self.chapterEnds(of: source, in: logical.document) : []
                 ))
@@ -1157,6 +1169,7 @@ public final class DocumentRenderer {
             let insertion = notes.map {
                 FinishedPagePlan.Notes(
                     placement: $0.placement, layoutKind: settings.layout.kind,
+                    bookletBinding: settings.layout.bookletBinding,
                     chapterEnds: $0.placement == .chapterEnd
                         ? DocumentOutline.chapterEnds(of: facts.headings, pages: headingPages, inPageTexts: pageTexts)
                         : [])

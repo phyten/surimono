@@ -192,6 +192,57 @@ struct PrinterIssueTests {
         #expect(requests == [PrintRequest(printerName: "A4 Only", showsPanel: false)])
     }
 
+    /// Prints the duplex test of a model on the tray and returns what was sent.
+    private func duplexTestRequest(
+        _ fixture: Fixture, layoutID: String, printer: String
+    ) async throws -> (PrintLayout, PrintRequest) {
+        fixture.preferences.layoutID = layoutID
+        fixture.preferences.printerName = printer
+        let model = fixture.model()
+        defer { model.stop() }
+        var sent: (PrintLayout, PrintRequest)?
+        model.duplexTestSubmit = { _, layout, request, complete in
+            sent = (layout, request)
+            complete(nil)
+        }
+        model.enterPrintMode()
+        model.start()
+        try await waitForRender(model)
+        try await waitForAnswers(model)
+        #expect(model.selectedPrinterName == printer)
+        model.printDuplexTest()
+        for _ in 0..<500 where model.isPrinting { try await Task.sleep(for: .milliseconds(10)) }
+        return try #require(sent)
+    }
+
+    @Test("用紙を受け付けないプリンターへの両面テスト印刷は、黙って送らずシステムの印刷画面を開く", .timeLimit(.minutes(1)))
+    func duplexTestAsksWhenThePaperIsNotAccepted() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let (layout, request) = try await duplexTestRequest(fixture, layoutID: "a3BookletA4", printer: "A4 Only")
+        #expect(layout.sheet == .a3)
+        #expect(request == PrintRequest(printerName: "A4 Only", showsPanel: true))
+    }
+
+    @Test("両面で刷れないプリンターへの両面テスト印刷は、黙って送らずシステムの印刷画面を開く", .timeLimit(.minutes(1)))
+    func duplexTestAsksWhenDuplexIsNotAvailable() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let (layout, request) = try await duplexTestRequest(fixture, layoutID: "a4Duplex", printer: "One Side")
+        #expect(layout.sentDuplex == .longEdge)
+        #expect(request == PrintRequest(printerName: "One Side", showsPanel: true))
+    }
+
+    @Test(
+        "刷れるプリンターと、何も答えないプリンターへの両面テスト印刷は、今までどおりダイアログなしで送る",
+        .timeLimit(.minutes(1)), arguments: ["A4 Only", "Unknown"])
+    func duplexTestStaysQuick(printer: String) async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let (_, request) = try await duplexTestRequest(fixture, layoutID: "a4BookletA5", printer: printer)
+        #expect(request == PrintRequest(printerName: printer, showsPanel: false))
+    }
+
     @Test("刷れないレイアウトでも、PDF の書き出しはそのままできる", .timeLimit(.minutes(1)))
     func exportIsUnaffected() async throws {
         let fixture = Fixture()

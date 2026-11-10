@@ -13,20 +13,66 @@ public struct PDFComposer {
 
     public init() {}
 
+    /// How the logical pages took their mirrored margins when they were laid out. A text or an image on the swapped
+    /// side of a spread had its content moved toward the binding then, by its place in the whole document. Printing
+    /// only some of the pages can put a page on the other side, and it is not laid out again for that.
+    public struct LaidOutSides: Equatable, Sendable {
+        /// The pages were moved for their sides. A PDF's own pages are fitted whole and never were.
+        public var movesContent: Bool
+        /// Pages that were left where they are: a note page keeps the margins of its own style.
+        public var fixedPages: Set<Int>
+
+        public init(movesContent: Bool = false, fixedPages: Set<Int> = []) {
+            self.movesContent = movesContent
+            self.fixedPages = fixedPages
+        }
+    }
+
+    /// How far the content of the logical page at `index` has to move to the right, in the points of that page, to
+    /// keep its inside margin on the side of the binding when it is printed as the `position`th page.
+    public nonisolated static func sideCorrection(
+        forPage index: Int, at position: Int, layout: PrintLayout, options: PrintOptions, sides: LaidOutSides
+    ) -> CGFloat {
+        guard sides.movesContent, !sides.fixedPages.contains(index), layout.mirrorsMargins(options: options),
+            layout.swapsSides(onPage: index) != layout.swapsSides(onPage: position)
+        else { return 0 }
+        let margins = layout.logicalMargins(options: options)
+        let shift = CGFloat((margins.right - margins.left) * 72 / 25.4)
+        return layout.swapsSides(onPage: position) ? shift : -shift
+    }
+
+    /// The corrections of every page of a range that needs one, by the page's index in the document.
+    public nonisolated static func sideCorrections(
+        pages: [Int]?, layout: PrintLayout, options: PrintOptions, sides: LaidOutSides
+    ) -> [Int: CGFloat] {
+        var corrections: [Int: CGFloat] = [:]
+        for (position, index) in (pages ?? []).enumerated() {
+            let correction = sideCorrection(
+                forPage: index, at: position, layout: layout, options: options, sides: sides)
+            if correction != 0 { corrections[index] = correction }
+        }
+        return corrections
+    }
+
     public func compose(
         _ document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool = false,
-        furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil
+        furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil,
+        sides: LaidOutSides = LaidOutSides()
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
         return try await compose(
             try Self.composingSource(of: document), pageCount: document.pageCount, layout: layout, options: options,
-            orientsEachPage: orientsEachPage, furniture: furniture, pages: pages)
+            orientsEachPage: orientsEachPage, furniture: furniture, pages: pages, sides: sides)
     }
 
     /// The logical pages as they stand on the sheets: a page of `pageSize` each, fitted the way `compose` fits them
     /// into a slot. A PDF's pages keep their own size until then. Pages already at that size are copied as they are.
-    public func fitted(_ document: PDFDocument, pageSize: CGSize) async throws -> PDFDocument {
+    /// - Parameter corrections: How far the content of some pages moves to the right (`sideCorrections`), so that a
+    ///   booklet of a range reads here as it does on its sheets.
+    public func fitted(
+        _ document: PDFDocument, pageSize: CGSize, corrections: [Int: CGFloat] = [:]
+    ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
         guard let data = document.dataRepresentation(), let copy = PDFDocument(data: data) else {
@@ -38,7 +84,7 @@ public struct PDFComposer {
             let size = page.rotation % 180 == 0 ? box : CGSize(width: box.height, height: box.width)
             return abs(size.width - pageSize.width) < 0.5 && abs(size.height - pageSize.height) < 0.5
         }
-        if isFitted { return copy }
+        if isFitted, corrections.isEmpty { return copy }
         return try await PDFDrawing.document(pageSize: pageSize) { context in
             for index in 0..<copy.pageCount {
                 await Task.yield()
@@ -47,7 +93,9 @@ public struct PDFComposer {
                     throw CompositionError.invalidPage(index + 1)
                 }
                 context.beginPDFPage(nil)
-                try draw(page, in: CGRect(origin: .zero, size: pageSize), context: context, index: index)
+                try draw(
+                    page, in: CGRect(origin: .zero, size: pageSize), context: context, index: index,
+                    shift: corrections[index] ?? 0)
                 context.endPDFPage()
             }
         }
@@ -64,7 +112,8 @@ public struct PDFComposer {
 
     func compose(
         _ source: CGPDFDocument, pageCount: Int, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool,
-        furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil
+        furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil,
+        sides: LaidOutSides = LaidOutSides()
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard pageCount > 0 else { throw CompositionError.emptyDocument }
@@ -77,6 +126,9 @@ public struct PDFComposer {
         let plan =
             pages.map { Imposition.plan(pages: $0, layout: layout) }
             ?? Imposition.plan(pageCount: pageCount, layout: layout)
+        // Which side of a spread a page is on follows its place among the pages that print; its number does not.
+        let positions = Dictionary((pages ?? []).enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        let corrections = Self.sideCorrections(pages: pages, layout: layout, options: options, sides: sides)
         let size = layout.sheetSize
         do {
             return try await PDFDrawing.document(pageSize: size) { context in
@@ -112,15 +164,18 @@ public struct PDFComposer {
                         let rect = CGRect(
                             x: slotRect.minX * size.width, y: (1 - slotRect.maxY) * size.height,
                             width: slotRect.width * size.width, height: slotRect.height * size.height)
-                        try draw(page, in: rect, context: context, index: index)
+                        let position = positions[index] ?? index
+                        try draw(page, in: rect, context: context, index: index, shift: corrections[index] ?? 0)
                         if let lines = options.furniture.lines(
                             forPage: index, pageCount: pageCount, context: furniture,
-                            hasFacingPages: layout.hasFacingPages, rightBound: layout.isRightBound)
+                            hasFacingPages: layout.hasFacingPages, rightBound: layout.isRightBound,
+                            position: position)
                         {
                             if layout.kind == .handout3 {
                                 drawHandout(lines, slot: slot, in: rect, options: options, context: context)
                             } else {
-                                let verso = layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: index)
+                                let verso =
+                                    layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: position)
                                 drawFurniture(
                                     lines, in: rect, margins: verso ? margins.mirrored : margins,
                                     logicalSize: logicalSize, context: context)
@@ -160,7 +215,10 @@ public struct PDFComposer {
         context.strokePath()
     }
 
-    private func draw(_ page: CGPDFPage, in rect: CGRect, context: CGContext, index: Int) throws {
+    /// - Parameter shift: How far the page's content moves to the right inside `rect`, in the page's own points.
+    private func draw(
+        _ page: CGPDFPage, in rect: CGRect, context: CGContext, index: Int, shift: CGFloat = 0
+    ) throws {
         let box = page.getBoxRect(.cropBox).intersection(page.getBoxRect(.mediaBox))
         guard PDFDrawing.validGeometry(pageSize: box.size, margin: 0), !box.isNull else {
             throw CompositionError.invalidPage(index + 1)
@@ -173,6 +231,7 @@ public struct PDFComposer {
         let scale = fitted.width / rotatedSize.width
         context.translateBy(x: fitted.minX, y: fitted.minY)
         context.scaleBy(x: scale, y: scale)
+        if shift != 0 { context.translateBy(x: shift, y: 0) }
         // Quartz only scales down, so fit explicitly before applying /Rotate and the crop-box origin.
         context.concatenate(
             page.getDrawingTransform(

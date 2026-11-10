@@ -174,12 +174,17 @@ public struct FinishedPagePlan: Equatable, Sendable {
     public struct Notes: Equatable, Sendable {
         public var placement: NotePagePlan.Placement
         public var layoutKind: LayoutKind
+        public var bookletBinding: BookletBinding
         /// The pages of the text that end a chapter; the last page always does.
         public var chapterEnds: Set<Int>
 
-        public init(placement: NotePagePlan.Placement, layoutKind: LayoutKind, chapterEnds: Set<Int> = []) {
+        public init(
+            placement: NotePagePlan.Placement, layoutKind: LayoutKind, bookletBinding: BookletBinding = .left,
+            chapterEnds: Set<Int> = []
+        ) {
             self.placement = placement
             self.layoutKind = layoutKind
+            self.bookletBinding = bookletBinding
             self.chapterEnds = chapterEnds
         }
     }
@@ -202,7 +207,7 @@ public struct FinishedPagePlan: Equatable, Sendable {
         if let notes, notes.placement != .chapterEnd {
             for page in NotePagePlan.pages(
                 bodyPageIndices: Array(0..<bodyPageCount), placement: notes.placement, layoutKind: notes.layoutKind,
-                leadingPageCount: contentsPageCount)
+                bookletBinding: notes.bookletBinding, leadingPageCount: contentsPageCount)
             {
                 switch page {
                 case .body(let body): addBody(body)

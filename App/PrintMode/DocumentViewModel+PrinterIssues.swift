@@ -4,7 +4,22 @@ import SwiftUI
 extension DocumentViewModel {
     /// What the chosen printer cannot do with a layout; nil while nothing is known about the printer.
     func printerIssue(for layout: PrintLayout) -> PrinterIssue? {
-        selectedPrinterName.flatMap { printerCapabilities[$0] }?.issue(for: layout)
+        issue(sending: layout, to: selectedPrinterName)
+    }
+
+    /// What `printer` cannot do with `layout`, as far as it has said.
+    func issue(sending layout: PrintLayout, to printer: String?) -> PrinterIssue? {
+        printer.flatMap { printerCapabilities[$0] }?.issue(for: layout)
+    }
+
+    /// How a job of `layout` goes out: straight to the printer the tray showed, or through the system dialog. This is
+    /// the one place that decides it, for the document and for the duplex test alike, from the printer the job
+    /// really goes to and the layout really sent: a layout that printer cannot do is never sent silently, since the
+    /// dialog lets the reader look first.
+    func printRequest(quick: Bool, shown: String?, layout: PrintLayout) -> PrintRequest {
+        var request = printers.request(quick: quick, shown: shown, remembered: preferences.printerName)
+        if issue(sending: layout, to: request.printerName) != nil { request.showsPanel = true }
+        return request
     }
 
     /// The issue of the layout on the tray.
