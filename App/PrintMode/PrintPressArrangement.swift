@@ -128,6 +128,22 @@ nonisolated struct PrintPressArrangement: Equatable {
         }
     }
 
+    /// The width the bar is measured at for a proposed width: the proposal, but never narrower than the choices, and
+    /// with no proposal the width that puts the two groups side by side.
+    ///
+    /// SwiftUI asks a window's content for its size at zero width to find the window's smallest size. At that width
+    /// every card and every word took a row of its own, and the bar alone came out taller than many screens, so the
+    /// print screen's window could not be made any shorter.
+    static func fittingWidth(for proposal: CGFloat?, parts: Parts) -> CGFloat {
+        guard let proposal, proposal.isFinite else {
+            return parts.cardsWidth + ruleSpan
+                + max(
+                    parts.actionsWidth.upperBound + clusterGap + parts.button.width,
+                    min(parts.summaryWidth, summaryLimit))
+        }
+        return max(proposal, parts.cardsWidth, parts.paperRow.width)
+    }
+
     private static func clamp(_ value: CGFloat, to range: ClosedRange<CGFloat>) -> CGFloat {
         min(max(value, range.lowerBound), range.upperBound)
     }

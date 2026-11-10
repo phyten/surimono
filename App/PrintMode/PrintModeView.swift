@@ -72,7 +72,11 @@ struct PrintModeView: View {
         .overlay(alignment: .top) { errorBanner }
         .overlay(alignment: .bottom) { toast }
         .animation(.easeOut(duration: 0.2), value: showsFold)
+        // The tray takes whatever height it is given, so the window's smallest height keeps room for its navigator.
+        .frame(minHeight: Self.minimumStageHeight)
     }
+
+    static let minimumStageHeight: CGFloat = 200
 
     @ViewBuilder private var errorBanner: some View {
         if let error = model.error {
