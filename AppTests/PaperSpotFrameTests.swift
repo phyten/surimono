@@ -157,7 +157,7 @@ struct PaperSpotFrameTests {
         let frame = try #require(frameView(in: view))
         try await waitUntil { frame.alphaValue > 0.99 && !frame.isHidden }
         let before = frame.frame
-        view.setZoom(2, anchor: nil)
+        view.setZoom(2, anchor: NSPoint(x: view.bounds.midX, y: view.bounds.maxY))
         view.layoutSubtreeIfNeeded()
         // The band's height is not cut by the window's edge, as its width is.
         try await waitUntil { abs(frame.frame.height - before.height * 2) < 2 }
@@ -191,7 +191,7 @@ struct PaperSpotFrameTests {
     func staysPutWhenTheSpotIsInSight() async throws {
         let (view, source, window) = try makePaper()
         view.goToPage(index: 0)
-        view.setZoom(2, anchor: nil)
+        view.setZoom(2, anchor: NSPoint(x: view.bounds.midX, y: view.bounds.maxY))
         view.layoutSubtreeIfNeeded()
         let clip = try #require(view.documentView?.enclosingScrollView?.contentView)
         // PDFKit settles the magnified layout a moment later, by a fraction of a point.
