@@ -147,6 +147,8 @@ public struct RenderSettings: Equatable, Sendable {
     public var documentName: String?
     /// The language of what the app itself puts on the page, such as the title of the contents.
     public var pageLanguage = "ja"
+    /// The pages that go on the sheets. The logical pages are laid out the same whatever it is.
+    public var pageRange = PageRange.all
 
     var usesPerPageOrientation: Bool {
         layout.kind == .normal && layout.duplex == .none && paperOrientation == .auto
@@ -232,6 +234,8 @@ public struct PreparedRender {
     public var blankPages: Set<Int> = []
     /// The logical pages that are note pages.
     public var notePages: [Int] = []
+    /// The logical pages on the sheets, as `RenderSettings.pageRange` selects them from these pages.
+    public var pageSelection = PageRange.Selection.everything
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -243,6 +247,8 @@ struct SheetKey: Equatable {
     let options: PrintOptions
     let orientsEachPage: Bool
     let furniture: PageFurniture.Context
+    /// The logical pages on the sheets; nil for all of them.
+    var pages: [Int]?
 }
 
 @MainActor
@@ -274,6 +280,7 @@ public struct RenderResult {
     public let blankPages: Set<Int>
     public let notePages: [Int]
     public var addedNotePages: Int { notePages.count }
+    public let pageSelection: PageRange.Selection
 
     init(_ prepared: PreparedRender, sheet: PDFDocument, sheetOrientations: [PaperOrientation]) {
         id = prepared.id
@@ -294,6 +301,7 @@ public struct RenderResult {
         addedContentsPages = prepared.addedContentsPages
         blankPages = prepared.blankPages
         notePages = prepared.notePages
+        pageSelection = prepared.pageSelection
     }
 }
 
@@ -468,7 +476,8 @@ public final class DocumentRenderer {
         if let rotatesBackSides { options.rotatesBackSides = rotatesBackSides }
         let key = SheetKey(
             logicalID: prepared.sheetKey.logicalID, layout: prepared.layout, options: options,
-            orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture)
+            orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture,
+            pages: prepared.sheetKey.pages)
         try Task.checkCancellation()
         if let index = sheets.firstIndex(where: { $0.key == key }) {
             let entry = sheets.remove(at: index)
@@ -487,12 +496,13 @@ public final class DocumentRenderer {
                 sheet = try await composer.compose(
                     source, pageCount: logical.document.pageCount, layout: prepared.layout,
                     options: options, orientsEachPage: prepared.sheetKey.orientsEachPage,
-                    furniture: prepared.sheetKey.furniture)
+                    furniture: prepared.sheetKey.furniture, pages: key.pages)
             } else {
                 // The cache has moved on to other pages; compose from the document itself.
                 sheet = try await composer.compose(
                     prepared.logicalDocument, layout: prepared.layout, options: options,
-                    orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture)
+                    orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture,
+                    pages: key.pages)
             }
             try Task.checkCancellation()
             sheetCompositionCount += 1
@@ -656,7 +666,10 @@ public final class DocumentRenderer {
             }
             let pages = try await noted(logical, source: source, settings: settings)
             try Task.checkCancellation()
-            let plan = Imposition.plan(pageCount: pages.document.pageCount, layout: settings.layout)
+            let selection = settings.pageRange.selection(pageCount: pages.document.pageCount)
+            let plan =
+                selection.pages.map { Imposition.plan(pages: $0, layout: settings.layout) }
+                ?? Imposition.plan(pageCount: pages.document.pageCount, layout: settings.layout)
             return PreparedRender(
                 id: currentGeneration, resolvedOrientation: landscape ? .landscape : .portrait, layout: settings.layout,
                 logicalDocument: pages.document, viewDocument: pages.viewDocument, plan: plan,
@@ -668,11 +681,12 @@ public final class DocumentRenderer {
                 binderPageStarts: pages.binderPageStarts,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
                 blankPages: pages.finishing.blankPages, notePages: pages.finishing.notePages,
+                pageSelection: selection,
                 sheetKey: SheetKey(
                     logicalID: pages.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: settings.usesPerPageOrientation
                         && (source.format == .pdf || source.format == .image),
-                    furniture: furnitureContext(source, logical: pages, settings: settings)),
+                    furniture: furnitureContext(source, logical: pages, settings: settings), pages: selection.pages),
                 options: settings.options)
         } catch {
             throw Self.renderingError(error)
@@ -799,6 +813,8 @@ public final class DocumentRenderer {
                 // Left and right belong to the bound pages, which a document on its own does not know.
                 childSettings.options.mirrorsMargins = false
                 childSettings.notes = NotePages()
+                // The range counts the pages of the binder, not of each document in it.
+                childSettings.pageRange = .all
                 let prepared = try await renderer.prepare(child, settings: childSettings)
                 try Task.checkCancellation()
                 binderChildRenderCount += renderer.logicalRenderCount - count

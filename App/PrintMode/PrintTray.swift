@@ -43,6 +43,8 @@ struct PrintTray: Equatable {
     let rows: [Row]
     /// The page numbers that are note pages.
     let notePages: Set<Int>
+    /// The page numbers that were added as blanks.
+    private let blankPages: Set<Int>
 
     /// - Parameter blankPages: Logical pages added as blanks, which the tray names as blanks too.
     init(
@@ -51,6 +53,7 @@ struct PrintTray: Equatable {
     ) {
         self.layout = layout
         self.notePages = Set(notePages.map { $0 + 1 })
+        self.blankPages = Set(blankPages.map { $0 + 1 })
         let sides = plan.sides.enumerated().map { index, side in
             Side(
                 face: plan.isDuplex ? (side.isBack ? .back : .front) : .single, documentIndex: index,
@@ -80,10 +83,14 @@ struct PrintTray: Equatable {
     }
 
     /// The 1-based page number of the `index`th page of the document's own, past the note pages among them.
+    /// It counts through the whole document, so that it stays right when only some of the pages are on the tray; a
+    /// page that is not on it finds no row.
     func bodyPage(at index: Int) -> Int? {
-        let pages = sheets.flatMap { $0.sides.flatMap { $0.pages.compactMap { $0 } } }
-        let body = pages.filter { !notePages.contains($0) }.sorted()
-        return body.indices.contains(index) ? body[index] : nil
+        guard index >= 0, let last = sheets.flatMap({ $0.sides.flatMap { $0.pages.compactMap { $0 } } }).max() else {
+            return nil
+        }
+        let body = (1...last).lazy.filter { !notePages.contains($0) && !blankPages.contains($0) }
+        return body.dropFirst(index).first
     }
 
     func rowID(containing page: Int) -> Int? {

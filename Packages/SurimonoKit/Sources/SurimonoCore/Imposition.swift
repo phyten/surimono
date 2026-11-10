@@ -45,6 +45,18 @@ public enum Imposition {
             sides: sides, sheetCount: duplex ? sides.count / 2 : sides.count, isDuplex: duplex,
             logicalPageCount: count, paper: layout.sheet)
     }
+
+    /// The plan for some of a document's pages, given by their indices in the order they are read: they are imposed
+    /// as a document of their own, and each slot keeps the index the page has in the whole document.
+    public static func plan(pages: [Int], layout: PrintLayout) -> ImpositionPlan {
+        let plan = plan(pageCount: pages.count, layout: layout)
+        return ImpositionPlan(
+            sides: plan.sides.map { side in
+                SheetSide(slots: side.slots.map { slot in slot.map { pages[$0] } }, isBack: side.isBack)
+            },
+            sheetCount: plan.sheetCount, isDuplex: plan.isDuplex, logicalPageCount: plan.logicalPageCount,
+            paper: plan.paper)
+    }
 }
 
 public struct PrintSummary: Equatable, Sendable {

@@ -66,7 +66,7 @@ struct PrintFoldView: View {
         .task(id: FoldSource.current(model)) {
             guard let source = FoldSource.current(model) else { return }
             await book.load(
-                source.document, pageSize: source.pageSize,
+                source.document, pages: source.pages, pageSize: source.pageSize,
                 blankLabel: PrintModeText.string("Blank", language: model.language))
         }
         .accessibilityElement(children: .contain)
@@ -88,7 +88,7 @@ struct PrintFoldView: View {
         let language = model.language
         func label(_ page: Int) -> String {
             page <= book.contentPageCount
-                ? PrintModeText.format("Page %lld", language: language, page)
+                ? PrintModeText.format("Page %lld", language: language, book.pageNumber(at: page))
                 : PrintModeText.format("%lld (blank)", language: language, page)
         }
         let markdown: String
@@ -115,16 +115,20 @@ struct PrintFoldView: View {
 struct FoldSource: Equatable {
     let document: PDFDocument
     let pageSize: CGSize
+    /// The logical pages the booklet is made of; nil for all of them.
+    var pages: [Int]?
 
     static func current(_ model: DocumentViewModel) -> FoldSource? {
         guard model.hasCurrentPrintPreview, let result = model.result, let settings = model.renderedSettings else {
             return nil
         }
-        return FoldSource(document: result.logicalDocument, pageSize: settings.layout.logicalPageSize)
+        return FoldSource(
+            document: result.logicalDocument, pageSize: settings.layout.logicalPageSize,
+            pages: result.pageSelection.pages)
     }
 
     static func == (lhs: FoldSource, rhs: FoldSource) -> Bool {
-        lhs.document === rhs.document && lhs.pageSize == rhs.pageSize
+        lhs.document === rhs.document && lhs.pageSize == rhs.pageSize && lhs.pages == rhs.pages
     }
 }
 
@@ -141,6 +145,8 @@ final class FoldBook {
     private(set) var contentPageCount = 0
     private(set) var pageCount = 0
     private(set) var pageIndex = 0
+    /// The document's page number of each page of the book that is not a blank added to fill the sheets.
+    private var pageNumbers: [Int] = []
     @ObservationIgnored private weak var view: PDFView?
     @ObservationIgnored private var observer: NSObjectProtocol?
 
@@ -156,6 +162,12 @@ final class FoldBook {
         return .pages(row * 2, row * 2 + 1, isCenter: row * 2 == pageCount / 2)
     }
 
+    /// The number the document gives the `page`th page of the book (counted from 1), which differs from its place in
+    /// the book when only some of the document's pages are printed.
+    func pageNumber(at page: Int) -> Int {
+        pageNumbers.indices.contains(page - 1) ? pageNumbers[page - 1] : page
+    }
+
     func canTurn(by offset: Int) -> Bool { document != nil && (0...lastRow).contains(row + offset) }
 
     func turn(by offset: Int) {
@@ -169,8 +181,14 @@ final class FoldBook {
 
     /// A PDF's logical pages keep their own size, so they are fitted like on the sheets: the blanks are made at the
     /// size of a page of the booklet, and PDFKit shows every page at its own size.
-    func load(_ logical: PDFDocument, pageSize: CGSize, blankLabel: String) async {
+    /// - Parameter pages: The logical pages that are printed, in order; nil for all of them.
+    func load(_ logical: PDFDocument, pages: [Int]? = nil, pageSize: CGSize, blankLabel: String) async {
         guard let book = try? await PDFComposer().fitted(logical, pageSize: pageSize), !Task.isCancelled else { return }
+        if let pages {
+            let kept = Set(pages)
+            for index in (0..<book.pageCount).reversed() where !kept.contains(index) { book.removePage(at: index) }
+        }
+        pageNumbers = (pages ?? Array(0..<book.pageCount)).map { $0 + 1 }
         pageIndex = 0
         contentPageCount = book.pageCount
         let padded = (book.pageCount + 3) / 4 * 4
