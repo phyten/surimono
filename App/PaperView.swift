@@ -932,8 +932,11 @@ final class PaperPDFView: PageTextPDFView {
         didDrag = true
         guard let clip = documentView?.enclosingScrollView?.contentView else { return }
         var origin = clip.bounds.origin
-        origin.x -= event.deltaX
-        origin.y += clip.isFlipped ? -event.deltaY : event.deltaY
+        // The deltas are points of the window, and a magnified paper's own points are smaller: taken as they are,
+        // the paper ran ahead of the pointer by the zoom.
+        let scale = clip.convert(NSSize(width: 1, height: 1), from: nil)
+        origin.x -= event.deltaX * scale.width
+        origin.y += (clip.isFlipped ? -event.deltaY : event.deltaY) * scale.height
         clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: origin, size: clip.bounds.size)).origin)
         documentView?.enclosingScrollView?.reflectScrolledClipView(clip)
     }

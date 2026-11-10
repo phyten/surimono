@@ -49,6 +49,35 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("拡大した紙をドラッグすると、紙はポインタと同じだけ動く", arguments: [2.0, 4.0])
+    func dragFollowsThePointer(zoom: Double) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("drag", pages: 2)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        let start = NSPoint(x: 210, y: 300)
+        view.setZoom(zoom, anchor: start)
+        view.layoutSubtreeIfNeeded()
+        let page = try #require(view.page(for: start, nearest: false))
+        let onPage = view.convert(start, to: page)
+        func event(_ type: NSEvent.EventType, at point: NSPoint, dx: CGFloat = 0, dy: CGFloat = 0) -> NSEvent {
+            let event = PaperDragEvent()
+            event.kind = type
+            event.target = window
+            event.point = view.convert(point, to: nil)
+            event.dx = dx
+            event.dy = dy
+            return event
+        }
+        view.mouseDown(with: event(.leftMouseDown, at: start))
+        // 40 points to the right and 30 up; AppKit's deltaY grows downwards.
+        let end = NSPoint(x: start.x + 40, y: start.y + 30)
+        view.mouseDragged(with: event(.leftMouseDragged, at: end, dx: 40, dy: -30))
+        let moved = view.convert(onPage, from: page)
+        // Whole pixels, which are whole points on a display that is not Retina.
+        #expect(abs(moved.x - end.x) < 3)
+        #expect(abs(moved.y - end.y) < 3)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("PDFKit がスクロールバーを出し直しても紙の幅を取らず何も見せない", arguments: [NSScroller.Style.legacy, .overlay])
     func scrollersStayInvisible(style: NSScroller.Style) throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("scrollers", pages: 1)))
@@ -1162,4 +1191,21 @@ private struct ReadingPaper: View {
             zoom: 1, controller: PaperController(), onZoomChange: { _ in }, onPageChange: { _ in }, onTurn: {},
             onKey: { _ in false })
     }
+}
+
+/// Synthetic mouse events, so the drag needs no pointing device.
+nonisolated private final class PaperDragEvent: NSEvent {
+    var kind: NSEvent.EventType = .leftMouseDown
+    var target: NSWindow?
+    var point = NSPoint.zero
+    var dx: CGFloat = 0
+    var dy: CGFloat = 0
+    override var type: NSEvent.EventType { kind }
+    override var window: NSWindow? { target }
+    override var locationInWindow: NSPoint { point }
+    override var deltaX: CGFloat { dx }
+    override var deltaY: CGFloat { dy }
+    override var clickCount: Int { 1 }
+    override var modifierFlags: NSEvent.ModifierFlags { [] }
+    override var timestamp: TimeInterval { 0 }
 }
