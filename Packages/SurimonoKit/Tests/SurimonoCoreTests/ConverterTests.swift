@@ -130,6 +130,51 @@ struct ConverterTests {
         #expect(result.body.contains("<h1 id=\"見出し\">見出し</h1>"))
     }
 
+    @Test(
+        "前付けでない先頭の区切り線と本文を残す",
+        arguments: [
+            "本文", "\ntitle: 本文", "title: 本文\n普通の段落", "two words: 本文",
+            "# 本文", "- 本文", "    本文", "", "- 本文\n注意: これは印刷する本文", "題: あ\n- 本文", "  字下げ\n題: 本文",
+        ])
+    func thematicBreakIsNotFrontMatter(content: String) {
+        let result = MarkdownConverter.convert("---\n\(content)\n---\n\n後の本文")
+        #expect(result.body.contains("<hr"))
+        if !content.isEmpty { #expect(result.body.contains("本文")) }
+        #expect(result.body.contains("後の本文"))
+    }
+
+    @Test("区切り線の間のURLやコロン直後に空白がない本文を前付けとして捨てない", arguments: ["https://example.com/", "注意:これは本文"])
+    func colonWithoutWhitespaceIsNotMetadata(content: String) {
+        let result = MarkdownConverter.convert("---\n\(content)\n---")
+        #expect(result.body.contains(content))
+        #expect(result.body.contains("<hr"))
+    }
+
+    @Test("引用符で囲んだ空白入りの鍵がある前付けも前付けとして読む")
+    func quotedKeys() {
+        let result = MarkdownConverter.convert("---\ntitle: 資料\n\"page title\": 追加情報\n'x y':\n- a\n---\n本文")
+        #expect(result.title == "資料")
+        #expect(!result.body.contains("追加情報"))
+        #expect(result.body.contains("本文"))
+    }
+
+    @Test("前付けの続きとリストとコメントを読み終端の種類によらず表題を取り出す", arguments: ["---", "..."])
+    func metadataWithContinuations(ending: String) {
+        let text = "---\ntitle: '本 & 紙'\n# comment\ntags:\n- paper\nsummary: |\n  続き\n\n\(ending)\n本文"
+        let result = MarkdownConverter.convertWithSourceMap(text)
+        #expect(result.fragment.title == "本 & 紙")
+        #expect(result.fragment.body.contains("本文"))
+        #expect(!result.fragment.body.contains("summary"))
+        #expect(result.blocks.map(\.lines) == [[10]])
+    }
+
+    @Test("区切り線に囲まれた本文のソースマップを保持する")
+    func thematicBreakSourceMap() {
+        let result = MarkdownConverter.convertWithSourceMap("---\n\n最初の本文\n\n---\n\n後の本文")
+        #expect(result.blocks.contains { $0.lines == [3] })
+        #expect(result.blocks.contains { $0.lines == [7] })
+    }
+
     @Test("閉じていないfront matterは削除しない")
     func unclosedFrontMatter() {
         #expect(MarkdownConverter.convert("---\ntitle: 残す").body.contains("title: 残す"))
