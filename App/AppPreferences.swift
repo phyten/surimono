@@ -184,8 +184,18 @@ final class AppPreferences {
 
     init(
         defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier,
-        locale: Locale = .current, defaultPaperSize: CGSize? = NSPrintInfo.shared.paperSize
+        locale: Locale? = nil, defaultPaperSize: CGSize? = nil
     ) {
+        // Only the app's own preferences follow the Mac: its region and the paper its print system starts with. A
+        // store made for a test or a preview starts on A4 wherever it runs (CI machines are set to the United
+        // States, and tests written for A4 failed there), unless it is told a locale.
+        let followsSystem = locale == nil && defaults === UserDefaults.standard
+        let initialSeries: PaperSeries =
+            locale == nil && !followsSystem
+            ? .a
+            : PaperSeries.initial(
+                locale: locale ?? .current,
+                defaultPaperSize: defaultPaperSize ?? (followsSystem ? NSPrintInfo.shared.paperSize : nil))
         self.defaults = defaults
         languageDomainName = domainName
         let savedLanguages = domainName.flatMap {
@@ -225,8 +235,7 @@ final class AppPreferences {
             PaperOrientation(rawValue: defaults.string(forKey: "defaultPaperOrientation") ?? "") ?? .auto
         layoutID =
             defaults.string(forKey: "layout")
-            ?? (PaperSeries.initial(locale: locale, defaultPaperSize: defaultPaperSize) == .letter
-                ? "letterSingle" : "a4Single")
+            ?? (initialSeries == .letter ? "letterSingle" : "a4Single")
         themeID = defaults.string(forKey: "theme") ?? "standard"
         themeSampleSource =
             defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .document
