@@ -19,7 +19,7 @@ public enum MarkdownConverter {
         var lines = original
         let mapping = mapsSource ? BlockMapping(original: original) : nil
         var title: String?
-        if lines.first == "---", let end = lines.dropFirst().firstIndex(of: "---") {
+        if let end = frontMatterEnd(in: lines) {
             for line in lines[1..<end] where line.hasPrefix("title:") {
                 var value = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
                 if value.count >= 2,
@@ -47,6 +47,51 @@ public enum MarkdownConverter {
         return MarkdownMappedDocument(
             fragment: HTMLFragment(body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title),
             blocks: mapping?.blocks ?? [])
+    }
+
+    private static func frontMatterEnd(in lines: [String]) -> Int? {
+        guard lines.first == "---", lines.count > 1,
+            !lines[1].trimmingCharacters(in: .whitespaces).isEmpty,
+            let end = lines.dropFirst().firstIndex(where: { $0 == "---" || $0 == "..." })
+        else { return nil }
+        // A thematic break may enclose ordinary prose, so only what reads as a YAML mapping is taken away: keys at
+        // the left edge, each followed by its value, its indented lines or its list.
+        var hasKey = false
+        var takesList = false
+        for line in lines[1..<end] {
+            if line.trimmingCharacters(in: .whitespaces).isEmpty || line.hasPrefix("#") { continue }
+            if line.hasPrefix(" ") || line.hasPrefix("\t") {
+                guard hasKey else { return nil }
+                continue
+            }
+            if line == "-" || line.hasPrefix("- ") {
+                // A list at the left edge belongs to the key just above it, and only when that key has no value.
+                guard takesList else { return nil }
+                continue
+            }
+            guard let value = frontMatterValue(of: line) else { return nil }
+            hasKey = true
+            takesList = value.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        return hasKey ? end : nil
+    }
+
+    /// What follows the key of a `key: value` line, or nil when the line is not one. A key is one word, or quoted.
+    private static func frontMatterValue(of line: String) -> Substring? {
+        var rest = line[...]
+        if let quote = rest.first, quote == "\"" || quote == "'" {
+            guard let close = rest.dropFirst().firstIndex(of: quote) else { return nil }
+            rest = rest[rest.index(after: close)...]
+        } else {
+            guard let colon = rest.firstIndex(of: ":"), colon != rest.startIndex,
+                !rest[..<colon].contains(where: \.isWhitespace)
+            else { return nil }
+            rest = rest[colon...]
+        }
+        guard rest.first == ":" else { return nil }
+        let value = rest.dropFirst()
+        guard value.isEmpty || value.first?.isWhitespace == true else { return nil }
+        return value
     }
 
     private final class BlockMapping {
