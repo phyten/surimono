@@ -62,6 +62,13 @@
             }
             // Screenshots that leave the machine should not name the printers set up on it.
             if flag("SurimonoHidePrinters") { model.printerListSource = { .empty } }
+            // A made-up printer that takes A4 and smaller on one side only, to see the badges of what it cannot do.
+            if flag("SurimonoPrinterLimits") {
+                model.printerListSource = { PrinterList(names: ["Printer"], defaultName: "Printer") }
+                model.printerCapabilitiesSource = { _ in
+                    PrinterCapabilities(paperSizes: [PaperSize.a4.size, PaperSize.b5.size], duplex: false)
+                }
+            }
         }
 
         /// Overrides that must wait until the document's own defaults are known.

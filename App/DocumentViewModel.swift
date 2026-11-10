@@ -256,6 +256,13 @@ final class DocumentViewModel {
     /// The printers the tray offers; refreshed when the tray opens and before each print.
     private(set) var printers = PrinterList.empty
     @ObservationIgnored var printerListSource: () -> PrinterList = { PrinterList.current() }
+    /// What each printer said it can do, by name; a printer that has not answered has no entry and shows no badge.
+    var printerCapabilities: [String: PrinterCapabilities] = [:]
+    @ObservationIgnored var printerCapabilityQueries: Set<String> = []
+    /// Asks a printer what it can do, off the main thread; nil when it cannot tell.
+    @ObservationIgnored var printerCapabilitiesSource: @Sendable (String) async -> PrinterCapabilities? = {
+        await PrinterCapabilityCache.shared.capabilities(for: $0)
+    }
     private(set) var isExporting = false
     var error: String?
     var outputError: String?
@@ -2567,10 +2574,12 @@ final class DocumentViewModel {
     func refreshPrinters() {
         let current = printerListSource()
         if current != printers { printers = current }
+        loadPrinterCapabilities()
     }
 
     func selectPrinter(_ name: String) {
         preferences.printerName = name
+        loadPrinterCapabilities()
     }
 
     struct DuplexTestResult: Identifiable {
@@ -2695,6 +2704,8 @@ final class DocumentViewModel {
             return
         }
         guard canOutput else { return }
+        // A layout the printer cannot do is not sent silently: the system dialog lets the reader look first.
+        let quick = quick && printerIssue == nil
         pendingPrint = PendingPrint(
             request: PrintRequest(printerName: selectedPrinterName, showsPanel: !quick), quick: quick)
         resumePendingPrint()
