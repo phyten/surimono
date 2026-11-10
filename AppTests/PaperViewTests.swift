@@ -27,6 +27,26 @@ struct PaperViewTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test(
+        "拡大してもポインタの下の紙の点は動かない",
+        arguments: [NSPoint(x: 120, y: 150), NSPoint(x: 300, y: 520), NSPoint(x: 80, y: 40)])
+    func zoomKeepsThePointUnderThePointer(anchor: NSPoint) throws {
+        let source = try #require(PDFDocument(data: TestFixtures.pdf("anchor", pages: 3)))
+        let (view, window) = try makeSinglePagePaper(document: source)
+        view.layoutSubtreeIfNeeded()
+        let page = try #require(view.page(for: anchor, nearest: false))
+        let onPage = view.convert(anchor, to: page)
+        view.setZoom(2, anchor: anchor)
+        let after = view.convert(onPage, from: page)
+        #expect(abs(after.x - anchor.x) < 1)
+        #expect(abs(after.y - anchor.y) < 1)
+        view.setZoom(3, anchor: anchor)
+        let again = view.convert(onPage, from: page)
+        #expect(abs(again.x - anchor.x) < 1)
+        #expect(abs(again.y - anchor.y) < 1)
+        withExtendedLifetime(window) {}
+    }
+
     @Test("PDFKit がスクロールバーを出し直しても紙の幅を取らず何も見せない", arguments: [NSScroller.Style.legacy, .overlay])
     func scrollersStayInvisible(style: NSScroller.Style) throws {
         let source = try #require(PDFDocument(data: TestFixtures.pdf("scrollers", pages: 1)))

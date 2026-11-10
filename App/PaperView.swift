@@ -66,7 +66,11 @@ struct PaperView: NSViewRepresentable {
             showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, keepsSpotInPage: keepsSpotInPage)
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
-        if abs(view.zoom - zoom) > 0.001 { view.setZoom(zoom, anchor: nil) }
+        if abs(view.zoom - zoom) > 0.001 {
+            // A zoom that comes from the model, as when a document's settings are brought back, has no pointer; it
+            // opens at the top of the page rather than in its middle.
+            view.setZoom(zoom, anchor: NSPoint(x: view.bounds.midX, y: view.bounds.maxY))
+        }
     }
 }
 
@@ -565,14 +569,17 @@ final class PaperPDFView: PageTextPDFView {
         }
         let clip = scrollView.contentView
         let anchorInView = anchor ?? NSPoint(x: bounds.midX, y: bounds.midY)
-        let anchorInDocument = documentView.convert(anchorInView, from: self)
-        let anchorInClip = clip.convert(anchorInView, from: self)
-        let oldScale = scaleFactor
+        // Remember the anchor as a point of its page: the document view's own coordinates do not scale with the zoom
+        // by a plain ratio (the pages are centred and padded), so scaling them moved the paper under the pointer.
+        guard let page = page(for: anchorInView, nearest: true) else {
+            refit()
+            return
+        }
+        let anchorOnPage = convert(anchorInView, to: page)
         refit()
-        let ratio = scaleFactor / max(oldScale, 0.0001)
-        let origin = NSPoint(
-            x: anchorInDocument.x * ratio - (anchorInClip.x - clip.bounds.minX),
-            y: anchorInDocument.y * ratio - (anchorInClip.y - clip.bounds.minY))
+        let actual = clip.convert(convert(anchorOnPage, from: page), from: self)
+        let target = clip.convert(anchorInView, from: self)
+        let origin = NSPoint(x: clip.bounds.minX + actual.x - target.x, y: clip.bounds.minY + actual.y - target.y)
         clip.scroll(to: clip.constrainBoundsRect(NSRect(origin: origin, size: clip.bounds.size)).origin)
         scrollView.reflectScrolledClipView(clip)
     }
