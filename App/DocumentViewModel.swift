@@ -309,6 +309,11 @@ final class DocumentViewModel {
     @ObservationIgnored private(set) var isPrintModeRequested = false
     @ObservationIgnored private var didResizeWindow = false
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    /// The keys under which this window wrote a record where there was none. Only these are removed when the content
+    /// changes; a record from before may belong to a copy of the file that still has that content.
+    @ObservationIgnored private var createdRecordKeys: Set<String> = []
+    /// The files `contentHash` was computed from.
+    @ObservationIgnored private var hashedSourceURLs: Set<URL> = []
     @ObservationIgnored private var hashTask: Task<Void, Never>?
     @ObservationIgnored private var openFailure: String?
     @ObservationIgnored private var retriedChangedImages = false
@@ -422,6 +427,12 @@ final class DocumentViewModel {
     var displayName: String {
         binder?.title(language: language) ?? imageBundle?.title(language: language) ?? title ?? fileURL?
             .lastPathComponent ?? String(localized: "Document")
+    }
+    /// What the printer's queue shows for this document's job, and what the system dialog proposes when saving a PDF.
+    var printJobTitle: String { displayName }
+    /// The test sheet is not the document, so its job is named after what it is.
+    static func duplexTestJobTitle(language: String) -> String {
+        PrintModeText.string("Duplex Test Print", language: language)
     }
     /// "MD", "PDF", "ZIP"…; "IMG" for a bundle of image files.
     var formatBadge: String {
@@ -792,7 +803,7 @@ final class DocumentViewModel {
         toastTask?.cancel()
         hashTask?.cancel()
         structureTask?.cancel()
-        if saveTask != nil { saveSettings() }
+        flushPendingSettings()
         reloadGeneration += 1
         reloadTask?.cancel()
         reloadTask = nil
@@ -2093,10 +2104,18 @@ final class DocumentViewModel {
     private func didComputeHash(_ hash: ContentHash) {
         let previous = contentHash
         guard previous != hash else { return }
+        let previousSources = hashedSourceURLs
         contentHash = hash
-        if previous != nil {
+        hashedSourceURLs = Set(sourceURLs)
+        if let previous {
             // Saved in an editor while open: the settings on screen carry over to the new content.
-            if hasSavedSettings { saveSettings() }
+            guard hasSavedSettings, saveSettings() else { return }
+            // The same files no longer have the content the previous record described, so every save in the editor
+            // would leave one more record behind and push other documents' settings out of the store. A set that
+            // gained or lost a file still exists as it was, and keeps its record.
+            if previousSources == hashedSourceURLs, createdRecordKeys.remove(previous.hex) != nil {
+                try? settingsStore?.removeRecord(for: previous.hex)
+            }
             return
         }
         let saved = settingsStore?.record(for: hash.hex)
@@ -2162,6 +2181,11 @@ final class DocumentViewModel {
         scheduleSave()
     }
 
+    /// Saves now what a change scheduled; quitting ends the app before the delay has passed.
+    func flushPendingSettings() {
+        if saveTask != nil { saveSettings() }
+    }
+
     private func scheduleSave() {
         guard settingsStore != nil else { return }
         saveTask?.cancel()
@@ -2171,22 +2195,31 @@ final class DocumentViewModel {
         }
     }
 
-    private func saveSettings(force: Bool = false) {
+    /// Returns whether a record was written.
+    @discardableResult
+    private func saveSettings(force: Bool = false) -> Bool {
         saveTask?.cancel()
         saveTask = nil
-        guard let contentHash, let settingsStore else { return }
-        if let binder, binder.setHash != contentHash { return }
+        guard let contentHash, let settingsStore else { return false }
+        if let binder, binder.setHash != contentHash { return false }
         // A change that was undone before the save (for example a transient zoom) is not a change.
-        guard force || hasSavedSettings || rememberedSettings != settingsBaseline || didResizeWindow else { return }
+        guard force || hasSavedSettings || rememberedSettings != settingsBaseline || didResizeWindow else {
+            return false
+        }
         var settings = rememberedSettings
         settings.windowSize = currentPaperSize ?? viewPaperSizeBeforePrinting ?? restoredPaperSize
         do {
-            try settingsStore.save(settings, for: contentHash.hex)
+            let key = contentHash.hex
+            let isNew = !createdRecordKeys.contains(key) && settingsStore.record(for: key) == nil
+            try settingsStore.save(settings, for: key)
+            if isNew { createdRecordKeys.insert(key) }
             hasSavedSettings = true
             didResizeWindow = false
             settingsBaseline = rememberedSettings
+            return true
         } catch {
             Self.logger.error("Saving document settings failed: \(error.localizedDescription, privacy: .public)")
+            return false
         }
     }
 
@@ -2267,7 +2300,10 @@ final class DocumentViewModel {
         dismissToast()
         saveTask?.cancel()
         saveTask = nil
-        if let contentHash { try? settingsStore?.removeRecord(for: contentHash.hex) }
+        if let contentHash {
+            try? settingsStore?.removeRecord(for: contentHash.hex)
+            createdRecordKeys.remove(contentHash.hex)
+        }
         hasSavedSettings = false
         pendingImageOrder = nil
         restoredPaperSize = nil
@@ -2665,15 +2701,22 @@ final class DocumentViewModel {
         }
     }
 
+    /// Made apart from running it, so that what would be sent can be read without a printer.
+    func makeDuplexTestOperation(for document: PDFDocument, layout: PrintLayout, request: PrintRequest)
+        -> NSPrintOperation?
+    {
+        let destination = request.printerName.flatMap(NSPrinter.init(name:))
+        return PrintJobFactory().printOperation(
+            for: document, layout: layout, showsPrintPanel: request.showsPanel || destination == nil,
+            printer: destination, pageOrder: .firstSheetFirst,
+            jobTitle: Self.duplexTestJobTitle(language: language))
+    }
+
     private func submitDuplexTest(
         _ document: PDFDocument, layout: PrintLayout, request: PrintRequest,
         complete: @escaping (DuplexTestResult?) -> Void
     ) {
-        let destination = request.printerName.flatMap(NSPrinter.init(name:))
-        guard let window,
-            let operation = PrintJobFactory().printOperation(
-                for: document, layout: layout, showsPrintPanel: request.showsPanel || destination == nil,
-                printer: destination, pageOrder: .firstSheetFirst)
+        guard let window, let operation = makeDuplexTestOperation(for: document, layout: layout, request: request)
         else {
             outputError = String(localized: "The print job could not be created.")
             complete(nil)
@@ -2761,10 +2804,7 @@ final class DocumentViewModel {
         let destination = request.printerName.flatMap(NSPrinter.init(name:))
         // Without a printer the system dialog still offers saving a PDF or adding a printer.
         let quick = !request.showsPanel && destination != nil
-        guard
-            let operation = PrintJobFactory().printOperation(
-                for: result.sheetDocument, layout: result.layout, showsPrintPanel: !quick,
-                printer: destination, pageOrder: pageOrder, copies: request.copies)
+        guard let operation = makePrintOperation(for: result, request: request, pageOrder: pageOrder)
         else {
             outputError = String(localized: "The print job could not be created.")
             return
@@ -2792,6 +2832,16 @@ final class DocumentViewModel {
         operation.runModal(
             for: window, delegate: completion,
             didRun: #selector(PrintCompletion.didRun(_:success:context:)), contextInfo: nil)
+    }
+
+    /// Made apart from running it, so that what would be sent can be read without a printer.
+    func makePrintOperation(for result: RenderResult, request: PrintRequest, pageOrder: PrintPageOrder)
+        -> NSPrintOperation?
+    {
+        let destination = request.printerName.flatMap(NSPrinter.init(name:))
+        return PrintJobFactory().printOperation(
+            for: result.sheetDocument, layout: result.layout, showsPrintPanel: request.showsPanel || destination == nil,
+            printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: printJobTitle)
     }
 
     func exportPDF() {

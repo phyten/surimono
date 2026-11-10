@@ -222,6 +222,15 @@ struct PrintPageOrderTests {
         #expect(outputOrder(of: operation.printInfo) == "Normal")
     }
 
+    @Test("印刷の操作は渡した名前をジョブの名前にする")
+    func operationCarriesJobTitle() throws {
+        let document = try RenderingFixtures.pdf(count: 1, size: CGSize(width: 595.28, height: 841.89))
+        let operation = try #require(
+            PrintJobFactory().printOperation(
+                for: document, layout: .a4Single, showsPrintPanel: false, jobTitle: "議事録"))
+        #expect(operation.jobTitle == "議事録")
+    }
+
     private func outputOrder(of info: NSPrintInfo) -> String? {
         var value: Unmanaged<CFTypeRef>?
         guard PMPrintSettingsGetValue(OpaquePointer(info.pmPrintSettings()), "OutputOrder" as CFString, &value) == noErr

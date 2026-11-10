@@ -129,11 +129,27 @@ public final class WebPaginator: NSObject {
         defer { session.requestClose() }
 
         try session.load(source)
-        try await Self.waitUntil(timeout: timeout) { session.navigationState != .loading }
+        var stoppedResources = false
+        do {
+            try await Self.waitUntil(timeout: timeout) { session.navigationState != .loading }
+        } catch PaginationError.timedOut {
+            // An image or a style sheet on a host that never answers holds the load back for good. The text is
+            // already there, so it prints the way it does with an image that fails; a document that itself never
+            // arrived or never finished parsing still fails.
+            guard session.hasCommitted,
+                let state = try await runPreparationScript(
+                    "return document.readyState", in: session.webView, timeout: min(timeout, .seconds(2))),
+                state == "interactive" || state == "complete"
+            else { throw PaginationError.timedOut }
+            session.stopLoadingResources()
+            stoppedResources = true
+        }
         if case .failed(let message) = session.navigationState { throw PaginationError.loadFailed(message) }
 
         didStartWaitingForResources?()
-        try await Self.waitForResources(in: session.webView, timeout: timeout)
+        // The stopped resources never report back, so the full wait would only be spent a second time.
+        try await Self.waitForResources(
+            in: session.webView, timeout: stoppedResources ? min(timeout, .seconds(1)) : timeout)
         if rendersMermaid,
             try await runPreparationScript(MermaidScript.probe, in: session.webView, timeout: timeout) == "yes"
         {
@@ -364,6 +380,13 @@ private final class PaginationSession {
     private var isClosed = false
 
     var navigationState: NavigationTracker.State { navigationTracker.state }
+    var hasCommitted: Bool { navigationTracker.hasCommitted }
+
+    /// Gives up on the resources still loading; the document counts as loaded with what has arrived.
+    func stopLoadingResources() {
+        navigationTracker.finishStopped()
+        webView.stopLoading()
+    }
 
     init(
         source: WebPaginator.Source, pageSize: CGSize, margins: WebPaginator.Margins, allowsJavaScript: Bool,
@@ -388,7 +411,8 @@ private final class PaginationSession {
             configuration.setURLSchemeHandler(localHandler, forURLScheme: LocalResourceSchemeHandler.scheme)
         }
         configuration.defaultWebpagePreferences.allowsContentJavaScript = allowsJavaScript
-        configuration.suppressesIncrementalRendering = true
+        // Incremental rendering is not suppressed: WebKit then draws nothing until the load completes, so a page
+        // whose pending resources were given up on would print blank.
         configuration.preferences.shouldPrintBackgrounds = printsBackgrounds
         configuration.setURLSchemeHandler(snapshotHandler, forURLScheme: SnapshotSchemeHandler.scheme)
         let printableWidth = max(pageSize.width - margins.left - margins.right, 72)
@@ -581,6 +605,9 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     }
 
     private(set) var state = State.loading
+    /// The main document has started to arrive; before that the web view still shows its initial empty page.
+    private(set) var hasCommitted = false
+    private var isStopped = false
     /// Set for generated pages, which may read any local file so that references such as ../images/ work. Images and
     /// style sheets only draw what they are, but a document shows a file's content: `<iframe>`, `<object>`, `<embed>`
     /// or a `<meta http-equiv="refresh">` in the document's raw HTML could otherwise put an unopened file, such as a
@@ -603,11 +630,22 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
         return url?.isFileURL != true
     }
 
+    /// Stopping reports the navigation as failed with a cancellation, which is not a failure of the document.
+    func finishStopped() {
+        isStopped = true
+        state = .finished
+    }
+
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        hasCommitted = true
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         state = .finished
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        guard !isStopped else { return }
         state = .failed(error.localizedDescription)
     }
 

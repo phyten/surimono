@@ -18,6 +18,12 @@ final class DocumentWindows: NSObject {
         }
     }
 
+    /// Every kind of window registers its model here, so this reaches documents, bundles, binders and clipboard
+    /// windows alike.
+    func flushPendingSettings() {
+        for model in openModels { model.flushPendingSettings() }
+    }
+
     func register(_ model: DocumentViewModel, for window: NSWindow) {
         models.setObject(model, forKey: window)
         updateActive()
