@@ -462,9 +462,15 @@ public final class DocumentRenderer {
 
     /// Composes the printed sheets of a prepared render, reusing the sheets of a recent render with the same logical
     /// pages and imposition settings.
-    public func composeSheet(for prepared: PreparedRender) async throws -> RenderResult {
+    public func composeSheet(for prepared: PreparedRender, rotatesBackSides: Bool? = nil) async throws -> RenderResult {
+        // Printer calibration depends on the orientation resolved by prepare, without changing the logical pages.
+        var options = prepared.options
+        if let rotatesBackSides { options.rotatesBackSides = rotatesBackSides }
+        let key = SheetKey(
+            logicalID: prepared.sheetKey.logicalID, layout: prepared.layout, options: options,
+            orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture)
         try Task.checkCancellation()
-        if let index = sheets.firstIndex(where: { $0.key == prepared.sheetKey }) {
+        if let index = sheets.firstIndex(where: { $0.key == key }) {
             let entry = sheets.remove(at: index)
             sheets.append(entry)
             return RenderResult(prepared, sheet: entry.document, sheetOrientations: entry.orientations)
@@ -480,12 +486,12 @@ public final class DocumentRenderer {
                 guard let source = logical.composingSource else { throw RenderingError.invalidPDF }
                 sheet = try await composer.compose(
                     source, pageCount: logical.document.pageCount, layout: prepared.layout,
-                    options: prepared.options, orientsEachPage: prepared.sheetKey.orientsEachPage,
+                    options: options, orientsEachPage: prepared.sheetKey.orientsEachPage,
                     furniture: prepared.sheetKey.furniture)
             } else {
                 // The cache has moved on to other pages; compose from the document itself.
                 sheet = try await composer.compose(
-                    prepared.logicalDocument, layout: prepared.layout, options: prepared.options,
+                    prepared.logicalDocument, layout: prepared.layout, options: options,
                     orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture)
             }
             try Task.checkCancellation()
@@ -495,7 +501,7 @@ public final class DocumentRenderer {
                 let size = page.bounds(for: .mediaBox).size
                 return size.width > size.height ? .landscape : .portrait
             }
-            sheets.append((prepared.sheetKey, sheet, orientations))
+            sheets.append((key, sheet, orientations))
             if sheets.count > Self.sheetCacheLimit { sheets.removeFirst(sheets.count - Self.sheetCacheLimit) }
             return RenderResult(prepared, sheet: sheet, sheetOrientations: orientations)
         } catch {

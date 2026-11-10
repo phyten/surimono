@@ -195,6 +195,10 @@ final class DocumentViewModel {
     /// The sheets of `printResult`, grouped as they come out of the printer; built once per composition.
     private(set) var printTray: PrintTray?
     private(set) var renderedSettings: RenderSettings?
+    /// What the render in flight is making, once its back-side correction is settled.
+    @ObservationIgnored private var renderingSettings: RenderSettings?
+    /// How many renders were started; a render that settles its own settings must not start another.
+    @ObservationIgnored private(set) var renderStartCount = 0
     private(set) var isRendering = false
     private(set) var isPrinting = false
     /// The printers the tray offers; refreshed when the tray opens and before each print.
@@ -455,8 +459,8 @@ final class DocumentViewModel {
             && !isBecomingBinder
     }
     var summary: String? {
-        guard let result, let renderedSettings else { return nil }
-        return Self.summaryText(result.summary, layout: renderedSettings.layout, locale: Locale(identifier: language))
+        guard let result else { return nil }
+        return Self.summaryText(result.summary, layout: result.layout, locale: Locale(identifier: language))
     }
     /// The page breaks and the contents are read from a text; a binder keeps its documents as they are.
     var finishAppliesToText: Bool { binder == nil && format.usesPrintTheme }
@@ -940,7 +944,17 @@ final class DocumentViewModel {
         requestedTrayRow = page.flatMap(printTray.rowID(containing:))
     }
 
+    /// The settings changed, as the view tells. A render in flight settles the back-side correction once it knows
+    /// which way the sheets lie, which changes the settings to what that render is already making; starting over for
+    /// that would cancel it for nothing.
+    func renderForChangedSettings() {
+        if isRendering, let renderingSettings, renderingSettings == renderSettings { return }
+        render()
+    }
+
     func render() {
+        renderStartCount += 1
+        renderingSettings = nil
         reloadOwnsProgress = false
         renderTask?.cancel()
         // A trial was laid out under the previous settings or file.
@@ -961,6 +975,7 @@ final class DocumentViewModel {
         }
         error = nil
         isRendering = true
+        renderingSettings = settings
         let sourceURLs = sourceURLs
         let fromSnapshot = rendersSnapshot
         let singleSource =
@@ -971,6 +986,7 @@ final class DocumentViewModel {
         let layoutsBefore = renderer.logicalRenderCount
         renderTask = Task { [weak self] in
             guard let self else { return }
+            var settings = settings
             do {
                 let source: DocumentSource
                 if let binder {
@@ -991,6 +1007,8 @@ final class DocumentViewModel {
                 try Task.checkCancellation()
                 if renderer.logicalRenderCount != layoutsBefore { lastLayoutDuration = ContinuousClock.now - started }
                 // The paper shows the logical pages right away; the sheets for the tray and the outputs follow.
+                settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
+                renderingSettings = settings
                 result = prepared
                 if source.format == .markdown { displayedMarkdownData = source.data }
                 chosenTrial = nil
@@ -1014,7 +1032,8 @@ final class DocumentViewModel {
                         if imageBundle.applyOrder(order) { settingsBaseline = rememberedSettings }
                     }
                 }
-                let output = try await renderer.composeSheet(for: prepared)
+                let output = try await renderer.composeSheet(
+                    for: prepared, rotatesBackSides: settings.options.rotatesBackSides)
                 try Task.checkCancellation()
                 printResult = output
                 if mode == .print, settings == renderSettings {
@@ -2319,14 +2338,26 @@ final class DocumentViewModel {
         return true
     }
 
-    var rotatesBackSides: Bool {
-        get {
-            preferences.printerProfile(for: selectedPrinterName).rotation(
-                for: layout.duplex, default: preferences.rotateBack)
+    var printerLayout: PrintLayout {
+        if let result, renderedSettings?.layout == layout,
+            renderedSettings?.paperOrientation == paperOrientation
+        {
+            return result.layout
         }
+        // Until preparation resolves Auto, this value is provisional; calibration and test printing stay disabled.
+        return layout.oriented(paperOrientation == .landscape)
+    }
+
+    private func printerRotation(for layout: PrintLayout) -> Bool {
+        preferences.printerProfile(for: selectedPrinterName).rotation(
+            for: layout.sentDuplex, default: preferences.rotateBack)
+    }
+
+    var rotatesBackSides: Bool {
+        get { printerRotation(for: printerLayout) }
         set {
-            guard let name = selectedPrinterName, layout.duplex != .none else { return }
-            preferences.setPrinterRotation(newValue, for: name, duplex: layout.duplex)
+            guard canOutput, let name = selectedPrinterName, printerLayout.sentDuplex != .none else { return }
+            preferences.setPrinterRotation(newValue, for: name, duplex: printerLayout.sentDuplex)
         }
     }
 
@@ -2365,7 +2396,7 @@ final class DocumentViewModel {
     }
 
     var canPrintDuplexTest: Bool {
-        layout.duplex != .none && !isPrinting && pendingPrint == nil && duplexTestResult == nil
+        canOutput && printerLayout.sentDuplex != .none && pendingPrint == nil && duplexTestResult == nil
     }
 
     func answerDuplexTest(rotatesBackSides: Bool?) {
@@ -2379,7 +2410,7 @@ final class DocumentViewModel {
     func printDuplexTest() {
         guard canPrintDuplexTest, window != nil || duplexTestSubmit != nil else { return }
         let shown = selectedPrinterName
-        let layout = layout
+        let layout = printerLayout
         refreshPrinters()
         let request = printers.request(quick: true, shown: shown, remembered: preferences.printerName)
         let language = language
@@ -2395,10 +2426,10 @@ final class DocumentViewModel {
                     back: PrintModeText.string("Back", language: language),
                     top: PrintModeText.string("Top", language: language),
                     binding: PrintModeText.string(
-                        layout.duplex == .longEdge ? "Long-edge binding" : "Short-edge binding", language: language),
+                        layout.sentDuplex == .longEdge ? "Long-edge binding" : "Short-edge binding", language: language),
                     printer: request.printerName ?? PrintModeText.string("No Printers", language: language),
                     instruction: PrintModeText.string(
-                        layout.duplex == .longEdge
+                        layout.sentDuplex == .longEdge
                             ? "Turn the sheet along its long edge. The back arrow should point up."
                             : "Turn the sheet along its short edge. The back arrow should point up.", language: language
                     ))
@@ -2449,9 +2480,9 @@ final class DocumentViewModel {
                 return
             }
             var duplex = PMDuplexMode(kPMDuplexNone)
-            let expected = layout.duplex == .longEdge ? kPMDuplexNoTumble : kPMDuplexTumble
+            let expected = PrintJobFactory.duplexMode(for: layout)
             guard PMGetDuplex(OpaquePointer(info.pmPrintSettings()), &duplex) == noErr,
-                duplex == PMDuplexMode(expected)
+                duplex == expected
             else {
                 outputError = String(
                     localized:
@@ -2461,7 +2492,7 @@ final class DocumentViewModel {
                 return
             }
             // The system dialog can select another printer. Save only the printer that actually received the job.
-            complete(DuplexTestResult(printerName: info.printer.name, duplex: layout.duplex))
+            complete(DuplexTestResult(printerName: info.printer.name, duplex: layout.sentDuplex))
         }
         printCompletion = completion
         printOperation = operation
@@ -2612,7 +2643,7 @@ final class DocumentViewModel {
         let language = UILanguage.candidates(for: locale.identifier).first { UILanguage.supported.contains($0) } ?? "en"
         let bundle = Bundle.main.path(forResource: language, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
         let bindingKey =
-            switch layout.duplex {
+            switch layout.sentDuplex {
             case .none: "Single-sided"
             case .longEdge: "Duplex, long edge"
             case .shortEdge: "Duplex, short edge"

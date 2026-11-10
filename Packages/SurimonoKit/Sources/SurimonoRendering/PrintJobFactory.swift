@@ -40,20 +40,22 @@ public struct PrintJobFactory {
         info.isVerticallyCentered = true
         info.horizontalPagination = .clip
         info.verticalPagination = .clip
-        let duplex =
-            switch layout.duplex {
-            case .none: kPMDuplexNone
-            case .longEdge: kPMDuplexNoTumble
-            case .shortEdge: kPMDuplexTumble
-            }
         let settings = OpaquePointer(info.pmPrintSettings())
-        PMSetDuplex(settings, PMDuplexMode(duplex))
+        PMSetDuplex(settings, Self.duplexMode(for: layout))
         // kPMOutputOrderKey is a CFSTR macro Swift does not import. Always naming the order keeps the printer's
         // own default from deciding it; the print system keeps the fronts and backs of duplex sheets together.
         let order = pageOrder == .lastSheetFirst ? "Reverse" : "Normal"
         PMPrintSettingsSetValue(settings, "OutputOrder" as CFString, order as CFString, false)
         info.updateFromPMPrintSettings()
         return info
+    }
+
+    public nonisolated static func duplexMode(for layout: PrintLayout) -> PMDuplexMode {
+        switch layout.sentDuplex {
+        case .none: PMDuplexMode(kPMDuplexNone)
+        case .longEdge: PMDuplexMode(kPMDuplexNoTumble)
+        case .shortEdge: PMDuplexMode(kPMDuplexTumble)
+        }
     }
 
     public func printOperation(

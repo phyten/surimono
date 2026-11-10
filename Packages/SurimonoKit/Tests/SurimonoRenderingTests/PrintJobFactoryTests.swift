@@ -9,6 +9,24 @@ import Testing
 
 @MainActor
 struct PrintJobFactoryTests {
+    @Test("縦の両面はNoTumbleで横の両面と冊子はTumbleで片面はNoneを送る")
+    func sentDuplexMode() {
+        #expect(PrintJobFactory.duplexMode(for: .a4Duplex) == PMDuplexMode(kPMDuplexNoTumble))
+        #expect(PrintJobFactory.duplexMode(for: .a4Duplex.oriented(true)) == PMDuplexMode(kPMDuplexTumble))
+        #expect(PrintJobFactory.duplexMode(for: .b5Duplex.oriented(true)) == PMDuplexMode(kPMDuplexTumble))
+        #expect(PrintJobFactory.duplexMode(for: .a3BookletA4) == PMDuplexMode(kPMDuplexTumble))
+        #expect(PrintJobFactory.duplexMode(for: .a4Single) == PMDuplexMode(kPMDuplexNone))
+    }
+
+    @Test("横向き両面の印刷設定にもTumbleが渡る")
+    func landscapeDuplexSettings() {
+        let info = PrintJobFactory().printInfo(for: .a4Duplex.oriented(true))
+        var duplex = PMDuplexMode(kPMDuplexNone)
+        #expect(PMGetDuplex(OpaquePointer(info.pmPrintSettings()), &duplex) == noErr)
+        #expect(duplex == PMDuplexMode(kPMDuplexTumble))
+        #expect(info.orientation == .landscape)
+    }
+
     @Test("寸法判定後に横画像が読み飛ばされた束は残った縦用紙で印刷する")
     func skippedLandscapeImages() async throws {
         _ = NSApplication.shared

@@ -26,7 +26,7 @@ public struct DuplexTestRenderer {
     public init() {}
 
     public func layout(for layout: PrintLayout) throws -> PrintLayout {
-        try PrintLayout(id: "duplexTest", kind: .normal, sheet: layout.sheet, duplex: layout.duplex)
+        try PrintLayout(id: "duplexTest", kind: .normal, sheet: layout.sheet, duplex: layout.sentDuplex)
     }
 
     public func document(sheet: PaperSize, labels: Labels) async throws -> PDFDocument {

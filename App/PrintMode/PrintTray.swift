@@ -480,7 +480,7 @@ enum PrintModeText {
                 pageText)
         }
         let binding =
-            switch layout.duplex {
+            switch layout.sentDuplex {
             case .none: "Single-sided"
             case .longEdge: "Duplex, long edge"
             case .shortEdge: "Duplex, short edge"
@@ -522,7 +522,7 @@ enum PrintModeText {
                     ? "Two pages side by side, no folding · the last right half is blank"
                     : "Two pages side by side, no folding", language: language)
         case .normal:
-            switch layout.duplex {
+            switch layout.sentDuplex {
             case .none:
                 return format(
                     layout.landscapeContent ? "%@ landscape · one page per sheet" : "%@ portrait · one page per sheet",

@@ -45,6 +45,65 @@ struct PrinterProfileFlowTests {
         try #require(model.error == nil)
     }
 
+    @Test("横向きが確定すると短辺の補正で合成し表示と保存とテスト印刷も揃う", .timeLimit(.minutes(1)))
+    func landscapeCalibration() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        fixture.preferences.layoutID = "a4Duplex"
+        fixture.preferences.setPrinterRotation(false, for: "A", duplex: .longEdge)
+        fixture.preferences.setPrinterRotation(true, for: "A", duplex: .shortEdge)
+        let renderer = DocumentRenderer()
+        let model = fixture.model(renderer: renderer, data: try asymmetricPDF(landscape: true))
+        defer { model.stop() }
+        model.enterPrintMode()
+        #expect(!model.canPrintDuplexTest)
+        model.rotatesBackSides = true
+        #expect(fixture.preferences.printerProfile(for: "A").rotatesBackSides[.longEdge] == false)
+        model.start()
+        try await waitForRender(model)
+        let output = try #require(model.printResult)
+        #expect(output.layout.sentDuplex == .shortEdge)
+        #expect(model.printerLayout.sentDuplex == .shortEdge)
+        #expect(model.rotatesBackSides)
+        #expect(model.renderedSettings?.options.rotatesBackSides == true)
+        #expect(model.printTray?.sheets.first?.sides.last?.isRotated == true)
+        #expect(model.canOutput)
+        #expect(renderer.sheetCompositionCount == 1)
+        let expected = try await PDFComposer().compose(
+            output.logicalDocument, layout: .a4Duplex.oriented(true), options: PrintOptions(rotatesBackSides: true))
+        #expect(try backPixels(output.sheetDocument) == backPixels(expected))
+        #expect(
+            PrintModeText.instructions(output.layout, sheets: 2, pages: 4, language: "en").contains(
+                "Duplex, short edge"))
+        let logicalCount = renderer.logicalRenderCount
+        model.rotatesBackSides = false
+        #expect(fixture.preferences.printerProfile(for: "A").rotatesBackSides[.shortEdge] == false)
+        #expect(fixture.preferences.printerProfile(for: "A").rotatesBackSides[.longEdge] == false)
+        model.render()
+        try await waitForRender(model)
+        #expect(model.printTray?.sheets.first?.sides.last?.isRotated == false)
+        #expect(renderer.logicalRenderCount == logicalCount)
+        var sentLayout: PrintLayout?
+        model.duplexTestSubmit = { _, layout, _, complete in
+            sentLayout = layout
+            complete(.init(printerName: "A", duplex: layout.sentDuplex))
+        }
+        model.printDuplexTest()
+        for _ in 0..<100 where model.isPrinting { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(sentLayout?.sentDuplex == .shortEdge)
+        #expect(model.duplexTestResult?.duplex == .shortEdge)
+        model.paperOrientation = .portrait
+        model.answerDuplexTest(rotatesBackSides: true)
+        #expect(fixture.preferences.printerProfile(for: "A").rotatesBackSides[.shortEdge] == true)
+        #expect(fixture.preferences.printerProfile(for: "A").rotatesBackSides[.longEdge] == false)
+        model.render()
+        try await waitForRender(model)
+        #expect(model.printerLayout.sentDuplex == .longEdge)
+        #expect(!model.rotatesBackSides)
+        #expect(model.printTray?.sheets.first?.sides.last?.isRotated == false)
+        #expect(model.canOutput)
+    }
+
     @Test("プリンターを切り替えると裏面の見本と注記が変わり論理ページは再利用する", .timeLimit(.minutes(1)))
     func switching() async throws {
         let fixture = Fixture()
@@ -175,9 +234,42 @@ struct PrinterProfileFlowTests {
         #expect(submissions == 1)
     }
 
-    private func asymmetricPDF() throws -> Data {
+    @Test("描画の途中で向きが決まって補正が変わっても、同じ描画をやり直さない", .timeLimit(.minutes(1)))
+    func settlingTheCorrectionDoesNotRestart() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        fixture.preferences.layoutID = "a4Duplex"
+        fixture.preferences.setPrinterRotation(false, for: "A", duplex: .longEdge)
+        fixture.preferences.setPrinterRotation(true, for: "A", duplex: .shortEdge)
+        let renderer = DocumentRenderer()
+        let model = fixture.model(renderer: renderer, data: try asymmetricPDF(landscape: true))
+        defer { model.stop() }
+        model.enterPrintMode()
+        var startsWhileComposing: [Int] = []
+        // The sheets are composed after the correction is settled: here the view's notice of the changed settings
+        // arrives while the render is still at work.
+        renderer.willComposeSheet = {
+            startsWhileComposing.append(model.renderStartCount)
+            model.renderForChangedSettings()
+            startsWhileComposing.append(model.renderStartCount)
+        }
+        model.start()
+        let starts = model.renderStartCount
+        try await waitForRender(model)
+        #expect(startsWhileComposing == [starts, starts])
+        #expect(model.rotatesBackSides)
+        #expect(model.canOutput)
+        // A change of the reader's own still starts a render.
+        model.rotatesBackSides = false
+        model.renderForChangedSettings()
+        #expect(model.renderStartCount == starts + 1)
+        try await waitForRender(model)
+        #expect(model.printTray?.sheets.first?.sides.last?.isRotated == false)
+    }
+
+    private func asymmetricPDF(landscape: Bool = false) throws -> Data {
         let data = NSMutableData()
-        var box = CGRect(x: 0, y: 0, width: 595, height: 842)
+        var box = CGRect(x: 0, y: 0, width: landscape ? 842 : 595, height: landscape ? 595 : 842)
         let consumer = try #require(CGDataConsumer(data: data))
         let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
         for _ in 0..<4 {
@@ -244,11 +336,15 @@ struct PrinterProfileFlowTests {
         model.start()
         try await waitForRender(model)
         model.enterPrintMode()
+        model.render()
+        try await waitForRender(model)
         #expect(model.printOptions.marginsInMillimeters == 12)
         #expect(model.printOptions.showsPageNumbers)
         #expect(!model.rotatesBackSides)
         fixture.preferences.rotateBack = true
         #expect(model.rotatesBackSides)
+        model.render()
+        try await waitForRender(model)
         model.rotatesBackSides = false
         #expect(!model.rotatesBackSides)
         #expect(fixture.preferences.rotateBack)
@@ -278,6 +374,9 @@ struct PrinterProfileFlowTests {
         defer { fixture.cleanUp() }
         let model = fixture.model()
         defer { model.stop() }
+        model.enterPrintMode()
+        model.start()
+        try await waitForRender(model)
         var submission: (PDFDocument, PrintLayout, PrintRequest)?
         model.duplexTestSubmit = { document, layout, request, complete in
             submission = (document, layout, request)
@@ -308,6 +407,9 @@ struct PrinterProfileFlowTests {
         fixture.preferences.setPrinterRotation(true, for: "A", duplex: .shortEdge)
         let model = fixture.model()
         defer { model.stop() }
+        model.enterPrintMode()
+        model.start()
+        try await waitForRender(model)
         model.printerListSource = { PrinterList(names: ["B"], defaultName: "B") }
         var requests: [PrintRequest] = []
         var documents: [PDFDocument] = []
@@ -333,6 +435,9 @@ struct PrinterProfileFlowTests {
         defer { fixture.cleanUp() }
         let model = fixture.model()
         defer { model.stop() }
+        model.enterPrintMode()
+        model.start()
+        try await waitForRender(model)
         var count = 0
         model.duplexTestSubmit = { _, _, _, complete in
             count += 1
@@ -342,6 +447,8 @@ struct PrinterProfileFlowTests {
         model.printDuplexTest()
         #expect(count == 0)
         model.layoutID = "a4Duplex"
+        model.render()
+        try await waitForRender(model)
         model.printDuplexTest()
         for _ in 0..<100 where model.isPrinting { try await Task.sleep(for: .milliseconds(10)) }
         #expect(count == 1 && model.duplexTestResult == nil)
