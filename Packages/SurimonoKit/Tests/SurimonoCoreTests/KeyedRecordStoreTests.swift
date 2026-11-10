@@ -28,6 +28,29 @@ struct KeyedRecordStoreTests {
         }
     }
 
+    @Test("記録の状態の印は、読むたびと書くたびに変わり、何もしなければ変わらない")
+    func tokenChangesOnLoadAndWrite() throws {
+        try withStore { store, _ in
+            #expect(store.token(for: "abc") == nil)
+            try store.save(Record(value: 1), for: "abc")
+            let written = try #require(store.token(for: "abc"))
+            #expect(store.token(for: "abc") == written)
+            #expect(store.record(for: "abc") == Record(value: 1))
+            let loaded = try #require(store.token(for: "abc"))
+            #expect(loaded != written)
+            #expect(store.record(for: "abc") == Record(value: 1))
+            let loadedAgain = try #require(store.token(for: "abc"))
+            #expect(loadedAgain != loaded)
+            try store.save(Record(value: 1), for: "abc")
+            let rewritten = try #require(store.token(for: "abc"))
+            #expect(rewritten != loadedAgain)
+            try store.removeRecord(for: "abc")
+            #expect(store.token(for: "abc") == nil)
+            try store.save(Record(value: 1), for: "abc")
+            #expect(store.token(for: "abc") != rewritten)
+        }
+    }
+
     @Test("同じキーに保存すると上書きする")
     func overwrite() throws {
         try withStore { store, _ in

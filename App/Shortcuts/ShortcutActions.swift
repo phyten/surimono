@@ -8,6 +8,7 @@ enum ShortcutEnvironment {
     static var preferences: AppPreferences?
     static var library: UserLibrary?
     static var router: OpenRouter = .shared
+    static var fileAccess: ShortcutFileAccess = .shared
 }
 
 /// A failure Shortcuts shows to whoever ran the action.
@@ -82,7 +83,9 @@ struct ExportPDFIntent: AppIntent {
         LocalizedStringResource(
             "Lays a file out on paper with one of Surimono's print layouts and styles, and returns the PDF. The file itself is not changed.",
             table: "Shortcuts"))
-    /// The pages are laid out in a window that is never shown, so the app has no reason to come forward.
+    /// The pages are laid out in a window that is never shown, so the app has no reason to come forward. Nothing is
+    /// written beside the file or into the reader's folders: the layout's intermediate files live in the app's
+    /// temporary directory and are removed, and the PDF goes back in memory.
     static let openAppWhenRun = false
 
     @Parameter(
@@ -121,10 +124,17 @@ struct ExportPDFIntent: AppIntent {
         let export = HeadlessExport(
             preferences: ShortcutEnvironment.preferences ?? AppPreferences(),
             library: ShortcutEnvironment.library ?? UserLibrary())
+        // The app may have been started in the background just for this; it must not greet anyone with a window.
+        let router = ShortcutEnvironment.router
+        router.beginHeadlessWork()
+        defer { router.endHeadlessWork() }
         do {
-            let output = try await export.export(
-                file.data, fileURL: file.fileURL, format: format, name: name.isEmpty ? file.filename : name,
-                layoutID: layout?.rawValue, style: style.flatMap { $0.isEmpty ? nil : $0 })
+            // The layout reads the file's neighbours too, so the access lasts until the pages are done.
+            let output = try await ShortcutEnvironment.fileAccess.reading(file.fileURL) {
+                try await export.export(
+                    file.data, fileURL: file.fileURL, format: format, name: name.isEmpty ? file.filename : name,
+                    layoutID: layout?.rawValue, style: style.flatMap { $0.isEmpty ? nil : $0 })
+            }
             return .result(value: IntentFile(data: output.data, filename: output.fileName, type: .pdf))
         } catch let failure as HeadlessExport.Failure {
             throw ShortcutFailure(message: failure.message)
@@ -153,15 +163,33 @@ struct OpenInPrintModeIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        let content = ShortcutFiles.content(
-            urls: files.map(\.fileURL),
-            single: {
-                // An archive's window reads the archive from its file.
-                guard let file = files.first, let format = ShortcutFiles.format(of: file), format != .zipArchive
-                else { return nil }
-                return (file.data, format)
-            })
-        guard ShortcutEnvironment.router.open(content, printing: true) else {
+        let inputs = files.map { file in
+            ShortcutFiles.Input(
+                url: file.fileURL, isTemporary: file.removedOnCompletion, name: file.filename,
+                format: ShortcutFiles.format(of: file))
+        }
+        let access = ShortcutEnvironment.fileAccess
+        let opened: Bool
+        switch ShortcutFiles.plan(inputs) {
+        case .files(let urls):
+            // The windows go on reading the files after this returns, so each takes its files' access with it.
+            opened = ShortcutEnvironment.router.open(urls, printing: true, access: access.leases(for: urls))
+        case .memory(let index, let format):
+            // The file is gone when the shortcut ends, so its bytes are taken now.
+            let file = files[index]
+            let data = await access.reading(file.fileURL) { file.data }
+            opened = ShortcutEnvironment.router.open(
+                .document(data: data, format: format), printing: true, title: file.filename)
+        case .saveFirst:
+            throw ShortcutFailure(
+                message: String(
+                    localized:
+                        "These files exist only while the shortcut runs. Save them with a Save File action first, then open the saved files.",
+                    table: "Shortcuts"))
+        case .none:
+            opened = false
+        }
+        guard opened else {
             throw ShortcutFailure(
                 message: String(localized: "There are no files Surimono can open.", table: "Shortcuts"))
         }
@@ -175,13 +203,33 @@ enum ShortcutFiles {
             ?? file.type.flatMap(DocumentFormat.init(contentType:))
     }
 
-    /// Files open as any other files do. One file that Shortcuts made itself, and so has no place on disk, opens from
-    /// memory; several of those have no order or names to bind them by.
-    static func content(urls: [URL?], single: () -> (Data, DocumentFormat)?) -> ClipboardContent {
-        let located = urls.compactMap { $0 }
-        if !located.isEmpty, located.count == urls.count { return .files(located) }
-        if urls.count == 1, let (data, format) = single() { return .document(data: data, format: format) }
-        return .empty
+    nonisolated struct Input {
+        let url: URL?
+        /// Shortcuts removes the file when the shortcut ends, as it does with what an earlier action made.
+        let isTemporary: Bool
+        let name: String
+        let format: DocumentFormat?
+
+        var stays: Bool { url != nil && !isTemporary }
+    }
+
+    nonisolated enum Plan: Equatable {
+        case files([URL])
+        /// The input at this index, read into memory.
+        case memory(Int, DocumentFormat)
+        case saveFirst
+        case none
+    }
+
+    /// Files that stay open as any other files do. A window must not point at a file that is about to go, so one
+    /// such file opens from memory instead. Several of them, or an archive, need files to read from: a bundle and a
+    /// binder read their files as they show them, and an archive's window reads the archive.
+    nonisolated static func plan(_ inputs: [Input]) -> Plan {
+        if inputs.isEmpty { return .none }
+        if inputs.allSatisfy(\.stays) { return .files(inputs.compactMap(\.url)) }
+        guard inputs.count == 1 else { return .saveFirst }
+        guard let format = inputs[0].format else { return .none }
+        return format == .zipArchive ? .saveFirst : .memory(0, format)
     }
 }
 

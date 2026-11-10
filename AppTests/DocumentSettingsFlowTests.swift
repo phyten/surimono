@@ -594,13 +594,98 @@ struct DocumentSettingsFlowTests {
             try edited.write(to: url)
             model.reload()
             try await waitUntil { model.contentHash == ContentHash.of(edited) }
-            try await waitUntil { environment.store.record(for: ContentHash.of(edited).hex) != nil }
+            // Asked without reading the record: a read is a use by someone else, which makes the window keep it.
+            try await waitUntil { environment.store.token(for: ContentHash.of(edited).hex) != nil }
         }
         model.stop()
         let newest = ContentHash.of(edits[2]).hex
         #expect(Set(environment.store.keys()) == [newest, otherKey])
         #expect(environment.store.record(for: newest)?.view?.layout == .single)
         #expect(environment.store.record(for: otherKey) == other)
+    }
+
+    /// Two files with the same content in different places; the first window creates their shared record.
+    private func sharedRecord(_ environment: Environment) async throws -> (
+        first: DocumentViewModel, firstURL: URL, copyURL: URL, data: Data
+    ) {
+        try FileManager.default.createDirectory(at: environment.directory, withIntermediateDirectories: true)
+        let data = pdf("a")
+        let firstURL = environment.directory.appendingPathComponent("doc.pdf")
+        let copyURL = environment.directory.appendingPathComponent("copy.pdf")
+        try data.write(to: firstURL)
+        try data.write(to: copyURL)
+        let first = environment.model(data, url: firstURL)
+        try await open(first)
+        first.setLayout(.single)
+        first.rememberedSettingsDidChange()
+        try await waitUntil { first.hasSavedSettings }
+        return (first, firstURL, copyURL, data)
+    }
+
+    private func edit(_ model: DocumentViewModel, at url: URL, in environment: Environment) async throws -> String {
+        let edited = pdf("b")
+        try edited.write(to: url)
+        model.reload()
+        let key = ContentHash.of(edited).hex
+        try await waitUntil { model.contentHash?.hex == key && environment.store.token(for: key) != nil }
+        return key
+    }
+
+    @Test("同じ内容の別のファイルが記録を読んで開いたあとは、元の窓の文書が書き換えられてもその記録を消さない", .timeLimit(.minutes(1)))
+    func recordRestoredByAnotherWindowSurvives() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let shared = try await sharedRecord(environment)
+        let copy = environment.model(shared.data, url: shared.copyURL)
+        try await open(copy)
+        #expect(copy.viewOptions.layout == .single)
+        copy.stop()
+
+        let newKey = try await edit(shared.first, at: shared.firstURL, in: environment)
+        shared.first.stop()
+        let oldKey = ContentHash.of(shared.data).hex
+        #expect(Set(environment.store.keys()) == [oldKey, newKey])
+        #expect(environment.store.record(for: oldKey)?.view?.layout == .single)
+    }
+
+    @Test("同じ内容の別のファイルの窓が設定を変えて保存した記録は、元の窓の文書が書き換えられても消さない", .timeLimit(.minutes(1)))
+    func recordSavedByAnotherWindowSurvives() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let shared = try await sharedRecord(environment)
+        let copy = environment.model(shared.data, url: shared.copyURL)
+        try await open(copy)
+        copy.viewOptions.direction = .rightToLeft
+        copy.rememberedSettingsDidChange()
+        copy.stop()
+
+        let newKey = try await edit(shared.first, at: shared.firstURL, in: environment)
+        shared.first.stop()
+        let oldKey = ContentHash.of(shared.data).hex
+        #expect(Set(environment.store.keys()) == [oldKey, newKey])
+        #expect(environment.store.record(for: oldKey)?.view?.direction == .rightToLeft)
+        #expect(environment.store.record(for: newKey)?.view?.direction == .leftToRight)
+    }
+
+    @Test("別の窓が既定に戻してから保存し直した記録は、元の窓の文書が書き換えられても消さない", .timeLimit(.minutes(1)))
+    func recordResetAndSavedByAnotherWindowSurvives() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let shared = try await sharedRecord(environment)
+        let copy = environment.model(shared.data, url: shared.copyURL)
+        try await open(copy)
+        copy.resetDocumentSettings()
+        let oldKey = ContentHash.of(shared.data).hex
+        #expect(environment.store.record(for: oldKey) == nil)
+        copy.viewOptions.direction = .rightToLeft
+        copy.rememberedSettingsDidChange()
+        copy.stop()
+        // Not read here: reading the record would itself take the first window's claim away.
+
+        let newKey = try await edit(shared.first, at: shared.firstURL, in: environment)
+        shared.first.stop()
+        #expect(Set(environment.store.keys()) == [oldKey, newKey])
+        #expect(environment.store.record(for: oldKey)?.view?.direction == .rightToLeft)
     }
 
     @Test("設定を変えていない文書は、開いたまま書き換えられても何も保存しない", .timeLimit(.minutes(1)))
@@ -645,7 +730,8 @@ struct DocumentSettingsFlowTests {
             try edited.write(to: url)
             model.reload()
             try await waitUntil { model.contentHash == ContentHash.of(edited) }
-            try await waitUntil { environment.store.record(for: ContentHash.of(edited).hex) != nil }
+            // Asked without reading the record: a read is a use by someone else, which makes the window keep it.
+            try await waitUntil { environment.store.token(for: ContentHash.of(edited).hex) != nil }
         }
         model.stop()
         #expect(Set(environment.store.keys()) == [ContentHash.of(original).hex, ContentHash.of(edits[1]).hex])

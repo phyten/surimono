@@ -4,7 +4,8 @@ import SurimonoRendering
 
 /// Lays a document out on sheets without a window, as the print tray's Export as PDF does, for callers outside the
 /// app. It starts from the app's defaults: what a window remembers for a document belongs to that window's reader.
-/// Nothing is written anywhere; the PDF is handed back in memory.
+/// Nothing is written beside the document or into the reader's folders: the layout's intermediate files live in the
+/// app's temporary directory and are removed, and the PDF is handed back in memory.
 struct HeadlessExport {
     struct Failure: Error, Equatable {
         let message: String

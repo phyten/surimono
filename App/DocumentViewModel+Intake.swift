@@ -8,6 +8,8 @@ extension DocumentViewModel {
 
     private var savedFileName: String {
         let name = displayName.replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: "/", with: "-")
+        // A document named after a file, as one handed over by Shortcuts is, keeps that file's extension.
+        if DocumentFormat(fileExtension: (name as NSString).pathExtension) == format { return name }
         return "\(name).\(ClipboardContent.fileExtension(of: memoryContent ?? Data(), format: format))"
     }
 
