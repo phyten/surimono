@@ -11,7 +11,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-markdown.git", from: "0.9.0"),
         // KaTeX-compatible math in pure Swift. Pinned: 0.x may change its output between minor versions.
-        .package(url: "https://github.com/PhraseHQ/SwaTex.git", exact: "0.5.0"),
+        .package(url: "https://github.com/PhraseHQ/SwaTex.git", exact: "0.6.0"),
     ],
     targets: [
         .target(
