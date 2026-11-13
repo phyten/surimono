@@ -121,24 +121,83 @@ struct ViewBandTests {
         #expect(AppPreferences(defaults: suite.defaults).defaultBandVisibility == .onHover)
     }
 
-    @Test("帯を出しても隠しても窓の大きさは変わらない")
-    func visibilityKeepsWindow() async throws {
+    /// The paper view's height in the window, which shows whether any room is left beside the paper.
+    private func paperViewHeight(in window: NSWindow) -> CGFloat? {
+        func find(_ view: NSView) -> NSView? {
+            if view is PaperPDFView { return view }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        guard let content = window.contentView, let paper = find(content) else { return nil }
+        return paper.convert(paper.bounds, to: nil).height
+    }
+
+    @Test(
+        "ツールバーを常に表示から外すと窓は紙だけの大きさに戻り、紙は画面の上で動かない",
+        arguments: MenuArrangement.allCases)
+    func turningToolbarOffLeavesOnlyPaper(arrangement: MenuArrangement) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
-        let model = environment.model(TestFixtures.pdf("Window"))
+        environment.preferences.menuArrangement = arrangement
+        environment.preferences.defaultBandVisibility = .always
+        let model = environment.model(TestFixtures.pdf("Toolbar"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
         let window = try #require(controller.window)
         defer { controller.close() }
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
-        let frame = window.frame
-        model.toggleBandVisibility()
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(window.frame == frame)
-        model.toggleBandVisibility()
-        try await Task.sleep(for: .milliseconds(100))
-        #expect(window.frame == frame)
+        // Room around the window, or it would be moved to stay on the screen.
+        let visible = try #require(window.screen?.visibleFrame)
+        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 80))
+        let room: CGFloat = arrangement == .split ? 76 : 38
+        let pinned = window.contentRect(forFrameRect: window.frame)
+        let paper = CGSize(width: pinned.width, height: pinned.height - room)
+        let paperTop = pinned.maxY - 38
+
+        model.isBandAlwaysVisible = false
+        let off = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(off.width - paper.width) <= 3)
+        #expect(abs(off.height - paper.height) <= 3)
+        #expect(abs(off.maxY - paperTop) <= 3)
+        try await waitUntil { abs((paperViewHeight(in: window) ?? 0) - off.height) <= 3 }
+
+        model.isBandAlwaysVisible = true
+        let on = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(on.height - paper.height - room) <= 3)
+        #expect(abs(on.maxY - 38 - paperTop) <= 3)
+        try await waitUntil { abs((paperViewHeight(in: window) ?? 0) - paper.height) <= 3 }
+    }
+
+    @Test("常に表示のまま利用者が窓を広げたあとでも、外すと窓は紙だけの大きさになる", arguments: MenuArrangement.allCases)
+    func turningToolbarOffAfterResize(arrangement: MenuArrangement) async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = arrangement
+        environment.preferences.defaultBandVisibility = .always
+        let model = environment.model(TestFixtures.pdf("Resized"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        let visible = try #require(window.screen?.visibleFrame)
+        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 80))
+        // As the reader drags the window's corner narrower; the app then settles on the paper's exact height.
+        var frame = window.frame
+        frame.size.width -= 60
+        window.setFrame(frame, display: true)
+        model.windowDidEndLiveResize()
+        let room: CGFloat = arrangement == .split ? 76 : 38
+        let pinned = window.contentRect(forFrameRect: window.frame)
+        let unit = try #require(model.paperUnitSize)
+        #expect(abs((pinned.height - room) / pinned.width - unit.height / unit.width) < 0.01)
+
+        model.isBandAlwaysVisible = false
+        let off = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(off.height / off.width - unit.height / unit.width) < 0.01)
+        #expect(abs(off.height - (pinned.height - room)) <= 3)
+        try await waitUntil { abs((paperViewHeight(in: window) ?? 0) - off.height) <= 3 }
     }
 
     @Test("上だけなら帯 1 本ぶん、上と下に分けると 2 本ぶんの場所を紙の外に取る")

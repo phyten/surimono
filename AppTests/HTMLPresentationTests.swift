@@ -142,7 +142,7 @@ struct HTMLPresentationTests {
         reopened.stop()
     }
 
-    @Test("ウェブの帯は切り替えと印刷に絞り窓の道具は常にその他に置く")
+    @Test("ウェブの帯は切り替えと印刷に絞り、その他には紙にだけ効く操作を置かない")
     func bandOnTheWeb() throws {
         let environment = try environment()
         defer { environment.cleanUp() }
@@ -151,7 +151,7 @@ struct HTMLPresentationTests {
             BandLayout.Item.applicable(for: model) == [
                 .formatBadge, .presentation, .print,
             ])
-        #expect(SecondaryViewControl.applicable(for: model) == [.floatOnTop, .alwaysShowMenu])
+        #expect(SecondaryViewControl.applicable(for: model).isEmpty)
         model.setHTMLPresentation(.paper)
         let paper = BandLayout.Item.applicable(for: model)
         #expect(paper.contains(.presentation))

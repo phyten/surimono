@@ -137,7 +137,7 @@
                 // A small window, to see what the bands fold away.
                 ViewerWindow.setPaperSize(
                     CGSize(width: height * unit.width / unit.height, height: height),
-                    band: ViewerWindow.bandHeight * CGFloat(model.menuArrangement.bandCount), of: window,
+                    band: model.bandInset, of: window,
                     animate: false)
             }
         }
@@ -229,6 +229,11 @@
                     // then resizes to the new shape.
                     model.setLayout(layout)
                     try? await Task.sleep(for: .milliseconds(1200))
+                }
+                if let value = argument("SurimonoThenMenu"), let visibility = BandVisibility(rawValue: value) {
+                    // Turn the toolbar on or off once the window fits the paper, as ⌥⌘T does.
+                    model.bandVisibility = visibility
+                    try? await Task.sleep(for: .milliseconds(900))
                 }
                 // A slide deck is measured once the page has loaded, and the window then takes its shape.
                 if model.showsWeb { try? await Task.sleep(for: .milliseconds(1200)) }

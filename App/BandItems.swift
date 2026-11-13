@@ -324,10 +324,12 @@ struct BandMoreMenu: View {
             if model.hasOutline, !model.preferences.showsOutlineOnBand {
                 Button("Contents…") { model.toggleOutline() }
             }
-            ForEach(SecondaryViewControl.applicable(for: model), id: \.self) { item in
+            let secondary = SecondaryViewControl.applicable(for: model)
+            ForEach(secondary, id: \.self) { item in
                 SecondaryViewMenuItem(model: model, item: item)
             }
-            Divider()
+            // The live web page has none of these, nor the items above them; a divider would open the menu alone.
+            if !secondary.isEmpty { Divider() }
             if model.marginsApply {
                 MarginMenu(model: model)
                 Divider()
@@ -431,9 +433,10 @@ private struct BandMenuItem: View {
     }
 }
 
-// Keeping these separate from BandLayout prevents measurements or narrow windows from moving them onto the band.
+// Keeping these separate from BandLayout prevents measurements or narrow windows from moving them onto the band. The
+// window's pins (Float on Top, Always Show Toolbar) are in the View menu only.
 enum SecondaryViewControl: CaseIterable {
-    case direction, scrollAxis, paperOrientation, paperSeries, cover, selectText, floatOnTop, alwaysShowMenu
+    case direction, scrollAxis, paperOrientation, paperSeries, cover, selectText
 
     static func applicable(for model: DocumentViewModel) -> [Self] {
         allCases.filter { item in
@@ -442,7 +445,6 @@ enum SecondaryViewControl: CaseIterable {
             case .paperSeries: model.offersPaperSeries
             case .cover: !model.showsWeb && model.viewOptions.usesCoverOption
             case .selectText: !model.showsWeb && model.canSelectText
-            case .floatOnTop, .alwaysShowMenu: true
             }
         }
     }
@@ -494,11 +496,6 @@ private struct SecondaryViewMenuItem: View {
         case .selectText:
             Toggle("Select Text", isOn: $model.isSelectingText)
                 .help("Select Text (T)")
-        case .floatOnTop:
-            Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
-        case .alwaysShowMenu:
-            Toggle("Always Show Toolbar", isOn: $model.isBandAlwaysVisible)
-                .help("Always Show Toolbar (⌥⌘T)")
         }
     }
 }

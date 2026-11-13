@@ -2,8 +2,9 @@ import AppKit
 import SurimonoCore
 import SwiftUI
 
-// The bands have their own room beside the paper and never cover it. The pointer only shows and hides what is in that
-// room, so the window keeps its size.
+// Bands that always show have their own room beside the paper and never cover it. Bands that show on pointing lie
+// over the paper's edges, so that the window is the paper alone while they are hidden. Either way the pointer never
+// resizes the window.
 struct ViewModeView: View {
     @Bindable var model: DocumentViewModel
     @State private var menu = OverlayMenuState()
@@ -20,22 +21,27 @@ struct ViewModeView: View {
     var body: some View {
         let plans = BandPlans(model: model, menu: menu)
         ZStack(alignment: .top) {
-            VStack(spacing: 0) {
-                topZone(plans)
-                HStack(spacing: 0) {
-                    if model.showsOutlineDrawer {
-                        OutlineDrawer(model: model).transition(.move(edge: .leading))
-                    }
-                    if model.showsSideList {
-                        if model.binder != nil {
-                            BinderDrawer(model: model)
-                        } else if model.imageBundle != nil {
-                            ImageBundleDrawer(model: model)
-                        }
-                    }
-                    // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
-                    PaperArea(model: model, menu: menu).clipped()
+            HStack(spacing: 0) {
+                if model.showsOutlineDrawer {
+                    OutlineDrawer(model: model).transition(.move(edge: .leading))
                 }
+                if model.showsSideList {
+                    if model.binder != nil {
+                        BinderDrawer(model: model)
+                    } else if model.imageBundle != nil {
+                        ImageBundleDrawer(model: model)
+                    }
+                }
+                // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
+                PaperArea(model: model, menu: menu).clipped()
+            }
+            .padding(.top, model.isBandAlwaysVisible ? ViewerWindow.bandHeight : 0)
+            .padding(.bottom, model.isBandAlwaysVisible && isSplit ? ViewerWindow.bandHeight : 0)
+            // Overlays, so that a band shown on pointing draws over the paper's own view. The zones stay the same
+            // views whether or not they have room, and so do the band and the popovers it anchors when the reader
+            // turns the toolbar on or off.
+            .overlay(alignment: .top) { topZone(plans) }
+            .overlay(alignment: .bottom) {
                 if isSplit, let plan = plans.bottom { bottomZone(plan) }
             }
             if model.isReviewingSmartRemoval {
@@ -85,10 +91,8 @@ struct ViewModeView: View {
     }
 
     private func topZone(_ plans: BandPlans) -> some View {
-        BandZone(edge: .top) {
-            if bandVisible {
-                OverlayBand(model: model, menu: menu).transition(.opacity)
-            }
+        BandZone(edge: .top, isShown: bandVisible) {
+            OverlayBand(model: model, menu: menu)
         }
         .background(alignment: .topLeading) {
             BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu)
@@ -104,10 +108,8 @@ struct ViewModeView: View {
     }
 
     private func bottomZone(_ plan: BandLayout.Plan) -> some View {
-        BandZone(edge: .bottom) {
-            if bandVisible {
-                BottomBand(model: model, menu: menu, plan: plan).transition(.opacity)
-            }
+        BandZone(edge: .bottom, isShown: bandVisible) {
+            BottomBand(model: model, menu: menu, plan: plan)
         }
         .background { BandPopovers(model: model, menu: menu, plan: plan, arrowEdge: .top) }
     }
