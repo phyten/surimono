@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        RecentFileHistory.shared?.restoreOnLaunch()
         NSWindow.allowsAutomaticWindowTabbing = false
         // The document controller's launch-time open panel opens a multi-file selection one document at a time and
         // bypasses OpenRouter. The welcome window offers Open… instead.
@@ -108,7 +109,8 @@ final class WelcomeController {
 
 private struct WelcomeView: View {
     let preferences: AppPreferences
-    @State private var recent: [URL] = NSDocumentController.shared.recentDocumentURLs
+    @State private var recent: [URL] =
+        RecentFileHistory.shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
     @State private var window: NSWindow?
     @State private var isTargeted = false
 
@@ -137,7 +139,7 @@ private struct WelcomeView: View {
         }
         .background(WindowReader { window = $0 })
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-            recent = NSDocumentController.shared.recentDocumentURLs
+            recent = RecentFileHistory.shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
         }
     }
 
@@ -192,7 +194,10 @@ private struct RecentFileRow: View {
 
     var body: some View {
         Button {
-            OpenRouter.shared.open([url])
+            let started = url.startAccessingSecurityScopedResource()
+            let leases =
+                started ? [FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() })] : []
+            OpenRouter.shared.open([url], access: leases)
         } label: {
             Text(verbatim: url.lastPathComponent)
                 .font(.system(size: 13))

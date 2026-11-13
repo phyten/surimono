@@ -20,6 +20,7 @@ struct SurimonoApp: App {
         let library = UserLibrary()
         _library = State(initialValue: library)
         settingsStore = DocumentSettingsStore(directory: library.root.appendingPathComponent("DocumentSettings"))
+        RecentFileHistory.install(preferences: preferences)
         WelcomeController.shared.preferences = preferences
         ImageBundleWindows.shared.preferences = preferences
         ImageBundleWindows.shared.library = library
