@@ -93,6 +93,41 @@ struct SlideDeckModelTests {
         #expect(fixture.model.web.fitSize == nil)
     }
 
+    @Test("画面の9割より広げたスライドの窓は、ツールバーを切り替えても紙の幅・高さ・上端を保つ")
+    func wideDeckKeepsSizeAcrossToolbarToggle() async throws {
+        let fixture = try fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        let window = fixture.window
+        model.start()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.sizeWindowToPaper(initialOnly: true)
+        model.slideDeckDidChange(deck)
+        let visible = try #require((window.screen ?? NSScreen.main)?.visibleFrame)
+        // As wide as the screen allows for the slide's shape with both bands, past the share a new window takes.
+        let width = min(visible.width * 0.97, (visible.height - 2 * ViewerWindow.bandHeight - 20) * 16 / 9).rounded()
+        let height = (width * 9 / 16).rounded()
+        window.setFrame(
+            NSRect(
+                x: visible.minX, y: visible.maxY - 10 - height - 2 * ViewerWindow.bandHeight, width: width,
+                height: height + 2 * ViewerWindow.bandHeight),
+            display: false)
+        let paperTop = window.frame.maxY - ViewerWindow.bandHeight
+
+        model.isBandAlwaysVisible = false
+        var content = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(content.width - width) <= 3)
+        #expect(abs(content.height - height) <= 3)
+        #expect(abs(content.maxY - paperTop) <= 3)
+
+        model.isBandAlwaysVisible = true
+        content = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(content.width - width) <= 3)
+        #expect(abs(content.height - height - 2 * ViewerWindow.bandHeight) <= 3)
+        #expect(abs(content.maxY - ViewerWindow.bandHeight - paperTop) <= 3)
+        #expect(abs(aspect(of: window) - 16.0 / 9.0) < 0.01)
+    }
+
     @Test("スライドを送っても窓の形は変えず、帯にはスライドの番号を出し、ふつうのページには出さない")
     func indicator() throws {
         let fixture = try fixture()
