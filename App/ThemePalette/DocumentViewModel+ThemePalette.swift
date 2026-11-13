@@ -51,7 +51,9 @@ extension DocumentViewModel {
         }
     }
 
-    var canTryThemesOnHover: Bool { (lastLayoutDuration ?? .zero) < hoverTrialLimit }
+    var canTryThemesOnHover: Bool {
+        preferences.triesThemeOnHover && (lastLayoutDuration ?? .zero) < hoverTrialLimit
+    }
 
     /// The name of the theme or code palette being tried, while the pointer rests on one.
     var trialThemeName: String? {
@@ -110,6 +112,7 @@ extension DocumentViewModel {
     func openThemePalette() {
         guard usesPrintTheme, mode == .view || mode == .print else { return }
         // Before it opens, so that it opens at its size with or without the code colors.
+        specimenSamples.diskCache?.prune()
         followThemeSamples()
         isThemePalettePresented = true
     }

@@ -81,6 +81,9 @@ final class AppPreferences {
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
     /// The code palette a document starts with; `CodePalette.matchesStyleID` follows its style.
     var defaultCodePaletteID: String { didSet { defaults.set(defaultCodePaletteID, forKey: "codePalette") } }
+    var triesThemeOnHover: Bool {
+        didSet { defaults.set(triesThemeOnHover, forKey: "triesThemeOnHover") }
+    }
     var themeSampleSource: ThemeSampleSource {
         didSet { defaults.set(themeSampleSource.rawValue, forKey: "themeSampleSource") }
     }
@@ -244,7 +247,8 @@ final class AppPreferences {
             ?? (initialSeries == .letter ? "letterSingle" : "a4Single")
         themeID = defaults.string(forKey: "theme") ?? "standard"
         themeSampleSource =
-            defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .document
+            defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .specimen
+        triesThemeOnHover = defaults.object(forKey: "triesThemeOnHover") as? Bool ?? true
         hasSeenPrintStyleTip = defaults.bool(forKey: "hasSeenPrintStyleTip")
         defaultCodePaletteID = defaults.string(forKey: "codePalette") ?? CodePalette.matchesStyleID
         presetID = defaults.string(forKey: "preset") ?? "none"

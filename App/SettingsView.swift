@@ -180,6 +180,7 @@ struct SettingsView: View {
                 case .settingSets:
                     SettingSetsSettings(preferences: preferences)
                 case .styles:
+                    Toggle("Try a Style on the Paper When Pointing at It", isOn: $preferences.triesThemeOnHover)
                     Picker("Default Style", selection: $preferences.themeID) {
                         DefaultStyleChoices(library: library)
                     }

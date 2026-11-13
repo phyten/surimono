@@ -43641,6 +43641,58 @@
           }
         }
       }
+    },
+    "Try a Style on the Paper When Pointing at It": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try a Style on the Paper When Pointing at It"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見本に乗せたら紙で試す"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指向样式预览时在纸张上试用"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指向樣式預覽時在紙張上試用"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "견본을 가리키면 종이에 스타일 적용해 보기"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Essayer un style sur la page au survol"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stil beim Zeigen auf das Muster auf dem Papier ausprobieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Probar un estilo en el papel al pasar el puntero"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

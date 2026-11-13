@@ -23,6 +23,10 @@ final class ThemeSamples {
     private var samples: [SampleID: (theme: PrintTheme, page: PDFPage)] = [:]
     @ObservationIgnored private var sampler: ThemeSampler?
     @ObservationIgnored private var key: Key?
+    @ObservationIgnored var diskCache: ThemeSampleCache?
+    // Only the bundled specimen opts in; document samples never persist their content.
+    @ObservationIgnored var specimenLanguage: (() -> String)?
+    var drawCount: Int { sampler?.drawCount ?? 0 }
 
     /// What the samples depend on: everything that lays out the page except the theme.
     private struct Key: Equatable {
@@ -80,13 +84,23 @@ final class ThemeSamples {
     /// A transient WebKit failure gets one fresh attempt while the requesting view is still present.
     func load(_ theme: PrintTheme, at place: SamplePlace? = nil) async {
         refresh()
-        guard page(for: theme, at: place) == nil, let sampler else { return }
+        guard page(for: theme, at: place) == nil, let sampler, let key else { return }
+        let diskKey =
+            place == nil
+            ? specimenLanguage.map {
+                sampler.cacheKey(for: theme, language: $0(), sourceHash: ContentHash.of(key.source.data).hex)
+            } : nil
+        if let diskKey, let page = diskCache?.page(for: diskKey) {
+            samples[SampleID(themeID: theme.id, place: place)] = (theme, page)
+            return
+        }
         for attempt in 0..<2 {
             do {
                 try Task.checkCancellation()
                 let page = try await sampler.page(for: theme, at: place)
                 try Task.checkCancellation()
                 guard sampler === self.sampler else { return }
+                if let diskKey { diskCache?.store(page, for: diskKey) }
                 samples[SampleID(themeID: theme.id, place: place)] = (theme, page)
                 return
             } catch {

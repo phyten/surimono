@@ -44,6 +44,9 @@ struct ThemePalette: View {
         .onAppear { model.followThemeSamples() }
         .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
         .onChange(of: model.preferences.themeSampleSource) { _, _ in model.followThemeSamples() }
+        .onChange(of: model.preferences.triesThemeOnHover) { _, enabled in
+            if !enabled { model.endThemeTrial() }
+        }
         .onExitCommand { model.themePaletteDidClose() }
         .onDisappear { model.themePaletteDidClose() }
     }

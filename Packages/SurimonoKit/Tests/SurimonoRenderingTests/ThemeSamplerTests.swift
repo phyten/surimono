@@ -35,6 +35,34 @@ struct ThemeSamplerTests {
         #expect(abs(sampler.printableSize.width - 510.4) < 1)
     }
 
+    @Test("見本の鍵は名前には依存せず、描画内容と寸法と言語に依存する")
+    func persistentKey() {
+        func make(
+            html: String = "<p>Sample</p>", width: CGFloat = 595, margin: Double = 15,
+            scale: Double = 1, code: CodeStyle = CodeStyle()
+        ) -> ThemeSampler {
+            ThemeSampler(
+                html: html, baseURL: nil, pageSize: CGSize(width: width, height: 842),
+                margins: .uniform(millimeters: margin), textScale: scale, code: code)
+        }
+        let first = theme("same", css: "body { color: black; }")
+        let sample = make()
+        let key = sample.cacheKey(for: first, language: "en")
+        #expect(key.count == 64)
+        #expect(key != sample.cacheKey(for: first, language: "en", sourceHash: "changed source"))
+        #expect(key == make().cacheKey(for: first, language: "en"))
+        #expect(key == sample.cacheKey(for: PrintTheme(id: "same", name: "Renamed", css: first.css), language: "en"))
+        #expect(key != sample.cacheKey(for: first, language: "ja"))
+        #expect(key != sample.cacheKey(for: theme("same", css: "body { color: blue; }"), language: "en"))
+        #expect(key != sample.cacheKey(for: theme("same", css: first.css, script: "decorate()"), language: "en"))
+        #expect(key != make(html: "<p>Changed</p>").cacheKey(for: first, language: "en"))
+        #expect(key != make(width: 420).cacheKey(for: first, language: "en"))
+        #expect(key != make(margin: 20).cacheKey(for: first, language: "en"))
+        #expect(key != make(scale: 1.2).cacheKey(for: first, language: "en"))
+        let code = CodeStyle(palette: CodePalette(id: "test", name: "Test", colors: [:], ground: "#eeeeee"))
+        #expect(key != make(code: code).cacheKey(for: first, language: "en"))
+    }
+
     // MARK: Places
 
     /// Enough headings and text for several pages.
