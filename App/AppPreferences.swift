@@ -182,6 +182,12 @@ final class AppPreferences {
         }
     }
 
+    var recentFiles: RecentFiles {
+        didSet {
+            if let data = try? JSONEncoder().encode(recentFiles) { defaults.set(data, forKey: "recentFiles") }
+        }
+    }
+
     init(
         defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier,
         locale: Locale? = nil, defaultPaperSize: CGSize? = nil
@@ -282,6 +288,10 @@ final class AppPreferences {
             defaults.data(forKey: "notePresets").flatMap {
                 try? JSONDecoder().decode([StoredNotePreset].self, from: $0)
             }?.compactMap(\.value) ?? []
+        recentFiles =
+            defaults.data(forKey: "recentFiles").flatMap {
+                try? JSONDecoder().decode(RecentFiles.self, from: $0)
+            } ?? RecentFiles()
         recentBinders =
             defaults.data(forKey: "recentBinders").flatMap {
                 try? JSONDecoder().decode(RecentBinders.self, from: $0)
