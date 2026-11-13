@@ -463,6 +463,10 @@ public final class DocumentRenderer {
 
     /// Prepares the logical pages only. The screen can show them while `composeSheet(for:)` imposes them on paper.
     public func prepare(_ source: DocumentSource, settings: RenderSettings) async throws -> PreparedRender {
+        let interval = renderingSignposter.beginInterval(
+            "prepare", id: renderingSignposter.makeSignpostID(), "format=\(source.format.rawValue, privacy: .public)")
+        var pageCount = 0
+        defer { renderingSignposter.endInterval("prepare", interval, "pages=\(pageCount)") }
         let output = try await prepareOnce(source, settings: settings)
         // HTML in Auto turns with its `@page` rules, which are known only once it has been laid out. A document that
         // asks for landscape is laid out again; the common upright one costs nothing more.
@@ -470,14 +474,21 @@ public final class DocumentRenderer {
             settings.slides == nil, let rule = sourcePageRule, rule.source == source,
             (rule.orientation == .landscape) != (output.resolvedOrientation == .landscape)
         {
-            return try await prepareOnce(source, settings: settings)
+            let revised = try await prepareOnce(source, settings: settings)
+            pageCount = revised.logicalDocument.pageCount
+            return revised
         }
+        pageCount = output.logicalDocument.pageCount
         return output
     }
 
     /// Composes the printed sheets of a prepared render, reusing the sheets of a recent render with the same logical
     /// pages and imposition settings.
     public func composeSheet(for prepared: PreparedRender, rotatesBackSides: Bool? = nil) async throws -> RenderResult {
+        let interval = renderingSignposter.beginInterval(
+            "composeSheet", id: renderingSignposter.makeSignpostID(),
+            "pages=\(prepared.logicalDocument.pageCount)")
+        defer { renderingSignposter.endInterval("composeSheet", interval) }
         // Printer calibration depends on the orientation resolved by prepare, without changing the logical pages.
         var options = prepared.options
         if let rotatesBackSides { options.rotatesBackSides = rotatesBackSides }
