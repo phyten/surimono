@@ -263,6 +263,8 @@ make clean
 - リリースは `v*` のタグで動く release.yml が作る（手順は `project-surimono-release`）。GitHub Releases に、新しく入れる人向けの DMG（アプリと `/Applications` へのリンク）、アプリ内アップデート用の ZIP、それぞれの SHA-256、`appcast.xml` を載せる。
 - アプリ内アップデートは Sparkle 2（`AppUpdater`）。公開版は Info.plist の `SUFeedURL`（`releases/latest/download/appcast.xml`）を読み、`SUPublicEDKey` の公開鍵で ZIP の EdDSA 署名を確かめてから入れ替えて再起動する。
   - 自動の確認は、Sparkle が 2 回目の起動で利用者に聞く（`SUEnableAutomaticChecks` を Info.plist に書かない）。許されていれば、Sparkle の 1 日ごとの確認に加えて起動のたびに裏で確認する（`AppUpdater.checkOnLaunch`。Sparkle だけでは前回から 1 日たつまで起動しても確かめない）。断られたら、メニューの「アップデートを確認…」のときだけ通信する。設定の「一般」でも切り替えられる。システム情報の送信（`SUEnableSystemProfiling`）は使わない。
+  - 更新が見つかったときの扱いは「知らせる（既定）」と「自動で入れる」。Sparkle の `automaticallyDownloadsUpdates` を直接読み書きし、既存の選択は上書きしない。知らせるときは、`SPUStandardUserDriverDelegate` の gentle reminders で、即時表示できる場合は標準ダイアログ、保留される場合は `UpdateReminderPanel`（フォーカスを取らない小さな案内、他アプリの前には出さない）を出す。「更新を表示…」で Sparkle のダイアログを開き、注意を向けたとき・更新セッション終了時に案内を消す。自動で入れる場合は Sparkle の終了時インストールに任せる。開発版と App Store 版には選択項目を出さない。
+  - 最近使ったファイルは `AppPreferences.recentFiles` に新しい順で、システムと同じ上限までパスとブックマークを保存する（App Store 版は読み取り専用 security-scoped）。`RecentFileHistory` は SwiftUI の文書コントローラーを置き換えず、`noteNewRecentDocumentURL`・`clearRecentDocuments` の公開メソッドをフックする。ZIP は通常の文書経路、画像の束は各画像を登録する。起動時にシステムの一覧があれば取り込み、空なら保存した一覧から移動を解決して古い順に登録する（消えたファイルは保存からも外す）。ウェルカム画面も空のときは保存側を使う。今回初めて保存する前に失われた一覧は戻せない。
   - 開発版は `SURIMONO_UPDATE_FEED_URL` が空なので Sparkle を起動せず、メニューにも出さない（`AppUpdaterTests`）。
   - appcast は、各リリースが自分の ZIP だけを載せる。配られるのは GitHub の「Latest」のリリース（プレリリースは配らない）。
   - 秘密鍵は、メンテナのログインキーチェーン（Sparkle の `generate_keys`、アカウント `io.github.phyten.Surimono`）と、リポジトリの Secret `SPARKLE_PRIVATE_KEY` にある。なくすと、入れてある版はその後の更新を確かめられず、入れ直しになる。鍵を替えるときは Sparkle の鍵の切り替えの手順に従う。
