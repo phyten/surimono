@@ -168,6 +168,40 @@ struct ViewBandTests {
         try await waitUntil { abs((paperViewHeight(in: window) ?? 0) - paper.height) <= 3 }
     }
 
+    @Test(
+        "刷り台や見比べ台でツールバーを切り替えて戻っても、紙の大きさと上端は変わらない",
+        arguments: [false, true], BandVisibility.allCases)
+    func toolbarToggledOnStage(compare: Bool, initial: BandVisibility) async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultBandVisibility = initial
+        let model = environment.model(Data("# Stage".utf8), format: .markdown)
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        let visible = try #require(window.screen?.visibleFrame)
+        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 80))
+        func paper() -> CGRect {
+            let content = window.contentRect(forFrameRect: window.frame)
+            let top: CGFloat = model.isBandAlwaysVisible ? 38 : 0
+            let bottom: CGFloat = model.isBandAlwaysVisible ? 38 : 0
+            return CGRect(
+                x: content.minX, y: content.minY + bottom, width: content.width,
+                height: content.height - top - bottom)
+        }
+        let before = paper()
+
+        if compare { model.enterCompareMode() } else { model.enterPrintMode() }
+        #expect(model.mode == (compare ? .compare : .print))
+        model.isBandAlwaysVisible.toggle()
+        model.exitPrintMode()
+        try await waitUntil { model.mode == .view && abs(paper().width - before.width) <= 3 }
+        try await waitUntil { abs(paper().height - before.height) <= 3 && abs(paper().maxY - before.maxY) <= 3 }
+    }
+
     @Test("常に表示のまま利用者が窓を広げたあとでも、外すと窓は紙だけの大きさになる", arguments: MenuArrangement.allCases)
     func turningToolbarOffAfterResize(arrangement: MenuArrangement) async throws {
         let environment = Environment()
