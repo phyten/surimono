@@ -75,7 +75,7 @@ public struct ImagePageRenderer {
     static func viewDocument(of document: PDFDocument) -> PDFDocument {
         let cropped = PDFDocument()
         for index in 0..<document.pageCount {
-            guard let page = document.page(at: index), let copy = page.copy() as? PDFPage else { continue }
+            guard let page = document.page(at: index), let copy = StandalonePage.copy(of: page) else { continue }
             copy.setBounds(page.bounds(for: .artBox), for: .cropBox)
             cropped.insert(copy, at: cropped.pageCount)
         }

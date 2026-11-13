@@ -3,6 +3,7 @@ import Foundation
 import PDFKit
 
 /// Lays a theme's paper under pages laid out without it, so the paper covers the margins too (see `PaperBackground`).
+@MainActor
 enum PaperComposer {
     /// Each page of `document` drawn over `paper`, as vectors. The paper is stretched to each page, which it matches
     /// unless the page kept the paginator's allowance. Links and other annotations move along with their page.
@@ -51,8 +52,9 @@ enum PaperComposer {
         }
         for (index, box) in boxes.enumerated() {
             guard let source = document.page(at: index), let target = composed.page(at: index) else { continue }
+            StandalonePage.retainSources(of: source, on: target)
             for annotation in source.annotations {
-                guard let copy = annotation.copy() as? PDFAnnotation else { continue }
+                guard let copy = annotation.copy() as? PDFAnnotation else { return nil }
                 copy.bounds = annotation.bounds.offsetBy(dx: shift(index) - box.minX, dy: -box.minY)
                 if let destination = moved(annotation.destination) { copy.destination = destination }
                 if let action = annotation.action as? PDFActionGoTo, let destination = moved(action.destination) {
@@ -89,6 +91,6 @@ enum PaperComposer {
         context.restoreGState()
         context.endPage()
         context.closePDF()
-        return PDFDocument(data: data as Data)?.page(at: 0)
+        return StandalonePage.first(of: data as Data)
     }
 }
