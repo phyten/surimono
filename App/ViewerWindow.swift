@@ -1,9 +1,10 @@
 import AppKit
 
-/// Window handling for the borderless view mode: the title bar is hidden, room for the bands is kept beside the paper,
-/// and the traffic lights appear together with the bands.
+/// Window handling for the borderless view mode: the title bar is hidden, room for bands that always show is kept beside
+/// the paper, and the traffic lights appear together with the bands.
 enum ViewerWindow {
-    /// The room of one band. It is kept whether or not the band shows, so showing it never resizes the window.
+    /// The room of one band that always shows. A band shown on pointing lies over the paper instead, so the pointer
+    /// never resizes the window.
     static let bandHeight: CGFloat = 38
     private static let minimumPaperHeight: CGFloat = 280
     /// Animated frame changes post live-resize notifications; these windows are being resized by the app itself.
@@ -88,6 +89,17 @@ enum ViewerWindow {
         }
     }
 
+    /// How far the top band's title moves to share one centre line with the traffic lights. AppKit places them for a
+    /// title bar of its own, which is lower than the band and differs between macOS versions.
+    static func titleOffset(in window: NSWindow) -> CGFloat {
+        guard let button = window.standardWindowButton(.closeButton), button.window === window,
+            let content = window.contentView
+        else { return 0 }
+        let frame = content.convert(button.bounds, from: button)
+        let midY = content.isFlipped ? frame.midY : content.bounds.height - frame.midY
+        return midY - bandHeight / 2
+    }
+
     static func setAlwaysOnTop(_ onTop: Bool, in window: NSWindow) {
         window.level = onTop ? .floating : .normal
     }
@@ -128,16 +140,17 @@ enum ViewerWindow {
     }
 
     /// Resizes the window so that the paper area is `paper`, keeping the top-left (or top-right) corner in place and
-    /// the window on screen, and locks resizing to the paper's aspect ratio.
+    /// the window on screen, and locks resizing to the paper's aspect ratio. `topGrowth` raises the top edge instead,
+    /// for room that comes or goes above the paper.
     static func setPaperSize(
         _ paper: CGSize, band: CGFloat, of window: NSWindow, animate: Bool, keepsRightEdge: Bool = false,
-        side: CGFloat = 0
+        side: CGFloat = 0, topGrowth: CGFloat = 0
     ) {
         guard paper.width > 0, paper.height > 0 else { return }
         let content = NSRect(x: 0, y: 0, width: paper.width + side, height: paper.height + band)
         var frame = window.frameRect(forContentRect: content)
         frame.origin.x = keepsRightEdge ? window.frame.maxX - frame.width : window.frame.minX
-        frame.origin.y = window.frame.maxY - frame.height
+        frame.origin.y = window.frame.maxY + topGrowth - frame.height
         setFrame(constrained(frame, on: window.screen), of: window, animate: animate)
         lockAspectRatio(of: window, unit: paper, band: band, side: side)
     }

@@ -3,7 +3,7 @@ import SwiftUI
 
 // The paper dispatches through these entries so the guide cannot silently lose a handled key.
 enum KeyGuideEntry: CaseIterable {
-    case menu, viewOptions, selectText, alternateDrag, pageEdge, doubleClick, pinch
+    case menu, alwaysShowToolbar, viewOptions, selectText, alternateDrag, pageEdge, doubleClick, pinch
     case find, findStep, goToPage, reload
     case print, systemPrint, printLayouts, escape
     case moveSelection, removeFromList, showList
@@ -11,6 +11,7 @@ enum KeyGuideEntry: CaseIterable {
     var trigger: String {
         switch self {
         case .menu: "Tab / M"
+        case .alwaysShowToolbar: "⌥⌘T"
         case .viewOptions: "V"
         case .selectText: "T"
         case .alternateDrag: String(localized: "Hold ⌥")
@@ -34,6 +35,8 @@ enum KeyGuideEntry: CaseIterable {
     var explanation: String {
         switch self {
         case .menu: String(localized: "Show or hide the toolbar")
+        // The View menu is the one place of this switch, so the guide names it as the menu does.
+        case .alwaysShowToolbar: String(localized: "Always Show Toolbar")
         case .viewOptions: String(localized: "Open view options")
         case .selectText: String(localized: "Select text ⇄ move paper")
         case .alternateDrag: String(localized: "Swap what dragging the paper does")

@@ -5,11 +5,11 @@ import Testing
 
 @MainActor
 struct KeyGuideTests {
-    @Test("キーと操作の一覧は紙・検索・印刷・手の操作を18項目で案内する")
+    @Test("キーと操作の一覧は紙・ツールバー・検索・印刷・手の操作を19項目で案内する")
     func entries() {
         #expect(
             KeyGuideEntry.allCases == [
-                .menu, .viewOptions, .selectText, .alternateDrag, .pageEdge, .doubleClick, .pinch,
+                .menu, .alwaysShowToolbar, .viewOptions, .selectText, .alternateDrag, .pageEdge, .doubleClick, .pinch,
                 .find, .findStep, .goToPage, .reload,
                 .print, .systemPrint, .printLayouts, .escape, .moveSelection, .removeFromList, .showList,
             ])
@@ -18,6 +18,7 @@ struct KeyGuideTests {
         #expect(KeyGuideEntry.goToPage.trigger == "⌥⌘G")
         #expect(KeyGuideEntry.reload.trigger == "⌘R")
         #expect(KeyGuideEntry.menu.trigger == "Tab / M")
+        #expect(KeyGuideEntry.alwaysShowToolbar.trigger == "⌥⌘T")
         #expect(KeyGuideEntry.viewOptions.trigger == "V")
         #expect(KeyGuideEntry.selectText.trigger == "T")
         #expect(KeyGuideEntry.print.trigger == "⌘P")

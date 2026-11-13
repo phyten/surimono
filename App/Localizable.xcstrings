@@ -28886,58 +28886,6 @@
         }
       }
     },
-    "Always Show Toolbar (⌥⌘T)": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Always Show Toolbar (⌥⌘T)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ツールバーを常に表示 (⌥⌘T)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "始终显示工具栏 (⌥⌘T)"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "永遠顯示工具列 (⌥⌘T)"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "도구 막대 항상 표시 (⌥⌘T)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Toujours afficher la barre d’outils (⌥⌘T)"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Symbolleiste immer zeigen (⌥⌘T)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostrar siempre la barra (⌥⌘T)"
-          }
-        }
-      }
-    },
     "Paper keys work when the paper has focus. A toolbar set to always show stays visible.": {
       "localizations": {
         "en": {

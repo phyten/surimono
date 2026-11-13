@@ -160,23 +160,31 @@ struct BandPlans {
     }
 }
 
-/// The room of one band beside the paper. It stays whether or not the band shows, so that the window never changes
-/// with the pointer, and what the band leaves empty moves the window.
+/// The place of one band: its own room beside the paper while it always shows, or the paper's edge it lies over while
+/// it shows on pointing. What the band leaves empty moves the window. A hidden band draws nothing, so the paper under
+/// it stays in view and takes the clicks.
 struct BandZone<Content: View>: View {
     static var coordinateSpace: String { "band" }
 
     let edge: VerticalEdge
+    let isShown: Bool
     @ViewBuilder let content: Content
 
     var body: some View {
         ZStack {
-            WindowDragArea()
-            content
+            if isShown {
+                WindowDragArea()
+                content
+            }
         }
         .frame(height: ViewerWindow.bandHeight)
         .frame(maxWidth: .infinity)
-        .background(PrintPalette.raised)
-        .overlay(alignment: edge == .top ? .bottom : .top) { Divider() }
+        .background {
+            if isShown { PrintPalette.raised }
+        }
+        .overlay(alignment: edge == .top ? .bottom : .top) {
+            if isShown { Divider() }
+        }
         .coordinateSpace(name: Self.coordinateSpace)
     }
 }
@@ -204,8 +212,8 @@ extension View {
 }
 
 /// The popovers of the table of contents and the document's figures. They hang off the band's room rather than off
-/// their buttons: `BandMeasurements` draws every item a second time, a folded item has no button, and the room stays
-/// when the band hides or rearranges.
+/// their buttons: `BandMeasurements` draws every item a second time, a folded item has no button, and the band's place
+/// stays when the band hides or rearranges.
 struct BandPopovers: View {
     @Bindable var model: DocumentViewModel
     let menu: OverlayMenuState
@@ -241,6 +249,7 @@ struct BandPopovers: View {
 struct OverlayBand: View {
     @Bindable var model: DocumentViewModel
     let menu: OverlayMenuState
+    @State private var titleOffset: CGFloat = 0
 
     static let spacing: CGFloat = 10
     static let toolSpacing: CGFloat = 8
@@ -258,12 +267,13 @@ struct OverlayBand: View {
         HStack(spacing: Self.spacing) {
             // Room for the traffic lights.
             Color.clear.frame(width: Self.lightsWidth, height: 1)
-            title(plan)
+            title(plan).offset(y: titleOffset)
             Spacer(minLength: Self.spacerMinimum)
             tools(plans)
             PrintButton(model: model, iconOnly: plan.forms[.print] == .compact)
         }
         .padding(.trailing, Self.trailingPadding)
+        .background(WindowReader { titleOffset = ViewerWindow.titleOffset(in: $0) })
     }
 
     private func title(_ plan: BandLayout.Plan) -> some View {

@@ -101,7 +101,7 @@ struct SettingsMenuTests {
         #expect(!titles.contains(localized("Images")))
     }
 
-    @Test("帯から移した文字選択と固定操作は表示メニューに残る")
+    @Test("文字選択と窓の固定操作は表示メニューにあり、ツールバーを常に表示は⌥⌘Tで切り替わる")
     func secondaryViewCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
         for key in ["Select Text", "Always Show Toolbar", "Float on Top", "View Options…"] {

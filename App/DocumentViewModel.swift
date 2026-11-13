@@ -135,8 +135,13 @@ final class DocumentViewModel {
     /// The page the paper shows, which is a trial's page while a theme is tried; `currentPageIndex` keeps the reading
     /// position in the document's own pages for when the trial ends.
     var shownPageIndex = 0
-    /// Whether the bands show all the time; their room beside the paper stays either way.
-    var bandVisibility: BandVisibility
+    /// Whether the bands show all the time, in their own room beside the paper, or only on pointing, over its edges.
+    var bandVisibility: BandVisibility {
+        didSet {
+            guard bandVisibility != oldValue else { return }
+            bandRoomDidChange(from: Self.bandRoom(of: menuArrangement, oldValue), animate: false)
+        }
+    }
     var isAlwaysOnTop: Bool
     var isDrawerOpen = false
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
@@ -2398,11 +2403,19 @@ final class DocumentViewModel {
 
     var menuArrangement: MenuArrangement { preferences.menuArrangement }
 
-    /// The room the bands take beside the paper, whether or not they show.
-    private var bandInset: CGFloat { Self.bandInset(of: menuArrangement) }
+    /// The room the bands take beside the paper.
+    var bandInset: CGFloat {
+        let room = Self.bandRoom(of: menuArrangement, bandVisibility)
+        return room.top + room.bottom
+    }
 
-    private static func bandInset(of arrangement: MenuArrangement) -> CGFloat {
-        ViewerWindow.bandHeight * CGFloat(arrangement.bandCount)
+    /// Only bands that always show have room of their own. Bands that show on pointing lie over the paper's edges, so
+    /// that the window is the paper alone while they are hidden.
+    private static func bandRoom(
+        of arrangement: MenuArrangement, _ visibility: BandVisibility
+    ) -> (top: CGFloat, bottom: CGFloat) {
+        guard visibility == .always else { return (0, 0) }
+        return (ViewerWindow.bandHeight, arrangement == .split ? ViewerWindow.bandHeight : 0)
     }
 
     /// The paper the window shows in the view mode. Before the first pages fit the window to the paper, its size is
@@ -2455,13 +2468,19 @@ final class DocumentViewModel {
             side: sideInset)
     }
 
-    /// The paper keeps its size and place when the bands change: the window grows or shrinks at the bottom.
     func menuArrangementDidChange(from previous: MenuArrangement) {
-        guard mode == .view, let window else { return }
-        let paper = CGSize(
-            width: window.contentRect(forFrameRect: window.frame).width - sideInset,
-            height: ViewerWindow.paperHeight(of: window, band: Self.bandInset(of: previous)))
-        ViewerWindow.setPaperSize(paper, band: bandInset, of: window, animate: true, side: sideInset)
+        bandRoomDidChange(from: Self.bandRoom(of: previous, bandVisibility), animate: true)
+    }
+
+    /// The paper keeps its size and place when the bands' room changes: the window grows or shrinks around it.
+    private func bandRoomDidChange(from previous: (top: CGFloat, bottom: CGFloat), animate: Bool) {
+        guard mode == .view, hasSizedWindow, let window else { return }
+        let room = Self.bandRoom(of: menuArrangement, bandVisibility)
+        let content = window.contentRect(forFrameRect: window.frame).size
+        let paper = CGSize(width: content.width - sideInset, height: content.height - previous.top - previous.bottom)
+        ViewerWindow.setPaperSize(
+            paper, band: room.top + room.bottom, of: window, animate: animate, side: sideInset,
+            topGrowth: room.top - previous.top)
         if isWebPresentation { applyWebShape(animate: false) }
     }
 
