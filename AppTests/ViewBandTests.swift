@@ -131,6 +131,19 @@ struct ViewBandTests {
         return paper.convert(paper.bounds, to: nil).height
     }
 
+    /// Puts the window where it has room on every side, small enough for a small CI display: a window that reaches
+    /// past the screen is moved back onto it, which would hide what the toolbar change itself does.
+    private func place(_ window: NSWindow, band: CGFloat, model: DocumentViewModel) throws {
+        let visible = try #require(window.screen?.visibleFrame)
+        let content = window.contentRect(forFrameRect: window.frame)
+        let paperHeight = content.height - band
+        let scale = min(1, 400 / paperHeight)
+        window.setContentSize(
+            CGSize(width: (content.width * scale).rounded(), height: (paperHeight * scale).rounded() + band))
+        model.windowDidEndLiveResize()
+        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 80))
+    }
+
     @Test(
         "ツールバーを常に表示から外すと窓は紙だけの大きさに戻り、紙は画面の上で動かない",
         arguments: MenuArrangement.allCases)
@@ -146,10 +159,8 @@ struct ViewBandTests {
         defer { controller.close() }
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
-        // Room around the window, or it would be moved to stay on the screen.
-        let visible = try #require(window.screen?.visibleFrame)
-        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 80))
         let room: CGFloat = arrangement == .split ? 76 : 38
+        try place(window, band: room, model: model)
         let pinned = window.contentRect(forFrameRect: window.frame)
         let paper = CGSize(width: pinned.width, height: pinned.height - room)
         let paperTop = pinned.maxY - 38
@@ -182,8 +193,7 @@ struct ViewBandTests {
         defer { controller.close() }
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
-        let visible = try #require(window.screen?.visibleFrame)
-        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 80))
+        try place(window, band: model.isBandAlwaysVisible ? 76 : 0, model: model)
         func paper() -> CGRect {
             let content = window.contentRect(forFrameRect: window.frame)
             let top: CGFloat = model.isBandAlwaysVisible ? 38 : 0
