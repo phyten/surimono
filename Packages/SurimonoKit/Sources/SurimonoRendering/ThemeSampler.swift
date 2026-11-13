@@ -2,6 +2,7 @@ import AppKit
 import PDFKit
 import SurimonoCore
 import WebKit
+import os
 
 /// Draws one document's first page in any print theme, fast enough for a style picker.
 ///
@@ -91,6 +92,10 @@ public final class ThemeSampler {
         if let sample = samples[key], sample.theme == theme { return sample.page }
         guard !isClosed else { throw SamplingError.closed }
         try Task.checkCancellation()
+        let interval = renderingSignposter.beginInterval(
+            "themeSample", id: renderingSignposter.makeSignpostID(),
+            "format=\(self.format.rawValue, privacy: .public) pages=1")
+        defer { renderingSignposter.endInterval("themeSample", interval) }
         isBusy = true
         var succeeded = false
         defer {

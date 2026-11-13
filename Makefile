@@ -7,6 +7,7 @@ VERSION ?= $(shell sed -n 's/^MARKETING_VERSION = //p' Configs/Base.xcconfig)
 MARKETING_VERSION ?= $(VERSION)
 BUILD_NUMBER ?= 1
 FILE ?=
+BENCH_THRESHOLD ?= 20
 SWIFT_TEST_FLAGS ?=
 
 XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -derivedDataPath "$(DERIVED_DATA)" -destination 'platform=macOS'
@@ -17,7 +18,7 @@ RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
 APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-app lint format package build-appstore check-appstore clean
+.PHONY: help build run test test-kit test-app bench bench-compare lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
@@ -25,6 +26,8 @@ help:
 	@echo "test       Run package and hosted app tests"
 	@echo "test-kit   Run SurimonoKit tests"
 	@echo "test-app   Run hosted app tests"
+	@echo "bench      Record rendering benchmarks (SURIMONO_BENCH_RUNS / SURIMONO_BENCH_OUT)"
+	@echo "bench-compare  Compare medians: BASE=<json> NEW=<json> [BENCH_THRESHOLD=20]"
 	@echo "lint       Check Swift formatting"
 	@echo "format     Format Swift sources"
 	@echo "package    Build Release, verify signing, and create DMG + ZIP with SHA-256"
@@ -53,6 +56,12 @@ ifeq ($(strip $(SWIFT_TEST_FLAGS)),)
 else
 	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS)
 endif
+
+bench:
+	SURIMONO_BENCH=1 swift test --package-path Packages/SurimonoKit --disable-sandbox --filter RenderingBenchmarks --no-parallel
+
+bench-compare:
+	python3 Benchmarks/compare.py "$(BASE)" "$(NEW)" --threshold "$(BENCH_THRESHOLD)"
 
 test-app:
 	$(XCODEBUILD) -configuration "$(CONFIGURATION)" test

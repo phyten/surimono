@@ -37,6 +37,8 @@ make build                      # Debug ビルド（build/DerivedData。開発�
 make run FILE=Samples/sample.md # ビルドしてファイルを開く（FILE 省略可）
 make test                       # test-kit と test-app の両方
 make test-kit                   # SurimonoKit のテスト（swift test）
+make bench                      # 任意の描画計測（既定 5 回。JSON の保存先を表示）
+make bench-compare BASE=old.json NEW=new.json # 中央値の差を比較（合否なし）
 make test-app                   # アプリのテスト（xcodebuild test）
 make lint                       # swift-format lint --strict
 make format                     # swift-format で整形
@@ -295,6 +297,8 @@ make clean
 - 仕様として書いた制約（面付けの式、用紙寸法など）はテストで固定する。
 - WebKit を使うテストは遅く不安定になりやすい。数を絞り、タイムアウトを設ける。Kit の Rendering のテストは、`make test-kit`（`SWIFT_TEST_FLAGS` を指定しないとき）が直列（`--no-parallel`）で走らせる。新しい CI の runner で並列に走らせると、複数件がまとめて時間切れになることがあった（比較では、並列で 10 台中 1 台、直列で 10 台中 0 台が失敗）。個別に走らせるときも、必要なら `--no-parallel` を付ける。
 - fixture に個人情報や実データを入れない。
+- 描画計測は `make bench` のみで実行する（`SURIMONO_BENCH=1` がなければスイート全体をスキップ）。
+- 回数は `SURIMONO_BENCH_RUNS`、JSON の保存先は `SURIMONO_BENCH_OUT`。比較・基準値の更新は `Benchmarks/README.md` を参照。
 
 ## Git / PR
 
