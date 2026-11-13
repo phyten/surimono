@@ -90,8 +90,13 @@ public final class ThemeSampler {
         while isBusy { try await Task.sleep(for: .milliseconds(5)) }
         if let sample = samples[key], sample.theme == theme { return sample.page }
         guard !isClosed else { throw SamplingError.closed }
+        try Task.checkCancellation()
         isBusy = true
-        defer { isBusy = false }
+        var succeeded = false
+        defer {
+            isBusy = false
+            if !succeeded { resetSessions() }
+        }
         let session = try await openSession()
         try Task.checkCancellation()
         let hasPaper = try await apply(theme, in: session.webView)
@@ -103,17 +108,19 @@ public final class ThemeSampler {
         configuration.rect = CGRect(origin: CGPoint(x: 0, y: top), size: printableSize)
         let data = try await session.webView.pdf(configuration: configuration)
         guard !isClosed else { throw SamplingError.closed }
-        guard let text = PDFDocument(data: data)?.page(at: 0) else { throw SamplingError.emptyPage }
+        guard let text = StandalonePage.first(of: data) else { throw SamplingError.emptyPage }
         if resourceAccess != nil { LocalResourceSchemeHandler.restoreFileLinks(on: text) }
-        // A paper that cannot be drawn leaves the sample on white, as a theme without one.
-        let paper = hasPaper && WebPaginator.drawsClearPages ? try? await paperPage(for: theme) : nil
+        // A missing paper is a failed sample, not a successful white sample to keep in the cache.
+        let paper = hasPaper && WebPaginator.drawsClearPages ? try await paperPage(for: theme) : nil
         try Task.checkCancellation()
         guard !isClosed else { throw SamplingError.closed }
+        try session.checkReady()
         guard let page = PaperComposer.sample(text: text, paper: paper, pageSize: pageSize, margins: margins) else {
             throw SamplingError.emptyPage
         }
         drawCount += 1
         samples[key] = (theme, page)
+        succeeded = true
         return page
     }
 
@@ -123,13 +130,21 @@ public final class ThemeSampler {
         while isBusy { try await Task.sleep(for: .milliseconds(5)) }
         if let places { return places }
         guard !isClosed else { throw SamplingError.closed }
+        try Task.checkCancellation()
         isBusy = true
-        defer { isBusy = false }
+        var succeeded = false
+        defer {
+            isBusy = false
+            if !succeeded { resetSessions() }
+        }
         let session = try await openSession()
         let json = try await session.webView.callAsyncJavaScript(
             Self.placeElements + Self.listing, arguments: [:], in: nil, contentWorld: world)
         let found = try JSONDecoder().decode([SamplePlace].self, from: Data((json as? String ?? "[]").utf8))
+        try Task.checkCancellation()
+        try session.checkReady()
         places = found
+        succeeded = true
         return found
     }
 
@@ -197,12 +212,18 @@ public final class ThemeSampler {
     /// Releases the web view, its window and temporary file. Later requests fail with `SamplingError.closed`.
     public func close() {
         isClosed = true
+        resetSessions()
+        samples = [:]
+        places = nil
+    }
+
+    private func resetSessions() {
         session?.close()
         session = nil
         paperSession?.close()
         paperSession = nil
-        samples = [:]
-        places = nil
+        appliedTheme = nil
+        appliedHasPaper = nil
     }
 
     private func openSession() async throws -> Session {
@@ -226,7 +247,8 @@ public final class ThemeSampler {
             if self.session === session { self.session = nil }
             throw error
         }
-        session.isReady = true
+        session.didLoadResources = true
+        try session.checkReady()
         return session
     }
 
@@ -234,6 +256,9 @@ public final class ThemeSampler {
     /// paper off with `PaperBackground.removalStyle`; returns whether the theme has paper.
     private func apply(_ theme: PrintTheme, in webView: WKWebView) async throws -> Bool {
         if appliedTheme == theme, let hasPaper = appliedHasPaper { return hasPaper }
+        // A cancelled swap must not leave the previous theme marked as applied.
+        appliedTheme = nil
+        appliedHasPaper = nil
         // A wide page may have kept the previous theme's paper (`PaperBackground.detectionScript`).
         let swap = """
             const style = document.head.querySelector('style');
@@ -257,8 +282,9 @@ public final class ThemeSampler {
             // A failing decoration leaves the page undecorated rather than failing the sample, as in printing.
             _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
         }
-        let detection = try? await webView.callAsyncJavaScript(
+        let detection = try await webView.callAsyncJavaScript(
             PaperBackground.detectionScript, arguments: [:], in: nil, contentWorld: world)
+        try Task.checkCancellation()
         let hasPaper = detection as? String == "paper"
         appliedTheme = theme
         appliedHasPaper = hasPaper
@@ -294,7 +320,8 @@ public final class ThemeSampler {
                 if paperSession === session { paperSession = nil }
                 throw error
             }
-            session.isReady = true
+            session.didLoadResources = true
+            try session.checkReady()
         }
         let swap = """
             const style = document.head.querySelector('style');
@@ -308,7 +335,9 @@ public final class ThemeSampler {
         let configuration = WKPDFConfiguration()
         configuration.rect = CGRect(origin: .zero, size: pageSize)
         let data = try await session.webView.pdf(configuration: configuration)
-        guard let page = PDFDocument(data: data)?.page(at: 0) else { throw SamplingError.emptyPage }
+        try Task.checkCancellation()
+        try session.checkReady()
+        guard let page = StandalonePage.first(of: data) else { throw SamplingError.emptyPage }
         return page
     }
 
@@ -318,7 +347,13 @@ public final class ThemeSampler {
         let webView: WKWebView
         let navigation = NavigationTracker()
         /// The document has loaded with its images and fonts, so a theme can be drawn on it.
-        var isReady = false
+        var didLoadResources = false
+        var isReady: Bool { didLoadResources && navigation.state == .finished }
+
+        func checkReady() throws {
+            if case .failed(let message) = navigation.state { throw SamplingError.loadFailed(message) }
+            guard isReady else { throw SamplingError.closed }
+        }
         private let window: NSWindow
         private var temporaryFile: URL?
         private let resourceAccess: LocalResourceAccess?
@@ -365,6 +400,7 @@ public final class ThemeSampler {
         }
 
         func close() {
+            didLoadResources = false
             webView.stopLoading()
             webView.navigationDelegate = nil
             window.contentView = nil

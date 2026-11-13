@@ -34,6 +34,60 @@ struct ThemePaletteTests {
         }
     }
 
+    @Test("試しのキャッシュから追い出し紙を作り直してもリンク注釈の元を残す", .timeLimit(.minutes(1)))
+    func evictedTrialCanBeShownAgain() async throws {
+        let previous = WebPaginator.clearBackground
+        WebPaginator.clearBackground = { _ in }
+        defer { WebPaginator.clearBackground = previous }
+        weak var backing: CGPDFDocument?
+        var bodyCount = 0
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            try autoreleasepool {
+                let document = try #require(PDFDocument(data: TestFixtures.pdf("trial links", pages: 1)))
+                if !request.drawsBackground {
+                    bodyCount += 1
+                    let page = try #require(document.page(at: 0))
+                    let annotation = PDFAnnotation(
+                        bounds: CGRect(x: 30, y: 40, width: 100, height: 20), forType: .link, withProperties: nil)
+                    annotation.url = URL(string: "https://example.com/")
+                    page.addAnnotation(annotation)
+                    let data = try #require(document.dataRepresentation())
+                    let source = try #require(PDFDocument(data: data))
+                    if bodyCount == 1 { backing = source.page(at: 0)?.pageRef?.document }
+                    return WebPaginator.Result(document: source, preparationResult: "paper")
+                }
+                return WebPaginator.Result(document: document)
+            }
+        })
+        let trial = ThemeTrial(renderer: renderer)
+        defer { trial.clear() }
+        let source = DocumentSource(data: Data("# Trial links".utf8), format: .markdown)
+        var settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "first", name: "First", css: ""),
+            preset: HTMLCleanupPreset(id: "none", name: "None"))
+        trial.begin(source: source, settings: settings, isBusy: { false })
+        try await waitUntil { trial.document != nil }
+        let paperDocument = try #require(trial.document)
+        for index in 1...6 {
+            settings.theme = PrintTheme(id: "trial-\(index)", name: "Trial", css: "")
+            trial.begin(source: source, settings: settings, isBusy: { false })
+            try await waitUntil { trial.document != nil }
+        }
+        #expect(bodyCount == 7)
+        settings.theme = PrintTheme(id: "first", name: "First", css: "")
+        trial.begin(source: source, settings: settings, isBusy: { false })
+        #expect(trial.document == nil)
+        trial.clear()
+        try #require(backing != nil)
+        let paper = PaperPDFView(frame: CGRect(x: 0, y: 0, width: 600, height: 500))
+        paper.configure(
+            paperDocument, at: 0,
+            options: ViewOptions(layout: .spread, scrollAxis: .horizontal, transition: .instant, showsCoverAlone: true),
+            logicalMargin: nil, showsPageNumbers: false)
+        #expect(paper.document?.pageCount == 2)
+        #expect(paper.document?.page(at: 1)?.annotations.first?.url?.absoluteString == "https://example.com/")
+    }
+
     @Test("パレットの星は、いまのスタイルを変えずに、そのテーマのお気に入りを切り替える")
     func starsAnyTheme() {
         let suite = TestDefaultsSuite()

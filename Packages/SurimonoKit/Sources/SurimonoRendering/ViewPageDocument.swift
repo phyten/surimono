@@ -31,8 +31,9 @@ public enum ViewPageDocument {
                             scale: scale)
                     else { return nil }
                     page = decorated
+                    StandalonePage.retainSources(of: original, on: page)
                 } else {
-                    guard let copy = original.copy() as? PDFPage else { return nil }
+                    guard let copy = StandalonePage.copy(of: original) else { return nil }
                     page = copy
                 }
                 // Explicit annotation copies keep destination rewrites off the original page.

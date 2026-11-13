@@ -77,12 +77,23 @@ final class ThemeSamples {
         if replacesSamples { generation += 1 }
     }
 
-    /// Draws the sample of `theme` unless it is there already. A failed sample stays a blank sheet.
+    /// A transient WebKit failure gets one fresh attempt while the requesting view is still present.
     func load(_ theme: PrintTheme, at place: SamplePlace? = nil) async {
         refresh()
         guard page(for: theme, at: place) == nil, let sampler else { return }
-        guard let page = try? await sampler.page(for: theme, at: place), sampler === self.sampler else { return }
-        samples[SampleID(themeID: theme.id, place: place)] = (theme, page)
+        for attempt in 0..<2 {
+            do {
+                try Task.checkCancellation()
+                let page = try await sampler.page(for: theme, at: place)
+                try Task.checkCancellation()
+                guard sampler === self.sampler else { return }
+                samples[SampleID(themeID: theme.id, place: place)] = (theme, page)
+                return
+            } catch {
+                guard !Task.isCancelled, sampler === self.sampler, attempt == 0 else { return }
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            }
+        }
     }
 
     /// Reads the places of the document as it is now. False when that did not happen, because the view asking went away
