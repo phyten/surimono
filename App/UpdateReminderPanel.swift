@@ -2,6 +2,7 @@ import AppKit
 
 // Surimono hides document title bars, so a title-bar accessory would hide the reminder too. A small nonactivating
 // panel stays visible while the reader works, without taking keyboard focus or appearing over another app.
+// Its close button dismisses the reminder for this run; the menu's Check for Updates still reaches the update.
 final class UpdateReminderPanel: NSPanel {
     private let showUpdate: () -> Void
     private var activationObserver: (any NSObjectProtocol)?
@@ -10,7 +11,7 @@ final class UpdateReminderPanel: NSPanel {
         self.showUpdate = showUpdate
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 52),
-            styleMask: [.titled, .nonactivatingPanel, .utilityWindow], backing: .buffered, defer: false)
+            styleMask: [.titled, .closable, .nonactivatingPanel, .utilityWindow], backing: .buffered, defer: false)
         isReleasedWhenClosed = false
         title = String(localized: "Update Available")
         hidesOnDeactivate = true

@@ -63,14 +63,14 @@ struct SettingsView: View {
                                 "Check for Updates Automatically",
                                 isOn: Binding(
                                     get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) }))
-                            UpdateHandlingPicker(
-                                installsAutomatically: Binding(
-                                    get: { updater.installsAutomatically },
-                                    set: { updater.setInstallsAutomatically($0) }))
                             Text(
                                 "Surimono asks GitHub whether a newer version exists. Nothing about your documents is sent."
                             )
                             .font(.caption).foregroundStyle(.secondary)
+                            UpdateHandlingPicker(
+                                installsAutomatically: Binding(
+                                    get: { updater.installsAutomatically },
+                                    set: { updater.setInstallsAutomatically($0) }))
                         }
                     }
 
