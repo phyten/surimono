@@ -405,6 +405,8 @@ final class DocumentViewModel {
         viewOptions = guess
         initialViewOptions = guess
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
+        specimenSamples.diskCache = ThemeSampleCache.application
+        specimenSamples.specimenLanguage = { [weak self] in self?.language ?? "en" }
         specimenSamples.inputs = { [weak self] in
             guard let self else { return (nil, nil) }
             return (ThemeSpecimen.source(language: language), ThemeSpecimen.settings)

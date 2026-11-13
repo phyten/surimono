@@ -70,6 +70,20 @@ public final class ThemeSampler {
         self.timeout = timeout
     }
 
+    // Hash the actual drawing inputs so changes to shared CSS, fonts, code options or decorations cannot reuse
+    // an older specimen. Length prefixes keep adjacent fields unambiguous without persisting their contents.
+    public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
+        let fields = [
+            "theme-sample-v1", theme.id, language, sourceHash, html, format.rawValue,
+            HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, code: code), theme.script ?? "",
+            String(Double(pageSize.width)), String(Double(pageSize.height)),
+            String(Double(margins.top)), String(Double(margins.left)),
+            String(Double(margins.bottom)), String(Double(margins.right)),
+        ]
+        let encoded = fields.map { "\($0.utf8.count):\($0)" }.joined()
+        return ContentHash.of(Data(encoded.utf8)).hex
+    }
+
     private struct SampleKey: Hashable {
         let themeID: String
         let place: SamplePlace?
