@@ -13,9 +13,11 @@ import SwiftUI
 
         @ObservationIgnored private let relaunch = UpdateRelaunch()
         let checksAutomatically = false
+        let installsAutomatically = false
         var isAvailable: Bool { false }
 
         func setChecksAutomatically(_ value: Bool) {}
+        func setInstallsAutomatically(_ value: Bool) {}
         func checkForUpdates() {}
 
         var languageChangeNotice: UpdateRelaunch.Notice { relaunch.notice }
@@ -31,7 +33,7 @@ import SwiftUI
     /// itself with the release or change the release's update settings.
     @MainActor
     @Observable
-    final class AppUpdater: NSObject, SPUUpdaterDelegate {
+    final class AppUpdater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
         static let shared = AppUpdater()
 
         @ObservationIgnored private var controller: SPUStandardUpdaterController?
@@ -39,6 +41,9 @@ import SwiftUI
         @ObservationIgnored private var observation: NSKeyValueObservation?
         /// Mirrors Sparkle's setting, which also changes when the user answers Sparkle's own question on the second launch.
         private(set) var checksAutomatically = false
+        private(set) var installsAutomatically = false
+        @ObservationIgnored private var downloadObservation: NSKeyValueObservation?
+        @ObservationIgnored private var reminder: UpdateReminderPanel?
 
         var isAvailable: Bool { controller != nil }
 
@@ -51,9 +56,15 @@ import SwiftUI
             // SUEnableAutomaticChecks stays out of Info.plist: Sparkle then asks on the second launch whether to check
             // automatically, and until the user agrees it goes online only when asked from the menu.
             let controller = SPUStandardUpdaterController(
-                startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
+                startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
             self.controller = controller
             controller.startUpdater()
+            installsAutomatically = controller.updater.automaticallyDownloadsUpdates
+            downloadObservation = controller.updater.observe(\.automaticallyDownloadsUpdates, options: [.new]) {
+                [weak self] _, change in
+                let value = change.newValue ?? false
+                MainActor.assumeIsolated { self?.installsAutomatically = value }
+            }
             Self.checkOnLaunch(controller.updater)
             checksAutomatically = controller.updater.automaticallyChecksForUpdates
             observation = controller.updater.observe(\.automaticallyChecksForUpdates, options: [.new]) {
@@ -71,6 +82,49 @@ import SwiftUI
         static func checkOnLaunch(_ updater: some LaunchUpdateChecking) {
             guard updater.automaticallyChecksForUpdates else { return }
             updater.checkForUpdatesInBackground()
+        }
+
+        func setInstallsAutomatically(_ value: Bool) {
+            guard let updater = controller?.updater else { return }
+            Self.setInstallsAutomatically(value, on: updater)
+        }
+
+        static func setInstallsAutomatically(_ value: Bool, on updater: some UpdateInstallationSetting) {
+            updater.automaticallyDownloadsUpdates = value
+        }
+
+        var supportsGentleScheduledUpdateReminders: Bool { true }
+
+        static func shouldUseStandardReminder(installsAutomatically: Bool, immediateFocus: Bool) -> Bool {
+            installsAutomatically || immediateFocus
+        }
+
+        func standardUserDriverShouldHandleShowingScheduledUpdate(
+            _ update: SUAppcastItem, andInImmediateFocus immediateFocus: Bool
+        ) -> Bool {
+            Self.shouldUseStandardReminder(
+                installsAutomatically: installsAutomatically, immediateFocus: immediateFocus)
+        }
+
+        func standardUserDriverWillHandleShowingUpdate(
+            _ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState
+        ) {
+            guard !handleShowingUpdate else { return }
+            reminder?.close()
+            let panel = UpdateReminderPanel { [weak self] in self?.checkForUpdates() }
+            reminder = panel
+            panel.showWhenActive()
+        }
+
+        func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+            dismissReminder()
+        }
+
+        func standardUserDriverWillFinishUpdateSession() { dismissReminder() }
+
+        private func dismissReminder() {
+            reminder?.close()
+            reminder = nil
         }
 
         func setChecksAutomatically(_ value: Bool) {
@@ -111,7 +165,12 @@ import SwiftUI
         func checkForUpdatesInBackground()
     }
 
-    extension SPUUpdater: LaunchUpdateChecking {}
+    @MainActor
+    protocol UpdateInstallationSetting: AnyObject {
+        var automaticallyDownloadsUpdates: Bool { get set }
+    }
+
+    extension SPUUpdater: LaunchUpdateChecking, UpdateInstallationSetting {}
 #endif
 
 /// Keeps relaunch decisions testable without launching an application or starting Sparkle.

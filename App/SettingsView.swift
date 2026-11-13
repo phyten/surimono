@@ -63,6 +63,10 @@ struct SettingsView: View {
                                 "Check for Updates Automatically",
                                 isOn: Binding(
                                     get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) }))
+                            UpdateHandlingPicker(
+                                installsAutomatically: Binding(
+                                    get: { updater.installsAutomatically },
+                                    set: { updater.setInstallsAutomatically($0) }))
                             Text(
                                 "Surimono asks GitHub whether a newer version exists. Nothing about your documents is sent."
                             )
@@ -239,5 +243,18 @@ struct SettingsView: View {
         if let error = library.error {
             Text(verbatim: error).foregroundStyle(.red).textSelection(.enabled)
         }
+    }
+}
+
+struct UpdateHandlingPicker: View {
+    @Binding var installsAutomatically: Bool
+
+    var body: some View {
+        Picker("When an Update Is Found", selection: $installsAutomatically) {
+            Text("Notify Me (Default)").tag(false)
+            Text("Install Automatically").tag(true)
+        }
+        Text("Automatic updates are installed when you quit and are ready the next time you open Surimono.")
+            .font(.caption).foregroundStyle(.secondary)
     }
 }

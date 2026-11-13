@@ -90,7 +90,9 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 1. Download `Surimono-<version>.dmg` from the [latest release](https://github.com/phyten/surimono/releases/latest), open it, and drag Surimono to Applications.
 2. Surimono is not notarized by Apple yet, so macOS blocks the first launch. Follow the steps in the release notes (System Settings > Privacy & Security > Open Anyway). Later launches open normally.
 
-Surimono updates itself. Choose **Surimono > Check for Updates…**, or let it check automatically on every launch and once a day while it runs: it asks on the second launch, and Settings > General turns it on or off. Updates are signed and verified before they are installed. Checking downloads a small feed from GitHub; nothing about your documents is sent.
+Surimono updates itself. Choose **Surimono > Check for Updates…**, or let it check automatically on every launch and once a day while it runs: it asks on the second launch, and Settings > General turns it on or off. Settings > General also lets you choose **Notify Me (Default)** or **Install Automatically**. With notifications, Sparkle shows its update dialog near launch; if it would defer the dialog while you work, a small **Update Available** panel offers **Show Update…** without taking keyboard focus. Automatic installation downloads the update in the background and installs it when you quit, ready for the next launch. An existing Sparkle automatic-install choice is preserved. Updates are signed and verified before they are installed. Checking downloads a small feed from GitHub; nothing about your documents is sent.
+
+Recent files are also saved by Surimono, including bookmarks to follow moved files. If macOS loses its recent-items list after an update, Surimono restores it at launch, skipping missing files. Clear Menu clears both lists. A list already lost before this version first saved it cannot be recovered.
 
 ## Building from source
 

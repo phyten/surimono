@@ -1,10 +1,65 @@
+import AppKit
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import Surimono
 
 @MainActor
 struct AppUpdaterTests {
+    @Test("知らせるは自動ダウンロードを切り自動で入れるは入れる")
+    func installationSetting() {
+        let setting = FakeInstallationSetting()
+        AppUpdater.setInstallsAutomatically(true, on: setting)
+        #expect(setting.automaticallyDownloadsUpdates)
+        AppUpdater.setInstallsAutomatically(false, on: setting)
+        #expect(!setting.automaticallyDownloadsUpdates)
+    }
+
+    @Test("すぐ表示できない知らせるだけを独自の案内で補う")
+    func reminderDecision() {
+        #expect(!AppUpdater.shouldUseStandardReminder(installsAutomatically: false, immediateFocus: false))
+        #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: false, immediateFocus: true))
+        #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: true, immediateFocus: false))
+        #expect(AppUpdater.shouldUseStandardReminder(installsAutomatically: true, immediateFocus: true))
+    }
+
+    @Test("更新案内はキー窓を奪わずボタンから更新を表示する")
+    func reminderPanel() throws {
+        var shown = 0
+        let panel = UpdateReminderPanel { shown += 1 }
+        defer { panel.close() }
+        #expect(!panel.canBecomeKey)
+        #expect(panel.hidesOnDeactivate)
+        let button = try #require(panel.contentView?.subviews.compactMap { $0 as? NSButton }.first)
+        button.performClick(nil)
+        #expect(shown == 1)
+    }
+
+    @Test("更新の扱いの選択を窓に載せても既存の自動インストール設定を書き換えない")
+    func hostedHandlingPicker() {
+        var installed = true
+        var writes = 0
+        let view = UpdateHandlingPicker(
+            installsAutomatically: Binding(
+                get: { installed },
+                set: {
+                    installed = $0
+                    writes += 1
+                }))
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 180),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let host = NSHostingView(rootView: view)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        #expect(host.fittingSize.height > 0)
+        #expect(installed)
+        #expect(writes == 0)
+    }
+
     @Test("終了時に入れる更新の通知がデリゲートに接続されている")
     func delegateCallbacks() {
         #expect(
@@ -112,4 +167,9 @@ private final class FakeUpdater: LaunchUpdateChecking {
     func checkForUpdatesInBackground() {
         backgroundChecks += 1
     }
+}
+
+@MainActor
+private final class FakeInstallationSetting: UpdateInstallationSetting {
+    var automaticallyDownloadsUpdates = false
 }
