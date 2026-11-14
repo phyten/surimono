@@ -61,7 +61,8 @@ enum SettingSetDialogs {
             await Task.yield()
             let selection = SettingSetSaveAccessory(model: model)
             let alert = NSAlert()
-            alert.messageText = String(localized: "Save Current Settings…")
+            // The menu item's ellipsis promises this dialog; the dialog itself is titled without one.
+            alert.messageText = String(localized: "Save Current Settings")
             alert.accessoryView = selection.view
             let save = alert.addButton(withTitle: String(localized: "Save"))
             alert.addButton(withTitle: String(localized: "Cancel"))
@@ -248,6 +249,9 @@ private final class SettingSetSaveAccessory: NSObject, NSTextFieldDelegate {
     let nameField: NSTextField
     weak var saveButton: NSButton?
     private var choices: [(PrintSettingSet.Part, NSButton)] = []
+    private static let width: CGFloat = 360
+    /// Where a checkbox's title starts, past the box.
+    private static let checkboxIndent: CGFloat = 20
 
     var parts: Set<PrintSettingSet.Part> {
         Set(choices.filter { $0.1.state == .on }.map { $0.0 })
@@ -262,7 +266,9 @@ private final class SettingSetSaveAccessory: NSObject, NSTextFieldDelegate {
         view.alignment = .leading
         view.spacing = 10
         view.addArrangedSubview(nameField)
-        nameField.widthAnchor.constraint(equalToConstant: 420).isActive = true
+        nameField.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        // The name stands apart from the parts it names.
+        view.setCustomSpacing(16, after: nameField)
         let set = model.currentPrintSettingSet
         let summary = SettingSetSummary(library: model.library)
         for part in PrintSettingSet.Part.allCases where set.parts.contains(part) {
@@ -270,14 +276,21 @@ private final class SettingSetSaveAccessory: NSObject, NSTextFieldDelegate {
                 checkboxWithTitle: summary.title(part), target: self, action: #selector(updateValidation))
             checkbox.state = .on
             choices.append((part, checkbox))
-            view.addArrangedSubview(checkbox)
+            // Each part is its checkbox with its value under the title, not under the box.
+            let group = NSStackView(views: [checkbox])
+            group.orientation = .vertical
+            group.alignment = .leading
+            group.spacing = 2
             if let line = summary.line(part, in: set) {
                 let label = NSTextField(wrappingLabelWithString: line)
                 label.textColor = .secondaryLabelColor
                 label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-                label.widthAnchor.constraint(equalToConstant: 420).isActive = true
-                view.addArrangedSubview(label)
+                label.widthAnchor.constraint(equalToConstant: Self.width - Self.checkboxIndent).isActive = true
+                let indented = NSStackView(views: [label])
+                indented.edgeInsets = NSEdgeInsets(top: 0, left: Self.checkboxIndent, bottom: 0, right: 0)
+                group.addArrangedSubview(indented)
             }
+            view.addArrangedSubview(group)
         }
         view.frame.size = view.fittingSize
     }

@@ -121,13 +121,6 @@ private struct WelcomeView: View {
     var body: some View {
         VStack(spacing: 16) {
             dropZone
-            Button {
-                ClipboardWindows.shared.open()
-            } label: {
-                Text("Open from Clipboard").underline()
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(PrintPalette.ink2)
             if !recent.isEmpty { recentFiles }
         }
         .padding(24)
@@ -157,9 +150,13 @@ private struct WelcomeView: View {
                 .foregroundStyle(PrintPalette.ink)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Open…") { OpenRouter.shared.showOpenPanel() }
-                .keyboardShortcut("o")
-                .controlSize(.large)
+            // The two ways in look alike: neither is a lesser link beside the other.
+            HStack(spacing: 10) {
+                Button("Open…") { OpenRouter.shared.showOpenPanel() }
+                    .keyboardShortcut("o")
+                Button("Open from Clipboard") { ClipboardWindows.shared.open() }
+            }
+            .controlSize(.large)
         }
         .padding(24)
         .frame(maxWidth: .infinity)
@@ -192,7 +189,7 @@ private struct WelcomeView: View {
     }
 }
 
-private struct RecentFileRow: View {
+struct RecentFileRow: View {
     let url: URL
     @State private var isHovered = false
 
@@ -203,19 +200,42 @@ private struct RecentFileRow: View {
                 started ? [FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() })] : []
             OpenRouter.shared.open([url], access: leases)
         } label: {
-            Text(verbatim: url.lastPathComponent)
-                .font(.system(size: 13))
-                .foregroundStyle(PrintPalette.ink)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .background { RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear) }
-                .contentShape(Rectangle())
+            // The folder tells apart files of the same name and says where a file is before it opens.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(verbatim: url.lastPathComponent)
+                    .font(.system(size: 13))
+                    .foregroundStyle(PrintPalette.ink)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+                Text(verbatim: Self.folder(of: url))
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background { RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear) }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .help(url.path)
+    }
+
+    /// The file's folder, the home folder written as ~. In the sandbox the home directory APIs name the container, so
+    /// the reader's own home comes from the account.
+    static func folder(of url: URL, home: String = RecentFileRow.userHome) -> String {
+        let folder = url.deletingLastPathComponent().path
+        guard !home.isEmpty else { return folder }
+        if folder == home { return "~" }
+        return folder.hasPrefix(home + "/") ? "~" + folder.dropFirst(home.count) : folder
+    }
+
+    static var userHome: String {
+        guard let entry = getpwuid(getuid()), let directory = entry.pointee.pw_dir else { return NSHomeDirectory() }
+        return String(cString: directory)
     }
 }

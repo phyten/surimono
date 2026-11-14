@@ -86,7 +86,7 @@ struct ThemeCompareView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text("Add to Compare").font(.system(size: 12, weight: .semibold)).foregroundStyle(PrintPalette.ink2)
-                Text("Up to four").font(.system(size: 11)).foregroundStyle(PrintPalette.ink3)
+                Text("Up to four").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
                 FadingScrollRow {
                     HStack(spacing: 6) {
                         ForEach(filters, id: \.id) { filter in

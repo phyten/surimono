@@ -18,7 +18,8 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .pageNumbers: "number"
         case .printing: "printer"
         case .settingSets: "slider.horizontal.3"
-        case .styles: "textformat"
+        // "textformat" is drawn as kana in Japanese, beside line icons; the band's palette is the same in every language.
+        case .styles: "paintpalette"
         case .html: "globe"
         }
     }
@@ -124,7 +125,7 @@ struct SettingsView: View {
                             Text("Split Top and Bottom").tag(MenuArrangement.split)
                         }
                         BandVisibilityPicker(selection: $preferences.defaultBandVisibility)
-                        Text("The toolbar has its own room outside the paper, so it never covers the paper.")
+                        Text("While it shows, the toolbar takes its own room outside the paper.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Section("Contents") {
@@ -171,7 +172,23 @@ struct SettingsView: View {
                         Text("Portrait").tag(PaperOrientation.portrait)
                         Text("Landscape").tag(PaperOrientation.landscape)
                     }
-                    TextField("Margins (mm)", value: $preferences.margin, format: .number)
+                    // The same field, stepper and unit as the margins of the view options and the print screen.
+                    LabeledContent("Text Margins") {
+                        HStack(spacing: 4) {
+                            TextField(
+                                "Text Margins", value: $preferences.margin,
+                                format: .number.precision(.fractionLength(0...1))
+                            )
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 52)
+                            Stepper(
+                                "Text Margins", value: $preferences.margin, in: DocumentViewModel.marginRange, step: 1
+                            )
+                            .labelsHidden()
+                            Text("mm").foregroundStyle(.secondary)
+                        }
+                    }
                     defaultsNote
                     Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
                     Text("Used for printers and bindings without a remembered rotation.")
@@ -231,6 +248,8 @@ struct SettingsView: View {
                 }
             }
             .formStyle(.grouped)
+            // The grouped form leaves a wide band of nothing under the title bar; the first group starts closer to it.
+            .contentMargins(.top, -28, for: .scrollContent)
             .overlay(alignment: .bottom) { SettingSetRemovalNotice(preferences: preferences) }
             .navigationTitle(Text(LocalizedStringKey(preferences.settingsSection.rawValue)))
         }

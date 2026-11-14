@@ -307,8 +307,9 @@ private struct PrinterPicker: View {
             HStack(spacing: 7) {
                 Image(systemName: "printer").font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
                     .frame(width: 15)
+                // A short word in the narrow button; the menu says it in full.
                 Text(
-                    verbatim: model.selectedPrinterName ?? PrintModeText.string("No Printers", language: model.language)
+                    verbatim: model.selectedPrinterName ?? PrintModeText.string("No Printer", language: model.language)
                 )
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -356,7 +357,7 @@ private struct LayoutCard: View {
                 LayoutPictogram(layout: layout)
                     .frame(width: 40, height: 26)
                     .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, 3)
                 titleLines
                 if let paper {
                     Text(verbatim: paper)
@@ -388,7 +389,8 @@ private struct LayoutCard: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    /// The title, centered in the room for two lines.
+    /// The title, centered in the room for two lines, which it keeps whole: squeezed by the paper line under it, a
+    /// two-line title shrank below the other titles.
     private var titleLines: some View {
         ZStack {
             Text(verbatim: " \n ").font(Self.titleFont).lineLimit(2, reservesSpace: true).hidden()
@@ -399,6 +401,7 @@ private struct LayoutCard: View {
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.8)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 

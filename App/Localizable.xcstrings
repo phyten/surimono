@@ -584,7 +584,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "メモなし"
+            "value": "ノートなし"
           }
         },
         "zh-Hans": {
@@ -636,7 +636,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スタイル: %@"
+            "value": "スタイル %@"
           }
         },
         "zh-Hans": {
@@ -1000,7 +1000,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "設定セットは、用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・メモ・スタイルと文字の大きさ・HTML プリセットをまとめて覚え、どの文書にも一度で当てられます。表示の型や拡大率などの見え方は含みません。"
+            "value": "設定セットは、用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・ノート・スタイルと文字の大きさ・HTML プリセットをまとめて覚え、どの文書にも一度で当てられます。表示の型や拡大率などの見え方は含みません。"
           }
         },
         "zh-Hans": {
@@ -2918,7 +2918,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "印刷時"
+            "value": "印刷するとき"
           }
         },
         "en": {
@@ -2970,7 +2970,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "表示モード"
+            "value": "表示モードで出す"
           }
         },
         "en": {
@@ -30344,58 +30344,6 @@
         }
       }
     },
-    "The toolbar has its own room outside the paper, so it never covers the paper.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The toolbar has its own room outside the paper, so it never covers the paper."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ツールバーは紙の外に場所を取るので、紙に重なりません。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "工具栏位于纸张之外，不会遮住纸张。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "工具列位於紙張之外，不會遮住紙張。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "도구 막대는 용지 바깥에 자리를 잡으므로 용지를 가리지 않습니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La barre d’outils a sa place hors du papier et ne le couvre jamais."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Symbolleiste hat ihren Platz außerhalb des Papiers und verdeckt es nie."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La barra tiene su sitio fuera del papel y nunca lo cubre."
-          }
-        }
-      }
-    },
     "Contents": {
       "extractionState": "manual",
       "localizations": {
@@ -41080,7 +41028,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "改ページと紙の目次"
+            "value" : "改ページと目次ページ"
           }
         },
         "ko" : {
@@ -44834,6 +44782,214 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostrar siempre la barra (⌥⌘T)"
+          }
+        }
+      }
+    },
+    "No Printer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Printer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリンターなし"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无打印机"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無印表機"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "프린터 없음"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune imprimante"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Drucker"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin impresora"
+          }
+        }
+      }
+    },
+    "Toolbar Visibility": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toolbar Visibility"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ツールバーの出し方"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具栏显示方式"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具列顯示方式"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "도구 막대 표시 방식"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affichage de la barre d’outils"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Symbolleiste zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar la barra"
+          }
+        }
+      }
+    },
+    "While it shows, the toolbar takes its own room outside the paper.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "While it shows, the toolbar takes its own room outside the paper."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ツールバーは、出ているあいだ紙の外に場所を取ります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具栏显示时，会在纸张之外占用自己的位置。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具列顯示時，會在紙張之外佔用自己的位置。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "도구 막대는 표시되는 동안 용지 바깥에 자리를 잡습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand elle est affichée, la barre d’outils prend sa place hors du papier."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solange sie zu sehen ist, hat die Symbolleiste ihren Platz außerhalb des Papiers."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mientras se muestra, la barra tiene su sitio fuera del papel."
+          }
+        }
+      }
+    },
+    "Save Current Settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Current Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今の設定を保存"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存当前设置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存目前設定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "현재 설정 저장"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrer les réglages actuels"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Einstellungen sichern"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar ajustes actuales"
           }
         }
       }
