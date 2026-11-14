@@ -1070,12 +1070,13 @@ public final class DocumentRenderer {
             if source.format == .markdown, !settings.markdownChanges.isEmpty {
                 fragment =
                     MarkdownConverter.convertWithSourceMap(
-                        try Self.decodedText(source.data), pageBreakLine: settings.finish.breaks.customLine
+                        try Self.decodedText(source.data), pageBreakLine: settings.finish.breaks.customLine,
+                        proof: settings.finish.proof
                     ).fragment
             } else {
                 guard
                     let themed = try Self.themedFragment(
-                        source, pageBreakLine: settings.finish.breaks.customLine,
+                        source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                         imageExists: { url in
                             if let access, !access.permits(url) {
                                 missingImage = true
@@ -1421,18 +1422,19 @@ public final class DocumentRenderer {
 
     /// The HTML a document's headings and amount of text are read from, or nil for formats without one. It converts
     /// the whole source, so it is meant to run away from the main actor.
-    public nonisolated static func structureHTML(of source: DocumentSource) -> String? {
+    public nonisolated static func structureHTML(of source: DocumentSource, proof: ProofMarks = .shown) -> String? {
         if source.format == .html { return TextDecoding.decode(source.data).text }
-        return (try? themedFragment(source))??.body
+        return (try? themedFragment(source, proof: proof))??.body
     }
 
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
-        _ source: DocumentSource, pageBreakLine: String = "",
+        _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
         switch source.format {
-        case .markdown: MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine)
+        case .markdown:
+            MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:
             LaTeXConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),

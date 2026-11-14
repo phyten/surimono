@@ -109,16 +109,18 @@ public struct PrintFinish: Codable, Hashable, Sendable {
     public var breaks = PageBreakRules()
     public var toc = PaperTOC()
     public var links = PaperLinks.asIs
+    public var proof = ProofMarks.shown
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case breaks, toc, links }
+    private enum CodingKeys: String, CodingKey { case breaks, toc, links, proof }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         breaks = (try? values.decodeIfPresent(PageBreakRules.self, forKey: .breaks)) ?? PageBreakRules()
         toc = (try? values.decodeIfPresent(PaperTOC.self, forKey: .toc)) ?? PaperTOC()
         links = (try? values.decodeIfPresent(PaperLinks.self, forKey: .links)) ?? .asIs
+        proof = (try? values.decodeIfPresent(ProofMarks.self, forKey: .proof)) ?? .shown
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -126,6 +128,7 @@ public struct PrintFinish: Codable, Hashable, Sendable {
         try values.encode(breaks, forKey: .breaks)
         try values.encode(toc, forKey: .toc)
         if links != .asIs { try values.encode(links, forKey: .links) }
+        if proof != .shown { try values.encode(proof, forKey: .proof) }
     }
 
     /// Style rules laid over the theme, empty when nothing is asked of the text.

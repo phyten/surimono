@@ -95,6 +95,11 @@ struct SettingSetSummary {
                 case .front: values.append(text("Add Contents to Front"))
                 case .source: values.append(text("Follow the Text's Contents"))
                 }
+                switch finish.proof {
+                case .shown: break
+                case .accepted: values.append(text("Proof Marks") + ": " + text("Print as Accepted"))
+                case .original: values.append(text("Proof Marks") + ": " + text("Print as Original"))
+                }
                 switch finish.links {
                 case .asIs: break
                 case .endnotes: values.append(text("Links on Paper") + ": " + text("List at the End"))

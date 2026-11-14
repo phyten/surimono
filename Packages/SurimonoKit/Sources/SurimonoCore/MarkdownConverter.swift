@@ -3,16 +3,18 @@ import Markdown
 
 public enum MarkdownConverter {
     /// - Parameter pageBreakLine: A line of the reader's own that stands for a page break, besides the usual ones.
-    public static func convert(_ text: String, pageBreakLine: String = "") -> HTMLFragment {
-        convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine).fragment
+    public static func convert(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown) -> HTMLFragment {
+        convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof).fragment
     }
 
-    public static func convertWithSourceMap(_ text: String, pageBreakLine: String = "") -> MarkdownMappedDocument {
-        convertDocument(text, mapsSource: true, pageBreakLine: pageBreakLine)
+    public static func convertWithSourceMap(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown)
+        -> MarkdownMappedDocument
+    {
+        convertDocument(text, mapsSource: true, pageBreakLine: pageBreakLine, proof: proof)
     }
 
     private static func convertDocument(
-        _ text: String, mapsSource: Bool, pageBreakLine: String
+        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks
     ) -> MarkdownMappedDocument {
         let original = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
         var source = mapsSource ? MarkdownSourceLines(original) : .unmapped(original)
@@ -38,10 +40,13 @@ public enum MarkdownConverter {
             definitions: extracted.definitions.mapValues { $0.lines.joined(separator: "\n") })
         let formulas = MarkdownExtensions.Formulas()
         let (body, document) = renderBody(
-            extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping)
+            extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping,
+            proof: proof)
         if title == nil { title = firstHeading(in: document, formulas: formulas) }
         let html =
-            body + footnoteSection(footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping)
+            body
+            + footnoteSection(
+                footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = MathRenderer.fontFaces(for: html)
         return MarkdownMappedDocument(
@@ -139,10 +144,10 @@ public enum MarkdownConverter {
 
     private static func renderBody(
         _ lines: MarkdownSourceLines, footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        anchorsHeadings: Bool, mapping: BlockMapping? = nil
+        anchorsHeadings: Bool, mapping: BlockMapping? = nil, proof: ProofMarks
     ) -> (String, Document) {
         let source = MarkdownCallouts.preprocess(
-            MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas))
+            MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas, proof: proof))
         let document = Document(parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
         let context = Context(
             source: source,
@@ -171,7 +176,7 @@ public enum MarkdownConverter {
     /// end of the list. Paper has no way back from a note, so the notes carry no return links.
     private static func footnoteSection(
         _ footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        definitions: [String: MarkdownSourceLines], mapping: BlockMapping?
+        definitions: [String: MarkdownSourceLines], mapping: BlockMapping?, proof: ProofMarks
     ) -> String {
         guard !footnotes.order.isEmpty else { return "" }
         var items = ""
@@ -181,7 +186,7 @@ public enum MarkdownConverter {
             let (html, _) = renderBody(
                 MarkdownSourceLines.unmapped(definition.components(separatedBy: "\n")), footnotes: footnotes,
                 formulas: formulas,
-                anchorsHeadings: false)
+                anchorsHeadings: false, proof: proof)
             let item = "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
             let origins =
                 definitions[footnotes.order[index]]?.origins.reduce(into: Set<Int>()) { $0.formUnion($1) } ?? []

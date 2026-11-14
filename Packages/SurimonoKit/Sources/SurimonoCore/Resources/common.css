@@ -328,3 +328,21 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
 .paper-links { font-size: 0.85em; }
 .paper-links ol { list-style: none; padding-left: 0; }
 .paper-link-ref { font-size: 0.7em; vertical-align: super; line-height: 0; }
+
+/* Revision marks remain distinguishable without color. */
+ins.critic {
+  background: none;
+  text-decoration: underline;
+  text-decoration-thickness: 0.1em;
+  color: #0b5d2a;
+}
+del.critic { text-decoration: line-through; color: #9a1c1c; }
+mark.critic { background: #fff2a8; color: inherit; }
+.critic-comment {
+  font-size: 0.85em;
+  border: 0.5pt solid currentColor;
+  padding: 0.1em 0.2em;
+  border-radius: 2pt;
+  color: #333;
+  margin-inline: 0.2em;
+}

@@ -443,7 +443,7 @@ extension DocumentRenderer {
             ? source.fileURL.map { LocalResourceAccess(documentURL: $0, folders: source.allowedResourceFolders) } : nil
         guard source.format.usesPrintTheme,
             let fragment = try themedFragment(
-                source, pageBreakLine: settings.finish.breaks.customLine,
+                source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                 imageExists: { url in
                     (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
                 })

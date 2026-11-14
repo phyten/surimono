@@ -384,7 +384,10 @@ final class DocumentViewModel {
     private(set) var documentStatistics: DocumentStatistics?
     @ObservationIgnored private var structureTask: Task<Void, Never>?
     @ObservationIgnored private var readStructure:
-        (source: DocumentSource, headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String])?
+        (
+            source: DocumentSource, proof: ProofMarks, headings: [DocumentHeading], statistics: DocumentStatistics,
+            contents: [String]
+        )?
     @ObservationIgnored private var structureDocument: PDFDocument?
     @ObservationIgnored private var textSizeKeyMonitor: Any?
     private var printCompletion: PrintCompletion?
@@ -1735,13 +1738,14 @@ final class DocumentViewModel {
         guard source.format.isWebRendered else { return }
         structureTask = Task { [weak self] in
             guard let self else { return }
-            let known = readStructure?.source == source ? readStructure : nil
+            let proof = printFinish.proof
+            let known = readStructure?.source == source && readStructure?.proof == proof ? readStructure : nil
             let read: (headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String])?
             if let known {
                 read = (known.headings, known.statistics, known.contents)
             } else {
                 read = await Task.detached(priority: .utility) {
-                    DocumentRenderer.structureHTML(of: source).map {
+                    DocumentRenderer.structureHTML(of: source, proof: proof).map {
                         (
                             DocumentOutline.headings(inHTML: $0), DocumentStatistics(html: $0),
                             DocumentOutline.sourceContentsEntries(inHTML: $0)
@@ -1750,7 +1754,7 @@ final class DocumentViewModel {
                 }.value
             }
             guard !Task.isCancelled, let read else { return }
-            readStructure = (source, read.headings, read.statistics, read.contents)
+            readStructure = (source, proof, read.headings, read.statistics, read.contents)
             documentStatistics = read.statistics
             var texts: [String] = []
             for index in 0..<(read.headings.isEmpty ? 0 : document.pageCount) {
