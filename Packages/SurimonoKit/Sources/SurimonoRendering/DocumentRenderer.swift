@@ -612,7 +612,8 @@ public final class DocumentRenderer {
                     && settings.layout.mirrorsMargins(options: settings.options),
                 rightBound: !isPlainPDF && settings.layout.mirrorsMargins(options: settings.options)
                     && settings.layout.isRightBound,
-                contentsLanguage: isThemed && settings.finish.toc.mode == .front ? settings.pageLanguage : nil,
+                contentsLanguage: isThemed && (settings.finish.toc.mode == .front || settings.finish.links == .endnotes)
+                    ? settings.pageLanguage : nil,
                 hasNotes: settings.activeNotes != nil,
                 textNotes: isThemed
                     ? settings.activeNotes.map {
@@ -1101,8 +1102,11 @@ public final class DocumentRenderer {
             let directory = source.fileURL?.deletingLastPathComponent()
             // Without clear pages the paper stays on the text pages, which WebKit draws inside the margins only.
             let separatesPaper = WebPaginator.drawsClearPages
+            let paperFragment = HTMLFragment(
+                body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
+                title: fragment.title)
             let html = HTMLDocumentBuilder.build(
-                fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
+                fragment: paperFragment, format: source.format, theme: settings.theme, baseURL: directory,
                 textScale: settings.textScale, removesPaper: separatesPaper, finish: settings.finish.styleSheet,
                 code: settings.code)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)

@@ -322,3 +322,9 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
 .mermaid-block > svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
 .mermaid-source { text-align: start; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mermaid-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0.4em; }
+
+/* Link destinations remain legible on paper without taking the theme's accent color. */
+.paper-link-url, .paper-links { overflow-wrap: anywhere; word-break: break-all; color: currentColor; }
+.paper-links { font-size: 0.85em; }
+.paper-links ol { list-style: none; padding-left: 0; }
+.paper-link-ref { font-size: 0.7em; vertical-align: super; line-height: 0; }

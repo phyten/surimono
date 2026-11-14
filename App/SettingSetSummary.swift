@@ -95,6 +95,11 @@ struct SettingSetSummary {
                 case .front: values.append(text("Add Contents to Front"))
                 case .source: values.append(text("Follow the Text's Contents"))
                 }
+                switch finish.links {
+                case .asIs: break
+                case .endnotes: values.append(text("Links on Paper") + ": " + text("List at the End"))
+                case .inline: values.append(text("Links on Paper") + ": " + text("After the Text"))
+                }
                 if finish.breaks.usesRightPages {
                     values.append(text("Chapters from Right Page"))
                 } else if [finish.breaks.h1, finish.breaks.h2, finish.breaks.h3].contains(.page) {

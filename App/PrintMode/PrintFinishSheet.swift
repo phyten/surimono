@@ -84,6 +84,14 @@ struct PrintFinishSheet: View {
                     contentsDetails
                 }
                 .id(PrintFinishSection.contents)
+                section("Links on Paper") {
+                    Picker("Links on Paper", selection: $model.printFinish.links) {
+                        Text("As They Are").tag(PaperLinks.asIs)
+                        Text("List at the End").tag(PaperLinks.endnotes)
+                        Text("After the Text").tag(PaperLinks.inline)
+                    }
+                    .labelsHidden()
+                }
             }
             if model.offersNotes {
                 section("Note Pages") { PrintNoteSection(model: model) }.id(PrintFinishSection.notes)
