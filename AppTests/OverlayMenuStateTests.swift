@@ -50,7 +50,7 @@ struct OverlayMenuStateTests {
         menu.topRoom = 38
         menu.bottomRoom = 38
         // Just beyond both zones while the bands have their room...
-        for y: CGFloat in [77, 800 - 38 - 38 - 1] {
+        for y: CGFloat in [77, 723] {
             menu.pointerMoved(to: CGPoint(x: 200, y: y))
             #expect(!menu.isPointerOverBand)
         }
@@ -58,7 +58,7 @@ struct OverlayMenuStateTests {
         menu.topRoom = 0
         menu.bottomRoom = 0
         menu.contentHeight = 724
-        for y: CGFloat in [77 - 38, 800 - 38 - 38 - 1 - 38] {
+        for y: CGFloat in [39, 685] {
             menu.pointerMoved(to: CGPoint(x: 200, y: y))
             #expect(!menu.isPointerOverBand)
         }
