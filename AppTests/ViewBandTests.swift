@@ -277,7 +277,7 @@ struct ViewBandTests {
     }
 
     /// The window's pointer tracker, which tests feed with a pointer place of their own.
-    private func tracker(in window: NSWindow) -> PointerTracker.TrackerView? {
+    private func pointerTracker(in window: NSWindow) -> PointerTracker.TrackerView? {
         func find(_ view: NSView) -> PointerTracker.TrackerView? {
             if let tracker = view as? PointerTracker.TrackerView { return tracker }
             return view.subviews.lazy.compactMap(find).first
@@ -379,7 +379,7 @@ struct ViewBandTests {
             hover.controller.close()
         }
         let window = hover.window
-        let tracker = try #require(tracker(in: window))
+        let tracker = try #require(pointerTracker(in: window))
         #expect(tracker.isMonitoring)
         // On the paper's top edge, where a hidden top band shows.
         tracker.debugMouseLocation = NSPoint(x: hover.paperOnly.midX, y: hover.paperOnly.maxY - 10)
