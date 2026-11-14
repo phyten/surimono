@@ -3,7 +3,7 @@ import SurimonoCore
 
 final class ClipboardWindows {
     static let shared: ClipboardWindows = ClipboardWindows(
-        openFiles: { OpenRouter.shared.open($0, from: $1) },
+        openFiles: { OpenRouter.shared.open($0, from: $1, printing: $2) },
         warn: { window in
             let alert = NSAlert()
             alert.messageText = String(localized: "There is nothing to open on the clipboard")
@@ -17,14 +17,14 @@ final class ClipboardWindows {
     var settingsStore: DocumentSettingsStore?
     private var controllers: [ContentHash: MemoryDocumentWindowController] = [:]
     private var cascadePoint = NSPoint.zero
-    private let openFiles: ([URL], NSWindow?) -> Void
+    private let openFiles: ([URL], NSWindow?, Bool) -> Void
     private let warn: (NSWindow?) -> Void
     private let closeWelcome: () -> Void
 
     var hasWindows: Bool { !controllers.isEmpty }
 
     init(
-        openFiles: @escaping ([URL], NSWindow?) -> Void, warn: @escaping (NSWindow?) -> Void,
+        openFiles: @escaping ([URL], NSWindow?, Bool) -> Void, warn: @escaping (NSWindow?) -> Void,
         closeWelcome: @escaping () -> Void
     ) {
         self.openFiles = openFiles
@@ -42,19 +42,19 @@ final class ClipboardWindows {
     }
 
     @discardableResult
-    func open(from pasteboard: NSPasteboard = .general, window: NSWindow? = NSApp.keyWindow)
+    func open(from pasteboard: NSPasteboard = .general, window: NSWindow? = NSApp.keyWindow, printing: Bool = false)
         -> MemoryDocumentWindowController?
     {
         switch Self.content(from: pasteboard) {
         case .files(let urls):
-            openFiles(urls, window)
+            openFiles(urls, window, printing)
             return nil
         case .empty:
             warn(window)
             return nil
         case .document(let data, let format):
             let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
-            return open(data, format: format, title: String(localized: "Clipboard") + " " + time)
+            return open(data, format: format, title: String(localized: "Clipboard") + " " + time, printing: printing)
         }
     }
 
