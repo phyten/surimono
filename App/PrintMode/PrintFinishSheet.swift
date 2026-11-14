@@ -226,6 +226,9 @@ struct PrintFinishSheet: View {
                 HStack(spacing: 4) {
                     chip("File Name", .fileName)
                     chip("Title", .title)
+                    chip("Chapter", .chapter)
+                }
+                HStack(spacing: 4) {
                     chip("Date", .date)
                     chip("Page", .page)
                     chip("Total Pages", .pageCount)

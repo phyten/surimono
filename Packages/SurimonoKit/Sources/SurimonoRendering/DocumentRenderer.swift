@@ -201,6 +201,11 @@ struct FinishedPages {
     /// Where the note pages go, for pages laid out knowing about them.
     var plan: FinishedPagePlan?
     var notePages: [Int] = []
+    /// Where the pages of the text went among the added ones; nil when nothing was added. With the text below, it lets
+    /// the chapter of each page be found only when a header or footer asks for it.
+    var pagePlan: FinishedPagePlan?
+    var bodyHTML: String?
+    var showsSourceContents = false
 }
 
 /// The logical pages of a render, ready to show before the printed sheets are composed.
@@ -1166,6 +1171,8 @@ public final class DocumentRenderer {
         let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
         let wantsContents = finish.toc.mode == .front && !facts.headings.isEmpty
         let notes = settings.activeNotes
+        result.finishing.bodyHTML = fragment.body
+        result.finishing.showsSourceContents = finish.toc.showsSourceContents
         guard usesRightPages || wantsContents || settings.mirrorsLaidOutPages || notes != nil else { return result }
         let pageCount = text.document.pageCount
         var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
@@ -1230,7 +1237,8 @@ public final class DocumentRenderer {
         }
         finished.finishing = FinishedPages(
             facts: facts, contentsPageCount: contents?.pageCount ?? 0, blankPages: plan.blankPages,
-            plan: notes != nil ? plan : nil)
+            plan: notes != nil ? plan : nil, pagePlan: plan, bodyHTML: fragment.body,
+            showsSourceContents: finish.toc.showsSourceContents)
         return finished
     }
 
@@ -1325,7 +1333,22 @@ public final class DocumentRenderer {
         return PageFurniture.Context(
             fileName: fileName, title: title.flatMap { $0.isEmpty ? nil : $0 } ?? fallback,
             date: furniture.dateText(now(), language: settings.pageLanguage),
-            blankPages: logical.finishing.blankPages.union(logical.finishing.notePages))
+            blankPages: logical.finishing.blankPages.union(logical.finishing.notePages),
+            chapters: furniture.uses(.chapter) ? Self.chapters(of: logical) : [])
+    }
+
+    /// The chapter in force on each page, read from the finished pages. Reading the text of every page takes time, so
+    /// this runs only for a header or footer that names the chapter.
+    private static func chapters(of logical: Logical) -> [String] {
+        let finishing = logical.finishing
+        guard let facts = finishing.facts, !facts.headings.isEmpty, let body = finishing.bodyHTML else { return [] }
+        let plan = finishing.pagePlan
+        let places = plan?.bodyPageIndices ?? Array(0..<logical.document.pageCount)
+        let pageTexts = places.map { logical.document.page(at: $0)?.string ?? "" }
+        let headingPages = DocumentOutline.pages(
+            of: facts.headings, inPageTexts: pageTexts,
+            contentsEntries: finishing.showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: body) : [])
+        return PageChapters.titles(headings: facts.headings, pages: headingPages, pageCount: places.count, plan: plan)
     }
 
     private func paginateCheckingIssues(_ request: PaginationRequest, source: DocumentSource) async throws
