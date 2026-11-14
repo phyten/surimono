@@ -18,6 +18,9 @@ final class OverlayMenuState {
     /// The window's content height; the bottom band's room is measured from it.
     @ObservationIgnored var contentHeight: CGFloat = 0
     @ObservationIgnored var hasBottomBand = false
+    /// The room the bands take at the top and bottom of the content, beside the paper.
+    @ObservationIgnored var topRoom: CGFloat = 0
+    @ObservationIgnored var bottomRoom: CGFloat = 0
     /// Where the band's items stand in their band, for the popovers the band hangs off them.
     @ObservationIgnored var itemFrames: [BandLayout.Item: CGRect] = [:]
     // Measurements outlive the band so it reopens with the tools that fit.
@@ -55,10 +58,13 @@ final class OverlayMenuState {
     }
 
     private var isHeld: Bool { isHolding || menuTracking > 0 }
-    private var isPointerOverBand: Bool {
+    /// The edge of the paper under a hidden band, and the band's room with that edge while it shows. A band that makes
+    /// room for itself moves the paper's edge away from a still pointer, which therefore stays inside; and the band
+    /// hides only once the pointer is beyond both, where giving the room back cannot bring the edge under it again.
+    var isPointerOverBand: Bool {
         guard let pointerY else { return false }
-        if pointerY >= 0, pointerY <= Self.revealZone { return true }
-        return hasBottomBand && pointerY >= contentHeight - Self.revealZone && pointerY <= contentHeight
+        if pointerY >= 0, pointerY <= topRoom + Self.revealZone { return true }
+        return hasBottomBand && pointerY >= contentHeight - bottomRoom - Self.revealZone && pointerY <= contentHeight
     }
 
     func pointerMoved(to point: CGPoint) {

@@ -4,12 +4,12 @@ import Foundation
 public enum MenuArrangement: String, CaseIterable, Codable, Sendable {
     case top, split
 
-    /// The bands, each of which takes room beside the paper while it always shows.
+    /// The bands, each of which takes room beside the paper while it shows.
     public var bandCount: Int { self == .split ? 2 : 1 }
 }
 
-/// When the bands show. Bands that always show have their own room beside the paper; bands that show on pointing lie
-/// over the paper's edges, so the window never changes with the pointer.
+/// When the bands show. Bands that always show have their own room beside the paper; bands that show on pointing take
+/// it only while they show, and the window is the paper alone in between.
 public enum BandVisibility: String, CaseIterable, Codable, Sendable {
     case onHover, always
 }

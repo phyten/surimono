@@ -31,7 +31,7 @@ extension BandLayout.Item {
         let paper = !model.showsWeb
         return allCases.filter { item in
             switch item {
-            case .formatBadge, .print: true
+            case .formatBadge, .floatOnTop, .print: true
             case .layout, .transition: paper
             case .presentation: model.usesHTMLPresentation
             // On the web, only a slide deck has pages to count.
@@ -87,6 +87,7 @@ struct BandItemView: View {
                 }
             }
             .toggleStyle(.button).help("List (⌃⌘S)")
+        case .floatOnTop: FloatOnTopButton(model: model)
         case .print: PrintButton(model: model, iconOnly: form == .compact)
         }
     }
@@ -324,12 +325,10 @@ struct BandMoreMenu: View {
             if model.hasOutline, !model.preferences.showsOutlineOnBand {
                 Button("Contents…") { model.toggleOutline() }
             }
-            let secondary = SecondaryViewControl.applicable(for: model)
-            ForEach(secondary, id: \.self) { item in
+            ForEach(SecondaryViewControl.applicable(for: model), id: \.self) { item in
                 SecondaryViewMenuItem(model: model, item: item)
             }
-            // The live web page has none of these, nor the items above them; a divider would open the menu alone.
-            if !secondary.isEmpty { Divider() }
+            Divider()
             if model.marginsApply {
                 MarginMenu(model: model)
                 Divider()
@@ -427,16 +426,18 @@ private struct BandMenuItem: View {
             }
         case .thumbnails:
             Toggle("Show List", isOn: $model.isDrawerOpen)
+        case .floatOnTop:
+            Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
         case .formatBadge, .pageIndicator, .pageTurn, .print:
             EmptyView()
         }
     }
 }
 
-// Keeping these separate from BandLayout prevents measurements or narrow windows from moving them onto the band. The
-// window's pins (Float on Top, Always Show Toolbar) are in the View menu only.
+// Keeping these separate from BandLayout prevents measurements or narrow windows from moving them onto the band. Float
+// on Top is a band item instead: an icon on the band, and here only when the band has no room for it.
 enum SecondaryViewControl: CaseIterable {
-    case direction, scrollAxis, paperOrientation, paperSeries, cover, selectText
+    case direction, scrollAxis, paperOrientation, paperSeries, cover, selectText, alwaysShowMenu
 
     static func applicable(for model: DocumentViewModel) -> [Self] {
         allCases.filter { item in
@@ -445,6 +446,7 @@ enum SecondaryViewControl: CaseIterable {
             case .paperSeries: model.offersPaperSeries
             case .cover: !model.showsWeb && model.viewOptions.usesCoverOption
             case .selectText: !model.showsWeb && model.canSelectText
+            case .alwaysShowMenu: true
             }
         }
     }
@@ -496,6 +498,9 @@ private struct SecondaryViewMenuItem: View {
         case .selectText:
             Toggle("Select Text", isOn: $model.isSelectingText)
                 .help("Select Text (T)")
+        case .alwaysShowMenu:
+            Toggle("Always Show Toolbar", isOn: $model.isBandAlwaysVisible)
+                .help("Always Show Toolbar (⌥⌘T)")
         }
     }
 }

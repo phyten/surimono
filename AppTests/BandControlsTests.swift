@@ -6,7 +6,7 @@ import Testing
 
 @MainActor
 struct BandControlsTests {
-    @Test("紙の帯はよく変える操作に絞りその他の6操作は幅に関係なくメニューに置き、窓の固定は置かない")
+    @Test("紙の帯はよく変える操作と最前面に固定に絞り、その他の7操作は幅に関係なくメニューに置く")
     func paperControls() {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -18,16 +18,16 @@ struct BandControlsTests {
         model.viewOptions.layout = .spread
         #expect(
             BandLayout.Item.applicable(for: model) == [
-                .formatBadge, .style, .layout, .transition, .print,
+                .formatBadge, .style, .layout, .transition, .floatOnTop, .print,
             ])
         #expect(
             SecondaryViewControl.applicable(for: model) == [
-                .direction, .scrollAxis, .paperOrientation, .paperSeries, .cover, .selectText,
+                .direction, .scrollAxis, .paperOrientation, .paperSeries, .cover, .selectText, .alwaysShowMenu,
             ])
         model.viewOptions.layout = .single
         #expect(
             SecondaryViewControl.applicable(for: model) == [
-                .direction, .scrollAxis, .paperOrientation, .paperSeries, .selectText,
+                .direction, .scrollAxis, .paperOrientation, .paperSeries, .selectText, .alwaysShowMenu,
             ])
     }
 
