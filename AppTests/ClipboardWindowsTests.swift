@@ -10,6 +10,28 @@ struct ClipboardWindowsTests {
         NSPasteboard(name: .init("SurimonoTests.clipboard.\(UUID().uuidString)"))
     }
 
+    @Test("クリップボードの文章を刷り台で開く要求は同じ窓へ届く", .timeLimit(.minutes(1)))
+    func opensOnPrintScreen() throws {
+        let board = board()
+        defer { board.releaseGlobally() }
+        board.setString("# Shortcut fixture", forType: .string)
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let windows = ClipboardWindows(
+            openFiles: { _, _, _ in Issue.record("ファイルは開かない") },
+            warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
+        windows.preferences = AppPreferences(defaults: suite.defaults)
+        windows.library = UserLibrary(root: directory)
+        let controller = try #require(windows.open(from: board, window: nil))
+        defer { controller.window?.close() }
+        #expect(!controller.model.isPrintModeRequested)
+        let printing = windows.open(from: board, window: nil, printing: true)
+        #expect(printing === controller)
+        #expect(controller.model.isPrintModeRequested || controller.model.mode == .print)
+    }
+
     @Test("専用ペーストボードの文字列をファイルなしのウィンドウで開き同じ内容は再利用する", .timeLimit(.minutes(1)))
     func opensAndReuses() throws {
         let board = board()
@@ -20,7 +42,7 @@ struct ClipboardWindowsTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = ClipboardWindows(
-            openFiles: { _, _ in Issue.record("ファイルは開かない") },
+            openFiles: { _, _, _ in Issue.record("ファイルは開かない") },
             warn: { _ in
                 Issue.record("警告しない")
             }, closeWelcome: {})
@@ -74,7 +96,7 @@ struct ClipboardWindowsTests {
         let parent = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: true)
         var warnings = 0
         let windows = ClipboardWindows(
-            openFiles: { _, _ in Issue.record("開かない") },
+            openFiles: { _, _, _ in Issue.record("開かない") },
             warn: { window in
                 #expect(window === parent)
                 warnings += 1
@@ -107,7 +129,7 @@ struct ClipboardWindowsTests {
             }, warn: { _ in Issue.record("警告しない") },
             hasOpenWindows: { false }, showWelcome: {})
         let windows = ClipboardWindows(
-            openFiles: { urls, window in router.open(urls, from: window) },
+            openFiles: { urls, window, printing in router.open(urls, from: window, printing: printing) },
             warn: { _ in
                 Issue.record("警告しない")
             }, closeWelcome: {})
@@ -170,7 +192,7 @@ struct ClipboardWindowsTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = ClipboardWindows(
-            openFiles: { _, _ in Issue.record("ファイルは開かない") },
+            openFiles: { _, _, _ in Issue.record("ファイルは開かない") },
             warn: { _ in
                 Issue.record("警告しない")
             }, closeWelcome: {})

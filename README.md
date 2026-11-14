@@ -23,6 +23,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 ## Features
 
 - Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
+- Set two global shortcuts in Settings > General to open the clipboard in the viewer or on the print screen while Surimono is running (both are unset by default).
 - Open or print selected text from any app with the Services menu (Open in Surimono, Print with Surimono). It stays in memory until you choose Save as File…
 - Bind a Markdown file's parts: `<<[file]` (Marked), `{{file}}` (MultiMarkdown), `/file` (iA Writer), or a SUMMARY.md of links open as a binder when you ask, with the parent's text as a preface
 - Streaming Preview, compatible with [Marked's](https://markedapp.com/help/Streaming_Preview): apps that write to the `mkStreamingPreview` pasteboard appear live, without a file (the base URL for relative images is not used)

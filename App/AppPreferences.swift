@@ -13,6 +13,19 @@ struct RemovedPrintSettingSet: Equatable {
 /// App-wide defaults. Settings a user changes in a document window are remembered per document instead.
 @Observable
 final class AppPreferences {
+    var openClipboardShortcut: KeyCombo? {
+        didSet {
+            defaults.set(
+                openClipboardShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: "openClipboardShortcut")
+        }
+    }
+    var printClipboardShortcut: KeyCombo? {
+        didSet {
+            defaults.set(
+                printClipboardShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: "printClipboardShortcut")
+        }
+    }
+
     private let defaults: UserDefaults
     private let languageDomainName: String?
     /// Only the application's persistent domain determines the override, never the global AppleLanguages value.
@@ -205,6 +218,12 @@ final class AppPreferences {
             : PaperSeries.initial(
                 locale: locale ?? .current,
                 defaultPaperSize: defaultPaperSize ?? (followsSystem ? NSPrintInfo.shared.paperSize : nil))
+        openClipboardShortcut = defaults.data(forKey: "openClipboardShortcut").flatMap {
+            try? JSONDecoder().decode(KeyCombo.self, from: $0)
+        }
+        printClipboardShortcut = defaults.data(forKey: "printClipboardShortcut").flatMap {
+            try? JSONDecoder().decode(KeyCombo.self, from: $0)
+        }
         self.defaults = defaults
         languageDomainName = domainName
         let savedLanguages = domainName.flatMap {

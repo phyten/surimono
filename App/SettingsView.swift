@@ -57,6 +57,7 @@ struct SettingsView: View {
                 switch preferences.settingsSection {
                 case .general:
                     LanguagePicker(preferences: preferences)
+                    GlobalShortcutSettings()
                     if updater.isAvailable {
                         Section {
                             Toggle(

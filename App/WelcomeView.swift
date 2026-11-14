@@ -41,10 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// A window's settings are saved a moment after a change, and quitting does not close the windows first.
     func applicationWillTerminate(_ notification: Notification) {
+        GlobalHotKeys.shared.stop()
         DocumentWindows.shared.flushPendingSettings()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let preferences = ClipboardWindows.shared.preferences {
+            GlobalHotKeys.shared.start(preferences: preferences)
+        }
         DocumentEditMenu.startHiding()
         #if DEBUG
             // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's

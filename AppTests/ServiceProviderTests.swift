@@ -309,7 +309,7 @@ struct ServiceProviderTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = ClipboardWindows(
-            openFiles: { _, _ in Issue.record("ファイルは開かない") }, warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
+            openFiles: { _, _, _ in Issue.record("ファイルは開かない") }, warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
         windows.preferences = AppPreferences(defaults: suite.defaults)
         windows.library = UserLibrary(root: directory)
         let recent = NSDocumentController.shared.recentDocumentURLs
