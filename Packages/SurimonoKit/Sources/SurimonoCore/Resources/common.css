@@ -82,6 +82,22 @@ dd { margin: 0.15em 0 0.5em 1.5em; }
 .footnotes { margin-top: 2em; padding-top: 0.5em; border-top: 0.5pt solid #888; font-size: 0.9em; }
 .footnotes ol { padding-left: 1.6em; }
 .footnotes li > p { margin-block: 0.2em; }
+/* Disposable stock pages and line-local room for page-bottom footnotes. */
+.paper-footnote-stock { break-before: page; page-break-before: always; border: 0; margin: 0; padding: 0; }
+.paper-footnote { break-inside: avoid; page-break-inside: avoid; position: relative;
+    display: flow-root; font-size: 0.85em; line-height: 1.4; padding-left: 1.8em; }
+.paper-footnote-number { float: left; width: 1.8em; margin-left: -1.8em; }
+.paper-footnote p { margin-block: 0.15em; }
+.paper-footnote-room { display: inline-block; width: 0; vertical-align: top; position: relative;
+    /* Keep the reference's own line above the removable band, even with a large superscript. */
+    box-sizing: content-box; padding: 1lh 0 0; margin: 0; border: 0; }
+.paper-footnote-mark, .paper-footnote-stock-mark { position: absolute; left: 0; width: 4px; height: 4px;
+    display: block; padding: 0; margin: 0; border: 0; background: transparent; font-size: 0; line-height: 0; }
+.paper-footnote-mark, .paper-footnote-bottom { bottom: 0; }
+.paper-footnote-top { top: 0; }
+.paper-footnote-mark::before, .paper-footnote-mark::after,
+.paper-footnote-stock-mark::before, .paper-footnote-stock-mark::after { content: none !important; }
+
 .page-break { height: 0; break-after: page; page-break-after: always; }
 nav.toc { margin-block: 1em; }
 nav.toc ul { list-style: none; margin-block: 0.15em; padding-left: 1.2em; }

@@ -94,6 +94,13 @@ struct PrintFinishSheet: View {
                         .labelsHidden()
                     }
                 }
+                section("Footnotes") {
+                    Picker("Footnotes", selection: $model.printFinish.footnotes) {
+                        Text("At the End").tag(FootnotePlacement.end)
+                        Text("At the Bottom of the Page (Beta)").tag(FootnotePlacement.pageBottom)
+                    }
+                    .labelsHidden()
+                }
                 section("Links on Paper") {
                     Picker("Links on Paper", selection: $model.printFinish.links) {
                         Text("As They Are").tag(PaperLinks.asIs)

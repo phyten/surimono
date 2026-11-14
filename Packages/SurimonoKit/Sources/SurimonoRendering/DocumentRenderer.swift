@@ -845,6 +845,7 @@ public final class DocumentRenderer {
             do {
                 var childSettings = settings
                 childSettings.binderStartsOnFront = false
+                childSettings.finish.footnotes = .end
                 childSettings.markdownChanges = []
                 // Left and right belong to the bound pages, which a document on its own does not know.
                 childSettings.options.mirrorsMargins = false
@@ -1124,15 +1125,24 @@ public final class DocumentRenderer {
             // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
             let parts = [marksScript, codeScript, themeScript].filter { !$0.isEmpty }
             let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")
-            var text = try await paginateCheckingIssues(
-                PaginationRequest(
-                    source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
-                    margins: WebPaginator.Margins(margins),
-                    allowsJavaScript: false,
-                    preparationScript: preparation,
-                    readsPageRules: false, drawsBackground: !separatesPaper,
-                    rendersMermaid: (source.format == .markdown || source.format == .org)
-                        && fragment.body.contains("class=\"mermaid-block\"")), source: source)
+            var text: WebPaginator.Result
+            if settings.finish.footnotes == .pageBottom,
+                let plan = PageFootnotes.plan(for: paperFragment.body),
+                let placed = try await paginateFootnotes(
+                    plan, fragment: paperFragment, source: source, settings: settings, preparation: preparation)
+            {
+                text = placed
+            } else {
+                text = try await paginateCheckingIssues(
+                    PaginationRequest(
+                        source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
+                        margins: WebPaginator.Margins(margins),
+                        allowsJavaScript: false,
+                        preparationScript: preparation,
+                        readsPageRules: false, drawsBackground: !separatesPaper,
+                        rendersMermaid: (source.format == .markdown || source.format == .org)
+                            && fragment.body.contains("class=\"mermaid-block\"")), source: source)
+            }
             if missingImage { text.requiredFolderAccess = directory }
             text = try await finished(text, fragment: fragment, source: source, settings: settings)
             guard separatesPaper, text.preparationResult == "paper" else { return text }
@@ -1356,7 +1366,66 @@ public final class DocumentRenderer {
         return PageChapters.titles(headings: facts.headings, pages: headingPages, pageCount: places.count, plan: plan)
     }
 
-    private func paginateCheckingIssues(_ request: PaginationRequest, source: DocumentSource) async throws
+    /// A failed measurement leaves the original single-pagination path in charge, with no partially moved notes.
+    private func paginateFootnotes(
+        _ plan: PageFootnotes.Plan, fragment: HTMLFragment, source: DocumentSource,
+        settings: RenderSettings, preparation: String?
+    ) async throws -> WebPaginator.Result? {
+        do {
+            let pageSize = settings.layout.logicalPageSize(options: settings.options)
+            let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
+            let directory = source.fileURL?.deletingLastPathComponent()
+            func request(_ body: String) -> PaginationRequest {
+                let html = HTMLDocumentBuilder.build(
+                    fragment: HTMLFragment(body: body, title: fragment.title), format: source.format,
+                    theme: settings.theme, baseURL: directory, textScale: settings.textScale,
+                    removesPaper: WebPaginator.drawsClearPages, finish: settings.finish.styleSheet, code: settings.code)
+                return PaginationRequest(
+                    source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
+                    margins: margins, allowsJavaScript: false, preparationScript: preparation,
+                    readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
+                    rendersMermaid: (source.format == .markdown || source.format == .org)
+                        && body.contains("class=\"mermaid-block\""))
+            }
+            try Task.checkCancellation()
+            let measured = try await paginateCheckingIssues(
+                request(plan.measuringHTML(placing: plan.eligibleNotes)), source: source)
+            try Task.checkCancellation()
+            let measurement = try FootnotePlacer.measure(measured.document, plan: plan, placing: plan.eligibleNotes)
+            let groups = try FootnotePlacer.groups(
+                for: measurement, plan: plan,
+                contentHeight: pageSize.height - margins.top - margins.bottom, textScale: settings.textScale)
+            // A line with something drawn in its room (a tinted box, a float beside it) keeps its notes at the end; the
+            // rest is laid out again without it. A document full of such lines is not worth more passes.
+            var remaining = groups
+            for _ in 0..<4 {
+                guard !remaining.isEmpty else { return nil }
+                let placing = remaining
+                do {
+                    let result = try await paginateCheckingIssues(
+                        request(plan.reservingHTML(groups: placing)), source: source
+                    ) {
+                        try FootnotePlacer.compose($0, plan: plan, groups: placing, margins: margins)
+                    }
+                    try Task.checkCancellation()
+                    return result
+                } catch FootnotePlacer.PlacementError.inkInBand(let first) {
+                    try Task.checkCancellation()
+                    remaining.removeAll { $0.firstReference == first }
+                }
+            }
+            return nil
+        } catch {
+            if error is CancellationError { throw error }
+            try Task.checkCancellation()
+            return nil
+        }
+    }
+
+    private func paginateCheckingIssues(
+        _ request: PaginationRequest, source: DocumentSource,
+        transform: ((PDFDocument) throws -> PDFDocument)? = nil
+    ) async throws
         -> WebPaginator.Result
     {
         let wrapped = PaginationRequest(
@@ -1370,6 +1439,7 @@ public final class DocumentRenderer {
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
         }
+        let document = try transform?(output.document) ?? output.document
         let access = resourceAccess(for: source)
         let issues = (preparation?.issues ?? []).map { issue in
             var issue = issue
@@ -1387,10 +1457,10 @@ public final class DocumentRenderer {
             return issue
         }
         var result = WebPaginator.Result(
-            document: output.document,
+            document: document,
             preparationResult: preparation.map { $0.previous } ?? output.preparationResult,
             pageRules: output.pageRules, requiredFolderAccess: output.requiredFolderAccess)
-        result.issues = PrintIssueAnchors.extract(from: output.document, issues: issues)
+        result.issues = PrintIssueAnchors.extract(from: document, issues: issues)
         return result
     }
 
