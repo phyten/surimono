@@ -53,6 +53,102 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("文書の指示は既定値とセットに重なり保存や最近使った記録を作らない", .timeLimit(.minutes(1)))
+    func documentDirectivesDefaults() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        var options = PrintOptions()
+        options.margins = .uniform(7)
+        fixture.preferences.savePrintSettingSet(
+            PrintSettingSet(
+                name: "配布用",
+                settings: DocumentSettings(
+                    layoutID: PrintLayout.a4Single.id, textScale: 1.5, printOptions: options,
+                    paperOrientation: .portrait)))
+        let source = Data(
+            "---\nsurimono:\n  set: 配布用\n  layout: A4BOOKLETA5\n  orientation: landscape\n  margins: 15mm\n  text-size: 115%\n---\n# Test"
+                .utf8)
+        let pageData = pdf("Test", pages: 1)
+        let model = DocumentViewModel(
+            data: source, fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.layoutID == "a4BookletA5")
+        #expect(model.paperOrientation == .landscape)
+        #expect(model.printOptions.margins == .uniform(15))
+        #expect(model.textScale == 1.15)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+        #expect(fixture.preferences.recentThemeIDs.isEmpty)
+        model.setTextScale(1.75)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(model.hasSavedSettings)
+        model.resetDocumentSettings()
+        #expect(model.textScale == 1.15)
+        #expect(fixture.store.keys().isEmpty)
+    }
+
+    @Test("保存済み設定は指示に優先し再読み込みでも利用者の変更を守る", .timeLimit(.minutes(1)))
+    func documentDirectivesSaved() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let source = Data("---\nsurimono:\n  text-size: 115%\n---\n# Test".utf8)
+        try fixture.store.save(DocumentSettings(textScale: 1.75), for: ContentHash.of(source).hex)
+        let pageData = pdf("Test", pages: 1)
+        let model = DocumentViewModel(
+            data: source, fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.textScale == 1.75)
+        model.replaceContent(Data("---\nsurimono:\n  text-size: 90%\n---\n# Changed".utf8), format: .markdown)
+        #expect(model.textScale == 1.75)
+    }
+
+    @Test("操作していない文書だけ変更された指示を適用する", .timeLimit(.minutes(1)))
+    func documentDirectivesReload() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let pageData = pdf("Test", pages: 1)
+        let model = DocumentViewModel(
+            data: Data("---\nsurimono:\n  text-size: 115%\n---\n# Test".utf8),
+            fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        model.replaceContent(Data("---\nsurimono:\n  text-size: 90%\n---\n# Changed".utf8), format: .markdown)
+        #expect(model.textScale == 0.9)
+        try await waitUntil { !model.isRendering }
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+        model.setTextScale(1.5)
+        model.replaceContent(Data("---\nsurimono:\n  text-size: 80%\n---\n# Changed again".utf8), format: .markdown)
+        #expect(model.textScale == 1.5)
+    }
+
+    @Test("文書のスタイル指定はIDと英語名と日本語名を受け取り未知の値は飛ばす", arguments: ["ACADEMIC", "Academic", "論文"])
+    func documentDirectiveStyle(_ style: String) throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data("---\nsurimono:\n  style: \(style)\n  layout: unknown\n  set: absent\n---\n# Test".utf8),
+            fileURL: nil, format: .markdown, preferences: fixture.preferences, library: fixture.library,
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        model.resetDocumentSettings()
+        #expect(model.themeID == "academic")
+        #expect(model.layoutID == fixture.preferences.layoutID)
+        #expect(fixture.preferences.recentThemeIDs.isEmpty)
+        #expect(fixture.store.keys().isEmpty)
+    }
+
     @Test("文字サイズと用紙の向きの既定値は開くだけでは保存せず文書の操作を優先する", .timeLimit(.minutes(1)))
     func textAndOrientationDefaults() async throws {
         let environment = try environment()

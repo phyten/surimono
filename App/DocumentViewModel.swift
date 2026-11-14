@@ -326,6 +326,8 @@ final class DocumentViewModel {
     @ObservationIgnored let settingsStore: DocumentSettingsStore?
     /// The settings as last loaded, restored, reset or saved; any other value means the user changed something.
     @ObservationIgnored private var settingsBaseline: DocumentSettings?
+    private var documentDirectives = DocumentDirectives()
+    private var didCustomizeSinceLoad = false
     @ObservationIgnored private var pendingImageOrder: [String]?
     /// What the last reset took away, until it is brought back.
     @ObservationIgnored private(set) var resetOrigin: ResetOrigin?
@@ -997,6 +999,19 @@ final class DocumentViewModel {
             web.reload()
             webZoom = web.zoom
         }
+        let updatedDirectives = currentDirectives
+        if updatedDirectives != documentDirectives {
+            let canApply =
+                !hasSavedSettings && !didCustomizeSinceLoad && !didResizeWindow
+                && rememberedSettings == settingsBaseline
+            documentDirectives = updatedDirectives
+            if canApply {
+                settingsBaseline = nil
+                notes = NotePages()
+                applyDirectiveDefaults()
+                settingsBaseline = rememberedSettings
+            }
+        }
         computeContentHash()
         refreshIncludePlan()
         render()
@@ -1324,7 +1339,7 @@ final class DocumentViewModel {
     }
 
     func setTextScale(_ value: Double) {
-        guard usesPrintTheme, TextScale.steps.contains(value) else { return }
+        guard usesPrintTheme, value.isFinite, (0.8...2).contains(value) else { return }
         textScale = value
     }
 
@@ -2137,6 +2152,10 @@ final class DocumentViewModel {
     /// What this document has when the user changes nothing. Until the pages are known, the reading layout is the
     /// initial guess, so a layout chosen while the pages are prepared still counts as a change.
     private var defaultSettings: DocumentSettings {
+        defaultsWithDirectives(appDefaultSettings)
+    }
+
+    private var appDefaultSettings: DocumentSettings {
         DocumentSettings(
             view: defaultViewOptions ?? initialViewOptions, zoom: 1, layoutID: Self.defaultLayoutID(preferences),
             themeID: usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
@@ -2147,6 +2166,69 @@ final class DocumentViewModel {
             binderStartsOnFront: binder != nil ? false : nil,
             printFinish: finishAppliesToText ? preferences.printFinish : nil,
             codePaletteID: usesPrintTheme ? Self.defaultCodePaletteID(preferences, library) : nil)
+    }
+
+    private func defaultsWithDirectives(_ defaults: DocumentSettings) -> DocumentSettings {
+        guard format == .markdown, binder == nil, imageBundle == nil else { return defaults }
+        var resolved = defaults
+        if let name = documentDirectives.setName,
+            let named = preferences.printSettingSets.first(where: { $0.name == name })
+        {
+            let set = applicablePrintSettingSet(named)
+            if let id = set.layoutID { resolved.layoutID = id }
+            if let orientation = set.paperOrientation { resolved.paperOrientation = orientation }
+            var options = resolved.printOptions ?? PrintOptions()
+            if let margins = set.margins { options.margins = margins }
+            if let links = set.linksMargins {
+                options.linksMargins = links
+            } else if set.margins != nil {
+                options.linksMargins = options.margins.uniformValue != nil
+            }
+            if let mirrors = set.mirrorsMargins { options.mirrorsMargins = mirrors }
+            if let furniture = set.furniture { options.furniture = furniture }
+            resolved.printOptions = options
+            if let finish = set.finish { resolved.printFinish = finish }
+            if let notes = set.notes { resolved.notes = notes == NotePages() ? nil : notes }
+            if let id = set.themeID { resolved.themeID = id }
+            if let scale = set.textScale { resolved.textScale = scale }
+        }
+        if let id = documentDirectives.layoutID,
+            let layout = PrintLayout.presets.first(where: { $0.id.caseInsensitiveCompare(id) == .orderedSame })
+        {
+            resolved.layoutID = layout.id
+        }
+        if let orientation = documentDirectives.orientation { resolved.paperOrientation = orientation }
+        if let margin = documentDirectives.marginMillimeters {
+            resolved.printOptions?.margins = PageMargins.uniform(margin)
+            resolved.printOptions?.linksMargins = true
+        }
+        if let style = documentDirectives.style,
+            let theme = library.themes.first(where: {
+                [$0.id, $0.name, $0.localizedNames["ja"] ?? ""].contains {
+                    $0.caseInsensitiveCompare(style) == .orderedSame
+                }
+            })
+        {
+            resolved.themeID = theme.id
+        }
+        if let scale = documentDirectives.textScale { resolved.textScale = scale }
+        return resolved
+    }
+
+    private func applyDirectiveDefaults() {
+        let resolved = defaultSettings
+        if let id = resolved.layoutID { layoutID = id }
+        if let orientation = resolved.paperOrientation { paperOrientation = orientation }
+        if let options = resolved.printOptions { printOptions = options }
+        if let finish = resolved.printFinish { printFinish = finish }
+        notes = resolved.notes ?? NotePages()
+        if let id = resolved.themeID { themeID = id }
+        if let scale = resolved.textScale { setTextScale(scale) }
+    }
+
+    private var currentDirectives: DocumentDirectives {
+        guard format == .markdown, binder == nil, imageBundle == nil else { return DocumentDirectives() }
+        return DocumentDirectives.read(fromMarkdown: TextDecoding.decode(data).text)
     }
 
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
@@ -2209,11 +2291,18 @@ final class DocumentViewModel {
             return
         }
         guard let saved else {
+            let untouched = rememberedSettings == appDefaultSettings && !didCustomizeSinceLoad && !didResizeWindow
+            documentDirectives = currentDirectives
+            if untouched {
+                settingsBaseline = nil
+                applyDirectiveDefaults()
+            }
             // Anything that already differs from the defaults was changed by the user while the content was read.
             settingsBaseline = defaultSettings
             rememberedSettingsDidChange()
             return
         }
+        documentDirectives = currentDirectives
         apply(saved)
         hasSavedSettings = true
         settingsBaseline = rememberedSettings
@@ -2261,6 +2350,7 @@ final class DocumentViewModel {
     func rememberedSettingsDidChange() {
         if let binder, binder.setHash != contentHash { return }
         guard contentHash != nil, let settingsBaseline, rememberedSettings != settingsBaseline else { return }
+        didCustomizeSinceLoad = true
         scheduleSave()
     }
 
@@ -2382,6 +2472,7 @@ final class DocumentViewModel {
     static let undoNoticeDuration: Duration = .seconds(8)
 
     private func applyDefaultSettings(resizesWindow: Bool) {
+        settingsBaseline = nil
         dismissToast()
         saveTask?.cancel()
         saveTask = nil
@@ -2433,6 +2524,11 @@ final class DocumentViewModel {
                 of: window,
                 animate: true, side: sideInset)
         }
+        documentDirectives = currentDirectives
+        applyDirectiveDefaults()
+        didCustomizeSinceLoad = false
+        // The pending save of a resize was cancelled above; left set, the flag would hold later directives back.
+        didResizeWindow = false
         settingsBaseline = rememberedSettings
     }
 

@@ -144,7 +144,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             result.presetID = nil
         }
         if let value = result.margins, !value.isValid { result.margins = nil }
-        if let value = result.textScale, !TextScale.steps.contains(value) { result.textScale = nil }
+        if let value = result.textScale, !(0.8...2).contains(value) { result.textScale = nil }
         return result
     }
 
