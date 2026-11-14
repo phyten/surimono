@@ -14,6 +14,7 @@ public struct PageFurniture: Codable, Hashable, Sendable {
     public enum Variable: String, CaseIterable, Sendable {
         case fileName = "{ファイル名}"
         case title = "{題名}"
+        case chapter = "{章}"
         case date = "{日付}"
         case page = "{ページ}"
         case pageCount = "{総ページ}"
@@ -72,6 +73,11 @@ public struct PageFurniture: Codable, Hashable, Sendable {
 
     public var isEmpty: Bool { Slot.allCases.allSatisfy { self[$0].isEmpty } }
 
+    /// Whether any of the six places names the variable.
+    public func uses(_ variable: Variable) -> Bool {
+        Slot.allCases.contains { self[$0].contains(variable.rawValue) }
+    }
+
     public subscript(slot: Slot) -> String {
         get {
             switch slot {
@@ -103,12 +109,17 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         public var date: String
         /// Logical pages that were added as blanks and stay empty.
         public var blankPages: Set<Int>
+        public var chapters: [String]
 
-        public init(fileName: String = "", title: String = "", date: String = "", blankPages: Set<Int> = []) {
+        public init(
+            fileName: String = "", title: String = "", date: String = "", blankPages: Set<Int> = [],
+            chapters: [String] = []
+        ) {
             self.fileName = fileName
             self.title = title
             self.date = date
             self.blankPages = blankPages
+            self.chapters = chapters
         }
     }
 
@@ -140,10 +151,20 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         guard !isEmpty, !context.blankPages.contains(index), !(skipsFirstPage && index == 0) else { return nil }
         func filled(_ text: String) -> String {
             guard text.contains("{") else { return text }
-            return [
+            let chapter = context.chapters.indices.contains(index) ? context.chapters[index] : ""
+            let result = [
+                (Variable.chapter, chapter),
                 (Variable.fileName, context.fileName), (Variable.title, context.title), (Variable.date, context.date),
                 (Variable.page, String(index + 1)), (Variable.pageCount, String(pageCount)),
             ].reduce(text) { $0.replacingOccurrences(of: $1.0.rawValue, with: $1.1) }
+            if text.contains(Variable.chapter.rawValue), chapter.isEmpty,
+                result.trimmingCharacters(
+                    in: .whitespacesAndNewlines.union(.punctuationCharacters).union(CharacterSet(charactersIn: "|｜"))
+                ).isEmpty
+            {
+                return ""
+            }
+            return result
         }
         let swaps = swapsOnSpreads && hasFacingPages && (((position ?? index) % 2 == 1) != rightBound)
         func row(_ left: String, _ center: String, _ right: String) -> [String] {
