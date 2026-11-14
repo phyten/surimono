@@ -64,7 +64,7 @@ struct ViewModeView: View {
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
         .sheet(isPresented: $model.isGoToPagePresented) { GoToPageSheet(model: model) }
         .background {
-            PointerTracker { point, contentHeight in
+            PointerTracker(isActive: !model.isBandAlwaysVisible) { point, contentHeight in
                 menu.contentHeight = contentHeight
                 if let point { menu.pointerMoved(to: point) } else { menu.pointerExited() }
             }

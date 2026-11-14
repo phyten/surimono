@@ -167,6 +167,12 @@ private struct DocumentWindowChanges: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
                 if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { note in
+                if let window = note.object as? NSWindow, window === model.window { model.windowWillEnterFullScreen() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { note in
+                if let window = note.object as? NSWindow, window === model.window { model.windowDidExitFullScreen() }
+            }
     }
 }
 
