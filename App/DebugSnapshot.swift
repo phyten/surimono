@@ -128,8 +128,10 @@
                 NotificationCenter.default.post(name: showMenu, object: model, userInfo: ["stage": "full"])
                 model.openThemePalette()
             }
-            if let value = argument("SurimonoPaperSeries"), let series = ViewPaperSeries(rawValue: value) {
-                model.paperSeries = series
+            if let value = argument("SurimonoPaperSeries"), let series = PaperSeries(rawValue: value) {
+                let remembered = model.preferences.paperSeries
+                model.choosePaperSeries(series)
+                model.preferences.paperSeries = remembered
             }
             if let value = argument("SurimonoPaperHeight"), let height = Double(value), let window = model.window,
                 let unit = model.paperUnitSize
@@ -310,11 +312,7 @@
                         model.isPrintFinishPresented = true
                         try? await Task.sleep(for: .milliseconds(800))
                     }
-                    let sections: [String: PrintFinishSection] = [
-                        "furniture": .furniture, "breaks": .breaks, "contents": .contents, "notes": .notes,
-                        "printer": .printer,
-                    ]
-                    let section = argument("SurimonoFinishSheet").flatMap { sections[$0] }
+                    let section = finishSectionArgument()
                     if flag("SurimonoFinishSheet") || section != nil {
                         model.finishSection = section
                         model.showsNoteAdjustments = flag("SurimonoNoteAdjust")
@@ -360,6 +358,12 @@
                     // The palette samples the themes it shows.
                     try? await Task.sleep(for: .milliseconds(2500))
                 }
+                if argument("SurimonoPopover") == "print", model.mode == .view {
+                    // The view mode's print settings, off the window's edge; -SurimonoFinishSheet scrolls them.
+                    model.finishSection = finishSectionArgument()
+                    model.presentPrintSettings()
+                    try? await Task.sleep(for: .milliseconds(900))
+                }
                 if let theme = argument("SurimonoTry") {
                     // As if the pointer rested on the theme in the palette.
                     model.hoverPaletteTheme(theme)
@@ -399,6 +403,15 @@
                     logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
+        }
+
+        /// The section of the print settings that `-SurimonoFinishSheet` names.
+        private static func finishSectionArgument() -> PrintFinishSection? {
+            let sections: [String: PrintFinishSection] = [
+                "furniture": .furniture, "breaks": .breaks, "contents": .contents, "notes": .notes,
+                "printer": .printer,
+            ]
+            return argument("SurimonoFinishSheet").flatMap { sections[$0] }
         }
 
         /// Stands in for the reader's pointer: each step of `x,y,ms;…` puts the pointer at that offset from the paper's

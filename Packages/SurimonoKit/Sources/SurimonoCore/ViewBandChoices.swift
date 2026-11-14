@@ -23,14 +23,6 @@ public enum ChangeFollowing: String, CaseIterable, Codable, Sendable {
     case jump, mark, ask
 }
 
-/// The family of paper the view mode lays text out on. A4 and B5 are nearly the same shape, so switching keeps the
-/// window's shape and changes how much fits on a page.
-public enum ViewPaperSeries: String, CaseIterable, Codable, Sendable {
-    case a, b
-
-    public var layout: PrintLayout { self == .a ? .a4Single : .b5Single }
-}
-
 public enum ChangeNavigation {
     /// The next page with a change after `page`, going round to the first one.
     public static func next(after page: Int, in pages: [Int]) -> Int? {

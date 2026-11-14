@@ -146,7 +146,6 @@ public struct PDFComposer {
                         layout = layout.oriented(size.width > size.height)
                     }
                     let size = layout.sheetSize
-                    let logicalSize = layout.logicalPageSize(options: options)
                     var box = CGRect(origin: .zero, size: size)
                     let boxData = Data(bytes: &box, count: MemoryLayout<CGRect>.size)
                     context.beginPDFPage([kCGPDFContextMediaBox: boxData] as CFDictionary)
@@ -166,20 +165,18 @@ public struct PDFComposer {
                             width: slotRect.width * size.width, height: slotRect.height * size.height)
                         let position = positions[index] ?? index
                         try draw(page, in: rect, context: context, index: index, shift: corrections[index] ?? 0)
-                        if let lines = options.furniture.lines(
-                            forPage: index, pageCount: pageCount, context: furniture,
-                            hasFacingPages: layout.hasFacingPages, rightBound: layout.isRightBound,
-                            position: position)
-                        {
-                            if layout.kind == .handout3 {
+                        if layout.kind == .handout3 {
+                            if let lines = Self.furnitureLines(
+                                onPage: index, at: position, pageCount: pageCount, layout: layout, options: options,
+                                context: furniture)
+                            {
                                 drawHandout(lines, slot: slot, in: rect, options: options, context: context)
-                            } else {
-                                let verso =
-                                    layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: position)
-                                drawFurniture(
-                                    lines, in: rect, margins: verso ? margins.mirrored : margins,
-                                    logicalSize: logicalSize, context: context)
                             }
+                        } else if let placement = Self.furniture(
+                            onPage: index, at: position, pageCount: pageCount, layout: layout, options: options,
+                            context: furniture)
+                        {
+                            Self.draw(placement, in: rect, context: context)
                         }
                     }
                     if let memo = layout.memoRect(options: options) {
@@ -254,16 +251,58 @@ public struct PDFComposer {
             padding: slot < 2 ? 0.5 : 2, context: context)
     }
 
-    private func drawFurniture(
-        _ lines: PageFurniture.Lines, in rect: CGRect, margins: WebPaginator.Margins, logicalSize: CGSize,
-        context: CGContext
+}
+
+/// The header and footer the sheets draw on one logical page, and the margins they stand in, measured on a page of
+/// `pageSize` as the page lies on its sheet.
+public struct FurniturePlacement: Equatable, Sendable {
+    public let lines: PageFurniture.Lines
+    public let margins: WebPaginator.Margins
+    public let pageSize: CGSize
+}
+
+extension PDFComposer {
+    /// What is drawn where on a logical page: the one answer the sheets and the view mode's paper share. Nil when the
+    /// page has no header or footer, and for the 3-up handout, whose lines stand beside the page (`furnitureLines`).
+    /// - Parameter position: The page's place among the pages that print; its side of a spread follows it, while the
+    ///   number it shows is its own.
+    public static func furniture(
+        onPage index: Int, at position: Int, pageCount: Int, layout: PrintLayout, options: PrintOptions,
+        context: PageFurniture.Context
+    ) -> FurniturePlacement? {
+        guard layout.kind != .handout3,
+            let lines = furnitureLines(
+                onPage: index, at: position, pageCount: pageCount, layout: layout, options: options, context: context)
+        else { return nil }
+        let margins = WebPaginator.Margins(layout.logicalMargins(options: options))
+        let verso = layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: position)
+        return FurniturePlacement(
+            lines: lines, margins: verso ? margins.mirrored : margins,
+            pageSize: layout.logicalPageSize(options: options))
+    }
+
+    /// The text of a page's header and footer, wherever it stands.
+    static func furnitureLines(
+        onPage index: Int, at position: Int, pageCount: Int, layout: PrintLayout, options: PrintOptions,
+        context: PageFurniture.Context
+    ) -> PageFurniture.Lines? {
+        options.furniture.lines(
+            forPage: index, pageCount: pageCount, context: context, hasFacingPages: layout.hasFacingPages,
+            rightBound: layout.isRightBound, position: position)
+    }
+
+    /// Draws a placement on its page laid into `rect`, at the page's scale there.
+    /// - Parameter asOutlines: Draws the letters as shapes, so that they add no text to the page.
+    static func draw(
+        _ placement: FurniturePlacement, in rect: CGRect, asOutlines: Bool = false, context: CGContext
     ) {
-        let logicalRect = PDFDrawing.fittedRect(size: logicalSize, in: rect)
-        let scale = logicalRect.width / logicalSize.width
+        let logicalRect = PDFDrawing.fittedRect(size: placement.pageSize, in: rect)
+        let scale = logicalRect.width / placement.pageSize.width
+        let margins = placement.margins
         PageFurnitureDrawing.draw(
-            lines, in: logicalRect,
+            placement.lines, in: logicalRect,
             margins: WebPaginator.Margins(
                 top: margins.top * scale, left: margins.left * scale, bottom: margins.bottom * scale,
-                right: margins.right * scale), scale: scale, context: context)
+                right: margins.right * scale), scale: scale, asOutlines: asOutlines, context: context)
     }
 }

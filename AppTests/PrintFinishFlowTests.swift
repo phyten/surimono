@@ -245,6 +245,60 @@ struct PrintFinishFlowTests {
         #expect(model.printOptions.furniture == .pageNumber)
     }
 
+    @Test("表示モードで開いた印刷の設定は、スタイルのパレットを閉じ、刷り台に入ると閉じる")
+    func printSettingsInViewMode() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.openThemePalette()
+        model.presentPrintSettings()
+        #expect(model.mode == .view)
+        #expect(model.isPrintFinishPresented)
+        #expect(!model.isThemePalettePresented)
+        model.enterPrintMode()
+        #expect(model.mode == .print)
+        #expect(!model.isPrintFinishPresented)
+    }
+
+    @Test("表示モードでスタイルのパレットを開くと印刷の設定は閉じる")
+    func paletteClosesPrintSettings() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.presentPrintSettings()
+        model.openThemePalette()
+        #expect(model.isThemePalettePresented)
+        #expect(!model.isPrintFinishPresented)
+    }
+
+    @Test("刷り台で開いた印刷の設定は、表示モードへ戻ると閉じる")
+    func printSettingsOnTray() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.enterPrintMode()
+        model.presentPrintSettings()
+        #expect(model.isPrintFinishPresented)
+        model.exitPrintMode()
+        #expect(model.mode == .view)
+        #expect(!model.isPrintFinishPresented)
+    }
+
+    @Test("表示で組んだページが刷り台と同じなら、刷り台に入ったときから文書の情報に今の設定の枚数を出す")
+    func trayFiguresWithoutRender() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.start()
+        try await waitUntil { model.printResult != nil && !model.isRendering }
+        #expect(model.currentTrayFigures == nil)
+        model.enterPrintMode()
+        #expect(model.isUpToDate)
+        #expect(model.currentTrayFigures?.sheetCount == 1)
+        #expect(model.currentTrayFigures?.paper == "A4")
+    }
+
     @Test("文書の情報は、印刷画面を開いて組んだあとだけ今の設定の枚数を出す")
     func trayFigures() async throws {
         let environment = Environment()

@@ -2,35 +2,46 @@ import PDFKit
 import SurimonoCore
 
 /// Builds ordinary PDF pages, retaining vector text and separate annotations without editing the render result.
-/// Numbers are baked into the view copy on the main actor, so PDFKit's tile workers need no application callbacks.
+/// Numbers and the printed header and footer are baked into the view copy on the main actor, so PDFKit's tile workers
+/// need no application callbacks.
 @MainActor
 public enum ViewPageDocument {
+    /// - Parameter furniture: The header and footer the sheets draw on a logical page, by its index. They are drawn as
+    ///   shapes, so that a page's text, which selection, copying and find read, stays the page's own.
+    /// - Parameter sharesResources: Draws the decorated pages into one PDF, whose pages share their fonts and other
+    ///   resources, instead of one PDF a page. Tests compare the two.
     public static func make(
-        _ source: PDFDocument, plan: ViewPageLayout, margin: CGFloat, changeMarks: [ChangeMark] = []
+        _ source: PDFDocument, plan: ViewPageLayout, margin: CGFloat, changeMarks: [ChangeMark] = [],
+        furniture: [Int: FurniturePlacement] = [:], sharesResources: Bool = true
     ) -> PDFDocument? {
+        // What each decorated page draws, by its index in the copy.
+        var decorations: [Int: Decoration] = [:]
+        for (viewIndex, logicalIndex) in plan.logicalIndices.enumerated() {
+            guard let logicalIndex else { continue }
+            guard let original = source.page(at: logicalIndex) else { return nil }
+            let scale = plan.scale(at: viewIndex)
+            let marks = changeMarks.filter { $0.pageIndex == logicalIndex }
+            let placement = furniture[logicalIndex]
+            // The printed footer takes the place of the screen's own page number.
+            let number = placement?.lines.bottom.contains { !$0.isEmpty } == true ? nil : plan.number(at: viewIndex)
+            guard scale != 1 || number != nil || !marks.isEmpty || placement != nil else { continue }
+            decorations[viewIndex] = Decoration(
+                original: original, number: number, furniture: placement, marks: marks,
+                visibleBox: visibleBox(of: original, at: viewIndex, plan: plan, margin: margin), scale: scale)
+        }
+        guard let decorated = decoratedPages(decorations, margin: margin, sharesResources: sharesResources) else {
+            return nil
+        }
         let result = PDFDocument()
         for (viewIndex, logicalIndex) in plan.logicalIndices.enumerated() {
             let scale = plan.scale(at: viewIndex)
             let transform = CGAffineTransform(scaleX: scale, y: scale)
             if let logicalIndex {
                 guard let original = source.page(at: logicalIndex) else { return nil }
-                let crop = plan.crops(at: viewIndex)
-                var box = original.bounds(for: .cropBox)
-                let top = crop.top ? margin : 0
-                let bottom = crop.bottom ? margin : 0
-                if margin.isFinite, margin >= 0, top + bottom < box.height {
-                    box.origin.y += bottom
-                    box.size.height -= top + bottom
-                }
+                let box = visibleBox(of: original, at: viewIndex, plan: plan, margin: margin)
                 let page: PDFPage
-                let marks = changeMarks.filter { $0.pageIndex == logicalIndex }
-                if scale != 1 || plan.number(at: viewIndex) != nil || !marks.isEmpty {
-                    guard
-                        let decorated = decoratedCopy(
-                            original, number: plan.number(at: viewIndex), margin: margin, marks: marks, visibleBox: box,
-                            scale: scale)
-                    else { return nil }
-                    page = decorated
+                if let decoratedPage = decorated[viewIndex] {
+                    page = decoratedPage
                     StandalonePage.retainSources(of: original, on: page)
                 } else {
                     guard let copy = StandalonePage.copy(of: original) else { return nil }
@@ -129,18 +140,94 @@ public enum ViewPageDocument {
         return copy
     }
 
-    private static func decoratedCopy(
-        _ original: PDFPage, number: Int?, margin: CGFloat, marks: [ChangeMark], visibleBox: CGRect, scale: CGFloat
-    ) -> PDFPage? {
-        guard let source = original.pageRef else { return nil }
+    /// The part of a page the copy shows: its crop box, less the margins cut where pages are joined.
+    private static func visibleBox(of original: PDFPage, at viewIndex: Int, plan: ViewPageLayout, margin: CGFloat)
+        -> CGRect
+    {
+        let crop = plan.crops(at: viewIndex)
+        var box = original.bounds(for: .cropBox)
+        let top = crop.top ? margin : 0
+        let bottom = crop.bottom ? margin : 0
+        if margin.isFinite, margin >= 0, top + bottom < box.height {
+            box.origin.y += bottom
+            box.size.height -= top + bottom
+        }
+        return box
+    }
+
+    private struct Decoration {
+        let original: PDFPage
+        let number: Int?
+        let furniture: FurniturePlacement?
+        let marks: [ChangeMark]
+        let visibleBox: CGRect
+        let scale: CGFloat
+    }
+
+    /// Draws the decorated pages and reads them back, by their index in the copy. In one PDF, the pages that draw the
+    /// same fonts share them; a PDF a page embeds them again on every page.
+    private static func decoratedPages(
+        _ decorations: [Int: Decoration], margin: CGFloat, sharesResources: Bool
+    ) -> [Int: PDFPage]? {
+        let order = decorations.keys.sorted()
+        var pages: [Int: PDFPage] = [:]
+        if sharesResources {
+            guard !order.isEmpty else { return [:] }
+            let data = NSMutableData()
+            guard let consumer = CGDataConsumer(data: data as CFMutableData),
+                let context = CGContext(consumer: consumer, mediaBox: nil, nil)
+            else { return nil }
+            for viewIndex in order {
+                guard let decoration = decorations[viewIndex], draw(decoration, margin: margin, in: context) else {
+                    return nil
+                }
+            }
+            context.closePDF()
+            guard let document = PDFDocument(data: data as Data), document.pageCount == order.count else { return nil }
+            // The pages leave this document, which is not kept; each keeps the CoreGraphics document behind it.
+            for (offset, viewIndex) in order.enumerated() {
+                guard let page = document.page(at: offset), let decoration = decorations[viewIndex] else { return nil }
+                StandalonePage.retainSources(of: page, on: page)
+                finish(page, as: decoration)
+                pages[viewIndex] = page
+            }
+            return withExtendedLifetime(document) { pages }
+        }
+        for viewIndex in order {
+            guard let decoration = decorations[viewIndex] else { return nil }
+            let data = NSMutableData()
+            guard let consumer = CGDataConsumer(data: data as CFMutableData),
+                let context = CGContext(consumer: consumer, mediaBox: nil, nil),
+                draw(decoration, margin: margin, in: context)
+            else { return nil }
+            context.closePDF()
+            guard let page = StandalonePage.first(of: data as Data) else { return nil }
+            finish(page, as: decoration)
+            pages[viewIndex] = page
+        }
+        return pages
+    }
+
+    /// The decorated page's boxes and rotation, which the drawing leaves out.
+    private static func finish(_ page: PDFPage, as decoration: Decoration) {
+        let scaling = CGAffineTransform(scaleX: decoration.scale, y: decoration.scale)
+        page.setBounds(decoration.original.bounds(for: .mediaBox).applying(scaling), for: .mediaBox)
+        page.setBounds(decoration.original.bounds(for: .cropBox).applying(scaling), for: .cropBox)
+        page.rotation = decoration.original.rotation
+    }
+
+    /// Draws one decorated page as a page of `context`.
+    private static func draw(_ decoration: Decoration, margin: CGFloat, in context: CGContext) -> Bool {
+        let original = decoration.original
+        let number = decoration.number
+        let furniture = decoration.furniture
+        let marks = decoration.marks
+        let visibleBox = decoration.visibleBox
+        guard let source = original.pageRef else { return false }
         let media = original.bounds(for: .mediaBox)
         let crop = original.bounds(for: .cropBox)
-        guard media.width > 0, media.height > 0, crop.width > 0, crop.height > 0 else { return nil }
-        let data = NSMutableData()
-        guard let consumer = CGDataConsumer(data: data as CFMutableData),
-            let context = CGContext(consumer: consumer, mediaBox: nil, nil)
-        else { return nil }
-        let scaling = CGAffineTransform(scaleX: scale, y: scale)
+        guard media.width > 0, media.height > 0, crop.width > 0, crop.height > 0 else { return false }
+        let scaling = CGAffineTransform(scaleX: decoration.scale, y: decoration.scale)
         var box = media.applying(scaling)
         context.beginPage(mediaBox: &box)
         context.concatenate(scaling)
@@ -164,6 +251,7 @@ public enum ViewPageDocument {
         context.saveGState()
         context.concatenate(transform.inverted())
         if let number { PageNumberDrawing.draw(number, in: displayed, margin: margin, context: context) }
+        if let furniture { PDFComposer.draw(furniture, in: displayed, asOutlines: true, context: context) }
         context.restoreGState()
         context.setFillColor(CGColor(srgbRed: 229.0 / 255, green: 83.0 / 255, blue: 61.0 / 255, alpha: 0.7))
         let textLeft = margin.isFinite && margin > 0 ? media.minX + margin : nil
@@ -172,12 +260,7 @@ public enum ViewPageDocument {
             if !bar.isNull, !bar.isEmpty { context.fill(bar) }
         }
         context.endPage()
-        context.closePDF()
-        guard let page = StandalonePage.first(of: data as Data) else { return nil }
-        page.setBounds(media.applying(scaling), for: .mediaBox)
-        page.setBounds(crop.applying(scaling), for: .cropBox)
-        page.rotation = original.rotation
-        return page
+        return true
     }
 
 }

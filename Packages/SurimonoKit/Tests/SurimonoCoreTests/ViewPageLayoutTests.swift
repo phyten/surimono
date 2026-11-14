@@ -82,6 +82,32 @@ struct ViewPageLayoutTests {
         #expect(!single.crops(at: 0).top && !single.crops(at: 0).bottom)
     }
 
+    @Test("つないだページは、刷るヘッダーやフッターの文字がある側の余白だけを残し、ない側は今までどおり詰める")
+    func keepsMarginsWithFurniture() {
+        let options = ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+        typealias Edges = ViewPageLayout.CropEdges
+        // Page numbers only: the bottom margins stay, the top ones are cut at the seams.
+        let numbers = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false,
+            keptEdges: [0: Edges(bottom: true), 1: Edges(bottom: true), 2: Edges(bottom: true)])
+        #expect(numbers.crops(at: 0) == Edges(top: false, bottom: false))
+        #expect(numbers.crops(at: 1) == Edges(top: true, bottom: false))
+        #expect(numbers.crops(at: 2) == Edges(top: true, bottom: false))
+        // A header and a footer keep both; a page without them is cut as before.
+        let mixed = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false,
+            keptEdges: [1: Edges(top: true, bottom: true)])
+        #expect(mixed.crops(at: 0) == Edges(top: false, bottom: true))
+        #expect(mixed.crops(at: 1) == Edges(top: false, bottom: false))
+        #expect(mixed.crops(at: 2) == Edges(top: true, bottom: false))
+        // Without a header or footer the plan, and so the copy of the pages, is the one it was.
+        let none = ViewPageLayout(pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false)
+        let empty = ViewPageLayout(
+            pageCount: 3, options: options, hasLogicalMargins: true, showsNumbers: false, keptEdges: [:])
+        #expect(none.documentKey(margin: 42) == empty.documentKey(margin: 42))
+        #expect(none.documentKey(margin: 42) != numbers.documentKey(margin: 42))
+    }
+
     @Test("単ページ連続送りは結合を切っても番号を隠しPDFと画像は切り取らない", arguments: [false, true])
     func eligibility(join: Bool) {
         let options = ViewOptions(

@@ -131,7 +131,7 @@ struct DocumentFiguresPopover: View {
                             figure(
                                 String(
                                     format: String(localized: "For Reference: %@, Double-Sided"),
-                                    model.paperSeries.sheetName),
+                                    model.layout.sheet.shortName),
                                 String(
                                     format: String(localized: "%lld sheets"),
                                     DocumentStatistics.duplexSheets(pageCount: model.pageCount)))

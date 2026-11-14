@@ -23,6 +23,22 @@ extension DocumentViewModel {
         isPrintFinishPresented = true
     }
 
+    /// "Print Settings…" in the "…" menu and the Document menu: one panel for both modes, since its settings change
+    /// the pages of both. The view mode hangs it off the window's edge in place of the style palette; the tray lays it
+    /// beside the sheets. The comparison stage has no such panel.
+    func presentPrintSettings() {
+        switch mode {
+        case .view:
+            themePaletteDidClose()
+            closeBandPopovers()
+            isPrintFinishPresented = true
+        case .print:
+            isPrintFinishPresented = true
+        case .compare:
+            break
+        }
+    }
+
     /// What the tray's header and footer choice shows: Custom from the moment it is chosen, while the fields are empty.
     var furnitureChoice: PageFurniture.Preset { isWritingFurniture ? .custom : printOptions.furniture.preset }
 

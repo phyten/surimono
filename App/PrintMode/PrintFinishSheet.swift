@@ -6,18 +6,42 @@ enum PrintFinishSection: Hashable {
     case furniture, breaks, contents, notes, printer
 }
 
-/// All the print settings. It stays beside the sheets, which show each change right away.
+/// All the print settings, one panel for both modes. It stays beside the pages, which show each change as it is made:
+/// on the tray it lies beside the sheets, and in the view mode it hangs off the window's edge in a popover. The view
+/// mode's paper shows the header and footer too; only the note pages, which the tray alone adds, show on the tray only.
 struct PrintFinishSheet: View {
     @Bindable var model: DocumentViewModel
+    /// In a popover, which draws the panel's background and edge itself.
+    let isInPopover: Bool
     @State private var slot = PageFurniture.Slot.bottomCenter
     @State private var customLine = ""
     @FocusState private var isEditingCustomLine: Bool
 
-    init(model: DocumentViewModel) {
+    init(model: DocumentViewModel, isInPopover: Bool = false) {
         self.model = model
+        self.isInPopover = isInPopover
     }
 
+    static let width: CGFloat = 460
+    /// The popover's height, short enough for a small screen; the settings scroll inside it.
+    static let popoverHeight: CGFloat = 560
+
     var body: some View {
+        if isInPopover {
+            panel
+                .frame(width: Self.width, height: Self.popoverHeight)
+                .presentationBackground(PrintPalette.raised)
+        } else {
+            panel
+                .frame(maxWidth: Self.width)
+                .background(RoundedRectangle(cornerRadius: 14).fill(PrintPalette.raised))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PrintPalette.line, lineWidth: 1))
+                .shadow(color: PrintPalette.popShadow, radius: 20, y: 6)
+        }
+    }
+
+    private var panel: some View {
         VStack(spacing: 0) {
             heading
             Rectangle().fill(PrintPalette.line).frame(height: 1)
@@ -31,13 +55,8 @@ struct PrintFinishSheet: View {
             Rectangle().fill(PrintPalette.line).frame(height: 1)
             footer
         }
-        .frame(maxWidth: 460)
         .foregroundStyle(PrintPalette.ink)
         .tint(PrintPalette.ai)
-        .background(RoundedRectangle(cornerRadius: 14).fill(PrintPalette.raised))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PrintPalette.line, lineWidth: 1))
-        .shadow(color: PrintPalette.popShadow, radius: 20, y: 6)
         .clearsInitialFocus()
         .onAppear { customLine = model.printFinish.breaks.customLine }
     }
@@ -122,7 +141,7 @@ struct PrintFinishSheet: View {
     private var heading: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Print Settings").font(.system(size: 14, weight: .bold))
-            Text("Added only when printing. The document does not change.")
+            Text("Changes the pages only. The document does not change.")
                 .font(.system(size: 11.5))
                 .foregroundStyle(PrintPalette.ink2)
         }

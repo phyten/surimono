@@ -57,13 +57,9 @@ struct ViewOptionsPopover: View {
                     BandVisibilityPicker(selection: $model.bandVisibility)
                 }
                 if model.offersPaperSeries {
-                    // The label follows the picker, not the note that hangs under it.
-                    GridRow(alignment: .firstTextBaseline) {
-                        rowLabel("Paper on Screen")
-                        VStack(alignment: .leading, spacing: 4) {
-                            PaperSeriesPicker(selection: $model.paperSeries)
-                            caption("Choose the paper for printing on the print screen.")
-                        }
+                    GridRow {
+                        rowLabel("Paper Series")
+                        PaperSeriesPicker(model: model)
                     }
                 }
                 if model.marginsApply {
@@ -127,12 +123,6 @@ struct ViewOptionsPopover: View {
             .gridCellAnchor(.leading)
     }
 
-    private func caption(_ key: LocalizedStringKey) -> some View {
-        // Wraps instead of being cut short: a longer translation must still be readable in full.
-        Text(key).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
         model.viewOption(keyPath)
     }
@@ -151,22 +141,23 @@ struct BandVisibilityPicker: View {
 }
 
 struct PaperSeriesPicker: View {
-    @Binding var selection: ViewPaperSeries
+    @Bindable var model: DocumentViewModel
 
     var body: some View {
-        Picker("Paper on Screen", selection: $selection) {
-            ForEach(ViewPaperSeries.allCases, id: \.self) { series in
+        Picker("Paper Series", selection: Binding(get: { model.layout.series }, set: { model.choosePaperSeries($0) })) {
+            ForEach(PaperSeries.allCases, id: \.self) { series in
                 Text(series.title).tag(series)
             }
         }
     }
 }
 
-extension ViewPaperSeries {
+extension PaperSeries {
     var title: LocalizedStringKey {
         switch self {
         case .a: "A4 / A3"
         case .b: "B5 / B4"
+        case .letter: "Letter / Tabloid"
         }
     }
 
@@ -174,11 +165,9 @@ extension ViewPaperSeries {
         switch self {
         case .a: String(localized: "A4 / A3")
         case .b: String(localized: "B5 / B4")
+        case .letter: String(localized: "Letter / Tabloid")
         }
     }
-
-    /// The sheet the figures count, without the "(JIS)" the print layouts carry.
-    var sheetName: String { self == .a ? "A4" : "B5" }
 }
 
 extension ViewOptions.Transition {

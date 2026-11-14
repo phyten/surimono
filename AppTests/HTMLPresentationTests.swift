@@ -370,13 +370,8 @@ struct WebCaptureTests {
         #expect(!model.canOutput)
         try await waitUntil { fixture.snapshots.requestCount == 1 }
         fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Booklet copy</p>")))
-        try await waitUntil { model.mode == .print && !model.isCapturingWeb }
-        #expect(fixture.requests().count == requestsBefore)
-        #expect(model.outputAfterReview == output)
-        #expect(outputs.isEmpty)
-        #expect(!model.canOutput)
-        // DocumentContent observes the changed settings; without a view the test starts that render.
-        model.render()
+        // The tray lays out the same pages as the view mode, so the copy is laid out once, already as the booklet's
+        // pages, and the output follows that one render.
         try await waitUntil { model.mode == .print && !model.isRendering && !model.isCapturingWeb }
         #expect(fixture.snapshots.requestCount == 1)
         #expect(fixture.requests().count == requestsBefore + 1)
@@ -390,6 +385,11 @@ struct WebCaptureTests {
         #expect(executed == output)
         #expect(result.layout == .a4BookletA5)
         #expect(result.id == model.printResult?.id)
+
+        // Another completed render must not execute the consumed request again.
+        model.render()
+        try await waitUntil { !model.isRendering }
+        #expect(outputs.count == 1)
     }
 
     @Test("ウェブや紙面の写しと A4 片面の用紙が変わらなければ出力を組版待ちに残さない", arguments: [false, true])

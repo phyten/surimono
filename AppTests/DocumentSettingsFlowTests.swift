@@ -379,8 +379,8 @@ struct DocumentSettingsFlowTests {
         #expect(environment.store.keys().isEmpty)
     }
 
-    @Test("冊子を覚えた文書を開き直しても表示は A4 片面で、刷り台には冊子を復元する", .timeLimit(.minutes(1)))
-    func rememberedBookletOnlyAffectsPrinting() async throws {
+    @Test("冊子を覚えた文書を開き直すと、表示も刷り台も冊子のページで組む", .timeLimit(.minutes(1)))
+    func rememberedBookletShowsOnScreenToo() async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
         let data = pdf("Remembered booklet")
@@ -395,13 +395,15 @@ struct DocumentSettingsFlowTests {
         try await open(reopened)
         #expect(reopened.mode == .view)
         #expect(reopened.layoutID == "a4BookletA5")
-        #expect(reopened.renderedSettings?.layout == .a4Single)
-        #expect(reopened.renderSettings?.layout == .a4Single)
+        #expect(reopened.renderSettings?.layout == .a4BookletA5)
+        // The first pages are laid out before the record is read; DocumentContent lays them out again for the
+        // restored settings, which this test does in its place.
+        reopened.renderForChangedSettings()
+        try await waitUntil { !reopened.isRendering }
+        #expect(reopened.renderedSettings?.layout == .a4BookletA5)
+        // The tray composes the same pages, so it can print without another render.
         reopened.enterPrintMode()
         #expect(reopened.renderSettings?.layout == .a4BookletA5)
-        #expect(!reopened.canOutput)
-        reopened.render()
-        try await waitUntil { !reopened.isRendering }
         #expect(reopened.canOutput)
         #expect(reopened.printResult?.layout == .a4BookletA5)
     }

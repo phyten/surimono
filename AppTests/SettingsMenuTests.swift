@@ -119,8 +119,8 @@ struct SettingsMenuTests {
         #expect(
             menu.items.filter { !$0.isSeparatorItem }.map(\.title)
                 == [
-                    "Print Layout", "Setting Sets", "Choose Style…", "Add Documents…", "Reset Document Settings",
-                    "Reload",
+                    "Print Layout", "Setting Sets", "Print Settings…", "Choose Style…", "Add Documents…",
+                    "Reset Document Settings", "Reload",
                 ].map(localized))
         let layouts = try #require(menu.items.first?.submenu)
         // The six cards keep ⌘1 to ⌘6; the layouts that save paper on the same sheet follow without a key.
@@ -131,6 +131,14 @@ struct SettingsMenuTests {
             items.prefix(6).allSatisfy {
                 $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == .command
             })
+    }
+
+    @Test("文書メニューには印刷の設定がひとつだけあり、文書がなくても有効なままにする")
+    func printSettingsItem() throws {
+        let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
+        let entries = menu.items.filter { $0.title == localized("Print Settings…") }
+        #expect(entries.count == 1)
+        #expect(entries.first?.isEnabled == true)
     }
 
     @Test("文書メニューの設定セットは文書がなくても保存と管理の項目を有効に保つ")

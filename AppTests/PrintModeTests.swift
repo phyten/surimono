@@ -603,7 +603,7 @@ struct PrintModeTests {
         #expect(window.frame.width == 846)
     }
 
-    @Test("刷り台でレイアウトを変えると復帰時の幅は新しい紙の形に合う", .timeLimit(.minutes(1)))
+    @Test("刷り台で横長の紙から Letter 冊子へ変えると復帰時の幅は新しい紙の形に合う", .timeLimit(.minutes(1)))
     func returnFitsNewlyRenderedLayout() async throws {
         let fixture = Fixture()
         // Only pagination is substituted; the renderer still rebuilds the logical pages for the selected layout.
@@ -626,18 +626,30 @@ struct PrintModeTests {
         let original = window.frame
         model.enterPrintMode()
         #expect(window.frame == original)
-        model.chooseLayout(PrintLayout.a4BookletA5.id)
+        model.chooseLayout(PrintLayout.letterBookletHalfLetter.id)
         try await render(model)
         let newPaper = try #require(model.paperUnitSize)
-        #expect(abs(newPaper.width - 419.52756) < 0.01)
-        #expect(abs(newPaper.height - 595.27559) < 0.01)
+        #expect(abs(newPaper.width - 396) < 0.01)
+        #expect(abs(newPaper.height - 612) < 0.01)
         #expect(newPaper != firstPaper)
         #expect(renderer.logicalRenderCount == 2)
         model.exitPrintMode()
         // The bands keep 76pt of the 600: the paper is 524 high.
-        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 369, height: 600) }
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 339, height: 600) }
         #expect(window.frame.height == 600)
-        #expect(window.frame.width == 369)
+        #expect(window.frame.width == 339)
+        // Completing the view render must not restore the old page shape.
+        try await render(model)
+        model.sizeWindowToPaper()
+        #expect(model.paperUnitSize == CGSize(width: 396, height: 612))
+        #expect(window.frame.size == CGSize(width: 339, height: 600))
+
+        model.choosePaperSeries(.b)
+        try await render(model)
+        model.sizeWindowToPaper()
+        #expect(model.mode == .view)
+        #expect(model.layoutID == PrintLayout.b5BookletB6.id)
+        #expect(window.frame.size == CGSize(width: 369, height: 600))
     }
 
     @Test("復帰後の初回限定のサイズ調整は枠を変えない", .timeLimit(.minutes(1)))

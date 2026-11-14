@@ -3,6 +3,11 @@ import SurimonoCore
 import SurimonoRendering
 
 extension DocumentViewModel {
+    typealias ChosenTrial = (
+        themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark],
+        furniture: [Int: FurniturePlacement]
+    )
+
     /// The pages the paper shows: a theme being tried, a trial just chosen, or the document's own pages.
     var paperDocument: PDFDocument? {
         if themeTrial.themeID != nil, let document = themeTrial.document { return document }
@@ -17,9 +22,14 @@ extension DocumentViewModel {
         return result?.changeMarks ?? []
     }
 
-    private func isCurrentLook(
-        _ trial: (themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark])
-    ) -> Bool {
+    /// The header and footer the sheets draw on the pages the paper shows, so that what is read is what prints.
+    var paperFurniture: [Int: FurniturePlacement] {
+        if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.furniture }
+        if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.furniture }
+        return shownFurniture
+    }
+
+    private func isCurrentLook(_ trial: ChosenTrial) -> Bool {
         trial.themeID == themeID && trial.codePaletteID == codePaletteID
     }
 
@@ -114,6 +124,8 @@ extension DocumentViewModel {
         // Before it opens, so that it opens at its size with or without the code colors.
         specimenSamples.diskCache?.prune()
         followThemeSamples()
+        // Both hang off the same edge of the view mode's window; the tray keeps its settings beside the sheets.
+        if mode == .view { isPrintFinishPresented = false }
         isThemePalettePresented = true
     }
 

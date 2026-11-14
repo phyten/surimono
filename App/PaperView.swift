@@ -38,6 +38,8 @@ struct PaperView: NSViewRepresentable {
     var logicalMargin: CGFloat? = nil
     var showsPageNumbers = false
     var changeMarks: [ChangeMark] = []
+    /// The header and footer the sheets draw on a logical page, by its index.
+    var furniture: [Int: FurniturePlacement] = [:]
     /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
     var narrowsLoneCover = false
     var keepsSpotInPage = false
@@ -69,7 +71,8 @@ struct PaperView: NSViewRepresentable {
         view.narrowsLoneCover = narrowsLoneCover
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
-            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, keepsSpotInPage: keepsSpotInPage)
+            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture,
+            keepsSpotInPage: keepsSpotInPage)
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
         view.onFindHits = onFindHits
@@ -167,6 +170,7 @@ final class PaperPDFView: PageTextPDFView {
         let source: PDFDocument
         let key: ViewPageLayout.DocumentKey?
         let marks: [ChangeMark]
+        let furniture: [Int: FurniturePlacement]
         let document: PDFDocument
     }
     private var shownDocuments: [ShownDocument] = []
@@ -174,6 +178,8 @@ final class PaperPDFView: PageTextPDFView {
     private var showsPageNumbers = false
     private var changeMarks: [ChangeMark] = []
     private var drawnChangeMarks: [ChangeMark] = []
+    private var furniture: [Int: FurniturePlacement] = [:]
+    private var drawnFurniture: [Int: FurniturePlacement] = [:]
     private var isUpdatingDocument = false
     private var isSwitchingSpreadMode = false
     var onFindHits: (([Int], String) -> Void)?
@@ -189,11 +195,12 @@ final class PaperPDFView: PageTextPDFView {
 
     func configure(
         _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool,
-        changeMarks: [ChangeMark] = [], keepsSpotInPage: Bool = false
+        changeMarks: [ChangeMark] = [], furniture: [Int: FurniturePlacement] = [:], keepsSpotInPage: Bool = false
     ) {
         guard
             sourceDocument !== source || self.options != options || self.logicalMargin != logicalMargin
                 || self.showsPageNumbers != showsPageNumbers || self.changeMarks != changeMarks
+                || self.furniture != furniture
         else { return }
         let point = keepsSpotInPage && sourceDocument !== source ? currentDestination?.point : nil
         let position = sourceDocument === source ? currentPageIndex : index
@@ -201,6 +208,7 @@ final class PaperPDFView: PageTextPDFView {
         self.logicalMargin = logicalMargin
         self.showsPageNumbers = showsPageNumbers
         self.changeMarks = changeMarks
+        self.furniture = furniture
         self.options = options
         configureDisplay(options)
         show(source, at: position)
@@ -301,11 +309,19 @@ final class PaperPDFView: PageTextPDFView {
             return PageSizes.displayed(page.bounds(for: .cropBox).size, rotation: page.rotation)
         }
         pageSize = PageSizes.representative(sizes)
+        // Joined pages keep the margins their printed header and footer stand in.
+        let keptEdges = furniture.mapValues { placement in
+            ViewPageLayout.CropEdges(
+                top: placement.lines.top.contains { !$0.isEmpty },
+                bottom: placement.lines.bottom.contains { !$0.isEmpty })
+        }
         let plan = ViewPageLayout(
             pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
-            showsNumbers: showsPageNumbers, pageSizes: sizes)
+            showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges)
         let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
-        if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks, document != nil {
+        if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks,
+            drawnFurniture == furniture, document != nil
+        {
             // Layout and navigation may change without touching page content or losing the PDFKit page cache.
             pagePlan = plan
             hideScrollersAndInsets()
@@ -315,18 +331,20 @@ final class PaperPDFView: PageTextPDFView {
         }
         sourceDocument = source
         let copy: PDFDocument?
-        if key.requiresCopy || !changeMarks.isEmpty {
+        if key.requiresCopy || !changeMarks.isEmpty || !furniture.isEmpty {
             if let shown = shownDocuments.first(where: {
-                $0.source === source && $0.key == key && $0.marks == changeMarks
+                $0.source === source && $0.key == key && $0.marks == changeMarks && $0.furniture == furniture
             }) {
                 copy = shown.document
             } else {
-                copy = ViewPageDocument.make(source, plan: plan, margin: logicalMargin ?? 0, changeMarks: changeMarks)
+                copy = ViewPageDocument.make(
+                    source, plan: plan, margin: logicalMargin ?? 0, changeMarks: changeMarks, furniture: furniture)
             }
         } else {
             copy = source
         }
         drawnChangeMarks = changeMarks
+        drawnFurniture = furniture
         documentKey = copy != nil ? key : nil
         let document = copy ?? source
         pagePlan =
@@ -347,6 +365,7 @@ final class PaperPDFView: PageTextPDFView {
             shownDocuments.append(
                 ShownDocument(
                     source: source, key: copy != nil ? key : nil, marks: copy != nil ? changeMarks : [],
+                    furniture: copy != nil ? furniture : [:],
                     document: document))
         }
         self.document = document
@@ -363,7 +382,7 @@ final class PaperPDFView: PageTextPDFView {
         if let sourceDocument {
             configure(
                 sourceDocument, at: currentPageIndex, options: options, logicalMargin: logicalMargin,
-                showsPageNumbers: showsPageNumbers)
+                showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture)
         } else {
             self.options = options
             configureDisplay(options)

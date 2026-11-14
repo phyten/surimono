@@ -243,6 +243,13 @@ public struct PreparedRender {
     public var pageSelection = PageRange.Selection.everything
     /// How the logical pages took their mirrored margins, for showing a range of them as they print.
     public var laidOutSides: PDFComposer.LaidOutSides { sheetKey.sides }
+    /// The header and footer the sheets draw on the pages of `viewDocument`, by page, for the view mode to draw on
+    /// its paper too.
+    public var viewFurniture: [Int: FurniturePlacement] = [:]
+    /// The header and footer these pages were finished with.
+    public var furniture: PageFurniture { options.furniture }
+    /// The day their header and footer show, as written on them; empty without one.
+    public var furnitureDate: String { sheetKey.furniture.date }
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -695,6 +702,8 @@ public final class DocumentRenderer {
             let pages = try await noted(logical, source: source, settings: settings)
             try Task.checkCancellation()
             let selection = settings.pageRange.selection(pageCount: pages.document.pageCount)
+            let furniture = furnitureContext(source, logical: pages, settings: settings)
+            let orientsEachPage = settings.usesPerPageOrientation && (source.format == .pdf || source.format == .image)
             let plan =
                 selection.pages.map { Imposition.plan(pages: $0, layout: settings.layout) }
                 ?? Imposition.plan(pageCount: pages.document.pageCount, layout: settings.layout)
@@ -710,11 +719,13 @@ public final class DocumentRenderer {
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
                 blankPages: pages.finishing.blankPages, notePages: pages.finishing.notePages,
                 pageSelection: selection,
+                viewFurniture: pages.viewDocument === pages.document && source.images == nil
+                    ? Self.viewFurniture(
+                        of: pages.document, layout: settings.layout, options: settings.options,
+                        orientsEachPage: orientsEachPage, context: furniture) : [:],
                 sheetKey: SheetKey(
                     logicalID: pages.id, layout: settings.layout, options: settings.options,
-                    orientsEachPage: settings.usesPerPageOrientation
-                        && (source.format == .pdf || source.format == .image),
-                    furniture: furnitureContext(source, logical: pages, settings: settings), pages: selection.pages,
+                    orientsEachPage: orientsEachPage, furniture: furniture, pages: selection.pages,
                     // As `mirroringMargins` and `noted` moved them: texts and images, and never a note page.
                     sides: PDFComposer.LaidOutSides(
                         movesContent: source.format != .pdf && source.children == nil,
@@ -1350,6 +1361,43 @@ public final class DocumentRenderer {
             date: furniture.dateText(now(), language: settings.pageLanguage),
             blankPages: logical.finishing.blankPages.union(logical.finishing.notePages),
             chapters: furniture.uses(.chapter) ? Self.chapters(of: logical) : [])
+    }
+
+    /// The date a header or footer laid out with `settings` shows today; nil when it shows no date. Pages laid out on
+    /// another day show that day's, so they are laid out again before they are shown or printed today.
+    public func furnitureDate(for settings: RenderSettings) -> String? {
+        let furniture = settings.options.furniture
+        guard furniture.uses(.date) else { return nil }
+        return furniture.dateText(now(), language: settings.pageLanguage)
+    }
+
+    /// What the sheets draw on each page that the view mode shows as it is, by the page's index. The view mode has
+    /// no page range, so each page stands at its own place among the printed ones. A page of another size than the
+    /// layout's logical page, such as a PDF's own page, is scaled into its place on the sheet, while the header and
+    /// footer are measured on the logical page around it: its paper is not the box they stand in, so it has none.
+    static func viewFurniture(
+        of document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool,
+        context: PageFurniture.Context
+    ) -> [Int: FurniturePlacement] {
+        guard !options.furniture.isEmpty else { return [:] }
+        var placements: [Int: FurniturePlacement] = [:]
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            let box = page.bounds(for: .cropBox).size
+            let size = page.rotation % 180 == 0 ? box : CGSize(width: box.height, height: box.width)
+            // As the composer turns the sheet of a single-sided layout to each page.
+            let pageLayout =
+                orientsEachPage && layout.kind == .normal && layout.duplex == .none
+                ? layout.oriented(size.width > size.height) : layout
+            guard
+                let placement = PDFComposer.furniture(
+                    onPage: index, at: index, pageCount: document.pageCount, layout: pageLayout, options: options,
+                    context: context),
+                abs(placement.pageSize.width - size.width) < 0.5, abs(placement.pageSize.height - size.height) < 0.5
+            else { continue }
+            placements[index] = placement
+        }
+        return placements
     }
 
     /// The chapter in force on each page, read from the finished pages. Reading the text of every page takes time, so

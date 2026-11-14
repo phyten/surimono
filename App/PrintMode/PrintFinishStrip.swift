@@ -113,10 +113,7 @@ struct PrintSeriesSwitch: View {
     var body: some View {
         PrintSegments(
             label: "Paper to Use",
-            options: [
-                .init(PaperSeries.a, "A4 / A3"), .init(PaperSeries.b, "B5 / B4"),
-                .init(PaperSeries.letter, "Letter / Tabloid"),
-            ],
+            options: PaperSeries.allCases.map { .init($0, $0.title) },
             selection: model.trayPaperSeries, help: "Paper to Use"
         ) { model.choosePaperSeries($0) }
     }

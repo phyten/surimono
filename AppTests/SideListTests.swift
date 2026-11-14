@@ -35,13 +35,13 @@ struct SideListTests {
         #expect(size.height == ((screenWidth - 260) / 2).rounded())
     }
 
-    @Test("奇数ページ開始は両面出力だけに効き保存値は選択を保つ")
+    @Test("奇数ページ開始は両面のレイアウトだけに効き、表示も刷り台も同じページで組み、保存値は選択を保つ")
     func oddPageSetting() throws {
         let fixture = Fixture()
         let model = fixture.model
         model.binderStartsOnFront = true
         model.layoutID = PrintLayout.a4Duplex.id
-        #expect(try #require(model.renderSettings).binderStartsOnFront == false)
+        #expect(try #require(model.renderSettings).binderStartsOnFront)
         model.enterPrintMode()
         #expect(try #require(model.renderSettings).binderStartsOnFront)
         model.layoutID = PrintLayout.a4Single.id
@@ -110,23 +110,27 @@ struct SideListTests {
         #expect(model.requestedTrayRow == nil)
     }
 
-    @Test("刷り台のページが紙に残っている間の通知で読んでいる文書を変えない")
-    func trayPagesDoNotMoveTheReader() async throws {
+    @Test("刷り台で組み直したページは表示と同じなので、読んでいた文書のページへ移って表示に戻る")
+    func trayPagesKeepTheReader() async throws {
         let fixture = Fixture()
         let model = fixture.model
         defer { model.stop() }
         try await render(model)
         model.paperDidChangePage(2)
+        let third = try #require(model.binder?.urls[2])
         model.binderStartsOnFront = true
         model.layoutID = PrintLayout.a4Duplex.id
         model.enterPrintMode()
         try await render(model)
         #expect(model.binder?.pageStarts.values.sorted() == [0, 2, 4])
-        model.mode = .view
-        // The paper comes back with the tray's pages and reports the page it opens at.
-        model.paperDidChangePage(2)
-        try await render(model)
-        #expect(model.currentPageIndex == 2)
+        #expect(model.currentPageIndex == 4)
+        model.exitPrintMode()
+        #expect(model.mode == .view)
+        // The same pages need no render on the way back; the paper opens where the third document now starts.
+        #expect(model.isUpToDate)
+        model.paperDidChangePage(model.currentPageIndex)
+        #expect(model.currentPageIndex == 4)
+        #expect(model.binder?.readingSpot(at: model.currentPageIndex)?.url == third)
     }
 
     @Test("ノートページが入っていても画像の順番から本文のページを求める")

@@ -24,6 +24,11 @@ struct BandControlsTests {
             SecondaryViewControl.applicable(for: model) == [
                 .direction, .scrollAxis, .paperOrientation, .paperSeries, .cover, .selectText, .alwaysShowMenu,
             ])
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.choosePaperSeries(.letter)
+        #expect(model.mode == .view)
+        #expect(model.trayPaperSeries == .letter)
+        #expect(model.layoutID == PrintLayout.letterBookletHalfLetter.id)
         model.viewOptions.layout = .single
         #expect(
             SecondaryViewControl.applicable(for: model) == [

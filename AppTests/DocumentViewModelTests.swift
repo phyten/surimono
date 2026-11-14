@@ -80,8 +80,8 @@ struct DocumentViewModelTests {
         #expect(!model.showsNarrowCover)
     }
 
-    @Test("表示と見比べ台は印刷レイアウトに関係なく A4 片面で組む", arguments: [ViewerMode.view, .compare])
-    func readingLayoutIgnoresPrintLayout(mode: ViewerMode) throws {
+    @Test("表示と見比べ台も選んだ印刷レイアウトのページで組む", arguments: [ViewerMode.view, .compare])
+    func readingLayoutFollowsPrintLayout(mode: ViewerMode) throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -100,7 +100,7 @@ struct DocumentViewModelTests {
         for layout in PrintLayout.presets {
             model.layoutID = layout.id
             let settings = try #require(model.renderSettings)
-            #expect(settings.layout == .a4Single)
+            #expect(settings.layout == layout)
             #expect(settings.paperOrientation == .landscape)
             #expect(settings.options.marginsInMillimeters == 12)
             #expect(settings.textScale == 1.25)
@@ -110,7 +110,7 @@ struct DocumentViewModelTests {
         #expect(preferences.layoutID == "a4BookletA5")
     }
 
-    @Test("刷り台だけは選んだ印刷レイアウトで組み、表示へ戻ると A4 片面に戻す")
+    @Test("刷り台で選んだ印刷レイアウトは、表示へ戻っても同じページで組む")
     func printModeUsesRememberedLayout() {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -125,12 +125,12 @@ struct DocumentViewModelTests {
             model.enterPrintMode()
             #expect(model.renderSettings?.layout == layout)
             model.exitPrintMode()
-            #expect(model.renderSettings?.layout == .a4Single)
+            #expect(model.renderSettings?.layout == layout)
             #expect(model.layoutID == layout.id)
         }
     }
 
-    @Test("表示では冊子やメモ用紙を選んでいても余白と用紙の向きを変えられる")
+    @Test("表示の余白と用紙の向きは、刷るページと同じく冊子やメモ用紙のレイアウトに従う")
     func readingControlsUseReadingLayout() {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -141,11 +141,14 @@ struct DocumentViewModelTests {
             library: UserLibrary(root: directory))
         defer { model.stop() }
         model.paperOrientation = .landscape
+        model.layoutID = PrintLayout.a4Single.id
+        #expect(model.marginsApply)
+        #expect(!PaperOrientationControl(model: model).isFixed)
+        #expect(PaperOrientationControl(model: model).value == "Landscape")
         for layout in [PrintLayout.a4BookletA5, .a4Handout3] {
             model.layoutID = layout.id
-            #expect(model.marginsApply)
-            #expect(!PaperOrientationControl(model: model).isFixed)
-            #expect(PaperOrientationControl(model: model).value == "Landscape")
+            #expect(PaperOrientationControl(model: model).isFixed)
+            #expect(model.marginsApply == (layout == .a4BookletA5))
             model.enterPrintMode()
             #expect(PaperOrientationControl(model: model).isFixed)
             #expect(model.marginsApply == (layout == .a4BookletA5))

@@ -303,16 +303,18 @@ struct AddDocumentsTests {
         #expect(!fixture.windows.hasWindows)
     }
 
-    @Test("表示用の用紙の系列も引き継ぐ")
+    @Test("用紙の系列と冊子の印刷レイアウトを引き継ぐ")
     func takesOverPaperSeries() throws {
         let fixture = try Fixture()
         let source = fixture.document(url("a.md"), data: Data("# A".utf8), format: .markdown)
         defer { source.stop() }
-        source.paperSeries = .b
+        source.layoutID = PrintLayout.a4BookletA5.id
+        source.choosePaperSeries(.b)
         let binder = fixture.binder([url("a.md"), url("b.md")])
         defer { binder.stop() }
         binder.takeOver(from: source)
-        #expect(binder.paperSeries == .b)
+        #expect(binder.trayPaperSeries == .b)
+        #expect(binder.layoutID == PrintLayout.b5BookletB6.id)
     }
 
     @Test("引き継いだ形が既定と同じでも、同じ組の古い記録を置き換える")
