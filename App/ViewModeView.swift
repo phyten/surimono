@@ -2,14 +2,16 @@ import AppKit
 import SurimonoCore
 import SwiftUI
 
-// Bands that always show have their own room beside the paper and never cover it. Bands that show on pointing lie
-// over the paper's edges, so that the window is the paper alone while they are hidden. Either way the pointer never
-// resizes the window.
+// Bands that always show have their own room beside the paper and never cover it. Bands that show on pointing take
+// that room only while they show: the window grows around the paper and gives the room back when they hide, so the
+// window is the paper alone in between. Where the window cannot grow, they lie over the paper's edges.
 struct ViewModeView: View {
     @Bindable var model: DocumentViewModel
     @State private var menu = OverlayMenuState()
 
     private var bandVisible: Bool { model.isBandAlwaysVisible || menu.stage != .hidden }
+    /// Bands shown by the pointer or the keys rather than always.
+    private var hoverBandShown: Bool { !model.isBandAlwaysVisible && menu.stage != .hidden }
     private var isSplit: Bool { model.menuArrangement == .split }
     /// What floats over the paper stays clear of the bottom band's room.
     private var bottomInset: CGFloat { isSplit ? ViewerWindow.bandHeight : 0 }
@@ -35,11 +37,11 @@ struct ViewModeView: View {
                 // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
                 PaperArea(model: model, menu: menu).clipped()
             }
-            .padding(.top, model.isBandAlwaysVisible ? ViewerWindow.bandHeight : 0)
-            .padding(.bottom, model.isBandAlwaysVisible && isSplit ? ViewerWindow.bandHeight : 0)
-            // Overlays, so that a band shown on pointing draws over the paper's own view. The zones stay the same
-            // views whether or not they have room, and so do the band and the popovers it anchors when the reader
-            // turns the toolbar on or off.
+            .padding(.top, model.currentBandRoom.top)
+            .padding(.bottom, model.currentBandRoom.bottom)
+            // Overlays, so that a band without room draws over the paper's own view. The zones stay the same views
+            // whether or not they have room, and so do the band and the popovers it anchors when the room comes or
+            // goes.
             .overlay(alignment: .top) { topZone(plans) }
             .overlay(alignment: .bottom) {
                 if isSplit, let plan = plans.bottom { bottomZone(plan) }
@@ -61,18 +63,18 @@ struct ViewModeView: View {
         .animation(.easeOut(duration: 0.2), value: model.showsOutlineDrawer)
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
         .sheet(isPresented: $model.isGoToPagePresented) { GoToPageSheet(model: model) }
-        .onContinuousHover(coordinateSpace: .local) { phase in
-            switch phase {
-            case .active(let point): menu.pointerMoved(to: point)
-            case .ended: menu.pointerExited()
+        .background {
+            PointerTracker { point, contentHeight in
+                menu.contentHeight = contentHeight
+                if let point { menu.pointerMoved(to: point) } else { menu.pointerExited() }
             }
         }
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-        } action: { height in
-            menu.contentHeight = height
-        }
         .onChange(of: isSplit, initial: true) { _, split in menu.hasBottomBand = split }
+        .onChange(of: hoverBandShown) { _, shown in
+            model.bandRevealDidChange(shown)
+            followBandRoom()
+        }
+        .onChange(of: model.currentBandRoom, initial: true) { followBandRoom() }
         .onChange(of: bandVisible) { _, visible in
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
         }
@@ -88,6 +90,12 @@ struct ViewModeView: View {
                 menu.showFull()
             }
         #endif
+    }
+
+    /// The pointer's zones move with the room at once, in the same update as the window.
+    private func followBandRoom() {
+        menu.topRoom = model.currentBandRoom.top
+        menu.bottomRoom = model.currentBandRoom.bottom
     }
 
     private func topZone(_ plans: BandPlans) -> some View {

@@ -139,9 +139,17 @@ final class DocumentViewModel {
     var bandVisibility: BandVisibility {
         didSet {
             guard bandVisibility != oldValue else { return }
-            bandRoomDidChange(from: Self.bandRoom(of: menuArrangement, oldValue), animate: false)
+            let previous = Self.bandRoom(of: menuArrangement, oldValue, revealed: revealedBandRoom)
+            // Bands that always show keep their room; the pointer no longer gives or takes it.
+            revealedBandRoom = BandRoom()
+            pendsBandRoomRelease = false
+            bandRoomDidChange(from: previous, animate: false)
         }
     }
+    /// The room bands that show on pointing have made for themselves: the window grew by it around the paper.
+    private(set) var revealedBandRoom = BandRoom()
+    /// The bands hid while the reader was resizing the window; their room goes when the resize ends.
+    @ObservationIgnored private var pendsBandRoomRelease = false
     var isAlwaysOnTop: Bool
     var isDrawerOpen = false
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
@@ -317,7 +325,7 @@ final class DocumentViewModel {
     @ObservationIgnored private var returnsToRestoredPaperSize = false
     /// The bands' room when a stage took the window. The stage keeps its own frame, so a toolbar turned on or off there
     /// is applied to the view mode's frame on the way back.
-    @ObservationIgnored private var stageBandRoom: (top: CGFloat, bottom: CGFloat)?
+    @ObservationIgnored private var stageBandRoom: BandRoom?
     @ObservationIgnored private(set) var hasSizedWindow = false
     /// The tray was asked for before the first pages were there.
     @ObservationIgnored private(set) var isPrintModeRequested = false
@@ -1457,6 +1465,9 @@ final class DocumentViewModel {
     /// Switching from one stage to the other keeps the room of the view mode the window left.
     private func rememberStageBandRoom() {
         if stageBandRoom == nil { stageBandRoom = currentBandRoom }
+        // The view mode's bands start hidden again on the way back, where the remembered room is given back.
+        revealedBandRoom = BandRoom()
+        pendsBandRoomRelease = false
     }
 
     /// The tray keeps the list beside the sheets, which need their own room next to it.
@@ -2435,17 +2446,50 @@ final class DocumentViewModel {
     var menuArrangement: MenuArrangement { preferences.menuArrangement }
 
     /// The room the bands take beside the paper.
-    var bandInset: CGFloat { currentBandRoom.top + currentBandRoom.bottom }
+    var bandInset: CGFloat { currentBandRoom.total }
 
-    private var currentBandRoom: (top: CGFloat, bottom: CGFloat) { Self.bandRoom(of: menuArrangement, bandVisibility) }
+    var currentBandRoom: BandRoom { Self.bandRoom(of: menuArrangement, bandVisibility, revealed: revealedBandRoom) }
 
-    /// Only bands that always show have room of their own. Bands that show on pointing lie over the paper's edges, so
+    /// Bands that always show have room of their own. Bands that show on pointing take theirs only while they show, so
     /// that the window is the paper alone while they are hidden.
     private static func bandRoom(
-        of arrangement: MenuArrangement, _ visibility: BandVisibility
-    ) -> (top: CGFloat, bottom: CGFloat) {
-        guard visibility == .always else { return (0, 0) }
-        return (ViewerWindow.bandHeight, arrangement == .split ? ViewerWindow.bandHeight : 0)
+        of arrangement: MenuArrangement, _ visibility: BandVisibility, revealed: BandRoom
+    ) -> BandRoom {
+        visibility == .always ? BandRoom.full(for: arrangement) : revealed
+    }
+
+    /// Bands that show on pointing came out or went away. Coming out, they take their room where the window can grow
+    /// around the paper without moving it; where it cannot (at the top of the screen, in full screen, while the reader
+    /// resizes), they lie over the paper's edges instead.
+    func bandRevealDidChange(_ shown: Bool) {
+        guard bandVisibility == .onHover, let window else { return }
+        if shown {
+            pendsBandRoomRelease = false
+            guard revealedBandRoom == BandRoom(), mode == .view, hasSizedWindow else { return }
+            let room = roomToGrow(window, wanted: BandRoom.full(for: menuArrangement))
+            guard room != BandRoom() else { return }
+            revealedBandRoom = room
+            bandRoomDidChange(from: BandRoom(), animate: false)
+        } else {
+            guard revealedBandRoom != BandRoom() else { return }
+            guard !window.inLiveResize else {
+                pendsBandRoomRelease = true
+                return
+            }
+            let previous = currentBandRoom
+            revealedBandRoom = BandRoom()
+            bandRoomDidChange(from: previous, animate: false)
+        }
+    }
+
+    /// Each band grows the window on its own edge where the screen has room; the other lies over the paper.
+    private func roomToGrow(_ window: NSWindow, wanted: BandRoom) -> BandRoom {
+        guard !window.styleMask.contains(.fullScreen), !window.inLiveResize,
+            let visible = (window.screen ?? NSScreen.main)?.visibleFrame
+        else { return BandRoom() }
+        return BandRoom(
+            top: window.frame.maxY + wanted.top <= visible.maxY + 0.5 ? wanted.top : 0,
+            bottom: window.frame.minY - wanted.bottom >= visible.minY - 0.5 ? wanted.bottom : 0)
     }
 
     /// The paper the window shows in the view mode. Before the first pages fit the window to the paper, its size is
@@ -2499,17 +2543,18 @@ final class DocumentViewModel {
     }
 
     func menuArrangementDidChange(from previous: MenuArrangement) {
-        bandRoomDidChange(from: Self.bandRoom(of: previous, bandVisibility), animate: true)
+        bandRoomDidChange(
+            from: Self.bandRoom(of: previous, bandVisibility, revealed: revealedBandRoom), animate: true)
     }
 
     /// The paper keeps its size and place when the bands' room changes: the window grows or shrinks around it.
-    private func bandRoomDidChange(from previous: (top: CGFloat, bottom: CGFloat), animate: Bool) {
+    private func bandRoomDidChange(from previous: BandRoom, animate: Bool) {
         guard mode == .view, hasSizedWindow, let window else { return }
         let room = currentBandRoom
         let content = window.contentRect(forFrameRect: window.frame).size
-        let paper = CGSize(width: content.width - sideInset, height: content.height - previous.top - previous.bottom)
+        let paper = CGSize(width: content.width - sideInset, height: content.height - previous.total)
         ViewerWindow.setPaperSize(
-            paper, band: room.top + room.bottom, of: window, animate: animate, side: sideInset,
+            paper, band: room.total, of: window, animate: animate, side: sideInset,
             topGrowth: room.top - previous.top)
         // Only the resizing rule follows the new room: the live page keeps the size the reader gave it, even past the
         // share of the screen that a newly shaped window takes.
@@ -2522,6 +2567,12 @@ final class DocumentViewModel {
     }
 
     func windowDidEndLiveResize() {
+        defer {
+            if pendsBandRoomRelease {
+                pendsBandRoomRelease = false
+                bandRevealDidChange(false)
+            }
+        }
         // The window size remembered is the paper's; the web page takes whatever size the reader likes.
         guard mode == .view, !isWebPresentation, let window, !ViewerWindow.isResizingProgrammatically(window),
             let unit = paperUnitSize

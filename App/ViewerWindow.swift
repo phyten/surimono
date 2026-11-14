@@ -1,10 +1,23 @@
 import AppKit
+import SurimonoCore
 
-/// Window handling for the borderless view mode: the title bar is hidden, room for bands that always show is kept beside
-/// the paper, and the traffic lights appear together with the bands.
+/// The room the bands take above and below the paper.
+struct BandRoom: Equatable {
+    var top: CGFloat = 0
+    var bottom: CGFloat = 0
+
+    var total: CGFloat { top + bottom }
+
+    /// The room of every band of the arrangement.
+    static func full(for arrangement: MenuArrangement) -> BandRoom {
+        BandRoom(top: ViewerWindow.bandHeight, bottom: arrangement == .split ? ViewerWindow.bandHeight : 0)
+    }
+}
+
+/// Window handling for the borderless view mode: the title bar is hidden, room for the bands is kept beside the paper
+/// while they show, and the traffic lights appear together with the bands.
 enum ViewerWindow {
-    /// The room of one band that always shows. A band shown on pointing lies over the paper instead, so the pointer
-    /// never resizes the window.
+    /// The room of one band beside the paper.
     static let bandHeight: CGFloat = 38
     private static let minimumPaperHeight: CGFloat = 280
     /// Animated frame changes post live-resize notifications; these windows are being resized by the app itself.
@@ -71,6 +84,12 @@ enum ViewerWindow {
         if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
         if window.isMovableByWindowBackground { window.isMovableByWindowBackground = false }
         if window.tabbingMode != .disallowed { window.tabbingMode = .disallowed }
+        // AppKit decides on its own whether a window can go full screen, and the stages' free resizing (resize
+        // increments in place of the paper's aspect ratio) made it say no: the green button and Enter Full Screen came
+        // and went with the mode. Saying so keeps full screen available in every mode.
+        if !window.collectionBehavior.contains(.fullScreenPrimary) {
+            window.collectionBehavior.insert(.fullScreenPrimary)
+        }
     }
 
     static func setTrafficLightsVisible(_ visible: Bool, in window: NSWindow) {

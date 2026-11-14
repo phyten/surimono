@@ -179,6 +179,126 @@ struct ViewBandTests {
         try await waitUntil { abs((paperViewHeight(in: window) ?? 0) - paper.height) <= 3 }
     }
 
+    /// Where the paper view stands on the screen.
+    private func paperOnScreen(in window: NSWindow) -> CGRect? {
+        func find(_ view: NSView) -> NSView? {
+            if view is PaperPDFView { return view }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        guard let content = window.contentView, let paper = find(content) else { return nil }
+        return window.convertToScreen(paper.convert(paper.bounds, to: nil))
+    }
+
+    private func isClose(_ a: CGRect?, _ b: CGRect?) -> Bool {
+        guard let a, let b else { return false }
+        return abs(a.minX - b.minX) <= 3 && abs(a.minY - b.minY) <= 3 && abs(a.width - b.width) <= 3
+            && abs(a.height - b.height) <= 3
+    }
+
+    @Test(
+        "ポインタで出した帯は窓を帯の分だけ外へ伸ばし、紙の画面上の位置と大きさを変えず、隠すと元に戻る",
+        arguments: MenuArrangement.allCases)
+    func hoverBandsTakeRoomWhileShown(arrangement: MenuArrangement) async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = arrangement
+        environment.preferences.defaultBandVisibility = .onHover
+        let model = environment.model(TestFixtures.pdf("Hover"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        try place(window, band: 0, model: model)
+        let paperOnly = window.contentRect(forFrameRect: window.frame)
+        try await waitUntil { abs((paperOnScreen(in: window)?.height ?? 0) - paperOnly.height) <= 3 }
+        let paper = paperOnScreen(in: window)
+        let bottom: CGFloat = arrangement == .split ? 38 : 0
+
+        model.bandRevealDidChange(true)
+        let grown = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(grown.maxY - paperOnly.maxY - 38) <= 3)
+        #expect(abs(paperOnly.minY - grown.minY - bottom) <= 3)
+        #expect(abs(grown.width - paperOnly.width) <= 3)
+        try await waitUntil { isClose(paperOnScreen(in: window), paper) }
+        #expect(abs((model.currentPaperSize?.height ?? 0) - paperOnly.height) <= 3)
+
+        model.bandRevealDidChange(false)
+        let back = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(back.maxY - paperOnly.maxY) <= 3 && abs(back.minY - paperOnly.minY) <= 3)
+        try await waitUntil { isClose(paperOnScreen(in: window), paper) }
+    }
+
+    @Test("ポインタで出した帯が場所を取ったまま刷り台へ入っても、戻ると窓は紙だけに戻り紙は動かない")
+    func revealedRoomSurvivesStage() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultBandVisibility = .onHover
+        let model = environment.model(Data("# Stage".utf8), format: .markdown)
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        try place(window, band: 0, model: model)
+        let paperOnly = window.contentRect(forFrameRect: window.frame)
+        model.bandRevealDidChange(true)
+        #expect(model.currentBandRoom != BandRoom())
+        model.enterPrintMode()
+        model.exitPrintMode()
+        try await waitUntil {
+            let content = window.contentRect(forFrameRect: window.frame)
+            return model.mode == .view && abs(content.height - paperOnly.height) <= 3
+                && abs(content.maxY - paperOnly.maxY) <= 3
+        }
+        #expect(model.currentBandRoom == BandRoom())
+    }
+
+    @Test("ツールバーを常に表示しているときは、ポインタで帯が出ても窓は変わらない")
+    func alwaysShownBandsKeepWindow() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultBandVisibility = .always
+        let model = environment.model(TestFixtures.pdf("Always"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        try place(window, band: 76, model: model)
+        let frame = window.frame
+        model.bandRevealDidChange(true)
+        #expect(window.frame == frame)
+        model.bandRevealDidChange(false)
+        #expect(window.frame == frame)
+    }
+
+    @Test("窓の上に伸ばす余地がないと上の帯は紙に重ね、下に余地があれば下の帯だけ場所を取る")
+    func hoverBandsOverlayWithoutRoom() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.defaultBandVisibility = .onHover
+        let model = environment.model(TestFixtures.pdf("Edge"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        try place(window, band: 0, model: model)
+        let visible = try #require(window.screen?.visibleFrame)
+        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY))
+        let paperOnly = window.contentRect(forFrameRect: window.frame)
+        model.bandRevealDidChange(true)
+        let grown = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(grown.maxY - paperOnly.maxY) <= 3)
+        #expect(abs(paperOnly.minY - grown.minY - 38) <= 3)
+        #expect(model.currentBandRoom == BandRoom(top: 0, bottom: 38))
+    }
+
     @Test(
         "刷り台や見比べ台でツールバーを切り替えて戻っても、紙の大きさと上端は変わらない",
         arguments: [false, true], BandVisibility.allCases)

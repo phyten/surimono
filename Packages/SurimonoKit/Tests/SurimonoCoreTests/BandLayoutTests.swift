@@ -25,24 +25,35 @@ struct BandLayoutTests {
         BandLayout.plan(widths: widths, fixed: 150, separator: 10, name: name, available: available)
     }
 
-    @Test("帯にはタイトル・形式別の操作・スタイル・表示の型・送り方・印刷だけを並べる")
+    @Test("帯にはタイトル・形式別の操作・スタイル・表示の型・送り方・最前面に固定・印刷だけを並べる")
     func itemsFollowTheSpecification() {
         #expect(
             BandLayout.Item.allCases == [
                 .formatBadge, .pageIndicator, .presentation, .style, .outline, .layout, .transition, .zoom,
-                .thumbnails, .pageTurn, .print,
+                .thumbnails, .floatOnTop, .pageTurn, .print,
             ])
     }
 
-    @Test("名前を先に省き、タイトルと操作を畳み、最後に印刷をアイコンにする")
+    @Test("名前を先に省き、タイトルと操作を畳み、最前面に固定は最後まで残してから印刷をアイコンにする")
     func stepsFollowTheSpecification() {
         #expect(
             BandLayout.steps == [
                 .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
                 .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
                 .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
-                .compact(.print),
+                .remove(.floatOnTop), .compact(.print),
             ])
+    }
+
+    @Test("最前面に固定は、ほかの道具がすべて外れるまで帯に残る")
+    func pinStaysLate() {
+        var withPin = widths
+        withPin[.floatOnTop] = .init(full: 28)
+        let narrow = BandLayout.plan(widths: withPin, fixed: 150, separator: 10, name: 120, available: 400)
+        #expect(narrow.forms[.floatOnTop] == .full)
+        #expect(narrow.overflow.contains(.style) && narrow.overflow.contains(.layout))
+        let narrowest = BandLayout.plan(widths: withPin, fixed: 150, separator: 10, name: 120, available: 300)
+        #expect(narrowest.overflow.last == .floatOnTop)
     }
 
     @Test("下の帯は名前を省いたあと、見方の操作から畳み、ページ表示を最後まで残す")
@@ -55,10 +66,10 @@ struct BandLayoutTests {
             ])
     }
 
-    @Test("上と下に分けると、上の帯には形式の印と印刷だけが残る")
+    @Test("上と下に分けると、上の帯には形式の印・最前面に固定・印刷だけが残る")
     func splitPlacesItems() {
         let top = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .top }
-        #expect(top == [.formatBadge, .print])
+        #expect(top == [.formatBadge, .floatOnTop, .print])
     }
 
     @Test("上だけなら、すべての部品が上の帯に並ぶ")

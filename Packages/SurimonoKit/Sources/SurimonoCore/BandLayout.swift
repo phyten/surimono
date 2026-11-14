@@ -11,6 +11,7 @@ public enum BandLayout {
         case style, outline
         case layout, transition
         case zoom, thumbnails
+        case floatOnTop
         case pageTurn
         case print
 
@@ -23,6 +24,7 @@ public enum BandLayout {
             case .style, .outline: 1
             case .layout, .transition: 2
             case .zoom, .thumbnails: 3
+            case .floatOnTop: 4
             }
         }
     }
@@ -34,7 +36,7 @@ public enum BandLayout {
     /// Split, the top band names the document and prints; everything about reading it moves to the bottom band.
     public static func position(of item: Item, in arrangement: MenuArrangement) -> Position {
         guard arrangement == .split else { return .top }
-        return item == .formatBadge || item == .print ? .top : .bottom
+        return [.formatBadge, .floatOnTop, .print].contains(item) ? .top : .bottom
     }
 
     public enum Form: Equatable, Sendable {
@@ -61,12 +63,13 @@ public enum BandLayout {
 
     /// The order in which the band gives up room. Labels go before tools, and a tool leaves earlier the less often it
     /// is used while reading; Print, the second of the two steps to print, stays to the end. The switch between web
-    /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone.
+    /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone. The pin that
+    /// keeps the window on top is one small icon whose state shows at a glance, so it stays until only Print is left.
     public static let steps: [Step] = [
         .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
         .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
         .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
-        .compact(.print),
+        .remove(.floatOnTop), .compact(.print),
     ]
 
     /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.

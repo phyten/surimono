@@ -235,6 +235,9 @@
                     model.bandVisibility = visibility
                     try? await Task.sleep(for: .milliseconds(900))
                 }
+                if let script = argument("SurimonoPointer"), let window = model.window {
+                    await runPointerScript(script, in: window, log: argument("SurimonoPointerLog"))
+                }
                 // A slide deck is measured once the page has loaded, and the window then takes its shape.
                 if model.showsWeb { try? await Task.sleep(for: .milliseconds(1200)) }
                 if argument("SurimonoSlides") == "off" {
@@ -396,6 +399,31 @@
                     logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
+        }
+
+        /// Stands in for the reader's pointer: each step of `x,y,ms;…` puts the pointer at that offset from the paper's
+        /// top-left corner as it was on the screen when the script started, and holds it there. The window's frame is
+        /// written every 50 ms, to see whether the bands come and go under a still pointer.
+        private static func runPointerScript(_ script: String, in window: NSWindow, log path: String?) async {
+            let content = window.contentRect(forFrameRect: window.frame)
+            let origin = NSPoint(x: content.minX, y: content.maxY)
+            var lines: [String] = []
+            let start = Date()
+            for (index, step) in script.split(separator: ";").enumerated() {
+                let parts = step.split(separator: ",").compactMap { Double($0) }
+                guard parts.count == 3 else { continue }
+                PointerTracker.TrackerView.debugMouseLocation = NSPoint(x: origin.x + parts[0], y: origin.y - parts[1])
+                for _ in 0..<max(Int(parts[2] / 50), 1) {
+                    try? await Task.sleep(for: .milliseconds(50))
+                    let frame = window.frame
+                    let lights = window.standardWindowButton(.closeButton).map { !$0.isHidden && $0.alphaValue > 0 }
+                    lines.append(
+                        "\(Int(Date().timeIntervalSince(start) * 1000)) step=\(index) y=\(Int(frame.minY)) "
+                            + "top=\(Int(frame.maxY)) height=\(Int(frame.height)) lights=\(lights ?? false)")
+                }
+            }
+            PointerTracker.TrackerView.debugMouseLocation = nil
+            if let path { try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8) }
         }
 
         /// Captures the document window together with the popovers and other small windows of this process next to
