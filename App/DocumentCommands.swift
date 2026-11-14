@@ -3,6 +3,7 @@ import SwiftUI
 
 struct DocumentCommands: Commands {
     let preferences: AppPreferences
+    let library: UserLibrary
     private var model: DocumentViewModel? { DocumentWindows.shared.activeModel }
     private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
     private var layoutCards: [PrintLayout] {
@@ -119,8 +120,6 @@ struct DocumentCommands: Commands {
                 "Float on Top",
                 isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { model?.isAlwaysOnTop = $0 })
             )
-            Divider()
-            SettingSetMenu(preferences: preferences, model: { model })
         }
         CommandGroup(replacing: .help) {
             Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
@@ -137,6 +136,7 @@ struct DocumentCommands: Commands {
                     Button(layout.displayName(language: language)) { model?.chooseLayout(layout.id) }
                 }
             }
+            SettingSetMenu(preferences: preferences, library: library, model: { model })
             Button("Choose Style…") { model?.openThemePalette() }
             if model?.includePlan != nil {
                 Button("Open as Binder") { model?.openIncludesAsBinder() }

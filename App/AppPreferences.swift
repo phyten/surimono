@@ -325,6 +325,16 @@ final class AppPreferences {
         }
     }
 
+    func movePrintSettingSets(from offsets: IndexSet, to destination: Int) {
+        guard offsets.allSatisfy({ printSettingSets.indices.contains($0) }),
+            (0...printSettingSets.count).contains(destination)
+        else { return }
+        let moving = offsets.sorted().map { printSettingSets[$0] }
+        var reordered = printSettingSets.enumerated().filter { !offsets.contains($0.offset) }.map(\.element)
+        reordered.insert(contentsOf: moving, at: destination - offsets.filter { $0 < destination }.count)
+        printSettingSets = reordered
+    }
+
     @discardableResult
     func renamePrintSettingSet(_ id: UUID, to name: String) -> Bool {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)

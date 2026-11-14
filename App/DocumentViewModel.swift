@@ -2035,10 +2035,18 @@ final class DocumentViewModel {
             pageRange: pageRange.isAll ? nil : pageRange)
     }
 
-    func savePrintSettingSet(named name: String) {
-        var set = PrintSettingSet(name: name, settings: rememberedSettings)
+    var currentPrintSettingSet: PrintSettingSet {
+        var set = PrintSettingSet(name: "", settings: rememberedSettings)
         // A set saved without notes turns them off, which a document's record has no need to say.
         if offersNotes { set.notes = notes }
+        return applicablePrintSettingSet(set)
+    }
+
+    func savePrintSettingSet(named name: String, parts: Set<PrintSettingSet.Part> = Set(PrintSettingSet.Part.allCases))
+    {
+        var set = currentPrintSettingSet.keeping(parts)
+        guard !set.parts.isEmpty else { return }
+        set.name = name
         preferences.savePrintSettingSet(set)
         selectedSettingSetID = preferences.printSettingSets.first { $0.name == name }?.id
     }
@@ -2057,7 +2065,7 @@ final class DocumentViewModel {
     /// Saves the current settings over the active set, which only the reader's own sets allow.
     func overwriteActiveSettingSet() {
         guard let set = activeSettingSet, !set.isBuiltIn else { return }
-        savePrintSettingSet(named: set.name)
+        savePrintSettingSet(named: set.name, parts: set.parts)
     }
 
     private func applicablePrintSettingSet(_ set: PrintSettingSet) -> PrintSettingSet {
@@ -2079,7 +2087,11 @@ final class DocumentViewModel {
         if let id = set.layoutID { layoutID = id }
         if let orientation = set.paperOrientation { paperOrientation = orientation }
         if let margins = set.margins { printOptions.margins = margins }
-        printOptions.linksMargins = set.linksMargins ?? (printOptions.margins.uniformValue != nil)
+        if let links = set.linksMargins {
+            printOptions.linksMargins = links
+        } else if set.margins != nil {
+            printOptions.linksMargins = printOptions.margins.uniformValue != nil
+        }
         if let mirrors = set.mirrorsMargins { printOptions.mirrorsMargins = mirrors }
         if let furniture = set.furniture { printOptions.furniture = furniture }
         if let finish = set.finish { printFinish = finish }
