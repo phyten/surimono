@@ -127,7 +127,7 @@ struct SettingSetSummary {
                 guard let theme = themes.first(where: { $0.id == id }) else { return nil }
                 values.append(String(format: text("Style: %@"), theme.displayName(language: language)))
             }
-            if let scale = set.textScale, TextScale.steps.contains(scale) {
+            if let scale = set.textScale, (0.8...2).contains(scale) {
                 values.append(String(format: text("Text: %lld%%"), Int64((scale * 100).rounded())))
             }
         case .htmlPreset:

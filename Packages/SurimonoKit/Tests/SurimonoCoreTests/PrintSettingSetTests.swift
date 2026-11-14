@@ -157,12 +157,19 @@ struct PrintSettingSetTests {
         #expect(!set.matches(current))
     }
 
+    @Test("文書指定の段階にない文字倍率も設定セットへ保存して適用できる")
+    func continuousScale() throws {
+        let set = PrintSettingSet(name: "Directive", settings: DocumentSettings(textScale: 1.23))
+        let restored = try JSONDecoder().decode(PrintSettingSet.self, from: JSONEncoder().encode(set))
+        #expect(restored.applicable(to: .markdown, themeIDs: [], presetIDs: []).textScale == 1.23)
+    }
+
     @Test("不正な余白や対応しない文字倍率だけを当てずに飛ばす")
     func invalidNumbers() {
         let set = PrintSettingSet(
             name: "Invalid",
             settings: DocumentSettings(
-                layoutID: "a4Duplex", textScale: 1.23, printOptions: PrintOptions(marginsInMillimeters: -10)))
+                layoutID: "a4Duplex", textScale: 2.3, printOptions: PrintOptions(marginsInMillimeters: -10)))
         let applicable = set.applicable(to: .markdown, themeIDs: [], presetIDs: [])
         #expect(applicable.layoutID == "a4Duplex")
         #expect(applicable.marginsInMillimeters == nil)

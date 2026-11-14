@@ -49,7 +49,7 @@ public enum MarkdownConverter {
             blocks: mapping?.blocks ?? [])
     }
 
-    private static func frontMatterEnd(in lines: [String]) -> Int? {
+    static func frontMatterEnd(in lines: [String]) -> Int? {
         guard lines.first == "---", lines.count > 1,
             !lines[1].trimmingCharacters(in: .whitespaces).isEmpty,
             let end = lines.dropFirst().firstIndex(where: { $0 == "---" || $0 == "..." })
