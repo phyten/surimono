@@ -12,8 +12,11 @@ struct ViewOptionsPopover: View {
                 Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             }
             SpreadSample(options: model.viewOptions, unit: currentUnit)
-            SpreadMap(units: model.displayUnits, current: currentUnitIndex) { unit in
-                if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
+            // A single unit has nowhere to go: one small sheet under the sample would only repeat it.
+            if model.displayUnits.count > 1 {
+                SpreadMap(units: model.displayUnits, current: currentUnitIndex) { unit in
+                    if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
+                }
             }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
                 heading("On Screen")
@@ -82,20 +85,17 @@ struct ViewOptionsPopover: View {
                 // separate, stronger choice on the other side.
                 if model.hasSavedSettings {
                     Text("Using this document’s settings")
-                        .font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                        .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                // Words the reader must read stay in ink: an accent color of their choice may not be dark enough.
-                Button {
-                    model.resetDocumentSettings()
-                } label: {
-                    Text("Reset This Document").underline()
+                // Only a document with settings of its own has something to reset; a dimmed link read as broken.
+                if model.hasSavedSettings {
+                    Button("Reset This Document") { model.resetDocumentSettings() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tint)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink2)
-                .fixedSize(horizontal: false, vertical: true)
-                .disabled(!model.hasSavedSettings)
                 Spacer(minLength: 8)
                 SettingSetMenu(preferences: model.preferences, library: model.library, model: { model })
                     .fixedSize()
@@ -143,7 +143,7 @@ struct BandVisibilityPicker: View {
     @Binding var selection: BandVisibility
 
     var body: some View {
-        Picker("Toolbar", selection: $selection) {
+        Picker("Toolbar Visibility", selection: $selection) {
             Text("Always").tag(BandVisibility.always)
             Text("On Hover").tag(BandVisibility.onHover)
         }
@@ -293,7 +293,10 @@ private struct CoverSample: View {
             }
             Text(verbatim: "…").foregroundStyle(.secondary)
         }
-        .opacity(isEnabled ? 1 : 0.4)
+        // The sheets are paper, white in the dark appearance too: faded further, they turned into grey boxes whose
+        // numbers could not be read.
+        .compositingGroup()
+        .opacity(isEnabled ? 1 : 0.65)
         .accessibilityHidden(true)
     }
 }

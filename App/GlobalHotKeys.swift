@@ -225,15 +225,17 @@ struct GlobalShortcutSettings: View {
                             hotKeys.set($0, for: action)
                         }
                         .frame(width: 160, height: 26)
-                        if hotKeys.combo(for: action) != nil {
-                            Button {
-                                hotKeys.set(nil, for: action)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(Text("Clear Shortcut") + Text(": ") + Text(action.title))
+                        // The clear button keeps its place when hidden, so the fields of both rows stay in one column.
+                        Button {
+                            hotKeys.set(nil, for: action)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Clear Shortcut") + Text(": ") + Text(action.title))
+                        .opacity(hotKeys.combo(for: action) == nil ? 0 : 1)
+                        .disabled(hotKeys.combo(for: action) == nil)
+                        .accessibilityHidden(hotKeys.combo(for: action) == nil)
                     }
                     if let error = hotKeys.errors[action] {
                         Text(error).font(.caption).foregroundStyle(.red)
