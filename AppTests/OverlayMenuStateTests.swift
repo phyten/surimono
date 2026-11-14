@@ -28,6 +28,20 @@ struct OverlayMenuStateTests {
         #expect(!menu.isPointerOverBand)
     }
 
+    @Test("隠す時間に帯の範囲へ入っていた帯は残り、そのあと離れるとまた1秒後に隠れる", .timeLimit(.minutes(1)))
+    func spentDeadlineIsRenewed() async throws {
+        let menu = OverlayMenuState()
+        menu.showFull()
+        // The window grew for the band after the pointer was read: for a moment the pointer seems below the zone.
+        menu.pointerMoved(to: CGPoint(x: 200, y: 50))
+        menu.topRoom = 38
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(menu.stage == .full)
+        menu.pointerMoved(to: CGPoint(x: 200, y: 300))
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(menu.stage == .hidden)
+    }
+
     @Test("帯を隠して場所を返しても、離れたポインタは紙の端の範囲に戻らない")
     func releasingRoomDoesNotReveal() {
         let menu = OverlayMenuState()

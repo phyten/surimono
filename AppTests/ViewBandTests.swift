@@ -276,6 +276,145 @@ struct ViewBandTests {
         #expect(window.frame == frame)
     }
 
+    /// The window's pointer tracker, which tests feed with a pointer place of their own.
+    private func tracker(in window: NSWindow) -> PointerTracker.TrackerView? {
+        func find(_ view: NSView) -> PointerTracker.TrackerView? {
+            if let tracker = view as? PointerTracker.TrackerView { return tracker }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        return window.contentView.flatMap(find)
+    }
+
+    @MainActor private struct HoverWindow {
+        let model: DocumentViewModel
+        let controller: MemoryDocumentWindowController
+        let window: NSWindow
+        let paperOnly: CGRect
+    }
+
+    private func hoverWindow(_ environment: Environment, arrangement: MenuArrangement) async throws -> HoverWindow {
+        environment.preferences.menuArrangement = arrangement
+        environment.preferences.defaultBandVisibility = .onHover
+        let model = environment.model(TestFixtures.pdf("Hover"))
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        try place(window, band: 0, model: model)
+        let paperOnly = window.contentRect(forFrameRect: window.frame)
+        try await waitUntil { abs((paperOnScreen(in: window)?.height ?? 0) - paperOnly.height) <= 3 }
+        return HoverWindow(model: model, controller: controller, window: window, paperOnly: paperOnly)
+    }
+
+    @Test("帯が出たまま上だけと上下を切り替えても、帯の場所は新しい組み方に合い、紙は画面の上で動かない")
+    func arrangementChangeWhileShown() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let hover = try await hoverWindow(environment, arrangement: .top)
+        defer {
+            hover.model.stop()
+            hover.controller.close()
+        }
+        let window = hover.window
+        let paper = paperOnScreen(in: window)
+        hover.model.bandRevealDidChange(true)
+        #expect(hover.model.currentBandRoom == BandRoom(top: 38, bottom: 0))
+
+        environment.preferences.menuArrangement = .split
+        try await waitUntil { hover.model.currentBandRoom == BandRoom(top: 38, bottom: 38) }
+        try await waitUntil {
+            let content = window.contentRect(forFrameRect: window.frame)
+            return abs(hover.paperOnly.minY - content.minY - 38) <= 3
+                && abs(content.maxY - hover.paperOnly.maxY - 38) <= 3
+        }
+        try await waitUntil { isClose(paperOnScreen(in: window), paper) }
+
+        environment.preferences.menuArrangement = .top
+        try await waitUntil { hover.model.currentBandRoom == BandRoom(top: 38, bottom: 0) }
+        try await waitUntil {
+            let content = window.contentRect(forFrameRect: window.frame)
+            return abs(content.minY - hover.paperOnly.minY) <= 3 && abs(content.maxY - hover.paperOnly.maxY - 38) <= 3
+        }
+        try await waitUntil { isClose(paperOnScreen(in: window), paper) }
+    }
+
+    @Test("フルスクリーンの間は帯の場所で窓の枠を変えず、抜けると帯の今の場所に合わせる")
+    func fullScreenLeavesFrameAlone() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let hover = try await hoverWindow(environment, arrangement: .split)
+        defer {
+            hover.model.stop()
+            hover.controller.close()
+        }
+        let window = hover.window
+        let model = hover.model
+        model.bandRevealDidChange(true)
+        let grown = window.frame
+        let paperSize = model.currentPaperSize
+
+        model.windowWillEnterFullScreen()
+        #expect(model.currentBandRoom == BandRoom())
+        model.bandRevealDidChange(true)
+        model.bandRevealDidChange(false)
+        model.sizeWindowToPaper(keepHeight: true)
+        #expect(window.frame == grown)
+        #expect(model.currentPaperSize == paperSize)
+
+        // The system gives back the frame from before, which still holds the room the bands had then.
+        model.windowDidExitFullScreen()
+        try await waitUntil {
+            let back = window.contentRect(forFrameRect: window.frame)
+            return abs(back.height - hover.paperOnly.height) <= 3 && abs(back.maxY - hover.paperOnly.maxY) <= 3
+        }
+    }
+
+    @Test("止まったポインタを紙の上端に置くと、帯が出て窓が伸び、隠す時間を過ぎても帯と窓の枠は変わらない")
+    func stillPointerKeepsBandAndFrame() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let hover = try await hoverWindow(environment, arrangement: .split)
+        defer {
+            hover.model.stop()
+            hover.controller.close()
+        }
+        let window = hover.window
+        let tracker = try #require(tracker(in: window))
+        #expect(tracker.isMonitoring)
+        // On the paper's top edge, where a hidden top band shows.
+        tracker.debugMouseLocation = NSPoint(x: hover.paperOnly.midX, y: hover.paperOnly.maxY - 10)
+        try await waitUntil { hover.model.currentBandRoom.top == 38 }
+        let shown = window.frame
+        try await Task.sleep(for: .milliseconds(1500))
+        #expect(window.frame == shown)
+        #expect(hover.model.currentBandRoom.top == 38)
+        // Away in the middle of the paper, the bands hide a moment later and give the room back.
+        tracker.debugMouseLocation = NSPoint(x: hover.paperOnly.midX, y: hover.paperOnly.midY)
+        try await waitUntil { hover.model.currentBandRoom == BandRoom() }
+        let back = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(back.maxY - hover.paperOnly.maxY) <= 3)
+    }
+
+    @Test("ポインタの監視は窓に載っている間だけで、窓から外れると止まり、常に表示では張らない")
+    func trackerStopsWithWindow() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,
+            defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let tracker = PointerTracker.TrackerView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+        #expect(!tracker.isMonitoring)
+        window.contentView?.addSubview(tracker)
+        #expect(tracker.isMonitoring)
+        tracker.isActive = false
+        #expect(!tracker.isMonitoring)
+        tracker.isActive = true
+        #expect(tracker.isMonitoring)
+        tracker.removeFromSuperview()
+        #expect(!tracker.isMonitoring)
+        #expect(tracker.trackingAreas.isEmpty)
+    }
+
     @Test("窓の上に伸ばす余地がないと上の帯は紙に重ね、下に余地があれば下の帯だけ場所を取る")
     func hoverBandsOverlayWithoutRoom() async throws {
         let environment = Environment()
@@ -297,6 +436,35 @@ struct ViewBandTests {
         #expect(abs(grown.maxY - paperOnly.maxY) <= 3)
         #expect(abs(paperOnly.minY - grown.minY - 38) <= 3)
         #expect(model.currentBandRoom == BandRoom(top: 0, bottom: 38))
+    }
+
+    @Test("上に伸ばす余地のない窓で、上だけの帯を出したまま上下に変えると、下の帯だけ場所を取る")
+    func arrangementChangeWithoutRoomAbove() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .top
+        environment.preferences.defaultBandVisibility = .onHover
+        let model = environment.model(TestFixtures.pdf("EdgeTop"))
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        try await open(model)
+        model.sizeWindowToPaper(initialOnly: true)
+        try place(window, band: 0, model: model)
+        let visible = try #require(window.screen?.visibleFrame)
+        window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY))
+        let paperOnly = window.contentRect(forFrameRect: window.frame)
+        // The top band is out over the paper: there is no room above to give it.
+        model.bandRevealDidChange(true)
+        #expect(model.currentBandRoom == BandRoom())
+
+        environment.preferences.menuArrangement = .split
+        try await waitUntil { model.currentBandRoom == BandRoom(top: 0, bottom: 38) }
+        try await waitUntil {
+            let content = window.contentRect(forFrameRect: window.frame)
+            return abs(content.maxY - paperOnly.maxY) <= 3 && abs(paperOnly.minY - content.minY - 38) <= 3
+        }
     }
 
     @Test(

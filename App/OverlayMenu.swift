@@ -115,7 +115,12 @@ final class OverlayMenuState {
         guard stage != .hidden, hideTask == nil else { return }
         hideTask = Task { [weak self] in
             do { try await Task.sleep(for: Self.hideDelay) } catch { return }
-            guard let self, !Task.isCancelled, !isHeld, !isPointerOverBand else { return }
+            guard let self, !Task.isCancelled else { return }
+            // Kept by then (back on the band, or held), the band needs a new deadline the next time it is left.
+            guard !isHeld, !isPointerOverBand else {
+                hideTask = nil
+                return
+            }
             hideNow()
         }
     }

@@ -142,14 +142,27 @@ final class DocumentViewModel {
             let previous = Self.bandRoom(of: menuArrangement, oldValue, revealed: revealedBandRoom)
             // Bands that always show keep their room; the pointer no longer gives or takes it.
             revealedBandRoom = BandRoom()
+            areHoverBandsShown = false
             pendsBandRoomRelease = false
             bandRoomDidChange(from: previous, animate: false)
         }
     }
     /// The room bands that show on pointing have made for themselves: the window grew by it around the paper.
     private(set) var revealedBandRoom = BandRoom()
+    /// Whether bands that show on pointing are out, which they can be without any room: at the top of the screen they
+    /// lie over the paper.
+    @ObservationIgnored private var areHoverBandsShown = false
     /// The bands hid while the reader was resizing the window; their room goes when the resize ends.
     @ObservationIgnored private var pendsBandRoomRelease = false
+    /// From the start of entering full screen until it has been left: the frame is the system's then, so the view
+    /// mode's sizing leaves it alone and catches up once the window is back.
+    @ObservationIgnored private(set) var isInFullScreen = false
+    /// The room of the bands in the frame the system gives back on leaving full screen.
+    @ObservationIgnored private var fullScreenReturnRoom: BandRoom?
+    /// The paper the window showed before full screen, remembered for the document in place of the screen's size.
+    @ObservationIgnored private var paperSizeBeforeFullScreen: CGSize?
+    /// Counts the attempts to enter full screen, so that a late check finds out whether it is still about its own.
+    @ObservationIgnored private var fullScreenAttempt = 0
     var isAlwaysOnTop: Bool
     var isDrawerOpen = false
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
@@ -1467,6 +1480,7 @@ final class DocumentViewModel {
         if stageBandRoom == nil { stageBandRoom = currentBandRoom }
         // The view mode's bands start hidden again on the way back, where the remembered room is given back.
         revealedBandRoom = BandRoom()
+        areHoverBandsShown = false
         pendsBandRoomRelease = false
     }
 
@@ -1527,6 +1541,11 @@ final class DocumentViewModel {
             ViewerWindow.markResizing(window, for: 0.3)
             mode = .view
             ViewerWindow.setTrafficLightsVisible(isBandAlwaysVisible, in: window)
+            // In full screen the frame is the system's; the window catches up when it leaves full screen.
+            guard !isInFullScreen else {
+                resumePrintIssueNavigation()
+                return
+            }
             // The frame is the one from before the stage, or the stage's own; either holds the room the bands had then.
             if let room = stageBandRoom {
                 stageBandRoom = nil
@@ -1830,7 +1849,7 @@ final class DocumentViewModel {
     /// the page zooms to fit unless the deck scales itself. An ordinary page takes any shape the reader gives it.
     func applyWebShape(animate: Bool = true) {
         web.fitSize = slideDeck.flatMap { $0.scalesItself ? nil : $0.size }
-        guard showsWeb, let window else { return }
+        guard showsWeb, !isInFullScreen, let window else { return }
         guard let deck = slideDeck else { return ViewerWindow.unlockAspectRatio(of: window) }
         let size = ViewerWindow.paperSize(
             unit: deck.size, height: ViewerWindow.paperHeight(of: window, band: bandInset), on: window.screen)
@@ -2463,10 +2482,11 @@ final class DocumentViewModel {
     /// resizes), they lie over the paper's edges instead.
     func bandRevealDidChange(_ shown: Bool) {
         guard bandVisibility == .onHover, let window else { return }
+        areHoverBandsShown = shown
         if shown {
             pendsBandRoomRelease = false
             guard revealedBandRoom == BandRoom(), mode == .view, hasSizedWindow else { return }
-            let room = roomToGrow(window, wanted: BandRoom.full(for: menuArrangement))
+            let room = roomToGrow(window, wanted: BandRoom.full(for: menuArrangement), around: BandRoom())
             guard room != BandRoom() else { return }
             revealedBandRoom = room
             bandRoomDidChange(from: BandRoom(), animate: false)
@@ -2482,19 +2502,69 @@ final class DocumentViewModel {
         }
     }
 
-    /// Each band grows the window on its own edge where the screen has room; the other lies over the paper.
-    private func roomToGrow(_ window: NSWindow, wanted: BandRoom) -> BandRoom {
-        guard !window.styleMask.contains(.fullScreen), !window.inLiveResize,
+    /// Each band grows the window on its own edge where the screen has room beside the paper; the other lies over the
+    /// paper. `existing` is the room the window already has, which is measured from the paper rather than the frame.
+    private func roomToGrow(_ window: NSWindow, wanted: BandRoom, around existing: BandRoom) -> BandRoom {
+        guard !isInFullScreen, !window.styleMask.contains(.fullScreen), !window.inLiveResize,
             let visible = (window.screen ?? NSScreen.main)?.visibleFrame
         else { return BandRoom() }
+        let paperTop = window.frame.maxY - existing.top
+        let paperBottom = window.frame.minY + existing.bottom
         return BandRoom(
-            top: window.frame.maxY + wanted.top <= visible.maxY + 0.5 ? wanted.top : 0,
-            bottom: window.frame.minY - wanted.bottom >= visible.minY - 0.5 ? wanted.bottom : 0)
+            top: paperTop + wanted.top <= visible.maxY + 0.5 ? wanted.top : 0,
+            bottom: paperBottom - wanted.bottom >= visible.minY - 0.5 ? wanted.bottom : 0)
+    }
+
+    func windowWillEnterFullScreen() {
+        guard !isInFullScreen, let window else { return }
+        paperSizeBeforeFullScreen = currentPaperSize
+        // A stage keeps its own frame, which the way back to reading reads as holding the stage's remembered room.
+        fullScreenReturnRoom = mode == .view ? currentBandRoom : stageBandRoom ?? currentBandRoom
+        isInFullScreen = true
+        // In full screen the bands lie over the paper; the room they had stays in the frame the system gives back.
+        revealedBandRoom = BandRoom()
+        pendsBandRoomRelease = false
+        // There is no notification for a failed attempt; a window still not in full screen a while later stayed out.
+        // The check belongs to this attempt only: leaving and entering again starts another.
+        fullScreenAttempt += 1
+        let attempt = fullScreenAttempt
+        Task { @MainActor [weak self, weak window] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self, let window, attempt == fullScreenAttempt, isInFullScreen,
+                !window.styleMask.contains(.fullScreen)
+            else { return }
+            windowDidExitFullScreen()
+        }
+    }
+
+    /// The frame is the one from before full screen again: it takes the bands' room as they are now and the pages'
+    /// shape, which may have changed meanwhile.
+    func windowDidExitFullScreen() {
+        guard isInFullScreen else { return }
+        fullScreenAttempt += 1
+        isInFullScreen = false
+        let room = fullScreenReturnRoom ?? currentBandRoom
+        fullScreenReturnRoom = nil
+        paperSizeBeforeFullScreen = nil
+        guard mode == .view else {
+            // Back on a stage, the frame read on the way back to reading is this one.
+            stageBandRoom = room
+            return
+        }
+        stageBandRoom = nil
+        if room != currentBandRoom { bandRoomDidChange(from: room, animate: false) }
+        if returnsToRestoredPaperSize {
+            returnsToRestoredPaperSize = false
+            applyRestoredPaperSize()
+        } else {
+            sizeWindowToPaper(keepHeight: true)
+        }
     }
 
     /// The paper the window shows in the view mode. Before the first pages fit the window to the paper, its size is
     /// only where it opened, and remembering that would open the document that small next time.
     var currentPaperSize: CGSize? {
+        if isInFullScreen { return paperSizeBeforeFullScreen }
         guard mode == .view, hasSizedWindow, let window else { return nil }
         let content = window.contentRect(forFrameRect: window.frame).size
         return CGSize(width: (content.width - sideInset).rounded(), height: (content.height - bandInset).rounded())
@@ -2502,7 +2572,7 @@ final class DocumentViewModel {
 
     /// Fits the window to the paper: the first time at a comfortable or remembered size, later keeping the height.
     func sizeWindowToPaper(keepHeight: Bool = false, initialOnly: Bool = false, keepsRightEdge: Bool = false) {
-        guard !initialOnly || !hasSizedWindow else { return }
+        guard !initialOnly || !hasSizedWindow, !isInFullScreen else { return }
         guard mode == .view, let window, let unit = paperUnitSize else { return }
         guard hasSizedWindow else {
             hasSizedWindow = true
@@ -2535,6 +2605,10 @@ final class DocumentViewModel {
     }
 
     private func applyRestoredPaperSize() {
+        guard !isInFullScreen else {
+            returnsToRestoredPaperSize = true
+            return
+        }
         guard let window, let unit = paperUnitSize, let size = restoredPaperSize else { return }
         // Keep the remembered height; the width follows the pages as they are now.
         ViewerWindow.setPaperSize(
@@ -2543,13 +2617,18 @@ final class DocumentViewModel {
     }
 
     func menuArrangementDidChange(from previous: MenuArrangement) {
-        bandRoomDidChange(
-            from: Self.bandRoom(of: previous, bandVisibility, revealed: revealedBandRoom), animate: true)
+        let before = Self.bandRoom(of: previous, bandVisibility, revealed: revealedBandRoom)
+        // Shown bands of the new arrangement take room where the screen has it beside the paper, as they do on showing,
+        // also when the old ones had none.
+        if bandVisibility == .onHover, areHoverBandsShown, mode == .view, let window {
+            revealedBandRoom = roomToGrow(window, wanted: BandRoom.full(for: menuArrangement), around: before)
+        }
+        bandRoomDidChange(from: before, animate: true)
     }
 
     /// The paper keeps its size and place when the bands' room changes: the window grows or shrinks around it.
     private func bandRoomDidChange(from previous: BandRoom, animate: Bool) {
-        guard mode == .view, hasSizedWindow, let window else { return }
+        guard mode == .view, hasSizedWindow, !isInFullScreen, let window else { return }
         let room = currentBandRoom
         let content = window.contentRect(forFrameRect: window.frame).size
         let paper = CGSize(width: content.width - sideInset, height: content.height - previous.total)
@@ -2574,7 +2653,8 @@ final class DocumentViewModel {
             }
         }
         // The window size remembered is the paper's; the web page takes whatever size the reader likes.
-        guard mode == .view, !isWebPresentation, let window, !ViewerWindow.isResizingProgrammatically(window),
+        guard mode == .view, !isWebPresentation, !isInFullScreen, let window,
+            !ViewerWindow.isResizingProgrammatically(window),
             let unit = paperUnitSize
         else { return }
         heightBeforeScreenLimit = nil
