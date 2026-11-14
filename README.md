@@ -22,6 +22,10 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 
 ## Features
 
+- Print Markdown CriticMarkup with revision marks, accepted changes, or the original text.
+- Put Markdown and LaTeX footnotes at the bottom of their first reference page (beta); references inside tables, callouts and quotes, and oversized notes, stay at the end. PDF text extraction can repeat text on pages with moved notes.
+- Markdown front matter can choose a print setting set, layout, orientation, margins, style, and text size with `surimono:`; saved document settings take priority.
+
 - Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
 - Set two global shortcuts in Settings > General to open the clipboard in the viewer or on the print screen while Surimono is running (both are unset by default).
 - Open or print selected text from any app with the Services menu (Open in Surimono, Print with Surimono). It stays in memory until you choose Save as File…
