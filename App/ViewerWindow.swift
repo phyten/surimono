@@ -101,7 +101,10 @@ enum ViewerWindow {
     }
 
     static func setAlwaysOnTop(_ onTop: Bool, in window: NSWindow) {
-        window.level = onTop ? .floating : .normal
+        AuxiliaryWindowLevel.shared.registerDocument(window)
+        let level: NSWindow.Level = onTop ? .floating : .normal
+        if window.level != level { window.level = level }
+        AuxiliaryWindowLevel.shared.refresh(windows: NSApp.windows)
     }
 
     /// The paper size for a newly opened document: as tall as comfortably fits the screen, at the unit's aspect.
