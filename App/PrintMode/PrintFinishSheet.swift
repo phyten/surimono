@@ -84,6 +84,16 @@ struct PrintFinishSheet: View {
                     contentsDetails
                 }
                 .id(PrintFinishSection.contents)
+                if model.format == .markdown, model.binder == nil {
+                    section("Proof Marks") {
+                        Picker("Proof Marks", selection: $model.printFinish.proof) {
+                            Text("Show Marks").tag(ProofMarks.shown)
+                            Text("Print as Accepted").tag(ProofMarks.accepted)
+                            Text("Print as Original").tag(ProofMarks.original)
+                        }
+                        .labelsHidden()
+                    }
+                }
                 section("Links on Paper") {
                     Picker("Links on Paper", selection: $model.printFinish.links) {
                         Text("As They Are").tag(PaperLinks.asIs)
