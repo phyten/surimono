@@ -4,6 +4,39 @@ import Testing
 @testable import SurimonoCore
 
 struct PrintSettingSetTests {
+    @Test("部分の選択は所属する項目だけを残し識別子と保存形式を保つ")
+    func keepingParts() throws {
+        let set = PrintSettingSet(
+            name: "All",
+            settings: DocumentSettings(
+                layoutID: "a4Duplex", themeID: "mincho", textScale: 1.25, presetID: "none",
+                printOptions: PrintOptions(), paperOrientation: .landscape,
+                printFinish: PrintFinish(), notes: NotePages()))
+        #expect(set.parts == Set(PrintSettingSet.Part.allCases))
+        let kept = set.keeping([.style, .margins])
+        #expect(kept.parts == [.style, .margins])
+        #expect(kept.id == set.id && kept.name == set.name)
+        #expect(kept.themeID == "mincho" && kept.textScale == 1.25)
+        #expect(kept.layoutID == nil && kept.paperOrientation == nil && kept.notes == nil)
+        #expect(try JSONDecoder().decode(PrintSettingSet.self, from: JSONEncoder().encode(kept)) == kept)
+        #expect(set.keeping([]).parts.isEmpty)
+    }
+
+    @Test("部分は単独の項目からも判定され除外した項目は一致判定に含めない")
+    func partialFields() {
+        var set = PrintSettingSet(name: "Partial", settings: DocumentSettings(textScale: 1.25))
+        set.linksMargins = false
+        set.paperOrientation = .portrait
+        #expect(set.parts == [.layout, .margins, .style])
+        let marginsOnly = set.keeping([.margins])
+        // Linking is how the fields are edited, not a choice that shows on paper, so it never decides a match.
+        #expect(marginsOnly.parts == [.margins])
+        #expect(!marginsOnly.matches(DocumentSettings(printOptions: PrintOptions())))
+        let kept = set.keeping([.style])
+        #expect(kept.matches(DocumentSettings(layoutID: "a4Single", textScale: 1.25)))
+        #expect(!kept.matches(DocumentSettings(textScale: 1)))
+    }
+
     @Test("形式の集合からテーマと文字サイズとHTMLプリセットを同時に適用する")
     func mixedFormats() {
         let set = PrintSettingSet(

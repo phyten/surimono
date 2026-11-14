@@ -178,7 +178,7 @@ struct SettingsView: View {
                     PrintPageOrderPicker(order: $preferences.printPageOrder)
                     Text(PrintPageOrderPicker.hint).font(.caption).foregroundStyle(.secondary)
                 case .settingSets:
-                    SettingSetsSettings(preferences: preferences)
+                    SettingSetsSettings(preferences: preferences, library: library)
                 case .styles:
                     Toggle("Try a Style on the Paper When Pointing at It", isOn: $preferences.triesThemeOnHover)
                     Picker("Default Style", selection: $preferences.themeID) {

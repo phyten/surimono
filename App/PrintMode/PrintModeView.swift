@@ -169,7 +169,7 @@ struct PrintTopBar: View {
             Spacer(minLength: 12)
             PrintStyleMenu(model: model)
             // Drawn like the style menu beside it, so the tray's top bar keeps one kind of control.
-            SettingSetMenu(preferences: model.preferences, model: { model }) {
+            SettingSetMenu(preferences: model.preferences, library: model.library, model: { model }) {
                 HStack(spacing: 7) {
                     Text("Setting Sets").foregroundStyle(
                         model.activeSettingSet == nil ? PrintPalette.ink : PrintPalette.ink2)
@@ -189,6 +189,12 @@ struct PrintTopBar: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
                 .contentShape(RoundedRectangle(cornerRadius: 6))
             }
+            .help(
+                Text(
+                    verbatim: model.activeSettingSet.map {
+                        SettingSetSummary(library: model.library).oneLine($0)
+                    } ?? "")
+            )
             .menuStyle(.button)
             .buttonStyle(.plain)
             .menuIndicator(.hidden)

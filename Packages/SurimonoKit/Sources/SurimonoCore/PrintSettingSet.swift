@@ -16,6 +16,44 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     public var textScale: Double?
     public var presetID: String?
 
+    public enum Part: CaseIterable, Sendable {
+        case layout, margins, furniture, finish, notes, style, htmlPreset
+    }
+
+    public var parts: Set<Part> {
+        var result: Set<Part> = []
+        if layoutID != nil || paperOrientation != nil { result.insert(.layout) }
+        if margins != nil || linksMargins != nil || mirrorsMargins != nil { result.insert(.margins) }
+        if furniture != nil { result.insert(.furniture) }
+        if finish != nil { result.insert(.finish) }
+        if notes != nil { result.insert(.notes) }
+        if themeID != nil || textScale != nil { result.insert(.style) }
+        if presetID != nil { result.insert(.htmlPreset) }
+        return result
+    }
+
+    public func keeping(_ parts: Set<Part>) -> Self {
+        var result = self
+        if !parts.contains(.layout) {
+            result.layoutID = nil
+            result.paperOrientation = nil
+        }
+        if !parts.contains(.margins) {
+            result.margins = nil
+            result.linksMargins = nil
+            result.mirrorsMargins = nil
+        }
+        if !parts.contains(.furniture) { result.furniture = nil }
+        if !parts.contains(.finish) { result.finish = nil }
+        if !parts.contains(.notes) { result.notes = nil }
+        if !parts.contains(.style) {
+            result.themeID = nil
+            result.textScale = nil
+        }
+        if !parts.contains(.htmlPreset) { result.presetID = nil }
+        return result
+    }
+
     /// All four margins as one value; nil for a set with uneven margins or none at all.
     public var marginsInMillimeters: Double? { margins?.uniformValue }
     public var showsPageNumbers: Bool? { furniture.map { $0.preset != .none } }

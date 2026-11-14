@@ -234,6 +234,39 @@ struct PrintSettingSetFlowTests {
         #expect(model.rememberedSettings == expected)
     }
 
+    @Test("選ばなかった余白とスタイルは適用も一致判定もせず上書きでも追加しない")
+    func selectedParts() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model("Parts", preferences: environment.preferences)
+        defer { model.stop() }
+        model.savePrintSettingSet(named: "Layout", parts: [.layout])
+        let set = try #require(model.preferences.printSettingSets.first)
+        model.printOptions.linksMargins = false
+        model.themeID = "mincho"
+        model.applyPrintSettingSet(set)
+        #expect(!model.printOptions.linksMargins)
+        #expect(model.themeID == "mincho")
+        #expect(model.matchesPrintSettingSet(set))
+        model.overwriteActiveSettingSet()
+        #expect(model.preferences.printSettingSets.first?.parts == [.layout])
+    }
+
+    @Test("並べ替えた設定セットの順は再読み込みしても残る")
+    func reorder() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        for name in ["One", "Two", "Three"] {
+            preferences.savePrintSettingSet(
+                PrintSettingSet(name: name, settings: DocumentSettings(layoutID: "a4Single")))
+        }
+        preferences.movePrintSettingSets(from: IndexSet(integer: 0), to: 3)
+        #expect(environment.preferences.printSettingSets.map(\.name) == ["Two", "Three", "One"])
+        preferences.movePrintSettingSets(from: IndexSet([1, 2]), to: 0)
+        #expect(environment.preferences.printSettingSets.map(\.name) == ["Three", "One", "Two"])
+    }
+
     @Test("配列の壊れた要素や重複だけを捨て読める設定セットを残す")
     func lossyArray() throws {
         let environment = Environment()

@@ -97,7 +97,7 @@ struct ViewOptionsPopover: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .disabled(!model.hasSavedSettings)
                 Spacer(minLength: 8)
-                SettingSetMenu(preferences: model.preferences, model: { model })
+                SettingSetMenu(preferences: model.preferences, library: model.library, model: { model })
                     .fixedSize()
             }
         }
