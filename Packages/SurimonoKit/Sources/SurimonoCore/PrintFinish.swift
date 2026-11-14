@@ -110,10 +110,11 @@ public struct PrintFinish: Codable, Hashable, Sendable {
     public var toc = PaperTOC()
     public var links = PaperLinks.asIs
     public var proof = ProofMarks.shown
+    public var footnotes = FootnotePlacement.end
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case breaks, toc, links, proof }
+    private enum CodingKeys: String, CodingKey { case breaks, toc, links, proof, footnotes }
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -121,6 +122,7 @@ public struct PrintFinish: Codable, Hashable, Sendable {
         toc = (try? values.decodeIfPresent(PaperTOC.self, forKey: .toc)) ?? PaperTOC()
         links = (try? values.decodeIfPresent(PaperLinks.self, forKey: .links)) ?? .asIs
         proof = (try? values.decodeIfPresent(ProofMarks.self, forKey: .proof)) ?? .shown
+        footnotes = (try? values.decodeIfPresent(FootnotePlacement.self, forKey: .footnotes)) ?? .end
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -129,6 +131,7 @@ public struct PrintFinish: Codable, Hashable, Sendable {
         try values.encode(toc, forKey: .toc)
         if links != .asIs { try values.encode(links, forKey: .links) }
         if proof != .shown { try values.encode(proof, forKey: .proof) }
+        if footnotes != .end { try values.encode(footnotes, forKey: .footnotes) }
     }
 
     /// Style rules laid over the theme, empty when nothing is asked of the text.

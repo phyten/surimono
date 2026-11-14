@@ -100,6 +100,9 @@ struct SettingSetSummary {
                 case .accepted: values.append(text("Proof Marks") + ": " + text("Print as Accepted"))
                 case .original: values.append(text("Proof Marks") + ": " + text("Print as Original"))
                 }
+                if finish.footnotes == .pageBottom {
+                    values.append(text("Footnotes") + ": " + text("At the Bottom of the Page (Beta)"))
+                }
                 switch finish.links {
                 case .asIs: break
                 case .endnotes: values.append(text("Links on Paper") + ": " + text("List at the End"))
