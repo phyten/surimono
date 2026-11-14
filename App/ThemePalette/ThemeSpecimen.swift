@@ -8,7 +8,7 @@ enum ThemeSampleSource: String, CaseIterable {
 }
 
 enum ThemeSpecimen {
-    // A fixed sheet keeps the specimen useful even when the user's sheet is small or its text is enlarged.
+    // The specimen keeps default typography; the window supplies its current layout and orientation.
     static var settings: RenderSettings {
         RenderSettings(
             layout: .a4Single, theme: PrintTheme(id: "", name: "", css: ""),

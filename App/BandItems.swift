@@ -329,10 +329,11 @@ struct BandMoreMenu: View {
                 SecondaryViewMenuItem(model: model, item: item)
             }
             Divider()
-            if model.marginsApply {
-                MarginMenu(model: model)
-                Divider()
-            }
+            // The margins here are a shortcut into the print settings, which follow them under the same name as on the
+            // Document menu.
+            if model.marginsApply { MarginMenu(model: model) }
+            Button("Print Settings…") { model.presentPrintSettings() }
+            Divider()
             if model.detectedSlideDeck != nil, model.usesHTMLPresentation {
                 Toggle(
                     "Don't Treat as Slides",
@@ -474,10 +475,10 @@ private struct SecondaryViewMenuItem: View {
         case .paperOrientation: PaperOrientationControl(model: model)
         case .paperSeries:
             Menu {
-                PaperSeriesPicker(selection: $model.paperSeries)
+                PaperSeriesPicker(model: model)
                     .pickerStyle(.inline).labelsHidden()
             } label: {
-                Text(verbatim: choice(String(localized: "Paper on Screen"), model.paperSeries.name))
+                Text(verbatim: choice(String(localized: "Paper Series"), model.layout.series.name))
             }
         case .scrollAxis:
             Menu {

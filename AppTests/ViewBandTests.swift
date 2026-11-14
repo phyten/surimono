@@ -628,7 +628,7 @@ struct ViewBandTests {
         #expect(second.bandVisibility == .always)
     }
 
-    @Test("文字の文書は A判 / B判 を切り替えられ、B判は B5 の用紙で組み、記録に残す")
+    @Test("表示モードの用紙の系列は冊子の刷り方を保って切り替わり、文書に記録される")
     func paperSeriesChangesLayout() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -636,30 +636,71 @@ struct ViewBandTests {
         let first = environment.model(data, format: .markdown)
         try await open(first)
         #expect(first.offersPaperSeries)
-        #expect(first.renderSettings?.layout == .a4Single)
-        #expect(first.rememberedSettings.paperSeries == nil)
-        first.paperSeries = .b
-        #expect(first.renderSettings?.layout == .b5Single)
+        first.layoutID = PrintLayout.a4BookletA5.id
+        first.choosePaperSeries(.b)
+        #expect(first.layoutID == PrintLayout.b5BookletB6.id)
+        #expect(first.renderSettings?.layout == .b5BookletB6)
+        #expect(first.rememberedSettings.layoutID == PrintLayout.b5BookletB6.id)
         first.rememberedSettingsDidChange()
         try await waitUntil { first.hasSavedSettings }
         first.stop()
         let second = environment.model(data, format: .markdown)
         defer { second.stop() }
         try await open(second)
-        #expect(second.paperSeries == .b)
-        #expect(second.renderSettings?.layout == .b5Single)
+        #expect(second.trayPaperSeries == .b)
+        #expect(second.layoutID == PrintLayout.b5BookletB6.id)
+        #expect(second.renderSettings?.layout == .b5BookletB6)
     }
 
-    @Test("刷り台は紙の判ではなく印刷レイアウトで組む")
-    func trayKeepsPrintLayout() async throws {
+    @Test("冊子の論理ページと余白と仕上げは表示・刷り台・見比べ台で同じ")
+    func modesShareBookletLayout() throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         let model = environment.model(Data("本文".utf8), format: .markdown)
         defer { model.stop() }
-        model.paperSeries = .b
-        model.layoutID = PrintLayout.a4Duplex.id
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.printOptions.mirrorsMargins = true
+        model.printFinish.breaks.h1 = .rightPage
+        model.printFinish.toc.mode = .front
+        let reading = try #require(model.renderSettings)
+        #expect(reading.layout == .a4BookletA5)
         model.mode = .print
-        #expect(model.renderSettings?.layout == .a4Duplex)
+        #expect(model.renderSettings == reading)
+        model.mode = .compare
+        #expect(model.renderSettings == reading)
+    }
+
+    @Test("ノートのない冊子は表示と刷り台の往復で読んでいるページを変えない")
+    func bookletKeepsReadingPosition() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(Data("本文".utf8), format: .markdown)
+        defer { model.stop() }
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.currentPageIndex = 5
+        model.enterPrintMode()
+        #expect(model.currentPageIndex == 5)
+        model.exitPrintMode()
+        #expect(model.currentPageIndex == 5)
+    }
+
+    @Test("同梱見本と実文書の見本は冊子の論理ページと用紙の向きに従う")
+    func samplesFollowPrintPaper() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(Data("本文".utf8), format: .markdown)
+        defer { model.stop() }
+        model.layoutID = PrintLayout.letterBookletHalfLetter.id
+        model.paperOrientation = .landscape
+        for mode in [ViewerMode.view, .print, .compare] {
+            model.mode = mode
+            let specimen = try #require(model.specimenSamples.inputs().settings)
+            let document = try #require(model.themeSamples.inputs().settings)
+            #expect(specimen.layout == .letterBookletHalfLetter)
+            #expect(document.layout == .letterBookletHalfLetter)
+            #expect(specimen.paperOrientation == .landscape)
+            #expect(document.paperOrientation == .landscape)
+        }
     }
 
     @Test("PDF と画像には紙の判の切り替えを出さない")
@@ -675,6 +716,26 @@ struct ViewBandTests {
         #expect(!pdf.offersPaperSeries)
         #expect(!image.offersPaperSeries)
         #expect(!SecondaryViewControl.applicable(for: pdf).contains(.paperSeries))
+    }
+
+    @Test("文字の文書を含む合本には紙の判の切り替えを出し、PDF だけの合本には出さない")
+    func binderPaperSeries() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        func binderModel(_ names: [String]) -> DocumentViewModel {
+            DocumentViewModel(
+                data: Data(), fileURL: nil, format: .pdf, preferences: environment.preferences,
+                library: environment.library,
+                binder: BinderModel(urls: names.map { URL(fileURLWithPath: "/fixture/\($0)") }, read: { _ in Data() }))
+        }
+        let text = binderModel(["a.md", "b.pdf"])
+        let pdfs = binderModel(["a.pdf", "b.pdf"])
+        defer {
+            text.stop()
+            pdfs.stop()
+        }
+        #expect(text.offersPaperSeries)
+        #expect(!pdfs.offersPaperSeries)
     }
 
     @Test("Markdown の見出しは [TOC] がなくても目次になり、そのページを持つ")
@@ -694,6 +755,41 @@ struct ViewBandTests {
             ])
         #expect(model.hasOutline)
         #expect(BandLayout.Item.applicable(for: model).contains(.outline))
+    }
+
+    @Test("刷り台で冊子に組み直して表示へ戻ると、組み直さなくても目次は冊子のページを指す", .timeLimit(.minutes(1)))
+    func outlineFollowsTrayLayout() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        // A5 pages hold less, so the second chapter starts later than on A4.
+        let renderer = DocumentRenderer(paginate: { request in
+            let pages =
+                request.pageSize.width < 450
+                ? ["First Chapter", "Body", "Body", "Body", "Second Chapter"]
+                : ["First Chapter", "Body", "Second Chapter"]
+            return try #require(PDFDocument(data: TestFixtures.textPDF(pages)))
+        })
+        let model = DocumentViewModel(
+            data: Data("# First Chapter\n\nbody\n\n# Second Chapter\n\nbody".utf8), fileURL: nil,
+            format: .markdown, preferences: environment.preferences, library: environment.library,
+            renderer: renderer, settingsStore: environment.store)
+        defer { model.stop() }
+        try await open(model)
+        try await waitUntil { model.outlineEntries.last?.pageIndex == 2 }
+
+        model.enterPrintMode()
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.render()
+        try await waitUntil { !model.isRendering }
+        model.exitPrintMode()
+        #expect(model.mode == .view)
+        #expect(model.isUpToDate)
+        try await waitUntil { model.outlineEntries.last?.pageIndex == 4 }
+        #expect(
+            model.outlineEntries == [
+                OutlineEntry(level: 1, title: "First Chapter", pageIndex: 0),
+                OutlineEntry(level: 1, title: "Second Chapter", pageIndex: 4),
+            ])
     }
 
     @Test("今のページに応じて読んでいる章を選ぶ")

@@ -124,8 +124,6 @@ final class DocumentViewModel {
     private var defaultTextScale: Double
     private var defaultPaperOrientation: PaperOrientation
     private var defaultBandVisibility: BandVisibility
-    /// The paper the view mode lays text out on; the print tray has its own layout.
-    var paperSeries: ViewPaperSeries = .a
     var loneCoverWidth: LoneCoverWidth { preferences.loneCoverWidth }
     var viewOptions: ViewOptions
     /// Magnification relative to fitting the current page or spread into the window.
@@ -218,8 +216,7 @@ final class DocumentViewModel {
     /// The theme the pointer rests on in the palette, laid out on the paper.
     let themeTrial: ThemeTrial
     /// A trial the user then chose: the paper keeps it until the document's own pages in that theme are ready.
-    private(set) var chosenTrial:
-        (themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark])?
+    private(set) var chosenTrial: ChosenTrial?
     /// The candidates on the comparison stage, kept while the window lives.
     var themeComparison: ThemeComparison?
     /// Where the stage's pages start, kept with the candidates; nil is the first page.
@@ -279,7 +276,19 @@ final class DocumentViewModel {
     /// Replaces the save panel in tests.
     @ObservationIgnored var chooseSaveDestination: ((String, @escaping (URL?) -> Void) -> Void)?
     /// The logical pages the paper shows. They are published before the sheets are composed.
-    private(set) var result: PreparedRender?
+    private(set) var result: PreparedRender? { didSet { followViewFurniture(after: oldValue) } }
+    /// The header and footer the paper draws. They follow the pages' own at once, except while the custom header is
+    /// being typed, when they wait for a pause: the paper keeps every copy of its pages it has shown.
+    private(set) var shownFurniture: [Int: FurniturePlacement] = [:]
+    @ObservationIgnored private var furnitureTask: Task<Void, Never>?
+    /// How often the paper's header and footer changed, for tests.
+    @ObservationIgnored private(set) var shownFurnitureChangeCount = 0
+    static let furnitureTypingPause: Duration = .milliseconds(400)
+    /// Waits out the pause in typing before the paper shows the new header; tests hold it open and let it go.
+    @ObservationIgnored var awaitTypingPause: () async -> Void = {
+        try? await Task.sleep(for: DocumentViewModel.furnitureTypingPause)
+    }
+    @ObservationIgnored private var dayObserver: (any NSObjectProtocol)?
     /// The composed sheets for the tray and the outputs. It may still belong to an earlier `result` while the sheets
     /// of the current one are composed; `canOutput` checks that it matches.
     private(set) var printResult: RenderResult?
@@ -438,7 +447,10 @@ final class DocumentViewModel {
         specimenSamples.specimenLanguage = { [weak self] in self?.language ?? "en" }
         specimenSamples.inputs = { [weak self] in
             guard let self else { return (nil, nil) }
-            return (ThemeSpecimen.source(language: language), ThemeSpecimen.settings)
+            var settings = ThemeSpecimen.settings
+            settings.layout = renderLayout
+            settings.paperOrientation = paperOrientation
+            return (ThemeSpecimen.source(language: language), settings)
         }
         paper.onToast = { [weak self] toast in
             self?.showToast(toast, dismissAfter: toast.action == .allowFolderAccess ? nil : .seconds(5))
@@ -488,7 +500,7 @@ final class DocumentViewModel {
     func selectTheme(_ id: String) {
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
-            chosenTrial = (id, codePaletteID, document, themeTrial.changeMarks)
+            chosenTrial = (id, codePaletteID, document, themeTrial.changeMarks, themeTrial.furniture)
         }
         themeTrial.end()
         themeComparison?.choose(id)
@@ -499,7 +511,7 @@ final class DocumentViewModel {
     /// The user picked a code palette. The pages of a trial of it stay on the paper as they do for a theme.
     func selectCodePalette(_ id: String) {
         if id != codePaletteID, themeTrial.themeID == Self.codeTrialID(id), let document = themeTrial.document {
-            chosenTrial = (themeID, id, document, themeTrial.changeMarks)
+            chosenTrial = (themeID, id, document, themeTrial.changeMarks, themeTrial.furniture)
         }
         themeTrial.end()
         codePaletteID = id
@@ -525,14 +537,35 @@ final class DocumentViewModel {
     var layout: PrintLayout {
         (PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single).bound(effectiveBookletBinding)
     }
-    /// Reading and comparing keep the paper's shape independent of how pages are arranged for printing.
+    /// Reading and comparing show the pages the tray composes, so what is read is what prints. Images are the
+    /// exception: nothing in them reflows, and the paper and the window take the image's shape whatever the layout,
+    /// so reading and comparing keep them on A4 single-sided and only the tray arranges them on the print layout.
     var renderLayout: PrintLayout { renderLayout(in: mode) }
 
-    private func renderLayout(in mode: ViewerMode) -> PrintLayout { mode == .print ? layout : paperSeries.layout }
-    /// Text can be laid out again on other paper; PDFs and images keep their pages, and a binder its documents.
-    var offersPaperSeries: Bool { !showsWeb && binder == nil && imageBundle == nil && format.isWebRendered }
+    private func renderLayout(in mode: ViewerMode) -> PrintLayout {
+        mode != .print && (imageBundle != nil || format == .image) ? .a4Single : layout
+    }
+
+    /// Text can be laid out again on other paper, also in a binder; PDFs and images keep their pages.
+    var offersPaperSeries: Bool {
+        guard !showsWeb, imageBundle == nil else { return false }
+        return binder.map { $0.items.contains { $0.format.isWebRendered } } ?? format.isWebRendered
+    }
 
     var renderSettings: RenderSettings? { renderSettings(in: mode) }
+
+    /// Whether pages laid out with these settings, from the live page's copy or not, are the logical pages the view
+    /// mode shows, now or once the tray is left. The tray's page range and the turning of back sides choose and turn
+    /// sheets and leave the logical pages as they are. Its note pages, current-slide-only, opened details and original
+    /// page change them, and the last two are also turned off on leaving the tray (`resetPrintChoices()`), so the
+    /// view is judged without them.
+    func showsReadingPages(_ settings: RenderSettings, fromSnapshot: Bool) -> Bool {
+        guard var reading = renderSettings(in: .view) else { return false }
+        reading.opensDetails = false
+        reading.pageRange = settings.pageRange
+        reading.options.rotatesBackSides = settings.options.rotatesBackSides
+        return reading == settings && fromSnapshot == (usesHTMLPresentation && liveSnapshot != nil)
+    }
 
     private func renderSettings(in mode: ViewerMode) -> RenderSettings? {
         guard
@@ -630,11 +663,11 @@ final class DocumentViewModel {
     /// The page breaks and the contents are read from a text; a binder keeps its documents as they are.
     var finishAppliesToText: Bool { binder == nil && format.usesPrintTheme }
 
-    /// The series of the tray's cards. A document shown on B sizes opens the tray on them, one on the default layout
-    /// shows the series last chosen on a tray, and any other the series of its own paper.
+    /// The series of the tray's cards. A document on the default layout shows the series last chosen on a tray, and
+    /// any other the series of its own paper. The cards may thus show a series the layout is not in yet (the B
+    /// sizes keep the A4 handout as their sixth card); `layout.series` is the paper the pages are on.
     var trayPaperSeries: PaperSeries {
         if let shownPaperSeries { return shownPaperSeries }
-        if paperSeries == .b { return .b }
         if layoutID == Self.defaultLayoutID(preferences), let series = preferences.paperSeries { return series }
         return layout.series
     }
@@ -674,7 +707,10 @@ final class DocumentViewModel {
         guard let page = issue.pageNumber else { return }
         isPrintIssuesPresented = false
         setHTMLPresentation(.paper, capturesWeb: false)
-        if (renderedSettings?.layout ?? renderLayout) == paperSeries.layout {
+        // Notes and live HTML choices can still change the pages on the way back to reading, so the pages are judged
+        // against the view as it will be once the tray's own choices are reset.
+        let fromSnapshot = renderedSettings == nil ? rendersSnapshot : renderedFromSnapshot
+        if let settings = renderedSettings ?? renderSettings, showsReadingPages(settings, fromSnapshot: fromSnapshot) {
             pendingPrintIssue = nil
             currentPageIndex = max(0, page - 1)
             pointOut(issue, onPage: max(0, page - 1))
@@ -705,6 +741,54 @@ final class DocumentViewModel {
     private func dropSpot() {
         spotTask?.cancel()
         spotTask = nil
+    }
+
+    private func followViewFurniture(after old: PreparedRender?) {
+        let placements = result?.viewFurniture ?? [:]
+        furnitureTask?.cancel()
+        guard placements != shownFurniture else { return }
+        // Typing into the custom header changes only its text, on the same pages.
+        let isTyping =
+            old?.logicalDocument != nil && old?.logicalDocument === result?.logicalDocument
+            && old?.furniture.preset == .custom && result?.furniture.preset == .custom
+        guard isTyping else { return showFurniture(placements) }
+        let pause = awaitTypingPause
+        furnitureTask = Task { [weak self] in
+            await pause()
+            guard !Task.isCancelled else { return }
+            self?.showFurniture(placements)
+        }
+    }
+
+    private func showFurniture(_ placements: [Int: FurniturePlacement]) {
+        shownFurniture = placements
+        shownFurnitureChangeCount += 1
+    }
+
+    /// Whether the pages show a date in their header or footer other than today's, as after midnight.
+    var showsStaleDate: Bool {
+        guard let result, let settings = renderedSettings, let today = renderer.furnitureDate(for: settings) else {
+            return false
+        }
+        return result.furnitureDate != today
+    }
+
+    /// A new day, also after the Mac wakes: a header or footer with the date shows today's. The logical pages stay;
+    /// only the header and footer and the sheets are made again.
+    func calendarDayDidChange() {
+        themeTrial.forgetRecent()
+        guard let settings = renderSettings, renderer.furnitureDate(for: settings) != nil else { return }
+        render()
+    }
+
+    /// An output never carries an earlier day's date, also when the day changed while nothing was laid out. The date
+    /// is the day the output was asked for: a save panel or print dialog left open across midnight keeps it, as it
+    /// keeps the pages it was asked for (`beginPDFExport()`).
+    private func deferUntilDateIsCurrent(_ output: Output) -> Bool {
+        guard mode == .print, showsStaleDate else { return false }
+        outputAfterReview = output
+        render()
+        return true
     }
 
     private func resumePrintIssueNavigation() {
@@ -823,6 +907,13 @@ final class DocumentViewModel {
             }
         }
         computeContentHash()
+        if dayObserver == nil {
+            dayObserver = NotificationCenter.default.addObserver(
+                forName: .NSCalendarDayChanged, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.calendarDayDidChange() }
+            }
+        }
         refreshIncludePlan()
         // A window that replaces another has its pages from before it appeared.
         if result == nil { render() }
@@ -835,6 +926,9 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        if let dayObserver { NotificationCenter.default.removeObserver(dayObserver) }
+        dayObserver = nil
+        furnitureTask?.cancel()
         pendingPrint = nil
         duplexTestTask?.cancel()
         duplexTestTask = nil
@@ -1206,15 +1300,17 @@ final class DocumentViewModel {
                 result = prepared
                 if source.format == .markdown { displayedMarkdownData = source.data }
                 chosenTrial = nil
-                refreshStructure(of: source, in: prepared)
+                // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline
+                // and the place read follow them there too and stay right on the way back, where nothing renders.
+                let forReading = mode == .view || showsReadingPages(settings, fromSnapshot: fromSnapshot)
+                refreshStructure(of: source, in: prepared, forReading: forReading)
                 announceChanges(in: prepared)
                 renderedSettings = settings
                 renderedSourceURLs = sourceURLs
                 renderedFromSnapshot = fromSnapshot
                 unreadableImageURLs = prepared.unreadableImageURLs
-                binder?.didRender(prepared, forReading: mode == .view)
-                // The tray lays the documents out on its own paper, whose pages are not the ones being read.
-                if mode == .view, let page = binder?.settleReadingPage() ?? selectedImagePage {
+                binder?.didRender(prepared, forReading: forReading)
+                if forReading, let page = binder?.settleReadingPage() ?? selectedImagePage {
                     currentPageIndex = page
                 }
                 resolveViewOptionsIfNeeded(for: prepared.viewDocument)
@@ -1307,7 +1403,6 @@ final class DocumentViewModel {
         bookletBinding = source.bookletBinding
         layoutID = source.layoutID
         shownPaperSeries = source.shownPaperSeries
-        paperSeries = source.paperSeries
         paperOrientation = source.paperOrientation
         printOptions = source.printOptions
         viewOptions = source.viewOptions
@@ -1458,7 +1553,7 @@ final class DocumentViewModel {
         }
     }
 
-    private func closeBandPopovers() {
+    func closeBandPopovers() {
         isViewOptionsPresented = false
         isOutlinePresented = false
         isFiguresPresented = false
@@ -1482,11 +1577,19 @@ final class DocumentViewModel {
         refreshPrinters()
         themePaletteDidClose()
         closeBandPopovers()
+        // The view mode's print settings hang off the window's edge, which the tray's frame moves away.
+        isPrintFinishPresented = false
         // The tray shows what prints, so the review and its outlined pages end here.
         isReviewingSmartRemoval = false
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
         rememberStageBandRoom()
         mode = .print
+        // The pages read are often the tray's already, and then no render follows to count their sheets.
+        if isUpToDate, hasCurrentPrintPreview, let settings = renderedSettings, let output = printResult {
+            trayFigures = TrayFigures(
+                settings: settings, data: data, sourceURLs: sourceURLs, sheetCount: output.plan.sheetCount,
+                paper: output.plan.paper.shortName)
+        }
         guard let window else { return }
         // Stage controls need free resizing and visible traffic lights.
         ViewerWindow.setTrafficLightsVisible(true, in: window)
@@ -1516,6 +1619,7 @@ final class DocumentViewModel {
         isThemePalettePresented = false
         themeTrial.end()
         closeBandPopovers()
+        isPrintFinishPresented = false
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
         let featured = library.themes.filter { $0.featuredRank != nil }
             .sorted { ($0.featuredRank ?? 0) < ($1.featuredRank ?? 0) }.map(\.id)
@@ -1544,6 +1648,7 @@ final class DocumentViewModel {
         requestedTrayRow = nil
         guard mode != .view else { return }
         isPrintIssuesPresented = false
+        isPrintFinishPresented = false
         themePaletteDidClose()
         outputAfterReview = nil
         guard let window else {
@@ -1725,8 +1830,8 @@ final class DocumentViewModel {
     /// Reads the headings of the pages just laid out for reading, and how much text the document holds. Only the
     /// pages' text is read on the main actor, a page at a time; the conversion runs elsewhere and only when the source
     /// changed.
-    private func refreshStructure(of source: DocumentSource, in prepared: PreparedRender) {
-        guard mode != .print, structureDocument !== prepared.logicalDocument else { return }
+    private func refreshStructure(of source: DocumentSource, in prepared: PreparedRender, forReading: Bool) {
+        guard forReading, structureDocument !== prepared.logicalDocument else { return }
         structureDocument = prepared.logicalDocument
         structureTask?.cancel()
         let document = prepared.logicalDocument
@@ -2079,7 +2184,6 @@ final class DocumentViewModel {
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
             codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
-            paperSeries: paperSeries == .a ? nil : paperSeries,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange)
     }
@@ -2315,7 +2419,6 @@ final class DocumentViewModel {
     private func apply(_ saved: DocumentSettings) {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
-        paperSeries = saved.paperSeries ?? .a
         if let order = saved.binderOrder { binder?.applyOrder(order) }
         if let scale = saved.textScale { setTextScale(scale) }
         if let view = saved.view {
@@ -2492,7 +2595,6 @@ final class DocumentViewModel {
         defaultPaperOrientation = preferences.defaultPaperOrientation
         defaultBandVisibility = preferences.defaultBandVisibility
         bandVisibility = defaultBandVisibility
-        paperSeries = .a
         textScale = usesPrintTheme ? defaultTextScale : 1
         paperOrientation = defaultPaperOrientation
         layoutID = Self.defaultLayoutID(preferences)
@@ -2868,14 +2970,15 @@ final class DocumentViewModel {
         case exportPDF
     }
 
-    /// Outputs use the tray's layout even when requested from reading or comparison. The view observes the changed
-    /// render settings and draws once; do not start a second render here or output the reading pages in the meantime.
+    /// Outputs go through the tray even when requested from reading or comparison: its own choices (note pages, the
+    /// page range, the back sides' rotation) may need other sheets. When they do, the view observes the changed render
+    /// settings and draws once; do not start a second render here or output the earlier sheets in the meantime.
     private func deferUntilPrintMode(_ output: Output) -> Bool {
         guard mode != .print else { return false }
         outputAfterReview = output
         enterPrintMode()
         guard mode == .print, canOutput else { return true }
-        // A4 single-sided may already be composed, so no settings change will trigger another render.
+        // The chosen layout may already be composed, so no settings change will trigger another render.
         outputAfterReview = nil
         return false
     }
@@ -3067,7 +3170,8 @@ final class DocumentViewModel {
     func printDocument(quick: Bool = false) {
         guard pendingPrint == nil else { return }
         guard !deferUntilPrintMode(.print(quick: quick)),
-            !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick))
+            !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick)),
+            !deferUntilDateIsCurrent(.print(quick: quick))
         else {
             return
         }
@@ -3152,7 +3256,8 @@ final class DocumentViewModel {
 
     func exportPDF() {
         guard !deferUntilPrintMode(.exportPDF),
-            !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF)
+            !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF),
+            !deferUntilDateIsCurrent(.exportPDF)
         else { return }
         guard canOutput, let result = printResult else { return }
         if let outputOverride { return outputOverride(.exportPDF, result) }

@@ -16,8 +16,8 @@ struct ViewModeView: View {
     /// What floats over the paper stays clear of the bottom band's room.
     private var bottomInset: CGFloat { isSplit ? ViewerWindow.bandHeight : 0 }
     private var holdsBand: Bool {
-        model.isViewOptionsPresented || model.isThemePalettePresented || model.isOutlinePresented
-            || model.isFiguresPresented || model.drop.isActive
+        model.isViewOptionsPresented || model.isThemePalettePresented || model.isPrintFinishPresented
+            || model.isOutlinePresented || model.isFiguresPresented || model.drop.isActive
     }
 
     var body: some View {
@@ -56,6 +56,7 @@ struct ViewModeView: View {
             }
             ToastOverlay(model: model).padding(.bottom, bottomInset)
             ThemePaletteAnchor(model: model)
+            PrintSettingsAnchor(model: model)
         }
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
@@ -140,6 +141,7 @@ private struct PaperArea: View {
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
+                    furniture: model.paperFurniture,
                     narrowsLoneCover: model.loneCoverWidth == .onePage,
                     keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
                     controller: model.paper,
@@ -383,6 +385,23 @@ struct ThemePaletteAnchor: View {
                 arrowEdge: .trailing
             ) {
                 ThemePalette(model: model)
+            }
+    }
+}
+
+/// Hangs the print settings off the window's trailing edge, as the style palette is: the paper fills the window, which
+/// keeps the page's shape and is often narrower than the panel, so a panel over the paper would hide the very pages it
+/// changes. The tray has room beside its sheets and lays the same panel there instead.
+struct PrintSettingsAnchor: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .allowsHitTesting(false)
+            .popover(isPresented: $model.isPrintFinishPresented, arrowEdge: .trailing) {
+                PrintFinishSheet(model: model, isInPopover: true)
             }
     }
 }

@@ -137,6 +137,8 @@ struct DocumentCommands: Commands {
                 }
             }
             SettingSetMenu(preferences: preferences, library: library, model: { model })
+            // The same panel in both modes: off the window's edge in the view mode, beside the sheets on the tray.
+            Button("Print Settings…") { model?.presentPrintSettings() }
             Button("Choose Style…") { model?.openThemePalette() }
             if model?.includePlan != nil {
                 Button("Open as Binder") { model?.openIncludesAsBinder() }

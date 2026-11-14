@@ -63,7 +63,6 @@ struct SettingsUndoTests {
         model.setLayout(.single)
         model.zoom = 1.5
         model.layoutID = PrintLayout.b5BookletB6.id
-        model.paperSeries = .b
         model.themeID = "mincho"
         model.setTextScale(1.5)
         model.paperOrientation = .landscape

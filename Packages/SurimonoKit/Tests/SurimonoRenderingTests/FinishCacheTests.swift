@@ -118,7 +118,7 @@ struct FinishCacheTests {
         block.lineNumbers = .everyFive
         let saved = DocumentSettings(
             layoutID: "b5Duplex", printOptions: options, printFinish: finish, codePaletteID: "ink", codeBlock: block,
-            paperSeries: .b, notes: NotePages(isEnabled: true))
+            notes: NotePages(isEnabled: true))
         let decoded = try JSONDecoder().decode(DocumentSettings.self, from: JSONEncoder().encode(saved))
         #expect(decoded == saved)
     }

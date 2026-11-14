@@ -26076,55 +26076,106 @@
         }
       }
     },
-    "Added only when printing. The document does not change.": {
-      "extractionState": "manual",
+    "Print Settings…": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Added only when printing. The document does not change."
+            "value": "Print Settings…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "原文は変えず、刷るときだけ足します"
+            "value": "印刷の設定…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅在打印时添加，不更改文稿。"
+            "value": "打印设置…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "僅在列印時加入，不變更文件。"
+            "value": "列印設定…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "인쇄할 때만 추가하며 문서는 바뀌지 않습니다."
+            "value": "인쇄 설정…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ajouté uniquement à l’impression. Le document ne change pas."
+            "value": "Réglages d’impression…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wird nur beim Drucken hinzugefügt. Das Dokument bleibt unverändert."
+            "value": "Druckeinstellungen…"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se añade solo al imprimir. El documento no cambia."
+            "value": "Ajustes de impresión…"
+          }
+        }
+      }
+    },
+    "Changes the pages only. The document does not change.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes the pages only. The document does not change."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紙面だけを変えます。原文は変わりません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅更改页面，不更改文稿。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅變更頁面，不變更文件。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페이지만 바뀌며 문서는 바뀌지 않습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne modifie que les pages. Le document ne change pas."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ändert nur die Seiten. Das Dokument bleibt unverändert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo cambia las páginas. El documento no cambia."
           }
         }
       }
@@ -36648,58 +36699,6 @@
         }
       }
     },
-    "Choose the paper for printing on the print screen.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose the paper for printing on the print screen."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "印刷に使う用紙は印刷画面で選びます"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打印用纸请在打印画面中选择。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "列印用紙請在列印畫面中選擇。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "인쇄에 쓸 용지는 인쇄 화면에서 선택합니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le papier d’impression se choisit sur l’écran d’impression."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Das Druckpapier wählen Sie im Druckbildschirm."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El papel de impresión se elige en la pantalla de impresión."
-          }
-        }
-      }
-    },
     "On Screen": {
       "localizations": {
         "en": {
@@ -37480,54 +37479,56 @@
         }
       }
     },
-    "Paper on Screen": {
+    "Paper Series": {
+      "extractionState": "manual",
+      "comment": "Paper family selector; distinct from the HTML Paper presentation.",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paper on Screen"
+            "value": "Paper"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "画面表示用の用紙"
+            "value": "用紙"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "屏幕显示用纸张"
+            "value": "纸张"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "螢幕顯示用紙張"
+            "value": "紙張"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "화면 표시용 용지"
+            "value": "용지"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Papier à l’écran"
+            "value": "Papier"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Papier am Bildschirm"
+            "value": "Papier"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Papel en pantalla"
+            "value": "Papel"
           }
         }
       }

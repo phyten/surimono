@@ -8,10 +8,17 @@ public struct ViewPageLayout: Equatable, Sendable {
     public let showsNumbers: Bool
     private let pagesPerUnit: Int
     private let pageScales: [CGFloat]
+    /// The margins joined pages keep, by logical page: those that hold the printed header or footer.
+    private let keptEdges: [Int: CropEdges]
 
     public struct CropEdges: Equatable, Sendable {
         public var top = false
         public var bottom = false
+
+        public init(top: Bool = false, bottom: Bool = false) {
+            self.top = top
+            self.bottom = bottom
+        }
     }
 
     /// Only inputs that change PDF content, excluding options whose effects are confined to PDFView.
@@ -35,9 +42,13 @@ public struct ViewPageLayout: Equatable, Sendable {
             margin: usesMargin ? margin : 0, pageScales: pageScales)
     }
 
+    /// - Parameter keptEdges: The margins a logical page keeps where pages are joined, because the printed header or
+    ///   footer stands in them. A page without one has its margins cut at the seams as before.
     public init(
-        pageCount: Int, options: ViewOptions, hasLogicalMargins: Bool, showsNumbers: Bool, pageSizes: [CGSize] = []
+        pageCount: Int, options: ViewOptions, hasLogicalMargins: Bool, showsNumbers: Bool, pageSizes: [CGSize] = [],
+        keptEdges: [Int: CropEdges] = [:]
     ) {
+        self.keptEdges = keptEdges
         var indices = (0..<max(0, pageCount)).map(Optional.some)
         if options.layout == .spread && !indices.isEmpty {
             if options.showsCoverAlone { indices.insert(nil, at: 0) }
@@ -97,8 +108,9 @@ public struct ViewPageLayout: Equatable, Sendable {
     }
 
     public func crops(at viewIndex: Int) -> CropEdges {
-        guard cropsMargins, logicalIndex(at: viewIndex) != nil else { return CropEdges() }
-        return CropEdges(top: viewIndex > 0, bottom: viewIndex < logicalIndices.count - 1)
+        guard cropsMargins, let index = logicalIndex(at: viewIndex) else { return CropEdges() }
+        let kept = keptEdges[index] ?? CropEdges()
+        return CropEdges(top: viewIndex > 0 && !kept.top, bottom: viewIndex < logicalIndices.count - 1 && !kept.bottom)
     }
 
     public func number(at viewIndex: Int) -> Int? {
