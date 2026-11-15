@@ -118,6 +118,17 @@ struct PrintSettingSetTests {
         #expect(pdf.marginsInMillimeters == 10)
     }
 
+    @Test("以前に保存した 112.6% のセットは 113% として当て、113% の文書と一致する")
+    func fractionalPercentIsNormalized() {
+        let set = PrintSettingSet(name: "Old", settings: DocumentSettings(textScale: 1.126))
+        let applicable = set.applicable(to: .markdown, themeIDs: [], presetIDs: [])
+        #expect(applicable.textScale == 1.13)
+        #expect(applicable.matches(DocumentSettings(textScale: 1.13)))
+        #expect(set.applicable(to: .markdown, themeIDs: [], presetIDs: []).textScale == TextScale.scale(percent: 113))
+        let outside = PrintSettingSet(name: "Outside", settings: DocumentSettings(textScale: 2.5))
+        #expect(outside.applicable(to: .markdown, themeIDs: [], presetIDs: []).textScale == nil)
+    }
+
     @Test("一致判定はセットが持つ項目だけを比較し裏面回転や表示を無視する")
     func matchesOnlyIncludedFields() {
         var current = DocumentSettings(

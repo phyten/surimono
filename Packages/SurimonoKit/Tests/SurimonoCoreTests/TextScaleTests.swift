@@ -19,6 +19,41 @@ struct TextScaleTests {
         #expect(TextScale.smaller(than: value) == smaller)
     }
 
+    @Test("段階の間の大きさからは、次と前の段階へ進む")
+    func adjacentFromInBetween() {
+        #expect(TextScale.larger(than: 1.13) == 1.25)
+        #expect(TextScale.smaller(than: 1.13) == 1.1)
+        #expect(TextScale.larger(than: 0.81) == 0.9)
+        #expect(TextScale.smaller(than: 0.81) == 0.8)
+        #expect(TextScale.larger(than: 1.99) == 2)
+    }
+
+    @Test("文字の大きさは 80〜200% の 1% 刻みに丸めて収める")
+    func clampsToWholePercent() {
+        #expect(TextScale.clamped(1.13) == 1.13)
+        #expect(TextScale.clamped(1.134) == 1.13)
+        #expect(TextScale.clamped(1.136) == 1.14)
+        #expect(TextScale.clamped(0.5) == 0.8)
+        #expect(TextScale.clamped(3) == 2)
+        #expect(TextScale.clamped(.nan) == 1)
+        #expect(TextScale.scale(percent: 113) == 1.13)
+        #expect(TextScale.scale(percent: 250) == 2)
+        #expect(TextScale.percent(1.13) == 113)
+    }
+
+    @Test("段階はいつも同じ数で、1% 刻みから作っても段階と等しい")
+    func stepsRoundTrip() {
+        for step in TextScale.steps {
+            #expect(TextScale.scale(percent: TextScale.percent(step)) == step)
+        }
+    }
+
+    @Test("メニューの選択肢は段階で、今の大きさが段階でなければ加える")
+    func choices() {
+        #expect(TextScale.choices(including: 1.25) == TextScale.steps)
+        #expect(TextScale.choices(including: 1.13) == [0.8, 0.9, 1, 1.1, 1.13, 1.25, 1.5, 1.75, 2])
+    }
+
     @Test("100%ではテーマに倍率のCSSを足さない")
     func defaultHTML() {
         let theme = PrintTheme(id: "user:test", name: "Test", css: "body { font-size: 12pt; }")

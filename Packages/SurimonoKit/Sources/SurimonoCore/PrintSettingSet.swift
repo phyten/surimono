@@ -144,7 +144,11 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             result.presetID = nil
         }
         if let value = result.margins, !value.isValid { result.margins = nil }
-        if let value = result.textScale, !(0.8...2).contains(value) { result.textScale = nil }
+        // A set saved before sizes were whole percents can hold 1.126; the document takes 1.13, so applying, matching
+        // and a front matter's defaults all use that one value.
+        if let value = result.textScale {
+            result.textScale = TextScale.range.contains(value) ? TextScale.clamped(value) : nil
+        }
         return result
     }
 

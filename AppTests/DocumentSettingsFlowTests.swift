@@ -92,6 +92,103 @@ struct DocumentSettingsFlowTests {
         #expect(fixture.store.keys().isEmpty)
     }
 
+    @Test("以前に 112.6% で保存したセットを前付けで当てた文書は、セットと一致し記録を作らない", .timeLimit(.minutes(1)))
+    func oldFractionalSetThroughFrontMatter() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        fixture.preferences.savePrintSettingSet(
+            PrintSettingSet(name: "Old", settings: DocumentSettings(textScale: 1.126)))
+        let pageData = pdf("Old", pages: 1)
+        let model = DocumentViewModel(
+            data: Data("---\nsurimono:\n  set: Old\n---\n# Old set".utf8), fileURL: nil, format: .markdown,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.textScale == 1.13)
+        #expect(model.activeSettingSet?.name == "Old")
+        #expect(!model.isSettingSetChanged)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+    }
+
+    @Test("既定の 12.5 mm と 113% で開いた文書は、何も変えなければ保存しない", .timeLimit(.minutes(1)))
+    func fineDefaultsAreNotAChange() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        fixture.preferences.margin = 12.5
+        fixture.preferences.defaultTextScale = 1.13
+        let pageData = pdf("Fine", pages: 1)
+        let model = DocumentViewModel(
+            data: Data("# Fine".utf8), fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.printOptions.margins == .uniform(12.5))
+        #expect(model.textScale == 1.13)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+    }
+
+    @Test("文書に覚えた 12.5 mm と 113% は開き直しても同じ値で、戻すと既定に戻る", .timeLimit(.minutes(1)))
+    func fineSettingsRoundTrip() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let source = Data("# Fine record".utf8)
+        let pageData = pdf("Fine", pages: 1)
+        func open() async throws -> DocumentViewModel {
+            let model = DocumentViewModel(
+                data: source, fileURL: nil, format: .markdown, preferences: fixture.preferences,
+                library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+                settingsStore: fixture.store)
+            try await self.open(model)
+            return model
+        }
+        let first = try await open()
+        first.setMargins(12.5)
+        first.setTextScale(1.13)
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        first.stop()
+        let record = try #require(fixture.store.record(for: ContentHash.of(source).hex))
+        #expect(record.textScale == 1.13)
+        #expect(record.printOptions?.margins == .uniform(12.5))
+
+        let second = try await open()
+        defer { second.stop() }
+        #expect(second.printOptions.margins == .uniform(12.5))
+        #expect(second.textScale == 1.13)
+        #expect(second.hasSavedSettings)
+        second.resetDocumentSettings()
+        #expect(second.printOptions.margins == .uniform(15))
+        #expect(second.textScale == 1)
+    }
+
+    @Test("文字の大きさは 1% 刻みのどの値も選べ、大きく・小さくは次の段階へ進む", .timeLimit(.minutes(1)))
+    func textScaleBetweenSteps() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data("# Steps".utf8), fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, settingsStore: fixture.store)
+        defer { model.stop() }
+        model.setTextScale(1.13)
+        #expect(model.textScale == 1.13)
+        model.increaseTextSize()
+        #expect(model.textScale == 1.25)
+        model.setTextScale(1.13)
+        model.decreaseTextSize()
+        #expect(model.textScale == 1.1)
+        model.setTextScale(1.126)
+        #expect(model.textScale == 1.13)
+        model.setTextScale(2.5)
+        #expect(model.textScale == 1.13)
+    }
+
     @Test("保存済み設定は指示に優先し再読み込みでも利用者の変更を守る", .timeLimit(.minutes(1)))
     func documentDirectivesSaved() async throws {
         let fixture = try environment()

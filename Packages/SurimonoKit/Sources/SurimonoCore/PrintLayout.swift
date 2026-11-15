@@ -368,6 +368,15 @@ public struct PageMargins: Codable, Hashable, Sendable {
 
     public static let zero = uniform(0)
 
+    /// The margins a page can have, in millimeters.
+    public static let range: ClosedRange<Double> = 0...40
+
+    /// A margin kept in the range. Hundredths of a millimeter only take out floating-point noise: a typed 12.5 mm or an
+    /// inch's 6.35 mm stays what it is.
+    public static func clamped(_ millimeters: Double) -> Double {
+        (min(max(millimeters, range.lowerBound), range.upperBound) * 100).rounded() / 100
+    }
+
     public var isValid: Bool { [top, left, bottom, right].allSatisfy { $0.isFinite && $0 >= 0 } }
 
     /// The one value of all four sides, or nil when they differ.

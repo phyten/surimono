@@ -268,8 +268,9 @@ final class AppPreferences {
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .ask
+        // Any whole percent of the range, as the Settings field takes it; earlier versions kept one of the steps.
         let scale = defaults.double(forKey: "defaultTextScale")
-        defaultTextScale = TextScale.steps.contains(scale) ? scale : 1
+        defaultTextScale = TextScale.range.contains(scale) ? TextScale.clamped(scale) : 1
         defaultPaperOrientation =
             PaperOrientation(rawValue: defaults.string(forKey: "defaultPaperOrientation") ?? "") ?? .auto
         layoutID =

@@ -60,7 +60,7 @@ public struct DocumentDirectives: Equatable, Sendable {
                 let percent = value.hasSuffix("%")
                 if let parsed = Double(percent ? String(value.dropLast()) : value), parsed.isFinite {
                     let scale = percent ? parsed / 100 : parsed
-                    result.textScale = min(max(scale, TextScale.steps.first ?? 0.8), TextScale.steps.last ?? 2)
+                    result.textScale = TextScale.clamped(scale)
                 }
             default: break
             }
