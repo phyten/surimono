@@ -137,7 +137,7 @@ final class DocumentViewModel {
     var bandVisibility: BandVisibility {
         didSet {
             guard bandVisibility != oldValue else { return }
-            let previous = Self.bandRoom(of: menuArrangement, oldValue, revealed: revealedBandRoom)
+            let previous = Self.bandRoom(of: menuArrangement, oldValue, revealed: revealedBandRoom, top: topBandHeight)
             // Bands that always show keep their room; the pointer no longer gives or takes it.
             revealedBandRoom = BandRoom()
             areHoverBandsShown = false
@@ -154,7 +154,8 @@ final class DocumentViewModel {
     @ObservationIgnored private var pendsBandRoomRelease = false
     /// From the start of entering full screen until it has been left: the frame is the system's then, so the view
     /// mode's sizing leaves it alone and catches up once the window is back.
-    @ObservationIgnored private(set) var isInFullScreen = false
+    /// Observed: the top band takes its plain height while there are no traffic lights to line up with.
+    private(set) var isInFullScreen = false
     /// The room of the bands in the frame the system gives back on leaving full screen.
     @ObservationIgnored private var fullScreenReturnRoom: BandRoom?
     /// The paper the window showed before full screen, remembered for the document in place of the screen's size.
@@ -2677,14 +2678,20 @@ final class DocumentViewModel {
     /// The room the bands take beside the paper.
     var bandInset: CGFloat { currentBandRoom.total }
 
-    var currentBandRoom: BandRoom { Self.bandRoom(of: menuArrangement, bandVisibility, revealed: revealedBandRoom) }
+    var currentBandRoom: BandRoom {
+        Self.bandRoom(of: menuArrangement, bandVisibility, revealed: revealedBandRoom, top: topBandHeight)
+    }
+
+    /// The top band's height: the title band's in a window, the plain band's in full screen, where the system shows the
+    /// traffic lights elsewhere.
+    var topBandHeight: CGFloat { isInFullScreen ? ViewerWindow.bandHeight : ViewerWindow.titleBandHeight }
 
     /// Bands that always show have room of their own. Bands that show on pointing take theirs only while they show, so
     /// that the window is the paper alone while they are hidden.
     private static func bandRoom(
-        of arrangement: MenuArrangement, _ visibility: BandVisibility, revealed: BandRoom
+        of arrangement: MenuArrangement, _ visibility: BandVisibility, revealed: BandRoom, top: CGFloat
     ) -> BandRoom {
-        visibility == .always ? BandRoom.full(for: arrangement) : revealed
+        visibility == .always ? BandRoom.full(for: arrangement, top: top) : revealed
     }
 
     /// Bands that show on pointing came out or went away. Coming out, they take their room where the window can grow
@@ -2827,7 +2834,7 @@ final class DocumentViewModel {
     }
 
     func menuArrangementDidChange(from previous: MenuArrangement) {
-        let before = Self.bandRoom(of: previous, bandVisibility, revealed: revealedBandRoom)
+        let before = Self.bandRoom(of: previous, bandVisibility, revealed: revealedBandRoom, top: topBandHeight)
         // Shown bands of the new arrangement take room where the screen has it beside the paper, as they do on showing,
         // also when the old ones had none.
         if bandVisibility == .onHover, areHoverBandsShown, mode == .view, let window {

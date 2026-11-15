@@ -58,7 +58,7 @@ struct SlideDeckModelTests {
 
     /// The shape of the page area, without the room of the bands the window's ratio includes.
     private func aspect(of window: NSWindow) -> Double {
-        Double(window.contentAspectRatio.width / (window.contentAspectRatio.height - 2 * ViewerWindow.bandHeight))
+        Double(window.contentAspectRatio.width / (window.contentAspectRatio.height - BandRoom.full(for: .split).total))
     }
 
     @Test("ウェブでスライドと分かると窓を 16:9 にして 1 枚を合わせ、「スライドとして扱わない」で縦横比を外す")
@@ -69,7 +69,7 @@ struct SlideDeckModelTests {
         model.slideDeckDidChange(deck)
         #expect(abs(aspect(of: fixture.window) - 16.0 / 9.0) < 0.01)
         let content = fixture.window.contentRect(forFrameRect: fixture.window.frame).size
-        #expect(abs(Double(content.width / (content.height - 2 * ViewerWindow.bandHeight)) - 16.0 / 9.0) < 0.01)
+        #expect(abs(Double(content.width / (content.height - BandRoom.full(for: .split).total)) - 16.0 / 9.0) < 0.01)
         #expect(model.web.fitSize == CGSize(width: 1280, height: 720))
 
         model.setIgnoresSlides(true)
@@ -105,14 +105,13 @@ struct SlideDeckModelTests {
         model.slideDeckDidChange(deck)
         let visible = try #require((window.screen ?? NSScreen.main)?.visibleFrame)
         // As wide as the screen allows for the slide's shape with both bands, past the share a new window takes.
-        let width = min(visible.width * 0.97, (visible.height - 2 * ViewerWindow.bandHeight - 20) * 16 / 9).rounded()
+        let bands = BandRoom.full(for: .split).total
+        let width = min(visible.width * 0.97, (visible.height - bands - 20) * 16 / 9).rounded()
         let height = (width * 9 / 16).rounded()
         window.setFrame(
-            NSRect(
-                x: visible.minX, y: visible.maxY - 10 - height - 2 * ViewerWindow.bandHeight, width: width,
-                height: height + 2 * ViewerWindow.bandHeight),
+            NSRect(x: visible.minX, y: visible.maxY - 10 - height - bands, width: width, height: height + bands),
             display: false)
-        let paperTop = window.frame.maxY - ViewerWindow.bandHeight
+        let paperTop = window.frame.maxY - ViewerWindow.titleBandHeight
 
         model.isBandAlwaysVisible = false
         var content = window.contentRect(forFrameRect: window.frame)
@@ -123,8 +122,8 @@ struct SlideDeckModelTests {
         model.isBandAlwaysVisible = true
         content = window.contentRect(forFrameRect: window.frame)
         #expect(abs(content.width - width) <= 3)
-        #expect(abs(content.height - height - 2 * ViewerWindow.bandHeight) <= 3)
-        #expect(abs(content.maxY - ViewerWindow.bandHeight - paperTop) <= 3)
+        #expect(abs(content.height - height - bands) <= 3)
+        #expect(abs(content.maxY - ViewerWindow.titleBandHeight - paperTop) <= 3)
         #expect(abs(aspect(of: window) - 16.0 / 9.0) < 0.01)
     }
 

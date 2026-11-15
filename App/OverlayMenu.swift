@@ -21,8 +21,14 @@ final class OverlayMenuState {
     /// The room the bands take at the top and bottom of the content, beside the paper.
     @ObservationIgnored var topRoom: CGFloat = 0
     @ObservationIgnored var bottomRoom: CGFloat = 0
+    /// The top band's height, which is also how far into the paper's top edge the pointer reveals it.
+    @ObservationIgnored var topZone: CGFloat = OverlayMenuState.revealZone
     /// Where the band's items stand in their band, for the popovers the band hangs off them.
     @ObservationIgnored var itemFrames: [BandLayout.Item: CGRect] = [:]
+    /// The window's traffic lights as last read, which the top band lines up with; `hasReadTrafficLights` tells a
+    /// window without them (full screen) from one not read yet.
+    var trafficLights: TrafficLights?
+    var hasReadTrafficLights = false
     // Measurements outlive the band so it reopens with the tools that fit.
     var bandWidths: [BandSlot: CGFloat] = [:]
     var bandWidth: CGFloat = 0
@@ -63,7 +69,7 @@ final class OverlayMenuState {
     /// hides only once the pointer is beyond both, where giving the room back cannot bring the edge under it again.
     var isPointerOverBand: Bool {
         guard let pointerY else { return false }
-        if pointerY >= 0, pointerY <= topRoom + Self.revealZone { return true }
+        if pointerY >= 0, pointerY <= topRoom + topZone { return true }
         return hasBottomBand && pointerY >= contentHeight - bottomRoom - Self.revealZone && pointerY <= contentHeight
     }
 
@@ -158,9 +164,11 @@ struct BandPlans {
             return widths
         }
         let separator = 1 + OverlayBand.toolSpacing
+        let lights = OverlayBand.lights(model: model, menu: menu)
         // Until the band has been laid out once, its width is unknown: show everything rather than guess.
         top = BandLayout.plan(
-            widths: widths(at: .top), fixed: OverlayBand.fixedWidth + (measured[.more] ?? 0), separator: separator,
+            widths: widths(at: .top), fixed: OverlayBand.fixedWidth(lights: lights) + (measured[.more] ?? 0),
+            separator: separator,
             name: measured[.name] ?? .greatestFiniteMagnitude, available: available)
         bottom =
             arrangement == .split
@@ -179,6 +187,7 @@ struct BandZone<Content: View>: View {
 
     let edge: VerticalEdge
     let isShown: Bool
+    let height: CGFloat
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -188,7 +197,7 @@ struct BandZone<Content: View>: View {
                 content
             }
         }
-        .frame(height: ViewerWindow.bandHeight)
+        .frame(height: height)
         .frame(maxWidth: .infinity)
         .background {
             if isShown { PrintPalette.raised }
@@ -230,6 +239,7 @@ struct BandPopovers: View {
     let menu: OverlayMenuState
     let plan: BandLayout.Plan?
     let arrowEdge: Edge
+    let height: CGFloat
 
     var body: some View {
         // One popover to a view: two on the same view would compete for its presentation.
@@ -250,7 +260,7 @@ struct BandPopovers: View {
 
     private func anchor(_ item: BandLayout.Item) -> PopoverAttachmentAnchor {
         let frame = plan?.forms[item] != nil ? menu.itemFrames[item] : nil
-        return .rect(.rect(frame ?? CGRect(x: 16, y: 0, width: 80, height: ViewerWindow.bandHeight)))
+        return .rect(.rect(frame ?? CGRect(x: 16, y: 0, width: 80, height: height)))
     }
 }
 
@@ -260,31 +270,47 @@ struct BandPopovers: View {
 struct OverlayBand: View {
     @Bindable var model: DocumentViewModel
     let menu: OverlayMenuState
-    @State private var titleOffset: CGFloat = 0
 
     static let spacing: CGFloat = 10
     static let toolSpacing: CGFloat = 8
     static let titleSpacing: CGFloat = 6
     static let nameFont = Font.system(size: 13, weight: .semibold)
-    private static let lightsWidth: CGFloat = 64
+    /// Where the traffic lights end in a window without a toolbar, for a window that has none of its own to measure.
+    private static let fallbackLightsTrailing: CGFloat = 69
     private static let spacerMinimum: CGFloat = 8
     private static let trailingPadding: CGFloat = 8
+
+    /// The traffic lights the band lines up with: the last reading, or the window's own until the first one comes.
+    static func lights(model: DocumentViewModel, menu: OverlayMenuState) -> TrafficLights? {
+        menu.hasReadTrafficLights ? menu.trafficLights : model.window.flatMap { TrafficLights(window: $0) }
+    }
+
+    /// The room before the title: the traffic lights and the gap after them, less the stack's spacing.
+    static func lightsRoom(_ lights: TrafficLights?) -> CGFloat {
+        (lights?.titleLeading ?? fallbackLightsTrailing + TrafficLights.titleGap) - spacing
+    }
+
     /// What always stays apart from the "…" button: the room for the traffic lights, spacing and padding.
-    static var fixedWidth: CGFloat { lightsWidth + spacerMinimum + trailingPadding + spacing * 4 }
+    static func fixedWidth(lights: TrafficLights?) -> CGFloat {
+        lightsRoom(lights) + spacerMinimum + trailingPadding + spacing * 4
+    }
 
     var body: some View {
         let plans = BandPlans(model: model, menu: menu)
         let plan = plans.top
+        let lights = Self.lights(model: model, menu: menu)
         HStack(spacing: Self.spacing) {
             // Room for the traffic lights.
-            Color.clear.frame(width: Self.lightsWidth, height: 1)
-            title(plan).offset(y: titleOffset)
+            Color.clear.frame(width: Self.lightsRoom(lights), height: 1)
+            title(plan)
             Spacer(minLength: Self.spacerMinimum)
             tools(plans)
             PrintButton(model: model, iconOnly: plan.forms[.print] == .compact)
         }
         .padding(.trailing, Self.trailingPadding)
-        .background(WindowReader { titleOffset = ViewerWindow.titleOffset(in: $0) })
+        // Every part sits on the traffic lights' centre line. The band is as tall as twice that line, so this moves
+        // nothing unless the band had to be taller than the title bar AppKit centres the buttons in.
+        .offset(y: TrafficLights.lineOffset(lights, barHeight: model.topBandHeight))
     }
 
     private func title(_ plan: BandLayout.Plan) -> some View {
@@ -313,7 +339,7 @@ struct OverlayBand: View {
                 }
         }
         .buttonStyle(.borderless)
-        .controlSize(.regular)
+        .controlSize(ViewerWindow.bandControlSize)
         // The plan already made the tools fit; without this the stack would squeeze a label to make room for the
         // spacer instead of leaving the slack to it.
         .fixedSize()
@@ -352,7 +378,8 @@ struct BottomBand: View {
             if plan.forms[.pageTurn] != nil { PageTurnButtons(model: model) }
         }
         .buttonStyle(.borderless)
-        .controlSize(.regular)
+        // The same size as the top band's, whose widths the same measurements give.
+        .controlSize(ViewerWindow.bandControlSize)
         .padding(.horizontal, Self.padding)
     }
 }
@@ -417,7 +444,7 @@ struct PrintButton: View {
         .buttonStyle(.borderedProminent)
         // Vermilion is the color of printing, whatever accent color the Mac is set to.
         .tint(PrintPalette.shu)
-        .controlSize(.regular)
+        .controlSize(ViewerWindow.bandControlSize)
         // The file name gives way to the one button that must always show in full.
         .fixedSize()
         .help("Open the print screen (⌘P)")

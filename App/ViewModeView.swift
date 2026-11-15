@@ -48,7 +48,7 @@ struct ViewModeView: View {
             }
             if model.isReviewingSmartRemoval {
                 SmartRemovalPanel(model: model)
-                    .padding(.top, ViewerWindow.bandHeight + 8)
+                    .padding(.top, model.topBandHeight + 8)
                     .padding(.bottom, bottomInset)
                     .padding([.trailing, .bottom], 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -76,6 +76,7 @@ struct ViewModeView: View {
             followBandRoom()
         }
         .onChange(of: model.currentBandRoom, initial: true) { followBandRoom() }
+        .onChange(of: model.topBandHeight, initial: true) { _, height in menu.topZone = height }
         .onChange(of: bandVisible) { _, visible in
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
         }
@@ -100,14 +101,24 @@ struct ViewModeView: View {
     }
 
     private func topZone(_ plans: BandPlans) -> some View {
-        BandZone(edge: .top, isShown: bandVisible) {
+        BandZone(edge: .top, isShown: bandVisible, height: model.topBandHeight) {
             OverlayBand(model: model, menu: menu)
         }
         .background(alignment: .topLeading) {
             BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu)
         }
         .background {
-            if !isSplit { BandPopovers(model: model, menu: menu, plan: plans.top, arrowEdge: .bottom) }
+            if !isSplit {
+                BandPopovers(
+                    model: model, menu: menu, plan: plans.top, arrowEdge: .bottom, height: model.topBandHeight)
+            }
+        }
+        // Read while the band hides too, so that it shows on the buttons' line at once.
+        .background {
+            TrafficLightsReader { lights in
+                if menu.trafficLights != lights { menu.trafficLights = lights }
+                if !menu.hasReadTrafficLights { menu.hasReadTrafficLights = true }
+            }
         }
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
@@ -117,10 +128,12 @@ struct ViewModeView: View {
     }
 
     private func bottomZone(_ plan: BandLayout.Plan) -> some View {
-        BandZone(edge: .bottom, isShown: bandVisible) {
+        BandZone(edge: .bottom, isShown: bandVisible, height: ViewerWindow.bandHeight) {
             BottomBand(model: model, menu: menu, plan: plan)
         }
-        .background { BandPopovers(model: model, menu: menu, plan: plan, arrowEdge: .top) }
+        .background {
+            BandPopovers(model: model, menu: menu, plan: plan, arrowEdge: .top, height: ViewerWindow.bandHeight)
+        }
     }
 }
 

@@ -319,6 +319,14 @@
                     model.openIncludesAsBinder()
                     return
                 }
+                // Another display, to see the window at that display's scale (for example a Retina one beside a 1x one).
+                if let value = argument("SurimonoScreen"), let index = Int(value),
+                    NSScreen.screens.indices.contains(index), let window = model.window
+                {
+                    let visible = NSScreen.screens[index].visibleFrame
+                    window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 20))
+                    try? await Task.sleep(for: .milliseconds(800))
+                }
                 if let value = argument("SurimonoPage"), let page = Int(value) {
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))

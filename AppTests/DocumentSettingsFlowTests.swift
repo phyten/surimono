@@ -214,7 +214,7 @@ struct DocumentSettingsFlowTests {
         let unit = try #require(model.paperUnitSize)
         let paper = ViewerWindow.initialPaperSize(unit: unit, on: window.screen)
         let content = window.contentRect(forFrameRect: window.frame).size
-        #expect(abs(content.height - paper.height - 2 * ViewerWindow.bandHeight) <= 1)
+        #expect(abs(content.height - paper.height - BandRoom.full(for: .split).total) <= 1)
         #expect(abs(content.width - paper.width) <= 1)
         environment.preferences.defaultAlwaysOnTop = false
         environment.preferences.defaultBandVisibility = .onHover
@@ -242,7 +242,7 @@ struct DocumentSettingsFlowTests {
         #expect(model.showsNarrowCover)
         func paperRatio() -> CGFloat {
             let content = window.contentRect(forFrameRect: window.frame).size
-            return content.width / (content.height - 2 * ViewerWindow.bandHeight)
+            return content.width / (content.height - BandRoom.full(for: .split).total)
         }
         let page: CGFloat = 595.0 / 842.0
         #expect(abs(paperRatio() - page) < 0.02)

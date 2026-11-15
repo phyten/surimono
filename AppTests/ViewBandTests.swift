@@ -10,6 +10,9 @@ import Testing
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct ViewBandTests {
+    /// The top band follows the traffic lights (32pt on macOS 26); the bottom band keeps its own height.
+    private static let top = ViewerWindow.titleBandHeight
+    private static let bottom = ViewerWindow.bandHeight
     @MainActor private struct Environment {
         let preferences: AppPreferences
         let library: UserLibrary
@@ -60,7 +63,7 @@ struct ViewBandTests {
 
     private func paperSize(of window: NSWindow, _ model: DocumentViewModel) -> CGSize {
         let content = window.contentRect(forFrameRect: window.frame).size
-        let band = ViewerWindow.bandHeight * CGFloat(model.menuArrangement.bandCount)
+        let band = BandRoom.full(for: model.menuArrangement).total
         return CGSize(width: content.width, height: content.height - band)
     }
 
@@ -159,11 +162,11 @@ struct ViewBandTests {
         defer { controller.close() }
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
-        let room: CGFloat = arrangement == .split ? 76 : 38
+        let room: CGFloat = arrangement == .split ? Self.top + Self.bottom : Self.top
         try place(window, band: room, model: model)
         let pinned = window.contentRect(forFrameRect: window.frame)
         let paper = CGSize(width: pinned.width, height: pinned.height - room)
-        let paperTop = pinned.maxY - 38
+        let paperTop = pinned.maxY - Self.top
 
         model.isBandAlwaysVisible = false
         let off = window.contentRect(forFrameRect: window.frame)
@@ -175,7 +178,7 @@ struct ViewBandTests {
         model.isBandAlwaysVisible = true
         let on = window.contentRect(forFrameRect: window.frame)
         #expect(abs(on.height - paper.height - room) <= 3)
-        #expect(abs(on.maxY - 38 - paperTop) <= 3)
+        #expect(abs(on.maxY - Self.top - paperTop) <= 3)
         try await waitUntil { abs((paperViewHeight(in: window) ?? 0) - paper.height) <= 3 }
     }
 
@@ -214,11 +217,11 @@ struct ViewBandTests {
         let paperOnly = window.contentRect(forFrameRect: window.frame)
         try await waitUntil { abs((paperOnScreen(in: window)?.height ?? 0) - paperOnly.height) <= 3 }
         let paper = paperOnScreen(in: window)
-        let bottom: CGFloat = arrangement == .split ? 38 : 0
+        let bottom: CGFloat = arrangement == .split ? Self.bottom : 0
 
         model.bandRevealDidChange(true)
         let grown = window.contentRect(forFrameRect: window.frame)
-        #expect(abs(grown.maxY - paperOnly.maxY - 38) <= 3)
+        #expect(abs(grown.maxY - paperOnly.maxY - Self.top) <= 3)
         #expect(abs(paperOnly.minY - grown.minY - bottom) <= 3)
         #expect(abs(grown.width - paperOnly.width) <= 3)
         try await waitUntil { isClose(paperOnScreen(in: window), paper) }
@@ -268,7 +271,7 @@ struct ViewBandTests {
         defer { controller.close() }
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
-        try place(window, band: 76, model: model)
+        try place(window, band: Self.top + Self.bottom, model: model)
         let frame = window.frame
         model.bandRevealDidChange(true)
         #expect(window.frame == frame)
@@ -318,22 +321,23 @@ struct ViewBandTests {
         let window = hover.window
         let paper = paperOnScreen(in: window)
         hover.model.bandRevealDidChange(true)
-        #expect(hover.model.currentBandRoom == BandRoom(top: 38, bottom: 0))
+        #expect(hover.model.currentBandRoom == BandRoom(top: Self.top, bottom: 0))
 
         environment.preferences.menuArrangement = .split
-        try await waitUntil { hover.model.currentBandRoom == BandRoom(top: 38, bottom: 38) }
+        try await waitUntil { hover.model.currentBandRoom == BandRoom(top: Self.top, bottom: Self.bottom) }
         try await waitUntil {
             let content = window.contentRect(forFrameRect: window.frame)
-            return abs(hover.paperOnly.minY - content.minY - 38) <= 3
-                && abs(content.maxY - hover.paperOnly.maxY - 38) <= 3
+            return abs(hover.paperOnly.minY - content.minY - Self.bottom) <= 3
+                && abs(content.maxY - hover.paperOnly.maxY - Self.top) <= 3
         }
         try await waitUntil { isClose(paperOnScreen(in: window), paper) }
 
         environment.preferences.menuArrangement = .top
-        try await waitUntil { hover.model.currentBandRoom == BandRoom(top: 38, bottom: 0) }
+        try await waitUntil { hover.model.currentBandRoom == BandRoom(top: Self.top, bottom: 0) }
         try await waitUntil {
             let content = window.contentRect(forFrameRect: window.frame)
-            return abs(content.minY - hover.paperOnly.minY) <= 3 && abs(content.maxY - hover.paperOnly.maxY - 38) <= 3
+            return abs(content.minY - hover.paperOnly.minY) <= 3
+                && abs(content.maxY - hover.paperOnly.maxY - Self.top) <= 3
         }
         try await waitUntil { isClose(paperOnScreen(in: window), paper) }
     }
@@ -383,11 +387,11 @@ struct ViewBandTests {
         #expect(tracker.isMonitoring)
         // On the paper's top edge, where a hidden top band shows.
         tracker.debugMouseLocation = NSPoint(x: hover.paperOnly.midX, y: hover.paperOnly.maxY - 10)
-        try await waitUntil { hover.model.currentBandRoom.top == 38 }
+        try await waitUntil { hover.model.currentBandRoom.top == Self.top }
         let shown = window.frame
         try await Task.sleep(for: .milliseconds(1500))
         #expect(window.frame == shown)
-        #expect(hover.model.currentBandRoom.top == 38)
+        #expect(hover.model.currentBandRoom.top == Self.top)
         // Away in the middle of the paper, the bands hide a moment later and give the room back.
         tracker.debugMouseLocation = NSPoint(x: hover.paperOnly.midX, y: hover.paperOnly.midY)
         try await waitUntil { hover.model.currentBandRoom == BandRoom() }
@@ -434,8 +438,8 @@ struct ViewBandTests {
         model.bandRevealDidChange(true)
         let grown = window.contentRect(forFrameRect: window.frame)
         #expect(abs(grown.maxY - paperOnly.maxY) <= 3)
-        #expect(abs(paperOnly.minY - grown.minY - 38) <= 3)
-        #expect(model.currentBandRoom == BandRoom(top: 0, bottom: 38))
+        #expect(abs(paperOnly.minY - grown.minY - Self.bottom) <= 3)
+        #expect(model.currentBandRoom == BandRoom(top: 0, bottom: Self.bottom))
     }
 
     @Test("上に伸ばす余地のない窓で、上だけの帯を出したまま上下に変えると、下の帯だけ場所を取る")
@@ -460,10 +464,10 @@ struct ViewBandTests {
         #expect(model.currentBandRoom == BandRoom())
 
         environment.preferences.menuArrangement = .split
-        try await waitUntil { model.currentBandRoom == BandRoom(top: 0, bottom: 38) }
+        try await waitUntil { model.currentBandRoom == BandRoom(top: 0, bottom: Self.bottom) }
         try await waitUntil {
             let content = window.contentRect(forFrameRect: window.frame)
-            return abs(content.maxY - paperOnly.maxY) <= 3 && abs(paperOnly.minY - content.minY - 38) <= 3
+            return abs(content.maxY - paperOnly.maxY) <= 3 && abs(paperOnly.minY - content.minY - Self.bottom) <= 3
         }
     }
 
@@ -481,11 +485,11 @@ struct ViewBandTests {
         defer { controller.close() }
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
-        try place(window, band: model.isBandAlwaysVisible ? 76 : 0, model: model)
+        try place(window, band: model.isBandAlwaysVisible ? Self.top + Self.bottom : 0, model: model)
         func paper() -> CGRect {
             let content = window.contentRect(forFrameRect: window.frame)
-            let top: CGFloat = model.isBandAlwaysVisible ? 38 : 0
-            let bottom: CGFloat = model.isBandAlwaysVisible ? 38 : 0
+            let top: CGFloat = model.isBandAlwaysVisible ? Self.top : 0
+            let bottom: CGFloat = model.isBandAlwaysVisible ? Self.bottom : 0
             return CGRect(
                 x: content.minX, y: content.minY + bottom, width: content.width,
                 height: content.height - top - bottom)
@@ -520,7 +524,7 @@ struct ViewBandTests {
         frame.size.width -= 60
         window.setFrame(frame, display: true)
         model.windowDidEndLiveResize()
-        let room: CGFloat = arrangement == .split ? 76 : 38
+        let room: CGFloat = arrangement == .split ? Self.top + Self.bottom : Self.top
         let pinned = window.contentRect(forFrameRect: window.frame)
         let unit = try #require(model.paperUnitSize)
         #expect(abs((pinned.height - room) / pinned.width - unit.height / unit.width) < 0.01)
@@ -546,13 +550,15 @@ struct ViewBandTests {
         model.sizeWindowToPaper(initialOnly: true)
         let unit = try #require(model.paperUnitSize)
         let paper = ViewerWindow.initialPaperSize(unit: unit, on: window.screen)
-        #expect(abs(window.contentRect(forFrameRect: window.frame).height - paper.height - 38) <= 1)
+        #expect(abs(window.contentRect(forFrameRect: window.frame).height - paper.height - Self.top) <= 1)
         // Room below the window, or it would be moved to stay on the screen.
         let visible = try #require(window.screen?.visibleFrame)
         window.setFrameTopLeftPoint(NSPoint(x: visible.minX, y: visible.maxY))
         let top = window.frame.maxY
         environment.preferences.menuArrangement = .split
-        try await waitUntil { abs(window.contentRect(forFrameRect: window.frame).height - paper.height - 76) <= 1 }
+        try await waitUntil {
+            abs(window.contentRect(forFrameRect: window.frame).height - paper.height - Self.top - Self.bottom) <= 1
+        }
         #expect(abs(window.frame.maxY - top) <= 1)
     }
 

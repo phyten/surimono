@@ -49,6 +49,8 @@ struct PinGlyph: View {
         .frame(width: Self.size, height: Self.size)
         // Loose, the pin leans over as if not yet pushed in.
         .rotationEffect(.degrees(isPinned ? 0 : 40))
+        // Leaning, the heavy head swings up and to the right; bring the glyph back to the centre its neighbours sit on.
+        .offset(x: isPinned ? 0 : -1, y: isPinned ? 0 : 1)
         .accessibilityHidden(true)
     }
 }
