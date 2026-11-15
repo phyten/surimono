@@ -37,7 +37,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - 紙の仕上げ: `-SurimonoHeader none|number|name|nameAndDate`、`-SurimonoBreak h1|right`、`-SurimonoTOC head|hidden`、`-SurimonoMargins <上,左,下,右>`、`-SurimonoMirror YES`（内側・外側）、`-SurimonoSeries a|b`、`-SurimonoSet <組み込みの設定セットの番号>`、`-SurimonoFinishSheet YES`（詳細を開く。`furniture`・`breaks`・`contents`・`notes`・`printer` ならその節まで送る）、`-SurimonoNote <プリセットの id>`（ノートをオンにしてプリセットを選ぶ）、`-SurimonoNoteSide left|right|back|chapter`（ノートの入れ方）、`-SurimonoNoteAdjust YES`（「線を調整する」を開く）、`-SurimonoTraySize <幅>x<高さ>`（刷り台と見比べ台の窓の大きさ。見比べ台で 4 列を見るには幅 1280 以上）、`-SurimonoHidePrinters YES`（プリンター名を写さない）、`-SurimonoPages <範囲>`（刷り台の「ページ」の欄。`5-12` など。読めない文字ならエラーの表示を撮れる）、`-SurimonoCopies <部数>`、`-SurimonoPrinterLimits YES`（A4 と B5 の片面だけに刷れる架空のプリンターにして、刷れないレイアウトの札を見る）
      - スマート削除（HTML）: `-SurimonoSmartRemoval on|review`（オン / 確かめるパネルを開く）
      - コード: `-SurimonoCodePalette <配色の id>`、`-SurimonoCodeFrame style|none|tint|rule|left`、`-SurimonoCodeNumbers none|all|everyFive`、`-SurimonoCodeLong wrap|shrink|cut`、`-SurimonoCodeLabel none|corner|band`、`-SurimonoTryCode <配色の id>`（パレットの行に乗せたように紙で試す）
-     - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）
+     - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）、`-SurimonoTurnAt <0〜1>`（`-SurimonoTurn` と合わせ、送りをその割合の時点で止めて撮る。0.15・0.35・0.55・0.75・0.92 などを順に撮ると、めくりの動きをこま送りで見られる）
      - ページ: `-SurimonoPage <n>`（撮る前に n ページ目へ移る。`-SurimonoMode roundtrip` と合わせると、印刷モードから戻っても同じページかを見られる）
      - 検索とページへ移動: `-SurimonoFind <語>`（⌘F で検索バーを開いてその語を打ったところを撮る）、`-SurimonoPopover goToPage`（「ページへ移動…」のシートを開く）
      - クリップボード: `-SurimonoOpenClipboard <テキストファイルの絶対パス>`（起動時に、その文字列を専用のペーストボードから「クリップボードから開く」で開き、その窓を撮る。一般のクリップボードは触らない）

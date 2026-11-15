@@ -101,6 +101,11 @@ final class PaperPDFView: PageTextPDFView {
     static let zoomSteps: [Double] = [1, 1.25, 1.5, 2, 3, 4, 6]
     /// Slows page-turn animations down; development screenshots use it to capture a turn halfway.
     static var animationScale: Double = 1
+    #if DEBUG
+        /// Holds a page turn still at this share of its length; development screenshots use it to look at a turn
+        /// frame by frame.
+        static var frozenTurnProgress: Double?
+    #endif
     static var maximumZoom: Double { zoomSteps[zoomSteps.count - 1] }
 
     var onZoomChange: ((Double) -> Void)?
@@ -806,15 +811,21 @@ final class PaperPDFView: PageTextPDFView {
             scale.timingFunction = transition.timingFunction
             layer.add(scale, forKey: "pageTurnScale")
         case .pageCurl:
-            guard let filter = CIFilter(name: "CIPageCurlTransition") else {
+            let curl = PageCurl(forward: forward, nextFromRight: nextFromRight)
+            guard let filter = curl.filter(extent: layer.bounds) else {
                 transition.type = .fade
                 break
             }
-            filter.setDefaults()
-            filter.setValue(forward == nextFromRight ? Double.pi : 0, forKey: kCIInputAngleKey)
             transition.filter = filter
-            transition.duration = 0.45 * Self.animationScale
+            transition.duration = PageCurl.duration * Self.animationScale
+            transition.timingFunction = PageCurl.timing
         }
+        #if DEBUG
+            if let progress = Self.frozenTurnProgress {
+                transition.speed = 0
+                transition.timeOffset = progress * transition.duration
+            }
+        #endif
         layer.add(transition, forKey: "pageTurn")
     }
 
