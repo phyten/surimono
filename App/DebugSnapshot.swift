@@ -382,10 +382,18 @@
                     try? await Task.sleep(for: .milliseconds(900))
                 }
                 if let turn = argument("SurimonoTurn") {
-                    // Turn one page with a ten times slower animation and capture it halfway.
-                    PaperPDFView.animationScale = 10
-                    model.paper.turnPage(forward: turn != "back")
-                    try? await Task.sleep(for: .milliseconds(model.viewOptions.transition == .pageCurl ? 2200 : 1300))
+                    if let progress = argument("SurimonoTurnAt").flatMap(Double.init), (0...1).contains(progress) {
+                        // Hold the turn still at that share of its length, to look at it frame by frame.
+                        PaperPDFView.frozenTurnProgress = progress
+                        model.paper.turnPage(forward: turn != "back")
+                        try? await Task.sleep(for: .milliseconds(800))
+                    } else {
+                        // Turn one page with a ten times slower animation and capture it halfway.
+                        PaperPDFView.animationScale = 10
+                        model.paper.turnPage(forward: turn != "back")
+                        try? await Task.sleep(
+                            for: .milliseconds(model.viewOptions.transition == .pageCurl ? 2200 : 1300))
+                    }
                 }
                 do {
                     guard let window = model.window else { return }
