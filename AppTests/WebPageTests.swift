@@ -215,23 +215,30 @@ struct WebPageKeyTests {
         _ = try await host.controller.webView?.evaluateJavaScript("clearInterval(window.printTimer)")
     }
 
-    @Test("キーを押してから離すまでに間があっても、1 回の押下で届く印刷の依頼は 1 つだけ")
-    func slowKeyPressLetsOneRequestThrough() async throws {
+    @Test("キーを押したときと離したときの両方でページが印刷を頼んでも、1 回の押下で届く依頼は 1 つだけ")
+    func oneKeyPressLetsOneRequestThrough() async throws {
         let host = try await host()
         defer { host.close() }
         var requests = 0
         host.controller.onPrintRequest = { requests += 1 }
         _ = try await host.controller.webView?.evaluateJavaScript(
-            "window.printTimer = setInterval(() => window.print(), 50);")
+            """
+            window.ups = 0;
+            window.addEventListener('keydown', () => window.print());
+            window.addEventListener('keyup', () => { window.print(); window.ups += 1; });
+            """)
         try send(host, .keyDown, characters: "p", keyCode: 35)
         try await waitUntil { requests == 1 }
-        // The key comes up after the timer has used the press. The release belongs to the same press, so it does not
-        // let another request through.
-        try await Task.sleep(for: .milliseconds(200))
+        // The release belongs to the same press, so the request the page makes on it does not get through.
         try send(host, .keyUp, characters: "p", keyCode: 35)
-        try await Task.sleep(for: .milliseconds(500))
+        try await waitUntil { await ups(host) == 1 }
+        // The page has handled the release; one more round trip lets a request posted from it arrive first.
+        _ = await ups(host)
         #expect(requests == 1)
-        _ = try await host.controller.webView?.evaluateJavaScript("clearInterval(window.printTimer)")
+    }
+
+    private func ups(_ host: Host) async -> Int? {
+        try? await host.controller.webView?.evaluateJavaScript("window.ups") as? Int
     }
 
     @Test("JavaScript の設定を変えると、ページを新しい設定で開き直す")
