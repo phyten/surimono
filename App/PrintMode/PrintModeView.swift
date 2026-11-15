@@ -189,14 +189,21 @@ struct PrintTopBar: View {
 
     /// The bar's width with none, then one, two and more of the fold's steps taken.
     private var neededWidths: [CGFloat] {
-        let modified = model.isSettingSetChanged ? 8 + (widths[.modified] ?? 0) : 0
-        let fixed =
-            trafficLightInset + 16 + (widths[.badge] ?? 0) + 8 + min(widths[.name] ?? 0, Self.nameMinimum) + 12 + 8
-            + modified + 12
-        let pageCount = pageCountText == nil ? 0 : 8 + (widths[.pageCount] ?? 0)
+        // Each term is typed and named on its own: Xcode 26.6 cannot type-check the sums as one expression in time.
+        let modifiedWidth: CGFloat = widths[.modified] ?? 0
+        let modified: CGFloat = model.isSettingSetChanged ? 8 + modifiedWidth : 0
+        let badgeWidth: CGFloat = widths[.badge] ?? 0
+        let nameWidth: CGFloat = min(widths[.name] ?? 0, Self.nameMinimum)
+        // Before the badge, the name, the style menu and the sets menu, and at the trailing edge.
+        let gaps: CGFloat = 16 + 8 + 12 + 8 + 12
+        let fixed: CGFloat = trafficLightInset + badgeWidth + nameWidth + gaps + modified
+        let pageCountWidth: CGFloat = widths[.pageCount] ?? 0
+        let pageCount: CGFloat = pageCountText == nil ? 0 : 8 + pageCountWidth
         func width(_ back: BackForm, _ pages: CGFloat, _ showsTitle: Bool, _ sets: SetsForm) -> CGFloat {
-            fixed + (widths[.back(back)] ?? 0) + pages + (widths[.style(showsTitle: showsTitle)] ?? 0)
-                + (widths[.sets(sets)] ?? 0)
+            let backWidth: CGFloat = widths[.back(back)] ?? 0
+            let styleWidth: CGFloat = widths[.style(showsTitle: showsTitle)] ?? 0
+            let setsWidth: CGFloat = widths[.sets(sets)] ?? 0
+            return fixed + backWidth + pages + styleWidth + setsWidth
         }
         return [
             width(.full, pageCount, true, .full),
