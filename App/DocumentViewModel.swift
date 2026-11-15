@@ -178,6 +178,10 @@ final class DocumentViewModel {
     let bandAnchors = BandAnchors()
     /// The window this binder took the place of, for as long as going back can bring it.
     @ObservationIgnored var binderOrigin: BinderOrigin?
+    @ObservationIgnored var binderExit = BinderExit()
+    @ObservationIgnored private var pendingBinderRestoration: BinderOrigin?
+    @ObservationIgnored private var binderExitTrayPage: Int?
+    @ObservationIgnored var binderTrayPageIndex: Int?
     /// The reader took this binder back, so its window leaves nothing to open again when it closes.
     @ObservationIgnored var isBinderUndone = false
     /// Called once, when the first pages are ready or could not be made.
@@ -922,6 +926,9 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        binderExit.cancel()
+        pendingBinderRestoration = nil
+        binderExitTrayPage = nil
         cancelManualDuplex()
         if let dayObserver { NotificationCenter.default.removeObserver(dayObserver) }
         dayObserver = nil
@@ -1332,6 +1339,10 @@ final class DocumentViewModel {
                     notePages: output.notePages)
                 isRendering = false
                 resolveTrayRequest()
+                if mode == .print, let page = binderExitTrayPage, let printTray {
+                    requestedTrayRow = printTray.bodyPage(at: page).flatMap(printTray.rowID(containing:))
+                    binderExitTrayPage = nil
+                }
                 finishFirstRender(succeeded: true)
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false
@@ -1369,6 +1380,7 @@ final class DocumentViewModel {
     }
 
     private func finishFirstRender(succeeded: Bool) {
+        if succeeded, !finishBinderRestorationIfReady() { return }
         let report = onFirstRender
         onFirstRender = nil
         report?(succeeded)
@@ -1420,6 +1432,44 @@ final class DocumentViewModel {
         rememberStageBandRoom()
         ViewerWindow.setTrafficLightsVisible(true, in: window)
         PrintModeWindow.enter(window, size: traySize)
+    }
+
+    /// Waits for the single document's settings and pages before mapping the binder's reading position.
+    func restoreAfterLeavingBinder(_ origin: BinderOrigin) {
+        pendingBinderRestoration = origin
+        finishBinderRestorationIfReady()
+    }
+
+    @discardableResult
+    private func finishBinderRestorationIfReady() -> Bool {
+        guard let origin = pendingBinderRestoration else { return true }
+        guard contentHash != nil, result != nil, !isRendering else { return false }
+        guard isUpToDate else {
+            render()
+            return false
+        }
+        pendingBinderRestoration = nil
+        let mapped = BinderOrigin(
+            contents: origin.contents, frame: origin.frame,
+            pageIndex: min(origin.pageIndex, max(0, pageCount - 1)), wasPrinting: origin.wasPrinting,
+            leavingBinder: true)
+        restoreWindow(mapped)
+        if origin.wasPrinting {
+            // Enter without animating through a different frame: the source was already on this tray.
+            mode = .print
+            refreshPrinters()
+            rememberStageBandRoom()
+            if let window {
+                ViewerWindow.unlockAspectRatio(of: window)
+                ViewerWindow.setTrafficLightsVisible(true, in: window)
+            }
+            binderExitTrayPage = mapped.pageIndex
+            renderForChangedSettings()
+        } else {
+            sizeWindowToPaper()
+            if let window { window.setFrameOrigin(origin.frame.origin) }
+        }
+        return true
     }
 
     /// Back where a window was before a binder took its place.
@@ -2348,6 +2398,11 @@ final class DocumentViewModel {
     }
 
     private func didComputeHash(_ hash: ContentHash) {
+        defer {
+            if pendingBinderRestoration != nil, finishBinderRestorationIfReady() {
+                finishFirstRender(succeeded: true)
+            }
+        }
         let previous = contentHash
         guard previous != hash else { return }
         let previousSources = hashedSourceURLs

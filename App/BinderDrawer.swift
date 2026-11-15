@@ -7,6 +7,17 @@ struct BinderDrawer: View {
     var body: some View {
         if let binder = model.binder {
             SidePanel("Binder", subtitle: summary(binder)) {
+                Menu {
+                    Button("Sort by Name") { binder.sortByName() }
+                        .disabled(binder.isSortedByName)
+                    Divider()
+                    Button("Leave Binder Mode") { model.binderExit.leave(model) }
+                        .disabled(!model.binderExit.canLeave(model))
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
                 PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
                 if model.mode == .view {
                     PanelIconButton("xmark", label: "Close") { model.isDrawerOpen = false }

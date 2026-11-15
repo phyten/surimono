@@ -53,6 +53,12 @@ struct PrintTrayView: View {
             go(to: index)
             model.requestedTrayRow = nil
         }
+        .onChange(of: currentRow, initial: true) { _, row in
+            guard model.binder != nil, tray.rows.indices.contains(row) else { return }
+            let pages = tray.rows[row].sheets.flatMap { $0.sides.flatMap { $0.pages.compactMap { $0 } } }
+            let kept = model.binderTrayPageIndex ?? model.currentPageIndex
+            model.binderTrayPageIndex = pages.contains(kept + 1) ? kept : pages.min().map { $0 - 1 }
+        }
         .onChange(of: tray.layout) { _, _ in zoomer.reset() }
     }
 
