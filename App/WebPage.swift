@@ -128,7 +128,10 @@ final class WebPageController: NSObject {
     /// a script in the app's own world hears it and tells the app, so the page itself gets no message handler.
     /// Any page script can raise that event too, so the app's script passes on one request per click or key of the
     /// reader: only trusted events, which a page cannot make, allow the next one. A page printing on a timer then
-    /// cannot keep sending the reader back to the tray.
+    /// cannot keep sending the reader back to the tray. A press and its release are one click or key: the press allows
+    /// a request, and the release only keeps that allowance fresh while it is unused (a button prints on the release
+    /// of a long press), so a timer that used the press gets nothing more from the release. Pointer events count as
+    /// presses too, because a page may cancel the mouse events made from them and still get its click.
     private static func installPrintBridge(in controller: WKUserContentController, handler: WKScriptMessageHandler) {
         controller.addUserScript(
             WKUserScript(
@@ -143,25 +146,46 @@ final class WebPageController: NSObject {
                 injectionTime: .atDocumentStart, forMainFrameOnly: true, in: .page))
         controller.addUserScript(
             WKUserScript(
-                source: """
-                    (() => {
-                      let gestureAt = null;
-                      const note = event => { if (event.isTrusted) gestureAt = performance.now(); };
-                      for (const type of ['mousedown', 'mouseup', 'click', 'keydown', 'keyup']) {
-                        window.addEventListener(type, note, true);
-                      }
-                      document.addEventListener('\(printEventName)', () => {
-                        if (gestureAt === null || performance.now() - gestureAt > \(printGestureWindowMilliseconds)) {
-                          return;
-                        }
-                        gestureAt = null;
-                        window.webkit.messageHandlers.\(printMessageName).postMessage(null);
-                      });
-                    })();
-                    """,
-                injectionTime: .atDocumentStart, forMainFrameOnly: true, in: contentWorld))
+                source: printGateScript, injectionTime: .atDocumentStart, forMainFrameOnly: true, in: contentWorld))
         controller.add(handler, contentWorld: contentWorld, name: printMessageName)
     }
+
+    /// The script of the app's own world that passes a page's print request on, once per press of the reader.
+    static let printGateScript = """
+        (() => {
+          let gestureAt = null;
+          let spent = true;
+          let pressedAt = -Infinity;
+          const press = event => {
+            if (!event.isTrusted || event.repeat) return;
+            const now = performance.now();
+            // The mouse press made from a pointer press follows it at once; the two are one press.
+            if (event.type === 'mousedown' && now - pressedAt < 100) return;
+            pressedAt = now;
+            gestureAt = now;
+            spent = false;
+          };
+          const release = event => { if (event.isTrusted && !spent) gestureAt = performance.now(); };
+          // A click with no press behind it (one an assistive tool makes, or the end of a very long hold)
+          // is a press of its own; otherwise it ends the press before it.
+          const click = event => {
+            const fresh = performance.now() - pressedAt <= \(printGestureWindowMilliseconds);
+            if (fresh) release(event); else press(event);
+          };
+          for (const type of ['pointerdown', 'mousedown', 'keydown']) {
+            window.addEventListener(type, press, true);
+          }
+          for (const type of ['pointerup', 'mouseup', 'keyup']) {
+            window.addEventListener(type, release, true);
+          }
+          window.addEventListener('click', click, true);
+          document.addEventListener('\(printEventName)', () => {
+            if (spent || performance.now() - gestureAt > \(printGestureWindowMilliseconds)) return;
+            spent = true;
+            window.webkit.messageHandlers.\(printMessageName).postMessage(null);
+          });
+        })();
+        """
 
     func close() {
         webView?.configuration.userContentController.removeAllScriptMessageHandlers()

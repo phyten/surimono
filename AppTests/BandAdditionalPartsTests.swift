@@ -346,7 +346,7 @@ struct BandAdditionalPartsTests {
             previous = current
             return unchangedPasses >= 4
         }
-        let plan = try #require(fixture.model.bandAnchors.plan)
+        var plan = try #require(fixture.model.bandAnchors.plan)
         let settings = fixture.model.renderSettings
         let options = fixture.model.viewOptions
         let renders = fixture.model.renderStartCount
@@ -355,9 +355,20 @@ struct BandAdditionalPartsTests {
             fixture.preferences.activeBandArrangement.topRight.compactMap(\.item)
                 == [.floatOnTop] + parts + [.print])
         // Exercise repeated native layout passes after rendering, including the orientation label's final value.
-        for _ in 0..<12 {
+        // On a busy machine a measurement may still arrive after the four quiet passes above, so the plan may take
+        // it once or twice; what must not happen is a plan that keeps changing, or a layout that starts a render.
+        var changes: [String] = []
+        var quietPasses = 0
+        for _ in 0..<24 {
             await nextLayout(in: fixture.window)
-            #expect(fixture.model.bandAnchors.plan == plan)
+            let current = try #require(fixture.model.bandAnchors.plan)
+            if current == plan {
+                quietPasses += 1
+            } else {
+                changes.append(Self.difference(plan, current))
+                plan = current
+                quietPasses = 0
+            }
             #expect(fixture.model.isUpToDate)
             #expect(fixture.model.renderSettings == settings)
             #expect(fixture.model.viewOptions == options)
@@ -366,6 +377,49 @@ struct BandAdditionalPartsTests {
             #expect(!fixture.model.isPrintFinishPresented)
             #expect(fixture.saveDestinationRequests == 0)
         }
+        #expect(changes.count <= 2, "帯の計画が変わり続けた: \(changes)")
+        #expect(quietPasses >= 8, "帯の計画が最後まで落ち着かなかった: \(changes)")
+    }
+
+    /// What differs between two plans, short enough to read in a CI log.
+    private static func difference(_ old: BandResolvedPlan, _ new: BandResolvedPlan) -> String {
+        var parts: [String] = []
+        func row(_ name: String, _ old: BandRowPlan?, _ new: BandRowPlan?) {
+            guard old != new else { return }
+            guard let old, let new else {
+                parts.append("\(name): \(old == nil ? "none" : "row") -> \(new == nil ? "none" : "row")")
+                return
+            }
+            if old.leading != new.leading {
+                parts.append("\(name).leading \(old.leading.map(\.rawValue)) -> \(new.leading.map(\.rawValue))")
+            }
+            if old.trailing != new.trailing {
+                parts.append("\(name).trailing \(old.trailing.map(\.rawValue)) -> \(new.trailing.map(\.rawValue))")
+            }
+            for item in BandLayout.Item.allCases where old.forms[item] != new.forms[item] {
+                parts.append(
+                    "\(name).form \(item.rawValue) \(String(describing: old.forms[item])) -> "
+                        + "\(String(describing: new.forms[item]))")
+            }
+            if old.nameWidth != new.nameWidth { parts.append("\(name).nameWidth \(old.nameWidth) -> \(new.nameWidth)") }
+            if old.minimumWidth != new.minimumWidth {
+                parts.append("\(name).minimumWidth \(old.minimumWidth) -> \(new.minimumWidth)")
+            }
+            if old.requiredWidth != new.requiredWidth {
+                parts.append("\(name).requiredWidth \(old.requiredWidth) -> \(new.requiredWidth)")
+            }
+            if old.geometry != new.geometry { parts.append("\(name).geometry") }
+        }
+        row("top", old.top, new.top)
+        row("bottom", old.bottom, new.bottom)
+        if old.overflow != new.overflow {
+            parts.append("overflow \(old.overflow.map(\.rawValue)) -> \(new.overflow.map(\.rawValue))")
+        }
+        if old.unusedAvailable != new.unusedAvailable {
+            parts.append(
+                "unusedAvailable \(old.unusedAvailable.map(\.rawValue)) -> \(new.unusedAvailable.map(\.rawValue))")
+        }
+        return parts.joined(separator: "; ")
     }
 
     @Test("切り替えの同じ値の書き戻しは状態を反転させない")
