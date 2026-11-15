@@ -15,11 +15,15 @@ p, pre, table { margin: 0.6em 0; }
 li { margin: 0.2em 0; }
 ul > li::marker { color: #1f5fa8; }
 ol > li::marker { color: #e5533d; font-weight: bold; }
-li.task-list-item { list-style: none; margin: 0.35em 0 0.35em -1.4em; font-weight: 600; }
-li.task-list-item input[type="checkbox"] { -webkit-appearance: none; appearance: none; width: 1.15em; height: 1.15em;
-    margin: 0 0.5em 0 0; vertical-align: -0.2em; border: 1.5pt solid #e5533d; border-radius: 3pt; background: #fff;
-    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-li.task-list-item input[type="checkbox"]:checked {
+li.task-list-item { list-style: none; margin: 0.35em 0; font-weight: 600; }
+/* The box hangs in the margin (its margins and width add up to zero), so wrapped lines start under the text. The
+   loose list's selector matches the one in common.css, which would otherwise win there. */
+li.task-list-item > input[type="checkbox"],
+li.task-list-item > p:first-child > input[type="checkbox"] { -webkit-appearance: none; appearance: none;
+    width: 1.15em; height: 1.15em; margin: 0 0.6em 0 -1.75em; vertical-align: -0.2em; border: 1.5pt solid #e5533d;
+    border-radius: 3pt; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+li.task-list-item > input[type="checkbox"]:checked,
+li.task-list-item > p:first-child > input[type="checkbox"]:checked {
     background: #e5533d url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3L13 4.5' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 85% no-repeat; }
 li.task-list-item:has(input:checked) { color: #7a8494; font-weight: normal; text-decoration: line-through; text-decoration-color: #e5533d; }
 hr { border: none; border-top: 1pt solid #a9c4e4; margin: 1.3em 0; }

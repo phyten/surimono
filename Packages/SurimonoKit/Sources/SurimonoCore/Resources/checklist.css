@@ -15,7 +15,8 @@ ul, ol { margin: 0.6em 0; padding-left: 2.2em; }
 li { position: relative; margin: 0; padding: 0.3em 0; border-bottom: 0.5pt dotted #9a9a9a; }
 li li:last-child { border-bottom: none; }
 ul > li { list-style: none; }
-ul > li:not(.task-list-item)::before, li.task-list-item > input[type="checkbox"] {
+ul > li:not(.task-list-item)::before, li.task-list-item > input[type="checkbox"],
+li.task-list-item > p:first-child > input[type="checkbox"] {
     content: "";
     position: absolute;
     left: -1.8em;
@@ -28,8 +29,13 @@ ul > li:not(.task-list-item)::before, li.task-list-item > input[type="checkbox"]
     border-radius: 2pt;
     background: #fff;
 }
-li.task-list-item > input[type="checkbox"] { -webkit-appearance: none; appearance: none; }
-li.task-list-item > input[type="checkbox"]:checked {
+/* In a loose list the box sits in the first paragraph, which places it so it stays beside the first line. */
+li.task-list-item > p:first-child { position: relative; }
+li.task-list-item > p:first-child > input[type="checkbox"] { top: 0.15em; }
+li.task-list-item > input[type="checkbox"],
+li.task-list-item > p:first-child > input[type="checkbox"] { -webkit-appearance: none; appearance: none; }
+li.task-list-item > input[type="checkbox"]:checked,
+li.task-list-item > p:first-child > input[type="checkbox"]:checked {
     background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3 3 7-7' fill='none' stroke='%231a1a1a' stroke-width='2.4'/%3E%3C/svg%3E") center / 90% no-repeat;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

@@ -38,7 +38,9 @@ li.task-list-item > p:first-child > input[type="checkbox"] {
     box-sizing: border-box;
     width: 0.9em;
     height: 0.9em;
-    margin: 0 0.4em 0 -1.3em;
+    /* Hangs the box in the margin: the margins and the width add up to zero, so the first line starts where the
+       wrapped lines do. No space follows the box in the HTML, so the right margin is the whole gap to the text. */
+    margin: 0 0.6em 0 -1.5em;
     vertical-align: -0.1em;
     border: 1pt solid currentColor;
     border-radius: 0.15em;
