@@ -431,6 +431,23 @@ struct PrintModeTests {
         #expect(restored.layoutID == "b5Duplex")
     }
 
+    @Test("初回の既定は地域で決まり、単位がメートル法のカナダでもLetterになる")
+    func regionalPreferencesFollowTheRegion() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let canada = AppPreferences(defaults: suite.defaults, locale: Locale(identifier: "en_CA"))
+        #expect(canada.layoutID == "letterSingle")
+        let japan = AppPreferences(defaults: suite.defaults, locale: Locale(identifier: "ja_JP"))
+        #expect(japan.layoutID == "a4Single")
+        // The Mac's own default paper comes before the region.
+        let abroad = AppPreferences(
+            defaults: suite.defaults, locale: Locale(identifier: "en_US"),
+            defaultPaperSize: CGSize(width: 595, height: 842))
+        #expect(abroad.layoutID == "a4Single")
+        // Looking at the first default does not store it.
+        #expect(suite.defaults.object(forKey: "layout") == nil)
+    }
+
     @Test("新しいウィンドウは表示モードで開く")
     func startsInViewMode() {
         let fixture = Fixture()

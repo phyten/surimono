@@ -226,9 +226,7 @@
                 model.openThemePalette()
             }
             if let value = argument("SurimonoPaperSeries"), let series = PaperSeries(rawValue: value) {
-                let remembered = model.preferences.paperSeries
-                model.choosePaperSeries(series)
-                model.preferences.paperSeries = remembered
+                model.choosePaperSeries(series, remembers: false)
             }
             if let value = argument("SurimonoPaperHeight"), let height = Double(value), let window = model.window,
                 let unit = model.paperUnitSize
@@ -248,10 +246,8 @@
                 if sets.indices.contains(index) { model.applyPrintSettingSet(sets[index]) }
             }
             if let value = argument("SurimonoSeries"), let series = PaperSeries(rawValue: value) {
-                // A screenshot leaves the reader's remembered series alone.
-                let remembered = model.preferences.paperSeries
-                model.choosePaperSeries(series)
-                model.preferences.paperSeries = remembered
+                // A screenshot leaves the reader's remembered series and default layout alone.
+                model.choosePaperSeries(series, remembers: false)
             }
             if let value = argument("SurimonoHeader"), let preset = PageFurniture.Preset(rawValue: value) {
                 model.chooseFurniture(preset)

@@ -179,6 +179,24 @@ struct ShortcutActionsTests {
             try export.settings(format: .markdown, name: "a", layoutID: "a3TwoUp", style: nil).layout == .a3TwoUp)
     }
 
+    @Test("旧版が判だけを覚えていた設定でも、刷り台で判を変えたあとでも、書き出しはその判の既定を使う")
+    func defaultLayoutFollowsTheChosenSeries() throws {
+        let environment = try Environment()
+        defer { environment.restore() }
+        environment.suite.defaults.set("letter", forKey: "paperSeries")
+        let preferences = AppPreferences(defaults: environment.suite.defaults)
+        let export = HeadlessExport(preferences: preferences, library: environment.export.library)
+        #expect(try export.settings(format: .markdown, name: "a", layoutID: nil, style: nil).layout == .letterSingle)
+        preferences.choosePaperSeries(.b)
+        #expect(try export.settings(format: .markdown, name: "a", layoutID: nil, style: nil).layout == .b5Single)
+        // A default layout stored beside another series by an earlier version stands.
+        environment.suite.defaults.set("a4Duplex", forKey: "layout")
+        environment.suite.defaults.set("letter", forKey: "paperSeries")
+        let both = HeadlessExport(
+            preferences: AppPreferences(defaults: environment.suite.defaults), library: environment.export.library)
+        #expect(try both.settings(format: .markdown, name: "a", layoutID: nil, style: nil).layout == .a4Duplex)
+    }
+
     @Test("スタイルは、識別子でも英語の名前でも日本語の名前でも選べる", arguments: ["compact", "Compact", "コンパクト", " COMPACT "])
     func styleByName(name: String) throws {
         let environment = try Environment()
