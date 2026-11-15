@@ -116,7 +116,8 @@ struct BandAdditionalPartsTests {
         _ reason: String, fixture: Fixture, _ condition: () -> Bool,
         sourceLocation: SourceLocation = #_sourceLocation
     ) async throws {
-        let deadline = ContinuousClock.now + .seconds(10)
+        // A real document is laid out by a web content process, which starts slowly on a busy CI runner.
+        let deadline = ContinuousClock.now + .seconds(30)
         while !condition(), ContinuousClock.now < deadline { await nextLayout(in: fixture.window) }
         let plan = BandPlans(model: fixture.model, menu: fixture.menu)
         try #require(

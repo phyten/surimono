@@ -52,6 +52,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make test-app
+      # `make test-app` is quiet and names only the tests that failed. This prints what they said, from the result
+      # bundle, so that a failure seen only on a runner can be read without running it again.
+      - name: Show why tests failed
+        if: failure()
+        run: |
+          bundle=$(ls -d build/DerivedData/Logs/Test/*.xcresult 2>/dev/null | tail -1)
+          [ -n "$bundle" ] || exit 0
+          xcrun xcresulttool get test-results summary --path "$bundle" > "$RUNNER_TEMP/summary.json" || exit 0
+          jq -r '"result: \(.result), passed: \(.passedTests), failed: \(.failedTests)",
+            (.testFailures[]? | "FAIL \(.testName) | \(.failureText[0:1500])")' "$RUNNER_TEMP/summary.json" || true
 
   appstore:
     runs-on: macos-26
