@@ -1,26 +1,38 @@
 import CoreGraphics
 
-/// Which of the strip's menus stay in its row. The row never wraps and "All Print Settings…" stays at its right end, so
-/// when the menus do not all fit they fold from the right. A folded menu loses nothing: the sheet of all settings has
+/// How the strip of print settings over the press bar fits its row. The row never wraps and never sets the window's
+/// smallest width: when its menus and "All Print Settings…" do not fit, the button first shows its icon alone, and
+/// then the menus become one menu that holds each of them. Nothing is lost on the way: the sheet of all settings has
 /// every one of them.
 struct PrintStripFold: Equatable {
-    /// How many of the menus, counted from the left, stay in the row.
-    let visibleCount: Int
+    enum Form: Equatable {
+        /// Every menu, and "All Print Settings…" with its label.
+        case full
+        /// Every menu, and the icon of "All Print Settings…".
+        case iconDetails
+        /// One menu that holds the others, and the icon of "All Print Settings…".
+        case combined
+    }
+
+    let form: Form
 
     /// - Parameters:
     ///   - available: The width of the row between its margins.
     ///   - itemWidths: The width each menu takes in its current form, in the order of the row.
-    ///   - trailingWidth: The width of the button that stays at the right end.
+    ///   - detailsWidth: The width of "All Print Settings…" with its label.
+    ///   - detailsIconWidth: The width of its icon alone.
     ///   - spacing: The gap between neighbors. The row's spacer has one on each side, so the last menu and the button
     ///     are two gaps apart however little room the spacer gets.
-    init(available: CGFloat, itemWidths: [CGFloat], trailingWidth: CGFloat, spacing: CGFloat) {
-        var used = trailingWidth + spacing
-        var count = 0
-        for width in itemWidths {
-            used += spacing + width
-            guard used <= available else { break }
-            count += 1
+    init(
+        available: CGFloat, itemWidths: [CGFloat], detailsWidth: CGFloat, detailsIconWidth: CGFloat, spacing: CGFloat
+    ) {
+        let menus = itemWidths.reduce(0) { $0 + spacing + $1 }
+        if menus + spacing + detailsWidth <= available {
+            form = .full
+        } else if menus + spacing + detailsIconWidth <= available {
+            form = .iconDetails
+        } else {
+            form = .combined
         }
-        visibleCount = count
     }
 }

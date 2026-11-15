@@ -265,6 +265,31 @@ struct SmoothTransitionTests {
         #expect(model.trayPageCount?.notes == 0)
     }
 
+    @Test("前の用紙を見せている間、下のバーの結果の文は前の用紙の枚数とページから作る", .timeLimit(.minutes(1)))
+    func outcomeStaysWithTheShownSheets() async throws {
+        let fixture = Fixture()
+        let gate = Gate()
+        gate.holds = false
+        let model = heldModel(fixture, gate: gate)
+        defer { model.stop() }
+        model.notes.isEnabled = true
+        try await render(model)
+        let before = try #require(model.printOutcome)
+        let pages = try #require(model.trayPageCount).pages
+        try #require(before.notes > 0)
+        gate.holds = true
+        model.notes.isEnabled = false
+        model.render()
+        try await waitUntil { model.result.map { $0.plan.logicalPageCount != pages } ?? false }
+        #expect(model.showsTrayPreview)
+        #expect(model.printOutcome == before)
+        gate.holds = false
+        try await waitUntil { !model.isRendering }
+        let after = try #require(model.printOutcome)
+        #expect(after.notes == 0)
+        #expect(after.sheets == model.printResult?.plan.sheetCount)
+    }
+
     @Test("読めなくなった画像を読み直して組む間も、刷り台の名前は見せている用紙の画像のまま", .timeLimit(.minutes(1)))
     func imageNamesStayWithTheShownSheets() async throws {
         let fixture = Fixture()
