@@ -89,10 +89,13 @@ public struct BandArrangement: Codable, Equatable, Sendable {
         self.unused = unused
     }
 
-    public static func standard(for mode: MenuArrangement) -> Self {
+    public static func standard(
+        for mode: MenuArrangement, knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) -> Self {
+        var arrangement: Self
         switch mode {
         case .split:
-            Self(entries: [
+            arrangement = Self(entries: [
                 .topLeft: [.part(.formatBadge)], .topRight: [.part(.floatOnTop), .part(.print)],
                 .bottomLeft: [
                     .part(.presentation), .separator, .part(.style), .part(.outline), .separator,
@@ -101,7 +104,7 @@ public struct BandArrangement: Codable, Equatable, Sendable {
                 .bottomRight: [.part(.pageIndicator), .part(.pageTurn)],
             ])
         case .top:
-            Self(
+            arrangement = Self(
                 entries: [
                     .topLeft: [.part(.formatBadge), .part(.pageIndicator)],
                     .topRight: [
@@ -111,6 +114,12 @@ public struct BandArrangement: Codable, Equatable, Sendable {
                     ],
                 ], unused: [.pageTurn])
         }
+        let known = Set(knownItems).union([.print])
+        for zone in BandZoneID.allCases {
+            arrangement[zone].removeAll { entry in entry.item.map { !known.contains($0) } ?? false }
+        }
+        arrangement.unused.removeAll { !known.contains($0) }
+        return arrangement
     }
 
     public subscript(destination: BandDestination) -> [BandEntry] {
@@ -142,9 +151,9 @@ public struct BandArrangement: Codable, Equatable, Sendable {
     // The topology belongs to the variant, not to its arrays: empty bottom zones can also be a Split draft.
     public func moving(
         _ item: BandLayout.Item, to destination: BandDestination, before successor: BandLayout.Item? = nil,
-        for mode: MenuArrangement
+        for mode: MenuArrangement, knownItems: [BandLayout.Item] = BandLayout.Item.allCases
     ) throws -> Self {
-        try validate(for: mode, destination: destination)
+        try validate(for: mode, destination: destination, knownItems: knownItems)
         guard let source = location(of: item), let index = self[source].firstIndex(of: .part(item)) else {
             throw BandArrangementMoveError.missingItem
         }
@@ -157,32 +166,39 @@ public struct BandArrangement: Codable, Equatable, Sendable {
         } else {
             target = self[destination].count
         }
-        return try movingEntry(at: index, from: source, to: destination, at: target, for: mode)
+        return try movingEntry(at: index, from: source, to: destination, at: target, for: mode, knownItems: knownItems)
     }
 
-    public func insertingSeparator(at index: Int, in zone: BandZoneID, for mode: MenuArrangement) throws -> Self {
-        try validate(for: mode, destination: .zone(zone))
+    public func insertingSeparator(
+        at index: Int, in zone: BandZoneID, for mode: MenuArrangement,
+        knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) throws -> Self {
+        try validate(for: mode, destination: .zone(zone), knownItems: knownItems)
         guard (0...self[zone].count).contains(index) else { throw BandArrangementMoveError.invalidIndex }
         var stored = StoredBandArrangement(self)
-        let rawIndex = stored.entryIndex(index, in: .zone(zone))
+        let rawIndex = stored.entryIndex(index, in: .zone(zone), knownItems: knownItems)
         stored[.zone(zone)].insert(BandEntry.separatorToken, at: rawIndex)
-        return BandArrangementRepair.repair(stored, for: mode).arrangement
+        return BandArrangementRepair.repair(stored, for: mode, knownItems: knownItems).arrangement
     }
 
-    public func removingSeparator(at index: Int, in zone: BandZoneID, for mode: MenuArrangement) throws -> Self {
-        try validate(for: mode, destination: .zone(zone))
+    public func removingSeparator(
+        at index: Int, in zone: BandZoneID, for mode: MenuArrangement,
+        knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) throws -> Self {
+        try validate(for: mode, destination: .zone(zone), knownItems: knownItems)
         guard self[zone].indices.contains(index) else { throw BandArrangementMoveError.invalidIndex }
         guard self[zone][index] == .separator else { throw BandArrangementMoveError.notSeparator }
-        return try movingEntry(at: index, from: .zone(zone), to: .unused, at: unused.count, for: mode)
+        return try movingEntry(
+            at: index, from: .zone(zone), to: .unused, at: unused.count, for: mode, knownItems: knownItems)
     }
 
     // Both indexes refer to the draft before removal; dropping before self or immediately after self is a no-op.
     // Unknown IDs are not editor chips, but raw edits keep them beside the surviving entries when indexes shift.
     public func movingEntry(
         at index: Int, from source: BandDestination, to destination: BandDestination, at insertionIndex: Int,
-        for mode: MenuArrangement
+        for mode: MenuArrangement, knownItems: [BandLayout.Item] = BandLayout.Item.allCases
     ) throws -> Self {
-        try validate(for: mode, destination: destination)
+        try validate(for: mode, destination: destination, knownItems: knownItems)
         guard self[source].indices.contains(index), (0...self[destination].count).contains(insertionIndex) else {
             throw BandArrangementMoveError.invalidIndex
         }
@@ -190,18 +206,20 @@ public struct BandArrangement: Codable, Equatable, Sendable {
         guard entry != .part(.print) || destination != .unused else { throw BandArrangementMoveError.printIsRequired }
         if source == destination, insertionIndex == index || insertionIndex == index + 1 { return self }
         var stored = StoredBandArrangement(self)
-        let rawSource = stored.entryIndex(index, in: source)
-        var rawTarget = stored.entryIndex(insertionIndex, in: destination)
+        let rawSource = stored.entryIndex(index, in: source, knownItems: knownItems)
+        var rawTarget = stored.entryIndex(insertionIndex, in: destination, knownItems: knownItems)
         stored[source].remove(at: rawSource)
         if source == destination, rawSource < rawTarget { rawTarget -= 1 }
         if entry != .separator || destination != .unused {
             stored[destination].insert(entry.storedValue, at: rawTarget)
         }
-        return BandArrangementRepair.repair(stored, for: mode).arrangement
+        return BandArrangementRepair.repair(stored, for: mode, knownItems: knownItems).arrangement
     }
 
-    private func validate(for mode: MenuArrangement, destination: BandDestination) throws {
-        let issues = BandArrangementValidation.issues(in: self, for: mode)
+    private func validate(
+        for mode: MenuArrangement, destination: BandDestination, knownItems: [BandLayout.Item]
+    ) throws {
+        let issues = BandArrangementValidation.issues(in: self, for: mode, knownItems: knownItems)
         guard issues.isEmpty else { throw BandArrangementMoveError.invalidArrangement(issues) }
         if mode == .top, destination == .zone(.bottomLeft) || destination == .zone(.bottomRight) {
             throw BandArrangementMoveError.invalidDestination
@@ -209,7 +227,10 @@ public struct BandArrangement: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: any Decoder) throws {
-        self = BandArrangementRepair.repair(try StoredBandArrangement(from: decoder), for: .split).arrangement
+        self =
+            BandArrangementRepair.repair(
+                try StoredBandArrangement(from: decoder), for: .split, knownItems: decoder.bandKnownItems
+            ).arrangement
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -218,10 +239,14 @@ public struct BandArrangement: Codable, Equatable, Sendable {
 }
 
 public enum BandArrangementValidation {
-    public static func issues(in arrangement: BandArrangement, for mode: MenuArrangement) -> [BandArrangementIssue] {
+    public static func issues(
+        in arrangement: BandArrangement, for mode: MenuArrangement,
+        knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) -> [BandArrangementIssue] {
         let all = BandDestination.ordered.flatMap { arrangement[$0].compactMap(\.item) }
         var result: [BandArrangementIssue] = []
-        for item in BandLayout.Item.allCases {
+        let known = Set(knownItems).union([.print])
+        for item in BandLayout.Item.allCases where known.contains(item) {
             let count = all.filter { $0 == item }.count
             if count == 0 { result.append(.missing(item)) }
             if count > 1 { result.append(.duplicate(item)) }
@@ -287,9 +312,12 @@ public struct StoredBandArrangement: Codable, Equatable, Sendable {
         }
     }
 
-    fileprivate func entryIndex(_ index: Int, in destination: BandDestination) -> Int {
+    fileprivate func entryIndex(
+        _ index: Int, in destination: BandDestination, knownItems: [BandLayout.Item]
+    ) -> Int {
+        let known = Set(knownItems).union([.print]).map(\.rawValue)
         let entries = self[destination].indices.filter {
-            self[destination][$0] == BandEntry.separatorToken || BandLayout.Item(rawValue: self[destination][$0]) != nil
+            self[destination][$0] == BandEntry.separatorToken || known.contains(self[destination][$0])
         }
         return index < entries.count ? entries[index] : self[destination].count
     }
@@ -391,5 +419,17 @@ public enum BandArrangementRepair {
             notices.append(.addedToUnused(item))
         }
         return BandRepairResult(arrangement: arrangement, notices: notices)
+    }
+}
+
+// A decoder-scoped catalog keeps nested layouts on the same reader version without changing the JSON schema.
+extension CodingUserInfoKey {
+    static let bandKnownItems = CodingUserInfoKey(rawValue: "Surimono.bandKnownItems")
+}
+
+extension Decoder {
+    var bandKnownItems: [BandLayout.Item] {
+        guard let key = CodingUserInfoKey.bandKnownItems else { return BandLayout.Item.allCases }
+        return userInfo[key] as? [BandLayout.Item] ?? BandLayout.Item.allCases
     }
 }
