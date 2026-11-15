@@ -181,7 +181,9 @@ struct BandAdditionalPartsTests {
     func toggleThroughChip(item: BandLayout.Item) async throws {
         let fixture = try Fixture(parts: [item])
         defer { fixture.close() }
-        #expect(!NSApp.isActive)
+        // The test host is the active app on a CI runner and a background app on a developer's Mac, so the check is
+        // that the clicks leave the app's activation as it was.
+        let wasActive = NSApp.isActive
         #expect(BandLayout.Item.applicable(for: fixture.model).contains(item))
         #expect(BandPlans(model: fixture.model, menu: fixture.menu).band(of: item) == .top)
         try await waitUntil("\(item): 帯が実際のチップの位置を記録する", fixture: fixture) {
@@ -199,7 +201,7 @@ struct BandAdditionalPartsTests {
         try await waitUntil("\(item): もう一度のクリックで元に戻る", fixture: fixture) {
             BandMenuContent(model: fixture.model).entry(id).isChecked == before
         }
-        #expect(!NSApp.isActive)
+        #expect(NSApp.isActive == wasActive)
     }
 
     @Test("スクロールのチップは方向だけでなくスクロールを明記し詳細メニューの値を変えない")

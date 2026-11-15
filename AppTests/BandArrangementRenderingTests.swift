@@ -257,6 +257,10 @@ struct BandArrangementRenderingTests {
         defer { controller.close() }
         window.orderFrontRegardless()
         try await open(model)
+        // The window opens as large as the screen lets the paper be. On a small screen (a CI runner's) that is too
+        // narrow for the three parts and one starts folded, so the test starts from a width that holds them all.
+        let opened = window.contentRect(forFrameRect: window.frame).size
+        window.setContentSize(NSSize(width: max(opened.width, 1200), height: opened.height))
         let folding: BandLayout.Item =
             switch popover {
             case .documentInfo: .pageIndicator
