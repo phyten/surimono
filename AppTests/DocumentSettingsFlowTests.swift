@@ -344,8 +344,10 @@ struct DocumentSettingsFlowTests {
         let page: CGFloat = 595.0 / 842.0
         #expect(abs(paperRatio() - page) < 0.02)
         // Leave room on the left: a window at the edge of the screen is kept on it rather than at its right edge.
+        // The window goes to the right edge of the screen, which leaves all the room there is: from the middle, a
+        // small screen (some CI runners') had less than a page's width to the left, and the right edge moved.
         let visible = try #require(window.screen?.visibleFrame)
-        window.setFrameTopLeftPoint(NSPoint(x: visible.midX, y: window.frame.maxY))
+        window.setFrameTopLeftPoint(NSPoint(x: visible.maxX - window.frame.width, y: window.frame.maxY))
         let rightEdge = window.frame.maxX
 
         // Turn the paper itself, so that PDFKit's page change and the window's reaction to it are what move.
