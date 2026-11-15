@@ -13,6 +13,7 @@
         private static weak var firstDocument: DocumentViewModel?
         private static var scheduled = false
         private static var appliedOverrides = false
+        private static weak var settingsWindow: NSWindow?
         private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "Snapshot")
 
         static func argument(_ name: String) -> String? {
@@ -52,15 +53,6 @@
             }
         }
 
-        /// The app follows the system appearance; screenshots of both appearances force one for the whole app.
-        private static func applyAppearance() {
-            switch argument("SurimonoAppearance") {
-            case "light": NSApp.appearance = NSAppearance(named: .aqua)
-            case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
-            default: break
-            }
-        }
-
         /// `-SurimonoOpenGettingStarted YES` opens the bundled guide the way the welcome window and the Help menu do,
         /// so that its window is the one captured. `-SurimonoSnapshotWelcome YES` shows the welcome window to capture.
         static func openGettingStarted() {
@@ -75,7 +67,6 @@
                 path.hasPrefix("/")
             else { return }
             scheduled = true
-            applyAppearance()
             Task { @MainActor in
                 defer { scheduled = false }
                 try? await Task.sleep(for: .milliseconds(800))
@@ -91,7 +82,6 @@
         }
 
         static func configure(_ model: DocumentViewModel) {
-            applyAppearance()
             if let value = argument("SurimonoLayout"), PrintLayout.presets.contains(where: { $0.id == value }) {
                 model.layoutID = value
             }
@@ -510,8 +500,25 @@
                             for: .milliseconds(model.viewOptions.transition == .pageCurl ? 2200 : 1300))
                     }
                 }
+                if let name = argument("SurimonoSettings") {
+                    // The Settings window in place of the document's, opened as from the app menu.
+                    model.preferences.settingsSection =
+                        SettingsSection.allCases.first { String(describing: $0) == name } ?? .general
+                    if let menu = NSApp.mainMenu?.items.first?.submenu,
+                        let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," })
+                    {
+                        menu.performActionForItem(at: index)
+                    }
+                    try? await Task.sleep(for: .milliseconds(1200))
+                    settingsWindow = NSApp.windows.first {
+                        $0.isVisible && $0.identifier?.rawValue.contains("Settings") == true
+                    }
+                    // Out of the picture, which takes in the windows next to the one captured.
+                    if settingsWindow != nil { model.window?.orderOut(nil) }
+                    try? await Task.sleep(for: .milliseconds(300))
+                }
                 do {
-                    guard let window = model.window else { return }
+                    guard let window = settingsWindow ?? model.window else { return }
                     let data = try await capturePNG(around: window)
                     let destination = URL(fileURLWithPath: path)
                     let sources = model.protectedSourceURLs

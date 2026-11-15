@@ -29,7 +29,8 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
 
      引数:
      - 撮影: `-SurimonoSnapshotPath <PNG の絶対パス>`（開いている文書は上書きできない）、`-SurimonoSnapshotQuit YES`（保存後に終了）。保存先のディレクトリは先に作っておく
-     - 外観: `-SurimonoAppearance light|dark`（アプリ全体の外観を固定する。アプリ自体に外観の切替はない）
+     - 外観: `-SurimonoAppearance light|dark|system`（その起動だけアプリ全体の外観を決める。設定の「外観」より優先し、設定には書かない）
+     - 設定の窓: `-SurimonoSettings <SettingsSection の case 名>`（general・view・pageNumbers・printing・settingSets・styles・html。文書の描画のあと設定の窓をその区分で開き、文書の窓を隠して設定の窓を撮る）。言語は `-AppleLanguages "(de)"` などで選ぶ
      - 印刷: `-SurimonoLayout <PrintLayout の id>`（a4Single / a4Duplex / a3BookletA4 / a4BookletA5 / a3TwoUp / b5Single / b5Duplex / b4BookletB5 / b5BookletB6 / b4TwoUp）
      - 手動両面の用紙戻しシート: `-SurimonoManualDuplexSheet YES`、`-SurimonoManualDuplexSheets 3`、`-SurimonoManualDuplexReverseBacks YES|NO`、`-SurimonoManualDuplexRotateBacks YES|NO`。既存の `-SurimonoLayout`・言語・外観・撮影先と併用する。合成プリンター・固定した用紙・メモリ内の手動補正・偽送信だけで待機状態へ入る。「裏を印刷」を押しても、同じ窓で次に始めた手動両面でも、実プリンターへの照会・送信や補正の永続化はしない。ライト・ダークと長い翻訳を確かめる。実機確認とは区別する。
      - 表示: `-SurimonoViewLayout spread|single`、`-SurimonoTransition scroll|instant|slide|fade|pageCurl`、`-SurimonoCoverAlone YES`、`-SurimonoRightToLeft YES`、`-SurimonoZoom <倍率>`

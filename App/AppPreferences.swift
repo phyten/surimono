@@ -37,6 +37,10 @@ final class AppPreferences {
             defaults.setPersistentDomain(domain, forName: languageDomainName)
         }
     }
+    /// The look of the app's windows. Nothing stored means Light, also for readers who saw the app in Dark before.
+    var appearance: AppAppearance {
+        didSet { defaults.set(appearance.rawValue, forKey: "appearance") }
+    }
     var wheelSensitivity: WheelPageTurner.Sensitivity {
         didSet { defaults.set(wheelSensitivity.rawValue, forKey: "wheelSensitivity") }
     }
@@ -238,6 +242,7 @@ final class AppPreferences {
         languageOverride = savedLanguages?.first.flatMap { saved in
             UILanguage.candidates(for: saved).dropLast().first { UILanguage.supported.contains($0) }
         }
+        appearance = AppAppearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .default
         wheelSensitivity =
             WheelPageTurner.Sensitivity(rawValue: defaults.string(forKey: "wheelSensitivity") ?? "") ?? .normal
         defaultViewLayout = ViewOptions.Layout(rawValue: defaults.string(forKey: "defaultViewLayout") ?? "")
