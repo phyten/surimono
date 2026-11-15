@@ -31,6 +31,22 @@ extension DocumentViewModel {
         return .screen
     }
 
+    /// The tray's "See It Folded" folds the current sheets only: older sheets kept on the tray while newer ones are
+    /// composed may be a booklet that the new ones are not, and a fold asked for then would wait unseen and take the
+    /// next Esc.
+    var canShowFold: Bool { hasCurrentPrintPreview && printTray?.isBooklet == true }
+
+    func showFold() {
+        guard mode == .print, canShowFold else { return }
+        showsFold = true
+    }
+
+    /// The sheets are current again: a fold of sheets that came out as no booklet ends, as it does when the layout is
+    /// changed to one that is no booklet.
+    func foldAvailabilityDidChange() {
+        if hasCurrentPrintPreview, printTray?.isBooklet != true { showsFold = false }
+    }
+
     /// Opens the print settings at one of their sections.
     func presentFinish(_ section: PrintFinishSection) {
         finishSection = section

@@ -69,6 +69,7 @@ final class BinderWindows {
     /// than recorded without that file as a set the reader never made.
     func remember(_ model: DocumentViewModel) {
         guard let binder = model.binder, binder.origin == .files, binder.urls.count > 1, !model.isBinderUndone,
+            binder.items.allSatisfy({ $0.memory == nil }),
             !binder.urls.contains(where: { GettingStarted.isInsideApp($0) })
         else { return }
         preferences?.recordRecentBinder(recentFiles.binder(of: binder.urls))
@@ -95,19 +96,23 @@ final class BinderWindows {
     /// the binder by then.
     func turnIntoBinder(_ source: DocumentViewModel, adding urls: [URL], leftOut: [URL]) {
         let order = source.sourceURLs + urls
-        if let existing = existing(order, origin: .files) {
+        if source.memoryContent == nil, let existing = existing(order, origin: .files) {
             existing.showWindow(nil)
             existing.window?.makeKeyAndOrderFront(nil)
             return
         }
         // One binder at a time for a set of files: another drop while it is laid out would make a second window of it.
         guard !source.isBecomingBinder, !pending.contains(where: { Set($0.sourceURLs) == Set(order) }) else { return }
-        let model = makeModel(BinderModel(orderedURLs: order, excluded: leftOut))
+        let binder =
+            source.memoryContent.map {
+                BinderModel(memory: $0, format: source.format, title: source.displayName, urls: urls)
+            } ?? BinderModel(orderedURLs: order, excluded: leftOut)
+        let model = makeModel(binder)
         model.takeOver(from: source)
         source.isBecomingBinder = true
         model.onFirstRender = { [weak self, weak source, weak model] succeeded in
             guard let self, let model else { return }
-            finishTurning(model, from: source, order: order, succeeded: succeeded)
+            finishTurning(model, from: source, order: model.sourceURLs, succeeded: succeeded)
         }
         pending.append(model)
         model.start()
