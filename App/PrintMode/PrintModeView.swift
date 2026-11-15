@@ -5,7 +5,6 @@ import SwiftUI
 /// The print mode (刷り台): the sheets as they come out of the printer, with the layouts and output at hand.
 struct PrintModeView: View {
     @Bindable var model: DocumentViewModel
-    @State private var showsFold = false
     @State private var trayMemory = TrayMemory()
 
     var body: some View {
@@ -13,7 +12,7 @@ struct PrintModeView: View {
             // The bars stay above the tray's scroll view, whose backdrop reaches under them.
             PrintTopBar(
                 model: model,
-                cancelsWithEscape: !showsFold && !model.isPrintFinishPresented && !model.isThemePalettePresented
+                cancelsWithEscape: model.printEscapeTarget == .screen
             ).zIndex(1)
             HStack(spacing: 0) {
                 if model.imageBundle != nil { ImageBundleDrawer(model: model) }
@@ -28,7 +27,7 @@ struct PrintModeView: View {
         .tint(PrintPalette.ai)
         .ignoresSafeArea(.container, edges: .top)
         .onChange(of: model.layout.kind) { _, kind in
-            if kind != .booklet { showsFold = false }
+            if kind != .booklet { model.showsFold = false }
         }
         .onAppear {
             // The view mode shows the traffic lights only with its menu; the tray always shows them.
@@ -45,7 +44,7 @@ struct PrintModeView: View {
             Text(verbatim: model.outputError ?? "")
         }
         #if DEBUG
-            .onAppear { if DebugSnapshot.flag("SurimonoFold") { showsFold = true } }
+            .onAppear { if DebugSnapshot.flag("SurimonoFold") { model.showsFold = true } }
         #endif
     }
 
@@ -55,7 +54,7 @@ struct PrintModeView: View {
             if model.hasCurrentPrintPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument
             {
                 PrintTrayView(
-                    model: model, tray: tray, document: document, showsFold: $showsFold, memory: trayMemory)
+                    model: model, tray: tray, document: document, showsFold: $model.showsFold, memory: trayMemory)
             } else if model.error == nil {
                 VStack(spacing: 10) {
                     if model.isRendering { ProgressView().controlSize(.small) }
@@ -64,8 +63,8 @@ struct PrintModeView: View {
                         .foregroundStyle(PrintPalette.ink2)
                 }
             }
-            if showsFold, model.hasCurrentPrintPreview, model.printTray?.isBooklet == true {
-                PrintFoldView(model: model) { showsFold = false }
+            if model.showsFold, model.hasCurrentPrintPreview, model.printTray?.isBooklet == true {
+                PrintFoldView(model: model) { model.showsFold = false }
                     .transition(.opacity)
             }
             if model.isPrintFinishPresented {
@@ -77,7 +76,7 @@ struct PrintModeView: View {
         }
         .overlay(alignment: .top) { errorBanner }
         .overlay(alignment: .bottom) { toast }
-        .animation(.easeOut(duration: 0.2), value: showsFold)
+        .animation(.easeOut(duration: 0.2), value: model.showsFold)
         // The tray takes whatever height it is given, so the window's smallest height keeps room for its navigator.
         .frame(minHeight: Self.minimumStageHeight)
     }

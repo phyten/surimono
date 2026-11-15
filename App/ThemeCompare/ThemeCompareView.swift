@@ -188,7 +188,8 @@ private struct CompareTopBar: View {
                 .padding(.horizontal, 7)
             }
             .buttonStyle(PrintBorderedButtonStyle())
-            .keyboardShortcut(.cancelAction)
+            // While the place list is open, Esc closes the list first; this shortcut would also leave the stage.
+            .keyboardShortcut(model.isComparePlacePickerPresented ? nil : .cancelAction)
             .help("Back to the view mode (Esc)")
             .fixedSize()
             VStack(alignment: .leading, spacing: 1) {
@@ -275,6 +276,7 @@ private struct ComparePlaceList: View {
     private static let rowSpacing: CGFloat = 1
     private static let padding: CGFloat = 6
     private static let maximumHeight: CGFloat = 420
+    private static let closeGutter: CGFloat = 26
 
     var body: some View {
         let headings = model.themeSamples.places.filter { $0.kind == .heading }
@@ -306,9 +308,19 @@ private struct ComparePlaceList: View {
                     }
                 }
                 .padding(Self.padding)
+                // The list has no heading row for the ×, so the rows leave it a gutter beside the first row, and the
+                // popover keeps its height.
+                .padding(.trailing, Self.closeGutter)
             }
             .scrollBounceBehavior(.basedOnSize)
+            // The scroll bar starts under the ×, which would otherwise lie on it.
+            .contentMargins(.top, Self.padding + Self.rowHeight, for: .scrollIndicators)
             .onAppear { proxy.scrollTo(model.comparePlace?.id ?? Self.firstPageID, anchor: .center) }
+        }
+        .overlay(alignment: .topTrailing) {
+            PopoverCloseButton()
+                .padding(.top, Self.padding + (Self.rowHeight - 22) / 2)
+                .padding(.trailing, Self.padding)
         }
         .frame(width: 320, height: height(headings: headings.count, code: code.count))
         .accessibilityLabel("Compare At")

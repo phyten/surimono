@@ -7,9 +7,13 @@ struct ViewOptionsPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("View Options").font(.headline)
-                Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+            HStack(spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("View Options").font(.headline)
+                    Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 0)
+                PopoverCloseButton()
             }
             SpreadSample(options: model.viewOptions, unit: currentUnit)
             // A single unit has nowhere to go: one small sheet under the sample would only repeat it.
