@@ -1,6 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import Observation
+import SurimonoCore
 import SwiftUI
 
 struct KeyCombo: Codable, Equatable, Sendable {
@@ -329,5 +330,64 @@ private struct ShortcutRecorder: NSViewRepresentable {
             finish()
             change?(value)
         }
+    }
+}
+
+// The running recorder still owns the legacy fields until the controller is connected.
+extension KeyCombo {
+    func shortcutCombination() throws -> ShortcutCombination {
+        guard isValid, let code = UInt16(exactly: keyCode) else { throw ShortcutModelError.invalidKey }
+        var flags: ShortcutModifiers = []
+        for (carbon, flag) in [
+            (controlKey, ShortcutModifiers.control), (optionKey, .option),
+            (shiftKey, .shift), (cmdKey, .command),
+        ] where modifiers & UInt32(carbon) != 0 {
+            flags.insert(flag)
+        }
+        return try ShortcutCombination(key: .macVirtualKey(code), modifiers: flags).normalized()
+    }
+}
+
+struct LegacyShortcutMigration {
+    static func evaluate(defaults: UserDefaults, environment: ShortcutValidationContext) -> ShortcutConfiguration {
+        let sources: [(ShortcutOperationID, String)] = [
+            (.globalClipboardOpen, "openClipboardShortcut"),
+            (.globalClipboardPrintScreen, "printClipboardShortcut"),
+        ]
+        var overrides: [ShortcutOperationID: [ShortcutCombination]] = [:]
+        var invalid: [ShortcutInactiveMigration] = []
+        var rawValues: [ShortcutOperationID: Data] = [:]
+        for (operation, key) in sources {
+            guard defaults.object(forKey: key) != nil else { continue }
+            let raw = defaults.data(forKey: key)
+            rawValues[operation] = raw
+            guard let raw, let legacy = try? JSONDecoder().decode(KeyCombo.self, from: raw),
+                let candidate = try? legacy.shortcutCombination()
+            else {
+                overrides[operation] = []
+                invalid.append(
+                    .init(operation: operation, legacyData: raw, candidate: nil, reasons: [.malformedLegacy]))
+                continue
+            }
+            overrides[operation] = [candidate]
+        }
+        // Validate both candidates together, so a duplicate does not acquire an arbitrary winner.
+        let candidates = ShortcutConfiguration(overrides: overrides)
+        let validator = ShortcutValidator(environment: environment)
+        for (operation, _) in sources {
+            guard let candidate = candidates.keys(for: operation).first else { continue }
+            var reasons = validator.issues(for: operation, combination: candidate).map(\.code)
+            if !validator.conflicts(for: operation, keys: [candidate], in: candidates).isEmpty {
+                reasons.append(.conflict)
+            }
+            if !reasons.isEmpty {
+                overrides[operation] = []
+                invalid.append(
+                    .init(
+                        operation: operation, legacyData: rawValues[operation], candidate: candidate,
+                        reasons: reasons))
+            }
+        }
+        return ShortcutConfiguration(overrides: overrides, inactiveMigration: invalid)
     }
 }
