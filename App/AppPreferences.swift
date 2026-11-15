@@ -91,10 +91,77 @@ final class AppPreferences {
     var menuArrangement: MenuArrangement {
         didSet { defaults.set(menuArrangement.rawValue, forKey: "menuArrangement") }
     }
+    private(set) var bandArrangementStore: BandArrangementStore
+    private(set) var bandArrangementNotices: [BandRepairNotice]
+    private(set) var retainedBandArrangementData: Data?
+    /// A development build's fixture from `-SurimonoBandArrangement`: shown, never saved over the reader's sets.
+    @ObservationIgnored private var showsBandArrangementFixture = false
+
+    enum BandArrangementPersistenceError: Error {
+        case retainedDataRequiresRecovery
+        case fixtureIsReadOnly
+    }
+
+    /// The arrangement the view mode's bands draw for the current topology.
+    var activeBandArrangement: BandArrangement {
+        bandArrangementStore.activeLayouts.arrangement(for: menuArrangement)
+    }
+
+    // Encode before publishing either value. Observers never see a deleted active set or a half-written envelope.
+    func updateBandArrangements(_ change: (inout BandArrangementStore) throws -> Void) throws {
+        guard retainedBandArrangementData == nil else {
+            throw BandArrangementPersistenceError.retainedDataRequiresRecovery
+        }
+        guard !showsBandArrangementFixture else { throw BandArrangementPersistenceError.fixtureIsReadOnly }
+        var next = bandArrangementStore
+        try change(&next)
+        let data = try JSONEncoder().encode(next)
+        defaults.set(data, forKey: "bandArrangementStore")
+        bandArrangementStore = next
+    }
+
+    func selectBandArrangement(_ selection: BandArrangementSelection) throws {
+        try updateBandArrangements { try $0.select(selection) }
+    }
+
+    func saveBandArrangement(_ set: BandArrangementSet, activate: Bool = true) throws {
+        try updateBandArrangements { try $0.insert(set, activate: activate) }
+    }
+
+    func overwriteBandArrangement(_ selection: BandArrangementSelection, layouts: BandArrangementVariants) throws {
+        try updateBandArrangements { try $0.overwrite(selection, layouts: layouts) }
+    }
+
+    func renameBandArrangement(_ selection: BandArrangementSelection, to name: String) throws {
+        try updateBandArrangements { try $0.rename(selection, to: name) }
+    }
+
+    func deleteBandArrangement(
+        _ selection: BandArrangementSelection, replacement: BandArrangementSelection? = nil
+    ) throws {
+        try updateBandArrangements { try $0.delete(selection, replacement: replacement) }
+    }
+
     var outlinePresentation: OutlinePresentation {
         didSet { defaults.set(outlinePresentation.rawValue, forKey: "outlinePresentation") }
     }
-    var showsOutlineOnBand: Bool { didSet { defaults.set(showsOutlineOnBand, forKey: "showsOutlineOnBand") } }
+    var showsOutlineOnBand: Bool {
+        didSet {
+            defaults.set(showsOutlineOnBand, forKey: "showsOutlineOnBand")
+            followOutlineChoice()
+        }
+    }
+
+    /// Until an arrangement is saved, the old checkbox still decides whether Contents is on the band: the store is then
+    /// only derived in memory, so following the checkbox writes nothing. Once saved, the explicit placement wins.
+    private func followOutlineChoice() {
+        guard defaults.data(forKey: "bandArrangementStore") == nil, retainedBandArrangementData == nil,
+            !showsBandArrangementFixture
+        else { return }
+        bandArrangementStore =
+            showsOutlineOnBand
+            ? BandArrangementStore() : .previousArrangement(named: String(localized: "Previous Arrangement"))
+    }
     var changeFollowing: ChangeFollowing {
         didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
     }
@@ -294,6 +361,22 @@ final class AppPreferences {
             Self.screenshotChoice("SurimonoOutline")
             ?? OutlinePresentation(rawValue: defaults.string(forKey: "outlinePresentation") ?? "") ?? .popover
         showsOutlineOnBand = defaults.object(forKey: "showsOutlineOnBand") as? Bool ?? true
+        let bandData = defaults.data(forKey: "bandArrangementStore")
+        let bandLoad = BandArrangementStore.load(bandData)
+        bandArrangementStore =
+            bandData == nil && defaults.object(forKey: "showsOutlineOnBand") as? Bool == false
+            ? .previousArrangement(named: String(localized: "Previous Arrangement")) : bandLoad.store
+        bandArrangementNotices = bandLoad.notices
+        retainedBandArrangementData = bandLoad.retainedData
+        #if DEBUG
+            if let fixture = DebugSnapshot.argument("SurimonoBandArrangement")
+                .flatMap(DebugSnapshot.bandArrangementFixture(named:))
+            {
+                bandArrangementStore = fixture
+                showsBandArrangementFixture = true
+            }
+        #endif
+
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .ask

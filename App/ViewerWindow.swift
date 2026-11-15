@@ -185,6 +185,14 @@ enum ViewerWindow {
         side: CGFloat = 0, topGrowth: CGFloat = 0
     ) {
         guard paper.width > 0, paper.height > 0 else { return }
+        // Every size the app gives the view mode leaves the bands room for what never leaves them; the paper keeps its
+        // shape at that width.
+        var paper = paper
+        let minimum = bandMinimumWidth(of: window)
+        if paper.width + side < minimum {
+            let width = (minimum - side).rounded(.up)
+            paper = CGSize(width: width, height: (paper.height * width / paper.width).rounded())
+        }
         let content = NSRect(x: 0, y: 0, width: paper.width + side, height: paper.height + band)
         var frame = window.frameRect(forContentRect: content)
         frame.origin.x = keepsRightEdge ? window.frame.maxX - frame.width : window.frame.minX
@@ -199,15 +207,57 @@ enum ViewerWindow {
         let paperWidth = paperHeight * unit.width / unit.height
         // An aspect ratio cannot express "paper plus a fixed band", so the band is included at the current size.
         window.contentAspectRatio = NSSize(width: paperWidth + side, height: paperHeight + band)
-        window.contentMinSize = NSSize(
-            width: minimumPaperHeight * unit.width / unit.height + side, height: minimumPaperHeight + band)
+        aspectLocks.setObject(AspectLock(unit: unit, band: band, side: side), forKey: window)
+        window.contentMinSize = minimumContentSize(
+            unit: unit, band: band, side: side, bandMinimum: bandMinimumWidth(of: window))
     }
 
     static func unlockAspectRatio(of window: NSWindow) {
         // Per AppKit, resize increments of 1×1 remove an aspect ratio constraint.
         window.resizeIncrements = NSSize(width: 1, height: 1)
-        window.contentMinSize = NSSize(width: 480, height: 360)
+        aspectLocks.removeObject(forKey: window)
+        window.contentMinSize = NSSize(width: max(480, bandMinimumWidth(of: window)), height: 360)
     }
+
+    /// The smallest content of a window locked to the paper's shape: the paper no lower than `minimumPaperHeight`, and
+    /// no narrower than the bands' fixed parts (`bandMinimum`), with the height that keeps the shape at that width.
+    static func minimumContentSize(unit: CGSize, band: CGFloat, side: CGFloat, bandMinimum: CGFloat) -> NSSize {
+        let paperWidth = max(minimumPaperHeight * unit.width / unit.height, bandMinimum - side)
+        return NSSize(width: paperWidth + side, height: paperWidth * unit.height / unit.width + band)
+    }
+
+    /// The narrowest content the window's bands can lay out (`BandPlans.minimumWidth`), which every later minimum size
+    /// of the window respects too.
+    static func setBandMinimumWidth(_ width: CGFloat, of window: NSWindow) {
+        guard bandMinimumWidth(of: window) != width else { return }
+        bandMinimumWidths.setObject(NSNumber(value: Double(width)), forKey: window)
+        if let lock = aspectLocks.object(forKey: window) {
+            window.contentMinSize = minimumContentSize(
+                unit: lock.unit, band: lock.band, side: lock.side, bandMinimum: width)
+        } else if window.contentMinSize.width < width {
+            window.contentMinSize.width = width
+        }
+    }
+
+    static func bandMinimumWidth(of window: NSWindow) -> CGFloat {
+        bandMinimumWidths.object(forKey: window).map { CGFloat($0.doubleValue) } ?? 0
+    }
+
+    private final class AspectLock {
+        let unit: CGSize
+        let band: CGFloat
+        let side: CGFloat
+
+        init(unit: CGSize, band: CGFloat, side: CGFloat) {
+            self.unit = unit
+            self.band = band
+            self.side = side
+        }
+    }
+
+    private static let bandMinimumWidths = NSMapTable<NSWindow, NSNumber>.weakToStrongObjects()
+    /// The last shape each window was locked to, so that a new band minimum keeps it.
+    private static let aspectLocks = NSMapTable<NSWindow, AspectLock>.weakToStrongObjects()
 
     private static func constrained(_ frame: NSRect, on screen: NSScreen?) -> NSRect {
         guard let visible = (screen ?? NSScreen.main)?.visibleFrame else { return frame }

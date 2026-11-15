@@ -30,6 +30,69 @@
         static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
         static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
 
+        /// Arrangements to look at before the editor exists: `-SurimonoBandArrangement printBottom|reordered|sparse`.
+        /// They are held in memory only; the preferences refuse to save over the reader's sets while one is shown.
+        static func bandArrangementFixture(named name: String) -> BandArrangementStore? {
+            var layouts: BandArrangementVariants
+            switch name {
+            case "printBottom":
+                // Print at the bottom right of Split, and at the start of the left zone in Top Only.
+                layouts = BandArrangementVariants(
+                    split: BandArrangement(
+                        topLeft: [.formatBadge], topRight: [.floatOnTop],
+                        bottomLeft: [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails],
+                        bottomRight: [.pageIndicator, .pageTurn, .print]),
+                    top: BandArrangement(
+                        topLeft: [.print, .formatBadge, .pageIndicator],
+                        topRight: [
+                            .presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails, .floatOnTop,
+                        ],
+                        unused: [.pageTurn]))
+            case "reordered":
+                // Tools across zones and against the catalog order; Print is not last, so "…" docks at the edge.
+                layouts = BandArrangementVariants(
+                    split: BandArrangement(
+                        topLeft: [.formatBadge, .outline], topRight: [.layout, .print, .floatOnTop],
+                        bottomLeft: [.pageTurn, .pageIndicator],
+                        bottomRight: [.transition, .style, .presentation, .zoom, .thumbnails]),
+                    top: BandArrangement(
+                        topLeft: [.formatBadge, .pageIndicator, .outline, .style],
+                        topRight: [.transition, .layout, .zoom, .presentation, .thumbnails, .print, .floatOnTop],
+                        unused: [.pageTurn]))
+            case "sparse":
+                // Most parts not in use; they stay within reach in "…".
+                layouts = BandArrangementVariants(
+                    split: BandArrangement(
+                        topRight: [.print], bottomLeft: [.outline, .layout], bottomRight: [.pageIndicator, .pageTurn],
+                        unused: [.formatBadge, .presentation, .style, .transition, .zoom, .thumbnails, .floatOnTop]),
+                    top: BandArrangement(
+                        topLeft: [.pageIndicator], topRight: [.outline, .layout, .print],
+                        unused: [
+                            .formatBadge, .presentation, .style, .transition, .zoom, .thumbnails, .floatOnTop,
+                            .pageTurn,
+                        ]))
+            default:
+                return nil
+            }
+            if name == "reordered" {
+                layouts.split.topLeft = [
+                    .separator, .part(.formatBadge), .separator, .separator, .part(.outline), .separator,
+                ]
+                layouts.top.topLeft = [
+                    .part(.formatBadge), .part(.pageIndicator), .part(.outline), .separator, .part(.style),
+                ]
+                layouts.split.bottomRight.insert(.separator, at: 2)
+            }
+            var store = BandArrangementStore()
+            do {
+                try store.insert(BandArrangementSet(name: name, layouts: layouts))
+            } catch {
+                logger.error("Band arrangement fixture is invalid: \(String(describing: error), privacy: .public)")
+                return nil
+            }
+            return store
+        }
+
         /// Stands in for another app: a service's selection and a streaming feed come through private pasteboards, leaving
         /// the shared ones alone.
         static func openFeeds() {
@@ -500,6 +563,11 @@
                             for: .milliseconds(model.viewOptions.transition == .pageCurl ? 2200 : 1300))
                     }
                 }
+                if flag("SurimonoMoreMenu"), let window = model.window {
+                    // As if "…" were clicked, to see what it holds; the menu closes again after the capture.
+                    openMoreMenu(of: model, in: window)
+                    try? await Task.sleep(for: .milliseconds(1200))
+                }
                 if let path = argument("SurimonoHitMap"), let window = model.window {
                     try? hitMap(of: window).write(toFile: path, atomically: true, encoding: .utf8)
                 }
@@ -531,6 +599,7 @@
                     }
                     try data.write(to: destination, options: .atomic)
                     captured = true
+                    trackedMenu?.cancelTrackingWithoutAnimation()
                     if argument("SurimonoSnapshotQuit")?.uppercased() == "YES" {
                         // A document window with a sheet attached will not close, which cancels the quit.
                         if model.manualDuplexSession != nil {
@@ -543,6 +612,33 @@
                     logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
+        }
+
+        private static weak var trackedMenu: NSMenu?
+        private static var menuObserver: NSObjectProtocol?
+
+        /// Clicks the control under "…" from a run loop timer rather than from this task: the menu tracks in a nested
+        /// run loop, which drains the main queue only when it was not entered from a main-queue block.
+        private static func openMoreMenu(of model: DocumentViewModel, in window: NSWindow) {
+            guard let frame = model.bandAnchors.frames[.more], let content = window.contentView else { return }
+            let local = NSPoint(x: frame.midX, y: content.isFlipped ? frame.midY : content.bounds.height - frame.midY)
+            var view = content.hitTest(content.convert(local, to: content.superview))
+            while let candidate = view, !(candidate is NSControl) { view = candidate.superview }
+            guard let control = view as? NSControl else {
+                logger.error("No control under the More menu")
+                return
+            }
+            menuObserver = NotificationCenter.default.addObserver(
+                forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main
+            ) { note in
+                // Safe: the observer is called on the main queue, where the menu lives.
+                nonisolated(unsafe) let menu = note.object as? NSMenu
+                MainActor.assumeIsolated { trackedMenu = menu }
+            }
+            let timer = Timer(timeInterval: 0.05, repeats: false) { _ in
+                MainActor.assumeIsolated { control.performClick(nil) }
+            }
+            RunLoop.main.add(timer, forMode: .common)
         }
 
         /// The section of the print settings that `-SurimonoFinishSheet` names.

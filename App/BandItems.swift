@@ -15,17 +15,6 @@ extension BandLayout.Item {
         }
     }
 
-    /// The spacing in front of the item on its band, which the plan counts as part of its width. Print's spacing
-    /// belongs to the band's fixed part.
-    func bandGap(in arrangement: MenuArrangement) -> CGFloat {
-        switch self {
-        case .formatBadge: OverlayBand.titleSpacing
-        case .pageIndicator: arrangement == .split ? OverlayBand.toolSpacing : OverlayBand.titleSpacing
-        case .print: 0
-        default: OverlayBand.toolSpacing
-        }
-    }
-
     static func applicable(for model: DocumentViewModel) -> [Self] {
         // The paper's tools do nothing for a live web page.
         let paper = !model.showsWeb
@@ -37,8 +26,9 @@ extension BandLayout.Item {
             // On the web, only a slide deck has pages to count.
             case .pageIndicator: model.pageIndicator != nil
             case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
-            case .outline: model.hasOutline && model.preferences.showsOutlineOnBand
-            case .pageTurn: paper && model.menuArrangement == .split && model.pageCount > 1
+            // Whether the band shows them is the arrangement's business; these say only what the document allows.
+            case .outline: model.hasOutline
+            case .pageTurn: paper && model.pageCount > 1
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil || model.binder != nil
             }
@@ -298,11 +288,13 @@ private struct TransitionPicker: View {
     }
 }
 
-// The menu stays on the band so its view-options popover keeps its anchor when the band rearranges.
+// The menu stays at the top band's trailing end, a fixed place for the view options' popover and for every part that
+// is not on a band.
 struct BandMoreMenu: View {
     @Bindable var model: DocumentViewModel
-    /// Empty while measuring: only the menu label needs a width.
-    let overflow: [BandLayout.Item]
+    /// The parts not in use and those the width pushed out, in the catalog's order. Empty while measuring: only the
+    /// menu label needs a width.
+    let items: [BandLayout.Item]
     /// Names the document when the band no longer shows its name, format or page in full.
     let header: String?
 
@@ -312,18 +304,18 @@ struct BandMoreMenu: View {
                 Text(verbatim: header)
                 Divider()
             }
-            let tools = overflow.filter { $0.group != nil }
+            let tools = items.filter { $0.group != nil }
             ForEach(Array(tools.enumerated()), id: \.element) { index, item in
                 if index > 0, tools[index - 1].group != item.group { Divider() }
                 BandMenuItem(model: model, item: item)
             }
             if !tools.isEmpty { Divider() }
-            if overflow.contains(.pageIndicator), model.pageCount > 0, !model.showsWeb {
+            if items.contains(.pageIndicator), model.pageCount > 0, !model.showsWeb {
                 Button("Document Info…") { model.isFiguresPresented = true }
             }
-            // Taken off the band on purpose, the contents stay within reach here.
-            if model.hasOutline, !model.preferences.showsOutlineOnBand {
-                Button("Contents…") { model.toggleOutline() }
+            if items.contains(.pageTurn) {
+                Button("Previous Page") { model.paper.turnPage(forward: false) }
+                Button("Next Page") { model.paper.turnPage(forward: true) }
             }
             ForEach(SecondaryViewControl.applicable(for: model), id: \.self) { item in
                 SecondaryViewMenuItem(model: model, item: item)
@@ -516,7 +508,7 @@ struct BandMeasurements: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
-            measure(.more) { BandMoreMenu(model: model, overflow: [], header: nil) }
+            measure(.more) { BandMoreMenu(model: model, items: [], header: nil) }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
                 if item.hasCompactForm {

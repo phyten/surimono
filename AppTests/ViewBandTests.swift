@@ -827,7 +827,7 @@ struct ViewBandTests {
         #expect(!BandLayout.Item.applicable(for: model).contains(.outline))
     }
 
-    @Test("帯から外す設定では目次の部品を帯に置かない")
+    @Test("帯から外す設定では目次の部品を帯に置かず、「…」から開ける")
     func outlineCanLeaveTheBand() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -837,7 +837,9 @@ struct ViewBandTests {
         defer { model.stop() }
         try await open(model)
         try await waitUntil { model.hasOutline }
-        #expect(!BandLayout.Item.applicable(for: model).contains(.outline))
+        let plans = BandPlans(model: model, menu: OverlayMenuState())
+        #expect(plans.band(of: .outline) == nil)
+        #expect(plans.menuItems.contains(.outline))
     }
 
     @Test("目次の出し方に従ってポップオーバーか引き出しを開く")
@@ -899,7 +901,7 @@ struct ViewBandTests {
         #expect(model.mode == .print)
     }
 
-    @Test("ページ送りのボタンは 2 ページ以上ある上下分割の下の帯にだけ置く")
+    @Test("ページ送りは 2 ページ以上の文書で使え、標準では上下分割の下の帯にだけ置き、上だけでは「…」に入る")
     func pageTurnNeedsPagesAndSplit() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -908,7 +910,11 @@ struct ViewBandTests {
         #expect(!BandLayout.Item.applicable(for: model).contains(.pageTurn))
         try await open(model)
         #expect(BandLayout.Item.applicable(for: model).contains(.pageTurn))
+        #expect(BandPlans(model: model, menu: OverlayMenuState()).band(of: .pageTurn) == .bottom)
         environment.preferences.menuArrangement = .top
-        #expect(!BandLayout.Item.applicable(for: model).contains(.pageTurn))
+        #expect(BandLayout.Item.applicable(for: model).contains(.pageTurn))
+        let top = BandPlans(model: model, menu: OverlayMenuState())
+        #expect(top.band(of: .pageTurn) == nil)
+        #expect(top.menuItems.contains(.pageTurn))
     }
 }

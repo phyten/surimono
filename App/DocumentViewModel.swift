@@ -174,6 +174,8 @@ final class DocumentViewModel {
     @ObservationIgnored weak var trayZoomer: TrayZoomer?
     /// A file drag over this window.
     let drop = DropSession()
+    /// Where the view mode's band parts stand, for the popovers that hang off them.
+    let bandAnchors = BandAnchors()
     /// The window this binder took the place of, for as long as going back can bring it.
     @ObservationIgnored var binderOrigin: BinderOrigin?
     /// The reader took this binder back, so its window leaves nothing to open again when it closes.
@@ -2841,6 +2843,42 @@ final class DocumentViewModel {
             topGrowth: room.top - previous.top)
         // Only the resizing rule follows the new room: the live page keeps the size the reader gave it, even past the
         // share of the screen that a newly shaped window takes.
+        guard isWebPresentation else { return }
+        if let deck = slideDeck {
+            ViewerWindow.lockAspectRatio(of: window, unit: deck.size, band: bandInset)
+        } else {
+            ViewerWindow.unlockAspectRatio(of: window)
+        }
+    }
+
+    /// The bands' narrowest width (`BandPlans.minimumWidth`). A window narrower than it grows to it after SwiftUI's
+    /// update, as one of the app's own resizes, so nothing is saved for it; on a stage and in full screen it waits
+    /// until reading resumes, when the view mode reports the width again.
+    func bandMinimumWidthDidChange(_ width: CGFloat, in window: NSWindow? = nil) {
+        guard let window = window ?? self.window else { return }
+        ViewerWindow.setBandMinimumWidth(width, of: window)
+        Task { @MainActor [weak self] in self?.fitWindowToBands() }
+    }
+
+    private func fitWindowToBands(attempt: Int = 0) {
+        guard mode == .view, hasSizedWindow, !isInFullScreen, let window, !window.styleMask.contains(.fullScreen),
+            !window.inLiveResize
+        else { return }
+        let content = window.contentRect(forFrameRect: window.frame).size
+        guard content.width + 0.5 < ViewerWindow.bandMinimumWidth(of: window) else { return }
+        // A stage's frame on its way back to reading would overwrite this one.
+        guard !ViewerWindow.isResizingProgrammatically(window) else {
+            guard attempt < 5 else { return }
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(300))
+                self?.fitWindowToBands(attempt: attempt + 1)
+            }
+            return
+        }
+        ViewerWindow.setPaperSize(
+            CGSize(width: content.width - sideInset, height: content.height - bandInset), band: bandInset,
+            of: window, animate: false, side: sideInset)
+        // A live page keeps its free shape; only a slide deck keeps the slide's.
         guard isWebPresentation else { return }
         if let deck = slideDeck {
             ViewerWindow.lockAspectRatio(of: window, unit: deck.size, band: bandInset)
