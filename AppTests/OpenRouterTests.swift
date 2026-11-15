@@ -39,6 +39,23 @@ struct OpenRouterTests {
         #expect(opened == [url("a.pdf")])
     }
 
+    @Test("同梱の案内は1つのファイルとして文書を開く処理に渡し、2度目も同じファイルを渡す")
+    func gettingStarted() {
+        var opened: [URL] = []
+        let router = router(openDocument: { url, _ in opened.append(url) })
+        router.gettingStartedURL = { self.url("Getting Started with Surimono.md") }
+        #expect(router.openGettingStarted())
+        #expect(router.openGettingStarted())
+        #expect(opened == [url("Getting Started with Surimono.md"), url("Getting Started with Surimono.md")])
+    }
+
+    @Test("案内がアプリに見つからなければ何も開かない")
+    func gettingStartedMissing() {
+        let router = router()
+        router.gettingStartedURL = { nil }
+        #expect(!router.openGettingStarted())
+    }
+
     @Test("画像3つは自然順の束として開く")
     func bundle() {
         var opened: [URL] = []

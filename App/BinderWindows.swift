@@ -64,9 +64,12 @@ final class BinderWindows {
 
     /// Keeps a binder whose window is closing for the File menu's Recent Binders, so that the reader can open it again
     /// without choosing its files. One a parent file names comes back by opening the parent, one document is no
-    /// binder, and one the reader undid is one they did not want.
+    /// binder, and one the reader undid is one they did not want. A binder that holds a file inside the app, such as
+    /// the bundled guide, is not the reader's set of files: it is left out whole, before any bookmark is made, rather
+    /// than recorded without that file as a set the reader never made.
     func remember(_ model: DocumentViewModel) {
-        guard let binder = model.binder, binder.origin == .files, binder.urls.count > 1, !model.isBinderUndone
+        guard let binder = model.binder, binder.origin == .files, binder.urls.count > 1, !model.isBinderUndone,
+            !binder.urls.contains(where: { GettingStarted.isInsideApp($0) })
         else { return }
         preferences?.recordRecentBinder(recentFiles.binder(of: binder.urls))
     }
