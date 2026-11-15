@@ -53,7 +53,7 @@ struct PrintFoldView: View {
                     Label("Back to Sheets", systemImage: "rectangle.split.2x1").padding(.horizontal, 12)
                 }
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
-                .keyboardShortcut(.cancelAction)
+                .keyboardShortcut(model.printEscapeTarget == .fold ? .cancelAction : nil)
                 .fixedSize()
             }
         }

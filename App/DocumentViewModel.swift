@@ -203,6 +203,8 @@ final class DocumentViewModel {
     /// The reader chose to write the header and footer themselves, which an empty one does not show by its content.
     var isWritingFurniture = false
     var isPrintIssuesPresented = false
+    /// The tray shows the booklet folded (「折ってみる」).
+    var showsFold = false
     @ObservationIgnored private var pendingPrintIssue: (issue: PrintIssue, pageCount: Int)?
     /// Waits for the paper to show the page of a problem the reader was sent to, then frames the spot.
     @ObservationIgnored private var spotTask: Task<Void, Never>?
@@ -1571,6 +1573,7 @@ final class DocumentViewModel {
         closeBandPopovers()
         // The view mode's print settings hang off the window's edge, which the tray's frame moves away.
         isPrintFinishPresented = false
+        showsFold = false
         // The tray shows what prints, so the review and its outlined pages end here.
         isReviewingSmartRemoval = false
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting

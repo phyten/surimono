@@ -20,6 +20,17 @@ extension DocumentViewModel {
         }
     }
 
+    /// What Esc closes on the print screen. Things open over one another there, and only the topmost takes the key: a
+    /// shortcut on what lies underneath would close it in the same press.
+    enum PrintEscapeTarget { case popover, settings, fold, screen }
+
+    var printEscapeTarget: PrintEscapeTarget {
+        if isThemePalettePresented || isPrintIssuesPresented { return .popover }
+        if isPrintFinishPresented { return .settings }
+        if showsFold { return .fold }
+        return .screen
+    }
+
     /// Opens the print settings at one of their sections.
     func presentFinish(_ section: PrintFinishSection) {
         finishSection = section

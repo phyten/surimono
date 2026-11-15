@@ -168,7 +168,7 @@ struct PrintFinishSheet: View {
             }
             .buttonStyle(PrintBorderedButtonStyle())
             .fixedSize()
-            .keyboardShortcut(.cancelAction)
+            .keyboardShortcut(model.printEscapeTarget == .settings ? .cancelAction : nil)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
