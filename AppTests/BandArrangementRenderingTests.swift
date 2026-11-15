@@ -37,11 +37,11 @@ struct BandArrangementRenderingTests {
         let library: UserLibrary
         let store: DocumentSettingsStore
         let directory: URL
-        let suite: TestDefaultsSuite
+        let suite: BandTestDefaultsSuite
 
         init() {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-            suite = TestDefaultsSuite()
+            suite = BandTestDefaultsSuite()
             preferences = AppPreferences(defaults: suite.defaults)
             library = UserLibrary(root: directory.appendingPathComponent("Library"))
             store = DocumentSettingsStore(directory: directory.appendingPathComponent("Settings"))
@@ -57,9 +57,11 @@ struct BandArrangementRenderingTests {
             let renderer = DocumentRenderer(paginate: { _ in
                 try #require(PDFDocument(data: TestFixtures.textPDF(["First Chapter", "Second Chapter"])))
             })
-            return DocumentViewModel(
+            let model = DocumentViewModel(
                 data: Data("# First Chapter\n\n# Second Chapter\n".utf8), fileURL: nil, format: .markdown,
                 preferences: preferences, library: library, renderer: renderer, settingsStore: store)
+            model.isolateBandTestOutput()
+            return model
         }
     }
 
@@ -147,13 +149,13 @@ struct BandArrangementRenderingTests {
             #expect(wide.bottom?.leading == [.style, .outline, .layout, .transition])
             #expect(wide.bottom?.trailing == [.pageIndicator, .pageTurn])
             #expect(wide.bottom?.geometry.usesStandardSpacing == true)
-            #expect(wide.menuItems == [])
+            #expect(wide.resolved.unusedAvailable == [])
         case .top:
             #expect(wide.top.leading == [.formatBadge, .pageIndicator])
             #expect(wide.top.trailing == [.style, .outline, .layout, .transition, .floatOnTop, .print])
             #expect(wide.bottom == nil)
             // Standard Top Only leaves Page Turn off the band; "…" now offers its two actions.
-            #expect(wide.menuItems == [.pageTurn])
+            #expect(wide.resolved.unusedAvailable == [.pageTurn])
         }
         #expect(wide.top.geometry.moreDock == .beforePrint)
 
@@ -165,7 +167,7 @@ struct BandArrangementRenderingTests {
             #expect(plans.top.nameWidth == old.top.nameWidth, "name at \(width)")
             #expect(plans.bottom?.forms == old.bottom?.forms, "bottom at \(width)")
             let pushedOut = Set(old.top.overflow + (old.bottom?.overflow ?? []))
-            #expect(Set(plans.menuItems.filter { $0 != .pageTurn || mode == .split }) == pushedOut, "… at \(width)")
+            #expect(Set(plans.resolved.overflow) == pushedOut, "overflow at \(width)")
         }
     }
 
@@ -261,13 +263,13 @@ struct BandArrangementRenderingTests {
         window.setContentSize(NSSize(width: 260, height: wide.height))
         #expect(window.contentRect(forFrameRect: window.frame).width == 260)
         try await waitUntil { anchors.plan != nil && anchors.plan?.band(of: folding) == nil }
-        #expect(anchors.plan?.menuItems.contains(folding) == true)
+        #expect(anchors.plan?.overflow.contains(folding) == true)
         #expect(isPresented(popover, in: model))
         #expect(popoverCount(window) == base + 1)
 
         window.setContentSize(wide)
         try await waitUntil { anchors.plan?.band(of: folding) == .top }
-        #expect(anchors.plan?.menuItems.contains(folding) == false)
+        #expect(anchors.plan?.overflow.contains(folding) == false)
         #expect(isPresented(popover, in: model))
         #expect(popoverCount(window) == base + 1)
 
@@ -307,7 +309,7 @@ struct BandArrangementRenderingTests {
         layouts.split = try layouts.split.moving(.outline, to: .unused, for: .split)
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "No Contents", layouts: layouts))
         try await waitUntil { anchors.plan != nil && anchors.plan?.band(of: .outline) == nil }
-        #expect(anchors.plan?.menuItems.contains(.outline) == true)
+        #expect(anchors.plan?.unusedAvailable.contains(.outline) == true)
         #expect(model.isOutlinePresented)
         #expect(popoverCount(window) == base + 1)
 
@@ -404,6 +406,7 @@ struct BandArrangementRenderingTests {
         let model = DocumentViewModel(
             data: pages, fileURL: nil, format: .pdf, preferences: environment.preferences,
             library: environment.library, renderer: renderer, settingsStore: environment.store)
+        model.isolateBandTestOutput()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
         let window = try #require(controller.window)
@@ -447,6 +450,7 @@ struct BandArrangementRenderingTests {
         let model = DocumentViewModel(
             data: Data(), fileURL: nil, format: .image, preferences: environment.preferences,
             library: environment.library, imageBundle: ImageBundleModel(urls: [first, second]))
+        model.isolateBandTestOutput()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
         let window = try #require(controller.window)
@@ -473,7 +477,7 @@ struct BandArrangementRenderingTests {
         }
     }
 
-    @Test("使わない部品と幅で外れた部品は「…」に一度ずつ、目録の順で並び、印刷は入らない")
+    @Test("使わない部品と幅で外れた部品を区別し、印刷は帯に残す")
     func moreMenuContents() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -488,24 +492,24 @@ struct BandArrangementRenderingTests {
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "Sparse", layouts: layouts))
 
         let wide = BandPlans(model: model, menu: menu(width: 2000))
-        // Presentation, Zoom and List do not apply to this document, so they stay out of "…" too.
-        #expect(wide.menuItems == [.formatBadge, .style, .transition, .floatOnTop])
-        // Narrow, the bottom band gives way; what left it joins what is not in use, once each, in the catalog's order.
+        // Presentation, Zoom and List do not apply to this document.
+        #expect(wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop])
+        // Narrow, the bottom band gives way; unused and overflow remain separate.
         let narrow = BandPlans(model: model, menu: menu(width: 140))
         #expect(narrow.bottom?.forms == [.outline: .compact, .pageIndicator: .full])
         #expect(narrow.resolved.overflow == [.layout, .pageTurn])
-        #expect(narrow.menuItems == [.formatBadge, .style, .layout, .transition, .floatOnTop, .pageTurn])
-        #expect(!narrow.menuItems.contains(.print))
+        #expect(narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop])
+        #expect(!narrow.resolved.overflow.contains(.print))
         #expect(narrow.top.forms[.print] != nil)
 
-        // A conditional part joins "…" only while the document allows it: Zoom while zoomed in.
+        // A conditional unused part is available only while the document allows it: Zoom while zoomed in.
         model.zoom = 2
-        #expect(BandPlans(model: model, menu: menu(width: 2000)).menuItems.contains(.zoom))
+        #expect(BandPlans(model: model, menu: menu(width: 2000)).resolved.unusedAvailable.contains(.zoom))
     }
 
     @Test("配置を保存していなければ「ツールバーに目次を表示」の切り替えがそのまま帯に効き、保存したあとは配置が優先する")
     func outlineCheckboxUntilSaved() throws {
-        let suite = TestDefaultsSuite()
+        let suite = BandTestDefaultsSuite()
         defer { suite.remove() }
         let preferences = AppPreferences(defaults: suite.defaults)
         #expect(preferences.activeBandArrangement == .standard(for: .split))

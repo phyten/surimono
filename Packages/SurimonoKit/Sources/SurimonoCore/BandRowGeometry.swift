@@ -69,8 +69,4 @@ public struct BandResolvedPlan: Equatable, Sendable {
     public var overflow: [BandLayout.Item]
     public var unusedAvailable: [BandLayout.Item]
 
-    public var menuItems: [BandLayout.Item] {
-        let items = Set(overflow + unusedAvailable)
-        return BandLayout.Item.allCases.filter { $0 != .print && items.contains($0) }
-    }
 }

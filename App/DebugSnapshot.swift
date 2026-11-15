@@ -10,6 +10,7 @@
     enum DebugSnapshot {
         static let showMenu = Notification.Name("SurimonoDebugShowMenu")
         private static var captured = false
+        private static var loggedMoreMenu = false
         private static weak var firstDocument: DocumentViewModel?
         private static var scheduled = false
         private static var appliedOverrides = false
@@ -701,6 +702,14 @@
                     // As if "…" were clicked, to see what it holds; the menu closes again after the capture.
                     openMoreMenu(of: model, in: window)
                     try? await Task.sleep(for: .milliseconds(1200))
+                }
+                if model.isUpToDate, !loggedMoreMenu, flag("SurimonoMoreMenuLog") {
+                    loggedMoreMenu = true
+                    // Only operation IDs are public; never log the document header or user-selected style names.
+                    let entries = BandMenuContent(model: model).groups.map {
+                        $0.entries.map { $0.id.rawValue }.joined(separator: ",")
+                    }.joined(separator: " | ")
+                    logger.info("More menu: \(entries, privacy: .public)")
                 }
                 if let path = argument("SurimonoHitMap"), let window = model.window {
                     try? hitMap(of: window).write(toFile: path, atomically: true, encoding: .utf8)

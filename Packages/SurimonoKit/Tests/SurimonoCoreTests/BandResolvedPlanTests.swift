@@ -153,7 +153,8 @@ struct BandResolvedPlanTests {
             #expect(bottom.forms == [.print: .compact] && bottom.requiredWidth == 64)
         }
         #expect(bottom.minimumWidth == 64 && plan.top.minimumWidth == 150)
-        #expect(bottom.leading.last == .print && !plan.menuItems.contains(.print))
+        #expect(
+            bottom.leading.last == .print && !plan.overflow.contains(.print) && !plan.unusedAvailable.contains(.print))
         #expect(plan.top.geometry.moreDock == .trailing)
     }
 
@@ -202,7 +203,6 @@ struct BandResolvedPlanTests {
             measurements: .init(items: BandLayoutTests.workedWidths, name: 120), metrics: metrics, availableWidth: 1)
         #expect(plan.unusedAvailable == [.outline])
         #expect(plan.overflow == [.style])
-        #expect(plan.menuItems == [.style, .outline])
         #expect(plan.top.forms == [.print: .compact])
         #expect(plan.bottom?.forms == [:])
         #expect(

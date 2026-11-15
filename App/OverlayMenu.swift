@@ -137,16 +137,13 @@ final class OverlayMenuState {
     }
 }
 
-/// What each band shows at the current width, from the saved arrangement of the band's parts. The "…" menu is on the
-/// top band and takes in what is not in use and what the width pushed off either band.
+/// What each band shows at the current width, from the saved arrangement of the band's parts.
 struct BandPlans {
     let resolved: BandResolvedPlan
 
     var top: BandRowPlan { resolved.top }
     /// Nil when the arrangement has no bottom band.
     var bottom: BandRowPlan? { resolved.bottom }
-    /// The parts "…" offers in their place, in the catalog's order.
-    var menuItems: [BandLayout.Item] { resolved.menuItems }
     /// The narrowest window whose bands still hold what never leaves them: the traffic lights, "…" and Print.
     var minimumWidth: CGFloat { max(top.minimumWidth, bottom?.minimumWidth ?? 0) }
 
@@ -442,7 +439,7 @@ struct OverlayBand: View {
         let spacing = row.geometry.usesStandardSpacing ? Self.toolSpacing : 0
         return HStack(spacing: spacing) {
             HStack(spacing: spacing) { bandParts(items, row: row, model: model) }.fixedSize()
-            BandMoreMenu(model: model, items: plans.menuItems, header: header())
+            BandMoreMenu(model: model)
                 .bandAnchor(.more, in: model.bandAnchors)
                 // The plan counts the stack's gap before "…" only for the Standard order.
                 .padding(.leading, spacing == 0 && !items.isEmpty ? Self.toolSpacing : 0)
@@ -454,17 +451,6 @@ struct OverlayBand: View {
         .fixedSize()
     }
 
-    /// The document's name, format and page, when the bands no longer show them in full.
-    private func header() -> String? {
-        let row = plans.top
-        let truncated = row.nameWidth + 0.5 < (menu.bandWidths[.name] ?? 0)
-        guard
-            !row.showsName || truncated || plans.menuItems.contains(.formatBadge)
-                || plans.menuItems.contains(.pageIndicator)
-        else { return nil }
-        return ([model.displayName, model.formatBadge] + [model.pageIndicator].compactMap { $0 })
-            .joined(separator: " · ")
-    }
 }
 
 /// The band under the paper when the menu is split: the bottom-left zone's parts on the left, the bottom-right zone's

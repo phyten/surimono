@@ -4784,55 +4784,55 @@
         }
       }
     },
-    "Drag a part here to take it off the toolbar. It stays available in “…”.": {
+    "All operations are also available in “…”.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drag a part here to take it off the toolbar. It stays available in “…”."
+            "value": "All operations are also available in “…”."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここへドラッグすると、ツールバーから外れます。外した部品は「…」から使えます。"
+            "value": "すべての操作は「…」からも使えます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将部件拖到这里即可从工具栏移除，它仍可在“…”中使用。"
+            "value": "所有操作也都可以从“…”使用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "將部件拖到這裡即可從工具列移除，它仍可在「…」中使用。"
+            "value": "所有操作也都可以從「…」使用。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "부품을 여기로 끌면 도구 막대에서 빠집니다. “…”에서는 계속 쓸 수 있습니다."
+            "value": "모든 작업은 “…”에서도 사용할 수 있습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Glissez un élément ici pour le retirer de la barre d’outils. Il reste accessible dans « … »."
+            "value": "Toutes les opérations sont aussi accessibles dans « … »."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zieh ein Teil hierher, um es aus der Symbolleiste zu nehmen. In „…“ bleibt es erreichbar."
+            "value": "Alle Aktionen sind auch über „…“ verfügbar."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Arrastra una pieza aquí para quitarla de la barra. Seguirá disponible en «…»."
+            "value": "Todas las operaciones también están disponibles en «…»."
           }
         }
       }
@@ -5950,55 +5950,55 @@
         }
       }
     },
-    "Narrow windows fold parts into “…”; here every part shows.": {
+    "Narrow windows hide parts of the toolbar; all operations are also available in “…”.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Narrow windows fold parts into “…”; here every part shows."
+            "value": "Narrow windows hide parts of the toolbar; all operations are also available in “…”."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "窓が狭いと、入りきらない部品は「…」にまとまります。ここではすべての部品を表示します。"
+            "value": "窓が狭いと、ツールバーの一部が隠れます。すべての操作は「…」からも使えます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "窗口较窄时，放不下的部件会收进“…”；这里显示所有部件。"
+            "value": "窗口较窄时，工具栏的部分内容会隐藏；所有操作也都可以从“…”使用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "視窗較窄時，放不下的部件會收進「…」；這裡顯示所有部件。"
+            "value": "視窗較窄時，工具列的部分內容會隱藏；所有操作也都可以從「…」使用。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "창이 좁으면 들어가지 않는 부품은 “…”로 들어갑니다. 여기서는 모든 부품을 표시합니다."
+            "value": "창이 좁으면 도구 막대 일부가 숨겨집니다. 모든 작업은 “…”에서도 사용할 수 있습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dans une fenêtre étroite, les éléments qui ne tiennent pas passent dans « … » ; ici, tout est affiché."
+            "value": "Les fenêtres étroites masquent des éléments de la barre d’outils ; toutes les opérations restent aussi accessibles dans « … »."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "In schmalen Fenstern wandern Teile ohne Platz in „…“; hier sind alle zu sehen."
+            "value": "Schmale Fenster blenden Teile der Symbolleiste aus; alle Aktionen sind auch über „…“ verfügbar."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En ventanas estrechas, las piezas que no caben pasan a «…»; aquí se ven todas."
+            "value": "Las ventanas estrechas ocultan partes de la barra; todas las operaciones también están disponibles en «…»."
           }
         }
       }
@@ -8812,55 +8812,55 @@
         }
       }
     },
-    "“…” is fixed. It holds every part that is not on the toolbar.": {
+    "“…” is fixed. All operations are also available here.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "“…” is fixed. It holds every part that is not on the toolbar."
+            "value": "“…” is fixed. All operations are also available here."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「…」は動かせません。ツールバーにない部品は、すべてここから使えます。"
+            "value": "「…」は動かせません。すべての操作はここからも使えます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "“…”是固定的，不在工具栏上的部件都可在此使用。"
+            "value": "“…”是固定的。所有操作也都可以从这里使用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "「…」是固定的，不在工具列上的部件都可在此使用。"
+            "value": "「…」是固定的。所有操作也都可以從這裡使用。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "“…”는 고정되어 있습니다. 도구 막대에 없는 부품은 모두 여기서 쓸 수 있습니다."
+            "value": "“…”는 고정되어 있습니다. 모든 작업은 여기서도 사용할 수 있습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "« … » est fixe. Il contient tous les éléments absents de la barre d’outils."
+            "value": "« … » est fixe. Toutes les opérations y sont aussi accessibles."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "„…“ ist fest. Dort findest du alle Teile, die nicht in der Symbolleiste sind."
+            "value": "„…“ ist fest. Alle Aktionen sind auch hier verfügbar."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "«…» es fijo. Contiene todas las piezas que no están en la barra."
+            "value": "«…» es fijo. Todas las operaciones también están disponibles aquí."
           }
         }
       }
@@ -38235,106 +38235,54 @@
         }
       }
     },
-    "More · View Options (V)": {
+    "More · View Options": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "More · View Options (V)"
+            "value": "More · View Options"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "その他・表示のオプション（V）"
+            "value": "その他・表示のオプション"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "更多 · 显示选项（V）"
+            "value": "更多 · 显示选项"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "更多 · 顯示選項（V）"
+            "value": "更多 · 顯示選項"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "더 보기 · 보기 옵션 (V)"
+            "value": "더 보기 · 보기 옵션"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Plus · Options d’affichage (V)"
+            "value": "Plus · Options d’affichage"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mehr · Anzeigeoptionen (V)"
+            "value": "Mehr · Anzeigeoptionen"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Más · Opciones de vista (V)"
-          }
-        }
-      }
-    },
-    "View Options (V)": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View Options (V)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "表示のオプション（V）"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "显示选项（V）"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "顯示選項（V）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "보기 옵션 (V)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Options d’affichage (V)"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anzeigeoptionen (V)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opciones de vista (V)"
+            "value": "Más · Opciones de vista"
           }
         }
       }
@@ -49597,58 +49545,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Portapapeles: %@"
-          }
-        }
-      }
-    },
-    "Select Text (T)": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select Text (T)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "文字を選択（T）"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择文字（T）"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "選取文字（T）"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "텍스트 선택(T)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sélectionner le texte (T)"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Text auswählen (T)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seleccionar texto (T)"
           }
         }
       }

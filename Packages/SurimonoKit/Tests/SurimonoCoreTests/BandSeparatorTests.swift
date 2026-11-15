@@ -196,7 +196,7 @@ extension BandSeparatorTests {
         #expect(result.bottom?.geometry.gapsBefore == [.style: 0, .outline: 8])
         #expect(result.bottom?.geometry.separatorWidth == 9)
         #expect(result.bottom?.requiredWidth == 87)
-        #expect(result.menuItems == [.layout])
+        #expect(result.unusedAvailable == [.layout])
         let bare = plan([.part(.style), .part(.outline)])
         #expect(bare.bottom?.requiredWidth == 78)
         #expect(bare.bottom?.geometry.separatorsBefore == [])
@@ -227,7 +227,7 @@ extension BandSeparatorTests {
         #expect(folded.bottom?.geometry.separatorsBefore == [])
         #expect(folded.bottom?.requiredWidth == 30)
         #expect(folded.overflow == [.style])
-        #expect(folded.menuItems == [.style, .layout])
+        #expect(folded.unusedAvailable == [.layout])
         #expect(plan([.part(.style), .part(.outline)], width: 86).bottom?.forms == [.style: .full, .outline: .full])
     }
 

@@ -394,7 +394,7 @@ private struct TrafficLightDots: View {
     }
 }
 
-/// "…" stays where it is: it holds everything that is not on the toolbar and the view options.
+/// "…" stays where it is: every operation is also available there.
 private struct MoreLock: View {
     var body: some View {
         Image(systemName: "ellipsis.circle")
@@ -408,7 +408,7 @@ private struct MoreLock: View {
                     .offset(x: 3, y: 3)
             }
             .frame(width: 24, height: MiniatureMetrics.chipHeight)
-            .help("“…” is fixed. It holds every part that is not on the toolbar.")
+            .help("“…” is fixed. All operations are also available here.")
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: "…"))
             .accessibilityValue(Text("Fixed"))
@@ -523,7 +523,7 @@ private struct MiniatureNotes: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             if session.message == nil, !session.hasIdleSeparators {
-                Text("Narrow windows fold parts into “…”; here every part shows.")
+                Text("Narrow windows hide parts of the toolbar; all operations are also available in “…”.")
                     .foregroundStyle(PrintPalette.ink3)
             }
             if let message = session.message {
@@ -700,7 +700,7 @@ private struct UnusedPalette: View {
     private var heading: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text("Not in Use").font(.system(size: 12, weight: .semibold)).foregroundStyle(PrintPalette.ink)
-            Text("Drag a part here to take it off the toolbar. It stays available in “…”.")
+            Text("All operations are also available in “…”.")
                 .font(.system(size: 11))
                 .foregroundStyle(PrintPalette.ink3)
                 .fixedSize(horizontal: false, vertical: true)
