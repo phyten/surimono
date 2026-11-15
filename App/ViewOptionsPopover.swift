@@ -4,6 +4,25 @@ import SwiftUI
 // Frequent choices stay on the band; this popover keeps the remaining document values beside a live sample.
 struct ViewOptionsPopover: View {
     @Bindable var model: DocumentViewModel
+    /// The longest row label and the widest value control in the current language, measured out of sight.
+    @State private var labelWidth: CGFloat = 0
+    @State private var controlWidth: CGFloat = 0
+
+    private static let width: CGFloat = 560
+    private static let padding: CGFloat = 16
+    private static let columnSpacing: CGFloat = 12
+    /// The display units the strip of small pages shows at most, around the current one.
+    static let spreadMapLimit = 8
+    private static let labels: [LocalizedStringKey] = [
+        "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar", "Paper Series",
+        "Text Margins", "Text Size",
+    ]
+
+    /// Labels over their settings, where the longest label beside the widest setting would not fit the popover: a
+    /// menu squeezed into what the labels leave is cut, as the reading direction was in Spanish.
+    private var stacksLabels: Bool {
+        labelWidth + Self.columnSpacing + controlWidth > Self.width - 2 * Self.padding
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -18,30 +37,21 @@ struct ViewOptionsPopover: View {
             SpreadSample(options: model.viewOptions, unit: currentUnit)
             // A single unit has nowhere to go: one small sheet under the sample would only repeat it.
             if model.displayUnits.count > 1 {
-                SpreadMap(units: model.displayUnits, current: currentUnitIndex) { unit in
+                SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) { unit in
                     if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
                 }
             }
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+            Grid(alignment: .leading, horizontalSpacing: Self.columnSpacing, verticalSpacing: stacksLabels ? 10 : 12) {
                 heading("On Screen")
-                GridRow {
-                    rowLabel("Reading Direction")
-                    Picker("Reading Direction", selection: option(\.direction)) {
-                        Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
-                        Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
-                    }
-                    .pickerStyle(.menu)
-                }
-                GridRow {
-                    rowLabel("Scroll Direction")
+                row("Reading Direction") { directionPicker(option(\.direction)) }
+                row("Scroll Direction") {
                     Picker("Scroll Direction", selection: option(\.scrollAxis)) {
                         Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
                         Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
                     }
                     .disabled(!model.viewOptions.usesScrollAxis)
                 }
-                GridRow {
-                    rowLabel("Show First Page Alone")
+                row("Show First Page Alone") {
                     HStack(spacing: 12) {
                         Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
                             .toggleStyle(.switch).controlSize(.small)
@@ -50,34 +60,23 @@ struct ViewOptionsPopover: View {
                     .disabled(!model.viewOptions.usesCoverOption)
                 }
                 if model.viewOptions.canJoinPages, model.viewLogicalMargin != nil {
-                    GridRow {
-                        rowLabel("Join Pages")
+                    row("Join Pages") {
                         Toggle("Join Pages", isOn: option(\.joinsPages))
                             .toggleStyle(.switch).controlSize(.small)
                     }
                 }
-                GridRow {
-                    rowLabel("Toolbar")
-                    BandVisibilityPicker(selection: $model.bandVisibility)
-                }
+                row("Toolbar") { BandVisibilityPicker(selection: $model.bandVisibility) }
                 if model.offersPaperSeries {
-                    GridRow {
-                        rowLabel("Paper Series")
-                        PaperSeriesPicker(model: model)
-                    }
+                    row("Paper Series") { PaperSeriesPicker(model: model) }
                 }
                 if model.marginsApply || model.usesPrintTheme {
                     heading("Printed Text")
                 }
                 if model.marginsApply {
-                    GridRow {
-                        rowLabel("Text Margins")
-                        MarginControl(model: model)
-                    }
+                    row("Text Margins") { MarginControl(model: model) }
                 }
                 if model.usesPrintTheme {
-                    GridRow {
-                        rowLabel("Text Size")
+                    row("Text Size") {
                         TextSizeField(title: "Text Size", scale: model.textScale) { model.setTextScale($0) }
                     }
                 }
@@ -106,8 +105,9 @@ struct ViewOptionsPopover: View {
                     .fixedSize()
             }
         }
-        .padding(16)
-        .frame(width: 560)
+        .padding(Self.padding)
+        .frame(width: Self.width)
+        .background(alignment: .topLeading) { measurements }
         .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
         .clearsInitialFocus()
     }
@@ -120,16 +120,72 @@ struct ViewOptionsPopover: View {
         currentUnitIndex.map { model.displayUnits[$0] }
     }
 
-    private func rowLabel(_ key: LocalizedStringKey) -> some View {
-        Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
+    /// A setting with its label: beside it, right-aligned in a column as wide as the longest label, or over it.
+    @ViewBuilder private func row(_ key: LocalizedStringKey, @ViewBuilder content: () -> some View) -> some View {
+        if stacksLabels {
+            GridRow {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(key).foregroundStyle(PrintPalette.ink2)
+                    content()
+                }
+            }
+        } else {
+            GridRow {
+                Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
+                content()
+            }
+        }
     }
 
     private func heading(_ key: LocalizedStringKey) -> some View {
         Text(key)
             .font(.system(size: 13, weight: .bold))
             .padding(.top, 4)
-            .gridCellColumns(2)
+            .gridCellColumns(stacksLabels ? 1 : 2)
             .gridCellAnchor(.leading)
+    }
+
+    private func directionPicker(_ selection: Binding<ViewOptions.Direction>) -> some View {
+        Picker("Reading Direction", selection: selection) {
+            Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
+            Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
+        }
+        .pickerStyle(.menu)
+    }
+
+    /// Copies of the labels and of the widest settings at their own sizes, which decide whether the labels go over
+    /// the settings.
+    private var measurements: some View {
+        ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Self.labels.indices, id: \.self) { Text(Self.labels[$0]).fixedSize() }
+            }
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: { width in
+                if labelWidth != width { labelWidth = width }
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                directionPicker(.constant(.leftToRight)).fixedSize()
+                BandVisibilityPicker(selection: .constant(.always)).pickerStyle(.segmented).fixedSize()
+                Picker("Paper Series", selection: .constant(PaperSeries.a)) {
+                    ForEach(PaperSeries.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+            }
+            .labelsHidden()
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: { width in
+                if controlWidth != width { controlWidth = width }
+            }
+        }
+        .hidden()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
@@ -350,6 +406,8 @@ private struct MiniPage: View {
 struct SpreadMap: View {
     let units: [DisplayUnit]
     let current: Int?
+    /// The most units shown at once; a long row of small pages only repeats the numbers.
+    var limit: Int?
     let onSelect: (DisplayUnit) -> Void
 
     static let spacing: CGFloat = 8
@@ -360,7 +418,8 @@ struct SpreadMap: View {
             let range = SpreadLayout.visibleRange(
                 unitCount: units.count, current: current,
                 capacity: Self.capacity(
-                    unitCount: units.count, width: proxy.size.width, tileWidth: Self.tileWidth(for: units)))
+                    unitCount: units.count, width: proxy.size.width, tileWidth: Self.tileWidth(for: units),
+                    limit: limit))
             HStack(spacing: Self.spacing) {
                 if range.lowerBound > 0 { ellipsis }
                 ForEach(range, id: \.self) { index in
@@ -397,11 +456,12 @@ struct SpreadMap: View {
     }
 
     /// How many tiles fit into `width`; when not all of them do, room is kept for an ellipsis on either side.
-    static func capacity(unitCount: Int, width: CGFloat, tileWidth: CGFloat) -> Int {
+    static func capacity(unitCount: Int, width: CGFloat, tileWidth: CGFloat, limit: Int? = nil) -> Int {
         let slot = tileWidth + spacing
         guard slot > 0, width > 0 else { return 0 }
-        let all = Int((width + spacing) / slot)
+        let all = min(Int((width + spacing) / slot), limit ?? .max)
         guard unitCount > all else { return unitCount }
-        return max(Int((width - 2 * (ellipsisWidth + spacing) + spacing) / slot), 0)
+        let fitting = max(Int((width - 2 * (ellipsisWidth + spacing) + spacing) / slot), 0)
+        return min(fitting, limit ?? .max)
     }
 }

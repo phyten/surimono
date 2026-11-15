@@ -288,6 +288,12 @@
             }
             // Screenshots that leave the machine should not name the printers set up on it.
             if flag("SurimonoHidePrinters") { model.printerListSource = { .empty } }
+            // A made-up printer of the given name, to see how the press bar fits a long name. It exists only here, so
+            // nothing can be sent to it; its abilities are left unknown.
+            if let name = argument("SurimonoPrinterName") {
+                model.printerListSource = { PrinterList(names: [name], defaultName: name) }
+                model.printerCapabilitiesSource = { _ in nil }
+            }
             // A made-up printer that takes A4 and smaller on one side only, to see the badges of what it cannot do.
             if flag("SurimonoPrinterLimits") {
                 model.printerListSource = { PrinterList(names: ["Printer"], defaultName: "Printer") }

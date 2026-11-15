@@ -118,123 +118,256 @@ struct PrintModeView: View {
     }
 }
 
-/// The minimal toolbar of the print mode: back to the view mode, what is being printed, and its style.
+/// The minimal toolbar of the print mode: back to the view mode, what is being printed, and its style. A narrow
+/// window takes its parts away in the order of `PrintTopBarFold`, so that the file name keeps its room.
 struct PrintTopBar: View {
     @Bindable var model: DocumentViewModel
     /// The bar's height. The toolbar the stage keeps makes the title bar as tall, with the buttons in its middle.
     static let height: CGFloat = 52
+    /// The room the file name keeps at every width, or less for a shorter name.
+    static let nameMinimum: CGFloat = 120
     @State private var lights: TrafficLights?
     var cancelsWithEscape: Bool
+    /// The widths of the bar's parts in each of their forms, measured from copies drawn out of sight.
+    @State private var widths: [Part: CGFloat] = [:]
+    @State private var barWidth: CGFloat = 0
+
+    enum Part: Hashable {
+        case back(BackForm)
+        case badge, name, pageCount
+        case style(showsTitle: Bool)
+        case sets(SetsForm)
+        case modified
+    }
+
+    enum BackForm: Hashable { case full, withoutTag, arrow }
+    enum SetsForm: Hashable { case full, withoutName, icon }
 
     var body: some View {
+        let fold = PrintTopBarFold(available: barWidth, needed: neededWidths)
         HStack(spacing: 0) {
-            Button {
-                model.exitPrintMode()
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(PrintPalette.ink2)
-                    Text("Back to View")
-                    PrintTag(
-                        text: "esc", font: .system(size: 9.5), color: PrintPalette.ink3, border: PrintPalette.line2
-                    )
-                    .padding(.leading, 3)
-                }
-                .padding(.leading, 7)
-                .padding(.trailing, 7)
-            }
-            .buttonStyle(PrintBorderedButtonStyle())
-            .keyboardShortcut(cancelsWithEscape ? .cancelAction : nil)
-            .help("Back to the view mode (Esc)")
-            .fixedSize()
+            backButton(backForm(fold))
+                .keyboardShortcut(cancelsWithEscape ? .cancelAction : nil)
             HStack(spacing: 8) {
-                PrintTag(
-                    text: model.formatBadge, font: .system(size: 9, weight: .semibold, design: .monospaced),
-                    color: PrintPalette.ink2, border: PrintPalette.line3
-                )
-                .frame(minWidth: 28)
-                Text(verbatim: model.displayName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                if let count = model.trayPageCount {
-                    Text(
-                        verbatim: PrintModeText.pageCount(count.pages, notes: count.notes, language: model.language)
-                    )
-                    .font(.system(size: 12))
-                    .foregroundStyle(PrintPalette.ink2)
-                    .lineLimit(1)
-                    .fixedSize()
-                }
+                badge
+                name
+                if !fold.folds(.pageCount), let count = pageCountText { pageCount(count) }
             }
             .padding(.leading, 16)
             .layoutPriority(-1)
             Spacer(minLength: 12)
-            PrintStyleMenu(model: model)
-            // Drawn like the style menu beside it, so the tray's top bar keeps one kind of control.
-            SettingSetMenu(preferences: model.preferences, library: model.library, model: { model }) {
-                HStack(spacing: 7) {
-                    Text("Setting Sets").foregroundStyle(
-                        model.activeSettingSet == nil ? PrintPalette.ink : PrintPalette.ink2)
-                    if let set = model.activeSettingSet {
-                        Text(verbatim: set.name).fontWeight(.semibold).lineLimit(1)
-                    }
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(PrintPalette.ink2)
-                }
-                .font(.system(size: 12.5))
-                .foregroundStyle(PrintPalette.ink)
-                .padding(.leading, 10)
-                .padding(.trailing, 8)
-                .frame(height: 28)
-                .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
-                .contentShape(RoundedRectangle(cornerRadius: 6))
-            }
-            .help(
-                Text(
-                    verbatim: model.activeSettingSet.map {
-                        SettingSetSummary(library: model.library).oneLine($0)
-                    } ?? "")
-            )
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .padding(.leading, 8)
-            if model.isSettingSetChanged { changedSetControls }
+            PrintStyleMenu(model: model, showsTitle: !fold.folds(.styleTitle))
+            setsMenu(setsForm(fold)).padding(.leading, 8)
+            if model.isSettingSetChanged { modifiedMenu.padding(.leading, 8) }
         }
         .padding(.leading, trafficLightInset)
         .padding(.trailing, 12)
         .offset(y: TrafficLights.lineOffset(lights, barHeight: Self.height))
         .frame(height: Self.height)
-        .frame(maxWidth: .infinity)
+        // The bar takes any width it is given, so that it never holds the window wider than the rest of the screen;
+        // the fold keeps its parts inside.
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: { width in
+            if barWidth != width { barWidth = width }
+        }
         .background(PrintPalette.chrome)
+        .background(alignment: .topLeading) { measurements }
         .overlay(alignment: .bottom) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
         .background { TrafficLightsReader { lights = $0 } }
     }
 
-    /// A changed set can be saved over the reader's own set, or as a new one from any set.
-    @ViewBuilder private var changedSetControls: some View {
-        Text("Modified")
-            .font(.system(size: 11.5, weight: .semibold))
-            .foregroundStyle(PrintPalette.ai)
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.leading, 8)
-        if model.activeSettingSet?.isBuiltIn == false {
-            setButton("Overwrite") { model.overwriteActiveSettingSet() }
-        }
-        setButton("Save New…") { SettingSetDialogs.save(model) }
+    private func backForm(_ fold: PrintTopBarFold) -> BackForm {
+        fold.folds(.backTitle) ? .arrow : fold.folds(.escTag) ? .withoutTag : .full
     }
 
-    private func setButton(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Text(title).padding(.horizontal, 9) }
-            .buttonStyle(PrintBorderedButtonStyle())
+    private func setsForm(_ fold: PrintTopBarFold) -> SetsForm {
+        fold.folds(.setsTitle) ? .icon : fold.folds(.setName) ? .withoutName : .full
+    }
+
+    /// The bar's width with none, then one, two and more of the fold's steps taken.
+    private var neededWidths: [CGFloat] {
+        let modified = model.isSettingSetChanged ? 8 + (widths[.modified] ?? 0) : 0
+        let fixed =
+            trafficLightInset + 16 + (widths[.badge] ?? 0) + 8 + min(widths[.name] ?? 0, Self.nameMinimum) + 12 + 8
+            + modified + 12
+        let pageCount = pageCountText == nil ? 0 : 8 + (widths[.pageCount] ?? 0)
+        func width(_ back: BackForm, _ pages: CGFloat, _ showsTitle: Bool, _ sets: SetsForm) -> CGFloat {
+            fixed + (widths[.back(back)] ?? 0) + pages + (widths[.style(showsTitle: showsTitle)] ?? 0)
+                + (widths[.sets(sets)] ?? 0)
+        }
+        return [
+            width(.full, pageCount, true, .full),
+            width(.withoutTag, pageCount, true, .full),
+            width(.withoutTag, pageCount, true, .withoutName),
+            width(.withoutTag, 0, true, .withoutName),
+            width(.withoutTag, 0, false, .withoutName),
+            width(.arrow, 0, false, .withoutName),
+            width(.arrow, 0, false, .icon),
+        ]
+    }
+
+    private var measurements: some View {
+        ZStack(alignment: .leading) {
+            measured(.back(.full)) { backButton(.full) }
+            measured(.back(.withoutTag)) { backButton(.withoutTag) }
+            measured(.back(.arrow)) { backButton(.arrow) }
+            measured(.badge) { badge }
+            measured(.name) { nameText.fixedSize() }
+            if let count = pageCountText { measured(.pageCount) { pageCount(count) } }
+            measured(.style(showsTitle: true)) { PrintStyleMenu(model: model, showsTitle: true, showsTip: false) }
+            measured(.style(showsTitle: false)) { PrintStyleMenu(model: model, showsTitle: false, showsTip: false) }
+            measured(.sets(.full)) { setsMenu(.full) }
+            measured(.sets(.withoutName)) { setsMenu(.withoutName) }
+            measured(.sets(.icon)) { setsMenu(.icon) }
+            measured(.modified) { modifiedMenu }
+        }
+        .fixedSize()
+        .hidden()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func measured(_ part: Part, @ViewBuilder _ content: () -> some View) -> some View {
+        content()
             .fixedSize()
-            .padding(.leading, 8)
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: { width in
+                if widths[part] != width { widths[part] = width }
+            }
+    }
+
+    private func backButton(_ form: BackForm) -> some View {
+        Button {
+            model.exitPrintMode()
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink2)
+                if form != .arrow { Text("Back to View") }
+                if form == .full {
+                    PrintTag(
+                        text: "esc", font: .system(size: 9.5), color: PrintPalette.ink3, border: PrintPalette.line2
+                    )
+                    .padding(.leading, 3)
+                }
+            }
+            .padding(.leading, 7)
+            .padding(.trailing, 7)
+        }
+        .buttonStyle(PrintBorderedButtonStyle())
+        .help("Back to the view mode (Esc)")
+        .accessibilityLabel(Text("Back to View"))
+        .fixedSize()
+    }
+
+    private var badge: some View {
+        PrintTag(
+            text: model.formatBadge, font: .system(size: 9, weight: .semibold, design: .monospaced),
+            color: PrintPalette.ink2, border: PrintPalette.line3
+        )
+        .frame(minWidth: 28)
+    }
+
+    private var nameText: some View {
+        Text(verbatim: model.displayName)
+            .font(.system(size: 13, weight: .semibold))
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
+
+    /// The name keeps `nameMinimum` (or its whole width, if shorter) however narrow the window: the fold makes room.
+    private var name: some View {
+        nameText
+            .frame(minWidth: min(widths[.name] ?? 0, Self.nameMinimum), alignment: .leading)
+            .help(Text(verbatim: model.displayName))
+    }
+
+    private var pageCountText: String? {
+        model.trayPageCount.map {
+            PrintModeText.pageCount($0.pages, notes: $0.notes, language: model.language)
+        }
+    }
+
+    private func pageCount(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(.system(size: 12))
+            .foregroundStyle(PrintPalette.ink2)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    /// Drawn like the style menu beside it, so the tray's top bar keeps one kind of control.
+    private func setsMenu(_ form: SetsForm) -> some View {
+        SettingSetMenu(preferences: model.preferences, library: model.library, model: { model }) {
+            HStack(spacing: 7) {
+                if form == .icon {
+                    Image(systemName: "square.stack.3d.up").foregroundStyle(PrintPalette.ink2)
+                } else {
+                    Text("Setting Sets").foregroundStyle(
+                        model.activeSettingSet == nil ? PrintPalette.ink : PrintPalette.ink2)
+                }
+                if form == .full, let set = model.activeSettingSet {
+                    Text(verbatim: set.name).fontWeight(.semibold).lineLimit(1)
+                }
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink2)
+            }
+            .font(.system(size: 12.5))
+            .foregroundStyle(PrintPalette.ink)
+            .padding(.leading, 10)
+            .padding(.trailing, 8)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .help(
+            Text(
+                verbatim: [
+                    String(localized: "Setting Sets"),
+                    model.activeSettingSet.map { SettingSetSummary(library: model.library).oneLine($0) },
+                ].compactMap { $0 }.joined(separator: "\n"))
+        )
+        .accessibilityLabel(Text("Setting Sets"))
+        .accessibilityValue(Text(verbatim: model.activeSettingSet?.name ?? ""))
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    /// A changed set can be saved over the reader's own set, or as a new one from any set: both in one menu, so that
+    /// the bar gains one control rather than three.
+    private var modifiedMenu: some View {
+        Menu {
+            if model.activeSettingSet?.isBuiltIn == false {
+                Button("Overwrite") { model.overwriteActiveSettingSet() }
+            }
+            Button("Save New…") { SettingSetDialogs.save(model) }
+        } label: {
+            HStack(spacing: 5) {
+                Text("Modified")
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(PrintPalette.ai)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.aiTint))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("The settings differ from the setting set. Save them over it or as a new set.")
     }
 
     /// The traffic lights stay where the window draws them; the bar starts after them. Read live: entering the stage
@@ -248,6 +381,10 @@ struct PrintTopBar: View {
 /// Print themes for text formats, cleanup presets for HTML; PDFs and images print as they are.
 struct PrintStyleMenu: View {
     @Bindable var model: DocumentViewModel
+    /// Whether the menu says "Style" or "Preset" before its value; a narrow top bar shows the value alone.
+    var showsTitle = true
+    /// Whether the first-time tip may show; copies drawn only to be measured must not take it.
+    var showsTip = true
 
     var body: some View {
         if model.usesPrintTheme {
@@ -262,7 +399,8 @@ struct PrintStyleMenu: View {
             .fixedSize()
             .accessibilityIdentifier("printStylePaletteButton")
             .help("Choose how the text and headings look when printed")
-            .modifier(PrintStyleTip(model: model))
+            .accessibilityLabel(Text("Style"))
+            .modifier(OptionalStyleTip(model: model, isEnabled: showsTip))
         }
         if model.usesHTMLPreset {
             Menu {
@@ -300,7 +438,7 @@ struct PrintStyleMenu: View {
 
     private func label(_ title: LocalizedStringKey, value: String, isEnabled: Bool = true) -> some View {
         HStack(spacing: 7) {
-            Text(title).foregroundStyle(PrintPalette.ink2)
+            if showsTitle { Text(title).foregroundStyle(PrintPalette.ink2) }
             Text(verbatim: value).fontWeight(isEnabled ? .semibold : .regular).lineLimit(1)
             Image(systemName: "chevron.down")
                 .font(.system(size: 9, weight: .semibold))
@@ -315,5 +453,15 @@ struct PrintStyleMenu: View {
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 6))
         .opacity(isEnabled ? 1 : 0.6)
+    }
+}
+
+/// The style tip on the menu the bar shows, and none on the copies it measures.
+private struct OptionalStyleTip: ViewModifier {
+    let model: DocumentViewModel
+    let isEnabled: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled { content.modifier(PrintStyleTip(model: model)) } else { content }
     }
 }

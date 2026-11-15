@@ -282,19 +282,6 @@ struct PrintFinishFlowTests {
         #expect(model.printOptions.furniture == .pageNumber)
     }
 
-    @Test("要約は仕上がりのページの内訳と使う用紙に分ける")
-    func outcome() {
-        #expect(
-            PrintModeText.finished(pages: 4, body: 1, contents: 0, notes: 2, blanks: 1, language: "ja")
-                == "仕上がり 4 ページ / 本文 1・ノート 2・白紙 1")
-        #expect(
-            PrintModeText.finished(pages: 6, body: 6, contents: 0, notes: 0, blanks: 0, language: "ja")
-                == "仕上がり 6 ページ")
-        #expect(
-            PrintModeText.paper("A4", sheets: 1, duplex: .shortEdge, language: "ja") == "使う用紙 A4 1 枚（両面）")
-        #expect(PrintModeText.paper("A4", sheets: 3, duplex: .none, language: "ja") == "使う用紙 A4 3 枚（片面）")
-    }
-
     @Test("ヘッダーは刷り台の行で見えるので、要約の下には裏面の回転だけを知らせる")
     func reminder() {
         var options = PrintOptions()

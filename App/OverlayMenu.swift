@@ -510,15 +510,18 @@ struct PrintButton: View {
     @Bindable var model: DocumentViewModel
     /// The narrowest band keeps Print as an icon rather than dropping it: printing takes two steps at most.
     var iconOnly = false
+    /// The button's word, without the ellipsis of the File menu's item: on the band the dots read as a word cut short,
+    /// and the printer icon beside it already says that a screen follows.
+    static let titleKey = "Print"
 
     var body: some View {
         Button {
             model.performPrintCommand()
         } label: {
             if iconOnly {
-                Label("Print…", systemImage: "printer").labelStyle(.iconOnly)
+                Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.iconOnly)
             } else {
-                Label("Print…", systemImage: "printer").labelStyle(.titleAndIcon)
+                Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.titleAndIcon)
             }
         }
         .buttonStyle(.borderedProminent)
