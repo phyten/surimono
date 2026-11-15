@@ -286,7 +286,7 @@ make clean
 
 - Swift 6 言語モード。アプリターゲットは既定で MainActor 分離（`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`）。Kit では UI / WebKit を触る型に明示的に `@MainActor` を付ける。
 - デプロイメントターゲットは macOS 15.0。
-- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: mermaid.js 12.2.0（MIT。公式 npm tarball の `dist/mermaid.min.js` を変更せず SurimonoRendering の `Resources` に同梱し、ライセンス文を `App/Acknowledgements/` に置く。版を上げたら両方を差し替える）、swift-markdown（Apache-2.0）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している）。SwaTex が同梱する KaTeX の書体（SIL OFL 1.1）は SurimonoCore の `Resources` に写して使い、ライセンス文を `App/Acknowledgements/` に同梱している。SwaTex を上げたら書体も写し直す。
+- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: mermaid.js 12.2.0（MIT。公式 npm tarball の `dist/mermaid.min.js` を変更せず SurimonoRendering の `Resources` に同梱し、ライセンス文を `App/Acknowledgements/` に置く。版を上げたら両方を差し替える）、swift-markdown（Apache-2.0。LICENSE と NOTICE を、依存の swift-cmark の COPYING とともに `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している。ライセンス文と第三者表示（THIRD_PARTY_NOTICES）を `App/Acknowledgements/` に同梱している）。同梱したライセンス文がアプリに入っていることは `AcknowledgementsTests` で固定している。SwaTex が同梱する KaTeX の書体（SIL OFL 1.1）は SurimonoCore の `Resources` に写して使い、ライセンス文を `App/Acknowledgements/` に同梱している。SwaTex を上げたら書体も写し直す。
 - UI 文言は英語をキーにして String Catalog（`App/Localizable.xcstrings`）で日本語訳を付ける。
 - 整形は swift-format（`.swift-format`。インデント 4、行長 120）。
 - コメントは「なぜそうするか」を書く。自明な処理の説明コメントは付けない。**コードコメントとドキュメントコメントは英語**で書く（テスト名は日本語）。
