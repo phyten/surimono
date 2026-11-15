@@ -47,6 +47,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return (1...list.numberOfItems).compactMap { list.atIndex($0)?.fileURLValue }
     }
 
+    /// Quitting does not close the Settings window, whose close asks about an unsaved toolbar arrangement; the editor
+    /// asks here instead and holds the quit until the reader answers.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        BandArrangementEditorSession.app?.shouldTerminate() ?? .terminateNow
+    }
+
     /// A window's settings are saved a moment after a change, and quitting does not close the windows first.
     func applicationWillTerminate(_ notification: Notification) {
         DistributedNotificationCenter.default().removeObserver(self)

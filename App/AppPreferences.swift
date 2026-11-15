@@ -91,10 +91,115 @@ final class AppPreferences {
     var menuArrangement: MenuArrangement {
         didSet { defaults.set(menuArrangement.rawValue, forKey: "menuArrangement") }
     }
+    private(set) var bandArrangementStore: BandArrangementStore
+    private(set) var bandArrangementNotices: [BandRepairNotice]
+    private(set) var retainedBandArrangementData: Data?
+    /// The stored data as it was before a load repaired it with a loss, kept aside before the first write.
+    @ObservationIgnored private var repairedBandArrangementData: Data?
+    /// A development build's fixture from `-SurimonoBandArrangement`: shown, never saved over the reader's sets.
+    @ObservationIgnored private var showsBandArrangementFixture = false
+
+    enum BandArrangementPersistenceError: Error {
+        case retainedDataRequiresRecovery
+        case fixtureIsReadOnly
+    }
+
+    /// The arrangement the view mode's bands draw for the current topology.
+    var activeBandArrangement: BandArrangement {
+        bandArrangementStore.activeLayouts.arrangement(for: menuArrangement)
+    }
+
+    // Encode before publishing either value. Observers never see a deleted active set or a half-written envelope.
+    func updateBandArrangements(_ change: (inout BandArrangementStore) throws -> Void) throws {
+        guard retainedBandArrangementData == nil else {
+            throw BandArrangementPersistenceError.retainedDataRequiresRecovery
+        }
+        guard !showsBandArrangementFixture else { throw BandArrangementPersistenceError.fixtureIsReadOnly }
+        var next = bandArrangementStore
+        try change(&next)
+        let data = try JSONEncoder().encode(next)
+        // The first write after a repair that left something out keeps the original aside, as starting over does.
+        if let original = repairedBandArrangementData {
+            setAside(original, under: Self.repairedBandArrangementsKey)
+            repairedBandArrangementData = nil
+        }
+        defaults.set(data, forKey: "bandArrangementStore")
+        bandArrangementStore = next
+        // What the load repaired is now written as repaired.
+        bandArrangementNotices = []
+    }
+
+    /// Keeps the newest ten originals per key, each once: enough to recover from a few failed loads in a row
+    /// without letting repeated recoveries grow the preferences without end.
+    static let setAsideLimit = 10
+
+    func setAside(_ data: Data, under key: String) {
+        var kept = defaults.array(forKey: key) as? [Data] ?? []
+        kept.removeAll { $0 == data }
+        kept.append(data)
+        defaults.set(Array(kept.suffix(Self.setAsideLimit)), forKey: key)
+    }
+
+    /// Starts the arrangements over from Standard after stored data could not be read. The unreadable data is kept
+    /// under another key, never deleted, so a later version that can read it still finds it.
+    func startBandArrangementsOver() {
+        guard let retained = retainedBandArrangementData, !showsBandArrangementFixture else { return }
+        setAside(retained, under: Self.unreadableBandArrangementsKey)
+        // An empty store, not a missing one: with nothing stored, the next launch would derive "Previous
+        // Arrangement" again from the old Contents setting.
+        let store = BandArrangementStore()
+        if let data = try? JSONEncoder().encode(store) { defaults.set(data, forKey: "bandArrangementStore") }
+        retainedBandArrangementData = nil
+        repairedBandArrangementData = nil
+        bandArrangementNotices = []
+        bandArrangementStore = store
+    }
+
+    static let unreadableBandArrangementsKey = "unreadableBandArrangementStores"
+    static let repairedBandArrangementsKey = "repairedBandArrangementStores"
+
+    func selectBandArrangement(_ selection: BandArrangementSelection) throws {
+        try updateBandArrangements { try $0.select(selection) }
+    }
+
+    func saveBandArrangement(_ set: BandArrangementSet, activate: Bool = true) throws {
+        try updateBandArrangements { try $0.insert(set, activate: activate) }
+    }
+
+    func overwriteBandArrangement(_ selection: BandArrangementSelection, layouts: BandArrangementVariants) throws {
+        try updateBandArrangements { try $0.overwrite(selection, layouts: layouts) }
+    }
+
+    func renameBandArrangement(_ selection: BandArrangementSelection, to name: String) throws {
+        try updateBandArrangements { try $0.rename(selection, to: name) }
+    }
+
+    func deleteBandArrangement(
+        _ selection: BandArrangementSelection, replacement: BandArrangementSelection? = nil
+    ) throws {
+        try updateBandArrangements { try $0.delete(selection, replacement: replacement) }
+    }
+
     var outlinePresentation: OutlinePresentation {
         didSet { defaults.set(outlinePresentation.rawValue, forKey: "outlinePresentation") }
     }
-    var showsOutlineOnBand: Bool { didSet { defaults.set(showsOutlineOnBand, forKey: "showsOutlineOnBand") } }
+    var showsOutlineOnBand: Bool {
+        didSet {
+            defaults.set(showsOutlineOnBand, forKey: "showsOutlineOnBand")
+            followOutlineChoice()
+        }
+    }
+
+    /// Until an arrangement is saved, the old checkbox still decides whether Contents is on the band: the store is then
+    /// only derived in memory, so following the checkbox writes nothing. Once saved, the explicit placement wins.
+    private func followOutlineChoice() {
+        guard defaults.data(forKey: "bandArrangementStore") == nil, retainedBandArrangementData == nil,
+            !showsBandArrangementFixture
+        else { return }
+        bandArrangementStore =
+            showsOutlineOnBand
+            ? BandArrangementStore() : .previousArrangement(named: String(localized: "Previous Arrangement"))
+    }
     var changeFollowing: ChangeFollowing {
         didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
     }
@@ -294,6 +399,37 @@ final class AppPreferences {
             Self.screenshotChoice("SurimonoOutline")
             ?? OutlinePresentation(rawValue: defaults.string(forKey: "outlinePresentation") ?? "") ?? .popover
         showsOutlineOnBand = defaults.object(forKey: "showsOutlineOnBand") as? Bool ?? true
+        let bandData = defaults.data(forKey: "bandArrangementStore")
+        let bandLoad = BandArrangementStore.load(bandData)
+        bandArrangementStore =
+            bandData == nil && defaults.object(forKey: "showsOutlineOnBand") as? Bool == false
+            ? .previousArrangement(named: String(localized: "Previous Arrangement")) : bandLoad.store
+        bandArrangementNotices = bandLoad.notices
+        retainedBandArrangementData = bandLoad.retainedData
+        if bandLoad.retainedData == nil, bandLoad.notices.contains(where: \.losesData) {
+            repairedBandArrangementData = bandData
+        }
+        #if DEBUG
+            if let fixture = DebugSnapshot.argument("SurimonoBandArrangement")
+                .flatMap(DebugSnapshot.bandArrangementFixture(named:))
+            {
+                bandArrangementStore = fixture
+                showsBandArrangementFixture = true
+            }
+            if DebugSnapshot.argument("SurimonoBandArrangement") == "repaired" {
+                // A record that cannot be read and a set with one broken layout, read as the app reads them.
+                let load = BandArrangementStore.load(DebugSnapshot.repairedArrangementData)
+                bandArrangementStore = load.store
+                bandArrangementNotices = load.notices
+                showsBandArrangementFixture = true
+            }
+            if DebugSnapshot.argument("SurimonoBandArrangement") == "unreadable" {
+                // As if a newer version had written the store; the fixture flag keeps everything unwritten.
+                retainedBandArrangementData = Data(#"{"schemaVersion":2}"#.utf8)
+                showsBandArrangementFixture = true
+            }
+        #endif
+
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .ask

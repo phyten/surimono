@@ -39,7 +39,8 @@ struct SettingSetMenu<Label: View>: View {
             }
             Divider()
             Button("Manage Setting Sets…") {
-                preferences.settingsSection = .settingSets
+                // Through the arrangement editor's question, as the Settings sidebar goes.
+                BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
                 openSettings()
             }
         } label: {

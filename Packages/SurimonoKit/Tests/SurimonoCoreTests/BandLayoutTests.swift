@@ -3,6 +3,89 @@ import SurimonoCore
 import Testing
 
 struct BandLayoutTests {
+    // Freeze these independently of the arrangement model so later refactors cannot redefine Standard unnoticed.
+    static let standardSplit: [[BandLayout.Item]] = [
+        [.formatBadge], [.floatOnTop, .print],
+        [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails],
+        [.pageIndicator, .pageTurn], [],
+    ]
+    static let standardTop: [[BandLayout.Item]] = [
+        [.formatBadge, .pageIndicator],
+        [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print],
+        [], [], [.pageTurn],
+    ]
+    static let workedWidths: [BandLayout.Item: BandLayout.Widths] = [
+        .formatBadge: .init(full: 30), .pageIndicator: .init(full: 50),
+        .presentation: .init(full: 120, compact: 50), .style: .init(full: 90, compact: 40),
+        .outline: .init(full: 60, compact: 30), .layout: .init(full: 60),
+        .transition: .init(full: 100, compact: 40), .zoom: .init(full: 50),
+        .thumbnails: .init(full: 30), .floatOnTop: .init(full: 28), .pageTurn: .init(full: 60),
+        .print: .init(full: 70, compact: 34),
+    ]
+
+    @Test("標準の上下配置は現在の部品順と一致する")
+    func frozenSplit() {
+        let top = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .top }
+        let bottom = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .bottom }
+        #expect(top == [.formatBadge, .floatOnTop, .print])
+        #expect(
+            bottom.filter { $0.group != nil } == [
+                .presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails,
+            ])
+        #expect(bottom.filter { $0.group == nil } == [.pageIndicator, .pageTurn])
+    }
+
+    @Test("標準の三つの幅は従来と同じ表示形と名前幅になる", arguments: [1000, 650, 250])
+    func workedStandard(available: Int) {
+        let topItems = Self.standardTop[0] + Self.standardTop[1]
+        let top = BandLayout.plan(
+            widths: Self.workedWidths.filter { topItems.contains($0.key) }, fixed: 150, separator: 10,
+            name: 120, available: CGFloat(available))
+        let splitTop = BandLayout.plan(
+            widths: Self.workedWidths.filter { [.formatBadge, .floatOnTop, .print].contains($0.key) },
+            fixed: 150, separator: 10, name: 120, available: CGFloat(available))
+        let bottom = BandLayout.plan(
+            widths: Self.workedWidths.filter { ![.formatBadge, .floatOnTop, .print].contains($0.key) },
+            fixed: 30, separator: 10, name: 0, available: CGFloat(available), steps: BandLayout.bottomSteps)
+        switch available {
+        case 1000:
+            #expect(top.forms.count == 11 && top.forms.values.allSatisfy { $0 == .full })
+            #expect(top.overflow == [] && top.nameWidth == 120)
+            #expect(splitTop.forms == [.formatBadge: .full, .floatOnTop: .full, .print: .full])
+            #expect(splitTop.overflow == [] && splitTop.nameWidth == 120)
+            #expect(bottom.forms.count == 9 && bottom.forms.values.allSatisfy { $0 == .full })
+            #expect(bottom.overflow == [])
+        case 650:
+            #expect(
+                top.forms == [
+                    .presentation: .compact, .outline: .compact, .layout: .full,
+                    .transition: .compact, .zoom: .full, .thumbnails: .full, .floatOnTop: .full, .print: .full,
+                ])
+            #expect(top.overflow == [.formatBadge, .pageIndicator, .style])
+            #expect(top.nameWidth == 102)
+            #expect(splitTop.forms == [.formatBadge: .full, .floatOnTop: .full, .print: .full])
+            #expect(splitTop.overflow == [] && splitTop.nameWidth == 120)
+            #expect(
+                bottom.forms == [
+                    .presentation: .full, .style: .compact, .outline: .full, .layout: .full,
+                    .transition: .full, .zoom: .full, .thumbnails: .full, .pageIndicator: .full, .pageTurn: .full,
+                ])
+            #expect(bottom.overflow == [])
+        default:
+            #expect(top.forms == [.print: .compact] && top.nameWidth == 66)
+            #expect(
+                top.overflow == [
+                    .formatBadge, .pageIndicator, .presentation, .style, .outline,
+                    .layout, .transition, .zoom, .thumbnails, .floatOnTop,
+                ])
+            #expect(splitTop.forms == [.print: .compact] && splitTop.nameWidth == 66)
+            #expect(splitTop.overflow == [.formatBadge, .floatOnTop])
+            #expect(bottom.forms == [.presentation: .compact, .zoom: .full, .thumbnails: .full, .pageIndicator: .full])
+            #expect(bottom.overflow == [.style, .outline, .layout, .transition, .pageTurn])
+        }
+        #expect(bottom.nameWidth == 0)
+    }
+
     private let widths: [BandLayout.Item: BandLayout.Widths] = [
         .formatBadge: .init(full: 30), .pageIndicator: .init(full: 50),
         .presentation: .init(full: 120, compact: 50), .style: .init(full: 90, compact: 40),

@@ -55,9 +55,11 @@ struct ViewModeView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
             ToastOverlay(model: model).padding(.bottom, bottomInset)
+            BandPresentationHost(model: model, plans: plans)
             ThemePaletteAnchor(model: model)
             PrintSettingsAnchor(model: model)
         }
+        .coordinateSpace(name: BandAnchors.coordinateSpace)
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
         .animation(.easeOut(duration: 0.16), value: menu.stage)
@@ -77,6 +79,21 @@ struct ViewModeView: View {
         }
         .onChange(of: model.currentBandRoom, initial: true) { followBandRoom() }
         .onChange(of: model.topBandHeight, initial: true) { _, height in menu.topZone = height }
+        // A window narrower than this would push the traffic lights, "…" or Print off a band.
+        .onChange(of: plans.minimumWidth, initial: true) { _, width in
+            menu.minimumWidth = width
+            model.bandMinimumWidthDidChange(width)
+        }
+        // The first plans can come before the window does.
+        .background {
+            WindowReader { window in model.bandMinimumWidthDidChange(menu.minimumWidth, in: window) }
+        }
+        .onChange(of: plans.resolved, initial: true) { _, plan in
+            model.bandAnchors.plan = plan
+            // The list button's place is a drop target only while the list is on a band: a fold or another arrangement
+            // leaves its last place behind, where a resting drag would open the list.
+            if plan.band(of: .thumbnails) == nil { model.drop.listButtonFrame = nil }
+        }
         .onChange(of: bandVisible) { _, visible in
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
         }
@@ -102,16 +119,10 @@ struct ViewModeView: View {
 
     private func topZone(_ plans: BandPlans) -> some View {
         BandZone(edge: .top, isShown: bandVisible, height: model.topBandHeight) {
-            OverlayBand(model: model, menu: menu)
+            OverlayBand(model: model, menu: menu, plans: plans)
         }
         .background(alignment: .topLeading) {
             BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu)
-        }
-        .background {
-            if !isSplit {
-                BandPopovers(
-                    model: model, menu: menu, plan: plans.top, arrowEdge: .bottom, height: model.topBandHeight)
-            }
         }
         // Read while the band hides too, so that it shows on the buttons' line at once.
         .background {
@@ -127,12 +138,9 @@ struct ViewModeView: View {
         }
     }
 
-    private func bottomZone(_ plan: BandLayout.Plan) -> some View {
+    private func bottomZone(_ row: BandRowPlan) -> some View {
         BandZone(edge: .bottom, isShown: bandVisible, height: ViewerWindow.bandHeight) {
-            BottomBand(model: model, menu: menu, plan: plan)
-        }
-        .background {
-            BandPopovers(model: model, menu: menu, plan: plan, arrowEdge: .top, height: ViewerWindow.bandHeight)
+            BottomBand(model: model, row: row)
         }
     }
 }
