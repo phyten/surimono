@@ -18,9 +18,11 @@ public struct BandArrangementVariants: Codable, Equatable, Sendable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         func variant(_ key: CodingKeys, mode: MenuArrangement) -> BandRepairResult {
             guard let stored = try? values.decode(StoredBandArrangement.self, forKey: key) else {
-                return BandRepairResult(arrangement: .standard(for: mode), notices: [.recoveredVariant(mode)])
+                return BandRepairResult(
+                    arrangement: .standard(for: mode, knownItems: decoder.bandKnownItems),
+                    notices: [.recoveredVariant(mode)])
             }
-            return BandArrangementRepair.repair(stored, for: mode)
+            return BandArrangementRepair.repair(stored, for: mode, knownItems: decoder.bandKnownItems)
         }
         let split = variant(.split, mode: .split)
         let top = variant(.top, mode: .top)
@@ -57,7 +59,9 @@ public struct BandArrangementSet: Codable, Equatable, Identifiable, Sendable {
         if let variants = try? values.decode(BandArrangementVariants.self, forKey: .layouts) {
             layouts = variants
         } else {
-            layouts = BandArrangementVariants()
+            layouts = BandArrangementVariants(
+                split: .standard(for: .split, knownItems: decoder.bandKnownItems),
+                top: .standard(for: .top, knownItems: decoder.bandKnownItems))
             layouts.repairNotices = [.recoveredVariant(.split), .recoveredVariant(.top)]
         }
     }
@@ -146,19 +150,24 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         active = selection
     }
 
-    public mutating func insert(_ set: BandArrangementSet, activate: Bool = true) throws {
+    public mutating func insert(
+        _ set: BandArrangementSet, activate: Bool = true,
+        knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) throws {
         guard !sets.contains(where: { $0.id == set.id }) else { throw BandArrangementStoreError.duplicateIdentity }
         var set = set
         set.name = try validName(set.name)
-        try validate(set.layouts)
+        set.layouts = try completedLayouts(set.layouts, knownItems: knownItems)
         sets.append(set)
         if activate { active = .user(set.id) }
     }
 
-    public mutating func overwrite(_ selection: BandArrangementSelection, layouts: BandArrangementVariants) throws {
+    public mutating func overwrite(
+        _ selection: BandArrangementSelection, layouts: BandArrangementVariants,
+        knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) throws {
         let index = try userIndex(selection)
-        try validate(layouts)
-        sets[index].layouts = layouts
+        sets[index].layouts = try completedLayouts(layouts, knownItems: knownItems)
     }
 
     public mutating func rename(_ selection: BandArrangementSelection, to name: String) throws {
@@ -202,11 +211,27 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         return index
     }
 
-    private func validate(_ layouts: BandArrangementVariants) throws {
+    // Saving a hand-built or older layout may omit optional parts. Complete only those omissions;
+    // duplicates, a missing Print and invalid zones remain errors rather than silently repairing a draft.
+    private func completedLayouts(
+        _ layouts: BandArrangementVariants,
+        knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) throws -> BandArrangementVariants {
+        var completed = layouts
         for mode in MenuArrangement.allCases {
-            let issues = BandArrangementValidation.issues(in: layouts.arrangement(for: mode), for: mode)
-            guard issues.isEmpty else { throw BandArrangementStoreError.invalidLayout(mode, issues) }
+            let arrangement = layouts.arrangement(for: mode)
+            let issues = BandArrangementValidation.issues(in: arrangement, for: mode, knownItems: knownItems)
+            let invalid = issues.filter {
+                if case .missing(let item) = $0, item != .print { return false }
+                return true
+            }
+            guard invalid.isEmpty else { throw BandArrangementStoreError.invalidLayout(mode, invalid) }
+            let repaired = BandArrangementRepair.repair(
+                StoredBandArrangement(arrangement), for: mode, knownItems: knownItems
+            ).arrangement
+            if mode == .split { completed.split = repaired } else { completed.top = repaired }
         }
+        return completed
     }
 
     private enum CodingKeys: String, CodingKey { case schemaVersion, active, sets }
@@ -257,10 +282,14 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
 
     public static func == (lhs: Self, rhs: Self) -> Bool { lhs.active == rhs.active && lhs.sets == rhs.sets }
 
-    public static func load(_ data: Data?) -> BandArrangementLoadResult {
+    public static func load(
+        _ data: Data?, knownItems: [BandLayout.Item] = BandLayout.Item.allCases
+    ) -> BandArrangementLoadResult {
         guard let data else { return BandArrangementLoadResult(store: Self(), retainedData: nil, notices: []) }
         do {
-            let store = try JSONDecoder().decode(Self.self, from: data)
+            let decoder = JSONDecoder()
+            if let key = CodingUserInfoKey.bandKnownItems { decoder.userInfo[key] = knownItems }
+            let store = try decoder.decode(Self.self, from: data)
             return BandArrangementLoadResult(store: store, retainedData: nil, notices: store.repairNotices)
         } catch BandArrangementStoreError.unsupportedSchema(let version) {
             return BandArrangementLoadResult(store: Self(), retainedData: data, notices: [.unsupportedSchema(version)])

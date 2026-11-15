@@ -64,10 +64,10 @@ struct BandArrangementTests {
             ])
         #expect(moved.location(of: .print) == .zone(.bottomLeft))
         let unused = try moved.moving(.outline, to: .unused, for: .split)
-        #expect(unused.unused == [.outline])
+        #expect(unused.unused == BandLayoutTests.addedItems + [.outline])
         let restored = try unused.moving(.outline, to: .zone(.topLeft), for: .split)
         #expect(restored.topLeft.compactMap(\.item) == [.formatBadge, .outline])
-        #expect(restored.unused == [])
+        #expect(restored.unused == BandLayoutTests.addedItems)
     }
 
     @Test("印刷を使わない部品へ移す操作と無効な行き先を拒否する")
@@ -112,7 +112,7 @@ struct BandArrangementTests {
             result.arrangement.unused == [
                 .outline, .formatBadge, .pageIndicator, .presentation, .layout,
                 .transition, .thumbnails, .floatOnTop, .pageTurn,
-            ])
+            ] + BandLayoutTests.addedItems)
         #expect(result.notices.contains(.restoredPrint))
     }
 
@@ -121,7 +121,10 @@ struct BandArrangementTests {
         var wire = StoredBandArrangement(BandArrangement.standard(for: mode))
         wire.topRight.removeAll { $0 == "floatOnTop" }
         let repaired = BandArrangementRepair.repair(wire, for: mode)
-        #expect(repaired.arrangement.unused == (mode == .top ? [.pageTurn, .floatOnTop] : [.floatOnTop]))
+        #expect(
+            repaired.arrangement.unused == (mode == .top ? [.pageTurn] : []) + BandLayoutTests.addedItems + [
+                .floatOnTop
+            ])
         #expect(repaired.stored.topRight == wire.topRight)
         #expect(repaired.notices == [.addedToUnused(.floatOnTop)])
     }

@@ -43,10 +43,13 @@ public struct BandRowGeometry: Equatable, Sendable {
     public var separatorWidth: CGFloat
     public var moreDock: MoreDock
     public var usesStandardSpacing: Bool
+    /// The gap the band draws between the last tool before "…" and "…". The Standard order counts it as that tool's
+    /// stack gap instead, so it is zero there.
+    public var moreGap: CGFloat = 0
 
     public var spacingWidth: CGFloat {
         fixedWidth + BandLayout.Item.allCases.reduce(0) { $0 + (gapsBefore[$1] ?? 0) }
-            + CGFloat(separatorsBefore.count) * separatorWidth
+            + CGFloat(separatorsBefore.count) * separatorWidth + moreGap
     }
 }
 
@@ -69,8 +72,4 @@ public struct BandResolvedPlan: Equatable, Sendable {
     public var overflow: [BandLayout.Item]
     public var unusedAvailable: [BandLayout.Item]
 
-    public var menuItems: [BandLayout.Item] {
-        let items = Set(overflow + unusedAvailable)
-        return BandLayout.Item.allCases.filter { $0 != .print && items.contains($0) }
-    }
 }

@@ -18,11 +18,11 @@ struct ViewBandTests {
         let library: UserLibrary
         let store: DocumentSettingsStore
         let directory: URL
-        let suite: TestDefaultsSuite
+        let suite: BandTestDefaultsSuite
 
         init() {
             directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-            suite = TestDefaultsSuite()
+            suite = BandTestDefaultsSuite()
             preferences = AppPreferences(defaults: suite.defaults)
             library = UserLibrary(root: directory.appendingPathComponent("Library"))
             store = DocumentSettingsStore(directory: directory.appendingPathComponent("Settings"))
@@ -37,9 +37,11 @@ struct ViewBandTests {
             let renderer = DocumentRenderer(paginate: { _ in
                 try #require(PDFDocument(data: pages ?? TestFixtures.pdf("Pages")))
             })
-            return DocumentViewModel(
+            let model = DocumentViewModel(
                 data: data, fileURL: nil, format: format, preferences: preferences, library: library,
                 renderer: renderer, settingsStore: store)
+            model.isolateBandTestOutput()
+            return model
         }
     }
 
@@ -101,7 +103,7 @@ struct ViewBandTests {
 
     @Test("旧版の常に固定の記録は常に出すとして読む")
     func migratesPinnedDefault() {
-        let suite = TestDefaultsSuite()
+        let suite = BandTestDefaultsSuite()
         defer { suite.remove() }
         suite.defaults.set(true, forKey: "defaultMenuPinned")
         #expect(AppPreferences(defaults: suite.defaults).defaultBandVisibility == .always)
@@ -109,7 +111,7 @@ struct ViewBandTests {
 
     @Test("旧版で固定しないと決めていた記録は、乗せたときだけのまま読む")
     func keepsUnpinnedRecord() {
-        let suite = TestDefaultsSuite()
+        let suite = BandTestDefaultsSuite()
         defer { suite.remove() }
         suite.defaults.set(false, forKey: "defaultMenuPinned")
         #expect(AppPreferences(defaults: suite.defaults).defaultBandVisibility == .onHover)
@@ -117,7 +119,7 @@ struct ViewBandTests {
 
     @Test("新しい設定を選んだあとは旧版の記録より優先する")
     func newChoiceWinsOverPinnedRecord() {
-        let suite = TestDefaultsSuite()
+        let suite = BandTestDefaultsSuite()
         defer { suite.remove() }
         suite.defaults.set(true, forKey: "defaultMenuPinned")
         AppPreferences(defaults: suite.defaults).defaultBandVisibility = .onHover
@@ -405,7 +407,8 @@ struct ViewBandTests {
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered,
             defer: false)
         window.isReleasedWhenClosed = false
-        defer { window.close() }
+        let controller = NSWindowController(window: window)
+        defer { controller.close() }
         let tracker = PointerTracker.TrackerView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
         #expect(!tracker.isMonitoring)
         window.contentView?.addSubview(tracker)
@@ -721,7 +724,7 @@ struct ViewBandTests {
         }
         #expect(!pdf.offersPaperSeries)
         #expect(!image.offersPaperSeries)
-        #expect(!SecondaryViewControl.applicable(for: pdf).contains(.paperSeries))
+        #expect(!BandLayout.Item.applicable(for: pdf).contains(.paperSeries))
     }
 
     @Test("文字の文書を含む合本には紙の判の切り替えを出し、PDF だけの合本には出さない")
@@ -729,10 +732,13 @@ struct ViewBandTests {
         let environment = Environment()
         defer { environment.cleanUp() }
         func binderModel(_ names: [String]) -> DocumentViewModel {
-            DocumentViewModel(
+            let model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: .pdf, preferences: environment.preferences,
                 library: environment.library,
-                binder: BinderModel(urls: names.map { URL(fileURLWithPath: "/fixture/\($0)") }, read: { _ in Data() }))
+                binder: BinderModel(
+                    urls: names.map { environment.directory.appendingPathComponent($0) }, read: { _ in Data() }))
+            model.isolateBandTestOutput()
+            return model
         }
         let text = binderModel(["a.md", "b.pdf"])
         let pdfs = binderModel(["a.pdf", "b.pdf"])
@@ -779,6 +785,7 @@ struct ViewBandTests {
             data: Data("# First Chapter\n\nbody\n\n# Second Chapter\n\nbody".utf8), fileURL: nil,
             format: .markdown, preferences: environment.preferences, library: environment.library,
             renderer: renderer, settingsStore: environment.store)
+        model.isolateBandTestOutput()
         defer { model.stop() }
         try await open(model)
         try await waitUntil { model.outlineEntries.last?.pageIndex == 2 }
@@ -839,7 +846,7 @@ struct ViewBandTests {
         try await waitUntil { model.hasOutline }
         let plans = BandPlans(model: model, menu: OverlayMenuState())
         #expect(plans.band(of: .outline) == nil)
-        #expect(plans.menuItems.contains(.outline))
+        #expect(plans.resolved.unusedAvailable.contains(.outline))
     }
 
     @Test("目次の出し方に従ってポップオーバーか引き出しを開く")
@@ -915,6 +922,6 @@ struct ViewBandTests {
         #expect(BandLayout.Item.applicable(for: model).contains(.pageTurn))
         let top = BandPlans(model: model, menu: OverlayMenuState())
         #expect(top.band(of: .pageTurn) == nil)
-        #expect(top.menuItems.contains(.pageTurn))
+        #expect(top.resolved.unusedAvailable.contains(.pageTurn))
     }
 }

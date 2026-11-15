@@ -5,6 +5,58 @@ import Testing
 struct BandArrangementStoreTests {
     private let id = UUID(uuidString: "82A9DE17-83DC-4E32-9756-26CB8D832F19")!
 
+    @Test("手書き配置の省略部品は保存と上書きで未使用へ補い領域と順序を保つ")
+    func completesOmittedParts() throws {
+        let split = BandArrangement(
+            entries: [
+                .topLeft: [.part(.style), .separator, .part(.outline)], .bottomRight: [.part(.print)],
+            ], unused: [.zoom])
+        let top = BandArrangement(topRight: [.print, .readingDirection])
+        let layouts = BandArrangementVariants(split: split, top: top)
+        var store = BandArrangementStore()
+        let set = BandArrangementSet(name: "Sparse", layouts: layouts)
+        try store.insert(set)
+        #expect(store.activeLayouts.split.topLeft == split.topLeft)
+        #expect(store.activeLayouts.split.bottomRight == [.part(.print)])
+        #expect(
+            store.activeLayouts.split.unused == [.zoom]
+                + BandLayout.Item.allCases.filter {
+                    ![.zoom, .style, .outline, .print].contains($0)
+                })
+        #expect(store.activeLayouts.top.topRight == top.topRight)
+        #expect(BandArrangementValidation.issues(in: store.activeLayouts.top, for: .top).isEmpty)
+        let completed = store.activeLayouts
+        try store.overwrite(.user(set.id), layouts: layouts)
+        #expect(store.activeLayouts == completed)
+        let loaded = BandArrangementStore.load(try JSONEncoder().encode(store))
+        #expect(loaded.store == store)
+        #expect(loaded.notices.isEmpty)
+    }
+
+    @Test("省略を補っても印刷の欠落と除外と重複と不正な領域は保存せずストアを保つ")
+    func completionDoesNotHideInvalidDrafts() throws {
+        var store = BandArrangementStore()
+        let set = BandArrangementSet(name: "Valid")
+        try store.insert(set)
+        let before = store
+        let invalid: [(BandArrangement, BandArrangementIssue)] = [
+            (BandArrangement(topLeft: [.style]), .missing(.print)),
+            (BandArrangement(unused: [.print]), .printIsUnused),
+            (BandArrangement(topRight: [.print, .style, .style]), .duplicate(.style)),
+            (BandArrangement(bottomRight: [.print]), .bottomZoneInTopOnly(.bottomRight)),
+        ]
+        for (top, issue) in invalid {
+            let layouts = BandArrangementVariants(top: top)
+            #expect(throws: BandArrangementStoreError.invalidLayout(.top, [issue])) {
+                try store.insert(BandArrangementSet(name: "Invalid", layouts: layouts))
+            }
+            #expect(throws: BandArrangementStoreError.invalidLayout(.top, [issue])) {
+                try store.overwrite(.user(set.id), layouts: layouts)
+            }
+            #expect(store == before)
+        }
+    }
+
     @Test("配置セットと選択中の識別子を一つの値として往復できる")
     func roundTrip() throws {
         var store = BandArrangementStore()

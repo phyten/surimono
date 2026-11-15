@@ -3,16 +3,20 @@ import SurimonoCore
 import Testing
 
 struct BandLayoutTests {
+    static let addedItems: [BandLayout.Item] = [
+        .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText, .alwaysShowToolbar,
+        .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,
+    ]
     // Freeze these independently of the arrangement model so later refactors cannot redefine Standard unnoticed.
     static let standardSplit: [[BandLayout.Item]] = [
         [.formatBadge], [.floatOnTop, .print],
         [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails],
-        [.pageIndicator, .pageTurn], [],
+        [.pageIndicator, .pageTurn], addedItems,
     ]
     static let standardTop: [[BandLayout.Item]] = [
         [.formatBadge, .pageIndicator],
         [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print],
-        [], [], [.pageTurn],
+        [], [], [.pageTurn] + addedItems,
     ]
     static let workedWidths: [BandLayout.Item: BandLayout.Widths] = [
         .formatBadge: .init(full: 30), .pageIndicator: .init(full: 50),
@@ -26,7 +30,7 @@ struct BandLayoutTests {
     @Test("標準の上下配置は現在の部品順と一致する")
     func frozenSplit() {
         let top = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .top }
-        let bottom = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .bottom }
+        let bottom = BandLayout.Item.allCases.prefix(12).filter { BandLayout.position(of: $0, in: .split) == .bottom }
         #expect(top == [.formatBadge, .floatOnTop, .print])
         #expect(
             bottom.filter { $0.group != nil } == [
@@ -108,13 +112,13 @@ struct BandLayoutTests {
         BandLayout.plan(widths: widths, fixed: 150, separator: 10, name: name, available: available)
     }
 
-    @Test("帯にはタイトル・形式別の操作・スタイル・表示の型・送り方・最前面に固定・印刷だけを並べる")
+    @Test("既存十二部品の後ろに十四部品を並べる")
     func itemsFollowTheSpecification() {
         #expect(
             BandLayout.Item.allCases == [
                 .formatBadge, .pageIndicator, .presentation, .style, .outline, .layout, .transition, .zoom,
                 .thumbnails, .floatOnTop, .pageTurn, .print,
-            ])
+            ] + Self.addedItems)
     }
 
     @Test("名前を先に省き、タイトルと操作を畳み、最前面に固定は最後まで残してから印刷をアイコンにする")

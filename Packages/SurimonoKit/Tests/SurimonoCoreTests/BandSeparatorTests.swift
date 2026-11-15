@@ -65,7 +65,7 @@ struct BandSeparatorTests {
             deleted.unused == [
                 .formatBadge, .pageIndicator, .presentation, .layout, .transition, .zoom, .thumbnails, .floatOnTop,
                 .pageTurn,
-            ])
+            ] + BandLayoutTests.addedItems)
         #expect(
             try initial.movingEntry(at: 1, from: .zone(.topLeft), to: .zone(.topLeft), at: 1, for: .split) == initial)
         #expect(
@@ -196,7 +196,7 @@ extension BandSeparatorTests {
         #expect(result.bottom?.geometry.gapsBefore == [.style: 0, .outline: 8])
         #expect(result.bottom?.geometry.separatorWidth == 9)
         #expect(result.bottom?.requiredWidth == 87)
-        #expect(result.menuItems == [.layout])
+        #expect(result.unusedAvailable == [.layout])
         let bare = plan([.part(.style), .part(.outline)])
         #expect(bare.bottom?.requiredWidth == 78)
         #expect(bare.bottom?.geometry.separatorsBefore == [])
@@ -227,7 +227,7 @@ extension BandSeparatorTests {
         #expect(folded.bottom?.geometry.separatorsBefore == [])
         #expect(folded.bottom?.requiredWidth == 30)
         #expect(folded.overflow == [.style])
-        #expect(folded.menuItems == [.style, .layout])
+        #expect(folded.unusedAvailable == [.layout])
         #expect(plan([.part(.style), .part(.outline)], width: 86).bottom?.forms == [.style: .full, .outline: .full])
     }
 
@@ -244,9 +244,33 @@ extension BandSeparatorTests {
             metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9), availableWidth: 1000)
         #expect(result.top.geometry.separatorsBefore == [.pageIndicator, .print])
         #expect(result.top.geometry.gapsBefore == [.formatBadge: 6, .pageIndicator: 8, .floatOnTop: 0, .print: 8])
-        #expect(result.top.requiredWidth == 40)
+        // 6 + 8 + 8 for the gaps, 9 for each line and 8 for the gap the band draws before "…" after the pin.
+        #expect(result.top.requiredWidth == 48)
         #expect(result.top.geometry.moreDock == .beforePrint)
         #expect(result.bottom?.geometry.separatorsBefore == [.pageTurn])
         #expect(result.bottom?.requiredWidth == 17)
+    }
+
+    @Test("並べ替えた上の帯は「…」の前の隙間も幅に数え、標準の並びと「…」の前に部品がないときは数えない")
+    func gapBeforeMore() {
+        func top(_ topRight: [BandEntry], left: [BandEntry] = []) -> BandRowPlan {
+            BandLayout.resolve(
+                arrangement: BandArrangement(entries: [
+                    .topLeft: left, .topRight: topRight,
+                    .bottomLeft: [], .bottomRight: [],
+                ]), mode: .split, availableItems: Set(BandLayout.Item.allCases),
+                measurements: .init(items: [:], name: 0),
+                metrics: .init(topFixed: 0, bottomFixed: 0, separator: 9), availableWidth: 1000
+            ).top
+        }
+        let reordered = top([.part(.readingDirection), .part(.floatOnTop), .part(.print)])
+        #expect(reordered.geometry.moreGap == 8)
+        // 8 between the two tools, 10 before the docked Print and 8 before "…".
+        #expect(reordered.requiredWidth == 26)
+        // Moved to the left, the only tool no longer stands before "…".
+        let alone = top([.part(.print)], left: [.part(.readingDirection)])
+        #expect(!alone.geometry.usesStandardSpacing && alone.geometry.moreGap == 0)
+        #expect(top([.part(.floatOnTop), .part(.print)]).geometry.usesStandardSpacing)
+        #expect(top([.part(.floatOnTop), .part(.print)]).geometry.moreGap == 0)
     }
 }
