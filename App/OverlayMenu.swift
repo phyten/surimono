@@ -640,7 +640,7 @@ struct LayoutPicker: View {
             "View",
             selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) })
         ) {
-            ForEach(ViewOptions.Layout.allCases, id: \.self) { layout in
+            ForEach(ViewOptions.Layout.displayOrder, id: \.self) { layout in
                 Label(layout.title, systemImage: layout.symbol).tag(layout)
             }
         }
@@ -648,7 +648,7 @@ struct LayoutPicker: View {
         .labelsHidden()
         .labelStyle(.iconOnly)
         .fixedSize()
-        .help("Spread or Single Page (⌥⌘1 / ⌥⌘2)")
+        .help("Single Page or Spread (⌥⌘1 / ⌥⌘2)")
     }
 }
 

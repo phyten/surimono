@@ -15,9 +15,9 @@ struct ViewOptionsTests {
                 pdfDirection: direction))
     }
 
-    @Test("表示の型は見開きと単ページの順に並ぶ")
+    @Test("表示の型の選択肢は単ページと見開きの順に並ぶ")
     func layouts() {
-        #expect(ViewOptions.Layout.allCases == [.spread, .single])
+        #expect(ViewOptions.Layout.displayOrder == [.single, .spread])
     }
 
     @Test(
@@ -91,11 +91,37 @@ struct ViewOptionsTests {
         #expect(settings.themeID == "test-theme")
     }
 
-    @Test("表示の型は現在の文字列で書き出して読み戻せる", arguments: ViewOptions.Layout.allCases)
-    func layoutRoundTrip(layout: ViewOptions.Layout) throws {
+    @Test(
+        "表示の型の保存値は表示順によらず従来の文字列を保つ",
+        arguments: [(ViewOptions.Layout.single, "single"), (.spread, "spread")])
+    func layoutRoundTrip(layout: ViewOptions.Layout, storedValue: String) throws {
+        #expect(layout.rawValue == storedValue)
+        #expect(ViewOptions.Layout(rawValue: storedValue) == layout)
         let data = try JSONEncoder().encode(layout)
-        #expect(String(decoding: data, as: UTF8.self) == "\"\(layout.rawValue)\"")
-        #expect(try JSONDecoder().decode(ViewOptions.Layout.self, from: data) == layout)
+        #expect(String(decoding: data, as: UTF8.self) == "\"\(storedValue)\"")
+        #expect(try JSONDecoder().decode(ViewOptions.Layout.self, from: Data("\"\(storedValue)\"".utf8)) == layout)
+    }
+
+    @Test(
+        "文書設定の単ページと見開きは従来の保存値で読み書きできる",
+        arguments: [("single", ViewOptions.Layout.single), ("spread", .spread)])
+    func documentLayoutPersistence(storedValue: String, layout: ViewOptions.Layout) throws {
+        let json = """
+            {"view":{"layout":"\(storedValue)","direction":"rightToLeft","scrollAxis":"vertical",
+            "transition":"fade","showsCoverAlone":false},"zoom":2,"themeID":"test-theme"}
+            """
+        let settings = try JSONDecoder().decode(DocumentSettings.self, from: Data(json.utf8))
+        #expect(
+            settings.view
+                == ViewOptions(
+                    layout: layout, direction: .rightToLeft, scrollAxis: .vertical,
+                    transition: .fade, showsCoverAlone: false))
+        #expect(settings.zoom == 2)
+        #expect(settings.themeID == "test-theme")
+        let encoded = try JSONEncoder().encode(settings)
+        let values = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        let view = try #require(values["view"] as? [String: Any])
+        #expect(view["layout"] as? String == storedValue)
     }
 
     @Test(

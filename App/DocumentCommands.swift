@@ -80,7 +80,7 @@ struct DocumentCommands: Commands {
                 isOn: Binding(get: { model?.ignoresSlides ?? false }, set: { model?.setIgnoresSlides($0) })
             )
             Divider()
-            ForEach(Array(ViewOptions.Layout.allCases.enumerated()), id: \.element) { index, layout in
+            ForEach(Array(ViewOptions.Layout.displayOrder.enumerated()), id: \.element) { index, layout in
                 Button(layout.title) { model?.setLayout(layout) }
                     .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [.option, .command])
             }

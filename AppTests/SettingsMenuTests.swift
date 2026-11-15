@@ -117,6 +117,34 @@ struct SettingsMenuTests {
         #expect(pin.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == [.option, .command])
     }
 
+    @Test("表示メニューは単ページと見開きの順で⌥⌘1と⌥⌘2を割り当てる")
+    func viewLayoutOrderAndShortcuts() throws {
+        let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        let entries = menu.items.filter { [localized("Single Page"), localized("Spread")].contains($0.title) }
+        #expect(entries.map(\.title) == [localized("Single Page"), localized("Spread")])
+        #expect(entries.map(\.keyEquivalent) == ["1", "2"])
+        #expect(
+            entries.map { $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) }
+                == [[.option, .command], [.option, .command]])
+        #expect(entries.allSatisfy { $0.isEnabled })
+    }
+
+    @Test(
+        "表示の既定値は従来の文字列を読み込み変更後も同じ値で保存する",
+        arguments: [("single", ViewOptions.Layout.single), ("spread", .spread)])
+    func storedViewLayout(storedValue: String, layout: ViewOptions.Layout) {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(storedValue, forKey: "defaultViewLayout")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        #expect(preferences.defaultViewLayout == layout)
+        preferences.defaultViewLayout = nil
+        #expect(suite.defaults.string(forKey: "defaultViewLayout") == nil)
+        preferences.defaultViewLayout = layout
+        #expect(suite.defaults.string(forKey: "defaultViewLayout") == storedValue)
+        #expect(AppPreferences(defaults: suite.defaults).defaultViewLayout == layout)
+    }
+
     @Test("文書メニューに印刷レイアウト・スタイル・リセット・再読み込みをまとめ、一覧の項目は束と合本の窓だけに出す")
     func documentItems() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
