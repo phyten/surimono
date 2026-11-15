@@ -670,18 +670,14 @@ final class DocumentViewModel {
     /// The page breaks and the contents are read from a text; a binder keeps its documents as they are.
     var finishAppliesToText: Bool { binder == nil && format.usesPrintTheme }
 
-    /// The series of the tray's cards. A document on the default layout shows the series last chosen on a tray, and
-    /// any other the series of its own paper. The cards may thus show a series the layout is not in yet (the B
-    /// sizes keep the A4 handout as their sixth card); `layout.series` is the paper the pages are on.
-    var trayPaperSeries: PaperSeries {
-        if let shownPaperSeries { return shownPaperSeries }
-        if layoutID == Self.defaultLayoutID(preferences), let series = preferences.paperSeries { return series }
-        return layout.series
-    }
+    /// The series of the tray's cards: the series of the paper the pages are on, so the cards never show another
+    /// paper than the sheets.
+    var trayPaperSeries: PaperSeries { shownPaperSeries ?? layout.series }
 
-    /// Switching the series brings the layout along, so the sheets on the tray follow the switch.
-    func choosePaperSeries(_ series: PaperSeries) {
-        preferences.paperSeries = series
+    /// Switching the series brings the layout along, so the sheets on the tray follow the switch. The series is also
+    /// the paper the next documents start on, unless it is only shown, as for a screenshot.
+    func choosePaperSeries(_ series: PaperSeries, remembers: Bool = true) {
+        if remembers { preferences.choosePaperSeries(series) }
         layoutID = layout.counterpart(in: series).id
         shownPaperSeries = series
     }

@@ -132,8 +132,13 @@ final class AppPreferences {
             }
         }
     }
-    /// The last series of paper chosen on a tray.
-    var paperSeries: PaperSeries? { didSet { defaults.set(paperSeries?.rawValue, forKey: "paperSeries") } }
+    /// The paper chosen on a tray is the paper the next documents start on: the default layout moves to the one that
+    /// prints the same way on that series. The series is not kept beside it. The default layout's paper says it, so
+    /// the two cannot disagree.
+    func choosePaperSeries(_ series: PaperSeries) {
+        let layout = PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single
+        layoutID = layout.counterpart(in: series).id
+    }
     /// What the reader made the default from the tray; the margin and header above stay for Settings.
     private var finishDefaults: FinishDefaults? {
         didSet {
@@ -273,9 +278,13 @@ final class AppPreferences {
         defaultTextScale = TextScale.range.contains(scale) ? TextScale.clamped(scale) : 1
         defaultPaperOrientation =
             PaperOrientation(rawValue: defaults.string(forKey: "defaultPaperOrientation") ?? "") ?? .auto
+        // Earlier versions kept a series chosen on a tray under "paperSeries" without moving the default layout to
+        // it: the cards then showed that series over sheets of another paper. Without a stored default layout that
+        // choice comes before the region; with one, the layout's own paper stands.
+        let chosenSeries = PaperSeries(rawValue: defaults.string(forKey: "paperSeries") ?? "")
         layoutID =
             defaults.string(forKey: "layout")
-            ?? (initialSeries == .letter ? "letterSingle" : "a4Single")
+            ?? PrintLayout.a4Single.counterpart(in: chosenSeries ?? initialSeries).id
         themeID = defaults.string(forKey: "theme") ?? "standard"
         themeSampleSource =
             defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .specimen
@@ -284,7 +293,6 @@ final class AppPreferences {
         defaultCodePaletteID = defaults.string(forKey: "codePalette") ?? CodePalette.matchesStyleID
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
-        paperSeries = PaperSeries(rawValue: defaults.string(forKey: "paperSeries") ?? "")
         let storedFinish = defaults.data(forKey: "printFinishDefaults").flatMap {
             try? JSONDecoder().decode(FinishDefaults.self, from: $0)
         }

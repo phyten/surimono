@@ -72,14 +72,44 @@ struct AdditionalPrintLayoutTests {
         }
     }
 
-    @Test("初回の系列は地域または既定のLetter用紙から決める")
-    func regionalDefault() {
-        #expect(PaperSeries.initial(locale: Locale(identifier: "en_US")) == .letter)
-        #expect(PaperSeries.initial(locale: Locale(identifier: "ja_JP")) == .a)
-        #expect(PaperSeries.initial(locale: Locale(identifier: "en_GB")) == .a)
+    @Test(
+        "初回の系列は、Letterを使う地域ではLetterになる",
+        arguments: ["en_US", "en_CA", "fr_CA", "es_MX", "fil_PH", "es_CL", "es_CO", "es_VE", "es_PR", "ja_US"])
+    func letterRegions(identifier: String) {
+        #expect(PaperSeries.initial(locale: Locale(identifier: identifier)) == .letter)
+    }
+
+    @Test(
+        "初回の系列は、そのほかの地域ではAになる",
+        arguments: ["ja_JP", "en_GB", "de_DE", "fr_FR", "en_AU", "pt_BR", "es_AR", "en_LR", "en_JP"])
+    func a4Regions(identifier: String) {
+        #expect(PaperSeries.initial(locale: Locale(identifier: identifier)) == .a)
+    }
+
+    @Test("初回の系列は言語や単位ではなく地域で決まり、地域が分からなければAになる")
+    func regionDecidesNotLanguageOrUnits() {
+        // A reader in the United States who chose metric units still prints on Letter.
+        #expect(PaperSeries.initial(locale: Locale(identifier: "en_US@measure=metric")) == .letter)
+        #expect(PaperSeries.initial(locale: Locale(identifier: "en")) == .a)
+        #expect(PaperSeries.initial(locale: Locale(identifier: "es_419")) == .a)
+    }
+
+    @Test("Macの既定の用紙がA4かLetterなら、初回の系列は地域よりその用紙に従う")
+    func defaultPaperWinsOverRegion() {
+        let letter = CGSize(width: 612, height: 792)
+        let a4 = CGSize(width: 595, height: 842)
+        #expect(PaperSeries.initial(locale: Locale(identifier: "ja_JP"), defaultPaperSize: letter) == .letter)
+        #expect(PaperSeries.initial(locale: Locale(identifier: "en_US"), defaultPaperSize: a4) == .a)
         #expect(
-            PaperSeries.initial(locale: Locale(identifier: "en_CA"), defaultPaperSize: CGSize(width: 612, height: 792))
+            PaperSeries.initial(locale: Locale(identifier: "en_US"), defaultPaperSize: CGSize(width: 842, height: 595))
+                == .a)
+        // Legal and B5 are in neither series' first card, so the region decides.
+        #expect(
+            PaperSeries.initial(locale: Locale(identifier: "en_US"), defaultPaperSize: CGSize(width: 612, height: 1008))
                 == .letter)
+        #expect(
+            PaperSeries.initial(locale: Locale(identifier: "ja_JP"), defaultPaperSize: CGSize(width: 516, height: 729))
+                == .a)
     }
 
     @Test("右とじでは外側内側のヘッダーと余白の奇偶を逆にする")
