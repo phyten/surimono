@@ -267,6 +267,9 @@ private struct AppPopoverScreen {
     }
 }
 
+// The app target isolates its types to the main actor by default; this target does not, and Xcode 26.6 does not
+// infer the isolation for an extension written here.
+@MainActor
 extension DocumentViewModel {
     fileprivate func closeAllPopovers() {
         isViewOptionsPresented = false
