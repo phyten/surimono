@@ -409,7 +409,7 @@ final class DocumentViewModel {
             contents: [String]
         )?
     @ObservationIgnored private var structureDocument: PDFDocument?
-    @ObservationIgnored private var textSizeKeyMonitor: Any?
+    var shortcutListFocused = false
     private var printCompletion: PrintCompletion?
     private var printOperation: NSPrintOperation?
     private var exportingDocument: PDFDocument?
@@ -880,17 +880,6 @@ final class DocumentViewModel {
             // Pages of the old copy would no longer count as up to date, so they are made from the file again.
             if renderedFromSnapshot { render() }
         }
-        if textSizeKeyMonitor == nil {
-            textSizeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                let handled = MainActor.assumeIsolated {
-                    guard let self, let window = self.window, event.window === window,
-                        window.isKeyWindow, window.attachedSheet == nil
-                    else { return false }
-                    return self.handleTextSizeKey(event) || self.handleTrayZoomKey(event)
-                }
-                return handled ? nil : event
-            }
-        }
         if watcher == nil, let fileURL {
             watcher = FileWatcher(
                 url: fileURL,
@@ -942,8 +931,6 @@ final class DocumentViewModel {
         duplexTestTask = nil
         pendingPrintIssue = nil
         dropSpot()
-        if let textSizeKeyMonitor { NSEvent.removeMonitor(textSizeKeyMonitor) }
-        textSizeKeyMonitor = nil
         renderTask?.cancel()
         toastTask?.cancel()
         hashTask?.cancel()
@@ -1495,24 +1482,11 @@ final class DocumentViewModel {
         if linked { printOptions.margins = .uniform(printOptions.margins.top) }
     }
 
-    /// The unshifted US key for ⌥⌘+ must work in both the viewer and the print tray, before PDFKit handles ⌘=.
-    func handleTextSizeKey(_ event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection([.command, .option, .control]) == [.option, .command],
-            event.charactersIgnoringModifiers == "="
-        else { return false }
-        increaseTextSize()
-        return true
-    }
-
-    /// ⌘= is the unshifted Zoom In key on US keyboards, which the menu's ⌘+ does not take. The paper of the view mode
-    /// takes it as a key of its own; the tray has no view that takes keys.
-    func handleTrayZoomKey(_ event: NSEvent) -> Bool {
-        guard mode == .print, let trayZoomer,
-            event.modifierFlags.intersection([.command, .option, .control]) == [.command],
-            event.charactersIgnoringModifiers == "="
-        else { return false }
-        trayZoomer.zoomIn()
-        return true
+    /// A popover can leave its parent window's paper as first responder while it is opening.
+    var blocksSurfaceShortcuts: Bool {
+        isViewOptionsPresented || isThemePalettePresented || isPrintFinishPresented
+            || isOutlinePresented || isFiguresPresented || isGoToPagePresented || isReviewingSmartRemoval
+            || isPrintIssuesPresented || showsNoteAdjustments
     }
 
     // MARK: - View mode

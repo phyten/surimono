@@ -159,6 +159,7 @@ final class ShortcutController {
 
     func isConnected(_ operation: ShortcutOperationID) -> Bool {
         ShortcutOperation.operation(operation).isGlobal || ShortcutMenuBridge.operations.contains(operation)
+            || ShortcutSurfaceKeys.operations.contains(operation)
     }
 
     func setExternalMenuKeys(_ keys: [ShortcutOperationID: ShortcutCombination]) {

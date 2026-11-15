@@ -169,7 +169,9 @@ private struct PaperArea: View {
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.paperDidChangePage($0) },
                     onTurn: { menu.pageTurned() },
-                    onKey: handleKey
+                    onKey: handleKey,
+                    onShortcut: { model.performPaperShortcut($0, menu: menu) },
+                    allowsShortcutHandling: { !model.blocksSurfaceShortcuts }
                 )
                 .paperFind(model)
             } else if model.error == nil {
@@ -223,28 +225,7 @@ private struct PaperArea: View {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-        switch KeyGuideEntry.paperAction(for: event) {
-        case .menu:
-            menu.toggle()
-            return true
-        case .escape:
-            // Esc closes the find bar first, also when the paper has the keys.
-            if model.find.isPresented {
-                model.closeFind()
-                return true
-            }
-            return menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible)
-        case .viewOptions:
-            menu.showFull()
-            model.isViewOptionsPresented = true
-            return true
-        case .selectText:
-            guard model.canSelectText else { return false }
-            model.toggleSelectingText()
-            return true
-        default:
-            return false
-        }
+        model.handleFixedPaperKey(event, menu: menu)
     }
 }
 
@@ -424,5 +405,36 @@ struct PrintSettingsAnchor: View {
             .popover(isPresented: $model.isPrintFinishPresented, arrowEdge: .trailing) {
                 PrintFinishSheet(model: model, isInPopover: true)
             }
+    }
+}
+
+@MainActor
+extension DocumentViewModel {
+    func handleFixedPaperKey(_ event: NSEvent, menu: OverlayMenuState) -> Bool {
+        switch KeyGuideEntry.fixedPaperAction(for: event) {
+        case .menu:
+            performPaperShortcut(.viewToolbarToggle, menu: menu)
+            return true
+        case .escape:
+            // Find is the innermost presentation even after focus returns to the paper.
+            if find.isPresented {
+                closeFind()
+                return true
+            }
+            return menu.hideForEscape(alwaysVisible: isBandAlwaysVisible)
+        default: return false
+        }
+    }
+
+    func performPaperShortcut(_ operation: ShortcutOperationID, menu: OverlayMenuState) {
+        guard mode == .view, !showsWeb else { return }
+        switch operation {
+        case .viewToolbarToggle: menu.toggle()
+        case .viewOptions:
+            menu.showFull()
+            isViewOptionsPresented = true
+        case .viewSelectText: toggleSelectingText()
+        default: break
+        }
     }
 }

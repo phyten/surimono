@@ -269,7 +269,7 @@ struct ShortcutMenuBridgeTests {
         #expect(fixture.bridge.items[.documentReload]?.keyEquivalent == "r")
         #expect(fixture.bridge.items[.appKeyGuide]?.keyEquivalent == "")
         #expect(throws: ShortcutController.EditError.self) { try fixture.controller.edit(.documentPrint, keys: []) }
-        #expect(throws: ShortcutController.EditError.self) { try fixture.controller.edit(.viewOptions, keys: []) }
+        #expect(throws: ShortcutController.EditError.self) { try fixture.controller.edit(.printSettings, keys: []) }
     }
 
     @Test(
@@ -309,16 +309,29 @@ struct ShortcutMenuBridgeTests {
         defer { model.stop() }
         let editor = NSTextView(frame: .zero)
         fixture.window.contentView = editor
-        fixture.window.makeFirstResponder(editor)
+        #expect(fixture.window.makeFirstResponder(editor))
+        #expect(fixture.window.firstResponder === editor)
+        #expect(!editor.hasMarkedText())
         for key in ["m", "v", "t", " ", "\u{F700}", "k"] {
             #expect(!fixture.dispatcher.handle(fixture.event(key, flags: [])))
         }
+        #expect(!fixture.dispatcher.handle(fixture.event("a")))
+        #expect(!fixture.dispatcher.handle(fixture.event("c")))
+        #expect(fixture.calls.isEmpty)
+        #expect(fixture.dispatcher.handle(fixture.event("r", code: 15)))
+        #expect(fixture.calls == [.documentReload])
+        fixture.calls = []
         editor.setMarkedText(
             "あ", selectedRange: NSRange(location: 0, length: 1),
             replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(editor.hasMarkedText())
         #expect(fixture.dispatcher.handle(fixture.event("r", code: 15)))
         #expect(fixture.calls.isEmpty)
         editor.unmarkText()
+        #expect(!editor.hasMarkedText())
+        #expect(fixture.dispatcher.handle(fixture.event("r", code: 15)))
+        #expect(fixture.calls == [.documentReload])
+        fixture.calls = []
         try fixture.controller.edit(.documentReload, keys: [.init(key: .character("k"), modifiers: .control)])
         #expect(fixture.bridge.items[.documentReload]?.keyEquivalent == "")
         #expect(!fixture.dispatcher.handle(fixture.event("k", flags: .control)))
@@ -328,6 +341,8 @@ struct ShortcutMenuBridgeTests {
         #expect(!fixture.dispatcher.handle(fixture.event("r", code: 15)))
         fixture.hotKeys.endRecording()
         #expect(fixture.calls.isEmpty)
+        #expect(fixture.dispatcher.handle(fixture.event("r", code: 15)))
+        #expect(fixture.calls == [.documentReload])
     }
 
     @Test("macOSが上書きした実効キーを保護し他の割当との衝突を停止する")

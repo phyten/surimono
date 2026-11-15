@@ -27,6 +27,10 @@ public enum ShortcutOperationID: String, CaseIterable, Codable, Sendable {
     case readingRight = "reading.right"
     case readingPrevious = "reading.previous"
     case readingNext = "reading.next"
+    case readingPageUp = "reading.pageUp"
+    case readingPageDown = "reading.pageDown"
+    case readingFirst = "reading.first"
+    case readingLast = "reading.last"
     case printLayoutSingle = "print.layout.single"
     case printLayoutDuplex = "print.layout.duplex"
     case printLayoutBookletLarge = "print.layout.bookletLarge"
@@ -127,9 +131,10 @@ public struct ShortcutOperation: Equatable, Sendable {
         if allowsBareKeys && combination.modifiers.intersection([.command, .control]).isEmpty {
             active.remove(.editableControl)
         }
-        // PDFKit keeps native selection arrows unless a Command navigation binding was explicitly assigned.
+        // PDFKit keeps native selection navigation unless a Command binding was explicitly assigned.
         if id.rawValue.hasPrefix("reading."), case .named(let key) = combination.key,
-            key.isArrow, !combination.modifiers.contains(.command)
+            key.isArrow || [.pageUp, .pageDown, .home, .end].contains(key),
+            !combination.modifiers.contains(.command)
         {
             active.remove(.paperSelection)
         }
@@ -249,7 +254,7 @@ public struct ShortcutOperation: Equatable, Sendable {
             return Self(
                 id: id, group: .reading, applicability: .paper, safety: .ordinary,
                 regions: [.paperReading, .paperSelection], allowsBareKeys: true)
-        case .readingNext:
+        case .readingNext, .readingPageUp, .readingPageDown, .readingFirst, .readingLast:
             return Self(
                 id: id, group: .reading, applicability: .paper, safety: .ordinary,
                 regions: [.paperReading, .paperSelection], allowsBareKeys: true)
