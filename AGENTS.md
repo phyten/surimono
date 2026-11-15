@@ -35,8 +35,10 @@ Surimono.xcodeproj      手書きの最小プロジェクト（objectVersion 77�
 ```bash
 make build                      # Debug ビルド（build/DerivedData。開発版の Surimono Dev）
 make run FILE=Samples/sample.md # ビルドしてファイルを開く（FILE 省略可）
-make test                       # test-kit と test-app の両方
-make test-kit                   # SurimonoKit のテスト（swift test）
+make test                       # test-kit のあとに test-app（順に走らせる）
+make test-kit                   # SurimonoKit のテスト（swift test。Core のあとに Rendering を直列で）
+make test-core                  # SurimonoCore のテストだけ
+make test-rendering             # SurimonoRendering のテストだけ（直列）
 make bench                      # 任意の描画計測（既定 5 回。JSON の保存先を表示）
 make bench-compare BASE=old.json NEW=new.json # 中央値の差を比較（合否なし）
 make test-app                   # アプリのテスト（xcodebuild test）
@@ -52,7 +54,8 @@ make clean
   - 分け方: `Configs/Surimono.xcconfig` の `[config=Debug]` と `UserLibrary.defaultRoot` の `#if DEBUG`。`DevelopmentBuildTests` で固定している。
   - `PRODUCT_NAME` は Makefile と `TEST_HOST` が `Surimono.app` を参照するので変えない。
   - `AppIcon-Dev` は、Dock や ⌘Tab でも公開版と取り違えないよう、全体の明るさと帯の色で分ける。原画は、`Design/AppIcon.svg` を暗い地に置いて少し暗くし、黄色の注意の帯（縞と DEV の文字）を重ねた `Design/AppIcon-Dev.svg` と、16・32px 用に縞と文字を省いて帯を太くした `Design/AppIcon-Dev-small.svg`。どちらも `AppIcon.svg` に行を足しただけで、元の行は変えていない。`AppIcon` と同じく `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は `AppIcon-Dev-small.svg` から、残りの 7 枚は `AppIcon-Dev.svg` から書き出す。`AppIcon.svg` を変えたら、2 つの SVG にも同じ変更を入れて書き出し直す。
-- CI（`.github/workflows/ci.yml` の `build-and-test`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
+- CI（`.github/workflows/ci.yml`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
+- CI は 5 つの macOS のジョブを同時に走らせる: `lint-and-core`（`make lint`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`）、`package`（`make package` と成果物の保存）。それぞれ自分の runner で組み立てる。必須チェックの `build-and-test` は Linux の門番のジョブで、5 つすべてが成功したときだけ通る（失敗・取り消し・スキップがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
 
 ## アーキテクチャ（印刷パイプライン）
 
@@ -347,6 +350,11 @@ make clean
 - **テスト名は日本語で振る舞いを書く**: `@Test("12ページの冊子は3枚の用紙になる")`。
 - 仕様として書いた制約（面付けの式、用紙寸法など）はテストで固定する。
 - WebKit を使うテストは遅く不安定になりやすい。数を絞り、タイムアウトを設ける。Kit の Rendering のテストは、`make test-kit`（`SWIFT_TEST_FLAGS` を指定しないとき）が直列（`--no-parallel`）で走らせる。新しい CI の runner で並列に走らせると、複数件がまとめて時間切れになることがあった（比較では、並列で 10 台中 1 台、直列で 10 台中 0 台が失敗）。個別に走らせるときも、必要なら `--no-parallel` を付ける。
+- 手元の `make test` は `test-kit` のあとに `test-app` を順に走らせる。テスト同士を 1 台の Mac で重ねない。速くするのは CI の側で、ジョブを別々の runner に分けている（「コマンド」の CI の項）。計測（18 コアの Mac）で確かめた理由:
+  - `test-kit` と `test-app` を同時に走らせない。同時にすると 5 回中 2 回、ホスト付きテストのうち待ち時間に頼るもの（`FileWatcherTests`・`WebPageKeyTests`・`PrintThemePaletteTests`。回ごとに違う）が落ちた。Kit の側の優先度を下げても（nice）2 回中 2 回落ちた。順に走らせると 6 回中 0 回。縮むのも約 20% で、通った回でも順に走らせたときと変わらないことがあった。
+  - Core と Rendering は同時に走らせない。同じ `.build` を使う `swift test` は SwiftPM のロックで順番待ちになり（`--skip-build` でも）、速くならない。`test-app` の方が長いので、Kit の側を縮めても全体は変わらない。
+  - Rendering のテストは手元でも並列にしない。並列にすると毎回 18〜24 件が落ちた（5 回中 5 回。`WebPaginator.clearBackground` などの静的な状態を書き換えるテストと、それが空であることを確かめるテストが同時に走るのと、WebKit の読み込みの失敗）。
+  - ホスト付きテストに Xcode の並列テスト（`-parallel-testing-enabled YES`）を使わない。テストのホストの複製が同じ設定・保存先・窓・メインメニューを取り合い、3 回とも 23〜140 件が落ちた（ホストが落ちた回もある）。直列なら 3 回とも全件が通った。スキームの `parallelizable="NO"` はそのためで、変えない。
 - fixture に個人情報や実データを入れない。
 - 描画計測は `make bench` のみで実行する（`SURIMONO_BENCH=1` がなければスイート全体をスキップ）。
 - 回数は `SURIMONO_BENCH_RUNS`、JSON の保存先は `SURIMONO_BENCH_OUT`。比較・基準値の更新は `Benchmarks/README.md` を参照。
