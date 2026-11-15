@@ -9,6 +9,26 @@ import Testing
 
 @MainActor
 struct PrintJobFactoryTests {
+    @Test("手動両面の送り方は冊子の用紙でも片面1部で、渡した出力順をそのまま明示する")
+    func manualTransport() throws {
+        let layout = try ManualDuplexRenderer().transportLayout(for: .a4BookletA5)
+        for order in [PrintPageOrder.lastSheetFirst, .firstSheetFirst] {
+            let base = NSPrintInfo()
+            base.dictionary()[NSPrintInfo.AttributeKey.copies] = 8
+            let info = PrintJobFactory().printInfo(for: layout, base: base, pageOrder: order, copies: 1)
+            var duplex = PMDuplexMode(kPMDuplexNoTumble)
+            var copies: UInt32 = 0
+            let settings = OpaquePointer(info.pmPrintSettings())
+            #expect(PMGetDuplex(settings, &duplex) == noErr)
+            #expect(PMGetCopies(settings, &copies) == noErr)
+            #expect(duplex == PMDuplexMode(kPMDuplexNone))
+            #expect(copies == 1)
+            var output: Unmanaged<CFTypeRef>?
+            #expect(PMPrintSettingsGetValue(settings, "OutputOrder" as CFString, &output) == noErr)
+            #expect(output?.takeUnretainedValue() as? String == (order == .firstSheetFirst ? "Normal" : "Reverse"))
+        }
+    }
+
     @Test("縦の両面はNoTumbleで横の両面と冊子はTumbleで片面はNoneを送る")
     func sentDuplexMode() {
         #expect(PrintJobFactory.duplexMode(for: .a4Duplex) == PMDuplexMode(kPMDuplexNoTumble))

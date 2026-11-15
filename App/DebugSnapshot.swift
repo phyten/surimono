@@ -1,5 +1,7 @@
 #if DEBUG
     import AppKit
+    import CoreText
+    import PDFKit
     import OSLog
     import ScreenCaptureKit
     import SurimonoCore
@@ -69,6 +71,78 @@
                     PrinterCapabilities(paperSizes: [PaperSize.a4.size, PaperSize.b5.size], duplex: false)
                 }
             }
+            if flag("SurimonoManualDuplexSheet") {
+                isolateManualDuplex(model)
+                model.manualDuplexTask = Task { [weak model] in
+                    guard let model else { return }
+                    do {
+                        try await installManualDuplexFixture(
+                            model, sheets: argument("SurimonoManualDuplexSheets").flatMap(Int.init) ?? 3,
+                            correction: ManualDuplexCorrection(
+                                reversesBackOrder: flag("SurimonoManualDuplexReverseBacks"),
+                                rotatesBackSides: flag("SurimonoManualDuplexRotateBacks")))
+                    } catch {
+                        if !(error is CancellationError) {
+                            model.outputError = String(localized: "The print job could not be created.")
+                        }
+                    }
+                }
+            }
+        }
+
+        private static func isolateManualDuplex(_ model: DocumentViewModel) {
+            model.printerListSource = { PrinterList(names: ["Snapshot Printer"], defaultName: "Snapshot Printer") }
+            model.printerCapabilitiesSource = { _ in PrinterCapabilities(duplex: false) }
+            model.printSubmit = { _, _, _ in }
+            model.duplexTestSubmit = { _, _, _, complete in complete(nil) }
+            model.manualDuplexSubmit = { submission, complete in
+                complete(.handedOff(printerName: submission.request.printerName ?? "Snapshot Printer"))
+            }
+            // Every session the window starts saves its corrections here, not into the real preferences.
+            let preferences = ManualDuplexFixturePreferences()
+            model.manualDuplexSaveCorrection = { preferences.correction = $0 }
+        }
+
+        /// The fixture has its own preferences and submitter so even its default button cannot reach a printer.
+        static func installManualDuplexFixture(
+            _ model: DocumentViewModel, sheets: Int = 3, correction: ManualDuplexCorrection = .init()
+        ) async throws {
+            isolateManualDuplex(model)
+            let layout = model.layout.sentDuplex == .none ? PrintLayout.a4Duplex : model.layout
+            let count = min(max(sheets, 1), 99)
+            let imposition = Imposition.plan(pageCount: count * (layout.kind == .booklet ? 4 : 2), layout: layout)
+            let session = ManualDuplexSession(
+                printerName: "Snapshot Printer", layout: layout, imposition: imposition, copies: 1,
+                pageOrder: .lastSheetFirst, jobTitle: "Manual Duplex Snapshot", language: model.language,
+                correction: correction)
+            session.saveCorrection = model.manualDuplexSaveCorrection
+            session.submitOverride = { _, complete in complete(.handedOff(printerName: "Snapshot Printer")) }
+            let data = NSMutableData()
+            var box = CGRect(origin: .zero, size: layout.sheetSize)
+            guard let consumer = CGDataConsumer(data: data),
+                let context = CGContext(consumer: consumer, mediaBox: &box, nil)
+            else { throw ManualFixtureError.invalidPDF }
+            for index in 0..<imposition.sides.count {
+                context.beginPDFPage(nil)
+                let label = NSAttributedString(
+                    string: "Sheet \(index / 2 + 1) \(index % 2 == 0 ? "Front" : "Back")",
+                    attributes: [.font: NSFont.systemFont(ofSize: 24)])
+                context.textPosition = CGPoint(x: 40, y: box.height - 60)
+                CTLineDraw(CTLineCreateWithAttributedString(label), context)
+                context.endPDFPage()
+            }
+            context.closePDF()
+            guard let document = PDFDocument(data: data as Data) else { throw ManualFixtureError.invalidPDF }
+            try await session.prepare(from: document)
+            try Task.checkCancellation()
+            _ = session.transition(from: .preparing, to: .sendingFronts)
+            _ = session.transition(from: .sendingFronts, to: .awaitingReload)
+            model.manualDuplexSession = session
+        }
+
+        private enum ManualFixtureError: Error { case invalidPDF }
+        private final class ManualDuplexFixturePreferences {
+            var correction = ManualDuplexCorrection()
         }
 
         /// Overrides that must wait until the document's own defaults are known.
@@ -406,7 +480,14 @@
                     }
                     try data.write(to: destination, options: .atomic)
                     captured = true
-                    if argument("SurimonoSnapshotQuit")?.uppercased() == "YES" { NSApp.terminate(nil) }
+                    if argument("SurimonoSnapshotQuit")?.uppercased() == "YES" {
+                        // A document window with a sheet attached will not close, which cancels the quit.
+                        if model.manualDuplexSession != nil {
+                            model.cancelManualDuplex()
+                            try? await Task.sleep(for: .milliseconds(500))
+                        }
+                        NSApp.terminate(nil)
+                    }
                 } catch {
                     logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
                 }

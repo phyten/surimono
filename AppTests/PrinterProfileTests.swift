@@ -456,4 +456,20 @@ struct PrinterProfileFlowTests {
         model.answerDuplexTest(rotatesBackSides: nil)
         #expect(fixture.preferences.printerProfiles.isEmpty)
     }
+
+    @Test("手動両面の補正をプリンターととじ方ごとに保存する")
+    func manualPersistence() {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        fixture.preferences.setPrinterRotation(true, for: "A", duplex: .longEdge)
+        fixture.preferences.setPrinterPageOrder(.firstSheetFirst, for: "A")
+        fixture.preferences.setManualDuplexCorrection(.init(reversesBackOrder: true), for: "A", duplex: .shortEdge)
+        fixture.preferences.setManualDuplexCorrection(.init(rotatesBackSides: true), for: "B", duplex: .longEdge)
+        let restored = AppPreferences(defaults: fixture.suite.defaults)
+        #expect(restored.printerProfile(for: "A").manualCorrection(for: .shortEdge) == .init(reversesBackOrder: true))
+        #expect(restored.printerProfile(for: "A").manualCorrection(for: .longEdge) == .init())
+        #expect(restored.printerProfile(for: "B").manualCorrection(for: .longEdge) == .init(rotatesBackSides: true))
+        #expect(restored.printerProfile(for: "A").rotation(for: .longEdge, default: false))
+        #expect(restored.printerProfile(for: "A").pageOrder == .firstSheetFirst)
+    }
 }
