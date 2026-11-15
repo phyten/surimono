@@ -326,6 +326,7 @@ final class BandArrangementEditorSession {
         draft = baseLayouts
         selection = nil
         revision += 1
+        windowGuard?.refreshProtection()
     }
 
     // MARK: - Editing the draft
@@ -585,6 +586,46 @@ final class BandArrangementEditorSession {
         windowGuard?.reinstallIfNeeded()
     }
 
+    /// Every change of the Settings section goes here: leaving the editor with unsaved changes asks first.
+    func showSection(_ section: SettingsSection) {
+        guard section != preferences.settingsSection else { return }
+        if preferences.settingsSection == .toolbarArrangement {
+            request(.section(section))
+        } else {
+            preferences.settingsSection = section
+        }
+    }
+
+    /// For places outside Settings, such as a document's menu, that know only the preferences.
+    static func showSection(
+        _ section: SettingsSection, preferences: AppPreferences, editor: BandArrangementEditorSession? = app
+    ) {
+        if let editor, editor.preferences === preferences {
+            editor.showSection(section)
+        } else {
+            preferences.settingsSection = section
+        }
+    }
+
+    enum RelaunchAnswer { case save, discard, cancel }
+
+    /// Before the app relaunches itself (for another language): true when it may go ahead. A relaunch starts the new
+    /// instance before this one quits, so the draft is settled first; asking at quit time would come too late.
+    /// Standard, or a set changed elsewhere, is saved as a copy under the proposed name.
+    func resolveBeforeRelaunch(ask: () -> RelaunchAnswer) -> Bool {
+        refresh()
+        guard isDirty, !needsRecovery else { return true }
+        switch ask() {
+        case .cancel: return false
+        case .discard:
+            discardChanges()
+            return true
+        case .save:
+            if isStandardActive || hasConflict { return duplicate(named: proposedCopyName()) == nil }
+            return overwrite() == nil
+        }
+    }
+
     /// Leaves the draft at once when it has no unsaved changes; otherwise asks first (Save, Discard, Cancel).
     func request(_ leave: Leave) {
         refresh()
@@ -770,6 +811,7 @@ final class BandArrangementEditorSession {
             MainActor.assumeIsolated { session.restore(current, action: action) }
         }
         history.setActionName(action)
+        windowGuard?.refreshProtection()
     }
 
     private func refreshHistory() {

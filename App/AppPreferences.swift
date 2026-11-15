@@ -129,10 +129,15 @@ final class AppPreferences {
         bandArrangementNotices = []
     }
 
-    private func setAside(_ data: Data, under key: String) {
+    /// Keeps the newest ten originals per key, each once: enough to recover from a few failed loads in a row
+    /// without letting repeated recoveries grow the preferences without end.
+    static let setAsideLimit = 10
+
+    func setAside(_ data: Data, under key: String) {
         var kept = defaults.array(forKey: key) as? [Data] ?? []
+        kept.removeAll { $0 == data }
         kept.append(data)
-        defaults.set(kept, forKey: key)
+        defaults.set(Array(kept.suffix(Self.setAsideLimit)), forKey: key)
     }
 
     /// Starts the arrangements over from Standard after stored data could not be read. The unreadable data is kept

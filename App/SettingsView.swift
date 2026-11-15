@@ -51,13 +51,9 @@ struct SettingsView: View {
                 selection: Binding<SettingsSection?>(
                     get: { preferences.settingsSection },
                     set: { section in
-                        guard let section, section != preferences.settingsSection else { return }
+                        guard let section else { return }
                         // An unsaved arrangement is saved or discarded before the editor goes out of view.
-                        if preferences.settingsSection == .toolbarArrangement {
-                            arrangementEditor.request(.section(section))
-                        } else {
-                            preferences.settingsSection = section
-                        }
+                        arrangementEditor.showSection(section)
                     }
                 )
             ) {
@@ -84,11 +80,13 @@ struct SettingsView: View {
             WindowReader { window in
                 let editor = arrangementEditor
                 let preferences = preferences
-                editor.windowGuard = SettingsWindowGuard.install(on: window) {
-                    guard editor.isDirty else { return true }
-                    editor.pendingLeave = .closeWindow
-                    return false
-                }
+                editor.windowGuard = SettingsWindowGuard.install(
+                    on: window,
+                    shouldClose: {
+                        guard editor.isDirty else { return true }
+                        editor.pendingLeave = .closeWindow
+                        return false
+                    }, needsProtection: { editor.isDirty })
                 editor.undoRouter = SettingsUndoRouter.install(
                     on: window, history: { preferences.settingsSection == .toolbarArrangement ? editor.history : nil },
                     undo: { editor.undo() }, redo: { editor.redo() })
@@ -174,7 +172,7 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                     // Which parts the toolbar shows, Contents among them, is the arrangement's business.
                     LabeledContent("Parts of the Toolbar") {
-                        Button("Arrange…") { preferences.settingsSection = .toolbarArrangement }
+                        Button("Arrange…") { arrangementEditor.showSection(.toolbarArrangement) }
                     }
                 }
                 Section("Contents") {

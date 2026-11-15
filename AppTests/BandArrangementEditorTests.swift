@@ -19,7 +19,8 @@ struct BandArrangementEditorTests {
 
         init(stored: Data? = nil) {
             if let stored { suite.defaults.set(stored, forKey: "bandArrangementStore") }
-            preferences = AppPreferences(defaults: suite.defaults)
+            // The suite's own name: a language choice in a test must never reach the app's real preferences.
+            preferences = AppPreferences(defaults: suite.defaults, domainName: suite.name)
             session = BandArrangementEditorSession(preferences: preferences)
         }
 
@@ -486,7 +487,9 @@ struct BandArrangementEditorTests {
         #expect(defaults.data(forKey: "bandArrangementStore") != unreadable)
         #expect(defaults.array(forKey: AppPreferences.unreadableBandArrangementsKey) as? [Data] == [unreadable])
         #expect(session.createSet(named: "Reading") == nil)
-        #expect(AppPreferences(defaults: defaults).bandArrangementStore.sets.map(\.name) == ["Reading"])
+        #expect(
+            AppPreferences(defaults: defaults, domainName: environment.suite.name).bandArrangementStore.sets.map(\.name)
+                == ["Reading"])
     }
 
     @Test("始め直した直後に起動し直しても旧設定の移行は繰り返さず標準のまま")
@@ -495,9 +498,10 @@ struct BandArrangementEditorTests {
         defer { suite.remove() }
         suite.defaults.set(false, forKey: "showsOutlineOnBand")
         suite.defaults.set(Data(#"{"schemaVersion":9,"sets":[]}"#.utf8), forKey: "bandArrangementStore")
-        let session = BandArrangementEditorSession(preferences: AppPreferences(defaults: suite.defaults))
+        let session = BandArrangementEditorSession(
+            preferences: AppPreferences(defaults: suite.defaults, domainName: suite.name))
         session.startOver()
-        let relaunched = AppPreferences(defaults: suite.defaults)
+        let relaunched = AppPreferences(defaults: suite.defaults, domainName: suite.name)
         #expect(relaunched.bandArrangementStore.active == .standard)
         #expect(relaunched.bandArrangementStore.sets.isEmpty)
         #expect(relaunched.retainedBandArrangementData == nil)
@@ -834,6 +838,160 @@ struct BandArrangementEditorTests {
         session.dialog = nil
         #expect(replies.values == [false])
         #expect(environment.preferences.bandArrangementStore.sets.isEmpty && session.isDirty)
+    }
+
+    // MARK: - Follow-ups
+
+    @Test("代理を立て続けに替えられても静まると閉じる前の確認が戻りその間は閉じるボタンを止める")
+    func guardRetriesAfterRapidReassignments() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let window = settingsWindow()
+        let windowGuard = SettingsWindowGuard.install(
+            on: window,
+            shouldClose: {
+                guard session.isDirty else { return true }
+                session.pendingLeave = .closeWindow
+                return false
+            }, needsProtection: { session.isDirty })
+        session.windowGuard = windowGuard
+        session.insertSeparator(in: .topLeft, at: 0)
+        let closeButton = try #require(window.standardWindowButton(.closeButton))
+        #expect(closeButton.isEnabled)
+        var delegates: [DelegateProbe] = []
+        for _ in 0..<4 {
+            delegates.append(DelegateProbe())
+            window.delegate = delegates.last
+            try await Task.sleep(for: .milliseconds(30))
+        }
+        // Past the limit the guard waits; the draft is protected by the close button meanwhile.
+        #expect(window.delegate === delegates.last)
+        #expect(!closeButton.isEnabled)
+        try await Task.sleep(for: .milliseconds(1500))
+        #expect(window.delegate === windowGuard && windowGuard.original === delegates.last)
+        #expect(closeButton.isEnabled)
+        #expect(!windowGuard.windowShouldClose(window))
+        #expect(session.pendingLeave == .closeWindow)
+    }
+
+    @MainActor private final class Relaunch {
+        var asked = 0
+        var launched = 0
+        var terminated = 0
+        var dirtyAtLaunch: Bool?
+    }
+
+    private func relaunch(
+        _ environment: Environment, answer: BandArrangementEditorSession.RelaunchAnswer, record: Relaunch
+    ) async throws -> Bool {
+        let session = environment.session
+        return try await LanguageRelaunchFlow.relaunch(
+            editor: session, preferences: environment.preferences, previousLanguage: nil,
+            askAboutDraft: { _ in
+                record.asked += 1
+                return answer
+            },
+            launch: {
+                record.launched += 1
+                record.dirtyAtLaunch = session.isDirty
+            },
+            terminate: { record.terminated += 1 })
+    }
+
+    @Test("言語を変える再起動は未保存の配置を先に聞き取り消すと何も起動せず言語を戻す")
+    func relaunchCancelled() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.languageOverride = "de"
+        environment.session.insertSeparator(in: .topLeft, at: 0)
+        let record = Relaunch()
+        #expect(try await !relaunch(environment, answer: .cancel, record: record))
+        #expect(record.asked == 1 && record.launched == 0 && record.terminated == 0)
+        #expect(environment.preferences.languageOverride == nil)
+        #expect(environment.session.isDirty)
+    }
+
+    @Test("言語を変える再起動で破棄すると下書きを捨ててから起動して終了する")
+    func relaunchDiscarding() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.languageOverride = "de"
+        environment.session.insertSeparator(in: .topLeft, at: 0)
+        let record = Relaunch()
+        #expect(try await relaunch(environment, answer: .discard, record: record))
+        #expect(record.launched == 1 && record.terminated == 1 && record.dirtyAtLaunch == false)
+        #expect(environment.preferences.languageOverride == "de")
+        #expect(environment.suite.defaults.object(forKey: "bandArrangementStore") == nil)
+    }
+
+    @Test("言語を変える再起動で保存すると使用中の配置か標準の複製に保存してから起動する")
+    func relaunchSaving() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.insertSeparator(in: .topLeft, at: 0)
+        let record = Relaunch()
+        #expect(try await relaunch(environment, answer: .save, record: record))
+        let copy = try #require(environment.preferences.bandArrangementStore.sets.first)
+        #expect(copy.name == String(format: String(localized: "%@ Copy"), String(localized: "Standard")))
+        #expect(copy.layouts.split.topLeft.first == .separator && record.dirtyAtLaunch == false)
+        session.select(.part(.zoom))
+        session.moveSelection(to: .unused)
+        #expect(try await relaunch(environment, answer: .save, record: record))
+        #expect(environment.preferences.bandArrangementStore.sets.count == 1)
+        #expect(environment.preferences.bandArrangementStore.activeLayouts.split.unused == [.zoom])
+        #expect(record.launched == 2 && record.terminated == 2)
+    }
+
+    @Test("未保存の配置がなければ聞かずに再起動する")
+    func relaunchWhenClean() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let record = Relaunch()
+        #expect(try await relaunch(environment, answer: .cancel, record: record))
+        #expect(record.asked == 0 && record.launched == 1 && record.terminated == 1)
+    }
+
+    @Test("書類のメニューから設定の区分を変えても未保存の配置は先に聞く")
+    func sectionChangeFromOutside() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let preferences = environment.preferences
+        preferences.settingsSection = .toolbarArrangement
+        BandArrangementEditorSession.showSection(.settingSets, preferences: preferences, editor: session)
+        #expect(preferences.settingsSection == .settingSets)
+        preferences.settingsSection = .toolbarArrangement
+        session.insertSeparator(in: .topLeft, at: 0)
+        BandArrangementEditorSession.showSection(.settingSets, preferences: preferences, editor: session)
+        #expect(preferences.settingsSection == .toolbarArrangement)
+        #expect(session.pendingLeave == .section(.settingSets))
+        session.discardChanges()
+        session.proceed()
+        #expect(preferences.settingsSection == .settingSets)
+        // Into the editor, from another section, nothing needs asking.
+        session.showSection(.toolbarArrangement)
+        #expect(preferences.settingsSection == .toolbarArrangement)
+    }
+
+    @Test("別に残す元のデータは同じものを二度持たず新しい十件まで")
+    func setAsideIsBounded() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let key = AppPreferences.repairedBandArrangementsKey
+        let preferences = environment.preferences
+        preferences.setAside(Data("same".utf8), under: key)
+        preferences.setAside(Data("same".utf8), under: key)
+        #expect(environment.suite.defaults.array(forKey: key) as? [Data] == [Data("same".utf8)])
+        for number in 1...12 { preferences.setAside(Data("original \(number)".utf8), under: key) }
+        let kept = environment.suite.defaults.array(forKey: key) as? [Data] ?? []
+        #expect(kept.count == 10)
+        #expect(kept.first == Data("original 3".utf8) && kept.last == Data("original 12".utf8))
+        preferences.setAside(Data("original 5".utf8), under: key)
+        let again = environment.suite.defaults.array(forKey: key) as? [Data] ?? []
+        #expect(again.count == 10 && again.last == Data("original 5".utf8))
+        #expect(again.filter { $0 == Data("original 5".utf8) }.count == 1)
     }
 }
 
