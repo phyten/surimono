@@ -45,6 +45,17 @@ struct ManualDuplexRendererTests {
         #expect(try stableBytes(#require(source.dataRepresentation())) == stableBytes(before))
     }
 
+    @Test("元のPDFを変えていないかの比較は、書き出すたびに変わる日時とIDに左右されない")
+    func comparisonIgnoresSerializationDates() async throws {
+        let source = try RenderingFixtures.pdf(count: 1, size: CGSize(width: 300, height: 200))
+        let before = try #require(source.dataRepresentation())
+        // The dates carry whole seconds: wait until the next one so the two serializations are sure to differ.
+        try await Task.sleep(for: .milliseconds(1100))
+        let after = try #require(source.dataRepresentation())
+        #expect(after != before)
+        #expect(stableBytes(after) == stableBytes(before))
+    }
+
     @Test("5ページの両面印刷は最後の白紙の裏もPDFに残す")
     func blankBack() async throws {
         let logical = try RenderingFixtures.pdf(count: 5)
@@ -97,11 +108,14 @@ struct ManualDuplexRendererTests {
 
     private func stableBytes(_ data: Data) -> Data {
         var bytes = data
-        // PDFKit assigns a fresh trailer ID on every serialization, even with no edits.
-        if let start = bytes.range(of: Data("/ID".utf8)),
-            let end = bytes.range(of: Data("]".utf8), in: start.upperBound..<bytes.endIndex)
-        {
-            bytes.removeSubrange(start.lowerBound..<end.upperBound)
+        // PDFKit writes a fresh trailer ID and the current second as the creation and modification dates on every
+        // serialization, even with no edits; two serializations a second apart would otherwise differ.
+        for (opening, closing) in [("/ID", "]"), ("/CreationDate", ")"), ("/ModDate", ")")] {
+            if let start = bytes.range(of: Data(opening.utf8)),
+                let end = bytes.range(of: Data(closing.utf8), in: start.upperBound..<bytes.endIndex)
+            {
+                bytes.removeSubrange(start.lowerBound..<end.upperBound)
+            }
         }
         return bytes
     }
