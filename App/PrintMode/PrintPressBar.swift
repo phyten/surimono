@@ -39,7 +39,8 @@ struct PrintPressBar: View {
                 Text("Print").font(.system(size: 16, weight: .bold))
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Text(verbatim: "⌘P").font(.system(size: 9.5)).tracking(0.4).opacity(0.85)
+                Text(verbatim: ShortcutHints.keys([.documentPrint])).font(.system(size: 9.5)).tracking(0.4).opacity(
+                    0.85)
             }
             .padding(.top, 15)
             .padding(.bottom, 12)
@@ -73,7 +74,9 @@ struct PrintPressBar: View {
                         layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
                         paper: PrintModeText.cardPaper(layout, language: model.language),
                         help: PrintModeText.cardHelp(
-                            layout.displayName(language: model.language) + (compact ? "" : " (⌘\(index + 1))"),
+                            ShortcutHints.help(
+                                layout.displayName(language: model.language),
+                                [ShortcutHints.layout(layout, index: index, compact: compact)]),
                             issue: model.printerIssue(for: layout), language: model.language),
                         isSelected: model.layoutID == layout.id
                     ) {
@@ -156,8 +159,10 @@ struct PrintPressBar: View {
         // Two buttons as tall as the Print button beside them, so that their top and bottom edges line up with it.
         VStack(spacing: 6) {
             PrinterPicker(model: model)
-            actionButton("Export PDF", systemImage: "arrow.down.doc", help: "Export the imposed sheets as a PDF (⇧⌘E)")
-            {
+            actionButton(
+                "Export PDF", systemImage: "arrow.down.doc",
+                help: ShortcutHints.help(String(localized: "Export the imposed sheets as a PDF"), [.documentExportPDF])
+            ) {
                 model.exportPDF()
             }
             .disabled(!model.canOutput)
@@ -165,7 +170,7 @@ struct PrintPressBar: View {
     }
 
     private func actionButton(
-        _ title: LocalizedStringKey, systemImage: String, help: LocalizedStringKey, action: @escaping () -> Void
+        _ title: LocalizedStringKey, systemImage: String, help: String, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 7) {
@@ -232,11 +237,16 @@ struct PrintPressBar: View {
 
     private var printHelp: String {
         guard let printer = model.selectedPrinterName else {
-            return PrintModeText.string(
-                "No printer is set up, so Print opens the system print dialog (⌘P)", language: model.language)
+            return ShortcutHints.help(
+                PrintModeText.string(
+                    "No printer is set up, so Print opens the system print dialog", language: model.language),
+                [.documentPrint])
         }
-        if let issue = model.printerIssue { return PrintModeText.issuePrintHelp(issue, language: model.language) }
-        return PrintModeText.format("Print to %@ right away (⌘P)", language: model.language, printer)
+        if let issue = model.printerIssue {
+            return ShortcutHints.help(PrintModeText.issuePrintHelp(issue, language: model.language), [.documentPrint])
+        }
+        return ShortcutHints.help(
+            PrintModeText.format("Print to %@ right away", language: model.language, printer), [.documentPrint])
     }
 }
 

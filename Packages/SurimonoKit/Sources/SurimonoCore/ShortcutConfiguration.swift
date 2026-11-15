@@ -148,7 +148,7 @@ public enum ShortcutStore: Sendable {
         }
     }
 
-    private static func checkCombination(_ combination: [String: Any]) throws {
+    static func checkCombination(_ combination: [String: Any]) throws {
         guard Set(combination.keys) == ["key", "modifiers"], let key = combination["key"] as? [String: Any],
             let kind = key["kind"] as? String
         else { throw ShortcutModelError.malformedStore }

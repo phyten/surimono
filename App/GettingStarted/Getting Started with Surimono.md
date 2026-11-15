@@ -116,4 +116,6 @@ Several images opened together become one image bundle; several documents become
 
 Help > Getting Started with Surimono opens this guide again; Help > Keys and Gestures lists the keys.
 
+The keys in this guide are the ones Surimono starts with. You can change them in Settings > Keyboard Shortcuts, and Keys and Gestures then shows the keys you chose.
+
 [^order]: With a printer that puts the sheets out face up, printing from the last sheet leaves them in page order when you pick them up.

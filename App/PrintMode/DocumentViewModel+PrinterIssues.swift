@@ -84,7 +84,7 @@ extension PrintModeText {
                 language: language)
         }
         return format(
-            "%@, so Print opens the system print dialog (⌘P)", language: language,
+            "%@, so Print opens the system print dialog", language: language,
             issueSentence(issue, language: language))
     }
 }

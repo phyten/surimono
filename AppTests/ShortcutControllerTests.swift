@@ -292,6 +292,28 @@ struct ShortcutControllerTests {
                 == .screenCapture)
     }
 
+    @Test("フランス語配列のテンキー小数点はCommandカンマを確認キーへ結び付けない")
+    func frenchPunctuationProjection() {
+        let layout = ShortcutKeyboardLayout.project { code, flags in
+            switch code {
+            case 65: flags.contains(.shift) ? "." : ","
+            case 43: flags.contains(.shift) ? "." : ";"
+            case 47: flags.contains(.shift) ? "/" : ":"
+            default: nil
+            }
+        }
+        let context = ShortcutValidationContext(projection: layout.projection)
+        let comma = ShortcutCombination(key: .character(","), modifiers: .command)
+        let period = ShortcutCombination(key: .character("."), modifiers: .command)
+        #expect(!context.matches(comma, period))
+        #expect(context.physicalSignatures(for: comma) == [.init(key: .macVirtualKey(65), modifiers: .command)])
+        #expect(ShortcutValidator(environment: context).issues(for: .appSettings, combination: comma).isEmpty)
+        #expect(
+            ShortcutValidator(environment: context).issues(for: .appSettings, combination: period).map(\.code) == [
+                .confirmation
+            ])
+    }
+
     @Test("記録中と解除済みIDでは実行せず復帰後は注入した窓口だけを呼ぶ")
     func recordingDelivery() throws {
         let backend = Backend()

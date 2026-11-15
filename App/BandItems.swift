@@ -67,7 +67,7 @@ struct BandItemView: View {
             } label: {
                 Text(verbatim: model.zoomPercentage).monospacedDigit()
             }
-            .help("Fit to Window (⌘0)")
+            .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
             Toggle(isOn: $model.isDrawerOpen) {
                 if let binder = model.binder {
@@ -76,7 +76,7 @@ struct BandItemView: View {
                     Text("Images \(bundle.items.count)")
                 }
             }
-            .toggleStyle(.button).help("List (⌃⌘S)")
+            .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
         case .floatOnTop: FloatOnTopButton(model: model)
         case .print: PrintButton(model: model, iconOnly: form == .compact)
         }
@@ -122,7 +122,7 @@ struct PresentationPicker: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(presentation.title))
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help("Switch Web or Paper (⌃⌘P)")
+        .help(ShortcutHints.help(String(localized: "Switch Web or Paper"), [.viewHtmlPresentation]))
     }
 }
 
@@ -493,7 +493,7 @@ private struct SecondaryViewMenuItem: View {
                 .help("Select Text (T)")
         case .alwaysShowMenu:
             Toggle("Always Show Toolbar", isOn: $model.isBandAlwaysVisible)
-                .help("Always Show Toolbar (⌥⌘T)")
+                .help(ShortcutHints.help(String(localized: "Always Show Toolbar"), [.viewToolbarAlways]))
         }
     }
 }

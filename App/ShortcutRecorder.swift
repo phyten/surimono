@@ -6,6 +6,7 @@ struct ShortcutRecorder: NSViewRepresentable {
     @Environment(\.isEnabled) private var isEnabled
     let combo: KeyCombo?
     var displayTitle: String? = nil
+    var displaysKeys = false
     let label: String
     let hotKeys: GlobalHotKeys
     let refuse: () -> Void
@@ -25,11 +26,13 @@ struct ShortcutRecorder: NSViewRepresentable {
             String(localized: "Record Shortcut") + ". "
                 + String(localized: "Press a key combination. Escape cancels; Tab moves focus; Delete clears."))
         button.toolTip = String(localized: "Record Shortcut")
-        button.font = displayTitle == nil ? .systemFont(ofSize: 13) : .monospacedSystemFont(ofSize: 13, weight: .medium)
+        button.font = displaysKeys ? .monospacedSystemFont(ofSize: 13, weight: .medium) : .systemFont(ofSize: 13)
         button.refresh()
     }
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: RecorderButton, context: Context) -> CGSize? {
-        nsView.intrinsicContentSize
+        CGSize(
+            width: proposal.width ?? nsView.intrinsicContentSize.width,
+            height: nsView.intrinsicContentSize.height)
     }
     static func dismantleNSView(_ button: RecorderButton, coordinator: ()) { button.finish() }
 
@@ -131,6 +134,12 @@ struct ShortcutRecorder: NSViewRepresentable {
         }
         override func keyDown(with event: NSEvent) {
             guard recording else {
+                if [36, 49, 76].contains(event.keyCode),
+                    event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+                {
+                    performClick(nil)
+                    return
+                }
                 super.keyDown(with: event)
                 return
             }

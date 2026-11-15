@@ -23,14 +23,6 @@ struct SystemShortcutReservations {
 }
 
 extension ShortcutModifiers {
-    static func carbon(_ value: UInt32) -> Self {
-        var flags: Self = []
-        for (carbon, flag) in [
-            (controlKey, Self.control), (optionKey, .option), (shiftKey, .shift), (cmdKey, .command),
-        ] where value & UInt32(carbon) != 0 { flags.insert(flag) }
-        return flags
-    }
-
     var carbon: UInt32 {
         [(Self.control, controlKey), (.option, optionKey), (.shift, shiftKey), (.command, cmdKey)]
             .reduce(0) { $0 | (contains($1.0) ? UInt32($1.1) : 0) }
@@ -85,6 +77,11 @@ struct ShortcutKeyboardLayout {
                     guard let text = translate(code, translatedFlags),
                         let logical = try? ShortcutCombination(key: .character(text), modifiers: flags).normalized()
                     else { continue }
+                    // Normalizing punctuation drops Shift. Only the produced spelling may do that;
+                    // keep the base spelling when it still carries Shift (for example Shift-3).
+                    if flags.contains(.shift), !translatedFlags.contains(.shift), !logical.modifiers.contains(.shift) {
+                        continue
+                    }
                     projection.append(.init(logical: logical, physical: physical))
                 }
             }
