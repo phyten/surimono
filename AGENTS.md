@@ -22,7 +22,7 @@ Packages/SurimonoKit/   ロジック本体（SwiftPM）
   Sources/SurimonoRendering/  AppKit / WebKit / PDFKit / CoreGraphics を使う描画（ページ分割、画像の PDF 化、面付け PDF の合成、印刷設定）
   Tests/                      Swift Testing のテスト
 Samples/                手動確認用のサンプル文書
-Design/                 アプリアイコンの原画（AppIcon.svg と、開発版の AppIcon-Dev.svg・AppIcon-Dev-small.svg。App/Assets.xcassets の PNG はここから書き出す）
+Design/                 アプリアイコンの原画（AppIcon.svg と 16・32px 用の AppIcon-small.svg、開発版の AppIcon-Dev.svg・AppIcon-Dev-small.svg。App/Assets.xcassets の PNG はここから書き出す）
 Surimono.xcodeproj      手書きの最小プロジェクト（objectVersion 77）
 .github/workflows/      CI（ci.yml）、リリース（release.yml）、ダウンロード数（download-stats.yml）
 .agents/skills/         プロジェクト固有スキル（正本。Codex が読む）
@@ -51,7 +51,9 @@ make clean
 - Debug ビルド（`make build`・`make run`・`make test-app` のホスト）は公開版と別のアプリ「Surimono Dev」になる。バンドル ID `io.github.phyten.Surimono.debug`、アイコン `AppIcon-Dev`（暗い地に黄色の DEV の帯）、保存先 `~/Library/Application Support/Surimono Dev/` で、設定（UserDefaults）も公開版と共有せず、入れてある公開版と同時に起動できる。
   - 分け方: `Configs/Surimono.xcconfig` の `[config=Debug]` と `UserLibrary.defaultRoot` の `#if DEBUG`。`DevelopmentBuildTests` で固定している。
   - `PRODUCT_NAME` は Makefile と `TEST_HOST` が `Surimono.app` を参照するので変えない。
-  - `AppIcon-Dev` は、Dock や ⌘Tab でも公開版と取り違えないよう、全体の明るさと帯の色で分ける。原画は、`Design/AppIcon.svg` を暗い地に置いて少し暗くし、黄色の注意の帯（縞と DEV の文字）を重ねた `Design/AppIcon-Dev.svg` と、16・32px 用に縞と文字を省いて帯を太くした `Design/AppIcon-Dev-small.svg`。どちらも `AppIcon.svg` に行を足しただけで、元の行は変えていない。`AppIcon` と同じく `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は `AppIcon-Dev-small.svg` から、残りの 7 枚は `AppIcon-Dev.svg` から書き出す。`AppIcon.svg` を変えたら、2 つの SVG にも同じ変更を入れて書き出し直す。
+  - `AppIcon-Dev` は、Dock や ⌘Tab でも公開版と取り違えないよう、全体の明るさと帯の色で分ける。原画は、`Design/AppIcon.svg` を暗い地に置いて少し暗くし、黄色の注意の帯（縞と DEV の文字）を重ねた `Design/AppIcon-Dev.svg` と、16・32px 用の `Design/AppIcon-small.svg` に同じことをして、縞と文字を省いて帯を太くした `Design/AppIcon-Dev-small.svg`。どちらも公開版の SVG（`AppIcon.svg`・`AppIcon-small.svg`）に行を足しただけで、元の行は変えていない。
+  - アイコンの絵は、背の外側から見た薄い中綴じの冊子（生成りの冊子、藍の地、朱のホチキス）。16・32px では紙の重なりがつぶれるので、重なりを省いて折り目とホチキスを太くした `AppIcon-small.svg` を使う。
+  - PNG は `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で書き出す。公開版も開発版も、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は small の SVG から、残りの 7 枚は大きい方の SVG から。`AppIcon.svg` か `AppIcon-small.svg` を変えたら、対応する開発版の SVG にも同じ変更を入れて、両方を書き出し直す。
 - CI（`.github/workflows/ci.yml` の `build-and-test`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
 
 ## アーキテクチャ（印刷パイプライン）
