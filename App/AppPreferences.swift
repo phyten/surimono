@@ -56,6 +56,11 @@ final class AppPreferences {
             defaults.setPersistentDomain(domain, forName: languageDomainName)
         }
     }
+    /// The decision after a reader removes all but one document from a binder.
+    var singleDocumentBinderPolicy: SingleDocumentBinderPolicy {
+        didSet { defaults.set(singleDocumentBinderPolicy.rawValue, forKey: "singleDocumentBinderPolicy") }
+    }
+
     /// The look of the app's windows. Nothing stored means Light, also for readers who saw the app in Dark before.
     var appearance: AppAppearance {
         didSet { defaults.set(appearance.rawValue, forKey: "appearance") }
@@ -368,6 +373,9 @@ final class AppPreferences {
         keyboardShortcuts = shortcuts.0
         keyboardShortcutsLoadState = shortcuts.1
         keyboardShortcutsStoredData = defaults.data(forKey: ShortcutStore.preferencesKey)
+        singleDocumentBinderPolicy =
+            defaults.string(forKey: "singleDocumentBinderPolicy")
+            .flatMap(SingleDocumentBinderPolicy.init(rawValue:)) ?? .defaultValue
         self.defaults = defaults
         languageDomainName = domainName
         let savedLanguages = domainName.flatMap {

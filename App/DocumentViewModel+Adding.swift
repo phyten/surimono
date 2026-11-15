@@ -12,6 +12,7 @@ struct BinderOrigin {
     let frame: NSRect
     let pageIndex: Int
     let wasPrinting: Bool
+    var leavingBinder = false
 }
 
 extension DocumentViewModel {
@@ -103,12 +104,15 @@ extension DocumentViewModel {
     func removeFromBinder(_ url: URL) {
         guard let binder, binder.items.count > 1, let index = binder.urls.firstIndex(of: url) else { return }
         let item = binder.items[index]
+        let spot = binderExit.readingSpot(in: self)
         binder.remove(url)
         window?.undoManager?.registerUndo(withTarget: self) { model in
             model.binder?.putBack(item, at: index)
             model.window?.undoManager?.registerUndo(withTarget: model) { $0.removeFromBinder(url) }
         }
         window?.undoManager?.setActionName(String(localized: "Remove from List"))
+        guard window?.undoManager?.isUndoing != true else { return }
+        binderExit.removed(from: self, spot: spot)
     }
 
     /// What a binder does not take over from this window, in the reader's words; nil when nothing is lost.

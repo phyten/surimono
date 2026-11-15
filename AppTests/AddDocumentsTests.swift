@@ -18,6 +18,7 @@ struct AddDocumentsTests {
         init() throws {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             preferences = AppPreferences(defaults: suite.defaults)
+            preferences.singleDocumentBinderPolicy = .stay
             library = UserLibrary(root: root.appendingPathComponent("Library"))
             store = DocumentSettingsStore(directory: root.appendingPathComponent("Settings"))
             windows.preferences = preferences

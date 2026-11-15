@@ -192,6 +192,12 @@ struct SettingsView: View {
                 }
                 Section("When Opening a Window") {
                     Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
+                    Picker("When a Binder Is Down to One Document", selection: $preferences.singleDocumentBinderPolicy)
+                    {
+                        Text("Ask").tag(SingleDocumentBinderPolicy.ask)
+                        Text("Leave Binder Mode Without Asking").tag(SingleDocumentBinderPolicy.leave)
+                        Text("Stay a Binder Without Asking").tag(SingleDocumentBinderPolicy.stay)
+                    }
                 }
             case .pageNumbers:
                 Toggle("In View Mode", isOn: $preferences.viewPageNumbers)

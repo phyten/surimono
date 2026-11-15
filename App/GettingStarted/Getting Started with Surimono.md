@@ -112,7 +112,7 @@ If images next to the document are missing and the notice offers Allow Access to
 - Drag files onto Surimono's Dock icon, or onto the window it shows at launch
 - Open copied text with Open from Clipboard (⌘N)
 
-Several images opened together become one image bundle; several documents become one binder. To return a document to its first settings, choose Document > Reset Document Settings.
+Several images opened together become one image bundle; several documents become one binder. When removing documents leaves just one, Surimono asks whether to leave the binder. You can also choose Leave Binder Mode from the list’s “…” menu later. Choose whether to ask in Settings > View. Leaving restores that document’s own settings. To return a document to its first settings, choose Document > Reset Document Settings.
 
 Help > Getting Started with Surimono opens this guide again; Help > Keys and Gestures lists the keys.
 

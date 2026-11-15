@@ -181,7 +181,7 @@ final class OpenRouter {
     func reopen(_ url: URL, restoring origin: BinderOrigin, completion: @escaping (Bool) -> Void) {
         let key = url.standardizedFileURL
         restorations[key] = origin
-        if origin.wasPrinting { printRequests.insert(key) }
+        if origin.wasPrinting && !origin.leavingBinder { printRequests.insert(key) }
         pendingOpens += 1
         openDocument(url) { [weak self] opened in
             if !opened {
@@ -223,7 +223,9 @@ final class OpenRouter {
     /// Takes the window to the print tray if it is the document of a file that was asked to open there.
     func printIfRequested(_ model: DocumentViewModel) {
         guard let url = model.fileURL?.standardizedFileURL else { return }
-        if let origin = restorations.removeValue(forKey: url) { model.restoreWindow(origin) }
+        if let origin = restorations.removeValue(forKey: url) {
+            if origin.leavingBinder { model.restoreAfterLeavingBinder(origin) } else { model.restoreWindow(origin) }
+        }
         guard printRequests.remove(url) != nil else { return }
         model.requestPrintMode()
     }
