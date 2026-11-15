@@ -11,6 +11,7 @@ BENCH_THRESHOLD ?= 20
 SWIFT_TEST_FLAGS ?=
 
 XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -derivedDataPath "$(DERIVED_DATA)" -destination 'platform=macOS'
+SWIFT_TEST = swift test --package-path Packages/SurimonoKit
 SWIFT_PATHS = App AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
 APP = $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/Surimono.app
 RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
@@ -18,13 +19,15 @@ RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
 APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-app bench bench-compare lint format package build-appstore check-appstore clean
+.PHONY: help build run test test-kit test-core test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
 	@echo "run        Build and launch; optionally FILE=Samples/sample.md"
 	@echo "test       Run package and hosted app tests"
-	@echo "test-kit   Run SurimonoKit tests"
+	@echo "test-kit   Run SurimonoKit tests (Core, then Rendering)"
+	@echo "test-core  Run the SurimonoCore tests"
+	@echo "test-rendering  Run the SurimonoRendering tests, one at a time"
 	@echo "test-app   Run hosted app tests"
 	@echo "bench      Record rendering benchmarks (SURIMONO_BENCH_RUNS / SURIMONO_BENCH_OUT)"
 	@echo "bench-compare  Compare medians: BASE=<json> NEW=<json> [BENCH_THRESHOLD=20]"
@@ -42,20 +45,31 @@ build:
 run: build
 	open -a "$$(realpath "$(APP)")" $(if $(strip $(FILE)),"$(FILE)")
 
+# The package tests and the hosted app tests do not run at the same time. Measured locally, running test-kit beside
+# test-app failed 2 of 4 runs (and 2 of 2 with test-kit niced), each time in a different hosted test that depends on
+# waits (FileWatcherTests, WebPageKeyTests, PrintThemePaletteTests), against 0 of 6 sequential runs, and it saved only
+# about 20% of the time.
 test: test-kit test-app
 
 # The Rendering tests drive WebKit against timeouts. Run alongside the CPU-heavy Core tests on a slow CI runner, they
 # timed out, so the two targets run one after the other. Run in parallel on a fresh CI runner, several of them still
 # timed out together (on 1 of 10 runners in a comparison, against 0 of 10 run serially), so the Rendering tests also
-# run one at a time. Custom flags run once as given: SwiftPM joins several --filter options with "or", which would
-# undo the split.
+# run one at a time; run in parallel locally, some of them also fail because they share WebKit and static state. Custom
+# flags run once as given: SwiftPM joins several --filter options with "or", which would undo the split.
 test-kit:
 ifeq ($(strip $(SWIFT_TEST_FLAGS)),)
-	swift test --package-path Packages/SurimonoKit --filter SurimonoCoreTests
-	swift test --package-path Packages/SurimonoKit --filter SurimonoRenderingTests --no-parallel
+	$(SWIFT_TEST) --filter SurimonoCoreTests
+	$(SWIFT_TEST) --filter SurimonoRenderingTests --no-parallel
 else
-	swift test --package-path Packages/SurimonoKit $(SWIFT_TEST_FLAGS)
+	$(SWIFT_TEST) $(SWIFT_TEST_FLAGS)
 endif
+
+# The two halves of test-kit on their own, for CI, which runs them on separate runners.
+test-core:
+	$(SWIFT_TEST) --filter SurimonoCoreTests
+
+test-rendering:
+	$(SWIFT_TEST) --filter SurimonoRenderingTests --no-parallel
 
 bench:
 	SURIMONO_BENCH=1 swift test --package-path Packages/SurimonoKit --disable-sandbox --filter RenderingBenchmarks --no-parallel

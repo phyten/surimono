@@ -13,6 +13,8 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
    - SurimonoKit だけを変えた: `make lint && make test-kit`
    - アプリ（`App/`、`Configs/`、Xcode プロジェクト）を変えた: `make lint && make build && make test-app`
    - 迷ったら `make lint && make test`
+   - `make test` は `test-kit` のあとに `test-app` を順に走らせる（同時に走らせると、待ち時間に頼るホスト付きテストが落ちる）。一方だけなら `make test-kit` / `make test-app`、Kit の片方だけなら `make test-core` / `make test-rendering`。
+   - Rendering のテストは並列にしない（`--no-parallel`）。WebKit と静的な状態（`WebPaginator.clearBackground` など）を共有していて、手元で並列に走らせると毎回 20 件ほど落ちる。
 2. 起動して確認する: `make run FILE=Samples/sample.md`
    - Debug ビルドは公開版と別のアプリ「Surimono Dev」（バンドル ID `io.github.phyten.Surimono.debug`、保存先 `~/Library/Application Support/Surimono Dev/`）として動き、入れてある公開版と同時に起動できる。メニューバーの名前だけは Surimono のまま。
    - サンプルは `Samples/` にある（sample.md / sample.org / sample.txt / sample-sjis.txt（Shift_JIS）/ sample.html（ノイズ入り）/ sample.csv / booklet-demo.md（標準テーマの A4 で 38 ページ。冊子の確認用）/ callouts.md（すべての種類の囲み））。PDF・画像・画像の ZIP は手元の任意のファイルでよい（ZIP は `ditto -c -k --keepParent <フォルダ> <名前>.zip` で作れる）。

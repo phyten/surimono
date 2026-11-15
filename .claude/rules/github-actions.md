@@ -9,6 +9,9 @@ paths:
 - Action はコミット SHA で固定し、行末にバージョンコメントを付ける（例: `actions/checkout@<sha> # v7.0.1`）。更新は Dependabot に任せる。
 - `permissions` は最小にする（CI は `contents: read`、リリースと `stats` ブランチへ書くダウンロード数の集計だけ `contents: write`）。
 - `ci.yml` のジョブ ID `build-and-test` は master の ruleset の必須チェック名。原則として変えない。変える場合は ruleset も同時に更新する。
+  - `build-and-test` は自分では何も組み立てない門番のジョブ（Linux）で、並列に走る macOS のジョブ（lint と Core のテスト・Rendering のテスト・アプリのテスト・App Store 版の確認・パッケージ）をすべて `needs` に持ち、`if: always()` で必ず走って、`needs` の結果が 1 つでも `success` でなければ（失敗・取り消し・スキップ）落ちる。ジョブを足したら `needs` にも足す（足さないと、そのジョブが落ちてもマージできてしまう）。
+  - 門番に `!cancelled()` や既定の `success()` を使わない。スキップされたジョブは必須チェックとして成功の扱いになるので、取り消しや依存の失敗で門番がスキップされると、通っていないのにマージできてしまう。
+  - macOS のジョブは、このアカウントで同時に 5 つまでしか走らない。5 つを超えて足さない（超えた分は待ち、全体が遅くなる）。
 - Xcode は `DEVELOPER_DIR` で固定する。上げるときは GitHub の runner image の README で存在を確認し、AGENTS.md の CI の記述も更新する。
 - `${{ }}` をシェルに直接埋め込まず、`env:` 経由で渡す。
 - Secrets をログに出さない。フォークからの PR で Secrets が必要な処理を動かさない。
