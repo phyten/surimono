@@ -226,4 +226,143 @@ struct SmoothTransitionTests {
         model.bandRevealDidChange(true)
         #expect(window.frame.height > frame.height)
     }
+
+    /// A model on the print screen whose compositions wait while `gate` holds.
+    private func heldModel(_ fixture: Fixture, gate: Gate, renderer: DocumentRenderer? = nil) -> DocumentViewModel {
+        let renderer = renderer ?? self.renderer()
+        renderer.willComposeSheet = {
+            while gate.holds { try await Task.sleep(for: .milliseconds(10)) }
+        }
+        let model = DocumentViewModel(
+            data: Data("# Tray fixture".utf8), fileURL: nil, format: .markdown,
+            preferences: fixture.preferences, library: fixture.library, renderer: renderer)
+        model.enterPrintMode()
+        return model
+    }
+
+    @Test("前の用紙を見せている間、上のページ数とノートの数はどちらも前の用紙のものになる", .timeLimit(.minutes(1)))
+    func pageCountsStayWithTheShownSheets() async throws {
+        let fixture = Fixture()
+        let gate = Gate()
+        gate.holds = false
+        let model = heldModel(fixture, gate: gate)
+        defer { model.stop() }
+        model.notes.isEnabled = true
+        try await render(model)
+        let before = try #require(model.trayPageCount)
+        try #require(before.notes > 0)
+        gate.holds = true
+        model.notes.isEnabled = false
+        model.render()
+        // The pages without notes are laid out; their sheets are not composed yet.
+        try await waitUntil { model.result.map { $0.plan.logicalPageCount != before.pages } ?? false }
+        #expect(model.showsTrayPreview)
+        #expect(model.trayPageCount?.pages == before.pages)
+        #expect(model.trayPageCount?.notes == before.notes)
+        gate.holds = false
+        try await waitUntil { !model.isRendering }
+        #expect(model.trayPageCount?.pages == model.result?.plan.logicalPageCount)
+        #expect(model.trayPageCount?.notes == 0)
+    }
+
+    @Test("読めなくなった画像を読み直して組む間も、刷り台の名前は見せている用紙の画像のまま", .timeLimit(.minutes(1)))
+    func imageNamesStayWithTheShownSheets() async throws {
+        let fixture = Fixture()
+        try FileManager.default.createDirectory(at: fixture.root, withIntermediateDirectories: true)
+        let first = fixture.root.appendingPathComponent("A.png")
+        let second = fixture.root.appendingPathComponent("B.png")
+        try TestFixtures.png(red: 0.1).write(to: first)
+        try TestFixtures.png(red: 0.2).write(to: second)
+        let gate = Gate()
+        gate.holds = false
+        let renderer = DocumentRenderer()
+        renderer.willComposeSheet = {
+            while gate.holds { try await Task.sleep(for: .milliseconds(10)) }
+        }
+        let bundle = ImageBundleModel(urls: [first, second])
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .image, preferences: fixture.preferences, library: fixture.library,
+            renderer: renderer, imageBundle: bundle)
+        defer { model.stop() }
+        model.enterPrintMode()
+        try await render(model)
+        #expect(model.trayImageNames == ["A.png", "B.png"])
+        gate.holds = true
+        try Data("not an image".utf8).write(to: first)
+        bundle.clearCache()
+        model.render()
+        try await waitUntil { model.unreadableImageURLs.map(\.lastPathComponent) == ["A.png"] }
+        // The sheets shown still have A on them, and so do their names.
+        #expect(model.showsTrayPreview)
+        #expect(model.trayImageNames == ["A.png", "B.png"])
+        gate.holds = false
+        try await waitUntil { !model.isRendering }
+        #expect(model.trayImageNames == ["B.png"])
+    }
+
+    @Test("前の冊子の用紙を見せている間は折ってみるが効かず、Esc は刷り台を閉じるのに使われる", .timeLimit(.minutes(1)))
+    func foldWaitsForCurrentSheets() async throws {
+        let fixture = Fixture()
+        let gate = Gate()
+        gate.holds = false
+        let model = heldModel(fixture, gate: gate)
+        defer { model.stop() }
+        model.chooseLayout(PrintLayout.a4BookletA5.id)
+        try await render(model)
+        #expect(model.canShowFold)
+        gate.holds = true
+        model.chooseLayout(PrintLayout.a4Single.id)
+        model.render()
+        try await waitUntil { model.result?.layout.id == PrintLayout.a4Single.id }
+        // The booklet's sheets are still on the tray, with its button.
+        #expect(model.printTray?.isBooklet == true)
+        #expect(!model.canShowFold)
+        model.showFold()
+        #expect(!model.showsFold)
+        #expect(model.printEscapeTarget == .screen)
+        gate.holds = false
+        try await waitUntil { !model.isRendering }
+        // A fold left over from earlier ends once the sheets come out as no booklet.
+        model.showsFold = true
+        model.foldAvailabilityDidChange()
+        #expect(!model.showsFold)
+        #expect(model.printEscapeTarget == .screen)
+    }
+
+    @Test("組み直しの途中で画像を並べ替えると、前の用紙もその名前も見せない", .timeLimit(.minutes(1)))
+    func reorderingHidesTheShownSheets() async throws {
+        let fixture = Fixture()
+        try FileManager.default.createDirectory(at: fixture.root, withIntermediateDirectories: true)
+        let first = fixture.root.appendingPathComponent("1.png")
+        let second = fixture.root.appendingPathComponent("2.png")
+        try TestFixtures.png(red: 0.1).write(to: first)
+        try TestFixtures.png(red: 0.2).write(to: second)
+        let gate = Gate()
+        gate.holds = false
+        let renderer = DocumentRenderer()
+        renderer.willComposeSheet = {
+            while gate.holds { try await Task.sleep(for: .milliseconds(10)) }
+        }
+        let bundle = ImageBundleModel(urls: [first, second])
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .image, preferences: fixture.preferences, library: fixture.library,
+            renderer: renderer, imageBundle: bundle)
+        defer { model.stop() }
+        model.enterPrintMode()
+        try await render(model)
+        gate.holds = true
+        model.chooseLayout(PrintLayout.a4Duplex.id)
+        model.render()
+        try await waitUntil { model.result?.layout.id == PrintLayout.a4Duplex.id }
+        #expect(model.showsTrayPreview)
+        // Reordered while the sheets of the new layout are composed: the sheets shown are in the old order.
+        bundle.move(fromOffsets: IndexSet(integer: 0), toOffset: 2)
+        model.listDidChange()
+        #expect(!model.showsTrayPreview)
+        #expect(model.trayImageNames == nil)
+        gate.holds = false
+        try await waitUntil { !model.isRendering }
+        #expect(model.showsTrayPreview)
+        #expect(model.trayImageNames == ["2.png", "1.png"])
+    }
 }

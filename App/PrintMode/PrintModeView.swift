@@ -29,6 +29,7 @@ struct PrintModeView: View {
         .onChange(of: model.layout.kind) { _, kind in
             if kind != .booklet { model.showsFold = false }
         }
+        .onChange(of: model.canShowFold) { _, _ in model.foldAvailabilityDidChange() }
         .onAppear {
             // The view mode shows the traffic lights only with its menu; the tray always shows them.
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(true, in: window) }
@@ -53,7 +54,7 @@ struct PrintModeView: View {
             PrintPalette.stage
             if model.showsTrayPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument {
                 PrintTrayView(
-                    model: model, tray: tray, document: document, showsFold: $model.showsFold, memory: trayMemory)
+                    model: model, tray: tray, document: document, memory: trayMemory)
             } else if model.error == nil {
                 VStack(spacing: 10) {
                     if model.isRendering { ProgressView().controlSize(.small) }
@@ -62,7 +63,7 @@ struct PrintModeView: View {
                         .foregroundStyle(PrintPalette.ink2)
                 }
             }
-            if model.showsFold, model.hasCurrentPrintPreview, model.printTray?.isBooklet == true {
+            if model.showsFold, model.canShowFold {
                 PrintFoldView(model: model) { model.showsFold = false }
                     .transition(.opacity)
             }
@@ -157,12 +158,14 @@ struct PrintTopBar: View {
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                if let count = model.result?.plan.logicalPageCount {
-                    Text(verbatim: PrintModeText.pageCount(count, notes: noteCount, language: model.language))
-                        .font(.system(size: 12))
-                        .foregroundStyle(PrintPalette.ink2)
-                        .lineLimit(1)
-                        .fixedSize()
+                if let count = model.trayPageCount {
+                    Text(
+                        verbatim: PrintModeText.pageCount(count.pages, notes: count.notes, language: model.language)
+                    )
+                    .font(.system(size: 12))
+                    .foregroundStyle(PrintPalette.ink2)
+                    .lineLimit(1)
+                    .fixedSize()
                 }
             }
             .padding(.leading, 16)
@@ -212,8 +215,6 @@ struct PrintTopBar: View {
         .overlay(alignment: .bottom) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
         .background { TrafficLightsReader { lights = $0 } }
     }
-
-    private var noteCount: Int { model.showsTrayPreview ? model.printResult?.addedNotePages ?? 0 : 0 }
 
     /// A changed set can be saved over the reader's own set, or as a new one from any set.
     @ViewBuilder private var changedSetControls: some View {

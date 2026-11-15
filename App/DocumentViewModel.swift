@@ -310,10 +310,10 @@ final class DocumentViewModel {
     private var trayFigures: TrayFigures?
     /// The sheets of `printResult`, grouped as they come out of the printer; built once per composition.
     private(set) var printTray: PrintTray?
-    /// The options and the files `printTray` was composed with, which the tray keeps showing while newer sheets are
-    /// composed (`showsTrayPreview`).
-    private(set) var printTrayOptions: PrintOptions?
-    @ObservationIgnored private var printTraySourceURLs: [URL]?
+    /// The settings and the files `printTray` was composed with. The tray keeps showing its sheets while newer ones are
+    /// composed (`showsTrayPreview`), and whatever describes them is read from the same generation (`shownSheets`).
+    private(set) var printTraySettings: RenderSettings?
+    @ObservationIgnored private(set) var printTraySourceURLs: [URL]?
     private(set) var renderedSettings: RenderSettings?
     /// What the render in flight is making, once its back-side correction is settled.
     @ObservationIgnored private var renderingSettings: RenderSettings?
@@ -647,6 +647,24 @@ final class DocumentViewModel {
         if hasCurrentPrintPreview { return true }
         return isRendering && error == nil && printTray != nil && printResult != nil
             && printTraySourceURLs == sourceURLs && renderedSettings?.smartRemoval?.highlightsCandidates != true
+            && printTraySettings?.smartRemoval?.highlightsCandidates != true
+    }
+    /// The composed sheets the tray shows, nil while it shows none. The page counts, labels and notes that describe the
+    /// sheets come from here rather than from `result`, which runs ahead while newer sheets are composed; so the sheets
+    /// and their descriptions change together, once.
+    var shownSheets: RenderResult? { showsTrayPreview ? printResult : nil }
+    /// The settings of `shownSheets`.
+    var shownSheetSettings: RenderSettings? { shownSheets == nil ? nil : printTraySettings }
+    /// The pages the tray's top bar counts, and the note pages among them, both of the shown sheets; before there are
+    /// any, the pages laid out, without notes.
+    var trayPageCount: (pages: Int, notes: Int)? {
+        if let sheets = shownSheets { return (sheets.plan.logicalPageCount, sheets.addedNotePages) }
+        return result.map { ($0.plan.logicalPageCount, 0) }
+    }
+    /// The names under the tray's images, of the images the shown sheets were made of.
+    var trayImageNames: [String]? {
+        guard imageBundle != nil, let sheets = shownSheets, let urls = printTraySourceURLs else { return nil }
+        return urls.filter { !sheets.unreadableImageURLs.contains($0) }.map(\.lastPathComponent)
     }
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
@@ -660,8 +678,10 @@ final class DocumentViewModel {
     /// document prints everything, which the tray shows.
     var pageRangeProblem: PageRangeProblem? {
         if isPageRangeUnreadable { return .unreadable }
-        guard mode == .print, renderedSettings?.pageRange == pageRange, result?.pageSelection.isOutOfDocument == true
-        else { return nil }
+        // Told of the sheets on the tray, which change after the logical pages do.
+        let settings = shownSheets == nil ? renderedSettings : shownSheetSettings
+        let outOfDocument = shownSheets?.pageSelection.isOutOfDocument ?? result?.pageSelection.isOutOfDocument
+        guard mode == .print, settings?.pageRange == pageRange, outOfDocument == true else { return nil }
         return .noSuchPages
     }
 
@@ -1347,7 +1367,7 @@ final class DocumentViewModel {
                         paper: output.plan.paper.shortName)
                 }
                 printTraySourceURLs = sourceURLs
-                printTrayOptions = settings.options
+                printTraySettings = settings
                 printTray = PrintTray(
                     plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
                     sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
@@ -2049,7 +2069,7 @@ final class DocumentViewModel {
                 result = nil
                 printResult = nil
                 printTray = nil
-                printTrayOptions = nil
+                printTraySettings = nil
                 printTraySourceURLs = nil
                 needsRender = true
                 isRendering = true

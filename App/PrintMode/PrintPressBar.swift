@@ -188,14 +188,14 @@ struct PrintPressBar: View {
     }
 
     private var note: String? {
-        guard model.showsTrayPreview, let result = model.printResult else { return nil }
+        guard let result = model.shownSheets else { return nil }
         return PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
             ?? PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
     }
 
     /// What comes out, and what it takes: the pages of the finished piece and the paper for them.
     private var outcome: (finished: String, paper: String)? {
-        guard let result = model.printResult, model.summary != nil else { return nil }
+        guard let result = model.shownSheets, model.summary != nil else { return nil }
         let slots = result.plan.sides.flatMap(\.slots)
         let printed = Set(slots.compactMap { $0 })
         let blanks = slots.filter { $0 == nil }.count + result.blankPages.intersection(printed).count
@@ -214,14 +214,18 @@ struct PrintPressBar: View {
 
     /// What the choices add to the sheets beyond the summary; the amount of text belongs to the document's information.
     private var reminderLine: String? {
+        // The options of the sheets shown, which may be older than the choices while newer sheets are composed.
+        let sheets = model.shownSheets
         var parts = [
-            PrintModeText.options(model.effectivePrintOptions, layout: model.printerLayout, language: model.language)
+            PrintModeText.options(
+                model.shownSheetSettings?.options ?? model.effectivePrintOptions,
+                layout: sheets?.layout ?? model.printerLayout, language: model.language)
         ].compactMap { $0 }
-        if model.showsTrayPreview, model.printResult?.addedNotePages ?? 0 > 0 {
+        if let sheets, sheets.addedNotePages > 0 {
             if model.coverIsNotePage {
                 parts.append(PrintModeText.string("The cover is a note page too", language: model.language))
             }
-            if model.notes.style.isFaint {
+            if (model.shownSheetSettings?.notes ?? model.notes).style.isFaint {
                 parts.append(
                     PrintModeText.string("The lines are faint and may fade when printed", language: model.language))
             }
