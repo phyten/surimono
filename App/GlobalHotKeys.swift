@@ -1,9 +1,10 @@
 import AppKit
 import Carbon.HIToolbox
 import Observation
+import SurimonoCore
 import SwiftUI
 
-struct KeyCombo: Codable, Equatable, Sendable {
+struct KeyCombo: Codable, Hashable, Sendable {
     let keyCode: UInt32
     let modifiers: UInt32
 
@@ -65,28 +66,33 @@ struct KeyCombo: Codable, Equatable, Sendable {
     }
 }
 
+@MainActor
 @Observable
 final class GlobalHotKeys {
     enum Action: UInt32, CaseIterable {
         case open = 1
         case printScreen = 2
 
-        var title: String {
-            switch self {
-            case .open: String(localized: "Open from Clipboard")
-            case .printScreen: String(localized: "Open Clipboard on the Print Screen")
-            }
+        var operation: ShortcutOperationID {
+            self == .open ? .globalClipboardOpen : .globalClipboardPrintScreen
         }
     }
 
+    enum RegistrationError: Error { case unavailable }
     static let shared = GlobalHotKeys()
     private static let signature: UInt32 = 0x5355_5249
-    private var preferences: AppPreferences?
-    private var releases: [Action: () -> Void] = [:]
+    private struct Registration {
+        let id: UInt32
+        let release: () -> Void
+    }
+    private var registrations: [KeyCombo: Registration] = [:]
+    private(set) var assignments: [KeyCombo: Action] = [:]
+    private var nextID: UInt32 = 10
     private var handler: EventHandlerRef?
-    private(set) var errors: [Action: String] = [:]
     private var recording = false
+    private var transacting = false
     private var handlerFailed = false
+    private(set) var failed: Set<Action> = []
     private let register: (KeyCombo, UInt32) -> (() -> Void)?
     private let activate: () -> Void
     private let openClipboard: (Bool) -> Void
@@ -101,9 +107,8 @@ final class GlobalHotKeys {
         self.openClipboard = openClipboard
     }
 
-    func start(preferences: AppPreferences) {
+    func start() {
         stop()
-        self.preferences = preferences
         var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let status = InstallEventHandler(
             GetApplicationEventTarget(),
@@ -120,84 +125,87 @@ final class GlobalHotKeys {
                 return noErr
             }, 1, &event, nil, &handler)
         handlerFailed = status != noErr
-        if status == noErr {
-            restore()
-        } else {
-            for action in Action.allCases {
-                errors[action] = String(localized: "Could not register this shortcut. Try another combination.")
-            }
-        }
     }
 
     func stop() {
-        for release in releases.values { release() }
-        releases.removeAll()
+        for entry in registrations.values { entry.release() }
+        registrations.removeAll()
+        assignments.removeAll()
         if let handler { RemoveEventHandler(handler) }
         handler = nil
     }
 
-    func combo(for action: Action) -> KeyCombo? {
-        action == .open ? preferences?.openClipboardShortcut : preferences?.printClipboardShortcut
-    }
-
     func handle(_ id: UInt32) {
-        guard !recording, let action = Action(rawValue: id) else { return }
+        guard !recording, !transacting,
+            let combo = registrations.first(where: { $0.value.id == id })?.key,
+            let action = assignments[combo]
+        else { return }
         activate()
         openClipboard(action == .printScreen)
     }
 
-    func set(_ combo: KeyCombo?, for action: Action) {
-        guard let preferences else { return }
-        let other = self.combo(for: action == .open ? .printScreen : .open)
-        if let combo, !combo.isValid(excluding: other) {
-            errors[action] = String(
-                localized: "Use Command, Option, or Control and a different shortcut for each action.")
-            return
-        }
-        if combo == self.combo(for: action), releases[action] != nil {
-            errors[action] = nil
-            return
-        }
-        // Keep the old registration until the replacement is known to work.
-        var release: (() -> Void)?
-        if let combo {
-            guard !handlerFailed else {
-                errors[action] = String(localized: "Could not register this shortcut. Try another combination.")
-                return
+    func isRegistered(_ action: Action) -> Bool {
+        assignments.contains { $0.value == action && registrations[$0.key] != nil }
+    }
+
+    // Registration IDs belong to combinations, so a transfer changes routing without re-registering a held key.
+    func apply(_ desired: [KeyCombo: Action], commit: () throws -> Void = {}) throws {
+        transacting = true
+        defer { transacting = false }
+        var acquired: [KeyCombo: Registration] = [:]
+        do {
+            for (combo, _) in desired where registrations[combo] == nil {
+                guard !handlerFailed, !recording, let release = register(combo, nextID) else {
+                    throw RegistrationError.unavailable
+                }
+                acquired[combo] = Registration(id: nextID, release: release)
+                nextID += 1
             }
-            guard let registered = register(combo, action.rawValue) else {
-                errors[action] = String(localized: "Could not register this shortcut. Try another combination.")
-                return
+            try commit()
+        } catch {
+            for entry in acquired.values { entry.release() }
+            throw error
+        }
+        let obsolete = registrations.filter { desired[$0.key] == nil }
+        registrations.merge(acquired) { _, new in new }
+        assignments = desired
+        for (combo, entry) in obsolete {
+            registrations.removeValue(forKey: combo)
+            entry.release()
+        }
+        failed.removeAll()
+    }
+
+    // Saved assignments stay saved when another app prevents registration at launch or after recording.
+    func synchronize(_ desired: [KeyCombo: Action]) {
+        transacting = true
+        defer { transacting = false }
+        for (combo, entry) in registrations where desired[combo] == nil {
+            entry.release()
+            registrations.removeValue(forKey: combo)
+        }
+        assignments = desired
+        failed.removeAll()
+        guard !recording else { return }
+        for (combo, action) in desired where registrations[combo] == nil {
+            if !handlerFailed, let release = register(combo, nextID) {
+                registrations[combo] = Registration(id: nextID, release: release)
+                nextID += 1
+            } else {
+                failed.insert(action)
             }
-            release = registered
         }
-        releases.removeValue(forKey: action)?()
-        releases[action] = release
-        if action == .open {
-            preferences.openClipboardShortcut = combo
-        } else {
-            preferences.printClipboardShortcut = combo
-        }
-        errors[action] = nil
     }
 
     func beginRecording() {
         recording = true
-        for release in releases.values { release() }
-        releases.removeAll()
+        for entry in registrations.values { entry.release() }
+        registrations.removeAll()
     }
 
     func endRecording() {
         recording = false
-        restore()
-    }
-
-    /// Also supports tests without installing a process-wide Carbon handler.
-    func restore(preferences: AppPreferences? = nil) {
-        if let preferences { self.preferences = preferences }
-        for action in Action.allCases where releases[action] == nil {
-            if let combo = combo(for: action) { set(combo, for: action) }
-        }
+        synchronize(assignments)
     }
 
     private static func registerCarbon(_ combo: KeyCombo, _ id: UInt32) -> (() -> Void)? {
@@ -211,123 +219,65 @@ final class GlobalHotKeys {
     }
 }
 
-struct GlobalShortcutSettings: View {
-    private let hotKeys = GlobalHotKeys.shared
+extension KeyCombo {
+    func recordedShortcutCombination() throws -> ShortcutCombination {
+        guard let code = UInt16(exactly: keyCode) else { throw ShortcutModelError.invalidKey }
+        return try ShortcutCombination(key: .macVirtualKey(code), modifiers: .carbon(modifiers)).normalized()
+    }
 
-    var body: some View {
-        Section("Global Shortcuts") {
-            ForEach(GlobalHotKeys.Action.allCases, id: \.rawValue) { action in
-                VStack(alignment: .leading) {
-                    HStack {
-                        Text(action.title)
-                        Spacer()
-                        ShortcutRecorder(combo: hotKeys.combo(for: action), label: action.title) {
-                            hotKeys.set($0, for: action)
-                        }
-                        .frame(width: 160, height: 26)
-                        // The clear button keeps its place when hidden, so the fields of both rows stay in one column.
-                        Button {
-                            hotKeys.set(nil, for: action)
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text("Clear Shortcut") + Text(": ") + Text(action.title))
-                        .opacity(hotKeys.combo(for: action) == nil ? 0 : 1)
-                        .disabled(hotKeys.combo(for: action) == nil)
-                        .accessibilityHidden(hotKeys.combo(for: action) == nil)
-                    }
-                    if let error = hotKeys.errors[action] {
-                        Text(error).font(.caption).foregroundStyle(.red)
-                    }
-                }
-            }
-            Text("These work while Surimono is running, even when another app is in front.")
-                .font(.caption).foregroundStyle(.secondary)
+    func shortcutCombination() throws -> ShortcutCombination {
+        guard isValid, let code = UInt16(exactly: keyCode) else { throw ShortcutModelError.invalidKey }
+        var flags: ShortcutModifiers = []
+        for (carbon, flag) in [
+            (controlKey, ShortcutModifiers.control), (optionKey, .option),
+            (shiftKey, .shift), (cmdKey, .command),
+        ] where modifiers & UInt32(carbon) != 0 {
+            flags.insert(flag)
         }
+        return try ShortcutCombination(key: .macVirtualKey(code), modifiers: flags).normalized()
     }
 }
 
-private struct ShortcutRecorder: NSViewRepresentable {
-    let combo: KeyCombo?
-    let label: String
-    let change: (KeyCombo?) -> Void
-
-    func makeNSView(context: Context) -> RecorderButton { RecorderButton() }
-    func updateNSView(_ button: RecorderButton, context: Context) {
-        button.combo = combo
-        button.change = change
-        button.setAccessibilityLabel(label)
-        button.refresh()
-    }
-    static func dismantleNSView(_ button: RecorderButton, coordinator: ()) { button.finish() }
-
-    final class RecorderButton: NSButton {
-        var combo: KeyCombo?
-        var change: ((KeyCombo?) -> Void)?
-        private var recording = false
-
-        init() {
-            super.init(frame: .zero)
-            bezelStyle = .rounded
-            target = self
-            action = #selector(record)
-        }
-        required init?(coder: NSCoder) { nil }
-        override var acceptsFirstResponder: Bool { true }
-
-        override func viewWillMove(toWindow newWindow: NSWindow?) {
-            finish()
-            NotificationCenter.default.removeObserver(self, name: NSWindow.didResignKeyNotification, object: nil)
-            if let newWindow {
-                NotificationCenter.default.addObserver(
-                    self, selector: #selector(cancelRecording), name: NSWindow.didResignKeyNotification,
-                    object: newWindow)
+struct LegacyShortcutMigration {
+    static func evaluate(defaults: UserDefaults, environment: ShortcutValidationContext) -> ShortcutConfiguration {
+        let sources: [(ShortcutOperationID, String)] = [
+            (.globalClipboardOpen, "openClipboardShortcut"),
+            (.globalClipboardPrintScreen, "printClipboardShortcut"),
+        ]
+        var overrides: [ShortcutOperationID: [ShortcutCombination]] = [:]
+        var invalid: [ShortcutInactiveMigration] = []
+        var rawValues: [ShortcutOperationID: Data] = [:]
+        for (operation, key) in sources {
+            guard defaults.object(forKey: key) != nil else { continue }
+            let raw = defaults.data(forKey: key)
+            rawValues[operation] = raw
+            guard let raw, let legacy = try? JSONDecoder().decode(KeyCombo.self, from: raw),
+                let candidate = try? legacy.shortcutCombination()
+            else {
+                overrides[operation] = []
+                invalid.append(
+                    .init(operation: operation, legacyData: raw, candidate: nil, reasons: [.malformedLegacy]))
+                continue
             }
-            super.viewWillMove(toWindow: newWindow)
+            overrides[operation] = [candidate]
         }
-        @objc private func cancelRecording() { finish() }
-
-        func refresh() {
-            title =
-                recording
-                ? String(localized: "Type a shortcut") : combo?.display ?? String(localized: "Record Shortcut")
-            setAccessibilityValue(title)
-        }
-        @objc private func record() {
-            guard !recording, window?.makeFirstResponder(self) == true else { return }
-            recording = true
-            GlobalHotKeys.shared.beginRecording()
-            refresh()
-        }
-        func finish() {
-            guard recording else { return }
-            recording = false
-            GlobalHotKeys.shared.endRecording()
-            refresh()
-        }
-        override func resignFirstResponder() -> Bool {
-            finish()
-            return super.resignFirstResponder()
-        }
-        override func performKeyEquivalent(with event: NSEvent) -> Bool {
-            guard recording else { return super.performKeyEquivalent(with: event) }
-            keyDown(with: event)
-            return true
-        }
-        override func keyDown(with event: NSEvent) {
-            guard recording else {
-                super.keyDown(with: event)
-                return
+        // Validate both candidates together, so a duplicate does not acquire an arbitrary winner.
+        let candidates = ShortcutConfiguration(overrides: overrides)
+        let validator = ShortcutValidator(environment: environment)
+        for (operation, _) in sources {
+            guard let candidate = candidates.keys(for: operation).first else { continue }
+            var reasons = validator.issues(for: operation, combination: candidate).map(\.code)
+            if !validator.conflicts(for: operation, keys: [candidate], in: candidates).isEmpty {
+                reasons.append(.conflict)
             }
-            if event.keyCode == 53 {
-                finish()
-                return
+            if !reasons.isEmpty {
+                overrides[operation] = []
+                invalid.append(
+                    .init(
+                        operation: operation, legacyData: rawValues[operation], candidate: candidate,
+                        reasons: reasons))
             }
-            let value: KeyCombo? = [51, 117].contains(event.keyCode) ? nil : KeyCombo(event: event)
-            // Resume before applying so failure leaves the previous shortcut active.
-            finish()
-            change?(value)
         }
+        return ShortcutConfiguration(overrides: overrides, inactiveMigration: invalid)
     }
 }

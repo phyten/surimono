@@ -10,9 +10,28 @@ struct RemovedPrintSettingSet: Equatable {
     let index: Int
 }
 
+enum ShortcutPreferencesLoadState: Equatable {
+    case loaded, migrationRequired
+    case unreadable(ShortcutModelError)
+
+    var isUnreadable: Bool {
+        if case .unreadable = self { return true }
+        return false
+    }
+}
+
+enum ShortcutPreferencesError: Error {
+    case unreadableSavedData, staleSnapshot, environmentUnavailable
+}
+
 /// App-wide defaults. Settings a user changes in a document window are remembered per document instead.
 @Observable
 final class AppPreferences {
+    private(set) var keyboardShortcuts: ShortcutConfiguration
+    private(set) var keyboardShortcutsLoadState: ShortcutPreferencesLoadState
+    private(set) var keyboardShortcutsRevision: UInt64 = 0
+    private var keyboardShortcutsStoredData: Data?
+
     var openClipboardShortcut: KeyCombo? {
         didSet {
             defaults.set(
@@ -221,7 +240,8 @@ final class AppPreferences {
 
     init(
         defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier,
-        locale: Locale? = nil, defaultPaperSize: CGSize? = nil
+        locale: Locale? = nil, defaultPaperSize: CGSize? = nil,
+        shortcutEnvironment: ShortcutValidationContext = .unavailable
     ) {
         // Only the app's own preferences follow the Mac: its region and the paper its print system starts with. A
         // store made for a test or a preview starts on A4 wherever it runs (CI machines are set to the United
@@ -239,6 +259,10 @@ final class AppPreferences {
         printClipboardShortcut = defaults.data(forKey: "printClipboardShortcut").flatMap {
             try? JSONDecoder().decode(KeyCombo.self, from: $0)
         }
+        let shortcuts = Self.loadKeyboardShortcuts(defaults: defaults, environment: shortcutEnvironment)
+        keyboardShortcuts = shortcuts.0
+        keyboardShortcutsLoadState = shortcuts.1
+        keyboardShortcutsStoredData = defaults.data(forKey: ShortcutStore.preferencesKey)
         self.defaults = defaults
         languageDomainName = domainName
         let savedLanguages = domainName.flatMap {
@@ -511,5 +535,79 @@ final class AppPreferences {
         finishDefaults = FinishDefaults(options: options, finish: finish)
         if let margin = options.margins.uniformValue { self.margin = margin }
         defaultFurniture = options.furniture
+    }
+}
+
+extension AppPreferences {
+    private static func loadKeyboardShortcuts(defaults: UserDefaults, environment: ShortcutValidationContext)
+        -> (ShortcutConfiguration, ShortcutPreferencesLoadState)
+    {
+        guard defaults.object(forKey: ShortcutStore.preferencesKey) != nil else {
+            return (LegacyShortcutMigration.evaluate(defaults: defaults, environment: environment), .migrationRequired)
+        }
+        guard let data = defaults.data(forKey: ShortcutStore.preferencesKey) else {
+            return (.init(), .unreadable(.malformedStore))
+        }
+        do {
+            return (try ShortcutStore.decode(data), .loaded)
+        } catch let error as ShortcutModelError {
+            return (.init(), .unreadable(error))
+        } catch {
+            return (.init(), .unreadable(.malformedStore))
+        }
+    }
+
+    func reloadKeyboardShortcuts(environment: ShortcutValidationContext) {
+        let loaded = Self.loadKeyboardShortcuts(defaults: defaults, environment: environment)
+        if loaded.0 != keyboardShortcuts || loaded.1 != keyboardShortcutsLoadState {
+            keyboardShortcutsRevision += 1
+        }
+        keyboardShortcuts = loaded.0
+        keyboardShortcutsLoadState = loaded.1
+        keyboardShortcutsStoredData = defaults.data(forKey: ShortcutStore.preferencesKey)
+    }
+
+    func saveKeyboardShortcuts(_ plan: ShortcutChangePlan, expectedRevision: UInt64) throws {
+        guard expectedRevision == keyboardShortcutsRevision, plan.original == keyboardShortcuts else {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        guard plan.environment.reservationsAvailable, plan.environment.projectionAvailable else {
+            throw ShortcutPreferencesError.environmentUnavailable
+        }
+        try persistKeyboardShortcuts(plan.configuration)
+    }
+
+    func saveKeyboardShortcutMigration(
+        environment: ShortcutValidationContext, expectedConfiguration: ShortcutConfiguration? = nil
+    ) throws {
+        if keyboardShortcutsLoadState == .loaded { return }
+        guard !keyboardShortcutsLoadState.isUnreadable else { throw ShortcutPreferencesError.unreadableSavedData }
+        guard environment.reservationsAvailable, environment.projectionAvailable else {
+            throw ShortcutPreferencesError.environmentUnavailable
+        }
+        // Re-evaluate before saving so a legacy write during registration cannot publish another candidate.
+        guard defaults.object(forKey: ShortcutStore.preferencesKey) == nil else {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        let migrated = LegacyShortcutMigration.evaluate(defaults: defaults, environment: environment)
+        if let expectedConfiguration, migrated != expectedConfiguration {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        try persistKeyboardShortcuts(migrated)
+    }
+
+    private func persistKeyboardShortcuts(_ configuration: ShortcutConfiguration) throws {
+        guard !keyboardShortcutsLoadState.isUnreadable else { throw ShortcutPreferencesError.unreadableSavedData }
+        guard defaults.data(forKey: ShortcutStore.preferencesKey) == keyboardShortcutsStoredData,
+            defaults.object(forKey: ShortcutStore.preferencesKey) == nil || keyboardShortcutsStoredData != nil
+        else {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        let data = try ShortcutStore.encode(configuration)
+        defaults.set(data, forKey: ShortcutStore.preferencesKey)
+        keyboardShortcutsStoredData = data
+        keyboardShortcuts = configuration
+        keyboardShortcutsLoadState = .loaded
+        keyboardShortcutsRevision += 1
     }
 }

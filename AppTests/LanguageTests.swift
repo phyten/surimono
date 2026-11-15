@@ -88,6 +88,50 @@ struct LanguageTests {
         }
     }
 
+    @Test("ショートカット画面が参照するキーはカタログに存在し8言語で翻訳されている")
+    func shortcutCatalogCoverage() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        // Include dialogs, registration errors and spoken key names, not just the visible top rows.
+        let files = [
+            "ShortcutSettingsView", "ShortcutText", "ShortcutRecorder", "ShortcutController",
+            "SystemShortcutReservations",
+        ]
+        let pattern =
+            #"(?:String\(\s*localized:\s*|(?:Text|TextField|Button|Label|Picker|Section|Toggle)\(\s*)"([^"\\]*(?:\\.[^"\\]*)*)""#
+        let expression = try NSRegularExpression(pattern: pattern)
+        var keys: Set<String> = [SettingsSection.keyboardShortcuts.rawValue]
+        for file in files {
+            let source = try String(contentsOf: root.appending(path: "App/\(file).swift"), encoding: .utf8)
+            let matches = expression.matches(in: source, range: NSRange(source.startIndex..., in: source))
+            #expect(!matches.isEmpty, "No localization references found in \(file)")
+            for match in matches {
+                let range = try #require(Range(match.range(at: 1), in: source))
+                let literal = "\"" + source[range] + "\""
+                keys.insert(try JSONDecoder().decode(String.self, from: Data(literal.utf8)))
+            }
+        }
+        #expect(keys.contains("Search Shortcuts"))
+        #expect(keys.contains("Open…"))
+        #expect(keys.contains("Left Arrow"))
+        #expect(keys.contains("Record Shortcut"))
+        #expect(keys.contains("Registered"))
+        for key in keys.sorted() {
+            let entry = try #require(catalog.strings[key], "Missing shortcut key: \(key)")
+            for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {
+                let translation = try #require(entry.localizations[language], "\(key): \(language)")
+                #expect(!translation.units.isEmpty, "\(key): \(language)")
+                for unit in translation.units {
+                    #expect(unit.state == "translated" && !unit.value.isEmpty, "\(key): \(language)")
+                }
+                for value in translation.expandedValues {
+                    #expect(specifiers(value) == specifiers(key), "\(key): \(language)")
+                }
+            }
+        }
+    }
+
     private func specifiers(_ text: String) -> [String] {
         let pattern = #/%(?:(\d+)\$)?(lld|ld|@)/#
         return text.matches(of: pattern).enumerated().map { index, match in

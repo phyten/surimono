@@ -26,6 +26,10 @@
 
         static func flag(_ name: String) -> Bool { argument(name)?.uppercased() == "YES" }
 
+        // Settings photography only: read process arguments into view state, never preferences.
+        static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
+        static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
+
         /// Stands in for another app: a service's selection and a streaming feed come through private pasteboards, leaving
         /// the shared ones alone.
         static func openFeeds() {
