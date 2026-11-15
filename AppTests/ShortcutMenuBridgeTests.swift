@@ -268,8 +268,8 @@ struct ShortcutMenuBridgeTests {
         try fixture.controller.edit(.documentReload, keys: nil, takeConflicts: true)
         #expect(fixture.bridge.items[.documentReload]?.keyEquivalent == "r")
         #expect(fixture.bridge.items[.appKeyGuide]?.keyEquivalent == "")
-        #expect(throws: ShortcutController.EditError.self) { try fixture.controller.edit(.documentPrint, keys: []) }
-        #expect(throws: ShortcutController.EditError.self) { try fixture.controller.edit(.printSettings, keys: []) }
+        try fixture.controller.edit(.documentPrint, keys: [])
+        try fixture.controller.edit(.printSettings, keys: [])
     }
 
     @Test(
@@ -392,20 +392,6 @@ struct ShortcutMenuBridgeTests {
         #expect(save.isHidden && !save.allowsKeyEquivalentWhenHidden)
     }
 
-    @Test("印刷の既定キーと印刷関連の未接続操作はこのディスパッチャーが実行しない")
-    func printingBoundary() {
-        let fixture = Fixture()
-        defer { fixture.close() }
-        let model = fixture.document(printMode: true)
-        defer { model.stop() }
-        for flags: NSEvent.ModifierFlags in [.command, [.command, .option]] {
-            #expect(!fixture.dispatcher.handle(fixture.event("p", code: 35, flags: flags)))
-        }
-        fixture.dispatcher.perform(.documentPrint)
-        fixture.dispatcher.perform(.documentPrintSystem)
-        fixture.dispatcher.perform(.documentExportPDF)
-        #expect(fixture.calls.isEmpty)
-    }
     @Test("SwiftUIが生成した実メニューでも開かず変更を反映しクリックとキーを同じ操作に届ける")
     func generatedMenuWithoutOpening() throws {
         let fixture = Fixture()
@@ -470,6 +456,14 @@ struct ShortcutMenuBridgeTests {
         }
         live.start()
         let menu = try #require(NSApp.mainMenu)
+        // Default-key checks alone could pass via SwiftUI's fallback even if the bridge never owned these items.
+        for operation in [ShortcutOperationID.documentPrint, .documentPrintSystem, .documentExportPDF, .printSettings]
+            + ShortcutPrintLayouts.operations
+        {
+            let item = try #require(live.items[operation], "Unmanaged menu operation: \(operation)")
+            #expect(item.target === live)
+            #expect(item.identifier == ShortcutMenuBridge.identifier(operation))
+        }
         let items = ShortcutMenuBaselineTests.items(menu)
         let before = items.map { ShortcutMenuKey(item: $0) }
         live.reconcile()

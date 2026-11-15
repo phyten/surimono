@@ -316,7 +316,7 @@ public struct ShortcutOperation: Equatable, Sendable {
                 regions: [.global], allowsBareKeys: false)
         case .clipboardOpenPrintScreen:
             return Self(
-                id: id, group: .application, applicability: .application, safety: .ordinary,
+                id: id, group: .application, applicability: .application, safety: .changesMode,
                 regions: ShortcutRegion.application, allowsBareKeys: false)
         case .appStreamingPreview:
             return Self(
@@ -416,7 +416,7 @@ public struct ShortcutOperation: Equatable, Sendable {
                 regions: [.printSheet], allowsBareKeys: false)
         case .printReviewIssues:
             return Self(
-                id: id, group: .documentAndPrinting, applicability: .document, safety: .ordinary,
+                id: id, group: .documentAndPrinting, applicability: .document, safety: .changesMode,
                 regions: ShortcutRegion.document, allowsBareKeys: false)
         case .htmlSmartRemoval:
             return Self(
@@ -424,7 +424,7 @@ public struct ShortcutOperation: Equatable, Sendable {
                 regions: ShortcutRegion.document, allowsBareKeys: false)
         case .htmlReviewRemoval:
             return Self(
-                id: id, group: .documentAndPrinting, applicability: .html, safety: .ordinary,
+                id: id, group: .documentAndPrinting, applicability: .html, safety: .changesMode,
                 regions: ShortcutRegion.document, allowsBareKeys: false)
         case .printManualDuplex:
             return Self(

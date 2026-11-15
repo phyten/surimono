@@ -567,3 +567,23 @@ extension ShortcutTests {
         }
     }
 }
+
+struct ShortcutOutputSafetyTests {
+    @Test("出力と画面遷移のキーはリピートを止める分類を持つ")
+    func safety() {
+        for id: ShortcutOperationID in [.documentPrint, .documentPrintSystem, .printManualDuplex, .printDuplexTest] {
+            #expect(ShortcutOperation.operation(id).safety == .printing)
+            #expect(!ShortcutOperation.operation(id).allowsBareKeys)
+        }
+        #expect(ShortcutOperation.operation(.documentExportPDF).safety == .export)
+        for id: ShortcutOperationID in [
+            .printLayoutSingle, .printLayoutDuplex, .printLayoutBookletLarge, .printLayoutBookletSmall,
+            .printLayoutTwoUpLarge, .printLayoutHandout, .printLayoutTwoUpSmall, .printLayoutFourUp,
+            .styleCompare, .printFoldPreview, .clipboardOpenPrintScreen, .printReviewIssues, .htmlReviewRemoval,
+        ] {
+            #expect(ShortcutOperation.operation(id).safety == .changesMode)
+        }
+        #expect(ShortcutOperation.operation(.globalClipboardPrintScreen).safety == .globalPrintScreen)
+        #expect(ShortcutOperation.operation(.compareShuffle).regions == [.comparison])
+    }
+}

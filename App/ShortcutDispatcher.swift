@@ -11,7 +11,7 @@ final class ShortcutDispatcher {
     private let currentModel: () -> DocumentViewModel?
     private var monitor: Any?
     private var held: Set<UInt16> = []
-    private var lifecycleObservers: [NSObjectProtocol] = []
+    var openClipboardPrintScreen: () -> Void = { ClipboardWindows.shared.open(printing: true) }
     var executeOverride: ((ShortcutOperationID) -> Void)?
 
     init(
@@ -26,9 +26,8 @@ final class ShortcutDispatcher {
         self.keyWindow = keyWindow
         self.firstResponder = firstResponder
         currentModel = resolveModel
-        self.bridge.dispatch = { [weak self] operation in self?.perform(operation) }
+        self.bridge.dispatch = { [weak self] operation in self?.performFromMenu(operation, event: NSApp.currentEvent) }
         controller.synchronizeMenus = { [weak self] in
-            self?.held.removeAll()
             self?.bridge.reconcile()
         }
     }
@@ -36,12 +35,6 @@ final class ShortcutDispatcher {
     func start() {
         guard monitor == nil else { return }
         bridge.start()
-        for name in [NSApplication.didResignActiveNotification, NSWindow.didResignKeyNotification] {
-            lifecycleObservers.append(
-                NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.held.removeAll() }
-                })
-        }
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             let handled = MainActor.assumeIsolated { self?.handle(event) == true }
             return handled ? nil : event
@@ -51,27 +44,32 @@ final class ShortcutDispatcher {
     func stop() {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
-        for observer in lifecycleObservers { NotificationCenter.default.removeObserver(observer) }
-        lifecycleObservers = []
         held = []
         bridge.stop()
     }
 
-    func handle(_ event: NSEvent) -> Bool {
+    func handle(_ event: NSEvent, fromMenu: Bool = false) -> Bool {
         if event.type == .keyUp {
             held.remove(event.keyCode)
             return false
         }
-        guard event.type == .keyDown, !controller.hotKeys.isRecording else { return false }
+        guard event.type == .keyDown else { return false }
+        // Menu tracking can report a windowless event to the monitor before invoking its item. Let the trusted
+        // menu adapter own that press; observing it here must not make its first invocation look like a hold.
+        guard fromMenu || event.window != nil else { return false }
+        // Track even keys received during recording, typing or a sheet. Neither menu synchronization nor a mode/
+        // window change proves the physical key was released. A missed key-up costs one press, never a print job.
+        let wasHeld = !held.insert(event.keyCode).inserted
+        guard !controller.hotKeys.isRecording else { return false }
         // A rebuilt menu can still carry SwiftUI's stale key or enabled state until this synchronous pass.
         bridge.reconcile()
-        guard let window = keyWindow(), event.window === window,
+        guard let window = keyWindow(), event.window === window || (fromMenu && event.window == nil),
             window.attachedSheet == nil, NSApp.modalWindow == nil,
             let combination = Self.combination(event, allowsBareKeys: true)
         else { return false }
         let responder = firstResponder(window)
         if Self.isTextInput(responder), !combination.modifiers.contains(.command) { return false }
-        let matches = ShortcutMenuBridge.operations.filter { operation in
+        let matches = Self.operations.filter { operation in
             controller.localKeys(for: operation).contains { $0 == combination }
         }
         if let input = responder as? NSTextInputClient, input.hasMarkedText() {
@@ -116,13 +114,14 @@ final class ShortcutDispatcher {
             }
             return false
         }
-        guard matches.count == 1, let operation = matches.first, !bridge.ambiguous.contains(operation) else {
+        let activeMatches = matches.filter { Self.isActive($0, model: model) }
+        guard activeMatches.count == 1, let operation = activeMatches.first, !bridge.ambiguous.contains(operation)
+        else {
             return true
         }
         let safety = ShortcutOperation.operation(operation).safety
         if safety == .changesMode || safety == .printing || safety == .export {
-            if event.isARepeat || held.contains(event.keyCode) { return true }
-            held.insert(event.keyCode)
+            if event.isARepeat || wasHeld { return true }
         }
         perform(operation)
         return true
@@ -158,8 +157,37 @@ final class ShortcutDispatcher {
             .normalized()
     }
 
+    static func isActive(_ operation: ShortcutOperationID, model: DocumentViewModel?) -> Bool {
+        let metadata = ShortcutOperation.operation(operation)
+        if metadata.applicability == .application || operation == .appCheckUpdates { return true }
+        guard let model else { return false }
+        let region: ShortcutRegion
+        switch model.mode {
+        case .view: region = model.showsWeb ? .web : .paperReading
+        case .print: region = model.showsFold ? .foldedPreview : .printSheet
+        case .compare: region = .comparison
+        }
+        return metadata.regions.contains(region)
+    }
+
+    static var operations: Set<ShortcutOperationID> {
+        ShortcutMenuBridge.operations.union(ShortcutCommands.operations)
+    }
+
+    /// Menu tracking may bypass a local monitor. Recheck the event through the same key-up gate; mouse clicks
+    /// remain ordinary commands. A stale SwiftUI equivalent can never resurrect a cleared output binding.
+    func performFromMenu(_ operation: ShortcutOperationID, event: NSEvent?) {
+        if let event, event.type == .keyDown, let key = Self.combination(event) {
+            guard controller.localKeys(for: operation).contains(key) else { return }
+            _ = handle(event, fromMenu: true)
+        } else {
+            // Return/Space confirming a focused menu item are fixed native activation, not an assigned equivalent.
+            perform(operation)
+        }
+    }
+
     func perform(_ operation: ShortcutOperationID) {
-        guard ShortcutMenuBridge.operations.contains(operation), !controller.hotKeys.isRecording,
+        guard Self.operations.contains(operation), !controller.hotKeys.isRecording,
             NSApp.modalWindow == nil, keyWindow()?.attachedSheet == nil
         else { return }
         if let window = keyWindow(), let input = firstResponder(window) as? NSTextInputClient, input.hasMarkedText() {
@@ -171,11 +199,25 @@ final class ShortcutDispatcher {
         if !application {
             guard let model, model.window === keyWindow() else { return }
         }
+        guard Self.isActive(operation, model: model) else { return }
         if let executeOverride {
             executeOverride(operation)
             return
         }
+        if let model, let layout = ShortcutPrintLayouts.layout(for: operation, series: model.trayPaperSeries) {
+            model.chooseLayout(layout.id)
+            return
+        }
+        if ShortcutCommands.operations.contains(operation) {
+            model?.performAdditionalShortcut(operation)
+            return
+        }
         switch operation {
+        case .documentPrint: model?.performPrintCommand()
+        case .documentPrintSystem: model?.printDocument(quick: false)
+        case .documentExportPDF: model?.exportPDF()
+        case .printSettings: model?.presentPrintSettings()
+        case .clipboardOpenPrintScreen: openClipboardPrintScreen()
         case .appOpen: bridge.invokeStandard(.appOpen)
         case .appSettings: bridge.invokeStandard(.appSettings)
         case .clipboardOpen: ClipboardWindows.shared.open()

@@ -199,3 +199,25 @@ enum ShortcutText {
     }
 
 }
+
+extension ShortcutText {
+    /// Shown before accepting every output-capable assignment, including restoring or transferring a key.
+    static func outputWarning(_ operation: ShortcutOperationID) -> String? {
+        switch operation {
+        case .documentPrint:
+            String(localized: "Opens the print screen; a new press there prints to the selected printer.")
+        case .documentPrintSystem:
+            String(localized: "This key opens the system print dialog after preparing the print screen.")
+        case .documentExportPDF:
+            String(localized: "This key prepares the print screen and opens the PDF save dialog.")
+        case .printManualDuplex:
+            String(
+                localized:
+                    "On the print screen, this key sends the fronts to the selected printer and starts manual duplex printing."
+            )
+        case .printDuplexTest:
+            String(localized: "On the print screen, this key sends a duplex test sheet to the selected printer.")
+        default: nil
+        }
+    }
+}
