@@ -48,6 +48,15 @@ public struct ShortcutValidationContext: Equatable, Sendable {
     public let projection: [ShortcutProjection]
     public let reservationsAvailable: Bool
     public let projectionAvailable: Bool
+    private let physicalByLogical: [ShortcutCombination: Set<ShortcutCombination>]
+    private let logicalByPhysical: [ShortcutCombination: [IndexedLogical]]
+    private let reservedLogical: Set<ShortcutCombination>
+    private let reservedPhysical: Set<ShortcutCombination>
+
+    private struct IndexedLogical: Equatable, Sendable {
+        let index: Int
+        let combination: ShortcutCombination
+    }
 
     public init(
         reservations: [ShortcutSystemReservation] = [], projection: [ShortcutProjection] = [],
@@ -57,13 +66,53 @@ public struct ShortcutValidationContext: Equatable, Sendable {
         self.projection = projection
         self.reservationsAvailable = reservationsAvailable
         self.projectionAvailable = projectionAvailable
+        var physicalByLogical: [ShortcutCombination: Set<ShortcutCombination>] = [:]
+        var logicalByPhysical: [ShortcutCombination: [IndexedLogical]] = [:]
+        for (index, item) in projection.enumerated() {
+            guard let logical = try? item.logical.normalized() else { continue }
+            physicalByLogical[logical, default: []].insert(item.physical)
+            logicalByPhysical[item.physical, default: []].append(.init(index: index, combination: logical))
+        }
+        self.physicalByLogical = physicalByLogical
+        self.logicalByPhysical = logicalByPhysical
+        var reservedLogical: Set<ShortcutCombination> = []
+        var reservedPhysical: Set<ShortcutCombination> = []
+        for reservation in reservations where reservation.isEnabled {
+            let key = (try? reservation.combination.normalized()) ?? reservation.combination
+            // Bare and Option arrows belong to system UI, not an application's global reservations.
+            let arrow: Bool
+            switch key.key {
+            case .macVirtualKey(let code): arrow = (123...126).contains(code)
+            case .named(let named): arrow = named.isArrow
+            default: arrow = false
+            }
+            if arrow && key.modifiers.intersection([.command, .control]).isEmpty { continue }
+            reservedLogical.insert(key)
+            if case .macVirtualKey = key.key {
+                reservedPhysical.insert(key)
+            } else {
+                reservedPhysical.formUnion(physicalByLogical[key] ?? [])
+            }
+        }
+        self.reservedLogical = reservedLogical
+        self.reservedPhysical = reservedPhysical
     }
 
     public static let unavailable = Self(reservationsAvailable: false, projectionAvailable: false)
 
     public func physicalSignatures(for combination: ShortcutCombination) -> Set<ShortcutCombination> {
         if case .macVirtualKey = combination.key { return [combination] }
-        return Set(projection.filter { (try? $0.logical.normalized()) == combination }.map(\.physical))
+        return physicalByLogical[combination] ?? []
+    }
+
+    func logicalSpellings(for signatures: Set<ShortcutCombination>) -> [ShortcutCombination] {
+        // Preserve projection order so shared physical keys still report the same first refusal.
+        signatures.flatMap { logicalByPhysical[$0] ?? [] }.sorted { $0.index < $1.index }.map(\.combination)
+    }
+
+    func isReserved(_ normalized: ShortcutCombination) -> Bool {
+        reservedLogical.contains(normalized)
+            || !reservedPhysical.isDisjoint(with: physicalSignatures(for: normalized))
     }
 
     public func matches(_ left: ShortcutCombination, _ right: ShortcutCombination) -> Bool {
@@ -120,14 +169,18 @@ public struct ShortcutValidator: Sendable {
                 return issue(.globalModifierRequired)
             }
         } else if normalized.modifiers.intersection([.command, .control]).isEmpty {
-            guard metadata.allowsBareKeys && normalized.modifiers.subtracting(.shift).isEmpty else {
+            let navigationModifiers: ShortcutModifiers
+            if case .named(let key) = normalized.key, key.isArrow {
+                navigationModifiers = [.shift, .option]
+            } else {
+                navigationModifiers = .shift
+            }
+            guard metadata.allowsBareKeys && normalized.modifiers.subtracting(navigationModifiers).isEmpty else {
                 return issue(.modifierRequired)
             }
         }
         let signatures = environment.physicalSignatures(for: normalized)
-        let projected = environment.projection.filter { signatures.contains($0.physical) }.compactMap {
-            try? $0.logical.normalized()
-        }
+        let projected = environment.logicalSpellings(for: signatures)
         if physical && (!environment.projectionAvailable || projected.isEmpty) {
             return issue(.layoutProjectionUnavailable)
         }
@@ -141,8 +194,7 @@ public struct ShortcutValidator: Sendable {
         }
         guard environment.reservationsAvailable else { return issue(.systemReservationsUnavailable) }
         guard environment.projectionAvailable else { return issue(.layoutProjectionUnavailable) }
-        if environment.reservations.contains(where: { $0.isEnabled && environment.matches(normalized, $0.combination) })
-        {
+        if environment.isReserved(normalized) {
             return issue(.systemReserved)
         }
         return []
@@ -226,7 +278,7 @@ public struct ShortcutValidator: Sendable {
         return changePlan(original: original, configuration: defaults, conflicts: [])
     }
 
-    private func changePlan(
+    func changePlan(
         original: ShortcutConfiguration, configuration: ShortcutConfiguration,
         conflicts: [ShortcutConflict]
     ) -> ShortcutChangePlan {
@@ -280,5 +332,16 @@ public struct ShortcutValidator: Sendable {
         }
         if flags.contains([.control, .option]), !flags.contains(.command) { return (.voiceOver, nil) }
         return nil
+    }
+}
+
+extension ShortcutModifiers {
+    /// Carbon's public modifier bits; the intrinsic function-key flag is not a shortcut modifier.
+    public static func carbon(_ value: UInt32) -> Self {
+        var flags: Self = []
+        for (mask, flag): (UInt32, Self) in [
+            (0x1000, .control), (0x0800, .option), (0x0200, .shift), (0x0100, .command),
+        ] where value & mask != 0 { flags.insert(flag) }
+        return flags
     }
 }
