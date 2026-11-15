@@ -49,38 +49,16 @@ struct PrintTrayTests {
         #expect(sheets.count == 3)
         #expect(sheets[2].sides[0].pages == [7, nil, nil])
         #expect(PrintModeText.cardTitle(.a4Handout3, language: "ja") == "3 ページ＋\nメモ欄")
-        #expect(PrintModeText.cardTitle(.a4Handout3, language: "en") == "3 Pages + Notes Column")
+        #expect(PrintModeText.cardTitle(.a4Handout3, language: "en") == "3 Pages + Notes")
         #expect(PrintModeText.handoutCaption([1, 2, 3], language: "ja") == "1–3 ページ")
         #expect(PrintModeText.handoutCaption([7, nil, nil], language: "ja") == "7 ページ")
         #expect(PrintModeText.handoutCaption([4, 5, nil], language: "en") == "Pages 4–5")
         #expect(PrintModeText.sheetSubtitle(sheets[0], layout: .a4Handout3, language: "ja") == "A4 縦")
-        #expect(PrintModeText.note(.a4Handout3, pageCount: 7, language: "ja") == "左に3ページ・右にメモ欄・最後の空き枠は白紙")
-        #expect(
-            PrintModeText.note(.a4Handout3, pageCount: 6, language: "en")
-                == "Three pages on the left · notes on the right")
     }
 
-    @Test("横向き通常印刷の説明は解決済み用紙の向きを示す")
-    func landscapeNote() {
-        #expect(
-            PrintModeText.note(PrintLayout.a4Single.oriented(true), pageCount: 4, language: "ja") == "A4 横・1ページを1枚に")
-        #expect(PrintModeText.note(.a4Single, pageCount: 4, language: "en") == "A4 portrait · one page per sheet")
-        #expect(
-            PrintModeText.note(PrintLayout.a4Single.oriented(true), pageCount: 4, language: "en")
-                == "A4 landscape · one page per sheet")
-    }
-
-    @Test("上下2アップの説明とラベルは奇数ページの下半分の白紙を示す")
-    func stackedNotesAndCaptions() {
+    @Test("上下2アップのラベルは奇数ページの下半分の白紙を示す")
+    func stackedCaptions() {
         let layout = PrintLayout.a3TwoUp.oriented(true)
-        #expect(PrintModeText.note(layout, pageCount: 4, language: "ja") == "2ページを上下に配置・折らずに使う")
-        #expect(PrintModeText.note(layout, pageCount: 3, language: "ja") == "2ページを上下に配置・折らずに使う・最後の下半分は白紙")
-        #expect(
-            PrintModeText.note(layout, pageCount: 3, language: "en")
-                == "Two pages stacked, no folding · the last bottom half is blank")
-        #expect(
-            PrintModeText.note(.a3TwoUp, pageCount: 3, language: "en")
-                == "Two pages side by side, no folding · the last right half is blank")
         let sheets = tray(layout, pages: 3).sheets
         #expect(sheets[1].sides[0].visiblePages == [3, nil])
         #expect(PrintModeText.stackedCaption(sheets[0].sides[0].visiblePages, language: "ja") == "1–2 ページ")
@@ -186,17 +164,6 @@ struct PrintTrayTests {
         #expect(PrintModeText.faceLabel(tray(.a4Single, pages: 1).sheets[0].sides[0], language: "ja") == nil)
     }
 
-    @Test("冊子の要約の2行目は、折ってできる冊子と白紙の数を示す")
-    func bookletNote() {
-        #expect(PrintModeText.note(.a3BookletA4, pageCount: 12, language: "ja") == "重ねて中央で折ると A4 冊子・白紙なし")
-        #expect(
-            PrintModeText.note(.a4BookletA5, pageCount: 5, language: "ja")
-                == "重ねて中央で折ると A5 冊子・白紙 3 ページ（最後の 3 ページ）")
-        #expect(
-            PrintModeText.note(.a4BookletA5, pageCount: 7, language: "ja")
-                == "重ねて中央で折ると A5 冊子・白紙 1 ページ（裏表紙）")
-    }
-
     @Test("レイアウトのカードは上に結果、下に用紙を示す")
     func cardTitles() {
         #expect(
@@ -213,6 +180,48 @@ struct PrintTrayTests {
                 nil, nil, "用紙：A3・両面", "用紙：A4・両面", "用紙：A3", "用紙：A4",
                 nil, nil, "用紙：B4・両面", "用紙：B5・両面", "用紙：B4",
             ])
+    }
+
+    @Test("カードの右上の札は、仕上がりと違う用紙を使うカードにだけ判の名前を出す")
+    func cardSheets() {
+        #expect(
+            PrintLayout.presets(in: .a).map(PrintModeText.cardSheet) == [nil, nil, "A3", "A4", "A3", "A4"])
+        #expect(PrintModeText.cardSheet(.tabloidBookletLetter) == "Tabloid")
+        #expect(PrintModeText.cardSheet(.b4TwoUp) == "B4")
+        #expect(PrintModeText.cardSheet(.a4FourUp) == "A4")
+    }
+
+    @Test("カードの読み上げは、名前と使う用紙をひとまとまりで読み、題の改行を空白か詰めにする")
+    func cardLabels() {
+        #expect(PrintModeText.cardLabel(.a3BookletA4, issue: nil, language: "ja") == "A4 冊子・用紙：A3・両面")
+        #expect(PrintModeText.cardLabel(.a3BookletA4, issue: nil, language: "en") == "A4 Booklet, Paper: A3, Two-Sided")
+        #expect(PrintModeText.cardLabel(.a3TwoUp, issue: nil, language: "ja") == "2 ページを 1 枚に・用紙：A3")
+        #expect(PrintModeText.cardLabel(.a4Handout3, issue: nil, language: "ja") == "3 ページ＋メモ欄・用紙：A4")
+        #expect(PrintModeText.cardLabel(.a4Single, issue: nil, language: "ja") == "A4 片面")
+    }
+
+    @Test("どの言語でもカードの題は2行に収まる")
+    func cardTitlesFitTwoLines() {
+        // The card leaves 72 points for its title in 12-point semibold; a third line would be cut.
+        let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        func width(_ text: String) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
+        let layouts = PaperSeries.allCases.flatMap { PrintLayout.presets(in: $0) + PrintLayout.compactPresets(in: $0) }
+        for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {
+            for layout in layouts {
+                let title = PrintModeText.cardTitle(layout, language: language)
+                let storage = NSTextStorage(string: title, attributes: [.font: font])
+                let manager = NSLayoutManager()
+                let container = NSTextContainer(size: CGSize(width: 72, height: CGFloat.greatestFiniteMagnitude))
+                container.lineFragmentPadding = 0
+                manager.addTextContainer(container)
+                storage.addLayoutManager(manager)
+                var lines = 0
+                manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) {
+                    _, _, _, _, _ in lines += 1
+                }
+                #expect(lines <= 2, "\(language) \(layout.id): \(title) (\(width(title)))")
+            }
+        }
     }
 
     @Test("上の説明は1行目に何を何に刷るか、2行目に綴じ方を書き、折り方の手順は含めない")

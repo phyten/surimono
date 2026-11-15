@@ -311,30 +311,66 @@ private struct TraySideView: View {
 
     private var caption: some View {
         let pages = side.visiblePages
-        let face = PrintModeText.faceLabel(side, language: language)
+        let stacked = layout.hasStackedSlots || layout.kind == .fourUp
+        let stackedText =
+            layout.kind == .handout3 || layout.kind == .fourUp
+            ? PrintModeText.handoutCaption(pages, language: language)
+            : PrintModeText.stackedCaption(pages, language: language)
+        let full = PrintModeText.faceLabel(side, language: language)
+        let short = PrintModeText.faceShortLabel(side, language: language)
+        let fit = TrayCaptionFit(
+            sideWidth: size.width, slotCount: stacked ? 1 : pages.count, faceFull: full.map(Self.tagWidth),
+            faceShort: short.map(Self.tagWidth),
+            firstLabel: stacked ? Self.textWidth(stackedText, size: 12) : firstLabelWidth(pages.first ?? nil),
+            firstIsPage: stacked || pages.first.map { $0 != nil } == true, centered: stacked)
+        let tag: String? =
+            switch fit.face {
+            case .full: full
+            case .short: short
+            case .hidden: nil
+            }
         return ZStack(alignment: .leading) {
-            if layout.hasStackedSlots || layout.kind == .fourUp {
-                Text(
-                    verbatim: layout.kind == .handout3 || layout.kind == .fourUp
-                        ? PrintModeText.handoutCaption(pages, language: language)
-                        : PrintModeText.stackedCaption(pages, language: language)
-                )
-                .font(.system(size: 12)).monospacedDigit().lineLimit(1)
-                .frame(width: size.width)
+            if stacked {
+                Text(verbatim: stackedText)
+                    .font(.system(size: 12)).monospacedDigit().lineLimit(1)
+                    .padding(.horizontal, fit.tagSpace)
+                    .frame(width: size.width)
             } else {
                 HStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                         pageLabel(page, slot: index)
-                            // The first label stays clear of the front and back tag at the left edge.
-                            .padding(.leading, index == 0 && face != nil ? (side.isRotated ? 56 : 28) : 4)
-                            .padding(.trailing, 4)
+                            // The first label stays clear of the front and back tag at the leading edge.
+                            .padding(.leading, index == 0 && tag != nil ? fit.tagSpace : TrayCaptionFit.padding)
+                            .padding(.trailing, TrayCaptionFit.padding)
                             .frame(width: size.width / CGFloat(max(pages.count, 1)))
                     }
                 }
             }
-            if let face { PrintTag(text: face) }
+            if let tag { PrintTag(text: tag) }
         }
         .frame(width: size.width, height: TrayGeometry.captionHeight)
+    }
+
+    /// What the first slot's label takes, measured as the caption draws it.
+    private func firstLabelWidth(_ page: Int?) -> CGFloat {
+        guard let page else {
+            let blank = layout.kind == .booklet && side.documentIndex == 0 ? "Blank (Back Cover)" : "Blank"
+            return Self.textWidth(PrintModeText.string(blank, language: language), size: 11.5)
+        }
+        let key = notePages.contains(page) ? "Page **%lld** · Note" : "Page **%lld**"
+        // The number is drawn bold, a little wider than the measured regular digits.
+        return Self.textWidth(
+            PrintModeText.format(key, language: language, page).replacingOccurrences(of: "**", with: ""), size: 12)
+            + 2
+    }
+
+    private static func textWidth(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular) -> CGFloat {
+        ceil((text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: size, weight: weight)]).width)
+    }
+
+    /// The width of a `PrintTag` of its default font: the text and four points either side.
+    private static func tagWidth(_ text: String) -> CGFloat {
+        textWidth(text, size: 10.5, weight: .semibold) + 8
     }
 
     @ViewBuilder private func pageLabel(_ page: Int?, slot: Int) -> some View {

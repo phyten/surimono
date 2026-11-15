@@ -66,10 +66,14 @@ extension PrintModeText {
             "%@. Print opens the system print dialog.", language: language, issueSentence(issue, language: language))
     }
 
-    /// What VoiceOver reads for a layout card: its name, then the badge's words.
+    /// What VoiceOver reads for a layout card, all in one: what it makes, the paper it takes, and what the chosen
+    /// printer cannot do with it. Whether it is chosen is its trait.
     static func cardLabel(_ layout: PrintLayout, issue: PrinterIssue?, language: String) -> String {
-        let name = layout.displayName(language: language)
-        return issue.map { "\(name), \(issueBadge($0, language: language))" } ?? name
+        let parts = [
+            cardTitleLine(layout, language: language), cardPaper(layout, language: language),
+            issue.map { issueBadge($0, language: language) },
+        ].compactMap { $0 }
+        return parts.dropFirst().reduce(parts[0]) { format("%1$@, %2$@", language: language, $0, $1) }
     }
 
     /// A card's hint, with what the printer cannot do under it.
@@ -86,47 +90,6 @@ extension PrintModeText {
         return format(
             "%@, so Print opens the system print dialog", language: language,
             issueSentence(issue, language: language))
-    }
-}
-
-/// Marks a layout card the chosen printer cannot do. The card stays a choice: the reader may know better, export a
-/// PDF, or print through the system dialog to another printer. It is laid over the card rather than built into it, so
-/// that the card can change without it.
-private struct PrinterIssueBadge: ViewModifier {
-    let issue: PrinterIssue?
-    /// The card's name with the badge's words after it, for VoiceOver.
-    let label: String
-    let language: String
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(alignment: .topTrailing) {
-                if let issue {
-                    Text(verbatim: PrintModeText.issueBadge(issue, language: language))
-                        .font(.system(size: 9.5, weight: .semibold))
-                        .foregroundStyle(PrintPalette.ink)
-                        .lineLimit(1)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1.5)
-                        .background(PrintPalette.raised, in: Capsule())
-                        .overlay { Capsule().strokeBorder(PrintPalette.line3, lineWidth: 1) }
-                        .offset(x: 1, y: -1)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-            }
-            .accessibilityLabel(Text(verbatim: label))
-    }
-}
-
-extension View {
-    /// Lays the badge of what the chosen printer cannot do over a layout card.
-    func printerIssueBadge(for layout: PrintLayout, model: DocumentViewModel) -> some View {
-        let issue = model.printerIssue(for: layout)
-        return modifier(
-            PrinterIssueBadge(
-                issue: issue, label: PrintModeText.cardLabel(layout, issue: issue, language: model.language),
-                language: model.language))
     }
 }
 

@@ -468,6 +468,15 @@ enum PrintModeText {
         }
     }
 
+    /// The tag's short form, for a side too narrow for the full one.
+    static func faceShortLabel(_ side: PrintTray.Side, language: String) -> String? {
+        switch side.face {
+        case .single: nil
+        case .front: string("Front (Short)", language: language)
+        case .back: string(side.isRotated ? "Back 180° (Short)" : "Back (Short)", language: language)
+        }
+    }
+
     /// What the sheets make, and how they are printed, in two lines: what is made of how much paper, then the binding.
     /// How to stack and fold them is left to the fold view. The first line comes in Markdown emphasis.
     /// - Parameters:
@@ -503,56 +512,6 @@ enum PrintModeText {
         return "**\(headline)**\n" + string(binding, language: language) + side
     }
 
-    /// The second line under the summary: what to do with the sheets and where blanks fall.
-    static func note(_ layout: PrintLayout, pageCount: Int, language: String) -> String {
-        switch layout.kind {
-        case .fourUp:
-            return string("Four pages, top left to bottom right · unused slots are blank", language: language)
-        case .handout3:
-            return string(
-                pageCount % 3 == 0
-                    ? "Three pages on the left · notes on the right"
-                    : "Three pages on the left · notes on the right · unused slots on the last sheet are blank",
-                language: language)
-        case .booklet:
-            let booklet = (layout.sheet.halved ?? layout.sheet).shortName
-            let blanks = (pageCount + 3) / 4 * 4 - pageCount
-            switch blanks {
-            case 0: return format("%@ booklet when folded in the middle · no blank pages", language: language, booklet)
-            case 1:
-                return format(
-                    "%@ booklet when folded in the middle · 1 blank page (the back cover)", language: language, booklet)
-            default:
-                return format(
-                    "%1$@ booklet when folded in the middle · %2$lld blank pages (the last %3$lld)",
-                    language: language, booklet, blanks, blanks)
-            }
-        case .twoUp:
-            if layout.hasStackedSlots {
-                return string(
-                    pageCount % 2 == 1
-                        ? "Two pages stacked, no folding · the last bottom half is blank"
-                        : "Two pages stacked, no folding", language: language)
-            }
-            return string(
-                pageCount % 2 == 1
-                    ? "Two pages side by side, no folding · the last right half is blank"
-                    : "Two pages side by side, no folding", language: language)
-        case .normal:
-            switch layout.sentDuplex {
-            case .none:
-                return format(
-                    layout.landscapeContent ? "%@ landscape · one page per sheet" : "%@ portrait · one page per sheet",
-                    language: language, layout.sheet.shortName)
-            case .longEdge, .shortEdge:
-                return string(
-                    pageCount % 2 == 1
-                        ? "The back of the last sheet is blank" : "Back sides turn like the pages of a book",
-                    language: language)
-            }
-        }
-    }
-
     static func stackedCaption(_ pages: [Int?], language: String) -> String {
         guard let first = pages.first ?? nil else { return string("Blank", language: language) }
         if let last = pages.last ?? nil, pages.count > 1 {
@@ -574,7 +533,7 @@ enum PrintModeText {
     static func cardTitle(_ layout: PrintLayout, language: String) -> String {
         let paper = layout.sheet.shortName
         switch layout.kind {
-        case .handout3: return string("3 Pages + Notes Column", language: language)
+        case .handout3: return string("3 Pages + Notes", language: language)
         case .booklet: return format("%@ Booklet", language: language, (layout.sheet.halved ?? layout.sheet).shortName)
         case .twoUp: return string("2 Pages on One Sheet", language: language)
         case .fourUp: return string("4 Pages on One Sheet", language: language)
@@ -582,7 +541,19 @@ enum PrintModeText {
         }
     }
 
-    /// The paper of a card whose title names something else.
+    /// A card's title on one line, as a hint or VoiceOver reads it: the break the card puts in it becomes a space,
+    /// or nothing after a full-width sign.
+    static func cardTitleLine(_ layout: PrintLayout, language: String) -> String {
+        cardTitle(layout, language: language).replacingOccurrences(of: "＋\n", with: "＋")
+            .replacingOccurrences(of: "\n", with: " ")
+    }
+
+    /// The paper size a card's corner shows: that of a card whose title names something else than the paper.
+    static func cardSheet(_ layout: PrintLayout) -> String? {
+        layout.kind == .normal ? nil : layout.sheet.shortName
+    }
+
+    /// The paper of a card whose title names something else, in full, for its hint and for VoiceOver.
     static func cardPaper(_ layout: PrintLayout, language: String) -> String? {
         switch layout.kind {
         case .normal: nil
@@ -595,28 +566,6 @@ enum PrintModeText {
     static func options(_ options: PrintOptions, layout: PrintLayout, language: String) -> String? {
         options.rotatesBackSides && layout.duplex != .none
             ? string("Back sides rotated 180°", language: language) : nil
-    }
-
-    /// The finished piece: how many pages it has and, when they are not all the document's, what they are.
-    static func finished(
-        pages: Int, body: Int, contents: Int, notes: Int, blanks: Int, language: String
-    ) -> String {
-        let parts = [
-            contents + notes + blanks > 0 ? format("Body %lld", language: language, body) : nil,
-            contents > 0 ? format("Contents %lld", language: language, contents) : nil,
-            notes > 0 ? format("Notes %lld", language: language, notes) : nil,
-            blanks > 0 ? format("Blank %lld", language: language, blanks) : nil,
-        ].compactMap { $0 }
-        guard let first = parts.first else { return format("Finished: %lld pages", language: language, pages) }
-        let detail = parts.dropFirst().reduce(first) { format("%1$@, %2$@", language: language, $0, $1) }
-        return format("Finished: %1$lld pages / %2$@", language: language, pages, detail)
-    }
-
-    /// The paper the finished piece takes.
-    static func paper(_ name: String, sheets: Int, duplex: DuplexMode, language: String) -> String {
-        format(
-            "Paper: %1$@, %2$lld sheets (%3$@)", language: language, name, sheets,
-            string(duplex == .none ? "One-Sided" : "Two-Sided", language: language))
     }
 
     static func pageCount(_ count: Int, language: String) -> String {

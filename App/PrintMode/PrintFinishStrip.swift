@@ -106,28 +106,16 @@ struct PrintSegments<Value: Hashable>: View {
     }
 }
 
-/// The two families of paper in front of the layout cards.
-struct PrintSeriesSwitch: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        PrintSegments(
-            label: "Paper to Use",
-            options: PaperSeries.allCases.map { .init($0, $0.title) },
-            selection: model.trayPaperSeries, help: "Paper to Use"
-        ) { model.choosePaperSeries($0) }
-    }
-}
-
 /// The quick choices of the print settings, between the sheets and the press bar. Everything else is in the sheet.
 /// A menu is its name alone while its setting is the default and its name and value once the reader has set it, at any
-/// width. The row never wraps: "All Print Settings…" stays at its right end and the menus that do not fit fold from the
-/// right (`PrintStripFold`), which the sheet still offers.
+/// width. The row never wraps and never holds the window wider than the rest of the print screen: where it runs out of
+/// room, "All Print Settings…" keeps its icon alone, and then the menus become one (`PrintStripFold`).
 struct PrintFinishStrip: View {
     @Bindable var model: DocumentViewModel
     /// What each menu takes in its current form, measured from a copy drawn out of sight: a folded menu has no view.
     @State private var widths: [Item: CGFloat] = [:]
     @State private var detailsWidth: CGFloat = 0
+    @State private var detailsIconWidth: CGFloat = 0
     @State private var rowWidth: CGFloat = 0
 
     enum Item: Hashable {
@@ -157,20 +145,28 @@ struct PrintFinishStrip: View {
     var body: some View {
         let items = applicableItems
         let fold = PrintStripFold(
-            available: rowWidth, itemWidths: items.map { widths[$0] ?? 0 }, trailingWidth: detailsWidth,
-            spacing: Self.spacing)
+            available: rowWidth, itemWidths: items.map { widths[$0] ?? 0 }, detailsWidth: detailsWidth,
+            detailsIconWidth: detailsIconWidth, spacing: Self.spacing)
         HStack(spacing: Self.spacing) {
-            ForEach(items.prefix(fold.visibleCount), id: \.self) { menu($0) }
+            if fold.form == .combined {
+                combinedMenu(items)
+            } else {
+                ForEach(items, id: \.self) { menu($0) }
+            }
             Spacer(minLength: 0)
-            detailsButton
+            detailsButton(iconOnly: fold.form != .full)
         }
-        // Until everything is measured the row would show all the menus and then fold some.
+        // Until everything is measured the row would show all the menus and then fold them.
         .opacity(rowWidth > 0 && detailsWidth > 0 && items.allSatisfy({ widths[$0] != nil }) ? 1 : 0)
+        // The row takes the width it is given, so that it never holds the window wider than the rest of the screen;
+        // the fold keeps what it shows inside.
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
         } action: { width in
             if rowWidth != width { rowWidth = width }
         }
+        .clipped()
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -206,47 +202,97 @@ struct PrintFinishStrip: View {
                         if widths[item] != width { widths[item] = width }
                     }
             }
+            detailsButton(iconOnly: false)
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.width
+                } action: { width in
+                    if detailsWidth != width { detailsWidth = width }
+                }
+            detailsButton(iconOnly: true)
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.width
+                } action: { width in
+                    if detailsIconWidth != width { detailsIconWidth = width }
+                }
         }
         .hidden()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    private var detailsButton: some View {
+    private func detailsButton(iconOnly: Bool) -> some View {
         Button {
             model.isPrintFinishPresented.toggle()
         } label: {
-            Text("All Print Settings…")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(PrintPalette.ai)
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(model.isPrintFinishPresented ? PrintPalette.aiTint2 : .clear)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 6))
+            Group {
+                if iconOnly {
+                    Image(systemName: "slider.horizontal.3").font(.system(size: 13))
+                } else {
+                    Text("All Print Settings…")
+                }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(PrintPalette.ai)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(model.isPrintFinishPresented ? PrintPalette.aiTint2 : .clear)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6))
         }
         .buttonStyle(.plain)
         .fixedSize()
-        .help("Paper, margins, header and footer, page breaks, contents and note pages")
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.width
-        } action: { width in
-            if detailsWidth != width { detailsWidth = width }
+        .help(
+            iconOnly
+                ? Text("All Print Settings…") + Text(verbatim: "\n")
+                    + Text("Paper, margins, header and footer, page breaks, contents and note pages")
+                : Text("Paper, margins, header and footer, page breaks, contents and note pages")
+        )
+        .accessibilityLabel(Text("All Print Settings…"))
+    }
+
+    /// The menus in one, where the row has no room for them side by side: each is a submenu under its own name.
+    private func combinedMenu(_ items: [Item]) -> some View {
+        Menu {
+            ForEach(items, id: \.self) { item in
+                Menu(item.title) { menuItems(item) }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text("Print Settings").foregroundStyle(PrintPalette.ink)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink2)
+            }
+            .font(.system(size: 12))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.hover))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
         }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(Text("Header & Footer, Page Breaks, Contents Page and Notes"))
+    }
+
+    @ViewBuilder private func menuItems(_ item: Item) -> some View {
+        switch item {
+        case .furniture: PrintFurnitureChoice(model: model).menuItems
+        case .breaks: PrintChapterBreakChoice(model: model).menuItems
+        case .contents: PrintContentsChoice(model: model).menuItems
+        case .notes: PrintNoteChoice(model: model).menuItems
+        }
+        Divider()
+        Button("Open in All Settings") { model.presentFinish(item.section) }
     }
 
     private func menu(_ item: Item) -> some View {
         Menu {
-            switch item {
-            case .furniture: PrintFurnitureChoice(model: model).menuItems
-            case .breaks: PrintChapterBreakChoice(model: model).menuItems
-            case .contents: PrintContentsChoice(model: model).menuItems
-            case .notes: PrintNoteChoice(model: model).menuItems
-            }
-            Divider()
-            Button("Open in All Settings") { model.presentFinish(item.section) }
+            menuItems(item)
         } label: {
             let value = value(of: item)
             HStack(spacing: 5) {

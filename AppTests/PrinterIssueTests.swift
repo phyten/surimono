@@ -298,7 +298,7 @@ struct PrinterIssueTests {
         #expect(PrintModeText.issueBadge(.paperNotAccepted(.b4), language: "en") == "No B4")
         #expect(
             PrintModeText.cardLabel(.a3BookletA4, issue: .paperNotAccepted(.a3), language: "ja")
-                == "\(PrintLayout.a3BookletA4.displayName(language: "ja")), A3 なし")
+                == "A4 冊子・用紙：A3・両面・A3 なし")
         #expect(
             PrintModeText.cardLabel(.a4Single, issue: nil, language: "ja")
                 == PrintLayout.a4Single.displayName(language: "ja"))
