@@ -58,6 +58,9 @@ struct SettingsView: View {
                 switch preferences.settingsSection {
                 case .general:
                     LanguagePicker(preferences: preferences)
+                    Picker("Appearance", selection: $preferences.appearance) {
+                        ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
+                    }
                     GlobalShortcutSettings()
                     if updater.isAvailable {
                         Section {

@@ -2,9 +2,16 @@ import AppKit
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var appearanceKeeper: AppearanceKeeper?
+
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Before any window exists, so that none shows in the system's appearance first.
+        if let preferences = WelcomeController.shared.preferences {
+            appearanceKeeper = AppearanceKeeper(preferences: preferences)
+            appearanceKeeper?.start()
+        }
         RecentFileHistory.shared?.restoreOnLaunch()
         NSWindow.allowsAutomaticWindowTabbing = false
         // The document controller's launch-time open panel opens a multi-file selection one document at a time and
