@@ -28,6 +28,7 @@
         static func flag(_ name: String) -> Bool { argument(name)?.uppercased() == "YES" }
 
         // Settings photography only: read process arguments into view state, never preferences.
+        static var shortcutReview: String? { argument("SurimonoShortcutReview") }
         static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
         static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
 
@@ -274,7 +275,7 @@
                     let data = try await capturePNG(around: window)
                     try data.write(to: URL(fileURLWithPath: path), options: .atomic)
                     captured = true
-                    if flag("SurimonoSnapshotQuit") { NSApp.terminate(nil) }
+                    if flag("SurimonoSnapshotQuit") { quitAfterCapture() }
                 } catch {
                     logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
                 }
@@ -767,12 +768,19 @@
                             editor.discardChanges()
                             try? await Task.sleep(for: .milliseconds(500))
                         }
-                        NSApp.terminate(nil)
+                        quitAfterCapture()
                     }
                 } catch {
                     logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
+        }
+
+        private static func quitAfterCapture() {
+            // Review sheets can veto NSApplication's normal termination. This is a DEBUG-only
+            // capture process; its saved snapshot is complete and no review should be applied.
+            if NSApp.windows.contains(where: { !$0.sheets.isEmpty }) { exit(EXIT_SUCCESS) }
+            NSApp.terminate(nil)
         }
 
         private static weak var trackedMenu: NSMenu?

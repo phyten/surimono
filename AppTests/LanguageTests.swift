@@ -113,7 +113,7 @@ struct LanguageTests {
         // Include dialogs, registration errors and spoken key names, not just the visible top rows.
         let files = [
             "ShortcutSettingsView", "ShortcutText", "ShortcutRecorder", "ShortcutController",
-            "SystemShortcutReservations",
+            "SystemShortcutReservations", "ShortcutArchiveFiles", "ShortcutImportView", "ShortcutHints",
         ]
         let pattern =
             #"(?:String\(\s*localized:\s*|(?:Text|TextField|Button|Label|Picker|Section|Toggle)\(\s*)"([^"\\]*(?:\\.[^"\\]*)*)""#
@@ -126,7 +126,8 @@ struct LanguageTests {
             for match in matches {
                 let range = try #require(Range(match.range(at: 1), in: source))
                 let literal = "\"" + source[range] + "\""
-                keys.insert(try JSONDecoder().decode(String.self, from: Data(literal.utf8)))
+                let key = try JSONDecoder().decode(String.self, from: Data(literal.utf8))
+                if !key.isEmpty { keys.insert(key) }
             }
         }
         #expect(keys.contains("Search Shortcuts"))
@@ -134,6 +135,12 @@ struct LanguageTests {
         #expect(keys.contains("Left Arrow"))
         #expect(keys.contains("Record Shortcut"))
         #expect(keys.contains("Registered"))
+        keys.formUnion(["In Surimono", "Printing and Export", "Global"])
+        #expect(keys.contains("Import Shortcuts — Merge"))
+        #expect(keys.contains("Restore All Defaults?"))
+        #expect(keys.contains("Restore All Defaults"))
+        #expect(keys.contains("Custom assignments to remove: %lld"))
+        #expect(keys.contains("Shortcut Actions"))
         for key in keys.sorted() {
             let entry = try #require(catalog.strings[key], "Missing shortcut key: \(key)")
             for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {

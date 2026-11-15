@@ -5,12 +5,18 @@ import SwiftUI
 struct ShortcutSettingsView: View {
     let controller: ShortcutController
     @State private var search = ""
+    @State private var restoringAll = false
+    @State private var restoreSnapshot = ShortcutConfiguration()
+    @State private var importDraft: ShortcutImportReview?
+    @State private var fileError: String?
+    @FocusState private var actionsFocused: Bool
+    var files = ShortcutArchiveFiles()
     private let groups: [ShortcutGroup] = [.application, .documentAndPrinting, .reading, .styles, .lists]
 
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-                searchField
+                archiveControls
                 Section("In Surimono") {
                     Text(
                         "Change or clear shortcuts here. Fixed keys and shortcuts managed in macOS cannot be changed here."
@@ -28,9 +34,33 @@ struct ShortcutSettingsView: View {
             .contentMargins(.top, -28, for: .scrollContent)
             .clearsInitialFocus()
             .onAppear { controller.refresh() }
+            .onChange(of: fileError) { _, value in ShortcutHints.announce(value) }
+            .sheet(isPresented: $restoringAll, onDismiss: { actionsFocused = true }) {
+                restoreConfirmation
+            }
+            .sheet(
+                isPresented: Binding(get: { importDraft != nil }, set: { if !$0 { importDraft = nil } }),
+                onDismiss: { actionsFocused = true }
+            ) {
+                if let importDraft { ShortcutImportView(controller: controller, review: importDraft) }
+            }
             #if DEBUG
                 .task {
                     search = DebugSnapshot.shortcutSearch ?? ""
+                    if DebugSnapshot.shortcutReview == "restore" {
+                        restoreSnapshot = controller.snapshot
+                        restoringAll = true
+                    } else if DebugSnapshot.shortcutReview == "import" {
+                        importDraft = ShortcutImportReview(
+                            archive: ShortcutArchive(
+                                configuration: .init(overrides: [
+                                    .documentReload: [.init(key: .character("p"), modifiers: .command)],
+                                    .documentPrintSystem: [],
+                                    .globalClipboardOpen: [
+                                        .init(key: .macVirtualKey(38), modifiers: [.control, .option, .command])
+                                    ],
+                                ])), original: controller.snapshot)
+                    }
                     if DebugSnapshot.shortcutShowGlobal {
                         // Let the form lay out the filtered rows before finding the Global section.
                         await Task.yield()
@@ -41,10 +71,87 @@ struct ShortcutSettingsView: View {
         }
     }
 
+    private var archiveControls: some View {
+        Section {
+            HStack(spacing: 8) {
+                searchField
+                Menu {
+                    archiveButtons
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                .fixedSize().focused($actionsFocused)
+                .help("Shortcut Actions")
+                .accessibilityLabel(Text("Shortcut Actions"))
+            }
+            if let fileError {
+                Text(fileError).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    @ViewBuilder private var archiveButtons: some View {
+        Button("Import Shortcuts…") {
+            actionsFocused = false
+            fileError = nil
+            files.importFile { result in
+                do {
+                    if let result { importDraft = try controller.importReview(result.get()) }
+                } catch { fileError = ShortcutArchiveFiles.message(error) }
+                actionsFocused = true
+            }
+        }.disabled(controller.loadError)
+        Button("Export Shortcuts…") {
+            actionsFocused = false
+            fileError = nil
+            files.exportFile(controller.snapshot) { result in
+                if case .failure(let error) = result { fileError = ShortcutArchiveFiles.message(error) }
+                actionsFocused = true
+            }
+        }.disabled(controller.loadError)
+        Divider()
+        Button("Restore All Defaults…") {
+            actionsFocused = false
+            restoreSnapshot = controller.snapshot
+            fileError = nil
+            restoringAll = true
+        }.disabled(controller.loadError || !controller.canRestoreAll)
+    }
+
+    private var restoreConfirmation: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Restore All Defaults?").font(.headline)
+            Text(
+                String.localizedStringWithFormat(
+                    String(localized: "Custom assignments to remove: %lld"),
+                    restoreSnapshot.overrides.count))
+            Text(
+                "Local shortcuts return to their defaults. Global shortcuts become unassigned. macOS assignments stay unchanged."
+            )
+            .fixedSize(horizontal: false, vertical: true)
+            if let fileError { Text(fileError).foregroundStyle(.red) }
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { restoringAll = false }.keyboardShortcut(.cancelAction)
+                Button("Restore All Defaults") {
+                    do {
+                        try controller.restoreAll(expectedSnapshot: restoreSnapshot)
+                        restoringAll = false
+                    } catch {
+                        fileError = ShortcutController.message(error)
+                    }
+                }
+            }
+        }.padding(24).frame(width: 440)
+    }
+
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-            TextField("Search Shortcuts", text: $search)
+            TextField("", text: $search, prompt: Text("Search Shortcuts"))
+                .labelsHidden().accessibilityLabel(Text("Search Shortcuts"))
+                .multilineTextAlignment(.leading)
                 .textFieldStyle(.plain)
             if !search.isEmpty {
                 Button {
@@ -105,12 +212,16 @@ struct ShortcutSettingsView: View {
         let fixed = ShortcutFixedKey.catalog.filter { key in
             matches(
                 [
-                    ShortcutText.fixedName(key.behavior), ShortcutText.fixedReason(key.behavior),
+                    ShortcutText.fixedName(key.behavior),
                     String(localized: "Fixed Keys"), String(localized: "In Surimono"),
                 ] + key.combinations.map { controller.layout.display($0) })
         }
         if !fixed.isEmpty {
             Section("Fixed Keys") {
+                Text(
+                    "These keys keep cancellation, confirmation, text editing and keyboard access available. They cannot be reassigned here."
+                )
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 // Native editing and window commands share explanations. Keep their catalog order.
                 let reasons = fixed.map { ShortcutText.fixedReason($0.behavior) }
                 let uniqueReasons = reasons.enumerated().filter { index, reason in
@@ -152,7 +263,10 @@ struct ShortcutSettingsView: View {
             }
             if global.isEmpty { Text("No matching shortcuts").foregroundStyle(.secondary) }
         } header: {
-            Label("Global", systemImage: "globe")
+            HStack {
+                Image(systemName: "globe").accessibilityHidden(true)
+                Text("Global")
+            }
         }
         .id("shortcut-global")
     }
@@ -174,7 +288,7 @@ struct ShortcutSettingsView: View {
         let keys = controller.externalMenuKeys[operation.id].map { [$0] } ?? controller.snapshot.keys(for: operation.id)
         return matches(
             [
-                ShortcutText.name(operation.id), ShortcutText.group(operation.group), scope(operation),
+                ShortcutText.name(operation.id), ShortcutText.group(operation.group),
                 operation.isGlobal ? String(localized: "Global") : String(localized: "In Surimono"),
                 keys.isEmpty ? String(localized: "Unassigned") : "",
             ] + keys.map { controller.layout.display($0) })
@@ -204,9 +318,9 @@ private struct ShortcutInfoRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .trailing, spacing: 3) {
                 if keys.isEmpty { Text(emptyLabel) }
-                ForEach(Array(keys.enumerated()), id: \.offset) { _, key in Text(verbatim: key) }
+                ForEach(Array(keys.enumerated()), id: \.offset) { _, key in Text(verbatim: key).monospaced() }
             }
-            .monospaced().fixedSize()
+            .fixedSize()
             .accessibilityLabel(
                 spokenKeys.isEmpty
                     ? (keys.isEmpty ? emptyLabel : keys.joined(separator: ", ")) : spokenKeys.joined(separator: ", "))
@@ -234,21 +348,22 @@ private struct EditableShortcutRow: View {
         controller.externalMenuKeys[operation].map { [$0] } ?? controller.snapshot.keys(for: operation)
     }
     private var status: String { controller.status(for: operation) }
-    private var hasInlineStatus: Bool {
+    private var isInlineStatus: Bool {
         status == String(localized: "Registered") || status == String(localized: "Managed in macOS")
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text(title).lineLimit(1)
+                Text(title).fixedSize(horizontal: false, vertical: true)
                     .help([title, scope].compactMap { $0 }.joined(separator: "\n"))
                     .accessibilityHint(scope ?? "")
                 Spacer(minLength: 8)
-                if hasInlineStatus {
+                if isInlineStatus {
                     Text(status).font(.caption).foregroundStyle(.secondary).fixedSize()
                 }
                 HStack(spacing: 6) { controls }
+                    .fixedSize().layoutPriority(1)
                     .disabled(
                         controller.loadError || controller.externalMenuKeys[operation] != nil
                             || controller.menuAmbiguities.contains(operation))
@@ -262,7 +377,7 @@ private struct EditableShortcutRow: View {
                 )
                 .font(.caption).fixedSize(horizontal: false, vertical: true)
             }
-            if !status.isEmpty && !hasInlineStatus && status != String(localized: "Unassigned") {
+            if !status.isEmpty && status != String(localized: "Unassigned") && !isInlineStatus {
                 Text(status).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -344,6 +459,7 @@ private struct EditableShortcutRow: View {
             displayTitle: keys.isEmpty
                 ? String(localized: "Unassigned")
                 : keys.map { controller.layout.display($0) }.joined(separator: " / "),
+            displaysKeys: !keys.isEmpty,
             label: String.localizedStringWithFormat(
                 String(localized: "%1$@. Scope: %2$@. Shortcut: %3$@."), title,
                 ShortcutText.scope(ShortcutOperation.operation(operation).applicability),
@@ -358,6 +474,7 @@ private struct EditableShortcutRow: View {
             }
         }
         .fixedSize().frame(height: 28)
+        .help(keys.map { controller.layout.display($0) }.joined(separator: " / "))
         Menu {
             Button("Choose Keys…") {
                 controller.refreshEnvironment()

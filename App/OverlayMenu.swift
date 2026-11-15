@@ -527,7 +527,7 @@ struct PrintButton: View {
         .controlSize(ViewerWindow.bandControlSize)
         // The file name gives way to the one button that must always show in full.
         .fixedSize()
-        .help("Open the print screen (⌘P)")
+        .help(ShortcutHints.help(String(localized: "Open the print screen"), [.documentPrint]))
     }
 }
 
@@ -728,7 +728,7 @@ struct LayoutPicker: View {
         .labelsHidden()
         .labelStyle(.iconOnly)
         .fixedSize()
-        .help("Single Page or Spread (⌥⌘1 / ⌥⌘2)")
+        .help(ShortcutHints.help(String(localized: "Single Page or Spread"), [.viewSingle, .viewSpread]))
     }
 }
 

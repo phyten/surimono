@@ -22,6 +22,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 
 ## Features
 
+- Customize local and global keys in **Settings › Keyboard Shortcuts**. Keys and Gestures and button hints follow your assignments. Export your overrides as JSON, review and merge an import, or restore all defaults with confirmation. Fixed keys for cancellation, editing and keyboard access stay available.
 - Print Markdown CriticMarkup with revision marks, accepted changes, or the original text.
 - Put Markdown and LaTeX footnotes at the bottom of their first reference page (beta); references inside tables, callouts and quotes, and oversized notes, stay at the end. PDF text extraction can repeat text on pages with moved notes.
 - Markdown front matter can choose a print setting set, layout, orientation, margins, style, and text size with `surimono:`; saved document settings take priority.

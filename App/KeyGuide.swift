@@ -12,35 +12,35 @@ enum KeyGuideEntry: CaseIterable {
     var trigger: String { trigger(controller: .shared) }
 
     func trigger(controller: ShortcutController) -> String {
-        switch self {
-        case .menu:
-            (["Tab", "⇧Tab"] + controller.localKeys(for: .viewToolbarToggle).map { controller.layout.display($0) })
-                .joined(separator: " / ")
-        case .alwaysShowToolbar: "⌥⌘T"
-        case .viewOptions: shortcutHint(.viewOptions, controller: controller)
-        case .selectText: shortcutHint(.viewSelectText, controller: controller)
-        case .alternateDrag: String(localized: "Hold ⌥")
-        case .pageEdge: String(localized: "Click a paper edge")
-        case .doubleClick: String(localized: "Double-click")
-        case .pinch: String(localized: "Pinch / ⌘-scroll")
-        case .find: "⌘F"
-        case .findStep: "⌘G / ⇧⌘G"
-        case .goToPage: "⌥⌘G"
-        case .reload: "⌘R"
-        case .print: "⌘P"
-        case .systemPrint: "⌥⌘P"
-        case .printLayouts: "⌘1–⌘6"
-        case .escape: "Esc"
-        case .moveSelection: "⌥⌘↑ / ⌥⌘↓"
-        case .removeFromList: shortcutHint(.listRemove, controller: controller)
-        case .showList: "⌃⌘S"
-        }
+        let text =
+            switch self {
+            case .menu:
+                (["Tab", "⇧Tab"] + controller.localKeys(for: .viewToolbarToggle).map { controller.layout.display($0) })
+                    .joined(separator: " / ")
+            case .alwaysShowToolbar: ShortcutHints.keys([.viewToolbarAlways], controller: controller)
+            case .viewOptions: shortcutHint(.viewOptions, controller: controller)
+            case .selectText: shortcutHint(.viewSelectText, controller: controller)
+            case .alternateDrag: String(localized: "Hold ⌥")
+            case .pageEdge: String(localized: "Click a paper edge")
+            case .doubleClick: String(localized: "Double-click")
+            case .pinch: String(localized: "Pinch / ⌘-scroll")
+            case .find: ShortcutHints.keys([.documentFind], controller: controller)
+            case .findStep: ShortcutHints.keys([.documentFindNext, .documentFindPrevious], controller: controller)
+            case .goToPage: ShortcutHints.keys([.documentGoToPage], controller: controller)
+            case .reload: ShortcutHints.keys([.documentReload], controller: controller)
+            case .print: ShortcutHints.keys([.documentPrint], controller: controller)
+            case .systemPrint: ShortcutHints.keys([.documentPrintSystem], controller: controller)
+            case .printLayouts: ShortcutHints.keys(ShortcutHints.layouts, controller: controller)
+            case .escape: "Esc"
+            case .moveSelection: ShortcutHints.keys([.listMoveUp, .listMoveDown], controller: controller)
+            case .removeFromList: shortcutHint(.listRemove, controller: controller)
+            case .showList: ShortcutHints.keys([.listToggle], controller: controller)
+            }
+        return text.isEmpty ? String(localized: "Unassigned") : text
     }
 
     private func shortcutHint(_ operation: ShortcutOperationID, controller: ShortcutController) -> String {
-        let keys = controller.localKeys(for: operation)
-        return keys.isEmpty
-            ? String(localized: "Unassigned") : keys.map { controller.layout.display($0) }.joined(separator: " / ")
+        ShortcutHints.keys([operation], controller: controller)
     }
 
     var explanation: String {
@@ -93,8 +93,12 @@ struct KeyGuide: View {
                 Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 14) {
                     ForEach(KeyGuideEntry.allCases, id: \.self) { entry in
                         GridRow(alignment: .top) {
-                            Text(verbatim: entry.trigger)
-                                .font(.system(size: 12, design: .monospaced))
+                            let trigger = entry.trigger
+                            Text(verbatim: trigger)
+                                .font(
+                                    .system(
+                                        size: 12,
+                                        design: trigger == String(localized: "Unassigned") ? .default : .monospaced))
                             Text(verbatim: entry.explanation)
                                 .font(.system(size: 12))
                         }

@@ -25,7 +25,7 @@ struct KeyGuideTests {
         #expect(KeyGuideEntry.selectText.trigger(controller: f.controller) == "T / ⇧T")
         #expect(KeyGuideEntry.print.trigger(controller: f.controller) == "⌘P")
         #expect(KeyGuideEntry.systemPrint.trigger(controller: f.controller) == "⌥⌘P")
-        #expect(KeyGuideEntry.printLayouts.trigger(controller: f.controller) == "⌘1–⌘6")
+        #expect(KeyGuideEntry.printLayouts.trigger(controller: f.controller) == "⌘1 / ⌘2 / ⌘3 / ⌘4 / ⌘5 / ⌘6")
         #expect(KeyGuideEntry.escape.trigger(controller: f.controller) == "Esc")
         #expect(KeyGuideEntry.moveSelection.trigger(controller: f.controller) == "⌥⌘↑ / ⌥⌘↓")
         #expect(KeyGuideEntry.removeFromList.trigger(controller: f.controller) == "⌫")

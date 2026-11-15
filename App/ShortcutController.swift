@@ -5,11 +5,12 @@ import SurimonoCore
 @MainActor
 @Observable
 final class ShortcutController {
-    enum EditError: Error {
+    enum EditError: Error, Equatable {
         case localEditingUnavailable
         case localConflict([ShortcutConflict])
         case externalMenuAssignment
         case savedDataUnavailable
+        case acknowledgementRequired
     }
 
     static let shared = ShortcutController(hotKeys: .shared)
@@ -145,6 +146,50 @@ final class ShortcutController {
         return plan
     }
 
+    func importReview(_ data: Data) throws -> ShortcutImportReview {
+        guard !loadError else { throw EditError.savedDataUnavailable }
+        refreshEnvironment()
+        return ShortcutImportReview(archive: try ShortcutArchive.decode(data), original: snapshot)
+    }
+
+    func importBlockedOperations(_ review: ShortcutImportReview) -> [ShortcutOperationID] {
+        review.changed.filter {
+            externalMenuKeys[$0] != nil || menuAmbiguities.contains($0) || !isConnected($0)
+                || ($0 == .appCheckUpdates && !AppUpdater.shared.isAvailable)
+        }
+    }
+
+    func applyImport(_ review: ShortcutImportReview, acknowledged: Bool) throws {
+        guard review.original == snapshot else { throw ShortcutPreferencesError.staleSnapshot }
+        refreshEnvironment()
+        guard importBlockedOperations(review).isEmpty else { throw EditError.externalMenuAssignment }
+        let plan = try review.plan(using: ShortcutValidator(environment: environment))
+        guard acknowledged || (!plan.requiresPrintingAcknowledgement && !plan.requiresGlobalAcknowledgement) else {
+            throw EditError.acknowledgementRequired
+        }
+        try apply(plan)
+    }
+
+    var canRestoreAll: Bool { !snapshot.overrides.isEmpty || !snapshot.inactiveMigration.isEmpty }
+
+    func restoreAll(expectedSnapshot: ShortcutConfiguration) throws {
+        guard expectedSnapshot == snapshot else { throw ShortcutPreferencesError.staleSnapshot }
+        refreshEnvironment()
+        try apply(ShortcutValidator(environment: environment).restoreAll(in: snapshot))
+    }
+
+    private func apply(_ plan: ShortcutChangePlan) throws {
+        guard let preferences, !loadError else { throw EditError.savedDataUnavailable }
+        let revision = preferences.keyboardShortcutsRevision
+        try hotKeys.apply(registrations(for: plan.configuration)) {
+            try preferences.saveKeyboardShortcuts(plan, expectedRevision: revision)
+        }
+        snapshot = plan.configuration
+        unavailableBindings = plan.unavailableBindings
+        migrationError = nil
+        synchronizeMenus()
+    }
+
     func logicalKey(_ physical: ShortcutCombination) throws -> ShortcutCombination {
         guard
             let logical = layout.projection.last(where: {
@@ -216,6 +261,9 @@ final class ShortcutController {
     static func message(_ error: any Error) -> String {
         if case ShortcutModelError.validation(let issues) = error, let issue = issues.first {
             return ShortcutText.reason(issue.code)
+        }
+        if case EditError.acknowledgementRequired = error {
+            return String(localized: "Acknowledge the global and printing shortcut changes before applying.")
         }
         if case EditError.externalMenuAssignment = error { return String(localized: "Managed in macOS") }
         if case EditError.localConflict(let conflicts) = error {
