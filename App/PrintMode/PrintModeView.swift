@@ -122,6 +122,9 @@ struct PrintModeView: View {
 /// The minimal toolbar of the print mode: back to the view mode, what is being printed, and its style.
 struct PrintTopBar: View {
     @Bindable var model: DocumentViewModel
+    /// The bar's height. The toolbar the stage keeps makes the title bar as tall, with the buttons in its middle.
+    static let height: CGFloat = 52
+    @State private var lights: TrafficLights?
     var cancelsWithEscape: Bool
 
     var body: some View {
@@ -204,10 +207,12 @@ struct PrintTopBar: View {
         }
         .padding(.leading, trafficLightInset)
         .padding(.trailing, 12)
-        .frame(height: 52)
+        .offset(y: TrafficLights.lineOffset(lights, barHeight: Self.height))
+        .frame(height: Self.height)
         .frame(maxWidth: .infinity)
         .background(PrintPalette.chrome)
         .overlay(alignment: .bottom) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
+        .background { TrafficLightsReader { lights = $0 } }
     }
 
     private var noteCount: Int { model.hasCurrentPrintPreview ? model.printResult?.addedNotePages ?? 0 : 0 }
@@ -233,10 +238,11 @@ struct PrintTopBar: View {
             .padding(.leading, 8)
     }
 
-    /// The traffic lights stay where the window draws them; the bar starts after them.
+    /// The traffic lights stay where the window draws them; the bar starts after them. Read live: entering the stage
+    /// adds the toolbar that moves them, after this bar is first drawn.
     private var trafficLightInset: CGFloat {
-        guard let button = model.window?.standardWindowButton(.zoomButton) else { return 86 }
-        return max(button.convert(button.bounds, to: nil).maxX + 14, 76)
+        guard let lights = lights ?? model.window.flatMap({ TrafficLights(window: $0) }) else { return 86 }
+        return max(lights.titleLeading, 76)
     }
 }
 

@@ -158,7 +158,7 @@ struct SideListTests {
         model.sizeWindowToPaper()
         ViewerWindow.setPaperSize(
             CGSize(width: 283, height: 400),
-            band: ViewerWindow.bandHeight * CGFloat(model.menuArrangement.bandCount), of: window, animate: false)
+            band: BandRoom.full(for: model.menuArrangement).total, of: window, animate: false)
         let before = window.frame
         model.isDrawerOpen = true
         model.sizeWindowToPaper(keepsRightEdge: true)

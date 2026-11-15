@@ -15,6 +15,16 @@ struct OverlayMenuStateTests {
         #expect(menu.stage == .full)
     }
 
+    @Test("上の帯が低ければ、紙の上端からその高さまでで帯を出す")
+    func topZoneFollowsTopBandHeight() {
+        let menu = OverlayMenuState()
+        menu.topZone = 32
+        menu.pointerMoved(to: CGPoint(x: 200, y: 33))
+        #expect(menu.stage == .hidden)
+        menu.pointerMoved(to: CGPoint(x: 200, y: 32))
+        #expect(menu.stage == .full)
+    }
+
     @Test("帯が場所を取って紙の端が下がっても、止まったポインタは帯の範囲に入ったまま")
     func roomKeepsStillPointerInside() {
         let menu = OverlayMenuState()

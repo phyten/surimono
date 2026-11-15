@@ -1,5 +1,6 @@
 import AppKit
 import SurimonoCore
+import SwiftUI
 
 /// The room the bands take above and below the paper.
 struct BandRoom: Equatable {
@@ -8,17 +9,43 @@ struct BandRoom: Equatable {
 
     var total: CGFloat { top + bottom }
 
-    /// The room of every band of the arrangement.
-    static func full(for arrangement: MenuArrangement) -> BandRoom {
-        BandRoom(top: ViewerWindow.bandHeight, bottom: arrangement == .split ? ViewerWindow.bandHeight : 0)
+    /// The room of every band of the arrangement. The top band is as tall as `top`: the title band's height in a
+    /// window, the plain band's in full screen.
+    static func full(for arrangement: MenuArrangement, top: CGFloat = ViewerWindow.titleBandHeight) -> BandRoom {
+        BandRoom(top: top, bottom: arrangement == .split ? ViewerWindow.bandHeight : 0)
     }
 }
 
 /// Window handling for the borderless view mode: the title bar is hidden, room for the bands is kept beside the paper
 /// while they show, and the traffic lights appear together with the bands.
 enum ViewerWindow {
-    /// The room of one band beside the paper.
+    /// The room of the band under the paper, and of the top band where the window shows no traffic lights (full
+    /// screen).
     static let bandHeight: CGFloat = 38
+    /// Below this the band's controls would have too little room above and below them.
+    static let minimumTitleBandHeight: CGFloat = 30
+    /// The room of the top band beside the paper in a window: twice the traffic lights' centre, so that its parts are
+    /// in the middle of the band and on the lights' line at once. AppKit centres the lights in a title bar whose height
+    /// depends on the macOS version (32pt on macOS 26, 28pt before), and the window is sized before any window of the
+    /// document could be measured; so it is read once from a window like the view mode's that is never shown.
+    static let titleBandHeight = titleBandHeight(lightsCenter: probedLightsCenter())
+    /// The band's controls take the small size where the title band is too low for the regular one with room to spare.
+    static var bandControlSize: ControlSize { titleBandHeight < 32 ? .small : .regular }
+
+    static func titleBandHeight(lightsCenter: CGFloat?) -> CGFloat {
+        guard let lightsCenter else { return bandHeight }
+        return max(minimumTitleBandHeight, (2 * lightsCenter).rounded())
+    }
+
+    private static func probedLightsCenter() -> CGFloat? {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        configure(window)
+        defer { window.close() }
+        return TrafficLights(window: window)?.centerY
+    }
     private static let minimumPaperHeight: CGFloat = 280
     /// Animated frame changes post live-resize notifications; these windows are being resized by the app itself.
     private static let resizingWindows = NSHashTable<NSWindow>.weakObjects()
@@ -106,17 +133,6 @@ enum ViewerWindow {
             guard !visible else { return }
             for button in buttons where button.alphaValue == 0 { button.isHidden = true }
         }
-    }
-
-    /// How far the top band's title moves to share one centre line with the traffic lights. AppKit places them for a
-    /// title bar of its own, which is lower than the band and differs between macOS versions.
-    static func titleOffset(in window: NSWindow) -> CGFloat {
-        guard let button = window.standardWindowButton(.closeButton), button.window === window,
-            let content = window.contentView
-        else { return 0 }
-        let frame = content.convert(button.bounds, from: button)
-        let midY = content.isFlipped ? frame.midY : content.bounds.height - frame.midY
-        return midY - bandHeight / 2
     }
 
     static func setAlwaysOnTop(_ onTop: Bool, in window: NSWindow) {

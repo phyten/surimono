@@ -525,7 +525,7 @@ struct BandMeasurements: View {
             }
         }
         .buttonStyle(.borderless)
-        .controlSize(.regular)
+        .controlSize(ViewerWindow.bandControlSize)
         .hidden()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
