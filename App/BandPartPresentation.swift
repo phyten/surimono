@@ -119,6 +119,8 @@ struct BandPartGlyph: View {
     /// Beside the part's name, where the List's own label would only repeat it.
     var besideName = false
 
+    var sampleIssueCount: Int? { item == .beforePrinting && !besideName ? 2 : nil }
+
     var body: some View {
         switch item {
         case .formatBadge: FormatBadge(text: "MD")
@@ -151,7 +153,7 @@ struct BandPartGlyph: View {
         case .beforePrinting:
             HStack(spacing: 3) {
                 symbol("exclamationmark.triangle")
-                Text(verbatim: "2").monospacedDigit()
+                if let sampleIssueCount { Text(verbatim: String(sampleIssueCount)).monospacedDigit() }
             }
         case .cover, .selectText, .alwaysShowToolbar, .printSettings, .ignoreSlides, .viewOptions,
             .saveAsFile, .keysAndGestures:

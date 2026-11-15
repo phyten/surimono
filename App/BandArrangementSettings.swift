@@ -57,6 +57,7 @@ struct BandArrangementSettings: View {
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .coordinateSpace(name: "band-editor")
         // As the other sections' grouped forms do: the first row closer to the title bar.
         .contentMargins(.top, -28, for: .scrollContent)
         .onGeometryChange(for: CGFloat.self) {
@@ -344,7 +345,7 @@ private struct ArrangementMiniature: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            MiniatureBandLayout(fixedPrefix: 2) {
                 TrafficLightDots()
                 Text("File Name")
                     .font(.system(size: 12, weight: .semibold))
@@ -354,10 +355,8 @@ private struct ArrangementMiniature: View {
                     .help("Fixed: the file name always follows the traffic lights.")
                     .accessibilityLabel(Text("File Name"))
                     .accessibilityValue(Text("Fixed"))
-                // The right zone takes the width it needs first, as the window's trailing tools do; the left one
-                // keeps the rest, which also stands for the band's flexible middle.
-                ZoneEditor(session: session, zone: .topLeft).frame(maxWidth: .infinity, alignment: .leading)
-                ZoneEditor(session: session, zone: .topRight).layoutPriority(1)
+                ZoneEditor(session: session, zone: .topLeft)
+                ZoneEditor(session: session, zone: .topRight)
                 if !docksMore { MoreLock() }
             }
             .padding(.horizontal, 8)
@@ -368,9 +367,9 @@ private struct ArrangementMiniature: View {
             Paper(spread: true)
                 .frame(height: session.mode == .split ? 46 : 72)
             if session.mode == .split {
-                HStack(spacing: 8) {
-                    ZoneEditor(session: session, zone: .bottomLeft).frame(maxWidth: .infinity, alignment: .leading)
-                    ZoneEditor(session: session, zone: .bottomRight).layoutPriority(1)
+                MiniatureBandLayout(fixedPrefix: 0) {
+                    ZoneEditor(session: session, zone: .bottomLeft)
+                    ZoneEditor(session: session, zone: .bottomRight)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
@@ -499,6 +498,11 @@ private struct ZoneEditor: View {
                     .offset(x: marker.minX, y: marker.minY)
                     .allowsHitTesting(false)
             }
+        }
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named("band-editor"))
+        } action: {
+            session.layoutFrames[zone.rawValue] = $0
         }
         .coordinateSpace(.named(space))
         .onDrop(
@@ -753,15 +757,27 @@ private struct UnusedPalette: View {
                             ForEach(group.parts) { part in
                                 EntryChip(
                                     session: session, location: part.location,
-                                    entry: .part(part.id), showsName: true)
+                                    entry: .part(part.id), showsName: true
+                                )
+                                .onGeometryChange(for: CGRect.self) {
+                                    $0.frame(in: .named("band-editor"))
+                                } action: {
+                                    session.layoutFrames["unused-" + part.id.rawValue] = $0
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named("band-editor"))
+        } action: {
+            session.layoutFrames["palette"] = $0
+        }
         .background {
             RoundedRectangle(cornerRadius: 8).fill(targeted ? PrintPalette.aiTint : PrintPalette.raised)
             RoundedRectangle(cornerRadius: 8)

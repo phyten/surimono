@@ -79,13 +79,21 @@ struct BandAdditionalPart: View {
         HStack(spacing: 3) {
             Image(systemName: symbol)
             if form == .full {
-                Text(verbatim: entry.value ?? entry.title).lineLimit(1)
+                Text(verbatim: labelText(entry)).lineLimit(1)
                     .monospacedDigit()
             } else if item == .beforePrinting {
                 Text(verbatim: String(model.printIssueCount)).monospacedDigit()
             }
             if item.isBandChoice { BandMenuChevron() }
         }
+    }
+
+    func labelText(_ entry: BandMenuContent.Entry) -> String {
+        if item == .scrollDirection {
+            return model.viewOptions.scrollAxis == .vertical
+                ? String(localized: "Vertical Scroll") : String(localized: "Horizontal Scroll")
+        }
+        return entry.value ?? entry.title
     }
 
     private var symbol: String {
@@ -149,8 +157,8 @@ extension BandLayout.Item {
         case .cover: "book.closed"
         case .selectText: "character.cursor.ibeam"
         case .alwaysShowToolbar: "rectangle.topthird.inset.filled"
-        case .margins: "rectangle.inset.filled"
-        case .printSettings: "gearshape"
+        case .margins: "rectangle.dashed"
+        case .printSettings: "doc.badge.gearshape"
         case .ignoreSlides: "rectangle.slash"
         case .beforePrinting: "exclamationmark.triangle"
         case .viewOptions: "slider.horizontal.3"

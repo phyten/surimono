@@ -144,10 +144,14 @@ public enum BandLayout {
     }
 
     private static func collapse(
-        widths: [Item: Widths], name: CGFloat, available: CGFloat, steps: [Step],
+        widths: [Item: Widths], name: CGFloat, available: CGFloat, steps: [Step], compactBeforeName: [Item] = [],
         spacing: ([Item: Form]) -> CGFloat
     ) -> Plan {
         var forms = widths.mapValues { _ in Form.full }
+        // Additional labels yield before the document name. Legacy callers keep their original collapse order.
+        for item in compactBeforeName where itemWidth(forms, widths: widths) + spacing(forms) + name > available {
+            if forms[item] == .full, widths[item]?.compact != nil { forms[item] = .compact }
+        }
         var removed = Set<Item>()
         let reservedName = min(name, nameMinimum)
         func required() -> CGFloat { itemWidth(forms, widths: widths) + spacing(forms) + reservedName }
@@ -226,7 +230,8 @@ public enum BandLayout {
                 position: position, mode: mode, metrics: metrics, standardSpacing: standardSpacing, moreDock: moreDock)
         }
         let plan = collapse(
-            widths: widths, name: name, available: availableWidth, steps: physicalSteps(at: position)
+            widths: widths, name: name, available: availableWidth, steps: physicalSteps(at: position),
+            compactBeforeName: additionalCompactOrder
         ) { geometry($0).spacingWidth }
         let minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
         return BandRowPlan(
@@ -250,14 +255,16 @@ public enum BandLayout {
                 .formatBadge, .transition, .layout, .pageTurn, .style, .outline,
                 .presentation, .thumbnails, .zoom, .floatOnTop, .pageIndicator,
             ]
-        let added: [Item] = [
-            .keysAndGestures, .saveAsFile, .ignoreSlides, .printSettings, .margins, .paperSeries,
-            .paperOrientation, .cover, .readingDirection, .scrollDirection, .alwaysShowToolbar,
-            .viewOptions, .beforePrinting, .selectText,
-        ]
+        let added = additionalCompactOrder
         return added.map { .compact($0) } + compact + added.map { .remove($0) }
             + removed.map { .remove($0) } + [.compact(.print)]
     }
+
+    private static let additionalCompactOrder: [Item] = [
+        .keysAndGestures, .saveAsFile, .ignoreSlides, .printSettings, .margins, .paperSeries,
+        .paperOrientation, .cover, .readingDirection, .scrollDirection, .alwaysShowToolbar,
+        .viewOptions, .beforePrinting, .selectText,
+    ]
 
     private static func visibleSeparators(in entries: [BandEntry], forms: [Item: Form]) -> [Item] {
         var hasPart = false

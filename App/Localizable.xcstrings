@@ -1584,7 +1584,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "儲存為檔案⋯"
+            "value": "儲存為檔案"
           }
         },
         "ko": {
@@ -1602,7 +1602,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Als Datei sichern "
+            "value": "Als Datei sichern"
           }
         },
         "es": {
@@ -2382,7 +2382,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kurzbefehle importieren…"
+            "value": "Kurzbefehle importieren …"
           }
         },
         "es": {
@@ -2434,7 +2434,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kurzbefehle exportieren…"
+            "value": "Kurzbefehle exportieren …"
           }
         },
         "es": {
@@ -2486,7 +2486,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Standardwerte wiederherstellen…"
+            "value": "Alle Standardwerte wiederherstellen …"
           }
         },
         "es": {
@@ -16666,7 +16666,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Beide Seiten manuell drucken…"
+            "value": "Beide Seiten manuell drucken …"
           }
         },
         "es": {
@@ -19650,7 +19650,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sie haben noch keine eigenen Einstellungssets. Öffnen Sie ein Dokument und wählen Sie Dokument > Einstellungssätze > Aktuelle Einstellungen sichern…, oder verwenden Sie Einstellungssätze im Druckbildschirm."
+            "value": "Sie haben noch keine eigenen Einstellungssets. Öffnen Sie ein Dokument und wählen Sie Dokument > Einstellungssätze > Aktuelle Einstellungen sichern …, oder verwenden Sie Einstellungssätze im Druckbildschirm."
           }
         },
         "es": {
@@ -19730,7 +19730,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aktuelle Einstellungen sichern…"
+            "value": "Aktuelle Einstellungen sichern …"
           }
         },
         "es": {
@@ -19782,7 +19782,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Einstellungssätze verwalten…"
+            "value": "Einstellungssätze verwalten …"
           }
         },
         "es": {
@@ -20458,7 +20458,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Umbenennen…"
+            "value": "Umbenennen …"
           }
         },
         "es": {
@@ -20966,7 +20966,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zugriff auf Ordner erlauben…"
+            "value": "Zugriff auf Ordner erlauben …"
           }
         },
         "en": {
@@ -26937,6 +26937,110 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dirección de desplazamiento"
+          }
+        }
+      }
+    },
+    "Vertical Scroll": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vertical Scroll"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縦スクロール"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "垂直滚动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "垂直捲動"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세로 스크롤"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Défilement vertical"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vertikal scrollen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desplazamiento vertical"
+          }
+        }
+      }
+    },
+    "Horizontal Scroll": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horizontal Scroll"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "横スクロール"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "水平滚动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "水平捲動"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "가로 스크롤"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Défilement horizontal"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Horizontal scrollen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desplazamiento horizontal"
           }
         }
       }
@@ -40113,13 +40217,13 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Vor dem Drucken (%lld)…"
+                  "value": "Vor dem Drucken (%lld) …"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Vor dem Drucken (%lld)…"
+                  "value": "Vor dem Drucken (%lld) …"
                 }
               }
             }
@@ -41258,7 +41362,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokumente hinzufügen…"
+            "value": "Dokumente hinzufügen …"
           }
         },
         "es": {
@@ -43438,7 +43542,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle Druckeinstellungen…"
+            "value": "Alle Druckeinstellungen …"
           }
         },
         "es": {
@@ -43854,7 +43958,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Inhalt festlegen…"
+            "value": "Inhalt festlegen …"
           }
         },
         "es": {
@@ -44219,7 +44323,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Druckeinstellungen…"
+            "value": "Druckeinstellungen …"
           }
         },
         "es": {
@@ -49797,7 +49901,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dokumentinfo…"
+            "value": "Dokumentinfo …"
           }
         },
         "es": {
@@ -50612,7 +50716,7 @@
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "儲存為檔案⋯"
+            "value": "儲存為檔案…"
           }
         },
         "ko": {
@@ -63136,7 +63240,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Update anzeigen…"
+            "value": "Update anzeigen …"
           }
         },
         "es": {

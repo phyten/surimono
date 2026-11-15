@@ -167,7 +167,7 @@ struct LanguageTests {
         var keys = Set<String>()
         for file in [
             "BandArrangementSettings.swift", "BandArrangementEditorSession.swift", "BandPartPresentation.swift",
-            "BandMenuContent.swift", "BandPaletteGroup.swift",
+            "BandMenuContent.swift", "BandPaletteGroup.swift", "BandAdditionalPart.swift",
         ] {
             let source = try String(contentsOf: root.appending(path: "App/\(file)"), encoding: .utf8)
             for match in source.matches(of: literal) { keys.insert(String(match.output.1)) }
@@ -182,6 +182,28 @@ struct LanguageTests {
                 #expect(!units.isEmpty && units.allSatisfy { $0.state == "translated" }, "\(key): \(language)")
             }
         }
+    }
+
+    @Test("ドイツ語の省略記号には空白があり繁体字はU2026を使い保存部品名に省略記号を付けない")
+    func toolbarTranslationPunctuation() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        for (key, entry) in catalog.strings {
+            for unit in entry.localizations["de"]?.units ?? [] {
+                // Quoted “…” names the literal More control, not a command with an ellipsis suffix.
+                let value = unit.value.replacingOccurrences(of: "„…“", with: "")
+                #expect(value.firstMatch(of: #/[^\s]…/#) == nil, "\(key): \(value)")
+            }
+            for unit in entry.localizations["zh-Hant"]?.units ?? [] {
+                #expect(!unit.value.contains("⋯"), "\(key)")
+            }
+        }
+        let save = try #require(catalog.strings["Save as File"])
+        #expect(save.localizations["de"]?.stringUnit?.value == "Als Datei sichern")
+        #expect(save.localizations["zh-Hant"]?.stringUnit?.value == "儲存為檔案")
+        #expect(catalog.strings["Vertical Scroll"]?.localizations["ja"]?.stringUnit?.value == "縦スクロール")
+        #expect(catalog.strings["Horizontal Scroll"]?.localizations["ja"]?.stringUnit?.value == "横スクロール")
     }
 
     private func specifiers(_ text: String) -> [String] {

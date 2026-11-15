@@ -38,6 +38,34 @@ struct BandAdditionalPartsTests {
             availableWidth: width)
     }
 
+    @Test("新部品の名前を先に省き文書名を80ptまで縮めてから既存の名前を省く")
+    func filenamePriority() {
+        let items: [BandLayout.Item] = [.keysAndGestures, .selectText, .style, .print]
+        let widths: [BandLayout.Item: BandLayout.Widths] = [
+            .keysAndGestures: .init(full: 100, compact: 20), .selectText: .init(full: 100, compact: 20),
+            .style: .init(full: 100, compact: 20), .print: .init(full: 70, compact: 34),
+        ]
+        func row(_ width: CGFloat) -> BandRowPlan {
+            BandLayout.resolve(
+                arrangement: BandArrangement(topRight: items), mode: .split, availableItems: Set(items),
+                measurements: .init(items: widths, name: 160),
+                metrics: .init(topFixed: 24, bottomFixed: 0, separator: 0, titleGap: 0, toolGap: 0, outerGap: 0),
+                availableWidth: width
+            ).top
+        }
+        #expect(row(554).forms.values.allSatisfy { $0 == .full })
+        #expect(row(553).forms[.keysAndGestures] == .compact)
+        #expect(row(553).forms[.selectText] == .full)
+        #expect(row(553).nameWidth == 160)
+        #expect(row(473).forms[.selectText] == .compact)
+        #expect(row(473).nameWidth == 160)
+        #expect(row(393).nameWidth == 159)
+        #expect(row(314).nameWidth == 80)
+        #expect(row(314).forms[.style] == .full)
+        #expect(row(313).forms[.style] == .compact)
+        #expect(row(313).forms.count == 4)
+    }
+
     @Test("上下とも新部品を指定順で縮めてから既存の名前を縮める", arguments: [false, true])
     func compactOrder(bottom: Bool) throws {
         let fixed: CGFloat = bottom ? 0 : 24

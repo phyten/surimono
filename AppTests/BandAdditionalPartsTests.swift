@@ -202,6 +202,31 @@ struct BandAdditionalPartsTests {
         #expect(!NSApp.isActive)
     }
 
+    @Test("スクロールのチップは方向だけでなくスクロールを明記し詳細メニューの値を変えない")
+    func scrollChipLabel() throws {
+        let fixture = try Fixture(parts: [], measurementsOnly: true)
+        defer { fixture.close() }
+        let chip = BandAdditionalPart(model: fixture.model, item: .scrollDirection, form: .full)
+        for axis in [ViewOptions.ScrollAxis.vertical, .horizontal] {
+            fixture.model.viewOption(\.scrollAxis).wrappedValue = axis
+            let entry = BandMenuContent(model: fixture.model).entry(.scrollDirection)
+            #expect(
+                chip.labelText(entry)
+                    == (axis == .vertical
+                        ? String(localized: "Vertical Scroll") : String(localized: "Horizontal Scroll")))
+            #expect(
+                entry.value == (axis == .vertical ? String(localized: "Vertical") : String(localized: "Horizontal")))
+        }
+    }
+
+    @Test("印刷設定と余白は共通の線の記号を使い確認件数の例はミニチュアだけに出す")
+    func reviewedGlyphs() {
+        #expect(BandLayout.Item.printSettings.additionalSymbol == "doc.badge.gearshape")
+        #expect(BandLayout.Item.margins.additionalSymbol == "rectangle.dashed")
+        #expect(BandPartGlyph(item: .beforePrinting).sampleIssueCount == 2)
+        #expect(BandPartGlyph(item: .beforePrinting, besideName: true).sampleIssueCount == nil)
+    }
+
     @Test("配置した読む向きは帯に描かれ、チップと「…」が共有する選択で値と表示が変わる")
     func choiceChip() async throws {
         let fixture = try Fixture(parts: [.readingDirection])

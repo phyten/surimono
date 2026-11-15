@@ -102,6 +102,9 @@ struct BandEditorPayload: Equatable, Sendable {
 @MainActor
 @Observable
 final class BandArrangementEditorSession {
+    /// Recorded layout, independent of SwiftUI accessibility nodes and editor history.
+    @ObservationIgnored var layoutFrames: [String: CGRect] = [:]
+
     /// Why leaving the draft needs an answer first.
     enum Leave: Equatable {
         case selectSet(BandArrangementSelection)
