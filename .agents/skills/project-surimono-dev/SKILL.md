@@ -41,6 +41,7 @@ Surimono の開発ループ（ビルド → 起動 → テスト → 目視確�
      - ページ送り: `-SurimonoTurn forward|back`（アニメーションを 10 倍遅くして 1 ページ送り、途中で撮る。送りの向きの確認用）、`-SurimonoTurnAt <0〜1>`（`-SurimonoTurn` と合わせ、送りをその割合の時点で止めて撮る。0.15・0.35・0.55・0.75・0.92 などを順に撮ると、めくりの動きをこま送りで見られる）
      - ページ: `-SurimonoPage <n>`（撮る前に n ページ目へ移る。`-SurimonoMode roundtrip` と合わせると、印刷モードから戻っても同じページかを見られる）
      - 検索とページへ移動: `-SurimonoFind <語>`（⌘F で検索バーを開いてその語を打ったところを撮る）、`-SurimonoPopover goToPage`（「ページへ移動…」のシートを開く）
+     - ウェルカム画面と同梱の案内: `-SurimonoSnapshotWelcome YES`（文書を渡さずに起動し、ウェルカムの窓を出して撮る。`open` で起動したアプリは前面に来ないことがあり、そのままではウェルカムの窓が出ないため直接出す）、`-SurimonoOpenGettingStarted YES`（ウェルカム画面やヘルプメニューと同じ経路で同梱の案内を開き、その窓を撮る。文書を渡さずに起動する。`-AppleLanguages "(en)"` で英語版）
      - クリップボード: `-SurimonoOpenClipboard <テキストファイルの絶対パス>`（起動時に、その文字列を専用のペーストボードから「クリップボードから開く」で開き、その窓を撮る。一般のクリップボードは触らない）
      - サービスとストリーミング: `-SurimonoServiceText <テキストファイルの絶対パス>`（専用のペーストボードからサービスの受け手へ渡す。`-SurimonoService print` で「刷る」、省くと「開く」）、`-SurimonoStreaming <テキストファイルの絶対パス>`（専用のペーストボードでストリーミングプレビューを開く。`live` なら本物の `mkStreamingPreview` を見る）
      - 親ファイルの合本: `-SurimonoOpenIncludes YES`（描画のあと「合本で開く」を押し、合本の窓を撮る）

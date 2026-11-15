@@ -68,6 +68,9 @@ final class OpenRouter {
         BinderWindows.shared.preferences?.replaceRecentBinder($0, with: $1)
     }
 
+    /// Replaceable so that tests can open the guide without the app's bundle.
+    var gettingStartedURL: () -> URL? = { GettingStarted.url() }
+
     /// Replaceable so that tests can follow the menu action without presenting a panel.
     var presentOpenPanel: (@escaping ([URL]) -> Void) -> Void = { completion in
         let panel = NSOpenPanel()
@@ -223,6 +226,14 @@ final class OpenRouter {
         if let origin = restorations.removeValue(forKey: url) { model.restoreWindow(origin) }
         guard printRequests.remove(url) != nil else { return }
         model.requestPrintMode()
+    }
+
+    /// The guide that comes with the app opens as any single file does, so a second request brings its window
+    /// forward. The recent files leave it out (`RecentFileHistory`).
+    @discardableResult
+    func openGettingStarted() -> Bool {
+        guard let url = gettingStartedURL() else { return false }
+        return open([url])
     }
 
     func showOpenPanel() {

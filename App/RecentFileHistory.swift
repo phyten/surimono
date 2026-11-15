@@ -26,7 +26,7 @@ final class RecentFileHistory {
     init(preferences: AppPreferences) { self.preferences = preferences }
 
     func record(_ url: URL) {
-        guard !isRestoring, url.isFileURL else { return }
+        guard !isRestoring, url.isFileURL, !GettingStarted.isInsideApp(url) else { return }
         preferences.recentFiles.record(Self.entry(for: url), limit: systemLimit())
     }
 
@@ -106,7 +106,10 @@ final class RecentFileHistory {
 }
 
 extension NSDocumentController {
+    /// The bundled guide opens as a document, and the document controller notes every document it opens. A file
+    /// inside the app is not the reader's, so neither the system's list nor the saved one takes it.
     @objc fileprivate dynamic func surimonoNoteRecent(_ url: URL) {
+        guard !GettingStarted.isInsideApp(url) else { return }
         surimonoNoteRecent(url)
         RecentFileHistory.shared?.record(url)
     }

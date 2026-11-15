@@ -52,13 +52,46 @@
             }
         }
 
-        static func configure(_ model: DocumentViewModel) {
-            // The app follows the system appearance; screenshots of both appearances force one for the whole app.
+        /// The app follows the system appearance; screenshots of both appearances force one for the whole app.
+        private static func applyAppearance() {
             switch argument("SurimonoAppearance") {
             case "light": NSApp.appearance = NSAppearance(named: .aqua)
             case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
             default: break
             }
+        }
+
+        /// `-SurimonoOpenGettingStarted YES` opens the bundled guide the way the welcome window and the Help menu do,
+        /// so that its window is the one captured. `-SurimonoSnapshotWelcome YES` shows the welcome window to capture.
+        static func openGettingStarted() {
+            if flag("SurimonoOpenGettingStarted") { OpenRouter.shared.openGettingStarted() }
+            // An app that `open` launches may not come forward, and then the welcome window waits for the reader.
+            if flag("SurimonoSnapshotWelcome") { WelcomeController.shared.show() }
+        }
+
+        /// `-SurimonoSnapshotWelcome YES` captures the welcome window, which no document's rendering would trigger.
+        static func captureWelcome(_ window: NSWindow) {
+            guard flag("SurimonoSnapshotWelcome"), !captured, !scheduled, let path = argument("SurimonoSnapshotPath"),
+                path.hasPrefix("/")
+            else { return }
+            scheduled = true
+            applyAppearance()
+            Task { @MainActor in
+                defer { scheduled = false }
+                try? await Task.sleep(for: .milliseconds(800))
+                do {
+                    let data = try await capturePNG(around: window)
+                    try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+                    captured = true
+                    if flag("SurimonoSnapshotQuit") { NSApp.terminate(nil) }
+                } catch {
+                    logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+
+        static func configure(_ model: DocumentViewModel) {
+            applyAppearance()
             if let value = argument("SurimonoLayout"), PrintLayout.presets.contains(where: { $0.id == value }) {
                 model.layoutID = value
             }

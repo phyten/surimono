@@ -62,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ClipboardWindows.shared.open(from: board)
             }
             DebugSnapshot.openFeeds()
+            DebugSnapshot.openGettingStarted()
         #endif
         // Restored windows appear shortly after launch; do not cover them with the welcome window. A rejected
         // multi-file selection opens nothing, so the welcome window still follows its alert.
@@ -106,6 +107,9 @@ final class WelcomeController {
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window
+        #if DEBUG
+            DebugSnapshot.captureWelcome(window)
+        #endif
     }
 
     func close() { window?.close() }
@@ -117,6 +121,7 @@ private struct WelcomeView: View {
         RecentFileHistory.shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
     @State private var window: NSWindow?
     @State private var isTargeted = false
+    @State private var isGuideHovered = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -157,6 +162,24 @@ private struct WelcomeView: View {
                 Button("Open from Clipboard") { ClipboardWindows.shared.open() }
             }
             .controlSize(.large)
+            // A third way in for someone who has nothing to open yet. A line of its own keeps the two buttons from
+            // crowding at the window's fixed width, and indigo is the color of the print screen's text buttons.
+            Button {
+                OpenRouter.shared.openGettingStarted()
+            } label: {
+                Label("Getting Started with Surimono", systemImage: "book")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ai)
+                    .padding(.horizontal, 8)
+                    .frame(height: 26)
+                    .background {
+                        RoundedRectangle(cornerRadius: 6).fill(isGuideHovered ? PrintPalette.aiTint : .clear)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .onHover { isGuideHovered = $0 }
+            .help("A short guide to view, print and fold into a booklet")
         }
         .padding(24)
         .frame(maxWidth: .infinity)

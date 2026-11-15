@@ -122,6 +122,7 @@ struct DocumentCommands: Commands {
             )
         }
         CommandGroup(replacing: .help) {
+            Button("Getting Started with Surimono") { OpenRouter.shared.openGettingStarted() }
             Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
         }
         CommandMenu("Document") {
