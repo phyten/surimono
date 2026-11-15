@@ -31,6 +31,146 @@ struct BandArrangementEditorTests {
         BandEntryLocation(destination: destination, index: index)
     }
 
+    @Test("未使用の分類は全26部品を正しい群に一度ずつ元の順と添字で投影する")
+    func paletteProjection() {
+        let unused: [BandLayout.Item] = [
+            .keysAndGestures, .saveAsFile, .viewOptions, .ignoreSlides, .beforePrinting,
+            .margins, .alwaysShowToolbar, .selectText, .cover, .paperSeries, .paperOrientation,
+            .scrollDirection, .readingDirection, .printSettings, .print, .pageTurn, .floatOnTop,
+            .thumbnails, .zoom, .transition, .layout, .outline, .style, .presentation,
+            .pageIndicator, .formatBadge,
+        ]
+        let groups = BandPaletteGroup.project(unused)
+        #expect(groups.map(\.id) == [.movement, .display, .reading, .bodyAndPaper, .window, .printingAndSaving, .help])
+        #expect(
+            groups.map { $0.parts.map(\.id) } == [
+                [.pageTurn, .thumbnails, .outline, .pageIndicator, .formatBadge],
+                [.zoom, .transition, .layout, .presentation],
+                [.selectText, .cover, .scrollDirection, .readingDirection],
+                [.ignoreSlides, .margins, .paperSeries, .paperOrientation, .style],
+                [.viewOptions, .alwaysShowToolbar, .floatOnTop],
+                [.saveAsFile, .beforePrinting, .printSettings, .print], [.keysAndGestures],
+            ])
+        let parts = groups.flatMap(\.parts)
+        #expect(parts.count == 26 && Set(parts.map(\.id)).count == 26)
+        for part in parts {
+            #expect(part.location.destination == .unused)
+            #expect(unused[part.location.index] == part.id)
+        }
+        #expect(BandPaletteGroup.project([]).isEmpty)
+        #expect(BandPaletteGroup.project([.cover, .selectText]).map(\.id) == [.reading])
+    }
+
+    @Test("標準の未使用パレットは空の群を出さず表示だけでは下書きや履歴を変えない")
+    func standardPaletteDoesNotEdit() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let before = session.draft
+        let groups = BandPaletteGroup.project(session.arrangement.unused)
+        #expect(groups.map(\.id) == [.reading, .bodyAndPaper, .window, .printingAndSaving, .help])
+        #expect(
+            groups.map { $0.parts.map(\.id) } == [
+                [.readingDirection, .scrollDirection, .cover, .selectText],
+                [.paperOrientation, .paperSeries, .margins, .ignoreSlides],
+                [.alwaysShowToolbar, .viewOptions], [.printSettings, .beforePrinting, .saveAsFile], [.keysAndGestures],
+            ])
+        #expect(session.draft == before && !session.isDirty && !session.canUndo)
+        #expect(session.selection == nil)
+    }
+
+    @Test("群からのドロップは元の未使用添字を使い選択を保ち一度で取り消せる", arguments: [MenuArrangement.top, .split])
+    func groupedDrop(mode: MenuArrangement) throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.mode = mode
+        let before = session.draft
+        let part = try #require(
+            BandPaletteGroup.project(session.arrangement.unused)
+                .flatMap(\.parts).first { $0.id == .viewOptions })
+        #expect(part.location.index > 0)
+        let payload = session.beginDrag(.entry(part.location, .part(part.id)))
+        #expect(session.drop(payload, on: .zone(.topLeft, index: 0)))
+        #expect(session.arrangement.topLeft.first == .part(.viewOptions))
+        #expect(!session.arrangement.unused.contains(.viewOptions))
+        #expect(session.selection == .part(.viewOptions))
+        #expect(session.selectionRevealRevision == 0)
+        session.undo()
+        #expect(session.draft == before && !session.canUndo)
+        session.redo()
+        #expect(session.selection == .part(.viewOptions))
+    }
+
+    @Test("群の部品をボタンで往復し領域内の前後にも動かすと選択と一操作の履歴を保つ", arguments: [MenuArrangement.top, .split])
+    func groupedMoves(mode: MenuArrangement) throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        session.mode = mode
+        let part = try #require(
+            BandPaletteGroup.project(session.arrangement.unused)
+                .flatMap(\.parts).first { $0.id == .saveAsFile })
+        session.select(.part(part.id))
+        for destination: BandDestination in [.zone(.topLeft), .zone(.topRight), .unused] {
+            let before = session.draft
+            let reveal = session.selectionRevealRevision
+            session.moveSelection(to: destination)
+            let after = session.draft
+            #expect(session.selectedLocation?.destination == destination)
+            #expect(session.selection == .part(.saveAsFile))
+            #expect(session.selectionRevealRevision == reveal + 1)
+            session.undo()
+            #expect(session.draft == before)
+            session.redo()
+            #expect(session.draft == after && session.selection == .part(.saveAsFile))
+        }
+        session.moveSelection(to: .zone(.topRight))
+        for offset in [-1, 1] {
+            let before = session.draft
+            let index = try #require(session.selectedLocation).index
+            session.moveSelection(by: offset)
+            #expect(session.selectedLocation?.index == index + offset)
+            #expect(session.selection == .part(.saveAsFile))
+            session.undo()
+            #expect(session.draft == before)
+            session.redo()
+        }
+    }
+
+    @Test("標準復帰は両配置の新14部品を未使用へ戻し一度の取り消しで変更と閉じる前の確認を戻す")
+    func restoreGroupedParts() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        for mode in [MenuArrangement.top, .split] {
+            session.mode = mode
+            for item in BandTestCatalog.addedItems {
+                session.select(.part(item))
+                session.moveSelection(to: .zone(.topLeft))
+            }
+        }
+        let before = session.draft
+        let window = settingsWindow()
+        let windowGuard = SettingsWindowGuard.install(on: window) {
+            guard session.isDirty else { return true }
+            session.pendingLeave = .closeWindow
+            return false
+        }
+        #expect(!windowGuard.windowShouldClose(window))
+        #expect(session.pendingLeave == .closeWindow)
+        session.cancelLeave()
+        session.backToStandard()
+        #expect(session.draft.top.unused == [.pageTurn] + BandTestCatalog.addedItems)
+        #expect(session.draft.split.unused == BandTestCatalog.addedItems)
+        #expect(!session.isDirty && windowGuard.windowShouldClose(window))
+        session.undo()
+        #expect(session.draft == before)
+        #expect(!windowGuard.windowShouldClose(window) && session.pendingLeave == .closeWindow)
+        session.redo()
+        #expect(session.draft == BandArrangementVariants())
+    }
+
     // MARK: - Editing the draft
 
     @Test("同じ領域の後ろへ移すと取り除いたあとの位置に入り保存はしない")

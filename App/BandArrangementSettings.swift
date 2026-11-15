@@ -12,6 +12,20 @@ struct BandArrangementSettings: View {
     private static let sidePaletteWidth: CGFloat = 760
 
     var body: some View {
+        ScrollViewReader { proxy in
+            editorScroll
+                .task(id: session.selectionRevealRevision) {
+                    guard session.selectionRevealRevision > 0 else { return }
+                    // Let the destination chip enter the updated layout before resolving its scroll identity.
+                    await Task.yield()
+                    guard !Task.isCancelled, let selection = session.selection else { return }
+                    // Without an anchor SwiftUI moves only as far as needed to reveal the chip.
+                    proxy.scrollTo(Optional(selection))
+                }
+        }
+    }
+
+    private var editorScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if session.needsRecovery { RecoveryNotice(session: session) }
@@ -573,7 +587,7 @@ private struct EntryChip: View {
 
     var body: some View {
         content
-            .frame(height: MiniatureMetrics.chipHeight)
+            .frame(minHeight: MiniatureMetrics.chipHeight)
             .padding(.horizontal, entry == .separator ? 1 : (entry == .part(.print) && !showsName ? 1 : 4))
             .background {
                 RoundedRectangle(cornerRadius: 6)
@@ -583,6 +597,7 @@ private struct EntryChip: View {
                         isSelected ? PrintPalette.ai : (plain ? .clear : PrintPalette.line2),
                         lineWidth: isSelected ? 1.5 : 1)
             }
+            .id(selection)
             .contentShape(Rectangle())
             .onTapGesture { session.select(selection) }
             // Like a button: in the key view loop only with keyboard navigation, so a click never leaves a focus ring.
@@ -627,7 +642,8 @@ private struct EntryChip: View {
                 BandPartGlyph(item: item, besideName: showsName)
                 if showsName {
                     Text(verbatim: item.editorName).font(.system(size: 12)).foregroundStyle(PrintPalette.ink)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -651,6 +667,7 @@ private struct EntryChip: View {
         return String(
             format: String(localized: "%1$@, position %2$lld of %3$lld"), location.destination.editorName,
             location.index + 1, count)
+            + (entry.item?.editorAvailability.map { ". " + $0 } ?? "")
     }
 }
 
@@ -726,11 +743,19 @@ private struct UnusedPalette: View {
             if unused.isEmpty {
                 Text("Every part is on the toolbar.").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
             } else {
-                FlowLayout(spacing: 6) {
-                    ForEach(Array(unused.enumerated()), id: \.element) { index, item in
-                        EntryChip(
-                            session: session, location: BandEntryLocation(destination: .unused, index: index),
-                            entry: .part(item), showsName: true)
+                ForEach(BandPaletteGroup.project(unused)) { group in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(verbatim: group.id.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(PrintPalette.ink2)
+                            .accessibilityAddTraits(.isHeader)
+                        FlowLayout(spacing: 6, constrainsChips: true) {
+                            ForEach(group.parts) { part in
+                                EntryChip(
+                                    session: session, location: part.location,
+                                    entry: .part(part.id), showsName: true)
+                            }
+                        }
                     }
                 }
             }
@@ -1016,6 +1041,7 @@ private struct BandArrangementDialog: View {
 struct FlowLayout: Layout {
     var spacing: CGFloat = 4
     var lineSpacing: CGFloat = 4
+    var constrainsChips = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         arrange(width: proposal.width ?? .infinity, subviews: subviews).size
@@ -1030,7 +1056,11 @@ struct FlowLayout: Layout {
     }
 
     private func arrange(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], size: CGSize) {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let sizes = subviews.map {
+            let ideal = $0.sizeThatFits(.unspecified)
+            return constrainsChips && ideal.width > width
+                ? $0.sizeThatFits(ProposedViewSize(width: width, height: nil)) : ideal
+        }
         var lines: [[Int]] = [[]]
         var x: CGFloat = 0
         for (index, size) in sizes.enumerated() {

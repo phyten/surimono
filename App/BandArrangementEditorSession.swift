@@ -198,6 +198,8 @@ final class BandArrangementEditorSession {
     private(set) var dragging: BandEditorPayload?
     /// Counts the draft's changes; a drag that began before one is stale.
     private(set) var revision = 0
+    /// Explicit moves reveal the selected chip without scrolling during a drag.
+    private(set) var selectionRevealRevision = 0
     var pendingLeave: Leave?
     var dialog: Dialog?
     /// The editor's own history. Settings' Edit menu and ⌘Z reach it while the editor shows (`SettingsUndoRouter`);
@@ -386,13 +388,15 @@ final class BandArrangementEditorSession {
     /// The inspector's destination buttons: the end of a zone, or "Not in Use" (a separator there is deleted).
     func moveSelection(to destination: BandDestination) {
         guard let location = selectedLocation else { return }
-        move(location, to: destination, at: arrangement[destination].count)
+        if move(location, to: destination, at: arrangement[destination].count) { selectionRevealRevision += 1 }
     }
 
     /// Move Earlier and Move Later: one place within the zone.
     func moveSelection(by offset: Int) {
         guard let location = selectedLocation, canMove(location, by: offset) else { return }
-        move(location, to: location.destination, at: location.index + (offset > 0 ? offset + 1 : offset))
+        if move(location, to: location.destination, at: location.index + (offset > 0 ? offset + 1 : offset)) {
+            selectionRevealRevision += 1
+        }
     }
 
     /// Delete for a separator, Remove for a part: the part goes to "Not in Use".

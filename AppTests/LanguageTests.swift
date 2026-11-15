@@ -167,7 +167,7 @@ struct LanguageTests {
         var keys = Set<String>()
         for file in [
             "BandArrangementSettings.swift", "BandArrangementEditorSession.swift", "BandPartPresentation.swift",
-            "BandMenuContent.swift",
+            "BandMenuContent.swift", "BandPaletteGroup.swift",
         ] {
             let source = try String(contentsOf: root.appending(path: "App/\(file)"), encoding: .utf8)
             for match in source.matches(of: literal) { keys.insert(String(match.output.1)) }
