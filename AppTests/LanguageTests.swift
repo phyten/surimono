@@ -132,6 +132,33 @@ struct LanguageTests {
         }
     }
 
+    @Test("ツールバーの配置画面の文言と読み上げには8言語の翻訳がある")
+    func arrangementEditorCoverage() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        // Every literal the editor localizes: titles, help, messages, announcements and the parts' descriptions.
+        let literal =
+            #/(?:String\(localized:\s*|Text\(|Button\(|Label\(|\.help\(|LocalizedStringKey\(|Picker\(|TextField\()\s*"((?:[^"\\]|\\.)*)"/#
+        var keys = Set<String>()
+        for file in [
+            "BandArrangementSettings.swift", "BandArrangementEditorSession.swift", "BandPartPresentation.swift",
+        ] {
+            let source = try String(contentsOf: root.appending(path: "App/\(file)"), encoding: .utf8)
+            for match in source.matches(of: literal) { keys.insert(String(match.output.1)) }
+        }
+        #expect(keys.count > 100)
+        for key in keys {
+            // An interpolated value is a format specifier in the catalog's key.
+            let candidates = ["%@", "%lld"].map { key.replacing(#/\\\([^)]*\)/#, with: $0) }
+            let entry = try #require(candidates.lazy.compactMap { catalog.strings[$0] }.first, "\(key)")
+            for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {
+                let units = try #require(entry.localizations[language], "\(key): \(language)").units
+                #expect(!units.isEmpty && units.allSatisfy { $0.state == "translated" }, "\(key): \(language)")
+            }
+        }
+    }
+
     private func specifiers(_ text: String) -> [String] {
         let pattern = #/%(?:(\d+)\$)?(lld|ld|@)/#
         return text.matches(of: pattern).enumerated().map { index, match in

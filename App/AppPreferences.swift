@@ -118,7 +118,24 @@ final class AppPreferences {
         let data = try JSONEncoder().encode(next)
         defaults.set(data, forKey: "bandArrangementStore")
         bandArrangementStore = next
+        // What the load repaired is now written as repaired.
+        bandArrangementNotices = []
     }
+
+    /// Starts the arrangements over from Standard after stored data could not be read. The unreadable data is kept
+    /// under another key, never deleted, so a later version that can read it still finds it.
+    func startBandArrangementsOver() {
+        guard let retained = retainedBandArrangementData, !showsBandArrangementFixture else { return }
+        var kept = defaults.array(forKey: Self.unreadableBandArrangementsKey) as? [Data] ?? []
+        kept.append(retained)
+        defaults.set(kept, forKey: Self.unreadableBandArrangementsKey)
+        defaults.removeObject(forKey: "bandArrangementStore")
+        retainedBandArrangementData = nil
+        bandArrangementNotices = []
+        bandArrangementStore = BandArrangementStore()
+    }
+
+    static let unreadableBandArrangementsKey = "unreadableBandArrangementStores"
 
     func selectBandArrangement(_ selection: BandArrangementSelection) throws {
         try updateBandArrangements { try $0.select(selection) }
@@ -373,6 +390,11 @@ final class AppPreferences {
                 .flatMap(DebugSnapshot.bandArrangementFixture(named:))
             {
                 bandArrangementStore = fixture
+                showsBandArrangementFixture = true
+            }
+            if DebugSnapshot.argument("SurimonoBandArrangement") == "unreadable" {
+                // As if a newer version had written the store; the fixture flag keeps everything unwritten.
+                retainedBandArrangementData = Data(#"{"schemaVersion":2}"#.utf8)
                 showsBandArrangementFixture = true
             }
         #endif

@@ -63,7 +63,7 @@ public struct BandArrangementSet: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-public enum BandArrangementSelection: Codable, Equatable, Sendable {
+public enum BandArrangementSelection: Codable, Hashable, Sendable {
     case standard
     case user(UUID)
 

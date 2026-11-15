@@ -30,9 +30,13 @@
         static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
         static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
 
-        /// Arrangements to look at before the editor exists: `-SurimonoBandArrangement printBottom|reordered|sparse`.
-        /// They are held in memory only; the preferences refuse to save over the reader's sets while one is shown.
+        /// Arrangements to look at: `-SurimonoBandArrangement printBottom|reordered|sparse|editor|editorReading`
+        /// (`unreadable` stands for data a newer version wrote). They are held in memory only; the preferences refuse
+        /// to save over the reader's sets while one is shown.
         static func bandArrangementFixture(named name: String) -> BandArrangementStore? {
+            if name == "editor" || name == "editorReading" {
+                return editorFixture(activatesReading: name == "editorReading")
+            }
             var layouts: BandArrangementVariants
             switch name {
             case "printBottom":
@@ -91,6 +95,89 @@
                 return nil
             }
             return store
+        }
+
+        /// Two saved sets for the arrangement editor's snapshots, named in the snapshot's language.
+        private static func editorFixture(activatesReading: Bool) -> BandArrangementStore? {
+            let japanese = Bundle.main.preferredLocalizations.first == "ja"
+            var reading = BandArrangementSet(name: japanese ? "読むとき" : "Reading")
+            reading.layouts.split = BandArrangement(
+                entries: [
+                    .topLeft: [.part(.formatBadge)], .topRight: [.part(.floatOnTop), .part(.print)],
+                    .bottomLeft: [.part(.outline), .separator, .part(.layout), .part(.transition)],
+                    .bottomRight: [.part(.pageIndicator), .part(.pageTurn)],
+                ], unused: [.presentation, .style, .zoom, .thumbnails])
+            reading.layouts.top = BandArrangement(
+                entries: [
+                    .topLeft: [.part(.pageIndicator)],
+                    .topRight: [
+                        .part(.outline), .separator, .part(.layout), .part(.transition), .separator,
+                        .part(.floatOnTop), .part(.print),
+                    ],
+                ], unused: [.formatBadge, .presentation, .style, .zoom, .thumbnails, .pageTurn])
+            var printing = BandArrangementSet(name: japanese ? "刷るとき" : "Printing")
+            printing.layouts.split = BandArrangement(
+                entries: [
+                    .topLeft: [.part(.formatBadge)], .topRight: [.part(.print)],
+                    .bottomLeft: [.part(.style), .separator, .part(.layout)], .bottomRight: [.part(.pageIndicator)],
+                ],
+                unused: [.presentation, .outline, .transition, .zoom, .thumbnails, .floatOnTop, .pageTurn])
+            var store = BandArrangementStore()
+            do {
+                try store.insert(reading, activate: activatesReading)
+                try store.insert(printing, activate: false)
+            } catch {
+                logger.error("Band arrangement fixture is invalid: \(String(describing: error), privacy: .public)")
+                return nil
+            }
+            return store
+        }
+
+        /// `-SurimonoArrangementEditor <state,…>` puts the arrangement editor in a state to photograph, in memory only:
+        /// `top`, `draft` (edits with separators the toolbar does not draw), `select:<part>`, `drop:<zone>:<index>`
+        /// (the insertion marker of a hovering drag), `refused` (Print taken off), `unsaved` (the question before
+        /// switching to Standard), `delete` and `new` (their sheets).
+        static func configureArrangementEditor() {
+            guard let states = argument("SurimonoArrangementEditor"), let editor = BandArrangementEditorSession.current
+            else { return }
+            for state in states.split(separator: ",") {
+                let fields = state.split(separator: ":").map(String.init)
+                switch fields[0] {
+                case "top": editor.mode = .top
+                case "split": editor.mode = .split
+                case "draft": draftEdits(editor)
+                case "select":
+                    if fields.count > 1, let item = BandLayout.Item(rawValue: fields[1]) { editor.select(.part(item)) }
+                case "drop":
+                    if fields.count > 2, let zone = BandZoneID(rawValue: fields[1]), let index = Int(fields[2]) {
+                        editor.showDropMarker(.zone(zone, index: index))
+                    }
+                case "refused":
+                    editor.select(.part(.print))
+                    editor.removeSelection()
+                case "unsaved": editor.pendingLeave = .selectSet(.standard)
+                case "delete": editor.dialog = .delete
+                case "new": editor.dialog = .new
+                default: logger.error("Unknown editor state \(state, privacy: .public)")
+                }
+            }
+        }
+
+        private static func draftEdits(_ editor: BandArrangementEditorSession) {
+            let arrangement = editor.arrangement
+            if let index = arrangement.unused.firstIndex(of: .zoom) {
+                let zone: BandZoneID = editor.mode == .split ? .bottomLeft : .topRight
+                editor.move(
+                    BandEntryLocation(destination: .unused, index: index), to: .zone(zone),
+                    at: editor.arrangement[zone].count)
+            }
+            let first: BandZoneID = editor.mode == .split ? .bottomLeft : .topRight
+            // A separator at the start of a zone and two in a row: kept in the editor, not drawn.
+            editor.insertSeparator(in: first, at: 0)
+            if let index = editor.arrangement[first].lastIndex(of: .separator), index > 0 {
+                editor.insertSeparator(in: first, at: index)
+            }
+            editor.select(nil)
         }
 
         /// Stands in for another app: a service's selection and a streaming feed come through private pasteboards, leaving
@@ -575,6 +662,7 @@
                     // The Settings window in place of the document's, opened as from the app menu.
                     model.preferences.settingsSection =
                         SettingsSection.allCases.first { String(describing: $0) == name } ?? .general
+                    configureArrangementEditor()
                     if let menu = NSApp.mainMenu?.items.first?.submenu,
                         let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," })
                     {
@@ -583,6 +671,13 @@
                     try? await Task.sleep(for: .milliseconds(1200))
                     settingsWindow = NSApp.windows.first {
                         $0.isVisible && $0.identifier?.rawValue.contains("Settings") == true
+                    }
+                    // `-SurimonoSettingsSize 820x540`: the content size, such as the smallest the window allows.
+                    if let size = argument("SurimonoSettingsSize")?.split(separator: "x").compactMap({ Double($0) }),
+                        size.count == 2
+                    {
+                        settingsWindow?.setContentSize(NSSize(width: size[0], height: size[1]))
+                        try? await Task.sleep(for: .milliseconds(500))
                     }
                     // Out of the picture, which takes in the windows next to the one captured.
                     if settingsWindow != nil { model.window?.orderOut(nil) }
@@ -604,6 +699,14 @@
                         // A document window with a sheet attached will not close, which cancels the quit.
                         if model.manualDuplexSession != nil {
                             model.cancelManualDuplex()
+                            try? await Task.sleep(for: .milliseconds(500))
+                        }
+                        // Nor will the Settings window while the arrangement editor's question or sheet is open.
+                        if let editor = BandArrangementEditorSession.current,
+                            editor.pendingLeave != nil || editor.dialog != nil
+                        {
+                            editor.pendingLeave = nil
+                            editor.dialog = nil
                             try? await Task.sleep(for: .milliseconds(500))
                         }
                         NSApp.terminate(nil)

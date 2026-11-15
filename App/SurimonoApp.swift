@@ -8,6 +8,8 @@ struct SurimonoApp: App {
     @State private var preferences = AppPreferences()
     @State private var library = UserLibrary()
     private let settingsStore: DocumentSettingsStore
+    /// Outlives the Settings window, which SwiftUI may build again.
+    private let arrangementEditor: BandArrangementEditorSession
 
     init() {
         #if !APP_STORE
@@ -20,6 +22,7 @@ struct SurimonoApp: App {
         let library = UserLibrary()
         _library = State(initialValue: library)
         settingsStore = DocumentSettingsStore(directory: library.root.appendingPathComponent("DocumentSettings"))
+        arrangementEditor = BandArrangementEditorSession(preferences: preferences)
         RecentFileHistory.install(preferences: preferences)
         WelcomeController.shared.preferences = preferences
         ImageBundleWindows.shared.preferences = preferences
@@ -52,7 +55,7 @@ struct SurimonoApp: App {
             UpdateCommands()
         }
         Settings {
-            SettingsView(preferences: preferences, library: library)
+            SettingsView(preferences: preferences, library: library, arrangementEditor: arrangementEditor)
         }
     }
 }
