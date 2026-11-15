@@ -7,7 +7,8 @@ import CoreGraphics
 /// 1. The page label ("Page 1") stays whole.
 /// 2. The tag takes its short form (F / B), and only where even that leaves no room for a page label, goes; the side's
 ///    VoiceOver text still says which side it is.
-/// 3. A long note in the first slot, such as "Blank (Back Cover)", loses its end.
+/// 3. A long note in the first slot, such as "Blank (Back Cover)", loses its end; where the short tag would leave it
+///    less than `noteMinimum`, the tag goes instead.
 struct TrayCaptionFit: Equatable {
     enum Face: Equatable {
         case full, short, hidden
@@ -21,6 +22,8 @@ struct TrayCaptionFit: Equatable {
     static let gap: CGFloat = 4
     /// At either end of a slot's label.
     static let padding: CGFloat = 4
+    /// The least a note cut at its end needs to say anything: a couple of characters and the ellipsis.
+    static let noteMinimum: CGFloat = 24
 
     /// - Parameters:
     ///   - sideWidth: The width of the printed side, which the caption is as wide as.
@@ -41,15 +44,15 @@ struct TrayCaptionFit: Equatable {
             return
         }
         let slot = sideWidth / CGFloat(max(slotCount, 1))
-        func fits(_ tag: CGFloat) -> Bool {
+        func room(_ tag: CGFloat) -> CGFloat {
             let space = tag + Self.gap
-            let room = centered ? slot - 2 * space : slot - space - Self.padding
-            return firstLabel <= room
+            return centered ? slot - 2 * space : slot - space - Self.padding
         }
+        func fits(_ tag: CGFloat) -> Bool { firstLabel <= room(tag) }
         if fits(faceFull) {
             face = .full
             tagSpace = faceFull + Self.gap
-        } else if let faceShort, fits(faceShort) || !firstIsPage {
+        } else if let faceShort, fits(faceShort) || (!firstIsPage && room(faceShort) >= Self.noteMinimum) {
             face = .short
             tagSpace = faceShort + Self.gap
         } else {

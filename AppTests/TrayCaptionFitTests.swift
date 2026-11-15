@@ -39,6 +39,35 @@ struct TrayCaptionFitTests {
         #expect(fit.face == .short)
     }
 
+    @Test("短い札を置くと白紙の説明に場所が残らない狭さでは、札を外して説明に場所を渡す")
+    func blankNoteNeedsRoomBesideTheShortTag() {
+        // A rotated back at the smallest zoom: a side of 42.4 with one slot, and the short tag "Back 180°" of 46.
+        let rotated = TrayCaptionFit(
+            sideWidth: 42.4, slotCount: 1, faceFull: 96, faceShort: 46, firstLabel: 90, firstIsPage: false)
+        #expect(rotated.face == .hidden)
+        #expect(rotated.tagSpace == 0)
+        // The short tag of 14 and its gap take 18, the padding 4: a slot of 46 leaves exactly the least a note needs.
+        let enough = TrayCaptionFit(
+            sideWidth: 46, slotCount: 1, faceFull: 72, faceShort: 14, firstLabel: 90, firstIsPage: false)
+        #expect(enough.face == .short)
+        let tooLittle = TrayCaptionFit(
+            sideWidth: 45, slotCount: 1, faceFull: 72, faceShort: 14, firstLabel: 90, firstIsPage: false)
+        #expect(tooLittle.face == .hidden)
+    }
+
+    @Test("どの幅でも、札を置いた白紙の説明には決めた最低の幅が残る")
+    func noteKeepsItsMinimum() {
+        for width in stride(from: 20, through: 600, by: 1) {
+            let fit = TrayCaptionFit(
+                sideWidth: CGFloat(width), slotCount: 2, faceFull: 72, faceShort: 46, firstLabel: 90,
+                firstIsPage: false)
+            let slot = CGFloat(width) / 2
+            if fit.face != .hidden {
+                #expect(slot - fit.tagSpace - TrayCaptionFit.padding >= TrayCaptionFit.noteMinimum, "\(width)")
+            }
+        }
+    }
+
     @Test("上下に並ぶ枠の説明は中央に置くので、札の分を両側に空けて入るかを決める")
     func centeredCaption() {
         // 200 - 2 × 34 = 132 for a caption of 120, but 200 - 2 × 76 = 48 with the long tag.
