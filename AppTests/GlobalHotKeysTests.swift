@@ -49,47 +49,52 @@ struct GlobalHotKeysTests {
     }
 
     @Test("登録失敗では以前の保存値と登録を残す")
-    func registrationFailure() {
-        let suite = TestDefaultsSuite()
-        defer { suite.remove() }
-        let preferences = AppPreferences(defaults: suite.defaults)
+    func registrationFailure() throws {
         let original = KeyCombo(keyCode: 9, modifiers: UInt32(cmdKey))
         var released = 0
-        let keys = GlobalHotKeys(register: { combo, _ in
-            combo == original ? { released += 1 } : nil
-        })
+        var saved: KeyCombo?
+        let keys = GlobalHotKeys(
+            register: { combo, _ in
+                combo == original ? { released += 1 } : nil
+            }, activate: {}, openClipboard: { _ in Issue.record("実行しない") })
         defer { keys.stop() }
-        keys.restore(preferences: preferences)
-        keys.set(original, for: .open)
-        keys.set(KeyCombo(keyCode: 8, modifiers: UInt32(cmdKey)), for: .open)
-        #expect(preferences.openClipboardShortcut == original)
-        #expect(keys.errors[.open] != nil)
+        try keys.apply([original: .open]) { saved = original }
+        let replacement = KeyCombo(keyCode: 8, modifiers: UInt32(cmdKey))
+        #expect(throws: GlobalHotKeys.RegistrationError.self) {
+            try keys.apply([replacement: .open]) { saved = replacement }
+        }
+        #expect(saved == original)
         #expect(released == 0)
-        keys.set(original, for: .printScreen)
-        #expect(preferences.printClipboardShortcut == nil)
-        keys.set(nil, for: .open)
+        try keys.apply([:]) { saved = nil }
         #expect(released == 1)
-        #expect(preferences.openClipboardShortcut == nil)
+        #expect(saved == nil)
     }
 
     @Test("各ホットキーは前面に出してから印刷指定をクリップボードの窓口へ渡す")
-    func dispatch() {
+    func dispatch() throws {
         var calls: [String] = []
         let keys = GlobalHotKeys(
+            register: { _, _ in {} },
             activate: { calls.append("activate") },
             openClipboard: { calls.append($0 ? "print" : "view") })
-        keys.handle(1)
-        keys.handle(2)
+        defer { keys.stop() }
+        try keys.apply([KeyCombo(keyCode: 38, modifiers: UInt32(cmdKey)): .open])
+        try keys.apply([
+            KeyCombo(keyCode: 38, modifiers: UInt32(cmdKey)): .open,
+            KeyCombo(keyCode: 40, modifiers: UInt32(cmdKey)): .printScreen,
+        ])
+        keys.handle(10)
+        keys.handle(11)
         keys.handle(99)
         #expect(calls == ["activate", "view", "activate", "print"])
         keys.beginRecording()
-        keys.handle(1)
+        keys.handle(10)
         #expect(calls.count == 4)
         keys.endRecording()
     }
 
     @Test("クリップボードのファイル経路も印刷指定を保つ")
-    func clipboardFiles() {
+    func clipboardFiles() throws {
         let board = NSPasteboard(name: .init("SurimonoTests.hotkeys.\(UUID())"))
         defer { board.releaseGlobally() }
         board.writeObjects([NSURL(fileURLWithPath: "/tmp/shortcut-test.md")])
@@ -98,12 +103,19 @@ struct GlobalHotKeysTests {
             openFiles: { _, _, printing in printingValues.append(printing) },
             warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
         let keys = GlobalHotKeys(
+            register: { _, _ in {} },
             activate: {},
             openClipboard: {
                 windows.open(from: board, window: nil, printing: $0)
             })
-        keys.handle(1)
-        keys.handle(2)
+        defer { keys.stop() }
+        try keys.apply([KeyCombo(keyCode: 38, modifiers: UInt32(cmdKey)): .open])
+        try keys.apply([
+            KeyCombo(keyCode: 38, modifiers: UInt32(cmdKey)): .open,
+            KeyCombo(keyCode: 40, modifiers: UInt32(cmdKey)): .printScreen,
+        ])
+        keys.handle(10)
+        keys.handle(11)
         #expect(printingValues == [false, true])
     }
 

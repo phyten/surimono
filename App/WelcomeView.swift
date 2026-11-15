@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -48,14 +49,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// A window's settings are saved a moment after a change, and quitting does not close the windows first.
     func applicationWillTerminate(_ notification: Notification) {
+        DistributedNotificationCenter.default().removeObserver(self)
         GlobalHotKeys.shared.stop()
         DocumentWindows.shared.flushPendingSettings()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let preferences = ClipboardWindows.shared.preferences {
-            GlobalHotKeys.shared.start(preferences: preferences)
+            GlobalHotKeys.shared.start()
+            ShortcutController.shared.start(preferences: preferences)
         }
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(keyboardInputSourceChanged),
+            name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
         DocumentEditMenu.startHiding()
         #if DEBUG
             // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's
@@ -79,7 +85,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func keyboardInputSourceChanged() {
+        ShortcutController.shared.refresh()
+    }
+
     func applicationDidBecomeActive(_ notification: Notification) {
+        ShortcutController.shared.refresh()
         // What brought the app forward may be a file to open, which arrives right after.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))

@@ -577,17 +577,22 @@ extension AppPreferences {
         try persistKeyboardShortcuts(plan.configuration)
     }
 
-    func saveKeyboardShortcutMigration(environment: ShortcutValidationContext) throws {
+    func saveKeyboardShortcutMigration(
+        environment: ShortcutValidationContext, expectedConfiguration: ShortcutConfiguration? = nil
+    ) throws {
         if keyboardShortcutsLoadState == .loaded { return }
         guard !keyboardShortcutsLoadState.isUnreadable else { throw ShortcutPreferencesError.unreadableSavedData }
         guard environment.reservationsAvailable, environment.projectionAvailable else {
             throw ShortcutPreferencesError.environmentUnavailable
         }
-        // Re-read legacy values only while the new store is absent: the old recorder can still edit them.
+        // Re-evaluate before saving so a legacy write during registration cannot publish another candidate.
         guard defaults.object(forKey: ShortcutStore.preferencesKey) == nil else {
             throw ShortcutPreferencesError.staleSnapshot
         }
         let migrated = LegacyShortcutMigration.evaluate(defaults: defaults, environment: environment)
+        if let expectedConfiguration, migrated != expectedConfiguration {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
         try persistKeyboardShortcuts(migrated)
     }
 
