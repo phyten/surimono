@@ -44,6 +44,7 @@ private struct BinderList: View {
     let model: DocumentViewModel
     @Bindable var binder: BinderModel
     @State private var pointedRow: URL?
+    @FocusState private var hasKeyboardFocus: Bool
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -87,7 +88,8 @@ private struct BinderList: View {
             .background(
                 SelectedRowClicks(pointedRow: pointedRow, selection: binder.selection) { model.goToBinderDocument($0) }
             )
-            .onDeleteCommand { if let url = binder.selection { model.removeFromBinder(url) } }
+            .focused($hasKeyboardFocus)
+            .onChange(of: hasKeyboardFocus) { _, focused in model.shortcutListFocused = focused }
             .onChange(of: binder.selection) { _, url in
                 if let url { proxy.scrollTo(url) }
             }
@@ -97,7 +99,10 @@ private struct BinderList: View {
             } action: { frame in
                 model.drop.listFrame = frame
             }
-            .onDisappear { model.drop.listFrame = nil }
+            .onDisappear {
+                model.drop.listFrame = nil
+                model.shortcutListFocused = false
+            }
             .accessibilityLabel("Binder")
         }
     }

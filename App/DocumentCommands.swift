@@ -92,14 +92,14 @@ struct DocumentCommands: Commands {
             Button("Go to Page…") { perform(.documentGoToPage) }
                 .keyboardShortcut("g", modifiers: [.option, .command])
             Divider()
-            Button("Increase Text Size") { model?.increaseTextSize() }
+            Button("Increase Text Size") { perform(.textIncrease) }
                 .keyboardShortcut("+", modifiers: [.option, .command])
             Button("Decrease Text Size") { perform(.textDecrease) }
                 .keyboardShortcut("-", modifiers: [.option, .command])
             Button("Original Text Size") { perform(.textReset) }
                 .keyboardShortcut("0", modifiers: [.option, .command])
             Divider()
-            Button("Zoom In") { model?.zoomIn() }
+            Button("Zoom In") { perform(.viewZoomIn) }
                 .keyboardShortcut("+")
             Button("Zoom Out") { perform(.viewZoomOut) }
                 .keyboardShortcut("-")

@@ -1,19 +1,24 @@
 import AppKit
+import SurimonoCore
 import SwiftUI
 
-// The paper dispatches through these entries so the guide cannot silently lose a handled key.
+// The guide and paper adapter read the same catalog; cancellation and focus traversal stay fixed.
 enum KeyGuideEntry: CaseIterable {
     case menu, alwaysShowToolbar, viewOptions, selectText, alternateDrag, pageEdge, doubleClick, pinch
     case find, findStep, goToPage, reload
     case print, systemPrint, printLayouts, escape
     case moveSelection, removeFromList, showList
 
-    var trigger: String {
+    var trigger: String { trigger(controller: .shared) }
+
+    func trigger(controller: ShortcutController) -> String {
         switch self {
-        case .menu: "Tab / M"
+        case .menu:
+            (["Tab", "⇧Tab"] + controller.localKeys(for: .viewToolbarToggle).map { controller.layout.display($0) })
+                .joined(separator: " / ")
         case .alwaysShowToolbar: "⌥⌘T"
-        case .viewOptions: "V"
-        case .selectText: "T"
+        case .viewOptions: shortcutHint(.viewOptions, controller: controller)
+        case .selectText: shortcutHint(.viewSelectText, controller: controller)
         case .alternateDrag: String(localized: "Hold ⌥")
         case .pageEdge: String(localized: "Click a paper edge")
         case .doubleClick: String(localized: "Double-click")
@@ -27,9 +32,15 @@ enum KeyGuideEntry: CaseIterable {
         case .printLayouts: "⌘1–⌘6"
         case .escape: "Esc"
         case .moveSelection: "⌥⌘↑ / ⌥⌘↓"
-        case .removeFromList: "⌫"
+        case .removeFromList: shortcutHint(.listRemove, controller: controller)
         case .showList: "⌃⌘S"
         }
+    }
+
+    private func shortcutHint(_ operation: ShortcutOperationID, controller: ShortcutController) -> String {
+        let keys = controller.localKeys(for: operation)
+        return keys.isEmpty
+            ? String(localized: "Unassigned") : keys.map { controller.layout.display($0) }.joined(separator: " / ")
     }
 
     var explanation: String {
@@ -57,14 +68,19 @@ enum KeyGuideEntry: CaseIterable {
         }
     }
 
-    static func paperAction(for event: NSEvent) -> Self? {
+    static func fixedPaperAction(for event: NSEvent) -> Self? {
         guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return nil }
         if event.specialKey == .tab { return .menu }
         if event.keyCode == 53 { return .escape }
-        switch event.charactersIgnoringModifiers?.lowercased() {
-        case "m": return .menu
-        case "v": return .viewOptions
-        case "t": return .selectText
+        return nil
+    }
+
+    static func paperAction(for event: NSEvent, controller: ShortcutController = .shared) -> Self? {
+        if let fixed = fixedPaperAction(for: event) { return fixed }
+        switch ShortcutSurfaceKeys.match(event, region: .paperReading, controller: controller) {
+        case .viewToolbarToggle: return .menu
+        case .viewOptions: return .viewOptions
+        case .viewSelectText: return .selectText
         default: return nil
         }
     }

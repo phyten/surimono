@@ -7,6 +7,7 @@ final class ShortcutDispatcher {
     let controller: ShortcutController
     let bridge: ShortcutMenuBridge
     private let keyWindow: () -> NSWindow?
+    private let firstResponder: (NSWindow) -> NSResponder?
     private let currentModel: () -> DocumentViewModel?
     private var monitor: Any?
     private var held: Set<UInt16> = []
@@ -16,12 +17,14 @@ final class ShortcutDispatcher {
     init(
         controller: ShortcutController, bridge: ShortcutMenuBridge? = nil,
         keyWindow: @escaping () -> NSWindow? = { NSApp.keyWindow },
-        model: (() -> DocumentViewModel?)? = nil
+        model: (() -> DocumentViewModel?)? = nil,
+        firstResponder: @escaping (NSWindow) -> NSResponder? = { $0.firstResponder }
     ) {
         let resolveModel = model ?? { DocumentWindows.shared.model(for: keyWindow()) }
         self.controller = controller
         self.bridge = bridge ?? ShortcutMenuBridge(controller: controller, keyWindow: keyWindow, model: resolveModel)
         self.keyWindow = keyWindow
+        self.firstResponder = firstResponder
         currentModel = resolveModel
         self.bridge.dispatch = { [weak self] operation in self?.perform(operation) }
         controller.synchronizeMenus = { [weak self] in
@@ -64,13 +67,55 @@ final class ShortcutDispatcher {
         bridge.reconcile()
         guard let window = keyWindow(), event.window === window,
             window.attachedSheet == nil, NSApp.modalWindow == nil,
-            let combination = Self.combination(event)
+            let combination = Self.combination(event, allowsBareKeys: true)
         else { return false }
-        if Self.isTextInput(window.firstResponder), !combination.modifiers.contains(.command) { return false }
+        let responder = firstResponder(window)
+        if Self.isTextInput(responder), !combination.modifiers.contains(.command) { return false }
         let matches = ShortcutMenuBridge.operations.filter { operation in
             controller.localKeys(for: operation).contains { $0 == combination }
         }
-        guard !matches.isEmpty else { return false }
+        if let input = responder as? NSTextInputClient, input.hasMarkedText() {
+            // Keep recognized menu keys consumed during composition, as before surface routing existed.
+            // Execute neither menu nor surface operations, and leave unmatched editing keys to the input client.
+            return !matches.isEmpty
+        }
+        let model = currentModel()
+        if let model, model.window === window, !model.blocksSurfaceShortcuts {
+            if let surface = ShortcutSurfaceKeys.owner(of: responder),
+                (model.mode == .view && !model.showsWeb && surface.shortcutRegion != .foldedPreview)
+                    || (model.mode == .print && model.showsFold && surface.shortcutRegion == .foldedPreview),
+                let operation = ShortcutSurfaceKeys.match(event, region: surface.shortcutRegion, controller: controller)
+            {
+                surface.performShortcut(operation, event: event)
+                return true
+            }
+            if model.shortcutListFocused, model.binder != nil, responder != nil,
+                ShortcutSurfaceKeys.owner(of: responder) == nil,
+                !Self.isTextInput(responder), !(responder is NSControl) || responder is NSTableView,
+                ShortcutSurfaceKeys.match(event, region: .focusedList, controller: controller) == .listRemove
+            {
+                if let url = model.binder?.selection { model.removeFromBinder(url) }
+                return true
+            }
+        }
+        if combination.modifiers.intersection([.command, .control]).isEmpty {
+            guard let model, model.window === window, !model.blocksSurfaceShortcuts,
+                let surface = ShortcutSurfaceKeys.owner(of: responder)
+            else { return false }
+            return Self.blocksNativePaperKey(combination, region: surface.shortcutRegion)
+        }
+        guard !matches.isEmpty else {
+            // PDFKit also recognizes these keys. Do not revive a removed alias through a descendant responder.
+            guard let model, model.window === window, !model.blocksSurfaceShortcuts,
+                !Self.isTextInput(responder), !(responder is NSControl)
+            else { return false }
+            if let surface = ShortcutSurfaceKeys.owner(of: responder),
+                Self.blocksNativePaperKey(combination, region: surface.shortcutRegion)
+            {
+                return true
+            }
+            return false
+        }
         guard matches.count == 1, let operation = matches.first, !bridge.ambiguous.contains(operation) else {
             return true
         }
@@ -83,15 +128,26 @@ final class ShortcutDispatcher {
         return true
     }
 
+    static func blocksNativePaperKey(_ key: ShortcutCombination, region: ShortcutRegion) -> Bool {
+        if case .named(let named) = key.key {
+            if region == .paperReading {
+                return named.isArrow || [.space, .pageUp, .pageDown, .home, .end].contains(named)
+            }
+            if region == .foldedPreview { return named == .leftArrow || named == .rightArrow }
+        }
+        return key.modifiers.contains(.command)
+            && ["=", "+", "-", "0"].contains { key.key == .character($0) }
+    }
+
     static func isTextInput(_ responder: NSResponder?) -> Bool {
         if let text = responder as? NSTextView { return text.isEditable }
         return responder is NSTextInputClient
     }
 
-    static func combination(_ event: NSEvent) -> ShortcutCombination? {
+    static func combination(_ event: NSEvent, allowsBareKeys: Bool = false) -> ShortcutCombination? {
         guard let text = event.charactersIgnoringModifiers, !text.isEmpty else { return nil }
         let modifiers = ShortcutModifiers(event.modifierFlags)
-        guard !modifiers.intersection([.command, .control]).isEmpty else { return nil }
+        guard allowsBareKeys || !modifiers.intersection([.command, .control]).isEmpty else { return nil }
         if event.modifierFlags.contains(.function) {
             guard let named = ShortcutKeyboardLayout.special[event.keyCode],
                 ShortcutMenuKey.character(.named(named)) == text
@@ -106,7 +162,9 @@ final class ShortcutDispatcher {
         guard ShortcutMenuBridge.operations.contains(operation), !controller.hotKeys.isRecording,
             NSApp.modalWindow == nil, keyWindow()?.attachedSheet == nil
         else { return }
-        if let input = keyWindow()?.firstResponder as? NSTextInputClient, input.hasMarkedText() { return }
+        if let window = keyWindow(), let input = firstResponder(window) as? NSTextInputClient, input.hasMarkedText() {
+            return
+        }
         let model = currentModel()
         let application =
             ShortcutOperation.operation(operation).applicability == .application || operation == .appCheckUpdates
@@ -141,8 +199,11 @@ final class ShortcutDispatcher {
         case .viewHtmlPresentation: model?.toggleHTMLPresentation()
         case .viewIgnoreSlides:
             if let model { model.setIgnoresSlides(!model.ignoresSlides) }
+        case .textIncrease: model?.increaseTextSize()
         case .textDecrease: model?.decreaseTextSize()
         case .textReset: model?.resetTextSize()
+        case .viewZoomIn:
+            if model?.mode != .compare { model?.zoomIn() }
         case .viewZoomOut:
             if model?.mode != .compare { model?.zoomOut() }
         case .viewZoomFit:

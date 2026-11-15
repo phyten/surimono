@@ -461,29 +461,6 @@ struct TrayZoomerTests {
         #expect(abs(zoomer.zoom - 1) < 0.0001)
     }
 
-    @Test("印刷モードの⌘=は刷り台を拡大し、シフト付きの⌘＋はメニューに任せる")
-    func unshiftedZoomKey() throws {
-        let suite = TestDefaultsSuite()
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let model = DocumentViewModel(
-            data: Data(), fileURL: nil, format: .pdf, preferences: AppPreferences(defaults: suite.defaults),
-            library: UserLibrary(root: root))
-        let zoomer = zoomer()
-        model.trayZoomer = zoomer
-        model.enterPrintMode()
-        func key(_ characters: String, _ flags: NSEvent.ModifierFlags) throws -> NSEvent {
-            try #require(
-                NSEvent.keyEvent(
-                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
-                    context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false,
-                    keyCode: 24))
-        }
-        #expect(model.handleTrayZoomKey(try key("+", [.command, .shift])) == false)
-        #expect(model.handleTrayZoomKey(try key("=", [.command, .option])) == false)
-        #expect(model.handleTrayZoomKey(try key("=", [.command])))
-        #expect(abs(zoomer.zoom - 1.25) < 0.0001)
-    }
 }
 
 @MainActor

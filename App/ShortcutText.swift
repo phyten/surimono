@@ -2,7 +2,12 @@ import Foundation
 import SurimonoCore
 
 enum ShortcutText {
+    /// The names of the print layouts break into two lines for their cards; a list row shows one line.
     static func name(_ value: ShortcutOperationID) -> String {
+        cardName(value).replacingOccurrences(of: "\n", with: "")
+    }
+
+    private static func cardName(_ value: ShortcutOperationID) -> String {
         switch value {
         case .appOpen: String(localized: "Open…")
         case .clipboardOpen: String(localized: "Open from Clipboard")
@@ -32,6 +37,10 @@ enum ShortcutText {
         case .readingRight: String(localized: "Navigate Right")
         case .readingPrevious: String(localized: "Previous Page")
         case .readingNext: String(localized: "Next Page")
+        case .readingPageUp: String(localized: "Page Up")
+        case .readingPageDown: String(localized: "Page Down")
+        case .readingFirst: String(localized: "Beginning of Document")
+        case .readingLast: String(localized: "End of Document")
         case .printLayoutSingle: String(localized: "Single-sided")
         case .printLayoutDuplex: String(localized: "Double-Sided")
         case .printLayoutBookletLarge: String(localized: "Booklet on Large Paper")

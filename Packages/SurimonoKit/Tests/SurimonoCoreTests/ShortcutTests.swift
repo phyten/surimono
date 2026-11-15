@@ -13,7 +13,9 @@ struct ShortcutTests {
                 "document.goToPage", "document.reload", "view.htmlPresentation", "view.spread", "view.single",
                 "text.increase", "text.decrease", "text.reset", "view.zoomIn", "view.zoomOut", "view.zoomFit",
                 "view.toolbarAlways", "view.toolbarToggle", "view.options", "view.selectText", "reading.left",
-                "reading.right", "reading.previous", "reading.next", "print.layout.single", "print.layout.duplex",
+                "reading.right", "reading.previous", "reading.next",
+                "reading.pageUp", "reading.pageDown", "reading.first", "reading.last", "print.layout.single",
+                "print.layout.duplex",
                 "print.layout.bookletLarge", "print.layout.bookletSmall", "print.layout.twoUpLarge",
                 "print.layout.handout",
                 "list.toggle", "list.moveUp", "list.moveDown", "list.remove", "fold.left", "fold.right",
@@ -27,8 +29,8 @@ struct ShortcutTests {
                 "style.favorite", "compare.shuffle", "print.foldPreview", "print.reviewIssues", "html.smartRemoval",
                 "html.reviewRemoval", "print.manualDuplex", "print.duplexTest",
             ])
-        #expect(ShortcutOperation.catalog.count == 72)
-        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 72)
+        #expect(ShortcutOperation.catalog.count == 76)
+        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 76)
     }
 
     @Test("既定の印刷と別名と未割当を明示する")
@@ -47,6 +49,10 @@ struct ShortcutTests {
             configuration.keys(for: .readingPrevious) == [
                 .init(key: .named(.upArrow)), .init(key: .named(.space), modifiers: .shift),
             ])
+        #expect(configuration.keys(for: .readingPageUp) == [.init(key: .named(.pageUp))])
+        #expect(configuration.keys(for: .readingPageDown) == [.init(key: .named(.pageDown))])
+        #expect(configuration.keys(for: .readingFirst) == [.init(key: .named(.home))])
+        #expect(configuration.keys(for: .readingLast) == [.init(key: .named(.end))])
         #expect(configuration.keys(for: .globalClipboardOpen) == [])
         #expect(configuration.keys(for: .clipboardOpenPrintScreen) == [])
         #expect(ShortcutValidator(environment: .init()).conflicts(in: configuration).isEmpty)
@@ -387,6 +393,8 @@ struct ShortcutContractTests {
                 #"view.toolbarToggle=m[];m["shift"]"#, #"view.options=v[];v["shift"]"#,
                 #"view.selectText=t[];t["shift"]"#, #"reading.left=leftArrow[]"#, #"reading.right=rightArrow[]"#,
                 #"reading.previous=upArrow[];space["shift"]"#, #"reading.next=downArrow[];space[]"#,
+                #"reading.pageUp=pageUp[]"#, #"reading.pageDown=pageDown[]"#,
+                #"reading.first=home[]"#, #"reading.last=end[]"#,
                 #"print.layout.single=1["command"]"#, #"print.layout.duplex=2["command"]"#,
                 #"print.layout.bookletLarge=3["command"]"#, #"print.layout.bookletSmall=4["command"]"#,
                 #"print.layout.twoUpLarge=5["command"]"#, #"print.layout.handout=6["command"]"#,
@@ -540,5 +548,22 @@ struct ShortcutStoreBoundaryTests {
                 .init(key: .character("+"), modifiers: [.option, .command]),
                 .init(key: .character("="), modifiers: [.option, .command]),
             ])
+    }
+}
+
+extension ShortcutTests {
+    @Test("PageUp・PageDown・Home・Endの標準選択操作は裸キーの割当から保護する")
+    func nativeSelectionNavigation() throws {
+        for (id, key): (ShortcutOperationID, ShortcutNamedKey) in [
+            (.readingPageUp, .pageUp), (.readingPageDown, .pageDown), (.readingFirst, .home), (.readingLast, .end),
+        ] {
+            let operation = ShortcutOperation.operation(id)
+            #expect(operation.binding(for: .init(key: .named(key))).regions == [.paperReading])
+            #expect(
+                operation.binding(for: .init(key: .named(key), modifiers: .command)).regions.contains(.paperSelection))
+            let cleared = try ShortcutValidator(environment: .init()).plan(
+                replacing: id, with: [], in: .init(), resolution: .reject)
+            #expect(cleared.configuration.keys(for: id).isEmpty)
+        }
     }
 }

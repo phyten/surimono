@@ -619,32 +619,6 @@ struct DocumentSettingsFlowTests {
         #expect(environment.store.keys().isEmpty)
     }
 
-    @Test("文字倍率の等号ショートカットはOptionとCommandの組だけを扱う")
-    func textSizeKeyboardAlias() throws {
-        let environment = try environment()
-        defer { environment.cleanUp() }
-        let model = DocumentViewModel(
-            data: Data(), fileURL: nil, format: .markdown, preferences: environment.preferences,
-            library: environment.library, settingsStore: environment.store)
-        func event(_ flags: NSEvent.ModifierFlags, key: String = "=") throws -> NSEvent {
-            try #require(
-                NSEvent.keyEvent(
-                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
-                    context: nil, characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: 24))
-        }
-        #expect(model.handleTextSizeKey(try event([.option, .command])))
-        #expect(model.textScale == 1.1)
-        #expect(!model.handleTextSizeKey(try event(.command)))
-        #expect(!model.handleTextSizeKey(try event([.option, .command, .control])))
-        #expect(!model.handleTextSizeKey(try event([.option, .command], key: "x")))
-        #expect(model.textScale == 1.1)
-        model.mode = .print
-        #expect(model.handleTextSizeKey(try event([.option, .command])))
-        #expect(model.textScale == 1.25)
-        model.setTextScale(.infinity)
-        #expect(model.textScale == 1.25)
-    }
-
     @Test("テーマのない文書では文字の大きさの操作を無視する", .timeLimit(.minutes(1)))
     func textScaleIgnoresPDF() async throws {
         let environment = try environment()
