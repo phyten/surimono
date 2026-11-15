@@ -25,7 +25,10 @@ struct MiniatureBandLayout: Layout {
         let fixed = ideal.enumerated().filter { $0.offset != left && $0.offset != right }
             .reduce(CGFloat.zero) { $0 + $1.element.width }
         let gaps = gap * CGFloat(max(0, subviews.count - 1))
-        let width = width ?? ideal.reduce(0) { $0 + $1.width } + gaps
+        // A parent may propose no width, or an infinite one to ask for the largest size. Both lay out at the natural
+        // width, so that no frame is infinite.
+        let natural = ideal.reduce(0) { $0 + $1.width } + gaps
+        let width = width.flatMap { $0.isFinite ? max(0, $0) : nil } ?? natural
         let room = max(0, width - fixed - gaps)
         let leftMinimum = subviews[left].sizeThatFits(.zero).width
         let rightMinimum = subviews[right].sizeThatFits(.zero).width
