@@ -7,6 +7,14 @@ final class DocumentWindows: NSObject {
     static let shared = DocumentWindows()
     private(set) weak var activeModel: DocumentViewModel?
     @ObservationIgnored private let models = NSMapTable<NSWindow, DocumentViewModel>.weakToWeakObjects()
+    var currentModel: DocumentViewModel? {
+        model(for: NSApp.keyWindow)
+    }
+
+    func model(for window: NSWindow?) -> DocumentViewModel? {
+        window.flatMap { models.object(forKey: $0) }
+    }
+
     /// Where access to a file from outside the app waits for the file's window. Replaceable for tests.
     @ObservationIgnored var router: OpenRouter = .shared
 

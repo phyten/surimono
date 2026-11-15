@@ -1,6 +1,215 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "This menu command could not be identified uniquely.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This menu command could not be identified uniquely."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このメニュー操作を一意に特定できませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法唯一识别此菜单操作。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法唯一識別此選單操作。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 메뉴 동작을 고유하게 식별할 수 없습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette commande de menu n’a pas pu être identifiée de manière unique."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Menübefehl konnte nicht eindeutig identifiziert werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo identificar de forma única este comando del menú."
+          }
+        }
+      }
+    },
+    "Managed in macOS": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Managed in macOS"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOSで管理されています"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由 macOS 管理"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由 macOS 管理"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS에서 관리됨"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Géré dans macOS"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In macOS verwaltet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gestionado en macOS"
+          }
+        }
+      }
+    },
+    "Already used by %@. This operation is not connected to customizable shortcuts yet.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already used by %@. This operation is not connected to customizable shortcuts yet."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@が使用しています。この操作はまだショートカットの変更に対応していません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已在使用。此操作尚未接入可自定义快捷键。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 已在使用。此操作尚未接入可自訂快捷鍵。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에서 이미 사용 중입니다. 이 동작은 아직 단축키 변경을 지원하지 않습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déjà utilisé par %@. Cette opération ne prend pas encore en charge les raccourcis personnalisables."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereits von %@ verwendet. Diese Aktion unterstützt noch keine anpassbaren Kurzbefehle."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya lo usa %@. Esta operación aún no admite atajos personalizables."
+          }
+        }
+      }
+    },
+    "Rows with controls can be changed. Editing the remaining shortcuts will come in a later version.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rows with controls can be changed. Editing the remaining shortcuts will come in a later version."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作ボタンのある行は変更できます。残りのショートカットは今後のバージョンで編集に対応します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "带有操作按钮的行可以修改。其余快捷键将在后续版本中支持编辑。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有操作按鈕的列可以修改。其餘快速鍵將在後續版本中支援編輯。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "조작 버튼이 있는 행은 변경할 수 있습니다. 나머지 단축키 편집은 향후 버전에서 지원됩니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les lignes avec des boutons sont modifiables. Les autres raccourcis le seront dans une prochaine version."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeilen mit Bedienelementen können geändert werden. Die übrigen Kurzbefehle folgen in einer späteren Version."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las filas con controles se pueden modificar. Los demás atajos se podrán editar en una versión posterior."
+          }
+        }
+      }
+    },
     "A layout of a saved arrangement could not be read and is back to Standard.": {
       "extractionState": "manual",
       "localizations": {
@@ -4430,7 +4639,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "실행 복귀"
+            "value": "다시 실행"
           }
         },
         "fr": {
@@ -9434,59 +9643,6 @@
         }
       }
     },
-    "Local shortcuts are shown for reference. Editing them will be available in a later update.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Local shortcuts are shown for reference. Editing them will be available in a later update."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アプリ内のショートカットは参照用です。編集は今後のアップデートで対応します。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本地快捷键仅供参考。后续更新将支持编辑。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本機快速鍵僅供參考。後續更新將支援編輯。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "로컬 단축키는 참고용입니다. 편집은 향후 업데이트에서 지원됩니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les raccourcis locaux sont affichés pour référence. Leur modification arrivera dans une prochaine mise à jour."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lokale Kurzbefehle dienen hier als Übersicht. Die Bearbeitung folgt in einem späteren Update."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los atajos locales se muestran como referencia. Se podrán editar en una actualización posterior."
-          }
-        }
-      }
-    },
     "Managed by macOS": {
       "extractionState": "manual",
       "localizations": {
@@ -10543,59 +10699,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lectura"
-          }
-        }
-      }
-    },
-    "Redo": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Redo"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "やり直す"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重做"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重做"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다시 실행"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rétablir"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wiederholen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rehacer"
           }
         }
       }

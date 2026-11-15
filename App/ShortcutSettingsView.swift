@@ -12,8 +12,10 @@ struct ShortcutSettingsView: View {
             Form {
                 searchField
                 Section("In Surimono") {
-                    Text("Local shortcuts are shown for reference. Editing them will be available in a later update.")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Text(
+                        "Rows with controls can be changed. Editing the remaining shortcuts will come in a later version."
+                    )
+                    .font(.caption).foregroundStyle(.secondary)
                 }
                 ForEach(groups, id: \.self) { group in
                     localSection(group)
@@ -65,16 +67,26 @@ struct ShortcutSettingsView: View {
         if !rows.isEmpty {
             let sharedScope = ShortcutText.scope(Self.groupScope(group))
             Section {
-                Text(sharedScope).font(.caption).foregroundStyle(.secondary)
                 ForEach(rows, id: \.id) { operation in
                     let rowScope = scope(operation)
-                    ShortcutInfoRow(
-                        name: ShortcutText.name(operation.id), scope: rowScope == sharedScope ? nil : rowScope,
-                        keys: operation.defaults.map { controller.layout.display($0) },
-                        spokenKeys: operation.defaults.map { controller.layout.spoken($0) })
+                    if controller.isConnected(operation.id)
+                        && (operation.id != .appCheckUpdates || AppUpdater.shared.isAvailable)
+                    {
+                        EditableShortcutRow(
+                            controller: controller, operation: operation.id,
+                            scope: rowScope == sharedScope ? nil : rowScope)
+                    } else {
+                        ShortcutInfoRow(
+                            name: ShortcutText.name(operation.id), scope: rowScope == sharedScope ? nil : rowScope,
+                            keys: operation.defaults.map { controller.layout.display($0) },
+                            spokenKeys: operation.defaults.map { controller.layout.spoken($0) })
+                    }
                 }
             } header: {
-                Text(ShortcutText.group(group))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(ShortcutText.group(group))
+                    Text(sharedScope).font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -136,7 +148,7 @@ struct ShortcutSettingsView: View {
             }
             let global = ShortcutOperation.catalog.filter { $0.isGlobal && matches($0) }
             ForEach(global, id: \.id) { operation in
-                GlobalShortcutRow(controller: controller, operation: operation.id)
+                EditableShortcutRow(controller: controller, operation: operation.id)
             }
             if global.isEmpty { Text("No matching shortcuts").foregroundStyle(.secondary) }
         } header: {
@@ -159,7 +171,7 @@ struct ShortcutSettingsView: View {
     }
 
     private func matches(_ operation: ShortcutOperation) -> Bool {
-        let keys = operation.isGlobal ? controller.snapshot.keys(for: operation.id) : operation.defaults
+        let keys = controller.externalMenuKeys[operation.id].map { [$0] } ?? controller.snapshot.keys(for: operation.id)
         return matches(
             [
                 ShortcutText.name(operation.id), ShortcutText.group(operation.group), scope(operation),
@@ -203,30 +215,44 @@ private struct ShortcutInfoRow: View {
     }
 }
 
-private struct GlobalShortcutRow: View {
+private struct EditableShortcutRow: View {
     let controller: ShortcutController
     let operation: ShortcutOperationID
+    var scope: String?
     @State private var error: String?
     @State private var pending: [ShortcutCombination]?
     @State private var reviewedSnapshot: ShortcutConfiguration?
     @State private var chosenKeys: [ShortcutCombination]?
     @State private var owners: [ShortcutOperationID] = []
     @State private var choosing = false
+    @State private var restoring = false
     @FocusState private var chooserFocused: Bool
 
     private var title: String { ShortcutText.name(operation) }
-    private var keys: [ShortcutCombination] { controller.snapshot.keys(for: operation) }
+    private var isGlobal: Bool { ShortcutOperation.operation(operation).isGlobal }
+    private var keys: [ShortcutCombination] {
+        controller.externalMenuKeys[operation].map { [$0] } ?? controller.snapshot.keys(for: operation)
+    }
+    private var status: String { controller.status(for: operation) }
+    private var hasInlineStatus: Bool {
+        status == String(localized: "Registered") || status == String(localized: "Managed in macOS")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ShortcutInfoRow(
-                name: title, keys: keys.map { controller.layout.display($0) },
-                spokenKeys: keys.map { controller.layout.spoken($0) })
-            ViewThatFits(in: .horizontal) {
-                HStack { controls }
-                VStack(alignment: .leading) { controls }
+            HStack(spacing: 8) {
+                Text(title).lineLimit(1)
+                    .help([title, scope].compactMap { $0 }.joined(separator: "\n"))
+                    .accessibilityHint(scope ?? "")
+                Spacer(minLength: 8)
+                if hasInlineStatus {
+                    Text(status).font(.caption).foregroundStyle(.secondary).fixedSize()
+                }
+                HStack(spacing: 6) { controls }
+                    .disabled(
+                        controller.loadError || controller.externalMenuKeys[operation] != nil
+                            || controller.menuAmbiguities.contains(operation))
             }
-            .disabled(controller.loadError)
             if let candidate = controller.snapshot.inactiveMigration.first(where: { $0.operation == operation })?
                 .candidate
             {
@@ -236,8 +262,10 @@ private struct GlobalShortcutRow: View {
                 )
                 .font(.caption).fixedSize(horizontal: false, vertical: true)
             }
-            Text(controller.status(for: operation)).font(.caption).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if !status.isEmpty && !hasInlineStatus && status != String(localized: "Unassigned") {
+                Text(status).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let error {
                 Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.updatesFrequently)
@@ -253,8 +281,10 @@ private struct GlobalShortcutRow: View {
                 .font(.headline)
                 Text(title).fixedSize(horizontal: false, vertical: true)
                 Text((pending ?? []).map { controller.layout.display($0) }.joined(separator: " / ")).monospaced()
-                Text("This shortcut works from other apps while Surimono is running. It never prints directly.")
-                    .fixedSize(horizontal: false, vertical: true)
+                if isGlobal {
+                    Text("This shortcut works from other apps while Surimono is running. It never prints directly.")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 ForEach(owners, id: \.self) { owner in
                     Button(String.localizedStringWithFormat(String(localized: "Keep for %@"), ShortcutText.name(owner)))
                     {
@@ -263,7 +293,7 @@ private struct GlobalShortcutRow: View {
                     }
                 }
                 Button(String.localizedStringWithFormat(String(localized: "Use for %@"), title)) {
-                    if let pending { apply(pending, takeConflicts: true) }
+                    if let pending { apply(restoring ? nil : pending, takeConflicts: true) }
                     pending = nil
                     chooserFocused = true
                 }
@@ -285,8 +315,10 @@ private struct GlobalShortcutRow: View {
             }
         ) {
             ShortcutKeyChooser(controller: controller, title: title) { value in
-                chosenKeys = value
-                choosing = false
+                do {
+                    chosenKeys = try value.map { isGlobal ? $0 : try controller.logicalKey($0) }
+                    choosing = false
+                } catch { self.error = ShortcutController.message(error) }
             }
         }
         .onChange(of: error) { _, value in
@@ -301,41 +333,64 @@ private struct GlobalShortcutRow: View {
     @ViewBuilder private var controls: some View {
         ShortcutRecorder(
             combo: nil,
+            displayTitle: keys.isEmpty
+                ? String(localized: "Unassigned")
+                : keys.map { controller.layout.display($0) }.joined(separator: " / "),
             label: String.localizedStringWithFormat(
-                String(localized: "%1$@. Scope: %2$@. Shortcut: %3$@."), title, String(localized: "Global"),
+                String(localized: "%1$@. Scope: %2$@. Shortcut: %3$@."), title,
+                ShortcutText.scope(ShortcutOperation.operation(operation).applicability),
                 keys.isEmpty
                     ? String(localized: "Unassigned")
                     : keys.map { controller.layout.spoken($0) }.joined(separator: ", ")),
             hotKeys: controller.hotKeys,
             refuse: { error = ShortcutText.reason(.invalidKey) }
         ) { combo in
-            do { propose(try combo.map { [try $0.recordedShortcutCombination()] } ?? []) } catch {
+            do { propose(try combo.map { [try recorded($0)] } ?? []) } catch {
                 self.error = ShortcutController.message(error)
             }
         }
         .fixedSize().frame(height: 28)
-        Button("Choose Keys…") {
-            controller.refreshEnvironment()
-            choosing = true
-        }.focused($chooserFocused).fixedSize()
-        Button("Clear Shortcut") { apply([]) }.fixedSize().disabled(keys.isEmpty && !hasInactive)
-        Button("Restore Default") { apply(nil) }.fixedSize().disabled(
-            controller.snapshot.overrides[operation] == nil && !hasInactive)
+        Menu {
+            Button("Choose Keys…") {
+                controller.refreshEnvironment()
+                choosing = true
+            }
+            Button("Clear Shortcut") { apply([]) }.disabled(keys.isEmpty && !hasInactive)
+            Button("Restore Default") { propose(ShortcutDefaults.keys(for: operation), restoring: true) }
+                .disabled(controller.snapshot.overrides[operation] == nil && !hasInactive)
+        } label: {
+            Image(systemName: "ellipsis").frame(width: 24, height: 24)
+        }
+        .menuStyle(.button).buttonStyle(.borderless).menuIndicator(.hidden)
+        .fixedSize().focused($chooserFocused)
+        .accessibilityLabel(String(localized: "More") + ": " + title)
+        .help(String(localized: "More") + ": " + title)
     }
 
     private var hasInactive: Bool { controller.snapshot.inactiveMigration.contains { $0.operation == operation } }
 
-    private func propose(_ keys: [ShortcutCombination]) {
+    private func recorded(_ combo: KeyCombo) throws -> ShortcutCombination {
+        let physical = try combo.recordedShortcutCombination()
+        if isGlobal { return physical }
+        return try controller.logicalKey(physical)
+    }
+
+    private func propose(_ keys: [ShortcutCombination], restoring: Bool = false) {
+        self.restoring = restoring
         error = nil
         reviewedSnapshot = controller.snapshot
         if keys.isEmpty {
-            apply([])
+            apply(restoring ? nil : [])
             return
         }
         do {
-            _ = try controller.proposal(operation, keys: keys)
+            _ = try controller.proposal(operation, keys: restoring ? nil : keys)
             owners = []
-            pending = keys
+            if isGlobal && !keys.isEmpty {
+                pending = keys
+            } else {
+                apply(restoring ? nil : keys)
+            }
         } catch ShortcutModelError.conflicts(let conflicts) {
             owners = Array(Set(conflicts.flatMap { $0.owners.map(\.operation) })).sorted { $0.rawValue < $1.rawValue }
             pending = keys

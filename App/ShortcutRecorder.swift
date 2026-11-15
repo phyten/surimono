@@ -3,7 +3,9 @@ import SurimonoCore
 import SwiftUI
 
 struct ShortcutRecorder: NSViewRepresentable {
+    @Environment(\.isEnabled) private var isEnabled
     let combo: KeyCombo?
+    var displayTitle: String? = nil
     let label: String
     let hotKeys: GlobalHotKeys
     let refuse: () -> Void
@@ -13,9 +15,17 @@ struct ShortcutRecorder: NSViewRepresentable {
     func updateNSView(_ button: RecorderButton, context: Context) {
         button.hotKeys = hotKeys
         button.combo = combo
+        button.displayTitle = displayTitle
+        button.isEnabled = isEnabled
+        if !isEnabled { button.finish() }
         button.change = change
         button.refuse = refuse
         button.setAccessibilityLabel(label)
+        button.setAccessibilityHelp(
+            String(localized: "Record Shortcut") + ". "
+                + String(localized: "Press a key combination. Escape cancels; Tab moves focus; Delete clears."))
+        button.toolTip = String(localized: "Record Shortcut")
+        button.font = displayTitle == nil ? .systemFont(ofSize: 13) : .monospacedSystemFont(ofSize: 13, weight: .medium)
         button.refresh()
     }
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: RecorderButton, context: Context) -> CGSize? {
@@ -65,6 +75,7 @@ struct ShortcutRecorder: NSViewRepresentable {
     final class RecorderButton: NSButton {
         var hotKeys: GlobalHotKeys?
         var combo: KeyCombo?
+        var displayTitle: String?
         var change: ((KeyCombo?) -> Void)?
         var refuse: (() -> Void)?
         private var recording = false
@@ -93,11 +104,12 @@ struct ShortcutRecorder: NSViewRepresentable {
         func refresh() {
             title =
                 recording
-                ? String(localized: "Type a shortcut") : combo?.display ?? String(localized: "Record Shortcut")
+                ? String(localized: "Type a shortcut")
+                : displayTitle ?? combo?.display ?? String(localized: "Record Shortcut")
             setAccessibilityValue(title)
         }
         @objc private func record() {
-            guard !recording, window?.makeFirstResponder(self) == true else { return }
+            guard isEnabled, !recording, window?.makeFirstResponder(self) == true else { return }
             recording = true
             hotKeys?.beginRecording()
             refresh()

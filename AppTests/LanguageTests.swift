@@ -6,6 +6,23 @@ import Testing
 
 @MainActor
 struct LanguageTests {
+    @Test("文言のカタログに同じキーが二度ない")
+    func catalogKeysAreUnique() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let text = try String(contentsOf: root.appending(path: "App/Localizable.xcstrings"), encoding: .utf8)
+        // Two branches can each add the same key, and a text merge keeps both; a JSON parser then silently keeps
+        // only the last one. Top-level entries sit at four spaces of indentation.
+        let entry = try Regex(#"(?m)^    ("(?:[^"\\]|\\.)*")\s*:\s*\{"#)
+        var seen = Set<Substring>()
+        var duplicates: [Substring] = []
+        for match in text.matches(of: entry) {
+            guard let key = match.output[1].substring else { continue }
+            if !seen.insert(key).inserted { duplicates.append(key) }
+        }
+        #expect(seen.count > 1000)
+        #expect(duplicates.isEmpty, "\(duplicates)")
+    }
+
     @Test("言語指定はAppleLanguagesに保存しシステムに戻すと削除する")
     func persistence() {
         let suite = TestDefaultsSuite()

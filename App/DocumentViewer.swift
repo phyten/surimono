@@ -203,8 +203,10 @@ struct WindowReader: NSViewRepresentable {
             super.init(frame: .zero)
         }
         required init?(coder: NSCoder) { nil }
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
+        // AppKit also calls this while an autorelease pool tears down a window, outside a Swift task. Keep the
+        // Objective-C entry nonisolated; all view and SwiftUI state access happens in the main-actor task below.
+        nonisolated override func viewDidMoveToWindow() {
+            // NSView's implementation is a no-op; do not call its actor-isolated entry during teardown.
             // SwiftUI may be updating its views right now (for example when a toolbar comes or goes); changing the
             // window from inside that update can crash it, so wait until the update is done.
             Task { @MainActor [weak self] in

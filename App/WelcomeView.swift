@@ -56,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// A window's settings are saved a moment after a change, and quitting does not close the windows first.
     func applicationWillTerminate(_ notification: Notification) {
         DistributedNotificationCenter.default().removeObserver(self)
+        ShortcutDispatcher.shared.stop()
         GlobalHotKeys.shared.stop()
         DocumentWindows.shared.flushPendingSettings()
     }
@@ -69,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self, selector: #selector(keyboardInputSourceChanged),
             name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
         DocumentEditMenu.startHiding()
+        ShortcutDispatcher.shared.start()
         #if DEBUG
             // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's
             // clipboard alone.
@@ -182,7 +184,7 @@ private struct WelcomeView: View {
             // The two ways in look alike: neither is a lesser link beside the other.
             HStack(spacing: 10) {
                 Button("Open…") { OpenRouter.shared.showOpenPanel() }
-                    .keyboardShortcut("o")
+
                 Button("Open from Clipboard") { ClipboardWindows.shared.open() }
             }
             .controlSize(.large)
