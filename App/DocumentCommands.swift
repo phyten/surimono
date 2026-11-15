@@ -5,26 +5,25 @@ struct DocumentCommands: Commands {
     let preferences: AppPreferences
     let library: UserLibrary
     private var model: DocumentViewModel? { DocumentWindows.shared.activeModel }
-    private func perform(_ operation: ShortcutOperationID) { ShortcutDispatcher.shared.perform(operation) }
-    private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
-    private var layoutCards: [PrintLayout] {
-        let cards = PrintLayout.presets(in: model?.trayPaperSeries ?? .a)
-        return model?.trayPaperSeries == .b ? Array(cards.prefix(5)) + [.a4Handout3] : cards
+    private func perform(_ operation: ShortcutOperationID) {
+        ShortcutDispatcher.shared.performFromMenu(operation, event: NSApp.currentEvent)
     }
+    private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
 
     /// Named as the binder's window is.
     private func title(of binder: RecentBinder) -> String {
         BinderModel.title(firstName: binder.firstName, count: binder.files.count, language: language)
     }
 
-    // Keep the original keys on newly assembled or unidentifiable items. The bridge applies accepted overrides
-    // synchronously on menu changes and before dispatch, including clearing a deliberately unassigned key.
+    // Keep the original keys on newly assembled or unidentifiable items. The bridge applies accepted overrides;
+    // the action also checks the current event so a stale SwiftUI key cannot bypass reassignment or the hold gate.
     var body: some Commands {
         // The standard Open… item stays: AppDelegate answers its action so that a multi-file
         // selection reaches OpenRouter, and Open Recent opens a single file.
         CommandGroup(replacing: .newItem) {
             Button("Open from Clipboard") { perform(.clipboardOpen) }
                 .keyboardShortcut("n")
+            Button("Open Clipboard on the Print Screen") { perform(.clipboardOpenPrintScreen) }
             Button("Streaming Preview") { perform(.appStreamingPreview) }
             // A binder has no file of its own, so the standard Open Recent cannot list it.
             if !preferences.recentBinders.isEmpty {
@@ -48,12 +47,12 @@ struct DocumentCommands: Commands {
         CommandGroup(replacing: .printItem) {
             // On the tray ⌘P prints right away, so the item loses its ellipsis there.
             Button(model?.mode == .print ? LocalizedStringKey("Print") : LocalizedStringKey("Print…")) {
-                model?.performPrintCommand()
+                perform(.documentPrint)
             }
             .keyboardShortcut("p")
-            Button("Print with System Dialog…") { model?.printDocument(quick: false) }
+            Button("Print with System Dialog…") { perform(.documentPrintSystem) }
                 .keyboardShortcut("p", modifiers: [.option, .command])
-            Button("Export as PDF…") { model?.exportPDF() }
+            Button("Export as PDF…") { perform(.documentExportPDF) }
                 .keyboardShortcut("e", modifiers: [.shift, .command])
         }
         // Like the print items, these stay enabled; the model does nothing where there is no paper to search.
@@ -128,19 +127,18 @@ struct DocumentCommands: Commands {
         }
         CommandMenu("Document") {
             Menu("Print Layout") {
-                // The shortcuts stay six and ask the model, whose cards can change before the menu next opens.
-                ForEach(Array(layoutCards.enumerated()), id: \.element.id) { index, layout in
-                    Button(layout.displayName(language: language)) { model?.chooseCard(at: index) }
-                        .keyboardShortcut(KeyEquivalent(Character(String(index + 1))))
-                }
-                Divider()
-                ForEach(PrintLayout.compactPresets(in: model?.trayPaperSeries ?? .a)) { layout in
-                    Button(layout.displayName(language: language)) { model?.chooseLayout(layout.id) }
+                ForEach(Array(ShortcutPrintLayouts.operations.enumerated()), id: \.element) { index, operation in
+                    if operation == .printLayoutTwoUpSmall { Divider() }
+                    if let layout = ShortcutPrintLayouts.layout(for: operation, series: model?.trayPaperSeries ?? .a) {
+                        Button(layout.displayName(language: language)) { perform(operation) }
+                            .keyboardShortcut(
+                                index < 6 ? KeyboardShortcut(KeyEquivalent(Character(String(index + 1)))) : nil)
+                    }
                 }
             }
             SettingSetMenu(preferences: preferences, library: library, model: { model })
             // The same panel in both modes: off the window's edge in the view mode, beside the sheets on the tray.
-            Button("Print Settings…") { model?.presentPrintSettings() }
+            Button("Print Settings…") { perform(.printSettings) }
             Button("Choose Style…") { perform(.styleChoose) }
             Button("Open as Binder") { perform(.documentOpenBinder) }
             Button("Add Documents…") { perform(.documentAdd) }

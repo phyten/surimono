@@ -261,55 +261,55 @@
         }
       }
     },
-    "Rows with controls can be changed. Editing the remaining shortcuts will come in a later version.": {
+    "Change or clear shortcuts here. Fixed keys and shortcuts managed in macOS cannot be changed here.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rows with controls can be changed. Editing the remaining shortcuts will come in a later version."
+            "value": "Change or clear shortcuts here. Fixed keys and shortcuts managed in macOS cannot be changed here."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "操作ボタンのある行は変更できます。残りのショートカットは今後のバージョンで編集に対応します。"
+            "value": "ここでショートカットを変更・解除できます。固定キーとmacOSで管理されているキーは変更できません。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "带有操作按钮的行可以修改。其余快捷键将在后续版本中支持编辑。"
+            "value": "可在此更改或清除快捷键。固定按键和由 macOS 管理的快捷键无法在此更改。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "有操作按鈕的列可以修改。其餘快速鍵將在後續版本中支援編輯。"
+            "value": "可在此更改或清除快速鍵。固定按鍵與由 macOS 管理的快速鍵無法在此更改。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "조작 버튼이 있는 행은 변경할 수 있습니다. 나머지 단축키 편집은 향후 버전에서 지원됩니다."
+            "value": "여기에서 단축키를 변경하거나 해제할 수 있습니다. 고정 키와 macOS에서 관리하는 단축키는 여기서 변경할 수 없습니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les lignes avec des boutons sont modifiables. Les autres raccourcis le seront dans une prochaine version."
+            "value": "Modifiez ou supprimez les raccourcis ici. Les touches fixes et les raccourcis gérés par macOS ne peuvent pas être modifiés ici."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zeilen mit Bedienelementen können geändert werden. Die übrigen Kurzbefehle folgen in einer späteren Version."
+            "value": "Hier können Sie Kurzbefehle ändern oder entfernen. Feste Tasten und von macOS verwaltete Kurzbefehle lassen sich hier nicht ändern."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Las filas con controles se pueden modificar. Los demás atajos se podrán editar en una versión posterior."
+            "value": "Aquí puedes cambiar o quitar atajos. Las teclas fijas y los atajos gestionados por macOS no se pueden cambiar aquí."
           }
         }
       }
@@ -60387,6 +60387,324 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guardar ajustes actuales"
+          }
+        }
+      }
+    },
+    "Assign Shortcut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign Shortcut"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカットを割り当てる"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分配快捷键"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指派快速鍵"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "단축키 할당"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attribuer un raccourci"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kurzbefehl zuweisen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asignar atajo"
+          }
+        }
+      }
+    },
+    "Assign Printing Shortcut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assign Printing Shortcut"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷用のキーとして割り当てる"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分配打印快捷键"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "指派列印快速鍵"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인쇄 단축키 할당"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attribuer le raccourci d’impression"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Druckkurzbefehl zuweisen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Asignar atajo de impresión"
+          }
+        }
+      }
+    },
+    "This key opens the system print dialog after preparing the print screen.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This key opens the system print dialog after preparing the print screen."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このキーは印刷画面の準備後にシステムの印刷ダイアログを開きます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此键会在准备好打印画面后打开系统打印对话框。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此按鍵會在準備好列印畫面後開啟系統列印對話框。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 키는 인쇄 화면을 준비한 후 시스템 인쇄 대화상자를 엽니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette touche ouvre la boîte de dialogue d’impression du système après la préparation de l’écran d’impression."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Taste öffnet nach der Vorbereitung der Druckansicht den Druckdialog des Systems."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta tecla abre el diálogo de impresión del sistema tras preparar la pantalla de impresión."
+          }
+        }
+      }
+    },
+    "This key prepares the print screen and opens the PDF save dialog.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This key prepares the print screen and opens the PDF save dialog."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このキーは印刷画面を準備し、PDFの保存ダイアログを開きます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此键会准备打印画面并打开 PDF 保存对话框。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此按鍵會準備列印畫面並開啟 PDF 儲存對話框。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 키는 인쇄 화면을 준비하고 PDF 저장 대화상자를 엽니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette touche prépare l’écran d’impression et ouvre la boîte de dialogue d’enregistrement PDF."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Taste bereitet die Druckansicht vor und öffnet den Dialog zum Speichern als PDF."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta tecla prepara la pantalla de impresión y abre el diálogo para guardar el PDF."
+          }
+        }
+      }
+    },
+    "On the print screen, this key sends the fronts to the selected printer and starts manual duplex printing.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the print screen, this key sends the fronts to the selected printer and starts manual duplex printing."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷画面でこのキーを押すと、選択したプリンターへ表面を送り、手動両面印刷を始めます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在打印画面中，此键会将正面发送到所选打印机，并开始手动双面打印。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在列印畫面中，此按鍵會將正面傳送至所選印表機，並開始手動雙面列印。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인쇄 화면에서 이 키를 누르면 선택한 프린터로 앞면을 보내고 수동 양면 인쇄를 시작합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur l’écran d’impression, cette touche envoie les rectos à l’imprimante sélectionnée et lance l’impression recto verso manuelle."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Druckansicht sendet diese Taste die Vorderseiten an den ausgewählten Drucker und startet den manuellen beidseitigen Druck."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En la pantalla de impresión, esta tecla envía los anversos a la impresora seleccionada e inicia la impresión manual a doble cara."
+          }
+        }
+      }
+    },
+    "On the print screen, this key sends a duplex test sheet to the selected printer.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the print screen, this key sends a duplex test sheet to the selected printer."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷画面でこのキーを押すと、選択したプリンターへ両面のテスト用紙を送ります。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在打印画面中，此键会向所选打印机发送一张双面测试页。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在列印畫面中，此按鍵會將一張雙面測試頁傳送至所選印表機。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인쇄 화면에서 이 키를 누르면 선택한 프린터로 양면 테스트 용지를 보냅니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur l’écran d’impression, cette touche envoie une feuille de test recto verso à l’imprimante sélectionnée."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Druckansicht sendet diese Taste ein beidseitiges Testblatt an den ausgewählten Drucker."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En la pantalla de impresión, esta tecla envía una hoja de prueba a doble cara a la impresora seleccionada."
           }
         }
       }

@@ -155,20 +155,20 @@ struct ShortcutControllerTests {
         #expect(backend.calls == ["register:38", "activate", "printScreen"])
     }
 
-    @Test("ローカルの既定キーは奪わずローカル操作の編集も拒否する")
+    @Test("印刷のキーをグローバルへ移譲しても、ローカルの印刷を復活させない")
     func localBoundary() throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let backend = Backend()
+        defer { backend.hotKeys.stop() }
         let controller = controller(backend)
         controller.start(preferences: AppPreferences(defaults: suite.defaults))
-        #expect(throws: ShortcutController.EditError.self) {
-            try controller.edit(
-                .globalClipboardOpen, keys: [.init(key: .macVirtualKey(35), modifiers: .command)], takeConflicts: true)
-        }
-        #expect(throws: ShortcutController.EditError.self) { try controller.edit(.documentPrint, keys: []) }
-        #expect(controller.snapshot.keys(for: .documentPrint) == [.init(key: .character("p"), modifiers: .command)])
-        #expect(backend.calls.isEmpty)
+        try controller.edit(
+            .globalClipboardOpen, keys: [.init(key: .macVirtualKey(35), modifiers: .command)], takeConflicts: true)
+        #expect(controller.snapshot.keys(for: .documentPrint).isEmpty)
+        try controller.edit(.documentPrint, keys: [])
+        #expect(controller.snapshot.keys(for: .documentPrint).isEmpty)
+        #expect(backend.calls == ["register:35"])
     }
 
     @Test("編集直前にOS予約を再取得し変更された予約を拒否する")

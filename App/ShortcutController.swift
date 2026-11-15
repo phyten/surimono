@@ -158,7 +158,7 @@ final class ShortcutController {
     }
 
     func isConnected(_ operation: ShortcutOperationID) -> Bool {
-        ShortcutOperation.operation(operation).isGlobal || ShortcutMenuBridge.operations.contains(operation)
+        ShortcutOperation.operation(operation).isGlobal || ShortcutDispatcher.operations.contains(operation)
             || ShortcutSurfaceKeys.operations.contains(operation)
     }
 

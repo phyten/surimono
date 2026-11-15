@@ -13,7 +13,7 @@ struct ShortcutSettingsView: View {
                 searchField
                 Section("In Surimono") {
                     Text(
-                        "Rows with controls can be changed. Editing the remaining shortcuts will come in a later version."
+                        "Change or clear shortcuts here. Fixed keys and shortcuts managed in macOS cannot be changed here."
                     )
                     .font(.caption).foregroundStyle(.secondary)
                 }
@@ -275,7 +275,8 @@ private struct EditableShortcutRow: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(
                     owners.isEmpty
-                        ? String(localized: "Assign Global Shortcut")
+                        ? (isGlobal
+                            ? String(localized: "Assign Global Shortcut") : String(localized: "Assign Shortcut"))
                         : String(localized: "Which operation keeps this key?")
                 )
                 .font(.headline)
@@ -285,6 +286,9 @@ private struct EditableShortcutRow: View {
                     Text("This shortcut works from other apps while Surimono is running. It never prints directly.")
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                if let warning = ShortcutText.outputWarning(operation) {
+                    Text(warning).fixedSize(horizontal: false, vertical: true)
+                }
                 ForEach(owners, id: \.self) { owner in
                     Button(String.localizedStringWithFormat(String(localized: "Keep for %@"), ShortcutText.name(owner)))
                     {
@@ -292,7 +296,11 @@ private struct EditableShortcutRow: View {
                         chooserFocused = true
                     }
                 }
-                Button(String.localizedStringWithFormat(String(localized: "Use for %@"), title)) {
+                Button(
+                    ShortcutOperation.operation(operation).safety == .printing
+                        ? String(localized: "Assign Printing Shortcut")
+                        : String.localizedStringWithFormat(String(localized: "Use for %@"), title)
+                ) {
                     if let pending { apply(restoring ? nil : pending, takeConflicts: true) }
                     pending = nil
                     chooserFocused = true
@@ -386,7 +394,7 @@ private struct EditableShortcutRow: View {
         do {
             _ = try controller.proposal(operation, keys: restoring ? nil : keys)
             owners = []
-            if isGlobal && !keys.isEmpty {
+            if isGlobal || ShortcutText.outputWarning(operation) != nil {
                 pending = keys
             } else {
                 apply(restoring ? nil : keys)

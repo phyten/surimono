@@ -7,13 +7,12 @@ import SwiftUI
 /// 「これにする」; the row below adds and takes out others.
 struct ThemeCompareView: View {
     @Bindable var model: DocumentViewModel
-    @State private var filterID = "featured"
     @State private var notice: String?
     @State private var noticeTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
-            CompareTopBar(model: model, onShuffle: shuffle).zIndex(1)
+            CompareTopBar(model: model, onShuffle: model.shuffleComparison).zIndex(1)
             stage
             tray.zIndex(1)
         }
@@ -91,8 +90,8 @@ struct ThemeCompareView: View {
                     HStack(spacing: 6) {
                         ForEach(filters, id: \.id) { filter in
                             ThemeGroupChip(
-                                title: filter.title, isSelected: filter.id == filterID,
-                                selectedText: PrintPalette.raised, action: { filterID = filter.id })
+                                title: filter.title, isSelected: filter.id == model.compareFilterID,
+                                selectedText: PrintPalette.raised, action: { model.compareFilterID = filter.id })
                         }
                     }
                     .padding(2)
@@ -100,12 +99,14 @@ struct ThemeCompareView: View {
             }
             FadingScrollRow {
                 HStack(alignment: .top, spacing: 12) {
-                    let themes = themes(for: filterID)
+                    let themes = themes(for: model.compareFilterID)
                     if themes.isEmpty {
-                        Text(filterID == "favorites" ? "Styles you star appear here." : "Nothing here yet.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(PrintPalette.ink2)
-                            .padding(.vertical, 30)
+                        Text(
+                            model.compareFilterID == "favorites" ? "Styles you star appear here." : "Nothing here yet."
+                        )
+                        .font(.system(size: 12))
+                        .foregroundStyle(PrintPalette.ink2)
+                        .padding(.vertical, 30)
                     }
                     ForEach(themes) { theme in
                         CompareTrayCell(model: model, theme: theme) { model.themeComparison?.toggle(theme.id) }
@@ -152,13 +153,6 @@ struct ThemeCompareView: View {
         }
     }
 
-    /// 「おまかせで並べ替える」: the current theme and three from the row's group, or from all if it is short.
-    private func shuffle() {
-        let group = themes(for: filterID).map(\.id)
-        let pool = group.count > 3 ? group : model.library.themes.filter(\.isBuiltIn).map(\.id)
-        var generator = SystemRandomNumberGenerator()
-        model.themeComparison?.shuffle(from: pool, using: &generator)
-    }
 }
 
 /// The stage's bar: back to the view mode, what is compared and 「おまかせ」. The current style is told by its tag on

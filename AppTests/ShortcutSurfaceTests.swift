@@ -250,7 +250,7 @@ struct ShortcutSurfaceTests {
         #expect(calls == [.textIncrease])
     }
 
-    @Test("文字サイズと拡大の両別名を全モードで同じ配送先へ渡し変更で旧キーを止める")
+    @Test("文字サイズと拡大の両別名を区別し、比較の拡大は配送せず変更で旧キーを止める")
     func zoomAliases() throws {
         let f = try ShortcutSurfaceFixture()
         defer { f.close() }
@@ -259,22 +259,28 @@ struct ShortcutSurfaceTests {
         for mode: ViewerMode in [.view, .print, .compare] {
             f.model.mode = mode
             for symbol in ["+", "="] {
+                calls = []
                 #expect(f.dispatcher.handle(f.event(symbol, flags: [.option, .command], code: 24)))
-                #expect(calls.last == .textIncrease)
+                #expect(calls == [.textIncrease], "mode: \(mode), text alias: \(symbol)")
+                calls = []
                 #expect(f.dispatcher.handle(f.event(symbol, flags: .command, code: 24)))
-                #expect(calls.last == .viewZoomIn)
+                #expect(calls == (mode == .compare ? [] : [.viewZoomIn]), "mode: \(mode), zoom alias: \(symbol)")
             }
         }
         for (operation, flags): (ShortcutOperationID, NSEvent.ModifierFlags) in [
             (.textIncrease, [.option, .command]), (.viewZoomIn, .command),
         ] {
             try f.controller.edit(operation, keys: [.init(key: .character("k"), modifiers: .command)])
-            calls = []
-            _ = f.dispatcher.handle(f.event("=", flags: flags, code: 24))
-            _ = f.dispatcher.handle(f.event("+", flags: flags, code: 24))
-            #expect(calls.isEmpty)
-            #expect(f.dispatcher.handle(f.event("k", flags: .command)))
-            #expect(calls == [operation])
+            for mode: ViewerMode in [.view, .print, .compare] {
+                f.model.mode = mode
+                calls = []
+                _ = f.dispatcher.handle(f.event("=", flags: flags, code: 24))
+                _ = f.dispatcher.handle(f.event("+", flags: flags, code: 24))
+                #expect(calls.isEmpty, "mode: \(mode), old aliases: \(operation)")
+                #expect(f.dispatcher.handle(f.event("k", flags: .command)))
+                let expected: [ShortcutOperationID] = mode == .compare && operation == .viewZoomIn ? [] : [operation]
+                #expect(calls == expected, "mode: \(mode), new key: \(operation)")
+            }
             try f.controller.edit(operation, keys: [])
         }
     }
@@ -294,26 +300,17 @@ struct ShortcutSurfaceTests {
         #expect(f.paper.zoom == before)
     }
 
-    @Test("印刷キーとレイアウトは情報表示のまま配送しない")
+    @Test("カタログの全操作は接続済みで、印刷の旧キーも明示して移譲できる")
     func printingBoundary() throws {
         let f = try ShortcutSurfaceFixture()
         defer { f.close() }
-        for op: ShortcutOperationID in [
-            .documentPrint, .documentPrintSystem, .documentExportPDF,
-            .printLayoutSingle, .printLayoutDuplex, .printFoldPreview,
-        ] {
-            #expect(!f.controller.isConnected(op))
-        }
-        for key in ["p", "1", "2", "3", "4", "5", "6"] {
-            #expect(!f.dispatcher.handle(f.event(key, flags: .command)))
-        }
-        #expect(!f.dispatcher.handle(f.event("p", flags: [.option, .command])))
+        for operation in ShortcutOperation.catalog { #expect(f.controller.isConnected(operation.id)) }
+        try f.controller.edit(
+            .readingNext, keys: [.init(key: .character("p"), modifiers: .command)], takeConflicts: true)
+        #expect(f.controller.snapshot.keys(for: .documentPrint).isEmpty)
         #expect(f.model.mode == .view)
-        #expect(throws: (any Error).self) {
-            try f.controller.edit(
-                .readingNext, keys: [.init(key: .character("p"), modifiers: .command)], takeConflicts: true)
-        }
     }
+
 }
 
 @MainActor

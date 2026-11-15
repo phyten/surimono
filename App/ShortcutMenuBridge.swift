@@ -16,35 +16,42 @@ final class ShortcutMenuBridge: NSObject {
         }
     }
 
-    static let entries: [Entry] = [
-        .init(.appOpen, 1, []), .init(.appSettings, 0, []),
-        .init(.clipboardOpen, 1, ["Open from Clipboard"]),
-        .init(.appStreamingPreview, 1, ["Streaming Preview"]),
-        .init(.documentSaveAsFile, 1, ["Save as File…"]),
-        .init(.documentFind, 2, ["Find…"]), .init(.documentFindNext, 2, ["Find Next"]),
-        .init(.documentFindPrevious, 2, ["Find Previous"]),
-        .init(.viewHtmlPresentation, 3, ["Show as Web", "Show as Paper"]),
-        .init(.viewIgnoreSlides, 3, ["Don't Treat as Slides"]),
-        .init(.viewSingle, 3, ["Single Page"]), .init(.viewSpread, 3, ["Spread"]),
-        .init(.documentGoToPage, 3, ["Go to Page…"]),
-        .init(.textIncrease, 3, ["Increase Text Size"]),
-        .init(.textDecrease, 3, ["Decrease Text Size"]), .init(.textReset, 3, ["Original Text Size"]),
-        .init(.viewZoomIn, 3, ["Zoom In"]),
-        .init(.viewZoomOut, 3, ["Zoom Out"]), .init(.viewZoomFit, 3, ["Fit to Window"]),
-        .init(.viewToolbarAlways, 3, ["Always Show Toolbar"]), .init(.viewFloatOnTop, 3, ["Float on Top"]),
-        .init(.appGettingStarted, 6, ["Getting Started with Surimono"]),
-        .init(.appKeyGuide, 6, ["Keys and Gestures"]), .init(.appCheckUpdates, 0, ["Check for Updates…"]),
-        .init(.documentOpenBinder, 4, ["Open as Binder"]), .init(.documentAdd, 4, ["Add Documents…"]),
-        .init(.styleChoose, 4, ["Choose Style…"]),
-        .init(.documentResetSettings, 4, ["Reset Document Settings"]), .init(.documentReload, 4, ["Reload"]),
-        .init(.settingSetSave, 4, ["Save Current Settings…"], parents: ["Setting Sets"]),
-        .init(.settingSetManage, 4, ["Manage Setting Sets…"], parents: ["Setting Sets"]),
-        .init(.listToggle, 4, ["Show List"], parents: ["Binder", "Images"]),
-        .init(.listMoveUp, 4, ["Move Document Up", "Move Image Up"], parents: ["Binder", "Images"]),
-        .init(.listMoveDown, 4, ["Move Document Down", "Move Image Down"], parents: ["Binder", "Images"]),
-        .init(.listSortByName, 4, ["Sort by Name"], parents: ["Binder", "Images"]),
-        .init(.binderOddPageStarts, 4, ["Start Each Document on an Odd Page"], parents: ["Binder", "Images"]),
-    ]
+    static let entries: [Entry] =
+        [
+            .init(.appOpen, 1, []), .init(.appSettings, 0, []),
+            .init(.clipboardOpen, 1, ["Open from Clipboard"]),
+            .init(.clipboardOpenPrintScreen, 1, ["Open Clipboard on the Print Screen"]),
+            .init(.documentPrint, 1, ["Print…", "Print"]),
+            .init(.documentPrintSystem, 1, ["Print with System Dialog…"]),
+            .init(.documentExportPDF, 1, ["Export as PDF…"]),
+            .init(.printSettings, 4, ["Print Settings…"]),
+            .init(.appStreamingPreview, 1, ["Streaming Preview"]),
+            .init(.documentSaveAsFile, 1, ["Save as File…"]),
+            .init(.documentFind, 2, ["Find…"]), .init(.documentFindNext, 2, ["Find Next"]),
+            .init(.documentFindPrevious, 2, ["Find Previous"]),
+            .init(.viewHtmlPresentation, 3, ["Show as Web", "Show as Paper"]),
+            .init(.viewIgnoreSlides, 3, ["Don't Treat as Slides"]),
+            .init(.viewSingle, 3, ["Single Page"]), .init(.viewSpread, 3, ["Spread"]),
+            .init(.documentGoToPage, 3, ["Go to Page…"]),
+            .init(.textIncrease, 3, ["Increase Text Size"]),
+            .init(.textDecrease, 3, ["Decrease Text Size"]), .init(.textReset, 3, ["Original Text Size"]),
+            .init(.viewZoomIn, 3, ["Zoom In"]),
+            .init(.viewZoomOut, 3, ["Zoom Out"]), .init(.viewZoomFit, 3, ["Fit to Window"]),
+            .init(.viewToolbarAlways, 3, ["Always Show Toolbar"]), .init(.viewFloatOnTop, 3, ["Float on Top"]),
+            .init(.appGettingStarted, 6, ["Getting Started with Surimono"]),
+            .init(.appKeyGuide, 6, ["Keys and Gestures"]), .init(.appCheckUpdates, 0, ["Check for Updates…"]),
+            .init(.documentOpenBinder, 4, ["Open as Binder"]), .init(.documentAdd, 4, ["Add Documents…"]),
+            .init(.styleChoose, 4, ["Choose Style…"]),
+            .init(.documentResetSettings, 4, ["Reset Document Settings"]), .init(.documentReload, 4, ["Reload"]),
+            .init(.settingSetSave, 4, ["Save Current Settings…"], parents: ["Setting Sets"]),
+            .init(.settingSetManage, 4, ["Manage Setting Sets…"], parents: ["Setting Sets"]),
+            .init(.listToggle, 4, ["Show List"], parents: ["Binder", "Images"]),
+            .init(.listMoveUp, 4, ["Move Document Up", "Move Image Up"], parents: ["Binder", "Images"]),
+            .init(.listMoveDown, 4, ["Move Document Down", "Move Image Down"], parents: ["Binder", "Images"]),
+            .init(.listSortByName, 4, ["Sort by Name"], parents: ["Binder", "Images"]),
+            .init(.binderOddPageStarts, 4, ["Start Each Document on an Odd Page"], parents: ["Binder", "Images"]),
+        ]
+        + ShortcutPrintLayouts.operations.map { Entry($0, 4, [], parents: ["Print Layout"]) }
     static let operations = Set(entries.map(\.operation))
     static func identifier(_ operation: ShortcutOperationID) -> NSUserInterfaceItemIdentifier {
         .init("surimono.shortcut." + operation.rawValue)
@@ -152,7 +159,14 @@ final class ShortcutMenuBridge: NSObject {
                 guard parents.count == 1, let submenu = parents.first?.submenu else { continue }
                 parent = submenu
             }
+            // The layout submenu has eight fixed semantic slots, with localized, series-dependent titles.
+            // Require the full shape before assigning identities; titles and layout IDs are never persisted as keys.
+            let layouts = parent.items.filter { !$0.isSeparatorItem }
+            let layoutIndex = ShortcutPrintLayouts.operations.firstIndex(of: entry.operation)
             let matches = parent.items.filter { item in
+                if let layoutIndex {
+                    return layouts.count == 8 && layouts[layoutIndex] === item
+                }
                 if item.identifier == Self.identifier(entry.operation) { return true }
                 if entry.operation == .appOpen { return item.action == NSSelectorFromString("openDocument:") }
                 if entry.operation == .appSettings {
@@ -187,7 +201,17 @@ final class ShortcutMenuBridge: NSObject {
         }
         items = found
         let current = model()
+        for operation in ShortcutPrintLayouts.operations {
+            if let item = items[operation],
+                let layout = ShortcutPrintLayouts.layout(for: operation, series: current?.trayPaperSeries ?? .a)
+            {
+                let title = layout.displayName(
+                    language: current?.language ?? Bundle.main.preferredLocalizations.first ?? "en")
+                if item.title != title { item.title = title }
+            }
+        }
         let titles: [ShortcutOperationID: String] = [
+            .documentPrint: current?.mode == .print ? "Print" : "Print…",
             .viewHtmlPresentation: current?.htmlPresentation == .paper ? "Show as Web" : "Show as Paper",
             .listMoveUp: current?.binder == nil ? "Move Image Up" : "Move Document Up",
             .listMoveDown: current?.binder == nil ? "Move Image Down" : "Move Document Down",

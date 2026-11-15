@@ -686,7 +686,7 @@ final class DocumentViewModel {
         shownPaperSeries = series
     }
 
-    /// The compact alternatives have no shortcut, so the six existing positions stay stable.
+    /// The six default card shortcuts keep their positions; the compact alternatives start unassigned.
     func chooseCard(at index: Int) {
         let cards = PrintLayout.presets(in: trayPaperSeries)
         let choice =
@@ -1583,6 +1583,8 @@ final class DocumentViewModel {
         return size
     }
 
+    var compareFilterID = "featured"
+
     func enterCompareMode() {
         guard mode == .view, usesPrintTheme else { return }
         pendingPrintIssue = nil
@@ -1599,6 +1601,7 @@ final class DocumentViewModel {
             themeComparison = ThemeComparison(
                 current: themeID, suggestions: (themeComparison?.candidates.reversed() ?? []) + featured)
         }
+        compareFilterID = "featured"
         rememberStageBandRoom()
         mode = .compare
         guard let window else { return }
