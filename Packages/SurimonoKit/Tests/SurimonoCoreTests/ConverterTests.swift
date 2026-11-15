@@ -109,16 +109,16 @@ struct ConverterTests {
     @Test("空行で区切ったタスクリストでは、チェックボックスを最初の段落の中に置く")
     func looseTaskListPutsTheCheckboxInsideTheFirstParagraph() {
         let body = MarkdownConverter.convert("- [ ] 一\n\n  続き\n- [x] 二").body
-        #expect(body.contains("<li class=\"task-list-item\"><p><input type=\"checkbox\" disabled> 一</p>"))
+        #expect(body.contains("<li class=\"task-list-item\"><p><input type=\"checkbox\" disabled>一</p>"))
         #expect(body.contains("<p>続き</p>"))
-        #expect(body.contains("<li class=\"task-list-item\"><p><input type=\"checkbox\" disabled checked> 二</p>"))
+        #expect(body.contains("<li class=\"task-list-item\"><p><input type=\"checkbox\" disabled checked>二</p>"))
     }
 
     @Test("チェックボックス付きの項目は、チェックボックスと文を同じ行に置く")
     func taskListItemsKeepTheCheckboxBesideTheText() {
         let body = MarkdownConverter.convert("- [ ] まだ\n- [x] 済み\n- ふつう").body
-        #expect(body.contains("<li class=\"task-list-item\"><input type=\"checkbox\" disabled> まだ</li>"))
-        #expect(body.contains("<li class=\"task-list-item\"><input type=\"checkbox\" disabled checked> 済み</li>"))
+        #expect(body.contains("<li class=\"task-list-item\"><input type=\"checkbox\" disabled>まだ</li>"))
+        #expect(body.contains("<li class=\"task-list-item\"><input type=\"checkbox\" disabled checked>済み</li>"))
         #expect(body.contains("<li>ふつう</li>"))
     }
 

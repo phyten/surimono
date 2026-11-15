@@ -395,9 +395,11 @@ public enum MarkdownConverter {
             guard let item = child as? ListItem else {
                 return render(child, context, autolinks: autolinks)
             }
+            // No space follows the box: the themes hang it in the margin with its own gap, and a space would push only
+            // the first line past the edge its wrapped lines start at.
             let checkbox =
                 item.checkbox.map {
-                    "<input type=\"checkbox\" disabled" + ($0 == .checked ? " checked" : "") + "> "
+                    "<input type=\"checkbox\" disabled" + ($0 == .checked ? " checked" : "") + ">"
                 } ?? ""
             var leadsWithCheckbox = !checkbox.isEmpty
             let body = item.children.map { block -> String in
