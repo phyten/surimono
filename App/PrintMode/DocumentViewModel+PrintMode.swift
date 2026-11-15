@@ -8,9 +8,12 @@ extension DocumentViewModel {
     /// chosen on it. The system dialog stays one step away (⌥⌘P).
     var printCommand: PrintCommand { mode == .print ? .printNow : .enterPrintMode }
 
-    var canPerformPrintCommand: Bool { mode != .print || canOutput }
+    var canPerformPrintCommand: Bool {
+        manualDuplexSession == nil && (mode != .print || canStartPrint)
+    }
 
     func performPrintCommand() {
+        guard manualDuplexSession == nil else { return }
         switch printCommand {
         case .enterPrintMode: enterPrintMode()
         case .printNow: printDocument(quick: true)

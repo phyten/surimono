@@ -104,6 +104,7 @@ struct DocumentContent: View {
         .sheet(item: $model.duplexTestResult) { test in
             DuplexTestSheet(model: model, test: test)
         }
+        .modifier(ManualDuplexPresentation(model: model))
         .modifier(DocumentContentChanges(model: model))
         .modifier(DocumentWindowChanges(model: model))
     }

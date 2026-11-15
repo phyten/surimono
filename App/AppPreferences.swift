@@ -163,6 +163,12 @@ final class AppPreferences {
         printerProfiles[name] = profile
     }
 
+    func setManualDuplexCorrection(_ correction: ManualDuplexCorrection, for name: String, duplex: DuplexMode) {
+        var profile = printerProfile(for: name)
+        profile.setManualCorrection(correction, for: duplex)
+        printerProfiles[name] = profile
+    }
+
     func setPrinterPageOrder(_ order: PrintPageOrder, for name: String) {
         var profile = printerProfile(for: name)
         profile.pageOrder = order

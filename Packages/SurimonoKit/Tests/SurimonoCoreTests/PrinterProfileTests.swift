@@ -46,4 +46,38 @@ struct PrinterProfileTests {
         #expect(!String(decoding: json, as: UTF8.self).contains("rotatesBackSides"))
         #expect(try JSONDecoder().decode(DocumentSettings.self, from: json) == decoded)
     }
+    @Test("手動両面の設定がない旧記録は自動補正を引き継がず既定値で読む")
+    func legacyManualDefaults() throws {
+        let profile = try JSONDecoder().decode(
+            PrinterProfile.self, from: Data(#"{"rotatesBackSides":{"longEdge":true}}"#.utf8))
+        #expect(profile.manualCorrection(for: .longEdge) == ManualDuplexCorrection())
+        #expect(profile.rotation(for: .longEdge, default: false))
+    }
+
+    @Test("壊れた手動補正が自動両面と別のとじ方の補正を消さない")
+    func damagedManualCorrection() throws {
+        let data = Data(
+            #"{"rotatesBackSides":{"longEdge":true},"manualDuplex":{"longEdge":{"reversesBackOrder":"bad","rotatesBackSides":true},"shortEdge":42},"pageOrder":"firstSheetFirst"}"#
+                .utf8)
+        let profile = try JSONDecoder().decode(PrinterProfile.self, from: data)
+        #expect(profile.rotation(for: .longEdge, default: false))
+        #expect(profile.manualCorrection(for: .longEdge) == ManualDuplexCorrection(rotatesBackSides: true))
+        #expect(profile.manualCorrection(for: .shortEdge) == ManualDuplexCorrection())
+        #expect(profile.pageOrder == .firstSheetFirst)
+        #expect(try JSONDecoder().decode(PrinterProfile.self, from: JSONEncoder().encode(profile)) == profile)
+    }
+
+    @Test("手動両面の補正をとじ方ごとに更新し片面には保存しない")
+    func manualBindings() throws {
+        var profile = PrinterProfile(rotatesBackSides: [.shortEdge: true])
+        profile.setManualCorrection(.init(reversesBackOrder: true), for: .longEdge)
+        profile.setManualCorrection(.init(rotatesBackSides: true), for: .shortEdge)
+        profile.setManualCorrection(.init(reversesBackOrder: true), for: .none)
+        #expect(profile.manualCorrection(for: .longEdge) == .init(reversesBackOrder: true))
+        #expect(profile.manualCorrection(for: .shortEdge) == .init(rotatesBackSides: true))
+        #expect(profile.manualCorrection(for: .none) == .init())
+        #expect(profile.rotatesBackSides == [.shortEdge: true])
+        #expect(try JSONDecoder().decode(PrinterProfile.self, from: JSONEncoder().encode(profile)) == profile)
+    }
+
 }

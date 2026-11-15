@@ -45,7 +45,7 @@ struct PrintPressBar: View {
             .padding(.bottom, 12)
         }
         .buttonStyle(SealButtonStyle())
-        .disabled(!model.canOutput)
+        .disabled(!model.canStartPrint)
         .help(Text(verbatim: printHelp))
         .accessibilityLabel(Text(verbatim: printAccessibilityLabel))
     }
@@ -297,12 +297,14 @@ private struct PrinterPicker: View {
                 .pickerStyle(.inline)
             }
             Divider()
+            Button("Print Both Sides Manually…") { model.printDocument(intent: .manualDuplex) }
+                .disabled(!model.canPrintManualDuplex)
             Button("Duplex Test Print…") { model.printDuplexTest() }
                 .disabled(!model.canPrintDuplexTest)
             if model.layout.duplex == .none { Text("Choose a duplex layout to test back-side orientation.") }
             Divider()
             Button("Print with System Dialog…") { model.printDocument(quick: false) }
-                .disabled(!model.canOutput)
+                .disabled(!model.canStartPrint)
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: "printer").font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)

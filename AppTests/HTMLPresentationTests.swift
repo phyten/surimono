@@ -301,6 +301,7 @@ struct WebCaptureTests {
         switch output {
         case .exportPDF: model.exportPDF()
         case .print(let quick): model.printDocument(quick: quick)
+        case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }
         try await waitUntil { fixture.snapshots.requestCount == 1 }
         #expect(model.outputAfterReview == output)
@@ -364,6 +365,7 @@ struct WebCaptureTests {
         switch output {
         case .exportPDF: model.exportPDF()
         case .print(let quick): model.printDocument(quick: quick)
+        case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }
         #expect(model.outputAfterReview == output)
         #expect(outputs.isEmpty)

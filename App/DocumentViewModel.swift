@@ -258,9 +258,15 @@ final class DocumentViewModel {
     @ObservationIgnored var printSubmit: ((RenderResult, PrintRequest, PrintPageOrder) -> Void)?
     private struct PendingPrint {
         var request: PrintRequest
-        let quick: Bool
+        let intent: PrintIntent
     }
     private var pendingPrint: PendingPrint?
+    var manualDuplexSession: ManualDuplexSession?
+    @ObservationIgnored var manualDuplexTask: Task<Void, Never>?
+    @ObservationIgnored var manualDuplexSubmit:
+        ((ManualDuplexSubmission, @escaping (ManualDuplexSubmissionResult) -> Void) -> Void)?
+    /// Replaces saving the manual corrections for every session this window starts, so a snapshot never writes them.
+    @ObservationIgnored var manualDuplexSaveCorrection: ((ManualDuplexCorrection) -> Void)?
     var duplexTestResult: DuplexTestResult?
     /// Replaces submission in tests so calibration never sends a physical print job.
     @ObservationIgnored var duplexTestSubmit:
@@ -369,7 +375,7 @@ final class DocumentViewModel {
     @ObservationIgnored private var defaultViewOptions: ViewOptions?
     /// The guess shown before the pages are known; a different value then can only come from the user.
     @ObservationIgnored private let initialViewOptions: ViewOptions
-    private let renderer: DocumentRenderer
+    let renderer: DocumentRenderer
     private var renderTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var watcher: FileWatcher?
@@ -926,6 +932,7 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        cancelManualDuplex()
         if let dayObserver { NotificationCenter.default.removeObserver(dayObserver) }
         dayObserver = nil
         furnitureTask?.cancel()
@@ -2081,6 +2088,7 @@ final class DocumentViewModel {
         defer { isRunningCapturedOutput = false }
         switch output {
         case .print(let quick): printDocument(quick: quick)
+        case .manualDuplex: printDocument(intent: .manualDuplex)
         case .exportPDF: exportPDF()
         }
     }
@@ -2967,6 +2975,7 @@ final class DocumentViewModel {
 
     enum Output: Equatable {
         case print(quick: Bool)
+        case manualDuplex
         case exportPDF
     }
 
@@ -3051,7 +3060,7 @@ final class DocumentViewModel {
     }
 
     var canPrintDuplexTest: Bool {
-        canOutput && printerLayout.sentDuplex != .none && pendingPrint == nil && duplexTestResult == nil
+        canStartPrint && printerLayout.sentDuplex != .none
     }
 
     func answerDuplexTest(rotatesBackSides: Bool?) {
@@ -3168,18 +3177,25 @@ final class DocumentViewModel {
     /// Prints the sheets: right away to the selected printer when `quick`, otherwise through the system dialog,
     /// which starts on that printer.
     func printDocument(quick: Bool = false) {
-        guard pendingPrint == nil else { return }
-        guard !deferUntilPrintMode(.print(quick: quick)),
-            !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick)),
-            !deferUntilDateIsCurrent(.print(quick: quick))
-        else {
-            return
-        }
+        printDocument(intent: quick ? .quick : .systemDialog)
+    }
+
+    var canStartPrint: Bool {
+        canOutput && pendingPrint == nil && manualDuplexSession == nil && duplexTestResult == nil
+    }
+
+    func printDocument(intent: PrintIntent) {
+        guard pendingPrint == nil, manualDuplexSession == nil, duplexTestResult == nil, !isPrinting else { return }
+        let output: Output = intent == .manualDuplex ? .manualDuplex : .print(quick: intent == .quick)
+        guard !deferUntilPrintMode(output), !deferUntilWebIsCaptured(output), !deferUntilReviewEnds(output),
+            !deferUntilDateIsCurrent(output)
+        else { return }
         guard canOutput else { return }
-        // Known before the sheets are: an output that waits for them is already one through the dialog.
-        let quick = quick && issue(sending: printerLayout, to: selectedPrinterName) == nil
+        let knownIssue = issue(sending: printerLayout, to: selectedPrinterName)
+        let intent = knownIssue != nil && knownIssue != .duplexNotAvailable ? PrintIntent.systemDialog : intent
         pendingPrint = PendingPrint(
-            request: PrintRequest(printerName: selectedPrinterName, showsPanel: !quick), quick: quick)
+            request: PrintRequest(printerName: selectedPrinterName, showsPanel: intent == .systemDialog), intent: intent
+        )
         resumePendingPrint()
     }
 
@@ -3191,8 +3207,12 @@ final class DocumentViewModel {
         }
         refreshPrinters()
         // Once a destination change required the panel, later refreshes must not turn the job into a quick print.
-        pending.request = printRequest(
-            quick: !pending.request.showsPanel, shown: pending.request.printerName, layout: printerLayout)
+        let destination = printers.request(
+            quick: !pending.request.showsPanel, shown: pending.request.printerName, remembered: preferences.printerName)
+        let route = PrintRoute.resolve(
+            intent: pending.intent, request: destination, layout: printerLayout,
+            issue: issue(sending: printerLayout, to: destination.printerName))
+        pending.request = route.request
         // The system dialog starts with the same number, where it can still be changed.
         pending.request.copies = copies
         pendingPrint = pending
@@ -3207,14 +3227,42 @@ final class DocumentViewModel {
         let request = pending.request
         let pageOrder = printPageOrder
         pendingPrint = nil
+        sendPrint(
+            result, route: route, request: request, prepared: self.result, pageOrder: pageOrder,
+            intent: pending.intent)
+    }
+
+    /// The last step of a print. The manual route never falls through to an ordinary submission: that would send the
+    /// job to a printer without duplex as automatic duplex, so without the preparation its passes come from, nothing
+    /// is sent.
+    func sendPrint(
+        _ result: RenderResult, route: PrintRoute, request: PrintRequest, prepared: PreparedRender?,
+        pageOrder: PrintPageOrder, intent: PrintIntent
+    ) {
+        if case .manualDuplex = route {
+            guard let prepared else {
+                outputError = String(localized: "The print job could not be created.")
+                return
+            }
+            startManualDuplex(prepared: prepared, request: request, pageOrder: pageOrder)
+            return
+        }
+        submitDocument(result, request: request, pageOrder: pageOrder, output: .print(quick: intent == .quick))
+    }
+
+    func submitDocument(
+        _ result: RenderResult, request: PrintRequest, pageOrder: PrintPageOrder, output: Output? = nil,
+        jobTitle: String? = nil
+    ) {
         if let printSubmit { return printSubmit(result, request, pageOrder) }
-        if let outputOverride { return outputOverride(.print(quick: pending.quick), result) }
+        if let outputOverride { return outputOverride(output ?? .print(quick: !request.showsPanel), result) }
         guard let window else { return }
         outputError = nil
         let destination = request.printerName.flatMap(NSPrinter.init(name:))
         // Without a printer the system dialog still offers saving a PDF or adding a printer.
         let quick = !request.showsPanel && destination != nil
-        guard let operation = makePrintOperation(for: result, request: request, pageOrder: pageOrder)
+        guard
+            let operation = makePrintOperation(for: result, request: request, pageOrder: pageOrder, jobTitle: jobTitle)
         else {
             outputError = String(localized: "The print job could not be created.")
             return
@@ -3245,13 +3293,15 @@ final class DocumentViewModel {
     }
 
     /// Made apart from running it, so that what would be sent can be read without a printer.
-    func makePrintOperation(for result: RenderResult, request: PrintRequest, pageOrder: PrintPageOrder)
+    func makePrintOperation(
+        for result: RenderResult, request: PrintRequest, pageOrder: PrintPageOrder, jobTitle: String? = nil
+    )
         -> NSPrintOperation?
     {
         let destination = request.printerName.flatMap(NSPrinter.init(name:))
         return PrintJobFactory().printOperation(
             for: result.sheetDocument, layout: result.layout, showsPrintPanel: request.showsPanel || destination == nil,
-            printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: printJobTitle)
+            printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: jobTitle ?? printJobTitle)
     }
 
     func exportPDF() {

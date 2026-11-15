@@ -12,10 +12,8 @@ extension DocumentViewModel {
         printer.flatMap { printerCapabilities[$0] }?.issue(for: layout)
     }
 
-    /// How a job of `layout` goes out: straight to the printer the tray showed, or through the system dialog. This is
-    /// the one place that decides it, for the document and for the duplex test alike, from the printer the job
-    /// really goes to and the layout really sent: a layout that printer cannot do is never sent silently, since the
-    /// dialog lets the reader look first.
+    /// Automatic calibration still needs a genuine duplex job, so every known issue keeps its dialog fallback.
+    /// Document printing uses PrintRoute instead, where missing duplex alone can be handled manually.
     func printRequest(quick: Bool, shown: String?, layout: PrintLayout) -> PrintRequest {
         var request = printers.request(quick: quick, shown: shown, remembered: preferences.printerName)
         if issue(sending: layout, to: request.printerName) != nil { request.showsPanel = true }
@@ -46,7 +44,7 @@ extension PrintModeText {
     static func issueBadge(_ issue: PrinterIssue, language: String) -> String {
         switch issue {
         case .paperNotAccepted(let paper): format("No %@", language: language, paper.shortName)
-        case .duplexNotAvailable: string("No 2-Sided", language: language)
+        case .duplexNotAvailable: string("Manual Duplex", language: language)
         }
     }
 
@@ -60,7 +58,11 @@ extension PrintModeText {
 
     /// Under the summary: what is wrong, and what Print does about it.
     static func issueLine(_ issue: PrinterIssue, language: String) -> String {
-        format(
+        // The full sentence does not fit the two lines under the summary at the tray's narrowest; it is the help.
+        if issue == .duplexNotAvailable {
+            return string("No automatic 2-sided printing. Print sends the fronts, then the backs.", language: language)
+        }
+        return format(
             "%@. Print opens the system print dialog.", language: language, issueSentence(issue, language: language))
     }
 
@@ -76,7 +78,12 @@ extension PrintModeText {
     }
 
     static func issuePrintHelp(_ issue: PrinterIssue, language: String) -> String {
-        format(
+        if issue == .duplexNotAvailable {
+            return string(
+                "This printer cannot print both sides automatically. Print sends the fronts first, then the backs after you reload the paper.",
+                language: language)
+        }
+        return format(
             "%@, so Print opens the system print dialog (⌘P)", language: language,
             issueSentence(issue, language: language))
     }
@@ -135,7 +142,10 @@ struct PrinterIssueLine: View {
                 .foregroundStyle(PrintPalette.ai)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-                .help(Text(verbatim: line))
+                .help(
+                    Text(
+                        verbatim: issue == .duplexNotAvailable
+                            ? PrintModeText.issuePrintHelp(issue, language: model.language) : line))
         }
     }
 }

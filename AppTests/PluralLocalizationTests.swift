@@ -41,6 +41,16 @@ struct PluralLocalizationTests {
             String(format: template, locale: Locale(identifier: "fr"), 2, "txt") == "2 fichiers non image exclus (txt)")
     }
 
+    @Test("手動両面の枚数は物理用紙の単複を選びプリンター名を保つ")
+    func manualDuplexCounts() {
+        let key = "Fronts sent: %lld sheets. (Printer: %@)"
+        #expect(PrintModeText.format(key, language: "en", 1, "A") == "Fronts sent: 1 sheet. (Printer: A)")
+        #expect(PrintModeText.format(key, language: "en", 3, "A") == "Fronts sent: 3 sheets. (Printer: A)")
+        #expect(PrintModeText.format(key, language: "ja", 3, "A") == "表を 3 枚送りました。（プリンター：A）")
+        #expect(PrintModeText.format(key, language: "fr", 1, "A") == "Rectos envoyés : 1 feuille. (Imprimante : A)")
+        #expect(PrintModeText.format(key, language: "fr", 3, "A") == "Rectos envoyés : 3 feuilles. (Imprimante : A)")
+    }
+
     private func summary(pages: Int, layout: PrintLayout, language: String) -> String {
         DocumentViewModel.summaryText(
             PrintSummary(plan: Imposition.plan(pageCount: pages, layout: layout)),
