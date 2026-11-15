@@ -106,6 +106,13 @@ struct ShortcutMenuBridgeTests {
                 charactersIgnoringModifiers: key, isARepeat: repeatKey, keyCode: code)!
         }
 
+        /// Item changes are reconciled on the next turn of the main queue, after AppKit's notification has returned.
+        func afterMenuNotifications() async {
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.async { continuation.resume() }
+            }
+        }
+
         func close() {
             dispatcher.stop()
             activeModel?.stop()
@@ -160,7 +167,7 @@ struct ShortcutMenuBridgeTests {
     }
 
     @Test("メニュー追跡と項目の追加変更とキー窓とアクティブ化で再帰せず再同期する")
-    func notifications() throws {
+    func notifications() async throws {
         let fixture = Fixture()
         defer { fixture.close() }
         fixture.bridge.start()
@@ -178,9 +185,31 @@ struct ShortcutMenuBridgeTests {
         parent.removeAllItems()
         let item = NSMenuItem(title: "test:Keys and Gestures", action: nil, keyEquivalent: "")
         parent.addItem(item)
+        await fixture.afterMenuNotifications()
         #expect(item.keyEquivalent == "k")
         item.keyEquivalent = "z"
+        await fixture.afterMenuNotifications()
         #expect(item.keyEquivalent == "k")
+    }
+
+    @Test("項目の変更通知の中ではキーを書き戻さず、通知が終わってから再同期する")
+    func deferredItemChanges() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        fixture.bridge.start()
+        try fixture.controller.edit(.appKeyGuide, keys: [.init(key: .character("k"), modifiers: .command)])
+        let item = try #require(fixture.bridge.items[.appKeyGuide])
+        // AppKit changes key equivalents while it holds a lock (it did so while filling the Services menu).
+        // Writing the key back inside that notification deadlocked the main thread.
+        item.keyEquivalent = "z"
+        #expect(item.keyEquivalent == "z")
+        await fixture.afterMenuNotifications()
+        #expect(item.keyEquivalent == "k")
+        // A key event does not wait for the deferred pass: the dispatcher reconciles before it decides.
+        item.keyEquivalent = "z"
+        #expect(fixture.dispatcher.handle(fixture.event("k")))
+        #expect(item.keyEquivalent == "k")
+        #expect(fixture.calls == [.appKeyGuide])
     }
 
     @Test("窓のない起動後に完成したメニューを取り付けてもアプリ更新で保存済みキーを反映する")

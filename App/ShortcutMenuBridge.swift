@@ -129,6 +129,14 @@ final class ShortcutMenuBridge: NSObject {
             var root = changedMenu
             while let parent = root.supermenu { root = parent }
             guard root === menu() else { return }
+            // AppKit posts item changes while it holds its key-equivalent lock, for example while it fills the
+            // Services menu. Writing a key equivalent from inside that notification takes the same lock again and
+            // deadlocks the main thread, so item changes are reconciled after the notification has returned. Key
+            // events reconcile first on their own, so no stale key can fire in between.
+            if notification.name != NSMenu.didBeginTrackingNotification {
+                reconcileAfterMenuAssembly()
+                return
+            }
         }
         reconcile()
     }
