@@ -182,6 +182,7 @@ extension DocumentViewModel {
     /// A drag came over the window. Returns whether dropping would do something.
     func dragEntered(_ urls: [URL], at point: CGPoint) -> Bool {
         let plan = DropPlan(urls: urls, receiver: dropReceiver)
+        drop.hasList = binder != nil || imageBundle != nil
         drop.begin(plan, rows: binder?.urls ?? imageBundle?.urls ?? [], at: point)
         guard case .refuse = plan.choice else { return true }
         flashList(plan.alreadyIn)

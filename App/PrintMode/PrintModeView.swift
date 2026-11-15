@@ -51,8 +51,7 @@ struct PrintModeView: View {
     private var stage: some View {
         ZStack {
             PrintPalette.stage
-            if model.hasCurrentPrintPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument
-            {
+            if model.showsTrayPreview, let tray = model.printTray, let document = model.printResult?.sheetDocument {
                 PrintTrayView(
                     model: model, tray: tray, document: document, showsFold: $model.showsFold, memory: trayMemory)
             } else if model.error == nil {
@@ -214,7 +213,7 @@ struct PrintTopBar: View {
         .background { TrafficLightsReader { lights = $0 } }
     }
 
-    private var noteCount: Int { model.hasCurrentPrintPreview ? model.printResult?.addedNotePages ?? 0 : 0 }
+    private var noteCount: Int { model.showsTrayPreview ? model.printResult?.addedNotePages ?? 0 : 0 }
 
     /// A changed set can be saved over the reader's own set, or as a new one from any set.
     @ViewBuilder private var changedSetControls: some View {

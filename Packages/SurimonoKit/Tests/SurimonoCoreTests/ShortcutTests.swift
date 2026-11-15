@@ -240,6 +240,35 @@ struct ShortcutValidationTests {
         #expect(printing.requiresPrintingAcknowledgement)
     }
 
+    @Test("配列の論理キーは正規化して物理キーに対応させ、同じ論理キーの物理キーをすべて返す")
+    func projectionIndex() {
+        let first = ShortcutCombination(key: .macVirtualKey(15), modifiers: .command)
+        let second = ShortcutCombination(key: .macVirtualKey(16), modifiers: .command)
+        let context = ShortcutValidationContext(projection: [
+            .init(logical: .init(key: .character("R"), modifiers: .command), physical: first),
+            .init(logical: .init(key: .character("r"), modifiers: .command), physical: second),
+            .init(logical: .init(key: .character("o"), modifiers: .command), physical: second),
+        ])
+        #expect(context.physicalSignatures(for: .init(key: .character("r"), modifiers: .command)) == [first, second])
+        #expect(context.physicalSignatures(for: .init(key: .character("x"), modifiers: .command)) == [])
+        #expect(context.physicalSignatures(for: first) == [first])
+        #expect(
+            context.matches(
+                .init(key: .character("o"), modifiers: .command), .init(key: .character("R"), modifiers: .command)))
+        #expect(!context.matches(.init(key: .character("o"), modifiers: .command), first))
+    }
+
+    @Test("同じ予約と配列から作った検証の環境は等しい")
+    func contextEquality() {
+        let projection = [
+            ShortcutProjection(
+                logical: .init(key: .character("r"), modifiers: .command),
+                physical: .init(key: .macVirtualKey(15), modifiers: .command))
+        ]
+        #expect(ShortcutValidationContext(projection: projection) == ShortcutValidationContext(projection: projection))
+        #expect(ShortcutValidationContext(projection: projection) != ShortcutValidationContext())
+    }
+
     @Test("新しい配列で別々の論理キーが同じ物理キーになれば曖昧とする")
     func layoutCollision() {
         let physical = ShortcutCombination(key: .macVirtualKey(15), modifiers: .command)

@@ -110,7 +110,7 @@ struct PrintTrayView: View {
                             sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
                             language: model.language, notePages: tray.notePages, imageNames: imageNames,
                             // The sheets were drawn with the options of their render.
-                            options: model.renderedSettings?.options ?? model.effectivePrintOptions,
+                            options: model.printTrayOptions ?? model.effectivePrintOptions,
                             onHeadingHeight: { height in
                                 if abs(headingHeight - height) > 0.01 { headingHeight = height }
                             })

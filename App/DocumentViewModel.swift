@@ -310,6 +310,10 @@ final class DocumentViewModel {
     private var trayFigures: TrayFigures?
     /// The sheets of `printResult`, grouped as they come out of the printer; built once per composition.
     private(set) var printTray: PrintTray?
+    /// The options and the files `printTray` was composed with, which the tray keeps showing while newer sheets are
+    /// composed (`showsTrayPreview`).
+    private(set) var printTrayOptions: PrintOptions?
+    @ObservationIgnored private var printTraySourceURLs: [URL]?
     private(set) var renderedSettings: RenderSettings?
     /// What the render in flight is making, once its back-side correction is settled.
     @ObservationIgnored private var renderingSettings: RenderSettings?
@@ -634,6 +638,15 @@ final class DocumentViewModel {
     var hasCurrentPrintPreview: Bool {
         error == nil && result != nil && printResult?.id == result?.id && renderedSourceURLs == sourceURLs
             && renderedSettings?.smartRemoval?.highlightsCandidates != true
+    }
+    /// What the tray shows: the current sheets, or, while the sheets of newer logical pages are composed, the sheets it
+    /// showed until then. They are of the same files and stay consistent among themselves; swapping them for a progress
+    /// message for the few hundred milliseconds of a composition made the tray and the press bar under it jump on
+    /// every change of layout or paper. Outputs still wait for `hasCurrentPrintPreview` (`canOutput`).
+    var showsTrayPreview: Bool {
+        if hasCurrentPrintPreview { return true }
+        return isRendering && error == nil && printTray != nil && printResult != nil
+            && printTraySourceURLs == sourceURLs && renderedSettings?.smartRemoval?.highlightsCandidates != true
     }
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
@@ -1333,6 +1346,8 @@ final class DocumentViewModel {
                         settings: settings, data: data, sourceURLs: sourceURLs, sheetCount: output.plan.sheetCount,
                         paper: output.plan.paper.shortName)
                 }
+                printTraySourceURLs = sourceURLs
+                printTrayOptions = settings.options
                 printTray = PrintTray(
                     plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
                     sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
@@ -1704,7 +1719,9 @@ final class DocumentViewModel {
                 returnsToRestoredPaperSize = false
                 applyRestoredPaperSize()
             } else {
-                sizeWindowToPaper(keepHeight: true)
+                // In the same step as the frame from before the stage: a fit animated after it showed the window
+                // jump back and then slide to the pages' new shape.
+                sizeWindowToPaper(keepHeight: true, animate: false)
             }
             resumePrintIssueNavigation()
         }
@@ -2032,6 +2049,8 @@ final class DocumentViewModel {
                 result = nil
                 printResult = nil
                 printTray = nil
+                printTrayOptions = nil
+                printTraySourceURLs = nil
                 needsRender = true
                 isRendering = true
             }
@@ -2723,7 +2742,9 @@ final class DocumentViewModel {
         areHoverBandsShown = shown
         if shown {
             pendsBandRoomRelease = false
-            guard revealedBandRoom == BandRoom(), mode == .view, hasSizedWindow else { return }
+            // A band shown for a drag lies over the paper: growing the window under the pointer would move the place
+            // the files are dropped on, and the window would shrink again once the drag is over.
+            guard revealedBandRoom == BandRoom(), mode == .view, hasSizedWindow, !drop.isActive else { return }
             let room = roomToGrow(window, wanted: BandRoom.full(for: menuArrangement), around: BandRoom())
             guard room != BandRoom() else { return }
             revealedBandRoom = room
@@ -2809,7 +2830,10 @@ final class DocumentViewModel {
     }
 
     /// Fits the window to the paper: the first time at a comfortable or remembered size, later keeping the height.
-    func sizeWindowToPaper(keepHeight: Bool = false, initialOnly: Bool = false, keepsRightEdge: Bool = false) {
+    /// `animate` defaults to animating the changes that keep the height.
+    func sizeWindowToPaper(
+        keepHeight: Bool = false, initialOnly: Bool = false, keepsRightEdge: Bool = false, animate: Bool? = nil
+    ) {
         guard !initialOnly || !hasSizedWindow, !isInFullScreen else { return }
         guard mode == .view, let window, let unit = paperUnitSize else { return }
         guard hasSizedWindow else {
@@ -2829,8 +2853,8 @@ final class DocumentViewModel {
         guard !isWebPresentation else { return applyWebShape() }
         let height = ViewerWindow.paperHeight(of: window, band: bandInset)
         ViewerWindow.setPaperSize(
-            paperSize(unit: unit, height: height, in: window), band: bandInset, of: window, animate: keepHeight,
-            keepsRightEdge: keepsRightEdge, side: sideInset)
+            paperSize(unit: unit, height: height, in: window), band: bandInset, of: window,
+            animate: animate ?? keepHeight, keepsRightEdge: keepsRightEdge, side: sideInset)
     }
 
     /// The paper of the unit's shape at `height`. A window stopped at the screen's edge at full height would leave

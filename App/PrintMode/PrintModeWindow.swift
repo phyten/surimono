@@ -51,7 +51,7 @@ enum PrintModeWindow {
 
     // Undo only the automatic enlargement here. The completion fits the paper width while keeping this height.
     static func exit(_ window: NSWindow, completion: @escaping () -> Void) {
-        // A second request while the window shrinks back changes nothing; the first one finishes the job.
+        // A second request made on the way back (from its completion) changes nothing; the first one finishes the job.
         guard !leaving.contains(window) else { return }
         guard let chrome = saved.object(forKey: window) else {
             completion()
@@ -81,7 +81,8 @@ enum PrintModeWindow {
             restore()
             return
         }
-        ViewerWindow.setStageFrame(chrome.frame, of: window, completion: restore)
+        // The way back fits the window to the pages right after, so only the last frame is drawn.
+        ViewerWindow.setStageFrame(chrome.frame, of: window, display: false, completion: restore)
     }
 
     // Grow only missing dimensions, preserving the other dimension even on a smaller screen.

@@ -188,7 +188,7 @@ struct PrintPressBar: View {
     }
 
     private var note: String? {
-        guard model.hasCurrentPrintPreview, let result = model.printResult else { return nil }
+        guard model.showsTrayPreview, let result = model.printResult else { return nil }
         return PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
             ?? PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
     }
@@ -217,7 +217,7 @@ struct PrintPressBar: View {
         var parts = [
             PrintModeText.options(model.effectivePrintOptions, layout: model.printerLayout, language: model.language)
         ].compactMap { $0 }
-        if model.hasCurrentPrintPreview, model.printResult?.addedNotePages ?? 0 > 0 {
+        if model.showsTrayPreview, model.printResult?.addedNotePages ?? 0 > 0 {
             if model.coverIsNotePage {
                 parts.append(PrintModeText.string("The cover is a note page too", language: model.language))
             }
