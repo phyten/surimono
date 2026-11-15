@@ -509,7 +509,7 @@ extension DocumentViewModel {
         return usesPrintTheme && textScale != 1 ? theme + " · " + textScalePercentage : theme
     }
 
-    var textScalePercentage: String { "\(Int((textScale * 100).rounded()))%" }
+    var textScalePercentage: String { "\(TextScale.percent(textScale))%" }
 
     var zoomPercentage: String { "\(Int(((showsWeb ? webZoom : zoom) * 100).rounded()))%" }
 }
@@ -607,7 +607,7 @@ struct TextSizeMenuItems: View {
     var body: some View {
         Divider()
         Picker("Text Size", selection: Binding(get: { model.textScale }, set: { model.setTextScale($0) })) {
-            ForEach(TextScale.steps, id: \.self) { scale in
+            ForEach(TextScale.choices(including: model.textScale), id: \.self) { scale in
                 Text(verbatim: "\(Int((scale * 100).rounded()))%").tag(scale)
             }
         }

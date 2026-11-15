@@ -6,15 +6,17 @@ struct SettingSetSummary {
     let themes: [PrintTheme]
     let presets: [HTMLCleanupPreset]
     let language: String
+    let unit: MarginUnit
 
-    init(themes: [PrintTheme], presets: [HTMLCleanupPreset], language: String) {
+    init(themes: [PrintTheme], presets: [HTMLCleanupPreset], language: String, unit: MarginUnit) {
         self.themes = themes
         self.presets = presets
         self.language = language
+        self.unit = unit
     }
 
     init(library: UserLibrary, language: String = Bundle.main.preferredLocalizations.first ?? "en") {
-        self.init(themes: library.themes, presets: library.presets, language: language)
+        self.init(themes: library.themes, presets: library.presets, language: language, unit: .current)
     }
 
     private func text(_ key: String) -> String {
@@ -69,10 +71,9 @@ struct SettingSetSummary {
             if let margins = set.margins {
                 let numbers =
                     margins.uniformValue.map { [$0] } ?? [margins.top, margins.left, margins.bottom, margins.right]
-                let value = numbers.map {
-                    $0.formatted(.number.precision(.fractionLength(0...1)).locale(Locale(identifier: language)))
-                }.joined(separator: " / ")
-                values.append(String(format: text("Margins: %@ mm"), value))
+                let value = numbers.map { unit.formatted($0, locale: Locale(identifier: language)) }
+                    .joined(separator: " / ")
+                values.append(String(format: text(unit == .inches ? "Margins: %@ in" : "Margins: %@ mm"), value))
             }
             // Only what changes the paper is worth a word; linking is how the fields are edited.
             if set.mirrorsMargins == true { values.append(text("Mirrored Margins")) }
@@ -135,8 +136,8 @@ struct SettingSetSummary {
                 guard let theme = themes.first(where: { $0.id == id }) else { return nil }
                 values.append(String(format: text("Style: %@"), theme.displayName(language: language)))
             }
-            if let scale = set.textScale, (0.8...2).contains(scale) {
-                values.append(String(format: text("Text: %lld%%"), Int64((scale * 100).rounded())))
+            if let scale = set.textScale, TextScale.range.contains(scale) {
+                values.append(String(format: text("Text: %lld%%"), Int64(TextScale.percent(scale))))
             }
         case .htmlPreset:
             if let preset = presets.first(where: { $0.id == set.presetID }) {

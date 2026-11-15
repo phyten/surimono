@@ -38,6 +38,10 @@ struct SettingsMenuTests {
         #expect(restored.loneCoverWidth == .twoPages)
         #expect(restored.defaultAlwaysOnTop && restored.defaultBandVisibility == .always)
         #expect(restored.defaultTextScale == 1.25)
+        preferences.defaultTextScale = 1.13
+        preferences.margin = 12.5
+        #expect(AppPreferences(defaults: suite.defaults).defaultTextScale == 1.13)
+        #expect(AppPreferences(defaults: suite.defaults).margin == 12.5)
         #expect(restored.defaultPaperOrientation == .landscape)
         restored.defaultShowsCoverAlone = true
         #expect(AppPreferences(defaults: suite.defaults).defaultShowsCoverAlone == true)

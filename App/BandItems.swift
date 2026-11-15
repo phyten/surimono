@@ -331,7 +331,7 @@ struct BandMoreMenu: View {
             Divider()
             // The margins here are a shortcut into the print settings, which follow them under the same name as on the
             // Document menu.
-            if model.marginsApply { MarginMenu(model: model) }
+            if model.marginsApply { MarginMenu(model: model, unit: .current) }
             Button("Print Settings…") { model.presentPrintSettings() }
             Divider()
             if model.detectedSlideDeck != nil, model.usesHTMLPresentation {

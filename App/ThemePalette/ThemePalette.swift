@@ -218,6 +218,8 @@ struct ThemePalette: View {
     private var textSize: some View {
         HStack(spacing: 8) {
             Text("Body Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+            // Any percent typed or stepped by 1%; the buttons beside it move to the next step, from an in-between size too.
+            TextSizeField(title: "Body Text Size", scale: model.textScale) { model.setTextScale($0) }
             ControlGroup {
                 Button {
                     model.decreaseTextSize()
@@ -225,18 +227,14 @@ struct ThemePalette: View {
                     Image(systemName: "textformat.size.smaller")
                 }
                 .accessibilityLabel(Text("Smaller"))
-                Button {
-                    model.resetTextSize()
-                } label: {
-                    Text(verbatim: model.textScalePercentage).monospacedDigit().frame(minWidth: 38)
-                }
-                .help("Original Size")
+                .help("Smaller")
                 Button {
                     model.increaseTextSize()
                 } label: {
                     Image(systemName: "textformat.size.larger")
                 }
                 .accessibilityLabel(Text("Larger"))
+                .help("Larger")
             }
             .fixedSize()
         }

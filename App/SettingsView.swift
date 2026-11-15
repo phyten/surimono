@@ -177,19 +177,8 @@ struct SettingsView: View {
                     }
                     // The same field, stepper and unit as the margins of the view options and the print screen.
                     LabeledContent("Text Margins") {
-                        HStack(spacing: 4) {
-                            TextField(
-                                "Text Margins", value: $preferences.margin,
-                                format: .number.precision(.fractionLength(0...1))
-                            )
-                            .labelsHidden()
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 52)
-                            Stepper(
-                                "Text Margins", value: $preferences.margin, in: DocumentViewModel.marginRange, step: 1
-                            )
-                            .labelsHidden()
-                            Text("mm").foregroundStyle(.secondary)
+                        MarginField(title: "Text Margins", millimeters: preferences.margin, unit: .current) {
+                            preferences.margin = $0
                         }
                     }
                     defaultsNote
@@ -211,9 +200,9 @@ struct SettingsView: View {
                             Text(verbatim: palette.displayName(language: language)).tag(palette.id)
                         }
                     }
-                    Picker("Default Text Size", selection: $preferences.defaultTextScale) {
-                        ForEach(TextScale.steps, id: \.self) { scale in
-                            Text(verbatim: "\(Int((scale * 100).rounded()))%").tag(scale)
+                    LabeledContent("Default Text Size") {
+                        TextSizeField(title: "Default Text Size", scale: preferences.defaultTextScale) {
+                            preferences.defaultTextScale = $0
                         }
                     }
                     HStack {

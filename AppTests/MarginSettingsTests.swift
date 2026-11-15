@@ -39,16 +39,31 @@ struct MarginSettingsTests {
         #expect(model.printOptions.marginsInMillimeters == 0)
     }
 
-    @Test("余白は 1 mm 単位に丸める")
-    func setMarginsRoundsToMillimeters() {
+    @Test("余白は端数を保ち、12.5 mm を 13 mm に丸めない")
+    func setMarginsKeepsFractions() {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let model = makeModel(format: .markdown, suite: suite)
-        model.setMargins(5.01)
-        #expect(model.printOptions.marginsInMillimeters == 5)
-        #expect(model.marginChoices == DocumentViewModel.marginPresets)
-        model.setMargins(12.46)
-        #expect(model.printOptions.marginsInMillimeters == 12)
+        model.setMargins(12.5)
+        #expect(model.printOptions.marginsInMillimeters == 12.5)
+        #expect(model.marginChoices(in: .millimeters) == [0, 5, 10, 12.5, 15, 20, 25])
+        // An inch keeps its exact millimeters.
+        model.setMargins(6.35)
+        #expect(model.printOptions.marginsInMillimeters == 6.35)
+        #expect(model.marginChoices(in: .inches) == [0, 6.35, 12.7, 19.05, 25.4])
+    }
+
+    @Test("インチで 0.5 と同じに見える 12.6 mm のときも、0.5 インチを選ぶと 12.7 mm になる")
+    func choosingPresetThatShowsLikeCurrent() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let model = makeModel(format: .markdown, suite: suite)
+        model.setMargins(12.6)
+        let choices = model.marginChoices(in: .inches)
+        #expect(choices == [0, 6.35, 12.6, 12.7, 19.05, 25.4])
+        // The menu's selection writes the chosen millimeters as they are.
+        model.setMargins(choices[3])
+        #expect(model.printOptions.marginsInMillimeters == 12.7)
     }
 
     @Test("刷り台の余白は PDF 以外の印刷に効き、3 枚＋メモの用紙にも効く")
@@ -85,7 +100,7 @@ struct MarginSettingsTests {
         defer { suite.remove() }
         let model = makeModel(format: .markdown, suite: suite)
         model.setMargins(15)
-        #expect(model.marginChoices == [0, 5, 10, 15, 20, 25])
+        #expect(model.marginChoices(in: .millimeters) == [0, 5, 10, 15, 20, 25])
     }
 
     @Test("余白のメニューは既定の値でない今の余白も並べる")
@@ -94,8 +109,10 @@ struct MarginSettingsTests {
         defer { suite.remove() }
         let model = makeModel(format: .markdown, suite: suite)
         model.printOptions.marginsInMillimeters = 12.5
-        #expect(model.marginChoices == [0, 5, 10, 12.5, 15, 20, 25])
-        #expect(MarginMenu.label(12.5).contains("12.5"))
+        #expect(model.marginChoices(in: .millimeters) == [0, 5, 10, 12.5, 15, 20, 25])
+        let locale = Locale(identifier: "en_US")
+        #expect(MarginUnit.millimeters.label(12.5, locale: locale).contains("12.5"))
+        #expect(MarginUnit.inches.label(6.35, locale: locale).contains("0.25"))
     }
 
     @Test("4 辺をそろえている間は 1 辺の変更が全部に効き、外すと 1 辺だけ変わる")
@@ -107,7 +124,7 @@ struct MarginSettingsTests {
         #expect(model.printOptions.margins == .uniform(20))
         model.setMarginsLinked(false)
         model.setMargin(\.left, to: 30.4)
-        #expect(model.printOptions.margins == PageMargins(top: 20, left: 30, bottom: 20, right: 20))
+        #expect(model.printOptions.margins == PageMargins(top: 20, left: 30.4, bottom: 20, right: 20))
         model.setMarginsLinked(true)
         #expect(model.printOptions.margins == .uniform(20))
     }
@@ -119,7 +136,7 @@ struct MarginSettingsTests {
         let model = makeModel(format: .markdown, suite: suite)
         model.printOptions.linksMargins = false
         model.printOptions.margins = PageMargins(top: 10, left: 20, bottom: 10, right: 20)
-        #expect(model.marginChoices == DocumentViewModel.marginPresets)
+        #expect(model.marginChoices(in: .millimeters) == [0, 5, 10, 15, 20, 25])
         model.setMargins(15)
         #expect(model.printOptions.margins == .uniform(15))
         #expect(model.printOptions.linksMargins)

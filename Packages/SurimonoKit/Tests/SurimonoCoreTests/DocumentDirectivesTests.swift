@@ -18,12 +18,18 @@ struct DocumentDirectivesTests {
         #expect(!value.isEmpty)
     }
 
-    @Test("余白の単位をミリに揃える", arguments: [("1.5cm", 15.0), ("0.5in", 12.7), ("15", 15.0), ("0mm", 0.0), ("50mm", 50.0)])
+    @Test(
+        "余白の単位をミリに揃える",
+        arguments: [
+            ("1.5cm", 15.0), ("0.5in", 12.7), ("15", 15.0), ("0mm", 0.0), ("50mm", 50.0), ("12.5mm", 12.5),
+        ])
     func margins(_ pair: (String, Double)) {
         #expect(read("margins: \(pair.0)").marginMillimeters == pair.1)
     }
 
-    @Test("文字倍率は既存の範囲に収める", arguments: [("110%", 1.1), ("1.1", 1.1), ("20%", 0.8), ("500%", 2.0)])
+    @Test(
+        "文字倍率は 1% 刻みにして範囲に収める",
+        arguments: [("110%", 1.1), ("1.1", 1.1), ("20%", 0.8), ("500%", 2.0), ("113%", 1.13), ("112.6%", 1.13)])
     func scales(_ pair: (String, Double)) {
         #expect(read("text-size: \(pair.0)").textScale == pair.1)
     }

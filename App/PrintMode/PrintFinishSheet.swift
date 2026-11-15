@@ -83,7 +83,7 @@ struct PrintFinishSheet: View {
                 }
             }
             if model.marginsAffectPrinting {
-                section("Paper & Margins", isFirst: true) { PrintMarginEditor(model: model) }
+                section("Paper & Margins", isFirst: true) { PrintMarginEditor(model: model, unit: .current) }
             }
             section("Header & Footer", isFirst: !model.marginsAffectPrinting) {
                 PrintFurnitureChoice(model: model)
@@ -543,10 +543,11 @@ struct PrintTextField: View {
 /// The four margins around a sheet of paper, with the text area drawn to scale.
 struct PrintMarginEditor: View {
     @Bindable var model: DocumentViewModel
+    let unit: MarginUnit
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Margins (mm)")
+            Text(unit.fieldTitle)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(PrintPalette.ink2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -599,9 +600,14 @@ struct PrintMarginEditor: View {
             TextField(
                 title,
                 value: Binding(
-                    get: { model.printOptions.margins[keyPath: side] },
-                    set: { model.setMargin(side, to: $0) }),
-                format: .number.precision(.fractionLength(0...1))
+                    get: { unit.value(fromMillimeters: model.printOptions.margins[keyPath: side]) },
+                    set: { value in
+                        let current = model.printOptions.margins[keyPath: side]
+                        if let millimeters = unit.millimeters(from: value, replacing: current) {
+                            model.setMargin(side, to: millimeters)
+                        }
+                    }),
+                format: .number.precision(.fractionLength(0...unit.fractionDigits))
             )
             .labelsHidden()
             .textFieldStyle(.roundedBorder)

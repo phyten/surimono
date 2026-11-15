@@ -62,14 +62,19 @@ struct ViewOptionsPopover: View {
                         PaperSeriesPicker(model: model)
                     }
                 }
-                if model.marginsApply {
+                if model.marginsApply || model.usesPrintTheme {
                     heading("Printed Text")
+                }
+                if model.marginsApply {
                     GridRow {
                         rowLabel("Text Margins")
-                        HStack(spacing: 4) {
-                            MarginControl(model: model)
-                            Text("mm").foregroundStyle(.secondary)
-                        }
+                        MarginControl(model: model)
+                    }
+                }
+                if model.usesPrintTheme {
+                    GridRow {
+                        rowLabel("Text Size")
+                        TextSizeField(title: "Text Size", scale: model.textScale) { model.setTextScale($0) }
                     }
                 }
             }

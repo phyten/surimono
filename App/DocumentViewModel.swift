@@ -1444,17 +1444,15 @@ final class DocumentViewModel {
         ViewerWindow.setFrame(origin.frame, of: window, animate: false)
     }
 
+    /// Any whole percent of the range; a value between two percents takes the nearer one.
     func setTextScale(_ value: Double) {
-        guard usesPrintTheme, value.isFinite, (0.8...2).contains(value) else { return }
-        textScale = value
+        guard usesPrintTheme, value.isFinite, TextScale.range.contains(value) else { return }
+        textScale = TextScale.clamped(value)
     }
 
     func increaseTextSize() { setTextScale(TextScale.larger(than: textScale)) }
     func decreaseTextSize() { setTextScale(TextScale.smaller(than: textScale)) }
     func resetTextSize() { setTextScale(1) }
-
-    static let marginRange: ClosedRange<Double> = 0...40
-    static let marginPresets: [Double] = [0, 5, 10, 15, 20, 25]
 
     /// Only themed text guarantees blank margins. HTML may override them with @page rules, and the
     /// prepared pages do not expose that information here, so HTML keeps all its content like PDFs and images.
@@ -1473,24 +1471,14 @@ final class DocumentViewModel {
     /// Whether the margin changes the printed sheets: everything but PDFs, including the 3-up handout's sheet.
     var marginsAffectPrinting: Bool { binder != nil || format != .pdf }
 
-    /// The presets, plus the current margin when it is none of them, so the menu always checks the current value.
-    var marginChoices: [Double] {
-        guard let current = printOptions.margins.uniformValue, !Self.marginPresets.contains(current) else {
-            return Self.marginPresets
-        }
-        return (Self.marginPresets + [current]).sorted()
-    }
-
-    private static func clampedMargin(_ millimeters: Double) -> Double {
-        // Margins go in whole millimeters; a record from an earlier version can still hold a fraction.
-        min(max(millimeters.rounded(), marginRange.lowerBound), marginRange.upperBound)
-    }
+    /// The presets of the unit, plus the current margin when it is none of them, so the menu always checks it.
+    func marginChoices(in unit: MarginUnit) -> [Double] { unit.choices(including: printOptions.margins.uniformValue) }
 
     /// The one way to give all four margins one value, so the viewer and the tray re-paginate and remember it the same
     /// way.
     func setMargins(_ millimeters: Double) {
         guard millimeters.isFinite else { return }
-        printOptions.margins = .uniform(Self.clampedMargin(millimeters))
+        printOptions.margins = .uniform(PageMargins.clamped(millimeters))
         printOptions.linksMargins = true
     }
 
@@ -1498,7 +1486,7 @@ final class DocumentViewModel {
     func setMargin(_ side: WritableKeyPath<PageMargins, Double>, to millimeters: Double) {
         guard millimeters.isFinite else { return }
         guard !printOptions.linksMargins else { return setMargins(millimeters) }
-        printOptions.margins[keyPath: side] = Self.clampedMargin(millimeters)
+        printOptions.margins[keyPath: side] = PageMargins.clamped(millimeters)
     }
 
     /// Keeping the margins together evens them out to the top margin.
