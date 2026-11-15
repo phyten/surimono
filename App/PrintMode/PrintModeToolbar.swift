@@ -4,10 +4,19 @@ import SwiftUI
 ///
 /// Without any item SwiftUI removes the window's toolbar: the title bar then shrinks, the traffic lights leave the
 /// middle of the tray's top bar, and the title bar starts taking the clicks meant for the top bar's buttons.
+///
+/// The item is hidden, not merely invisible. A visible item, even one of an empty 1×1 view without its shared
+/// background, gets an item viewer of 44pt by the full title bar height right after the traffic lights; the title bar
+/// is in front of the content, so that viewer took the clicks over the left part of "Back to View" (other placements
+/// only move it onto other controls). A hidden item keeps the toolbar, and with it the title bar's height and the
+/// traffic lights' place, but has no viewer, so the toolbar lets every click through to the top bar.
+///
+/// That a toolbar whose only item is hidden stays in place was seen on macOS 26.6. Earlier systems were not checked, so
+/// they keep the visible item: its worst case there is the strip that takes clicks, not a missing toolbar.
 struct PrintModeToolbarPlaceholder: ToolbarContent {
     var body: some ToolbarContent {
         if #available(macOS 26, *) {
-            ToolbarItem { placeholder }.sharedBackgroundVisibility(.hidden)
+            ToolbarItem { placeholder }.hidden()
         } else {
             ToolbarItem { placeholder }
         }

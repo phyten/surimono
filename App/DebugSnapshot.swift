@@ -500,6 +500,9 @@
                             for: .milliseconds(model.viewOptions.transition == .pageCurl ? 2200 : 1300))
                     }
                 }
+                if let path = argument("SurimonoHitMap"), let window = model.window {
+                    try? hitMap(of: window).write(toFile: path, atomically: true, encoding: .utf8)
+                }
                 if let name = argument("SurimonoSettings") {
                     // The Settings window in place of the document's, opened as from the app menu.
                     model.preferences.settingsSection =
@@ -578,6 +581,40 @@
 
         /// Captures the document window together with the popovers and other small windows of this process next to
         /// it, as composited by the window server. Capturing the app's own windows needs no screen recording permission.
+        /// Which view takes a click across the window's top 52pt, every 4pt: `L` a traffic light, `T` the title bar
+        /// (a toolbar item viewer over the content), `.` the content. Toolbar item viewers' frames come first.
+        private static func hitMap(of window: NSWindow) -> String {
+            // The window's root view, which holds the title bar in front of the content.
+            var root = window.contentView
+            while let parent = root?.superview { root = parent }
+            guard let frame = root else { return "" }
+            func viewers(_ view: NSView) -> [NSView] {
+                (String(describing: type(of: view)).contains("ToolbarItemViewer") ? [view] : [])
+                    + view.subviews.flatMap(viewers)
+            }
+            let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+                .compactMap { window.standardWindowButton($0) }
+            var lines = viewers(frame).map { "viewer \($0.convert($0.bounds, to: nil))" }
+            for y in stride(from: 2.0, through: 50, by: 4) {
+                var row = String(format: "y%02.0f ", y)
+                for x in stride(from: 0.0, to: frame.bounds.width, by: 4) {
+                    var view = frame.hitTest(NSPoint(x: x, y: frame.bounds.height - y))
+                    var mark: Character = "."
+                    while let current = view {
+                        if buttons.contains(where: { $0 === current }) {
+                            mark = "L"
+                            break
+                        }
+                        if String(describing: type(of: current)).contains("Titlebar") { mark = "T" }
+                        view = current.superview
+                    }
+                    row.append(mark)
+                }
+                lines.append(row)
+            }
+            return lines.joined(separator: "\n") + "\n"
+        }
+
         private static func capturePNG(around window: NSWindow) async throws -> Data {
             let content = try await SCShareableContent.currentProcess
             guard let main = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
