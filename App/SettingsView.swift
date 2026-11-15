@@ -90,7 +90,7 @@ struct SettingsView: View {
                     }.pickerStyle(.segmented)
                     Picker("New Document View", selection: $preferences.defaultViewLayout) {
                         Text("Automatic (Match Document)").tag(nil as ViewOptions.Layout?)
-                        ForEach(ViewOptions.Layout.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
+                        ForEach(ViewOptions.Layout.displayOrder, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
                     Picker("Default Page Turn", selection: $preferences.defaultPageTurn) {
                         Text("Automatic (Match Document)").tag(nil as ViewOptions.Transition?)

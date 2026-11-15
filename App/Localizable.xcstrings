@@ -23590,54 +23590,54 @@
         }
       }
     },
-    "Spread or Single Page (⌥⌘1 / ⌥⌘2)": {
+    "Single Page or Spread (⌥⌘1 / ⌥⌘2)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Spread or Single Page (⌥⌘1 / ⌥⌘2)"
+            "value": "Single Page or Spread (⌥⌘1 / ⌥⌘2)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "見開き・単ページ (⌥⌘1 / ⌥⌘2)"
+            "value": "単ページ・見開き (⌥⌘1 / ⌥⌘2)"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "双页或单页 (⌥⌘1 / ⌥⌘2)"
+            "value": "单页或双页 (⌥⌘1 / ⌥⌘2)"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "跨頁或單頁 (⌥⌘1 / ⌥⌘2)"
+            "value": "單頁或跨頁 (⌥⌘1 / ⌥⌘2)"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "두 페이지 또는 단일 페이지 (⌥⌘1 / ⌥⌘2)"
+            "value": "단일 페이지 또는 두 페이지 (⌥⌘1 / ⌥⌘2)"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Double page ou page simple (⌥⌘1 / ⌥⌘2)"
+            "value": "Page simple ou double page (⌥⌘1 / ⌥⌘2)"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Doppelseite oder Einzelseite (⌥⌘1 / ⌥⌘2)"
+            "value": "Einzelseite oder Doppelseite (⌥⌘1 / ⌥⌘2)"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Doble página o página individual (⌥⌘1 / ⌥⌘2)"
+            "value": "Página individual o doble página (⌥⌘1 / ⌥⌘2)"
           }
         }
       }
