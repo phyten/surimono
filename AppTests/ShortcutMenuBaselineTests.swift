@@ -79,7 +79,16 @@ struct ShortcutMenuBaselineTests {
                 #expect(item.keyEquivalent.lowercased() == key.lowercased())
                 let impliedShift: NSEvent.ModifierFlags =
                     item.keyEquivalent != item.keyEquivalent.lowercased() ? .shift : []
-                #expect(item.keyEquivalentModifierMask.union(impliedShift) == flags)
+                // Once AppKit has populated the menus (it does so on its own, for example for menu search), it
+                // shows its own variants of two commands: Full Screen with the Globe key, and the Option alternate
+                // of a command beside the plain one. Both are AppKit's, not a changed default.
+                let name = NSStringFromSelector(action)
+                var accepted = [flags]
+                if name == "toggleFullScreen:" { accepted.append(.function) }
+                if item.isAlternate { accepted.append(flags.union(.option)) }
+                #expect(
+                    accepted.contains(item.keyEquivalentModifierMask.union(impliedShift)),
+                    "\(name), alternate: \(item.isAlternate), mask: \(item.keyEquivalentModifierMask.rawValue)")
             }
         }
         let document = try #require(menu.items.first { $0.title == localized("Document") }?.submenu)
