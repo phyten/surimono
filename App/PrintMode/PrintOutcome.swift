@@ -1,4 +1,5 @@
 import SurimonoCore
+import SurimonoRendering
 
 /// What one press of Print takes and makes, read from the composed sheets rather than from the chosen card: the paper
 /// that goes through the printer and how many sheets of it, then only what needs saying beyond that.
@@ -76,6 +77,46 @@ struct PrintOutcome: Equatable {
         case .twoUp: return PrintModeText.format("Finished: 2 pages of %@ on each sheet", language: language, half)
         case .normal, .handout3, .fourUp: return nil
         }
+    }
+}
+
+extension PrintOutcome {
+    /// What one composition takes and makes: the paper and sheets of its plan, and its pages sorted into the body, the
+    /// contents, the notes and the blanks. A blank is an empty slot of the plan (the end of a booklet, the half of the
+    /// last sheet of two pages on one sheet) or a page left blank on purpose; a note counts only when it is printed.
+    /// - Parameter contents: The contents pages to count apart from the body (`countedContents`).
+    init(
+        plan: ImpositionPlan, layout: PrintLayout, blankPages: Set<Int>, notePages: [Int], contents: Int, copies: Int,
+        orientations: [PaperOrientation]
+    ) {
+        let slots = plan.sides.flatMap(\.slots)
+        let printed = Set(slots.compactMap { $0 })
+        let blanks = slots.filter { $0 == nil }.count + blankPages.intersection(printed).count
+        let notes = notePages.filter(printed.contains).count
+        self.init(
+            layout: layout, paper: plan.paper, sheets: plan.sheetCount, pages: slots.count,
+            body: max(0, slots.count - blanks - contents - notes), contents: contents, notes: notes, blanks: blanks,
+            copies: copies, orientations: orientations)
+    }
+
+    /// The contents pages told apart from the body. Where the contents are among the pages of a range is not known,
+    /// so a range counts them with the body; a document that is not a text has none.
+    static func countedContents(added: Int, appliesToText: Bool, selectsPages: Bool) -> Int {
+        appliesToText && !selectsPages ? added : 0
+    }
+}
+
+extension DocumentViewModel {
+    /// What one press of Print takes and makes, all from the sheets on the tray (`shownSheets`): while newer sheets are
+    /// composed it still tells the sheets in view, so that a newer page count never meets an older sheet count.
+    var printOutcome: PrintOutcome? {
+        guard let result = shownSheets else { return nil }
+        return PrintOutcome(
+            plan: result.plan, layout: result.layout, blankPages: result.blankPages, notePages: result.notePages,
+            contents: PrintOutcome.countedContents(
+                added: result.addedContentsPages, appliesToText: finishAppliesToText,
+                selectsPages: result.pageSelection.pages != nil),
+            copies: copies, orientations: result.sheetOrientations)
     }
 }
 

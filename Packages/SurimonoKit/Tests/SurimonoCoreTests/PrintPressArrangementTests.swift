@@ -7,13 +7,14 @@ struct PrintPressArrangementTests {
     /// Menus of 260 over six cards of 80 × 86, a result whose first line is 180 wide and whose notes wrap under 200,
     /// a printer menu of 205 for a typical model name, a PDF button of 130 (36 without its label) and Print of 62.
     private func parts(
-        menus: CGFloat = 260, summaryLead: CGFloat = 180, printer: CGFloat = 205, pdf: CGFloat = 130
+        menus: CGFloat = 260, summaryLead: CGFloat = 180, printer: CGFloat = 205, pdf: CGFloat = 130,
+        button: CGFloat = 62
     ) -> PrintPressArrangement.Parts {
         PrintPressArrangement.Parts(
             menus: CGSize(width: menus, height: 28), card: CGSize(width: 80, height: 86), summaryWidth: 300,
             summaryLeadWidth: summaryLead, summaryHeight: { $0 >= 200 ? 50 : 66 },
             printer: CGSize(width: printer, height: 28), pdf: CGSize(width: pdf, height: 28), pdfCompactWidth: 36,
-            button: CGSize(width: 62, height: 62))
+            button: CGSize(width: button, height: 62))
     }
 
     @Test("左右に並べられる幅では、メニューとカードを左、結果とプリンター・PDF・印刷を右に置く")
@@ -22,7 +23,6 @@ struct PrintPressArrangementTests {
         #expect(layout.form == .beside)
         #expect(layout.menus == CGRect(x: 0, y: 0, width: 260, height: 28))
         #expect(layout.cards == CGRect(x: 0, y: 34, width: 500, height: 86))
-        #expect(layout.cardColumns == 6)
         #expect(layout.summary == CGRect(x: 517, y: 0, width: 275, height: 50))
         #expect(layout.printer == CGRect(x: 517, y: 58, width: 205, height: 28))
         #expect(layout.pdf == CGRect(x: 517, y: 92, width: 205, height: 28))
@@ -34,7 +34,7 @@ struct PrintPressArrangementTests {
 
     @Test("判と向きのメニューは、どの幅でもカードの上に横に並ぶ")
     func menusStayOverTheCards() {
-        for width in [300, 499, 600, 791, 792, 1000, 1400] as [CGFloat] {
+        for width in [500, 600, 791, 792, 1000, 1400] as [CGFloat] {
             let layout = PrintPressArrangement(width: width, parts: parts())
             #expect(layout.menus.origin == .zero, "\(width)")
             #expect(layout.cards.minY == layout.menus.maxY + PrintPressArrangement.rowGap, "\(width)")
@@ -42,7 +42,7 @@ struct PrintPressArrangementTests {
         }
     }
 
-    @Test("広い窓でも結果の列は必要以上に広げず、印刷ボタンは右端に置く")
+    @Test("広いウインドウでも結果の列は必要以上に広げず、印刷ボタンは右端に置く")
     func besideWhenWide() {
         let layout = PrintPressArrangement(width: 1000, parts: parts())
         #expect(layout.form == .beside)
@@ -83,7 +83,7 @@ struct PrintPressArrangementTests {
         }
     }
 
-    @Test("下の段でも入らなければ、カードを折り返す前に、PDF のボタンの文字を外して絵だけにする")
+    @Test("下の段でも入らなければ、プリンター名を切る前に、PDF のボタンの文字を外して絵だけにする")
     func compactPDF() {
         // A short printer name and a long PDF label, so that the labeled PDF button sets the column's width.
         let short = parts(summaryLead: 260, printer: 80, pdf: 200)
@@ -91,47 +91,50 @@ struct PrintPressArrangementTests {
         #expect(!PrintPressArrangement(width: 542, parts: short).pdfIsCompact)
         let layout = PrintPressArrangement(width: 541, parts: short)
         #expect(layout.pdfIsCompact)
-        #expect(layout.cardColumns == 6)
         #expect(layout.pdf.width == 36)
         #expect(layout.printer.width == 80)
     }
 
-    @Test("カードが1段に入らなければ、縮めずに3列×2段に折り返す")
-    func cardsFoldIntoThreeColumns() {
-        let layout = PrintPressArrangement(width: 499, parts: parts())
-        #expect(layout.cardColumns == 3)
-        // Three cards of 80 with two gaps of 4, two rows of 86 with a gap of 4: the cards keep their size.
-        #expect(layout.cards == CGRect(x: 0, y: 34, width: 248, height: 176))
-        #expect(layout.printer.minY == 218)
-        #expect(layout.pdfIsCompact)
-        #expect(layout.printer.width == 205)
+    @Test("ウインドウの最小幅でも、カードは縮めずに1段に並び、帯の幅を超えない")
+    func cardsKeepOneRow() {
+        for proposal in [0, 120, 300, 499, 500, 620, 760, 1000] as [CGFloat] {
+            let width = PrintPressArrangement.fittingWidth(for: proposal, parts: parts())
+            let layout = PrintPressArrangement(width: width, parts: parts())
+            // Six cards of 80 with five gaps of 4, as high as one card.
+            #expect(layout.cards.size == CGSize(width: 500, height: 86), "\(proposal)")
+            #expect(layout.cards.maxX <= width, "\(proposal)")
+        }
     }
 
     @Test("最後にプリンター名を省略して結果の1行目を保ち、120ポイントより狭くはしない")
     func cutsThePrinterLast() {
-        // 180 for the result's first line, 12 + 8 + 62 around the buttons: the name keeps 400 - 262 = 138.
-        let cut = PrintPressArrangement(width: 400, parts: parts())
-        #expect(cut.printer.width == 138)
-        #expect(cut.summary.width == 180)
-        let narrowest = PrintPressArrangement(width: 300, parts: parts())
+        // A first line of 260 and Print of 98: 12 + 8 + 98 around the buttons leaves the name 560 - 378 = 182.
+        let cut = PrintPressArrangement(width: 560, parts: parts(summaryLead: 260, button: 98))
+        #expect(cut.pdfIsCompact)
+        #expect(cut.printer.width == 182)
+        #expect(cut.summary.width == 260)
+        // With Print of 140 the name would keep 80, so it stops at 120 and the result takes what is left.
+        let narrowest = PrintPressArrangement(width: 500, parts: parts(summaryLead: 260, button: 140))
         #expect(narrowest.printer.width == 120)
-        #expect(narrowest.summary.width == 98)
+        #expect(narrowest.summary.width == 220)
     }
 
     @Test("どの幅でも、プリンター名が切れていればPDFの文字は外れ、PDFの文字が外れていれば二段になっている")
     func foldOrder() {
-        for width in stride(from: 240, through: 1400, by: 1) {
+        for width in stride(from: 500, through: 1400, by: 1) {
             for printer in [80, 205, 280, 400] as [CGFloat] {
-                let layout = PrintPressArrangement(width: CGFloat(width), parts: parts(printer: printer))
-                let ideal = min(printer, PrintPressArrangement.printerLimit)
-                if layout.printer.width < ideal { #expect(layout.pdfIsCompact, "\(width) \(printer)") }
-                if layout.cardColumns == 3 { #expect(layout.pdfIsCompact, "\(width) \(printer)") }
-                if layout.pdfIsCompact { #expect(layout.form == .stacked, "\(width) \(printer)") }
+                for lead in [150, 260] as [CGFloat] {
+                    let layout = PrintPressArrangement(
+                        width: CGFloat(width), parts: parts(summaryLead: lead, printer: printer, button: 98))
+                    let ideal = min(printer, PrintPressArrangement.printerLimit)
+                    if layout.printer.width < ideal { #expect(layout.pdfIsCompact, "\(width) \(printer)") }
+                    if layout.pdfIsCompact { #expect(layout.form == .stacked, "\(width) \(printer)") }
+                }
             }
         }
     }
 
-    @Test("長いプリンター名は広い窓でも280ポイントで省略し、全部を出すために帯を広げない")
+    @Test("長いプリンター名は広いウインドウでも280ポイントで省略し、全部を出すために帯を広げない")
     func longPrinterName() {
         let layout = PrintPressArrangement(width: 1400, parts: parts(printer: 420))
         #expect(layout.form == .beside)

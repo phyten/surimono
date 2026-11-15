@@ -23,13 +23,25 @@ struct PrintTopBarFold: Equatable {
 
     /// How many steps, from the first, are taken.
     let foldedCount: Int
+    /// The widest the style's name is drawn, when even the last step leaves the bar too wide (a long name of the
+    /// reader's own style); nil while the name fits whole.
+    let styleNameLimit: CGFloat?
+
+    /// The narrowest a cut style name is drawn: a few letters from each end.
+    static let styleNameMinimum: CGFloat = 48
 
     /// - Parameters:
     ///   - available: The bar's width.
     ///   - needed: The width the bar needs with none of the steps taken, then with the first, the first two, and so on;
     ///     one more value than there are steps.
-    init(available: CGFloat, needed: [CGFloat]) {
+    ///   - styleNameWidth: The style's name, whole.
+    init(available: CGFloat, needed: [CGFloat], styleNameWidth: CGFloat = 0) {
         foldedCount = min(needed.firstIndex { $0 <= available } ?? Step.allCases.count, Step.allCases.count)
+        if let last = needed.last, last > available, styleNameWidth > 0 {
+            styleNameLimit = max(Self.styleNameMinimum, styleNameWidth - (last - available))
+        } else {
+            styleNameLimit = nil
+        }
     }
 
     func folds(_ step: Step) -> Bool { step.rawValue < foldedCount }

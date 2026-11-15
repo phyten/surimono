@@ -134,7 +134,7 @@ struct PrintTopBar: View {
 
     enum Part: Hashable {
         case back(BackForm)
-        case badge, name, pageCount
+        case badge, name, pageCount, styleName
         case style(showsTitle: Bool)
         case sets(SetsForm)
         case modified
@@ -144,7 +144,8 @@ struct PrintTopBar: View {
     enum SetsForm: Hashable { case full, withoutName, icon }
 
     var body: some View {
-        let fold = PrintTopBarFold(available: barWidth, needed: neededWidths)
+        let fold = PrintTopBarFold(
+            available: barWidth, needed: neededWidths, styleNameWidth: widths[.styleName] ?? 0)
         HStack(spacing: 0) {
             backButton(backForm(fold))
                 .keyboardShortcut(cancelsWithEscape ? .cancelAction : nil)
@@ -156,7 +157,7 @@ struct PrintTopBar: View {
             .padding(.leading, 16)
             .layoutPriority(-1)
             Spacer(minLength: 12)
-            PrintStyleMenu(model: model, showsTitle: !fold.folds(.styleTitle))
+            PrintStyleMenu(model: model, showsTitle: !fold.folds(.styleTitle), nameLimit: fold.styleNameLimit)
             setsMenu(setsForm(fold)).padding(.leading, 8)
             if model.isSettingSetChanged { modifiedMenu.padding(.leading, 8) }
         }
@@ -218,6 +219,9 @@ struct PrintTopBar: View {
             if let count = pageCountText { measured(.pageCount) { pageCount(count) } }
             measured(.style(showsTitle: true)) { PrintStyleMenu(model: model, showsTitle: true, showsTip: false) }
             measured(.style(showsTitle: false)) { PrintStyleMenu(model: model, showsTitle: false, showsTip: false) }
+            measured(.styleName) {
+                Text(verbatim: PrintStyleMenu.value(for: model)).font(.system(size: 12.5, weight: .semibold))
+            }
             measured(.sets(.full)) { setsMenu(.full) }
             measured(.sets(.withoutName)) { setsMenu(.withoutName) }
             measured(.sets(.icon)) { setsMenu(.icon) }
@@ -385,6 +389,19 @@ struct PrintStyleMenu: View {
     var showsTitle = true
     /// Whether the first-time tip may show; copies drawn only to be measured must not take it.
     var showsTip = true
+    /// The widest the style's name is drawn, where the top bar has folded all it can and still lacks room; the name
+    /// loses its middle, and its hint and VoiceOver give it whole.
+    var nameLimit: CGFloat?
+
+    /// The name the menu shows: the print style, the HTML preset, or that the document prints as it is.
+    static func value(for model: DocumentViewModel) -> String {
+        if model.usesPrintTheme { return model.styleName }
+        if model.usesHTMLPreset {
+            return model.library.presets.first { $0.id == model.presetID }?.displayName(language: model.language)
+                ?? model.presetID
+        }
+        return String(localized: model.format == .pdf ? "PDF is shown as is" : "Images are shown as is")
+    }
 
     var body: some View {
         if model.usesPrintTheme {
@@ -398,8 +415,9 @@ struct PrintStyleMenu: View {
             .buttonStyle(.plain)
             .fixedSize()
             .accessibilityIdentifier("printStylePaletteButton")
-            .help("Choose how the text and headings look when printed")
+            .help(hint("Choose how the text and headings look when printed"))
             .accessibilityLabel(Text("Style"))
+            .accessibilityValue(Text(verbatim: model.styleName))
             .modifier(OptionalStyleTip(model: model, isEnabled: showsTip))
         }
         if model.usesHTMLPreset {
@@ -423,7 +441,9 @@ struct PrintStyleMenu: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("Choose which parts of the web page to leave out when printing")
+            .help(hint("Choose which parts of the web page to leave out when printing"))
+            .accessibilityLabel(Text("Preset"))
+            .accessibilityValue(Text(verbatim: Self.value(for: model)))
         } else if !model.usesPrintTheme {
             label(
                 "Style",
@@ -440,6 +460,8 @@ struct PrintStyleMenu: View {
         HStack(spacing: 7) {
             if showsTitle { Text(title).foregroundStyle(PrintPalette.ink2) }
             Text(verbatim: value).fontWeight(isEnabled ? .semibold : .regular).lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: nameLimit, alignment: .leading)
             Image(systemName: "chevron.down")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(PrintPalette.ink2)
@@ -453,6 +475,12 @@ struct PrintStyleMenu: View {
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 6))
         .opacity(isEnabled ? 1 : 0.6)
+    }
+
+    /// The hint, with the whole name before it while the name is cut.
+    private func hint(_ key: String.LocalizationValue) -> Text {
+        let text = String(localized: key)
+        return Text(verbatim: nameLimit == nil ? text : Self.value(for: model) + "\n" + text)
     }
 }
 

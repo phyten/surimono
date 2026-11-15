@@ -47,40 +47,26 @@ struct PrintPressLayout: Layout {
     }
 }
 
-/// The layout cards in as many columns as the width they are given holds: all of them in one row, otherwise three.
-/// Every cell is as large as the first card, so the cards never shrink to keep a row.
+/// The layout cards in one row, every cell as large as the first card: the cards never shrink, and the press bar is
+/// never narrower than their row.
 struct PrintCardGrid: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard let cell = subviews.first?.sizeThatFits(.unspecified) else { return .zero }
         // At zero width the grid tells the size of one card, which the press bar arranges the cards by.
         if proposal.width == 0 { return cell }
-        return size(
-            columns: columns(for: proposal.width, cell: cell, count: subviews.count), cell: cell,
-            count: subviews.count)
+        let spacing = PrintPressArrangement.cardSpacing
+        return CGSize(
+            width: CGFloat(subviews.count) * cell.width + CGFloat(max(subviews.count - 1, 0)) * spacing,
+            height: cell.height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         guard let cell = subviews.first?.sizeThatFits(.unspecified) else { return }
-        let columns = columns(for: bounds.width, cell: cell, count: subviews.count)
         let spacing = PrintPressArrangement.cardSpacing
         for (index, subview) in subviews.enumerated() {
-            let x = bounds.minX + CGFloat(index % columns) * (cell.width + spacing)
-            let y = bounds.minY + CGFloat(index / columns) * (cell.height + spacing)
-            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(cell))
+            subview.place(
+                at: CGPoint(x: bounds.minX + CGFloat(index) * (cell.width + spacing), y: bounds.minY),
+                proposal: ProposedViewSize(cell))
         }
-    }
-
-    private func columns(for width: CGFloat?, cell: CGSize, count: Int) -> Int {
-        guard let width else { return max(count, 1) }
-        return size(columns: count, cell: cell, count: count).width <= width + 0.5 ? max(count, 1) : min(3, count)
-    }
-
-    private func size(columns: Int, cell: CGSize, count: Int) -> CGSize {
-        let columns = max(columns, 1)
-        let rows = (count + columns - 1) / columns
-        let spacing = PrintPressArrangement.cardSpacing
-        return CGSize(
-            width: CGFloat(columns) * cell.width + CGFloat(columns - 1) * spacing,
-            height: CGFloat(rows) * cell.height + CGFloat(max(rows - 1, 0)) * spacing)
     }
 }

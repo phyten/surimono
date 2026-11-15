@@ -46,4 +46,22 @@ struct PrintTopBarFoldTests {
         #expect(fold.folds(.styleTitle))
         #expect(!fold.folds(.backTitle))
     }
+
+    @Test("全部の段を外しても入らないときは、スタイルの名前に幅の上限を与えて、ほかの部品と合わせて収める")
+    func longStyleNameIsCut() {
+        // A style name of 300 in a bar that needs 480 with every step taken, but has 400.
+        let fold = PrintTopBarFold(available: 400, needed: needed, styleNameWidth: 300)
+        #expect(fold.foldedCount == PrintTopBarFold.Step.allCases.count)
+        let limit = fold.styleNameLimit
+        #expect(limit == 220)
+        // What the bar takes with the name cut: the last width less what the name gave up.
+        #expect(480 - (300 - (limit ?? 300)) <= 400)
+    }
+
+    @Test("名前を縮めるのは48ポイントまでで、全部の段で入るときは縮めない")
+    func styleNameLimitBounds() {
+        #expect(PrintTopBarFold(available: 100, needed: needed, styleNameWidth: 300).styleNameLimit == 48)
+        #expect(PrintTopBarFold(available: 480, needed: needed, styleNameWidth: 300).styleNameLimit == nil)
+        #expect(PrintTopBarFold(available: 800, needed: needed, styleNameWidth: 300).styleNameLimit == nil)
+    }
 }

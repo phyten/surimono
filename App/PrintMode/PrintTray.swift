@@ -468,6 +468,15 @@ enum PrintModeText {
         }
     }
 
+    /// The tag's short form, for a side too narrow for the full one.
+    static func faceShortLabel(_ side: PrintTray.Side, language: String) -> String? {
+        switch side.face {
+        case .single: nil
+        case .front: string("Front (Short)", language: language)
+        case .back: string(side.isRotated ? "Back 180° (Short)" : "Back (Short)", language: language)
+        }
+    }
+
     /// What the sheets make, and how they are printed, in two lines: what is made of how much paper, then the binding.
     /// How to stack and fold them is left to the fold view. The first line comes in Markdown emphasis.
     /// - Parameters:

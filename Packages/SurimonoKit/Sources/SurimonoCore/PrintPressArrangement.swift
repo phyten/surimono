@@ -4,19 +4,17 @@ import CoreGraphics
 /// decided here from plain numbers, so that each step of folding is pinned by a test.
 ///
 /// The bar has two groups. The choices (the paper series and orientation menus over the six layout cards) are on the
-/// left; the result and the ways to send it out (what comes out, the printer, PDF and Print) are on the right. When
-/// the window is narrower than both need, the bar gives way in this order, each step only when the previous ones are
-/// not enough:
+/// left; the result and the ways to send it out (what comes out, the printer, PDF and Print) are on the right. The
+/// six cards always stand in one row, and neither they nor their titles shrink: the bar is never narrower than that
+/// row (`fittingWidth`), which is the narrowest the print screen's window gets. When the window is narrower than both
+/// groups need, the bar gives way in this order, each step only when the previous ones are not enough:
 ///
 /// 1. The right group moves to a row of its own under the choices, before the printer's name is cut.
 /// 2. The PDF button drops its label and keeps its icon.
-/// 3. The cards fold into three columns of two rows. Neither the cards nor their titles shrink to keep one row.
-/// 4. The printer's name loses its middle, down to `printerMinimum`.
+/// 3. The printer's name loses its middle, down to `printerMinimum`.
 ///
-/// The cards and the row under them are two rows, each folding for its own lack of room: the cards fold only when
-/// they do not fit, and in the row under them the PDF label always goes before the printer's name is cut. The name is
-/// cut, last, to keep the result's first line on one line: three lines of "Paper A3 · 10 sheets · Two-Sided" beside
-/// a whole printer name read worse than a name whose middle the menu, its hint and VoiceOver still give.
+/// The name is cut, last, to keep the result's first line on one line: three lines of "Paper A3 · 10 sheets ·
+/// Two-Sided" beside a whole printer name read worse than a name whose middle the menu, its hint and VoiceOver give.
 ///
 /// Print, the printer, the result, the copies and the six cards stay on the bar at every width, so printing never
 /// takes more than the two steps of choosing a card and pressing Print.
@@ -67,20 +65,19 @@ public struct PrintPressArrangement: Equatable, Sendable {
             self.button = button
         }
 
-        /// The cards in `columns` columns.
-        public func cardsSize(columns: Int) -> CGSize {
-            let columns = max(1, min(columns, cardCount))
-            let rows = (cardCount + columns - 1) / columns
-            return CGSize(
-                width: CGFloat(columns) * card.width + CGFloat(columns - 1) * PrintPressArrangement.cardSpacing,
-                height: CGFloat(rows) * card.height + CGFloat(max(rows - 1, 0)) * PrintPressArrangement.cardSpacing)
+        /// The cards in their one row.
+        public var cardsSize: CGSize {
+            CGSize(
+                width: CGFloat(cardCount) * card.width
+                    + CGFloat(max(cardCount - 1, 0)) * PrintPressArrangement.cardSpacing,
+                height: card.height)
         }
 
         /// The printer's whole name, up to the widest the menu is ever drawn.
         var printerIdeal: CGFloat { min(printer.width, PrintPressArrangement.printerLimit) }
     }
 
-    /// Between neighboring cards, across and down.
+    /// Between neighboring cards.
     public static let cardSpacing: CGFloat = 4
     /// Between the menus and the cards.
     public static let rowGap: CGFloat = 6
@@ -108,8 +105,6 @@ public struct PrintPressArrangement: Equatable, Sendable {
     public static let printerMinimum: CGFloat = 120
 
     public let form: Form
-    /// How many columns the cards stand in: all of them in one row, or three.
-    public let cardColumns: Int
     /// Whether the PDF button shows its icon without its label.
     public let pdfIsCompact: Bool
     public let menus: CGRect
@@ -123,7 +118,7 @@ public struct PrintPressArrangement: Equatable, Sendable {
     public let size: CGSize
 
     public init(width: CGFloat, parts: Parts) {
-        let oneRow = parts.cardsSize(columns: parts.cardCount)
+        let oneRow = parts.cardsSize
         let choicesWidth = max(oneRow.width, parts.menus.width)
         let cardsY = parts.menus.height + Self.rowGap
         let printerIdeal = parts.printerIdeal
@@ -143,7 +138,6 @@ public struct PrintPressArrangement: Equatable, Sendable {
             let actionsX = buttonX - Self.clusterGap - fullActions
             let actionsY = height - actionsHeight
             self.form = .beside
-            self.cardColumns = parts.cardCount
             self.pdfIsCompact = false
             self.cards = CGRect(origin: CGPoint(x: 0, y: cardsY), size: oneRow)
             self.summary = CGRect(x: width - blockWidth, y: 0, width: blockWidth, height: summaryHeight)
@@ -161,13 +155,10 @@ public struct PrintPressArrangement: Equatable, Sendable {
         }
 
         // Stacked: the choices over a row of the result and the buttons.
-        let wraps = oneRow.width > width
-        let columns = wraps ? min(3, parts.cardCount) : parts.cardCount
-        let cardsSize = parts.cardsSize(columns: columns)
-        let rowY = cardsY + cardsSize.height + Self.stackGap
+        let rowY = cardsY + oneRow.height + Self.stackGap
         let fixed = Self.rowSpacing + Self.clusterGap + parts.button.width
-        // The PDF label goes before the cards fold, and both before the printer's name is cut.
-        let pdfIsCompact = wraps || lead + fixed + fullActions > width
+        // The PDF label goes before the printer's name is cut.
+        let pdfIsCompact = lead + fixed + fullActions > width
         let pdfNeed = pdfIsCompact ? parts.pdfCompactWidth : parts.pdf.width
         // The printer's name gives way last, to keep the result's first line whole, and never below the width that
         // still tells one name from another; past that the result wraps.
@@ -183,9 +174,8 @@ public struct PrintPressArrangement: Equatable, Sendable {
         let actionsX = buttonX - Self.clusterGap - actionsWidth
         let actionsY = rowY + (rowHeight - actionsHeight) / 2
         self.form = .stacked
-        self.cardColumns = columns
         self.pdfIsCompact = pdfIsCompact
-        self.cards = CGRect(origin: CGPoint(x: 0, y: cardsY), size: cardsSize)
+        self.cards = CGRect(origin: CGPoint(x: 0, y: cardsY), size: oneRow)
         self.rule = .zero
         self.summary = CGRect(
             x: 0, y: rowY + (rowHeight - summaryHeight) / 2, width: summaryWidth, height: summaryHeight)
@@ -203,12 +193,10 @@ public struct PrintPressArrangement: Equatable, Sendable {
     /// The width the bar is measured at for a proposed width: the proposal, but never narrower than the menus and the
     /// cards in one row, and with no proposal the width that puts the two groups side by side.
     ///
-    /// SwiftUI asks a window's content for its size at zero width to find the window's smallest size, width and height
-    /// together. Answered with the cards in two rows, the bar alone would raise the print screen's smallest height by a
-    /// row of cards; so the window keeps the cards' one row as its narrowest, and the three-column form serves a bar
-    /// given less room than that.
+    /// SwiftUI asks a window's content for its size at zero width to find the window's smallest size, so the cards'
+    /// one row is the narrowest the print screen's window can be made, in every language.
     public static func fittingWidth(for proposal: CGFloat?, parts: Parts) -> CGFloat {
-        let oneRow = parts.cardsSize(columns: parts.cardCount).width
+        let oneRow = parts.cardsSize.width
         let choices = max(oneRow, parts.menus.width)
         guard let proposal, proposal.isFinite else {
             let cluster = max(parts.printerIdeal, parts.pdf.width) + clusterGap + parts.button.width

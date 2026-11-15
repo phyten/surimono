@@ -93,6 +93,75 @@ struct PrintOutcomeTests {
         }
     }
 
+    /// What the press bar shows for a plan of `pages` pages or of some of them, read the way the model reads it.
+    private func outcome(
+        _ layout: PrintLayout, pages: Int? = nil, selected: [Int]? = nil, blankPages: Set<Int> = [],
+        notePages: [Int] = [], contents: Int = 0
+    ) -> PrintOutcome {
+        let plan =
+            selected.map { Imposition.plan(pages: $0, layout: layout) }
+            ?? Imposition.plan(pageCount: pages ?? 0, layout: layout)
+        return PrintOutcome(
+            plan: plan, layout: layout, blankPages: blankPages, notePages: notePages, contents: contents, copies: 1,
+            orientations: [])
+    }
+
+    @Test("奇数ページの両面は、最後の裏を白紙と数え、枚数は用紙の数になる")
+    func oddDuplexFromThePlan() {
+        let result = outcome(.a4Duplex, pages: 5)
+        #expect(plain(result.lead(language: "ja")) == "用紙 A4・3 枚・両面")
+        #expect(plain(result.detail(language: "ja")) == "6 ページ（本文 5＋白紙 1）")
+    }
+
+    @Test("冊子の端数は白紙と数え、38ページの A4 冊子は A3 10枚で40ページになる")
+    func bookletRemainderFromThePlan() {
+        let result = outcome(.a3BookletA4, pages: 38)
+        #expect(plain(result.lead(language: "ja")) == "用紙 A3・10 枚・両面")
+        #expect(plain(result.detail(language: "ja")) == "仕上がり A4 冊子・40 ページ（本文 38＋白紙 2）")
+    }
+
+    @Test("2ページを1枚に・4ページを1枚に・3ページ＋メモの最後の空き枠は白紙と数える")
+    func emptySlotsFromThePlan() {
+        let twoUp = outcome(.a3TwoUp, pages: 3)
+        #expect(plain(twoUp.lead(language: "ja")) == "用紙 A3・2 枚・片面")
+        #expect(plain(twoUp.detail(language: "ja")) == "仕上がり A4 2 ページを 1 枚に・4 ページ（本文 3＋白紙 1）")
+        let fourUp = outcome(.a4FourUp, pages: 5)
+        #expect(plain(fourUp.lead(language: "ja")) == "用紙 A4・2 枚・片面")
+        #expect(plain(fourUp.detail(language: "ja")) == "8 ページ（本文 5＋白紙 3）")
+        let handout = outcome(.a4Handout3, pages: 7)
+        #expect(plain(handout.lead(language: "ja")) == "用紙 A4・3 枚・片面")
+        #expect(plain(handout.detail(language: "ja")) == "9 ページ（本文 7＋白紙 2）")
+    }
+
+    @Test("ページの範囲の中のノートだけを数え、範囲の外のノートは数えない")
+    func notesInsideTheRangeOnly() {
+        let result = outcome(.a4Single, selected: [0, 1, 2, 3], notePages: [2, 6])
+        #expect(plain(result.lead(language: "ja")) == "用紙 A4・4 枚・片面")
+        #expect(plain(result.detail(language: "ja")) == "4 ページ（本文 3＋ノート 1）")
+    }
+
+    @Test("わざと白くしたページと目次は、本文から分けて数える")
+    func blankPagesAndContents() {
+        let blank = outcome(.a4Single, pages: 4, blankPages: [1, 9])
+        #expect(plain(blank.detail(language: "ja")) == "4 ページ（本文 3＋白紙 1）")
+        let contents = outcome(.a4Single, pages: 6, contents: 2)
+        #expect(plain(contents.detail(language: "ja")) == "6 ページ（本文 4＋目次 2）")
+    }
+
+    @Test("目次を分けて数えるのはテキストの文書で、ページの範囲がないときだけ")
+    func contentsCountedOnlyWithoutARange() {
+        #expect(PrintOutcome.countedContents(added: 2, appliesToText: true, selectsPages: false) == 2)
+        #expect(PrintOutcome.countedContents(added: 2, appliesToText: true, selectsPages: true) == 0)
+        #expect(PrintOutcome.countedContents(added: 2, appliesToText: false, selectsPages: false) == 0)
+    }
+
+    @Test("空の文書は用紙0枚で、2行目を出さない")
+    func emptyDocument() {
+        let result = outcome(.a4Single, pages: 0)
+        #expect(plain(result.lead(language: "ja")) == "用紙 A4・0 枚・片面")
+        #expect(result.detail(language: "ja") == nil)
+    }
+
     @Test("表示画面の帯の「印刷」は、8言語のどれでも省略記号を付けない")
     func bandPrintHasNoEllipsis() {
         for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {

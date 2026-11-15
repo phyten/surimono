@@ -29,8 +29,8 @@ A document opens as pages of paper that fill the window. The toolbar offers the 
 
 Printing takes three steps.
 
-1. Click the vermilion Print… button at the right end of the toolbar, or press ⌘P. The print screen opens and shows the sheets as they will come out.
-2. Under Paper to Use, choose the booklet half the size of your paper: A5 Booklet for A4 paper, Half Letter Booklet for Letter paper. The buttons beside Paper to Use, such as A4 / A3 and Letter / Tabloid, switch the kind of paper.
+1. Click the vermilion Print button at the right end of the toolbar, or press ⌘P. The print screen opens and shows the sheets as they will come out.
+2. Among the layout cards, choose the booklet half the size of your paper: A5 Booklet for A4 paper, Half Letter Booklet for Letter paper. The corner of a card shows the paper it prints on. The menu above the cards (A Sizes, B Sizes (JIS), US Sizes) switches the series of paper.
 3. Click the vermilion Print button, or press ⌘P again. The sheets go to the chosen printer without a dialog.
 
 > [!note] The print screen is for checking
@@ -52,7 +52,7 @@ Pages that do not fill the last sheet are left blank.
 | 10 | 3 | 2 |
 | 16 | 4 | none |
 
-The print screen shows the number of pages, blank pages and sheets. For a booklet that opens from the right, choose Right Binding under Booklet Binding in All Print Settings….
+Next to Print, the bar at the bottom of the print screen shows the paper it takes, the number of sheets and whether they are printed on both sides, and under that the finished booklet with its pages and blank pages. For a booklet that opens from the right, choose Right Binding under Booklet Binding in All Print Settings….
 
 Finish the printed sheets in this order.
 

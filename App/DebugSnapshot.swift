@@ -288,12 +288,7 @@
             }
             // Screenshots that leave the machine should not name the printers set up on it.
             if flag("SurimonoHidePrinters") { model.printerListSource = { .empty } }
-            // A made-up printer of the given name, to see how the press bar fits a long name. It exists only here, so
-            // nothing can be sent to it; its abilities are left unknown.
-            if let name = argument("SurimonoPrinterName") {
-                model.printerListSource = { PrinterList(names: [name], defaultName: name) }
-                model.printerCapabilitiesSource = { _ in nil }
-            }
+            if let name = argument("SurimonoPrinterName") { showPrinterName(name, in: model) }
             // A made-up printer that takes A4 and smaller on one side only, to see the badges of what it cannot do.
             if flag("SurimonoPrinterLimits") {
                 model.printerListSource = { PrinterList(names: ["Printer"], defaultName: "Printer") }
@@ -318,6 +313,27 @@
                     }
                 }
             }
+        }
+
+        /// Puts a printer of the given name on the tray, to see how the press bar fits a long name. The name may be
+        /// that of a printer set up on this Mac, so every way out to a printer is replaced: Print, the duplex test
+        /// print and manual duplex reach `sent` and nothing else, and no correction is saved. Its abilities are left
+        /// unknown.
+        static func showPrinterName(
+            _ name: String, in model: DocumentViewModel, sent: @escaping (String) -> Void = { _ in }
+        ) {
+            model.printerListSource = { PrinterList(names: [name], defaultName: name) }
+            model.printerCapabilitiesSource = { _ in nil }
+            model.printSubmit = { _, request, _ in sent("print \(request.printerName ?? "")") }
+            model.duplexTestSubmit = { _, _, request, complete in
+                sent("duplexTest \(request.printerName ?? "")")
+                complete(nil)
+            }
+            model.manualDuplexSubmit = { submission, complete in
+                sent("manualDuplex \(submission.request.printerName ?? "")")
+                complete(.notStarted)
+            }
+            model.manualDuplexSaveCorrection = { _ in }
         }
 
         private static func isolateManualDuplex(_ model: DocumentViewModel) {

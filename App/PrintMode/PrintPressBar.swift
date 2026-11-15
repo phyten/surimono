@@ -169,21 +169,7 @@ struct PrintPressBar: View {
         outcome?.lead(language: model.language) ?? String(localized: "Preparing pages…")
     }
 
-    /// What one press of Print takes and makes, all from the sheets on the tray: the paper, the sheets and the pages
-    /// of one composition, so that a newer page count never meets an older sheet count.
-    private var outcome: PrintOutcome? {
-        guard let result = model.shownSheets else { return nil }
-        let slots = result.plan.sides.flatMap(\.slots)
-        let printed = Set(slots.compactMap { $0 })
-        let blanks = slots.filter { $0 == nil }.count + result.blankPages.intersection(printed).count
-        // Where the contents are among the pages is not told, so a range counts them with the body.
-        let contents = model.finishAppliesToText && result.pageSelection.pages == nil ? result.addedContentsPages : 0
-        let notes = result.notePages.filter(printed.contains).count
-        return PrintOutcome(
-            layout: result.layout, paper: result.plan.paper, sheets: result.plan.sheetCount, pages: slots.count,
-            body: slots.count - blanks - contents - notes, contents: contents, notes: notes, blanks: blanks,
-            copies: model.copies, orientations: result.sheetOrientations)
-    }
+    private var outcome: PrintOutcome? { model.printOutcome }
 
     /// What the choices add to the sheets beyond the summary; the amount of text belongs to the document's information.
     private var reminderLine: String? {
