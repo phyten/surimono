@@ -170,7 +170,7 @@ struct PrintSheetFlowTests {
         #expect(model.renderSettings?.layout == .a4BookletA5)
     }
 
-    @Test("論理ページを出してから用紙ができるまでは、刷り台にも出力にも前の用紙を使わない", .timeLimit(.minutes(1)))
+    @Test("論理ページを出してから用紙ができるまでは、刷り台は前の用紙を見せたままにし、出力と折ってみるには使わない", .timeLimit(.minutes(1)))
     func logicalPagesBeforeSheets() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -192,6 +192,7 @@ struct PrintSheetFlowTests {
         #expect(model.result?.logicalDocument === old.logicalDocument)
         #expect(model.printResult?.id == old.id)
         #expect(!model.hasCurrentPrintPreview)
+        #expect(model.showsTrayPreview)
         #expect(!model.canOutput)
         #expect(FoldSource.current(model) == nil)
 

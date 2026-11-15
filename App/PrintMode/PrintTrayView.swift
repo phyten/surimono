@@ -9,7 +9,6 @@ struct PrintTrayView: View {
     let model: DocumentViewModel
     let tray: PrintTray
     let document: PDFDocument
-    @Binding var showsFold: Bool
     /// Where the tray before this one was, and where this one leaves what it shows.
     let memory: TrayMemory
     @State private var zoomer = TrayZoomer()
@@ -110,7 +109,7 @@ struct PrintTrayView: View {
                             sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
                             language: model.language, notePages: tray.notePages, imageNames: imageNames,
                             // The sheets were drawn with the options of their render.
-                            options: model.renderedSettings?.options ?? model.effectivePrintOptions,
+                            options: model.printTraySettings?.options ?? model.effectivePrintOptions,
                             onHeadingHeight: { height in
                                 if abs(headingHeight - height) > 0.01 { headingHeight = height }
                             })
@@ -139,7 +138,7 @@ struct PrintTrayView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if tray.isBooklet {
                     Button {
-                        showsFold = true
+                        model.showFold()
                     } label: {
                         Label("See It Folded", systemImage: "book")
                             .font(.system(size: 12.5, weight: .semibold))
@@ -152,6 +151,8 @@ struct PrintTrayView: View {
                     }
                     .buttonStyle(.plain)
                     .fixedSize()
+                    // Not on sheets kept on the tray while newer ones are composed.
+                    .disabled(!model.canShowFold)
                     .help("Fold the sheets into a booklet and turn its pages")
                 }
             }
@@ -179,10 +180,9 @@ struct PrintTrayView: View {
         return text
     }
 
-    /// Unreadable images get no page, so they are left out to keep the names in step with the pages.
-    private var imageNames: [String]? {
-        model.imageBundle?.urls.filter { !model.unreadableImageURLs.contains($0) }.map(\.lastPathComponent)
-    }
+    /// Unreadable images get no page, so they are left out to keep the names in step with the pages; both as the
+    /// shown sheets were made, which may be older than the latest reading of the images.
+    private var imageNames: [String]? { model.trayImageNames }
 
     private func go(to index: Int) {
         guard tray.rows.indices.contains(index) else { return }

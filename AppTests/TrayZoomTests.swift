@@ -393,14 +393,16 @@ struct TrayZoomerTests {
         zoomer.show(row: 2, animated: false)
         let before = try await waitUntilScrolled(past: 500)
         #expect(before > 500)
+        let composed = model.printResult?.id
         model.increaseTextSize()
-        // The view starts the render a turn later, and the tray comes back when the sheets are made.
-        for _ in 0..<1500 where model.trayZoomer == nil || model.trayZoomer === zoomer || !model.canOutput {
+        // The view starts the render a turn later. The tray keeps its sheets meanwhile and shows the new ones once
+        // they are made, so the same tray, with its zoom, stays on screen.
+        for _ in 0..<1500 where model.printResult?.id == composed || !model.canOutput {
             try await Task.sleep(for: .milliseconds(20))
         }
         try await settle()
         let next = try #require(model.trayZoomer)
-        #expect(next !== zoomer)
+        #expect(next === zoomer)
         #expect(abs(next.zoom - 1.25) < 0.0001)
         let after = try await waitUntilScrolled(past: 500)
         #expect(abs(after - before) < 60)

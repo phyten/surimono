@@ -17,7 +17,7 @@ struct ViewModeView: View {
     private var bottomInset: CGFloat { isSplit ? ViewerWindow.bandHeight : 0 }
     private var holdsBand: Bool {
         model.isViewOptionsPresented || model.isThemePalettePresented || model.isPrintFinishPresented
-            || model.isOutlinePresented || model.isFiguresPresented || model.drop.isActive
+            || model.isOutlinePresented || model.isFiguresPresented || model.drop.holdsBand
     }
 
     var body: some View {

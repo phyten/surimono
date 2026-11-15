@@ -78,30 +78,21 @@ enum ViewerWindow {
         }
     }
 
-    static func setStageFrame(_ frame: NSRect, of window: NSWindow, completion: (() -> Void)? = nil) {
-        guard frame != window.frame else {
-            completion?()
-            return
+    /// A stage takes its frame in one step, in the same update as the mode that comes with it. An animated frame laid
+    /// the tray or the paper out again on every step (a dozen to twenty times per switch), the press bar changed from
+    /// stacked to side by side halfway through, and leaving the tray only showed the paper after the animation.
+    ///
+    /// `display: false` leaves the drawing to the window's next update, for a frame the completion may still change.
+    static func setStageFrame(
+        _ frame: NSRect, of window: NSWindow, display: Bool = true, completion: (() -> Void)? = nil
+    ) {
+        if frame != window.frame {
+            resizingWindows.add(window)
+            window.setFrame(frame, display: display)
+            resizingWindows.remove(window)
         }
-        guard window.isVisible, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-            setFrame(frame, of: window, animate: false)
-            completion?()
-            return
-        }
-        // The live-resize notification can arrive after the animation's completion handler.
-        markResizing(window, for: 0.55)
-        let id = UUID()
-        if let completion { pendingStageCompletions[id] = completion }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.3
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.2, 1)
-            window.animator().setFrame(frame, display: true)
-        } completionHandler: {
-            MainActor.assumeIsolated { pendingStageCompletions.removeValue(forKey: id)?() }
-        }
+        completion?()
     }
-
-    private static var pendingStageCompletions: [UUID: () -> Void] = [:]
 
     static func configure(_ window: NSWindow) {
         // Setting a property notifies its KVO observers even when the value stays the same, and SwiftUI observes some

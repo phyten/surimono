@@ -489,12 +489,17 @@ public enum MarkdownConverter {
         return output
     }
 
-    private static func renderAutolinks(_ text: String) -> String {
+    /// Compiled once: every text run of a document goes through it, and compiling it for each run took most of the
+    /// time of converting a long Markdown document.
+    private static let autolinkPattern: NSRegularExpression? = {
         let domain = #"(?:[\p{L}\p{N}_-]+\.)*[\p{L}\p{N}-]+\.[\p{L}\p{N}-]+"#
         let web = #"(?<![^\s*_~(])(?:https?://|www\.)"# + domain + #"[^\s<]*"#
         let email = #"(?:mailto:|xmpp:)?[A-Za-z0-9._+\-]+@[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)+"#
-        guard let regex = try? NSRegularExpression(pattern: "(?<web>\(web))|\(email)", options: [.caseInsensitive])
-        else {
+        return try? NSRegularExpression(pattern: "(?<web>\(web))|\(email)", options: [.caseInsensitive])
+    }()
+
+    private static func renderAutolinks(_ text: String) -> String {
+        guard let regex = autolinkPattern else {
             return HTML.escape(MarkdownExtensions.emojified(text))
         }
         var output = ""
