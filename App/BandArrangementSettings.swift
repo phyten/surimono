@@ -12,6 +12,20 @@ struct BandArrangementSettings: View {
     private static let sidePaletteWidth: CGFloat = 760
 
     var body: some View {
+        ScrollViewReader { proxy in
+            editorScroll
+                .task(id: session.selectionRevealRevision) {
+                    guard session.selectionRevealRevision > 0 else { return }
+                    // Let the destination chip enter the updated layout before resolving its scroll identity.
+                    await Task.yield()
+                    guard !Task.isCancelled, let selection = session.selection else { return }
+                    // Without an anchor SwiftUI moves only as far as needed to reveal the chip.
+                    proxy.scrollTo(Optional(selection))
+                }
+        }
+    }
+
+    private var editorScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if session.needsRecovery { RecoveryNotice(session: session) }
@@ -43,6 +57,7 @@ struct BandArrangementSettings: View {
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .coordinateSpace(name: "band-editor")
         // As the other sections' grouped forms do: the first row closer to the title bar.
         .contentMargins(.top, -28, for: .scrollContent)
         .onGeometryChange(for: CGFloat.self) {
@@ -330,7 +345,7 @@ private struct ArrangementMiniature: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            MiniatureBandLayout(fixedPrefix: 2) {
                 TrafficLightDots()
                 Text("File Name")
                     .font(.system(size: 12, weight: .semibold))
@@ -340,10 +355,8 @@ private struct ArrangementMiniature: View {
                     .help("Fixed: the file name always follows the traffic lights.")
                     .accessibilityLabel(Text("File Name"))
                     .accessibilityValue(Text("Fixed"))
-                // The right zone takes the width it needs first, as the window's trailing tools do; the left one
-                // keeps the rest, which also stands for the band's flexible middle.
-                ZoneEditor(session: session, zone: .topLeft).frame(maxWidth: .infinity, alignment: .leading)
-                ZoneEditor(session: session, zone: .topRight).layoutPriority(1)
+                ZoneEditor(session: session, zone: .topLeft)
+                ZoneEditor(session: session, zone: .topRight)
                 if !docksMore { MoreLock() }
             }
             .padding(.horizontal, 8)
@@ -354,9 +367,9 @@ private struct ArrangementMiniature: View {
             Paper(spread: true)
                 .frame(height: session.mode == .split ? 46 : 72)
             if session.mode == .split {
-                HStack(spacing: 8) {
-                    ZoneEditor(session: session, zone: .bottomLeft).frame(maxWidth: .infinity, alignment: .leading)
-                    ZoneEditor(session: session, zone: .bottomRight).layoutPriority(1)
+                MiniatureBandLayout(fixedPrefix: 0) {
+                    ZoneEditor(session: session, zone: .bottomLeft)
+                    ZoneEditor(session: session, zone: .bottomRight)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
@@ -394,7 +407,7 @@ private struct TrafficLightDots: View {
     }
 }
 
-/// "…" stays where it is: it holds everything that is not on the toolbar and the view options.
+/// "…" stays where it is: every operation is also available there.
 private struct MoreLock: View {
     var body: some View {
         Image(systemName: "ellipsis.circle")
@@ -408,7 +421,7 @@ private struct MoreLock: View {
                     .offset(x: 3, y: 3)
             }
             .frame(width: 24, height: MiniatureMetrics.chipHeight)
-            .help("“…” is fixed. It holds every part that is not on the toolbar.")
+            .help("“…” is fixed. All operations are also available here.")
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: "…"))
             .accessibilityValue(Text("Fixed"))
@@ -486,6 +499,11 @@ private struct ZoneEditor: View {
                     .allowsHitTesting(false)
             }
         }
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named("band-editor"))
+        } action: {
+            session.layoutFrames[zone.rawValue] = $0
+        }
         .coordinateSpace(.named(space))
         .onDrop(
             of: [.utf8PlainText],
@@ -523,7 +541,7 @@ private struct MiniatureNotes: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             if session.message == nil, !session.hasIdleSeparators {
-                Text("Narrow windows fold parts into “…”; here every part shows.")
+                Text("Narrow windows hide parts of the toolbar; all operations are also available in “…”.")
                     .foregroundStyle(PrintPalette.ink3)
             }
             if let message = session.message {
@@ -573,7 +591,7 @@ private struct EntryChip: View {
 
     var body: some View {
         content
-            .frame(height: MiniatureMetrics.chipHeight)
+            .frame(minHeight: MiniatureMetrics.chipHeight)
             .padding(.horizontal, entry == .separator ? 1 : (entry == .part(.print) && !showsName ? 1 : 4))
             .background {
                 RoundedRectangle(cornerRadius: 6)
@@ -583,6 +601,7 @@ private struct EntryChip: View {
                         isSelected ? PrintPalette.ai : (plain ? .clear : PrintPalette.line2),
                         lineWidth: isSelected ? 1.5 : 1)
             }
+            .id(selection)
             .contentShape(Rectangle())
             .onTapGesture { session.select(selection) }
             // Like a button: in the key view loop only with keyboard navigation, so a click never leaves a focus ring.
@@ -627,7 +646,8 @@ private struct EntryChip: View {
                 BandPartGlyph(item: item, besideName: showsName)
                 if showsName {
                     Text(verbatim: item.editorName).font(.system(size: 12)).foregroundStyle(PrintPalette.ink)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -651,6 +671,7 @@ private struct EntryChip: View {
         return String(
             format: String(localized: "%1$@, position %2$lld of %3$lld"), location.destination.editorName,
             location.index + 1, count)
+            + (entry.item?.editorAvailability.map { ". " + $0 } ?? "")
     }
 }
 
@@ -700,7 +721,7 @@ private struct UnusedPalette: View {
     private var heading: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text("Not in Use").font(.system(size: 12, weight: .semibold)).foregroundStyle(PrintPalette.ink)
-            Text("Drag a part here to take it off the toolbar. It stays available in “…”.")
+            Text("All operations are also available in “…”.")
                 .font(.system(size: 11))
                 .foregroundStyle(PrintPalette.ink3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -726,17 +747,37 @@ private struct UnusedPalette: View {
             if unused.isEmpty {
                 Text("Every part is on the toolbar.").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
             } else {
-                FlowLayout(spacing: 6) {
-                    ForEach(Array(unused.enumerated()), id: \.element) { index, item in
-                        EntryChip(
-                            session: session, location: BandEntryLocation(destination: .unused, index: index),
-                            entry: .part(item), showsName: true)
+                ForEach(BandPaletteGroup.project(unused)) { group in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(verbatim: group.id.title)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(PrintPalette.ink2)
+                            .accessibilityAddTraits(.isHeader)
+                        FlowLayout(spacing: 6, constrainsChips: true) {
+                            ForEach(group.parts) { part in
+                                EntryChip(
+                                    session: session, location: part.location,
+                                    entry: .part(part.id), showsName: true
+                                )
+                                .onGeometryChange(for: CGRect.self) {
+                                    $0.frame(in: .named("band-editor"))
+                                } action: {
+                                    session.layoutFrames["unused-" + part.id.rawValue] = $0
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named("band-editor"))
+        } action: {
+            session.layoutFrames["palette"] = $0
+        }
         .background {
             RoundedRectangle(cornerRadius: 8).fill(targeted ? PrintPalette.aiTint : PrintPalette.raised)
             RoundedRectangle(cornerRadius: 8)
@@ -1016,6 +1057,7 @@ private struct BandArrangementDialog: View {
 struct FlowLayout: Layout {
     var spacing: CGFloat = 4
     var lineSpacing: CGFloat = 4
+    var constrainsChips = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         arrange(width: proposal.width ?? .infinity, subviews: subviews).size
@@ -1030,7 +1072,11 @@ struct FlowLayout: Layout {
     }
 
     private func arrange(width: CGFloat, subviews: Subviews) -> (frames: [CGRect], size: CGSize) {
-        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let sizes = subviews.map {
+            let ideal = $0.sizeThatFits(.unspecified)
+            return constrainsChips && ideal.width > width
+                ? $0.sizeThatFits(ProposedViewSize(width: width, height: nil)) : ideal
+        }
         var lines: [[Int]] = [[]]
         var x: CGFloat = 0
         for (index, size) in sizes.enumerated() {

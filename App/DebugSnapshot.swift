@@ -10,6 +10,7 @@
     enum DebugSnapshot {
         static let showMenu = Notification.Name("SurimonoDebugShowMenu")
         private static var captured = false
+        private static var loggedMoreMenu = false
         private static weak var firstDocument: DocumentViewModel?
         private static var scheduled = false
         private static var appliedOverrides = false
@@ -31,6 +32,24 @@
         static var shortcutReview: String? { argument("SurimonoShortcutReview") }
         static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
         static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
+
+        /// A transient Split arrangement for photographing selected parts, in the supplied order.
+        static func bandPartsFixture(_ names: String) -> BandArrangementStore? {
+            let parts = names.split(separator: ",").compactMap { BandLayout.Item(rawValue: String($0)) }
+            guard !parts.isEmpty else { return nil }
+            var layouts = BandArrangementVariants()
+            do {
+                for part in parts {
+                    layouts.split = try layouts.split.moving(part, to: .zone(.topRight), before: .print, for: .split)
+                }
+                var store = BandArrangementStore()
+                try store.insert(BandArrangementSet(name: "Band Parts", layouts: layouts))
+                return store
+            } catch {
+                logger.error("Band parts fixture is invalid: \(String(describing: error), privacy: .public)")
+                return nil
+            }
+        }
 
         /// Arrangements to look at: `-SurimonoBandArrangement printBottom|reordered|sparse|editor|editorReading`
         /// (`unreadable` stands for data a newer version wrote). They are held in memory only; the preferences refuse
@@ -723,6 +742,14 @@
                     // As if "…" were clicked, to see what it holds; the menu closes again after the capture.
                     openMoreMenu(of: model, in: window)
                     try? await Task.sleep(for: .milliseconds(1200))
+                }
+                if model.isUpToDate, !loggedMoreMenu, flag("SurimonoMoreMenuLog") {
+                    loggedMoreMenu = true
+                    // Only operation IDs are public; never log the document header or user-selected style names.
+                    let entries = BandMenuContent(model: model).groups.map {
+                        $0.entries.map { $0.id.rawValue }.joined(separator: ",")
+                    }.joined(separator: " | ")
+                    logger.info("More menu: \(entries, privacy: .public)")
                 }
                 if let path = argument("SurimonoHitMap"), let window = model.window {
                     try? hitMap(of: window).write(toFile: path, atomically: true, encoding: .utf8)

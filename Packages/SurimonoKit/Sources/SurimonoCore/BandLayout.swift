@@ -18,17 +18,34 @@ public enum BandLayout {
         case floatOnTop = "floatOnTop"
         case pageTurn = "pageTurn"
         case print = "print"
+        case readingDirection = "readingDirection"
+        case scrollDirection = "scrollDirection"
+        case paperOrientation = "paperOrientation"
+        case paperSeries = "paperSeries"
+        case cover = "cover"
+        case selectText = "selectText"
+        case alwaysShowToolbar = "alwaysShowToolbar"
+        case margins = "margins"
+        case printSettings = "printSettings"
+        case ignoreSlides = "ignoreSlides"
+        case beforePrinting = "beforePrinting"
+        case viewOptions = "viewOptions"
+        case saveAsFile = "saveAsFile"
+        case keysAndGestures = "keysAndGestures"
 
         /// Tools of one group sit together, and a thin separator divides neighbouring groups. The title's parts and
         /// Print stand outside the groups.
         public var group: Int? {
             switch self {
             case .formatBadge, .pageIndicator, .pageTurn, .print: nil
-            case .presentation: 0
+            case .presentation, .ignoreSlides: 0
             case .style, .outline: 1
-            case .layout, .transition: 2
-            case .zoom, .thumbnails: 3
-            case .floatOnTop: 4
+            case .layout, .transition, .readingDirection, .scrollDirection, .cover: 2
+            case .zoom, .thumbnails, .selectText: 3
+            case .floatOnTop, .alwaysShowToolbar, .viewOptions: 4
+            case .paperOrientation, .paperSeries, .margins: 5
+            case .printSettings, .beforePrinting, .saveAsFile: 6
+            case .keysAndGestures: 7
             }
         }
     }
@@ -127,10 +144,14 @@ public enum BandLayout {
     }
 
     private static func collapse(
-        widths: [Item: Widths], name: CGFloat, available: CGFloat, steps: [Step],
+        widths: [Item: Widths], name: CGFloat, available: CGFloat, steps: [Step], compactBeforeName: [Item] = [],
         spacing: ([Item: Form]) -> CGFloat
     ) -> Plan {
         var forms = widths.mapValues { _ in Form.full }
+        // Additional labels yield before the document name. Legacy callers keep their original collapse order.
+        for item in compactBeforeName where itemWidth(forms, widths: widths) + spacing(forms) + name > available {
+            if forms[item] == .full, widths[item]?.compact != nil { forms[item] = .compact }
+        }
         var removed = Set<Item>()
         let reservedName = min(name, nameMinimum)
         func required() -> CGFloat { itemWidth(forms, widths: widths) + spacing(forms) + reservedName }
@@ -209,7 +230,8 @@ public enum BandLayout {
                 position: position, mode: mode, metrics: metrics, standardSpacing: standardSpacing, moreDock: moreDock)
         }
         let plan = collapse(
-            widths: widths, name: name, available: availableWidth, steps: physicalSteps(at: position)
+            widths: widths, name: name, available: availableWidth, steps: physicalSteps(at: position),
+            compactBeforeName: additionalCompactOrder
         ) { geometry($0).spacingWidth }
         let minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
         return BandRowPlan(
@@ -233,8 +255,16 @@ public enum BandLayout {
                 .formatBadge, .transition, .layout, .pageTurn, .style, .outline,
                 .presentation, .thumbnails, .zoom, .floatOnTop, .pageIndicator,
             ]
-        return compact + removed.map { .remove($0) } + [.compact(.print)]
+        let added = additionalCompactOrder
+        return added.map { .compact($0) } + compact + added.map { .remove($0) }
+            + removed.map { .remove($0) } + [.compact(.print)]
     }
+
+    private static let additionalCompactOrder: [Item] = [
+        .keysAndGestures, .saveAsFile, .ignoreSlides, .printSettings, .margins, .paperSeries,
+        .paperOrientation, .cover, .readingDirection, .scrollDirection, .alwaysShowToolbar,
+        .viewOptions, .beforePrinting, .selectText,
+    ]
 
     private static func visibleSeparators(in entries: [BandEntry], forms: [Item: Form]) -> [Item] {
         var hasPart = false
@@ -282,10 +312,14 @@ public enum BandLayout {
             // The fixed filename precedes the leading zone, including its reserved gap at narrow widths.
             gaps[first] = metrics.titleGap
         }
+        // "…" follows the trailing tools (all but a Print docked after it) with a tool gap. The legacy stacks already
+        // reserved it as the first tool's gap; reordered zones start at zero, so it is counted here.
+        let toolsBeforeMore = moreDock == .beforePrint ? trailing.filter { $0 != .print } : trailing
+        let moreGap = !standardSpacing && moreDock != .absent && !toolsBeforeMore.isEmpty ? metrics.toolGap : 0
         return BandRowGeometry(
             fixedWidth: position == .top ? metrics.topFixed : metrics.bottomFixed,
             gapsBefore: gaps, separatorsBefore: separators, separatorWidth: metrics.separator,
             moreDock: moreDock,
-            usesStandardSpacing: standardSpacing)
+            usesStandardSpacing: standardSpacing, moreGap: moreGap)
     }
 }

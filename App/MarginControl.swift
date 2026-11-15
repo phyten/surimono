@@ -89,22 +89,32 @@ struct MarginMenu: View {
 
     var body: some View {
         Menu {
-            Picker(
-                "Margins",
-                selection: Binding(
-                    get: { model.printOptions.margins.uniformValue },
-                    set: { if let millimeters = $0 { model.setMargins(millimeters) } })
-            ) {
-                ForEach(model.marginChoices(in: unit), id: \.self) { millimeters in
-                    Text(verbatim: unit.label(millimeters)).tag(Optional(millimeters))
-                }
-            }
-            .pickerStyle(.inline).labelsHidden()
+            MarginChoices(model: model, unit: unit)
         } label: {
             Text(
                 verbatim: choice(
                     String(localized: "Margins"),
                     model.printOptions.margins.uniformValue.map { unit.label($0) } ?? String(localized: "Mixed")))
         }
+    }
+}
+
+/// The same presets and binding in the band chip and in the complete index.
+struct MarginChoices: View {
+    @Bindable var model: DocumentViewModel
+    let unit: MarginUnit
+
+    var body: some View {
+        Picker(
+            "Margins",
+            selection: Binding(
+                get: { model.printOptions.margins.uniformValue },
+                set: { if let millimeters = $0 { model.setMargins(millimeters) } })
+        ) {
+            ForEach(model.marginChoices(in: unit), id: \.self) { millimeters in
+                Text(verbatim: unit.label(millimeters)).tag(Optional(millimeters))
+            }
+        }
+        .pickerStyle(.inline).labelsHidden()
     }
 }

@@ -418,6 +418,11 @@ final class AppPreferences {
             repairedBandArrangementData = bandData
         }
         #if DEBUG
+            if let fixture = DebugSnapshot.argument("SurimonoBandParts").flatMap(DebugSnapshot.bandPartsFixture) {
+                bandArrangementStore = fixture
+                menuArrangement = .split
+                showsBandArrangementFixture = true
+            }
             if let fixture = DebugSnapshot.argument("SurimonoBandArrangement")
                 .flatMap(DebugSnapshot.bandArrangementFixture(named:))
             {

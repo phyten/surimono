@@ -142,7 +142,7 @@ struct HTMLPresentationTests {
         reopened.stop()
     }
 
-    @Test("ウェブの帯は切り替え・最前面に固定・印刷に絞り、その他には紙にだけ効く操作を置かない")
+    @Test("ウェブの帯は紙専用の操作を出さず適用できる部品を返す")
     func bandOnTheWeb() throws {
         let environment = try environment()
         defer { environment.cleanUp() }
@@ -150,15 +150,16 @@ struct HTMLPresentationTests {
         #expect(
             BandLayout.Item.applicable(for: model) == [
                 .formatBadge, .presentation, .floatOnTop, .print,
+                .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .keysAndGestures,
             ])
-        #expect(SecondaryViewControl.applicable(for: model) == [.alwaysShowMenu])
+        #expect(BandLayout.Item.applicable(for: model).contains(.alwaysShowToolbar))
         model.setHTMLPresentation(.paper)
         let paper = BandLayout.Item.applicable(for: model)
         #expect(paper.contains(.presentation))
         #expect(paper.contains(.style))
         #expect(paper.contains(.layout))
         #expect(paper.contains(.transition))
-        #expect(SecondaryViewControl.applicable(for: model).contains(.selectText))
+        #expect(BandLayout.Item.applicable(for: model).contains(.selectText))
     }
 
     @Test("HTML 以外と、ファイルのない HTML は紙面だけで見せる", arguments: [(DocumentFormat.markdown, true), (.html, false)])

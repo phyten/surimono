@@ -35,7 +35,11 @@ struct PaperOrientationControl: View {
 
     var isFixed: Bool { model.renderLayout.hasFixedOrientation }
 
-    var value: LocalizedStringKey {
+    var value: LocalizedStringKey { LocalizedStringKey(valueKey) }
+
+    var valueName: String { String(localized: String.LocalizationValue(valueKey)) }
+
+    private var valueKey: String {
         if isFixed {
             return model.renderLayout.sheetSize.width > model.renderLayout.sheetSize.height ? "Landscape" : "Portrait"
         }
@@ -46,11 +50,15 @@ struct PaperOrientationControl: View {
             if !model.isUpToDate {
                 "Auto"
             } else {
-                Self.automaticValue(for: model.printResult?.sheetOrientations ?? [])
+                Self.automaticValueKey(for: model.printResult?.sheetOrientations ?? [])
             }
         }
     }
     static func automaticValue(for orientations: [PaperOrientation]) -> LocalizedStringKey {
+        LocalizedStringKey(automaticValueKey(for: orientations))
+    }
+
+    private static func automaticValueKey(for orientations: [PaperOrientation]) -> String {
         if Set(orientations).count > 1 { return "Auto (Mixed)" }
         guard let orientation = orientations.first else { return "Auto" }
         return orientation == .landscape ? "Auto (Landscape)" : "Auto (Portrait)"
