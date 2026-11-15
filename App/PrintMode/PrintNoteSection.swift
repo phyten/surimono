@@ -105,7 +105,9 @@ struct PrintNoteSection: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 6)
         }
-        if model.coverIsNotePage {
+        // This warning speaks about the current setting, so it waits for sheets composed with it; the sheets still
+        // on the tray from the previous setting would describe a different result.
+        if model.hasCurrentPrintPreview, model.coverIsNotePage {
             warning("With this setting, the cover is a note page.")
         }
     }
