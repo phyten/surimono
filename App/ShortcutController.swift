@@ -8,6 +8,7 @@ final class ShortcutController {
     enum EditError: Error {
         case localEditingUnavailable
         case localConflict([ShortcutConflict])
+        case externalMenuAssignment
         case savedDataUnavailable
     }
 
@@ -19,6 +20,9 @@ final class ShortcutController {
     private(set) var unavailableBindings: [ShortcutValidationIssue] = []
     private(set) var loadError = false
     private(set) var migrationError: String?
+    var menuAmbiguities: Set<ShortcutOperationID> = []
+    private(set) var externalMenuKeys: [ShortcutOperationID: ShortcutCombination] = [:]
+    @ObservationIgnored var synchronizeMenus: () -> Void = {}
     private var preferences: AppPreferences?
     private let reservations: () -> [ShortcutSystemReservation]?
     private let keyboardLayout: () -> ShortcutKeyboardLayout
@@ -42,16 +46,19 @@ final class ShortcutController {
         let reserved = reservations()
         layout = keyboardLayout()
         environment = .init(
-            reservations: reserved ?? [], projection: layout.projection,
+            reservations: (reserved ?? []) + externalMenuKeys.values.map { .init(combination: $0) },
+            projection: layout.projection,
             reservationsAvailable: reserved != nil, projectionAvailable: layout.available)
     }
 
     func refresh() {
         guard let preferences else { return }
+        defer { synchronizeMenus() }
         refreshEnvironment()
         preferences.reloadKeyboardShortcuts(environment: environment)
         loadError = preferences.keyboardShortcutsLoadState.isUnreadable
         guard !loadError else {
+            snapshot = ShortcutConfiguration()
             hotKeys.synchronize([:])
             return
         }
@@ -109,20 +116,23 @@ final class ShortcutController {
         snapshot = plan.configuration
         unavailableBindings = plan.unavailableBindings
         migrationError = nil
+        synchronizeMenus()
     }
 
     func proposal(
         _ operation: ShortcutOperationID, keys: [ShortcutCombination]?, takeConflicts: Bool = false
     ) throws -> ShortcutChangePlan {
-        guard ShortcutOperation.operation(operation).isGlobal else { throw EditError.localEditingUnavailable }
+        guard isConnected(operation) else { throw EditError.localEditingUnavailable }
+        guard externalMenuKeys[operation] == nil else { throw EditError.externalMenuAssignment }
+        guard !menuAmbiguities.contains(operation) else { throw EditError.localEditingUnavailable }
         guard preferences != nil, !loadError else { throw EditError.savedDataUnavailable }
         // A dialog may have been open while macOS reservations or the input source changed.
         refreshEnvironment()
         let validator = ShortcutValidator(environment: environment)
         let conflicts = validator.conflicts(
             for: operation, keys: keys ?? ShortcutDefaults.keys(for: operation), in: snapshot)
-        // Local handlers still use defaults in step 3, so taking a local key would create two active owners.
-        if conflicts.contains(where: { $0.owners.contains { !ShortcutOperation.operation($0.operation).isGlobal } }) {
+        // Unconnected handlers still own their defaults and cannot surrender them.
+        if conflicts.contains(where: { $0.owners.contains { !isConnected($0.operation) } }) {
             throw EditError.localConflict(conflicts)
         }
         let resolution: ShortcutConflictResolution = takeConflicts ? .takeConflicts : .reject
@@ -135,7 +145,47 @@ final class ShortcutController {
         return plan
     }
 
+    func logicalKey(_ physical: ShortcutCombination) throws -> ShortcutCombination {
+        guard
+            let logical = layout.projection.last(where: {
+                $0.physical
+                    == ShortcutCombination(key: physical.key, modifiers: physical.modifiers.subtracting(.option))
+            })?.logical
+        else {
+            throw ShortcutModelError.invalidKey
+        }
+        return try ShortcutCombination(key: logical.key, modifiers: physical.modifiers).normalized()
+    }
+
+    func isConnected(_ operation: ShortcutOperationID) -> Bool {
+        ShortcutOperation.operation(operation).isGlobal || ShortcutMenuBridge.operations.contains(operation)
+    }
+
+    func setExternalMenuKeys(_ keys: [ShortcutOperationID: ShortcutCombination]) {
+        guard externalMenuKeys != keys else { return }
+        externalMenuKeys = keys
+        refreshEnvironment()
+        hotKeys.synchronize(registrations(for: snapshot))
+    }
+
+    func localKeys(for operation: ShortcutOperationID) -> [ShortcutCombination] {
+        if let key = externalMenuKeys[operation] { return [key] }
+        let keys = snapshot.keys(for: operation)
+        return keys.filter { key in
+            guard !externalMenuKeys.values.contains(where: { environment.matches($0, key) }) else { return false }
+            // Built-in equivalents must remain available even when OS reservation discovery fails.
+            guard snapshot.overrides[operation] != nil else { return true }
+            let validator = ShortcutValidator(environment: environment)
+            return validator.issues(for: operation, combination: key).isEmpty
+                && validator.conflicts(for: operation, keys: [key], in: snapshot).isEmpty
+        }
+    }
+
     func status(for operation: ShortcutOperationID) -> String {
+        if menuAmbiguities.contains(operation) {
+            return String(localized: "This menu command could not be identified uniquely.")
+        }
+        if externalMenuKeys[operation] != nil { return String(localized: "Managed in macOS") }
         if loadError { return Self.message(EditError.savedDataUnavailable) }
         if let record = snapshot.inactiveMigration.first(where: { $0.operation == operation }) {
             return record.reasons.map { ShortcutText.reason($0) }.joined(separator: "\n")
@@ -144,11 +194,18 @@ final class ShortcutController {
             return ShortcutText.reason(issue.code)
         }
         guard !snapshot.keys(for: operation).isEmpty else { return String(localized: "Unassigned") }
-        if !ShortcutValidator(environment: environment).conflicts(
+        let validator = ShortcutValidator(environment: environment)
+        if let issue = snapshot.keys(for: operation).flatMap({ validator.issues(for: operation, combination: $0) })
+            .first
+        {
+            return ShortcutText.reason(issue.code)
+        }
+        if !validator.conflicts(
             for: operation, keys: snapshot.keys(for: operation), in: snapshot
         ).isEmpty {
             return ShortcutText.reason(.conflict)
         }
+        if !ShortcutOperation.operation(operation).isGlobal { return "" }
         guard let action = GlobalHotKeys.Action.allCases.first(where: { $0.operation == operation }),
             hotKeys.isRegistered(action), !hotKeys.failed.contains(action)
         else { return String(localized: "Could not register this shortcut. Try another combination.") }
@@ -159,10 +216,11 @@ final class ShortcutController {
         if case ShortcutModelError.validation(let issues) = error, let issue = issues.first {
             return ShortcutText.reason(issue.code)
         }
+        if case EditError.externalMenuAssignment = error { return String(localized: "Managed in macOS") }
         if case EditError.localConflict(let conflicts) = error {
             let names = Set(conflicts.flatMap { $0.owners.map { ShortcutText.name($0.operation) } }).sorted()
             return String.localizedStringWithFormat(
-                String(localized: "Already used by %@. Local shortcuts cannot be changed yet."),
+                String(localized: "Already used by %@. This operation is not connected to customizable shortcuts yet."),
                 names.joined(separator: ", "))
         }
         if let error = error as? ShortcutModelError, error == .invalidKey || error == .invalidModifiers {

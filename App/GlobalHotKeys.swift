@@ -90,6 +90,7 @@ final class GlobalHotKeys {
     private var nextID: UInt32 = 10
     private var handler: EventHandlerRef?
     private var recording = false
+    var isRecording: Bool { recording }
     private var transacting = false
     private var handlerFailed = false
     private(set) var failed: Set<Action> = []

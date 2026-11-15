@@ -141,7 +141,7 @@ make clean
   - 最近使った項目: 標準メニューの項目は文書コントローラが 1 ファイルを開く（規則と同じ結果になるので、ルーターを通さないままでよい）。ウェルカム画面の最近使ったファイルは `OpenRouter` を通す。閉じた合本は標準の項目に載らないので、「ファイル > 最近使った合本」から `OpenRouter.open(recentBinder:)` で開く（合本の項目）
 - 同梱の案内（`GettingStarted`）: 初めての人が見本を開き、刷り、自分の文書を開くまでの Markdown を、`App/GettingStarted/` の `Surimono の使い方.md`（日本語）と `Getting Started with Surimono.md`（英語）に置く（synchronized folder なのでアプリの Resources に平らに入る。ファイル名が窓の題名になる）。表示の言語（`Bundle.main.preferredLocalizations` の先頭）が日本語なら日本語版、それ以外は英語版（`GettingStarted.edition(for:)`。2 番目以降の言語は見ない。案内の語がメニューの語と合うように）。入口はウェルカム画面（2 つのボタンの下の藍の文字のボタン）と「ヘルプ > Surimono の使い方」で、どちらも `OpenRouter.openGettingStarted()` から 1 つのファイルとして開く（2 度目は窓を前面に出す）。アプリの中のファイルは利用者のファイルではないので、`RecentFileHistory` が `noteNewRecentDocumentURL` のフックで、システムの最近使った項目にも `AppPreferences.recentFiles` にも載せない（`GettingStarted.isInsideApp`）。案内を含む合本も、閉じたときに最近使った合本へ覚えない（`BinderWindows.remember` が、ブックマークを作る前に組ごと外す）。文書ごとの設定は内容のハッシュで他の文書と同じく覚える（案内の文を変えるとハッシュが変わり、前の版の記録は使われなくなる）。案内に書く項目名・ボタン名は `Localizable.xcstrings` とコードの実際の語に合わせ、UI の語を変えたら案内も直す。印刷の練習は手元の用紙の半分の冊子（A4 なら A5、B5 なら B6、Letter なら Half Letter）を選ばせ、A4 だけを前提にした書き方をしない。どちらの版も A5 冊子と Half Letter 冊子で 8 ページ（本文 7・裏表紙が白紙）に収まる長さにしている。
 - クリップボードは「ファイル > クリップボードから開く」（⌘N）とウェルカム画面（「開く…」と同じ見た目の隣のボタン）から開く。ウェルカム画面の最近使ったファイルは名前に親フォルダを小さく添える（ホームは ~。サンドボックスではホームの API がコンテナを指すので、アカウントのホームから縮める。`RecentFileRow.folder`）。ファイル URL は `OpenRouter` へ渡し、文字列（Markdown / テキスト / HTML の推定）・PNG / TIFF は `ClipboardContent` で判定し、`ClipboardWindows` が原文の一時ファイルを作らずメモリから開く。同じ内容の窓は前面へ出す。画像の束と `MemoryDocumentWindowController` を共有し、最近使った項目には載せない。
-- グローバルショートカットは設定の「一般」で2つ登録できる（既定は未設定）。`GlobalHotKeys` が Carbon で受けて前面に出し、`ClipboardWindows.open(printing:)` へ渡す。`AppPreferences` にキーコードと修飾キーを保存し、重複・登録失敗は保存せず設定欄で知らせる。
+- グローバルショートカットは設定の「キーボードショートカット」で2つ登録できる（既定は未設定）。`GlobalHotKeys` が Carbon で受けて前面に出し、`ClipboardWindows.open(printing:)` へ渡す。`AppPreferences` にキーコードと修飾キーを保存し、重複・登録失敗は保存せず設定欄で知らせる。
 - サービス（「Surimono で開く」「Surimono で刷る」）は `Configs/Info.plist` の `NSServices` で宣言し、`ServiceProvider` が受ける。選んだ文字（RTF は文字にする）は `OpenRouter.open(_:printing:)` から `ClipboardWindows` の同じ窓の仕組みでメモリから開き、ファイルは `OpenRouter` の規則で開く。刷る要求は対象の窓だけに結び付ける。合本・画像の束は開く処理が返すモデルへ、単独の文書は窓ができたときに `fileURL` が同じモデルへ渡す（同じファイルを含む別の窓は受け取らない）。新しい窓は初回の組版と窓の大きさの調整のあとで刷り台へ入る（`requestPrintMode`。先に入ると窓が紙の形にならない）。項目名と窓口（`NSPortName`）は `SURIMONO_SERVICE_APP_NAME` で開発版と公開版を分け、`NSRegisterServicesProvider` で同じ名前を登録する。訳は `App/ServicesMenu.xcstrings`（キーは英語の項目名で、開発版の名前も持つ）。`NSRequiredContext` を消すとメニューに出なくなる。開発版を試すときは `lsregister -f <App>` と `pbs -update` のあと、`NSPerformService` か `pbs -dump` で確かめる。
 - Finder からは、同じサービスの `NSSendFileTypes` で選んだファイルを受ける（Finder メニューとコンテキストメニューのサービスに「Surimono で刷る」が出る）。プリンターへは送らず、`OpenRouter.open(_:printing: true)` で刷り台に並べるだけにする（覚えているレイアウトとプリンターのまま黙って刷ると、紙を無駄にする）。
 - ショートカット（App Intents。`App/Shortcuts/`）はアプリ本体のターゲットに置き、拡張は作らない。メタデータ（`Metadata.appintents`）は、AppIntents を import していれば手書きのプロジェクトでもビルドが作る。
@@ -161,6 +161,18 @@ make clean
 - `DocumentSource.binder` は子の `DocumentSource` の配列。`DocumentRenderer` が子ごとの renderer で論理ページを作り、安全にコピーして結合し、既存の面付けへ渡す。子の比較は内容のハッシュ・URL・形式・リソース許可で行い、並べ替え・取り除き・奇数ページ開始だけなら子の組版を再利用する。テーマと文字サイズはテーマ形式、プリセットは HTML に適用する。印刷設定セットの適用・一致判定も子の形式の集合で決める。自動の出力方向は、白紙を除いた子の論理ページの多数決（同数なら先頭）で決め、冊子は固定方向を保つ。HTML の子は再読み込みまで保持した原文のバイト列から組版し、本文と集合ハッシュを一致させる。相対リソースは元の文書 URL とフォルダー許可で読む。`BinderPagination` は奇数ページ開始がオンで両面または冊子を刷るとき、次の読める子が奇数ページから始まるよう文書間だけに白紙を足す。`PrintIssue` は白紙を含む先頭オフセットを加え、ID と原文の鍵に子の識別子を付ける。表示も他の文書と同じく刷り台と同じ論理ページで、奇数ページ開始の白紙も見える。刷り台で組んだページが表示と同じなら、読んでいる文書の場所もそのページで決め直し、表示へ戻っても同じ文書を出す（`showsReadingPages(_:)`）。
 - ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。開いた枚数のトーストは、画像以外を除いたなど `excludedSummary` が空でないときだけ、除いたものと一緒に出す。
 - 新しい「開く」経路を足すときは `OpenRouter` を通し、`OpenRouterTests` にケースを足す。
+
+## キーボードショートカットのメニュー接続
+
+- `ShortcutController` のスナップショットを設定・グローバル登録・メニューで共有する。`ShortcutMenuBridge.operations` にある接続済み操作とグローバル操作だけ編集できる。未接続操作の既定キーを競合解消で奪ってはいけない。
+- `ShortcutMenuBridge` は標準の「開く」を `openDocument:`、「設定」をアプリメニュー内の標準アクションまたは既定キーから見つける。アプリ所有項目はメニューバーの位置・親メニュー・翻訳済みタイトルの明示表で照合する。一意な項目にだけ `surimono.shortcut.<operation ID>` を付け、再生成された項目も識別し直す。SwiftUI の `.id` が AppKit に伝わるとは仮定しない。
+- 受理した変更の直後、メニュー項目の追加・変更・削除、追跡開始、アクティブ化、キー窓変更で `keyEquivalent` と修飾キーを同期する。イベント処理の前にも同期する。同期中の通知は再入させない。メニューの再生成だけでキーの更新を待たせない。
+- アプリ所有の接続済みメニューのクリックとキーは `ShortcutDispatcher.perform` を通す。標準の「開く」「設定」は元の target/action を保持し、キーも同じ標準アクションへ転送する。文書は `DocumentWindows.currentModel` でその時点のキー窓から引き、登録モデルの窓が一致しなければ実行しない。対応する文書がなくても一致した管理キーは消費し、別の操作へ落とさない。
+- 保存先を持たない文書の「ファイルとして保存」、合本で開く、画像・合本の一覧のノードは常設し、利用できない窓では橋渡し層が隠す。キー窓が変わったらメニューを開かず再評価する。アクション自体もモデルの条件で保護する。元文書を変更する項目は引き続き `DocumentEditMenu` が隠し、隠した項目のキーを許可しない。
+- macOS のユーザーキーは `userKeyEquivalent` と同期後の実効値で検出し、「macOSで管理されています」とキーを表示して編集を止める。他の割当の予約として扱い、衝突するカスタムキーを止める。保存値は変更しない。カスタムキーでは AppKit の自動キー地域化を止める。
+- ローカル記録は現在の配列で論理キーへ変換する。裸キー・Shiftだけのキーはこの段階のディスパッチャーでは扱わない。IMEの変換中・記録中・シート／モーダルでは実行しない。紙面・リストの裸キー、文字サイズ拡大とズームインの別名、印刷画面のキーは後続の段階で既存の認識経路ごと接続する。
+- 印刷・システム印刷・PDF書き出し・印刷レイアウトはまだ編集できない。この層から出力を呼ばない。後続ではキーアップまでの保持とリピート拒否を印刷の既存ガードと合わせて検証する。⌘Pの「表示から印刷画面へ、次の押下で印刷」の既定を変えない。
+- 表示の既定は実メニューの並びに従い、単ページが⌥⌘1、見開きが⌥⌘2。メニュー基準テストの期待値は `ShortcutDefaults` から生成しない。ホスト付きテストでは `printSubmit` と `outputOverride` を必ず差し替え、グローバル登録も注入する。
 
 ## 足す入口とドロップ
 

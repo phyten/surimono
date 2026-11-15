@@ -149,7 +149,7 @@ struct SettingsMenuTests {
     func documentItems() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
         #expect(
-            menu.items.filter { !$0.isSeparatorItem }.map(\.title)
+            menu.items.filter { !$0.isSeparatorItem && !$0.isHidden }.map(\.title)
                 == [
                     "Print Layout", "Setting Sets", "Print Settings…", "Choose Style…", "Add Documents…",
                     "Reset Document Settings", "Reload",

@@ -5,6 +5,7 @@ struct DocumentCommands: Commands {
     let preferences: AppPreferences
     let library: UserLibrary
     private var model: DocumentViewModel? { DocumentWindows.shared.activeModel }
+    private func perform(_ operation: ShortcutOperationID) { ShortcutDispatcher.shared.perform(operation) }
     private var language: String { model?.language ?? Bundle.main.preferredLocalizations.first ?? "en" }
     private var layoutCards: [PrintLayout] {
         let cards = PrintLayout.presets(in: model?.trayPaperSeries ?? .a)
@@ -16,13 +17,15 @@ struct DocumentCommands: Commands {
         BinderModel.title(firstName: binder.firstName, count: binder.files.count, language: language)
     }
 
+    // Keep the original keys on newly assembled or unidentifiable items. The bridge applies accepted overrides
+    // synchronously on menu changes and before dispatch, including clearing a deliberately unassigned key.
     var body: some Commands {
         // The standard Open… item stays: AppDelegate answers its action so that a multi-file
         // selection reaches OpenRouter, and Open Recent opens a single file.
         CommandGroup(replacing: .newItem) {
-            Button("Open from Clipboard") { ClipboardWindows.shared.open() }
+            Button("Open from Clipboard") { perform(.clipboardOpen) }
                 .keyboardShortcut("n")
-            Button("Streaming Preview") { StreamingPreviewWindows.shared.open() }
+            Button("Streaming Preview") { perform(.appStreamingPreview) }
             // A binder has no file of its own, so the standard Open Recent cannot list it.
             if !preferences.recentBinders.isEmpty {
                 Menu("Recent Binders") {
@@ -37,9 +40,7 @@ struct DocumentCommands: Commands {
         // Next to the document's own save items, which stay hidden: this one writes a new file for a document that has
         // none, and never touches a file that was opened.
         CommandGroup(after: .saveItem) {
-            if model?.canSaveAsFile == true {
-                Button("Save as File…") { model?.saveAsFile() }
-            }
+            Button("Save as File…") { perform(.documentSaveAsFile) }
         }
         // SwiftUI applies a new enabled state to these items only when a menu opens, so a state derived from the key
         // window's model goes stale and swallows the shortcuts. The items stay enabled; the model ignores what it
@@ -58,11 +59,11 @@ struct DocumentCommands: Commands {
         // Like the print items, these stay enabled; the model does nothing where there is no paper to search.
         CommandGroup(after: .pasteboard) {
             Divider()
-            Button("Find…") { model?.performFind() }
+            Button("Find…") { perform(.documentFind) }
                 .keyboardShortcut("f")
-            Button("Find Next") { model?.findStep(forward: true) }
+            Button("Find Next") { perform(.documentFindNext) }
                 .keyboardShortcut("g")
-            Button("Find Previous") { model?.findStep(forward: false) }
+            Button("Find Previous") { perform(.documentFindPrevious) }
                 .keyboardShortcut("g", modifiers: [.shift, .command])
         }
         CommandGroup(after: .toolbar) {
@@ -71,38 +72,38 @@ struct DocumentCommands: Commands {
                 model?.htmlPresentation == .paper
                     ? LocalizedStringKey("Show as Web") : LocalizedStringKey("Show as Paper")
             ) {
-                model?.toggleHTMLPresentation()
+                perform(.viewHtmlPresentation)
             }
             .keyboardShortcut("p", modifiers: [.control, .command])
             // For a page that only looks like a slide deck; other documents ignore it.
             Toggle(
                 "Don't Treat as Slides",
-                isOn: Binding(get: { model?.ignoresSlides ?? false }, set: { model?.setIgnoresSlides($0) })
+                isOn: Binding(get: { model?.ignoresSlides ?? false }, set: { _ in perform(.viewIgnoreSlides) })
             )
             Divider()
-            ForEach(Array(ViewOptions.Layout.displayOrder.enumerated()), id: \.element) { index, layout in
-                Button(layout.title) { model?.setLayout(layout) }
-                    .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: [.option, .command])
+            ForEach(ViewOptions.Layout.displayOrder, id: \.self) { layout in
+                Button(layout.title) { perform(layout == .single ? .viewSingle : .viewSpread) }
+                    .keyboardShortcut(layout == .single ? "1" : "2", modifiers: [.option, .command])
             }
             Button("View Options…") {
                 guard let model, model.mode == .view else { return }
                 model.isViewOptionsPresented = true
             }
-            Button("Go to Page…") { model?.presentGoToPage() }
+            Button("Go to Page…") { perform(.documentGoToPage) }
                 .keyboardShortcut("g", modifiers: [.option, .command])
             Divider()
             Button("Increase Text Size") { model?.increaseTextSize() }
                 .keyboardShortcut("+", modifiers: [.option, .command])
-            Button("Decrease Text Size") { model?.decreaseTextSize() }
+            Button("Decrease Text Size") { perform(.textDecrease) }
                 .keyboardShortcut("-", modifiers: [.option, .command])
-            Button("Original Text Size") { model?.resetTextSize() }
+            Button("Original Text Size") { perform(.textReset) }
                 .keyboardShortcut("0", modifiers: [.option, .command])
             Divider()
             Button("Zoom In") { model?.zoomIn() }
                 .keyboardShortcut("+")
-            Button("Zoom Out") { model?.zoomOut() }
+            Button("Zoom Out") { perform(.viewZoomOut) }
                 .keyboardShortcut("-")
-            Button("Fit to Window") { model?.zoomToFit() }
+            Button("Fit to Window") { perform(.viewZoomFit) }
                 .keyboardShortcut("0")
             Divider()
             Toggle(
@@ -113,17 +114,17 @@ struct DocumentCommands: Commands {
             Toggle(
                 "Always Show Toolbar",
                 isOn: Binding(
-                    get: { model?.isBandAlwaysVisible ?? false }, set: { model?.isBandAlwaysVisible = $0 })
+                    get: { model?.isBandAlwaysVisible ?? false }, set: { _ in perform(.viewToolbarAlways) })
             )
             .keyboardShortcut("t", modifiers: [.option, .command])
             Toggle(
                 "Float on Top",
-                isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { model?.isAlwaysOnTop = $0 })
+                isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { _ in perform(.viewFloatOnTop) })
             )
         }
         CommandGroup(replacing: .help) {
-            Button("Getting Started with Surimono") { OpenRouter.shared.openGettingStarted() }
-            Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
+            Button("Getting Started with Surimono") { perform(.appGettingStarted) }
+            Button("Keys and Gestures") { perform(.appKeyGuide) }
         }
         CommandMenu("Document") {
             Menu("Print Layout") {
@@ -140,46 +141,37 @@ struct DocumentCommands: Commands {
             SettingSetMenu(preferences: preferences, library: library, model: { model })
             // The same panel in both modes: off the window's edge in the view mode, beside the sheets on the tray.
             Button("Print Settings…") { model?.presentPrintSettings() }
-            Button("Choose Style…") { model?.openThemePalette() }
-            if model?.includePlan != nil {
-                Button("Open as Binder") { model?.openIncludesAsBinder() }
-            }
-            Button("Add Documents…") { model?.chooseDocumentsToAdd() }
-            if model?.binder != nil || model?.imageBundle != nil {
-                Menu(LocalizedStringKey(model?.binder == nil ? "Images" : "Binder")) {
-                    Toggle(
-                        "Show List",
-                        isOn: Binding(get: { model?.isDrawerOpen ?? false }, set: { model?.isDrawerOpen = $0 })
-                    )
-                    .keyboardShortcut("s", modifiers: [.control, .command])
-                    if model?.binder != nil {
-                        Button("Remove from List") {
-                            if let url = model?.binder?.selection { model?.removeFromBinder(url) }
-                        }
-                        Toggle(
-                            "Start Each Document on an Odd Page",
-                            isOn: Binding(
-                                get: { model?.binderStartsOnFront ?? false }, set: { model?.binderStartsOnFront = $0 }))
-                    }
-                    Button(LocalizedStringKey(model?.binder == nil ? "Move Image Up" : "Move Document Up")) {
-                        model?.imageBundle?.moveSelection(by: -1)
-                        model?.binder?.moveSelection(by: -1)
-                    }
-                    .keyboardShortcut(.upArrow, modifiers: [.option, .command])
-                    Button(LocalizedStringKey(model?.binder == nil ? "Move Image Down" : "Move Document Down")) {
-                        model?.imageBundle?.moveSelection(by: 1)
-                        model?.binder?.moveSelection(by: 1)
-                    }
-                    .keyboardShortcut(.downArrow, modifiers: [.option, .command])
-                    Button("Sort by Name") {
-                        model?.imageBundle?.sortByName()
-                        model?.binder?.sortByName()
-                    }
+            Button("Choose Style…") { perform(.styleChoose) }
+            Button("Open as Binder") { perform(.documentOpenBinder) }
+            Button("Add Documents…") { perform(.documentAdd) }
+            Menu(LocalizedStringKey(model?.binder == nil ? "Images" : "Binder")) {
+                Toggle(
+                    "Show List",
+                    isOn: Binding(get: { model?.isDrawerOpen ?? false }, set: { _ in perform(.listToggle) })
+                )
+                .keyboardShortcut("s", modifiers: [.control, .command])
+                Button("Remove from List") {
+                    if let url = model?.binder?.selection { model?.removeFromBinder(url) }
+                }
+                Toggle(
+                    "Start Each Document on an Odd Page",
+                    isOn: Binding(
+                        get: { model?.binderStartsOnFront ?? false }, set: { _ in perform(.binderOddPageStarts) }))
+                Button(LocalizedStringKey(model?.binder == nil ? "Move Image Up" : "Move Document Up")) {
+                    perform(.listMoveUp)
+                }
+                .keyboardShortcut(.upArrow, modifiers: [.option, .command])
+                Button(LocalizedStringKey(model?.binder == nil ? "Move Image Down" : "Move Document Down")) {
+                    perform(.listMoveDown)
+                }
+                .keyboardShortcut(.downArrow, modifiers: [.option, .command])
+                Button("Sort by Name") {
+                    perform(.listSortByName)
                 }
             }
             Divider()
-            Button("Reset Document Settings") { model?.resetDocumentSettings() }
-            Button("Reload") { model?.reload() }
+            Button("Reset Document Settings") { perform(.documentResetSettings) }
+            Button("Reload") { perform(.documentReload) }
                 .keyboardShortcut("r")
         }
     }
