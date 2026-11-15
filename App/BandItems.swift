@@ -318,7 +318,7 @@ struct BandMeasurements: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
-            measure(.more) { BandMoreLabel() }
+            measure(.more) { BandMoreButton { EmptyView() } }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
                 if item.hasCompactForm {

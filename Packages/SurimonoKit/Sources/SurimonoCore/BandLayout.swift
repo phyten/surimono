@@ -312,10 +312,14 @@ public enum BandLayout {
             // The fixed filename precedes the leading zone, including its reserved gap at narrow widths.
             gaps[first] = metrics.titleGap
         }
+        // "…" follows the trailing tools (all but a Print docked after it) with a tool gap. The legacy stacks already
+        // reserved it as the first tool's gap; reordered zones start at zero, so it is counted here.
+        let toolsBeforeMore = moreDock == .beforePrint ? trailing.filter { $0 != .print } : trailing
+        let moreGap = !standardSpacing && moreDock != .absent && !toolsBeforeMore.isEmpty ? metrics.toolGap : 0
         return BandRowGeometry(
             fixedWidth: position == .top ? metrics.topFixed : metrics.bottomFixed,
             gapsBefore: gaps, separatorsBefore: separators, separatorWidth: metrics.separator,
             moreDock: moreDock,
-            usesStandardSpacing: standardSpacing)
+            usesStandardSpacing: standardSpacing, moreGap: moreGap)
     }
 }

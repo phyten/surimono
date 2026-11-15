@@ -441,8 +441,8 @@ struct OverlayBand: View {
             HStack(spacing: spacing) { bandParts(items, row: row, model: model) }.fixedSize()
             BandMoreMenu(model: model)
                 .bandAnchor(.more, in: model.bandAnchors)
-                // The plan counts the stack's gap before "…" only for the Standard order.
-                .padding(.leading, spacing == 0 && !items.isEmpty ? Self.toolSpacing : 0)
+                // The plan's gap before "…"; in the Standard order the stack's spacing draws it instead.
+                .padding(.leading, row.geometry.moreGap)
         }
         .buttonStyle(.borderless)
         .controlSize(ViewerWindow.bandControlSize)

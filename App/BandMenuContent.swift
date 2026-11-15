@@ -254,9 +254,20 @@ struct BandMenuContent {
     }
 }
 
-struct BandMoreLabel: View {
+/// The "…" button as the band draws it. `BandMeasurements` measures this same button with no items: the borderless
+/// menu button pads its label, so measuring the label alone counted "…" narrower than the band draws it.
+struct BandMoreButton<Items: View>: View {
+    @ViewBuilder let items: Items
+
     var body: some View {
-        Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
+        Menu {
+            items
+        } label: {
+            Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
     }
 }
 
@@ -266,7 +277,7 @@ struct BandMoreMenu: View {
 
     var body: some View {
         let content = BandMenuContent(model: model)
-        Menu {
+        BandMoreButton {
             ForEach(Array(content.rows.enumerated()), id: \.offset) { _, row in
                 switch row {
                 case .header(let title): Text(verbatim: title).disabled(true)
@@ -277,12 +288,7 @@ struct BandMoreMenu: View {
                         .help(content.help(for: entry))
                 }
             }
-        } label: {
-            BandMoreLabel()
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
         .help(content.moreHelp())
     }
 }
