@@ -128,7 +128,9 @@ final class WebPageController: NSObject {
     /// a script in the app's own world hears it and tells the app, so the page itself gets no message handler.
     /// Any page script can raise that event too, so the app's script passes on one request per click or key of the
     /// reader: only trusted events, which a page cannot make, allow the next one. A page printing on a timer then
-    /// cannot keep sending the reader back to the tray.
+    /// cannot keep sending the reader back to the tray. A press and its release are one click or key: the press allows
+    /// a request, and the release only keeps that allowance fresh while it is unused (a button prints on the release
+    /// of a long press), so a timer that used the press gets nothing more from the release.
     private static func installPrintBridge(in controller: WKUserContentController, handler: WKScriptMessageHandler) {
         controller.addUserScript(
             WKUserScript(
@@ -146,15 +148,18 @@ final class WebPageController: NSObject {
                 source: """
                     (() => {
                       let gestureAt = null;
-                      const note = event => { if (event.isTrusted) gestureAt = performance.now(); };
-                      for (const type of ['mousedown', 'mouseup', 'click', 'keydown', 'keyup']) {
-                        window.addEventListener(type, note, true);
-                      }
+                      let spent = true;
+                      const press = event => {
+                        if (!event.isTrusted || event.repeat) return;
+                        gestureAt = performance.now();
+                        spent = false;
+                      };
+                      const release = event => { if (event.isTrusted && !spent) gestureAt = performance.now(); };
+                      for (const type of ['mousedown', 'keydown']) window.addEventListener(type, press, true);
+                      for (const type of ['mouseup', 'click', 'keyup']) window.addEventListener(type, release, true);
                       document.addEventListener('\(printEventName)', () => {
-                        if (gestureAt === null || performance.now() - gestureAt > \(printGestureWindowMilliseconds)) {
-                          return;
-                        }
-                        gestureAt = null;
+                        if (spent || performance.now() - gestureAt > \(printGestureWindowMilliseconds)) return;
+                        spent = true;
                         window.webkit.messageHandlers.\(printMessageName).postMessage(null);
                       });
                     })();

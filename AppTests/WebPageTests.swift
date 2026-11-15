@@ -123,13 +123,17 @@ struct WebPageKeyTests {
 
     private func send(_ host: Host, characters: String, keyCode: UInt16) throws {
         for type in [NSEvent.EventType.keyDown, .keyUp] {
-            let event = try #require(
-                NSEvent.keyEvent(
-                    with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                    windowNumber: host.window.windowNumber, context: nil, characters: characters,
-                    charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode))
-            host.window.sendEvent(event)
+            try send(host, type, characters: characters, keyCode: keyCode)
         }
+    }
+
+    private func send(_ host: Host, _ type: NSEvent.EventType, characters: String, keyCode: UInt16) throws {
+        let event = try #require(
+            NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: host.window.windowNumber, context: nil, characters: characters,
+                charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode))
+        host.window.sendEvent(event)
     }
 
     private let arrow = "\u{F703}"
@@ -206,6 +210,25 @@ struct WebPageKeyTests {
         // One key lets one request through; the timer cannot use it again.
         try send(host, characters: "p", keyCode: 35)
         try await waitUntil { requests == 1 }
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(requests == 1)
+        _ = try await host.controller.webView?.evaluateJavaScript("clearInterval(window.printTimer)")
+    }
+
+    @Test("キーを押してから離すまでに間があっても、1 回の押下で届く印刷の依頼は 1 つだけ")
+    func slowKeyPressLetsOneRequestThrough() async throws {
+        let host = try await host()
+        defer { host.close() }
+        var requests = 0
+        host.controller.onPrintRequest = { requests += 1 }
+        _ = try await host.controller.webView?.evaluateJavaScript(
+            "window.printTimer = setInterval(() => window.print(), 50);")
+        try send(host, .keyDown, characters: "p", keyCode: 35)
+        try await waitUntil { requests == 1 }
+        // The key comes up after the timer has used the press. The release belongs to the same press, so it does not
+        // let another request through.
+        try await Task.sleep(for: .milliseconds(200))
+        try send(host, .keyUp, characters: "p", keyCode: 35)
         try await Task.sleep(for: .milliseconds(500))
         #expect(requests == 1)
         _ = try await host.controller.webView?.evaluateJavaScript("clearInterval(window.printTimer)")
