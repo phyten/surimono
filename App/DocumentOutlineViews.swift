@@ -85,7 +85,11 @@ struct OutlinePopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Contents").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+            HStack(spacing: 8) {
+                Text("Contents").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+                Spacer(minLength: 0)
+                PopoverCloseButton()
+            }
             OutlineList(model: model)
                 .frame(height: min(CGFloat(model.outlineEntries.count) * Self.rowHeight, Self.maximumListHeight))
         }
@@ -115,7 +119,11 @@ struct DocumentFiguresPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Document Info").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+            HStack(spacing: 8) {
+                Text("Document Info").font(.system(size: 13, weight: .bold)).foregroundStyle(PrintPalette.ink)
+                Spacer(minLength: 0)
+                PopoverCloseButton()
+            }
             // The note belongs to the sheets, so it stays right under them and the text figures follow it.
             VStack(alignment: .leading, spacing: 4) {
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {

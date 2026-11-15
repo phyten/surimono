@@ -52,8 +52,11 @@ struct PrintFinishSheet: View {
                 .onAppear { scrollToSection(scroller) }
                 .onChange(of: model.finishSection) { _, _ in scrollToSection(scroller) }
             }
-            Rectangle().fill(PrintPalette.line).frame(height: 1)
-            footer
+            // The popover closes from the × in its heading; a second way to close it would only repeat it.
+            if !isInPopover {
+                Rectangle().fill(PrintPalette.line).frame(height: 1)
+                footer
+            }
         }
         .foregroundStyle(PrintPalette.ink)
         .tint(PrintPalette.ai)
@@ -139,11 +142,16 @@ struct PrintFinishSheet: View {
     }
 
     private var heading: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("Print Settings").font(.system(size: 14, weight: .bold))
-            Text("Changes the pages only. The document does not change.")
-                .font(.system(size: 11.5))
-                .foregroundStyle(PrintPalette.ink2)
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Print Settings").font(.system(size: 14, weight: .bold))
+                Text("Changes the pages only. The document does not change.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(PrintPalette.ink2)
+            }
+            Spacer(minLength: 0)
+            // Centred on the title's line rather than on the two lines.
+            if isInPopover { PopoverCloseButton().padding(.top, -3) }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

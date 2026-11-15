@@ -105,12 +105,17 @@ struct SelectedRowClicks: NSViewRepresentable {
 struct PanelIconButton: View {
     let symbol: String
     let label: LocalizedStringKey
+    /// The tooltip, when it says more than the label.
+    let help: LocalizedStringKey?
     let action: () -> Void
     @State private var isHovered = false
 
-    init(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) {
+    init(
+        _ symbol: String, label: LocalizedStringKey, help: LocalizedStringKey? = nil, action: @escaping () -> Void
+    ) {
         self.symbol = symbol
         self.label = label
+        self.help = help
         self.action = action
     }
 
@@ -124,7 +129,7 @@ struct PanelIconButton: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .accessibilityLabel(label)
-        .help(label)
+        .help(help ?? label)
     }
 }
 

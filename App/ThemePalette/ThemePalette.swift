@@ -84,6 +84,7 @@ struct ThemePalette: View {
                     .foregroundStyle(.tint)
                     .lineLimit(1)
                 Spacer(minLength: 8)
+                PopoverCloseButton()
             }
             Picker(
                 "Sample Document",

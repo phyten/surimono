@@ -6,7 +6,11 @@ struct PrintIssuesPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Before Printing").font(.headline)
+            HStack(spacing: 8) {
+                Text("Before Printing").font(.headline)
+                Spacer(minLength: 0)
+                PopoverCloseButton()
+            }
             ScrollView {
                 // Content that will not print comes first: an unreadable image is not a table that only runs wide.
                 VStack(alignment: .leading, spacing: 16) {

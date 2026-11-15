@@ -14,6 +14,7 @@ struct PrintModeView: View {
             PrintTopBar(
                 model: model,
                 cancelsWithEscape: !showsFold && !model.isPrintFinishPresented && !model.isThemePalettePresented
+                    && !model.isPrintIssuesPresented
             ).zIndex(1)
             HStack(spacing: 0) {
                 if model.imageBundle != nil { ImageBundleDrawer(model: model) }
