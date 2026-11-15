@@ -200,7 +200,6 @@ struct BinderExitTests {
     func policies(_ policy: SingleDocumentBinderPolicy) async throws {
         let f = try Fixture()
         defer { f.clean() }
-        #expect(!NSApp.isActive)
         f.preferences.singleDocumentBinderPolicy = policy
         let a = try f.file("a.pdf")
         let b = try f.file("b.pdf")
@@ -295,6 +294,9 @@ struct BinderExitTests {
         await f.render(existing)
         existing.currentPageIndex = 3
         let frame = existing.window?.frame
+        // The test host is the active app on a CI runner and a background app on a developer's Mac, so the check is
+        // that bringing the window forward leaves the app's activation as it was.
+        let wasActive = NSApp.isActive
         let model = f.binder([a, try f.file("b.pdf")])
         f.preferences.singleDocumentBinderPolicy = .leave
         model.removeFromBinder(try #require(model.binder?.urls.last))
@@ -303,7 +305,7 @@ struct BinderExitTests {
         #expect(existing.currentPageIndex == 3)
         #expect(existing.window?.frame == frame)
         #expect(f.closed.contains(ObjectIdentifier(model)))
-        #expect(!NSApp.isActive)
+        #expect(NSApp.isActive == wasActive)
     }
 
     @Test("残ったメモリ文書も保存先を作らず単独文書に戻す", .timeLimit(.minutes(1)))
