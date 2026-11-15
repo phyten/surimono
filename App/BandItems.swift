@@ -10,7 +10,11 @@ enum BandSlot: Hashable {
 extension BandLayout.Item {
     var hasCompactForm: Bool {
         switch self {
-        case .presentation, .style, .outline, .transition, .print: true
+        case .presentation, .style, .outline, .transition, .print,
+            .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
+            .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions,
+            .saveAsFile, .keysAndGestures:
+            true
         default: false
         }
     }
@@ -20,7 +24,16 @@ extension BandLayout.Item {
         let paper = !model.showsWeb
         return allCases.filter { item in
             switch item {
-            case .formatBadge, .floatOnTop, .print: true
+            case .formatBadge, .floatOnTop, .print, .alwaysShowToolbar, .printSettings, .viewOptions, .keysAndGestures:
+                true
+            case .readingDirection, .scrollDirection, .paperOrientation: paper
+            case .paperSeries: model.offersPaperSeries
+            case .cover: paper && model.viewOptions.usesCoverOption
+            case .selectText: paper && model.canSelectText
+            case .margins: model.marginsApply
+            case .ignoreSlides: model.detectedSlideDeck != nil && model.usesHTMLPresentation
+            case .beforePrinting: model.printIssueCount > 0
+            case .saveAsFile: model.canSaveAsFile
             case .layout, .transition: paper
             case .presentation: model.usesHTMLPresentation
             // On the web, only a slide deck has pages to count.
@@ -79,6 +92,10 @@ struct BandItemView: View {
             .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
         case .floatOnTop: FloatOnTopButton(model: model)
         case .print: PrintButton(model: model, iconOnly: form == .compact)
+        case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
+            .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions,
+            .saveAsFile, .keysAndGestures:
+            BandAdditionalPart(model: model, item: item, form: form)
         }
     }
 }
@@ -288,22 +305,6 @@ struct TransitionPicker: View {
         }
         .pickerStyle(.inline)
         .labelsHidden()
-    }
-}
-
-enum SecondaryViewControl: CaseIterable {
-    case direction, scrollAxis, paperOrientation, paperSeries, cover, selectText, alwaysShowMenu
-
-    static func applicable(for model: DocumentViewModel) -> [Self] {
-        allCases.filter { item in
-            switch item {
-            case .direction, .scrollAxis, .paperOrientation: !model.showsWeb
-            case .paperSeries: model.offersPaperSeries
-            case .cover: !model.showsWeb && model.viewOptions.usesCoverOption
-            case .selectText: !model.showsWeb && model.canSelectText
-            case .alwaysShowMenu: true
-            }
-        }
     }
 }
 

@@ -73,7 +73,10 @@ struct BandMenuContent {
 
     func help(for entry: Entry) -> String {
         if entry.id == .paperOrientation, !entry.isEnabled {
-            return String(localized: "This layout uses a fixed paper orientation.")
+            return entry.title + " · " + String(localized: "This layout uses a fixed paper orientation.")
+        }
+        if entry.id == .scrollDirection, !entry.isEnabled {
+            return entry.title + " · " + String(localized: "Not used by the current page turn.")
         }
         let operations: [ShortcutOperationID] =
             switch entry.id {
@@ -94,12 +97,14 @@ struct BandMenuContent {
             case .keysAndGestures: [.appKeyGuide]
             default: []
             }
-        return ShortcutHints.help(entry.title, operations)
+        let title =
+            entry.id == .saveAsFile
+            ? entry.title + " · " + String(localized: "Saves the original document to a new file.") : entry.title
+        return ShortcutHints.help(title, operations)
     }
 
     private func isApplicable(_ id: ID) -> Bool {
         let parts = BandLayout.Item.applicable(for: model)
-        let secondary = SecondaryViewControl.applicable(for: model)
         switch id {
         case .outline: return parts.contains(.outline)
         case .thumbnails: return parts.contains(.thumbnails)
@@ -110,16 +115,16 @@ struct BandMenuContent {
         case .transition: return parts.contains(.transition)
         case .zoom: return parts.contains(.zoom)
         case .style: return parts.contains(.style)
-        case .readingDirection: return secondary.contains(.direction)
-        case .scrollDirection: return secondary.contains(.scrollAxis)
-        case .paperOrientation: return secondary.contains(.paperOrientation)
-        case .paperSeries: return secondary.contains(.paperSeries)
-        case .cover: return secondary.contains(.cover)
-        case .selectText: return secondary.contains(.selectText)
-        case .margins: return model.marginsApply
-        case .ignoreSlides: return model.detectedSlideDeck != nil && model.usesHTMLPresentation
-        case .beforePrinting: return model.printIssueCount > 0
-        case .saveAsFile: return model.canSaveAsFile
+        case .readingDirection: return parts.contains(.readingDirection)
+        case .scrollDirection: return parts.contains(.scrollDirection)
+        case .paperOrientation: return parts.contains(.paperOrientation)
+        case .paperSeries: return parts.contains(.paperSeries)
+        case .cover: return parts.contains(.cover)
+        case .selectText: return parts.contains(.selectText)
+        case .margins: return parts.contains(.margins)
+        case .ignoreSlides: return parts.contains(.ignoreSlides)
+        case .beforePrinting: return parts.contains(.beforePrinting)
+        case .saveAsFile: return parts.contains(.saveAsFile)
         case .floatOnTop, .alwaysShowToolbar, .viewOptions, .printSettings, .print, .keysAndGestures: return true
         }
     }
@@ -201,6 +206,23 @@ struct BandMenuContent {
             isEnabled: enabled)
     }
 
+    /// Bindings must apply the requested value, including repeated writes during control synchronization.
+    func setChecked(_ checked: Bool, for id: ID) {
+        guard isApplicable(id), entry(id).isEnabled, entry(id).isChecked != checked else { return }
+        switch id {
+        case .outline, .previousPage, .nextPage, .documentInfo, .presentation, .layout, .transition, .zoom,
+            .readingDirection, .scrollDirection, .style, .paperOrientation, .paperSeries, .margins,
+            .viewOptions, .printSettings, .beforePrinting, .print, .saveAsFile, .keysAndGestures:
+            return
+        case .thumbnails: model.isDrawerOpen = checked
+        case .cover: model.viewOption(\.showsCoverAlone).wrappedValue = checked
+        case .selectText: model.isSelectingText = checked
+        case .ignoreSlides: model.setIgnoresSlides(checked)
+        case .floatOnTop: model.isAlwaysOnTop = checked
+        case .alwaysShowToolbar: model.isBandAlwaysVisible = checked
+        }
+    }
+
     /// Commands and toggles share this dispatch with the rendered items; pickers keep their existing bindings.
     func perform(_ id: ID) {
         guard isApplicable(id), entry(id).isEnabled else { return }
@@ -277,10 +299,12 @@ private struct BandMenuItem: View {
     let entry: BandMenuContent.Entry
 
     var body: some View {
-        if let checked = entry.isChecked {
+        if entry.isChecked != nil {
             Toggle(
                 entry.title,
-                isOn: Binding(get: { checked }, set: { _ in BandMenuContent(model: model).perform(entry.id) }))
+                isOn: Binding(
+                    get: { BandMenuContent(model: model).entry(entry.id).isChecked ?? false },
+                    set: { BandMenuContent(model: model).setChecked($0, for: entry.id) }))
         } else {
             item
         }
@@ -357,41 +381,10 @@ private struct BandReadingMenuChoice: View {
     let entry: BandMenuContent.Entry
 
     var body: some View {
-        switch entry.id {
-        case .readingDirection:
-            Menu {
-                Picker("Reading Direction", selection: model.viewOption(\.direction)) {
-                    Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
-                    Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
-                }
-                .pickerStyle(.inline).labelsHidden()
-            } label: {
-                Text(verbatim: entry.title)
-            }
-        case .paperOrientation:
-            Menu {
-                PaperOrientationControl(model: model).choices
-            } label: {
-                Text(verbatim: entry.title)
-            }
-        case .paperSeries:
-            Menu {
-                PaperSeriesPicker(model: model)
-                    .pickerStyle(.inline).labelsHidden()
-            } label: {
-                Text(verbatim: entry.title)
-            }
-        case .scrollDirection:
-            Menu {
-                Picker("Scroll Direction", selection: model.viewOption(\.scrollAxis)) {
-                    Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
-                    Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
-                }
-                .pickerStyle(.inline).labelsHidden()
-            } label: {
-                Text(verbatim: entry.title)
-            }
-        default: EmptyView()
+        Menu {
+            BandPartChoices(model: model, id: entry.id)
+        } label: {
+            Text(verbatim: entry.title)
         }
     }
 }

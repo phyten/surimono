@@ -65,7 +65,7 @@ struct BandSeparatorTests {
             deleted.unused == [
                 .formatBadge, .pageIndicator, .presentation, .layout, .transition, .zoom, .thumbnails, .floatOnTop,
                 .pageTurn,
-            ])
+            ] + BandLayoutTests.addedItems)
         #expect(
             try initial.movingEntry(at: 1, from: .zone(.topLeft), to: .zone(.topLeft), at: 1, for: .split) == initial)
         #expect(

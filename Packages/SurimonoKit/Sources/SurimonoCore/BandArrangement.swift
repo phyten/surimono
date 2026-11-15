@@ -119,6 +119,8 @@ public struct BandArrangement: Codable, Equatable, Sendable {
             arrangement[zone].removeAll { entry in entry.item.map { !known.contains($0) } ?? false }
         }
         arrangement.unused.removeAll { !known.contains($0) }
+        let placed = Set(BandZoneID.allCases.flatMap { arrangement[$0].compactMap(\.item) })
+        arrangement.unused += knownItems.filter { !placed.contains($0) && !arrangement.unused.contains($0) }
         return arrangement
     }
 

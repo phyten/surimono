@@ -76,7 +76,13 @@ struct BandArrangementRenderingTests {
         try await waitUntil { model.hasOutline }
     }
 
-    /// Measured widths of every part, without the stacks' spacing.
+    /// Applicable new parts of the two-page, single-page-view Markdown fixture.
+    private static let availableAdded: [BandLayout.Item] = [
+        .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .selectText,
+        .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .saveAsFile, .keysAndGestures,
+    ]
+
+    /// Measured widths of the legacy parts, without the stacks' spacing.
     private static let widths: [BandSlot: CGFloat] = [
         .name: 120, .more: 24,
         .item(.formatBadge, .full): 30, .item(.pageIndicator, .full): 50,
@@ -103,7 +109,9 @@ struct BandArrangementRenderingTests {
     ) {
         let topItems: Set<BandLayout.Item> = [.formatBadge, .floatOnTop, .print]
         // Before, Page Turn was a part of the document only in Split.
-        let applicable = BandLayout.Item.applicable(for: model).filter { mode == .split || $0 != .pageTurn }
+        let applicable = BandLayout.Item.applicable(for: model).filter {
+            !BandTestCatalog.addedItems.contains($0) && (mode == .split || $0 != .pageTurn)
+        }
         func widths(top: Bool) -> [BandLayout.Item: BandLayout.Widths] {
             var result: [BandLayout.Item: BandLayout.Widths] = [:]
             for item in applicable where (mode == .top || topItems.contains(item)) == top {
@@ -149,13 +157,13 @@ struct BandArrangementRenderingTests {
             #expect(wide.bottom?.leading == [.style, .outline, .layout, .transition])
             #expect(wide.bottom?.trailing == [.pageIndicator, .pageTurn])
             #expect(wide.bottom?.geometry.usesStandardSpacing == true)
-            #expect(wide.resolved.unusedAvailable == [])
+            #expect(wide.resolved.unusedAvailable == Self.availableAdded)
         case .top:
             #expect(wide.top.leading == [.formatBadge, .pageIndicator])
             #expect(wide.top.trailing == [.style, .outline, .layout, .transition, .floatOnTop, .print])
             #expect(wide.bottom == nil)
             // Standard Top Only leaves Page Turn off the band; "…" now offers its two actions.
-            #expect(wide.resolved.unusedAvailable == [.pageTurn])
+            #expect(wide.resolved.unusedAvailable == [.pageTurn] + Self.availableAdded)
         }
         #expect(wide.top.geometry.moreDock == .beforePrint)
 
@@ -240,6 +248,7 @@ struct BandArrangementRenderingTests {
         var layouts = BandArrangementVariants()
         layouts.split = try layouts.split.moving(.pageIndicator, to: .zone(.topLeft), for: .split)
         layouts.split = try layouts.split.moving(.outline, to: .zone(.topLeft), for: .split)
+        layouts.split = try layouts.split.moving(.viewOptions, to: .zone(.topLeft), for: .split)
         try environment.preferences.saveBandArrangement(BandArrangementSet(name: "Top Parts", layouts: layouts))
         let model = environment.chapters()
         defer { model.stop() }
@@ -248,8 +257,12 @@ struct BandArrangementRenderingTests {
         defer { controller.close() }
         window.orderFrontRegardless()
         try await open(model)
-        // View Options belongs to "…"; Contents folding is what moves the band under it.
-        let folding: BandLayout.Item = popover == .documentInfo ? .pageIndicator : .outline
+        let folding: BandLayout.Item =
+            switch popover {
+            case .documentInfo: .pageIndicator
+            case .contents: .outline
+            case .viewOptions: .viewOptions
+            }
         let anchors = model.bandAnchors
         try await waitUntil {
             anchors.plan?.band(of: folding) == .top && anchors.frames[.item(folding)] != nil
@@ -314,6 +327,51 @@ struct BandArrangementRenderingTests {
         #expect(popoverCount(window) == base + 1)
 
         model.isOutlinePresented = false
+        try await waitUntil { popoverCount(window) == base }
+    }
+
+    @Test("表示のオプションを開いたまま上下と未使用へ移しても一つだけ表示し続ける")
+    func viewOptionsSurviveMove() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        environment.preferences.menuArrangement = .split
+        environment.preferences.defaultBandVisibility = .always
+        var initial = BandArrangementVariants()
+        initial.split = try initial.split.moving(.viewOptions, to: .zone(.bottomLeft), for: .split)
+        try environment.preferences.saveBandArrangement(BandArrangementSet(name: "Bottom Options", layouts: initial))
+        let model = environment.chapters()
+        defer { model.stop() }
+        let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        let window = try #require(controller.window)
+        defer { controller.close() }
+        window.orderFrontRegardless()
+        try await open(model)
+        let anchors = model.bandAnchors
+        try await waitUntil {
+            anchors.plan?.band(of: .viewOptions) == .bottom && anchors.frames[.item(.viewOptions)] != nil
+        }
+        let base = popoverCount(window)
+        model.isViewOptionsPresented = true
+        try await waitUntil { popoverCount(window) == base + 1 }
+
+        var layouts = BandArrangementVariants()
+        layouts.split = try layouts.split.moving(.viewOptions, to: .zone(.topLeft), for: .split)
+        try environment.preferences.saveBandArrangement(BandArrangementSet(name: "Top Contents", layouts: layouts))
+        try await waitUntil {
+            anchors.plan?.band(of: .viewOptions) == .top
+                && (anchors.frames[.item(.viewOptions)]?.maxY ?? .infinity) <= model.topBandHeight + 1
+        }
+        #expect(model.isViewOptionsPresented)
+        #expect(popoverCount(window) == base + 1)
+
+        layouts.split = try layouts.split.moving(.viewOptions, to: .unused, for: .split)
+        try environment.preferences.saveBandArrangement(BandArrangementSet(name: "No Contents", layouts: layouts))
+        try await waitUntil { anchors.plan != nil && anchors.plan?.band(of: .viewOptions) == nil }
+        #expect(anchors.plan?.unusedAvailable.contains(.viewOptions) == true)
+        #expect(model.isViewOptionsPresented)
+        #expect(popoverCount(window) == base + 1)
+
+        model.isViewOptionsPresented = false
         try await waitUntil { popoverCount(window) == base }
     }
 
@@ -493,12 +551,14 @@ struct BandArrangementRenderingTests {
 
         let wide = BandPlans(model: model, menu: menu(width: 2000))
         // Presentation, Zoom and List do not apply to this document.
-        #expect(wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop])
+        #expect(
+            wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded)
         // Narrow, the bottom band gives way; unused and overflow remain separate.
         let narrow = BandPlans(model: model, menu: menu(width: 140))
         #expect(narrow.bottom?.forms == [.outline: .compact, .pageIndicator: .full])
         #expect(narrow.resolved.overflow == [.layout, .pageTurn])
-        #expect(narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop])
+        #expect(
+            narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded)
         #expect(!narrow.resolved.overflow.contains(.print))
         #expect(narrow.top.forms[.print] != nil)
 
@@ -514,7 +574,7 @@ struct BandArrangementRenderingTests {
         let preferences = AppPreferences(defaults: suite.defaults)
         #expect(preferences.activeBandArrangement == .standard(for: .split))
         preferences.showsOutlineOnBand = false
-        #expect(preferences.activeBandArrangement.unused == [.outline])
+        #expect(preferences.activeBandArrangement.unused == BandTestCatalog.addedItems + [.outline])
         #expect(!preferences.activeBandArrangement.bottomLeft.contains(.outline))
         #expect(suite.defaults.data(forKey: "bandArrangementStore") == nil)
         preferences.showsOutlineOnBand = true

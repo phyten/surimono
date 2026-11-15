@@ -724,7 +724,7 @@ struct ViewBandTests {
         }
         #expect(!pdf.offersPaperSeries)
         #expect(!image.offersPaperSeries)
-        #expect(!SecondaryViewControl.applicable(for: pdf).contains(.paperSeries))
+        #expect(!BandLayout.Item.applicable(for: pdf).contains(.paperSeries))
     }
 
     @Test("文字の文書を含む合本には紙の判の切り替えを出し、PDF だけの合本には出さない")

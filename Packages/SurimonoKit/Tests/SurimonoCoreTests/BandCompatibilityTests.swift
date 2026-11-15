@@ -55,8 +55,7 @@ struct BandCompatibilityTests {
         ]}
         """#
 
-    // A raw reader can recognize future IDs before Item gains cases in step 3. It is only a data shape,
-    // not a copied repair implementation. Typed promotion is tested separately with a narrowed catalog.
+    // Raw arrays freeze every position independently of the typed catalog and its repair implementation.
     private struct RawStore: Decodable, Equatable {
         struct Record: Decodable, Equatable {
             struct Layouts: Decodable, Equatable {
@@ -80,13 +79,32 @@ struct BandCompatibilityTests {
         let data = Data(oldJSON.utf8)
         let loaded = BandArrangementStore.load(data)
         #expect(loaded.retainedData == nil)
-        #expect(loaded.notices == [])
+        #expect(
+            loaded.notices
+                == Array(repeating: BandLayoutTests.addedItems.map(BandRepairNotice.addedToUnused), count: 4).flatMap {
+                    $0
+                })
         #expect(loaded.store.schemaVersion == 1)
         #expect(loaded.store.sets.map(\.id) == [id, secondID])
         #expect(loaded.store.sets.map(\.name) == ["Reading", "Second"])
         #expect(loaded.store.active == .user(id))
-        #expect(loaded.store.activeLayouts.split.unused == [.zoom, .transition, .thumbnails, .layout])
-        #expect(try saved(loaded.store) == raw(data))
+        #expect(
+            loaded.store.activeLayouts.split.unused == [.zoom, .transition, .thumbnails, .layout]
+                + BandLayoutTests.addedItems)
+        let before = try raw(data)
+        let after = try saved(loaded.store)
+        for (old, new) in zip(before.sets, after.sets) {
+            for (oldLayout, newLayout) in [(old.layouts.split, new.layouts.split), (old.layouts.top, new.layouts.top)] {
+                #expect(newLayout.topLeft == oldLayout.topLeft)
+                #expect(newLayout.topRight == oldLayout.topRight)
+                #expect(newLayout.bottomLeft == oldLayout.bottomLeft)
+                #expect(newLayout.bottomRight == oldLayout.bottomRight)
+                #expect(newLayout.unused == oldLayout.unused + BandLayoutTests.addedItems.map(\.rawValue))
+            }
+        }
+        let again = BandArrangementStore.load(try JSONEncoder().encode(loaded.store))
+        #expect(again.store == loaded.store)
+        #expect(again.notices == [])
     }
 
     @Test("十四の新識別子は旧十二部品の配置を壊さず非破壊の未知配置として残る")
@@ -143,8 +161,49 @@ struct BandCompatibilityTests {
         let encoded = try JSONEncoder().encode(old.store)
         #expect(try raw(encoded) == raw(data))
         let current = BandArrangementStore.load(encoded)
-        #expect(try saved(current.store) == raw(data))
-        #expect(current.store == old.store)
+        #expect(try saved(current.store).sets[0] == raw(data).sets[0])
+        #expect(current.store.sets[1].layouts.split.unused == BandLayoutTests.addedItems)
+        #expect(current.store.sets[1].layouts.top.unused == BandLayoutTests.addedItems)
+        let split = current.store.activeLayouts.split
+        #expect(split.unknownPlacements == [])
+        #expect(
+            split.topLeft == [
+                .part(.readingDirection), .part(.formatBadge), .separator, .part(.scrollDirection),
+                .part(.paperOrientation), .part(.style), .part(.paperSeries),
+            ])
+        #expect(
+            split.topRight == [
+                .part(.cover), .part(.print), .part(.selectText), .separator, .part(.floatOnTop),
+                .part(.alwaysShowToolbar),
+            ])
+        #expect(
+            split.bottomLeft == [
+                .part(.margins), .part(.outline), .separator, .part(.printSettings), .part(.presentation),
+                .part(.ignoreSlides),
+            ])
+        #expect(
+            split.bottomRight == [
+                .part(.beforePrinting), .part(.pageIndicator), .part(.viewOptions), .part(.pageTurn),
+                .part(.saveAsFile),
+            ])
+        #expect(split.unused == [.keysAndGestures, .zoom, .transition, .thumbnails, .layout])
+        let top = current.store.activeLayouts.top
+        #expect(top.unknownPlacements == [])
+        #expect(
+            top.topLeft == [
+                .part(.readingDirection), .part(.pageIndicator), .separator, .part(.scrollDirection),
+                .part(.formatBadge), .part(.paperOrientation),
+            ])
+        #expect(
+            top.topRight == [
+                .part(.paperSeries), .part(.style), .part(.cover), .part(.selectText), .separator, .part(.print),
+                .part(.alwaysShowToolbar),
+            ])
+        #expect(
+            top.unused == [
+                .margins, .pageTurn, .printSettings, .ignoreSlides, .floatOnTop, .thumbnails, .zoom, .transition,
+                .layout, .outline, .presentation, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,
+            ])
     }
 
     @Test("旧版の名前変更と複製と上書きは未知配置を両方の表示方式で保持する")

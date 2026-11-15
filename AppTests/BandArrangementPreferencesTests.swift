@@ -19,7 +19,7 @@ struct BandArrangementPreferencesTests {
             preferences.bandArrangementStore.activeLayouts.top.topLeft.compactMap(\.item) == [
                 .formatBadge, .pageIndicator,
             ])
-        #expect(preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn])
+        #expect(preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems)
         #expect(preferences.menuArrangement == .top && preferences.showsOutlineOnBand)
         #expect(defaults.object(forKey: "bandArrangementStore") == nil)
     }
@@ -62,12 +62,12 @@ struct BandArrangementPreferencesTests {
             migrated.layouts.split.bottomLeft.compactMap(\.item) == [
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails,
             ])
-        #expect(migrated.layouts.split.unused == [.outline])
+        #expect(migrated.layouts.split.unused == BandTestCatalog.addedItems + [.outline])
         #expect(
             migrated.layouts.top.topRight.compactMap(\.item) == [
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print,
             ])
-        #expect(migrated.layouts.top.unused == [.pageTurn, .outline])
+        #expect(migrated.layouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems + [.outline])
         #expect(!preferences.showsOutlineOnBand)
         #expect(defaults.data(forKey: "bandArrangementStore") == nil)
         #expect(AppPreferences(defaults: suite.defaults).bandArrangementStore.sets.first?.id == migrated.id)
@@ -133,13 +133,16 @@ struct BandArrangementPreferencesTests {
         try preferences.saveBandArrangement(set)
         var draft = preferences.bandArrangementStore.activeLayouts
         draft.top = try draft.top.moving(.style, to: .unused, for: .top)
-        #expect(preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn])
+        #expect(preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems)
         try preferences.overwriteBandArrangement(.user(set.id), layouts: draft)
         try preferences.renameBandArrangement(.user(set.id), to: "  Book  ")
         let reloaded = AppPreferences(defaults: suite.defaults)
         #expect(reloaded.bandArrangementStore.active == .user(set.id))
         #expect(reloaded.bandArrangementStore.sets.first?.name == "Book")
-        #expect(reloaded.bandArrangementStore.activeLayouts.top.unused == [.pageTurn, .style])
+        #expect(
+            reloaded.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems + [
+                .style
+            ])
     }
 
     @Test("壊れた一件を飛ばして他の配置と未知の部品を残し読み込みでは書き換えない")

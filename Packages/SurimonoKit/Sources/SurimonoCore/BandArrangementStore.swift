@@ -157,7 +157,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         guard !sets.contains(where: { $0.id == set.id }) else { throw BandArrangementStoreError.duplicateIdentity }
         var set = set
         set.name = try validName(set.name)
-        try validate(set.layouts, knownItems: knownItems)
+        set.layouts = try completedLayouts(set.layouts, knownItems: knownItems)
         sets.append(set)
         if activate { active = .user(set.id) }
     }
@@ -167,8 +167,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         knownItems: [BandLayout.Item] = BandLayout.Item.allCases
     ) throws {
         let index = try userIndex(selection)
-        try validate(layouts, knownItems: knownItems)
-        sets[index].layouts = layouts
+        sets[index].layouts = try completedLayouts(layouts, knownItems: knownItems)
     }
 
     public mutating func rename(_ selection: BandArrangementSelection, to name: String) throws {
@@ -212,15 +211,27 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         return index
     }
 
-    private func validate(
+    // Saving a hand-built or older layout may omit optional parts. Complete only those omissions;
+    // duplicates, a missing Print and invalid zones remain errors rather than silently repairing a draft.
+    private func completedLayouts(
         _ layouts: BandArrangementVariants,
         knownItems: [BandLayout.Item] = BandLayout.Item.allCases
-    ) throws {
+    ) throws -> BandArrangementVariants {
+        var completed = layouts
         for mode in MenuArrangement.allCases {
-            let issues = BandArrangementValidation.issues(
-                in: layouts.arrangement(for: mode), for: mode, knownItems: knownItems)
-            guard issues.isEmpty else { throw BandArrangementStoreError.invalidLayout(mode, issues) }
+            let arrangement = layouts.arrangement(for: mode)
+            let issues = BandArrangementValidation.issues(in: arrangement, for: mode, knownItems: knownItems)
+            let invalid = issues.filter {
+                if case .missing(let item) = $0, item != .print { return false }
+                return true
+            }
+            guard invalid.isEmpty else { throw BandArrangementStoreError.invalidLayout(mode, invalid) }
+            let repaired = BandArrangementRepair.repair(
+                StoredBandArrangement(arrangement), for: mode, knownItems: knownItems
+            ).arrangement
+            if mode == .split { completed.split = repaired } else { completed.top = repaired }
         }
+        return completed
     }
 
     private enum CodingKeys: String, CodingKey { case schemaVersion, active, sets }

@@ -18,6 +18,20 @@ extension BandLayout.Item {
         case .floatOnTop: String(localized: "Float on Top")
         case .pageTurn: String(localized: "Previous / Next Page")
         case .print: String(localized: "Print")
+        case .readingDirection: String(localized: "Reading Direction")
+        case .scrollDirection: String(localized: "Scroll Direction")
+        case .paperOrientation: String(localized: "Paper Orientation")
+        case .paperSeries: String(localized: "Paper Series")
+        case .cover: String(localized: "Show First Page Alone")
+        case .selectText: String(localized: "Select Text")
+        case .alwaysShowToolbar: String(localized: "Always Show Toolbar")
+        case .margins: String(localized: "Margins")
+        case .printSettings: String(localized: "Print Settings")
+        case .ignoreSlides: String(localized: "Don't Treat as Slides")
+        case .beforePrinting: String(localized: "Before Printing")
+        case .viewOptions: String(localized: "View Options")
+        case .saveAsFile: String(localized: "Save as File")
+        case .keysAndGestures: String(localized: "Keys and Gestures")
         }
     }
 
@@ -35,13 +49,27 @@ extension BandLayout.Item {
         case .floatOnTop: String(localized: "Keeps this window above other windows.")
         case .pageTurn: String(localized: "Moves to the previous or next page.")
         case .print: String(localized: "Opens the print screen. This part cannot be removed.")
+        case .readingDirection: String(localized: "Chooses the reading direction and binding side.")
+        case .scrollDirection: String(localized: "Chooses the scrolling direction.")
+        case .paperOrientation: String(localized: "Chooses the paper orientation.")
+        case .paperSeries: String(localized: "Chooses the paper series.")
+        case .cover: String(localized: "Shows the first page alone in a spread.")
+        case .selectText: String(localized: "Selects text on the paper.")
+        case .alwaysShowToolbar: String(localized: "Keeps the toolbar visible.")
+        case .margins: String(localized: "Sets the document margins.")
+        case .printSettings: String(localized: "Opens the print settings panel.")
+        case .ignoreSlides: String(localized: "Switches detected slides to a regular document.")
+        case .beforePrinting: String(localized: "Opens the issues to review before printing.")
+        case .viewOptions: String(localized: "Opens the view options.")
+        case .saveAsFile: String(localized: "Saves the original document to a new file.")
+        case .keysAndGestures: String(localized: "Opens the keys and gestures guide.")
         }
     }
 
     /// When a window shows the part; nil for a part every window has. The editor shows every part regardless.
     var editorAvailability: String? {
         switch self {
-        case .formatBadge, .floatOnTop, .print: nil
+        case .formatBadge, .floatOnTop, .print, .alwaysShowToolbar, .printSettings, .viewOptions, .keysAndGestures: nil
         case .pageIndicator: String(localized: "Appears for documents with pages, and for slides on the web.")
         case .presentation: String(localized: "Appears only for HTML documents.")
         case .style: String(localized: "Appears for documents that use a print style or an HTML preset.")
@@ -50,6 +78,16 @@ extension BandLayout.Item {
         case .zoom: String(localized: "Appears only while zoomed in.")
         case .thumbnails: String(localized: "Appears for image bundles and binders.")
         case .pageTurn: String(localized: "Appears for documents of more than one page, on paper.")
+        case .readingDirection: String(localized: "Appears on paper, not on a live web page.")
+        case .scrollDirection: String(localized: "Appears on paper; disabled when the page turn does not scroll.")
+        case .paperOrientation: String(localized: "Appears on paper; disabled for a fixed paper orientation.")
+        case .paperSeries: String(localized: "Appears for text documents and binders containing them.")
+        case .cover: String(localized: "Appears when the paper view supports a separate cover.")
+        case .selectText: String(localized: "Appears when text can be selected on paper.")
+        case .margins: String(localized: "Appears when margins apply to the document.")
+        case .ignoreSlides: String(localized: "Appears for HTML documents with detected slides.")
+        case .beforePrinting: String(localized: "Appears when there are issues to review before printing.")
+        case .saveAsFile: String(localized: "Appears for documents that can be saved to a new file.")
         }
     }
 }
@@ -108,6 +146,16 @@ struct BandPartGlyph: View {
                 symbol("chevron.right")
             }
         case .print: PrintGlyph()
+        case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .margins:
+            WithChevron(symbol: item.additionalSymbol ?? "questionmark")
+        case .beforePrinting:
+            HStack(spacing: 3) {
+                symbol("exclamationmark.triangle")
+                Text(verbatim: "2").monospacedDigit()
+            }
+        case .cover, .selectText, .alwaysShowToolbar, .printSettings, .ignoreSlides, .viewOptions,
+            .saveAsFile, .keysAndGestures:
+            symbol(item.additionalSymbol ?? "questionmark")
         }
     }
 

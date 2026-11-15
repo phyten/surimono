@@ -1,4 +1,5 @@
 import Foundation
+import SurimonoCore
 import SurimonoRendering
 
 @testable import Surimono
@@ -34,4 +35,12 @@ extension DocumentViewModel {
         outputOverride = { _, _ in }
         printerListSource = { .empty }
     }
+}
+
+@MainActor
+enum BandTestCatalog {
+    nonisolated static let addedItems: [BandLayout.Item] = [
+        .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText, .alwaysShowToolbar,
+        .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,
+    ]
 }

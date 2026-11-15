@@ -18,17 +18,34 @@ public enum BandLayout {
         case floatOnTop = "floatOnTop"
         case pageTurn = "pageTurn"
         case print = "print"
+        case readingDirection = "readingDirection"
+        case scrollDirection = "scrollDirection"
+        case paperOrientation = "paperOrientation"
+        case paperSeries = "paperSeries"
+        case cover = "cover"
+        case selectText = "selectText"
+        case alwaysShowToolbar = "alwaysShowToolbar"
+        case margins = "margins"
+        case printSettings = "printSettings"
+        case ignoreSlides = "ignoreSlides"
+        case beforePrinting = "beforePrinting"
+        case viewOptions = "viewOptions"
+        case saveAsFile = "saveAsFile"
+        case keysAndGestures = "keysAndGestures"
 
         /// Tools of one group sit together, and a thin separator divides neighbouring groups. The title's parts and
         /// Print stand outside the groups.
         public var group: Int? {
             switch self {
             case .formatBadge, .pageIndicator, .pageTurn, .print: nil
-            case .presentation: 0
+            case .presentation, .ignoreSlides: 0
             case .style, .outline: 1
-            case .layout, .transition: 2
-            case .zoom, .thumbnails: 3
-            case .floatOnTop: 4
+            case .layout, .transition, .readingDirection, .scrollDirection, .cover: 2
+            case .zoom, .thumbnails, .selectText: 3
+            case .floatOnTop, .alwaysShowToolbar, .viewOptions: 4
+            case .paperOrientation, .paperSeries, .margins: 5
+            case .printSettings, .beforePrinting, .saveAsFile: 6
+            case .keysAndGestures: 7
             }
         }
     }
@@ -233,7 +250,13 @@ public enum BandLayout {
                 .formatBadge, .transition, .layout, .pageTurn, .style, .outline,
                 .presentation, .thumbnails, .zoom, .floatOnTop, .pageIndicator,
             ]
-        return compact + removed.map { .remove($0) } + [.compact(.print)]
+        let added: [Item] = [
+            .keysAndGestures, .saveAsFile, .ignoreSlides, .printSettings, .margins, .paperSeries,
+            .paperOrientation, .cover, .readingDirection, .scrollDirection, .alwaysShowToolbar,
+            .viewOptions, .beforePrinting, .selectText,
+        ]
+        return added.map { .compact($0) } + compact + added.map { .remove($0) }
+            + removed.map { .remove($0) } + [.compact(.print)]
     }
 
     private static func visibleSeparators(in entries: [BandEntry], forms: [Item: Form]) -> [Item] {

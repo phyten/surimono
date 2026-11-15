@@ -33,6 +33,24 @@
         static var shortcutSearch: String? { argument("SurimonoShortcutSearch") }
         static var shortcutShowGlobal: Bool { flag("SurimonoShortcutGlobal") }
 
+        /// A transient Split arrangement for photographing selected parts, in the supplied order.
+        static func bandPartsFixture(_ names: String) -> BandArrangementStore? {
+            let parts = names.split(separator: ",").compactMap { BandLayout.Item(rawValue: String($0)) }
+            guard !parts.isEmpty else { return nil }
+            var layouts = BandArrangementVariants()
+            do {
+                for part in parts {
+                    layouts.split = try layouts.split.moving(part, to: .zone(.topRight), before: .print, for: .split)
+                }
+                var store = BandArrangementStore()
+                try store.insert(BandArrangementSet(name: "Band Parts", layouts: layouts))
+                return store
+            } catch {
+                logger.error("Band parts fixture is invalid: \(String(describing: error), privacy: .public)")
+                return nil
+            }
+        }
+
         /// Arrangements to look at: `-SurimonoBandArrangement printBottom|reordered|sparse|editor|editorReading`
         /// (`unreadable` stands for data a newer version wrote). They are held in memory only; the preferences refuse
         /// to save over the reader's sets while one is shown.

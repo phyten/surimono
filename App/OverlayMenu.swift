@@ -256,8 +256,8 @@ struct BandPresentationHost: View {
     @Bindable var model: DocumentViewModel
     let plans: BandPlans
 
-    /// Where a popover points: a part on a band, or "…" (`item` nil) for the view options and for a part that is not
-    /// on a band. A nil rect means "…" has not been laid out yet.
+    /// Where a popover points: a part actually on a band, or "…" when no displayed part frame is available.
+    /// A nil rect means "…" has not been laid out yet.
     struct Placement: Equatable {
         var rect: CGRect?
         var arrowEdge: Edge
@@ -278,7 +278,7 @@ struct BandPresentationHost: View {
         ZStack {
             let outline = placement(.outline)
             let figures = placement(.pageIndicator)
-            let more = placement(nil)
+            let more = placement(.viewOptions)
             Color.clear.popover(
                 isPresented: $model.isOutlinePresented, attachmentAnchor: anchor(outline),
                 arrowEdge: outline.arrowEdge
