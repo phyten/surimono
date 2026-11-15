@@ -1,6 +1,642 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "A layout of a saved arrangement could not be read and is back to Standard.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A layout of a saved arrangement could not be read and is back to Standard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存した配置の組み方の一つを読めなかったため、標準に戻しました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取某个已保存排列中的一种布局，已恢复为标准。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法讀取某個已儲存排列中的一種版面，已回復為標準。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 배치의 구성 하나를 읽을 수 없어 표준으로 되돌렸습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une variante d’une disposition enregistrée était illisible et revient au standard."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Variante einer gesicherten Anordnung war unlesbar und ist wieder Standard."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una variante de una disposición guardada no se pudo leer y vuelve a ser la estándar."
+          }
+        }
+      }
+    },
+    "A saved arrangement could not be read and was left out.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A saved arrangement could not be read and was left out."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読めなかった配置セットがあり、一覧から外しました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有一个已保存的排列无法读取，已将其略去。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有一個已儲存的排列無法讀取，已將其略去。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽을 수 없는 저장된 배치가 있어 목록에서 뺐습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une disposition enregistrée était illisible et a été écartée."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine gesicherte Anordnung war unlesbar und wurde ausgelassen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una disposición guardada no se pudo leer y se ha omitido."
+          }
+        }
+      }
+    },
+    "Discard your changes and show the arrangement as it is saved now": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard your changes and show the arrangement as it is saved now"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更を破棄して、いま保存されている配置を表示します"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃你的更改，显示当前已保存的排列"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放棄你的變更，顯示目前已儲存的排列"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "변경 사항을 버리고 지금 저장된 배치를 표시합니다"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abandonne vos modifications et affiche la disposition telle qu’elle est enregistrée"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verwirft deine Änderungen und zeigt die Anordnung, wie sie jetzt gesichert ist"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descarta tus cambios y muestra la disposición tal como está guardada"
+          }
+        }
+      }
+    },
+    "Not saved: this arrangement was changed elsewhere.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not saved: this arrangement was changed elsewhere."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存しませんでした。この配置はほかの場所で変更されています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存：此排列已在别处更改。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未儲存：此排列已在別處變更。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장하지 않았습니다. 이 배치는 다른 곳에서 바뀌었습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non enregistré : cette disposition a été modifiée ailleurs."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht gesichert: Diese Anordnung wurde anderswo geändert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se ha guardado: esta disposición se cambió en otro sitio."
+          }
+        }
+      }
+    },
+    "Some parts of a saved arrangement were out of place and were put back.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some parts of a saved arrangement were out of place and were put back."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存した配置に置き場のおかしい部品があり、元の場所に戻しました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某个已保存排列中有部件位置不对，已放回原处。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "某個已儲存排列中有部件位置不對，已放回原處。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 배치에 자리가 잘못된 부품이 있어 제자리로 돌려놓았습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Des éléments d’une disposition enregistrée étaient mal placés et ont été remis en place."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Teile einer gesicherten Anordnung lagen falsch und wurden zurückgesetzt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algunas piezas de una disposición guardada estaban fuera de lugar y se han recolocado."
+          }
+        }
+      }
+    },
+    "Some saved toolbar arrangements were repaired when they were read.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some saved toolbar arrangements were repaired when they were read."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存してあるツールバーの配置を、読み込むときに一部直しました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取已保存的工具栏排列时进行了修复。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "讀取已儲存的工具列排列時進行了修復。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 도구 막대 배치를 읽을 때 일부를 고쳤습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certaines dispositions enregistrées ont été réparées à la lecture."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige gesicherte Anordnungen wurden beim Lesen repariert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algunas disposiciones guardadas se repararon al leerlas."
+          }
+        }
+      }
+    },
+    "The arrangement in use could not be found, so Standard is used.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The arrangement in use could not be found, so Standard is used."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中の配置が見つからないため、標準を使っています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到正在使用的排列，因此使用标准排列。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到正在使用的排列，因此使用標準排列。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용 중인 배치를 찾을 수 없어 표준을 사용합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La disposition utilisée est introuvable ; le standard est utilisé."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die verwendete Anordnung fehlt, daher wird Standard verwendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encuentra la disposición en uso, así que se usa la estándar."
+          }
+        }
+      }
+    },
+    "The data as it was read is kept aside the first time you save.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The data as it was read is kept aside the first time you save."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込んだときのデータは、次に保存するときに消さずに別に残します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "首次保存时，会把读取时的原始数据另行保留。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "首次儲存時，會把讀取時的原始資料另行保留。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "처음 저장할 때 읽어 들인 원래 데이터를 따로 보관합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les données telles qu’elles ont été lues sont mises de côté lors du prochain enregistrement."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Daten, wie sie gelesen wurden, werden beim nächsten Sichern beiseitegelegt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los datos tal como se leyeron se apartan la próxima vez que guardes."
+          }
+        }
+      }
+    },
+    "This arrangement was changed elsewhere while you edited it. Duplicate keeps your changes as a new arrangement.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This arrangement was changed elsewhere while you edited it. Duplicate keeps your changes as a new arrangement."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集している間に、この配置がほかの場所で変更されました。変更は「複製…」で新しい配置として残せます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你编辑期间，此排列已在别处更改。用“复制…”可将你的更改保存为新排列。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你編輯期間，此排列已在別處變更。用「複製…」可將你的變更儲存為新排列。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "편집하는 동안 이 배치가 다른 곳에서 바뀌었습니다. ‘복제…’로 변경 사항을 새 배치로 남길 수 있습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette disposition a été modifiée ailleurs pendant votre modification. Dupliquer conserve vos modifications comme nouvelle disposition."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Anordnung wurde anderswo geändert, während du sie bearbeitet hast. Duplizieren behält deine Änderungen als neue Anordnung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta disposición se cambió en otro sitio mientras la editabas. Duplicar conserva tus cambios como una nueva disposición."
+          }
+        }
+      }
+    },
+    "This arrangement was changed elsewhere. Save keeps your changes as a new arrangement.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This arrangement was changed elsewhere. Save keeps your changes as a new arrangement."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この配置はほかの場所で変更されています。保存すると、変更を新しい配置として残します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此排列已在别处更改。保存会将你的更改存为新排列。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此排列已在別處變更。儲存會將你的變更存為新排列。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 배치는 다른 곳에서 바뀌었습니다. 저장하면 변경 사항을 새 배치로 남깁니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette disposition a été modifiée ailleurs. Enregistrer conserve vos modifications comme nouvelle disposition."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Anordnung wurde anderswo geändert. Sichern behält deine Änderungen als neue Anordnung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta disposición se cambió en otro sitio. Guardar conserva tus cambios como una nueva disposición."
+          }
+        }
+      }
+    },
+    "This step cannot be undone: the saved arrangements were changed elsewhere.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This step cannot be undone: the saved arrangements were changed elsewhere."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この操作は取り消せません。保存してある配置がほかの場所で変更されています。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法撤销此步骤：已保存的排列已在别处更改。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法還原此步驟：已儲存的排列已在別處變更。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 단계는 실행 취소할 수 없습니다. 저장된 배치가 다른 곳에서 바뀌었습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette étape ne peut pas être annulée : les dispositions enregistrées ont été modifiées ailleurs."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Schritt lässt sich nicht widerrufen: Die gesicherten Anordnungen wurden anderswo geändert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este paso no se puede deshacer: las disposiciones guardadas se cambiaron en otro sitio."
+          }
+        }
+      }
+    },
+    "Use Saved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use Saved"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みを使う"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用已保存的"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用已儲存的"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 것 사용"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utiliser l’enregistrée"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gesicherte verwenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar la guardada"
+          }
+        }
+      }
+    },
     "%1$@ moved to %2$@, position %3$lld of %4$lld.": {
       "extractionState": "manual",
       "localizations": {

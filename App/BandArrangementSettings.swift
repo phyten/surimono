@@ -15,6 +15,8 @@ struct BandArrangementSettings: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if session.needsRecovery { RecoveryNotice(session: session) }
+                RepairNotice(notices: session.preferences.bandArrangementNotices)
+                if session.hasConflict { ConflictNotice(session: session) }
                 Group {
                     SetBar(session: session)
                     StatusRow(session: session)
@@ -48,6 +50,9 @@ struct BandArrangementSettings: View {
         } action: {
             width = $0
         }
+        .onAppear { session.didAppear() }
+        // A change saved elsewhere: followed while nothing is unsaved, told as a conflict otherwise.
+        .onChange(of: session.store) { session.refresh() }
         // Everywhere but the zones and the palette: a separator dropped here is taken away.
         .onDrop(of: [.utf8PlainText], delegate: BandEditorDropDelegate(session: session, target: { _ in .outside }))
         .background(PrintPalette.chrome)
@@ -66,10 +71,12 @@ struct BandArrangementSettings: View {
                 session.discardChanges()
                 session.proceed()
             }
-            Button("Cancel", role: .cancel) { session.pendingLeave = nil }
+            Button("Cancel", role: .cancel) { session.cancelLeave() }
         } message: {
             if session.isStandardActive {
                 Text("Standard does not change. Save keeps your changes as a new arrangement.")
+            } else if session.hasConflict {
+                Text("This arrangement was changed elsewhere. Save keeps your changes as a new arrangement.")
             } else {
                 Text("Save replaces “\(session.activeName)” with your changes. Discard keeps it as it was saved.")
             }
@@ -231,6 +238,58 @@ private struct ModeRow: View {
             .foregroundStyle(PrintPalette.ink3)
             .fixedSize()
             .help("Change it under View & Page Turn > Toolbar Layout.")
+    }
+}
+
+/// What loading repaired or left out of the saved arrangements, until the first save writes the repaired store (and
+/// keeps the original aside).
+private struct RepairNotice: View {
+    let notices: [BandRepairNotice]
+
+    var body: some View {
+        let lines = notices.filter(\.losesData).compactMap(\.editorText).reduce(into: [String]()) { lines, line in
+            if !lines.contains(line) { lines.append(line) }
+        }
+        if !lines.isEmpty {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "wrench.and.screwdriver").foregroundStyle(PrintPalette.ai)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Some saved toolbar arrangements were repaired when they were read.").fontWeight(.semibold)
+                    ForEach(lines, id: \.self) { line in
+                        Text(verbatim: "• " + line).foregroundStyle(PrintPalette.ink)
+                    }
+                    Text("The data as it was read is kept aside the first time you save.")
+                        .foregroundStyle(PrintPalette.ink2)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .font(.system(size: 12))
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.aiTint))
+        }
+    }
+}
+
+/// The saved arrangement changed elsewhere under unsaved changes: Overwrite is off; a copy keeps the changes.
+private struct ConflictNotice: View {
+    let session: BandArrangementEditorSession
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(PrintPalette.warn)
+            Text(
+                "This arrangement was changed elsewhere while you edited it. Duplicate keeps your changes as a new arrangement."
+            )
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button("Use Saved") { session.discardChanges() }
+                .fixedSize()
+                .help("Discard your changes and show the arrangement as it is saved now")
+        }
+        .font(.system(size: 12))
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.warnTint))
     }
 }
 
@@ -860,7 +919,8 @@ private struct BandArrangementDialog: View {
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) {
-                    if dialog == .saveCopy { session.pendingLeave = nil }
+                    // Naming the copy was part of saving before leaving or quitting: neither happens now.
+                    if dialog == .saveCopy { session.cancelLeave() }
                     session.dialog = nil
                 }
                 .keyboardShortcut(.cancelAction)

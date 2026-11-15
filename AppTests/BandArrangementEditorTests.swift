@@ -261,56 +261,6 @@ struct BandArrangementEditorTests {
         #expect(environment.preferences.bandArrangementStore.contains(.standard))
     }
 
-    @Test("未保存の変更があると設定の窓は閉じる前に確かめ元の窓の代理に残りを任せる")
-    func windowGuard() {
-        final class Original: NSObject, NSWindowDelegate {
-            var closes = 0
-            var resized = 0
-            func windowShouldClose(_ sender: NSWindow) -> Bool {
-                closes += 1
-                return true
-            }
-            func windowDidResize(_ notification: Notification) { resized += 1 }
-        }
-        let environment = Environment()
-        defer { environment.cleanUp() }
-        let session = environment.session
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled, .closable, .resizable],
-            backing: .buffered, defer: true)
-        window.isReleasedWhenClosed = false
-        let original = Original()
-        window.delegate = original
-        let windowGuard = SettingsWindowGuard.install(
-            on: window,
-            shouldClose: {
-                guard session.isDirty else { return true }
-                session.pendingLeave = .closeWindow
-                return false
-            },
-            undoManager: { session.history })
-        #expect(window.delegate === windowGuard && windowGuard.original === original)
-        // Installing again keeps the one guard and takes the new closures.
-        #expect(SettingsWindowGuard.install(on: window, shouldClose: { true }, undoManager: { nil }) === windowGuard)
-        windowGuard.shouldClose = {
-            guard session.isDirty else { return true }
-            session.pendingLeave = .closeWindow
-            return false
-        }
-        windowGuard.undoManager = { session.history }
-        #expect(windowGuard.windowShouldClose(window))
-        #expect(original.closes == 1)
-        session.insertSeparator(in: .topLeft, at: 0)
-        #expect(!windowGuard.windowShouldClose(window))
-        #expect(session.pendingLeave == .closeWindow && original.closes == 1)
-        // Everything else still reaches SwiftUI's own delegate.
-        #expect(windowGuard.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
-        NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
-        window.setContentSize(NSSize(width: 260, height: 120))
-        #expect(original.resized >= 1)
-        #expect(window.undoManager === session.history)
-    }
-
     // MARK: - Saved sets
 
     @Test("複製は未保存の変更を含み新規は標準から始まりどちらも使用中になる")
@@ -533,9 +483,391 @@ struct BandArrangementEditorTests {
         #expect(defaults.data(forKey: "bandArrangementStore") == unreadable)
         session.startOver()
         #expect(!session.needsRecovery && session.active == .standard)
-        #expect(defaults.data(forKey: "bandArrangementStore") == nil)
+        #expect(defaults.data(forKey: "bandArrangementStore") != unreadable)
         #expect(defaults.array(forKey: AppPreferences.unreadableBandArrangementsKey) as? [Data] == [unreadable])
         #expect(session.createSet(named: "Reading") == nil)
         #expect(AppPreferences(defaults: defaults).bandArrangementStore.sets.map(\.name) == ["Reading"])
     }
+
+    @Test("始め直した直後に起動し直しても旧設定の移行は繰り返さず標準のまま")
+    func startOverThenRelaunch() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(false, forKey: "showsOutlineOnBand")
+        suite.defaults.set(Data(#"{"schemaVersion":9,"sets":[]}"#.utf8), forKey: "bandArrangementStore")
+        let session = BandArrangementEditorSession(preferences: AppPreferences(defaults: suite.defaults))
+        session.startOver()
+        let relaunched = AppPreferences(defaults: suite.defaults)
+        #expect(relaunched.bandArrangementStore.active == .standard)
+        #expect(relaunched.bandArrangementStore.sets.isEmpty)
+        #expect(relaunched.retainedBandArrangementData == nil)
+    }
+
+    // MARK: - Repairs
+
+    /// One record without a name, and a set whose Top Only layout is not a layout.
+    private static let damaged = Data(
+        #"""
+        {"schemaVersion":1,"active":{"kind":"user","id":"5C6B1D2E-0F4A-4E8B-9C7D-2A1B3C4D5E6F"},
+        "sets":[{"id":"5C6B1D2E-0F4A-4E8B-9C7D-2A1B3C4D5E6F","name":"Reading",
+        "layouts":{"split":{"topRight":["print"]},"top":7}},
+        {"id":"6D7C2E3F-1A5B-4F9C-8D6E-3B2C4D5E6F70","name":""}]}
+        """#.utf8)
+
+    @Test("読み込みで直した内容を伝え最初の保存の前に元のデータを別に残す")
+    func lossyRepair() throws {
+        let environment = Environment(stored: Self.damaged)
+        defer { environment.cleanUp() }
+        let defaults = environment.suite.defaults
+        let notices = environment.preferences.bandArrangementNotices
+        #expect(notices.contains(.invalidRecord(1)) && notices.contains(.recoveredVariant(.top)))
+        let lines = Set(notices.filter(\.losesData).compactMap(\.editorText))
+        #expect(lines.count == 2)
+        #expect(defaults.object(forKey: AppPreferences.repairedBandArrangementsKey) == nil)
+        #expect(environment.session.createSet(named: "Printing") == nil)
+        #expect(defaults.array(forKey: AppPreferences.repairedBandArrangementsKey) as? [Data] == [Self.damaged])
+        #expect(environment.preferences.bandArrangementNotices.isEmpty)
+        #expect(environment.session.createSet(named: "Slides") == nil)
+        #expect((defaults.array(forKey: AppPreferences.repairedBandArrangementsKey) as? [Data])?.count == 1)
+    }
+
+    @Test("新しい版の部品が使わない部品に足されただけなら元のデータを残さない")
+    func additiveRepair() throws {
+        // A store written before Zoom Level existed: the part is in neither layout.
+        var store = BandArrangementStore()
+        try store.insert(BandArrangementSet(name: "Reading"))
+        let written = String(decoding: try JSONEncoder().encode(store), as: UTF8.self)
+        let older = Data(written.replacingOccurrences(of: #""zoom","#, with: "").utf8)
+        #expect(older != Data(written.utf8))
+        let environment = Environment(stored: older)
+        defer { environment.cleanUp() }
+        #expect(environment.preferences.bandArrangementNotices == [.addedToUnused(.zoom), .addedToUnused(.zoom)])
+        let losesData = environment.preferences.bandArrangementNotices.contains { $0.losesData }
+        #expect(!losesData)
+        #expect(environment.session.createSet(named: "Printing") == nil)
+        #expect(environment.suite.defaults.object(forKey: AppPreferences.repairedBandArrangementsKey) == nil)
+    }
+
+    // MARK: - Changes saved elsewhere
+
+    @Test("別の画面で使う配置が変わると下書きは別の配置に上書きされず複製として残せる")
+    func conflictWithAnotherSession() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let first = environment.session
+        #expect(first.duplicate(named: "A") == nil)
+        let a = first.active
+        first.select(.part(.zoom))
+        first.moveSelection(to: .unused)
+        let second = BandArrangementEditorSession(preferences: environment.preferences)
+        #expect(second.createSet(named: "B") == nil)
+        let b = second.active
+        #expect(first.hasConflict && !first.canOverwrite)
+        #expect(first.overwrite() == BandArrangementEditorSession.Message.conflict.text)
+        let store = environment.preferences.bandArrangementStore
+        #expect(store.active == b)
+        #expect(store.sets.allSatisfy { $0.layouts == BandArrangementVariants() })
+        #expect(first.rename(to: "C") != nil && first.deleteActive(replacement: .standard) != nil)
+        #expect(store.sets.map(\.name) == ["A", "B"] && store.contains(a))
+        first.request(.selectSet(.standard))
+        #expect(!first.saveForLeaving())
+        #expect(first.dialog == .saveCopy)
+    }
+
+    @Test("同じ配置が外で保存し直されると上書きせず保存済みに合わせられる")
+    func conflictWithOutsideUpdate() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        #expect(session.duplicate(named: "A") == nil)
+        session.select(.part(.zoom))
+        session.moveSelection(to: .unused)
+        var outside = BandArrangementVariants()
+        outside.split = try outside.split.moving(.style, to: .unused, for: .split)
+        try environment.preferences.overwriteBandArrangement(session.active, layouts: outside)
+        #expect(session.hasConflict)
+        #expect(session.overwrite() == BandArrangementEditorSession.Message.conflict.text)
+        #expect(environment.preferences.bandArrangementStore.activeLayouts == outside)
+        session.discardChanges()
+        #expect(!session.hasConflict && session.draft == outside)
+    }
+
+    @Test("変更のない下書きは外で選ばれた配置にそのまま従う")
+    func followsOutsideWhileClean() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        var layouts = BandArrangementVariants()
+        layouts.split = try layouts.split.moving(.print, to: .zone(.bottomRight), for: .split)
+        let set = BandArrangementSet(name: "Outside", layouts: layouts)
+        try environment.preferences.saveBandArrangement(set)
+        session.refresh()
+        #expect(session.base == .user(set.id) && session.draft == layouts && !session.isDirty)
+    }
+
+    @Test("ほかの経路で保存が進んだあとの取り消しはその変更を消さずに断る")
+    func undoRefusesAfterOutsideChange() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let first = environment.session
+        #expect(first.duplicate(named: "A") == nil)
+        let second = BandArrangementEditorSession(preferences: environment.preferences)
+        #expect(second.createSet(named: "B") == nil)
+        first.undo()
+        #expect(environment.preferences.bandArrangementStore.sets.map(\.name) == ["A", "B"])
+        #expect(first.message == .historyConflict)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!first.canUndo && !first.canRedo)
+        // The other editor's own step still undoes: nothing was saved after it.
+        second.undo()
+        #expect(environment.preferences.bandArrangementStore.sets.map(\.name) == ["A"])
+    }
+
+    // MARK: - Settings window
+
+    private func settingsWindow() -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled, .closable],
+            backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+        return window
+    }
+
+    @Test("設定の窓が先に取り消しの履歴を作っていても配置画面の取り消しは編集画面の履歴に行く")
+    func undoRoutedAfterWindowHistory() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let window = settingsWindow()
+        let windowHistory = try #require(window.undoManager)
+        let otherSection = UndoProbe()
+        otherSection.register(on: windowHistory)
+        let editor = EditorShown(true)
+        let router = SettingsUndoRouter.install(
+            on: window, history: { editor.shown ? session.history : nil }, undo: { session.undo() },
+            redo: { session.redo() })
+        #expect(SettingsUndoRouter.install(on: window, history: { nil }, undo: {}, redo: {}) === router)
+        router.history = { editor.shown ? session.history : nil }
+        router.performUndo = { session.undo() }
+        router.performRedo = { session.redo() }
+        session.insertSeparator(in: .topLeft, at: 0)
+        let content = try #require(window.contentView)
+        #expect(content.tryToPerform(#selector(SettingsUndoRouter.undo(_:)), with: nil))
+        #expect(session.draft == BandArrangementVariants())
+        #expect(otherSection.undone == 0 && windowHistory.canUndo)
+        let item = NSMenuItem(title: "Undo", action: #selector(SettingsUndoRouter.redo(_:)), keyEquivalent: "")
+        #expect(router.validateMenuItem(item) && item.title == session.history.redoMenuItemTitle)
+        // Another section: the window's own history, exactly as before.
+        editor.shown = false
+        #expect(!router.responds(to: #selector(SettingsUndoRouter.undo(_:))))
+        #expect(content.tryToPerform(#selector(SettingsUndoRouter.undo(_:)), with: nil))
+        #expect(otherSection.undone == 1)
+        #expect(session.canRedo)
+    }
+
+    @Test("ほかの区分で操作してから配置画面に来ても取り消しは混ざらない")
+    func otherSectionThenEditor() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let window = settingsWindow()
+        let editor = EditorShown(false)
+        SettingsUndoRouter.install(
+            on: window, history: { editor.shown ? session.history : nil }, undo: { session.undo() },
+            redo: { session.redo() })
+        let otherSection = UndoProbe()
+        otherSection.register(on: try #require(window.undoManager))
+        editor.shown = true
+        session.insertSeparator(in: .topLeft, at: 0)
+        let content = try #require(window.contentView)
+        #expect(content.tryToPerform(#selector(SettingsUndoRouter.undo(_:)), with: nil))
+        #expect(session.draft == BandArrangementVariants() && otherSection.undone == 0)
+        // Nothing left in the editor's history: Undo is not taken from the other section.
+        #expect(!session.canUndo)
+        #expect(window.undoManager?.canUndo == true)
+    }
+
+    @Test("名前などの文字を編集している間は文字の取り消しを使う")
+    func textKeepsItsUndo() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let window = settingsWindow()
+        let router = SettingsUndoRouter.install(
+            on: window, history: { session.history }, undo: { session.undo() }, redo: { session.redo() })
+        session.insertSeparator(in: .topLeft, at: 0)
+        #expect(router.activeHistory === session.history)
+        let text = NSTextView(frame: NSRect(x: 0, y: 0, width: 100, height: 20))
+        window.contentView?.addSubview(text)
+        #expect(window.makeFirstResponder(text))
+        #expect(router.activeHistory == nil)
+        #expect(!router.responds(to: #selector(SettingsUndoRouter.undo(_:))))
+        #expect(session.canUndo)
+    }
+
+    @Test("SwiftUI が窓の代理を替えても閉じる前の確認は戻る")
+    func guardSurvivesDelegateReassignment() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let window = settingsWindow()
+        let first = DelegateProbe()
+        window.delegate = first
+        let windowGuard = SettingsWindowGuard.install(on: window) {
+            guard session.isDirty else { return true }
+            session.pendingLeave = .closeWindow
+            return false
+        }
+        #expect(window.delegate === windowGuard && windowGuard.original === first)
+        let second = DelegateProbe()
+        window.delegate = second
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(window.delegate === windowGuard && windowGuard.original === second)
+        session.insertSeparator(in: .topLeft, at: 0)
+        #expect(!windowGuard.windowShouldClose(window))
+        #expect(session.pendingLeave == .closeWindow && second.closes == 0)
+        // Everything else still reaches the delegate SwiftUI set last.
+        #expect(windowGuard.responds(to: #selector(NSWindowDelegate.windowDidResize(_:))))
+        NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
+        #expect(second.resized >= 1 && first.resized == 0)
+    }
+
+    @Test("作り直された設定の窓にはそれぞれの確認が付く")
+    func guardOnRecreatedWindow() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let ask: @MainActor () -> Bool = {
+            guard session.isDirty else { return true }
+            session.pendingLeave = .closeWindow
+            return false
+        }
+        let old = settingsWindow()
+        let oldGuard = SettingsWindowGuard.install(on: old, shouldClose: ask)
+        let new = settingsWindow()
+        let newGuard = SettingsWindowGuard.install(on: new, shouldClose: ask)
+        #expect(oldGuard !== newGuard && new.delegate === newGuard)
+        #expect(SettingsWindowGuard.install(on: new, shouldClose: ask) === newGuard)
+        session.insertSeparator(in: .topLeft, at: 0)
+        #expect(!newGuard.windowShouldClose(new))
+    }
+
+    // MARK: - Quitting
+
+    @MainActor private final class Replies {
+        var values: [Bool] = []
+        var shown = 0
+    }
+
+    private func quitting(_ session: BandArrangementEditorSession) -> Replies {
+        let replies = Replies()
+        session.replyToTermination = { replies.values.append($0) }
+        session.showSettings = { replies.shown += 1 }
+        return replies
+    }
+
+    @Test("未保存の変更がなければすぐに終了する")
+    func quitWhenClean() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let replies = quitting(environment.session)
+        #expect(environment.session.shouldTerminate() == .terminateNow)
+        #expect(replies.values.isEmpty && replies.shown == 0)
+    }
+
+    @Test("未保存の変更があると終了を待たせ取り消すと終了しない")
+    func quitCancelled() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let replies = quitting(session)
+        environment.preferences.settingsSection = .general
+        session.insertSeparator(in: .topLeft, at: 0)
+        #expect(session.shouldTerminate() == .terminateLater)
+        #expect(session.pendingLeave == .quit && environment.preferences.settingsSection == .toolbarArrangement)
+        #expect(replies.shown == 1)
+        session.cancelLeave()
+        #expect(replies.values == [false] && session.pendingLeave == nil && session.isDirty)
+    }
+
+    @Test("破棄して終了すると保存せずに終了する")
+    func quitDiscarding() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let replies = quitting(session)
+        session.insertSeparator(in: .topLeft, at: 0)
+        #expect(session.shouldTerminate() == .terminateLater)
+        session.discardChanges()
+        session.proceed()
+        #expect(replies.values == [true])
+        #expect(environment.suite.defaults.object(forKey: "bandArrangementStore") == nil)
+    }
+
+    @Test("保存して終了すると使用中の配置を上書きしてから終了する")
+    func quitSaving() throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        #expect(session.duplicate(named: "Reading") == nil)
+        let replies = quitting(session)
+        session.select(.part(.zoom))
+        session.moveSelection(to: .unused)
+        #expect(session.shouldTerminate() == .terminateLater)
+        #expect(session.saveForLeaving())
+        session.proceed()
+        #expect(replies.values == [true])
+        #expect(environment.preferences.bandArrangementStore.activeLayouts.split.unused == [.zoom])
+    }
+
+    @Test("標準を変えて終了するとき複製の名前を取り消すと終了しない")
+    func quitNamingCancelled() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let session = environment.session
+        let replies = quitting(session)
+        session.insertSeparator(in: .topLeft, at: 0)
+        #expect(session.shouldTerminate() == .terminateLater)
+        #expect(!session.saveForLeaving() && session.dialog == .saveCopy)
+        session.cancelLeave()
+        session.dialog = nil
+        #expect(replies.values == [false])
+        #expect(environment.preferences.bandArrangementStore.sets.isEmpty && session.isDirty)
+    }
+}
+
+/// Counts the steps of another Settings section that were undone.
+@MainActor private final class UndoProbe {
+    var undone = 0
+
+    /// One step of its own group, as an event of the other section would leave it.
+    func register(on history: UndoManager) {
+        history.groupsByEvent = false
+        history.beginUndoGrouping()
+        history.registerUndo(withTarget: self) { probe in
+            // The undo manager's handler is not main-actor isolated; it runs on the main thread here.
+            MainActor.assumeIsolated { probe.undone += 1 }
+        }
+        history.endUndoGrouping()
+    }
+}
+
+/// The delegate SwiftUI gives the Settings window, as far as the guard can tell.
+@MainActor private final class DelegateProbe: NSObject, NSWindowDelegate {
+    var closes = 0
+    var resized = 0
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        closes += 1
+        return true
+    }
+
+    func windowDidResize(_ notification: Notification) { resized += 1 }
+}
+
+/// Whether the arrangement editor is the Settings section on screen.
+@MainActor private final class EditorShown {
+    var shown: Bool
+    init(_ shown: Bool) { self.shown = shown }
 }

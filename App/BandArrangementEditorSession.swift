@@ -108,6 +108,8 @@ final class BandArrangementEditorSession {
         case newSet
         case section(SettingsSection)
         case closeWindow
+        /// The app was asked to quit; the answer goes back to AppKit.
+        case quit
     }
 
     /// A dialog the editor shows.
@@ -129,6 +131,10 @@ final class BandArrangementEditorSession {
         case backToStandard
         case saved(String)
         case cannotSave
+        /// The saved set changed elsewhere since the draft started from it.
+        case conflict
+        /// Undoing would erase what was saved elsewhere since.
+        case historyConflict
 
         var text: String {
             switch self {
@@ -145,17 +151,26 @@ final class BandArrangementEditorSession {
                 String(localized: "Back to Standard, not saved yet. Undo brings your arrangement back.")
             case .saved(let name): String(format: String(localized: "Saved “%@”. All view windows use it now."), name)
             case .cannotSave: String(localized: "Arrangements cannot be saved right now.")
+            case .conflict: String(localized: "Not saved: this arrangement was changed elsewhere.")
+            case .historyConflict:
+                String(localized: "This step cannot be undone: the saved arrangements were changed elsewhere.")
             }
         }
 
-        var isWarning: Bool { self == .printIsRequired || self == .cannotSave }
+        var isWarning: Bool {
+            [.printIsRequired, .cannotSave, .conflict, .historyConflict].contains(self)
+        }
     }
 
     private struct Snapshot {
         var draft: BandArrangementVariants
         var selection: BandEditorSelection?
-        /// Only for commands that changed the saved sets: restoring a draft never writes.
+        var base: BandArrangementSelection
+        var baseLayouts: BandArrangementVariants
+        /// Only for commands that changed the saved sets: the store to put back, and the store that must still be
+        /// there for that to undo only this command. Restoring a draft never writes.
         var store: BandArrangementStore?
+        var expected: BandArrangementStore?
     }
 
     /// Identifies this editor's drags.
@@ -171,6 +186,10 @@ final class BandArrangementEditorSession {
         }
     }
     private(set) var draft: BandArrangementVariants
+    /// The saved set the draft edits, and its layouts as they were when the draft started from them. Saving checks
+    /// both against the store, so a draft never lands on another set or over a change made elsewhere.
+    private(set) var base: BandArrangementSelection
+    private(set) var baseLayouts: BandArrangementVariants
     private(set) var selection: BandEditorSelection?
     private(set) var message: Message?
     /// The insertion marker while something is dragged over the miniature. Hovering is never history.
@@ -181,20 +200,29 @@ final class BandArrangementEditorSession {
     private(set) var revision = 0
     var pendingLeave: Leave?
     var dialog: Dialog?
-    /// The editor's own history: Settings' Edit menu reaches it while the editor shows (`SettingsWindowGuard`).
+    /// The editor's own history. Settings' Edit menu and ⌘Z reach it while the editor shows (`SettingsUndoRouter`);
+    /// the other sections keep the window's.
     let history = UndoManager()
     private(set) var canUndo = false
     private(set) var canRedo = false
     @ObservationIgnored private var historyObservers: [NSObjectProtocol] = []
 
-    #if DEBUG
-        /// The editor Settings shows, for the development snapshots.
-        static weak var current: BandArrangementEditorSession?
-    #endif
+    /// The app's editor, which Settings shows and which quitting asks about.
+    static weak var app: BandArrangementEditorSession?
+    /// Answers AppKit's question whether the app may quit; tests stand in for it.
+    @ObservationIgnored var replyToTermination: @MainActor (Bool) -> Void = {
+        NSApp.reply(toApplicationShouldTerminate: $0)
+    }
+    /// Opens Settings for the question when its window is not on screen; tests stand in for it.
+    @ObservationIgnored var showSettings: @MainActor () -> Void = {
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    }
 
     init(preferences: AppPreferences) {
         self.preferences = preferences
         mode = preferences.menuArrangement
+        base = preferences.bandArrangementStore.active
+        baseLayouts = preferences.bandArrangementStore.activeLayouts
         draft = preferences.bandArrangementStore.activeLayouts
         // Each command is grouped explicitly, so two commands in one event stay two steps.
         history.groupsByEvent = false
@@ -204,9 +232,6 @@ final class BandArrangementEditorSession {
                 MainActor.assumeIsolated { self?.refreshHistory() }
             }
         }
-        #if DEBUG
-            Self.current = self
-        #endif
     }
 
     isolated deinit {
@@ -218,15 +243,19 @@ final class BandArrangementEditorSession {
     var store: BandArrangementStore { preferences.bandArrangementStore }
     var active: BandArrangementSelection { store.active }
     var savedLayouts: BandArrangementVariants { store.activeLayouts }
-    var isDirty: Bool { draft != savedLayouts }
-    var isStandardActive: Bool { active == .standard }
+    var isDirty: Bool { draft != baseLayouts }
+    /// The draft edits Standard, which is never written.
+    var isStandardActive: Bool { base == .standard }
+    /// The saved arrangements moved on under unsaved changes: another set is in use, or the edited set changed.
+    var hasConflict: Bool { isDirty && (store.active != base || store.activeLayouts != baseLayouts) }
     /// Unreadable stored data waits for the reader's decision; nothing is written until then.
     var needsRecovery: Bool { preferences.retainedBandArrangementData != nil }
     var arrangement: BandArrangement { draft.arrangement(for: mode) }
     var zones: [BandZoneID] { mode == .split ? BandZoneID.allCases : [.topLeft, .topRight] }
     var destinations: [BandDestination] { zones.map { .zone($0) } + [.unused] }
 
-    var activeName: String { name(of: active) }
+    /// The name of the set the draft edits.
+    var activeName: String { name(of: base) }
 
     func name(of selection: BandArrangementSelection) -> String {
         switch selection {
@@ -282,6 +311,21 @@ final class BandArrangementEditorSession {
         guard case .zone = location.destination else { return false }
         let target = location.index + offset
         return arrangement[location.destination].indices.contains(target)
+    }
+
+    /// Follows the saved arrangements while there is nothing unsaved; with unsaved changes the draft stays, and
+    /// `hasConflict` tells.
+    func refresh() {
+        guard !isDirty, store.active != base || store.activeLayouts != baseLayouts else { return }
+        adoptSaved()
+    }
+
+    private func adoptSaved() {
+        base = store.active
+        baseLayouts = store.activeLayouts
+        draft = baseLayouts
+        selection = nil
+        revision += 1
     }
 
     // MARK: - Editing the draft
@@ -372,13 +416,12 @@ final class BandArrangementEditorSession {
         say(.backToStandard)
     }
 
-    /// Leaves the saved set as it is and the draft as saved. It is a step of the history, so Undo brings it back.
+    /// Leaves the saved sets as they are and takes the saved one in use, also after a change made elsewhere. It is
+    /// a step of the history, so Undo brings the draft back.
     func discardChanges() {
         guard isDirty else { return }
         let before = snapshot()
-        selection = nil
-        draft = savedLayouts
-        revision += 1
+        adoptSaved()
         commit(before, action: String(localized: "Discard Changes"))
         message = nil
     }
@@ -455,12 +498,22 @@ final class BandArrangementEditorSession {
 
     // MARK: - Saved sets
 
-    var canOverwrite: Bool { !isStandardActive && isDirty && !needsRecovery }
+    var canOverwrite: Bool { !isStandardActive && isDirty && !needsRecovery && !hasConflict }
 
     /// Selecting a saved set uses it in every view window; the draft becomes that set.
     func selectSet(_ selection: BandArrangementSelection) {
         guard selection != active else { return }
         storeCommand(String(localized: "Choose Arrangement")) { store in try store.select(selection) }
+    }
+
+    /// Nil while the set the draft edits is still the saved one in use, as it was; otherwise says why not and writes
+    /// nothing.
+    private func conflictProblem() -> String? {
+        guard store.active == base, store.activeLayouts == baseLayouts else {
+            say(.conflict)
+            return Message.conflict.text
+        }
+        return nil
     }
 
     /// The draft, edits included, under a new name; the copy becomes the set in use.
@@ -472,11 +525,12 @@ final class BandArrangementEditorSession {
 
     @discardableResult
     func overwrite() -> String? {
-        guard canOverwrite else { return nil }
+        guard !isStandardActive, isDirty, !needsRecovery else { return nil }
+        if let problem = conflictProblem() { return problem }
         let layouts = draft
-        let active = active
+        let base = base
         let result = storeCommand(String(localized: "Overwrite Arrangement")) {
-            try $0.overwrite(active, layouts: layouts)
+            try $0.overwrite(base, layouts: layouts)
         }
         if result == nil { say(.saved(activeName)) }
         return result
@@ -491,24 +545,27 @@ final class BandArrangementEditorSession {
 
     @discardableResult
     func rename(to name: String) -> String? {
-        let active = active
+        if let problem = conflictProblem() { return problem }
+        let base = base
         return storeCommand(String(localized: "Rename Arrangement"), keepsDraft: true) {
-            try $0.rename(active, to: name)
+            try $0.rename(base, to: name)
         }
     }
 
     /// Deletes the set in use; the windows move to `replacement` at the same time.
     @discardableResult
     func deleteActive(replacement: BandArrangementSelection) -> String? {
-        let active = active
+        if let problem = conflictProblem() { return problem }
+        let base = base
         return storeCommand(String(localized: "Delete Arrangement")) {
-            try $0.delete(active, replacement: replacement)
+            try $0.delete(base, replacement: replacement)
         }
     }
 
-    /// Save from the unsaved-changes question: the set in use takes the draft; a changed Standard needs a name first.
+    /// Save from the unsaved-changes question: the set in use takes the draft. A changed Standard, or a draft whose
+    /// set changed elsewhere, is saved as a named copy instead, so nothing saved is written over.
     func saveForLeaving() -> Bool {
-        if isStandardActive {
+        if isStandardActive || hasConflict {
             dialog = .saveCopy
             return false
         }
@@ -517,9 +574,20 @@ final class BandArrangementEditorSession {
 
     /// The Settings window's guard, which closes the window once the reader has answered.
     @ObservationIgnored weak var windowGuard: SettingsWindowGuard?
+    /// Routes the Settings window's Undo and Redo here while the editor shows.
+    @ObservationIgnored weak var undoRouter: SettingsUndoRouter?
+
+    /// The editor came into view: follow the saved arrangements, and make sure the window still routes Undo here and
+    /// still asks before closing.
+    func didAppear() {
+        refresh()
+        undoRouter?.insertIntoChain()
+        windowGuard?.reinstallIfNeeded()
+    }
 
     /// Leaves the draft at once when it has no unsaved changes; otherwise asks first (Save, Discard, Cancel).
     func request(_ leave: Leave) {
+        refresh()
         guard isDirty else {
             if leave == .newSet {
                 dialog = .new
@@ -543,12 +611,35 @@ final class BandArrangementEditorSession {
             Task { @MainActor in self.dialog = .new }
         case .section(let section): preferences.settingsSection = section
         case .closeWindow: windowGuard?.closeWithoutAsking()
+        case .quit: replyToTermination(true)
         }
+    }
+
+    /// Cancel in the question or in naming the copy: nothing happens, and a quit that waited is called off.
+    func cancelLeave() {
+        if pendingLeave == .quit { replyToTermination(false) }
+        pendingLeave = nil
+    }
+
+    /// The app's delegate asks before quitting. Unsaved changes hold the quit until the reader answers in the editor.
+    func shouldTerminate() -> NSApplication.TerminateReply {
+        refresh()
+        guard isDirty, !needsRecovery else { return .terminateNow }
+        dialog = nil
+        preferences.settingsSection = .toolbarArrangement
+        pendingLeave = .quit
+        if let window = windowGuard?.window, window.isVisible {
+            window.makeKeyAndOrderFront(nil)
+        } else {
+            // The question is asked in Settings.
+            showSettings()
+        }
+        return .terminateLater
     }
 
     /// The sets a deletion can fall back to: Standard and every other saved set.
     var replacements: [BandArrangementSelection] {
-        [.standard] + store.sets.map { .user($0.id) }.filter { $0 != active }
+        [.standard] + store.sets.map { .user($0.id) }.filter { $0 != base }
     }
 
     func proposedCopyName() -> String {
@@ -585,6 +676,7 @@ final class BandArrangementEditorSession {
     private func storeCommand(
         _ action: String, keepsDraft: Bool = false, _ change: (inout BandArrangementStore) throws -> Void
     ) -> String? {
+        refresh()
         var before = snapshot()
         before.store = store
         do {
@@ -597,11 +689,8 @@ final class BandArrangementEditorSession {
             say(.cannotSave)
             return Message.cannotSave.text
         }
-        if !keepsDraft {
-            draft = savedLayouts
-            selection = nil
-            revision += 1
-        }
+        before.expected = store
+        if !keepsDraft { adoptSaved() }
         commit(before, action: action)
         return nil
     }
@@ -611,9 +700,7 @@ final class BandArrangementEditorSession {
     /// Keeps the unreadable data aside and starts again from Standard. Not undoable: the data stays retained.
     func startOver() {
         preferences.startBandArrangementsOver()
-        draft = savedLayouts
-        selection = nil
-        revision += 1
+        adoptSaved()
         history.removeAllActions()
         refreshHistory()
     }
@@ -633,7 +720,7 @@ final class BandArrangementEditorSession {
     }
 
     private func snapshot() -> Snapshot {
-        Snapshot(draft: draft, selection: selection, store: nil)
+        Snapshot(draft: draft, selection: selection, base: base, baseLayouts: baseLayouts)
     }
 
     private func commit(_ before: Snapshot, action: String) {
@@ -644,20 +731,37 @@ final class BandArrangementEditorSession {
         history.setActionName(action)
         history.endUndoGrouping()
         refreshHistory()
+        // Unsaved work now depends on the close guard.
+        windowGuard?.reinstallIfNeeded()
     }
 
     private func restore(_ snapshot: Snapshot, action: String) {
         var current = self.snapshot()
-        if let saved = snapshot.store {
-            current.store = store
+        if let saved = snapshot.store, let expected = snapshot.expected {
+            // Putting the whole store back would also take back whatever was saved elsewhere since this command.
+            guard store == expected else {
+                say(.historyConflict)
+                // Later steps assume this one; the history cannot be kept consistent and is cleared once the undo
+                // manager has finished this call.
+                Task { @MainActor in
+                    self.history.removeAllActions()
+                    self.refreshHistory()
+                }
+                return
+            }
             do {
                 try preferences.updateBandArrangements { $0 = saved }
             } catch {
                 say(.cannotSave)
+                return
             }
+            current.store = expected
+            current.expected = saved
         }
         draft = snapshot.draft
         selection = snapshot.selection
+        base = snapshot.base
+        baseLayouts = snapshot.baseLayouts
         dropTarget = nil
         revision += 1
         message = nil
@@ -686,6 +790,11 @@ final class BandArrangementEditorSession {
             }
             dragging = BandEditorPayload(session: id, revision: revision, mode: mode, source: source ?? .newSeparator)
             dropTarget = target
+        }
+
+        /// Development snapshots: the saved set as if it had changed elsewhere since the draft started.
+        func simulateChangeElsewhere() {
+            baseLayouts.split.topLeft.append(.separator)
         }
     #endif
 }

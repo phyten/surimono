@@ -1,42 +1,56 @@
 import AppKit
+import OSLog
 import SwiftUI
 
 /// Stands in front of the Settings window's own delegate, which SwiftUI keeps, and passes on everything it does not
-/// answer itself. It asks before the window closes over unsaved work, and while the arrangement editor shows it hands
-/// the window the editor's history, so that Edit > Undo undoes the editor's steps rather than another section's.
+/// answer itself. It only asks before the window closes over unsaved work. Should SwiftUI give the window another
+/// delegate, the guard notices and stands in front of that one, after SwiftUI's update.
 final class SettingsWindowGuard: NSObject, NSWindowDelegate {
     /// False to keep the window open; the guard's owner then asks the reader and closes the window itself.
-    var shouldClose: () -> Bool = { true }
-    /// The history to use instead of the window's own, while there is one.
-    var undoManager: () -> UndoManager? = { nil }
-    // Safe: set once in `install`, before the guard becomes the delegate, and never changed; AppKit may ask the
-    // delegate what it answers from wherever it likes.
+    var shouldClose: @MainActor () -> Bool = { true }
+    // Safe: changed only on the main thread, where AppKit also asks the delegate what it answers.
     nonisolated(unsafe) private(set) weak var original: NSWindowDelegate?
-    private weak var window: NSWindow?
+    private(set) weak var window: NSWindow?
+    private var delegateObservation: NSKeyValueObservation?
+    /// Reinstalls within the last second: a window that keeps taking its delegate back is left alone.
+    private var recentReinstalls: [Date] = []
+    private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "Settings")
 
     // Safe: only the variable's address is used, as the associated object's key; its value is never read or written.
     nonisolated(unsafe) private static var key: UInt8 = 0
 
-    /// One guard per window; installing again updates the closures. The window keeps its delegate weakly, so the
-    /// guard is tied to the window for as long as the window lives; a Settings window that closes and comes back is
-    /// still guarded.
+    /// One guard per window; installing again updates the closure. The window keeps its delegate weakly, so the guard
+    /// is tied to the window for as long as the window lives. A new window gets its own guard.
     @discardableResult
-    static func install(
-        on window: NSWindow, shouldClose: @escaping () -> Bool, undoManager: @escaping () -> UndoManager?
-    ) -> SettingsWindowGuard {
+    static func install(on window: NSWindow, shouldClose: @escaping @MainActor () -> Bool) -> SettingsWindowGuard {
         let windowGuard: SettingsWindowGuard
-        if let existing = objc_getAssociatedObject(window, &key) as? SettingsWindowGuard, window.delegate === existing {
+        if let existing = objc_getAssociatedObject(window, &key) as? SettingsWindowGuard {
             windowGuard = existing
         } else {
             windowGuard = SettingsWindowGuard()
-            windowGuard.original = window.delegate
             windowGuard.window = window
             objc_setAssociatedObject(window, &key, windowGuard, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-            window.delegate = windowGuard
+            windowGuard.delegateObservation = window.observe(\.delegate) { [weak windowGuard] _, _ in
+                // Not from inside the update that set it: changing a window SwiftUI is updating can crash it.
+                Task { @MainActor in windowGuard?.reinstallIfNeeded() }
+            }
         }
         windowGuard.shouldClose = shouldClose
-        windowGuard.undoManager = undoManager
+        windowGuard.reinstallIfNeeded()
         return windowGuard
+    }
+
+    /// Stands in front of whatever delegate the window has now, unless it is already this guard.
+    func reinstallIfNeeded() {
+        guard let window, window.delegate !== self else { return }
+        let now = Date()
+        recentReinstalls = recentReinstalls.filter { now.timeIntervalSince($0) < 1 } + [now]
+        guard recentReinstalls.count <= 3 else {
+            Self.logger.error("The Settings window keeps replacing its delegate; the close guard steps aside")
+            return
+        }
+        original = window.delegate
+        window.delegate = self
     }
 
     /// Closes the window without asking again, after the reader answered.
@@ -52,10 +66,6 @@ final class SettingsWindowGuard: NSObject, NSWindowDelegate {
         return original?.windowShouldClose?(sender) ?? true
     }
 
-    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
-        undoManager() ?? original?.windowWillReturnUndoManager?(window)
-    }
-
     nonisolated override func responds(to selector: Selector!) -> Bool {
         super.responds(to: selector) || original?.responds(to: selector) == true
     }
@@ -63,5 +73,88 @@ final class SettingsWindowGuard: NSObject, NSWindowDelegate {
     nonisolated override func forwardingTarget(for selector: Selector!) -> Any? {
         if original?.responds(to: selector) == true { return original }
         return super.forwardingTarget(for: selector)
+    }
+}
+
+/// Undo and Redo for the arrangement editor, from the Edit menu and ⌘Z / ⇧⌘Z. It stands in the responder chain just
+/// before the Settings window, so that the window's own history, which the other sections use, stays exactly as it
+/// was: the router answers only while the editor shows and no text is being edited, and otherwise lets the action go
+/// on to the window.
+final class SettingsUndoRouter: NSResponder, NSMenuItemValidation {
+    /// The editor's history while the editor shows; nil hands Undo to the window.
+    var history: @MainActor () -> UndoManager? = { nil }
+    var performUndo: @MainActor () -> Void = {}
+    var performRedo: @MainActor () -> Void = {}
+    private(set) weak var window: NSWindow?
+
+    // Safe: only the variable's address is used, as the associated object's key; its value is never read or written.
+    nonisolated(unsafe) private static var key: UInt8 = 0
+
+    @discardableResult
+    static func install(
+        on window: NSWindow, history: @escaping @MainActor () -> UndoManager?, undo: @escaping @MainActor () -> Void,
+        redo: @escaping @MainActor () -> Void
+    ) -> SettingsUndoRouter {
+        let router: SettingsUndoRouter
+        if let existing = objc_getAssociatedObject(window, &key) as? SettingsUndoRouter {
+            router = existing
+        } else {
+            router = SettingsUndoRouter()
+            router.window = window
+            objc_setAssociatedObject(window, &key, router, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        router.history = history
+        router.performUndo = undo
+        router.performRedo = redo
+        router.insertIntoChain()
+        return router
+    }
+
+    /// Puts the router between the last responder of the window's content and the window. SwiftUI may rebuild that
+    /// chain, so the editor calls this again whenever it shows.
+    func insertIntoChain() {
+        guard let window, let content = window.contentView else { return }
+        var responder: NSResponder = content
+        for _ in 0..<32 {
+            guard let next = responder.nextResponder else { break }
+            if next === self { return }
+            if next === window { break }
+            responder = next
+        }
+        guard responder.nextResponder === window || responder.nextResponder == nil else { return }
+        responder.nextResponder = self
+        nextResponder = window
+    }
+
+    /// The editor's history, unless text has the keyboard: a text field keeps its own Undo.
+    var activeHistory: UndoManager? {
+        guard let history = history(), !(window?.firstResponder is NSText) else { return nil }
+        return history
+    }
+
+    nonisolated override func responds(to selector: Selector!) -> Bool {
+        if selector == #selector(undo(_:)) || selector == #selector(redo(_:)) {
+            // Actions are sent on the main thread; anywhere else the router has nothing to say.
+            guard Thread.isMainThread else { return false }
+            return MainActor.assumeIsolated { activeHistory != nil }
+        }
+        return super.responds(to: selector)
+    }
+
+    @objc func undo(_ sender: Any?) { performUndo() }
+    @objc func redo(_ sender: Any?) { performRedo() }
+
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        guard let history = activeHistory else { return false }
+        switch item.action {
+        case #selector(undo(_:)):
+            item.title = history.undoMenuItemTitle
+            return history.canUndo
+        case #selector(redo(_:)):
+            item.title = history.redoMenuItemTitle
+            return history.canRedo
+        default:
+            return false
+        }
     }
 }

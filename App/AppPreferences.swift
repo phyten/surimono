@@ -94,6 +94,8 @@ final class AppPreferences {
     private(set) var bandArrangementStore: BandArrangementStore
     private(set) var bandArrangementNotices: [BandRepairNotice]
     private(set) var retainedBandArrangementData: Data?
+    /// The stored data as it was before a load repaired it with a loss, kept aside before the first write.
+    @ObservationIgnored private var repairedBandArrangementData: Data?
     /// A development build's fixture from `-SurimonoBandArrangement`: shown, never saved over the reader's sets.
     @ObservationIgnored private var showsBandArrangementFixture = false
 
@@ -116,26 +118,40 @@ final class AppPreferences {
         var next = bandArrangementStore
         try change(&next)
         let data = try JSONEncoder().encode(next)
+        // The first write after a repair that left something out keeps the original aside, as starting over does.
+        if let original = repairedBandArrangementData {
+            setAside(original, under: Self.repairedBandArrangementsKey)
+            repairedBandArrangementData = nil
+        }
         defaults.set(data, forKey: "bandArrangementStore")
         bandArrangementStore = next
         // What the load repaired is now written as repaired.
         bandArrangementNotices = []
     }
 
+    private func setAside(_ data: Data, under key: String) {
+        var kept = defaults.array(forKey: key) as? [Data] ?? []
+        kept.append(data)
+        defaults.set(kept, forKey: key)
+    }
+
     /// Starts the arrangements over from Standard after stored data could not be read. The unreadable data is kept
     /// under another key, never deleted, so a later version that can read it still finds it.
     func startBandArrangementsOver() {
         guard let retained = retainedBandArrangementData, !showsBandArrangementFixture else { return }
-        var kept = defaults.array(forKey: Self.unreadableBandArrangementsKey) as? [Data] ?? []
-        kept.append(retained)
-        defaults.set(kept, forKey: Self.unreadableBandArrangementsKey)
-        defaults.removeObject(forKey: "bandArrangementStore")
+        setAside(retained, under: Self.unreadableBandArrangementsKey)
+        // An empty store, not a missing one: with nothing stored, the next launch would derive "Previous
+        // Arrangement" again from the old Contents setting.
+        let store = BandArrangementStore()
+        if let data = try? JSONEncoder().encode(store) { defaults.set(data, forKey: "bandArrangementStore") }
         retainedBandArrangementData = nil
+        repairedBandArrangementData = nil
         bandArrangementNotices = []
-        bandArrangementStore = BandArrangementStore()
+        bandArrangementStore = store
     }
 
     static let unreadableBandArrangementsKey = "unreadableBandArrangementStores"
+    static let repairedBandArrangementsKey = "repairedBandArrangementStores"
 
     func selectBandArrangement(_ selection: BandArrangementSelection) throws {
         try updateBandArrangements { try $0.select(selection) }
@@ -385,11 +401,21 @@ final class AppPreferences {
             ? .previousArrangement(named: String(localized: "Previous Arrangement")) : bandLoad.store
         bandArrangementNotices = bandLoad.notices
         retainedBandArrangementData = bandLoad.retainedData
+        if bandLoad.retainedData == nil, bandLoad.notices.contains(where: \.losesData) {
+            repairedBandArrangementData = bandData
+        }
         #if DEBUG
             if let fixture = DebugSnapshot.argument("SurimonoBandArrangement")
                 .flatMap(DebugSnapshot.bandArrangementFixture(named:))
             {
                 bandArrangementStore = fixture
+                showsBandArrangementFixture = true
+            }
+            if DebugSnapshot.argument("SurimonoBandArrangement") == "repaired" {
+                // A record that cannot be read and a set with one broken layout, read as the app reads them.
+                let load = BandArrangementStore.load(DebugSnapshot.repairedArrangementData)
+                bandArrangementStore = load.store
+                bandArrangementNotices = load.notices
                 showsBandArrangementFixture = true
             }
             if DebugSnapshot.argument("SurimonoBandArrangement") == "unreadable" {

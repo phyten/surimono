@@ -84,14 +84,14 @@ struct SettingsView: View {
             WindowReader { window in
                 let editor = arrangementEditor
                 let preferences = preferences
-                editor.windowGuard = SettingsWindowGuard.install(
-                    on: window,
-                    shouldClose: {
-                        guard editor.isDirty else { return true }
-                        editor.pendingLeave = .closeWindow
-                        return false
-                    },
-                    undoManager: { preferences.settingsSection == .toolbarArrangement ? editor.history : nil })
+                editor.windowGuard = SettingsWindowGuard.install(on: window) {
+                    guard editor.isDirty else { return true }
+                    editor.pendingLeave = .closeWindow
+                    return false
+                }
+                editor.undoRouter = SettingsUndoRouter.install(
+                    on: window, history: { preferences.settingsSection == .toolbarArrangement ? editor.history : nil },
+                    undo: { editor.undo() }, redo: { editor.redo() })
             }
         }
     }

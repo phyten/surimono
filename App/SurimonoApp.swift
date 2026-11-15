@@ -23,6 +23,7 @@ struct SurimonoApp: App {
         _library = State(initialValue: library)
         settingsStore = DocumentSettingsStore(directory: library.root.appendingPathComponent("DocumentSettings"))
         arrangementEditor = BandArrangementEditorSession(preferences: preferences)
+        BandArrangementEditorSession.app = arrangementEditor
         RecentFileHistory.install(preferences: preferences)
         WelcomeController.shared.preferences = preferences
         ImageBundleWindows.shared.preferences = preferences

@@ -163,3 +163,30 @@ struct PrintGlyph: View {
         .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.shu))
     }
 }
+
+extension BandRepairNotice {
+    /// Whether loading changed or left out something that was saved, rather than only adding a newer version's part
+    /// to "Not in Use" or keeping an unknown one aside.
+    var losesData: Bool {
+        switch self {
+        case .addedToUnused, .unknownID: false
+        default: true
+        }
+    }
+
+    /// What the editor tells about the repair; nil for what needs no word or what the recovery notice covers.
+    var editorText: String? {
+        switch self {
+        case .invalidRecord, .duplicateIdentity, .duplicateName:
+            String(localized: "A saved arrangement could not be read and was left out.")
+        case .recoveredVariant:
+            String(localized: "A layout of a saved arrangement could not be read and is back to Standard.")
+        case .missingActiveSet:
+            String(localized: "The arrangement in use could not be found, so Standard is used.")
+        case .duplicate, .restoredPrint, .movedBottomZones, .removedUnusedSeparator:
+            String(localized: "Some parts of a saved arrangement were out of place and were put back.")
+        case .addedToUnused, .unknownID, .malformedStore, .unsupportedSchema:
+            nil
+        }
+    }
+}

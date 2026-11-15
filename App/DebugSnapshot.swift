@@ -14,6 +14,7 @@
         private static var scheduled = false
         private static var appliedOverrides = false
         private static weak var settingsWindow: NSWindow?
+        private static var quitsArrangementEditor = false
         private static let logger = Logger(subsystem: "io.github.phyten.Surimono", category: "Snapshot")
 
         static func argument(_ name: String) -> String? {
@@ -97,6 +98,18 @@
             return store
         }
 
+        /// Saved arrangements as an older or damaged store could have them: one record without a name, and a set
+        /// whose Top Only layout is not a layout. Loading leaves out the first and puts Standard in the second.
+        static let repairedArrangementData = Data(
+            #"""
+            {"schemaVersion":1,"active":{"kind":"user","id":"5C6B1D2E-0F4A-4E8B-9C7D-2A1B3C4D5E6F"},
+            "sets":[{"id":"5C6B1D2E-0F4A-4E8B-9C7D-2A1B3C4D5E6F","name":"Reading",
+            "layouts":{"split":{"topLeft":["formatBadge"],"topRight":["floatOnTop","print"],
+            "bottomLeft":["outline","@separator","layout","transition"],"bottomRight":["pageIndicator","pageTurn"],
+            "unused":["presentation","style","zoom","thumbnails"]},"top":7}},
+            {"id":"6D7C2E3F-1A5B-4F9C-8D6E-3B2C4D5E6F70","name":""}]}
+            """#.utf8)
+
         /// Two saved sets for the arrangement editor's snapshots, named in the snapshot's language.
         private static func editorFixture(activatesReading: Bool) -> BandArrangementStore? {
             let japanese = Bundle.main.preferredLocalizations.first == "ja"
@@ -133,12 +146,39 @@
             return store
         }
 
+        /// `-SurimonoArrangementProbe <path>` writes whether the Settings window routes Undo to the editor: the router
+        /// in the responder chain, an editor step undone through the chain, the window's own history untouched.
+        static func probeArrangementUndo(in window: NSWindow) {
+            guard let path = argument("SurimonoArrangementProbe"), let editor = BandArrangementEditorSession.app,
+                let content = window.contentView
+            else { return }
+            var chain: [String] = []
+            var responder: NSResponder? = content
+            while let current = responder, chain.count < 32 {
+                chain.append(String(describing: type(of: current)))
+                responder = current.nextResponder
+            }
+            let windowHistory = window.undoManager
+            windowHistory?.registerUndo(withTarget: window) { _ in }
+            let before = editor.draft
+            editor.insertSeparator(in: .topLeft, at: 0)
+            let sent = content.tryToPerform(#selector(SettingsUndoRouter.undo(_:)), with: nil)
+            let lines = [
+                "chain: \(chain.joined(separator: " > "))",
+                "sent: \(sent)",
+                "editorUndone: \(editor.draft == before)",
+                "windowHistoryKept: \(windowHistory?.canUndo == true)",
+            ]
+            try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
+            windowHistory?.removeAllActions(withTarget: window)
+        }
+
         /// `-SurimonoArrangementEditor <state,…>` puts the arrangement editor in a state to photograph, in memory only:
         /// `top`, `draft` (edits with separators the toolbar does not draw), `select:<part>`, `drop:<zone>:<index>`
         /// (the insertion marker of a hovering drag), `refused` (Print taken off), `unsaved` (the question before
         /// switching to Standard), `delete` and `new` (their sheets).
         static func configureArrangementEditor() {
-            guard let states = argument("SurimonoArrangementEditor"), let editor = BandArrangementEditorSession.current
+            guard let states = argument("SurimonoArrangementEditor"), let editor = BandArrangementEditorSession.app
             else { return }
             for state in states.split(separator: ",") {
                 let fields = state.split(separator: ":").map(String.init)
@@ -156,6 +196,12 @@
                     editor.select(.part(.print))
                     editor.removeSelection()
                 case "unsaved": editor.pendingLeave = .selectSet(.standard)
+                case "conflict":
+                    editor.simulateChangeElsewhere()
+                    editor.overwrite()
+                case "quit":
+                    // Asked once Settings is on screen, through the quit command's own path.
+                    quitsArrangementEditor = true
                 case "delete": editor.dialog = .delete
                 case "new": editor.dialog = .new
                 default: logger.error("Unknown editor state \(state, privacy: .public)")
@@ -681,6 +727,16 @@
                     }
                     // Out of the picture, which takes in the windows next to the one captured.
                     if settingsWindow != nil { model.window?.orderOut(nil) }
+                    if let settingsWindow { probeArrangementUndo(in: settingsWindow) }
+                    if quitsArrangementEditor {
+                        // From a run loop timer, as ⌘Q would: AppKit waits for the editor's answer in a nested run
+                        // loop, which drains the main queue only when it was not entered from a main-queue block.
+                        let timer = Timer(timeInterval: 0.05, repeats: false) { _ in
+                            MainActor.assumeIsolated { NSApp.terminate(nil) }
+                        }
+                        RunLoop.main.add(timer, forMode: .common)
+                        try? await Task.sleep(for: .milliseconds(1200))
+                    }
                     try? await Task.sleep(for: .milliseconds(300))
                 }
                 do {
@@ -701,12 +757,14 @@
                             model.cancelManualDuplex()
                             try? await Task.sleep(for: .milliseconds(500))
                         }
-                        // Nor will the Settings window while the arrangement editor's question or sheet is open.
-                        if let editor = BandArrangementEditorSession.current,
-                            editor.pendingLeave != nil || editor.dialog != nil
+                        // Nor will the Settings window while the arrangement editor's question or sheet is open, and
+                        // the quit itself would ask about the draft, which lives only in this run.
+                        if let editor = BandArrangementEditorSession.app,
+                            editor.pendingLeave != nil || editor.dialog != nil || editor.isDirty
                         {
-                            editor.pendingLeave = nil
+                            editor.cancelLeave()
                             editor.dialog = nil
+                            editor.discardChanges()
                             try? await Task.sleep(for: .milliseconds(500))
                         }
                         NSApp.terminate(nil)
