@@ -61,13 +61,13 @@ struct CodePaletteColumn: View {
     }
 }
 
-/// How a palette's ink is told on its row. The usual amount goes unsaid, so that the few palettes that use less or
-/// more stand out, instead of every row repeating "Normal".
+/// How a palette's ink is told on its row. The usual amount goes unsaid, so that the few palettes that use more stand
+/// out, instead of every row repeating "Normal". Less ink goes unsaid too: the palette that uses less is named for it
+/// (Ink Saver).
 enum CodeInkNote {
     static func text(for level: CodePalette.InkLevel) -> String? {
         switch level {
-        case .low: String(localized: "Ink: Low")
-        case .normal: nil
+        case .low, .normal: nil
         case .raised: String(localized: "Ink: Slightly High")
         case .high: String(localized: "Ink: High")
         }
@@ -104,12 +104,15 @@ private struct CodePaletteRow: View {
                             .lineLimit(1)
                             .fixedSize()
                         // The ink follows the description it qualifies; at the far edge it read as a separate column.
+                        // A palette whose name says it all has no description, and its row shows the name alone.
                         HStack(alignment: .firstTextBaseline, spacing: 0) {
-                            Text(verbatim: note)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
+                            if !note.isEmpty {
+                                Text(verbatim: note)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
                             if let badge {
-                                Text(verbatim: " · " + badge)
+                                Text(verbatim: note.isEmpty ? badge : " · " + badge)
                                     .lineLimit(1)
                                     .fixedSize()
                             }
@@ -231,7 +234,7 @@ private struct CodeBlockControls: View {
                 Text("Shrink the Text").tag(CodeBlockOptions.LongLines.shrink)
                 Text("Cut with a Mark").tag(CodeBlockOptions.LongLines.cut)
             }
-            row("Show Language Name", selection: $model.codeBlock.languageLabel) {
+            row("Language Name", selection: $model.codeBlock.languageLabel) {
                 Text("No Label").tag(CodeBlockOptions.LanguageLabel.none)
                 Text("Top Right").tag(CodeBlockOptions.LanguageLabel.corner)
                 Text("Top Band").tag(CodeBlockOptions.LanguageLabel.band)

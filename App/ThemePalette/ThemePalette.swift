@@ -86,17 +86,21 @@ struct ThemePalette: View {
                 Spacer(minLength: 8)
                 PopoverCloseButton()
             }
-            Picker(
-                "Sample Document",
-                selection: Binding(
-                    get: { model.preferences.themeSampleSource },
-                    set: { model.preferences.themeSampleSource = $0 })
-            ) {
-                Text("This Document").tag(ThemeSampleSource.document)
-                Text("Sample Document").tag(ThemeSampleSource.specimen)
+            // Named, because it chooses what the samples show, not what the style is applied to.
+            HStack(spacing: 8) {
+                Text("Sample From").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+                Picker(
+                    "Sample From",
+                    selection: Binding(
+                        get: { model.preferences.themeSampleSource },
+                        set: { model.preferences.themeSampleSource = $0 })
+                ) {
+                    Text("This Document").tag(ThemeSampleSource.document)
+                    Text("Sample Document").tag(ThemeSampleSource.specimen)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Search by name or category", text: $query)
@@ -212,9 +216,10 @@ struct ThemePalette: View {
 
     private var textSize: some View {
         HStack(spacing: 8) {
-            Text("Body Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+            // The same name as in the view options, for the same setting.
+            Text("Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
             // Any percent typed or stepped by 1%; the buttons beside it move to the next step, from an in-between size too.
-            TextSizeField(title: "Body Text Size", scale: model.textScale) { model.setTextScale($0) }
+            TextSizeField(title: "Text Size", scale: model.textScale) { model.setTextScale($0) }
             ControlGroup {
                 Button {
                     model.decreaseTextSize()

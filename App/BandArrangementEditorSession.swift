@@ -3,7 +3,7 @@ import Observation
 import SurimonoCore
 import SwiftUI
 
-/// Where an entry stands in the variant being edited: a zone or "Not in Use", and its index there.
+/// Where an entry stands in the variant being edited: a zone or "Parts to Add", and its index there.
 struct BandEntryLocation: Hashable, Sendable {
     var destination: BandDestination
     var index: Int
@@ -16,7 +16,7 @@ enum BandEditorSelection: Hashable, Sendable {
     case separator(BandZoneID, Int)
 }
 
-/// Where a drag would land: before the entry at `index` of a zone (the zone's count appends), on "Not in Use", or
+/// Where a drag would land: before the entry at `index` of a zone (the zone's count appends), on "Parts to Add", or
 /// anywhere else in the editor.
 enum BandEditorDropTarget: Hashable, Sendable {
     case zone(BandZoneID, index: Int)
@@ -388,7 +388,7 @@ final class BandArrangementEditorSession {
         return true
     }
 
-    /// The inspector's destination buttons: the end of a zone, or "Not in Use" (a separator there is deleted).
+    /// The inspector's destination buttons: the end of a zone, or "Parts to Add" (a separator there is deleted).
     func moveSelection(to destination: BandDestination) {
         guard let location = selectedLocation else { return }
         if move(location, to: destination, at: arrangement[destination].count) { selectionRevealRevision += 1 }
@@ -402,7 +402,7 @@ final class BandArrangementEditorSession {
         }
     }
 
-    /// Delete for a separator, Remove for a part: the part goes to "Not in Use".
+    /// Delete for a separator, Remove for a part: the part goes to "Parts to Add".
     func removeSelection() {
         moveSelection(to: .unused)
     }
@@ -448,7 +448,7 @@ final class BandArrangementEditorSession {
         return payload
     }
 
-    /// Whether a drop of the drag in progress may land there; Print over "Not in Use" says why it may not.
+    /// Whether a drop of the drag in progress may land there; Print over "Parts to Add" says why it may not.
     func proposal(for target: BandEditorDropTarget) -> DropOperation {
         guard let dragging, validate(dragging) else { return .forbidden }
         switch (dragging.source, target) {
@@ -487,7 +487,7 @@ final class BandArrangementEditorSession {
             }
             return move(location, to: .unused, at: arrangement.unused.count)
         case (.entry(let location, .separator), .outside):
-            // A separator dragged off the toolbar is taken away, as onto "Not in Use".
+            // A separator dragged off the toolbar is taken away, as onto "Parts to Add".
             return move(location, to: .unused, at: arrangement.unused.count)
         case (.entry, .outside):
             return false

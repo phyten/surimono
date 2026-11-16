@@ -8,21 +8,32 @@ struct ViewOptionsPopover: View {
     @State private var labelWidth: CGFloat = 0
     @State private var controlWidth: CGFloat = 0
 
-    private static let width: CGFloat = 560
+    /// The widest the popover gets; a narrower content makes it narrower, so that it covers no more of the page than
+    /// its rows need.
+    private static let maximumWidth: CGFloat = 560
+    /// Room for the title, the file name and the close button, and for the row of the reset and the setting sets.
+    private static let minimumWidth: CGFloat = 340
     private static let padding: CGFloat = 16
     private static let columnSpacing: CGFloat = 12
     /// The display units the strip of small pages shows at most, around the current one.
     static let spreadMapLimit = 8
     private static let labels: [LocalizedStringKey] = [
-        "Arrangement", "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar",
-        "Paper Series",
-        "Text Margins", "Text Size",
+        "Page Arrangement", "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar",
+        "Paper Size Series", "Text Margins", "Text Size",
     ]
 
     /// Labels over their settings, where the longest label beside the widest setting would not fit the popover: a
     /// menu squeezed into what the labels leave is cut, as the reading direction was in Spanish.
     private var stacksLabels: Bool {
-        labelWidth + Self.columnSpacing + controlWidth > Self.width - 2 * Self.padding
+        labelWidth + Self.columnSpacing + controlWidth > Self.maximumWidth - 2 * Self.padding
+    }
+
+    /// The longest row and the margins around it, in the current language. Until the copies are measured it is the
+    /// widest, which the first layout then narrows.
+    private var width: CGFloat {
+        guard labelWidth > 0, controlWidth > 0 else { return Self.maximumWidth }
+        let rows = stacksLabels ? max(labelWidth, controlWidth) : labelWidth + Self.columnSpacing + controlWidth
+        return min(Self.maximumWidth, max(Self.minimumWidth, (rows + 2 * Self.padding).rounded(.up)))
     }
 
     var body: some View {
@@ -39,7 +50,8 @@ struct ViewOptionsPopover: View {
                 heading("On Screen")
                 // The pages as the options below arrange them: it changes as they do, with the current unit marked.
                 if !model.displayUnits.isEmpty {
-                    row("Arrangement", fills: true) {
+                    // How the pages stand under these options; a click on one goes there, but it arranges nothing.
+                    row("Page Arrangement", fills: true) {
                         SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) {
                             unit in
                             if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
@@ -66,11 +78,12 @@ struct ViewOptionsPopover: View {
                     }
                 }
                 row("Toolbar") { BandVisibilityPicker(selection: $model.bandVisibility) }
-                if model.offersPaperSeries {
-                    row("Paper Series") { PaperSeriesPicker(model: model) }
+                // The paper series decides the paper the document prints on as well, so it goes with the text.
+                if model.offersPaperSeries || model.marginsApply || model.usesPrintTheme {
+                    heading("Paper and Text")
                 }
-                if model.marginsApply || model.usesPrintTheme {
-                    heading("Printed Text")
+                if model.offersPaperSeries {
+                    row("Paper Size Series") { paperSeriesPicker(seriesBinding) }
                 }
                 if model.marginsApply {
                     row("Text Margins") { MarginControl(model: model) }
@@ -100,7 +113,7 @@ struct ViewOptionsPopover: View {
             }
         }
         .padding(Self.padding)
-        .frame(width: Self.width)
+        .frame(width: width)
         .background(alignment: .topLeading) { measurements }
         .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
         .clearsInitialFocus()
@@ -127,8 +140,12 @@ struct ViewOptionsPopover: View {
         } else {
             GridRow {
                 Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
+                // Every setting asks for the measured width, so the column is as wide as the widest setting needs and
+                // the popover's width (taken from the same measure) leaves no room beside it.
                 content()
-                    .frame(maxWidth: fills ? .infinity : nil, alignment: .leading)
+                    .frame(
+                        minWidth: fills ? nil : controlWidth, maxWidth: fills ? .infinity : nil, alignment: .leading
+                    )
                     .gridCellUnsizedAxes(fills ? .horizontal : [])
             }
         }
@@ -142,6 +159,17 @@ struct ViewOptionsPopover: View {
             .gridCellAnchor(.leading)
     }
 
+    private var seriesBinding: Binding<PaperSeries> {
+        Binding(get: { model.layout.series }, set: { model.choosePaperSeries($0) })
+    }
+
+    /// Named as the print screen's menu names the series ("A Sizes"), so that the two places agree.
+    private func paperSeriesPicker(_ selection: Binding<PaperSeries>) -> some View {
+        Picker("Paper Size Series", selection: selection) {
+            ForEach(PaperSeries.allCases, id: \.self) { Text($0.shortTitle).tag($0) }
+        }
+    }
+
     private func directionPicker(_ selection: Binding<ViewOptions.Direction>) -> some View {
         Picker("Reading Direction", selection: selection) {
             Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
@@ -150,8 +178,9 @@ struct ViewOptionsPopover: View {
         .pickerStyle(.menu)
     }
 
-    /// Copies of the labels and of the widest settings at their own sizes, which decide whether the labels go over
-    /// the settings.
+    /// Copies of the labels and of the widest settings, which decide whether the labels go over the settings and how
+    /// wide the popover is. A menu needs its whole width; a segmented picker shares out what it gets between its
+    /// narrowest and its own width, so it counts at its narrowest.
     private var measurements: some View {
         ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 0) {
@@ -165,12 +194,9 @@ struct ViewOptionsPopover: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 directionPicker(.constant(.leftToRight)).fixedSize()
-                BandVisibilityPicker(selection: .constant(.always)).pickerStyle(.segmented).fixedSize()
-                Picker("Paper Series", selection: .constant(PaperSeries.a)) {
-                    ForEach(PaperSeries.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .fixedSize()
+                NarrowestWidth { BandVisibilityPicker(selection: .constant(.always)).pickerStyle(.segmented) }
+                    .fixedSize()
+                NarrowestWidth { paperSeriesPicker(.constant(.a)).pickerStyle(.segmented) }.fixedSize()
             }
             .labelsHidden()
             .fixedSize()
@@ -187,6 +213,17 @@ struct ViewOptionsPopover: View {
 
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
         model.viewOption(keyPath)
+    }
+}
+
+/// Its one view at the narrowest it goes, as a segmented picker that shares out the width it is given.
+private struct NarrowestWidth: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        subviews.first?.sizeThatFits(ProposedViewSize(width: 0, height: proposal.height)) ?? .zero
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 

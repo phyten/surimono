@@ -343,6 +343,16 @@ private struct EditableShortcutRow: View {
     private var isInlineStatus: Bool {
         status == String(localized: "Registered") || status == String(localized: "Managed in macOS")
     }
+    private var showsStatusLine: Bool {
+        !status.isEmpty && status != String(localized: "Unassigned") && !isInlineStatus
+    }
+    private var previousCandidate: ShortcutCombination? {
+        controller.snapshot.inactiveMigration.first(where: { $0.operation == operation })?.candidate
+    }
+    /// A line under the name: such a row keeps the room its chip needs.
+    private var hasNote: Bool { previousCandidate != nil || showsStatusLine || error != nil }
+    /// How far the 28-point chip reaches past the row's content into the row's margins when nothing is under the name.
+    private static let chipOverhang: CGFloat = 5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -356,20 +366,21 @@ private struct EditableShortcutRow: View {
                 }
                 HStack(spacing: 6) { controls }
                     .fixedSize().layoutPriority(1)
+                    // The key chip keeps its size and hit area but reaches into the row's own margins, so a row with
+                    // nothing under its name is as high as a row in the other sections.
+                    .padding(.vertical, hasNote ? 0 : -Self.chipOverhang)
                     .disabled(
                         controller.loadError || controller.externalMenuKeys[operation] != nil
                             || controller.menuAmbiguities.contains(operation))
             }
-            if let candidate = controller.snapshot.inactiveMigration.first(where: { $0.operation == operation })?
-                .candidate
-            {
+            if let candidate = previousCandidate {
                 Text(
                     String.localizedStringWithFormat(
                         String(localized: "Previous shortcut: %@"), controller.layout.display(candidate))
                 )
                 .font(.caption).fixedSize(horizontal: false, vertical: true)
             }
-            if !status.isEmpty && status != String(localized: "Unassigned") && !isInlineStatus {
+            if showsStatusLine {
                 Text(status).font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

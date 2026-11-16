@@ -112,13 +112,9 @@ struct PrintPressBar: View {
                 if model.isRendering { ProgressView().controlSize(.mini) }
             }
             // What the first line does not say: what the sheets make, what the pages are, the copies. It wraps rather
-            // than being cut, at any width.
-            if let detail = outcome?.detail(language: model.language) {
-                Text(verbatim: detail)
-                    .font(.system(size: 11))
-                    .foregroundStyle(PrintPalette.ink2)
-                    .monospacedDigit()
-                    .fixedSize(horizontal: false, vertical: true)
+            // than being cut, at any width, and never inside a word.
+            if let outcome, let detail = outcome.detail(language: model.language) {
+                PrintOutcomeDetail(detail: detail, lines: outcome.detailLines(language: model.language) ?? [])
             }
             if model.printIssueCount > 0 {
                 Button("Check \(model.printIssueCount)") { model.reviewPrintIssues() }
@@ -644,13 +640,41 @@ struct LayoutPictogram: View {
     }
 }
 
+/// The result's second line: on one line where it fits; otherwise the breakdown of the pages goes on a line of its own
+/// ("Finished: A4 booklet · 40 pages", then "Body 38 + Blank 2"), and a line still too long moves whole pieces to the
+/// next line. Wrapping the one string let Japanese break inside a word ("白／紙").
+private struct PrintOutcomeDetail: View {
+    let detail: String
+    let lines: [[String]]
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            Text(verbatim: detail).lineLimit(1).fixedSize()
+            VStack(alignment: .leading, spacing: 1) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, pieces in
+                    FlowLayout(spacing: 0, lineSpacing: 1, constrainsChips: true) {
+                        ForEach(Array(pieces.enumerated()), id: \.offset) { _, piece in
+                            Text(verbatim: piece).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(PrintPalette.ink2)
+        .monospacedDigit()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: detail))
+    }
+}
+
 /// The order the printer prints the sheets in. It belongs to the printer rather than the document, so one choice
 /// applies to every window, and it changes only the print job, not the sheets on the tray.
 struct PrintPageOrderPicker: View {
     @Binding var order: PrintPageOrder
 
-    static let hint: LocalizedStringKey =
-        "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order."
+    /// For the settings, whose heading already says these are where a printer without settings of its own starts.
+    static let hint: LocalizedStringKey = "Last Sheet First keeps face-up sheets in page order."
 
     var body: some View {
         Picker("Output Order", selection: $order) {

@@ -139,12 +139,18 @@ struct CodePaletteModelTests {
         #expect(model.toast?.title == String(localized: "Dark code blocks use a lot of ink"))
     }
 
-    @Test("コードの配色の行は、インクの量が標準なら何も書かず、少ないときと多いときだけ書く")
+    @Test("コードの配色の行は、インクの量が標準か少ないなら何も書かず（少ない配色は名前が言う）、多いときだけ書く")
     func inkNoteSaysOnlyWhatDiffers() {
         #expect(CodeInkNote.text(for: .normal) == nil)
-        let notes = [CodePalette.InkLevel.low, .raised, .high].map { CodeInkNote.text(for: $0) }
+        #expect(CodeInkNote.text(for: .low) == nil)
+        let notes = [CodePalette.InkLevel.raised, .high].map { CodeInkNote.text(for: $0) }
         #expect(notes.allSatisfy { $0 != nil })
-        #expect(Set(notes.compactMap { $0 }).count == 3)
+        #expect(Set(notes.compactMap { $0 }).count == 2)
+    }
+
+    @Test("インクが少ない組み込みの配色は省インクだけで、名前がそれを言うので行には書かない")
+    func onlyInkSaverUsesLessInk() {
+        #expect(library().codePalettes.filter { $0.inkLevel == .low }.map(\.id) == ["shoinku"])
     }
 
     @Test("組み込みの配色のうち、インクの注記が付くのは一部だけで、残りは何も書かない")

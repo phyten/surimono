@@ -29,6 +29,22 @@ struct PrintOutcomeTests {
                 == "Finished: A4 booklet · 40 pages (Body 38 + Blank 2)")
     }
 
+    @Test("1行に入らないときは、内訳を次の行に分け、語の途中で折り返さない区切りで渡す")
+    func breakdownOnItsOwnLine() {
+        let outcome = PrintOutcome(
+            layout: .a3BookletA4, paper: .a3, sheets: 10, pages: 40, body: 38, blanks: 2)
+        #expect(
+            outcome.detailLines(language: "ja")?.map { $0.map { plain($0) } }
+                == [["仕上がり A4 冊子・", "40 ページ"], ["本文 38＋", "白紙 2"]])
+        #expect(
+            outcome.detailLines(language: "en")?.map { $0.map { plain($0) } }
+                == [["Finished: A4 booklet · ", "40 pages"], ["Body 38 + ", "Blank 2"]])
+        let plainBooklet = PrintOutcome(layout: .a3BookletA4, paper: .a3, sheets: 10, pages: 40, body: 40)
+        #expect(plainBooklet.detailLines(language: "ja")?.map { $0.map { plain($0) } } == [["仕上がり A4 冊子"]])
+        let single = PrintOutcome(layout: .a4Single, paper: .a4, sheets: 3, pages: 3, body: 3)
+        #expect(single.detailLines(language: "ja") == nil)
+    }
+
     @Test("白紙・目次・ノートの内訳は、足すと全体のページ数になる")
     func partsAddUp() {
         let outcome = PrintOutcome(

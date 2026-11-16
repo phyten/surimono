@@ -99,12 +99,27 @@ struct CodePaletteTests {
         #expect(level(300) == .high)
     }
 
-    @Test("名前と注は 8 言語すべてにある")
+    @Test("名前は 8 言語すべてにあり、注は付けるなら 8 言語すべてに付ける")
     func everyLanguageHasNames() throws {
         for palette in try palettes() {
             #expect(Set(palette.localizedNames.keys) == Set(UILanguage.supported), "\(palette.id)")
-            #expect(Set(palette.localizedNotes.keys) == Set(UILanguage.supported), "\(palette.id)")
+            if !palette.note.isEmpty {
+                #expect(Set(palette.localizedNotes.keys) == Set(UILanguage.supported), "\(palette.id)")
+            } else {
+                #expect(palette.localizedNotes.isEmpty, "\(palette.id)")
+            }
         }
+    }
+
+    @Test("名前を言い直すだけの注は付けず、名前の言わないことだけを注にする")
+    func notesSayWhatNamesDoNot() throws {
+        let notes = Dictionary(uniqueKeysWithValues: try palettes().map { ($0.id, $0.displayNote(language: "ja")) })
+        for id in ["fukamidori", "aiichi", "sepia", "dark"] {
+            #expect(notes[id] == "", "\(id)")
+        }
+        #expect(notes["shoinku"] == "太字なし")
+        #expect(notes["nisho"] == "墨と藍")
+        #expect(notes["sumi"] == "白黒")
     }
 
     @Test("太字と斜体は配色の指定がなければ common.css と同じになる")
