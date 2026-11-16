@@ -35,6 +35,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Streaming Preview, compatible with [Marked's](https://markedapp.com/help/Streaming_Preview): apps that write to the `mkStreamingPreview` pasteboard appear live, without a file (the base URL for relative images is not used)
 - Syntax highlighting for Markdown and Org code blocks, plus Markdown callouts (`:::` and `> [!note]`) with a tag, an icon and a line of their own that tell the kinds apart even in black and white, rendered offline without JavaScript
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents
+- Org files print as documents, not as source: TODO keywords (your `#+TODO` ones too), priorities, tags, progress cookies, planning dates, checkboxes, footnotes, captions and `#+begin_note`-style blocks each get a form that follows the chosen style and stays readable in black and white
 - Mermaid diagrams in Markdown (```` ```mermaid ````) and Org (`#+begin_src mermaid`) rendered as printable SVG offline. Invalid diagrams keep their source and appear in the preflight checks.
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)
 - Quick viewer for Markdown, PDF, images, Org, plain text, HTML, CSV, and LaTeX
