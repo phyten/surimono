@@ -7,10 +7,10 @@ struct OrgConverterTests {
         let body = OrgConverter.convert("* TODO [#A] 見出し :work:print:\n******* DONE 深い").body
         #expect(body.contains("<h1>"))
         #expect(body.contains("class=\"org-todo\">TODO"))
-        #expect(body.contains("class=\"org-priority\">[#A]"))
+        #expect(body.contains("class=\"org-priority\">#A"))
         #expect(body.contains("class=\"org-tag\">work"))
         #expect(body.contains("class=\"org-tag\">print"))
-        #expect(body.contains("<h6><span class=\"org-done\">DONE"))
+        #expect(body.contains("<h6 class=\"org-done-heading\"><span class=\"org-done\">DONE"))
     }
 
     @Test(
@@ -68,9 +68,9 @@ struct OrgConverterTests {
     @Test("チェックボックスの未完了と完了と途中を区別する")
     func checkboxes() {
         let body = OrgConverter.convert("- [ ] 未完\n- [X] 完了\n- [-] 途中").body
-        #expect(body.contains("class=\"org-checkbox unchecked\""))
-        #expect(body.contains("class=\"org-checkbox checked\""))
-        #expect(body.contains("class=\"org-checkbox partial\""))
+        #expect(body.contains("<input type=\"checkbox\" disabled>"))
+        #expect(body.contains("<input type=\"checkbox\" disabled checked>"))
+        #expect(body.contains("<input type=\"checkbox\" disabled class=\"org-partial\">"))
     }
 
     @Test("説明リストをdtとddで表現する")
@@ -83,8 +83,8 @@ struct OrgConverterTests {
     @Test("最初の表区切りより前を表見出しにする")
     func table() {
         let body = OrgConverter.convert("| 名前 | 値 |\n|---+---|\n| 紙 | <&> |\n|---+---|\n| 本 | 2 |").body
-        #expect(body.contains("<thead><tr><th>名前</th><th>値</th></tr></thead>"))
-        #expect(body.contains("<td>&lt;&amp;&gt;</td>"))
+        #expect(body.contains("<thead><tr><th>名前</th><th align=\"right\">値</th></tr></thead>"))
+        #expect(body.contains("<td align=\"right\">&lt;&amp;&gt;</td>"))
         #expect(!body.contains("---"))
     }
 
@@ -106,7 +106,9 @@ struct OrgConverterTests {
 
     @Test("EXAMPLEブロックは特殊文字をエスケープする")
     func example() {
-        #expect(OrgConverter.convert("#+BEGIN_EXAMPLE\n<x>\n#+END_EXAMPLE").body.contains("<pre>&lt;x&gt;</pre>"))
+        #expect(
+            OrgConverter.convert("#+BEGIN_EXAMPLE\n<x>\n#+END_EXAMPLE").body.contains(
+                "<pre class=\"org-example\">&lt;x&gt;</pre>"))
     }
 
     @Test("QUOTEブロックは本文の装飾を保つ")
@@ -151,8 +153,8 @@ struct OrgConverterTests {
     @Test("予定と期限を注記として出す")
     func planning() {
         let body = OrgConverter.convert("SCHEDULED: <2026-10-28 Wed> DEADLINE: <2026-10-29 Thu>").body
-        #expect(body.contains("<small class=\"org-planning\">"))
-        #expect(body.contains("&lt;2026-10-28 Wed&gt;"))
+        #expect(body.contains("<p class=\"org-planning\">"))
+        #expect(body.contains("<time class=\"org-timestamp\">2026-10-28 Wed</time>"))
     }
 
     @Test("水平線と段落を区別する")
@@ -242,7 +244,7 @@ struct OrgConverterTests {
         let body = OrgConverter.convert("- [X] 完了\n  続き\n\n  次の段落\n\n外の本文").body
         #expect(
             body
-                == "<ul><li><p><span class=\"org-checkbox checked\">☑</span> 完了\n続き</p>\n<p>次の段落</p>\n</li></ul>\n<p>外の本文</p>\n"
+                == "<ul><li class=\"task-list-item\"><p><input type=\"checkbox\" disabled checked>完了\n続き</p>\n<p>次の段落</p>\n</li></ul>\n<p>外の本文</p>\n"
         )
     }
 
@@ -298,8 +300,14 @@ struct OrgConverterTests {
     @Test(
         "Orgのリスト内EXAMPLEは2行と3行の空行を保持して同じリストへ戻る",
         arguments: [
-            ("\n\n\n", "<ul><li><p>項目</p>\n<pre>before\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"),
-            ("\n\n\n\n", "<ul><li><p>項目</p>\n<pre>before\n\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"),
+            (
+                "\n\n\n",
+                "<ul><li><p>項目</p>\n<pre class=\"org-example\">before\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"
+            ),
+            (
+                "\n\n\n\n",
+                "<ul><li><p>項目</p>\n<pre class=\"org-example\">before\n\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"
+            ),
         ])
     func exampleBlockBlankLines(separator: String, expected: String) {
         let body = OrgConverter.convert(
@@ -375,7 +383,7 @@ struct OrgConverterTests {
         let body = OrgConverter.convert("- 項目\n  #+BEGIN_CUSTOM\n  before\n\n\n  after\n  #+END_CUSTOM\n- 次").body
         #expect(
             body
-                == "<ul><li><p>項目</p>\n<pre>#+BEGIN_CUSTOM\nbefore\n\n\nafter\n#+END_CUSTOM</pre>\n</li><li><p>次</p>\n</li></ul>\n"
+                == "<ul><li><p>項目</p>\n<div class=\"org-block org-block-custom\"><p>before</p>\n<p>after</p>\n</div>\n</li><li><p>次</p>\n</li></ul>\n"
         )
     }
 
