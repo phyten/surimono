@@ -332,6 +332,69 @@ struct ClipboardQuestionFlowTests {
         #expect(controller.model.isPrintModeRequested || controller.model.mode == .print)
     }
 
+    /// The real question as a sheet on a real clipboard window, answered nowhere yet.
+    private func presentSheet(
+        _ fixture: Fixture, record: @escaping (ClipboardTextKind?) -> Void
+    ) throws -> (parent: NSWindow, sheet: NSWindow) {
+        fixture.copy(Self.markdown)
+        let controller = try #require(fixture.windows.open(from: fixture.board, window: nil))
+        let parent = try #require(controller.window)
+        let question = ClipboardQuestion(
+            text: Self.unsure, detection: ClipboardFormatDetector.detect(Self.unsure), settings: .standard)
+        ClipboardQuestionPanel.present(question, source: .clipboard, over: parent, completion: record)
+        let sheet = try #require(ClipboardQuestionPanel.window)
+        try #require(sheet.sheetParent === parent)
+        return (parent, sheet)
+    }
+
+    private func wait(until condition: () -> Bool) async throws {
+        for _ in 0..<300 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
+    }
+
+    @Test("質問のシートは親のウインドウが閉じると答えなしで一度だけ終わり、次の質問は新しく出る", .timeLimit(.minutes(1)))
+    func sheetFinishesWhenItsParentCloses() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        var answers: [ClipboardTextKind?] = []
+        let (parent, sheet) = try presentSheet(fixture) { answers.append($0) }
+        parent.close()
+        try await wait { !answers.isEmpty }
+        // Anything the sheet's own ending still delivers would arrive by now.
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(answers == [nil])
+        #expect(ClipboardQuestionPanel.window == nil)
+        let question = ClipboardQuestion(
+            text: Self.unsure, detection: ClipboardFormatDetector.detect(Self.unsure), settings: .standard)
+        ClipboardQuestionPanel.present(question, source: .clipboard, over: nil) { answers.append($0) }
+        let next = try #require(ClipboardQuestionPanel.window)
+        #expect(next !== sheet)
+        next.close()
+        #expect(answers == [nil, nil])
+    }
+
+    @Test("ほかから終えられた質問のシートは答えなしで一度だけ終わり、次の質問は新しく出る", .timeLimit(.minutes(1)))
+    func sheetFinishesWhenEndedFromOutside() async throws {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        var answers: [ClipboardTextKind?] = []
+        let (parent, sheet) = try presentSheet(fixture) { answers.append($0) }
+        parent.endSheet(sheet)
+        try await wait { !answers.isEmpty }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(answers == [nil])
+        #expect(ClipboardQuestionPanel.window == nil)
+        #expect(parent.attachedSheet == nil)
+        let question = ClipboardQuestion(
+            text: Self.unsure, detection: ClipboardFormatDetector.detect(Self.unsure), settings: .standard)
+        ClipboardQuestionPanel.present(question, source: .clipboard, over: parent) { answers.append($0) }
+        let next = try #require(ClipboardQuestionPanel.window)
+        #expect(next !== sheet)
+        #expect(next.sheetParent === parent)
+        parent.endSheet(next)
+        try await wait { answers.count == 2 }
+        #expect(answers == [nil, nil])
+    }
+
     @Test("形式の決め方の設定は保存され、読めない値からは標準に戻る")
     func settingsPersist() {
         let suite = TestDefaultsSuite()

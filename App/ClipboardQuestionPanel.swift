@@ -26,7 +26,9 @@ enum ClipboardQuestionPanel {
         window.contentViewController = host
         current = window
         if let parent, DocumentWindows.shared.model(for: parent) != nil, parent.isVisible, parent.attachedSheet == nil {
-            parent.beginSheet(window)
+            // A sheet can also end because its parent goes away or someone else ends it; the question still finishes.
+            window.watchClosing(of: parent)
+            parent.beginSheet(window) { [weak window] _ in window?.finish(nil, endsSheet: false) }
         } else {
             window.title = "Surimono"
             window.center()
@@ -63,10 +65,29 @@ private final class QuestionWindow: NSWindow, NSWindowDelegate {
         delegate = self
     }
 
-    func finish(_ kind: ClipboardTextKind?) {
+    private var parentObserver: (any NSObjectProtocol)?
+
+    /// Finishes the question, unanswered, when the window it is a sheet on closes.
+    func watchClosing(of parent: NSWindow) {
+        parentObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: parent, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.finish(nil) }
+        }
+    }
+
+    /// Delivers the answer exactly once, whichever way the question ends. `endsSheet` is false when the sheet has
+    /// already ended, from its own completion handler.
+    func finish(_ kind: ClipboardTextKind?, endsSheet: Bool = true) {
         guard !finished else { return }
         finished = true
-        if let parent = sheetParent { parent.endSheet(self) } else { close() }
+        if let parentObserver { NotificationCenter.default.removeObserver(parentObserver) }
+        parentObserver = nil
+        if let parent = sheetParent {
+            if endsSheet { parent.endSheet(self) }
+        } else if endsSheet {
+            close()
+        }
         let completion = completion
         self.completion = nil
         completion?(kind)
