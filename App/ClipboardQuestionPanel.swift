@@ -286,6 +286,9 @@ private struct ClipboardQuestionRow: View {
         .accessibilityLabel(Text(verbatim: name))
         .accessibilityValue(Text(verbatim: evidence))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        // The element above replaces the button's own, and with it the press: without this, VoiceOver's press and
+        // other accessibility clients reach a row that does nothing.
+        .accessibilityAction { select() }
         .accessibilityAction(named: Text("Open Chosen Format")) { open() }
     }
 }
