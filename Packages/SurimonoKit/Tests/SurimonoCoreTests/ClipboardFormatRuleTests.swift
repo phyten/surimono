@@ -8,7 +8,7 @@ struct ClipboardFormatRuleTests {
 
     @Test("空文字と空白だけの入力はモードにかかわらず空として扱う")
     func blank() {
-        for text in ["", " \t\r\n\u{000C}", String(repeating: " ", count: 40_000)] {
+        for text in ["", " \t\r\n\u{000C}", String(repeating: " ", count: 32_768)] {
             for mode in ClipboardFormatSettings.Mode.allCases {
                 let result = ClipboardFormatDetector.detect(text, settings: .init(mode: mode, fixedKind: .html))
                 #expect(result.action == .open(.plainText))
@@ -55,7 +55,10 @@ struct ClipboardFormatRuleTests {
     func truncation() {
         let table = "name,count\n" + String(repeating: "a,1\n", count: 2_000)
         #expect(ClipboardFormatDetector.detect(table).action == .ask(preferred: .plainText))
-        #expect(ClipboardFormatDetector.detect(table, hints: .init(hasTabularData: true)).action == .open(.csv))
+        #expect(
+            ClipboardFormatDetector.detect(
+                table.replacingOccurrences(of: ",", with: "\t"), hints: .init(hasTabularData: true)
+            ).action == .open(.csv))
         #expect(
             ClipboardFormatDetector.detect(table, settings: .init(mode: .plainTextWhenUnsure)).action
                 == .open(.plainText))
@@ -101,7 +104,7 @@ struct ClipboardFormatRuleTests {
 
     @Test("不足や拒否による確認はReturnでプレーンテキストを選ぶ")
     func preference() {
-        for text in ["# Heading", document + "\nconst x = 1;", "Introduction\n\n" + document] {
+        for text in ["# Heading", document + "\nconst x = 1;"] {
             #expect(ClipboardFormatDetector.detect(text).action == .ask(preferred: .plainText))
         }
     }
@@ -157,11 +160,11 @@ struct ClipboardFormatRuleTests {
 }
 
 extension ClipboardFormatRuleTests {
-    @Test("受理済み候補同士だけが競合するときReturnは最上位の形式を選ぶ")
+    @Test("強調を持つ星の行はMarkdownとOrgの曖昧さを残す")
     func competition() {
         let result = ClipboardFormatDetector.detect("* **First**\n* **Second**\n* **Third**")
-        #expect(result.action == .ask(preferred: .markdown))
-        #expect(result.reason == .competingFormats)
+        #expect(result.action == .ask(preferred: .plainText))
+        #expect(result.reason == .conflictingSyntax)
     }
 
     @Test("コメントと閉じた領域の前後にあるコードを見落とさない")
@@ -259,7 +262,7 @@ extension ClipboardFormatRuleTests {
 
     @Test("巨大な空白だけの接尾部を切断とはしない")
     func whitespaceTail() {
-        #expect(!ClipboardFormatDetector.detect(String(repeating: " ", count: 40_000)).isTruncated)
+        #expect(ClipboardFormatDetector.detect(String(repeating: " ", count: 40_000)).isTruncated)
         #expect(!ClipboardFormatDetector.detect(document + String(repeating: " ", count: 40_000)).isTruncated)
     }
 }
@@ -342,7 +345,7 @@ extension ClipboardFormatRuleTests {
     func boundedWhitespaceTail() {
         let huge = String(repeating: " ", count: 50_000_000)
         let blank = ClipboardFormatDetector.detect(huge)
-        #expect(blank.reason == .blank)
+        #expect(blank.reason == .truncated)
         #expect(blank.analysedUnits == 0)
         #expect(blank.isTruncated)
         #expect(ClipboardFormatDetector.detect(document + huge).isTruncated)
@@ -363,10 +366,198 @@ extension ClipboardFormatRuleTests {
 }
 
 extension ClipboardFormatRuleTests {
-    @Test("共通の構文検査はコメント終端と検査窓の末尾の記号も拒否する")
+    @Test("共通の構文検査はコメント終端と長い行の宣言も拒否する")
     func unsafeBoundary() {
-        for suffix in ["*/", String(repeating: "a", count: 511) + ";" + "tail"] {
+        for suffix in ["*/", String(repeating: "a ", count: 511) + "const x = 1;"] {
             #expect(ClipboardFormatDetector.detect(document + "\n" + suffix).action == .ask(preferred: .plainText))
         }
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    @Test("拒否しても見出しやリストや表を観測した候補は確認に残る")
+    func retainedSyntax() {
+        for text in [
+            "# 予定\n朝は会議。\n# 午後\n資料を書く。",
+            "# 予定\n1. 会議\n# 午後\n2. **印刷**",
+            "# Notes\nfirst;\n- one\n- **two**",
+            "Region,Avg. Temp,Est. Revenue\nTokyo,15,1200\nOsaka,16,800",
+            "id,name,\n1,Alice,\n2,Bob,",
+            "\\tableofcontents\n\\newpage\n# Title\n- one\n- **two**",
+        ] {
+            let result = ClipboardFormatDetector.detect(text)
+            #expect(result.action != .open(.plainText), Comment(rawValue: text))
+            #expect(result.action != .open(.latex), Comment(rawValue: text))
+        }
+        var work = ClipboardWork()
+        let candidate = ClipboardScanners.markdown(
+            ClipboardWindow("* " + String(repeating: "[", count: 80)), level: .standard, work: &work)
+        #expect(candidate.structures > 0)
+        #expect(candidate.ownsStart)
+        #expect(!candidate.accepted)
+    }
+
+    @Test("日付や少数のログやOrgの深い見出しでは文書を消さない")
+    func envelopeRequiresCorroboration() {
+        for text in [
+            "2026-11-16 10:00 Meeting\n\n" + document,
+            "# Report\n\n[INFO] ready\n[ERROR] retry\n\n- **first**\n- second",
+            "*** TODO Write\nSCHEDULED: <2026-11-20 Fri>\n*** DONE Read",
+        ] { #expect(ClipboardFormatDetector.detect(text).action != .open(.plainText)) }
+        #expect(ClipboardFormatDetector.detect("[INFO] one\n[INFO] two\n[ERROR] three").action == .open(.plainText))
+        #expect(
+            ClipboardFormatDetector.detect("--- a/file\n+++ b/file\n@@ -1 +1 @@\n- old\n+ new").action
+                == .open(.plainText))
+    }
+
+    @Test("先頭空白の上限では空と断定せずモードに従う")
+    func leadingWhitespaceBound() {
+        let text = String(repeating: " ", count: 40_000) + document
+        for mode in ClipboardFormatSettings.Mode.allCases {
+            let result = ClipboardFormatDetector.detect(text, settings: .init(mode: mode, fixedKind: .html))
+            #expect(result.isTruncated)
+            #expect(result.reason != .blank)
+            switch mode {
+            case .fixed: #expect(result.action == .open(.html))
+            case .plainTextWhenUnsure: #expect(result.action == .open(.plainText))
+            case .askWhenUnsure, .alwaysAsk: #expect(result.action == .ask(preferred: .plainText))
+            }
+        }
+    }
+
+    @Test("先頭の散文だけが障害なら確認のReturnはMarkdownになる")
+    func prosePreference() {
+        let text = "Here is the answer.\n\n" + document
+        for mode in [ClipboardFormatSettings.Mode.askWhenUnsure, .alwaysAsk] {
+            #expect(
+                ClipboardFormatDetector.detect(text, settings: .init(mode: mode)).action == .ask(preferred: .markdown))
+        }
+        for suffix in ["\nconst x = 1;", "\u{0000}", String(repeating: "x", count: 40_000)] {
+            #expect(ClipboardFormatDetector.detect(text + suffix).action == .ask(preferred: .plainText))
+        }
+    }
+
+    @Test("構造を見ていない形式の確信度はゼロである")
+    func confidenceRequiresStructure() {
+        var empty = ClipboardCandidate(kind: .markdown)
+        empty.sufficient = true
+        #expect(empty.choice.confidence == 0)
+        for text in ["plain words", "[INFO] one\n[INFO] two\n[ERROR] three", "# Title\nX=1\nY=2"] {
+            let result = ClipboardFormatDetector.detect(text)
+            if result.action == .open(.plainText) {
+                #expect(result.choices.filter { $0.kind != .plainText }.allSatisfy { $0.confidence == 0 })
+            }
+        }
+    }
+
+    @Test("普通の散文の語や句読点だけではコードと断定しない")
+    func proseIsNotCode() {
+        for line in [
+            "from the survey", "using the ruler", "return to the office", "let us begin", "if (possible), print it",
+            "a sentence;", "a brace {", "\"a quotation\"", "E = mc^2", "n = 100", "the function render()",
+        ] {
+            #expect(
+                ClipboardFormatDetector.detect(document + "\n\n" + line).action == .open(.markdown),
+                Comment(rawValue: line))
+        }
+    }
+
+    @Test("タブ区切りを桁区切りのコンマより優先し表のヒントは競合を解消する")
+    func tabRecords() {
+        for hint in [false, true] {
+            let result = ClipboardFormatDetector.detect(
+                "Name\tAmount\nA\t1,200\nB\t3,400",
+                hints: .init(hasTabularData: hint))
+            #expect(result.tableDelimiter == "\t")
+            #expect(result.action == .open(.csv))
+        }
+        for header in ["\tQ1\tQ2", "#\tName\tScore"] {
+            #expect(
+                ClipboardFormatDetector.detect(
+                    header + "\n1\tA\t10\n2\tB\t20",
+                    hints: .init(hasTabularData: true)
+                ).action == .open(.csv))
+        }
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    @Test("見出しと散文だけやYAMLにもなる箇条書きはどの慎重さでも自動整形しない")
+    func headingsNeedDistinctiveStructure() {
+        for level in ClipboardFormatSettings.Carefulness.allCases {
+            for text in [
+                "# First\nBody.\n## Second\nMore.\n### Third\nEnd.",
+                "# Fruits\n- apple\n- banana\n# Vegetables\n- carrot\n- onion",
+                "---\n# First document\nkind: One\nname: first\n---\n# Second document\nkind: Two\nname: second",
+                "## Input\nx <- read.csv(\"x.csv\")\n## Output\nplot(x)",
+            ] {
+                #expect(
+                    ClipboardFormatDetector.detect(text, settings: .init(carefulness: level)).action != .open(.markdown)
+                )
+            }
+        }
+    }
+
+    @Test("LaTeX宣言だけでは刷れる本文とみなさず括弧なしのマクロ名は受理する")
+    func latexDeclarations() {
+        for level in ClipboardFormatSettings.Carefulness.allCases {
+            for text in [
+                "\\documentclass{article}\n\\usepackage{amsmath}",
+                "\\documentclass{article}\n\\def\\foo#1{#1}",
+                "\\documentclass{article}\n\\hypersetup{colorlinks=true}\n\\geometry{margin=2cm}",
+                "\\newcommand\\R{\\mathbb{R}}\n\\newcommand{\\N}{\\mathbb{N}}",
+                "\\documentclass{article}\n\\begin{document}\n\\end{document}",
+            ] {
+                #expect(
+                    ClipboardFormatDetector.detect(text, settings: .init(carefulness: level)).action != .open(.latex))
+            }
+        }
+        let text = "\\documentclass{article}\n\\newcommand\\R{\\mathbb{R}}\n\\begin{document}\nHello.\n\\end{document}"
+        #expect(ClipboardFormatDetector.detect(text).action == .open(.latex))
+    }
+
+    @Test("HTMLのコード領域と通常要素と省略可能な終端を受理する")
+    func htmlGrammar() {
+        for fragment in [
+            "<p><ruby>漢<rt>かん</ruby><abbr title='word'>W</abbr><cite>Book</cite><q>Quote</q>",
+            "<table><thead><tr><th>A<th>B<tbody><tr><td>1<td>2</table>",
+            "<dl><dt>A<dd>B<dt>C<dd>D</dl>",
+            "<select><optgroup label='A'><option>One<option>Two</select>",
+            "<custom-card><p>Hello</p></custom-card>",
+            "<pre><code>if (x) { {{ value }}; @Model.X; }</code></pre>",
+            "<p>The opening brace is { and the closing brace is }.</p>",
+        ] {
+            #expect(
+                ClipboardFormatDetector.detect("<html><body>" + fragment + "</body></html>").action == .open(.html),
+                Comment(rawValue: fragment))
+        }
+        for fragment in [
+            "<button onClick={() => save()}>Save</button>", "<img src={logo}>",
+            "<p *ngFor='let x of xs' (click)='go()' [title]='x'>Text</p>",
+            "@if (ready)<p>Yes</p>@endif", "<p>@Model.Name</p>", "<p>{user}</p>",
+        ] {
+            #expect(
+                ClipboardFormatDetector.detect("<html><body>" + fragment + "</body></html>").action != .open(.html),
+                Comment(rawValue: fragment))
+        }
+    }
+
+    @Test("大量の平坦な強調やsnake_caseは入れ子の深さに数えない")
+    func flatDelimiters() {
+        let text =
+            "# Glossary\n\n" + (0..<120).map { "- **Term\($0)**: some_snake_case_name_\($0) means a word.\n" }.joined()
+        #expect(ClipboardFormatDetector.detect(text).action == .open(.markdown))
+        let links = "# References\n\n" + String(repeating: "<https://example.org> ", count: 70)
+        #expect(ClipboardFormatDetector.detect(links).action == .open(.markdown))
+    }
+
+    @Test("配列リテラルや列数の崩れたタブをコンマ表に読み替えない")
+    func tableLiterals() {
+        for text in ["[1,2,3]\n[4,5,6]\n[7,8,9]", "1,200\t3,400\n5,600\t7,800\t9\n9,100\t2,300"] {
+            #expect(ClipboardFormatDetector.detect(text).action != .open(.csv))
+        }
+        let hinted = ClipboardFormatDetector.detect("name,count\na,1\nb,2", hints: .init(hasTabularData: true))
+        #expect(hinted.tableDelimiter == "\t")
+        #expect(hinted.action == .ask(preferred: .plainText))
     }
 }

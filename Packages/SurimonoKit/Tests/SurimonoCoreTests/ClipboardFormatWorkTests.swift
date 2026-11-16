@@ -93,3 +93,30 @@ struct ClipboardFormatWorkTests {
             "WORK inputs=\(Self.inputs.count) worstMultiple=\(worstRatio) worstSeconds=\(worstTime) slowest=\(slowest)")
     }
 }
+
+extension ClipboardFormatWorkTests {
+    @Test("Releaseでは各生成入力をウォームアップ後の最小時間で5ミリ秒以内に判定する")
+    func releaseLatency() {
+        #if !DEBUG
+            var slowest = ""
+            var worst = 0.0
+            for (name, text) in Self.inputs {
+                _ = ClipboardFormatDetector.detect(text)
+                var best = Double.infinity
+                for _ in 0..<15 {
+                    let start = ContinuousClock.now
+                    _ = ClipboardFormatDetector.detect(text)
+                    let elapsed = start.duration(to: .now)
+                    let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+                    best = min(best, seconds)
+                }
+                if best > worst {
+                    worst = best
+                    slowest = name
+                }
+                #expect(best < 0.005, Comment(rawValue: "\(name): \(best)s"))
+            }
+            print("RELEASE_WORK inputs=\(Self.inputs.count) worstSeconds=\(worst) slowest=\(slowest)")
+        #endif
+    }
+}

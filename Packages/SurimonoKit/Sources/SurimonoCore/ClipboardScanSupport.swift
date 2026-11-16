@@ -74,7 +74,8 @@ struct ClipboardWindow: Sendable {
             if s.value == 10 || s.value == 13 { lineStart = cursor }
         }
         if cursor == input.count || skipped >= 32_768 {
-            return Self(bytes: [], units: 0, truncated: outside(cursor), broken: false, blank: true)
+            return Self(
+                bytes: [], units: 0, truncated: cursor < input.count, broken: false, blank: cursor == input.count)
         }
         cursor = lineStart
         let start = cursor
@@ -212,14 +213,36 @@ struct ClipboardSlice {
 }
 
 enum ClipboardScanners {
+    static let sourceLine =
+        #"^(?:(?:export|public|private|static|async)\s+)*(?:(?:import\s+(?:[\w.]+(?:\s+from\s+|\s*$)|[\"'{*])|from\s+[\w.]+\s+import\s|using\s+[\w.]+\s*;|(?:def|func|function)\s+\w+\s*\([^)]*\)\s*(?:\{|:|->)|(?:class|struct|enum|interface)\s+\w+[^;]*\{|(?:if|for|while)\s*\(.+\)\s*\{|console\.\w+\s*\(|[\w$.-]+\s*(?:<-|:=)\s*\S|\$\w+\s*=\s*\S)|(?:/\*|\*/|//|\{-|--\[\[|@['\"]))"#
+    static let configLine =
+        #"^(?:(?:-\s+)?[\w.-]+:\s*(?:\S.*)?$|(?:FROM|RUN|CMD|COPY|ADD|WORKDIR|ENV|ARG|ENTRYPOINT|EXPOSE)\s+\S|[A-Z][a-z]+-[A-Z][\w-]+\s+-\w|(?:brew|make|swift|pdfinfo|lp|npm|yarn|pip|git|sudo|echo|cd|rm|mkdir|set|export)\s+\S|[.!*\w/-]+/$|[!.*][\w.*?/-]+$|\w+(?:\.\w+)*\([^)]*\)\s*$)"#
+    static let dataLine =
+        #"^(?:[\w$.-]+\s*(?:[?:+]?=|<-)\s*\S|(?:class|def|end|return|puts|print|assert|if|else|elif|for|while|try|except)\b|[\w.$]+\([^)]*\)(?:\.[\w().]+)*\s*$|[\w./~$]++[^;\r\n]*;[ \t]*$|[\w/~]++[^{}\r\n]*\{[ \t]*$|[{}]\s*$|\[[\w.-]+\]$|\$\s+(?:cd|git|make|npm)\b|\*/\d+\s+\*)"#
+    static let yamlEntry = #"^(?:-\s+)?[\w.-]+:\s*(?:\S.*)?$"#
+    static let cronLine = #"^(?:[\d*/,-]+\s+){5}\S"#
+    static let markdownBlock =
+        #"^(?:#{1,6}\s+|(?:[-+*]|\d+[.)])\s+|`{3,}|~{3,})|\*\*[^*]+\*\*|__[^_]+__|(?:^|\s)[*_]\S(?:[^*_\n]*\S)?[*_](?=\s|[.,!?]|$)"#
+    static let logLine = #"^(?:\[(?:INFO|WARN|ERROR|DEBUG)\]|\[?\d{4}[-/]\d{2}[-/]\d{2}.*\d{2}:\d{2})"#
+    static let htmlExpression = #"\{\s*[\w$]+(?:\.[\w$]+)*(?:\([^}]*\))?\s*\}"#
+
+    private static let sourceWords: Set<String> = [
+        "export", "public", "private", "static", "async", "import", "from", "using",
+    ]
+    private static let configWords: Set<String> = [
+        "FROM", "RUN", "CMD", "COPY", "ADD", "WORKDIR", "ENV", "ARG", "ENTRYPOINT", "EXPOSE",
+        "brew", "make", "swift", "pdfinfo", "lp", "npm", "yarn", "pip", "git", "sudo", "echo", "cd", "rm",
+        "mkdir", "set", "export",
+    ]
+    private static let dataWords: Set<String> = [
+        "class", "def", "end", "return", "puts", "print", "assert", "if", "else", "elif", "for", "while",
+        "try", "except",
+    ]
+
     private static let expressions: [String: NSRegularExpression] = {
         let patterns = [
+            sourceLine, configLine, dataLine, yamlEntry, cronLine, markdownBlock, logLine, htmlExpression,
             #"^(#!|diff\s|@@\s|\*\*\*\s+\d|---\s+\d|\+\+\+ |--- [ab]/|\*\*\* [ab]/)"#,
-            #"^(?:(?:export|public|private|static|async)\s+)*(?:(?:const|let|var|function|func|class|struct|enum|interface|import|from|def|return|console\.|if\s*\(|for\s*\(|while\s*\(|using|namespace|int\s|void\s|my\s|local\s)\b|[\w$.-]+\s*(?:=|:=)\s*\S)"#,
-            #"^(?:[\"']|@['\"]|/\*|\*/|//|\{-|--\[\[)|[;{}]\s*$"#,
-            #"^(?:diff |--- .*|\*\*\* .*|Index: |From: |From [0-9a-f]{12}|commit [0-9a-f]|Traceback |<\?xml|<\?php|<VirtualHost|##\[|\[?\d{4}[-/]\d{2}[-/]\d{2}.*(?:\d{2}:\d{2})|@(?:article|book)\{|#\[|#!)"#,
-            #"^(?:package [a-zA-Z_]|import |const |let |var |SELECT |[a-zA-Z_.]+ \{)$"#,
-            #"^\[(?:INFO|WARN|ERROR|DEBUG)\]"#,
             #"^#\+[a-zA-Z_]+:"#,
             #"^\*+\s+\S"#,
             #"^\*+\s+(TODO|DONE|NEXT|WAITING|CANCELLED)\b"#,
@@ -233,6 +256,54 @@ enum ClipboardScanners {
     // Regexes inspect at most 512 bytes. Whole-window tokens use the forward byte scanner below.
     static func matches(_ value: ClipboardSlice, _ pattern: String, work: inout ClipboardWork) -> Bool {
         let end = min(value.range.upperBound, value.range.lowerBound + 512)
+        let bounded = ClipboardSlice(value.bytes, value.range.lowerBound..<end)
+        if pattern == logLine {
+            guard let first = bounded.first, first == 91 || (48...57).contains(first) else { return false }
+        } else if pattern == sourceLine || pattern == configLine || pattern == dataLine {
+            guard let first = bounded.first, first != 92 && first != 60 && first != 62 else { return false }
+            var colon = false
+            var equals = false
+            var paren = false
+            var brace = false
+            var semicolon = false
+            var hyphen = false
+            var wordEnd = bounded.range.lowerBound
+            for i in bounded.range {
+                let byte = bounded.bytes[i]
+                work.visit()
+                if byte == 58 { colon = true }
+                if byte == 61 { equals = true }
+                if byte == 40 { paren = true }
+                if byte == 123 || byte == 125 { brace = true }
+                if byte == 59 { semicolon = true }
+                if byte == 45 { hyphen = true }
+                if wordEnd == i && byte != 32 && byte != 9 { wordEnd += 1 }
+            }
+            if first >= 128 && !colon && !equals && !paren && !brace && !semicolon && !hyphen { return false }
+            let lead = ClipboardSlice(bounded.bytes, bounded.range.lowerBound..<wordEnd)
+            let word = lead.string
+            if pattern == sourceLine {
+                let keyword = sourceWords.contains(word)
+                let comment =
+                    bounded.hasPrefix("/*") || bounded.hasPrefix("*/") || bounded.hasPrefix("//")
+                    || bounded.hasPrefix("{-") || bounded.hasPrefix("--[[") || first == 64
+                guard equals || paren || (colon && hyphen) || bounded.contains("<-") || keyword || comment else {
+                    return false
+                }
+            } else if pattern == configLine {
+                let command = configWords.contains(word)
+                guard
+                    colon || paren || bounded.hasSuffix("/") || [33, 46, 42].contains(first) || command
+                        || ((65...90).contains(first) && hyphen)
+                else { return false }
+            } else {
+                let keyword = dataWords.contains(word)
+                guard
+                    equals || paren || brace || semicolon || first == 91 || first == 36 || keyword
+                        || bounded.contains("<-") || bounded.hasPrefix("*/")
+                else { return false }
+            }
+        }
         let prefix = String(decoding: value.bytes[value.range.lowerBound..<end], as: UTF8.self)
         work.visit(end - value.range.lowerBound)
         return expressions[pattern]!.firstMatch(in: prefix, range: NSRange(location: 0, length: prefix.utf16.count))
@@ -260,12 +331,12 @@ enum ClipboardScanners {
             work.visit()
             let b = bytes[i]
             let next: UInt8 = i + 1 < bounds.upperBound ? bytes[i + 1] : 0
-            if b == 123 && (next == 123 || next == 37 || html) { unsafe = true }
+            if b == 123 && (next == 123 || next == 37) { unsafe = true }
             if b == 60 && (next == 37 || next == 63 || next == 60) { unsafe = true }
         }
+        if unsafe { return true }
         var cursor = bounds.lowerBound
         var declaration = 0
-        var wantsCall = false
         while cursor < bounds.upperBound {
             work.visit()
             let byte = bytes[cursor]
@@ -286,74 +357,158 @@ enum ClipboardScanners {
                     where: { word.equals($0) })
                 {
                     declaration = 1
-                    wantsCall = ["def", "func", "function"].contains(where: { word.equals($0) })
                 } else if declaration == 1 {
                     declaration = 2
                 } else {
                     declaration = 0
                 }
             } else {
-                if declaration == 2 && (byte == 61 || byte == 123 || (wantsCall && byte == 40)) { unsafe = true }
+                if declaration == 2 && (byte == 61 || byte == 123) { unsafe = true }
                 if ![9, 10, 13, 32].contains(byte) { declaration = 0 }
                 cursor += 1
             }
         }
+        if unsafe { return true }
         var start = bounds.lowerBound
         for end in bounds.lowerBound...bounds.upperBound where end == bounds.upperBound || bytes[end] == 10 {
             let line = ClipboardSlice(bytes, start..<end).trimmed
             start = end + 1
             work.visit(line.count)
-            guard let first = line.first else { continue }
-            if [35, 100, 64, 42, 45, 43].contains(first)
+            guard !line.isEmpty else { continue }
+            let diffLike =
+                line.hasPrefix("#!") || line.hasPrefix("diff ") || line.hasPrefix("@@ ")
+                || line.hasPrefix("*** ") || line.hasPrefix("--- ") || line.hasPrefix("+++ ")
+            if diffLike
                 && matches(line, #"^(#!|diff\s|@@\s|\*\*\*\s+\d|---\s+\d|\+\+\+ |--- [ab]/|\*\*\* [ab]/)"#, work: &work)
             {
                 unsafe = true
             }
-            let sourceLead = [
-                "export", "public", "private", "static", "async", "const", "let", "var", "function", "func", "class",
-                "struct", "enum", "interface", "import", "from", "def", "return", "console.", "if", "for", "while",
-                "using", "namespace", "int", "void", "my", "local",
-            ].contains { line.hasPrefix($0) }
-            if (sourceLead || line.contains("="))
-                && matches(
-                    line,
-                    #"^(?:(?:export|public|private|static|async)\s+)*(?:(?:const|let|var|function|func|class|struct|enum|interface|import|from|def|return|console\.|if\s*\(|for\s*\(|while\s*\(|using|namespace|int\s|void\s|my\s|local\s)\b|[\w$.-]+\s*(?:=|:=)\s*\S)"#,
-                    work: &work)
-            {
+            if unsafe { return true }
+            if matches(line, sourceLine, work: &work) { return true }
+            if line.hasPrefix(String(repeating: "\"", count: 3)) || line.hasPrefix(String(repeating: "'", count: 3)) {
                 unsafe = true
             }
-            if ([34, 39, 42, 64, 47, 123, 45].contains(first) || line.contains(";") || line.contains("{")
-                || line.contains("}"))
-                && matches(line, #"^(?:[\"']|@['\"]|/\*|\*/|//|\{-|--\[\[)|[;{}]\s*$"#, work: &work)
-            {
+            if html && (templateToken(line, work: &work) || matches(line, htmlExpression, work: &work)) {
                 unsafe = true
             }
         }
         return unsafe
     }
 
+    // Only an envelope anchored at the start and corroborated across the window may erase candidates.
     static func externalEnvelope(_ window: ClipboardWindow, work: inout ClipboardWork) -> Bool {
-        let lines = window.lines
-        guard let first = lines.first else { return false }
-        let head = ClipboardSlice(window.bytes, first).trimmed
-        if matches(
-            head,
-            #"^(?:diff |--- .*|\*\*\* .*|Index: |From: |From [0-9a-f]{12}|commit [0-9a-f]|Traceback |<\?xml|<\?php|<VirtualHost|##\[|\[?\d{4}[-/]\d{2}[-/]\d{2}.*(?:\d{2}:\d{2})|@(?:article|book)\{|#\[|#!)"#,
-            work: &work)
+        let lines = window.lines.map { ClipboardSlice(window.bytes, $0).trimmed }.filter { !$0.isEmpty }
+        guard let head = lines.first else { return false }
+        work.visit(window.bytes.count)
+        if head.hasPrefix("<?xml") || head.hasPrefix("<?php") || head.hasPrefix("#!")
+            || head.hasPrefix("#[")
         {
             return true
         }
-        if head.equals("{") || head.equals("[") { return true }
-        if matches(head, #"^(?:package [a-zA-Z_]|import |const |let |var |SELECT |[a-zA-Z_.]+ \{)$"#, work: &work) {
+        let diffStart =
+            head.hasPrefix("diff ") || head.hasPrefix("--- ") || head.hasPrefix("*** ")
+            || head.hasPrefix("Index: ")
+        if diffStart || head.hasPrefix("From ") {
+            let unifiedHeader = lines.contains { $0.hasPrefix("--- ") } && lines.contains { $0.hasPrefix("+++ ") }
+            let unifiedHunk = lines.contains { $0.hasPrefix("@@ -") && $0.contains(" +") && $0.contains(" @@") }
+            let contextHunk =
+                lines.contains { $0.equals("***************") }
+                && lines.contains { $0.hasPrefix("*** ") && $0.hasSuffix(" ****") }
+                && lines.contains { $0.hasPrefix("--- ") && $0.hasSuffix(" ----") }
+            if diffStart
+                && ((unifiedHeader && unifiedHunk)
+                    || (contextHunk && head.hasPrefix("*** ") && !head.hasSuffix(" ****")))
+            {
+                return true
+            }
+            if head.hasPrefix("From ") && unifiedHeader && unifiedHunk { return true }
+        }
+        if head.hasPrefix("commit ") && lines.dropFirst().first?.hasPrefix("Author:") == true
+            && lines.contains(where: { $0.hasPrefix("Date:") })
+        {
             return true
         }
-        var logLines = 0
-        for range in lines {
-            let line = ClipboardSlice(window.bytes, range).trimmed
-            work.visit(range.count)
-            if line.first == 91 && matches(line, #"^\[(?:INFO|WARN|ERROR|DEBUG)\]"#, work: &work) { logLines += 1 }
+        if head.equals("転送されたメッセージ:") && lines.contains(where: { $0.hasPrefix("差出人:") })
+            && lines.contains(where: { $0.hasPrefix("件名:") }) && lines.contains(where: { $0.hasPrefix("日付:") })
+        {
+            return true
         }
-        return logLines >= 2
+        if head.hasPrefix("From:") && lines.contains(where: { $0.hasPrefix("To:") })
+            && lines.contains(where: { $0.hasPrefix("Subject:") })
+        {
+            return true
+        }
+        if head.hasPrefix("{\\rtf") && lines.last?.hasSuffix("}") == true { return true }
+        if head.hasPrefix("@article{") || head.hasPrefix("@book{") || head.hasPrefix("@inproceedings{") {
+            if lines.last?.equals("}") == true && lines.filter({ $0.contains("=") }).count >= 2 { return true }
+        }
+        if head.hasPrefix("<VirtualHost") && lines.last?.hasSuffix("</VirtualHost>") == true { return true }
+        if head.hasPrefix("===") && head.contains("test session starts")
+            && lines.last?.hasPrefix("===") == true
+        {
+            return true
+        }
+        if head.hasPrefix(";;;") && lines.contains(where: { $0.hasPrefix("(defun ") }) { return true }
+        if head.equals("1") && lines.count >= 6 && lines[1].contains(" --> ")
+            && lines.filter({ $0.contains(" --> ") }).count >= 2
+        {
+            return true
+        }
+        if head.hasPrefix("+") && head.contains("---+")
+            && lines.filter({ $0.hasPrefix("+") && $0.contains("---+") }).count >= 2
+            && lines.contains(where: { $0.hasPrefix("|") && $0.hasSuffix("|") })
+        {
+            return true
+        }
+        let content = lines.filter { !$0.hasPrefix("#") && !$0.hasPrefix(";") }
+        if content.count >= 2 && content.allSatisfy({ matches($0, cronLine, work: &work) }) { return true }
+        let logStart =
+            matches(head, logLine, work: &work)
+            || (head.hasPrefix("### ")
+                && matches(
+                    ClipboardSlice(window.bytes, (head.range.lowerBound + 4)..<head.range.upperBound), logLine,
+                    work: &work))
+        if logStart {
+            let logs = lines.filter { matches($0, logLine, work: &work) }.count
+            if logs >= 3 && logs * 2 > lines.count { return true }
+        }
+        if lines.contains(where: { $0.hasPrefix("```") || $0.hasPrefix("~~~") }) { return false }
+        let anchored =
+            head.hasPrefix("#") || head.hasPrefix(";") || matches(head, sourceLine, work: &work)
+            || matches(head, configLine, work: &work) || matches(head, dataLine, work: &work)
+        if anchored {
+            let shaped = content.filter {
+                matches($0, sourceLine, work: &work) || matches($0, configLine, work: &work)
+                    || matches($0, dataLine, work: &work) || $0.hasSuffix("%>%")
+            }.count
+            if shaped >= 2 && shaped * 2 > content.count { return true }
+        }
+        if (head.equals("{") && lines.last?.equals("}") == true)
+            || (head.equals("[") && lines.last?.equals("]") == true)
+        {
+            return true
+        }
+        return false
+    }
+
+    static func configDominates(_ bytes: [UInt8], original: [UInt8], lines: [Range<Int>], work: inout ClipboardWork)
+        -> Bool
+    {
+        var total = 0
+        var shaped = 0
+        for range in lines {
+            let line = ClipboardSlice(bytes, range).trimmed
+            work.visit(range.count)
+            let unmasked = ClipboardSlice(original, range).trimmed
+            if unmasked.isEmpty || unmasked.hasPrefix("#") { continue }
+            total += 1
+            if matches(line, configLine, work: &work) || matches(line, sourceLine, work: &work)
+                || matches(line, dataLine, work: &work)
+            {
+                shaped += 1
+            }
+        }
+        return shaped >= 2 && shaped * 2 > total
     }
 
     static func url(_ window: ClipboardWindow, hints: ClipboardFormatHints, work: inout ClipboardWork)

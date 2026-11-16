@@ -9,12 +9,27 @@ extension ClipboardScanners {
         var result = ClipboardCandidate(kind: .markdown)
         guard !window.bytes.isEmpty else { return result }
         var source = window.bytes
+        let firstLine = window.lines.first.map { ClipboardSlice(source, $0).trimmed }
+        result.ownsStart = firstLine.map { matches($0, markdownBlock, work: &work) } ?? false
         if excessiveNesting(source, work: &work) {
             result.structures = 1
             result.accepted = false
             result.evidence = [.incomplete]
             return result
         }
+        // Separators alone have no document structure. This is a grammar proof, not a delimiter budget.
+        let separatorsOnly = window.lines.allSatisfy { range in
+            let line = ClipboardSlice(source, range).trimmed
+            if line.isEmpty { return true }
+            guard let marker = line.first, [42, 45, 95].contains(marker) else { return false }
+            var count = 0
+            for i in line.range {
+                work.visit()
+                if source[i] == marker { count += 1 } else if source[i] != 32 && source[i] != 9 { return false }
+            }
+            return count >= 3
+        }
+        if separatorsOnly { return result }
         // Inline ticks alone cannot contribute structure. Keep the depth guard before this proof.
         guard markdownPossible(window.bytes, lines: window.lines, work: &work) else { return result }
         var frontMatter = false
@@ -22,6 +37,23 @@ extension ClipboardScanners {
             for line in window.lines.dropFirst() {
                 work.visit(line.count)
                 if ClipboardSlice(source, line).trimmed.equals("---") {
+                    let metadata = window.lines.dropFirst().prefix { $0.lowerBound < line.lowerBound }
+                    let values = metadata.filter {
+                        let value = ClipboardSlice(source, $0).trimmed
+                        return !value.isEmpty && !value.hasPrefix("#")
+                    }
+                    let hasKey = values.contains { matches(ClipboardSlice(source, $0).trimmed, yamlEntry, work: &work) }
+                    let valid = values.allSatisfy {
+                        let raw = ClipboardSlice(source, $0)
+                        return raw.first == 32 || raw.first == 9 || raw.hasPrefix("- ")
+                            || matches(raw, yamlEntry, work: &work)
+                    }
+                    guard hasKey && valid else { break }
+                    let tail = window.lines.filter { $0.lowerBound > line.upperBound }
+                    if configDominates(source, original: source, lines: tail, work: &work) {
+                        result.accepted = false
+                        break
+                    }
                     for i in 0..<line.upperBound {
                         if source[i] != 10 { source[i] = 32 }
                         work.visit()
@@ -59,14 +91,15 @@ extension ClipboardScanners {
         var hidden = [Int](repeating: 0, count: source.count + 1)
         var headings = 0
         var lists = 0
+        var distinctLists = 0
         var codes = 0
         var tables = 0
         var links = 0
         var emphasis = 0
+        var strong = 0
         var quotes = 0
         var inlineCodes = 0
         var orgSyntax = false
-        var shellComments = false
         var invalidTable = false
         var ownsStart = frontMatter
         func offset(line: Int, column: Int) -> Int {
@@ -96,7 +129,7 @@ extension ClipboardScanners {
             top.append(ClipboardMarkdownNode(pointer))
             child = cmark_node_next(pointer)
         }
-        var nodes = Array(top.reversed())
+        var nodes = top.reversed().map { ($0, 0) }
         let firstContent = top.first { node in
             if node.kind == "html_block", let range = span(node) {
                 return !ClipboardSlice(source, range).trimmed.hasPrefix("<!--")
@@ -117,9 +150,19 @@ extension ClipboardScanners {
                 }
             }
         }
-        while let node = nodes.popLast() {
+        while let (node, nesting) = nodes.popLast() {
             work.visit()
+            if nesting > 64 { result.accepted = false }
             if node.kind == "heading" { headings += 1 }
+            if node.kind == "list" {
+                if cmark_node_get_list_type(node.pointer) == CMARK_ORDERED_LIST {
+                    distinctLists += 1
+                } else if let range = span(node), let first = ClipboardSlice(window.bytes, range).trimmed.first,
+                    first == 42 || first == 43
+                {
+                    distinctLists += 1
+                }
+            }
             if node.kind == "item" || node.kind == "tasklist" {
                 lists += 1
                 if node.kind == "tasklist" { emphasis += 1 }
@@ -130,6 +173,7 @@ extension ClipboardScanners {
                 if let range = span(node) { protect(range) }
             }
             if ["strong", "emph", "strikethrough"].contains(node.kind) { emphasis += 1 }
+            if node.kind == "strong" { strong += 1 }
             if node.kind == "code_block" {
                 if let range = span(node) {
                     func fenceLine(_ bounds: Range<Int>) -> ClipboardSlice {
@@ -223,7 +267,7 @@ extension ClipboardScanners {
             }
             var child = cmark_node_last_child(node.pointer)
             while let pointer = child {
-                nodes.append(ClipboardMarkdownNode(pointer))
+                nodes.append((ClipboardMarkdownNode(pointer), nesting + 1))
                 child = cmark_node_previous(pointer)
             }
         }
@@ -249,37 +293,29 @@ extension ClipboardScanners {
                 orgSyntax = true
             }
         }
-        if headings > 0 {
-            let lines = window.lines.map { ClipboardSlice(running, $0).trimmed }
-            var commentPairs = 0
-            for i in lines.indices where i + 1 < lines.count {
-                work.visit()
-                if lines[i].hasPrefix("# "), !lines[i + 1].isEmpty,
-                    !lines[i + 1].hasPrefix("#") && !lines[i + 1].hasPrefix("-")
-                {
-                    commentPairs += 1
-                }
-            }
-            if commentPairs >= 2 || (commentPairs >= 1 && unsafeText(running, work: &work)) {
-                headings = 0
-                shellComments = true
-            }
-        }
         result.structures = headings + lists + codes + tables + quotes
         if frontMatter { result.structures += 1 }
-        if !ownsStart && headings == 0 && tables == 0 && codes == 0 && links + emphasis < 2 { result.structures = 0 }
-        if links >= 2 && result.structures == 0 { result.structures = 1 }
-        if orgSyntax && headings == 0 && tables == 0 && codes == 0 {
-            result.structures = 0
+        if links >= 2 { result.structures += 1 }
+        if invalidTable { result.structures += 1 }
+        if orgSyntax && headings == 0 && tables == 0 && codes == 0 { result.accepted = false }
+        let needsConfigCheck =
+            lists + codes + tables + links + emphasis + inlineCodes > 0 || frontMatter
+            || running.contains(36)
+        if result.accepted && needsConfigCheck
+            && configDominates(running, original: window.bytes, lines: window.lines, work: &work)
+        {
             result.accepted = false
         }
-        if shellComments {
-            result.structures = 0
-            result.accepted = false
+        // Distinctive Org blocks own their shared star markers. Markdown-specific inline syntax
+        // keeps the overlap unresolved; observations are retained in either case.
+        if orgSyntax && headings + codes + tables == 0 && strong == 0 && links == 0 {
+            ownsStart = false
         }
         result.strength = 60
         result.ownsStart = ownsStart
-        result.accepted = result.accepted && ownsStart && !invalidTable
+        result.accepted = result.accepted && !invalidTable
+        result.leadingProseOnly = result.accepted && !ownsStart
+        result.accepted = result.accepted && ownsStart
         let mathSupport = running.contains(36) && headings > 0 ? 2 : 0
         let rich = emphasis + links + inlineCodes + mathSupport
         let support = headings + lists + rich
@@ -293,17 +329,21 @@ extension ClipboardScanners {
         case .eager:
             result.sufficient = tables > 0 || codes > 0 || support >= 2
         }
+        // Headings and prose alone never justify an automatic Markdown open.
+        if tables + codes + distinctLists + rich == 0 && !frontMatter { result.sufficient = false }
         if headings + lists + codes + tables == 0 { result.sufficient = false }
         if top.allSatisfy({ $0.kind == "block_quote" }) { result.sufficient = false }
         if !ownsStart && top.contains(where: { $0.kind == "block_quote" })
             && !top.contains(where: { ["heading", "list", "code_block"].contains($0.kind) })
         {
-            result.structures = 0
+            result.accepted = false
+            result.leadingProseOnly = false
         }
         if let list = top.first, list.kind == "list", cmark_node_get_list_type(list.pointer) == CMARK_ORDERED_LIST,
             cmark_node_get_list_start(list.pointer) > 1 && rich == 0
         {
-            result.structures = 0
+            result.accepted = false
+            result.leadingProseOnly = false
         }
         if headings == 0 && tables == 0 && codes == 0 && lists == 0 && ClipboardSlice(window.bytes).contains("\\[") {
             result.structures = 1
@@ -374,24 +414,23 @@ extension ClipboardScanners {
     }
 
     private static func excessiveNesting(_ bytes: [UInt8], work: inout ClipboardWork) -> Bool {
-        // swift-markdown converts its C tree recursively. Refuse hostile depth before crossing that boundary.
+        // Bound block/link nesting before parsing. Flat delimiter runs are not depth: cmark
+        // handles them without a recursive Swift AST conversion. The iterative tree walk checks
+        // actual emphasis/container depth after parsing.
         var brackets = 0
         var quotes = 0
-        var run = 0
-        var previous: UInt8 = 0
-        var emphasisMarks = 0
+        var quotePrefix = true
         for byte in bytes {
             work.visit()
-            if byte == 42 || byte == 95 { emphasisMarks += 1 }
             if byte == 91 || byte == 40 { brackets += 1 }
             if byte == 93 || byte == 41 { brackets = max(0, brackets - 1) }
-            if byte == 62 { quotes += 1 }
-            if byte == 10 { quotes = 0 }
-            run = byte == previous ? run + 1 : 1
-            previous = byte
-            if emphasisMarks > 128 || brackets > 64 || quotes > 64 || (run > 128 && [42, 95].contains(byte)) {
-                return true
+            if byte == 10 {
+                quotes = 0
+                quotePrefix = true
+            } else if quotePrefix {
+                if byte == 62 { quotes += 1 } else if byte != 32 && byte != 9 { quotePrefix = false }
             }
+            if brackets > 64 || quotes > 64 { return true }
         }
         return false
     }

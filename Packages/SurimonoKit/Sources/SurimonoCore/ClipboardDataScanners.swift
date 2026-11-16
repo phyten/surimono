@@ -16,6 +16,7 @@ extension ClipboardScanners {
         var starts = false
         var prefix = false
         var document = false
+        var printable = false
         var running: [UInt8] = []
         running.reserveCapacity(b.count)
         var textStart = 0
@@ -25,10 +26,31 @@ extension ClipboardScanners {
             "documentclass", "begin", "section", "subsection", "subsubsection", "chapter", "paragraph", "title",
             "newcommand", "def", "usepackage", "item", "maketitle", "tableofcontents",
         ]
+        let declarations: Set<String> = [
+            "documentclass", "usepackage", "RequirePackage", "newcommand", "renewcommand", "providecommand",
+            "def", "DeclareMathOperator", "newenvironment", "newtheorem", "theoremstyle", "title", "author", "date",
+            "setlength", "definecolor",
+        ]
         func string(_ range: Range<Int>) -> String { String(decoding: b[range], as: UTF8.self) }
         func letter(_ byte: UInt8) -> Bool { (65...90).contains(byte) || (97...122).contains(byte) }
         while i < b.count {
             work.visit()
+            if let delimiter = mathDelimiter {
+                if b[i] == 36 {
+                    let width = i + 1 < b.count && b[i + 1] == 36 ? 2 : 1
+                    if width != delimiter { candidate.accepted = false }
+                    mathDelimiter = nil
+                    i += width
+                } else if b[i] == 92 {
+                    printable = true
+                    i = min(i + 2, b.count)
+                } else {
+                    if ![9, 10, 13, 32].contains(b[i]) { printable = true }
+                    i += 1
+                }
+                textStart = i
+                continue
+            }
             if b[i] == 37 {
                 let beforeComment = ClipboardSlice(b, textStart..<i)
                 if !starts && !beforeComment.trimmed.isEmpty { prefix = true }
@@ -60,11 +82,57 @@ extension ClipboardScanners {
                     continue
                 }
                 allCommands += 1
-                if structural.contains(name) {
-                    commands += 1
-                    starts = true
+                let declaration = declarations.contains(name) || LaTeXSymbols.ignored[name] != nil
+                if structural.contains(name) || declaration { starts = true }
+                if structural.contains(name) && !declaration { commands += 1 }
+                if name == "documentclass" { document = true }
+                if declaration {
+                    // Declaration arguments, including the unbraced control sequence name, cannot print.
+                    if i < b.count && b[i] == 42 { i += 1 }
+                    var acceptsName = ["newcommand", "renewcommand", "providecommand", "def", "DeclareMathOperator"]
+                        .contains(name)
+                    while i < b.count {
+                        while i < b.count && [9, 10, 13, 32].contains(b[i]) {
+                            i += 1
+                            work.visit()
+                        }
+                        if acceptsName && i < b.count && b[i] == 92 {
+                            acceptsName = false
+                            i += 1
+                            while i < b.count && letter(b[i]) {
+                                i += 1
+                                work.visit()
+                            }
+                            if name == "def" {
+                                while i < b.count && b[i] != 123 && b[i] != 10 {
+                                    i += 1
+                                    work.visit()
+                                }
+                            }
+                            continue
+                        }
+                        guard i < b.count && (b[i] == 123 || b[i] == 91) else { break }
+                        acceptsName = false
+                        let open = b[i]
+                        let close: UInt8 = open == 123 ? 125 : 93
+                        var depth = 1
+                        i += 1
+                        while i < b.count && depth > 0 {
+                            work.visit()
+                            if b[i] == 92 {
+                                i = min(i + 2, b.count)
+                                continue
+                            }
+                            if b[i] == open { depth += 1 }
+                            if b[i] == close { depth -= 1 }
+                            i += 1
+                        }
+                        if depth != 0 { candidate.accepted = false }
+                    }
+                    textStart = i
+                    continue
                 }
-                if ["documentclass", "section", "subsection", "newcommand"].contains(name) {
+                if ["section", "subsection"].contains(name) {
                     var next = i
                     while next < b.count && (b[next] == 32 || b[next] == 10) {
                         next += 1
@@ -74,9 +142,8 @@ extension ClipboardScanners {
                         candidate.accepted = false
                     }
                 }
-                if name == "documentclass" { document = true }
+                if i < b.count && b[i] == 42 { i += 1 }
                 if name == "verb" || name == "lstinline" {
-                    if i < b.count && b[i] == 42 { i += 1 }
                     if i < b.count {
                         let delimiter = b[i]
                         i += 1
@@ -116,11 +183,13 @@ extension ClipboardScanners {
                             }
                             if stack.last == env { stack.removeLast() } else { candidate.accepted = false }
                         } else if LaTeXLexer.verbatimEnvironments.contains(env) {
+                            let bodyStart = i
                             let close = Array("\\end{\(env)}".utf8)
                             var closed = false
                             while i < b.count {
                                 work.visit()
                                 if b[i] == 92 && token(b, i, close, work: &work) {
+                                    printable = printable || !ClipboardSlice(b, bodyStart..<i).trimmed.isEmpty
                                     i += close.count
                                     closed = true
                                     break
@@ -151,20 +220,12 @@ extension ClipboardScanners {
                     running.append(contentsOf: b[beforeMath.range])
                 }
                 let width = i + 1 < b.count && b[i + 1] == 36 ? 2 : 1
-                if let open = mathDelimiter {
-                    if open == width { mathDelimiter = nil } else { candidate.accepted = false }
-                } else {
-                    mathDelimiter = width
-                }
+                mathDelimiter = width
                 i += width
                 textStart = i
                 continue
             }
-            if mathDelimiter != nil {
-                i += 1
-                textStart = i
-                continue
-            }
+            if mathDepth > 0 && ![9, 10, 13, 32, 123, 125].contains(b[i]) { printable = true }
             if b[i] == 123 { braces += 1 }
             if b[i] == 125 {
                 braces -= 1
@@ -174,14 +235,22 @@ extension ClipboardScanners {
         }
         if mathDepth == 0 { running.append(contentsOf: b[textStart..<b.count]) }
         candidate.structures = commands > 0 ? commands : (allCommands >= 2 && b.contains(123) ? 1 : 0)
+        if printable && b.contains(36) { candidate.structures = max(1, candidate.structures) }
         candidate.strength = document ? 95 : 65
         candidate.ownsStart = !prefix && starts
         candidate.accepted =
             candidate.accepted && !prefix && braces == 0 && stack.isEmpty && mathDelimiter == nil && mathDepth == 0
         for i in running.indices where running[i] == 123 || running[i] == 125 { running[i] = 32 }
-        candidate.accepted = candidate.accepted && !unsafeText(running, work: &work)
+        printable = printable || !ClipboardSlice(running).trimmed.isEmpty
+        candidate.accepted = candidate.accepted && printable && !unsafeText(running, work: &work)
+        var start = 0
+        for end in 0...running.count where end == running.count || running[end] == 10 {
+            let line = ClipboardSlice(running, start..<end).trimmed
+            if matches(line, markdownBlock, work: &work) { candidate.accepted = false }
+            start = end + 1
+        }
         let required = level == .careful ? 4 : (level == .standard ? 2 : 1)
-        candidate.sufficient = document || commands >= required || (commands >= 1 && allCommands >= 4)
+        candidate.sufficient = printable && (document || commands >= required || (commands >= 1 && allCommands >= 4))
         candidate.evidence = [.markup(commands)]
         if document { candidate.evidence.append(.document) }
         if !candidate.accepted { candidate.evidence.append(.conflictingSyntax) }
@@ -321,11 +390,27 @@ extension ClipboardScanners {
         result.delimiter = ","
         work.visit(bytes.count)
         guard bytes.contains(44) || bytes.contains(9) else { return result }
-        // Count with the same quote automaton for both separators; collect ranges only for the winner.
-        let comma = table(bytes, delimiter: 44, collect: false, work: &work)
-        let tab = table(bytes, delimiter: 9, collect: false, work: &work)
-        let useTab = tab.delimiters > 0 && tab.delimiters >= comma.delimiters
-        let parsed = table(bytes, delimiter: useTab ? 9 : 44, collect: true, work: &work)
+        // A delimiter describes records, not the frequency of punctuation inside cells.
+        let comma = table(bytes, delimiter: 44, collect: true, work: &work)
+        let tab = table(bytes, delimiter: 9, collect: true, work: &work)
+        func rectangular(_ scan: TableScan) -> Bool {
+            guard let columns = scan.rows.first?.count, columns > 1 else { return false }
+            return scan.valid && scan.closed && scan.rows.allSatisfy { $0.count == columns }
+        }
+        if hints.hasTabularData && tab.delimiters == 0 {
+            result.delimiter = "\t"
+            // Contradictory provenance cannot reinterpret commas as tab boundaries, but a
+            // multi-record comma table still keeps its evidence and therefore asks.
+            if comma.delimiters > 0 && comma.rows.count >= 2 {
+                result.structures = comma.rows.count
+                result.ownsStart = (comma.rows.first?.count ?? 0) > 1
+                result.accepted = false
+                result.evidence = [.tables(1), .pasteboard, .conflictingSyntax]
+            }
+            return result
+        }
+        let useTab = hints.hasTabularData || (tab.delimiters > 0 && (rectangular(tab) || !rectangular(comma)))
+        let parsed = useTab ? tab : comma
         result.delimiter = useTab ? "\t" : ","
         let rows = parsed.rows
         guard parsed.delimiters > 0, rows.count >= 2 || hints.hasTabularData else { return result }
@@ -340,7 +425,6 @@ extension ClipboardScanners {
         var numericRows = 0
         var rectangular = true
         var multiRows = 0
-        var allTrailingEmpty = true
         var hasJapanesePeriod = false
         var sentence = false
         var shortHeader = columns >= 2
@@ -348,14 +432,17 @@ extension ClipboardScanners {
             work.visit(row.count)
             if row.count != columns { rectangular = false }
             if row.count >= 2 { multiRows += 1 }
-            if useTab && parsed.fields[row.lowerBound].count == 0 { ambiguous = true }
-            if parsed.fields[row.upperBound - 1].count != 0 { allTrailingEmpty = false }
+            if useTab && !hints.hasTabularData && parsed.fields[row.lowerBound].count == 0 { ambiguous = true }
             var allNumeric = true
             for index in row {
                 let field = parsed.fields[index]
                 let value = ClipboardSlice(bytes, field.range)
                 work.visit(value.count)
-                let number = !parsed.quoted && numeric(value)
+                let number =
+                    !parsed.quoted
+                    && (numeric(value)
+                        || (useTab && value.contains(",")
+                            && Double(value.string.replacingOccurrences(of: ",", with: "")) != nil))
                 hasNumeric = hasNumeric || number
                 allNumeric = allNumeric && number
                 if field.first == 32 { spaced += 1 }
@@ -377,8 +464,8 @@ extension ClipboardScanners {
                     }
                 }
             }
+            if allNumeric { numericRows += 1 }
             if !useTab && !parsed.quoted {
-                if allNumeric { numericRows += 1 }
                 let joined = ClipboardSlice(
                     bytes,
                     parsed.fields[row.lowerBound].range.lowerBound..<parsed.fields[row.upperBound - 1].range.upperBound)
@@ -399,16 +486,27 @@ extension ClipboardScanners {
             }
         }
         if !useTab && !parsed.quoted && spaced >= rows.count { ambiguous = true }
-        if !useTab && !parsed.quoted && !hasNumeric { ambiguous = true }
+        if !useTab && !parsed.quoted && !hasNumeric {
+            ambiguous = true
+            let proseFields = parsed.fields.filter {
+                let value = ClipboardSlice(bytes, $0.range).trimmed
+                return value.bytes[value.range].filter { $0 == 32 }.count >= 2
+            }.count
+            let sentenceLines = window.lines.filter {
+                let line = ClipboardSlice(bytes, $0).trimmed
+                return line.hasSuffix(".") || line.hasSuffix("。")
+            }.count
+            if proseFields >= rows.count || (!rectangular && sentenceLines >= 2) { result.structures = 0 }
+        }
         if groupedRows == rows.count || numericRows == rows.count { ambiguous = true }
-        if !useTab && (!shortHeader || multiRows < 2) { result.structures = 0 }
+        if !shortHeader { ambiguous = true }
+        if !useTab && multiRows < 2 { result.structures = 0 }
         if columns == 1 && rows.count >= 4
             && rows.dropFirst().allSatisfy({ $0.count == rows[1].count && $0.count >= 2 })
         {
             result.structures = rows.count
         }
         if useTab && columns == 1 { result.structures = 0 }
-        if !useTab && !parsed.quoted && allTrailingEmpty { result.structures = 0 }
         if !useTab && !parsed.quoted && !hasNumeric && hasJapanesePeriod { result.structures = 0 }
         if !useTab && !parsed.quoted {
             if sentence {
@@ -417,6 +515,11 @@ extension ClipboardScanners {
             }
             if spaced >= rows.count && !rectangular { result.structures = 0 }
         }
+        let literalRows = window.lines.filter { !ClipboardSlice(bytes, $0).trimmed.isEmpty }.allSatisfy {
+            let line = ClipboardSlice(bytes, $0).trimmed
+            return (line.hasPrefix("[") && line.hasSuffix("]")) || (line.hasPrefix("{") && line.hasSuffix("}"))
+        }
+        if literalRows || (!useTab && tab.delimiters > 0) { ambiguous = true }
         result.accepted = rectangular && columns >= 2 && parsed.valid && parsed.closed && !ambiguous
         let required = level == .careful ? 4 : 3
         result.sufficient = rows.count >= required || hints.hasTabularData

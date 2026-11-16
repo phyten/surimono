@@ -108,10 +108,11 @@ struct ClipboardCandidate: Sendable {
     var evidence: [ClipboardFormatDetection.Evidence] = []
     var delimiter: Character?
     var strength = 0
+    var leadingProseOnly = false
 
     var choice: ClipboardFormatDetection.Choice {
         let confidence: Double
-        if sufficient && accepted {
+        if structures > 0 && sufficient && accepted {
             confidence = 0.95
         } else if structures > 0 {
             confidence = accepted ? 0.65 : 0.45
@@ -145,7 +146,12 @@ public enum ClipboardFormatDetector {
             ClipboardScanners.csv(window, hints: hints, level: settings.carefulness, work: &work),
             ClipboardScanners.url(window, hints: hints, work: &work),
         ]
-        if ClipboardScanners.externalEnvelope(window, work: &work) {
+        let hintedTable =
+            hints.hasTabularData
+            && candidates.contains {
+                $0.kind == .csv && $0.structures > 0 && $0.accepted && $0.sufficient
+            }
+        if !hintedTable && ClipboardScanners.externalEnvelope(window, work: &work) {
             for index in candidates.indices {
                 candidates[index].structures = 0
                 candidates[index].accepted = false
@@ -182,11 +188,15 @@ public enum ClipboardFormatDetector {
             action = .open(settings.fixedKind == .url ? .plainText : settings.fixedKind)
             reason = .fixed
         } else {
-            if !structured.isEmpty {
+            if !structured.isEmpty || (window.truncated && window.bytes.isEmpty && !settings.automaticKinds.isEmpty) {
                 if window.broken {
                     reason = .damagedText
-                } else if window.truncated && !(hints.hasTabularData && qualified.first?.kind == .csv) {
+                } else if window.truncated && !(hints.hasTabularData && qualified.contains(where: { $0.kind == .csv }))
+                {
                     reason = .truncated
+                } else if hints.hasTabularData, let table = qualified.first(where: { $0.kind == .csv }) {
+                    reason = .accepted
+                    action = .open(table.kind)
                 } else if qualified.isEmpty {
                     reason = structured.contains { !$0.accepted } ? .conflictingSyntax : .insufficientStructure
                 } else if structured.contains(where: { !$0.accepted && $0.ownsStart }) {
@@ -198,13 +208,17 @@ public enum ClipboardFormatDetector {
                     action = .open(best.kind)
                 }
                 if reason != .accepted && settings.mode != .plainTextWhenUnsure {
-                    let preferred: ClipboardTextKind = reason == .competingFormats ? qualified[0].kind : .plainText
+                    let prose = structured.first { $0.kind == .markdown && $0.leadingProseOnly && $0.sufficient }
+                    let preferred: ClipboardTextKind =
+                        reason == .competingFormats
+                        ? qualified[0].kind
+                        : (prose != nil && !window.broken && !window.truncated
+                            && !structured.contains { $0.kind != .markdown && $0.ownsStart } ? .markdown : .plainText)
                     action = .ask(preferred: preferred)
                 }
             }
             if settings.mode == .alwaysAsk {
-                action = .ask(
-                    preferred: reason == .accepted || reason == .competingFormats ? qualified[0].kind : .plainText)
+                if case .open(let kind) = action { action = .ask(preferred: kind) }
                 reason = .alwaysAsk
             }
         }

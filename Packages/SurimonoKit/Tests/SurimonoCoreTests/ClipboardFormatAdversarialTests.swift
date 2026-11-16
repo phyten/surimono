@@ -118,7 +118,8 @@ struct ClipboardFormatAdversarialTests {
             "2026-11-16\n\n" + Self.markdown, "<p>Hello</p>",
             "\ta\tb\n\tx\ty\n\tq\tr", "Sales\na,b,c\nx,1,2\ny,3,4",
         ] {
-            #expect(ClipboardFormatDetector.detect(text).action == .ask(preferred: .plainText))
+            let preferred: ClipboardTextKind = text.hasSuffix(Self.markdown) ? .markdown : .plainText
+            #expect(ClipboardFormatDetector.detect(text).action == .ask(preferred: preferred))
         }
     }
 }
