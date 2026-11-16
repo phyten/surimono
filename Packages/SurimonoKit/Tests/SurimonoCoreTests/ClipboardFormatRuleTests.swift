@@ -482,7 +482,7 @@ extension ClipboardFormatRuleTests {
 }
 
 extension ClipboardFormatRuleTests {
-    @Test("見出しと散文だけやYAMLにもなる箇条書きはどの慎重さでも自動整形しない")
+    @Test("見出しと一語の短文だけやYAMLにもなる箇条書きはどの慎重さでも自動整形しない")
     func headingsNeedDistinctiveStructure() {
         for level in ClipboardFormatSettings.Carefulness.allCases {
             for text in [
@@ -648,5 +648,112 @@ extension ClipboardFormatRuleTests {
             ClipboardFormatDetector.detect("---\ntitle: Example\n---\n```sh\nx=1\ny=2\nz=3\n```").action
                 == .open(.markdown))
         #expect(ClipboardFormatDetector.detect("# Heading").action == .ask(preferred: .plainText))
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    static let everydayNotes = [
+        "# 会議メモ\n\n今日の決定事項です。\n\n## 次にやること\n\n- 資料を直す\n- 印刷する\n- 配る\n",
+        "# Meeting notes\n\nThese are today's decisions.\n\n## Next steps\n\n- Revise materials\n- Print\n- Distribute\n",
+        "# Weekly report\n\n## Progress\nThe prototype is ready for review.\n\n## Next steps\nWe will test it tomorrow.",
+        "Meeting notes\n=============\n\nThese are today's decisions.\n\nNext steps\n----------\n\n- Print\n- Distribute\n",
+        "# Notes\n\nThe reviewer said (please print this!)\n\n## Next\n\nWe can start tomorrow.”",
+        "# メモ\n\n「資料を明日印刷します。」\n\n## 配布\n\n> 明日の会議\n\n- 全員\n",
+    ]
+
+    @Test("二つ以上の見出しと文のある日英のノートは標準と積極だけで自動整形する")
+    func everydayNotes() {
+        for text in Self.everydayNotes {
+            for level in ClipboardFormatSettings.Carefulness.allCases {
+                let result = ClipboardFormatDetector.detect(text, settings: .init(carefulness: level))
+                #expect(
+                    result.action == (level == .careful ? .ask(preferred: .plainText) : .open(.markdown)),
+                    Comment(rawValue: "\(level): \(text)"))
+            }
+        }
+    }
+
+    @Test("短文だけや一つの見出しや文のないリストにはノートの例外を適用しない")
+    func incompleteNotes() {
+        for text in [
+            "# Title\n\nText.\n\n## Section\n\n- one\n- two\n- three\n",
+            "# Title\n\nThis is a complete sentence.\n\nWe will print it tomorrow.\n",
+            "# Fruits\n- apple\n- banana\n\n## Vegetables\n- carrot\n- onion\n",
+            "# 題\n\n短文。\n\n## 節\n\n- 項目\n",
+            "# Notes\n\n> This is a complete sentence.\n\n## Next\n\n- Print\n",
+            "# Notes\n\nThis is a sentence\n\n## Next\n\n- Print\n",
+        ] {
+            for level in ClipboardFormatSettings.Carefulness.allCases {
+                #expect(
+                    ClipboardFormatDetector.detect(text, settings: .init(carefulness: level)).action
+                        == .ask(preferred: .plainText), Comment(rawValue: text))
+            }
+        }
+    }
+
+    @Test("見出しの付いた依存一覧や無視設定やホストやシェルやINIをノートにしない")
+    func commentedFilesAreNotNotes() {
+        for text in [
+            "# Web\nflask\nrequests\n\n# Dev\npytest\n",
+            "# Build\nbuild/\n*.o\n\n## Local\n.env\n",
+            "# Local\n127.0.0.1 localhost\n\n## Network\n192.168.1.2 printer\n",
+            "# Report\necho 'This is a full sentence.'\n\n## Clean\nrm -f output.txt\n",
+            "# App\n[app]\nname = printer\n\n## Paper\nsize = A4\n",
+        ] {
+            for level in ClipboardFormatSettings.Carefulness.allCases {
+                #expect(
+                    ClipboardFormatDetector.detect(text, settings: .init(carefulness: level)).action
+                        != .open(.markdown),
+                    Comment(rawValue: text))
+            }
+        }
+    }
+
+    @Test("ノートの文があっても本文中の一行の設定やコマンドや裸の語を許可しない")
+    func everyNoteLineMustQualify() {
+        for line in [
+            "flask", "/usr/local/bin/report", "*.tmp", "description: This is a complete sentence.",
+            "description = This is a complete sentence.", "echo This is a complete sentence.",
+            "printf 'This is a complete sentence.'", "127.0.0.1 localhost", "0 9 * * MON /bin/report",
+            "LABEL description=\"This is a complete sentence.\"", "msgid \"This is a complete sentence.\"",
+            "\\section{Title} This is a complete sentence.",
+        ] {
+            for level in [ClipboardFormatSettings.Carefulness.standard, .eager] {
+                let text = "# Notes\n\nThis is a complete sentence.\n\n## Next\n\n" + line
+                #expect(
+                    ClipboardFormatDetector.detect(text, settings: .init(carefulness: level)).action
+                        != .open(.markdown),
+                    Comment(rawValue: line))
+            }
+        }
+    }
+
+    @Test("ノートへの追加規則でも先頭散文と競合と破損と切断の拒否を守る")
+    func noteVetoes() {
+        let note = Self.everydayNotes[0]
+        #expect(ClipboardFormatDetector.detect("先に説明します。\n\n" + note).action == .ask(preferred: .markdown))
+        for suffix in ["\n#+TITLE: Other", "\n\\section{Title} 本文です。", "\u{0000}"] {
+            #expect(ClipboardFormatDetector.detect(note + suffix).action != .open(.markdown), Comment(rawValue: suffix))
+        }
+        #expect(
+            ClipboardFormatDetector.detect(note + String(repeating: "追加の説明文です。\n", count: 5_000)).action
+                != .open(.markdown))
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    @Test("箇条書きの印のない継続行に紛れた裸の語やコマンドをノートとして通さない")
+    func lazyListContinuationIsNotAFreePass() {
+        for line in ["flask", "/usr/local/bin/report", "*.tmp", "echo Please print this report."] {
+            for level in [ClipboardFormatSettings.Carefulness.standard, .eager] {
+                let text = Self.everydayNotes[0] + line
+                #expect(
+                    ClipboardFormatDetector.detect(text, settings: .init(carefulness: level)).action
+                        != .open(.markdown),
+                    Comment(rawValue: line))
+            }
+        }
+        #expect(
+            ClipboardFormatDetector.detect(Self.everydayNotes[0] + "資料は明日配布します。").action == .open(.markdown))
     }
 }

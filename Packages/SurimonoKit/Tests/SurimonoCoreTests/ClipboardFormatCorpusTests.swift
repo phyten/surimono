@@ -39,7 +39,6 @@ struct ClipboardFormatCorpusTests {
             "h-md-chat-answer",  // Leading prose requires a choice, with Markdown selected by Return.
             "h2-csv-title-row",  // The title is a one-field record; dropping it would corrupt the table.
             "h5-normal-html-oneline-script",  // Template tokens in script strings still refuse HTML.
-            "r2-md-weekly-report",  // Headings and plain paragraphs alone now require a choice at every level.
             "h5-mail-inline-reply-markdown",  // Nested Markdown in a quoted mail body is still observed.
             "h5-mail-forwarded",  // Introductory prose plus a Setext-looking separator needs a choice.
             "h5-mail-digest",  // The digest contains document structures after prose.
@@ -84,11 +83,9 @@ struct ClipboardFormatCorpusTests {
         )
         #expect(failures == pinned)
         #expect(pinned.count <= 16)
-        // Six: five ask because of a rule that holds at every level (prose before the document, a title row above a
-        // table, a template mark in a script), and one is made of headings and paragraphs only, which a commented
-        // script or config file can also be.
+        // The remaining clear documents need a choice because of leading prose, a title row or a template mark.
         #expect(eligible == 181)
-        #expect(ordinaryAsks <= 6)
+        #expect(ordinaryAsks <= 5)
     }
 }
 

@@ -345,8 +345,15 @@ extension ClipboardScanners {
         case .eager:
             result.sufficient = tables > 0 || codes > 0 || support >= 2
         }
-        // Headings and prose alone never justify an automatic Markdown open.
+        // Headings alone also describe commented scripts. A complete sentence-led body can
+        // distinguish everyday notes, but must not weaken any existing acceptance veto.
         if tables + codes + distinctLists + rich == 0 && !frontMatter { result.sufficient = false }
+        if !result.sufficient && (result.accepted || result.leadingProseOnly) && !orgSyntax
+            && level != .careful && headings >= 2
+        {
+            result.sufficient = markdownNote(
+                top, window: window, running: running, leadingProseOnly: result.leadingProseOnly, work: &work)
+        }
         if headings + lists + codes + tables == 0 { result.sufficient = false }
         if top.allSatisfy({ $0.kind == "block_quote" }) { result.sufficient = false }
         if !ownsStart && top.contains(where: { $0.kind == "block_quote" })
@@ -374,6 +381,125 @@ extension ClipboardScanners {
         result.evidence = [.headings(headings), .lists(lists), .codeBlocks(codes), .tables(tables), .links(links)]
         if !result.accepted { result.evidence.append(.conflictingSyntax) }
         return result
+    }
+
+    private static func markdownNote(
+        _ top: [ClipboardMarkdownNode], window: ClipboardWindow, running: [UInt8], leadingProseOnly: Bool,
+        work: inout ClipboardWork
+    ) -> Bool {
+        var atx = 0
+        var setext = 0
+        var sentence = false
+        var nodes = top.reversed().map { ($0, false) }
+        while let (node, inList) = nodes.popLast() {
+            work.visit()
+            let first = Int(cmark_node_get_start_line(node.pointer)) - 1
+            let end = Int(cmark_node_get_end_line(node.pointer))
+            guard first >= 0, end <= window.lines.count, first < end else { return false }
+            switch node.kind {
+            case "heading":
+                if inList { continue }
+                if ClipboardSlice(window.bytes, window.lines[first]).trimmed.hasPrefix("#") {
+                    atx += 1
+                } else {
+                    setext += 1
+                }
+            case "paragraph":
+                // The existing acceptance veto still asks for introductory prose, with Markdown selected.
+                if leadingProseOnly && atx + setext == 0 && !inList { continue }
+                for index in first..<end {
+                    // Only the item's marked line may be short. A lazy continuation can be a bare
+                    // package name or command and must not get a free pass from CommonMark's list.
+                    if inList, let parent = cmark_node_parent(node.pointer),
+                        ["item", "tasklist"].contains(ClipboardMarkdownNode(parent).kind),
+                        Int(cmark_node_get_start_line(parent)) == index + 1
+                    {
+                        continue
+                    }
+                    let range = window.lines[index]
+                    let line = ClipboardSlice(running, range).trimmed
+                    work.visit(range.count)
+                    // Opaque Markdown constructs are allowed, but cannot supply the required prose.
+                    if line.isEmpty { continue }
+                    guard atx + setext > 0 else { return false }
+                    let original = ClipboardSlice(window.bytes, range).trimmed
+                    if matches(original, sourceLine, work: &work) || matches(original, configLine, work: &work)
+                        || matches(original, dataLine, work: &work) || matches(original, envelopeStart, work: &work)
+                        || matches(original, cronLine, work: &work) || matches(original, logLine, work: &work)
+                    {
+                        return false
+                    }
+                    guard noteSentence(line, work: &work) else { return false }
+                    if !inList { sentence = true }
+                }
+            case "list", "item", "tasklist":
+                var child = cmark_node_last_child(node.pointer)
+                while let pointer = child {
+                    nodes.append((ClipboardMarkdownNode(pointer), true))
+                    child = cmark_node_previous(pointer)
+                }
+            case "block_quote", "code_block", "table", "thematic_break", "html_block":
+                continue
+            default:
+                return false
+            }
+        }
+        return sentence && (atx >= 2 || setext >= 2)
+    }
+
+    private static func noteSentence(_ line: ClipboardSlice, work: inout ClipboardWork) -> Bool {
+        let scalars = line.string.unicodeScalars
+        work.visit(line.count)
+        guard let first = scalars.first,
+            CharacterSet.alphanumerics.contains(first) || "\"'“‘「『(（[【〈《".unicodeScalars.contains(first)
+        else { return false }
+        var end = scalars.endIndex
+        let closers: Set<Unicode.Scalar> = ["\"", "'", ")", "]", "}", "”", "’", "」", "』", "）", "】", "〉", "》"]
+        while end > scalars.startIndex && closers.contains(scalars[scalars.index(before: end)]) {
+            end = scalars.index(before: end)
+        }
+        guard end > scalars.startIndex, ".!?。！？".unicodeScalars.contains(scalars[scalars.index(before: end)]) else {
+            return false
+        }
+        // Assignment, shell expansion and escaping are too ambiguous for this additional proof.
+        if line.contains("=") || line.contains("\\") || line.contains("$") || line.contains("{")
+            || line.contains(";") || line.contains("|")
+        {
+            return false
+        }
+        // A bare command followed by a quoted argument also ends like a sentence (printf, msgid, etc.).
+        let wordEnd = line.wordEnd(from: line.range.lowerBound)
+        let argument = ClipboardSlice(line.bytes, wordEnd..<line.range.upperBound).trimmed
+        if argument.first == 34 || argument.first == 39 { return false }
+        // Commands can put flags before the quoted sentence, as in python -c "print(...)".
+        for i in line.range.dropLast() where i > line.range.lowerBound {
+            work.visit()
+            if line.bytes[i] == 45 && (line.bytes[i - 1] == 32 || line.bytes[i - 1] == 9) {
+                let next = line.bytes[i + 1]
+                if next == 45 || (65...90).contains(next) || (97...122).contains(next) { return false }
+            }
+        }
+        var words = 0
+        var inWord = false
+        var cjkRun = 0
+        var longestCJK = 0
+        for scalar in scalars {
+            work.visit()
+            let value = scalar.value
+            let cjk =
+                (0x3040...0x30FF).contains(value) || (0x3400...0x9FFF).contains(value)
+                || (0xAC00...0xD7AF).contains(value) || (0x20000...0x323AF).contains(value)
+            cjkRun = cjk ? cjkRun + 1 : 0
+            longestCJK = max(longestCJK, cjkRun)
+            if CharacterSet.letters.contains(scalar) {
+                if !inWord { words += 1 }
+                inWord = true
+            } else if scalar.properties.isWhitespace {
+                // Only whitespace separates words; paths and dotted package names are not prose.
+                inWord = false
+            }
+        }
+        return words >= 3 || longestCJK >= 6
     }
 
     private static func markdownPossible(_ bytes: [UInt8], lines: [Range<Int>], work: inout ClipboardWork) -> Bool {

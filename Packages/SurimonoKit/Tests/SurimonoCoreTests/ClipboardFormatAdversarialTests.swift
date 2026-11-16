@@ -126,3 +126,111 @@ struct ClipboardFormatAdversarialTests {
         }
     }
 }
+
+extension ClipboardFormatAdversarialTests {
+    static let commentedSentenceFiles: [(String, String)] = [
+        ("ライセンス付き依存一覧", "# License\nPermission is granted to use this software.\n\n## Dependencies\nflask\nrequests\n"),
+        (
+            "SPDX付きシェル",
+            "# License\nPermission is granted to use this software.\nSPDX-License-Identifier: MIT\n\n## Run\necho done\n"
+        ),
+        (
+            "POの単数メッセージ",
+            "# Messages\nmsgid \"Please print this document.\"\n\n## Translation\nmsgstr \"この文書を印刷してください。\"\n"
+        ),
+        (
+            "POの複数メッセージ",
+            "# Messages\nThese are the translated messages.\nmsgid_plural \"Please print these documents.\"\n\n## Translation\nmsgstr[0] \"印刷してください。\"\n"
+        ),
+        (
+            "Makefileのhelp",
+            "# Help\nThis target prints the available commands.\nhelp:\n\t@echo 'Please run make build.'\n\n## Build\nbuild:\n\tswift build\n"
+        ),
+        (
+            "Makefileの変数",
+            "# Help\nThese targets build the application.\nHELP_TEXT := Please run make build.\n\n## Build\nall: build\n"
+        ),
+        (
+            "SQLのコメントと文",
+            "# Migration\n-- This table stores the report.\nCREATE TABLE reports (id INTEGER);\n\n## Seed\nINSERT INTO reports VALUES (1);\n"
+        ),
+        (
+            "SQLの設定値",
+            "# Session\nThis session uses the report database.\nSET application_name = 'This is a report.';\n\n## Query\nSELECT 1;\n"
+        ),
+        (
+            "DockerfileのLABEL",
+            "# Image\nThis image contains the report service.\n\n## Metadata\nLABEL description=\"This is a report service.\"\n"
+        ),
+        ("Dockerfileの継続行", "# Image\nFROM alpine\n\n## Description\nLABEL description=\"This is a small image.\"\n"),
+        (
+            "Pythonのdocstring",
+            "# Module\n\"\"\"This module prints the daily report.\"\"\"\n\n## Run\nprint('This is a complete sentence.')\n"
+        ),
+        (
+            "Pythonの複数行docstring",
+            "# Module\n\"\"\"\nThis module prints the daily report.\n\n## Details\nThese are the implementation notes.\n\"\"\"\n"
+        ),
+        (
+            "番号付き平文README",
+            "# 1 Setup\nThis guide describes the installation process.\npython installer.py\n\n# 2 Usage\nRun the application after installation.\n"
+        ),
+        (
+            "版番号を残す変更履歴",
+            "# Changes\nThis release improves the printing behavior.\nv1.2.3\n\n## Fixes\nAll known crashes are now fixed.\n"
+        ),
+        (
+            "日時を残す変更履歴",
+            "# Changes\nThis release improves the printing behavior.\n2026-11-16\n\n## Fixes\nThe paper size is now correct.\n"
+        ),
+        (
+            "ignoreの説明文とパターン",
+            "# Generated\nThese files are generated during builds.\n*.generated.swift\n\n## Local\nThese files contain local settings.\n.env\n"
+        ),
+        (
+            "hostsの説明文とIP",
+            "# Loopback\nThis name resolves to the local machine.\n127.0.0.1 localhost\n\n## Printer\n192.168.0.2 printer\n"
+        ),
+        (
+            "cronの説明文と時刻",
+            "# Reports\nThis job prints the daily report.\n0 9 * * MON /usr/bin/report\n\n## Cleanup\n0 3 * * SUN /usr/bin/clean\n"
+        ),
+        ("INIの説明文と節", "# Settings\nThese settings control the print service.\n[printer]\n\n## Paper\nsize = A4\n"),
+        ("YAMLの文章値", "# Service\ndescription: This service prints the daily report.\n\n## Paper\nsize: A4\n"),
+        (
+            "環境設定の文章値",
+            "# Service\nThese settings control the print service.\nDESCRIPTION=This is a print service.\n\n## Port\nPORT=8080\n"
+        ),
+        (
+            "シェルのprintf",
+            "# Message\nprintf 'Please print this report.'\n\n## Finish\nprintf 'The job is now complete.'\n"
+        ),
+        ("シェルのecho", "# Message\necho 'Please print this report.'\n\n## Finish\necho 'The job is now complete.'\n"),
+        (
+            "Rのコメントと代入",
+            "# Analysis\nThese results describe the current experiment.\nx <- read.csv('results.csv')\n\n## Plot\nplot(x)\n"
+        ),
+        (
+            "SQLのコメントだけ",
+            "# Migration\n-- This table stores the report.\n\n## Details\n-- These records contain the daily totals.\n"
+        ),
+        (
+            "フラグ付きPython実行",
+            "# Notes\n\nThis is a complete sentence.\n\n## Run\n\npython -c \"print('This is a complete sentence.')\"\n"
+        ),
+    ]
+
+    @Test("文に見える本文を持つコメント付きファイル26件を自動整形しない")
+    func commentedSentences() {
+        #expect(Self.commentedSentenceFiles.count >= 20)
+        for (name, text) in Self.commentedSentenceFiles {
+            for level in ClipboardFormatSettings.Carefulness.allCases {
+                let action = ClipboardFormatDetector.detect(text, settings: .init(carefulness: level)).action
+                switch action {
+                case .ask, .open(.plainText): break
+                default: Issue.record(Comment(rawValue: "\(name) / \(level): \(action)"))
+                }
+            }
+        }
+    }
+}

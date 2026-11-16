@@ -61,6 +61,12 @@ struct ClipboardFormatWorkTests {
         }
         inputs.append(("comment", String(repeating: "/* ", count: 32_000 / 3) + "*/"))
         inputs.append(("punctuation", fill("`*_~$[]()<>|\\\"#=:-{}%&;!?")))
+        let noteStart = "# Notes\n\n## Details\n\n"
+        inputs.append(("note long sentence", noteStart + String(repeating: "word ", count: 6_000) + "ends here."))
+        inputs.append(("note long CJK", noteStart + String(repeating: "文", count: 30_000) + "。"))
+        inputs.append(("note many sentences", noteStart + String(repeating: "We can print this.\n", count: 1_400)))
+        inputs.append(
+            ("note final bare token", noteStart + String(repeating: "We can print this.\n", count: 1_400) + "flask"))
         for n in [4_096, 8_192, 16_384, 32_000] {
             inputs.append(("backtick-dollar \(n)", "`" + String(repeating: "a$", count: (n - 1) / 2)))
             inputs.append(("script \(n)", String(repeating: "<script>x</script>", count: n / 18)))
