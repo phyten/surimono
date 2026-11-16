@@ -154,7 +154,7 @@ struct BandMeasurementAgreementTests {
     }
 
     @Test(
-        "帯に描いた部品と「…」の幅は、見えない所で測った同じ形の幅と1pt以内で一致する",
+        "帯に描いた部品と「…」の幅は、見えない所で測った同じ形の幅より1ptを超えて広くならず、2ptを超えて狭くならない",
         arguments: [CGFloat(1800), 640])
     func drawnWidthsMatchMeasured(width: CGFloat) async throws {
         let fixture = try Fixture(parts: BandTestCatalog.addedItems, width: width)
@@ -168,7 +168,12 @@ struct BandMeasurementAgreementTests {
                 let form = try #require(row.forms[item])
                 let measured = try #require(fixture.menu.bandWidths[.item(item, form)], "\(item) \(form) を測っていない")
                 let drawn = try #require(fixture.model.bandAnchors.frames[.item(item)], "\(item) を描いていない")
-                #expect(abs(drawn.width - measured) <= 1, "\(item) \(form): 測った \(measured)、描いた \(drawn.width)")
+                // Wider than measured is what breaks the band (the name gets squeezed), so that way has one point of
+                // slack. Narrower only leaves room: a native segmented control draws two points narrower than its
+                // hidden copy measures on a Retina screen (56 against 54), and as wide as it on a 1x screen.
+                let excess = drawn.width - measured
+                #expect(
+                    excess <= 1 && excess >= -2, "\(item) \(form): 測った \(measured)、描いた \(drawn.width)")
                 compared += 1
             }
         }
