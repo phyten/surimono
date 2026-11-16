@@ -38,21 +38,44 @@ struct PrintOutcome: Equatable {
     /// paper itself, what the pages are when not all of them are the document's, the sheets of one copy and of all
     /// of them, and paper turned two ways.
     func detail(language: String) -> String? {
+        let parts = detailParts(language: language)
+        guard let first = parts.first else { return nil }
+        let line = parts.dropFirst().reduce(first) { PrintModeText.format("%@ · %@", language: language, $0, $1) }
+        return Self.keepingNumbers(line)
+    }
+
+    /// The detail for a bar too narrow to give it one line: the breakdown of the pages goes on a line of its own, and
+    /// each line is in pieces that a narrower bar moves to the next line whole, so that no word is broken. Every piece
+    /// but the last of a line carries the separator after it. Nil when there is nothing to say.
+    func detailLines(language: String) -> [[String]]? {
+        let parts = detailParts(language: language, breakdown: false)
+        guard !parts.isEmpty else { return nil }
+        var lines = [
+            Self.pieces(parts, language: language) { PrintModeText.format("%@ · %@", language: language, $0, $1) }
+        ]
+        if let counts = breakdownCounts(language: language) {
+            lines.append(
+                Self.pieces(counts, language: language) {
+                    PrintModeText.format("%1$@ + %2$@", language: language, $0, $1)
+                })
+        }
+        return lines
+    }
+
+    /// What the detail says, in order. With `breakdown`, the page count carries what its pages are, in parentheses.
+    private func detailParts(language: String, breakdown: Bool = true) -> [String] {
         var parts: [String] = []
         if let finished = finished(language: language) { parts.append(finished) }
-        if contents + notes + blanks > 0 {
-            let counts = [
-                PrintModeText.format("Body %lld", language: language, body),
-                contents > 0 ? PrintModeText.format("Contents %lld", language: language, contents) : nil,
-                notes > 0 ? PrintModeText.format("Notes %lld", language: language, notes) : nil,
-                blanks > 0 ? PrintModeText.format("Blank %lld", language: language, blanks) : nil,
-            ].compactMap { $0 }
-            let sum = counts.dropFirst().reduce(counts[0]) {
-                PrintModeText.format("%1$@ + %2$@", language: language, $0, $1)
+        if let counts = breakdownCounts(language: language) {
+            let pageCount = PrintModeText.pageCount(pages, language: language)
+            if breakdown {
+                let sum = counts.dropFirst().reduce(counts[0]) {
+                    PrintModeText.format("%1$@ + %2$@", language: language, $0, $1)
+                }
+                parts.append(PrintModeText.format("%1$@ (%2$@)", language: language, pageCount, sum))
+            } else {
+                parts.append(pageCount)
             }
-            parts.append(
-                PrintModeText.format(
-                    "%1$@ (%2$@)", language: language, PrintModeText.pageCount(pages, language: language), sum))
         }
         if copies > 1 {
             parts.append(
@@ -62,10 +85,36 @@ struct PrintOutcome: Equatable {
                     PrintModeText.sheetCount(sheets * copies, language: language)))
         }
         if let mixed = PrintModeText.mixedNote(orientations, language: language) { parts.append(mixed) }
-        guard let first = parts.first else { return nil }
-        let line = parts.dropFirst().reduce(first) { PrintModeText.format("%@ · %@", language: language, $0, $1) }
-        // A number stays with the word beside it where the line wraps: "40 pages", "Blank 2".
-        return line.replacingOccurrences(of: #"(\d) "#, with: "$1\u{00A0}", options: .regularExpression)
+        return parts
+    }
+
+    /// The body, the contents, the notes and the blanks, when not all the pages are the document's.
+    private func breakdownCounts(language: String) -> [String]? {
+        guard contents + notes + blanks > 0 else { return nil }
+        return [
+            PrintModeText.format("Body %lld", language: language, body),
+            contents > 0 ? PrintModeText.format("Contents %lld", language: language, contents) : nil,
+            notes > 0 ? PrintModeText.format("Notes %lld", language: language, notes) : nil,
+            blanks > 0 ? PrintModeText.format("Blank %lld", language: language, blanks) : nil,
+        ].compactMap { $0 }
+    }
+
+    /// The parts with the separator the language joins them with left on each but the last, as `join` puts it between
+    /// two parts. A space at the end of a piece would be dropped where the piece ends a line, so it is a no-break
+    /// space that keeps the gap before the next piece.
+    private static func pieces(_ parts: [String], language: String, join: (String, String) -> String) -> [String] {
+        let marker = "\u{E000}"
+        return parts.enumerated().map { index, part in
+            guard index < parts.count - 1 else { return keepingNumbers(part) }
+            let joined = join(part, marker)
+            let piece = joined.components(separatedBy: marker).first ?? joined
+            return keepingNumbers(piece).replacingOccurrences(of: #" $"#, with: "\u{00A0}", options: .regularExpression)
+        }
+    }
+
+    /// A number stays with the word beside it where the line wraps: "40 pages", "Blank 2".
+    private static func keepingNumbers(_ text: String) -> String {
+        text.replacingOccurrences(of: #"(\d) "#, with: "$1\u{00A0}", options: .regularExpression)
             .replacingOccurrences(of: #" (\d)"#, with: "\u{00A0}$1", options: .regularExpression)
     }
 

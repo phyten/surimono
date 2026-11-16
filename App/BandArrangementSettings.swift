@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Settings > Toolbar Arrangement: the active set's two variants drawn on a miniature of the view mode's window, where
-/// parts and separators are dragged between the zones and "Not in Use", or moved with the inspector's buttons.
+/// parts and separators are dragged between the zones and "Parts to Add", or moved with the inspector's buttons.
 struct BandArrangementSettings: View {
     @Bindable var session: BandArrangementEditorSession
     @State private var width: CGFloat = 0
@@ -131,9 +131,7 @@ private struct SetBar: View {
             }
             .labelsHidden()
             .fixedSize()
-            Button("Duplicate…") { session.dialog = .duplicate }
-                .help("Save the arrangement on screen under a new name")
-                .fixedSize()
+            // Saving stays a button: it is what a change on screen needs. Making and managing sets is in the menu.
             Button("Overwrite") { session.overwrite() }
                 .disabled(!session.canOverwrite)
                 .help(
@@ -142,50 +140,59 @@ private struct SetBar: View {
                         : LocalizedStringKey("Save the changes into this arrangement")
                 )
                 .fixedSize()
-            Button("New…") { session.request(.newSet) }
-                .help("Start a new arrangement from Standard")
-                .fixedSize()
             Menu {
+                Button("Duplicate…") { session.dialog = .duplicate }
+                    .help("Save the arrangement on screen under a new name")
+                Button("New…") { session.request(.newSet) }
+                    .help("Start a new arrangement from Standard")
+                Divider()
+                // Standard has no name to change and cannot go; its menu still makes copies and new sets.
                 Button("Rename…") { session.dialog = .rename }
+                    .disabled(session.isStandardActive)
                 Button("Delete…") { session.dialog = .delete }
+                    .disabled(session.isStandardActive)
             } label: {
                 Label("Manage Arrangement", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .disabled(session.isStandardActive)
-            .help(
-                session.isStandardActive
-                    ? LocalizedStringKey("Standard cannot be renamed or deleted.")
-                    : LocalizedStringKey("Rename or delete")
-            )
+            .help("Manage Arrangement")
             Spacer(minLength: 0)
         }
     }
 }
 
-/// Whether the miniature shows unsaved changes, and the editor's history.
+/// Whether the miniature shows unsaved changes.
 private struct StatusRow: View {
     let session: BandArrangementEditorSession
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Group {
-                if session.isDirty {
-                    (Text(Image(systemName: "circle.fill")).font(.system(size: 6)).baselineOffset(1.5)
-                        + Text(verbatim: " ") + Text("Unsaved Changes").fontWeight(.semibold)
-                        + Text(verbatim: "  ")
-                        + Text("Save to apply to all view windows.").foregroundStyle(.secondary))
-                        .foregroundStyle(PrintPalette.warn)
-                } else {
-                    Text("All view windows use this arrangement.").foregroundStyle(.secondary)
-                }
+        Group {
+            if session.isDirty {
+                (Text(Image(systemName: "circle.fill")).font(.system(size: 6)).baselineOffset(1.5)
+                    + Text(verbatim: " ") + Text("Unsaved Changes").fontWeight(.semibold)
+                    + Text(verbatim: "  ")
+                    + Text("Save to apply to all view windows.").foregroundStyle(.secondary))
+                    .foregroundStyle(PrintPalette.warn)
+            } else {
+                Text("All view windows use this arrangement.").foregroundStyle(.secondary)
             }
-            .font(.system(size: 11))
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.system(size: 11))
+        .lineLimit(2)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The editor's history and the way back to Standard: they act on the variants being edited, so they sit with the
+/// choice of which one is edited rather than with the set.
+private struct EditHistoryControls: View {
+    let session: BandArrangementEditorSession
+
+    var body: some View {
+        HStack(spacing: 8) {
             ControlGroup {
                 Button {
                     session.undo()
@@ -212,20 +219,35 @@ private struct StatusRow: View {
     }
 }
 
-/// Which variant is edited. Each set keeps both; which one the windows use is chosen in View & Page Turn.
+/// Which variant is edited, and the editing controls at its trailing end. Each set keeps both variants; which one the
+/// windows use is chosen in View & Page Turn.
 private struct ModeRow: View {
     @Bindable var session: BandArrangementEditorSession
 
     var body: some View {
+        // No popover hangs from these controls, so trading one arrangement for another here closes nothing.
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 10) {
                 choice
                 inUseNote
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
+                EditHistoryControls(session: session)
             }
             VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 10) {
+                    choice
+                    Spacer(minLength: 8)
+                    EditHistoryControls(session: session)
+                }
+                inUseNote
+            }
+            VStack(alignment: .leading, spacing: 6) {
                 choice
                 inUseNote
+                HStack {
+                    Spacer(minLength: 0)
+                    EditHistoryControls(session: session)
+                }
             }
         }
     }
@@ -542,6 +564,9 @@ private struct MiniatureNotes: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
+            // How to edit, which the miniature itself does not show: the inspector below explains a selected part.
+            Text("Drag parts to arrange them. Select one to see what it does.")
+                .foregroundStyle(.secondary)
             if session.message == nil, !session.hasIdleSeparators {
                 Text("Narrow windows hide parts of the toolbar.")
                     .foregroundStyle(.secondary)
@@ -715,14 +740,14 @@ private struct SeparatorMark: View {
     }
 }
 
-// MARK: - Not in Use
+// MARK: - Parts to Add
 
 private struct UnusedPalette: View {
     let session: BandArrangementEditorSession
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text("Not in Use").font(.headline)
+            Text("Parts to Add").font(.headline)
             Text("All operations are also available in “…”.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -790,7 +815,7 @@ private struct UnusedPalette: View {
             of: [.utf8PlainText], delegate: BandEditorDropDelegate(session: session, target: { _ in .unused })
         )
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Not in Use"))
+        .accessibilityLabel(Text("Parts to Add"))
     }
 }
 
@@ -928,7 +953,7 @@ private struct Inspector: View {
         .labelsHidden()
     }
 
-    /// A separator has no place in "Not in Use": it is deleted instead. Print may not go there at all.
+    /// A separator has no place in "Parts to Add": it is deleted instead. Print may not go there at all.
     private func destinations(for entry: BandEntry) -> [BandDestination] {
         session.destinations.filter { $0 != .unused || entry.item.map { $0 != .print } == true }
     }

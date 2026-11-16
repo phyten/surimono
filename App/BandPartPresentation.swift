@@ -107,7 +107,7 @@ extension BandDestination {
     var editorName: String {
         switch self {
         case .zone(let zone): zone.editorName
-        case .unused: String(localized: "Not in Use")
+        case .unused: String(localized: "Parts to Add")
         }
     }
 }
@@ -216,7 +216,7 @@ struct PrintGlyph: View {
 
 extension BandRepairNotice {
     /// Whether loading changed or left out something that was saved, rather than only adding a newer version's part
-    /// to "Not in Use" or keeping an unknown one aside.
+    /// to "Parts to Add" or keeping an unknown one aside.
     var losesData: Bool {
         switch self {
         case .addedToUnused, .unknownID: false

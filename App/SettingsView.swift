@@ -122,28 +122,34 @@ struct SettingsView: View {
                             SettingsFootnote(UpdateHandlingPicker.note)
                         }
                     }
+                } else {
+                    #if !APP_STORE
+                        // Where the release build has its update settings, so both builds show updates in one place.
+                        // The App Store build updates through the App Store and says nothing here.
+                        Section("Updates") {
+                            Text("Updates are unavailable in development builds.").foregroundStyle(.secondary)
+                        }
+                    #endif
                 }
                 Section("When Opening a Window") {
                     Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
+                }
+                Section {
                     Picker("When a Binder Is Down to One Document", selection: $preferences.singleDocumentBinderPolicy)
                     {
                         Text("Ask").tag(SingleDocumentBinderPolicy.ask)
                         Text("Leave Binder Mode Without Asking").tag(SingleDocumentBinderPolicy.leave)
                         Text("Stay a Binder Without Asking").tag(SingleDocumentBinderPolicy.stay)
                     }
-                }
-                Section {
                     Picker("After a File Is Saved", selection: $preferences.changeFollowing) {
                         Text("Jump to the Change").tag(ChangeFollowing.jump)
                         Text("Stay Here, Marks Only").tag(ChangeFollowing.mark)
-                        Text("Ask with a Notice").tag(ChangeFollowing.ask)
+                        Text("Ask Whether to Jump").tag(ChangeFollowing.ask)
                     }
+                } header: {
+                    Text("After a Document Opens")
                 } footer: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        SettingsFootnote("Changes are marked in Markdown documents.")
-                        // At the end of the pane, apart from Language and Appearance, which it is not about.
-                        if !updater.isAvailable { SettingsFootnote("Updates are unavailable in development builds.") }
-                    }
+                    SettingsFootnote("Changes are marked in Markdown documents.")
                 }
             case .view:
                 Section {
@@ -153,42 +159,46 @@ struct SettingsView: View {
                         Text("High").tag(WheelPageTurner.Sensitivity.high)
                     }.pickerStyle(.segmented)
                 }
-                // The heading says these are defaults, so the labels and a footer need not.
-                Section("Defaults for New Documents") {
+                // The heading says these are defaults, so the labels need not; "Automatic" is explained once below.
+                Section {
                     Picker("View", selection: $preferences.defaultViewLayout) {
-                        Text("Automatic (Match Document)").tag(nil as ViewOptions.Layout?)
+                        Text("Automatic").tag(nil as ViewOptions.Layout?)
                         ForEach(ViewOptions.Layout.displayOrder, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
-                    Picker("Page Turn", selection: $preferences.defaultPageTurn) {
-                        Text("Automatic (Match Document)").tag(nil as ViewOptions.Transition?)
+                    // Not the band's "Page Turn", which is short beside its value; here the label stands alone.
+                    Picker("Page Turning", selection: $preferences.defaultPageTurn) {
+                        Text("Automatic").tag(nil as ViewOptions.Transition?)
                         ForEach(ViewOptions.Transition.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
                     Picker("Reading Direction", selection: $preferences.defaultReadingDirection) {
-                        Text("Automatic (Match Document)").tag(nil as ViewOptions.Direction?)
+                        Text("Automatic").tag(nil as ViewOptions.Direction?)
                         Text("Left to Right").tag(Optional(ViewOptions.Direction.leftToRight))
                         Text("Right to Left").tag(Optional(ViewOptions.Direction.rightToLeft))
                     }
                     Picker("Scroll Direction", selection: $preferences.defaultScrollAxis) {
-                        Text("Automatic (Match Document)").tag(nil as ViewOptions.ScrollAxis?)
+                        Text("Automatic").tag(nil as ViewOptions.ScrollAxis?)
                         Text("Vertical").tag(Optional(ViewOptions.ScrollAxis.vertical))
                         Text("Horizontal").tag(Optional(ViewOptions.ScrollAxis.horizontal))
                     }
                     Picker("Show First Page Alone", selection: $preferences.defaultShowsCoverAlone) {
-                        Text("Automatic (Match Document)").tag(nil as Bool?)
+                        Text("Automatic").tag(nil as Bool?)
                         Text("On").tag(Optional(true))
                         Text("Off").tag(Optional(false))
                     }
-                    Toggle("Join Pages in Single-Page Scrolling", isOn: $preferences.defaultJoinsPages)
-                }
-                // Unlike the defaults above, this applies to open windows as well.
-                Section {
-                    Picker("Width of a Lone First Page", selection: $preferences.loneCoverWidth) {
+                    // Beside the choice it depends on. Unlike the defaults around it, it applies to open windows too,
+                    // which the footer says.
+                    Picker("Window Width When the First Page Is Alone", selection: $preferences.loneCoverWidth) {
                         Text("One Page").tag(LoneCoverWidth.onePage)
                         Text("Two Pages").tag(LoneCoverWidth.twoPages)
                     }
+                    Toggle("Join Pages in Single-Page Scrolling", isOn: $preferences.defaultJoinsPages)
+                } header: {
+                    Text("Defaults for New Documents")
                 } footer: {
-                    SettingsFootnote(
-                        "With One Page, the window narrows to the first page while a spread shows it alone.")
+                    VStack(alignment: .leading, spacing: 2) {
+                        SettingsFootnote("Automatic follows the document.")
+                        SettingsFootnote("The window width also applies to windows already open.")
+                    }
                 }
                 Section {
                     Picker("Toolbar Layout", selection: $preferences.menuArrangement) {
@@ -217,7 +227,8 @@ struct SettingsView: View {
                 } footer: {
                     SettingsFootnote("Page numbers are never shown in single-page scrolling.")
                 }
-                Section {
+                // As in View & Page Turn and Printing, the heading says these are defaults.
+                Section("Defaults for New Documents") {
                     Picker("In Print", selection: furnitureChoice) {
                         ForEach(PrintFurnitureChoice.choices.filter { $0.value != .custom }, id: \.value) { choice in
                             Text(choice.title).tag(choice.value)
@@ -227,17 +238,15 @@ struct SettingsView: View {
                             Text("Specify Contents…").tag(PageFurniture.Preset.custom)
                         }
                     }
-                } footer: {
-                    defaultsNote
                 }
             case .printing:
-                Section {
-                    Picker("Default Print Layout", selection: $preferences.layoutID) {
+                Section("Defaults for New Documents") {
+                    Picker("Print Layout", selection: $preferences.layoutID) {
                         ForEach(PrintLayout.presets) { layout in
                             Text(verbatim: layout.displayName(language: language)).tag(layout.id)
                         }
                     }
-                    Picker("Default Paper Orientation", selection: $preferences.defaultPaperOrientation) {
+                    Picker("Paper Orientation", selection: $preferences.defaultPaperOrientation) {
                         Text("Automatic").tag(PaperOrientation.auto)
                         Text("Portrait").tag(PaperOrientation.portrait)
                         Text("Landscape").tag(PaperOrientation.landscape)
@@ -248,13 +257,13 @@ struct SettingsView: View {
                             preferences.margin = $0
                         }
                     }
-                } footer: {
-                    defaultsNote
                 }
                 // Both belong to the printer: they are where a printer starts until it remembers its own.
                 Section {
                     Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
                     PrintPageOrderPicker(order: $preferences.printPageOrder)
+                } header: {
+                    Text("Printers Without Remembered Settings")
                 } footer: {
                     SettingsFootnote(PrintPageOrderPicker.hint)
                 }

@@ -54,6 +54,7 @@ public struct CodePalette: Equatable, Sendable, Identifiable {
     public let id: String
     public let name: String
     public let localizedNames: [String: String]
+    /// What the name does not say; empty when the name says it all ("Indigo Only").
     public let note: String
     public let localizedNotes: [String: String]
     public let group: Group
@@ -200,7 +201,7 @@ public enum CodePaletteLibrary {
             let group: String
             let name: String
             let localizedNames: [String: String]?
-            let note: String
+            let note: String?
             let localizedNotes: [String: String]?
             let colors: [String: String]
             let faces: [String: String]?
@@ -252,7 +253,7 @@ public enum CodePaletteLibrary {
                 faces[token] = face
             }
             return CodePalette(
-                id: entry.id, name: entry.name, localizedNames: entry.localizedNames ?? [:], note: entry.note,
+                id: entry.id, name: entry.name, localizedNames: entry.localizedNames ?? [:], note: entry.note ?? "",
                 localizedNotes: entry.localizedNotes ?? [:], group: group, colors: colors, faces: faces,
                 additionBackground: entry.additionBackground, deletionBackground: entry.deletionBackground,
                 ground: entry.ground, ink: entry.ink, inkIndex: entry.inkIndex)

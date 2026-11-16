@@ -26,17 +26,23 @@ struct ClipboardSettings: View {
                     }
                 }
             }
-            Picker("How Readily to Format", selection: $preferences.clipboardFormat.carefulness) {
-                Text("Careful").tag(Carefulness.careful)
-                Text("Standard").tag(Carefulness.standard)
-                Text("Eager").tag(Carefulness.eager)
+            // Opening every text in one format asks the detector nothing, so how readily it formats would change
+            // nothing there; the format to open takes its place.
+            if preferences.clipboardFormat.mode != .fixed {
+                Picker("How Readily to Format", selection: $preferences.clipboardFormat.carefulness) {
+                    Text("Careful").tag(Carefulness.careful)
+                    Text("Standard").tag(Carefulness.standard)
+                    Text("Eager").tag(Carefulness.eager)
+                }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
         } header: {
             Text("When Opening from the Clipboard")
         } footer: {
             VStack(alignment: .leading, spacing: 2) {
-                SettingsFootnote(verbatim: carefulnessNote)
+                if let note = Self.carefulnessNote(for: preferences.clipboardFormat) {
+                    SettingsFootnote(verbatim: note)
+                }
                 SettingsFootnote("Text from the Services menu uses the same settings.")
             }
         }
@@ -62,12 +68,20 @@ struct ClipboardSettings: View {
         }
     }
 
-    private var carefulnessNote: String {
-        switch preferences.clipboardFormat.carefulness {
+    /// What the chosen level does to text a reader can recognize, rather than the detector's criterion; the examples and
+    /// the order of the levels behind each sentence are in `ClipboardCarefulnessNoteTests`. Nil where it cannot come
+    /// true: every sentence is about Markdown opening formatted without a question, which needs a mode that opens text
+    /// on its own and Markdown among the formats recognized.
+    static func carefulnessNote(for settings: ClipboardFormatSettings) -> String? {
+        guard settings.mode == .askWhenUnsure || settings.mode == .plainTextWhenUnsure,
+            settings.automaticKinds.contains(.markdown)
+        else { return nil }
+        return switch settings.carefulness {
         case .careful:
-            String(localized: "Formats only text that is clearly one format.")
-        case .standard: String(localized: "Formats text with a confirmed structure.")
-        case .eager: String(localized: "Formats text even from weak marks.")
+            String(
+                localized: "Formats less than Standard. A note of headings, sentences and a list may stay unformatted.")
+        case .standard: String(localized: "Usually also formats notes of headings, sentences and a list.")
+        case .eager: String(localized: "May format even a heading with numbered steps.")
         }
     }
 

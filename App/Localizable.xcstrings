@@ -7616,55 +7616,54 @@
         }
       }
     },
-    "Not in Use": {
-      "extractionState": "manual",
+    "Parts to Add": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not in Use"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使わない部品"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未使用"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未使用"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "사용하지 않음"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Non utilisés"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nicht verwendet"
+            "value": "Teile zum Hinzufügen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parts to Add"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sin usar"
+            "value": "Piezas para añadir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Éléments à ajouter"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加できる部品"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추가할 수 있는 부품"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可添加的部件"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可新增的部件"
           }
         }
       }
@@ -8460,59 +8459,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Renombrar disposición"
-          }
-        }
-      }
-    },
-    "Rename or delete": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rename or delete"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "名前の変更と削除"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重命名或删除"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新命名或刪除"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이름 변경 또는 삭제"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Renommer ou supprimer"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Umbenennen oder löschen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Renombrar o eliminar"
           }
         }
       }
@@ -9414,59 +9360,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "La estándar no se puede sobrescribir. Duplícala para conservar tus cambios."
-          }
-        }
-      }
-    },
-    "Standard cannot be renamed or deleted.": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standard cannot be renamed or deleted."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「標準」は名前の変更も削除もできません。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "标准排列不能重命名或删除。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "標準排列不能重新命名或刪除。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "표준은 이름을 바꾸거나 삭제할 수 없습니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Le standard ne peut être ni renommé ni supprimé."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standard lässt sich weder umbenennen noch löschen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La estándar no se puede renombrar ni eliminar."
           }
         }
       }
@@ -21324,58 +21217,6 @@
         }
       }
     },
-    "Default Print Layout": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "既定の印刷レイアウト"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Default Print Layout"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认打印布局"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "預設列印佈局"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기본 프린트 레이아웃"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Disposition par défaut"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standard-Drucklayout"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diseño de impresión predeterminado"
-          }
-        }
-      }
-    },
     "In Print": {
       "localizations": {
         "ja": {
@@ -26528,7 +26369,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "左から右へ・左綴じ"
+            "value": "左から右へ・左とじ"
           }
         },
         "en": {
@@ -26581,7 +26422,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "右から左へ・右綴じ"
+            "value": "右から左へ・右とじ"
           }
         },
         "en": {
@@ -40820,54 +40661,54 @@
         }
       }
     },
-    "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order.": {
+    "Last Sheet First keeps face-up sheets in page order.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "設定を覚えていないプリンターの初期値です。印刷面を上にして出すプリンターは「最後の用紙から」でページ順に重なります。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用于尚未记住设置的打印机。面朝上出纸时，“从最后一张开始”可按页序叠放。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用於尚未記住設定的印表機。面朝上出紙時，「從最後一張開始」可按頁序疊放。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "설정을 기억하지 않은 프린터의 초기값입니다. 인쇄면이 위로 나오는 프린터는 ‘마지막 용지부터’로 페이지 순서대로 쌓입니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Valeurs initiales des imprimantes sans réglages mémorisés. Dernière feuille d’abord garde l’ordre des pages pour une sortie face vers le haut."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anfangswerte für Drucker ohne gemerkte Einstellungen. Letztes Blatt zuerst hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
+            "value": "Letztes Blatt zuerst hält Blätter mit der Schrift nach oben in Seitenreihenfolge."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last Sheet First keeps face-up sheets in page order."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Valores iniciales para impresoras sin ajustes guardados. Última hoja primero mantiene el orden con salida boca arriba."
+            "value": "Última hoja primero mantiene el orden con salida boca arriba."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière feuille d’abord garde l’ordre des pages pour une sortie face vers le haut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "印刷面を上にして出すプリンターは「最後の用紙から」でページ順に重なります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "인쇄면이 위로 나오는 프린터는 ‘마지막 용지부터’로 페이지 순서대로 쌓입니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面朝上出纸时，“从最后一张开始”可按页序叠放。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "面朝上出紙時，「從最後一張開始」可按頁序疊放。"
           }
         }
       }
@@ -41401,58 +41242,6 @@
         }
       }
     },
-    "Default Paper Orientation": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Default Paper Orientation"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Standard-Papierausrichtung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orientación del papel predeterminada"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Orientation du papier par défaut"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "既定の用紙の向き"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기본 용지 방향"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认纸张方向"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "預設紙張方向"
-          }
-        }
-      }
-    },
     "Default Text Size": {
       "localizations": {
         "en": {
@@ -41505,54 +41294,54 @@
         }
       }
     },
-    "Width of a Lone First Page": {
+    "Window Width When the First Page Is Alone": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Width of a Lone First Page"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最初のページを単独で表示するときの幅"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "单独显示第一页时的宽度"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "單獨顯示第一頁時的寬度"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "첫 페이지를 단독 표시할 때의 폭"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Largeur de la première page seule"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Breite der einzelnen ersten Seite"
+            "value": "Fensterbreite bei einzelner erster Seite"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Window Width When the First Page Is Alone"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ancho de la primera página sola"
+            "value": "Ancho de la ventana con la primera página sola"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Largeur de la fenêtre quand la première page est seule"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "単独で表示するときのウインドウの幅"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "첫 페이지를 단독 표시할 때의 창 폭"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单独显示第一页时的窗口宽度"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "單獨顯示第一頁時的視窗寬度"
           }
         }
       }
@@ -41869,54 +41658,54 @@
         }
       }
     },
-    "With One Page, the window narrows to the first page while a spread shows it alone.": {
+    "The window width also applies to windows already open.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "With One Page, the window narrows to the first page while a spread shows it alone."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "「1ページ分」では、見開きで最初のページを単独で表示する間はウインドウを1ページ分の幅にします。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择“一页”时，跨页单独显示第一页期间，窗口会收窄到一页宽。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "選擇「一頁」時，跨頁單獨顯示第一頁期間，視窗會縮到一頁寬。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "‘한 페이지’를 선택하면 펼침면에서 첫 페이지를 단독 표시하는 동안 창이 한 페이지 폭으로 좁아집니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Avec Une page, la fenêtre se réduit à la première page tant qu’une double page l’affiche seule."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bei „Eine Seite“ wird das Fenster auf die erste Seite verkleinert, solange die Doppelseite sie einzeln zeigt."
+            "value": "Die Fensterbreite gilt auch für bereits geöffnete Fenster."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The window width also applies to windows already open."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Con Una página, la ventana se estrecha a la primera página mientras la doble página la muestra sola."
+            "value": "El ancho de la ventana también se aplica a las ventanas ya abiertas."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La largeur de la fenêtre s’applique aussi aux fenêtres déjà ouvertes."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウの幅は開いているウインドウにも効きます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "창 폭은 이미 열린 창에도 적용됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口宽度也适用于已打开的窗口。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "視窗寬度也適用於已開啟的視窗。"
           }
         }
       }
@@ -45872,58 +45661,6 @@
         }
       }
     },
-    "Ink: Low": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ink: Low"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "インク 少"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "耗墨 少"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "耗墨 少"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "잉크 적음"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Encre : faible"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tinte: wenig"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tinta: poca"
-          }
-        }
-      }
-    },
     "Ink: Slightly High": {
       "localizations": {
         "en": {
@@ -46808,54 +46545,54 @@
         }
       }
     },
-    "Show Language Name": {
+    "Language Name": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show Language Name"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "言語名を表示"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "显示语言名称"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "顯示語言名稱"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "언어 이름 표시"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Afficher le nom du langage"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sprachnamen zeigen"
+            "value": "Sprachetikett"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language Name"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mostrar el nombre del lenguaje"
+            "value": "Etiqueta de lenguaje"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Étiquette de langage"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語名"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "언어 이름"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "语言名称"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "語言名稱"
           }
         }
       }
@@ -47858,55 +47595,54 @@
         }
       }
     },
-    "Ask with a Notice": {
-      "extractionState": "manual",
+    "Ask Whether to Jump": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ask with a Notice"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "知らせて聞く"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用提示询问"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用提示詢問"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "알림으로 묻기"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Demander par une notification"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mit einem Hinweis fragen"
+            "value": "Fragen, ob gesprungen wird"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask Whether to Jump"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Preguntar con un aviso"
+            "value": "Preguntar si ir al cambio"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander s’il faut y aller"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "飛ぶか聞く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이동할지 묻기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "询问是否跳转"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詢問是否跳轉"
           }
         }
       }
@@ -53010,106 +52746,106 @@
         }
       }
     },
-    "Arrangement": {
+    "Page Arrangement": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrangement"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "並び"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "排列"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "排列"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "배열"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Disposition"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anordnung"
+            "value": "Seiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pages"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disposición"
+            "value": "Páginas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pages"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページの並び"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페이지 배열"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "页面排列"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "頁面排列"
           }
         }
       }
     },
-    "Printed Text": {
+    "Paper and Text": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Printed Text"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "印刷される本文"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "打印的正文"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "列印的內文"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "인쇄되는 본문"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Texte imprimé"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gedruckter Text"
+            "value": "Papier und Text"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paper and Text"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Texto impreso"
+            "value": "Papel y texto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papier et texte"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用紙と本文"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "용지와 본문"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "纸张与正文"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紙張與內文"
           }
         }
       }
@@ -53840,58 +53576,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Márgenes del texto"
-          }
-        }
-      }
-    },
-    "Body Text Size": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Body Text Size"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本文の文字サイズ"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正文字号"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "內文字級"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "본문 글자 크기"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Taille du texte"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Textgröße"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tamaño del texto"
           }
         }
       }
@@ -62606,54 +62290,54 @@
         }
       }
     },
-    "The text mixes the marks of more than one format.": {
+    "The text can be read as more than one format.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Text mischt Zeichen mehrerer Formate."
+            "value": "Der Text kann als mehrere Formate gelesen werden."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The text mixes the marks of more than one format."
+            "value": "The text can be read as more than one format."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "El texto mezcla marcas de varios formatos."
+            "value": "El texto puede leerse como varios formatos."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le texte mélange les marques de plusieurs formats."
+            "value": "Le texte peut se lire dans plusieurs formats."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "複数の形式の記法が混じっています。"
+            "value": "いくつかの形式として読めます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "여러 형식의 표기가 섞여 있습니다."
+            "value": "몇 가지 형식으로 읽을 수 있습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "混有多种格式的标记。"
+            "value": "可以按几种格式来读。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "混有多種格式的標記。"
+            "value": "可以按幾種格式來讀。"
           }
         }
       }
@@ -63646,54 +63330,54 @@
         }
       }
     },
-    "Shown as is": {
+    "Marks shown as they are": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unverändert angezeigt"
+            "value": "Zeichen unverändert angezeigt"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shown as is"
+            "value": "Marks shown as they are"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se muestra tal cual"
+            "value": "Las marcas se muestran tal cual"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Affiché tel quel"
+            "value": "Marques affichées telles quelles"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "そのまま表示"
+            "value": "記号もそのまま表示"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "그대로 표시"
+            "value": "기호도 그대로 표시"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "原样显示"
+            "value": "符号也原样显示"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "原樣顯示"
+            "value": "符號也原樣顯示"
           }
         }
       }
@@ -64842,158 +64526,158 @@
         }
       }
     },
-    "Formats only text that is clearly one format.": {
+    "Formats less than Standard. A note of headings, sentences and a list may stay unformatted.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formatiert nur Text, der eindeutig ein Format ist."
+            "value": "Formatiert weniger als „Standard“. Eine Notiz aus Überschriften, Sätzen und einer Liste bleibt eventuell unformatiert."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formats only text that is clearly one format."
+            "value": "Formats less than Standard. A note of headings, sentences and a list may stay unformatted."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo da formato al texto que es claramente de un formato."
+            "value": "Da formato a menos textos que «Estándar». Una nota con títulos, frases y una lista puede quedar sin formato."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seul un texte clairement dans un format est mis en forme."
+            "value": "Met en forme moins que « Standard ». Une note faite de titres, de phrases et d’une liste peut rester telle quelle."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "はっきり 1 つの形式と分かるものだけを整形します。"
+            "value": "標準より控えめに整形します。見出しと文と箇条書きのメモは整形しないことがあります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "한 가지 형식이 분명한 것만 정리합니다."
+            "value": "‘표준’보다 적게 정리합니다. 제목과 문장, 목록으로 된 메모는 정리하지 않을 수 있습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "只整理明确属于一种格式的文本。"
+            "value": "整理得比“标准”少。由标题、句子和列表组成的笔记可能不会整理。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "只整理明確屬於一種格式的文字。"
+            "value": "整理得比「標準」少。由標題、句子和清單組成的筆記可能不會整理。"
           }
         }
       }
     },
-    "Formats text with a confirmed structure.": {
+    "Usually also formats notes of headings, sentences and a list.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formatiert Text mit bestätigtem Aufbau."
+            "value": "Formatiert meist auch Notizen aus Überschriften, Sätzen und einer Liste."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formats text with a confirmed structure."
+            "value": "Usually also formats notes of headings, sentences and a list."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Da formato al texto con una estructura confirmada."
+            "value": "Normalmente también da formato a notas con títulos, frases y una lista."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Met en forme le texte dont la structure est confirmée."
+            "value": "Met aussi en forme la plupart des notes faites de titres, de phrases et d’une liste."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "確かな構造のあるものを整形します。"
+            "value": "見出しと文と箇条書きのメモもたいてい整形します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "구조가 확실한 것을 정리합니다."
+            "value": "제목과 문장, 목록으로 된 메모도 대개 정리합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "整理结构明确的文本。"
+            "value": "由标题、句子和列表组成的笔记通常也会整理。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "整理結構明確的文字。"
+            "value": "由標題、句子和清單組成的筆記通常也會整理。"
           }
         }
       }
     },
-    "Formats text even from weak marks.": {
+    "May format even a heading with numbered steps.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formatiert auch bei schwachen Hinweisen."
+            "value": "Formatiert unter Umständen schon eine Überschrift mit nummerierten Schritten."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formats text even from weak marks."
+            "value": "May format even a heading with numbered steps."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Da formato incluso con indicios débiles."
+            "value": "Puede dar formato incluso a un título con pasos numerados."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Met en forme même à partir d’indices faibles."
+            "value": "Peut mettre en forme même un titre suivi d’étapes numérotées."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "弱い手がかりでも整形します。"
+            "value": "見出しと番号付きの手順だけでも整形することがあります。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "약한 단서로도 정리합니다."
+            "value": "제목과 번호 매긴 단계만 있어도 정리할 수 있습니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "线索较弱也会整理。"
+            "value": "即使只有标题和编号步骤，也可能会整理。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "線索較弱也會整理。"
+            "value": "即使只有標題和編號步驟，也可能會整理。"
           }
         }
       }
@@ -65202,6 +64886,370 @@
           "stringUnit": {
             "state": "translated",
             "value": "關閉的格式仍可在詢問時和打開後的格式選單中選擇。"
+          }
+        }
+      }
+    },
+    "After a Document Opens": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach dem Öffnen eines Dokuments"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After a Document Opens"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Después de abrir un documento"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Après l’ouverture d’un document"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書を開いたあと"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서를 연 후"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开文档后"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟文件後"
+          }
+        }
+      }
+    },
+    "Updates": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updates"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updates"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizaciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mises à jour"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデート"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "업데이트"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新"
+          }
+        }
+      }
+    },
+    "Page Turning": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Art des Seitenwechsels"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page Turning"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transición de página"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transition des pages"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページの送り方"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "페이지 넘김 방식"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "翻页方式"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "翻頁方式"
+          }
+        }
+      }
+    },
+    "Automatic follows the document.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Automatisch“ richtet sich nach dem Dokument."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic follows the document."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Automático» sigue al documento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Automatique » suit le document."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「自動」は文書に合わせて選びます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‘자동’은 문서에 맞춰 고릅니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“自动”会根据文档来选择。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「自動」會依文件來選擇。"
+          }
+        }
+      }
+    },
+    "Printers Without Remembered Settings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drucker ohne gemerkte Einstellungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Printers Without Remembered Settings"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impresoras sin ajustes guardados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imprimantes sans réglages mémorisés"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定をまだ覚えていないプリンター"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 설정을 기억하지 않은 프린터"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未记住设置的打印机"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未記住設定的印表機"
+          }
+        }
+      }
+    },
+    "Drag parts to arrange them. Select one to see what it does.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziehe Teile, um sie anzuordnen. Wähle eines aus, um zu sehen, was es tut."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag parts to arrange them. Select one to see what it does."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrastra las piezas para ordenarlas. Selecciona una para ver qué hace."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faites glisser les éléments pour les disposer. Sélectionnez-en un pour voir son rôle."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "部品はドラッグで並べ替えます。選ぶと説明が出ます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "부품은 드래그해 배치합니다. 선택하면 설명이 나옵니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖移部件即可排列。选择部件可查看其用途。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖移部件即可排列。選取部件可查看其用途。"
+          }
+        }
+      }
+    },
+    "Sample From": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beispiele aus"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sample From"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejemplos de"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aperçus tirés de"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見本に使う文書"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "예제로 쓸 문서"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "示例取自"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "範例取自"
           }
         }
       }

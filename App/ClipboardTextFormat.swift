@@ -47,7 +47,8 @@ enum ClipboardFormatText {
         case .accepted: String(localized: "The text reads clearly as one format.")
         case .insufficientStructure:
             String(localized: "No format could be confirmed from the text’s structure.")
-        case .conflictingSyntax: String(localized: "The text mixes the marks of more than one format.")
+        // The text can be read more than one way; the reader did nothing wrong by mixing marks.
+        case .conflictingSyntax: String(localized: "The text can be read as more than one format.")
         case .competingFormats:
             if question.competing.count == 2 {
                 String(
@@ -81,11 +82,13 @@ enum ClipboardFormatText {
         }
     }
 
-    /// The evidence of one choice on a line. Text needs none: it changes nothing.
+    /// The evidence of one choice on a line. Text needs none: it changes nothing. Marks of another format are the
+    /// question's reason, said once above the choices rather than on each of them.
     static func evidence(of option: ClipboardQuestion.Option) -> String {
-        if option.kind == .plainText { return String(localized: "Shown as is") }
-        guard !option.evidence.isEmpty else { return String(localized: "No marks of this format were found") }
-        return option.evidence.map { evidence($0, of: option.kind) }.joined(separator: " · ")
+        if option.kind == .plainText { return String(localized: "Marks shown as they are") }
+        let items = option.evidence.filter { $0 != .conflictingSyntax }
+        guard !items.isEmpty else { return String(localized: "No marks of this format were found") }
+        return items.map { evidence($0, of: option.kind) }.joined(separator: " · ")
     }
 
     /// The tooltip of the format on the band, which says whether the app chose it.

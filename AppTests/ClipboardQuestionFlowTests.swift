@@ -440,4 +440,45 @@ struct ClipboardQuestionFlowTests {
             #expect(!ClipboardFormatText.name(kind).isEmpty)
         }
     }
+
+    @Test("整形の度合いの注記は、迷ったときに自分で開く決め方でMarkdownを見分けるときだけ出す")
+    func carefulnessNoteOnlyWhenItCanComeTrue() {
+        var settings = ClipboardFormatSettings.standard
+        #expect(
+            ClipboardSettings.carefulnessNote(for: settings)
+                == String(localized: "Usually also formats notes of headings, sentences and a list."))
+        settings.mode = .plainTextWhenUnsure
+        settings.carefulness = .careful
+        #expect(
+            ClipboardSettings.carefulnessNote(for: settings)
+                == String(
+                    localized:
+                        "Formats less than Standard. A note of headings, sentences and a list may stay unformatted."
+                ))
+        settings.mode = .alwaysAsk
+        #expect(ClipboardSettings.carefulnessNote(for: settings) == nil)
+        settings.mode = .fixed
+        #expect(ClipboardSettings.carefulnessNote(for: settings) == nil)
+        settings.mode = .askWhenUnsure
+        settings.automaticKinds.remove(.markdown)
+        #expect(ClipboardSettings.carefulnessNote(for: settings) == nil)
+    }
+
+    @Test("ほかの形式の記法が混じるとは理由の行だけが言い、候補の根拠の行には出さない")
+    func conflictingSyntaxIsSaidOnce() {
+        let text = "* **First**\n* **Second**\n* **Third**"
+        let question = ClipboardQuestion(
+            text: text, detection: ClipboardFormatDetector.detect(text), settings: .standard)
+        #expect(question.reason == .conflictingSyntax)
+        #expect(
+            ClipboardFormatText.reason(question) == String(localized: "The text can be read as more than one format."))
+        let all = question.options + question.others
+        #expect(all.contains { $0.evidence.contains(.conflictingSyntax) })
+        let mixed = ClipboardFormatText.evidence(.conflictingSyntax, of: .markdown)
+        for option in all {
+            #expect(!ClipboardFormatText.evidence(of: option).contains(mixed), "\(option.kind)")
+        }
+        let plain = all.first { $0.kind == .plainText }
+        #expect(plain.map { ClipboardFormatText.evidence(of: $0) } == String(localized: "Marks shown as they are"))
+    }
 }
