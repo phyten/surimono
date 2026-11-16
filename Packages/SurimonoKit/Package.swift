@@ -23,7 +23,8 @@ let package = Package(
         ),
         .target(
             name: "SurimonoRendering", dependencies: ["SurimonoCore"], resources: [.process("Resources")]),
-        .testTarget(name: "SurimonoCoreTests", dependencies: ["SurimonoCore"]),
+        .testTarget(
+            name: "SurimonoCoreTests", dependencies: ["SurimonoCore"], resources: [.copy("Fixtures")]),
         .testTarget(
             name: "SurimonoRenderingTests", dependencies: ["SurimonoRendering"],
             resources: [.copy("Fixtures")]),

@@ -1,0 +1,89 @@
+import Foundation
+import Testing
+
+@testable import SurimonoCore
+
+struct ClipboardFormatWorkTests {
+    static var inputs: [(String, String)] {
+        let limit = 32_768
+        func fill(_ unit: String) -> String {
+            String(String(repeating: unit, count: limit / max(1, unit.utf16.count) + 1).prefix(limit))
+        }
+        let tokens = [
+            "`", "``", "```", "~~~", "*", "**", "_", "__", "~~", "$", "$$", "[", "]", "[[", "]]", "](", "![x](", "(",
+            ")",
+            "<", ">", "<a", "<a>", "</a>", "<html>", "<!--", "-->", "<!doctype html>", "<script>", "</script>", "|",
+            "| --- ", "|---",
+            "\\", "\\a{", "\\begin{x}", "\\end{x}", "\\documentclass{a}", "\\[", "\\]", "\"", "'", "\"a,", "a,", ",",
+            "a\t", "\t",
+            "#", "# ", "#+", "#+a:", "#+begin_src", "#+end_src", "* ", "** ", ":A:", ":PROPERTIES:", ":END:", "=",
+            "=a=", "~a~",
+            "-", "- ", "- [ ] ", "1. ", "> ", "{", "}", "{{", "}}", "{%", "%}", "<%", "%>", "<?=", "?>", "{-", "-}",
+            "/*", "*/",
+            "\"\"\"", "'''", "--[[", "<<", "<<EOF", "@'", "'@", "v-if = ", " :a=", "<>", "</>", "http://",
+            "https://a.example/",
+            "%", "&", ";", "***************", "*** 1,3 ****", "--- 1,3 ----", "@@ -1 +1 @@", "\u{0000}", "\u{2066}",
+            "\u{FFFD}",
+        ]
+        let pairs = [
+            ("/*", "*/"), ("<!--", "-->"), ("{-", "-}"), ("\"\"\"", "\"\"\""), ("{{", "}}"), ("<%", "%>"),
+            ("<?=", "?>"),
+            ("`", "`"), ("[[", "]]"), ("[", "]"), ("(", ")"), ("<a>", "</a>"), ("$", "$"), ("**", "**"), ("--[[", "]]"),
+            ("\\begin{x}", "\\end{x}"),
+        ]
+        var inputs: [(String, String)] = []
+        for token in tokens {
+            inputs.append(("one \(token.debugDescription)", fill(token)))
+            inputs.append(("space \(token.debugDescription)", fill(token + " ")))
+            inputs.append(("line \(token.debugDescription)", fill(token + "\n")))
+            inputs.append(
+                (
+                    "short \(token.debugDescription)",
+                    fill(String(repeating: token, count: max(1, 20 / token.utf16.count)) + "\n")
+                ))
+        }
+        for (open, close) in pairs {
+            let openers = String(repeating: open + " ", count: (limit - close.utf16.count) / (open.utf16.count + 1))
+            inputs.append(("openers \(open)", openers + close))
+            inputs.append(("closers \(open)", close + " " + openers))
+            inputs.append(("alternating \(open)", fill(open + "a" + close + " ")))
+            inputs.append(
+                (
+                    "nested \(open)",
+                    String(repeating: open, count: limit / 2 / open.utf16.count)
+                        + String(repeating: close, count: limit / 2 / close.utf16.count)
+                ))
+        }
+        inputs.append(("comment", String(repeating: "/* ", count: 32_000 / 3) + "*/"))
+        inputs.append(("punctuation", fill("`*_~$[]()<>|\\\"#=:-{}%&;!?")))
+        for n in [4_096, 8_192, 16_384, 32_000] {
+            inputs.append(("backtick-dollar \(n)", "`" + String(repeating: "a$", count: (n - 1) / 2)))
+            inputs.append(("script \(n)", String(repeating: "<script>x</script>", count: n / 18)))
+            inputs.append(("style \(n)", String(repeating: "<style>x</style>", count: n / 16)))
+        }
+        return inputs
+    }
+
+    @Test("全生成入力の走査量はUTF16単位数の固定倍数以内で一秒以内に終わる")
+    func boundedWork() {
+        var worstRatio = 0.0
+        var worstTime = 0.0
+        var slowest = ""
+        for (name, text) in Self.inputs {
+            let start = ContinuousClock.now
+            let result = ClipboardFormatDetector.detect(text)
+            let elapsed = start.duration(to: .now)
+            let seconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+            let ratio = Double(result.scannerSteps) / Double(max(1, result.analysedUnits))
+            worstRatio = max(worstRatio, ratio)
+            if seconds > worstTime {
+                worstTime = seconds
+                slowest = name
+            }
+            #expect(result.scannerSteps <= max(1, result.analysedUnits) * 256, Comment(rawValue: name))
+            #expect(seconds < 1, Comment(rawValue: "\(name): \(seconds)s"))
+        }
+        print(
+            "WORK inputs=\(Self.inputs.count) worstMultiple=\(worstRatio) worstSeconds=\(worstTime) slowest=\(slowest)")
+    }
+}
