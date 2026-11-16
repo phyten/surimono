@@ -96,7 +96,8 @@ private struct CodePaletteRow: View {
                     .opacity(isCurrent ? 1 : 0)
                     .frame(width: Self.checkWidth)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
+                // The name sits close to its own sample and further from the next scheme, so each pair reads as one.
+                VStack(alignment: .leading, spacing: 1) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(verbatim: model.codePaletteName(id))
                             .font(.system(size: 12.5, weight: .medium))
@@ -121,7 +122,7 @@ private struct CodePaletteRow: View {
             }
             .padding(.leading, 2)
             .padding(.trailing, 8)
-            .padding(.vertical, 7)
+            .padding(.vertical, 9)
             .background(
                 RoundedRectangle(cornerRadius: 6).fill(isHovering ? Color.primary.opacity(0.06) : .clear)
             )

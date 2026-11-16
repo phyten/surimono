@@ -243,15 +243,18 @@ private struct ModeRow: View {
         }
     }
 
-    private var inUseNote: some View {
-        let inUse =
-            session.preferences.menuArrangement == .top
-            ? String(localized: "Top Only") : String(localized: "Split Top and Bottom")
-        return Text(verbatim: String(format: String(localized: "In use: %@"), inUse))
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
-            .fixedSize()
-            .help("Change it under View & Page Turn > Toolbar Layout.")
+    /// Said only when the layout being edited is not the one the windows use; otherwise the picker already shows it.
+    @ViewBuilder private var inUseNote: some View {
+        if session.mode != session.preferences.menuArrangement {
+            let inUse =
+                session.preferences.menuArrangement == .top
+                ? String(localized: "Top Only") : String(localized: "Split Top and Bottom")
+            Text(verbatim: String(format: String(localized: "In use: %@"), inUse))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize()
+                .help("Change it under View & Page Turn > Toolbar Layout.")
+        }
     }
 }
 

@@ -37,6 +37,13 @@ struct ClipboardQuestionTests {
         #expect(asked.others.map(\.kind) == [.html, .latex, .csv])
     }
 
+    @Test("テキストの点数が 2 つの形式のあいだでも、テキストは最後の行に並び、最初の選択は判定器の勧めのまま")
+    func plainTextComesLast() {
+        let asked = question("* **First**\n* **Second**\n* **Third**")
+        #expect(asked.options.map(\.kind) == [.markdown, .org, .plainText])
+        #expect(asked.preferred == .plainText)
+    }
+
     @Test("どの形式も確かめられないときはテキストを最初に選び、手がかりのあった形式も並べる")
     func unsure() {
         let asked = question("# 見出し")

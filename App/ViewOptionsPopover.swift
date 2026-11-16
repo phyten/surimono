@@ -14,7 +14,8 @@ struct ViewOptionsPopover: View {
     /// The display units the strip of small pages shows at most, around the current one.
     static let spreadMapLimit = 8
     private static let labels: [LocalizedStringKey] = [
-        "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar", "Paper Series",
+        "Arrangement", "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar",
+        "Paper Series",
         "Text Margins", "Text Size",
     ]
 
@@ -34,14 +35,17 @@ struct ViewOptionsPopover: View {
                 Spacer(minLength: 0)
                 PopoverCloseButton()
             }
-            // The strip is the picture of the options: it changes as they do, with the current unit marked.
-            if !model.displayUnits.isEmpty {
-                SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) { unit in
-                    if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
-                }
-            }
             Grid(alignment: .leading, horizontalSpacing: Self.columnSpacing, verticalSpacing: stacksLabels ? 10 : 12) {
                 heading("On Screen")
+                // The pages as the options below arrange them: it changes as they do, with the current unit marked.
+                if !model.displayUnits.isEmpty {
+                    row("Arrangement", fills: true) {
+                        SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) {
+                            unit in
+                            if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
+                        }
+                    }
+                }
                 row("Reading Direction") { directionPicker(option(\.direction)) }
                 row("Scroll Direction") {
                     Picker("Scroll Direction", selection: option(\.scrollAxis)) {
@@ -107,18 +111,25 @@ struct ViewOptionsPopover: View {
     }
 
     /// A setting with its label: beside it, right-aligned in a column as wide as the longest label, or over it.
-    @ViewBuilder private func row(_ key: LocalizedStringKey, @ViewBuilder content: () -> some View) -> some View {
+    /// `fills` lets a setting with no width of its own, the strip of pages, take the column's width without setting it.
+    @ViewBuilder private func row(
+        _ key: LocalizedStringKey, fills: Bool = false, @ViewBuilder content: () -> some View
+    ) -> some View {
         if stacksLabels {
             GridRow {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(key).foregroundStyle(PrintPalette.ink2)
                     content()
                 }
+                .frame(maxWidth: fills ? .infinity : nil, alignment: .leading)
+                .gridCellUnsizedAxes(fills ? .horizontal : [])
             }
         } else {
             GridRow {
                 Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
                 content()
+                    .frame(maxWidth: fills ? .infinity : nil, alignment: .leading)
+                    .gridCellUnsizedAxes(fills ? .horizontal : [])
             }
         }
     }

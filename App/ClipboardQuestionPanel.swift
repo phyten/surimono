@@ -212,9 +212,9 @@ struct ClipboardQuestionView: View {
                 }
             }
         }
-        .padding(4)
-        .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.raised))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PrintPalette.line2))
+        .padding(ListMetrics.inset)
+        .background(RoundedRectangle(cornerRadius: ListMetrics.corner).fill(PrintPalette.raised))
+        .overlay(RoundedRectangle(cornerRadius: ListMetrics.corner).strokeBorder(PrintPalette.line2))
     }
 
     private var buttons: some View {
@@ -241,6 +241,13 @@ struct ClipboardQuestionView: View {
     }
 }
 
+/// The box of the choices and the selection inside it, whose corners follow the box's at its inset.
+private enum ListMetrics {
+    static let corner: CGFloat = 8
+    static let inset: CGFloat = 4
+    static let selectionCorner = corner - inset
+}
+
 private struct ClipboardQuestionRow: View {
     let option: ClipboardQuestion.Option
     let isSelected: Bool
@@ -263,11 +270,12 @@ private struct ClipboardQuestionRow: View {
             }
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 5).fill(Color(nsColor: .selectedContentBackgroundColor))
+                    RoundedRectangle(cornerRadius: ListMetrics.selectionCorner)
+                        .fill(Color(nsColor: .selectedContentBackgroundColor))
                 }
             }
             .contentShape(Rectangle())

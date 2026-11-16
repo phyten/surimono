@@ -105,8 +105,6 @@ struct SettingsView: View {
                     Picker("Appearance", selection: $preferences.appearance) {
                         ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
                     }
-                } footer: {
-                    if !updater.isAvailable { SettingsFootnote("Updates are unavailable in development builds.") }
                 }
                 if updater.isAvailable {
                     Section {
@@ -141,7 +139,11 @@ struct SettingsView: View {
                         Text("Ask with a Notice").tag(ChangeFollowing.ask)
                     }
                 } footer: {
-                    SettingsFootnote("Changes are marked in Markdown documents.")
+                    VStack(alignment: .leading, spacing: 2) {
+                        SettingsFootnote("Changes are marked in Markdown documents.")
+                        // At the end of the pane, apart from Language and Appearance, which it is not about.
+                        if !updater.isAvailable { SettingsFootnote("Updates are unavailable in development builds.") }
+                    }
                 }
             case .view:
                 Section {

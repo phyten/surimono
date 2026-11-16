@@ -47711,7 +47711,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新の見せ方"
+            "value": "ファイルが保存されたあと"
           }
         },
         "zh-Hans": {
@@ -47870,7 +47870,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "トーストで聞く"
+            "value": "知らせて聞く"
           }
         },
         "zh-Hans": {
@@ -53006,6 +53006,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "En pantalla"
+          }
+        }
+      }
+    },
+    "Arrangement": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrangement"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "並び"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "排列"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "排列"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "배열"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disposition"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anordnung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disposición"
           }
         }
       }
@@ -65131,7 +65183,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "外した形式も、聞かれたときと開いたあとの形式のメニューからは選べます。"
+            "value": "外した形式も、開くときの質問と開いたあとのメニューから選べます。"
           }
         },
         "ko": {
