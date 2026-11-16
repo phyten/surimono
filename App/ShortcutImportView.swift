@@ -46,7 +46,7 @@ struct ShortcutImportView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Import Shortcuts — Merge").font(.headline)
+            Text("Merge Imported Shortcuts").font(.headline)
             Text("Operations missing from the file keep their current keys. Nothing changes until you apply.")
                 .fixedSize(horizontal: false, vertical: true)
             ScrollView {

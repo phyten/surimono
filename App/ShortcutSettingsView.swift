@@ -17,12 +17,6 @@ struct ShortcutSettingsView: View {
         ScrollViewReader { proxy in
             Form {
                 archiveControls
-                Section("In Surimono") {
-                    Text(
-                        "Change or clear shortcuts here. Fixed keys and shortcuts managed in macOS cannot be changed here."
-                    )
-                    .font(.caption).foregroundStyle(.secondary)
-                }
                 ForEach(groups, id: \.self) { group in
                     localSection(group)
                 }
@@ -218,10 +212,6 @@ struct ShortcutSettingsView: View {
         }
         if !fixed.isEmpty {
             Section("Fixed Keys") {
-                Text(
-                    "These keys keep cancellation, confirmation, text editing and keyboard access available. They cannot be reassigned here."
-                )
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 // Native editing and window commands share explanations. Keep their catalog order.
                 let reasons = fixed.map { ShortcutText.fixedReason($0.behavior) }
                 let uniqueReasons = reasons.enumerated().filter { index, reason in
@@ -246,10 +236,6 @@ struct ShortcutSettingsView: View {
 
     private var globalSection: some View {
         Section {
-            Text("These work while Surimono is running, even when another app is in front.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Text("Press a key combination. Escape cancels; Tab moves focus; Delete clears.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if let error = controller.migrationError {
                 Text(error).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
             }
@@ -267,6 +253,8 @@ struct ShortcutSettingsView: View {
                 Image(systemName: "globe").accessibilityHidden(true)
                 Text("Global")
             }
+        } footer: {
+            SettingsFootnote("These work while Surimono is running, even when another app is in front.")
         }
         .id("shortcut-global")
     }

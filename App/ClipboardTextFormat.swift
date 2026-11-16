@@ -40,18 +40,6 @@ enum ClipboardFormatText {
         }
     }
 
-    /// What opening the text as this kind does to it.
-    static func result(_ kind: ClipboardTextKind) -> String {
-        switch kind {
-        case .markdown: String(localized: "Formats headings, lists, and tables")
-        case .org: String(localized: "Formats headings, to-dos, and tables")
-        case .html: String(localized: "Reads the tags and shows a page")
-        case .latex: String(localized: "Typesets sections and math")
-        case .csv: String(localized: "Shows a table")
-        case .url, .plainText: String(localized: "Shows symbols and line breaks as they are")
-        }
-    }
-
     static func reason(_ question: ClipboardQuestion) -> String {
         switch question.reason {
         case .blank: String(localized: "The text has only spaces and line breaks.")
@@ -95,7 +83,7 @@ enum ClipboardFormatText {
 
     /// The evidence of one choice on a line. Text needs none: it changes nothing.
     static func evidence(of option: ClipboardQuestion.Option) -> String {
-        if option.kind == .plainText { return String(localized: "Shows the original text unchanged") }
+        if option.kind == .plainText { return String(localized: "Shown as is") }
         guard !option.evidence.isEmpty else { return String(localized: "No marks of this format were found") }
         return option.evidence.map { evidence($0, of: option.kind) }.joined(separator: " · ")
     }

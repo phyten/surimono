@@ -125,7 +125,7 @@ struct ThemePalette: View {
             section(
                 String(format: String(localized: "Matching “%@”"), query.trimmingCharacters(in: .whitespaces)),
                 count: matches.count, themes: matches,
-                empty: String(localized: "No styles match. Try a category instead."))
+                empty: String(localized: "No matching styles"))
         } else {
             LazyVStack(alignment: .leading, spacing: 18) {
                 ForEach(model.themeMenu.sections, id: \.id) { group in
@@ -150,10 +150,6 @@ struct ThemePalette: View {
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8).strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .foregroundStyle(.quaternary))
             } else {
                 LazyVGrid(
                     columns: Array(

@@ -438,7 +438,6 @@ struct ClipboardQuestionFlowTests {
         }
         for kind in ClipboardTextKind.choosable {
             #expect(!ClipboardFormatText.name(kind).isEmpty)
-            #expect(!ClipboardFormatText.result(kind).isEmpty)
         }
     }
 }

@@ -138,7 +138,7 @@ struct DocumentFiguresPopover: View {
                         } else {
                             figure(
                                 String(
-                                    format: String(localized: "For Reference: %@, Double-Sided"),
+                                    format: String(localized: "If Double-Sided on %@"),
                                     model.layout.sheet.shortName),
                                 String(
                                     format: String(localized: "%lld sheets"),

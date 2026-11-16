@@ -136,7 +136,7 @@ struct LanguageTests {
         #expect(keys.contains("Record Shortcut"))
         #expect(keys.contains("Registered"))
         keys.formUnion(["In Surimono", "Printing and Export", "Global"])
-        #expect(keys.contains("Import Shortcuts — Merge"))
+        #expect(keys.contains("Merge Imported Shortcuts"))
         #expect(keys.contains("Restore All Defaults?"))
         #expect(keys.contains("Restore All Defaults"))
         #expect(keys.contains("Custom assignments to remove: %lld"))

@@ -19,7 +19,7 @@ struct LanguagePicker: View {
                     LanguageRelaunch.offer(preferences: preferences, previousLanguage: previous)
                 })
         ) {
-            Text("System (default)").tag("")
+            Text("System").tag("")
             ForEach(UILanguage.supported, id: \.self) { language in
                 Text(verbatim: UILanguage.label(for: language, in: Bundle.main.preferredLocalizations.first ?? "en"))
                     .tag(language)

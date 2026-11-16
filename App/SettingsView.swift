@@ -100,9 +100,13 @@ struct SettingsView: View {
         Form {
             switch preferences.settingsSection {
             case .general:
-                LanguagePicker(preferences: preferences)
-                Picker("Appearance", selection: $preferences.appearance) {
-                    ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
+                Section {
+                    LanguagePicker(preferences: preferences)
+                    Picker("Appearance", selection: $preferences.appearance) {
+                        ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
+                    }
+                } footer: {
+                    if !updater.isAvailable { SettingsFootnote("Updates are unavailable in development builds.") }
                 }
                 if updater.isAvailable {
                     Section {
@@ -110,72 +114,75 @@ struct SettingsView: View {
                             "Check for Updates Automatically",
                             isOn: Binding(
                                 get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) }))
-                        Text(
-                            "Surimono asks GitHub whether a newer version exists. Nothing about your documents is sent."
-                        )
-                        .font(.caption).foregroundStyle(.secondary)
                         UpdateHandlingPicker(
                             installsAutomatically: Binding(
                                 get: { updater.installsAutomatically },
                                 set: { updater.setInstallsAutomatically($0) }))
+                    } footer: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            SettingsFootnote("Nothing about your documents is sent to GitHub.")
+                            SettingsFootnote(UpdateHandlingPicker.note)
+                        }
                     }
                 }
-
-                if !updater.isAvailable {
-                    Text("Updates are unavailable in development builds.").foregroundStyle(.secondary)
-                }
             case .view:
-                Picker("Scroll Sensitivity", selection: $preferences.wheelSensitivity) {
-                    Text("Low").tag(WheelPageTurner.Sensitivity.low)
-                    Text("Normal").tag(WheelPageTurner.Sensitivity.normal)
-                    Text("High").tag(WheelPageTurner.Sensitivity.high)
-                }.pickerStyle(.segmented)
-                Picker("New Document View", selection: $preferences.defaultViewLayout) {
-                    Text("Automatic (Match Document)").tag(nil as ViewOptions.Layout?)
-                    ForEach(ViewOptions.Layout.displayOrder, id: \.self) { Text($0.title).tag(Optional($0)) }
+                Section {
+                    Picker("Scroll Sensitivity", selection: $preferences.wheelSensitivity) {
+                        Text("Low").tag(WheelPageTurner.Sensitivity.low)
+                        Text("Normal").tag(WheelPageTurner.Sensitivity.normal)
+                        Text("High").tag(WheelPageTurner.Sensitivity.high)
+                    }.pickerStyle(.segmented)
+                    Picker("New Document View", selection: $preferences.defaultViewLayout) {
+                        Text("Automatic (Match Document)").tag(nil as ViewOptions.Layout?)
+                        ForEach(ViewOptions.Layout.displayOrder, id: \.self) { Text($0.title).tag(Optional($0)) }
+                    }
+                    Picker("Default Page Turn", selection: $preferences.defaultPageTurn) {
+                        Text("Automatic (Match Document)").tag(nil as ViewOptions.Transition?)
+                        ForEach(ViewOptions.Transition.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
+                    }
+                    Picker("Default Reading Direction", selection: $preferences.defaultReadingDirection) {
+                        Text("Automatic (Match Document)").tag(nil as ViewOptions.Direction?)
+                        Text("Left to Right").tag(Optional(ViewOptions.Direction.leftToRight))
+                        Text("Right to Left").tag(Optional(ViewOptions.Direction.rightToLeft))
+                    }
+                    Picker("Default Scroll Direction", selection: $preferences.defaultScrollAxis) {
+                        Text("Automatic (Match Document)").tag(nil as ViewOptions.ScrollAxis?)
+                        Text("Vertical").tag(Optional(ViewOptions.ScrollAxis.vertical))
+                        Text("Horizontal").tag(Optional(ViewOptions.ScrollAxis.horizontal))
+                    }
+                    Picker("Show First Page Alone by Default", selection: $preferences.defaultShowsCoverAlone) {
+                        Text("Automatic (Match Document)").tag(nil as Bool?)
+                        Text("On").tag(Optional(true))
+                        Text("Off").tag(Optional(false))
+                    }
+                    Toggle("Join Pages in Single-Page Scrolling", isOn: $preferences.defaultJoinsPages)
+                } footer: {
+                    defaultsNote
                 }
-                Picker("Default Page Turn", selection: $preferences.defaultPageTurn) {
-                    Text("Automatic (Match Document)").tag(nil as ViewOptions.Transition?)
-                    ForEach(ViewOptions.Transition.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
-                }
-                Picker("Default Reading Direction", selection: $preferences.defaultReadingDirection) {
-                    Text("Automatic (Match Document)").tag(nil as ViewOptions.Direction?)
-                    Text("Left to Right").tag(Optional(ViewOptions.Direction.leftToRight))
-                    Text("Right to Left").tag(Optional(ViewOptions.Direction.rightToLeft))
-                }
-                Picker("Default Scroll Direction", selection: $preferences.defaultScrollAxis) {
-                    Text("Automatic (Match Document)").tag(nil as ViewOptions.ScrollAxis?)
-                    Text("Vertical").tag(Optional(ViewOptions.ScrollAxis.vertical))
-                    Text("Horizontal").tag(Optional(ViewOptions.ScrollAxis.horizontal))
-                }
-                Picker("Show First Page Alone by Default", selection: $preferences.defaultShowsCoverAlone) {
-                    Text("Automatic (Match Document)").tag(nil as Bool?)
-                    Text("On").tag(Optional(true))
-                    Text("Off").tag(Optional(false))
-                }
-                Toggle("Join Pages in Single-Page Scrolling", isOn: $preferences.defaultJoinsPages)
-                defaultsNote
                 // Unlike the defaults above, this applies to open windows as well.
                 Section {
                     Picker("Width of a Lone First Page", selection: $preferences.loneCoverWidth) {
                         Text("One Page").tag(LoneCoverWidth.onePage)
                         Text("Two Pages").tag(LoneCoverWidth.twoPages)
                     }
-                    Text("With One Page, the window narrows to the first page while a spread shows it alone.")
-                        .font(.caption).foregroundStyle(.secondary)
+                } footer: {
+                    SettingsFootnote(
+                        "With One Page, the window narrows to the first page while a spread shows it alone.")
                 }
-                Section("Toolbar") {
+                Section {
                     Picker("Toolbar Layout", selection: $preferences.menuArrangement) {
                         Text("Top Only").tag(MenuArrangement.top)
                         Text("Split Top and Bottom").tag(MenuArrangement.split)
                     }
                     BandVisibilityPicker(selection: $preferences.defaultBandVisibility)
-                    Text("While it shows, the toolbar takes its own room outside the paper.")
-                        .font(.caption).foregroundStyle(.secondary)
                     // Which parts the toolbar shows, Contents among them, is the arrangement's business.
                     LabeledContent("Parts of the Toolbar") {
                         Button("Arrange…") { arrangementEditor.showSection(.toolbarArrangement) }
                     }
+                } header: {
+                    Text("Toolbar")
+                } footer: {
+                    SettingsFootnote("While it shows, the toolbar takes its own room outside the paper.")
                 }
                 Section("Contents") {
                     Picker("Show Contents As", selection: $preferences.outlinePresentation) {
@@ -189,8 +196,8 @@ struct SettingsView: View {
                         Text("Stay Here, Marks Only").tag(ChangeFollowing.mark)
                         Text("Ask with a Notice").tag(ChangeFollowing.ask)
                     }
-                    Text("Changes are marked in Markdown documents.")
-                        .font(.caption).foregroundStyle(.secondary)
+                } footer: {
+                    SettingsFootnote("Changes are marked in Markdown documents.")
                 }
                 Section("When Opening a Window") {
                     Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
@@ -202,92 +209,110 @@ struct SettingsView: View {
                     }
                 }
             case .pageNumbers:
-                Toggle("In View Mode", isOn: $preferences.viewPageNumbers)
-                Text("Page numbers are never shown in single-page scrolling.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Picker("In Print", selection: furnitureChoice) {
-                    ForEach(PrintFurnitureChoice.choices.filter { $0.value != .custom }, id: \.value) { choice in
-                        Text(choice.title).tag(choice.value)
-                    }
-                    // Written on the print screen; it stays until another choice replaces it.
-                    if preferences.defaultFurniture.preset == .custom {
-                        Text("Specify Contents…").tag(PageFurniture.Preset.custom)
-                    }
+                Section {
+                    Toggle("In View Mode", isOn: $preferences.viewPageNumbers)
+                } footer: {
+                    SettingsFootnote("Page numbers are never shown in single-page scrolling.")
                 }
-                defaultsNote
+                Section {
+                    Picker("In Print", selection: furnitureChoice) {
+                        ForEach(PrintFurnitureChoice.choices.filter { $0.value != .custom }, id: \.value) { choice in
+                            Text(choice.title).tag(choice.value)
+                        }
+                        // Written on the print screen; it stays until another choice replaces it.
+                        if preferences.defaultFurniture.preset == .custom {
+                            Text("Specify Contents…").tag(PageFurniture.Preset.custom)
+                        }
+                    }
+                } footer: {
+                    defaultsNote
+                }
             case .printing:
-                Picker("Default Print Layout", selection: $preferences.layoutID) {
-                    ForEach(PrintLayout.presets) { layout in
-                        Text(verbatim: layout.displayName(language: language)).tag(layout.id)
+                Section {
+                    Picker("Default Print Layout", selection: $preferences.layoutID) {
+                        ForEach(PrintLayout.presets) { layout in
+                            Text(verbatim: layout.displayName(language: language)).tag(layout.id)
+                        }
                     }
-                }
-                Picker("Default Paper Orientation", selection: $preferences.defaultPaperOrientation) {
-                    Text("Automatic").tag(PaperOrientation.auto)
-                    Text("Portrait").tag(PaperOrientation.portrait)
-                    Text("Landscape").tag(PaperOrientation.landscape)
-                }
-                // The same field, stepper and unit as the margins of the view options and the print screen.
-                LabeledContent("Text Margins") {
-                    MarginField(title: "Text Margins", millimeters: preferences.margin, unit: .current) {
-                        preferences.margin = $0
+                    Picker("Default Paper Orientation", selection: $preferences.defaultPaperOrientation) {
+                        Text("Automatic").tag(PaperOrientation.auto)
+                        Text("Portrait").tag(PaperOrientation.portrait)
+                        Text("Landscape").tag(PaperOrientation.landscape)
                     }
+                    // The same field, stepper and unit as the margins of the view options and the print screen.
+                    LabeledContent("Text Margins") {
+                        MarginField(title: "Text Margins", millimeters: preferences.margin, unit: .current) {
+                            preferences.margin = $0
+                        }
+                    }
+                } footer: {
+                    defaultsNote
                 }
-                defaultsNote
-                Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
-                Text("Used for printers and bindings without a remembered rotation.")
-                    .font(.caption).foregroundStyle(.secondary)
-                PrintPageOrderPicker(order: $preferences.printPageOrder)
-                Text(PrintPageOrderPicker.hint).font(.caption).foregroundStyle(.secondary)
+                // Both belong to the printer: they are where a printer starts until it remembers its own.
+                Section {
+                    Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
+                    PrintPageOrderPicker(order: $preferences.printPageOrder)
+                } footer: {
+                    SettingsFootnote(PrintPageOrderPicker.hint)
+                }
             case .settingSets:
                 SettingSetsSettings(preferences: preferences, library: library)
             case .styles:
-                Toggle("Try a Style on the Paper When Pointing at It", isOn: $preferences.triesThemeOnHover)
-                Picker("Default Style", selection: $preferences.themeID) {
-                    DefaultStyleChoices(library: library)
-                }
-                Picker("Default Code Colors", selection: $preferences.defaultCodePaletteID) {
-                    Text("Match Style").tag(CodePalette.matchesStyleID)
-                    ForEach(library.codePalettes) { palette in
-                        Text(verbatim: palette.displayName(language: language)).tag(palette.id)
+                Section {
+                    Toggle("Try a Style on the Paper When Pointing at It", isOn: $preferences.triesThemeOnHover)
+                    Picker("Default Style", selection: $preferences.themeID) {
+                        DefaultStyleChoices(library: library)
                     }
-                }
-                LabeledContent("Default Text Size") {
-                    TextSizeField(title: "Default Text Size", scale: preferences.defaultTextScale) {
-                        preferences.defaultTextScale = $0
-                    }
-                }
-                HStack {
-                    Button("Open Styles Folder") { library.openFolder("Styles") }
-                    Button("Reload") { library.reload() }
-                }
-                libraryError
-
-                defaultsNote
-            case .html:
-                Picker("Default HTML Preset", selection: $preferences.presetID) {
-                    ForEach(library.presets) { preset in
-                        Text(verbatim: preset.displayName(language: language)).tag(preset.id)
-                    }
-                }
-                Toggle("Allow JavaScript in HTML", isOn: $preferences.allowsJavaScript)
-                HStack {
-                    Button("Open Presets Folder") { library.openFolder("Presets") }
-                    Button("Reload") { library.reload() }
-                }
-                libraryError
-                if !library.presetErrors.isEmpty {
-                    Text("Some presets could not be loaded:").font(.headline)
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(library.presetErrors, id: \.url) { error in
-                                Text(verbatim: error.url.lastPathComponent).bold()
-                                Text(LocalizedStringKey(error.message)).textSelection(.enabled)
-                            }
+                    Picker("Default Code Colors", selection: $preferences.defaultCodePaletteID) {
+                        Text("Match Style").tag(CodePalette.matchesStyleID)
+                        ForEach(library.codePalettes) { palette in
+                            Text(verbatim: palette.displayName(language: language)).tag(palette.id)
                         }
-                    }.frame(maxHeight: 130)
+                    }
+                    LabeledContent("Default Text Size") {
+                        TextSizeField(title: "Default Text Size", scale: preferences.defaultTextScale) {
+                            preferences.defaultTextScale = $0
+                        }
+                    }
+                } footer: {
+                    defaultsNote
                 }
-
-                defaultsNote
+                Section {
+                    HStack {
+                        Button("Open Styles Folder") { library.openFolder("Styles") }
+                        Button("Reload") { library.reload() }
+                    }
+                    libraryError
+                }
+            case .html:
+                Section {
+                    Picker("Default HTML Preset", selection: $preferences.presetID) {
+                        ForEach(library.presets) { preset in
+                            Text(verbatim: preset.displayName(language: language)).tag(preset.id)
+                        }
+                    }
+                    Toggle("Allow JavaScript in HTML", isOn: $preferences.allowsJavaScript)
+                } footer: {
+                    defaultsNote
+                }
+                Section {
+                    HStack {
+                        Button("Open Presets Folder") { library.openFolder("Presets") }
+                        Button("Reload") { library.reload() }
+                    }
+                    libraryError
+                    if !library.presetErrors.isEmpty {
+                        Text("Some presets could not be loaded:").font(.headline)
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(library.presetErrors, id: \.url) { error in
+                                    Text(verbatim: error.url.lastPathComponent).bold()
+                                    Text(LocalizedStringKey(error.message)).textSelection(.enabled)
+                                }
+                            }
+                        }.frame(maxHeight: 130)
+                    }
+                }
             case .clipboard:
                 ClipboardSettings(preferences: preferences)
             case .keyboardShortcuts: EmptyView()
@@ -300,9 +325,7 @@ struct SettingsView: View {
         .contentMargins(.top, -28, for: .scrollContent)
     }
 
-    private var defaultsNote: some View {
-        Text("Defaults apply to newly opened documents.").font(.caption).foregroundStyle(.secondary)
-    }
+    private var defaultsNote: some View { SettingsFootnote("Defaults apply to newly opened documents.") }
 
     @ViewBuilder private var libraryError: some View {
         if let error = library.error {
@@ -314,12 +337,26 @@ struct SettingsView: View {
 struct UpdateHandlingPicker: View {
     @Binding var installsAutomatically: Bool
 
+    /// What installing automatically means, for the footer of the section the picker is in.
+    static let note: LocalizedStringKey =
+        "Automatic updates are installed when you quit and are ready the next time you open Surimono."
+
     var body: some View {
         Picker("When an Update Is Found", selection: $installsAutomatically) {
-            Text("Notify Me (Default)").tag(false)
+            Text("Notify Me").tag(false)
             Text("Install Automatically").tag(true)
         }
-        Text("Automatic updates are installed when you quit and are ready the next time you open Surimono.")
-            .font(.caption).foregroundStyle(.secondary)
+    }
+}
+
+/// A settings section's footer: outside the group, small and secondary.
+struct SettingsFootnote: View {
+    private let text: Text
+
+    init(_ key: LocalizedStringKey) { text = Text(key) }
+    init(verbatim string: String) { text = Text(verbatim: string) }
+
+    var body: some View {
+        text.font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
 }

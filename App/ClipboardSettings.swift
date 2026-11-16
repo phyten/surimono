@@ -12,9 +12,9 @@ struct ClipboardSettings: View {
     private static let recognizable: [ClipboardTextKind] = [.markdown, .org, .html, .latex, .csv]
 
     var body: some View {
-        Section("When Opening from the Clipboard") {
+        Section {
             Picker("Choosing the Format", selection: $preferences.clipboardFormat.mode) {
-                Text("Ask When Unsure (Default)").tag(Mode.askWhenUnsure)
+                Text("Ask When Unsure").tag(Mode.askWhenUnsure)
                 Text("Open as Text When Unsure").tag(Mode.plainTextWhenUnsure)
                 Text("Always Ask").tag(Mode.alwaysAsk)
                 Text("Always Open in One Format").tag(Mode.fixed)
@@ -32,29 +32,32 @@ struct ClipboardSettings: View {
                 Text("Eager").tag(Carefulness.eager)
             }
             .pickerStyle(.segmented)
-            Text(carefulnessNote).font(.caption).foregroundStyle(.secondary)
-            Text("Text from the Services menu opens the same way.").font(.caption).foregroundStyle(.secondary)
+        } header: {
+            Text("When Opening from the Clipboard")
+        } footer: {
+            VStack(alignment: .leading, spacing: 2) {
+                SettingsFootnote(verbatim: carefulnessNote)
+                SettingsFootnote("Text from the Services menu uses the same settings.")
+            }
         }
-        Section("Formats to Recognize Automatically") {
+        Section {
             ForEach(Self.recognizable, id: \.self) { kind in
                 Toggle(isOn: recognizes(kind)) {
                     Text(verbatim: kind == .csv ? String(localized: "CSV and TSV") : ClipboardFormatText.name(kind))
                 }
             }
-            Text(
-                "A format turned off is never chosen automatically, but you can still choose it when asked and from the format menu after opening. Text is always a choice."
-            )
-            .font(.caption).foregroundStyle(.secondary)
-        }
-        Section {
-            Text(
-                "After opening, the format on the toolbar opens the same text again in another format. A format you choose is not detected again."
-            )
-            .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                Button("Back to Standard") { preferences.clipboardFormat = .standard }
-                    .disabled(preferences.clipboardFormat == .standard)
+        } header: {
+            Text("Formats to Recognize Automatically")
+        } footer: {
+            VStack(alignment: .leading, spacing: 10) {
+                SettingsFootnote(
+                    "A format turned off can still be chosen when asked and from the format menu after opening.")
+                // Not a group of its own: one button needs no box.
+                HStack {
+                    Spacer()
+                    Button("Back to Standard") { preferences.clipboardFormat = .standard }
+                        .disabled(preferences.clipboardFormat == .standard)
+                }
             }
         }
     }
@@ -62,11 +65,9 @@ struct ClipboardSettings: View {
     private var carefulnessNote: String {
         switch preferences.clipboardFormat.carefulness {
         case .careful:
-            String(
-                localized:
-                    "Formats only text that is clearly one format. You are asked more often, or it opens as text.")
-        case .standard: String(localized: "Formats text whose structure is confirmed. This is the default.")
-        case .eager: String(localized: "Formats text whose structure is confirmed, even from weaker marks.")
+            String(localized: "Formats only text that is clearly one format. You are asked more often.")
+        case .standard: String(localized: "Formats text with a confirmed structure.")
+        case .eager: String(localized: "Formats text even from weak marks.")
         }
     }
 

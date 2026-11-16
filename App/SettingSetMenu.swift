@@ -202,19 +202,21 @@ struct SettingSetsSettings: View {
     }
 
     var body: some View {
-        Text(
-            "Setting sets remember paper and layout, margins, headers and footers, finishing, notes, style and text size, and HTML presets, so you can apply them to any document at once. They do not include view layout or zoom."
-        )
-        .foregroundStyle(.secondary)
-        Section("Built-in Sets") {
+        Section {
             ForEach(PrintSettingSet.builtIns(language: summary.language)) { set in
                 description(set)
             }
+        } header: {
+            Text("Built-in Sets")
+        } footer: {
+            SettingsFootnote(
+                "Applies paper and layout, margins, headers and footers, finishing, notes, style and text size, and HTML presets in one step. View layout and zoom are not included."
+            )
         }
         Section("Your Sets") {
             if preferences.printSettingSets.isEmpty {
                 Text(
-                    "You have no setting sets of your own yet. Open a document and choose Document > Setting Sets > Save Current Settings…, or use Setting Sets on the print screen."
+                    "None yet. Save one from Document > Setting Sets > Save Current Settings… or from Setting Sets on the print screen."
                 )
                 .foregroundStyle(.secondary)
             } else {

@@ -85,13 +85,7 @@ struct ViewOptionsPopover: View {
             .labelsHidden()
             Divider()
             HStack(spacing: 8) {
-                // Resetting belongs to the statement that the document has its own settings; the setting sets are a
-                // separate, stronger choice on the other side.
-                if model.hasSavedSettings {
-                    Text("Using this document’s settings")
-                        .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                // The setting sets are a separate, stronger choice on the other side.
                 // Only a document with settings of its own has something to reset; a dimmed link read as broken.
                 if model.hasSavedSettings {
                     Button("Reset This Document") { model.resetDocumentSettings() }
