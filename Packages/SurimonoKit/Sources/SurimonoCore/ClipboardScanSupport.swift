@@ -215,17 +215,25 @@ struct ClipboardSlice {
 enum ClipboardScanners {
     static let sourceLine =
         #"^(?:(?:export|public|private|static|async)\s+)*(?:(?:import\s+(?:[\w.]+(?:\s+from\s+|\s*$)|[\"'{*])|from\s+[\w.]+\s+import\s|using\s+[\w.]+\s*;|(?:def|func|function)\s+\w+\s*\([^)]*\)\s*(?:\{|:|->)|(?:class|struct|enum|interface)\s+\w+[^;]*\{|(?:if|for|while)\s*\(.+\)\s*\{|console\.\w+\s*\(|[\w$.-]+\s*(?:<-|:=)\s*\S|\$\w+\s*=\s*\S)|(?:/\*|\*/|//|\{-|--\[\[|@['\"]))"#
+    static let envelopeStart =
+        #"^(?:(?:export|public|private|protected|static|final|abstract|async)\s+)*(?:(?:class|struct|enum|interface|object)\s+\w+[^;]*\{|(?:def|func|function)\s+\w+\s*\([^)]*\)\s*(?:\{|:|->)|(?:const|let|var|val|int|char|float|double)\s+[\w*]+(?:\s*:\s*[^=]+)?\s*=|@[A-Z]\w*\s*\(\{|package\s+[\w.]+\s*;?$|import\s+(?:\($|[\w.]+\s*$|[\"'{*])|from\s+[\w.]+\s+import\s|[A-Z_][A-Z0-9_]*=\S|INSERT\s+INTO\s+.+\bVALUES\b|(?:BEGIN|COMMIT|ROLLBACK);$|COPY\s+\w+\s*\([^)]*\)\s+FROM\s)"#
     static let configLine =
-        #"^(?:(?:-\s+)?[\w.-]+:\s*(?:\S.*)?$|(?:FROM|RUN|CMD|COPY|ADD|WORKDIR|ENV|ARG|ENTRYPOINT|EXPOSE)\s+\S|[A-Z][a-z]+-[A-Z][\w-]+\s+-\w|(?:brew|make|swift|pdfinfo|lp|npm|yarn|pip|git|sudo|echo|cd|rm|mkdir|set|export)\s+\S|[.!*\w/-]+/$|[!.*][\w.*?/-]+$|\w+(?:\.\w+)*\([^)]*\)\s*$)"#
+        #"^(?:(?:-\s+)?(?:[\w.-]+|"[^"\n]+"|'[^'\n]+'):\s*(?:\S.*)?$|(?:FROM|RUN|CMD|COPY|ADD|WORKDIR|ENV|ARG|ENTRYPOINT|EXPOSE)\s+\S|[A-Z][a-z]+-[A-Z][\w-]+\s+-\w|(?:brew|make|swift|pdfinfo|lp|npm|yarn|pip|git|sudo|echo|cd|rm|mkdir|set|export)\s+\S|[.!*\w/-]+/$|[!.*][\w.*?/-]+$|\w+(?:\.\w+)*\([^)]*\)\s*$)"#
     static let dataLine =
         #"^(?:[\w$.-]+\s*(?:[?:+]?=|<-)\s*\S|(?:class|def|end|return|puts|print|assert|if|else|elif|for|while|try|except)\b|[\w.$]+\([^)]*\)(?:\.[\w().]+)*\s*$|[\w./~$]++[^;\r\n]*;[ \t]*$|[\w/~]++[^{}\r\n]*\{[ \t]*$|[{}]\s*$|\[[\w.-]+\]$|\$\s+(?:cd|git|make|npm)\b|\*/\d+\s+\*)"#
     static let yamlEntry = #"^(?:-\s+)?[\w.-]+:\s*(?:\S.*)?$"#
-    static let cronLine = #"^(?:[\d*/,-]+\s+){5}\S"#
+    static let cronLine = #"^(?:[\d*/,-]+\s+){4}[\w*/,-]+\s+\S"#
     static let markdownBlock =
         #"^(?:#{1,6}\s+|(?:[-+*]|\d+[.)])\s+|`{3,}|~{3,})|\*\*[^*]+\*\*|__[^_]+__|(?:^|\s)[*_]\S(?:[^*_\n]*\S)?[*_](?=\s|[.,!?]|$)"#
     static let logLine = #"^(?:\[(?:INFO|WARN|ERROR|DEBUG)\]|\[?\d{4}[-/]\d{2}[-/]\d{2}.*\d{2}:\d{2})"#
     static let htmlExpression = #"\{\s*[\w$]+(?:\.[\w$]+)*(?:\([^}]*\))?\s*\}"#
 
+    private static let envelopeWords: Set<String> = [
+        "export", "public", "private", "protected", "static", "final", "abstract", "async",
+        "class", "struct", "enum", "interface", "object", "def", "func", "function",
+        "const", "let", "var", "val", "int", "char", "float", "double", "package", "import", "from",
+        "INSERT", "BEGIN;", "COMMIT;", "ROLLBACK;", "COPY",
+    ]
     private static let sourceWords: Set<String> = [
         "export", "public", "private", "static", "async", "import", "from", "using",
     ]
@@ -241,7 +249,8 @@ enum ClipboardScanners {
 
     private static let expressions: [String: NSRegularExpression] = {
         let patterns = [
-            sourceLine, configLine, dataLine, yamlEntry, cronLine, markdownBlock, logLine, htmlExpression,
+            sourceLine, envelopeStart, configLine, dataLine, yamlEntry, cronLine, markdownBlock, logLine,
+            htmlExpression,
             #"^(#!|diff\s|@@\s|\*\*\*\s+\d|---\s+\d|\+\+\+ |--- [ab]/|\*\*\* [ab]/)"#,
             #"^#\+[a-zA-Z_]+:"#,
             #"^\*+\s+\S"#,
@@ -257,6 +266,19 @@ enum ClipboardScanners {
     static func matches(_ value: ClipboardSlice, _ pattern: String, work: inout ClipboardWork) -> Bool {
         let end = min(value.range.upperBound, value.range.lowerBound + 512)
         let bounded = ClipboardSlice(value.bytes, value.range.lowerBound..<end)
+        if pattern == envelopeStart {
+            guard let first = bounded.first,
+                (65...90).contains(first) || (97...122).contains(first) || first == 64
+                    || first == 95
+            else { return false }
+            let wordEnd = bounded.wordEnd(from: bounded.range.lowerBound)
+            work.visit(wordEnd - bounded.range.lowerBound)
+            let word = ClipboardSlice(bounded.bytes, bounded.range.lowerBound..<wordEnd)
+            guard
+                first == 64 || envelopeWords.contains(word.string)
+                    || ((first == 95 || (65...90).contains(first)) && word.contains("="))
+            else { return false }
+        }
         if pattern == logLine {
             guard let first = bounded.first, first == 91 || (48...57).contains(first) else { return false }
         } else if pattern == sourceLine || pattern == configLine || pattern == dataLine {
@@ -279,7 +301,10 @@ enum ClipboardScanners {
                 if byte == 45 { hyphen = true }
                 if wordEnd == i && byte != 32 && byte != 9 { wordEnd += 1 }
             }
-            if first >= 128 && !colon && !equals && !paren && !brace && !semicolon && !hyphen { return false }
+            if first >= 128 && !colon && !equals && !paren && !brace && !semicolon && !hyphen && !bounded.hasSuffix("/")
+            {
+                return false
+            }
             let lead = ClipboardSlice(bounded.bytes, bounded.range.lowerBound..<wordEnd)
             let word = lead.string
             if pattern == sourceLine {
@@ -395,13 +420,25 @@ enum ClipboardScanners {
         return unsafe
     }
 
-    // Only an envelope anchored at the start and corroborated across the window may erase candidates.
+    // A punctuated declaration at the start owns everything after it, including embedded documents.
     static func externalEnvelope(_ window: ClipboardWindow, work: inout ClipboardWork) -> Bool {
         let lines = window.lines.map { ClipboardSlice(window.bytes, $0).trimmed }.filter { !$0.isEmpty }
         guard let head = lines.first else { return false }
         work.visit(window.bytes.count)
         if head.hasPrefix("<?xml") || head.hasPrefix("<?php") || head.hasPrefix("#!")
             || head.hasPrefix("#[")
+        {
+            return true
+        }
+        if matches(head, envelopeStart, work: &work) {
+            // A declaration names an ASCII identifier; "package のインストール手順" is how a sentence begins.
+            let sentence =
+                (head.hasPrefix("package ") || head.hasPrefix("import "))
+                && head.bytes[head.range].contains { $0 >= 128 }
+            if !sentence { return true }
+        }
+        if head.hasPrefix("-- "), let statement = lines.dropFirst().first,
+            matches(statement, envelopeStart, work: &work)
         {
             return true
         }
@@ -414,7 +451,7 @@ enum ClipboardScanners {
             let contextHunk =
                 lines.contains { $0.equals("***************") }
                 && lines.contains { $0.hasPrefix("*** ") && $0.hasSuffix(" ****") }
-                && lines.contains { $0.hasPrefix("--- ") && $0.hasSuffix(" ----") }
+                && lines.contains { $0.hasPrefix("--- ") && !$0.hasSuffix(" ----") }
             if diffStart
                 && ((unifiedHeader && unifiedHunk)
                     || (contextHunk && head.hasPrefix("*** ") && !head.hasSuffix(" ****")))
@@ -469,8 +506,9 @@ enum ClipboardScanners {
                     ClipboardSlice(window.bytes, (head.range.lowerBound + 4)..<head.range.upperBound), logLine,
                     work: &work))
         if logStart {
-            let logs = lines.filter { matches($0, logLine, work: &work) }.count
-            if logs >= 3 && logs * 2 > lines.count { return true }
+            let logs = lines.dropFirst(head.hasPrefix("### ") ? 1 : 0).prefix { matches($0, logLine, work: &work) }
+                .count
+            if logs >= 3 { return true }
         }
         if lines.contains(where: { $0.hasPrefix("```") || $0.hasPrefix("~~~") }) { return false }
         let anchored =
@@ -479,7 +517,8 @@ enum ClipboardScanners {
         if anchored {
             let shaped = content.filter {
                 matches($0, sourceLine, work: &work) || matches($0, configLine, work: &work)
-                    || matches($0, dataLine, work: &work) || $0.hasSuffix("%>%")
+                    || matches($0, dataLine, work: &work) || matches($0, envelopeStart, work: &work)
+                    || $0.hasSuffix("%>%")
             }.count
             if shaped >= 2 && shaped * 2 > content.count { return true }
         }
@@ -503,7 +542,7 @@ enum ClipboardScanners {
             if unmasked.isEmpty || unmasked.hasPrefix("#") { continue }
             total += 1
             if matches(line, configLine, work: &work) || matches(line, sourceLine, work: &work)
-                || matches(line, dataLine, work: &work)
+                || matches(line, dataLine, work: &work) || matches(line, envelopeStart, work: &work)
             {
                 shaped += 1
             }
@@ -559,6 +598,7 @@ enum ClipboardScanners {
         } else {
             valid = false
         }
+        result.claims = valid
         result.ownsStart = valid
         result.accepted = valid
         result.sufficient = valid

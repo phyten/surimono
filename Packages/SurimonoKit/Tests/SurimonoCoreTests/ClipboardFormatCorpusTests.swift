@@ -40,12 +40,6 @@ struct ClipboardFormatCorpusTests {
             "h2-csv-title-row",  // The title is a one-field record; dropping it would corrupt the table.
             "h5-normal-html-oneline-script",  // Template tokens in script strings still refuse HTML.
             "r2-md-weekly-report",  // Headings and plain paragraphs alone now require a choice at every level.
-            "plain-email-ja",  // A mail body with a real bullet list retains its Markdown evidence.
-            "plain-email-en",  // Leading mail prose does not erase the following bullet list.
-            "plain-email-quotes",  // A quoted reply retains block-quote evidence without auto-formatting.
-            "plain-asterisk-footnote",  // A line beginning with star-space is also a valid Markdown list.
-            "h-txt-form-letter",  // A numbered list inside a letter retains document evidence.
-            "h2-plain-legal-en",  // A numbered legal paragraph can also be a Markdown list starting after one.
             "h5-mail-inline-reply-markdown",  // Nested Markdown in a quoted mail body is still observed.
             "h5-mail-forwarded",  // Introductory prose plus a Setext-looking separator needs a choice.
             "h5-mail-digest",  // The digest contains document structures after prose.
@@ -93,6 +87,108 @@ struct ClipboardFormatCorpusTests {
         // Six: five ask because of a rule that holds at every level (prose before the document, a title row above a
         // table, a template mark in a script), and one is made of headings and paragraphs only, which a commented
         // script or config file can also be.
+        #expect(eligible == 181)
         #expect(ordinaryAsks <= 6)
+    }
+}
+
+extension ClipboardFormatCorpusTests {
+    @Test("両fixtureのプレーンテキスト567件への確認は163件以内に収める")
+    func plainTextQuestions() throws {
+        var count = 0
+        var asks = 0
+        for item in try Self.cases() where item.expected == "plainText" {
+            count += 1
+            if case .ask = ClipboardFormatDetector.detect(item.text).action { asks += 1 }
+        }
+        for item in try ClipboardFormatReviewTests.cases() where item.expected == "plainText" {
+            count += 1
+            let result = ClipboardFormatDetector.detect(
+                item.text,
+                hints: .init(hasMatchingURL: item.url ?? false, hasTabularData: item.tabular ?? false),
+                settings: .init(mode: item.mode ?? .askWhenUnsure, carefulness: item.carefulness ?? .standard))
+            if case .ask = result.action { asks += 1 }
+        }
+        print("PLAIN_QUESTIONS cases=\(count) asks=\(asks)")
+        #expect(count == 567)
+        #expect(asks <= 163)
+    }
+}
+
+extension ClipboardFormatCorpusTests {
+    @Test("前回質問へ退行した41件のうち34件以上は確認せずプレーンテキストへ戻る")
+    func plainTextRegressions() throws {
+        let ids: Set<String> = [
+            "tex-inline-text",
+            "plain-email-ja",
+            "plain-email-en",
+            "plain-recipe",
+            "plain-asterisk-footnote",
+            "h-txt-commit-message",
+            "h-txt-form-letter",
+            "h-txt-shopping-stars",
+            "h2-plain-legal-en",
+            "r1-ignore-japanese",
+            "r1-crontab-weekday",
+            "r1-yaml-quoted-keys",
+            "o-10",
+            "o-13",
+            "h3-ja-asterisk-note",
+            "h3-ja-recipe",
+            "r2-table-scattered",
+            "h4-code-go-html",
+            "h4-code-js-template-html",
+            "h4-code-c-comment-md",
+            "h4-code-java-javadoc-html",
+            "h4-code-angular",
+            "h4-code-sql-md",
+            "h4-mention-ticket-error-page",
+            "r3-table-extra-cell",
+            "r3-context-diff",
+            "h5-code-env-multiline-markdown",
+            "h5-code-python-readme-template",
+            "h5-code-scala-csv",
+            "h5-code-go-raw-csv",
+            "h5-code-sql-csv-copy",
+            "h5-mail-inline-reply-markdown",
+            "h5-table-thousand-separators",
+            "tex-inline-in-prose",
+            "csv-semicolon-eu",
+            "pt-asterisk-footnote",
+            "pt-dash-list-casual",
+            "pt-numbered-casual",
+            "pt-commit-msg-md",
+            "pt-asterisk-bullets-email",
+            "nbsp-heading",
+        ]
+        let asks: Set<String> = [
+            "r2-table-scattered", "h4-mention-ticket-error-page", "r3-table-extra-cell",
+            "h5-mail-inline-reply-markdown", "h5-table-thousand-separators", "csv-semicolon-eu", "nbsp-heading",
+        ]
+        var observed: Set<String> = []
+        var restored = 0
+        func check(_ id: String, _ result: ClipboardFormatDetection) {
+            observed.insert(id)
+            if result.action == .open(.plainText) { restored += 1 }
+            if asks.contains(id) {
+                #expect(Self.outcome(result) == "ask", Comment(rawValue: id))
+            } else {
+                #expect(result.action == .open(.plainText), Comment(rawValue: id))
+            }
+        }
+        for item in try Self.cases() where ids.contains(item.id) {
+            check(item.id, ClipboardFormatDetector.detect(item.text))
+        }
+        for item in try ClipboardFormatReviewTests.cases() where ids.contains(item.id) {
+            check(
+                item.id,
+                ClipboardFormatDetector.detect(
+                    item.text,
+                    hints: .init(hasMatchingURL: item.url ?? false, hasTabularData: item.tabular ?? false),
+                    settings: .init(mode: item.mode ?? .askWhenUnsure, carefulness: item.carefulness ?? .standard)))
+        }
+        #expect(ids.count == 41)
+        #expect(observed == ids)
+        #expect(restored >= 34)
     }
 }

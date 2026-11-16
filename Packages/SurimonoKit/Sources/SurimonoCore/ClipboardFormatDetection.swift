@@ -102,6 +102,10 @@ public struct ClipboardFormatDetection: Equatable, Sendable {
 struct ClipboardCandidate: Sendable {
     var kind: ClipboardTextKind
     var structures = 0
+    // Observations remain available for hand picking; only document claims affect automatic decisions.
+    var claims = false
+    // The candidate proved that its running body is configuration rather than document content.
+    var envelope = false
     var accepted = true
     var sufficient = false
     var ownsStart = false
@@ -112,7 +116,7 @@ struct ClipboardCandidate: Sendable {
 
     var choice: ClipboardFormatDetection.Choice {
         let confidence: Double
-        if structures > 0 && sufficient && accepted {
+        if claims && structures > 0 && sufficient && accepted {
             confidence = 0.95
         } else if structures > 0 {
             confidence = accepted ? 0.65 : 0.45
@@ -151,9 +155,11 @@ public enum ClipboardFormatDetector {
             && candidates.contains {
                 $0.kind == .csv && $0.structures > 0 && $0.accepted && $0.sufficient
             }
-        if !hintedTable && ClipboardScanners.externalEnvelope(window, work: &work) {
+        if !hintedTable
+            && (candidates.contains { $0.envelope } || ClipboardScanners.externalEnvelope(window, work: &work))
+        {
             for index in candidates.indices {
-                candidates[index].structures = 0
+                candidates[index].claims = false
                 candidates[index].accepted = false
             }
         }
@@ -177,7 +183,7 @@ public enum ClipboardFormatDetector {
             let plain = choices.removeLast()
             choices.insert(plain, at: plainIndex)
         }
-        let structured = candidates.filter { $0.structures > 0 && settings.automaticKinds.contains($0.kind) }
+        let structured = candidates.filter { $0.claims && settings.automaticKinds.contains($0.kind) }
         let accepted = structured.filter(\.accepted)
         let qualified = accepted.filter(\.sufficient)
         var reason: ClipboardFormatDetection.Reason = .ordinaryText

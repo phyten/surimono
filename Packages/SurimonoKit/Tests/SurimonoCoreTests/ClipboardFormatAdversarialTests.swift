@@ -59,6 +59,9 @@ struct ClipboardFormatAdversarialTests {
             if ["A66", "B07", "B08"].contains(id) {
                 // The brief explicitly permits FF, superseding the older review's blanket control veto.
                 #expect(result.action == .open(id == "B08" ? .url : .html), Comment(rawValue: id))
+            } else if ["A16", "B01"].contains(id) {
+                // A declaration at the start owns the later embedded document in round 4.
+                #expect(result.action == .open(.plainText), Comment(rawValue: id))
             } else {
                 #expect(result.action == .ask(preferred: .plainText), Comment(rawValue: id))
             }

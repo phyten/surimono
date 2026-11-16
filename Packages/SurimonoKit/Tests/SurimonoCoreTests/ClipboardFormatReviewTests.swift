@@ -7,6 +7,7 @@ struct ClipboardFormatReviewTests {
     struct Case: Decodable {
         let set: String
         let id: String
+        let expected: String
         let ok: [String]
         let text: String
         let mode: ClipboardFormatSettings.Mode?
@@ -29,9 +30,7 @@ struct ClipboardFormatReviewTests {
         let cases = try Self.cases()
         #expect(cases.count == 284)
         let pinned: [String: String] = [
-            "b-hash-only": "An empty ATX heading is observed but cannot justify Markdown.",
-            "html-prose-about-tags": "Inline tag examples retain weak HTML evidence and ask.",
-            "pt-latex-cmd-in-prose": "Prose before LaTeX commands requires a choice.",
+            "b-hash-only": "An empty ATX heading is observed but cannot justify Markdown."
         ]
         var failures: Set<String> = []
         var asks = 0
@@ -57,6 +56,6 @@ struct ClipboardFormatReviewTests {
             "REVIEW cases=\(cases.count) passes=\(cases.count - failures.count) asks=\(asks) wrong=\(wrong) silent=\(silent) failures=\(failures.sorted())"
         )
         #expect(failures == Set(pinned.keys))
-        #expect(pinned.count <= 14)
+        #expect(pinned.count <= 3)
     }
 }

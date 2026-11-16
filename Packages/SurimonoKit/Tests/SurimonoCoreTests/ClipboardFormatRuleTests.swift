@@ -355,7 +355,7 @@ extension ClipboardFormatRuleTests {
 extension ClipboardFormatRuleTests {
     @Test("構造の事前走査でも空のリスト項目と空白だけのフェンス本文を区別する")
     func preflightBoundaries() {
-        #expect(ClipboardFormatDetector.detect("+").action == .ask(preferred: .plainText))
+        #expect(ClipboardFormatDetector.detect("+").action == .open(.plainText))
         for fence in ["```", "~~~"] {
             #expect(
                 ClipboardFormatDetector.detect(fence + "\n\u{200B}\n" + fence).action == .ask(preferred: .plainText))
@@ -442,7 +442,7 @@ extension ClipboardFormatRuleTests {
         var empty = ClipboardCandidate(kind: .markdown)
         empty.sufficient = true
         #expect(empty.choice.confidence == 0)
-        for text in ["plain words", "[INFO] one\n[INFO] two\n[ERROR] three", "# Title\nX=1\nY=2"] {
+        for text in ["plain words", "[INFO] one\n[INFO] two\n[ERROR] three"] {
             let result = ClipboardFormatDetector.detect(text)
             if result.action == .open(.plainText) {
                 #expect(result.choices.filter { $0.kind != .plainText }.allSatisfy { $0.confidence == 0 })
@@ -559,5 +559,94 @@ extension ClipboardFormatRuleTests {
         let hinted = ClipboardFormatDetector.detect("name,count\na,1\nb,2", hints: .init(hasTabularData: true))
         #expect(hinted.tableDelimiter == "\t")
         #expect(hinted.action == .ask(preferred: .plainText))
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    @Test("弱い記法だけのメッセージは観測を残して確認せず開く")
+    func weakSyntaxDoesNotClaim() {
+        for text in [
+            "買い物\n- 牛乳\n- 卵", "Agenda:\n* budget\n* hiring", "手順\n1. 開く\n2. 刷る",
+            "送料は別です。\n* 税抜き", "Hello.\n> Please print this.\n> Thanks.", "> - Print one\n> - Print two",
+            "The **word** matters.",
+            "The ratio is $a/b$ and the area is $\\pi r^2$.",
+            "Use the <br> tag for a line break.", "Use \\section{Title} for a heading.",
+            "Today, we met.\nTomorrow, we print.", "* one item",
+        ] {
+            let result = ClipboardFormatDetector.detect(text)
+            #expect(result.action == .open(.plainText), Comment(rawValue: text))
+            #expect(result.choices.count == ClipboardTextKind.allCases.count)
+        }
+        var work = ClipboardWork()
+        let candidate = ClipboardScanners.markdown(ClipboardWindow("- one\n- two"), level: .standard, work: &work)
+        #expect(candidate.structures == 2)
+        #expect(!candidate.claims)
+        #expect(!candidate.evidence.isEmpty)
+        let observed = ClipboardFormatDetector.detect("- one\n- two").choices.first { $0.kind == .markdown }
+        #expect(observed?.evidence.contains(.lists(2)) == true)
+    }
+
+    @Test("明確な先頭の宣言は長い埋め込み文書より優先する")
+    func sourceEnvelopeOwnsEmbeddedDocument() {
+        for prefix in [
+            "package main", "import (", "import textwrap", "export function render(user) {",
+            "public final class Sheet {", "static int retries = 3; /*", "@Component({",
+            "INSERT INTO articles (body) VALUES", "APP_NAME=notes", "object Fixtures {",
+            "-- local data\nBEGIN;", "[INFO] one\n[INFO] two\n[ERROR] three",
+            "--- a/file\n+++ b/file\n@@ -1 +1 @@", "*** old.md\n--- new.md\n***************\n*** 1,3 ****",
+        ] {
+            let text = prefix + "\n" + String(repeating: document + "\n", count: 30)
+            let result = ClipboardFormatDetector.detect(text)
+            #expect(result.action == .open(.plainText), Comment(rawValue: prefix))
+            #expect(result.choices.contains { $0.kind == .markdown && !$0.evidence.isEmpty })
+            #expect(
+                ClipboardFormatDetector.detect(text, settings: .init(mode: .alwaysAsk)).action
+                    == .ask(preferred: .plainText))
+            #expect(
+                ClipboardFormatDetector.detect(text, settings: .init(mode: .fixed, fixedKind: .html)).action
+                    == .open(.html))
+        }
+    }
+
+    @Test("コメントの見出しを伴う設定やスクリプトは確認せず開く")
+    func commentedConfiguration() {
+        for text in [
+            "# Report\n0 9 * * MON /usr/local/bin/report\n# Clean\n0 3 * * SUN /usr/local/bin/clean",
+            "# 作業用\n資料/\n# 一時保存\n一時/", "# settings\n\"name\": app\n# paper\n'paper': A4",
+            "# settings\nname: app\n# paper\npaper: A4", "# Inputs\nconst x = 1;\nconst y = 2;",
+            "# Input\nx <- read.csv(\"x.csv\")\n# Output\nplot(x)",
+            "---\nname: settings\n---\nAPP_NAME=notes\nAPP_PORT=8080",
+        ] {
+            #expect(ClipboardFormatDetector.detect(text).action == .open(.plainText), Comment(rawValue: text))
+        }
+    }
+
+    @Test("packageやimportで始まる和文の後の文書を黙ってテキストにしない")
+    func sentenceStartingLikeADeclaration() {
+        for text in [
+            "package のインストール手順\n\n# 手順\n\n```sh\nnpm install\n```\n",
+            "import 手順\n\n# 準備\n\n1. **設定**を開く\n2. `実行` を押す\n",
+        ] {
+            #expect(ClipboardFormatDetector.detect(text).action != .open(.plainText), Comment(rawValue: text))
+        }
+        for text in [
+            "package main\n\nimport (\n\t\"fmt\"\n)\n\n// # Title\nfunc main() { fmt.Println(\"# x\") }\n",
+            "import os\nimport sys\n\n# Notes\nprint(os.getcwd())\n",
+        ] {
+            #expect(ClipboardFormatDetector.detect(text).action == .open(.plainText), Comment(rawValue: text))
+        }
+    }
+
+    @Test("引用の本文に文書構造がある場合だけ確認する")
+    func quotedDocumentClaims() {
+        let plain = "Thanks.\n\n> Please print two copies.\n> Bring them tomorrow."
+        let structured = "Thanks.\n\n> ## Proposal\n> Use **Markdown**.\n> - First\n> - Second"
+        #expect(ClipboardFormatDetector.detect(plain).action == .open(.plainText))
+        #expect(ClipboardFormatDetector.detect(structured).action == .ask(preferred: .plainText))
+        #expect(ClipboardFormatDetector.detect(document).action == .open(.markdown))
+        #expect(
+            ClipboardFormatDetector.detect("---\ntitle: Example\n---\n```sh\nx=1\ny=2\nz=3\n```").action
+                == .open(.markdown))
+        #expect(ClipboardFormatDetector.detect("# Heading").action == .ask(preferred: .plainText))
     }
 }

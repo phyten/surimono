@@ -254,9 +254,11 @@ extension ClipboardScanners {
         let first = ClipboardSlice(window.bytes).trimmed
         // Inline HTML in another document is not independent HTML-document evidence.
         guard parsed.tags > 0 || parsed.document else { return candidate }
-        guard first.hasPrefix("<") || ClipboardSlice(window.bytes).contains("<br>") else { return candidate }
         candidate.structures = max(1, parsed.tags)
         candidate.ownsStart = first.hasPrefix("<")
+        candidate.claims =
+            parsed.document || candidate.ownsStart
+            || window.lines.filter { ClipboardSlice(window.bytes, $0).trimmed.hasSuffix("<br>") }.count >= 2
         candidate.accepted =
             parsed.valid && parsed.starts && !ClipboardSlice(window.bytes).hasPrefix("    ") && window.bytes.first != 9
         candidate.strength = parsed.document ? 90 : 50
@@ -348,7 +350,8 @@ extension ClipboardScanners {
                 if !line.hasPrefix(": ") { appendOrgInline(line, to: &running, work: &work) }
             }
         }
-        candidate.structures = distinctive > 0 || (headings >= 2 && !prefix) ? headings + distinctive : 0
+        candidate.structures = headings + distinctive
+        candidate.claims = distinctive > 0 || (headings >= 2 && !prefix)
         candidate.strength = 80
         candidate.ownsStart = !prefix && began
         if headings > 0 && secondary > 0 && keywords == 0 && blocks == 0

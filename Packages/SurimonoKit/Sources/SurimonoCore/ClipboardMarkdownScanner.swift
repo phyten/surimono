@@ -13,6 +13,7 @@ extension ClipboardScanners {
         result.ownsStart = firstLine.map { matches($0, markdownBlock, work: &work) } ?? false
         if excessiveNesting(source, work: &work) {
             result.structures = 1
+            result.claims = true
             result.accepted = false
             result.evidence = [.incomplete]
             return result
@@ -33,6 +34,7 @@ extension ClipboardScanners {
         // Inline ticks alone cannot contribute structure. Keep the depth guard before this proof.
         guard markdownPossible(window.bytes, lines: window.lines, work: &work) else { return result }
         var frontMatter = false
+        var bodyStart = 0
         if let first = window.lines.first, ClipboardSlice(source, first).trimmed.equals("---") {
             for line in window.lines.dropFirst() {
                 work.visit(line.count)
@@ -49,16 +51,12 @@ extension ClipboardScanners {
                             || matches(raw, yamlEntry, work: &work)
                     }
                     guard hasKey && valid else { break }
-                    let tail = window.lines.filter { $0.lowerBound > line.upperBound }
-                    if configDominates(source, original: source, lines: tail, work: &work) {
-                        result.accepted = false
-                        break
-                    }
                     for i in 0..<line.upperBound {
                         if source[i] != 10 { source[i] = 32 }
                         work.visit()
                     }
                     frontMatter = true
+                    bodyStart = line.upperBound
                     break
                 }
             }
@@ -69,6 +67,7 @@ extension ClipboardScanners {
         cmark_gfm_core_extensions_ensure_registered()
         guard let parser = cmark_parser_new(CMARK_OPT_TABLE_SPANS | CMARK_OPT_SMART | CMARK_OPT_SOURCEPOS) else {
             result.structures = 1
+            result.claims = true
             result.accepted = false
             result.evidence = [.incomplete]
             return result
@@ -82,6 +81,7 @@ extension ClipboardScanners {
         }
         guard let root = cmark_parser_finish(parser) else {
             result.structures = 1
+            result.claims = true
             result.accepted = false
             result.evidence = [.incomplete]
             return result
@@ -95,6 +95,9 @@ extension ClipboardScanners {
         var codes = 0
         var tables = 0
         var links = 0
+        var markedLinks = 0
+        var nestedList = false
+        var callout = false
         var emphasis = 0
         var strong = 0
         var quotes = 0
@@ -129,7 +132,7 @@ extension ClipboardScanners {
             top.append(ClipboardMarkdownNode(pointer))
             child = cmark_node_next(pointer)
         }
-        var nodes = top.reversed().map { ($0, 0) }
+        var nodes = top.reversed().map { ($0, 0, 0) }
         let firstContent = top.first { node in
             if node.kind == "html_block", let range = span(node) {
                 return !ClipboardSlice(source, range).trimmed.hasPrefix("<!--")
@@ -150,11 +153,12 @@ extension ClipboardScanners {
                 }
             }
         }
-        while let (node, nesting) = nodes.popLast() {
+        while let (node, nesting, listDepth) = nodes.popLast() {
             work.visit()
             if nesting > 64 { result.accepted = false }
             if node.kind == "heading" { headings += 1 }
             if node.kind == "list" {
+                if listDepth > 0 { nestedList = true }
                 if cmark_node_get_list_type(node.pointer) == CMARK_ORDERED_LIST {
                     distinctLists += 1
                 } else if let range = span(node), let first = ClipboardSlice(window.bytes, range).trimmed.first,
@@ -167,9 +171,18 @@ extension ClipboardScanners {
                 lists += 1
                 if node.kind == "tasklist" { emphasis += 1 }
             }
-            if node.kind == "block_quote" { quotes += 1 }
+            if node.kind == "block_quote" {
+                quotes += 1
+                if let range = span(node), ClipboardSlice(source, range).hasPrefix("> [!") { callout = true }
+            }
             if node.kind == "link" || node.kind == "image" {
                 links += 1
+                if let range = span(node),
+                    ClipboardSlice(source, range).hasPrefix("[")
+                        || ClipboardSlice(source, range).hasPrefix("!")
+                {
+                    markedLinks += 1
+                }
                 if let range = span(node) { protect(range) }
             }
             if ["strong", "emph", "strikethrough"].contains(node.kind) { emphasis += 1 }
@@ -267,7 +280,7 @@ extension ClipboardScanners {
             }
             var child = cmark_node_last_child(node.pointer)
             while let pointer = child {
-                nodes.append((ClipboardMarkdownNode(pointer), nesting + 1))
+                nodes.append((ClipboardMarkdownNode(pointer), nesting + 1, listDepth + (node.kind == "list" ? 1 : 0)))
                 child = cmark_node_previous(pointer)
             }
         }
@@ -302,9 +315,12 @@ extension ClipboardScanners {
             lists + codes + tables + links + emphasis + inlineCodes > 0 || frontMatter
             || running.contains(36)
         if result.accepted && needsConfigCheck
-            && configDominates(running, original: window.bytes, lines: window.lines, work: &work)
+            && configDominates(
+                running, original: window.bytes,
+                lines: window.lines.filter { $0.lowerBound >= bodyStart }, work: &work)
         {
             result.accepted = false
+            result.envelope = true
         }
         // Distinctive Org blocks own their shared star markers. Markdown-specific inline syntax
         // keeps the overlap unresolved; observations are retained in either case.
@@ -348,6 +364,13 @@ extension ClipboardScanners {
         if headings == 0 && tables == 0 && codes == 0 && lists == 0 && ClipboardSlice(window.bytes).contains("\\[") {
             result.structures = 1
         }
+        // Flat lists and prose quotes are weak. Hierarchy and callouts retain their document ambiguity.
+        // Autolinked email addresses in a reply do not turn its plain quoted lines into a claim.
+        result.claims =
+            headings + codes + tables > 0 || frontMatter || invalidTable
+            || ((lists + quotes > 0) && emphasis + markedLinks + inlineCodes > 0) || links >= 2
+            || nestedList || callout
+        if ClipboardSlice(window.bytes).trimmed.hasPrefix("\\[") { result.claims = true }
         result.evidence = [.headings(headings), .lists(lists), .codeBlocks(codes), .tables(tables), .links(links)]
         if !result.accepted { result.evidence.append(.conflictingSyntax) }
         return result

@@ -16,6 +16,7 @@ extension ClipboardScanners {
         var starts = false
         var prefix = false
         var document = false
+        var environment = false
         var printable = false
         var running: [UInt8] = []
         running.reserveCapacity(b.count)
@@ -86,6 +87,7 @@ extension ClipboardScanners {
                 if structural.contains(name) || declaration { starts = true }
                 if structural.contains(name) && !declaration { commands += 1 }
                 if name == "documentclass" { document = true }
+                if name == "begin" { environment = true }
                 if declaration {
                     // Declaration arguments, including the unbraced control sequence name, cannot print.
                     if i < b.count && b[i] == 42 { i += 1 }
@@ -236,6 +238,11 @@ extension ClipboardScanners {
         if mathDepth == 0 { running.append(contentsOf: b[textStart..<b.count]) }
         candidate.structures = commands > 0 ? commands : (allCommands >= 2 && b.contains(123) ? 1 : 0)
         if printable && b.contains(36) { candidate.structures = max(1, candidate.structures) }
+        // A command mentioned in prose is weak; environments, declarations and standalone math claim the text.
+        let first = ClipboardSlice(b).trimmed
+        candidate.claims =
+            document || environment || commands >= 2 || (!prefix && starts)
+            || first.hasPrefix("$$") || first.hasPrefix("\\[") || (first.hasPrefix("\\") && allCommands >= 2)
         candidate.strength = document ? 95 : 65
         candidate.ownsStart = !prefix && starts
         candidate.accepted =
@@ -403,6 +410,7 @@ extension ClipboardScanners {
             // multi-record comma table still keeps its evidence and therefore asks.
             if comma.delimiters > 0 && comma.rows.count >= 2 {
                 result.structures = comma.rows.count
+                result.claims = true
                 result.ownsStart = (comma.rows.first?.count ?? 0) > 1
                 result.accepted = false
                 result.evidence = [.tables(1), .pasteboard, .conflictingSyntax]
@@ -417,6 +425,7 @@ extension ClipboardScanners {
         let columns = rows.first?.count ?? 0
         result.ownsStart = columns >= 2
         result.structures = rows.count
+        result.claims = true
         result.strength = 70
         var ambiguous = false
         var hasNumeric = false
@@ -496,24 +505,24 @@ extension ClipboardScanners {
                 let line = ClipboardSlice(bytes, $0).trimmed
                 return line.hasSuffix(".") || line.hasSuffix("。")
             }.count
-            if proseFields >= rows.count || (!rectangular && sentenceLines >= 2) { result.structures = 0 }
+            if proseFields >= rows.count || sentenceLines >= 2 { result.claims = false }
         }
         if groupedRows == rows.count || numericRows == rows.count { ambiguous = true }
         if !shortHeader { ambiguous = true }
-        if !useTab && multiRows < 2 { result.structures = 0 }
+        if !useTab && (multiRows < 2 || multiRows * 2 < rows.count) { result.claims = false }
         if columns == 1 && rows.count >= 4
             && rows.dropFirst().allSatisfy({ $0.count == rows[1].count && $0.count >= 2 })
         {
-            result.structures = rows.count
+            result.claims = true
         }
-        if useTab && columns == 1 { result.structures = 0 }
-        if !useTab && !parsed.quoted && !hasNumeric && hasJapanesePeriod { result.structures = 0 }
+        if useTab && columns == 1 { result.claims = false }
+        if !useTab && !parsed.quoted && !hasNumeric && hasJapanesePeriod { result.claims = false }
         if !useTab && !parsed.quoted {
             if sentence {
                 ambiguous = true
-                if !rectangular { result.structures = 0 }
+                if !rectangular { result.claims = false }
             }
-            if spaced >= rows.count && !rectangular { result.structures = 0 }
+            if spaced >= rows.count && !rectangular { result.claims = false }
         }
         let literalRows = window.lines.filter { !ClipboardSlice(bytes, $0).trimmed.isEmpty }.allSatisfy {
             let line = ClipboardSlice(bytes, $0).trimmed
