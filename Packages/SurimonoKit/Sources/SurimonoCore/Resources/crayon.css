@@ -10,6 +10,8 @@ h1 { font-size: 1.9em; color: #d2372f; text-align: center; padding: 0.2em 0.6em;
 h2 { font-size: 1.4em; color: #2862b8; padding-bottom: 0.1em; border-bottom: 3pt solid #f2b632;
     border-radius: 0 0 40% 6% / 0 0 6pt 3pt; }
 h3 { font-size: 1.15em; color: #2f8a3d; }
+/* An Org heading's small marks take a deeper green, which stays readable in small type. */
+h3 > :is(.org-todo, .org-done, .org-priority, .org-cookie, .org-tags) { color: #23692f; }
 h4 { color: #8a3fb0; }
 p, pre, table { margin: 0.65em 0; }
 li { margin: 0.2em 0; }

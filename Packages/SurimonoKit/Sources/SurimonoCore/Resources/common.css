@@ -52,17 +52,127 @@ li.task-list-item > input[type="checkbox"]:checked,
 li.task-list-item > p:first-child > input[type="checkbox"]:checked {
     background: currentColor url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat;
 }
-.org-todo, .org-done, .org-priority, .org-tag { font-size: 0.8em; font-family: sans-serif; }
-.org-todo { font-weight: bold; border: 0.5pt solid currentColor; padding: 0 0.2em; }
-.org-done { text-decoration: line-through; }
-.org-tag { border: 0.5pt solid #999; border-radius: 2pt; padding: 0 0.25em; }
-.org-planning { display: block; font-size: 0.8em; }
-.org-title-block { text-align: center; margin-bottom: 1.5em; }
-.org-author, .org-date { margin: 0.25em 0; }
+/* A task still open shows its box, one in progress a bar across it. */
+li.task-list-item > input[type="checkbox"].org-partial:not(:checked),
+li.task-list-item > p:first-child > input[type="checkbox"].org-partial:not(:checked) {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-position: center;
+    background-size: 56% 1.4pt;
+    background-repeat: no-repeat;
+}
+
+/* Org documents (OrgConverter). The marks of a heading take the theme's type and ink from the heading and leave behind
+   what the heading is dressed in (letter spacing, capitals, outlines, shadows), which would make a keyword or a tag
+   hard to read. Open and done differ by shape, a frame or a tick, so they stay apart in black and white. */
+:root {
+    /* How much of the body text's ink the planning lines and inactive dates keep. Only text in the body's own ink is
+       made lighter: in a quote or a callout the ink is light already. A heading's cookie and tags keep the heading's
+       full ink for the same reason. */
+    --org-quiet: 72%;
+    /* Near the body's size rather than the heading's, yet not below a small print size in a large heading. */
+    --org-tag-size: max(0.55em, 0.72rem);
+    /* The keywords' ink; a theme with an accent may give open and done their own. */
+    --org-todo-ink: currentColor;
+    --org-done-ink: currentColor;
+}
+.org-todo, .org-done, .org-priority, .org-cookie, .org-tags {
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    font-variant: normal;
+    font-style: normal;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    white-space: nowrap;
+}
+.org-todo, .org-done, .org-priority { font-size: 0.78em; vertical-align: 0.08em; }
+.org-todo {
+    color: var(--org-todo-ink);
+    font-weight: 700;
+    padding: 0 0.25em;
+    border: 0.75pt solid currentColor;
+    border-radius: 0.12em;
+}
+.org-done { color: var(--org-done-ink); font-weight: 600; }
+.org-done::before { content: "\2713\2009"; }
+.org-priority { font-weight: 700; }
+.org-cookie {
+    font-size: 0.78em;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+/* Tags go to the end of the heading's first line, at the heading's own line height so they sit on its baseline; a
+   heading too long for one line wraps beside them. Their size follows the text, not the heading. The small right
+   margin keeps the last tag's frame inside the text width, where the edge of the page would clip it. */
+.org-tags { float: right; margin: 0 0.75pt 0 1em; font-weight: 400; }
+/* The heading holds its tags, so tags pushed down a line stay above the heading's rule and ground instead of reaching
+   into what follows. No specificity, so a theme that lays its headings out itself keeps its display. */
+:where(:is(h1, h2, h3, h4, h5, h6):has(> .org-tags)) { display: flow-root; }
+.org-tag {
+    display: inline-block;
+    font-size: var(--org-tag-size);
+    line-height: 1.3;
+    padding: 0 0.35em;
+    border: 0.5pt solid color-mix(in srgb, currentColor 45%, transparent);
+    border-radius: 0.3em;
+}
+.org-tag + .org-tag { margin-left: 0.15em; }
+p.org-planning {
+    margin: 0.15em 0 0.6em;
+    font-size: 0.85em;
+    text-indent: 0;
+}
+body > p.org-planning { color: color-mix(in srgb, currentColor var(--org-quiet), transparent); }
+.org-planning-item { white-space: nowrap; }
+.org-planning-item + .org-planning-item { margin-left: 1.4em; }
+.org-planning-label { font-size: 0.86em; font-weight: 700; letter-spacing: 0.04em; margin-right: 0.15em; }
+time.org-timestamp { font-variant-numeric: tabular-nums; white-space: nowrap; }
+body > p:not(.org-planning) > time.org-timestamp-inactive {
+    color: color-mix(in srgb, currentColor var(--org-quiet), transparent);
+}
+.org-title-block { text-align: center; margin-bottom: 1.8em; }
+.org-title-block > h1:not(:last-child) { margin-bottom: 0.45em; }
+.org-subtitle { font-size: 1.12em; }
+.org-title-block > p { margin: 0.2em 0; }
+/* The title block keeps its own alignment and plain first letters, whatever a theme does to the paragraph after an h1,
+   and a rule a theme draws under its h1 stays under the centred title. Same for LaTeX's title. A planning line right
+   under a heading is not the section's opening paragraph either, so it takes no drop cap. */
+:is(.org-title-block, .latex-title-block) > p { text-align: inherit; text-indent: 0; }
+:is(.org-title-block, .latex-title-block) > p::first-letter, p.org-planning::first-letter {
+    float: none;
+    margin: 0;
+    font: inherit;
+    line-height: inherit;
+    color: inherit;
+}
+:is(.org-title-block, .latex-title-block) > h1::after { margin-inline: auto; }
+figure.org-figure { margin: 1em 0; break-inside: avoid; page-break-inside: avoid; }
+figure.org-table > figcaption { margin: 0 0 0.3em; }
+figure.org-image { text-align: center; }
+figure.org-figure > figcaption { font-size: 0.9em; }
+.org-block {
+    margin: 1em 0;
+    padding-left: 0.9em;
+    border-left: 1.5pt solid color-mix(in srgb, currentColor 35%, transparent);
+}
+.org-block > :first-child { margin-top: 0; }
+.org-block > :last-child { margin-bottom: 0; }
 .org-center { text-align: center; }
-.org-verse { white-space: pre-wrap; }
-.org-checkbox { font-family: sans-serif; }
-.surimono-plain { font-family: inherit; line-height: inherit; }
+.org-verse { white-space: pre-wrap; margin: 1em 0 1em 2em; }
+/* Plain text is the document itself, not a code sample in it: it keeps the body's type, size and paper instead of the
+   box a theme draws around code. As specific as a class alone: it outranks a theme's bare pre, and a user's style that
+   names the class later still changes it. */
+:where(pre).surimono-plain {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+}
 .surimono-csv { width: 100%; }
 .surimono-csv td { white-space: pre-wrap; }
 

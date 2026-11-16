@@ -74,6 +74,14 @@ make clean
 
 - これらを束ねるのが `DocumentRenderer`（SurimonoRendering）。文書ごとに 1 つ持ち、論理ページの PDF を使い回す（両面設定やページ番号の変更だけなら組版し直さない）。ファイルが変わったら `clearCache()` を呼ぶ。
 - Markdown と Org のコードは SurimonoCore の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
+- Org（`OrgConverter`・`OrgInline`・`OrgContext`、SurimonoCore）は、紙で読むための形にして出す。原文の記号（`[fn:1]`・`SCHEDULED: <…>`・`#+begin_note`）を紙に残さない。
+  - `#+TITLE` があるときは表題だけが h1 で、`*` は h2 から（org-export と同じ。テーマは h1 を文書の表題として作ってある）。表題がなければ `*` が h1 のまま。表題ブロックは表題・副題（`#+SUBTITLE`）・著者・日付の順。
+  - 見出しの TODO の語は大文字小文字を区別し、`#+TODO`・`#+SEQ_TODO`・`#+TYP_TODO` の宣言に従う（既定は TODO・NEXT・WAITING・WAIT・HOLD と DONE・CANCELLED・CANCELED）。進行中は `.org-todo`、完了は `.org-done`（見出しに `.org-done-heading`）。優先度 `.org-priority`、進み具合 `[2/4]` は `.org-cookie`、タグは `.org-tags > .org-tag`。
+  - 予定の行（SCHEDULED・DEADLINE・CLOSED）は `p.org-planning`、日付は `time.org-timestamp`（角括弧の方は `.org-timestamp-inactive`）。
+  - チェックボックス・脚注・囲みは Markdown と同じ HTML にする（`li.task-list-item`、`section.footnotes`、`callout-*`）。テーマのタスクや囲みの見た目と、ページ下の脚注がそのまま効く。途中（`[-]`）の箱は `input.org-partial`。囲みの名前でない特殊ブロックは `.org-block`、`comment` と `export` のブロックは刷らない。
+  - `#+CAPTION` は直後の表か画像の `figure.org-figure` の見出しにする。表は、数の列を右に寄せ（Org と同じく半分以上が数のとき）、`<r>` などの行に従う。
+  - 見た目は `common.css` の Org の部分が受け持つ。書体と色は見出しや本文から受け継ぎ（明朝のテーマで印だけゴシックにしない）、見出しの字間・大文字・縁取りは印に持ち込まない。進行中は枠、完了は「✓」で分け、白黒でも見分けられる。タグは見出しの 1 行目の右端。色を変えたいテーマは `--org-todo-ink`・`--org-done-ink` だけを決める（`OrgThemeStyleTests`）。
+  - 数式・`#+INCLUDE`・表計算の式・`:noexport:` は読まない。
 - 柱の `{章}` は紙の目次と同じ章レベルを使い、本文までに始まった最後の章を表示する（目次・白紙・ノート・合本は空）。`PageChapters` が本文のページを仕上げ後のページへ対応づける。
 - `PrintFinish.links` はテーマを使う文書の外部リンクを末尾の番号付き一覧または文字の後ろへ添える。`PaperLinks` が HTML 断片を後処理し、コード・数式・目次・見出し（紙の上の文字が変わると、目次や柱の章がページを見つけられない）・内部リンク・自動リンク・画像だけのリンクを除く。既定の `asIs` は保存キーも出力も変えない。
 - 囲み（`MarkdownCallouts`）: 表題を札にし、名前を意味の 4 群へ畳む。情報（note・info・todo・example）は `callout-note`、成功（tip・success）は `callout-tip`、注意（important・warning・question）は `callout-warning`、危険（danger・bug）は `callout-danger`（クラス名は以前のもので、ユーザー CSS のために変えない）。important と example には、以前のクラス `callout-important` を群のクラスの前に併記する。手書きの HTML の `callout callout-important` は注意の見た目になる。ほかに `callout-quote` と無地の `callout-neutral`（neutral・details）。`data-callout` には書いた名前がそのまま残る。

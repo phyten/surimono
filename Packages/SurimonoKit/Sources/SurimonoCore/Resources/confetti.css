@@ -32,6 +32,8 @@ th, td { border-color: #c9c3d9; }
 :root {
     --callout-info: #2a62c9; --callout-success: #06735a; --callout-warning: #8a5a00; --callout-danger: #c2255c;
     --callout-plain: #1d2a4d; --callout-frame: 1.5pt; --callout-radius: 7.5pt; --callout-tag-radius: 5pt;
+    /* An open task in the party pink of the subheadings; a done one in the success green. */
+    --org-todo-ink: #b8305a; --org-done-ink: #06735a;
 }
 .callout::before { box-shadow: 2.25pt 2.25pt 0 var(--callout-color); }
 .callout-quote::before { box-shadow: none; }
