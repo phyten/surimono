@@ -59,7 +59,10 @@ struct PrintFinishSheet: View {
             }
         }
         .foregroundStyle(PrintPalette.ink)
-        .tint(PrintPalette.ai)
+        // From the view mode the settings sit among the system's controls, so they take its accent.
+        .tint(isInPopover ? Color.accentColor : PrintPalette.ai)
+        .environment(\.printAccent, isInPopover ? Color.accentColor : PrintPalette.ai)
+        .environment(\.printAccentInk, isInPopover ? Color.white : PrintPalette.raised)
         .clearsInitialFocus()
         .onAppear { customLine = model.printFinish.breaks.customLine }
     }
@@ -145,9 +148,6 @@ struct PrintFinishSheet: View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Print Settings").font(.system(size: 14, weight: .bold))
-                Text("Changes the pages only. The document does not change.")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(PrintPalette.ink2)
             }
             Spacer(minLength: 0)
             // Centred on the title's line rather than on the two lines.
@@ -185,7 +185,7 @@ struct PrintFinishSheet: View {
                 Text("Use These Print Settings for New Documents")
             }
             .buttonStyle(PrintLinkButtonStyle())
-            Text("New documents start with these margins, header and footer, page breaks and contents")
+            Text("Note pages are not included.")
                 .font(.system(size: 11))
                 .foregroundStyle(PrintPalette.ink3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -203,12 +203,15 @@ struct PrintFinishSheet: View {
         .padding(.bottom, 11)
     }
 
-    private func hint(_ text: LocalizedStringKey) -> some View {
-        Text(text)
-            .font(.system(size: 11.5))
-            .foregroundStyle(PrintPalette.ink2)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 6)
+    /// A consequence the choice above does not show; nil when its name says it all.
+    @ViewBuilder private func hint(_ text: LocalizedStringKey?) -> some View {
+        if let text {
+            Text(text)
+                .font(.system(size: 11.5))
+                .foregroundStyle(PrintPalette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6)
+        }
     }
 
     private func subheading(_ title: LocalizedStringKey) -> some View {
@@ -370,10 +373,9 @@ struct PrintFinishSheet: View {
 
     // MARK: Page breaks
 
-    private var breakHint: LocalizedStringKey {
+    private var breakHint: LocalizedStringKey? {
         switch model.printFinish.breaks.h1 {
-        case .none: "Headings do not break the page."
-        case .page: "Breaks the page before the largest headings."
+        case .none, .page: nil
         case .rightPage:
             model.layout.hasFacingPages
                 ? "Adds blank pages so that chapters start on a right-hand page."
@@ -390,7 +392,7 @@ struct PrintFinishSheet: View {
             levelRow(level: 2, rule: $model.printFinish.breaks.h2)
             levelRow(level: 3, rule: $model.printFinish.breaks.h3)
             if model.format == .markdown {
-                subheading("Syntax in the Text (Read Only; the Text Does Not Change)")
+                subheading("Syntax in the Text")
                 codeRow("<!--BREAK-->", isOn: syntax(.comment), count: facts?.pageBreakCounts[.comment] ?? 0)
                 codeRow("<!-- pagebreak -->", isOn: syntax(.pagebreak), count: facts?.pageBreakCounts[.pagebreak] ?? 0)
                 codeRow("\\newpage", isOn: syntax(.newpage), count: facts?.pageBreakCounts[.newpage] ?? 0)
@@ -452,15 +454,13 @@ struct PrintFinishSheet: View {
 
     // MARK: Contents
 
-    private var contentsHint: LocalizedStringKey {
+    private var contentsHint: LocalizedStringKey? {
         let hasSource = facts?.hasSourceContents == true
         switch model.printFinish.toc.mode {
-        case .hidden: return hasSource ? "The text's [TOC] does not print." : "No contents on the paper."
+        case .hidden: return hasSource ? "The text's [TOC] does not print." : nil
         case .source:
-            return hasSource
-                ? "Prints where the text's [TOC] stands."
-                : "This document does not say where contents go. To add them, choose “Add Contents to Front”."
-        case .front: return "Adds pages of contents in front, with or without a [TOC] in the text."
+            return hasSource ? nil : "This document has no [TOC]. Choose “Add Contents to Front” to add one."
+        case .front: return nil
         }
     }
 
@@ -520,6 +520,7 @@ struct PrintTextField: View {
     var isHighlighted: Bool
     var onFocus: () -> Void
     @FocusState private var isFocused: Bool
+    @Environment(\.printAccent) private var accent
 
     init(
         title: LocalizedStringKey, text: Binding<String>, isHighlighted: Bool = false,
@@ -541,7 +542,7 @@ struct PrintTextField: View {
             .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.chrome))
             .overlay(
                 RoundedRectangle(cornerRadius: 5).strokeBorder(
-                    isHighlighted ? PrintPalette.ai : PrintPalette.line2, lineWidth: 1)
+                    isHighlighted ? accent : PrintPalette.line2, lineWidth: 1)
             )
             .focused($isFocused)
             .onChange(of: isFocused) { _, focused in if focused { onFocus() } }
@@ -585,7 +586,7 @@ struct PrintMarginEditor: View {
             if model.layout.hasFacingPages, model.binder == nil {
                 toggle("Treat Left and Right as Inside and Outside", isOn: $model.printOptions.mirrorsMargins)
             }
-            Text("Applies to text documents and images. PDFs keep their own margins.")
+            Text("PDFs keep their own margins.")
                 .font(.system(size: 11))
                 .foregroundStyle(PrintPalette.ink3)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -676,9 +677,10 @@ struct PrintPrinterOptions: View {
         return "Remembered for \(name). Last Sheet First keeps face-up sheets in page order."
     }
 
-    private var rotationHint: LocalizedStringKey {
+    /// Without a printer the order's hint above already says to choose one.
+    private var rotationHint: LocalizedStringKey? {
         guard isDuplex else { return "Available for duplex layouts (A4 Duplex and booklets)." }
-        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
+        guard let name = model.selectedPrinterName else { return nil }
         return model.printerLayout.sentDuplex == .longEdge
             ? "Remembered for \(name) with long-edge binding."
             : "Remembered for \(name) with short-edge binding."
@@ -687,7 +689,7 @@ struct PrintPrinterOptions: View {
     private var isDuplex: Bool { model.layout.duplex != .none }
 
     private func row<Control: View>(
-        _ title: LocalizedStringKey, hint: LocalizedStringKey, @ViewBuilder control: () -> Control
+        _ title: LocalizedStringKey, hint: LocalizedStringKey?, @ViewBuilder control: () -> Control
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(PrintPalette.line).frame(height: 1)
@@ -695,10 +697,12 @@ struct PrintPrinterOptions: View {
                 Text(title).font(.system(size: 12.5)).frame(width: 145, alignment: .leading).padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
                     control()
-                    Text(hint)
-                        .font(.system(size: 11))
-                        .foregroundStyle(PrintPalette.ink3)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let hint {
+                        Text(hint)
+                            .font(.system(size: 11))
+                            .foregroundStyle(PrintPalette.ink3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

@@ -113,8 +113,8 @@ final class ClipboardQuestionState {
 
     var title: String {
         switch source {
-        case .clipboard: String(localized: "How should the clipboard’s contents open?")
-        case .selection: String(localized: "How should the selected text open?")
+        case .clipboard: String(localized: "Which format should the clipboard’s text open in?")
+        case .selection: String(localized: "Which format should the selected text open in?")
         }
     }
 
@@ -139,12 +139,6 @@ struct ClipboardQuestionView: View {
             preview
             rows
             buttons
-            Text("↑↓ to choose · Return to open · Esc to cancel")
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 2)
-                .overlay(alignment: .top) { PrintPalette.line.frame(height: 1).offset(y: -6) }
         }
         .padding(18)
         .frame(width: 460)
@@ -195,14 +189,22 @@ struct ClipboardQuestionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.press))
+        .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text("Beginning of the text"))
     }
 
+    /// One list in one box, marked the way a single-selection list marks its row.
     private var rows: some View {
-        VStack(spacing: 6) {
-            ForEach(state.question.options, id: \.kind) { option in
+        let options = state.question.options
+        return VStack(spacing: 0) {
+            ForEach(Array(options.enumerated()), id: \.element.kind) { index, option in
+                if index > 0 {
+                    // As in a list, no line runs beside the selected row.
+                    let besideSelection = state.selection == option.kind || state.selection == options[index - 1].kind
+                    PrintPalette.line.frame(height: 1).padding(.horizontal, 8).opacity(besideSelection ? 0 : 1)
+                }
                 ClipboardQuestionRow(option: option, isSelected: state.selection == option.kind) {
                     state.selection = option.kind
                 } open: {
@@ -210,6 +212,9 @@ struct ClipboardQuestionView: View {
                 }
             }
         }
+        .padding(ListMetrics.inset)
+        .background(RoundedRectangle(cornerRadius: ListMetrics.corner).fill(PrintPalette.raised))
+        .overlay(RoundedRectangle(cornerRadius: ListMetrics.corner).strokeBorder(PrintPalette.line2))
     }
 
     private var buttons: some View {
@@ -220,14 +225,11 @@ struct ClipboardQuestionView: View {
                         Button {
                             state.open(option.kind)
                         } label: {
-                            Text(
-                                verbatim: ClipboardFormatText.name(option.kind) + " — "
-                                    + ClipboardFormatText.result(option.kind))
+                            Text(verbatim: ClipboardFormatText.name(option.kind))
                         }
                     }
                 }
                 .fixedSize()
-                .help("Opens the text in a format that is not listed")
             }
             Spacer(minLength: 12)
             Button("Cancel") { state.cancel() }
@@ -239,6 +241,13 @@ struct ClipboardQuestionView: View {
     }
 }
 
+/// The box of the choices and the selection inside it, whose corners follow the box's at its inset.
+private enum ListMetrics {
+    static let corner: CGFloat = 8
+    static let inset: CGFloat = 4
+    static let selectionCorner = corner - inset
+}
+
 private struct ClipboardQuestionRow: View {
     let option: ClipboardQuestion.Option
     let isSelected: Bool
@@ -247,39 +256,39 @@ private struct ClipboardQuestionRow: View {
 
     var body: some View {
         let name = ClipboardFormatText.name(option.kind)
-        let result = ClipboardFormatText.result(option.kind)
         let evidence = ClipboardFormatText.evidence(of: option)
         Button(action: select) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    (Text(verbatim: name).bold() + Text(verbatim: " — " + result))
-                        .font(.system(size: 13))
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                    if isSelected {
-                        // The key that opens the selected row, as the menus draw it.
-                        Text(verbatim: "↩").font(.system(size: 11)).opacity(0.85).accessibilityHidden(true)
-                    }
-                }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: name)
+                    .font(.system(size: 13))
+                    .foregroundStyle(isSelected ? Color(nsColor: .alternateSelectedControlTextColor) : PrintPalette.ink)
                 Text(verbatim: evidence)
-                    .font(.system(size: 11.5))
-                    .opacity(0.88)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 11))
+                    .foregroundStyle(
+                        isSelected
+                            ? Color(nsColor: .alternateSelectedControlTextColor).opacity(0.85) : PrintPalette.ink2)
             }
-            .foregroundStyle(isSelected ? PrintPalette.raised : PrintPalette.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 7).fill(isSelected ? PrintPalette.ai : PrintPalette.raised))
-            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(isSelected ? PrintPalette.ai : PrintPalette.line2))
-            .contentShape(RoundedRectangle(cornerRadius: 7))
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: ListMetrics.selectionCorner)
+                        .fill(Color(nsColor: .selectedContentBackgroundColor))
+                }
+            }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .simultaneousGesture(TapGesture(count: 2).onEnded(open))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: name + " — " + result))
+        .accessibilityLabel(Text(verbatim: name))
         .accessibilityValue(Text(verbatim: evidence))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        // The element above replaces the button's own, and with it the press: without this, VoiceOver's press and
+        // other accessibility clients reach a row that does nothing.
+        .accessibilityAction { select() }
         .accessibilityAction(named: Text("Open Chosen Format")) { open() }
     }
 }

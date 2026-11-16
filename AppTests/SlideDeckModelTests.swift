@@ -146,7 +146,26 @@ struct SlideDeckModelTests {
         #expect(BandLayout.Item.applicable(for: model).contains(.pageIndicator))
     }
 
-    @Test("「スライドとして扱わない」は内容のハッシュで覚え、次に開くと戻り、触らなければ保存しない")
+    @Test("スライドが見つかっていないページでは、「スライドとして表示」を選んでも設定を変えない")
+    func commandLeavesOrdinaryPagesAlone() async throws {
+        let fixture = try fixture()
+        defer { fixture.close() }
+        fixture.model.start()
+        try await waitUntil {
+            fixture.model.contentHash != nil && fixture.model.result != nil && !fixture.model.isRendering
+        }
+        fixture.model.toggleShowsSlides()
+        #expect(!fixture.model.ignoresSlides)
+        fixture.model.slideDeckDidChange(deck)
+        fixture.model.toggleShowsSlides()
+        #expect(fixture.model.ignoresSlides)
+        #expect(fixture.model.slideDeck == nil)
+        fixture.model.toggleShowsSlides()
+        #expect(!fixture.model.ignoresSlides)
+        #expect(fixture.model.slideDeck != nil)
+    }
+
+    @Test("「スライドとして表示」をオフにしたことは内容のハッシュで覚え、次に開くと戻り、触らなければ保存しない")
     func remembersIgnoring() async throws {
         let first = try fixture()
         first.model.start()

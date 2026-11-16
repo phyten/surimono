@@ -106,6 +106,14 @@ private struct SealButton: View {
     }
 }
 
+extension EnvironmentValues {
+    /// The color of a chosen print setting: indigo on the print screen, the system accent where the settings open
+    /// from the view mode, among the system's own controls.
+    @Entry var printAccent: Color = PrintPalette.ai
+    /// The text on a chosen setting filled with `printAccent`.
+    @Entry var printAccentInk: Color = PrintPalette.raised
+}
+
 /// A small bordered label, such as the format badge or the front and back tags.
 struct PrintTag: View {
     let text: String
@@ -149,13 +157,14 @@ private struct PrintRadioRow: View {
     let title: LocalizedStringKey
     let isOn: Bool
     let action: () -> Void
+    @Environment(\.printAccent) private var accent
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: isOn ? "circle.inset.filled" : "circle")
                     .font(.system(size: 14))
-                    .foregroundStyle(isOn ? PrintPalette.ai : PrintPalette.ink3)
+                    .foregroundStyle(isOn ? accent : PrintPalette.ink3)
                 Text(title).font(.system(size: 13, weight: isOn ? .semibold : .regular))
                 Spacer(minLength: 0)
             }
@@ -177,11 +186,12 @@ struct PrintLinkButtonStyle: ButtonStyle {
 private struct PrintLinkButton: View {
     let configuration: ButtonStyleConfiguration
     @State private var hovering = false
+    @Environment(\.printAccent) private var accent
 
     var body: some View {
         configuration.label
             .font(.system(size: 13))
-            .foregroundStyle(PrintPalette.ai)
+            .foregroundStyle(accent)
             .underline(hovering)
             .opacity(configuration.isPressed ? 0.6 : 1)
             .frame(minHeight: 28)

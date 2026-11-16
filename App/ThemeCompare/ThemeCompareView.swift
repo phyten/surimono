@@ -188,15 +188,12 @@ private struct CompareTopBar: View {
             .fixedSize()
             VStack(alignment: .leading, spacing: 1) {
                 Text("Compare Styles").font(.system(size: 13, weight: .semibold))
-                // A chosen place is told by the button that chose it.
-                Text(
-                    verbatim: model.comparePlace == nil
-                        ? String(format: String(localized: "First page of %@"), model.displayName) : model.displayName
-                )
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink2)
-                .lineLimit(1)
-                .truncationMode(.middle)
+                // The place is told by the button that chooses it.
+                Text(verbatim: model.displayName)
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             .padding(.leading, 16)
             .layoutPriority(-1)

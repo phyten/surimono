@@ -81,7 +81,7 @@ struct ThemePalette: View {
                 Text("Style").font(.system(size: 14, weight: .semibold)).fixedSize()
                 Text(verbatim: model.theme(model.themeID)?.displayName(language: model.language) ?? model.themeID)
                     .font(.system(size: 12))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 PopoverCloseButton()
@@ -125,7 +125,7 @@ struct ThemePalette: View {
             section(
                 String(format: String(localized: "Matching “%@”"), query.trimmingCharacters(in: .whitespaces)),
                 count: matches.count, themes: matches,
-                empty: String(localized: "No styles match. Try a category instead."))
+                empty: String(localized: "No matching styles"))
         } else {
             LazyVStack(alignment: .leading, spacing: 18) {
                 ForEach(model.themeMenu.sections, id: \.id) { group in
@@ -150,10 +150,6 @@ struct ThemePalette: View {
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8).strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .foregroundStyle(.quaternary))
             } else {
                 LazyVGrid(
                     columns: Array(
@@ -201,7 +197,6 @@ struct ThemePalette: View {
                 } label: {
                     Label("Compare…", systemImage: "square.grid.2x2")
                 }
-                .help("Lay a few styles side by side")
             }
             if isPrinting {
                 Menu("Code Colors") { CodePaletteMenuContent(model: model) }
@@ -211,7 +206,6 @@ struct ThemePalette: View {
                     Text("Code Appearance")
                 }
                 .toggleStyle(.button)
-                .help("Code Appearance")
             }
         }
     }
@@ -296,9 +290,10 @@ struct ThemePaletteCell: View {
                             .accessibilityHidden(true)
                     }
                 }
+                // The border and the check mark the current style; the name stays plain.
                 Text(verbatim: name)
-                    .font(.system(size: 11, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity)
@@ -326,7 +321,6 @@ struct ThemePaletteCell: View {
             if inside { model.hoverPaletteTheme(theme.id) }
         }
         .task(id: model.paletteSamples.taskID(for: theme)) { await model.paletteSamples.load(theme) }
-        .help(name)
         .accessibilityLabel(Text(verbatim: name))
         .accessibilityIdentifier("themePaletteCell.\(theme.id)")
         .accessibilityAddTraits(isCurrent ? .isSelected : [])

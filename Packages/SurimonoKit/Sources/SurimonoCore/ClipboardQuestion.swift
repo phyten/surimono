@@ -57,7 +57,10 @@ public struct ClipboardQuestion: Equatable, Sendable {
             choice.kind == preferred || choice.kind == .plainText
                 || (choice.confidence > 0 && settings.automaticKinds.contains(choice.kind))
         }
-        options = shown.map { Option(kind: $0.kind, evidence: $0.evidence) }
+        // The formats in the detector's order, then Text, which is always the last row whatever it scored.
+        options = (shown.filter { $0.kind != .plainText } + shown.filter { $0.kind == .plainText }).map {
+            Option(kind: $0.kind, evidence: $0.evidence)
+        }
         let listed = Set(shown.map(\.kind))
         others = ClipboardTextKind.choosable.filter { !listed.contains($0) }.map { kind in
             Option(kind: kind, evidence: choices.first { $0.kind == kind && $0.confidence > 0 }?.evidence ?? [])

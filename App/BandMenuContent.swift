@@ -193,8 +193,9 @@ struct BandMenuContent {
                 model.printOptions.margins.uniformValue.map { MarginUnit.current.label($0) }
                 ?? String(localized: "Mixed")
         case .ignoreSlides:
-            title = String(localized: "Don't Treat as Slides")
-            checked = model.ignoresSlides
+            // Offered only for a page with detected slides, where this is whether they show as slides.
+            title = String(localized: "Show as Slides")
+            checked = !model.ignoresSlides
         case .floatOnTop:
             title = String(localized: "Float on Top")
             checked = model.isAlwaysOnTop
@@ -224,7 +225,7 @@ struct BandMenuContent {
         case .thumbnails: model.isDrawerOpen = checked
         case .cover: model.viewOption(\.showsCoverAlone).wrappedValue = checked
         case .selectText: model.isSelectingText = checked
-        case .ignoreSlides: model.setIgnoresSlides(checked)
+        case .ignoreSlides: model.setIgnoresSlides(!checked)
         case .floatOnTop: model.isAlwaysOnTop = checked
         case .alwaysShowToolbar: model.isBandAlwaysVisible = checked
         }

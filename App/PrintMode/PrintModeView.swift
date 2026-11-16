@@ -378,7 +378,6 @@ struct PrintTopBar: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("The settings differ from the setting set. Save them over it or as a new set.")
     }
 
     /// The traffic lights stay where the window draws them; the bar starts after them. Read live: entering the stage
@@ -422,7 +421,7 @@ struct PrintStyleMenu: View {
             .buttonStyle(.plain)
             .fixedSize()
             .accessibilityIdentifier("printStylePaletteButton")
-            .help(hint("Choose how the text and headings look when printed"))
+            .help(fullName)
             .accessibilityLabel(Text("Style"))
             .accessibilityValue(Text(verbatim: model.styleName))
             .modifier(OptionalStyleTip(model: model, isEnabled: showsTip))
@@ -448,7 +447,7 @@ struct PrintStyleMenu: View {
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .fixedSize()
-            .help(hint("Choose which parts of the web page to leave out when printing"))
+            .help(fullName)
             .accessibilityLabel(Text("Preset"))
             .accessibilityValue(Text(verbatim: Self.value(for: model)))
         } else if !model.usesPrintTheme {
@@ -485,10 +484,8 @@ struct PrintStyleMenu: View {
     }
 
     /// The hint, with the whole name before it while the name is cut.
-    private func hint(_ key: String.LocalizationValue) -> Text {
-        let text = String(localized: key)
-        return Text(verbatim: nameLimit == nil ? text : Self.value(for: model) + "\n" + text)
-    }
+    /// The whole name, only where the bar may have cut it short.
+    private var fullName: Text { Text(verbatim: nameLimit == nil ? "" : Self.value(for: model)) }
 }
 
 /// The style tip on the menu the bar shows, and none on the copies it measures.

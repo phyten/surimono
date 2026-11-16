@@ -159,7 +159,7 @@ extension BandLayout.Item {
         case .alwaysShowToolbar: "rectangle.topthird.inset.filled"
         case .margins: "rectangle.dashed"
         case .printSettings: "doc.badge.gearshape"
-        case .ignoreSlides: "rectangle.slash"
+        case .ignoreSlides: "play.rectangle"
         case .beforePrinting: "exclamationmark.triangle"
         case .viewOptions: "slider.horizontal.3"
         case .saveAsFile: "square.and.arrow.down"

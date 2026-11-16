@@ -1,7 +1,7 @@
 import SurimonoCore
 import SwiftUI
 
-// Frequent choices stay on the band; this popover keeps the remaining document values beside a live sample.
+// Frequent choices stay on the band; this popover keeps the remaining document values under the strip of spreads.
 struct ViewOptionsPopover: View {
     @Bindable var model: DocumentViewModel
     /// The longest row label and the widest value control in the current language, measured out of sight.
@@ -14,7 +14,8 @@ struct ViewOptionsPopover: View {
     /// The display units the strip of small pages shows at most, around the current one.
     static let spreadMapLimit = 8
     private static let labels: [LocalizedStringKey] = [
-        "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar", "Paper Series",
+        "Arrangement", "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar",
+        "Paper Series",
         "Text Margins", "Text Size",
     ]
 
@@ -34,15 +35,17 @@ struct ViewOptionsPopover: View {
                 Spacer(minLength: 0)
                 PopoverCloseButton()
             }
-            SpreadSample(options: model.viewOptions, unit: currentUnit)
-            // A single unit has nowhere to go: one small sheet under the sample would only repeat it.
-            if model.displayUnits.count > 1 {
-                SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) { unit in
-                    if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
-                }
-            }
             Grid(alignment: .leading, horizontalSpacing: Self.columnSpacing, verticalSpacing: stacksLabels ? 10 : 12) {
                 heading("On Screen")
+                // The pages as the options below arrange them: it changes as they do, with the current unit marked.
+                if !model.displayUnits.isEmpty {
+                    row("Arrangement", fills: true) {
+                        SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) {
+                            unit in
+                            if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
+                        }
+                    }
+                }
                 row("Reading Direction") { directionPicker(option(\.direction)) }
                 row("Scroll Direction") {
                     Picker("Scroll Direction", selection: option(\.scrollAxis)) {
@@ -52,12 +55,9 @@ struct ViewOptionsPopover: View {
                     .disabled(!model.viewOptions.usesScrollAxis)
                 }
                 row("Show First Page Alone") {
-                    HStack(spacing: 12) {
-                        Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
-                            .toggleStyle(.switch).controlSize(.small)
-                        CoverSample(direction: model.viewOptions.direction)
-                    }
-                    .disabled(!model.viewOptions.usesCoverOption)
+                    Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
+                        .toggleStyle(.switch).controlSize(.small)
+                        .disabled(!model.viewOptions.usesCoverOption)
                 }
                 if model.viewOptions.canJoinPages, model.viewLogicalMargin != nil {
                     row("Join Pages") {
@@ -85,13 +85,7 @@ struct ViewOptionsPopover: View {
             .labelsHidden()
             Divider()
             HStack(spacing: 8) {
-                // Resetting belongs to the statement that the document has its own settings; the setting sets are a
-                // separate, stronger choice on the other side.
-                if model.hasSavedSettings {
-                    Text("Using this document’s settings")
-                        .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                // The setting sets are a separate, stronger choice on the other side.
                 // Only a document with settings of its own has something to reset; a dimmed link read as broken.
                 if model.hasSavedSettings {
                     Button("Reset This Document") { model.resetDocumentSettings() }
@@ -116,23 +110,26 @@ struct ViewOptionsPopover: View {
         SpreadLayout.unitIndex(containing: model.currentPageIndex + 1, in: model.displayUnits)
     }
 
-    private var currentUnit: DisplayUnit? {
-        currentUnitIndex.map { model.displayUnits[$0] }
-    }
-
     /// A setting with its label: beside it, right-aligned in a column as wide as the longest label, or over it.
-    @ViewBuilder private func row(_ key: LocalizedStringKey, @ViewBuilder content: () -> some View) -> some View {
+    /// `fills` lets a setting with no width of its own, the strip of pages, take the column's width without setting it.
+    @ViewBuilder private func row(
+        _ key: LocalizedStringKey, fills: Bool = false, @ViewBuilder content: () -> some View
+    ) -> some View {
         if stacksLabels {
             GridRow {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(key).foregroundStyle(PrintPalette.ink2)
                     content()
                 }
+                .frame(maxWidth: fills ? .infinity : nil, alignment: .leading)
+                .gridCellUnsizedAxes(fills ? .horizontal : [])
             }
         } else {
             GridRow {
                 Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
                 content()
+                    .frame(maxWidth: fills ? .infinity : nil, alignment: .leading)
+                    .gridCellUnsizedAxes(fills ? .horizontal : [])
             }
         }
     }
@@ -331,72 +328,6 @@ struct SpreadGlyph: View {
             .frame(width: Self.paperWidth, height: Self.paperHeight)
             .background(PrintPalette.paper)
             .overlay { Rectangle().strokeBorder(PrintPalette.paperRing, lineWidth: 0.5) }
-    }
-}
-
-/// What "Show First Page Alone" makes of the pages, as the first few groups of a five-page document.
-private struct CoverSample: View {
-    let direction: ViewOptions.Direction
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        let units = SpreadLayout.units(pageCount: 5, layout: .spread, showsCoverAlone: true, direction: direction)
-        HStack(spacing: SpreadMap.spacing) {
-            ForEach(Array(units.enumerated()), id: \.offset) { _, unit in
-                SpreadGlyph(unit: unit)
-            }
-            Text(verbatim: "…").foregroundStyle(.secondary)
-        }
-        // The sheets are paper, white in the dark appearance too: faded further, they turned into grey boxes whose
-        // numbers could not be read.
-        .compositingGroup()
-        .opacity(isEnabled ? 1 : 0.65)
-        .accessibilityHidden(true)
-    }
-}
-
-/// A miniature of the current display unit that follows the options as they change.
-private struct SpreadSample: View {
-    let options: ViewOptions
-    let unit: DisplayUnit?
-
-    var body: some View {
-        HStack(spacing: 0) {
-            switch unit ?? (options.layout == .single ? .single(1) : .spread(left: nil, right: 1)) {
-            case .single(let page): MiniPage(number: page)
-            case .spread(let left, let right):
-                MiniPage(number: left)
-                MiniPage(number: right)
-            }
-        }
-        .frame(height: 72)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.6)))
-        .overlay(alignment: .topLeading) {
-            Text("Sample").font(.system(size: 11)).foregroundStyle(.secondary).padding(8)
-        }
-        .animation(.easeInOut(duration: 0.25), value: options)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: unit?.pageRangeText ?? ""))
-    }
-}
-
-private struct MiniPage: View {
-    let number: Int?
-
-    var body: some View {
-        ZStack {
-            if let number {
-                Rectangle().fill(.white).shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
-                // Four-digit page numbers shrink to stay on the miniature page.
-                Text(verbatim: "\(number)").font(.system(size: 26, weight: .semibold)).foregroundStyle(.black)
-                    .lineLimit(1).minimumScaleFactor(0.4).padding(.horizontal, 4)
-            } else {
-                Rectangle().fill(.clear)
-            }
-        }
-        .aspectRatio(595 / 842, contentMode: .fit)
     }
 }
 

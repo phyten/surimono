@@ -306,14 +306,8 @@ private struct PrinterPicker: View {
         .buttonStyle(PrintBorderedButtonStyle())
         // A printer set up while the tray is open shows up the next time the pointer comes back to the menu.
         .onHover { if $0 { model.refreshPrinters() } }
-        .help(
-            Text(
-                verbatim: [
-                    model.selectedPrinterName,
-                    PrintModeText.string(
-                        "Choose the printer for Print, or print with the system dialog", language: model.language),
-                ].compactMap { $0 }.joined(separator: "\n"))
-        )
+        // The printer's whole name, which the menu may cut in the middle.
+        .help(Text(verbatim: model.selectedPrinterName ?? ""))
         .accessibilityLabel(Text("Printer"))
         .accessibilityValue(
             Text(
@@ -366,7 +360,7 @@ private struct PaperSeriesMenu: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Paper Size Series: the sizes the layouts are made from")
+        .help("Paper Size Series")
         .accessibilityLabel(Text("Paper Size Series"))
         .accessibilityValue(Text(model.trayPaperSeries.menuTitle))
     }

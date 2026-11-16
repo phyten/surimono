@@ -358,7 +358,6 @@ struct ThemeTrialBadge: View {
             if !isReady { ProgressView().controlSize(.mini) }
             Text(verbatim: String(format: String(localized: "Trying %@"), name)).font(
                 .system(size: 13, weight: .semibold))
-            Text("Click to choose. Move away to go back.").font(.system(size: 11)).opacity(0.75)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

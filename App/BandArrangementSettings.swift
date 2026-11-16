@@ -70,7 +70,6 @@ struct BandArrangementSettings: View {
         .onChange(of: session.store) { session.refresh() }
         // Everywhere but the zones and the palette: a separator dropped here is taken away.
         .onDrop(of: [.utf8PlainText], delegate: BandEditorDropDelegate(session: session, target: { _ in .outside }))
-        .background(PrintPalette.chrome)
         .sheet(item: $session.dialog) { dialog in
             BandArrangementDialog(session: session, dialog: dialog)
         }
@@ -114,7 +113,7 @@ private struct SetBar: View {
 
     private func row(showsLabel: Bool) -> some View {
         HStack(spacing: 8) {
-            if showsLabel { Text("Arrangement Set").foregroundStyle(PrintPalette.ink2).fixedSize() }
+            if showsLabel { Text("Arrangement Set").fixedSize() }
             Picker(
                 "Arrangement Set",
                 selection: Binding(
@@ -177,10 +176,10 @@ private struct StatusRow: View {
                     (Text(Image(systemName: "circle.fill")).font(.system(size: 6)).baselineOffset(1.5)
                         + Text(verbatim: " ") + Text("Unsaved Changes").fontWeight(.semibold)
                         + Text(verbatim: "  ")
-                        + Text("Preview — save to apply to all view windows.").foregroundStyle(PrintPalette.ink2))
+                        + Text("Save to apply to all view windows.").foregroundStyle(.secondary))
                         .foregroundStyle(PrintPalette.warn)
                 } else {
-                    Text("All view windows use this arrangement.").foregroundStyle(PrintPalette.ink2)
+                    Text("All view windows use this arrangement.").foregroundStyle(.secondary)
                 }
             }
             .font(.system(size: 11))
@@ -233,7 +232,7 @@ private struct ModeRow: View {
 
     private var choice: some View {
         HStack(spacing: 10) {
-            Text("Editing").foregroundStyle(PrintPalette.ink2).fixedSize()
+            Text("Editing").fixedSize()
             Picker("Editing", selection: $session.mode) {
                 Text("Top Only").tag(MenuArrangement.top)
                 Text("Split Top and Bottom").tag(MenuArrangement.split)
@@ -244,15 +243,18 @@ private struct ModeRow: View {
         }
     }
 
-    private var inUseNote: some View {
-        let inUse =
-            session.preferences.menuArrangement == .top
-            ? String(localized: "Top Only") : String(localized: "Split Top and Bottom")
-        return Text(verbatim: String(format: String(localized: "In use: %@"), inUse))
-            .font(.system(size: 11))
-            .foregroundStyle(PrintPalette.ink3)
-            .fixedSize()
-            .help("Change it under View & Page Turn > Toolbar Layout.")
+    /// Said only when the layout being edited is not the one the windows use; otherwise the picker already shows it.
+    @ViewBuilder private var inUseNote: some View {
+        if session.mode != session.preferences.menuArrangement {
+            let inUse =
+                session.preferences.menuArrangement == .top
+                ? String(localized: "Top Only") : String(localized: "Split Top and Bottom")
+            Text(verbatim: String(format: String(localized: "In use: %@"), inUse))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize()
+                .help("Change it under View & Page Turn > Toolbar Layout.")
+        }
     }
 }
 
@@ -267,21 +269,21 @@ private struct RepairNotice: View {
         }
         if !lines.isEmpty {
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "wrench.and.screwdriver").foregroundStyle(PrintPalette.ai)
+                Image(systemName: "wrench.and.screwdriver").foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Some saved toolbar arrangements were repaired when they were read.").fontWeight(.semibold)
                     ForEach(lines, id: \.self) { line in
-                        Text(verbatim: "• " + line).foregroundStyle(PrintPalette.ink)
+                        Text(verbatim: "• " + line)
                     }
                     Text("The data as it was read is kept aside the first time you save.")
-                        .foregroundStyle(PrintPalette.ink2)
+                        .foregroundStyle(.secondary)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .font(.system(size: 12))
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.aiTint))
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.1)))
         }
     }
 }
@@ -319,7 +321,7 @@ private struct RecoveryNotice: View {
                 Text(
                     "The toolbar uses Standard for now, and nothing is saved. Starting over keeps the unreadable data aside instead of deleting it."
                 )
-                .foregroundStyle(PrintPalette.ink2)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 Button("Start Over") { session.startOver() }
             }
@@ -352,7 +354,7 @@ private struct ArrangementMiniature: View {
                     .foregroundStyle(PrintPalette.ink)
                     .lineLimit(1)
                     .fixedSize()
-                    .help("Fixed: the file name always follows the traffic lights.")
+                    .help("The file name always follows the traffic lights.")
                     .accessibilityLabel(Text("File Name"))
                     .accessibilityValue(Text("Fixed"))
                 ZoneEditor(session: session, zone: .topLeft)
@@ -481,10 +483,10 @@ private struct ZoneEditor: View {
         }
         .background {
             RoundedRectangle(cornerRadius: 7)
-                .fill(targeted ? PrintPalette.aiTint : .clear)
+                .fill(targeted ? Color.accentColor.opacity(0.12) : .clear)
             RoundedRectangle(cornerRadius: 7)
                 .strokeBorder(
-                    targeted ? PrintPalette.ai : PrintPalette.line3,
+                    targeted ? Color.accentColor : PrintPalette.line3,
                     style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: targeted ? [] : [3, 3])
                 )
                 .opacity(entries.isEmpty || session.dropTarget != nil ? 1 : 0)
@@ -493,7 +495,7 @@ private struct ZoneEditor: View {
             if case .zone(zone, let index) = session.dropTarget,
                 let marker = BandEditorDrop.marker(at: index, frames: ordered(entries.count))
             {
-                Capsule().fill(PrintPalette.ai)
+                Capsule().fill(Color.accentColor)
                     .frame(width: 2.5, height: marker.height)
                     .offset(x: marker.minX, y: marker.minY)
                     .allowsHitTesting(false)
@@ -541,8 +543,8 @@ private struct MiniatureNotes: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             if session.message == nil, !session.hasIdleSeparators {
-                Text("Narrow windows hide parts of the toolbar; all operations are also available in “…”.")
-                    .foregroundStyle(PrintPalette.ink3)
+                Text("Narrow windows hide parts of the toolbar.")
+                    .foregroundStyle(.secondary)
             }
             if let message = session.message {
                 Label {
@@ -550,7 +552,7 @@ private struct MiniatureNotes: View {
                 } icon: {
                     Image(systemName: message.isWarning ? "exclamationmark.circle" : "checkmark.circle")
                 }
-                .foregroundStyle(message.isWarning ? PrintPalette.warn : PrintPalette.ai)
+                .foregroundStyle(message.isWarning ? AnyShapeStyle(PrintPalette.warn) : AnyShapeStyle(.secondary))
             }
             if session.hasIdleSeparators {
                 Label {
@@ -558,7 +560,7 @@ private struct MiniatureNotes: View {
                 } icon: {
                     Image(systemName: "info.circle")
                 }
-                .foregroundStyle(PrintPalette.ink2)
+                .foregroundStyle(.secondary)
             }
         }
         .font(.system(size: 11))
@@ -595,10 +597,10 @@ private struct EntryChip: View {
             .padding(.horizontal, entry == .separator ? 1 : (entry == .part(.print) && !showsName ? 1 : 4))
             .background {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? PrintPalette.aiTint2 : (plain ? .clear : PrintPalette.raised))
+                    .fill(isSelected ? Color.accentColor.opacity(0.18) : (plain ? .clear : PrintPalette.raised))
                 RoundedRectangle(cornerRadius: 6)
                     .strokeBorder(
-                        isSelected ? PrintPalette.ai : (plain ? .clear : PrintPalette.line2),
+                        isSelected ? Color.accentColor : (plain ? .clear : PrintPalette.line2),
                         lineWidth: isSelected ? 1.5 : 1)
             }
             .id(selection)
@@ -720,10 +722,10 @@ private struct UnusedPalette: View {
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text("Not in Use").font(.system(size: 12, weight: .semibold)).foregroundStyle(PrintPalette.ink)
+            Text("Not in Use").font(.headline)
             Text("All operations are also available in “…”.")
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink3)
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -745,13 +747,13 @@ private struct UnusedPalette: View {
                 }
             }
             if unused.isEmpty {
-                Text("Every part is on the toolbar.").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                Text("Every part is on the toolbar.").font(.caption).foregroundStyle(.secondary)
             } else {
                 ForEach(BandPaletteGroup.project(unused)) { group in
                     VStack(alignment: .leading, spacing: 5) {
                         Text(verbatim: group.id.title)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(PrintPalette.ink2)
+                            .foregroundStyle(.secondary)
                             .accessibilityAddTraits(.isHeader)
                         FlowLayout(spacing: 6, constrainsChips: true) {
                             ForEach(group.parts) { part in
@@ -779,10 +781,10 @@ private struct UnusedPalette: View {
             session.layoutFrames["palette"] = $0
         }
         .background {
-            RoundedRectangle(cornerRadius: 8).fill(targeted ? PrintPalette.aiTint : PrintPalette.raised)
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(
-                    targeted ? PrintPalette.ai : PrintPalette.line, lineWidth: targeted ? 1.5 : 1)
+            // The grouped forms' box, so the editor sits on the same ground as the other sections.
+            RoundedRectangle(cornerRadius: 8).fill(
+                targeted ? AnyShapeStyle(Color.accentColor.opacity(0.12)) : AnyShapeStyle(.quinary))
+            if targeted { RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 1.5) }
         }
         .onDrop(
             of: [.utf8PlainText], delegate: BandEditorDropDelegate(session: session, target: { _ in .unused })
@@ -833,21 +835,16 @@ private struct Inspector: View {
             if let location = session.selectedLocation, let entry = session.selectedEntry {
                 details(location, entry)
             } else {
-                Text(
-                    "Select a part to see what it does and where it can go. Drag parts in the window above, or move them with the buttons here."
-                )
-                .font(.system(size: 12))
-                .foregroundStyle(PrintPalette.ink2)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+                Text("Select a part to see what it does and where it can go.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 8).fill(PrintPalette.raised)
-            RoundedRectangle(cornerRadius: 8).strokeBorder(PrintPalette.line)
-        }
+        .background(RoundedRectangle(cornerRadius: 8).fill(.quinary))
     }
 
     @ViewBuilder
@@ -860,13 +857,13 @@ private struct Inspector: View {
             .frame(minWidth: 30, minHeight: MiniatureMetrics.chipHeight)
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: entry.item?.editorName ?? String(localized: "Separator"))
-                    .font(.system(size: 13, weight: .semibold)).foregroundStyle(PrintPalette.ink)
+                    .font(.system(size: 13, weight: .semibold))
                 Text(
                     verbatim: String(
                         format: String(localized: "%1$@, position %2$lld of %3$lld"),
                         location.destination.editorName, location.index + 1, count)
                 )
-                .font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                .font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
         }
@@ -874,22 +871,21 @@ private struct Inspector: View {
             if let item = entry.item {
                 Text(verbatim: item.editorDescription)
                 if let availability = item.editorAvailability {
-                    Text(verbatim: availability).foregroundStyle(PrintPalette.ink2)
+                    Text(verbatim: availability).foregroundStyle(.secondary)
                 }
             } else {
                 Text("Draws a thin line between the parts on either side.")
                 if case .zone(let zone) = location.destination, session.separatorIsIdle(at: location.index, in: zone) {
-                    Text("Not shown here: a separator appears only between two parts.")
-                        .foregroundStyle(PrintPalette.ink2)
+                    Text("Not shown in this position.")
+                        .foregroundStyle(.secondary)
                 }
             }
         }
         .font(.system(size: 12))
-        .foregroundStyle(PrintPalette.ink)
         .fixedSize(horizontal: false, vertical: true)
         let destination = Binding(get: { location.destination }, set: { session.moveSelection(to: $0) })
         HStack(spacing: 8) {
-            Text("Move To").font(.system(size: 12)).foregroundStyle(PrintPalette.ink2).fixedSize()
+            Text("Move To").font(.system(size: 12)).foregroundStyle(.secondary).fixedSize()
             // Segments show every place at once; a pop-up menu takes their place when they do not fit.
             ViewThatFits(in: .horizontal) {
                 destinationPicker(destination, entry).pickerStyle(.segmented).controlSize(.small).fixedSize()

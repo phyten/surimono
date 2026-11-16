@@ -250,7 +250,7 @@ final class DocumentViewModel {
     private(set) var opensClosedDetails = false
     /// The slide deck the live page looks like, as last measured; nil for an ordinary page.
     private(set) var detectedSlideDeck: SlideDeck?
-    /// 「スライドとして扱わない」: the reader says the page is not a deck. Remembered for the document.
+    /// The reader turned off 「スライドとして表示」: the page is not a deck. Remembered for the document.
     private(set) var ignoresSlides = false
     /// The tray's 「今の 1 枚」: print only the slide shown on the web. It belongs to the visit to the tray.
     private(set) var printsCurrentSlideOnly = false
@@ -2028,12 +2028,19 @@ final class DocumentViewModel {
         if reshapes, !ignoresSlides { applyWebShape() }
     }
 
-    /// The "…" and View menus' 「スライドとして扱わない」, for a page that only looks like a deck.
+    /// The "…" and View menus' 「スライドとして表示」, turned off for a page that only looks like a deck.
     func setIgnoresSlides(_ ignores: Bool) {
         guard usesHTMLPresentation, ignoresSlides != ignores else { return }
         ignoresSlides = ignores
         if ignores { printsCurrentSlideOnly = false }
         applyWebShape()
+    }
+
+    /// The reader's command 「スライドとして表示」. A page with no slides found has nothing to switch, so the command
+    /// leaves its setting alone instead of quietly saving "not a deck" for a page whose slides are measured later.
+    func toggleShowsSlides() {
+        guard detectedSlideDeck != nil else { return }
+        setIgnoresSlides(!ignoresSlides)
     }
 
     /// On the web a deck shows one slide to the window: the window takes the slide's shape, keeping its height, and
