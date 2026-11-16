@@ -14,6 +14,8 @@ h4 { color: #6a3fb5; }
         -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 h1 { padding-bottom: 0.1em; }
+/* A title block centres its lines; the gradient heading, as wide as its text, goes in the middle with them. */
+:is(.org-title-block, .latex-title-block) > h1 { margin-inline: auto; }
 p, pre, table { margin: 0.7em 0; }
 ul > li:nth-child(6n+1)::marker { color: #d7263d; }
 ul > li:nth-child(6n+2)::marker { color: #f46036; }

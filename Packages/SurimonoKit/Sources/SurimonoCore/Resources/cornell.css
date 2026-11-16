@@ -33,6 +33,8 @@ h3, h4 {
     font-size: 1em;
     text-align: right;
 }
+/* The cue column is too narrow to share a line: an Org heading's tags go under it. */
+:is(h3, h4) > .org-tags { float: none; display: block; margin: 0.15em 0 0; }
 h4 { font-weight: 600; color: #4a6680; }
 h5, h6 { font-size: 1em; }
 body > :first-child { margin-top: 0; }

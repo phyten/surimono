@@ -20,7 +20,9 @@ if (emoji.length > 0) {
     return (seed >>> 0) / 4294967296;
   };
   const pick = () => emoji[Math.floor(next() * emoji.length)];
+  // The contents list is a list of the headings, which carry their own; its items stay plain.
   for (const element of document.querySelectorAll("h1, h2, h3, li:not(.task-list-item)")) {
+    if (element.closest("nav.toc")) continue;
     element.dataset.deco = pick();
   }
   for (const element of document.querySelectorAll("hr")) {
