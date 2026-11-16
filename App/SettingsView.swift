@@ -125,6 +125,24 @@ struct SettingsView: View {
                         }
                     }
                 }
+                Section("When Opening a Window") {
+                    Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
+                    Picker("When a Binder Is Down to One Document", selection: $preferences.singleDocumentBinderPolicy)
+                    {
+                        Text("Ask").tag(SingleDocumentBinderPolicy.ask)
+                        Text("Leave Binder Mode Without Asking").tag(SingleDocumentBinderPolicy.leave)
+                        Text("Stay a Binder Without Asking").tag(SingleDocumentBinderPolicy.stay)
+                    }
+                }
+                Section {
+                    Picker("After a File Is Saved", selection: $preferences.changeFollowing) {
+                        Text("Jump to the Change").tag(ChangeFollowing.jump)
+                        Text("Stay Here, Marks Only").tag(ChangeFollowing.mark)
+                        Text("Ask with a Notice").tag(ChangeFollowing.ask)
+                    }
+                } footer: {
+                    SettingsFootnote("Changes are marked in Markdown documents.")
+                }
             case .view:
                 Section {
                     Picker("Scroll Sensitivity", selection: $preferences.wheelSensitivity) {
@@ -132,32 +150,33 @@ struct SettingsView: View {
                         Text("Normal").tag(WheelPageTurner.Sensitivity.normal)
                         Text("High").tag(WheelPageTurner.Sensitivity.high)
                     }.pickerStyle(.segmented)
-                    Picker("New Document View", selection: $preferences.defaultViewLayout) {
+                }
+                // The heading says these are defaults, so the labels and a footer need not.
+                Section("Defaults for New Documents") {
+                    Picker("View", selection: $preferences.defaultViewLayout) {
                         Text("Automatic (Match Document)").tag(nil as ViewOptions.Layout?)
                         ForEach(ViewOptions.Layout.displayOrder, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
-                    Picker("Default Page Turn", selection: $preferences.defaultPageTurn) {
+                    Picker("Page Turn", selection: $preferences.defaultPageTurn) {
                         Text("Automatic (Match Document)").tag(nil as ViewOptions.Transition?)
                         ForEach(ViewOptions.Transition.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
-                    Picker("Default Reading Direction", selection: $preferences.defaultReadingDirection) {
+                    Picker("Reading Direction", selection: $preferences.defaultReadingDirection) {
                         Text("Automatic (Match Document)").tag(nil as ViewOptions.Direction?)
                         Text("Left to Right").tag(Optional(ViewOptions.Direction.leftToRight))
                         Text("Right to Left").tag(Optional(ViewOptions.Direction.rightToLeft))
                     }
-                    Picker("Default Scroll Direction", selection: $preferences.defaultScrollAxis) {
+                    Picker("Scroll Direction", selection: $preferences.defaultScrollAxis) {
                         Text("Automatic (Match Document)").tag(nil as ViewOptions.ScrollAxis?)
                         Text("Vertical").tag(Optional(ViewOptions.ScrollAxis.vertical))
                         Text("Horizontal").tag(Optional(ViewOptions.ScrollAxis.horizontal))
                     }
-                    Picker("Show First Page Alone by Default", selection: $preferences.defaultShowsCoverAlone) {
+                    Picker("Show First Page Alone", selection: $preferences.defaultShowsCoverAlone) {
                         Text("Automatic (Match Document)").tag(nil as Bool?)
                         Text("On").tag(Optional(true))
                         Text("Off").tag(Optional(false))
                     }
                     Toggle("Join Pages in Single-Page Scrolling", isOn: $preferences.defaultJoinsPages)
-                } footer: {
-                    defaultsNote
                 }
                 // Unlike the defaults above, this applies to open windows as well.
                 Section {
@@ -188,24 +207,6 @@ struct SettingsView: View {
                     Picker("Show Contents As", selection: $preferences.outlinePresentation) {
                         Text("Popover").tag(OutlinePresentation.popover)
                         Text("Left Drawer").tag(OutlinePresentation.drawer)
-                    }
-                }
-                Section {
-                    Picker("After a File Is Saved", selection: $preferences.changeFollowing) {
-                        Text("Jump to the Change").tag(ChangeFollowing.jump)
-                        Text("Stay Here, Marks Only").tag(ChangeFollowing.mark)
-                        Text("Ask with a Notice").tag(ChangeFollowing.ask)
-                    }
-                } footer: {
-                    SettingsFootnote("Changes are marked in Markdown documents.")
-                }
-                Section("When Opening a Window") {
-                    Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
-                    Picker("When a Binder Is Down to One Document", selection: $preferences.singleDocumentBinderPolicy)
-                    {
-                        Text("Ask").tag(SingleDocumentBinderPolicy.ask)
-                        Text("Leave Binder Mode Without Asking").tag(SingleDocumentBinderPolicy.leave)
-                        Text("Stay a Binder Without Asking").tag(SingleDocumentBinderPolicy.stay)
                     }
                 }
             case .pageNumbers:

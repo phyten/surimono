@@ -484,7 +484,6 @@ private struct TrayNavigator: View {
                 Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
             }
             .disabled(!canZoomIn)
-            .help("Zoom in on the sheets. The printed size does not change.")
             .accessibilityLabel(Text("Zoom In"))
             Button(action: resetZoom) {
                 Text(verbatim: "\(zoomPercent)%").font(.system(size: 10.5)).monospacedDigit()
@@ -498,7 +497,6 @@ private struct TrayNavigator: View {
                 Image(systemName: "minus").font(.system(size: 11, weight: .semibold))
             }
             .disabled(!canZoomOut)
-            .help("Zoom out on the sheets. The printed size does not change.")
             .accessibilityLabel(Text("Zoom Out"))
         }
         .buttonStyle(PrintIconButtonStyle())

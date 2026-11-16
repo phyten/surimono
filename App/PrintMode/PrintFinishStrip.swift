@@ -72,6 +72,8 @@ struct PrintSegments<Value: Hashable>: View {
     var help: LocalizedStringKey?
     var isVertical = false
     let choose: (Value) -> Void
+    @Environment(\.printAccent) private var accent
+    @Environment(\.printAccentInk) private var accentInk
 
     var body: some View {
         let stack = isVertical ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))
@@ -84,13 +86,13 @@ struct PrintSegments<Value: Hashable>: View {
                 } label: {
                     Text(option.title)
                         .font(.system(size: 12, weight: isOn ? .semibold : .regular))
-                        .foregroundStyle(isOn ? PrintPalette.raised : PrintPalette.ink2)
+                        .foregroundStyle(isOn ? accentInk : PrintPalette.ink2)
                         .lineLimit(1)
                         .fixedSize()
                         .padding(.horizontal, 9)
                         .frame(maxWidth: isVertical ? .infinity : nil, alignment: .leading)
                         .frame(height: 24)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(isOn ? PrintPalette.ai : .clear))
+                        .background(RoundedRectangle(cornerRadius: 5).fill(isOn ? accent : .clear))
                         .contentShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)

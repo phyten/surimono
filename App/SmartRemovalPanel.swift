@@ -64,9 +64,9 @@ private struct CandidateRow: View {
                 if !candidate.excerpt.isEmpty {
                     Text(verbatim: candidate.excerpt).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
-                Text(verbatim: candidate.reason).font(.caption2).monospaced().foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
+            // What matched is for the curious; on the row it read as markup.
+            .help(Text(verbatim: candidate.reason))
             Spacer(minLength: 6)
             Button(isKept ? "Remove" : "Keep", action: toggle).controlSize(.small)
                 .fixedSize()

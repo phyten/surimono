@@ -30,7 +30,7 @@ final class ShortcutMenuBridge: NSObject {
             .init(.documentFind, 2, ["Find…"]), .init(.documentFindNext, 2, ["Find Next"]),
             .init(.documentFindPrevious, 2, ["Find Previous"]),
             .init(.viewHtmlPresentation, 3, ["Show as Web", "Show as Paper"]),
-            .init(.viewIgnoreSlides, 3, ["Don't Treat as Slides"]),
+            .init(.viewIgnoreSlides, 3, ["Show as Slides"]),
             .init(.viewSingle, 3, ["Single Page"]), .init(.viewSpread, 3, ["Spread"]),
             .init(.documentGoToPage, 3, ["Go to Page…"]),
             .init(.textIncrease, 3, ["Increase Text Size"]),
@@ -228,7 +228,7 @@ final class ShortcutMenuBridge: NSObject {
             if let item = items[operation], item.title != localize(title) { item.title = localize(title) }
         }
         let states: [ShortcutOperationID: Bool] = [
-            .viewIgnoreSlides: current?.ignoresSlides ?? false,
+            .viewIgnoreSlides: current?.slideDeck != nil,
             .viewToolbarAlways: current?.isBandAlwaysVisible ?? false,
             .viewFloatOnTop: current?.isAlwaysOnTop ?? false,
             .listToggle: current?.isDrawerOpen ?? false,

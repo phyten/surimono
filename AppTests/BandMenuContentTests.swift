@@ -215,8 +215,9 @@ struct BandMenuContentTests {
         #expect(
             BandMenuContent(model: model).header == "Menu Fixture · HTML · "
                 + DocumentViewModel.slideIndicator(3, of: 6))
-        BandMenuContent(model: model).perform(.ignoreSlides)
         #expect(BandMenuContent(model: model).entry(.ignoreSlides).isChecked == true)
+        BandMenuContent(model: model).perform(.ignoreSlides)
+        #expect(BandMenuContent(model: model).entry(.ignoreSlides).isChecked == false)
         #expect(model.detectedSlideDeck != nil)
         model.setHTMLPresentation(.paper)
         try await render(model, outline: true)

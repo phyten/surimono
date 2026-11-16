@@ -160,7 +160,8 @@ struct PanelFileIssues: View {
     }
 }
 
-/// Says that files can be dropped on the list. The whole window takes them; this is what shows that it does.
+/// Says that files can be dropped on the list, while something is dragged over the window: the whole window takes
+/// them, and dropping is the standard way to add, so the frame is not there the rest of the time.
 struct PanelDropHint: View {
     var body: some View {
         Text("Drop here to add")

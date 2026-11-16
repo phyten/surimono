@@ -211,14 +211,14 @@ struct ShortcutSettingsView: View {
                 ] + key.combinations.map { controller.layout.display($0) })
         }
         if !fixed.isEmpty {
-            Section("Fixed Keys") {
-                // Native editing and window commands share explanations. Keep their catalog order.
-                let reasons = fixed.map { ShortcutText.fixedReason($0.behavior) }
-                let uniqueReasons = reasons.enumerated().filter { index, reason in
-                    !reasons.prefix(index).contains(reason)
-                }.map(\.element)
-                ForEach(uniqueReasons, id: \.self) { reason in
-                    Text(reason).font(.caption).foregroundStyle(.secondary)
+            // Native editing and window commands share explanations. Keep their catalog order.
+            let reasons = fixed.map { ShortcutText.fixedReason($0.behavior) }
+            let uniqueReasons = reasons.enumerated().filter { index, reason in
+                !reasons.prefix(index).contains(reason)
+            }.map(\.element)
+            // One group per reason, which is its footer; the heading goes on the first.
+            ForEach(Array(uniqueReasons.enumerated()), id: \.element) { index, reason in
+                Section {
                     ForEach(fixed.filter { ShortcutText.fixedReason($0.behavior) == reason }, id: \.behavior) { key in
                         ShortcutInfoRow(
                             name: ShortcutText.fixedName(key.behavior),
@@ -226,6 +226,10 @@ struct ShortcutSettingsView: View {
                             spokenKeys: key.combinations.map { controller.layout.spoken($0) },
                             emptyLabel: String(localized: "Managed by macOS"))
                     }
+                } header: {
+                    if index == 0 { Text("Fixed Keys") }
+                } footer: {
+                    SettingsFootnote(verbatim: reason)
                 }
             }
         }

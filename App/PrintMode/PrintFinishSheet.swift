@@ -59,7 +59,10 @@ struct PrintFinishSheet: View {
             }
         }
         .foregroundStyle(PrintPalette.ink)
-        .tint(PrintPalette.ai)
+        // From the view mode the settings sit among the system's controls, so they take its accent.
+        .tint(isInPopover ? Color.accentColor : PrintPalette.ai)
+        .environment(\.printAccent, isInPopover ? Color.accentColor : PrintPalette.ai)
+        .environment(\.printAccentInk, isInPopover ? Color.white : PrintPalette.raised)
         .clearsInitialFocus()
         .onAppear { customLine = model.printFinish.breaks.customLine }
     }
@@ -517,6 +520,7 @@ struct PrintTextField: View {
     var isHighlighted: Bool
     var onFocus: () -> Void
     @FocusState private var isFocused: Bool
+    @Environment(\.printAccent) private var accent
 
     init(
         title: LocalizedStringKey, text: Binding<String>, isHighlighted: Bool = false,
@@ -538,7 +542,7 @@ struct PrintTextField: View {
             .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.chrome))
             .overlay(
                 RoundedRectangle(cornerRadius: 5).strokeBorder(
-                    isHighlighted ? PrintPalette.ai : PrintPalette.line2, lineWidth: 1)
+                    isHighlighted ? accent : PrintPalette.line2, lineWidth: 1)
             )
             .focused($isFocused)
             .onChange(of: isFocused) { _, focused in if focused { onFocus() } }

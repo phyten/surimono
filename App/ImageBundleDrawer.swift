@@ -16,7 +16,7 @@ struct ImageBundleDrawer: View {
                 }
             } content: {
                 ImageBundleList(model: model, bundle: bundle)
-                if bundle.archiveURL == nil { PanelDropHint() }
+                if bundle.archiveURL == nil, model.drop.isActive { PanelDropHint() }
                 PanelFileIssues(
                     names: bundle.excludedSummary,
                     summary: String(

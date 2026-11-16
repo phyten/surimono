@@ -76,8 +76,8 @@ struct DocumentCommands: Commands {
             .keyboardShortcut("p", modifiers: [.control, .command])
             // For a page that only looks like a slide deck; other documents ignore it.
             Toggle(
-                "Don't Treat as Slides",
-                isOn: Binding(get: { model?.ignoresSlides ?? false }, set: { _ in perform(.viewIgnoreSlides) })
+                "Show as Slides",
+                isOn: Binding(get: { model?.slideDeck != nil }, set: { _ in perform(.viewIgnoreSlides) })
             )
             Divider()
             ForEach(ViewOptions.Layout.displayOrder, id: \.self) { layout in

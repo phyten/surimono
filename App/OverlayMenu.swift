@@ -562,17 +562,25 @@ struct StyleMenu: View {
     @ViewBuilder private var label: some View {
         // "textformat" is drawn as kana in Japanese and as other letters elsewhere, so it does not match the line icons
         // beside it. The palette symbol is the same in every language.
-        let label = Label(model.styleName, systemImage: model.usesHTMLPreset ? "wand.and.rays" : "paintpalette")
-        if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+        let label = Label(model.styleName, systemImage: symbol)
+        Group {
+            if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+        }
+        .accessibilityValue(model.usesHTMLPreset && model.isSmartRemovalEnabled ? Text("Smart Removal") : Text(""))
+    }
+
+    /// For HTML, Smart Removal on the preset shows as the wand's stars rather than as words beside its name.
+    private var symbol: String {
+        guard model.usesHTMLPreset else { return "paintpalette" }
+        return model.isSmartRemovalEnabled ? "wand.and.stars" : "wand.and.rays"
     }
 }
 
 extension DocumentViewModel {
-    /// The chosen print theme, or for HTML the cleanup preset and whether Smart Removal follows it.
+    /// The chosen print theme, or for HTML the cleanup preset (Smart Removal shows in the band's icon).
     var styleName: String {
         if usesHTMLPreset && !usesPrintTheme {
-            let preset = library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
-            return isSmartRemovalEnabled ? preset + " + β" : preset
+            return library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
         }
         let theme = library.themes.first { $0.id == themeID }?.displayName(language: language) ?? themeID
         return usesPrintTheme && textScale != 1 ? theme + " · " + textScalePercentage : theme

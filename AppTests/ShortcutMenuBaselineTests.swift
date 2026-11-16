@@ -42,7 +42,7 @@ struct ShortcutMenuBaselineTests {
         }
         for title in [
             "Streaming Preview", "Save as File…", "View Options…", "Select Text", "Float on Top",
-            "Don't Treat as Slides", "Getting Started with Surimono", "Keys and Gestures", "Check for Updates…",
+            "Show as Slides", "Getting Started with Surimono", "Keys and Gestures", "Check for Updates…",
             "Open as Binder", "Add Documents…", "Reset Document Settings", "Choose Style…", "Print Settings…",
             "Save Current Settings…", "Manage Setting Sets…", "Sort by Name", "Start Each Document on an Odd Page",
             "Remove from List",

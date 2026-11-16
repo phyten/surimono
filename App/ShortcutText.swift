@@ -73,7 +73,7 @@ enum ShortcutText {
         case .viewFloatOnTop: String(localized: "Float on Top")
         case .viewOutline: String(localized: "Contents")
         case .viewDocumentInfo: String(localized: "Document Info…")
-        case .viewIgnoreSlides: String(localized: "Don't Treat as Slides")
+        case .viewIgnoreSlides: String(localized: "Show as Slides")
         case .listSortByName: String(localized: "Sort by Name")
         case .binderOddPageStarts: String(localized: "Start Each Document on an Odd Page")
         case .styleCompare: String(localized: "Compare Styles")

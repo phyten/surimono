@@ -81,7 +81,7 @@ struct ThemePalette: View {
                 Text("Style").font(.system(size: 14, weight: .semibold)).fixedSize()
                 Text(verbatim: model.theme(model.themeID)?.displayName(language: model.language) ?? model.themeID)
                     .font(.system(size: 12))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 PopoverCloseButton()
@@ -197,7 +197,6 @@ struct ThemePalette: View {
                 } label: {
                     Label("Compare…", systemImage: "square.grid.2x2")
                 }
-                .help("Lay a few styles side by side")
             }
             if isPrinting {
                 Menu("Code Colors") { CodePaletteMenuContent(model: model) }
@@ -207,7 +206,6 @@ struct ThemePalette: View {
                     Text("Code Appearance")
                 }
                 .toggleStyle(.button)
-                .help("Code Appearance")
             }
         }
     }
@@ -292,9 +290,10 @@ struct ThemePaletteCell: View {
                             .accessibilityHidden(true)
                     }
                 }
+                // The border and the check mark the current style; the name stays plain.
                 Text(verbatim: name)
-                    .font(.system(size: 11, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity)
@@ -322,7 +321,6 @@ struct ThemePaletteCell: View {
             if inside { model.hoverPaletteTheme(theme.id) }
         }
         .task(id: model.paletteSamples.taskID(for: theme)) { await model.paletteSamples.load(theme) }
-        .help(name)
         .accessibilityLabel(Text(verbatim: name))
         .accessibilityIdentifier("themePaletteCell.\(theme.id)")
         .accessibilityAddTraits(isCurrent ? .isSelected : [])

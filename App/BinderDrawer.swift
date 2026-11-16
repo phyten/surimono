@@ -24,7 +24,7 @@ struct BinderDrawer: View {
                 }
             } content: {
                 BinderList(model: model, binder: binder)
-                PanelDropHint()
+                if model.drop.isActive { PanelDropHint() }
                 PanelFileIssues(
                     names: binder.unreadableURLs.map(\.lastPathComponent),
                     summary: String(
