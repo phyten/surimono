@@ -259,9 +259,10 @@ struct ClipboardQuestionFlowTests {
         fixture.copy(Self.markdown)
         let first = try #require(fixture.windows.open(from: fixture.board, window: nil))
         let firstWindow = try #require(first.window)
-        // Somewhere on whatever screen the test runs on, away from where a new window would cascade to.
+        // Away from where a new window would cascade to, and at the top of whatever screen the test runs on: on a
+        // small screen a window placed lower is moved up to fit when it is shown, whatever asked for its place.
         let visible = try #require(firstWindow.screen ?? NSScreen.main).visibleFrame
-        firstWindow.setFrameTopLeftPoint(NSPoint(x: visible.minX + 37, y: visible.maxY - 23))
+        firstWindow.setFrameTopLeftPoint(NSPoint(x: visible.minX + 37, y: visible.maxY))
         let topLeft = NSPoint(x: firstWindow.frame.minX, y: firstWindow.frame.maxY)
         first.model.reopenText(as: .plainText)
         #expect(!firstWindow.isVisible)
