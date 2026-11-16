@@ -108,7 +108,7 @@ struct OrgConverterTests {
     func example() {
         #expect(
             OrgConverter.convert("#+BEGIN_EXAMPLE\n<x>\n#+END_EXAMPLE").body.contains(
-                "<pre class=\"org-example\">&lt;x&gt;</pre>"))
+                "<pre>&lt;x&gt;</pre>"))
     }
 
     @Test("QUOTEブロックは本文の装飾を保つ")
@@ -302,11 +302,11 @@ struct OrgConverterTests {
         arguments: [
             (
                 "\n\n\n",
-                "<ul><li><p>項目</p>\n<pre class=\"org-example\">before\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"
+                "<ul><li><p>項目</p>\n<pre>before\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"
             ),
             (
                 "\n\n\n\n",
-                "<ul><li><p>項目</p>\n<pre class=\"org-example\">before\n\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"
+                "<ul><li><p>項目</p>\n<pre>before\n\n\n\n*literal*</pre>\n</li><li><p>次</p>\n</li></ul>\n"
             ),
         ])
     func exampleBlockBlankLines(separator: String, expected: String) {

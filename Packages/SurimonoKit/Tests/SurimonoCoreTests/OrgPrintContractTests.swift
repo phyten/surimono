@@ -96,7 +96,7 @@ struct OrgPrintContractTests {
     func fixedWidth() {
         #expect(
             OrgConverter.convert(": <x>\n:\n: *literal*\n本文").body
-                == "<pre class=\"org-example\">&lt;x&gt;\n\n*literal*</pre>\n<p>本文</p>\n")
+                == "<pre>&lt;x&gt;\n\n*literal*</pre>\n<p>本文</p>\n")
     }
 
     @Test("キャプションを表と画像のfigureに入れる")
@@ -251,5 +251,15 @@ struct OrgPrintContractTests {
         let body = OrgConverter.convert("- 用語[fn:a] :: 本文[fn:b]\n\n[fn:a] 先\n[fn:b] 後").body
         #expect(body.contains("<dt>用語<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\">1</a></sup></dt>"))
         #expect(body.contains("<li id=\"fn-1\"><p>先</p>\n</li>"))
+    }
+}
+
+struct OrgCodeBlockOptionTests {
+    @Test("OrgのEXAMPLEと固定幅の行にも、コードの枠のオプションが届く")
+    func exampleBlocksTakeCodeOptions() {
+        let fragment = OrgConverter.convert("#+begin_example\nabc\n#+end_example\n\n: def\n")
+        let style = CodeStyle(block: CodeBlockOptions(lineNumbers: .all))
+        let marked = CodeBlockMarkup.apply(style, to: fragment.body)
+        #expect(marked.components(separatedBy: "code-block").count - 1 == 2)
     }
 }

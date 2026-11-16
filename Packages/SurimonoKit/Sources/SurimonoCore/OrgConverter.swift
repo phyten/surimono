@@ -161,7 +161,7 @@ struct OrgParser {
                     fixed.append(value == ":" ? "" : String(value.dropFirst(2)))
                     index += 1
                 }
-                output += "<pre class=\"org-example\">\(HTML.escape(fixed.joined(separator: "\n")))</pre>\n"
+                output += "<pre>\(HTML.escape(fixed.joined(separator: "\n")))</pre>\n"
             } else if trimmed.hasPrefix("|") {
                 flush()
                 let captionHTML = caption.map { inline($0) }
@@ -198,7 +198,8 @@ struct OrgParser {
                 language.map { " class=\"language-\(HTML.escape($0))\(highlighted == nil ? "" : " hl")\"" } ?? ""
             return "<pre><code\(attribute)>\(highlighted ?? HTML.escape(text))</code></pre>\n"
         case "COMMENT", "EXPORT": return ""
-        case "EXAMPLE": return "<pre class=\"org-example\">\(HTML.escape(text))</pre>\n"
+        // A bare `pre`, as `CodeBlockMarkup` expects of a code block: the code options then reach it too.
+        case "EXAMPLE": return "<pre>\(HTML.escape(text))</pre>\n"
         case "VERSE": return "<div class=\"org-verse\">\(inline(text))</div>\n"
         case "QUOTE", "CENTER":
             var nested = OrgParser(lines: content, depth: depth + 1, context: context)
