@@ -1160,6 +1160,12 @@ final class DocumentViewModel {
     /// The bytes of a document that exists only in this window.
     var memoryContent: Data? { fileURL == nil && binder == nil && imageBundle == nil ? data : nil }
 
+    /// How text from the clipboard or a service came by its format; nil for every other document, whose format its
+    /// file or its sender decides.
+    var textFormatOrigin: TextFormatOrigin?
+    /// Opens this window's text again as another kind, in a window where this one is (`ClipboardWindows`).
+    @ObservationIgnored var textReopener: ((ClipboardTextKind) -> Void)?
+
     private func refreshIncludePlan() {
         includeTask?.cancel()
         guard format == .markdown, imageBundle == nil, binder == nil, let fileURL else {

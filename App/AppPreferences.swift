@@ -342,6 +342,14 @@ final class AppPreferences {
         }
     }
 
+    /// How text from the clipboard or a service gets its format. A value this build cannot read starts over from the
+    /// standard choices.
+    var clipboardFormat: ClipboardFormatSettings {
+        didSet {
+            if let data = try? JSONEncoder().encode(clipboardFormat) { defaults.set(data, forKey: "clipboardFormat") }
+        }
+    }
+
     var recentFiles: RecentFiles {
         didSet {
             if let data = try? JSONEncoder().encode(recentFiles) { defaults.set(data, forKey: "recentFiles") }
@@ -512,6 +520,10 @@ final class AppPreferences {
             defaults.data(forKey: "recentBinders").flatMap {
                 try? JSONDecoder().decode(RecentBinders.self, from: $0)
             } ?? RecentBinders()
+        clipboardFormat =
+            defaults.data(forKey: "clipboardFormat").flatMap {
+                try? JSONDecoder().decode(ClipboardFormatSettings.self, from: $0)
+            } ?? .standard
     }
 
     /// A choice for this run only. It takes part in the first assignment because any later one would be saved.

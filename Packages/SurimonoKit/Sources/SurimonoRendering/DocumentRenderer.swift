@@ -1560,11 +1560,22 @@ public final class DocumentRenderer {
         case .org: OrgConverter.convert(try decodedText(source.data))
         case .plainText: PlainTextConverter.convert(try decodedText(source.data))
         case .csv:
-            CSVConverter.convert(
-                try decodedText(source.data),
-                delimiter: source.fileURL?.pathExtension.lowercased() == "tsv" ? "\t" : ",")
+            try csvFragment(source)
         default: nil
         }
+    }
+
+    /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no
+    /// name, so its text tells.
+    private nonisolated static func csvFragment(_ source: DocumentSource) throws -> HTMLFragment {
+        let text = try decodedText(source.data)
+        let delimiter: Character =
+            if let url = source.fileURL {
+                url.pathExtension.lowercased() == "tsv" ? "\t" : ","
+            } else {
+                CSVConverter.guessedDelimiter(of: text)
+            }
+        return CSVConverter.convert(text, delimiter: delimiter)
     }
 
     private nonisolated static func decodedText(_ data: Data) throws -> String {

@@ -110,7 +110,7 @@ If images next to the document are missing and the notice offers Allow Access to
 
 - Choose File > Open… (⌘O)
 - Drag files onto Surimono's Dock icon, or onto the window it shows at launch
-- Open copied text with Open from Clipboard (⌘N)
+- Open copied text with Open from Clipboard (⌘N). Text that is clearly Markdown, HTML, or another format opens formatted; when the format is unclear, Surimono asks how to open it. Afterwards, the format on the toolbar (such as “MD”) opens the same text again in another format. Settings > Clipboard sets how the format is chosen
 
 Several images opened together become one image bundle; several documents become one binder. When removing documents leaves just one, Surimono asks whether to leave the binder. You can also choose Leave Binder Mode from the list’s “…” menu later. Choose whether to ask in Settings > View. Leaving restores that document’s own settings. To return a document to its first settings, choose Document > Reset Document Settings.
 

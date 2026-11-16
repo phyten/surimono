@@ -11,6 +11,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case settingSets = "Setting Sets"
     case styles = "Styles"
     case html = "HTML"
+    case clipboard = "Clipboard"
 
     var id: String { rawValue }
     var symbol: String {
@@ -25,6 +26,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         // "textformat" is drawn as kana in Japanese, beside line icons; the band's palette is the same in every language.
         case .styles: "paintpalette"
         case .html: "globe"
+        case .clipboard: "doc.on.clipboard"
         }
     }
 }
@@ -286,6 +288,8 @@ struct SettingsView: View {
                 }
 
                 defaultsNote
+            case .clipboard:
+                ClipboardSettings(preferences: preferences)
             case .keyboardShortcuts: EmptyView()
             case .toolbarArrangement:
                 EmptyView()

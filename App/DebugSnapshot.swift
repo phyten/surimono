@@ -273,6 +273,39 @@
             }
         }
 
+        /// `-SurimonoClipboardQuestion <path>` shows the question about that file's text as if it came from the clipboard,
+        /// whatever the detector decides, without touching the clipboard. With a document open it is the sheet on the
+        /// document's window; without one it is the window of its own, captured here.
+        static func askClipboardQuestion() {
+            guard let path = argument("SurimonoClipboardQuestion") else { return }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1500))
+                guard NSDocumentController.shared.documents.isEmpty, !ClipboardWindows.shared.hasWindows,
+                    firstDocument == nil
+                else { return }
+                askClipboardQuestion(path, over: nil)
+                try? await Task.sleep(for: .milliseconds(1000))
+                guard let window = ClipboardQuestionPanel.window, let target = argument("SurimonoSnapshotPath"),
+                    target.hasPrefix("/")
+                else { return }
+                do {
+                    try await capturePNG(around: window).write(to: URL(fileURLWithPath: target), options: .atomic)
+                    captured = true
+                    if flag("SurimonoSnapshotQuit") { quitAfterCapture() }
+                } catch {
+                    logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+
+        private static func askClipboardQuestion(_ path: String, over window: NSWindow?) {
+            guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+            let time = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+            ClipboardWindows.shared.open(
+                text: text, hints: .init(), title: String(localized: "Clipboard") + " " + time, source: .clipboard,
+                window: window, printing: false, alwaysAsks: true)
+        }
+
         /// `-SurimonoOpenGettingStarted YES` opens the bundled guide the way the welcome window and the Help menu do,
         /// so that its window is the one captured. `-SurimonoSnapshotWelcome YES` shows the welcome window to capture.
         static func openGettingStarted() {
@@ -743,6 +776,16 @@
                     openMoreMenu(of: model, in: window)
                     try? await Task.sleep(for: .milliseconds(1200))
                 }
+                if flag("SurimonoFormatMenu"), let window = model.window {
+                    // The format on the band of a text from the clipboard, clicked open.
+                    openMoreMenu(of: model, in: window, at: .item(.formatBadge))
+                    try? await Task.sleep(for: .milliseconds(1200))
+                }
+                if let path = argument("SurimonoClipboardQuestion"), let window = model.window {
+                    // The question as a sheet on this document's window.
+                    askClipboardQuestion(path, over: window)
+                    try? await Task.sleep(for: .milliseconds(1200))
+                }
                 if model.isUpToDate, !loggedMoreMenu, flag("SurimonoMoreMenuLog") {
                     loggedMoreMenu = true
                     // Only operation IDs are public; never log the document header or user-selected style names.
@@ -837,15 +880,13 @@
 
         /// Clicks the control under "…" from a run loop timer rather than from this task: the menu tracks in a nested
         /// run loop, which drains the main queue only when it was not entered from a main-queue block.
-        private static func openMoreMenu(of model: DocumentViewModel, in window: NSWindow) {
-            guard let frame = model.bandAnchors.frames[.more], let content = window.contentView else { return }
+        private static func openMoreMenu(
+            of model: DocumentViewModel, in window: NSWindow, at anchor: BandAnchors.Anchor = .more
+        ) {
+            guard let frame = model.bandAnchors.frames[anchor], let content = window.contentView else { return }
             let local = NSPoint(x: frame.midX, y: content.isFlipped ? frame.midY : content.bounds.height - frame.midY)
             var view = content.hitTest(content.convert(local, to: content.superview))
             while let candidate = view, !(candidate is NSControl) { view = candidate.superview }
-            guard let control = view as? NSControl else {
-                logger.error("No control under the More menu")
-                return
-            }
             menuObserver = NotificationCenter.default.addObserver(
                 forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main
             ) { note in
@@ -853,8 +894,22 @@
                 nonisolated(unsafe) let menu = note.object as? NSMenu
                 MainActor.assumeIsolated { trackedMenu = menu }
             }
+            let control = view as? NSControl
+            // A menu drawn as a plain button is no AppKit control; a click in the window opens it as a pointer would.
+            let point = content.convert(local, to: nil)
             let timer = Timer(timeInterval: 0.05, repeats: false) { _ in
-                MainActor.assumeIsolated { control.performClick(nil) }
+                MainActor.assumeIsolated {
+                    if let control { return control.performClick(nil) }
+                    for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                        if let event = NSEvent.mouseEvent(
+                            with: type, location: point, modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime,
+                            windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+                        {
+                            window.sendEvent(event)
+                        }
+                    }
+                }
             }
             RunLoop.main.add(timer, forMode: .common)
         }

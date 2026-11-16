@@ -28,6 +28,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Markdown front matter can choose a print setting set, layout, orientation, margins, style, and text size with `surimono:`; saved document settings take priority.
 
 - Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
+- Copied text opens formatted (Markdown, Org, HTML, LaTeX, CSV or TSV) only when its format is clear; otherwise Surimono asks, showing the first lines and what each format would do. The format on the toolbar opens the same text again in another format, and Settings › Clipboard sets how the format is chosen. A copied URL opens as text for now.
 - Set two global shortcuts in Settings > General to open the clipboard in the viewer or on the print screen while Surimono is running (both are unset by default).
 - Open or print selected text from any app with the Services menu (Open in Surimono, Print with Surimono). It stays in memory until you choose Save as File…
 - Bind a Markdown file's parts: `<<[file]` (Marked), `{{file}}` (MultiMarkdown), `/file` (iA Writer), or a SUMMARY.md of links open as a binder when you ask, with the parent's text as a preface

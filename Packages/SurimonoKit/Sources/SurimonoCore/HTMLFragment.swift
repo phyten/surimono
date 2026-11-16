@@ -37,6 +37,40 @@ public enum PlainTextConverter {
 }
 
 public enum CSVConverter {
+    /// The delimiter of a table with no file name to tell it, such as one copied from a spreadsheet: a tab when tabs
+    /// separate at least as many fields as commas on its first lines, as the clipboard's detector decides.
+    public static func guessedDelimiter(of text: String) -> Character {
+        let characters = Array(TextDecoding.normalizeNewlines(String(text.prefix(65_536))))
+        var commas = 0
+        var tabs = 0
+        var quoted = false
+        var field = false
+        var lines = 0
+        var index = 0
+        // The same reading of quotes as `convert`, so that a delimiter inside a quoted field is not counted.
+        while index < characters.count, lines < 64 {
+            let character = characters[index]
+            if character == "\"" {
+                if quoted && index + 1 < characters.count && characters[index + 1] == "\"" {
+                    index += 1
+                } else if quoted || !field {
+                    quoted.toggle()
+                }
+                field = true
+            } else if !quoted && (character == "," || character == "\t") {
+                if character == "," { commas += 1 } else { tabs += 1 }
+                field = false
+            } else if !quoted && character == "\n" {
+                lines += 1
+                field = false
+            } else {
+                field = true
+            }
+            index += 1
+        }
+        return tabs > 0 && tabs >= commas ? "\t" : ","
+    }
+
     public static func convert(_ text: String, delimiter: Character = ",") -> HTMLFragment {
         let characters = Array(TextDecoding.normalizeNewlines(text))
         var rows: [[String]] = []

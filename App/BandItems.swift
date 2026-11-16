@@ -66,7 +66,13 @@ struct BandItemView: View {
 
     var body: some View {
         switch item {
-        case .formatBadge: FormatBadge(text: model.formatBadge)
+        case .formatBadge:
+            // A text whose format was a guess can open again as another; a file's format is the file's.
+            if model.textKind != nil {
+                TextFormatBadgeMenu(model: model)
+            } else {
+                FormatBadge(text: model.formatBadge)
+            }
         case .pageIndicator: PageIndicatorButton(model: model)
         case .pageTurn: PageTurnButtons(model: model)
         case .outline: OutlineButton(model: model, showsName: form == .full)

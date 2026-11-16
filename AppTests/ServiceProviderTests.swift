@@ -22,7 +22,10 @@ struct ServiceProviderTests {
         },
         openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in Issue.record("メモリからは開かない")
         },
-        openWindows: @escaping () -> [DocumentViewModel] = { [] }
+        openWindows: @escaping () -> [DocumentViewModel] = { [] },
+        openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in
+            Issue.record("文字は開かない")
+        }
     ) -> OpenRouter {
         OpenRouter(
             openDocument: openDocument,
@@ -31,7 +34,8 @@ struct ServiceProviderTests {
                 return nil
             }, openBinder: openBinder,
             warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { false },
-            showWelcome: { Issue.record("ウェルカム画面は出さない") }, openMemory: openMemory, openWindows: openWindows)
+            showWelcome: { Issue.record("ウェルカム画面は出さない") }, openMemory: openMemory, openWindows: openWindows,
+            openText: openText)
     }
 
     private func model(url: URL, suite: TestDefaultsSuite, library: URL) -> DocumentViewModel {
@@ -79,21 +83,21 @@ struct ServiceProviderTests {
         }
     }
 
-    @Test("「Surimono で開く」は選んだ文字をメモリから表示モードで開き、前面に出す")
+    @Test("「Surimono で開く」は選んだ文字を形式を決める経路へ表示モードで渡し、前面に出す")
     func openText() {
         let board = board()
         defer { board.releaseGlobally() }
         board.setString("# 見出し", forType: .string)
-        var opened: [(Data, DocumentFormat, Bool)] = []
+        var opened: [(String, ClipboardFormatHints, Bool)] = []
         var activations = 0
         let provider = ServiceProvider(
-            router: router(openMemory: { opened.append(($0, $1, $3)) }), activate: { activations += 1 })
+            router: router(openText: { opened.append(($0, $1, $3)) }), activate: { activations += 1 })
         var message: NSString?
         provider.openSelection(board, userData: nil, error: &message)
         #expect(message == nil)
         #expect(opened.count == 1)
-        #expect(opened.first?.0 == Data("# 見出し".utf8))
-        #expect(opened.first?.1 == .markdown)
+        #expect(opened.first?.0 == "# 見出し")
+        #expect(opened.first?.1 == ClipboardFormatHints())
         #expect(opened.first?.2 == false)
         #expect(activations == 1)
     }
@@ -104,7 +108,7 @@ struct ServiceProviderTests {
         defer { board.releaseGlobally() }
         board.setString("本文", forType: .string)
         var printing: Bool?
-        let provider = ServiceProvider(router: router(openMemory: { _, _, _, flag in printing = flag }), activate: {})
+        let provider = ServiceProvider(router: router(openText: { _, _, _, flag in printing = flag }), activate: {})
         var message: NSString?
         provider.printSelection(board, userData: nil, error: &message)
         #expect(printing == true)
@@ -117,9 +121,7 @@ struct ServiceProviderTests {
         let text = NSAttributedString(string: "飾りのある文字")
         let rtf = try #require(text.rtf(from: NSRange(location: 0, length: text.length)))
         board.setData(rtf, forType: .rtf)
-        #expect(
-            ClipboardWindows.content(from: board)
-                == .document(data: Data("飾りのある文字".utf8), format: .plainText))
+        #expect(ClipboardWindows.content(from: board) == .text("飾りのある文字", hints: .init()))
     }
 
     @Test("何も受け取れないときは開かずに理由を返す")
