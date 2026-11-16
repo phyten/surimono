@@ -76,7 +76,7 @@ struct ClipboardFormatWorkTests {
         return inputs.filter { seen.insert($0.1).inserted }
     }
 
-    @Test("全生成入力の走査量はUTF16単位数の固定倍数以内で一秒以内に終わる")
+    @Test("全生成入力の走査量はUTF16単位数の固定倍数以内で三秒以内に終わる")
     func boundedWork() {
         var worstRatio = 0.0
         var worstTime = 0.0
@@ -93,7 +93,10 @@ struct ClipboardFormatWorkTests {
                 slowest = name
             }
             #expect(result.scannerSteps <= max(1, result.analysedUnits) * 256, Comment(rawValue: name))
-            #expect(seconds < 1, Comment(rawValue: "\(name): \(seconds)s"))
+            // The step bound above is what keeps the scan linear; the clock only catches a gross stall. Debug builds on
+            // shared CI runners took 0.77 s and then 1.13 s for the same long CJK note that a local debug run finishes in
+            // a tenth of that, so the clock allows for them. The release test below holds the real latency bar.
+            #expect(seconds < 3, Comment(rawValue: "\(name): \(seconds)s"))
         }
         print(
             "WORK inputs=\(Self.inputs.count) worstMultiple=\(worstRatio) worstSeconds=\(worstTime) slowest=\(slowest)")
