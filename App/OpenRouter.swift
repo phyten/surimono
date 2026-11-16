@@ -35,7 +35,12 @@ final class OpenRouter {
                 data, format: format, title: title ?? String(localized: "Selected Text"), printing: printing)
         },
         openIncludes: { BinderWindows.shared.open($0) },
-        openWindows: { DocumentWindows.shared.openModels }, isActive: { NSApp.isActive })
+        openWindows: { DocumentWindows.shared.openModels }, isActive: { NSApp.isActive },
+        openText: { text, hints, title, printing in
+            ClipboardWindows.shared.open(
+                text: text, hints: hints, title: title ?? String(localized: "Selected Text"), source: .selection,
+                window: NSApp.keyWindow, printing: printing)
+        })
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
@@ -44,6 +49,7 @@ final class OpenRouter {
     private let hasOpenWindows: () -> Bool
     private let showWelcome: () -> Void
     private let openMemory: (Data, DocumentFormat, String?, Bool) -> Void
+    private let openText: (String, ClipboardFormatHints, String?, Bool) -> Void
     private let openIncludes: (MarkdownIncludes.Plan) -> Void
     private let openWindows: () -> [DocumentViewModel]
     private let isActive: () -> Bool
@@ -89,9 +95,11 @@ final class OpenRouter {
         warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void,
         openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in },
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
-        openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true }
+        openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
+        openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in }
     ) {
         self.isActive = isActive
+        self.openText = openText
         self.openDocument = openDocument
         self.openBundle = openBundle
         self.openBinder = openBinder
@@ -151,13 +159,17 @@ final class OpenRouter {
     }
 
     /// What a service hands over: files take the way of any other file, and text and images open from memory, as the
-    /// clipboard's do, under `title` when what they came from has a name.
+    /// clipboard's do, under `title` when what they came from has a name. Text takes the clipboard's way to its
+    /// format, which may ask the reader first.
     @discardableResult
     func open(_ content: ClipboardContent, printing: Bool, title: String? = nil) -> Bool {
         switch content {
         case .files(let urls): return open(urls, printing: printing)
         case .document(let data, let format):
             openMemory(data, format, title, printing)
+            return true
+        case .text(let text, let hints):
+            openText(text, hints, title, printing)
             return true
         case .empty: return false
         }

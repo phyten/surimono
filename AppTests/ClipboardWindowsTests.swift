@@ -10,11 +10,14 @@ struct ClipboardWindowsTests {
         NSPasteboard(name: .init("SurimonoTests.clipboard.\(UUID().uuidString)"))
     }
 
+    /// Markdown the detector opens without asking.
+    private static let markdown = "# Clipboard test\n\nSome **bold** text.\n\n## Section\n\n- one\n- two\n- three\n"
+
     @Test("クリップボードの文章を刷り台で開く要求は同じ窓へ届く", .timeLimit(.minutes(1)))
     func opensOnPrintScreen() throws {
         let board = board()
         defer { board.releaseGlobally() }
-        board.setString("# Shortcut fixture", forType: .string)
+        board.setString(Self.markdown, forType: .string)
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -36,7 +39,7 @@ struct ClipboardWindowsTests {
     func opensAndReuses() throws {
         let board = board()
         defer { board.releaseGlobally() }
-        board.setString("# Clipboard test", forType: .string)
+        board.setString(Self.markdown, forType: .string)
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -83,7 +86,7 @@ struct ClipboardWindowsTests {
         different.window?.close()
         #expect(!windows.hasWindows)
         board.clearContents()
-        board.setString("# Clipboard test", forType: .string)
+        board.setString(Self.markdown, forType: .string)
         let reopened = try #require(windows.open(from: board))
         defer { reopened.window?.close() }
         #expect(reopened !== first)
@@ -150,7 +153,7 @@ struct ClipboardWindowsTests {
         board.setData(tiff, forType: .tiff)
         #expect(ClipboardWindows.content(from: board) == .document(data: tiff, format: .image))
         board.setString("本文", forType: .string)
-        #expect(ClipboardWindows.content(from: board) == .document(data: Data("本文".utf8), format: .plainText))
+        #expect(ClipboardWindows.content(from: board) == .text("本文", hints: .init()))
     }
 
     @Test("URLのない文書の再読み込みはファイルを読まずエラーも出さない", .timeLimit(.minutes(1)))

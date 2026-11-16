@@ -7,7 +7,7 @@ struct BandMenuContent {
         case outline, thumbnails, previousPage, nextPage, documentInfo
         case presentation, layout, transition, zoom
         case readingDirection, scrollDirection, cover, selectText
-        case style, paperOrientation, paperSeries, margins, ignoreSlides
+        case textFormat, style, paperOrientation, paperSeries, margins, ignoreSlides
         case floatOnTop, alwaysShowToolbar, viewOptions
         case printSettings, beforePrinting, print, saveAsFile
         case keysAndGestures
@@ -21,7 +21,7 @@ struct BandMenuContent {
             case .navigation: [.outline, .thumbnails, .previousPage, .nextPage, .documentInfo]
             case .display: [.presentation, .layout, .transition, .zoom]
             case .reading: [.readingDirection, .scrollDirection, .cover, .selectText]
-            case .paper: [.style, .paperOrientation, .paperSeries, .margins, .ignoreSlides]
+            case .paper: [.textFormat, .style, .paperOrientation, .paperSeries, .margins, .ignoreSlides]
             case .window: [.floatOnTop, .alwaysShowToolbar, .viewOptions]
             case .output: [.printSettings, .beforePrinting, .print, .saveAsFile]
             case .help: [.keysAndGestures]
@@ -72,6 +72,9 @@ struct BandMenuContent {
     }
 
     func help(for entry: Entry) -> String {
+        if entry.id == .textFormat {
+            return ClipboardFormatText.help(kind: model.textKind ?? .plainText, origin: model.textFormatOrigin)
+        }
         if entry.id == .paperOrientation, !entry.isEnabled {
             return entry.title + " · " + String(localized: "This layout uses a fixed paper orientation.")
         }
@@ -114,6 +117,7 @@ struct BandMenuContent {
         case .layout: return parts.contains(.layout)
         case .transition: return parts.contains(.transition)
         case .zoom: return parts.contains(.zoom)
+        case .textFormat: return model.textKind != nil
         case .style: return parts.contains(.style)
         case .readingDirection: return parts.contains(.readingDirection)
         case .scrollDirection: return parts.contains(.scrollDirection)
@@ -170,6 +174,9 @@ struct BandMenuContent {
         case .selectText:
             title = String(localized: "Select Text")
             checked = model.isSelectingText
+        case .textFormat:
+            title = String(localized: "Format")
+            value = ClipboardFormatText.value(kind: model.textKind ?? .plainText, origin: model.textFormatOrigin)
         case .style:
             title = model.usesHTMLPreset ? String(localized: "HTML Preset") : String(localized: "Style")
             value = model.styleName
@@ -211,7 +218,7 @@ struct BandMenuContent {
         guard isApplicable(id), entry(id).isEnabled, entry(id).isChecked != checked else { return }
         switch id {
         case .outline, .previousPage, .nextPage, .documentInfo, .presentation, .layout, .transition, .zoom,
-            .readingDirection, .scrollDirection, .style, .paperOrientation, .paperSeries, .margins,
+            .readingDirection, .scrollDirection, .textFormat, .style, .paperOrientation, .paperSeries, .margins,
             .viewOptions, .printSettings, .beforePrinting, .print, .saveAsFile, .keysAndGestures:
             return
         case .thumbnails: model.isDrawerOpen = checked
@@ -248,7 +255,7 @@ struct BandMenuContent {
         case .saveAsFile: model.saveAsFile()
         case .keysAndGestures: KeyGuideWindow.shared.show()
         case .presentation, .layout, .transition, .readingDirection, .scrollDirection,
-            .style, .paperOrientation, .paperSeries, .margins:
+            .textFormat, .style, .paperOrientation, .paperSeries, .margins:
             break
         }
     }
@@ -323,6 +330,12 @@ private struct BandMenuItem: View {
         case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries:
             BandReadingMenuChoice(model: model, entry: entry)
         case .margins: MarginMenu(model: model, unit: .current)
+        case .textFormat:
+            Menu {
+                TextFormatPicker(model: model)
+            } label: {
+                Text(verbatim: entry.title)
+            }
         default:
             Button(entry.title) { BandMenuContent(model: model).perform(entry.id) }
         }

@@ -83,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ClipboardWindows.shared.open(from: board)
             }
             DebugSnapshot.openFeeds()
+            DebugSnapshot.askClipboardQuestion()
             DebugSnapshot.openGettingStarted()
         #endif
         // Restored windows appear shortly after launch; do not cover them with the welcome window. A rejected
