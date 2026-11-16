@@ -40,7 +40,7 @@ public struct ClipboardFormatSettings: Equatable, Codable, Sendable {
         self.mode = mode
         self.carefulness = carefulness
         self.automaticKinds = automaticKinds
-        self.fixedKind = fixedKind
+        self.fixedKind = fixedKind == .url ? .plainText : fixedKind
     }
 
     private enum CodingKeys: String, CodingKey { case mode, carefulness, automaticKinds, fixedKind }
@@ -52,6 +52,7 @@ public struct ClipboardFormatSettings: Equatable, Codable, Sendable {
         mode = (try? container.decode(Mode.self, forKey: .mode)) ?? .askWhenUnsure
         carefulness = (try? container.decode(Carefulness.self, forKey: .carefulness)) ?? .standard
         fixedKind = (try? container.decode(ClipboardTextKind.self, forKey: .fixedKind)) ?? .plainText
+        if fixedKind == .url { fixedKind = .plainText }
         if let values = try? container.decode([String].self, forKey: .automaticKinds) {
             let known = Set(values.compactMap(ClipboardTextKind.init(rawValue:)))
             if values.isEmpty || !known.isEmpty { automaticKinds = known }
@@ -78,7 +79,7 @@ public struct ClipboardFormatDetection: Equatable, Sendable {
 
     public enum Reason: Equatable, Sendable {
         case blank, ordinaryText, accepted, insufficientStructure, conflictingSyntax, competingFormats
-        case truncated, damagedText, automaticKindDisabled, alwaysAsk, fixed
+        case truncated, damagedText, alwaysAsk, fixed
     }
 
     public struct Choice: Equatable, Sendable {
@@ -155,17 +156,22 @@ public enum ClipboardFormatDetector {
             if window.truncated { candidates[index].evidence.append(.incomplete) }
         }
         candidates.sort {
+            let leftEnabled = settings.automaticKinds.contains($0.kind)
+            let rightEnabled = settings.automaticKinds.contains($1.kind)
+            if leftEnabled != rightEnabled { return leftEnabled }
             if $0.choice.confidence != $1.choice.confidence { return $0.choice.confidence > $1.choice.confidence }
             if $0.strength != $1.strength { return $0.strength > $1.strength }
             return $0.kind.rawValue < $1.kind.rawValue
         }
         var choices = candidates.map(\.choice)
         choices.append(.init(kind: .plainText, confidence: 0.5, evidence: []))
-        if let plainIndex = choices.firstIndex(where: { $0.confidence < 0.5 }) {
+        if let plainIndex = choices.firstIndex(where: {
+            $0.confidence < 0.5 || !settings.automaticKinds.contains($0.kind)
+        }) {
             let plain = choices.removeLast()
             choices.insert(plain, at: plainIndex)
         }
-        let structured = candidates.filter { $0.structures > 0 }
+        let structured = candidates.filter { $0.structures > 0 && settings.automaticKinds.contains($0.kind) }
         let accepted = structured.filter(\.accepted)
         let qualified = accepted.filter(\.sufficient)
         var reason: ClipboardFormatDetection.Reason = .ordinaryText
@@ -173,7 +179,7 @@ public enum ClipboardFormatDetector {
         if window.isBlank {
             reason = .blank
         } else if settings.mode == .fixed {
-            action = .open(settings.fixedKind)
+            action = .open(settings.fixedKind == .url ? .plainText : settings.fixedKind)
             reason = .fixed
         } else {
             if !structured.isEmpty {
@@ -185,8 +191,6 @@ public enum ClipboardFormatDetector {
                     reason = structured.contains { !$0.accepted } ? .conflictingSyntax : .insufficientStructure
                 } else if structured.contains(where: { !$0.accepted && $0.ownsStart }) {
                     reason = .conflictingSyntax
-                } else if let best = qualified.first, !settings.automaticKinds.contains(best.kind) {
-                    reason = .automaticKindDisabled
                 } else if accepted.count > 1 {
                     reason = .competingFormats
                 } else if let best = qualified.first {
@@ -199,7 +203,8 @@ public enum ClipboardFormatDetector {
                 }
             }
             if settings.mode == .alwaysAsk {
-                action = .ask(preferred: reason == .competingFormats ? qualified[0].kind : .plainText)
+                action = .ask(
+                    preferred: reason == .accepted || reason == .competingFormats ? qualified[0].kind : .plainText)
                 reason = .alwaysAsk
             }
         }

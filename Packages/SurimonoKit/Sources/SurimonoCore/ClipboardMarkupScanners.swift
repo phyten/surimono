@@ -13,13 +13,11 @@ extension ClipboardScanners {
         var starts = false
     }
 
-    static func htmlAcceptance(_ text: String, work: inout ClipboardWork) -> HTMLAcceptance {
-        let bytes = Array(text.utf8)
-        let lowerBytes = bytes.map { (65...90).contains($0) ? $0 + 32 : $0 }
+    static func htmlAcceptance(_ bytes: [UInt8], work: inout ClipboardWork) -> HTMLAcceptance {
         var result = HTMLAcceptance()
         var i = 0
         var stack: [String] = []
-        var raw: String?
+        var raw: [UInt8]?
         var textStart = 0
         var first = true
         var rootJustOpened = false
@@ -29,13 +27,12 @@ extension ClipboardScanners {
         func whitespace(_ b: UInt8) -> Bool { b == 32 || b == 9 || b == 10 || b == 13 || b == 12 }
         while i < bytes.count {
             work.visit()
-            if let name = raw {
-                let closing = Array("</\(name)".utf8)
-                if bytes[i] == 60 && token(lowerBytes, i, closing, work: &work)
+            if let closing = raw {
+                if bytes[i] == 60 && token(bytes, i, closing, folded: true, work: &work)
                     && (i + closing.count == bytes.count || whitespace(bytes[i + closing.count])
                         || bytes[i + closing.count] == 62)
                 {
-                    let body = string(textStart..<i)
+                    let body = ClipboardSlice(bytes, textStart..<i)
                     // Server-side interpolation is meaningful even in JavaScript strings and CSS values.
                     if templateToken(body, work: &work) { result.valid = false }
                     raw = nil
@@ -50,10 +47,10 @@ extension ClipboardScanners {
                 continue
             }
             if textStart < i {
-                let body = string(textStart..<i)
-                if !trimmed(body).isEmpty {
+                let body = ClipboardSlice(bytes, textStart..<i)
+                if !body.trimmed.isEmpty {
                     if first || stack.isEmpty || rootJustOpened { result.valid = false }
-                    if unsafeText(body, html: true, work: &work) { result.valid = false }
+                    if unsafeText(bytes, range: body.range, html: true, work: &work) { result.valid = false }
                 }
             }
             rootJustOpened = false
@@ -101,7 +98,7 @@ extension ClipboardScanners {
                     break
                 }
             }
-            let tag = string(start..<i)
+            let tag = ClipboardSlice(bytes, start..<i)
             if !closed || !htmlNames.contains(name) { result.valid = false }
             if templateToken(tag, work: &work) || templateAttribute(tag, work: &work) { result.valid = false }
             if first {
@@ -119,7 +116,9 @@ extension ClipboardScanners {
                 } else if !voidNames.contains(name) && !tag.hasSuffix("/>") {
                     if name == "li" && stack.last == "li" { stack.removeLast() }
                     stack.append(name)
-                    if name == "script" || name == "style" || name == "textarea" || name == "title" { raw = name }
+                    if name == "script" || name == "style" || name == "textarea" || name == "title" {
+                        raw = Array("</\(name)".utf8)
+                    }
                     if name == "html" {
                         result.document = true
                         rootJustOpened = true
@@ -130,32 +129,32 @@ extension ClipboardScanners {
         }
         if raw != nil || !stack.isEmpty { result.valid = false }
         if textStart < bytes.count {
-            let suffix = string(textStart..<bytes.count)
-            if !trimmed(suffix).isEmpty {
+            let suffix = ClipboardSlice(bytes, textStart..<bytes.count)
+            if !suffix.trimmed.isEmpty {
                 if stack.isEmpty || first || rootJustOpened { result.valid = false }
-                if unsafeText(suffix, html: true, work: &work) { result.valid = false }
+                if unsafeText(bytes, range: suffix.range, html: true, work: &work) { result.valid = false }
             }
         }
         return result
     }
 
-    static func templateToken(_ text: String, work: inout ClipboardWork) -> Bool {
-        let bytes = Array(text.utf8)
-        for i in bytes.indices {
+    static func templateToken(_ text: ClipboardSlice, work: inout ClipboardWork) -> Bool {
+        let bytes = text.bytes
+        for i in text.range {
             work.visit()
-            guard i + 1 < bytes.count else { continue }
+            guard i + 1 < text.range.upperBound else { continue }
             if bytes[i] == 123 && (bytes[i + 1] == 123 || bytes[i + 1] == 37) { return true }
             if bytes[i] == 60 && (bytes[i + 1] == 37 || bytes[i + 1] == 63) { return true }
         }
         return false
     }
 
-    private static func templateAttribute(_ text: String, work: inout ClipboardWork) -> Bool {
-        let bytes = Array(text.utf8)
-        var i = 0
+    private static func templateAttribute(_ text: ClipboardSlice, work: inout ClipboardWork) -> Bool {
+        let bytes = text.bytes
+        var i = text.range.lowerBound
         var quote: UInt8?
         var boundary = false
-        while i < bytes.count {
+        while i < text.range.upperBound {
             work.visit()
             let b = bytes[i]
             if let q = quote {
@@ -164,7 +163,7 @@ extension ClipboardScanners {
                 quote = b
             } else if boundary {
                 if b == 58 || b == 64 { return true }
-                if b == 118 && i + 1 < bytes.count && bytes[i + 1] == 45 { return true }
+                if b == 118 && i + 1 < text.range.upperBound && bytes[i + 1] == 45 { return true }
             }
             boundary = b == 32 || b == 9 || b == 10 || b == 13
             i += 1
@@ -172,12 +171,18 @@ extension ClipboardScanners {
         return false
     }
 
-    static func safeInlineHTML(_ text: String, work: inout ClipboardWork) -> Bool {
+    static func safeInlineHTML(_ text: ClipboardSlice, work: inout ClipboardWork) -> Bool {
         if templateToken(text, work: &work) || templateAttribute(text, work: &work) { return false }
-        work.visit(text.utf8.count)
+        work.visit(text.count)
         if text.hasPrefix("<!--") { return text.hasSuffix("-->") }
-        let name = text.dropFirst(text.hasPrefix("</") ? 2 : 1).prefix { !$0.isWhitespace && $0 != "/" && $0 != ">" }
-            .lowercased()
+        let start = min(text.range.upperBound, text.range.lowerBound + (text.hasPrefix("</") ? 2 : 1))
+        var end = start
+        while end < text.range.upperBound && text.bytes[end] != 47 && text.bytes[end] != 62 {
+            let scalar = text.scalar(at: end)
+            if Unicode.Scalar(scalar.value)?.properties.isWhitespace == true { break }
+            end += scalar.width
+        }
+        let name = ClipboardSlice(text.bytes, start..<end).string.lowercased()
         return htmlNames.contains(name)
     }
 
@@ -185,15 +190,17 @@ extension ClipboardScanners {
         -> ClipboardCandidate
     {
         var candidate = ClipboardCandidate(kind: .html)
-        let parsed = htmlAcceptance(window.text, work: &work)
-        let first = trimmed(window.text)
+        work.visit(window.bytes.count)
+        guard window.bytes.contains(60) else { return candidate }
+        let parsed = htmlAcceptance(window.bytes, work: &work)
+        let first = ClipboardSlice(window.bytes).trimmed
         // Inline HTML in another document is not independent HTML-document evidence.
         guard parsed.tags > 0 || parsed.document else { return candidate }
-        guard first.hasPrefix("<") || window.text.contains("<br>") else { return candidate }
+        guard first.hasPrefix("<") || ClipboardSlice(window.bytes).contains("<br>") else { return candidate }
         candidate.structures = max(1, parsed.tags)
         candidate.ownsStart = first.hasPrefix("<")
         candidate.accepted =
-            parsed.valid && parsed.starts && !window.text.hasPrefix("    ") && !window.text.hasPrefix("\t")
+            parsed.valid && parsed.starts && !ClipboardSlice(window.bytes).hasPrefix("    ") && window.bytes.first != 9
         candidate.strength = parsed.document ? 90 : 50
         let requirement = level == .careful ? 10 : (level == .standard ? 4 : 2)
         candidate.sufficient = parsed.document || parsed.tags >= requirement
@@ -216,51 +223,57 @@ extension ClipboardScanners {
         var keywords = 0
         var blocks = 0
         var secondary = 0
-        var running = ""
+        var running: [UInt8] = []
+        running.reserveCapacity(window.bytes.count)
         for range in window.lines {
-            let raw = window.string(range)
-            let line = trimmed(raw)
-            let lower = line.lowercased()
+            let raw = ClipboardSlice(window.bytes, range)
+            let line = raw.trimmed
             work.visit(range.count)
             if let name = block {
-                if lower == "#+end_\(name)" || (name == ":" && lower == "#+end:") {
+                if line.equals("#+end_\(name)", folded: true) || (name == ":" && line.equals("#+end:", folded: true)) {
                     block = nil
                 } else if !["src", "example", "comment"].contains(name) {
-                    running += orgInline(line, work: &work) + "\n"
+                    appendOrgInline(line, to: &running, work: &work)
                 }
                 continue
             }
             if drawer {
-                if lower == ":end:" { drawer = false } else { running += orgInline(line, work: &work) + "\n" }
+                if line.equals(":end:", folded: true) {
+                    drawer = false
+                } else {
+                    appendOrgInline(line, to: &running, work: &work)
+                }
                 continue
             }
-            if lower.hasPrefix("#+begin_") {
-                let name = String(lower.dropFirst(8).prefix { !$0.isWhitespace })
+            if line.hasPrefix("#+begin_", folded: true) {
+                let start = line.range.lowerBound + 8
+                let end = line.wordEnd(from: start)
+                let name = ClipboardSlice(window.bytes, start..<end).string.lowercased()
                 block = name
                 blocks += 1
                 distinctive += 2
                 began = true
-            } else if lower.hasPrefix("#+begin:") {
+            } else if line.hasPrefix("#+begin:", folded: true) {
                 block = ":"
                 began = true
                 blocks += 1
                 distinctive += 2
-            } else if lower == ":properties:" || lower == ":logbook:" {
+            } else if line.equals(":properties:", folded: true) || line.equals(":logbook:", folded: true) {
                 drawer = true
                 distinctive += 1
                 began = true
-            } else if matches(line, #"^#\+[a-zA-Z_]+:"#, work: &work) {
+            } else if line.hasPrefix("#+") && matches(line, #"^#\+[a-zA-Z_]+:"#, work: &work) {
                 keywords += 1
                 distinctive += 1
                 began = true
-            } else if matches(raw, #"^\*+\s+\S"#, work: &work) {
+            } else if raw.first == 42 && matches(raw, #"^\*+\s+\S"#, work: &work) {
                 headings += 1
                 if raw.hasPrefix("**") { secondary += 1 }
                 if raw.hasPrefix("**") || matches(line, #"^\*+\s+(TODO|DONE|NEXT|WAITING|CANCELLED)\b"#, work: &work) {
                     distinctive += 1
                 }
                 began = true
-                running += orgInline(line, work: &work) + "\n"
+                appendOrgInline(line, to: &running, work: &work)
             } else if line.hasPrefix("|") {
                 if began { distinctive += 1 }
             } else if line.hasPrefix("# ") || line.isEmpty {
@@ -272,7 +285,7 @@ extension ClipboardScanners {
                     secondary += 1
                 }
                 // Fixed-width example lines and inline verbatim own their syntax under Org's grammar.
-                if !line.hasPrefix(": ") { running += orgInline(line, work: &work) + "\n" }
+                if !line.hasPrefix(": ") { appendOrgInline(line, to: &running, work: &work) }
             }
         }
         candidate.structures = distinctive > 0 || (headings >= 2 && !prefix) ? headings + distinctive : 0
@@ -288,37 +301,37 @@ extension ClipboardScanners {
         return candidate
     }
 
-    private static func orgInline(_ text: String, work: inout ClipboardWork) -> String {
-        let bytes = Array(text.utf8)
-        var output = bytes
+    private static func appendOrgInline(_ text: ClipboardSlice, to output: inout [UInt8], work: inout ClipboardWork) {
+        let bytes = text.bytes
+        let base = output.count - text.range.lowerBound
+        output.append(contentsOf: bytes[text.range])
         var delimiter: UInt8?
         var start = 0
-        for i in bytes.indices {
+        for i in text.range {
             work.visit()
             if let d = delimiter {
                 if bytes[i] == d {
                     for j in start...i {
-                        output[j] = 32
+                        output[base + j] = 32
                         work.visit()
                     }
                     delimiter = nil
                 }
-            } else if bytes[i] == 37 && i + 2 < bytes.count && bytes[i + 1] == 94 && bytes[i + 2] == 123 {
+            } else if bytes[i] == 37 && i + 2 < text.range.upperBound && bytes[i + 1] == 94 && bytes[i + 2] == 123 {
                 delimiter = 125
                 start = i
-            } else if (bytes[i] == 61 || bytes[i] == 126) && (i == 0 || bytes[i - 1] == 32) {
+            } else if (bytes[i] == 61 || bytes[i] == 126) && (i == text.range.lowerBound || bytes[i - 1] == 32) {
                 delimiter = bytes[i]
                 start = i
             }
         }
-        return String(decoding: output, as: UTF8.self)
+        output.append(10)
     }
+
 }
 
 extension ClipboardScanners {
-    static func markdownHTML(_ text: String, work: inout ClipboardWork, accepted: inout Bool) -> String {
-        let bytes = Array(text.utf8)
-        let lower = bytes.map { (65...90).contains($0) ? $0 + 32 : $0 }
+    static func markdownHTML(_ bytes: [UInt8], work: inout ClipboardWork, accepted: inout Bool) -> [UInt8] {
         var output = bytes
         var stack: [String] = []
         var index = 0
@@ -353,7 +366,8 @@ extension ClipboardScanners {
             }
             let closing = bytes[index + 1] == 47
             let nameStart = index + (closing ? 2 : 1)
-            guard nameStart < bytes.count, (97...122).contains(lower[nameStart]) else {
+            guard nameStart < bytes.count, (65...90).contains(bytes[nameStart]) || (97...122).contains(bytes[nameStart])
+            else {
                 index += 1
                 continue
             }
@@ -362,7 +376,7 @@ extension ClipboardScanners {
                 work.visit()
                 index += 1
             }
-            let name = String(decoding: lower[nameStart..<index], as: UTF8.self)
+            let name = String(decoding: bytes[nameStart..<index], as: UTF8.self).lowercased()
             var quote: UInt8?
             var closed = false
             while index < bytes.count {
@@ -378,7 +392,7 @@ extension ClipboardScanners {
                     break
                 }
             }
-            let tag = String(decoding: bytes[start..<index], as: UTF8.self)
+            let tag = ClipboardSlice(bytes, start..<index)
             if !closed || !safeInlineHTML(tag, work: &work) { accepted = false }
             if closing {
                 if stack.last == name { stack.removeLast() } else { accepted = false }
@@ -391,7 +405,7 @@ extension ClipboardScanners {
                     var found = false
                     while index < bytes.count {
                         work.visit()
-                        if token(lower, index, end, work: &work) && index + end.count < bytes.count
+                        if token(bytes, index, end, folded: true, work: &work) && index + end.count < bytes.count
                             && [9, 10, 13, 32, 62].contains(bytes[index + end.count])
                         {
                             found = true
@@ -400,7 +414,7 @@ extension ClipboardScanners {
                         index += 1
                     }
                     if !found { accepted = false }
-                    let body = String(decoding: bytes[bodyStart..<index], as: UTF8.self)
+                    let body = ClipboardSlice(bytes, bodyStart..<index)
                     if templateToken(body, work: &work) { accepted = false }
                 }
                 stack.append(name)
@@ -409,6 +423,6 @@ extension ClipboardScanners {
             work.visit(index - start)
         }
         if !stack.isEmpty { accepted = false }
-        return String(decoding: output, as: UTF8.self)
+        return output
     }
 }

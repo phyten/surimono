@@ -93,8 +93,8 @@ struct ClipboardFormatRuleTests {
         var settings = ClipboardFormatSettings.standard
         settings.automaticKinds.remove(.markdown)
         let result = ClipboardFormatDetector.detect(document, settings: settings)
-        #expect(result.action == .ask(preferred: .plainText))
-        #expect(result.reason == .automaticKindDisabled)
+        #expect(result.action == .open(.plainText))
+        #expect(result.reason == .ordinaryText)
         #expect(result.choices.contains { $0.kind == .markdown })
         #expect(result.choices.count == ClipboardTextKind.allCases.count)
     }
@@ -273,5 +273,100 @@ extension ClipboardFormatRuleTests {
         }
         let valid = ClipboardFormatAdversarialTests.latex.replacingOccurrences(of: "Hello", with: "$$x = 1$$")
         #expect(ClipboardFormatDetector.detect(valid).action == .open(.latex))
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    @Test("常に確認でも自動確定できた形式をReturnで選ぶ")
+    func confirmationPreference() {
+        let texts = [
+            document, ClipboardFormatAdversarialTests.latex, ClipboardFormatAdversarialTests.org,
+            "<div><p>Hello</p></div>", "name,count\na,1\nb,2", "https://example.org/",
+        ]
+        for text in texts {
+            let normal = ClipboardFormatDetector.detect(text)
+            let asked = ClipboardFormatDetector.detect(text, settings: .init(mode: .alwaysAsk))
+            if case .open(let kind) = normal.action {
+                #expect(asked.action == .ask(preferred: kind))
+            } else {
+                #expect(asked.action == normal.action)
+            }
+            #expect(asked.reason == .alwaysAsk)
+        }
+        for text in ["# Heading", document + "\nconst x = 1;", "* **First**\n* **Second**\n* **Third**"] {
+            #expect(
+                ClipboardFormatDetector.detect(text, settings: .init(mode: .alwaysAsk)).action
+                    == ClipboardFormatDetector.detect(text).action)
+        }
+    }
+
+    @Test("外した形式は構造不足や破損や切断でも確認の理由にならない")
+    func absentKinds() {
+        for text in [document, "# Heading", document + "\u{0000}", document + String(repeating: "x", count: 40_000)] {
+            let result = ClipboardFormatDetector.detect(text, settings: .init(automaticKinds: []))
+            #expect(result.action == .open(.plainText))
+            #expect(result.reason == .ordinaryText)
+            #expect(result.choices.first?.kind == .plainText)
+            #expect(result.choices.contains { $0.kind == .markdown && !$0.evidence.isEmpty })
+        }
+    }
+
+    @Test("外した競合候補や先頭を拒否する候補は残った形式を妨げない")
+    func absentCompetition() {
+        let competing = "* **First**\n* **Second**\n* **Third**"
+        let refused = "# **Guide**,bad\"quote\n- [one](https://example.org),1\n- **two**,2"
+        for (text, disabled) in [(competing, ClipboardTextKind.org), (refused, .csv)] {
+            var settings = ClipboardFormatSettings.standard
+            settings.automaticKinds.remove(disabled)
+            let result = ClipboardFormatDetector.detect(text, settings: settings)
+            #expect(result.action == .open(.markdown))
+            #expect(result.choices.last?.kind == disabled)
+            #expect(result.choices.last?.evidence.isEmpty == false)
+        }
+    }
+
+    @Test("固定形式のURLは初期化と復号でプレーンテキストに戻す")
+    func fixedURL() throws {
+        let initialized = ClipboardFormatSettings(mode: .fixed, fixedKind: .url)
+        let decoded = try JSONDecoder().decode(
+            ClipboardFormatSettings.self,
+            from: Data(#"{"mode":"fixed","fixedKind":"url"}"#.utf8))
+        for settings in [initialized, decoded] {
+            #expect(settings.fixedKind == .plainText)
+            #expect(
+                ClipboardFormatDetector.detect("https://example.org/", settings: settings).action == .open(.plainText))
+        }
+    }
+
+    @Test("上限まで空白の接尾部を調べても未確定なら切断とする")
+    func boundedWhitespaceTail() {
+        let huge = String(repeating: " ", count: 50_000_000)
+        let blank = ClipboardFormatDetector.detect(huge)
+        #expect(blank.reason == .blank)
+        #expect(blank.analysedUnits == 0)
+        #expect(blank.isTruncated)
+        #expect(ClipboardFormatDetector.detect(document + huge).isTruncated)
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    @Test("構造の事前走査でも空のリスト項目と空白だけのフェンス本文を区別する")
+    func preflightBoundaries() {
+        #expect(ClipboardFormatDetector.detect("+").action == .ask(preferred: .plainText))
+        for fence in ["```", "~~~"] {
+            #expect(
+                ClipboardFormatDetector.detect(fence + "\n\u{200B}\n" + fence).action == .ask(preferred: .plainText))
+        }
+        #expect(ClipboardFormatDetector.detect("``` x `").action == .open(.plainText))
+        #expect(ClipboardFormatDetector.detect("<https://a.org> <https://b.org>").action == .ask(preferred: .plainText))
+    }
+}
+
+extension ClipboardFormatRuleTests {
+    @Test("共通の構文検査はコメント終端と検査窓の末尾の記号も拒否する")
+    func unsafeBoundary() {
+        for suffix in ["*/", String(repeating: "a", count: 511) + ";" + "tail"] {
+            #expect(ClipboardFormatDetector.detect(document + "\n" + suffix).action == .ask(preferred: .plainText))
+        }
     }
 }

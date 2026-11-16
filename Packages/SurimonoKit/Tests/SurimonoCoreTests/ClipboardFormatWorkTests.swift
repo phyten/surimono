@@ -36,12 +36,17 @@ struct ClipboardFormatWorkTests {
             inputs.append(("one \(token.debugDescription)", fill(token)))
             inputs.append(("space \(token.debugDescription)", fill(token + " ")))
             inputs.append(("line \(token.debugDescription)", fill(token + "\n")))
-            inputs.append(
-                (
-                    "short \(token.debugDescription)",
-                    fill(String(repeating: token, count: max(1, 20 / token.utf16.count)) + "\n")
-                ))
         }
+        // Keep every short-line mark in a full-window mixed pattern; the individual marks retain
+        // their full-window contiguous, spaced and line-delimited cases above.
+        inputs.append(
+            (
+                "mixed short lines",
+                fill(
+                    tokens.map {
+                        String(repeating: $0, count: max(1, 20 / $0.utf16.count)) + "\n"
+                    }.joined())
+            ))
         for (open, close) in pairs {
             let openers = String(repeating: open + " ", count: (limit - close.utf16.count) / (open.utf16.count + 1))
             inputs.append(("openers \(open)", openers + close))
@@ -61,7 +66,8 @@ struct ClipboardFormatWorkTests {
             inputs.append(("script \(n)", String(repeating: "<script>x</script>", count: n / 18)))
             inputs.append(("style \(n)", String(repeating: "<style>x</style>", count: n / 16)))
         }
-        return inputs
+        var seen: Set<String> = []
+        return inputs.filter { seen.insert($0.1).inserted }
     }
 
     @Test("全生成入力の走査量はUTF16単位数の固定倍数以内で一秒以内に終わる")
