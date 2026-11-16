@@ -103,19 +103,20 @@ private struct CodePaletteRow: View {
                             .font(.system(size: 12.5, weight: .medium))
                             .lineLimit(1)
                             .fixedSize()
-                        Text(verbatim: note)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Spacer(minLength: 0)
-                        if let badge {
-                            Text(verbatim: badge)
-                                .font(.system(size: 11).monospacedDigit())
-                                .foregroundStyle(.secondary)
+                        // The ink follows the description it qualifies; at the far edge it read as a separate column.
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            Text(verbatim: note)
                                 .lineLimit(1)
-                                .fixedSize()
+                                .truncationMode(.tail)
+                            if let badge {
+                                Text(verbatim: " · " + badge)
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
                         }
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
                     }
                     sample
                 }
