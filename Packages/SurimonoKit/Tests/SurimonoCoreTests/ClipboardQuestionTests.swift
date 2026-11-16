@@ -29,7 +29,7 @@ struct ClipboardQuestionTests {
 
     @Test("2 つの形式が近いときは最上位を最初に選び、両方とテキストを並べて残りを畳む")
     func competing() {
-        let asked = question("* **First**\n* **Second**\n* **Third**")
+        let asked = question("# Groceries\n* milk\n* eggs\n* bread\n# Chores\n* laundry\n* dishes\n")
         #expect(asked.reason == .competingFormats)
         #expect(asked.preferred == .markdown)
         #expect(asked.competing == [.markdown, .org])

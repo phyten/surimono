@@ -57,8 +57,7 @@ enum ClipboardFormatText {
         case .blank: String(localized: "The text has only spaces and line breaks.")
         case .ordinaryText: String(localized: "No marks of a format were found.")
         case .accepted: String(localized: "The text reads clearly as one format.")
-        // A format turned off for automatic opening is not a reason of its own to ask.
-        case .insufficientStructure, .automaticKindDisabled:
+        case .insufficientStructure:
             String(localized: "No format could be confirmed from the text’s structure.")
         case .conflictingSyntax: String(localized: "The text mixes the marks of more than one format.")
         case .competingFormats:

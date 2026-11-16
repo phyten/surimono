@@ -11,7 +11,7 @@ import Testing
 @Suite(.serialized)
 struct ClipboardQuestionFlowTests {
     /// Markdown the detector opens without asking.
-    private static let markdown = "# Title\n\nText.\n\n## Section\n\n- one\n- two\n- three\n"
+    private static let markdown = "# Title\n\nSome **bold** text.\n\n## Section\n\n- one\n- two\n- three\n"
     /// A single heading: Markdown is possible but not confirmed, so the reader is asked.
     private static let unsure = "# 見出し"
 

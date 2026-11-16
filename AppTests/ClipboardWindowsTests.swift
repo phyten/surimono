@@ -11,7 +11,7 @@ struct ClipboardWindowsTests {
     }
 
     /// Markdown the detector opens without asking.
-    private static let markdown = "# Clipboard test\n\nText.\n\n## Section\n\n- one\n- two\n- three\n"
+    private static let markdown = "# Clipboard test\n\nSome **bold** text.\n\n## Section\n\n- one\n- two\n- three\n"
 
     @Test("クリップボードの文章を刷り台で開く要求は同じ窓へ届く", .timeLimit(.minutes(1)))
     func opensOnPrintScreen() throws {
