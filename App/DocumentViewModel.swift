@@ -2036,6 +2036,13 @@ final class DocumentViewModel {
         applyWebShape()
     }
 
+    /// The reader's command 「スライドとして表示」. A page with no slides found has nothing to switch, so the command
+    /// leaves its setting alone instead of quietly saving "not a deck" for a page whose slides are measured later.
+    func toggleShowsSlides() {
+        guard detectedSlideDeck != nil else { return }
+        setIgnoresSlides(!ignoresSlides)
+    }
+
     /// On the web a deck shows one slide to the window: the window takes the slide's shape, keeping its height, and
     /// the page zooms to fit unless the deck scales itself. An ordinary page takes any shape the reader gives it.
     func applyWebShape(animate: Bool = true) {

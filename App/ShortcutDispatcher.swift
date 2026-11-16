@@ -239,8 +239,7 @@ final class ShortcutDispatcher {
         case .documentOpenBinder: model?.openIncludesAsBinder()
         case .documentResetSettings: model?.resetDocumentSettings()
         case .viewHtmlPresentation: model?.toggleHTMLPresentation()
-        case .viewIgnoreSlides:
-            if let model { model.setIgnoresSlides(!model.ignoresSlides) }
+        case .viewIgnoreSlides: model?.toggleShowsSlides()
         case .textIncrease: model?.increaseTextSize()
         case .textDecrease: model?.decreaseTextSize()
         case .textReset: model?.resetTextSize()

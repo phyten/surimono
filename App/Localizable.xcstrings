@@ -64842,54 +64842,54 @@
         }
       }
     },
-    "Formats only text that is clearly one format. You are asked more often.": {
+    "Formats only text that is clearly one format.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formatiert nur Text, der eindeutig ein Format ist. Es wird öfter gefragt."
+            "value": "Formatiert nur Text, der eindeutig ein Format ist."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Formats only text that is clearly one format. You are asked more often."
+            "value": "Formats only text that is clearly one format."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Solo da formato al texto que es claramente de un formato. Se pregunta más a menudo."
+            "value": "Solo da formato al texto que es claramente de un formato."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seul un texte clairement dans un format est mis en forme. La question est posée plus souvent."
+            "value": "Seul un texte clairement dans un format est mis en forme."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "はっきり 1 つの形式と分かるものだけを整形します。聞かれることが増えます。"
+            "value": "はっきり 1 つの形式と分かるものだけを整形します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "한 가지 형식이 분명한 것만 정리합니다. 묻는 일이 늘어납니다."
+            "value": "한 가지 형식이 분명한 것만 정리합니다."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "只整理明确属于一种格式的文本。询问会更频繁。"
+            "value": "只整理明确属于一种格式的文本。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "只整理明確屬於一種格式的文字。詢問會更頻繁。"
+            "value": "只整理明確屬於一種格式的文字。"
           }
         }
       }

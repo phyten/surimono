@@ -65,7 +65,7 @@ struct ClipboardSettings: View {
     private var carefulnessNote: String {
         switch preferences.clipboardFormat.carefulness {
         case .careful:
-            String(localized: "Formats only text that is clearly one format. You are asked more often.")
+            String(localized: "Formats only text that is clearly one format.")
         case .standard: String(localized: "Formats text with a confirmed structure.")
         case .eager: String(localized: "Formats text even from weak marks.")
         }
