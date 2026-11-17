@@ -31,7 +31,7 @@ pre { font-size: 9.5pt; line-height: 1.6; padding: 0.5em 0.8em; border: 0.75pt s
 code { font-size: 0.9em; }
 th, td { border-color: #7a6a58; }
 th { background: #efe6d2; color: #2f4868; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left: 3pt double #8c3b2a; }
+blockquote { border-inline-start: 3pt double #8c3b2a; }
 :root { --hl-keyword: #8c3b2a; --hl-type: #2f4868; --hl-function: #2f4868; --hl-string: #4f5a2a; --hl-comment: #6a5f52; }
 hr { border: none; border-top: 1pt dotted #7a6a58; margin: 1.3em 0; }
 :root {

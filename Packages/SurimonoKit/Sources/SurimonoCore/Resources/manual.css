@@ -6,8 +6,8 @@ h1 { font-size: 1.75em; padding-bottom: 0.25em; border-bottom: 2pt solid #17466b
 h2 { font-size: 1.2em; padding: 0.2em 0.6em; background: #17466b; color: #fff; counter-increment: step;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* Numbering is generated so a Markdown source need not number its steps by hand. */
-body:not(.format-latex) h2::before { content: counter(step); margin-right: 0.7em; font-weight: 800; }
-h3 { font-size: 1.08em; padding-left: 0.5em; border-left: 3pt solid #17466b; }
+body:not(.format-latex) h2::before { content: counter(step); margin-inline-end: 0.7em; font-weight: 800; }
+h3 { font-size: 1.08em; padding-inline-start: 0.5em; border-inline-start: 3pt solid #17466b; }
 h4, h5, h6 { font-size: 1em; }
 p, ul, ol, table, pre { margin: 0.6em 0; }
 li { margin: 0.2em 0; }
@@ -15,7 +15,7 @@ pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; background: #f2f
 table { width: 100%; }
 th, td { border: 0.5pt solid #9fb0c0; padding: 0.3em 0.6em; }
 th { background: #e9eff5; color: #17466b; }
-blockquote { border-left: 3pt solid #9fb0c0; color: #333a42; }
+blockquote { border-inline-start: 3pt solid #9fb0c0; color: #333a42; }
 hr { border: none; border-top: 0.75pt solid #9fb0c0; margin: 1.4em 0; }
 a { color: #17466b; }
 pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

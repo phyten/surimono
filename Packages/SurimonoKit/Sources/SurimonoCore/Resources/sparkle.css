@@ -12,7 +12,7 @@ h3 { font-size: 1.15em; color: #9a6b00; }
 p, pre, table { margin: 0.7em 0; }
 li { margin: 0.2em 0; }
 ul > li[data-deco] { list-style: none; position: relative; }
-ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.5em; font-size: 0.95em; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; inset-inline-start: -1.5em; font-size: 0.95em; }
 ol > li::marker { color: #c2185b; font-weight: 700; }
 /* Glitter: scattered pink and gold specks on a rule. */
 hr { border: none; height: 6pt; margin: 1.4em 0;
@@ -25,7 +25,7 @@ code { font-size: 0.9em; color: #8a1144; }
 pre { background: #fff7fb; border: 1pt solid #f5b5d0; border-radius: 8pt; padding: 0.6em 0.8em; font-size: 9pt;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 pre code { color: inherit; }
-blockquote { border-left: 3pt solid #e0b13a; background: #fffaf0; padding: 0.3em 0.9em;
+blockquote { border-inline-start: 3pt solid #e0b13a; background: #fffaf0; padding: 0.3em 0.9em;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th { background: #ffeaf3; color: #8a1144; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #ebbfd2; }

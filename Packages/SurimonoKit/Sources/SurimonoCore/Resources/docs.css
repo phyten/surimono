@@ -8,7 +8,7 @@ h2 { font-size: 1.4em; margin: 1.6em 0 0.5em; padding-top: 0.6em; border-top: 0.
 h3 { font-size: 1.15em; margin: 1.2em 0 0.4em; }
 h4 { font-size: 1em; margin: 1em 0 0.3em; color: #374151; }
 p { margin: 0.6em 0; }
-ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
+ul, ol { margin: 0.5em 0; padding-inline-start: 1.5em; }
 li { margin: 0.2em 0; }
 li::marker { color: var(--docs-accent); }
 a { color: var(--docs-accent); text-decoration: none; border-bottom: 0.5pt solid #a5b4fc; }
@@ -18,7 +18,7 @@ pre code { color: inherit; background: none; padding: 0; }
 table { margin: 0.9em 0; width: 100%; }
 th, td { border: none; border-bottom: 0.5pt solid #e2e5ec; padding: 0.4em 0.7em; }
 thead th { border-bottom: 1pt solid #c7cbe0; font-weight: 600; color: #374151; }
-blockquote { border-left: 2.5pt solid #c7d2fe; color: #4b5563; }
+blockquote { border-inline-start: 2.5pt solid #c7d2fe; color: #4b5563; }
 hr { border: none; border-top: 0.5pt solid #e2e5ec; margin: 1.6em 0; }
 :root {
     --callout-info: #0b5cad; --callout-success: #1a6b32; --callout-warning: #7d5500; --callout-danger: #b3262e;

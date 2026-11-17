@@ -16,7 +16,7 @@ h1 {
 h2 {
     font-size: 1.25em;
     padding: 0.15em 0.5em;
-    border-left: 5pt solid #2f4858;
+    border-inline-start: 5pt solid #2f4858;
     background: #e9eff2;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -33,7 +33,7 @@ th, td { border: none; border-bottom: 0.5pt solid #9fb1ba; padding: 0.2em 0.5em;
 thead th { border-bottom: 1.2pt solid #2f4858; text-transform: uppercase; font-size: 0.9em; letter-spacing: 0.05em; }
 pre { font-size: 8pt; line-height: 1.5; padding: 0.4em 0.6em; border: 0.5pt solid #9fb1ba; }
 code { font-size: 0.9em; }
-blockquote { border-left-color: #2f4858; }
+blockquote { border-inline-start-color: #2f4858; }
 hr { border: none; border-top: 0.5pt solid #2f4858; border-bottom: 0.5pt solid #2f4858; height: 2pt; margin: 0.8em 0; }
 :root {
     --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;

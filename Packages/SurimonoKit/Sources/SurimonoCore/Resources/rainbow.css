@@ -5,7 +5,7 @@ body > :first-child { margin-top: 0; }
 h1, h2, h3, h4, h5, h6 { margin: 1.2em 0 0.4em; line-height: 1.4; font-weight: 800; }
 h1 { font-size: 2em; color: #d7263d; }
 h2 { font-size: 1.45em; color: #1b6fd1; }
-h3 { font-size: 1.15em; color: #2e7d3a; border-left: 4pt solid #e2a400; padding-left: 0.4em; }
+h3 { font-size: 1.15em; color: #2e7d3a; border-inline-start: 4pt solid #e2a400; padding-inline-start: 0.4em; }
 h4 { color: #6a3fb5; }
 @supports (-webkit-background-clip: text) {
     /* fit-content keeps the whole spectrum on short headings instead of only its red end. */
@@ -27,9 +27,9 @@ ol > li::marker { color: #1b6fd1; font-weight: 700; }
 hr { border: none; height: 3pt; border-radius: 2pt; margin: 1.5em 0; background: var(--rainbow);
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 code { font-size: 0.9em; }
-pre { border-left: 4pt solid #1b6fd1; background: #f6f8fc; padding: 0.6em 0.8em; font-size: 9pt;
+pre { border-inline-start: 4pt solid #1b6fd1; background: #f6f8fc; padding: 0.6em 0.8em; font-size: 9pt;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left: 3pt solid #b0258f; }
+blockquote { border-inline-start: 3pt solid #b0258f; }
 thead { border-bottom: 2.5pt solid #e2a400; }
 th, td { border-color: #c4c4d4; }
 :root {

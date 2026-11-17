@@ -23,11 +23,11 @@ h4, h5, h6 { font-size: 1em; }
 body > :first-child { margin-top: 0; }
 p, ul, ol, pre, table, blockquote { margin: 0 0 3mm; }
 li { margin: 0; }
-pre { font-size: 9pt; line-height: 6mm; padding: 0 3mm; border-left: 1.5pt solid #1d4e72; }
+pre { font-size: 9pt; line-height: 6mm; padding: 0 3mm; border-inline-start: 1.5pt solid #1d4e72; }
 code { font-size: 0.9em; }
 th, td { border-color: #7f9db5; padding: 0 2mm; line-height: 6mm; background: rgba(255, 255, 255, 0.85); }
 th { color: #1d4e72; }
-blockquote { border-left-color: #1d4e72; }
+blockquote { border-inline-start-color: #1d4e72; }
 hr { border: none; border-top: 1pt dashed #1d4e72; margin: 3mm 0; }
 :root {
     --callout-info: #1c4fa0; --callout-success: #1f6b3a; --callout-warning: #7f5400; --callout-danger: #b8201a;

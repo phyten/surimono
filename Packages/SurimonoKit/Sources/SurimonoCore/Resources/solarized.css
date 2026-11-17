@@ -14,7 +14,7 @@ h2 { font-size: 1.35em; margin: 1.4em 0 0.5em; color: #1b6aa3; }
 h3 { font-size: 1.12em; margin: 1.1em 0 0.4em; color: #1d7a73; }
 h4, h5, h6 { font-size: 1em; margin: 0.9em 0 0.3em; color: #5f6e00; }
 p { margin: 0.55em 0; }
-ul, ol { margin: 0.45em 0; padding-left: 1.5em; }
+ul, ol { margin: 0.45em 0; padding-inline-start: 1.5em; }
 li::marker { color: #8a6700; }
 a { color: #1b6aa3; }
 strong { color: #002b36; }
@@ -26,7 +26,7 @@ pre code { color: inherit; }
 table { margin: 0.8em 0; }
 th, td { border-color: #c9bfa4; }
 th { background: #eee8d5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left-color: #93a1a1; color: #3c5158; }
+blockquote { border-inline-start-color: #93a1a1; color: #3c5158; }
 hr { border: none; border-top: 1pt solid #d9cfb4; margin: 1.3em 0; }
 :root {
     --callout-info: #1b6aa3; --callout-success: #5f6e00; --callout-warning: #8a6700; --callout-danger: #b0291f;

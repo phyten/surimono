@@ -8,12 +8,12 @@ h2::before { content: "▶ "; font-size: 0.75em; color: #666; vertical-align: 0.
 h3 { font-size: 1.02em; }
 h4, h5, h6 { font-size: 0.95em; color: #444; }
 p, ul, ol, table, pre { margin: 0.45em 0; }
-ul, ol { padding-left: 1.5em; }
+ul, ol { padding-inline-start: 1.5em; }
 li { margin: 0.1em 0; }
 pre { font-size: 8.4pt; line-height: 1.45; padding: 0.4em 0.6em; border: 0.5pt solid #bbb; }
 th, td { border: 0.5pt solid #999; padding: 0.2em 0.5em; }
 th { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { margin-inline: 0.5em; border-left-width: 1.5pt; color: #444; }
+blockquote { margin-inline: 0.5em; border-inline-start-width: 1.5pt; color: #444; }
 hr { border: none; border-top: 0.5pt solid #999; margin: 0.9em 0; }
 :root {
     --callout-info: #1f3a5f; --callout-success: #2f5b4a; --callout-warning: #6e5317; --callout-danger: #8f2424;

@@ -21,15 +21,19 @@ public enum MarkdownConverter {
         var lines = original
         let mapping = mapsSource ? BlockMapping(original: original) : nil
         var title: String?
+        var language: String?
         if let end = frontMatterEnd(in: lines) {
-            for line in lines[1..<end] where line.hasPrefix("title:") {
-                var value = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+            for line in lines[1..<end] {
+                guard let colon = line.firstIndex(of: ":") else { continue }
+                let key = String(line[..<colon])
+                guard ["title", "lang", "language"].contains(key) else { continue }
+                var value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
                 if value.count >= 2,
                     value.first == "\"" && value.last == "\"" || value.first == "'" && value.last == "'"
                 {
                     value = String(value.dropFirst().dropLast())
                 }
-                title = value
+                if key == "title" { title = value } else { language = value }
             }
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
@@ -50,7 +54,8 @@ public enum MarkdownConverter {
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = MathRenderer.fontFaces(for: html)
         return MarkdownMappedDocument(
-            fragment: HTMLFragment(body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title),
+            fragment: HTMLFragment(
+                body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title, language: language),
             blocks: mapping?.blocks ?? [])
     }
 

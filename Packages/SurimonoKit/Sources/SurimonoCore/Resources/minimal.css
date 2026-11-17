@@ -9,9 +9,9 @@ h4, h5, h6 { font-size: 1em; color: #6e6e6e; }
 p, ul, ol, table, pre, blockquote { margin: 0.7em 0; }
 pre { font-size: 8.8pt; line-height: 1.6; padding: 0.5em 0; border-top: 0.25pt solid #bbb; border-bottom: 0.25pt solid #bbb; }
 code { font-size: 0.9em; }
-th, td { border: none; border-bottom: 0.25pt solid #bbb; padding: 0.3em 0.8em 0.3em 0; }
+th, td { border: none; border-bottom: 0.25pt solid #bbb; padding: 0.3em 0; padding-inline-end: 0.8em; }
 th { font-weight: 500; color: #555; }
-blockquote { border-left: 0.25pt solid #999; color: #555; }
+blockquote { border-inline-start: 0.25pt solid #999; color: #555; }
 hr { border: none; border-top: 0.25pt solid #bbb; margin: 1.5em 0; }
 a { color: inherit; text-decoration-thickness: 0.25pt; }
 :root { --callout-tint-amount: 0%; --callout-frame: 0.5pt; }

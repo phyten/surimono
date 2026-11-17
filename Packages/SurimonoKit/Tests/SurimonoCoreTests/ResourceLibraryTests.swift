@@ -256,7 +256,7 @@ struct ResourceLibraryTests {
             fragment: HTMLFragment(body: "<p>x</p>"), format: .plainText, theme: theme, language: "en\"")
         #expect(!html.contains("<base"))
         #expect(!html.contains("</StYlE>"))
-        #expect(html.contains("lang=\"en&quot;\""))
+        #expect(html.contains("lang=\"en\""))
     }
 
     @Test(

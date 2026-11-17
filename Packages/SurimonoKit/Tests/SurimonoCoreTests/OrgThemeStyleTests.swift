@@ -73,14 +73,14 @@ struct OrgThemeStyleTests {
         #expect(rule.value(of: "letter-spacing") != nil)
     }
 
-    @Test("タグは見出しの行の右端へ寄り、大きさは見出しに比例しない")
+    @Test("タグは見出しの行末（左から右の文書では右端）へ寄り、大きさは見出しに比例しない")
     func tagsGoToTheLineEnd() throws {
         let all = try rules(common())
         let tags = try #require(all.first { $0.selectors == [".org-tags"] })
-        #expect(tags.value(of: "float") == "right")
-        // A right margin keeps the last tag's frame inside the text width.
-        let margin = try #require(tags.value(of: "margin")).split(separator: " ")
-        #expect(margin.count == 4 && margin[1] != "0")
+        #expect(tags.value(of: "float") == "inline-end")
+        // A margin at the line's end keeps the last tag's frame inside the text width.
+        let margin = try #require(tags.value(of: "margin-inline")).split(separator: " ")
+        #expect(margin.count == 2 && margin[1] != "0")
         let tag = try #require(all.first { $0.selectors == [".org-tag"] })
         #expect(tag.value(of: "font-size") == "var(--org-tag-size)")
         let root = try #require(all.first { $0.selectors == [":root"] && $0.body.contains("--org-tag-size") })

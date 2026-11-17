@@ -36,6 +36,7 @@ public final class ThemeSampler {
 
     private let resourceAccess: LocalResourceAccess?
     private let html: String
+    private let documentLanguage: String
     private let format: DocumentFormat
     private let baseURL: URL?
     private let textScale: Double
@@ -61,6 +62,7 @@ public final class ThemeSampler {
     ) {
         self.resourceAccess = resourceAccess
         self.html = html
+        self.documentLanguage = Self.language(in: html)
         self.format = format
         self.baseURL = baseURL
         self.pageSize = pageSize
@@ -70,12 +72,21 @@ public final class ThemeSampler {
         self.timeout = timeout
     }
 
+    private static func language(in html: String) -> String {
+        // Generated documents place this attribute before the head, including any embedded font data.
+        guard let start = html.range(of: "<html lang=\""),
+            let end = html[start.upperBound...].firstIndex(of: "\"")
+        else { return "ja" }
+        return String(html[start.upperBound..<end])
+    }
+
     // Hash the actual drawing inputs so changes to shared CSS, fonts, code options or decorations cannot reuse
     // an older specimen. Length prefixes keep adjacent fields unambiguous without persisting their contents.
     public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
         let fields = [
             "theme-sample-v1", theme.id, language, sourceHash, html, format.rawValue,
-            HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, code: code), theme.script ?? "",
+            HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, code: code, language: documentLanguage),
+            theme.script ?? "",
             String(Double(pageSize.width)), String(Double(pageSize.height)),
             String(Double(margins.top)), String(Double(margins.left)),
             String(Double(margins.bottom)), String(Double(margins.right)),
@@ -287,7 +298,8 @@ public final class ThemeSampler {
             for (const element of document.querySelectorAll('[data-deco]')) { element.removeAttribute('data-deco'); }
             return document.documentElement.getBoundingClientRect().height;
             """
-        let css = HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, code: code)
+        let css = HTMLDocumentBuilder.styleSheet(
+            theme: theme, textScale: textScale, code: code, language: documentLanguage)
         _ = try await webView.callAsyncJavaScript(swap, arguments: ["css": css], in: nil, contentWorld: world)
         // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
         // show the fallback font and be kept that way.
@@ -318,14 +330,16 @@ public final class ThemeSampler {
             top: millimeters(margins.top), left: millimeters(margins.left), bottom: millimeters(margins.bottom),
             right: millimeters(margins.right))
         let css = PaperBackground.styleSheet(
-            theme: theme, textScale: textScale, pageSize: pageSize, margins: paperMargins, pixelsPerPoint: 1)
+            theme: theme, textScale: textScale, pageSize: pageSize, margins: paperMargins, pixelsPerPoint: 1,
+            language: documentLanguage)
         let session: Session
         if let paperSession, paperSession.isReady {
             session = paperSession
         } else {
             paperSession?.close()
             let html = PaperBackground.document(
-                theme: theme, format: format, baseURL: baseURL, textScale: textScale, pageSize: pageSize,
+                theme: theme, format: format, baseURL: baseURL, language: documentLanguage, textScale: textScale,
+                pageSize: pageSize,
                 margins: paperMargins, pixelsPerPoint: 1)
             session = Session(size: pageSize, resourceAccess: resourceAccess, html: html)
             paperSession = session
@@ -454,6 +468,7 @@ extension DocumentRenderer {
         let directory = source.fileURL?.deletingLastPathComponent()
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
+            language: settings.pageLanguage,
             textScale: settings.textScale, removesPaper: WebPaginator.drawsClearPages,
             finish: settings.finish.styleSheet, code: settings.code)
         return ThemeSampler(

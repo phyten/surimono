@@ -14,6 +14,6 @@ pre { font-size: 8.8pt; line-height: 1.7; padding: 0.9em 1.1em; background: #f7f
 code { font-size: 0.9em; }
 th, td { border: none; border-bottom: 0.5pt solid #ddd; padding: 0.5em 0.9em; }
 th { font-weight: 600; border-bottom-color: #999; }
-blockquote { border-left: 1pt solid #ccc; color: #555; padding-left: 1.2em; }
+blockquote { border-inline-start: 1pt solid #ccc; color: #555; padding-inline-start: 1.2em; }
 hr { border: none; border-top: 0.5pt solid #ddd; margin: 2.2em 0; }
 a { color: #3d6b99; }

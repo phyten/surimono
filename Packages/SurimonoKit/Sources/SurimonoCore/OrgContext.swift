@@ -25,7 +25,7 @@ final class OrgContext {
     }
 
     func directive(_ key: String, value: String) {
-        if ["TITLE", "SUBTITLE", "AUTHOR", "DATE"].contains(key) { metadata[key] = value }
+        if ["TITLE", "SUBTITLE", "AUTHOR", "DATE", "LANGUAGE"].contains(key) { metadata[key] = value }
         if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
             let definition = OrgMath.definition(value, after: mathDefinitions)
         {

@@ -14,10 +14,10 @@ body > :first-child { margin-top: 0; }
 strong, b, th { font-weight: 600; }
 p, ul, ol, pre, table { margin: 0.55em 0; }
 li { margin: 0.1em 0; }
-pre { font-size: 9pt; line-height: 1.5; padding-left: 0.8em; border-left: 0.4pt solid #888; }
+pre { font-size: 9pt; line-height: 1.5; padding-inline-start: 0.8em; border-inline-start: 0.4pt solid #888; }
 code { font-size: 0.9em; }
 th, td { border: none; border-bottom: 0.4pt solid #999; }
-blockquote { border-left: 0.4pt solid #888; }
+blockquote { border-inline-start: 0.4pt solid #888; }
 .hl-addition, .hl-deletion { background: none; }
 hr { border: none; border-top: 0.4pt solid #999; margin: 1em 0; }
 :root { --callout-tint-amount: 0%; --callout-frame: 0.5pt; }

@@ -7,7 +7,7 @@ body {
 }
 h1, h2, h3, h4, h5, h6 { margin: 1.1em 0 0.45em; line-height: 1.4; font-weight: 700; color: #000; }
 h1 { font-size: 1.75em; padding-bottom: 0.15em; border-bottom: 2.5pt solid #1d4e89; }
-h2 { font-size: 1.4em; padding-left: 0.4em; border-left: 6pt solid #1d4e89; }
+h2 { font-size: 1.4em; padding-inline-start: 0.4em; border-inline-start: 6pt solid #1d4e89; }
 h3 { font-size: 1.15em; padding-bottom: 0.1em; border-bottom: 1pt solid #1d4e89; display: inline-block; }
 h4 { font-size: 1.05em; }
 h4::before { content: "\25A0  "; color: #1d4e89; }
@@ -22,7 +22,7 @@ code { font-size: 0.95em; }
 a { text-decoration-thickness: 1pt; text-underline-offset: 0.15em; }
 th, td { border-color: #333; padding: 0.35em 0.6em; }
 th { background: #e7eef7; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left: 3pt solid #1d4e89; }
+blockquote { border-inline-start: 3pt solid #1d4e89; }
 blockquote, blockquote p { font-family: "BIZ UDMincho", "Hiragino Mincho ProN", serif; }
 :root { --hl-comment: #404040; }
 hr { border: none; border-top: 1.5pt solid #1d4e89; margin: 1em 0; }

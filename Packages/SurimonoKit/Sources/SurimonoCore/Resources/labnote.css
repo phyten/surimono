@@ -21,7 +21,7 @@ pre { font-size: 8.6pt; line-height: 1.5; padding: 0.5em 0.8em; background: #f4f
 table { background: #fff; }
 th, td { border: 0.5pt solid #8fb0ac; padding: 0.25em 0.55em; }
 th { background: #eaf3f1; color: #1f5a56; }
-blockquote { border-left: 2pt solid #8fb0ac; color: #333b42; }
+blockquote { border-inline-start: 2pt solid #8fb0ac; color: #333b42; }
 hr { border: none; border-top: 0.75pt dashed #8fb0ac; margin: 1.3em 0; }
 a { color: #1f5a56; }
 pre, th, table { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

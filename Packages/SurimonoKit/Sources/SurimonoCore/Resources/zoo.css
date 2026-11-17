@@ -12,7 +12,7 @@ h3 { font-size: 1.15em; color: #2f7a6a; }
 p, pre, table { margin: 0.65em 0; }
 li { margin: 0.25em 0; }
 ul > li[data-deco] { list-style: none; position: relative; }
-ul > li[data-deco]::before { content: attr(data-deco); position: absolute; left: -1.55em; }
+ul > li[data-deco]::before { content: attr(data-deco); position: absolute; inset-inline-start: -1.55em; }
 ol > li::marker { color: #3d7a2a; font-weight: bold; }
 /* Paw prints walking along the rule when the script is off. */
 hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
@@ -21,7 +21,7 @@ hr[data-deco]::after { content: attr(data-deco); letter-spacing: 0.5em; }
 code { font-size: 0.9em; }
 pre { background: #f5faf0; border: 1.5pt solid #b9dca2; border-radius: 10pt; padding: 0.6em 0.9em; font-size: 9pt;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left: 4pt solid #e9b872; }
+blockquote { border-inline-start: 4pt solid #e9b872; }
 th { background: #eef7e6; color: #2f5f1f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #b9cfa6; }
 :root {
