@@ -148,6 +148,8 @@ struct SmartRemovalSettingsTests {
         #expect(html.isUpToDate)
         #expect(!html.canOutput)
         #expect(!html.beginPDFExport())
+        let readingStarted = await html.beginReadingPDFExport()
+        #expect(!readingStarted)
     }
 
     @Test("確認中に ⌘P で印刷モードへ入ると確認を終え、刷り台には輪郭のないページを出す", .timeLimit(.minutes(1)))
@@ -169,6 +171,7 @@ struct SmartRemovalSettingsTests {
         let requests: [(DocumentViewModel.Output, (DocumentViewModel) -> Void)] = [
             (.print(quick: true), { $0.printDocument(quick: true) }),
             (.exportPDF, { $0.exportPDF() }),
+            (.exportReadingPDF, { $0.exportReadingPDF() }),
         ]
         for (output, request) in requests {
             let html = try await reviewing(preferences, library)

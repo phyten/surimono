@@ -310,12 +310,18 @@ extension ShortcutOutputTests {
             let file = f.menu.items[1].submenu!
             for (title, key, flags): (String, String, NSEvent.ModifierFlags) in [
                 (printTitle, "p", .command), ("Print with System Dialog…", "p", [.command, .option]),
-                ("Export as PDF…", "e", [.command, .shift]),
             ] {
                 let item = NSMenuItem(title: title, action: nil, keyEquivalent: key)
                 item.keyEquivalentModifierMask = flags
                 file.addItem(item)
             }
+            let exports = NSMenuItem(title: "Export", action: nil, keyEquivalent: "")
+            exports.submenu = NSMenu()
+            file.addItem(exports)
+            exports.submenu!.addItem(NSMenuItem(title: "PDF for Reading…", action: nil, keyEquivalent: ""))
+            let sheets = NSMenuItem(title: "PDF of the Sheets…", action: nil, keyEquivalent: "e")
+            sheets.keyEquivalentModifierMask = [.command, .shift]
+            exports.submenu!.addItem(sheets)
             let layouts = NSMenuItem(title: "Print Layout", action: nil, keyEquivalent: "")
             layouts.submenu = NSMenu()
             f.menu.items[4].submenu!.addItem(layouts)
@@ -335,11 +341,13 @@ extension ShortcutOutputTests {
         try f.controller.edit(.documentPrint, keys: [.init(key: .character("k"), modifiers: .command)])
         try f.controller.edit(.documentPrintSystem, keys: [])
         try f.controller.edit(.documentExportPDF, keys: [.init(key: .character("j"), modifiers: [.command, .shift])])
+        try f.controller.edit(.documentExportReadingPDF, keys: [.init(key: .character("u"), modifiers: .command)])
         try f.controller.edit(.printLayoutSingle, keys: [])
         buildMenu()
         #expect(f.bridge.items[.documentPrint]?.keyEquivalent == "k")
         #expect(f.bridge.items[.documentPrintSystem]?.keyEquivalent == "")
         #expect(f.bridge.items[.documentExportPDF]?.keyEquivalent == "j")
+        #expect(f.bridge.items[.documentExportReadingPDF]?.keyEquivalent == "u")
         #expect(f.bridge.items[.documentExportPDF]?.keyEquivalentModifierMask == [.command, .shift])
         #expect(f.bridge.items[.printLayoutSingle]?.keyEquivalent == "")
         f.model.choosePaperSeries(.b, remembers: false)

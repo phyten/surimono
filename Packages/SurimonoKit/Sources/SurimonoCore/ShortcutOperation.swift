@@ -80,6 +80,7 @@ public enum ShortcutOperationID: String, CaseIterable, Codable, Sendable {
     case bookmarkToggle = "bookmark.toggle"
     case bookmarkNext = "bookmark.next"
     case bookmarkPrevious = "bookmark.previous"
+    case documentExportReadingPDF = "document.exportReadingPDF"
 }
 
 public enum ShortcutRegion: String, CaseIterable, Codable, Sendable {
@@ -168,7 +169,7 @@ public struct ShortcutOperation: Equatable, Sendable {
             return Self(
                 id: id, group: .documentAndPrinting, applicability: .document, safety: .printing,
                 regions: ShortcutRegion.document, allowsBareKeys: false)
-        case .documentExportPDF:
+        case .documentExportPDF, .documentExportReadingPDF:
             return Self(
                 id: id, group: .documentAndPrinting, applicability: .document, safety: .export,
                 regions: ShortcutRegion.document, allowsBareKeys: false)

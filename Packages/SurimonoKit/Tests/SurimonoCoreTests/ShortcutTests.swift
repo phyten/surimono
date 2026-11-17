@@ -29,14 +29,16 @@ struct ShortcutTests {
                 "style.favorite", "compare.shuffle", "print.foldPreview", "print.reviewIssues", "html.smartRemoval",
                 "html.reviewRemoval", "print.manualDuplex", "print.duplexTest",
                 "reading.back", "reading.forward", "bookmark.toggle", "bookmark.next", "bookmark.previous",
+                "document.exportReadingPDF",
             ])
-        #expect(ShortcutOperation.catalog.count == 81)
-        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 81)
+        #expect(ShortcutOperation.catalog.count == 82)
+        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 82)
     }
 
     @Test("既定の印刷と別名と未割当を明示する")
     func defaults() {
         let configuration = ShortcutConfiguration()
+        #expect(configuration.keys(for: .documentExportReadingPDF).isEmpty)
         #expect(configuration.keys(for: .documentPrint) == [.init(key: .character("p"), modifiers: .command)])
         #expect(
             configuration.keys(for: .viewZoomIn) == [

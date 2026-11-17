@@ -9,7 +9,7 @@ struct ShortcutMenuBaselineTests {
     static let documentKeys: [(String, String, NSEvent.ModifierFlags)] = [
         ("Open from Clipboard", "n", .command),
         ("Print…", "p", .command), ("Print with System Dialog…", "p", [.option, .command]),
-        ("Export as PDF…", "e", [.shift, .command]),
+        ("PDF of the Sheets…", "e", [.shift, .command]),
         ("Find…", "f", .command), ("Find Next", "g", .command),
         ("Find Previous", "g", [.shift, .command]),
         ("Show as Paper", "p", [.control, .command]),
@@ -24,6 +24,18 @@ struct ShortcutMenuBaselineTests {
 
     static func items(_ menu: NSMenu) -> [NSMenuItem] {
         menu.items.flatMap { item in [item] + (item.submenu.map(items) ?? []) }
+    }
+
+    @Test("書き出すサブメニューは読むPDFと用紙PDFをこの順に持つ")
+    func exportMenu() throws {
+        func localized(_ key: String) -> String { Bundle.main.localizedString(forKey: key, value: key, table: nil) }
+        let menu = try #require(NSApp.mainMenu)
+        let file = try #require(menu.item(at: 1)?.submenu)
+        let exports = try #require(file.items.first { $0.title == localized("Export") }?.submenu)
+        #expect(exports.items.map(\.title) == [localized("PDF for Reading…"), localized("PDF of the Sheets…")])
+        #expect(exports.items[0].keyEquivalent.isEmpty)
+        #expect(exports.items[1].keyEquivalent == "e")
+        #expect(exports.items[1].keyEquivalentModifierMask == [.shift, .command])
     }
 
     @Test("既定の全メニューバーは従来のキーを保持し標準の開くと設定を一つずつ残す")

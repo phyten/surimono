@@ -91,6 +91,7 @@ struct PrintSheetFlowTests {
         model.outputOverride = { outputs.append(($0, $1)) }
         switch output {
         case .exportPDF: model.exportPDF()
+        case .exportReadingPDF: model.exportReadingPDF()
         case .print(let quick): model.printDocument(quick: quick)
         case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }

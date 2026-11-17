@@ -52,8 +52,11 @@ struct DocumentCommands: Commands {
             .keyboardShortcut("p")
             Button("Print with System Dialog…") { perform(.documentPrintSystem) }
                 .keyboardShortcut("p", modifiers: [.option, .command])
-            Button("Export as PDF…") { perform(.documentExportPDF) }
-                .keyboardShortcut("e", modifiers: [.shift, .command])
+            Menu("Export") {
+                Button("PDF for Reading…") { perform(.documentExportReadingPDF) }
+                Button("PDF of the Sheets…") { perform(.documentExportPDF) }
+                    .keyboardShortcut("e", modifiers: [.shift, .command])
+            }
         }
         // Like the print items, these stay enabled; the model does nothing where there is no paper to search.
         CommandGroup(after: .pasteboard) {

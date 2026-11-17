@@ -219,6 +219,7 @@ final class ShortcutDispatcher {
         case .documentPrint: model?.performPrintCommand()
         case .documentPrintSystem: model?.printDocument(quick: false)
         case .documentExportPDF: model?.exportPDF()
+        case .documentExportReadingPDF: model?.exportReadingPDF()
         case .printSettings: model?.presentPrintSettings()
         case .clipboardOpenPrintScreen: openClipboardPrintScreen()
         case .appOpen: bridge.invokeStandard(.appOpen)
