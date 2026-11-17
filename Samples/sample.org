@@ -53,7 +53,13 @@ CLOSED: [2026-11-10 Tue 18:30]
 #+end_verse
 
 * ページ数を数える
-冊子は 4 ページで 1 枚の紙になります[fn:2]。枚数は次の式で出せます。
+冊子は 4 ページで 1 枚の紙になります[fn:2]。元のページ数を $n$ とすると、刷るページ数 $N$ は
+
+\begin{equation}
+N = \left\lceil \frac{n}{4} \right\rceil \times 4
+\end{equation}
+
+で、用紙は $N / 4$ 枚です。Swift では次のように書けます。
 
 #+begin_src swift
 func sheets(pages: Int) -> Int {

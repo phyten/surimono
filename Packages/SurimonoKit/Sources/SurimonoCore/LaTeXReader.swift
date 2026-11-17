@@ -974,7 +974,7 @@ final class LaTeXReader {
             "<div class=\"math-block\">\(formula(latex, display: true, source: opening + latex + closing))</div>\n")
     }
 
-    private static let mathEnvironments: [String: (String, String)?] = [
+    static let mathEnvironments: [String: (String, String)?] = [
         "equation": nil, "displaymath": nil, "multline": ("\\begin{gathered}", "\\end{gathered}"),
         "align": ("\\begin{aligned}", "\\end{aligned}"), "flalign": ("\\begin{aligned}", "\\end{aligned}"),
         "alignat": ("\\begin{aligned}", "\\end{aligned}"), "gather": ("\\begin{gathered}", "\\end{gathered}"),
@@ -982,13 +982,13 @@ final class LaTeXReader {
     ]
 
     /// Environments whose every row is numbered, as amsmath numbers align and gather.
-    private static let numberedRows: Set<String> = ["align", "flalign", "alignat", "gather", "eqnarray"]
+    static let numberedRows: Set<String> = ["align", "flalign", "alignat", "gather", "eqnarray"]
 
     private static let labelPattern = try? NSRegularExpression(pattern: #"\\label\s*\{([^}]*)\}"#)
     private static let tagPattern = try? NSRegularExpression(pattern: #"\\tag\*?\s*\{([^}]*)\}"#)
 
     /// The text of a formula's own `\tag{…}`, which its `\label` then names.
-    private static func explicitTag(_ latex: String) -> String? {
+    static func explicitTag(_ latex: String) -> String? {
         let nsLatex = latex as NSString
         guard let match = tagPattern?.firstMatch(in: latex, range: NSRange(location: 0, length: nsLatex.length)) else {
             return nil
@@ -1075,7 +1075,7 @@ final class LaTeXReader {
     }
 
     /// Each line without its comment; an escaped percent sign stays.
-    private static func withoutComments(_ latex: String) -> String {
+    static func withoutComments(_ latex: String) -> String {
         latex.split(separator: "\n", omittingEmptySubsequences: false).map { line in
             var result = ""
             var escaped = false
@@ -1088,7 +1088,7 @@ final class LaTeXReader {
         }.joined(separator: "\n")
     }
 
-    private static func removingLabels(_ latex: String) -> (String, [String]) {
+    static func removingLabels(_ latex: String) -> (String, [String]) {
         guard let labelPattern else { return (latex, []) }
         let nsLatex = latex as NSString
         let range = NSRange(location: 0, length: nsLatex.length)
@@ -1099,7 +1099,7 @@ final class LaTeXReader {
     }
 
     /// The rows of an alignment, split at `\\\\` outside braces; a spacing such as `\\\\[2pt]` stays with its row.
-    private static func rows(of latex: String) -> [String] {
+    static func rows(of latex: String) -> [String] {
         let characters = Array(latex)
         var rows: [String] = []
         var current = ""

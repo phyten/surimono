@@ -20,8 +20,12 @@ public enum OrgConverter {
             }
         }
         if !titleBlock.isEmpty { titleBlock = "<header class=\"org-title-block\">\(titleBlock)</header>\n" }
-        let body = parser.render() + parser.footnotes()
-        return HTMLFragment(body: titleBlock + body, title: parser.context.metadata["TITLE"])
+        let html = titleBlock + parser.render() + parser.footnotes()
+        // At the end of the body, so the theme's rules for the first block still find the document's first block.
+        let fonts = MathRenderer.fontFaces(for: html)
+        return HTMLFragment(
+            body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"),
+            title: parser.context.metadata["TITLE"])
     }
 }
 
@@ -31,6 +35,9 @@ struct OrgParser {
     private let regionEnds: [Int: Int]
     var index = 0
     let context: OrgContext
+    /// For each environment name, the lines last searched without finding a closing line; an opener among them
+    /// need not search again.
+    private var unclosedEnvironments: [String: Range<Int>] = [:]
 
     init(lines: [String], depth: Int = 0, context: OrgContext = OrgContext()) {
         self.lines = lines
@@ -61,6 +68,12 @@ struct OrgParser {
         func flush() {
             if !paragraph.isEmpty {
                 let text = paragraph.joined(separator: "\n")
+                if !isListItem, let formula = OrgMath.displayBlock(text, context: context) {
+                    output += formula
+                    caption = nil
+                    paragraph = []
+                    return
+                }
                 let body = isListItem ? renderListContent(text) : inline(text)
                 if let caption, paragraph.count == 1, body.hasPrefix("<img "), body.hasSuffix(">"),
                     body.filter({ $0 == "<" }).count == 1
@@ -118,6 +131,13 @@ struct OrgParser {
                     }
                     index += 1
                 }
+            } else if let name = OrgMath.environmentName(trimmed), let end = endOfEnvironment(name, from: index) {
+                flush()
+                caption = nil
+                let source = lines[index...end].joined(separator: "\n").trimmingCharacters(in: .whitespaces)
+                let body = String(source.dropFirst("\\begin{\(name)}".count).dropLast("\\end{\(name)}".count))
+                output += OrgMath.environment(name, body: body, context: context)
+                index = end + 1
             } else if let heading = orgCaptures(#"^(\*+)\s+(.+)$"#, line) {
                 flush()
                 caption = nil
@@ -379,6 +399,23 @@ struct OrgParser {
 
     private func endOfRegion(_ region: DelimitedRegion, after start: Int) -> Int? {
         regionEnds[start]
+    }
+
+    /// The line that closes a math environment opened at `start`. TeX allows no blank line inside a display, and
+    /// a headline ends everything, so an environment left open stays text instead of swallowing the document.
+    private mutating func endOfEnvironment(_ name: String, from start: Int) -> Int? {
+        if unclosedEnvironments[name]?.contains(start) == true { return nil }
+        let closing = "\\end{\(name)}"
+        for position in start..<lines.count {
+            let line = lines[position].trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || position > start && orgCaptures(#"^\*+\s"#, lines[position]) != nil {
+                unclosedEnvironments[name] = start..<position
+                return nil
+            }
+            if line.hasSuffix(closing) { return position }
+        }
+        unclosedEnvironments[name] = start..<lines.count
+        return nil
     }
 
     private mutating func collectListItemContinuation(indent: Int) -> [String] {

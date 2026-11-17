@@ -13,9 +13,24 @@ final class OrgContext {
     var numbers: [String: Int] = [:]
     var noteDepths: [String: Int] = [:]
     var references: [String: Int] = [:]
+    /// Definitions from `#+LATEX_HEADER:` lines, given to every formula.
+    var mathDefinitions = ""
+    var equationCount = 0
+
+    /// A formula as HTML, or its source marked as unreadable. The discovery pass draws nothing.
+    func formula(_ latex: String, display: Bool, source: String) -> String {
+        guard !discovering else { return "" }
+        return MathRenderer.html(latex, display: display, macros: mathDefinitions)
+            ?? MathRenderer.fallback(source, display: display)
+    }
 
     func directive(_ key: String, value: String) {
         if ["TITLE", "SUBTITLE", "AUTHOR", "DATE"].contains(key) { metadata[key] = value }
+        if key == "LATEX_HEADER" || key == "LATEX_HEADER_EXTRA",
+            let definition = OrgMath.definition(value, after: mathDefinitions)
+        {
+            mathDefinitions += definition
+        }
         guard ["TODO", "SEQ_TODO", "TYP_TODO"].contains(key) else { return }
         if !customKeywords {
             active = []
