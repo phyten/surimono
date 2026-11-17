@@ -92,6 +92,7 @@ struct PrintSheetFlowTests {
         switch output {
         case .exportPDF: model.exportPDF()
         case .exportReadingPDF: model.exportReadingPDF()
+        case .additional(let kind): model.exportReading(kind)
         case .print(let quick): model.printDocument(quick: quick)
         case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }

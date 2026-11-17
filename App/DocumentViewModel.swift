@@ -75,7 +75,7 @@ final class DocumentViewModel {
     private(set) var unreadableImageURLs: [URL] = []
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
-    private var data: Data
+    private(set) var data: Data
     let preferences: AppPreferences
     let library: UserLibrary
     var paperOrientation: PaperOrientation
@@ -268,7 +268,7 @@ final class DocumentViewModel {
     /// While reviewing, the paper outlines the detected parts instead of removing them.
     private(set) var isReviewingSmartRemoval = false
     /// An output waiting for the print layout, a web capture, or the end of a review; it runs when sheets are ready.
-    @ObservationIgnored private(set) var outputAfterReview: Output?
+    @ObservationIgnored var outputAfterReview: Output?
     /// Replaces the system output UI in tests, after readiness checks, with the exact sheets being output.
     @ObservationIgnored var outputOverride: ((Output, RenderResult) -> Void)?
     /// Replaces submission after resolving the destination and matching its settings to the composed sheets.
@@ -430,7 +430,7 @@ final class DocumentViewModel {
     var shortcutListFocused = false
     private var printCompletion: PrintCompletion?
     private var printOperation: NSPrintOperation?
-    private var exportingDocument: PDFDocument?
+    var exportingDocument: PDFDocument?
 
     init(
         data: Data, fileURL: URL?, format: DocumentFormat,
@@ -597,7 +597,7 @@ final class DocumentViewModel {
         return reading == settings && fromSnapshot == (usesHTMLPresentation && liveSnapshot != nil)
     }
 
-    private func renderSettings(in mode: ViewerMode) -> RenderSettings? {
+    func renderSettings(in mode: ViewerMode) -> RenderSettings? {
         guard
             let theme = library.themes.first(where: { $0.id == (usesPrintTheme ? themeID : "standard") })
                 ?? library.themes.first(where: { $0.id == "standard" }),
@@ -970,6 +970,8 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        cancelAdditionalExport()
+        clearSharedExport()
         binderExit.cancel()
         pendingBinderRestoration = nil
         binderExitTrayPage = nil
@@ -1126,6 +1128,7 @@ final class DocumentViewModel {
     }
 
     private func applyReload(reloadsWeb: Bool) {
+        cancelAdditionalExport()
         pendingPrintIssue = nil
         dropSpot()
         reloadOwnsProgress = false
@@ -1165,6 +1168,7 @@ final class DocumentViewModel {
     /// A window without a file takes what its feed sends, as a file's window takes a change of the file.
     func replaceContent(_ bytes: Data, format: DocumentFormat) {
         guard fileURL == nil, binder == nil, imageBundle == nil, bytes != data || format != self.format else { return }
+        cancelAdditionalExport()
         data = bytes
         self.format = format
         applyReload(reloadsWeb: false)
@@ -1403,7 +1407,7 @@ final class DocumentViewModel {
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 // A render that a later change made stale leaves the output to the render that follows it.
                 if pendingPrint != nil, settings == renderSettings { resumePendingPrint() }
-                if let output = outputAfterReview, mode == .print || output == .exportReadingPDF,
+                if let output = outputAfterReview, mode == .print || output.readsPages,
                     settings == renderSettings
                 {
                     outputAfterReview = nil
@@ -2172,7 +2176,7 @@ final class DocumentViewModel {
 
     /// An output asked for on the web, or while the page is being copied, waits for the copy and the pages made from
     /// it; it is dropped with a notice if the copy fails, so that nothing prints from an earlier state.
-    private func deferUntilWebIsCaptured(_ output: Output) -> Bool {
+    func deferUntilWebIsCaptured(_ output: Output) -> Bool {
         guard showsWeb || isCapturingWeb || webCaptureFailed, !isRunningCapturedOutput else { return false }
         captureWeb { [weak self] outcome in
             guard let self else { return }
@@ -2193,6 +2197,7 @@ final class DocumentViewModel {
         case .manualDuplex: printDocument(intent: .manualDuplex)
         case .exportPDF: exportPDF()
         case .exportReadingPDF: exportReadingPDF()
+        case .additional(let kind): exportReading(kind)
         }
     }
 
@@ -3045,7 +3050,7 @@ final class DocumentViewModel {
         scheduleSave()
     }
 
-    private func withFolderAccess(_ source: DocumentSource) -> DocumentSource {
+    func withFolderAccess(_ source: DocumentSource) -> DocumentSource {
         var source = source
         source.allowedResourceFolders = folderLease.map { [$0.url] } ?? []
         return source
@@ -3144,6 +3149,14 @@ final class DocumentViewModel {
         case manualDuplex
         case exportPDF
         case exportReadingPDF
+        case additional(ReadingExportKind)
+
+        var readsPages: Bool {
+            switch self {
+            case .exportReadingPDF, .additional: true
+            default: false
+            }
+        }
     }
 
     /// Outputs go through the tray even when requested from reading or comparison: its own choices (note pages, the
@@ -3160,7 +3173,7 @@ final class DocumentViewModel {
     }
 
     /// An output asked for during the review ends it and waits for the pages without the outlines.
-    private func deferUntilReviewEnds(_ output: Output) -> Bool {
+    func deferUntilReviewEnds(_ output: Output) -> Bool {
         guard isReviewingSmartRemoval else { return false }
         isReviewingSmartRemoval = false
         outputAfterReview = output
@@ -3471,6 +3484,10 @@ final class DocumentViewModel {
             printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: jobTitle ?? printJobTitle)
     }
 
+    @ObservationIgnored var additionalExportTask: Task<Void, Never>?
+    @ObservationIgnored var exportPanel: NSSavePanel?
+    @ObservationIgnored var sharedExportDirectory: URL?
+    @ObservationIgnored var sharePicker: NSSharingServicePicker?
     @ObservationIgnored private var readingExportTask: Task<Void, Never>?
     @ObservationIgnored private var exportingSourceURLs: [URL] = []
 
@@ -3515,6 +3532,25 @@ final class DocumentViewModel {
         }
     }
 
+    func beginThemedExport() async -> String? {
+        let structure = structureDocument
+        await structureTask?.value
+        guard !Task.isCancelled, structureDocument === structure, canExportReadingPDF,
+            format.usesPrintTheme, binder == nil, imageBundle == nil, let result
+        else { return nil }
+        isExporting = true
+        outputError = nil
+        return [result.facts?.title, result.facts?.headings.first?.text, outlineEntries.first?.title]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? String(readingExportName.dropLast(4))
+    }
+
+    func endReadingExport() {
+        exportingDocument = nil
+        exportingSourceURLs = []
+        isExporting = false
+    }
+
     func beginReadingPDFExport() async -> Bool {
         let structure = structureDocument
         await structureTask?.value
@@ -3530,6 +3566,7 @@ final class DocumentViewModel {
         do {
             let prepared: PreparedRender
             var entries = outlineEntries
+            var headings = readStructure?.headings ?? current.facts?.headings ?? []
             var htmlTitle = format == .html ? readStructure?.title : nil
             if mode == .view {
                 prepared = current
@@ -3553,6 +3590,7 @@ final class DocumentViewModel {
                         of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
                         includesSourceContents: !finishAppliesToText || settings.finish.toc.showsSourceContents)
                     entries = structure.entries
+                    headings = structure.headings
                     htmlTitle = structure.title
                 }
             }
@@ -3572,11 +3610,13 @@ final class DocumentViewModel {
                 candidates.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .first { !$0.isEmpty } ?? String(readingExportName.dropLast(4))
             exportingDocument = try ReadingPDFExporter.document(
-                from: document, entries: entries, title: metadataTitle, preservesOutline: format == .pdf)
+                from: document, entries: entries, title: metadataTitle, preservesOutline: format == .pdf,
+                headings: headings, sourceURL: fileURL)
             exportingSourceURLs = sources
             return true
         } catch {
             isExporting = false
+            if Task.isCancelled { return false }
             outputError = String(localized: "The PDF could not be exported.") + "\n" + error.localizedDescription
             return false
         }

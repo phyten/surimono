@@ -56,10 +56,16 @@ struct DocumentCommands: Commands {
                 Button("PDF for Reading…") { perform(.documentExportReadingPDF) }
                 Button("PDF of the Sheets…") { perform(.documentExportPDF) }
                     .keyboardShortcut("e", modifiers: [.shift, .command])
+                Button("Images (PNG)…") { perform(.documentExportPNG) }
+                Button("HTML…") { perform(.documentExportHTML) }
             }
+            Button("Share…") { perform(.documentShare) }
         }
         // Like the print items, these stay enabled; the model does nothing where there is no paper to search.
         CommandGroup(after: .pasteboard) {
+            Divider()
+            Button("Copy as Rich Text") { perform(.documentCopyRichText) }
+            Button("Copy as HTML") { perform(.documentCopyHTML) }
             Divider()
             Button("Find…") { perform(.documentFind) }
                 .keyboardShortcut("f")

@@ -1526,6 +1526,10 @@ public final class DocumentRenderer {
         return LocalResourceAccess(documentURL: file, folders: source.allowedResourceFolders)
     }
 
+    func exportSource(_ input: WebPaginator.Source, for source: DocumentSource) -> WebPaginator.Source {
+        sandboxSource(input, for: source)
+    }
+
     private func sandboxSource(_ input: WebPaginator.Source, for source: DocumentSource) -> WebPaginator.Source {
         guard let access = resourceAccess(for: source) else { return input }
         switch input {

@@ -1,6 +1,7 @@
 import AppKit
 import PDFKit
 import SurimonoCore
+import UniformTypeIdentifiers
 import WebKit
 
 /// Lays out HTML in an off-screen WKWebView and prints it into a paginated PDF.
@@ -55,6 +56,8 @@ public final class WebPaginator: NSObject {
         public let pageRules: [PageRule]
         public var requiredFolderAccess: URL?
         public var issues: [PrintIssue] = []
+        public var exportedHTML: String?
+        public var exportedPlainText: String?
         /// What the renderer added to the pages of a text and read from it.
         var finishing = FinishedPages()
 
@@ -116,7 +119,9 @@ public final class WebPaginator: NSObject {
     public func paginateWithResult(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
-        drawsBackground: Bool = true, rendersMermaid: Bool = false, timeout: Duration = .seconds(15)
+        drawsBackground: Bool = true, rendersMermaid: Bool = false, exportHTMLTitle: String? = nil,
+        exportRichText: Bool = false, exportFigureLabel: String = "Figure",
+        timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
         let session = PaginationSession(
@@ -128,6 +133,13 @@ public final class WebPaginator: NSObject {
         // Closing is deferred to the print completion while the print thread still uses the session.
         defer { session.requestClose() }
 
+        if exportHTMLTitle != nil {
+            let rules = try await WKContentRuleListStore.default().compileContentRuleList(
+                forIdentifier: "SurimonoOfflineExport",
+                encodedContentRuleList: #"[{"trigger":{"url-filter":"^https?://"},"action":{"type":"block"}}]"#)
+            guard let rules else { throw PaginationError.loadFailed("Offline export is unavailable.") }
+            session.webView.configuration.userContentController.add(rules)
+        }
         try session.load(source)
         var stoppedResources = false
         do {
@@ -169,6 +181,42 @@ public final class WebPaginator: NSObject {
             preparationResult = nil
         }
         try Task.checkCancellation()
+        if let exportHTMLTitle {
+            let plainText =
+                exportRichText
+                ? try await RichTextSVG.prepare(in: session.webView, figureLabel: exportFigureLabel) : nil
+            let imageURLs =
+                try await session.webView.callAsyncJavaScript(
+                    HTMLExporter.imageResourceScript,
+                    arguments: [:], in: nil, contentWorld: Self.preparationWorld) as? [String] ?? []
+            var images: [String: String] = [:]
+            for address in Set(imageURLs) {
+                guard let url = URL(string: address) else { continue }
+                let bytes: Data
+                let mime: String
+                if let handler = session.localHandler, url.scheme == LocalResourceSchemeHandler.scheme {
+                    let resource = try handler.resource(at: url)
+                    bytes = resource.data
+                    mime = resource.mimeType
+                } else if url.isFileURL, session.localHandler == nil {
+                    bytes = try Data(contentsOf: url)
+                    mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                } else {
+                    continue
+                }
+                images[address] = "data:" + mime + ";base64," + bytes.base64EncodedString()
+            }
+            let html =
+                try await session.webView.callAsyncJavaScript(
+                    HTMLExporter.serializationScript, arguments: ["title": exportHTMLTitle, "embeddedImages": images],
+                    in: nil,
+                    contentWorld: Self.preparationWorld) as? String
+            guard let html else { throw PaginationError.emptyDocument }
+            var result = Result(document: PDFDocument())
+            result.exportedHTML = html
+            result.exportedPlainText = plainText
+            return result
+        }
         // Only a document with `@page` rules can set margins of its own and so draw below the paper; an unknown
         // answer counts as yes.
         let mayDrawBelowPaper: Bool

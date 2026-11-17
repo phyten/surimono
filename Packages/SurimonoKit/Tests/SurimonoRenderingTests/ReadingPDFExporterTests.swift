@@ -14,15 +14,15 @@ struct ReadingPDFExporterTests {
                 """
                 # First
 
-                [Example](https://example.com/) [Next](#second)
+                [Example](https://example.com/) [Next](#%E5%9B%B3)
 
                 <div style="break-before: page"></div>
 
-                ## Second
+                ## 図
 
                 Text.
                 """.utf8),
-            format: .markdown)
+            fileURL: URL(fileURLWithPath: "/reading-export-fixture/source.md"), format: .markdown)
         let settings = RenderSettings(
             layout: .a4BookletA5,
             theme: PrintTheme(id: "test", name: "Test", css: "body { font-size: 12pt; }"),
@@ -34,7 +34,9 @@ struct ReadingPDFExporterTests {
                 prepared.logicalDocument.page(at: $0)?.string ?? ""
             })
         #expect(entries.map(\.pageIndex) == [0, 1])
-        let output = try ReadingPDFExporter.document(from: prepared.logicalDocument, entries: entries, title: "First")
+        let output = try ReadingPDFExporter.document(
+            from: prepared.logicalDocument, entries: entries, title: "First",
+            headings: try #require(prepared.facts).headings, sourceURL: source.fileURL)
         let bytes = try #require(output.dataRepresentation())
         let reread = try #require(PDFDocument(data: bytes))
         #expect(reread.pageCount == prepared.logicalDocument.pageCount)
@@ -46,13 +48,19 @@ struct ReadingPDFExporterTests {
                 }
             }
         }
-        #expect(targets(in: reread) == targets(in: prepared.logicalDocument))
+        #expect(targets(in: reread).contains(1))
+        for index in 0..<reread.pageCount {
+            for annotation in try #require(reread.page(at: index)).annotations {
+                let url = (annotation.action as? PDFActionURL)?.url ?? annotation.url
+                #expect(url?.scheme != "file")
+            }
+        }
 
         let first = try #require(reread.outlineRoot?.child(at: 0))
         #expect(first.label == "First")
         #expect(reread.index(for: try #require(first.destination?.page)) == 0)
         let second = try #require(first.child(at: 0))
-        #expect(second.label == "Second")
+        #expect(second.label == "図")
         #expect(reread.index(for: try #require(second.destination?.page)) == 1)
         #expect(reread.page(at: 0)?.annotations.contains { $0.url?.absoluteString == "https://example.com/" } == true)
         #expect(reread.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "First")
@@ -123,4 +131,47 @@ struct ReadingPDFExporterTests {
         let output = try ReadingPDFExporter.document(from: RenderingFixtures.pdf(), entries: [], title: "File")
         #expect(output.outlineRoot == nil)
     }
+
+    @Test("生成PDFのローカルURLは削除し元PDFと外部URLは保持する")
+    func localLinks() throws {
+        let source = try RenderingFixtures.pdf(count: 2)
+        let page = try #require(source.page(at: 0))
+        let addresses = [
+            "file:///private/source.md#%E5%9B%B3", "file:///private/#%E5%9B%B3",
+            "surimono-local://document/private/source.md#%E5%9B%B3",
+            "file:///private/source.md#missing", "file:///private/other.md#%E5%9B%B3",
+            "file:///private/secret.txt", "surimono-local://document/private/secret.txt",
+            "https://example.com/#%E5%9B%B3", "mailto:reader@example.com",
+            "surimono-snapshot://document/#%E5%9B%B3",
+            "surimono-snapshot://document/surimono-snapshot-page.html#%E5%9B%B3",
+            "surimono-snapshot://document/other.html#%E5%9B%B3", "about:blank#%E5%9B%B3",
+            FileManager.default.temporaryDirectory.appendingPathComponent("surimono-pagination-test.html")
+                .absoluteString + "#%E5%9B%B3",
+        ]
+        for address in addresses {
+            let link = PDFAnnotation(
+                bounds: CGRect(x: 10, y: 10, width: 50, height: 20), forType: .link,
+                withProperties: nil)
+            link.action = PDFActionURL(url: try #require(URL(string: address)))
+            page.addAnnotation(link)
+        }
+        let output = try ReadingPDFExporter.document(
+            from: source, entries: [OutlineEntry(level: 2, title: "図", pageIndex: 1)], title: "Test",
+            headings: [DocumentHeading(level: 2, text: "図", id: "図")],
+            sourceURL: URL(fileURLWithPath: "/private/source.md"))
+        let data = try #require(output.dataRepresentation())
+        let reread = try #require(PDFDocument(data: data))
+        let links = try #require(reread.page(at: 0)).annotations
+        #expect(links.count == 9)
+        #expect(links.compactMap { $0.action as? PDFActionGoTo }.count == 7)
+        #expect(
+            links.compactMap { ($0.action as? PDFActionURL)?.url?.absoluteString } == [
+                "https://example.com/#%E5%9B%B3", "mailto:reader@example.com",
+            ])
+        #expect(page.annotations.count == addresses.count)
+        let preserved = try ReadingPDFExporter.document(from: source, entries: [], title: "PDF", preservesOutline: true)
+        #expect(preserved.page(at: 0)?.annotations.count == addresses.count)
+        #expect((preserved.page(at: 0)?.annotations.first?.action as? PDFActionURL)?.url?.isFileURL == true)
+    }
+
 }

@@ -9,7 +9,7 @@ public enum ReadingPDFExporter {
     /// Uses the same HTML and forward-only page matching as the Contents popover, when no reading outline is cached.
     public static func outline(
         of source: DocumentSource, in document: PDFDocument, proof: ProofMarks, includesSourceContents: Bool
-    ) async -> (entries: [OutlineEntry], title: String?) {
+    ) async -> (entries: [OutlineEntry], title: String?, headings: [DocumentHeading]) {
         let structure = await Task.detached(priority: .utility) {
             let html = DocumentRenderer.structureHTML(of: source, proof: proof) ?? ""
             return (
@@ -22,16 +22,17 @@ public enum ReadingPDFExporter {
         for index in 0..<document.pageCount {
             texts.append(document.page(at: index)?.string ?? "")
             await Task.yield()
-            if Task.isCancelled { return ([], nil) }
+            if Task.isCancelled { return ([], nil, []) }
         }
         let entries = await Task.detached(priority: .utility) { [texts] in
             DocumentOutline.entries(of: structure.0, inPageTexts: texts, contentsEntries: structure.1)
         }.value
-        return (entries, structure.2)
+        return (entries, structure.2, structure.0)
     }
 
     public static func document(
-        from logical: PDFDocument, entries: [OutlineEntry], title: String, preservesOutline: Bool = false
+        from logical: PDFDocument, entries: [OutlineEntry], title: String, preservesOutline: Bool = false,
+        headings: [DocumentHeading] = [], sourceURL: URL? = nil
     ) throws -> PDFDocument {
         // Serializing the whole document preserves cross-page destinations and isolates the renderer's cache.
         // Drawing pages into a new context would discard the links and the source PDF's outline.
@@ -43,6 +44,7 @@ public enum ReadingPDFExporter {
             PDFDocumentAttribute.titleAttribute: title, PDFDocumentAttribute.creatorAttribute: "Surimono",
         ]
         if !preservesOutline {
+            repairLinks(in: document, headings: headings, entries: entries, sourceURL: sourceURL)
             let root = PDFOutline()
             func append(_ nodes: [ReadingBookmark], to parent: PDFOutline) {
                 for node in nodes {
@@ -63,5 +65,67 @@ public enum ReadingPDFExporter {
             document.outlineRoot = root.numberOfChildren == 0 ? nil : root
         }
         return document
+    }
+
+    private static func repairLinks(
+        in document: PDFDocument, headings: [DocumentHeading], entries: [OutlineEntry], sourceURL: URL?
+    ) {
+        var pages: [String: Int] = [:]
+        var cursor = entries.startIndex
+        for heading in headings {
+            guard
+                let index = entries[cursor...].firstIndex(where: {
+                    $0.title == heading.text && $0.level == heading.level
+                })
+            else { continue }
+            cursor = index + 1
+            if let id = heading.id, let page = entries[index].pageIndex, pages[id] == nil { pages[id] = page }
+        }
+        func withoutFragment(_ url: URL) -> URL? {
+            var parts = URLComponents(url: url, resolvingAgainstBaseURL: true)
+            parts?.fragment = nil
+            return parts?.url?.standardizedFileURL
+        }
+        let ownURLs = [sourceURL, sourceURL?.deletingLastPathComponent()].compactMap { $0 }.compactMap(withoutFragment)
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            for annotation in page.annotations {
+                guard annotation.type == "Link",
+                    let url = (annotation.action as? PDFActionURL)?.url ?? annotation.url
+                else { continue }
+                let scheme = url.scheme?.lowercased() ?? ""
+                // PDFKit escapes the separator of opaque about: URLs when it serializes them.
+                let blankAddress = scheme == "about" ? url.absoluteString.removingPercentEncoding : nil
+                let blankPage = blankAddress == "about:blank" || blankAddress?.hasPrefix("about:blank#") == true
+                guard scheme == "file" || scheme.hasPrefix("surimono-") || scheme.isEmpty || blankPage else { continue }
+                let target = LocalResourceSchemeHandler.fileURL(for: url) ?? url
+                let bare = withoutFragment(target)
+                // Only pagination's own temporary HTML is an alias, never another local document with the same id.
+                let temporary =
+                    target.isFileURL
+                    && target.deletingLastPathComponent().standardizedFileURL
+                        == FileManager.default.temporaryDirectory.standardizedFileURL
+                    && target.lastPathComponent.hasPrefix("surimono-pagination-") && target.pathExtension == "html"
+                let isSelf =
+                    ownURLs.contains { $0 == bare } || temporary || blankPage
+                    || (scheme == SnapshotSchemeHandler.scheme
+                        && (bare == SnapshotSchemeHandler.rootURL || bare == SnapshotSchemeHandler.pageURL))
+                    || (scheme.isEmpty && url.path.isEmpty)
+                let fragment =
+                    blankPage
+                    ? blankAddress.map { String($0.dropFirst("about:blank#".count)) }
+                    : URLComponents(url: url, resolvingAgainstBaseURL: true)?.fragment
+                if isSelf, let fragment,
+                    let destinationIndex = pages[fragment], let destinationPage = document.page(at: destinationIndex)
+                {
+                    let box = destinationPage.bounds(for: .cropBox)
+                    annotation.url = nil
+                    annotation.action = PDFActionGoTo(
+                        destination: PDFDestination(page: destinationPage, at: CGPoint(x: box.minX, y: box.maxY)))
+                } else {
+                    page.removeAnnotation(annotation)
+                }
+            }
+        }
     }
 }

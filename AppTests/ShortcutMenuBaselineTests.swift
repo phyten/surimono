@@ -26,13 +26,17 @@ struct ShortcutMenuBaselineTests {
         menu.items.flatMap { item in [item] + (item.submenu.map(items) ?? []) }
     }
 
-    @Test("書き出すサブメニューは読むPDFと用紙PDFをこの順に持つ")
+    @Test("書き出すサブメニューは読むPDFと用紙PDFとPNGとHTMLをこの順に持つ")
     func exportMenu() throws {
         func localized(_ key: String) -> String { Bundle.main.localizedString(forKey: key, value: key, table: nil) }
         let menu = try #require(NSApp.mainMenu)
         let file = try #require(menu.item(at: 1)?.submenu)
         let exports = try #require(file.items.first { $0.title == localized("Export") }?.submenu)
-        #expect(exports.items.map(\.title) == [localized("PDF for Reading…"), localized("PDF of the Sheets…")])
+        #expect(
+            exports.items.map(\.title) == [
+                localized("PDF for Reading…"), localized("PDF of the Sheets…"), localized("Images (PNG)…"),
+                localized("HTML…"),
+            ])
         #expect(exports.items[0].keyEquivalent.isEmpty)
         #expect(exports.items[1].keyEquivalent == "e")
         #expect(exports.items[1].keyEquivalentModifierMask == [.shift, .command])
@@ -59,6 +63,7 @@ struct ShortcutMenuBaselineTests {
             "Open as Binder", "Add Documents…", "Reset Document Settings", "Choose Style…", "Print Settings…",
             "Save Current Settings…", "Manage Setting Sets…", "Sort by Name", "Start Each Document on an Odd Page",
             "Remove from List", "Bookmark This Page", "Next Bookmark", "Previous Bookmark",
+            "PDF for Reading…", "Images (PNG)…", "HTML…", "Share…", "Copy as Rich Text", "Copy as HTML",
         ] {
             for item in all where item.title == localized(title) {
                 #expect(item.keyEquivalent.isEmpty, "Unexpected default key: \(title)")

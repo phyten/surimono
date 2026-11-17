@@ -11,7 +11,9 @@ public enum ShortcutDefaults: Sendable {
         case .appSettings: [character(",", .command)]
         case .documentPrint: [character("p", .command)]
         case .documentPrintSystem: [character("p", [.option, .command])]
-        case .documentExportReadingPDF: []
+        case .documentExportReadingPDF, .documentExportPNG, .documentExportHTML, .documentCopyRichText,
+            .documentCopyHTML, .documentShare:
+            []
         case .documentExportPDF: [character("e", [.shift, .command])]
         case .documentFind: [character("f", .command)]
         case .documentFindNext: [character("g", .command)]
