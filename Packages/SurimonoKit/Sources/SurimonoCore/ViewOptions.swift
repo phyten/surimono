@@ -8,6 +8,9 @@ public struct ViewOptions: Codable, Equatable, Sendable {
         case spread
         case single
 
+        // Keep presentation and numbered shortcuts independent of the stored cases and document defaults.
+        public static let displayOrder: [Self] = [.single, .spread]
+
         public init(from decoder: any Decoder) throws {
             let container = try decoder.singleValueContainer()
             let value = try container.decode(String.self)

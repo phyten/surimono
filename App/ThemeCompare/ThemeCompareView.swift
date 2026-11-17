@@ -7,13 +7,12 @@ import SwiftUI
 /// 「これにする」; the row below adds and takes out others.
 struct ThemeCompareView: View {
     @Bindable var model: DocumentViewModel
-    @State private var filterID = "featured"
     @State private var notice: String?
     @State private var noticeTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
-            CompareTopBar(model: model, onShuffle: shuffle).zIndex(1)
+            CompareTopBar(model: model, onShuffle: model.shuffleComparison).zIndex(1)
             stage
             tray.zIndex(1)
         }
@@ -86,13 +85,13 @@ struct ThemeCompareView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text("Add to Compare").font(.system(size: 12, weight: .semibold)).foregroundStyle(PrintPalette.ink2)
-                Text("Up to four").font(.system(size: 11)).foregroundStyle(PrintPalette.ink3)
+                Text("Up to four").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
                 FadingScrollRow {
                     HStack(spacing: 6) {
                         ForEach(filters, id: \.id) { filter in
                             ThemeGroupChip(
-                                title: filter.title, isSelected: filter.id == filterID,
-                                selectedText: PrintPalette.raised, action: { filterID = filter.id })
+                                title: filter.title, isSelected: filter.id == model.compareFilterID,
+                                selectedText: PrintPalette.raised, action: { model.compareFilterID = filter.id })
                         }
                     }
                     .padding(2)
@@ -100,12 +99,14 @@ struct ThemeCompareView: View {
             }
             FadingScrollRow {
                 HStack(alignment: .top, spacing: 12) {
-                    let themes = themes(for: filterID)
+                    let themes = themes(for: model.compareFilterID)
                     if themes.isEmpty {
-                        Text(filterID == "favorites" ? "Styles you star appear here." : "Nothing here yet.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(PrintPalette.ink2)
-                            .padding(.vertical, 30)
+                        Text(
+                            model.compareFilterID == "favorites" ? "Styles you star appear here." : "Nothing here yet."
+                        )
+                        .font(.system(size: 12))
+                        .foregroundStyle(PrintPalette.ink2)
+                        .padding(.vertical, 30)
                     }
                     ForEach(themes) { theme in
                         CompareTrayCell(model: model, theme: theme) { model.themeComparison?.toggle(theme.id) }
@@ -152,19 +153,15 @@ struct ThemeCompareView: View {
         }
     }
 
-    /// 「おまかせで並べ替える」: the current theme and three from the row's group, or from all if it is short.
-    private func shuffle() {
-        let group = themes(for: filterID).map(\.id)
-        let pool = group.count > 3 ? group : model.library.themes.filter(\.isBuiltIn).map(\.id)
-        var generator = SystemRandomNumberGenerator()
-        model.themeComparison?.shuffle(from: pool, using: &generator)
-    }
 }
 
 /// The stage's bar: back to the view mode, what is compared and 「おまかせ」. The current style is told by its tag on
 /// the stage, not here.
 private struct CompareTopBar: View {
     @Bindable var model: DocumentViewModel
+    /// The bar's height. The toolbar the stage keeps makes the title bar as tall, with the buttons in its middle.
+    static let height: CGFloat = 52
+    @State private var lights: TrafficLights?
     let onShuffle: () -> Void
 
     var body: some View {
@@ -185,20 +182,18 @@ private struct CompareTopBar: View {
                 .padding(.horizontal, 7)
             }
             .buttonStyle(PrintBorderedButtonStyle())
-            .keyboardShortcut(.cancelAction)
+            // While the place list is open, Esc closes the list first; this shortcut would also leave the stage.
+            .keyboardShortcut(model.isComparePlacePickerPresented ? nil : .cancelAction)
             .help("Back to the view mode (Esc)")
             .fixedSize()
             VStack(alignment: .leading, spacing: 1) {
                 Text("Compare Styles").font(.system(size: 13, weight: .semibold))
-                // A chosen place is told by the button that chose it.
-                Text(
-                    verbatim: model.comparePlace == nil
-                        ? String(format: String(localized: "First page of %@"), model.displayName) : model.displayName
-                )
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink2)
-                .lineLimit(1)
-                .truncationMode(.middle)
+                // The place is told by the button that chooses it.
+                Text(verbatim: model.displayName)
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             .padding(.leading, 16)
             .layoutPriority(-1)
@@ -215,16 +210,19 @@ private struct CompareTopBar: View {
         }
         .padding(.leading, trafficLightInset)
         .padding(.trailing, 12)
-        .frame(height: 52)
+        .offset(y: TrafficLights.lineOffset(lights, barHeight: Self.height))
+        .frame(height: Self.height)
         .frame(maxWidth: .infinity)
         .background(PrintPalette.chrome)
         .overlay(alignment: .bottom) { Rectangle().fill(PrintPalette.line).frame(height: 1) }
+        .background { TrafficLightsReader { lights = $0 } }
     }
 
-    /// The traffic lights stay where the window draws them; the bar starts after them.
+    /// The traffic lights stay where the window draws them; the bar starts after them. Read live: entering the stage
+    /// adds the toolbar that moves them, after this bar is first drawn.
     private var trafficLightInset: CGFloat {
-        guard let button = model.window?.standardWindowButton(.zoomButton) else { return 86 }
-        return max(button.convert(button.bounds, to: nil).maxX + 14, 76)
+        guard let lights = lights ?? model.window.flatMap({ TrafficLights(window: $0) }) else { return 86 }
+        return max(lights.titleLeading, 76)
     }
 }
 
@@ -269,6 +267,7 @@ private struct ComparePlaceList: View {
     private static let rowSpacing: CGFloat = 1
     private static let padding: CGFloat = 6
     private static let maximumHeight: CGFloat = 420
+    private static let closeGutter: CGFloat = 26
 
     var body: some View {
         let headings = model.themeSamples.places.filter { $0.kind == .heading }
@@ -300,9 +299,19 @@ private struct ComparePlaceList: View {
                     }
                 }
                 .padding(Self.padding)
+                // The list has no heading row for the ×, so the rows leave it a gutter beside the first row, and the
+                // popover keeps its height.
+                .padding(.trailing, Self.closeGutter)
             }
             .scrollBounceBehavior(.basedOnSize)
+            // The scroll bar starts under the ×, which would otherwise lie on it.
+            .contentMargins(.top, Self.padding + Self.rowHeight, for: .scrollIndicators)
             .onAppear { proxy.scrollTo(model.comparePlace?.id ?? Self.firstPageID, anchor: .center) }
+        }
+        .overlay(alignment: .topTrailing) {
+            PopoverCloseButton()
+                .padding(.top, Self.padding + (Self.rowHeight - 22) / 2)
+                .padding(.trailing, Self.padding)
         }
         .frame(width: 320, height: height(headings: headings.count, code: code.count))
         .accessibilityLabel("Compare At")

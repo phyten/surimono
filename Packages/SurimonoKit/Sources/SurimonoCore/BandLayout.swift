@@ -5,24 +5,47 @@ import CoreGraphics
 /// predictable at any width, and the "…" button stays put so that its popover never closes on a resize.
 public enum BandLayout {
     /// The parts of the band that can give way, in their order on the band.
-    public enum Item: CaseIterable, Hashable, Sendable {
-        case formatBadge, pageIndicator
-        case presentation
-        case style, outline
-        case layout, transition
-        case zoom, thumbnails
-        case pageTurn
-        case print
+    public enum Item: String, Codable, CaseIterable, Hashable, Sendable {
+        case formatBadge = "formatBadge"
+        case pageIndicator = "pageIndicator"
+        case presentation = "presentation"
+        case style = "style"
+        case outline = "outline"
+        case layout = "layout"
+        case transition = "transition"
+        case zoom = "zoom"
+        case thumbnails = "thumbnails"
+        case floatOnTop = "floatOnTop"
+        case pageTurn = "pageTurn"
+        case print = "print"
+        case readingDirection = "readingDirection"
+        case scrollDirection = "scrollDirection"
+        case paperOrientation = "paperOrientation"
+        case paperSeries = "paperSeries"
+        case cover = "cover"
+        case selectText = "selectText"
+        case alwaysShowToolbar = "alwaysShowToolbar"
+        case margins = "margins"
+        case printSettings = "printSettings"
+        case ignoreSlides = "ignoreSlides"
+        case beforePrinting = "beforePrinting"
+        case viewOptions = "viewOptions"
+        case saveAsFile = "saveAsFile"
+        case keysAndGestures = "keysAndGestures"
 
         /// Tools of one group sit together, and a thin separator divides neighbouring groups. The title's parts and
         /// Print stand outside the groups.
         public var group: Int? {
             switch self {
             case .formatBadge, .pageIndicator, .pageTurn, .print: nil
-            case .presentation: 0
+            case .presentation, .ignoreSlides: 0
             case .style, .outline: 1
-            case .layout, .transition: 2
-            case .zoom, .thumbnails: 3
+            case .layout, .transition, .readingDirection, .scrollDirection, .cover: 2
+            case .zoom, .thumbnails, .selectText: 3
+            case .floatOnTop, .alwaysShowToolbar, .viewOptions: 4
+            case .paperOrientation, .paperSeries, .margins: 5
+            case .printSettings, .beforePrinting, .saveAsFile: 6
+            case .keysAndGestures: 7
             }
         }
     }
@@ -34,7 +57,7 @@ public enum BandLayout {
     /// Split, the top band names the document and prints; everything about reading it moves to the bottom band.
     public static func position(of item: Item, in arrangement: MenuArrangement) -> Position {
         guard arrangement == .split else { return .top }
-        return item == .formatBadge || item == .print ? .top : .bottom
+        return [.formatBadge, .floatOnTop, .print].contains(item) ? .top : .bottom
     }
 
     public enum Form: Equatable, Sendable {
@@ -61,12 +84,13 @@ public enum BandLayout {
 
     /// The order in which the band gives up room. Labels go before tools, and a tool leaves earlier the less often it
     /// is used while reading; Print, the second of the two steps to print, stays to the end. The switch between web
-    /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone.
+    /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone. The pin that
+    /// keeps the window on top is one small icon whose state shows at a glance, so it stays until only Print is left.
     public static let steps: [Step] = [
         .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
         .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
         .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
-        .compact(.print),
+        .remove(.floatOnTop), .compact(.print),
     ]
 
     /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.
@@ -103,19 +127,34 @@ public enum BandLayout {
         widths: [Item: Widths], fixed: CGFloat, separator: CGFloat, name: CGFloat, available: CGFloat,
         steps: [Step] = steps
     ) -> Plan {
+        // The legacy entry point accepts already-spaced widths and arbitrary step lists. Keep that contract while
+        // sharing the collapse engine; ordered-zone callers supply adjacency geometry through resolve instead.
+        collapse(widths: widths, name: name, available: available, steps: steps) { forms in
+            let groups = Set(forms.keys.compactMap(\.group)).count
+            return fixed + separator * CGFloat(max(groups - 1, 0))
+        }
+    }
+
+    private static func itemWidth(_ forms: [Item: Form], widths: [Item: Widths]) -> CGFloat {
+        // Catalog order also makes floating-point addition deterministic across dictionary hash seeds.
+        Item.allCases.reduce(0) { total, item in
+            guard let form = forms[item], let width = widths[item] else { return total }
+            return total + (form == .compact ? width.compact ?? width.full : width.full)
+        }
+    }
+
+    private static func collapse(
+        widths: [Item: Widths], name: CGFloat, available: CGFloat, steps: [Step], compactBeforeName: [Item] = [],
+        spacing: ([Item: Form]) -> CGFloat
+    ) -> Plan {
         var forms = widths.mapValues { _ in Form.full }
+        // Additional labels yield before the document name. Legacy callers keep their original collapse order.
+        for item in compactBeforeName where itemWidth(forms, widths: widths) + spacing(forms) + name > available {
+            if forms[item] == .full, widths[item]?.compact != nil { forms[item] = .compact }
+        }
         var removed = Set<Item>()
         let reservedName = min(name, nameMinimum)
-
-        func required() -> CGFloat {
-            let items = forms.reduce(0) { total, entry in
-                guard let width = widths[entry.key] else { return total }
-                return total + (entry.value == .compact ? width.compact ?? width.full : width.full)
-            }
-            let groups = Set(forms.keys.compactMap(\.group)).count
-            return fixed + reservedName + items + separator * CGFloat(max(groups - 1, 0))
-        }
-
+        func required() -> CGFloat { itemWidth(forms, widths: widths) + spacing(forms) + reservedName }
         for step in steps where required() > available {
             switch step {
             case .compact(let item):
@@ -127,5 +166,160 @@ public enum BandLayout {
         let room = available - (required() - reservedName)
         return Plan(
             forms: forms, overflow: Item.allCases.filter(removed.contains), nameWidth: max(min(name, room), 0))
+    }
+
+    public static func resolve(
+        arrangement: BandArrangement, mode: MenuArrangement, availableItems: Set<Item>,
+        measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat
+    ) -> BandResolvedPlan {
+        // Repair at this boundary too: a caller's mutable draft must never make Print disappear.
+        let arrangement = BandArrangementRepair.repair(StoredBandArrangement(arrangement), for: mode).arrangement
+        let availableItems = availableItems.union([.print])
+        let top = resolveRow(
+            leading: arrangement.topLeft, trailing: arrangement.topRight, position: .top, mode: mode,
+            availableItems: availableItems, measurements: measurements, metrics: metrics, availableWidth: availableWidth
+        )
+        let bottom =
+            mode == .split
+            ? resolveRow(
+                leading: arrangement.bottomLeft, trailing: arrangement.bottomRight, position: .bottom, mode: mode,
+                availableItems: availableItems, measurements: measurements, metrics: metrics,
+                availableWidth: availableWidth
+            ) : nil
+        let placed = Set(
+            (arrangement.topLeft + arrangement.topRight + arrangement.bottomLeft + arrangement.bottomRight).compactMap(
+                \.item))
+        let shown = Set(top.forms.keys).union(bottom.map { Set($0.forms.keys) } ?? [])
+        return BandResolvedPlan(
+            top: top, bottom: bottom,
+            overflow: Item.allCases.filter {
+                placed.contains($0) && availableItems.contains($0) && !shown.contains($0)
+            },
+            unusedAvailable: Item.allCases.filter { arrangement.unused.contains($0) && availableItems.contains($0) })
+    }
+
+    private static func resolveRow(
+        leading: [BandEntry], trailing: [BandEntry], position: Position, mode: MenuArrangement,
+        availableItems: Set<Item>, measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat
+    ) -> BandRowPlan {
+        let standard = BandArrangement.standard(for: mode)
+        let standardLeading = position == .top ? standard.topLeft : standard.bottomLeft
+        let standardTrailing = position == .top ? standard.topRight : standard.bottomRight
+        // Omitting a part (including the old hidden-Outline preference) does not change the stack structure.
+        // Reordering, crossing zones or editing separators uses adjacency gaps instead of the legacy stacks.
+        func follows(_ entries: [BandEntry], order: [BandEntry]) -> Bool {
+            let parts = Set(entries.compactMap(\.item))
+            return order.filter { $0.item.map(parts.contains) ?? true } == entries
+        }
+        let standardSpacing = follows(leading, order: standardLeading) && follows(trailing, order: standardTrailing)
+        let widths = Dictionary(
+            uniqueKeysWithValues: (leading + trailing).compactMap(\.item).filter(availableItems.contains).map {
+                ($0, measurements.items[$0] ?? Widths(full: 0))
+            })
+        let name = position == .top ? measurements.name : 0
+        // The recovery anchor must not jump across Print when its last neighbour overflows.
+        let moreDock: BandRowGeometry.MoreDock =
+            position == .bottom
+            ? .absent : (trailing.last(where: { $0.item != nil }) == .part(.print) ? .beforePrint : .trailing)
+        func geometry(_ forms: [Item: Form]) -> BandRowGeometry {
+            rowGeometry(
+                leading: leading.compactMap(\.item).filter { forms[$0] != nil },
+                trailing: trailing.compactMap(\.item).filter { forms[$0] != nil },
+                separators: visibleSeparators(in: leading, forms: forms)
+                    + visibleSeparators(in: trailing, forms: forms),
+                position: position, mode: mode, metrics: metrics, standardSpacing: standardSpacing, moreDock: moreDock)
+        }
+        let plan = collapse(
+            widths: widths, name: name, available: availableWidth, steps: physicalSteps(at: position),
+            compactBeforeName: additionalCompactOrder
+        ) { geometry($0).spacingWidth }
+        let minimumForms: [Item: Form] = widths[.print].map { [.print: $0.compact == nil ? .full : .compact] } ?? [:]
+        return BandRowPlan(
+            leading: leading.compactMap(\.item).filter { plan.forms[$0] != nil },
+            trailing: trailing.compactMap(\.item).filter { plan.forms[$0] != nil },
+            forms: plan.forms, nameWidth: plan.nameWidth,
+            minimumWidth: itemWidth(minimumForms, widths: widths) + geometry(minimumForms).spacingWidth,
+            geometry: geometry(plan.forms),
+            requiredWidth: itemWidth(plan.forms, widths: widths) + geometry(plan.forms).spacingWidth + plan.nameWidth)
+    }
+
+    private static func physicalSteps(at position: Position) -> [Step] {
+        let compact: [Step] = [.compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline)]
+        let removed: [Item] =
+            position == .top
+            ? [
+                .formatBadge, .pageIndicator, .style, .transition, .pageTurn, .layout, .outline,
+                .presentation, .thumbnails, .zoom, .floatOnTop,
+            ]
+            : [
+                .formatBadge, .transition, .layout, .pageTurn, .style, .outline,
+                .presentation, .thumbnails, .zoom, .floatOnTop, .pageIndicator,
+            ]
+        let added = additionalCompactOrder
+        return added.map { .compact($0) } + compact + added.map { .remove($0) }
+            + removed.map { .remove($0) } + [.compact(.print)]
+    }
+
+    private static let additionalCompactOrder: [Item] = [
+        .keysAndGestures, .saveAsFile, .ignoreSlides, .printSettings, .margins, .paperSeries,
+        .paperOrientation, .cover, .readingDirection, .scrollDirection, .alwaysShowToolbar,
+        .viewOptions, .beforePrinting, .selectText,
+    ]
+
+    private static func visibleSeparators(in entries: [BandEntry], forms: [Item: Form]) -> [Item] {
+        var hasPart = false
+        var pending = false
+        var result: [Item] = []
+        for entry in entries {
+            switch entry {
+            case .separator:
+                if hasPart { pending = true }
+            case .part(let item):
+                guard forms[item] != nil else { continue }
+                if pending { result.append(item) }
+                hasPart = true
+                pending = false
+            }
+        }
+        return result
+    }
+
+    private static func rowGeometry(
+        leading: [Item], trailing: [Item], separators: [Item], position: Position, mode: MenuArrangement,
+        metrics: BandMetrics, standardSpacing: Bool, moreDock: BandRowGeometry.MoreDock
+    ) -> BandRowGeometry {
+        var gaps: [Item: CGFloat] = [:]
+        for zone in [leading, trailing] {
+            for (index, item) in zone.enumerated() {
+                if standardSpacing {
+                    // Legacy stacks reserve a gap per item, even the first tool and when the name is hidden.
+                    switch item {
+                    case .formatBadge: gaps[item] = metrics.titleGap
+                    case .pageIndicator: gaps[item] = mode == .split ? metrics.toolGap : metrics.titleGap
+                    case .print: gaps[item] = 0
+                    default: gaps[item] = metrics.toolGap
+                    }
+                } else if index > 0 {
+                    gaps[item] =
+                        separators.contains(item) || (zone[index - 1].group != nil && item.group != nil)
+                        ? metrics.toolGap : metrics.outerGap
+                } else {
+                    gaps[item] = 0
+                }
+            }
+        }
+        if !standardSpacing, position == .top, let first = leading.first {
+            // The fixed filename precedes the leading zone, including its reserved gap at narrow widths.
+            gaps[first] = metrics.titleGap
+        }
+        // "…" follows the trailing tools (all but a Print docked after it) with a tool gap. The legacy stacks already
+        // reserved it as the first tool's gap; reordered zones start at zero, so it is counted here.
+        let toolsBeforeMore = moreDock == .beforePrint ? trailing.filter { $0 != .print } : trailing
+        let moreGap = !standardSpacing && moreDock != .absent && !toolsBeforeMore.isEmpty ? metrics.toolGap : 0
+        return BandRowGeometry(
+            fixedWidth: position == .top ? metrics.topFixed : metrics.bottomFixed,
+            gapsBefore: gaps, separatorsBefore: separators, separatorWidth: metrics.separator,
+            moreDock: moreDock,
+            usesStandardSpacing: standardSpacing, moreGap: moreGap)
     }
 }

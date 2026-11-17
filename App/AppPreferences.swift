@@ -10,9 +10,41 @@ struct RemovedPrintSettingSet: Equatable {
     let index: Int
 }
 
+enum ShortcutPreferencesLoadState: Equatable {
+    case loaded, migrationRequired
+    case unreadable(ShortcutModelError)
+
+    var isUnreadable: Bool {
+        if case .unreadable = self { return true }
+        return false
+    }
+}
+
+enum ShortcutPreferencesError: Error {
+    case unreadableSavedData, staleSnapshot, environmentUnavailable
+}
+
 /// App-wide defaults. Settings a user changes in a document window are remembered per document instead.
 @Observable
 final class AppPreferences {
+    private(set) var keyboardShortcuts: ShortcutConfiguration
+    private(set) var keyboardShortcutsLoadState: ShortcutPreferencesLoadState
+    private(set) var keyboardShortcutsRevision: UInt64 = 0
+    private var keyboardShortcutsStoredData: Data?
+
+    var openClipboardShortcut: KeyCombo? {
+        didSet {
+            defaults.set(
+                openClipboardShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: "openClipboardShortcut")
+        }
+    }
+    var printClipboardShortcut: KeyCombo? {
+        didSet {
+            defaults.set(
+                printClipboardShortcut.flatMap { try? JSONEncoder().encode($0) }, forKey: "printClipboardShortcut")
+        }
+    }
+
     private let defaults: UserDefaults
     private let languageDomainName: String?
     /// Only the application's persistent domain determines the override, never the global AppleLanguages value.
@@ -23,6 +55,15 @@ final class AppPreferences {
             domain["AppleLanguages"] = languageOverride.map { [$0] }
             defaults.setPersistentDomain(domain, forName: languageDomainName)
         }
+    }
+    /// The decision after a reader removes all but one document from a binder.
+    var singleDocumentBinderPolicy: SingleDocumentBinderPolicy {
+        didSet { defaults.set(singleDocumentBinderPolicy.rawValue, forKey: "singleDocumentBinderPolicy") }
+    }
+
+    /// The look of the app's windows. Nothing stored means Light, also for readers who saw the app in Dark before.
+    var appearance: AppAppearance {
+        didSet { defaults.set(appearance.rawValue, forKey: "appearance") }
     }
     var wheelSensitivity: WheelPageTurner.Sensitivity {
         didSet { defaults.set(wheelSensitivity.rawValue, forKey: "wheelSensitivity") }
@@ -55,10 +96,115 @@ final class AppPreferences {
     var menuArrangement: MenuArrangement {
         didSet { defaults.set(menuArrangement.rawValue, forKey: "menuArrangement") }
     }
+    private(set) var bandArrangementStore: BandArrangementStore
+    private(set) var bandArrangementNotices: [BandRepairNotice]
+    private(set) var retainedBandArrangementData: Data?
+    /// The stored data as it was before a load repaired it with a loss, kept aside before the first write.
+    @ObservationIgnored private var repairedBandArrangementData: Data?
+    /// A development build's fixture from `-SurimonoBandArrangement`: shown, never saved over the reader's sets.
+    @ObservationIgnored private var showsBandArrangementFixture = false
+
+    enum BandArrangementPersistenceError: Error {
+        case retainedDataRequiresRecovery
+        case fixtureIsReadOnly
+    }
+
+    /// The arrangement the view mode's bands draw for the current topology.
+    var activeBandArrangement: BandArrangement {
+        bandArrangementStore.activeLayouts.arrangement(for: menuArrangement)
+    }
+
+    // Encode before publishing either value. Observers never see a deleted active set or a half-written envelope.
+    func updateBandArrangements(_ change: (inout BandArrangementStore) throws -> Void) throws {
+        guard retainedBandArrangementData == nil else {
+            throw BandArrangementPersistenceError.retainedDataRequiresRecovery
+        }
+        guard !showsBandArrangementFixture else { throw BandArrangementPersistenceError.fixtureIsReadOnly }
+        var next = bandArrangementStore
+        try change(&next)
+        let data = try JSONEncoder().encode(next)
+        // The first write after a repair that left something out keeps the original aside, as starting over does.
+        if let original = repairedBandArrangementData {
+            setAside(original, under: Self.repairedBandArrangementsKey)
+            repairedBandArrangementData = nil
+        }
+        defaults.set(data, forKey: "bandArrangementStore")
+        bandArrangementStore = next
+        // What the load repaired is now written as repaired.
+        bandArrangementNotices = []
+    }
+
+    /// Keeps the newest ten originals per key, each once: enough to recover from a few failed loads in a row
+    /// without letting repeated recoveries grow the preferences without end.
+    static let setAsideLimit = 10
+
+    func setAside(_ data: Data, under key: String) {
+        var kept = defaults.array(forKey: key) as? [Data] ?? []
+        kept.removeAll { $0 == data }
+        kept.append(data)
+        defaults.set(Array(kept.suffix(Self.setAsideLimit)), forKey: key)
+    }
+
+    /// Starts the arrangements over from Standard after stored data could not be read. The unreadable data is kept
+    /// under another key, never deleted, so a later version that can read it still finds it.
+    func startBandArrangementsOver() {
+        guard let retained = retainedBandArrangementData, !showsBandArrangementFixture else { return }
+        setAside(retained, under: Self.unreadableBandArrangementsKey)
+        // An empty store, not a missing one: with nothing stored, the next launch would derive "Previous
+        // Arrangement" again from the old Contents setting.
+        let store = BandArrangementStore()
+        if let data = try? JSONEncoder().encode(store) { defaults.set(data, forKey: "bandArrangementStore") }
+        retainedBandArrangementData = nil
+        repairedBandArrangementData = nil
+        bandArrangementNotices = []
+        bandArrangementStore = store
+    }
+
+    static let unreadableBandArrangementsKey = "unreadableBandArrangementStores"
+    static let repairedBandArrangementsKey = "repairedBandArrangementStores"
+
+    func selectBandArrangement(_ selection: BandArrangementSelection) throws {
+        try updateBandArrangements { try $0.select(selection) }
+    }
+
+    func saveBandArrangement(_ set: BandArrangementSet, activate: Bool = true) throws {
+        try updateBandArrangements { try $0.insert(set, activate: activate) }
+    }
+
+    func overwriteBandArrangement(_ selection: BandArrangementSelection, layouts: BandArrangementVariants) throws {
+        try updateBandArrangements { try $0.overwrite(selection, layouts: layouts) }
+    }
+
+    func renameBandArrangement(_ selection: BandArrangementSelection, to name: String) throws {
+        try updateBandArrangements { try $0.rename(selection, to: name) }
+    }
+
+    func deleteBandArrangement(
+        _ selection: BandArrangementSelection, replacement: BandArrangementSelection? = nil
+    ) throws {
+        try updateBandArrangements { try $0.delete(selection, replacement: replacement) }
+    }
+
     var outlinePresentation: OutlinePresentation {
         didSet { defaults.set(outlinePresentation.rawValue, forKey: "outlinePresentation") }
     }
-    var showsOutlineOnBand: Bool { didSet { defaults.set(showsOutlineOnBand, forKey: "showsOutlineOnBand") } }
+    var showsOutlineOnBand: Bool {
+        didSet {
+            defaults.set(showsOutlineOnBand, forKey: "showsOutlineOnBand")
+            followOutlineChoice()
+        }
+    }
+
+    /// Until an arrangement is saved, the old checkbox still decides whether Contents is on the band: the store is then
+    /// only derived in memory, so following the checkbox writes nothing. Once saved, the explicit placement wins.
+    private func followOutlineChoice() {
+        guard defaults.data(forKey: "bandArrangementStore") == nil, retainedBandArrangementData == nil,
+            !showsBandArrangementFixture
+        else { return }
+        bandArrangementStore =
+            showsOutlineOnBand
+            ? BandArrangementStore() : .previousArrangement(named: String(localized: "Previous Arrangement"))
+    }
     var changeFollowing: ChangeFollowing {
         didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
     }
@@ -81,6 +227,9 @@ final class AppPreferences {
     var themeID: String { didSet { defaults.set(themeID, forKey: "theme") } }
     /// The code palette a document starts with; `CodePalette.matchesStyleID` follows its style.
     var defaultCodePaletteID: String { didSet { defaults.set(defaultCodePaletteID, forKey: "codePalette") } }
+    var triesThemeOnHover: Bool {
+        didSet { defaults.set(triesThemeOnHover, forKey: "triesThemeOnHover") }
+    }
     var themeSampleSource: ThemeSampleSource {
         didSet { defaults.set(themeSampleSource.rawValue, forKey: "themeSampleSource") }
     }
@@ -112,8 +261,13 @@ final class AppPreferences {
             }
         }
     }
-    /// The last series of paper chosen on a tray.
-    var paperSeries: PaperSeries? { didSet { defaults.set(paperSeries?.rawValue, forKey: "paperSeries") } }
+    /// The paper chosen on a tray is the paper the next documents start on: the default layout moves to the one that
+    /// prints the same way on that series. The series is not kept beside it. The default layout's paper says it, so
+    /// the two cannot disagree.
+    func choosePaperSeries(_ series: PaperSeries) {
+        let layout = PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single
+        layoutID = layout.counterpart(in: series).id
+    }
     /// What the reader made the default from the tray; the margin and header above stay for Settings.
     private var finishDefaults: FinishDefaults? {
         didSet {
@@ -144,6 +298,12 @@ final class AppPreferences {
     func setPrinterRotation(_ rotates: Bool, for name: String, duplex: DuplexMode) {
         var profile = printerProfile(for: name)
         profile.setRotation(rotates, for: duplex)
+        printerProfiles[name] = profile
+    }
+
+    func setManualDuplexCorrection(_ correction: ManualDuplexCorrection, for name: String, duplex: DuplexMode) {
+        var profile = printerProfile(for: name)
+        profile.setManualCorrection(correction, for: duplex)
         printerProfiles[name] = profile
     }
 
@@ -182,9 +342,24 @@ final class AppPreferences {
         }
     }
 
+    /// How text from the clipboard or a service gets its format. A value this build cannot read starts over from the
+    /// standard choices.
+    var clipboardFormat: ClipboardFormatSettings {
+        didSet {
+            if let data = try? JSONEncoder().encode(clipboardFormat) { defaults.set(data, forKey: "clipboardFormat") }
+        }
+    }
+
+    var recentFiles: RecentFiles {
+        didSet {
+            if let data = try? JSONEncoder().encode(recentFiles) { defaults.set(data, forKey: "recentFiles") }
+        }
+    }
+
     init(
         defaults: UserDefaults = .standard, domainName: String? = Bundle.main.bundleIdentifier,
-        locale: Locale? = nil, defaultPaperSize: CGSize? = nil
+        locale: Locale? = nil, defaultPaperSize: CGSize? = nil,
+        shortcutEnvironment: ShortcutValidationContext = .unavailable
     ) {
         // Only the app's own preferences follow the Mac: its region and the paper its print system starts with. A
         // store made for a test or a preview starts on A4 wherever it runs (CI machines are set to the United
@@ -196,6 +371,19 @@ final class AppPreferences {
             : PaperSeries.initial(
                 locale: locale ?? .current,
                 defaultPaperSize: defaultPaperSize ?? (followsSystem ? NSPrintInfo.shared.paperSize : nil))
+        openClipboardShortcut = defaults.data(forKey: "openClipboardShortcut").flatMap {
+            try? JSONDecoder().decode(KeyCombo.self, from: $0)
+        }
+        printClipboardShortcut = defaults.data(forKey: "printClipboardShortcut").flatMap {
+            try? JSONDecoder().decode(KeyCombo.self, from: $0)
+        }
+        let shortcuts = Self.loadKeyboardShortcuts(defaults: defaults, environment: shortcutEnvironment)
+        keyboardShortcuts = shortcuts.0
+        keyboardShortcutsLoadState = shortcuts.1
+        keyboardShortcutsStoredData = defaults.data(forKey: ShortcutStore.preferencesKey)
+        singleDocumentBinderPolicy =
+            defaults.string(forKey: "singleDocumentBinderPolicy")
+            .flatMap(SingleDocumentBinderPolicy.init(rawValue:)) ?? .defaultValue
         self.defaults = defaults
         languageDomainName = domainName
         let savedLanguages = domainName.flatMap {
@@ -204,6 +392,7 @@ final class AppPreferences {
         languageOverride = savedLanguages?.first.flatMap { saved in
             UILanguage.candidates(for: saved).dropLast().first { UILanguage.supported.contains($0) }
         }
+        appearance = AppAppearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .default
         wheelSensitivity =
             WheelPageTurner.Sensitivity(rawValue: defaults.string(forKey: "wheelSensitivity") ?? "") ?? .normal
         defaultViewLayout = ViewOptions.Layout(rawValue: defaults.string(forKey: "defaultViewLayout") ?? "")
@@ -226,24 +415,65 @@ final class AppPreferences {
             Self.screenshotChoice("SurimonoOutline")
             ?? OutlinePresentation(rawValue: defaults.string(forKey: "outlinePresentation") ?? "") ?? .popover
         showsOutlineOnBand = defaults.object(forKey: "showsOutlineOnBand") as? Bool ?? true
+        let bandData = defaults.data(forKey: "bandArrangementStore")
+        let bandLoad = BandArrangementStore.load(bandData)
+        bandArrangementStore =
+            bandData == nil && defaults.object(forKey: "showsOutlineOnBand") as? Bool == false
+            ? .previousArrangement(named: String(localized: "Previous Arrangement")) : bandLoad.store
+        bandArrangementNotices = bandLoad.notices
+        retainedBandArrangementData = bandLoad.retainedData
+        if bandLoad.retainedData == nil, bandLoad.notices.contains(where: \.losesData) {
+            repairedBandArrangementData = bandData
+        }
+        #if DEBUG
+            if let fixture = DebugSnapshot.argument("SurimonoBandParts").flatMap(DebugSnapshot.bandPartsFixture) {
+                bandArrangementStore = fixture
+                menuArrangement = .split
+                showsBandArrangementFixture = true
+            }
+            if let fixture = DebugSnapshot.argument("SurimonoBandArrangement")
+                .flatMap(DebugSnapshot.bandArrangementFixture(named:))
+            {
+                bandArrangementStore = fixture
+                showsBandArrangementFixture = true
+            }
+            if DebugSnapshot.argument("SurimonoBandArrangement") == "repaired" {
+                // A record that cannot be read and a set with one broken layout, read as the app reads them.
+                let load = BandArrangementStore.load(DebugSnapshot.repairedArrangementData)
+                bandArrangementStore = load.store
+                bandArrangementNotices = load.notices
+                showsBandArrangementFixture = true
+            }
+            if DebugSnapshot.argument("SurimonoBandArrangement") == "unreadable" {
+                // As if a newer version had written the store; the fixture flag keeps everything unwritten.
+                retainedBandArrangementData = Data(#"{"schemaVersion":2}"#.utf8)
+                showsBandArrangementFixture = true
+            }
+        #endif
+
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .ask
+        // Any whole percent of the range, as the Settings field takes it; earlier versions kept one of the steps.
         let scale = defaults.double(forKey: "defaultTextScale")
-        defaultTextScale = TextScale.steps.contains(scale) ? scale : 1
+        defaultTextScale = TextScale.range.contains(scale) ? TextScale.clamped(scale) : 1
         defaultPaperOrientation =
             PaperOrientation(rawValue: defaults.string(forKey: "defaultPaperOrientation") ?? "") ?? .auto
+        // Earlier versions kept a series chosen on a tray under "paperSeries" without moving the default layout to
+        // it: the cards then showed that series over sheets of another paper. Without a stored default layout that
+        // choice comes before the region; with one, the layout's own paper stands.
+        let chosenSeries = PaperSeries(rawValue: defaults.string(forKey: "paperSeries") ?? "")
         layoutID =
             defaults.string(forKey: "layout")
-            ?? (initialSeries == .letter ? "letterSingle" : "a4Single")
+            ?? PrintLayout.a4Single.counterpart(in: chosenSeries ?? initialSeries).id
         themeID = defaults.string(forKey: "theme") ?? "standard"
         themeSampleSource =
-            defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .document
+            defaults.string(forKey: "themeSampleSource").flatMap(ThemeSampleSource.init(rawValue:)) ?? .specimen
+        triesThemeOnHover = defaults.object(forKey: "triesThemeOnHover") as? Bool ?? true
         hasSeenPrintStyleTip = defaults.bool(forKey: "hasSeenPrintStyleTip")
         defaultCodePaletteID = defaults.string(forKey: "codePalette") ?? CodePalette.matchesStyleID
         presetID = defaults.string(forKey: "preset") ?? "none"
         margin = defaults.object(forKey: "margin") as? Double ?? 15
-        paperSeries = PaperSeries(rawValue: defaults.string(forKey: "paperSeries") ?? "")
         let storedFinish = defaults.data(forKey: "printFinishDefaults").flatMap {
             try? JSONDecoder().decode(FinishDefaults.self, from: $0)
         }
@@ -282,10 +512,18 @@ final class AppPreferences {
             defaults.data(forKey: "notePresets").flatMap {
                 try? JSONDecoder().decode([StoredNotePreset].self, from: $0)
             }?.compactMap(\.value) ?? []
+        recentFiles =
+            defaults.data(forKey: "recentFiles").flatMap {
+                try? JSONDecoder().decode(RecentFiles.self, from: $0)
+            } ?? RecentFiles()
         recentBinders =
             defaults.data(forKey: "recentBinders").flatMap {
                 try? JSONDecoder().decode(RecentBinders.self, from: $0)
             } ?? RecentBinders()
+        clipboardFormat =
+            defaults.data(forKey: "clipboardFormat").flatMap {
+                try? JSONDecoder().decode(ClipboardFormatSettings.self, from: $0)
+            } ?? .standard
     }
 
     /// A choice for this run only. It takes part in the first assignment because any later one would be saved.
@@ -309,6 +547,16 @@ final class AppPreferences {
         } else {
             printSettingSets.append(set)
         }
+    }
+
+    func movePrintSettingSets(from offsets: IndexSet, to destination: Int) {
+        guard offsets.allSatisfy({ printSettingSets.indices.contains($0) }),
+            (0...printSettingSets.count).contains(destination)
+        else { return }
+        let moving = offsets.sorted().map { printSettingSets[$0] }
+        var reordered = printSettingSets.enumerated().filter { !offsets.contains($0.offset) }.map(\.element)
+        reordered.insert(contentsOf: moving, at: destination - offsets.filter { $0 < destination }.count)
+        printSettingSets = reordered
     }
 
     @discardableResult
@@ -448,5 +696,79 @@ final class AppPreferences {
         finishDefaults = FinishDefaults(options: options, finish: finish)
         if let margin = options.margins.uniformValue { self.margin = margin }
         defaultFurniture = options.furniture
+    }
+}
+
+extension AppPreferences {
+    private static func loadKeyboardShortcuts(defaults: UserDefaults, environment: ShortcutValidationContext)
+        -> (ShortcutConfiguration, ShortcutPreferencesLoadState)
+    {
+        guard defaults.object(forKey: ShortcutStore.preferencesKey) != nil else {
+            return (LegacyShortcutMigration.evaluate(defaults: defaults, environment: environment), .migrationRequired)
+        }
+        guard let data = defaults.data(forKey: ShortcutStore.preferencesKey) else {
+            return (.init(), .unreadable(.malformedStore))
+        }
+        do {
+            return (try ShortcutStore.decode(data), .loaded)
+        } catch let error as ShortcutModelError {
+            return (.init(), .unreadable(error))
+        } catch {
+            return (.init(), .unreadable(.malformedStore))
+        }
+    }
+
+    func reloadKeyboardShortcuts(environment: ShortcutValidationContext) {
+        let loaded = Self.loadKeyboardShortcuts(defaults: defaults, environment: environment)
+        if loaded.0 != keyboardShortcuts || loaded.1 != keyboardShortcutsLoadState {
+            keyboardShortcutsRevision += 1
+        }
+        keyboardShortcuts = loaded.0
+        keyboardShortcutsLoadState = loaded.1
+        keyboardShortcutsStoredData = defaults.data(forKey: ShortcutStore.preferencesKey)
+    }
+
+    func saveKeyboardShortcuts(_ plan: ShortcutChangePlan, expectedRevision: UInt64) throws {
+        guard expectedRevision == keyboardShortcutsRevision, plan.original == keyboardShortcuts else {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        guard plan.environment.reservationsAvailable, plan.environment.projectionAvailable else {
+            throw ShortcutPreferencesError.environmentUnavailable
+        }
+        try persistKeyboardShortcuts(plan.configuration)
+    }
+
+    func saveKeyboardShortcutMigration(
+        environment: ShortcutValidationContext, expectedConfiguration: ShortcutConfiguration? = nil
+    ) throws {
+        if keyboardShortcutsLoadState == .loaded { return }
+        guard !keyboardShortcutsLoadState.isUnreadable else { throw ShortcutPreferencesError.unreadableSavedData }
+        guard environment.reservationsAvailable, environment.projectionAvailable else {
+            throw ShortcutPreferencesError.environmentUnavailable
+        }
+        // Re-evaluate before saving so a legacy write during registration cannot publish another candidate.
+        guard defaults.object(forKey: ShortcutStore.preferencesKey) == nil else {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        let migrated = LegacyShortcutMigration.evaluate(defaults: defaults, environment: environment)
+        if let expectedConfiguration, migrated != expectedConfiguration {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        try persistKeyboardShortcuts(migrated)
+    }
+
+    private func persistKeyboardShortcuts(_ configuration: ShortcutConfiguration) throws {
+        guard !keyboardShortcutsLoadState.isUnreadable else { throw ShortcutPreferencesError.unreadableSavedData }
+        guard defaults.data(forKey: ShortcutStore.preferencesKey) == keyboardShortcutsStoredData,
+            defaults.object(forKey: ShortcutStore.preferencesKey) == nil || keyboardShortcutsStoredData != nil
+        else {
+            throw ShortcutPreferencesError.staleSnapshot
+        }
+        let data = try ShortcutStore.encode(configuration)
+        defaults.set(data, forKey: ShortcutStore.preferencesKey)
+        keyboardShortcutsStoredData = data
+        keyboardShortcuts = configuration
+        keyboardShortcutsLoadState = .loaded
+        keyboardShortcutsRevision += 1
     }
 }

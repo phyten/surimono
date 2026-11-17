@@ -1,76 +1,96 @@
 import SurimonoCore
 import SwiftUI
 
-// Frequent choices stay on the band; this popover keeps the remaining document values beside a live sample.
+// Frequent choices stay on the band; this popover keeps the remaining document values under the strip of spreads.
 struct ViewOptionsPopover: View {
     @Bindable var model: DocumentViewModel
+    /// The longest row label and the widest value control in the current language, measured out of sight.
+    @State private var labelWidth: CGFloat = 0
+    @State private var controlWidth: CGFloat = 0
+
+    /// The widest the popover gets; a narrower content makes it narrower, so that it covers no more of the page than
+    /// its rows need.
+    private static let maximumWidth: CGFloat = 560
+    /// Room for the title, the file name and the close button, and for the row of the reset and the setting sets.
+    private static let minimumWidth: CGFloat = 340
+    private static let padding: CGFloat = 16
+    private static let columnSpacing: CGFloat = 12
+    /// The display units the strip of small pages shows at most, around the current one.
+    static let spreadMapLimit = 8
+    private static let labels: [LocalizedStringKey] = [
+        "Page Arrangement", "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar",
+        "Paper Size Series", "Text Margins", "Text Size",
+    ]
+
+    /// Labels over their settings, where the longest label beside the widest setting would not fit the popover: a
+    /// menu squeezed into what the labels leave is cut, as the reading direction was in Spanish.
+    private var stacksLabels: Bool {
+        labelWidth + Self.columnSpacing + controlWidth > Self.maximumWidth - 2 * Self.padding
+    }
+
+    /// The longest row and the margins around it, in the current language. Until the copies are measured it is the
+    /// widest, which the first layout then narrows.
+    private var width: CGFloat {
+        guard labelWidth > 0, controlWidth > 0 else { return Self.maximumWidth }
+        let rows = stacksLabels ? max(labelWidth, controlWidth) : labelWidth + Self.columnSpacing + controlWidth
+        return min(Self.maximumWidth, max(Self.minimumWidth, (rows + 2 * Self.padding).rounded(.up)))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("View Options").font(.headline)
-                Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-            }
-            SpreadSample(options: model.viewOptions, unit: currentUnit)
-            SpreadMap(units: model.displayUnits, current: currentUnitIndex) { unit in
-                if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
-            }
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
-                heading("On Screen")
-                GridRow {
-                    rowLabel("Reading Direction")
-                    Picker("Reading Direction", selection: option(\.direction)) {
-                        Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
-                        Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
-                    }
-                    .pickerStyle(.menu)
+            HStack(spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("View Options").font(.headline)
+                    Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
-                GridRow {
-                    rowLabel("Scroll Direction")
+                Spacer(minLength: 0)
+                PopoverCloseButton()
+            }
+            Grid(alignment: .leading, horizontalSpacing: Self.columnSpacing, verticalSpacing: stacksLabels ? 10 : 12) {
+                heading("On Screen")
+                // The pages as the options below arrange them: it changes as they do, with the current unit marked.
+                if !model.displayUnits.isEmpty {
+                    // How the pages stand under these options; a click on one goes there, but it arranges nothing.
+                    row("Page Arrangement", fills: true) {
+                        SpreadMap(units: model.displayUnits, current: currentUnitIndex, limit: Self.spreadMapLimit) {
+                            unit in
+                            if let first = unit.pages.first { model.paper.goToPage(index: first - 1) }
+                        }
+                    }
+                }
+                row("Reading Direction") { directionPicker(option(\.direction)) }
+                row("Scroll Direction") {
                     Picker("Scroll Direction", selection: option(\.scrollAxis)) {
                         Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
                         Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
                     }
                     .disabled(!model.viewOptions.usesScrollAxis)
                 }
-                GridRow {
-                    rowLabel("Show First Page Alone")
-                    HStack(spacing: 12) {
-                        Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
-                            .toggleStyle(.switch).controlSize(.small)
-                        CoverSample(direction: model.viewOptions.direction)
-                    }
-                    .disabled(!model.viewOptions.usesCoverOption)
+                row("Show First Page Alone") {
+                    Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
+                        .toggleStyle(.switch).controlSize(.small)
+                        .disabled(!model.viewOptions.usesCoverOption)
                 }
                 if model.viewOptions.canJoinPages, model.viewLogicalMargin != nil {
-                    GridRow {
-                        rowLabel("Join Pages")
+                    row("Join Pages") {
                         Toggle("Join Pages", isOn: option(\.joinsPages))
                             .toggleStyle(.switch).controlSize(.small)
                     }
                 }
-                GridRow {
-                    rowLabel("Toolbar")
-                    BandVisibilityPicker(selection: $model.bandVisibility)
+                row("Toolbar") { BandVisibilityPicker(selection: $model.bandVisibility) }
+                // The paper series decides the paper the document prints on as well, so it goes with the text.
+                if model.offersPaperSeries || model.marginsApply || model.usesPrintTheme {
+                    heading("Paper and Text")
                 }
                 if model.offersPaperSeries {
-                    // The label follows the picker, not the note that hangs under it.
-                    GridRow(alignment: .firstTextBaseline) {
-                        rowLabel("Paper on Screen")
-                        VStack(alignment: .leading, spacing: 4) {
-                            PaperSeriesPicker(selection: $model.paperSeries)
-                            caption("Choose the paper for printing on the print screen.")
-                        }
-                    }
+                    row("Paper Size Series") { paperSeriesPicker(seriesBinding) }
                 }
                 if model.marginsApply {
-                    heading("Printed Text")
-                    GridRow {
-                        rowLabel("Text Margins")
-                        HStack(spacing: 4) {
-                            MarginControl(model: model)
-                            Text("mm").foregroundStyle(.secondary)
-                        }
+                    row("Text Margins") { MarginControl(model: model) }
+                }
+                if model.usesPrintTheme {
+                    row("Text Size") {
+                        TextSizeField(title: "Text Size", scale: model.textScale) { model.setTextScale($0) }
                     }
                 }
             }
@@ -78,31 +98,23 @@ struct ViewOptionsPopover: View {
             .labelsHidden()
             Divider()
             HStack(spacing: 8) {
-                // Resetting belongs to the statement that the document has its own settings; the setting sets are a
-                // separate, stronger choice on the other side.
+                // The setting sets are a separate, stronger choice on the other side.
+                // Only a document with settings of its own has something to reset; a dimmed link read as broken.
                 if model.hasSavedSettings {
-                    Text("Using this document’s settings")
-                        .font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                    Button("Reset This Document") { model.resetDocumentSettings() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tint)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                // Words the reader must read stay in ink: an accent color of their choice may not be dark enough.
-                Button {
-                    model.resetDocumentSettings()
-                } label: {
-                    Text("Reset This Document").underline()
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11))
-                .foregroundStyle(PrintPalette.ink2)
-                .fixedSize(horizontal: false, vertical: true)
-                .disabled(!model.hasSavedSettings)
                 Spacer(minLength: 8)
-                SettingSetMenu(preferences: model.preferences, model: { model })
+                SettingSetMenu(preferences: model.preferences, library: model.library, model: { model })
                     .fixedSize()
             }
         }
-        .padding(16)
-        .frame(width: 560)
+        .padding(Self.padding)
+        .frame(width: width)
+        .background(alignment: .topLeading) { measurements }
         .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
         .clearsInitialFocus()
     }
@@ -111,30 +123,107 @@ struct ViewOptionsPopover: View {
         SpreadLayout.unitIndex(containing: model.currentPageIndex + 1, in: model.displayUnits)
     }
 
-    private var currentUnit: DisplayUnit? {
-        currentUnitIndex.map { model.displayUnits[$0] }
-    }
-
-    private func rowLabel(_ key: LocalizedStringKey) -> some View {
-        Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
+    /// A setting with its label: beside it, right-aligned in a column as wide as the longest label, or over it.
+    /// `fills` lets a setting with no width of its own, the strip of pages, take the column's width without setting it.
+    @ViewBuilder private func row(
+        _ key: LocalizedStringKey, fills: Bool = false, @ViewBuilder content: () -> some View
+    ) -> some View {
+        if stacksLabels {
+            GridRow {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(key).foregroundStyle(PrintPalette.ink2)
+                    content()
+                }
+                .frame(maxWidth: fills ? .infinity : nil, alignment: .leading)
+                .gridCellUnsizedAxes(fills ? .horizontal : [])
+            }
+        } else {
+            GridRow {
+                Text(key).foregroundStyle(PrintPalette.ink2).gridColumnAlignment(.trailing)
+                // Every setting asks for the measured width, so the column is as wide as the widest setting needs and
+                // the popover's width (taken from the same measure) leaves no room beside it.
+                content()
+                    .frame(
+                        minWidth: fills ? nil : controlWidth, maxWidth: fills ? .infinity : nil, alignment: .leading
+                    )
+                    .gridCellUnsizedAxes(fills ? .horizontal : [])
+            }
+        }
     }
 
     private func heading(_ key: LocalizedStringKey) -> some View {
         Text(key)
             .font(.system(size: 13, weight: .bold))
             .padding(.top, 4)
-            .gridCellColumns(2)
+            .gridCellColumns(stacksLabels ? 1 : 2)
             .gridCellAnchor(.leading)
     }
 
-    private func caption(_ key: LocalizedStringKey) -> some View {
-        // Wraps instead of being cut short: a longer translation must still be readable in full.
-        Text(key).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
-            .fixedSize(horizontal: false, vertical: true)
+    private var seriesBinding: Binding<PaperSeries> {
+        Binding(get: { model.layout.series }, set: { model.choosePaperSeries($0) })
+    }
+
+    /// Named as the print screen's menu names the series ("A Sizes"), so that the two places agree.
+    private func paperSeriesPicker(_ selection: Binding<PaperSeries>) -> some View {
+        Picker("Paper Size Series", selection: selection) {
+            ForEach(PaperSeries.allCases, id: \.self) { Text($0.shortTitle).tag($0) }
+        }
+    }
+
+    private func directionPicker(_ selection: Binding<ViewOptions.Direction>) -> some View {
+        Picker("Reading Direction", selection: selection) {
+            Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
+            Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
+        }
+        .pickerStyle(.menu)
+    }
+
+    /// Copies of the labels and of the widest settings, which decide whether the labels go over the settings and how
+    /// wide the popover is. A menu needs its whole width; a segmented picker shares out what it gets between its
+    /// narrowest and its own width, so it counts at its narrowest.
+    private var measurements: some View {
+        ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Self.labels.indices, id: \.self) { Text(Self.labels[$0]).fixedSize() }
+            }
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: { width in
+                if labelWidth != width { labelWidth = width }
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                directionPicker(.constant(.leftToRight)).fixedSize()
+                NarrowestWidth { BandVisibilityPicker(selection: .constant(.always)).pickerStyle(.segmented) }
+                    .fixedSize()
+                NarrowestWidth { paperSeriesPicker(.constant(.a)).pickerStyle(.segmented) }.fixedSize()
+            }
+            .labelsHidden()
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.width
+            } action: { width in
+                if controlWidth != width { controlWidth = width }
+            }
+        }
+        .hidden()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func option<Value>(_ keyPath: WritableKeyPath<ViewOptions, Value>) -> Binding<Value> {
         model.viewOption(keyPath)
+    }
+}
+
+/// Its one view at the narrowest it goes, as a segmented picker that shares out the width it is given.
+private struct NarrowestWidth: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        subviews.first?.sizeThatFits(ProposedViewSize(width: 0, height: proposal.height)) ?? .zero
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }
 
@@ -143,7 +232,7 @@ struct BandVisibilityPicker: View {
     @Binding var selection: BandVisibility
 
     var body: some View {
-        Picker("Toolbar", selection: $selection) {
+        Picker("Toolbar Visibility", selection: $selection) {
             Text("Always").tag(BandVisibility.always)
             Text("On Hover").tag(BandVisibility.onHover)
         }
@@ -151,22 +240,23 @@ struct BandVisibilityPicker: View {
 }
 
 struct PaperSeriesPicker: View {
-    @Binding var selection: ViewPaperSeries
+    @Bindable var model: DocumentViewModel
 
     var body: some View {
-        Picker("Paper on Screen", selection: $selection) {
-            ForEach(ViewPaperSeries.allCases, id: \.self) { series in
+        Picker("Paper Series", selection: Binding(get: { model.layout.series }, set: { model.choosePaperSeries($0) })) {
+            ForEach(PaperSeries.allCases, id: \.self) { series in
                 Text(series.title).tag(series)
             }
         }
     }
 }
 
-extension ViewPaperSeries {
+extension PaperSeries {
     var title: LocalizedStringKey {
         switch self {
         case .a: "A4 / A3"
         case .b: "B5 / B4"
+        case .letter: "Letter / Tabloid"
         }
     }
 
@@ -174,11 +264,9 @@ extension ViewPaperSeries {
         switch self {
         case .a: String(localized: "A4 / A3")
         case .b: String(localized: "B5 / B4")
+        case .letter: String(localized: "Letter / Tabloid")
         }
     }
-
-    /// The sheet the figures count, without the "(JIS)" the print layouts carry.
-    var sheetName: String { self == .a ? "A4" : "B5" }
 }
 
 extension ViewOptions.Transition {
@@ -280,75 +368,14 @@ struct SpreadGlyph: View {
     }
 }
 
-/// What "Show First Page Alone" makes of the pages, as the first few groups of a five-page document.
-private struct CoverSample: View {
-    let direction: ViewOptions.Direction
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        let units = SpreadLayout.units(pageCount: 5, layout: .spread, showsCoverAlone: true, direction: direction)
-        HStack(spacing: SpreadMap.spacing) {
-            ForEach(Array(units.enumerated()), id: \.offset) { _, unit in
-                SpreadGlyph(unit: unit)
-            }
-            Text(verbatim: "…").foregroundStyle(.secondary)
-        }
-        .opacity(isEnabled ? 1 : 0.4)
-        .accessibilityHidden(true)
-    }
-}
-
-/// A miniature of the current display unit that follows the options as they change.
-private struct SpreadSample: View {
-    let options: ViewOptions
-    let unit: DisplayUnit?
-
-    var body: some View {
-        HStack(spacing: 0) {
-            switch unit ?? (options.layout == .single ? .single(1) : .spread(left: nil, right: 1)) {
-            case .single(let page): MiniPage(number: page)
-            case .spread(let left, let right):
-                MiniPage(number: left)
-                MiniPage(number: right)
-            }
-        }
-        .frame(height: 72)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary.opacity(0.6)))
-        .overlay(alignment: .topLeading) {
-            Text("Sample").font(.system(size: 11)).foregroundStyle(.secondary).padding(8)
-        }
-        .animation(.easeInOut(duration: 0.25), value: options)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: unit?.pageRangeText ?? ""))
-    }
-}
-
-private struct MiniPage: View {
-    let number: Int?
-
-    var body: some View {
-        ZStack {
-            if let number {
-                Rectangle().fill(.white).shadow(color: .black.opacity(0.18), radius: 1.5, y: 0.5)
-                // Four-digit page numbers shrink to stay on the miniature page.
-                Text(verbatim: "\(number)").font(.system(size: 26, weight: .semibold)).foregroundStyle(.black)
-                    .lineLimit(1).minimumScaleFactor(0.4).padding(.horizontal, 4)
-            } else {
-                Rectangle().fill(.clear)
-            }
-        }
-        .aspectRatio(595 / 842, contentMode: .fit)
-    }
-}
-
 /// The display units around the current one as small paper; the current unit is outlined and a click jumps to it. A
 /// lone page is one sheet wide and a facing pair two, whatever the page numbers, so the strip keeps its shape at any
 /// page count; units that do not fit are left out behind an ellipsis.
 struct SpreadMap: View {
     let units: [DisplayUnit]
     let current: Int?
+    /// The most units shown at once; a long row of small pages only repeats the numbers.
+    var limit: Int?
     let onSelect: (DisplayUnit) -> Void
 
     static let spacing: CGFloat = 8
@@ -359,7 +386,8 @@ struct SpreadMap: View {
             let range = SpreadLayout.visibleRange(
                 unitCount: units.count, current: current,
                 capacity: Self.capacity(
-                    unitCount: units.count, width: proxy.size.width, tileWidth: Self.tileWidth(for: units)))
+                    unitCount: units.count, width: proxy.size.width, tileWidth: Self.tileWidth(for: units),
+                    limit: limit))
             HStack(spacing: Self.spacing) {
                 if range.lowerBound > 0 { ellipsis }
                 ForEach(range, id: \.self) { index in
@@ -396,11 +424,12 @@ struct SpreadMap: View {
     }
 
     /// How many tiles fit into `width`; when not all of them do, room is kept for an ellipsis on either side.
-    static func capacity(unitCount: Int, width: CGFloat, tileWidth: CGFloat) -> Int {
+    static func capacity(unitCount: Int, width: CGFloat, tileWidth: CGFloat, limit: Int? = nil) -> Int {
         let slot = tileWidth + spacing
         guard slot > 0, width > 0 else { return 0 }
-        let all = Int((width + spacing) / slot)
+        let all = min(Int((width + spacing) / slot), limit ?? .max)
         guard unitCount > all else { return unitCount }
-        return max(Int((width - 2 * (ellipsisWidth + spacing) + spacing) / slot), 0)
+        let fitting = max(Int((width - 2 * (ellipsisWidth + spacing) + spacing) / slot), 0)
+        return min(fitting, limit ?? .max)
     }
 }

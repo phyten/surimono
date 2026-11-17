@@ -9,7 +9,6 @@ struct PrintTrayView: View {
     let model: DocumentViewModel
     let tray: PrintTray
     let document: PDFDocument
-    @Binding var showsFold: Bool
     /// Where the tray before this one was, and where this one leaves what it shows.
     let memory: TrayMemory
     @State private var zoomer = TrayZoomer()
@@ -52,6 +51,12 @@ struct PrintTrayView: View {
             guard let row, let index = tray.rows.firstIndex(where: { $0.id == row }) else { return }
             go(to: index)
             model.requestedTrayRow = nil
+        }
+        .onChange(of: currentRow, initial: true) { _, row in
+            guard model.binder != nil, tray.rows.indices.contains(row) else { return }
+            let pages = tray.rows[row].sheets.flatMap { $0.sides.flatMap { $0.pages.compactMap { $0 } } }
+            let kept = model.binderTrayPageIndex ?? model.currentPageIndex
+            model.binderTrayPageIndex = pages.contains(kept + 1) ? kept : pages.min().map { $0 - 1 }
         }
         .onChange(of: tray.layout) { _, _ in zoomer.reset() }
     }
@@ -104,7 +109,7 @@ struct PrintTrayView: View {
                             sheet: sheet, layout: tray.layout, metrics: metrics, document: document,
                             language: model.language, notePages: tray.notePages, imageNames: imageNames,
                             // The sheets were drawn with the options of their render.
-                            options: model.renderedSettings?.options ?? model.effectivePrintOptions,
+                            options: model.printTraySettings?.options ?? model.effectivePrintOptions,
                             onHeadingHeight: { height in
                                 if abs(headingHeight - height) > 0.01 { headingHeight = height }
                             })
@@ -133,7 +138,7 @@ struct PrintTrayView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if tray.isBooklet {
                     Button {
-                        showsFold = true
+                        model.showFold()
                     } label: {
                         Label("See It Folded", systemImage: "book")
                             .font(.system(size: 12.5, weight: .semibold))
@@ -146,6 +151,8 @@ struct PrintTrayView: View {
                     }
                     .buttonStyle(.plain)
                     .fixedSize()
+                    // Not on sheets kept on the tray while newer ones are composed.
+                    .disabled(!model.canShowFold)
                     .help("Fold the sheets into a booklet and turn its pages")
                 }
             }
@@ -173,10 +180,9 @@ struct PrintTrayView: View {
         return text
     }
 
-    /// Unreadable images get no page, so they are left out to keep the names in step with the pages.
-    private var imageNames: [String]? {
-        model.imageBundle?.urls.filter { !model.unreadableImageURLs.contains($0) }.map(\.lastPathComponent)
-    }
+    /// Unreadable images get no page, so they are left out to keep the names in step with the pages; both as the
+    /// shown sheets were made, which may be older than the latest reading of the images.
+    private var imageNames: [String]? { model.trayImageNames }
 
     private func go(to index: Int) {
         guard tray.rows.indices.contains(index) else { return }
@@ -305,30 +311,66 @@ private struct TraySideView: View {
 
     private var caption: some View {
         let pages = side.visiblePages
-        let face = PrintModeText.faceLabel(side, language: language)
+        let stacked = layout.hasStackedSlots || layout.kind == .fourUp
+        let stackedText =
+            layout.kind == .handout3 || layout.kind == .fourUp
+            ? PrintModeText.handoutCaption(pages, language: language)
+            : PrintModeText.stackedCaption(pages, language: language)
+        let full = PrintModeText.faceLabel(side, language: language)
+        let short = PrintModeText.faceShortLabel(side, language: language)
+        let fit = TrayCaptionFit(
+            sideWidth: size.width, slotCount: stacked ? 1 : pages.count, faceFull: full.map(Self.tagWidth),
+            faceShort: short.map(Self.tagWidth),
+            firstLabel: stacked ? Self.textWidth(stackedText, size: 12) : firstLabelWidth(pages.first ?? nil),
+            firstIsPage: stacked || pages.first.map { $0 != nil } == true, centered: stacked)
+        let tag: String? =
+            switch fit.face {
+            case .full: full
+            case .short: short
+            case .hidden: nil
+            }
         return ZStack(alignment: .leading) {
-            if layout.hasStackedSlots || layout.kind == .fourUp {
-                Text(
-                    verbatim: layout.kind == .handout3 || layout.kind == .fourUp
-                        ? PrintModeText.handoutCaption(pages, language: language)
-                        : PrintModeText.stackedCaption(pages, language: language)
-                )
-                .font(.system(size: 12)).monospacedDigit().lineLimit(1)
-                .frame(width: size.width)
+            if stacked {
+                Text(verbatim: stackedText)
+                    .font(.system(size: 12)).monospacedDigit().lineLimit(1)
+                    .padding(.horizontal, fit.tagSpace)
+                    .frame(width: size.width)
             } else {
                 HStack(spacing: 0) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { index, page in
                         pageLabel(page, slot: index)
-                            // The first label stays clear of the front and back tag at the left edge.
-                            .padding(.leading, index == 0 && face != nil ? (side.isRotated ? 56 : 28) : 4)
-                            .padding(.trailing, 4)
+                            // The first label stays clear of the front and back tag at the leading edge.
+                            .padding(.leading, index == 0 && tag != nil ? fit.tagSpace : TrayCaptionFit.padding)
+                            .padding(.trailing, TrayCaptionFit.padding)
                             .frame(width: size.width / CGFloat(max(pages.count, 1)))
                     }
                 }
             }
-            if let face { PrintTag(text: face) }
+            if let tag { PrintTag(text: tag) }
         }
         .frame(width: size.width, height: TrayGeometry.captionHeight)
+    }
+
+    /// What the first slot's label takes, measured as the caption draws it.
+    private func firstLabelWidth(_ page: Int?) -> CGFloat {
+        guard let page else {
+            let blank = layout.kind == .booklet && side.documentIndex == 0 ? "Blank (Back Cover)" : "Blank"
+            return Self.textWidth(PrintModeText.string(blank, language: language), size: 11.5)
+        }
+        let key = notePages.contains(page) ? "Page **%lld** · Note" : "Page **%lld**"
+        // The number is drawn bold, a little wider than the measured regular digits.
+        return Self.textWidth(
+            PrintModeText.format(key, language: language, page).replacingOccurrences(of: "**", with: ""), size: 12)
+            + 2
+    }
+
+    private static func textWidth(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular) -> CGFloat {
+        ceil((text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: size, weight: weight)]).width)
+    }
+
+    /// The width of a `PrintTag` of its default font: the text and four points either side.
+    private static func tagWidth(_ text: String) -> CGFloat {
+        textWidth(text, size: 10.5, weight: .semibold) + 8
     }
 
     @ViewBuilder private func pageLabel(_ page: Int?, slot: Int) -> some View {
@@ -442,7 +484,6 @@ private struct TrayNavigator: View {
                 Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
             }
             .disabled(!canZoomIn)
-            .help("Zoom in on the sheets. The printed size does not change.")
             .accessibilityLabel(Text("Zoom In"))
             Button(action: resetZoom) {
                 Text(verbatim: "\(zoomPercent)%").font(.system(size: 10.5)).monospacedDigit()
@@ -456,7 +497,6 @@ private struct TrayNavigator: View {
                 Image(systemName: "minus").font(.system(size: 11, weight: .semibold))
             }
             .disabled(!canZoomOut)
-            .help("Zoom out on the sheets. The printed size does not change.")
             .accessibilityLabel(Text("Zoom Out"))
         }
         .buttonStyle(PrintIconButtonStyle())

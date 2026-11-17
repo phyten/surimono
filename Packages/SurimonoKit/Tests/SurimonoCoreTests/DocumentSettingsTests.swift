@@ -4,6 +4,17 @@ import SurimonoCore
 import Testing
 
 struct DocumentSettingsTests {
+    @Test("古い表示用の判を無視し、印刷レイアウトを保って再保存では判を除く")
+    func ignoresLegacyViewPaperSeries() throws {
+        let data = Data(#"{"layoutID":"a4BookletA5","paperSeries":"b"}"#.utf8)
+        let settings = try JSONDecoder().decode(DocumentSettings.self, from: data)
+        #expect(settings.layoutID == "a4BookletA5")
+        let encoded = try JSONEncoder().encode(settings)
+        let fields = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(fields["paperSeries"] == nil)
+        #expect(fields["layoutID"] as? String == "a4BookletA5")
+    }
+
     @Test("すべての項目を JSON に書いて読み戻せる")
     func roundTrip() throws {
         let settings = DocumentSettings(

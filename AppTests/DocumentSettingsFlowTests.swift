@@ -53,6 +53,199 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("文書の指示は既定値とセットに重なり保存や最近使った記録を作らない", .timeLimit(.minutes(1)))
+    func documentDirectivesDefaults() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        var options = PrintOptions()
+        options.margins = .uniform(7)
+        fixture.preferences.savePrintSettingSet(
+            PrintSettingSet(
+                name: "配布用",
+                settings: DocumentSettings(
+                    layoutID: PrintLayout.a4Single.id, textScale: 1.5, printOptions: options,
+                    paperOrientation: .portrait)))
+        let source = Data(
+            "---\nsurimono:\n  set: 配布用\n  layout: A4BOOKLETA5\n  orientation: landscape\n  margins: 15mm\n  text-size: 115%\n---\n# Test"
+                .utf8)
+        let pageData = pdf("Test", pages: 1)
+        let model = DocumentViewModel(
+            data: source, fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.layoutID == "a4BookletA5")
+        #expect(model.paperOrientation == .landscape)
+        #expect(model.printOptions.margins == .uniform(15))
+        #expect(model.textScale == 1.15)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+        #expect(fixture.preferences.recentThemeIDs.isEmpty)
+        model.setTextScale(1.75)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(model.hasSavedSettings)
+        model.resetDocumentSettings()
+        #expect(model.textScale == 1.15)
+        #expect(fixture.store.keys().isEmpty)
+    }
+
+    @Test("以前に 112.6% で保存したセットを前付けで当てた文書は、セットと一致し記録を作らない", .timeLimit(.minutes(1)))
+    func oldFractionalSetThroughFrontMatter() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        fixture.preferences.savePrintSettingSet(
+            PrintSettingSet(name: "Old", settings: DocumentSettings(textScale: 1.126)))
+        let pageData = pdf("Old", pages: 1)
+        let model = DocumentViewModel(
+            data: Data("---\nsurimono:\n  set: Old\n---\n# Old set".utf8), fileURL: nil, format: .markdown,
+            preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.textScale == 1.13)
+        #expect(model.activeSettingSet?.name == "Old")
+        #expect(!model.isSettingSetChanged)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+    }
+
+    @Test("既定の 12.5 mm と 113% で開いた文書は、何も変えなければ保存しない", .timeLimit(.minutes(1)))
+    func fineDefaultsAreNotAChange() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        fixture.preferences.margin = 12.5
+        fixture.preferences.defaultTextScale = 1.13
+        let pageData = pdf("Fine", pages: 1)
+        let model = DocumentViewModel(
+            data: Data("# Fine".utf8), fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.printOptions.margins == .uniform(12.5))
+        #expect(model.textScale == 1.13)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+    }
+
+    @Test("文書に覚えた 12.5 mm と 113% は開き直しても同じ値で、戻すと既定に戻る", .timeLimit(.minutes(1)))
+    func fineSettingsRoundTrip() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let source = Data("# Fine record".utf8)
+        let pageData = pdf("Fine", pages: 1)
+        func open() async throws -> DocumentViewModel {
+            let model = DocumentViewModel(
+                data: source, fileURL: nil, format: .markdown, preferences: fixture.preferences,
+                library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+                settingsStore: fixture.store)
+            try await self.open(model)
+            return model
+        }
+        let first = try await open()
+        first.setMargins(12.5)
+        first.setTextScale(1.13)
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        first.stop()
+        let record = try #require(fixture.store.record(for: ContentHash.of(source).hex))
+        #expect(record.textScale == 1.13)
+        #expect(record.printOptions?.margins == .uniform(12.5))
+
+        let second = try await open()
+        defer { second.stop() }
+        #expect(second.printOptions.margins == .uniform(12.5))
+        #expect(second.textScale == 1.13)
+        #expect(second.hasSavedSettings)
+        second.resetDocumentSettings()
+        #expect(second.printOptions.margins == .uniform(15))
+        #expect(second.textScale == 1)
+    }
+
+    @Test("文字の大きさは 1% 刻みのどの値も選べ、大きく・小さくは次の段階へ進む", .timeLimit(.minutes(1)))
+    func textScaleBetweenSteps() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data("# Steps".utf8), fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, settingsStore: fixture.store)
+        defer { model.stop() }
+        model.setTextScale(1.13)
+        #expect(model.textScale == 1.13)
+        model.increaseTextSize()
+        #expect(model.textScale == 1.25)
+        model.setTextScale(1.13)
+        model.decreaseTextSize()
+        #expect(model.textScale == 1.1)
+        model.setTextScale(1.126)
+        #expect(model.textScale == 1.13)
+        model.setTextScale(2.5)
+        #expect(model.textScale == 1.13)
+    }
+
+    @Test("保存済み設定は指示に優先し再読み込みでも利用者の変更を守る", .timeLimit(.minutes(1)))
+    func documentDirectivesSaved() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let source = Data("---\nsurimono:\n  text-size: 115%\n---\n# Test".utf8)
+        try fixture.store.save(DocumentSettings(textScale: 1.75), for: ContentHash.of(source).hex)
+        let pageData = pdf("Test", pages: 1)
+        let model = DocumentViewModel(
+            data: source, fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.textScale == 1.75)
+        model.replaceContent(Data("---\nsurimono:\n  text-size: 90%\n---\n# Changed".utf8), format: .markdown)
+        #expect(model.textScale == 1.75)
+    }
+
+    @Test("操作していない文書だけ変更された指示を適用する", .timeLimit(.minutes(1)))
+    func documentDirectivesReload() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let pageData = pdf("Test", pages: 1)
+        let model = DocumentViewModel(
+            data: Data("---\nsurimono:\n  text-size: 115%\n---\n# Test".utf8),
+            fileURL: nil, format: .markdown, preferences: fixture.preferences,
+            library: fixture.library, renderer: DocumentRenderer(paginate: { _ in PDFDocument(data: pageData)! }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        model.replaceContent(Data("---\nsurimono:\n  text-size: 90%\n---\n# Changed".utf8), format: .markdown)
+        #expect(model.textScale == 0.9)
+        try await waitUntil { !model.isRendering }
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+        model.setTextScale(1.5)
+        model.replaceContent(Data("---\nsurimono:\n  text-size: 80%\n---\n# Changed again".utf8), format: .markdown)
+        #expect(model.textScale == 1.5)
+    }
+
+    @Test("文書のスタイル指定はIDと英語名と日本語名を受け取り未知の値は飛ばす", arguments: ["ACADEMIC", "Academic", "論文"])
+    func documentDirectiveStyle(_ style: String) throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data("---\nsurimono:\n  style: \(style)\n  layout: unknown\n  set: absent\n---\n# Test".utf8),
+            fileURL: nil, format: .markdown, preferences: fixture.preferences, library: fixture.library,
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        model.resetDocumentSettings()
+        #expect(model.themeID == "academic")
+        #expect(model.layoutID == fixture.preferences.layoutID)
+        #expect(fixture.preferences.recentThemeIDs.isEmpty)
+        #expect(fixture.store.keys().isEmpty)
+    }
+
     @Test("文字サイズと用紙の向きの既定値は開くだけでは保存せず文書の操作を優先する", .timeLimit(.minutes(1)))
     func textAndOrientationDefaults() async throws {
         let environment = try environment()
@@ -118,7 +311,7 @@ struct DocumentSettingsFlowTests {
         let unit = try #require(model.paperUnitSize)
         let paper = ViewerWindow.initialPaperSize(unit: unit, on: window.screen)
         let content = window.contentRect(forFrameRect: window.frame).size
-        #expect(abs(content.height - paper.height - 2 * ViewerWindow.bandHeight) <= 1)
+        #expect(abs(content.height - paper.height - BandRoom.full(for: .split).total) <= 1)
         #expect(abs(content.width - paper.width) <= 1)
         environment.preferences.defaultAlwaysOnTop = false
         environment.preferences.defaultBandVisibility = .onHover
@@ -146,13 +339,15 @@ struct DocumentSettingsFlowTests {
         #expect(model.showsNarrowCover)
         func paperRatio() -> CGFloat {
             let content = window.contentRect(forFrameRect: window.frame).size
-            return content.width / (content.height - 2 * ViewerWindow.bandHeight)
+            return content.width / (content.height - BandRoom.full(for: .split).total)
         }
         let page: CGFloat = 595.0 / 842.0
         #expect(abs(paperRatio() - page) < 0.02)
         // Leave room on the left: a window at the edge of the screen is kept on it rather than at its right edge.
+        // The window goes to the right edge of the screen, which leaves all the room there is: from the middle, a
+        // small screen (some CI runners') had less than a page's width to the left, and the right edge moved.
         let visible = try #require(window.screen?.visibleFrame)
-        window.setFrameTopLeftPoint(NSPoint(x: visible.midX, y: window.frame.maxY))
+        window.setFrameTopLeftPoint(NSPoint(x: visible.maxX - window.frame.width, y: window.frame.maxY))
         let rightEdge = window.frame.maxX
 
         // Turn the paper itself, so that PDFKit's page change and the window's reaction to it are what move.
@@ -283,8 +478,8 @@ struct DocumentSettingsFlowTests {
         #expect(environment.store.keys().isEmpty)
     }
 
-    @Test("冊子を覚えた文書を開き直しても表示は A4 片面で、刷り台には冊子を復元する", .timeLimit(.minutes(1)))
-    func rememberedBookletOnlyAffectsPrinting() async throws {
+    @Test("冊子を覚えた文書を開き直すと、表示も刷り台も冊子のページで組む", .timeLimit(.minutes(1)))
+    func rememberedBookletShowsOnScreenToo() async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
         let data = pdf("Remembered booklet")
@@ -299,13 +494,15 @@ struct DocumentSettingsFlowTests {
         try await open(reopened)
         #expect(reopened.mode == .view)
         #expect(reopened.layoutID == "a4BookletA5")
-        #expect(reopened.renderedSettings?.layout == .a4Single)
-        #expect(reopened.renderSettings?.layout == .a4Single)
+        #expect(reopened.renderSettings?.layout == .a4BookletA5)
+        // The first pages are laid out before the record is read; DocumentContent lays them out again for the
+        // restored settings, which this test does in its place.
+        reopened.renderForChangedSettings()
+        try await waitUntil { !reopened.isRendering }
+        #expect(reopened.renderedSettings?.layout == .a4BookletA5)
+        // The tray composes the same pages, so it can print without another render.
         reopened.enterPrintMode()
         #expect(reopened.renderSettings?.layout == .a4BookletA5)
-        #expect(!reopened.canOutput)
-        reopened.render()
-        try await waitUntil { !reopened.isRendering }
         #expect(reopened.canOutput)
         #expect(reopened.printResult?.layout == .a4BookletA5)
     }
@@ -422,32 +619,6 @@ struct DocumentSettingsFlowTests {
         reopened.rememberedSettingsDidChange()
         reopened.stop()
         #expect(environment.store.keys().isEmpty)
-    }
-
-    @Test("文字倍率の等号ショートカットはOptionとCommandの組だけを扱う")
-    func textSizeKeyboardAlias() throws {
-        let environment = try environment()
-        defer { environment.cleanUp() }
-        let model = DocumentViewModel(
-            data: Data(), fileURL: nil, format: .markdown, preferences: environment.preferences,
-            library: environment.library, settingsStore: environment.store)
-        func event(_ flags: NSEvent.ModifierFlags, key: String = "=") throws -> NSEvent {
-            try #require(
-                NSEvent.keyEvent(
-                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
-                    context: nil, characters: key, charactersIgnoringModifiers: key, isARepeat: false, keyCode: 24))
-        }
-        #expect(model.handleTextSizeKey(try event([.option, .command])))
-        #expect(model.textScale == 1.1)
-        #expect(!model.handleTextSizeKey(try event(.command)))
-        #expect(!model.handleTextSizeKey(try event([.option, .command, .control])))
-        #expect(!model.handleTextSizeKey(try event([.option, .command], key: "x")))
-        #expect(model.textScale == 1.1)
-        model.mode = .print
-        #expect(model.handleTextSizeKey(try event([.option, .command])))
-        #expect(model.textScale == 1.25)
-        model.setTextScale(.infinity)
-        #expect(model.textScale == 1.25)
     }
 
     @Test("テーマのない文書では文字の大きさの操作を無視する", .timeLimit(.minutes(1)))

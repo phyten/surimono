@@ -92,6 +92,7 @@ enum MarkdownExtensions {
         var lines: [Bool]
         /// UTF-8 offsets within each line.
         var spans: [Int: [Range<Int>]] = [:]
+        var paragraphEnds: [Int: Int] = [:]
 
         /// Whether the line's first character is left as written.
         func protectsStart(of line: Int) -> Bool {
@@ -110,6 +111,11 @@ enum MarkdownExtensions {
             guard let range = node.range else {
                 for child in node.children { visit(child) }
                 return
+            }
+            if node is Paragraph {
+                let start = max(range.lowerBound.line - 1, 0)
+                let end = min(range.upperBound.line, lines.count)
+                for index in start..<end { result.paragraphEnds[index] = end }
             }
             if node is CodeBlock || node is HTMLBlock {
                 let start = max(range.lowerBound.line - 1, 0)
@@ -280,11 +286,15 @@ enum MarkdownExtensions {
 
     /// Rewrites the inline syntax of every line outside code and HTML blocks. The title on a `:::` line is plain text
     /// (`MarkdownCallouts` escapes it), so the line is left as written.
-    static func rewriteInline(_ lines: [String], footnotes: Footnotes, formulas: Formulas) -> [String] {
-        rewriteInline(MarkdownSourceLines.unmapped(lines), footnotes: footnotes, formulas: formulas).lines
+    static func rewriteInline(_ lines: [String], footnotes: Footnotes, formulas: Formulas, proof: ProofMarks = .shown)
+        -> [String]
+    {
+        rewriteInline(MarkdownSourceLines.unmapped(lines), footnotes: footnotes, formulas: formulas, proof: proof).lines
     }
 
-    static func rewriteInline(_ source: MarkdownSourceLines, footnotes: Footnotes, formulas: Formulas)
+    static func rewriteInline(
+        _ source: MarkdownSourceLines, footnotes: Footnotes, formulas: Formulas, proof: ProofMarks = .shown
+    )
         -> MarkdownSourceLines
     {
         let lines = source.lines
@@ -299,6 +309,18 @@ enum MarkdownExtensions {
             if protection.lines[index] || line.drop(while: { $0 == " " }).hasPrefix(":::") {
                 output.append(line, from: source.origins[index])
                 index += 1
+                continue
+            }
+            if let end = protection.paragraphEnds[index], end > index + 1, line.contains("{"),
+                let joined = multilineProof(lines, start: index, end: end, protection: protection)
+            {
+                let rewritten = rewriteInline(joined.text, footnotes, formulas, proof)
+                let pieces = rewritten.components(separatedBy: "\n")
+                let origins = source.origins[index..<end].reduce(into: Set<Int>()) { $0.formUnion($1) }
+                for (offset, piece) in pieces.enumerated() {
+                    output.append((offset == 0 ? joined.firstPrefix : joined.continuation) + piece, from: origins)
+                }
+                index = end
                 continue
             }
             if protection.spans[index] == nil {
@@ -316,7 +338,7 @@ enum MarkdownExtensions {
             }
             index += 1
             guard let spans = protection.spans[index - 1] else {
-                output.append(rewriteInline(line, footnotes, formulas), from: source.origins[index - 1])
+                output.append(rewriteInline(line, footnotes, formulas, proof), from: source.origins[index - 1])
                 continue
             }
             let bytes = Array(line.utf8)
@@ -324,14 +346,49 @@ enum MarkdownExtensions {
             var rewritten = ""
             var cursor = 0
             for span in spans.sorted(by: { $0.lowerBound < $1.lowerBound }) where span.lowerBound >= cursor {
-                rewritten += rewriteInline(text(cursor..<span.lowerBound), footnotes, formulas) + text(span)
+                rewritten += rewriteInline(text(cursor..<span.lowerBound), footnotes, formulas, proof) + text(span)
                 cursor = span.upperBound
             }
             output.append(
-                rewritten + rewriteInline(text(cursor..<bytes.count), footnotes, formulas),
+                rewritten + rewriteInline(text(cursor..<bytes.count), footnotes, formulas, proof),
                 from: source.origins[index - 1])
         }
         return output
+    }
+
+    /// Only join soft lines of one AST paragraph. Container markers are structural, not revision text.
+    private static func multilineProof(_ lines: [String], start: Int, end: Int, protection: Protection)
+        -> (text: String, firstPrefix: String, continuation: String)?
+    {
+        guard (start..<end).allSatisfy({ !protection.lines[$0] && protection.spans[$0] == nil }),
+            let regex = inlinePattern
+        else { return nil }
+        let first = lines[start]
+        let prefixEnd =
+            containerPrefix?.firstMatch(in: first, range: NSRange(first.startIndex..., in: first))
+            .flatMap { Range($0.range, in: first)?.upperBound } ?? first.startIndex
+        let prefix = String(first[..<prefixEnd])
+        let nesting = containers(of: prefix)
+        var parts = [String(first[prefixEnd...])]
+        var continuation = ""
+        for index in (start + 1)..<end {
+            guard let body = content(of: lines[index], in: nesting) else { return nil }
+            let trimmed = body.trimmingCharacters(in: .whitespaces)
+            // Display math still goes through its dedicated block reader.
+            guard !trimmed.hasPrefix("$$"), !trimmed.hasPrefix("\\[") else { return nil }
+            if index == start + 1 { continuation = String(lines[index].dropLast(body.count)) }
+            parts.append(String(body))
+        }
+        let text = parts.joined(separator: "\n")
+        let nsText = text as NSString
+        let crossesLine = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length)).contains {
+            match in
+            ["criticAdd", "criticDelete", "criticOld", "criticNew", "criticMark", "criticComment"].contains {
+                let range = match.range(withName: $0)
+                return range.location != NSNotFound && nsText.substring(with: range).contains("\n")
+            }
+        }
+        return crossesLine ? (text, prefix, continuation) : nil
     }
 
     private struct DisplayBlock {
@@ -519,6 +576,12 @@ enum MarkdownExtensions {
             #"(?:https?://|www\.)[^\s<]+"#,  // a bare URL
         ].joined(separator: "|")
         let syntax = [
+            #"\{\+\+(?<criticAdd>(?s:.*?))\+\+\}"#,
+            #"\{--(?<criticDelete>(?s:.*?))--\}"#,
+            #"\{~~(?<criticOld>(?s:.*?))~>(?<criticNew>(?s:.*?))~~\}"#,
+            #"\{==(?<criticMark>(?s:.*?))==\}"#,
+            #"\{>>(?<criticComment>(?s:.*?))<<\}"#,
+            #"(?<criticUnclosed>\{(?:\+\+|--|~~|==|>>))"#,
             #"\[\^(?<footnote>[^\]\s]+)\]"#,
             #"\{(?<rubyBase>[^{}|\n]+)\|(?<rubyText>[^{}\n]+)\}"#,
             #"(?<![=\\])==(?=[^\s=])(?<mark>.+?)(?<=[^\s\\])==(?!=)"#,
@@ -528,7 +591,29 @@ enum MarkdownExtensions {
         return try? NSRegularExpression(pattern: "\(math)|(?<verbatim>\(verbatim))|\(syntax)")
     }()
 
-    private static func rewriteInline(_ text: String, _ footnotes: Footnotes, _ formulas: Formulas) -> String {
+    /// A tag alone on the first line of a paragraph would open an HTML block, and the Markdown inside would print as
+    /// written. White space with a line break at an edge of the marked text therefore goes outside the element, up
+    /// to and with the break: the words around it stay apart, and two spaces before the break remain a hard break.
+    /// What follows the break is dropped, since four spaces at the start of a paragraph would make it code. Spaces
+    /// on the same line stay inside.
+    private static func criticElement(_ name: String, _ body: String) -> String {
+        let text = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return body }
+        func edge(_ space: String) -> (outside: String, inside: String) {
+            guard let line = space.firstIndex(where: \.isNewline) else { return ("", space) }
+            return (String(space[...line]), "")
+        }
+        let leading = edge(String(body.prefix { $0.isWhitespace }))
+        // After the element the indent stays: without it a `#` that follows would become a heading.
+        let tail = String(body.reversed().prefix { $0.isWhitespace }.reversed())
+        let trailing = tail.contains(where: \.isNewline) ? (outside: tail, inside: "") : (outside: "", inside: tail)
+        return leading.outside + "<\(name) class=\"critic\">" + leading.inside + text + trailing.inside
+            + "</\(name)>" + trailing.outside
+    }
+
+    private static func rewriteInline(_ text: String, _ footnotes: Footnotes, _ formulas: Formulas, _ proof: ProofMarks)
+        -> String
+    {
         guard let regex = inlinePattern, text.contains(where: { "[{=^~$\\".contains($0) }) else { return text }
         let nsText = text as NSString
         var output = ""
@@ -547,12 +632,42 @@ enum MarkdownExtensions {
                 output += formulas.token(latex, display: false, source: whole)
             } else if capture("verbatim") != nil {
                 output += whole
+            } else if capture("criticUnclosed") != nil {
+                output += whole.unicodeScalars.map { "&#\($0.value);" }.joined()
+            } else if let comment = capture("criticComment") {
+                if proof == .shown {
+                    // Numeric entities keep Markdown punctuation inert while retaining literal comment text.
+                    let escaped = comment.unicodeScalars.map { "&#\($0.value);" }.joined()
+                    output += "<span class=\"critic-comment\">" + escaped + "</span>"
+                }
+            } else if let added = capture("criticAdd") {
+                if proof != .original {
+                    let body = rewriteInline(added, footnotes, formulas, proof)
+                    output += proof == .shown ? criticElement("ins", body) : body
+                }
+            } else if let deleted = capture("criticDelete") {
+                if proof != .accepted {
+                    let body = rewriteInline(deleted, footnotes, formulas, proof)
+                    output += proof == .shown ? criticElement("del", body) : body
+                }
+            } else if let old = capture("criticOld"), let new = capture("criticNew") {
+                if proof != .accepted {
+                    let body = rewriteInline(old, footnotes, formulas, proof)
+                    output += proof == .shown ? criticElement("del", body) : body
+                }
+                if proof != .original {
+                    let body = rewriteInline(new, footnotes, formulas, proof)
+                    output += proof == .shown ? criticElement("ins", body) : body
+                }
+            } else if let marked = capture("criticMark") {
+                let body = rewriteInline(marked, footnotes, formulas, proof)
+                output += proof == .shown ? criticElement("mark", body) : body
             } else if let label = capture("footnote") {
                 output += footnotes.reference(to: label) ?? whole
             } else if let base = capture("rubyBase"), let reading = capture("rubyText") {
                 output += ruby(base: base, reading: reading)
             } else if let content = capture("mark") {
-                output += "<mark>" + rewriteInline(content, footnotes, formulas) + "</mark>"
+                output += "<mark>" + rewriteInline(content, footnotes, formulas, proof) + "</mark>"
             } else if let content = capture("sup") {
                 output += "<sup>" + content + "</sup>"
             } else if let content = capture("sub") {
@@ -632,13 +747,16 @@ enum MarkdownExtensions {
         default:
             // A footnote reference's number is markup of its own, not part of the text around it.
             var insideReference = false
+            var insideComment = false
             return node.children.map { child -> String in
                 if let html = child as? InlineHTML {
                     if html.rawHTML.hasPrefix("<sup class=\"footnote-ref\"") { insideReference = true }
                     if html.rawHTML == "</sup>" { insideReference = false }
+                    if html.rawHTML == "<span class=\"critic-comment\">" { insideComment = true }
+                    if html.rawHTML == "</span>" { insideComment = false }
                     return ""
                 }
-                return insideReference ? "" : plainText(child, formulas: formulas)
+                return insideReference || insideComment ? "" : plainText(child, formulas: formulas)
             }.joined()
         }
     }

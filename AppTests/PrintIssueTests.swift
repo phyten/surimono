@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PDFKit
 import SurimonoCore
@@ -69,7 +70,92 @@ struct PrintIssueTests {
         #expect(model.toast == nil)
     }
 
-    @Test("冊子からは表示の組版を待ち同じ問題のページへ移り、消えた問題は位置を近似する", .timeLimit(.minutes(1)), arguments: [true, false])
+    @Test("冊子の問題は表示へ戻っても同じページを示し、組版し直さない", .timeLimit(.minutes(1)))
+    func bookletUsesSamePages() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            WebPaginator.Result(
+                document: try #require(PDFDocument(data: TestFixtures.pdf("Body", pages: 12))),
+                preparationResult:
+                    #"{"previous":null,"issues":[{"id":"0","kind":"math","detail":"x","pageNumber":9}]}"#)
+        })
+        let model = DocumentViewModel(
+            data: Data("Body".utf8), fileURL: nil, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer { model.stop() }
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.enterPrintMode()
+        model.render()
+        try await waitUntil { model.isUpToDate }
+        let pages = try #require(model.result?.logicalDocument)
+        model.showPrintIssue(try #require(model.printIssues.first))
+        #expect(model.mode == .view)
+        #expect(model.currentPageIndex == 8)
+        #expect(model.isUpToDate)
+        #expect(model.result?.logicalDocument === pages)
+        #expect(renderer.logicalRenderCount == 1)
+    }
+
+    @Test("開いて刷った折りたたみの後ろの問題は、表示へ戻って閉じたまま組み直してから同じ問題へ移る", .timeLimit(.minutes(1)))
+    func openedDetailsIssueWaitsForClosedPages() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = directory.appendingPathComponent("page.html")
+        let data = Data("<p>File</p>".utf8)
+        try data.write(to: file)
+        // The opened details push the problem further back: page 9 when opened, page 3 when closed.
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            let opened = request.preparationScript?.contains(HTMLSnapshotScript.openDetailsJavaScript) == true
+            let issues = [
+                PrintIssue(id: "0", kind: .math, detail: "x", pageNumber: opened ? 9 : 3, locationKey: "math:x:0")
+            ]
+            let json = String(decoding: try JSONEncoder().encode(issues), as: UTF8.self)
+            return WebPaginator.Result(
+                document: try #require(PDFDocument(data: TestFixtures.pdf("Body", pages: opened ? 12 : 4))),
+                preparationResult: "{\"previous\":null,\"issues\":\(json)}")
+        })
+        let model = DocumentViewModel(
+            data: data, fileURL: file, format: .html, preferences: AppPreferences(defaults: suite.defaults),
+            library: UserLibrary(root: directory.appendingPathComponent("Library")), renderer: renderer)
+        defer { model.stop() }
+        model.snapshotSource = {
+            .captured(HTMLSnapshot(html: "<details><summary>Q</summary>A</details><p>x</p>", closedDetailsCount: 1))
+        }
+        // The live page is copied for the paper only in a window.
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 600, height: 848),
+            styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        model.window = window
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.start()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.setHTMLPresentation(.paper)
+        try await waitUntil { model.rendersSnapshot && !model.isCapturingWeb && model.isUpToDate }
+        model.enterPrintMode()
+        #expect(model.mode == .print)
+        model.setOpensClosedDetails(true)
+        model.render()
+        try await waitUntil { model.isUpToDate && model.canOutput }
+        let issue = try #require(model.printIssues.first)
+        #expect(issue.pageNumber == 9)
+
+        model.showPrintIssue(issue)
+        #expect(model.mode == .view)
+        #expect(!model.opensClosedDetails)
+        try await waitUntil { model.isUpToDate && model.result?.logicalDocument.pageCount == 4 }
+        #expect(model.currentPageIndex == 2)
+    }
+
+    @Test("問題の検出後にレイアウトを変えたら組版を待ち、同じ問題へ移るか位置を近似する", .timeLimit(.minutes(1)), arguments: [true, false])
     func bookletDestination(hasMatchingIssue: Bool) async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -108,6 +194,7 @@ struct PrintIssueTests {
         model.render()
         try await waitUntil { model.isUpToDate }
         let issue = try #require(model.printIssues.first)
+        model.layoutID = PrintLayout.a4Single.id
         model.showPrintIssue(issue)
         try await waitUntil { gate.viewRequested }
         #expect(model.mode == .view)
@@ -118,12 +205,14 @@ struct PrintIssueTests {
         #expect(model.currentPageIndex == (hasMatchingIssue ? 1 : 4))
     }
 
-    private func waitUntil(_ condition: () -> Bool) async throws {
+    private func waitUntil(
+        _ condition: () -> Bool, sourceLocation: SourceLocation = #_sourceLocation
+    ) async throws {
         for _ in 0..<500 {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(10))
         }
-        try #require(condition())
+        try #require(condition(), sourceLocation: sourceLocation)
     }
 
     @Test("問題の見出しと直し方と件数を日本語で組み立てる")
@@ -248,7 +337,7 @@ struct PrintIssueTests {
         #expect(asked == 3)
     }
 
-    @Test("冊子からの確認は、表示の組版で同じ問題が見つかったときだけ、その印へ枠を出す", .timeLimit(.minutes(1)), arguments: [true, false])
+    @Test("問題の検出後にレイアウトを変えたら、同じ問題が再び見つかったときだけ枠を出す", .timeLimit(.minutes(1)), arguments: [true, false])
     func framesTheSameProblemFoundAgain(hasMatchingIssue: Bool) async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
@@ -291,6 +380,7 @@ struct PrintIssueTests {
         model.enterPrintMode()
         model.render()
         try await waitUntil { model.isUpToDate }
+        model.layoutID = PrintLayout.a4Single.id
         model.showPrintIssue(try #require(model.printIssues.first))
         try await waitUntil { model.mode == .view && model.isUpToDate }
         try await Task.sleep(for: .milliseconds(500))

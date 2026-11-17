@@ -30,7 +30,7 @@ struct PrintSourceNotes: View {
                             text: String(
                                 format: String(localized: "Printing %lld closed details opened"),
                                 model.closedDetailsCount),
-                            action: "Keep Them Closed", help: "Print the details closed, as on the web page"
+                            action: "Keep Them Closed", help: nil
                         ) { model.setOpensClosedDetails(false) }
                     } else {
                         row(
@@ -73,13 +73,12 @@ struct PrintSourceNotes: View {
             .labelsHidden()
             .controlSize(.small)
             .fixedSize()
-            .help("Print every slide on its own page, or only the slide shown on the web")
             Spacer(minLength: 0)
         }
     }
 
     private func row(
-        systemImage: String, text: String, action: LocalizedStringKey, help: LocalizedStringKey,
+        systemImage: String, text: String, action: LocalizedStringKey, help: LocalizedStringKey?,
         perform: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 8) {
@@ -96,7 +95,7 @@ struct PrintSourceNotes: View {
             }
             .buttonStyle(PrintBorderedButtonStyle(height: 24))
             .fixedSize()
-            .help(help)
+            .help(help ?? "")
             Spacer(minLength: 0)
         }
     }

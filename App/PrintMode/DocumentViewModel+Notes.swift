@@ -29,7 +29,7 @@ extension DocumentViewModel {
 
     /// The first page of a booklet is a note page: its cover comes out ruled.
     var coverIsNotePage: Bool {
-        guard hasCurrentPrintPreview, let result = printResult else { return false }
+        guard let result = shownSheets else { return false }
         // With a range, the cover is the first of the pages that print.
         let cover = result.pageSelection.pages?.first ?? 0
         return result.layout.kind == .booklet && result.notePages.contains(cover)

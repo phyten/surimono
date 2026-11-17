@@ -1,10 +1,51 @@
 import AppKit
+import SurimonoCore
+import SwiftUI
 
-/// Window handling for the borderless view mode: the title bar is hidden, room for the bands is kept beside the paper,
-/// and the traffic lights appear together with the bands.
+/// The room the bands take above and below the paper.
+struct BandRoom: Equatable {
+    var top: CGFloat = 0
+    var bottom: CGFloat = 0
+
+    var total: CGFloat { top + bottom }
+
+    /// The room of every band of the arrangement. The top band is as tall as `top`: the title band's height in a
+    /// window, the plain band's in full screen.
+    static func full(for arrangement: MenuArrangement, top: CGFloat = ViewerWindow.titleBandHeight) -> BandRoom {
+        BandRoom(top: top, bottom: arrangement == .split ? ViewerWindow.bandHeight : 0)
+    }
+}
+
+/// Window handling for the borderless view mode: the title bar is hidden, room for the bands is kept beside the paper
+/// while they show, and the traffic lights appear together with the bands.
 enum ViewerWindow {
-    /// The room of one band. It is kept whether or not the band shows, so showing it never resizes the window.
+    /// The room of the band under the paper, and of the top band where the window shows no traffic lights (full
+    /// screen).
     static let bandHeight: CGFloat = 38
+    /// Below this the band's controls would have too little room above and below them.
+    static let minimumTitleBandHeight: CGFloat = 30
+    /// The room of the top band beside the paper in a window: twice the traffic lights' centre, so that its parts are
+    /// in the middle of the band and on the lights' line at once. AppKit centres the lights in a title bar whose height
+    /// depends on the macOS version (32pt on macOS 26, 28pt before), and the window is sized before any window of the
+    /// document could be measured; so it is read once from a window like the view mode's that is never shown.
+    static let titleBandHeight = titleBandHeight(lightsCenter: probedLightsCenter())
+    /// The band's controls take the small size where the title band is too low for the regular one with room to spare.
+    static var bandControlSize: ControlSize { titleBandHeight < 32 ? .small : .regular }
+
+    static func titleBandHeight(lightsCenter: CGFloat?) -> CGFloat {
+        guard let lightsCenter else { return bandHeight }
+        return max(minimumTitleBandHeight, (2 * lightsCenter).rounded())
+    }
+
+    private static func probedLightsCenter() -> CGFloat? {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        configure(window)
+        defer { window.close() }
+        return TrafficLights(window: window)?.centerY
+    }
     private static let minimumPaperHeight: CGFloat = 280
     /// Animated frame changes post live-resize notifications; these windows are being resized by the app itself.
     private static let resizingWindows = NSHashTable<NSWindow>.weakObjects()
@@ -37,30 +78,21 @@ enum ViewerWindow {
         }
     }
 
-    static func setStageFrame(_ frame: NSRect, of window: NSWindow, completion: (() -> Void)? = nil) {
-        guard frame != window.frame else {
-            completion?()
-            return
+    /// A stage takes its frame in one step, in the same update as the mode that comes with it. An animated frame laid
+    /// the tray or the paper out again on every step (a dozen to twenty times per switch), the press bar changed from
+    /// stacked to side by side halfway through, and leaving the tray only showed the paper after the animation.
+    ///
+    /// `display: false` leaves the drawing to the window's next update, for a frame the completion may still change.
+    static func setStageFrame(
+        _ frame: NSRect, of window: NSWindow, display: Bool = true, completion: (() -> Void)? = nil
+    ) {
+        if frame != window.frame {
+            resizingWindows.add(window)
+            window.setFrame(frame, display: display)
+            resizingWindows.remove(window)
         }
-        guard window.isVisible, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
-            setFrame(frame, of: window, animate: false)
-            completion?()
-            return
-        }
-        // The live-resize notification can arrive after the animation's completion handler.
-        markResizing(window, for: 0.55)
-        let id = UUID()
-        if let completion { pendingStageCompletions[id] = completion }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.3
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.2, 1)
-            window.animator().setFrame(frame, display: true)
-        } completionHandler: {
-            MainActor.assumeIsolated { pendingStageCompletions.removeValue(forKey: id)?() }
-        }
+        completion?()
     }
-
-    private static var pendingStageCompletions: [UUID: () -> Void] = [:]
 
     static func configure(_ window: NSWindow) {
         // Setting a property notifies its KVO observers even when the value stays the same, and SwiftUI observes some
@@ -70,6 +102,12 @@ enum ViewerWindow {
         if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
         if window.isMovableByWindowBackground { window.isMovableByWindowBackground = false }
         if window.tabbingMode != .disallowed { window.tabbingMode = .disallowed }
+        // AppKit decides on its own whether a window can go full screen, and the stages' free resizing (resize
+        // increments in place of the paper's aspect ratio) made it say no: the green button and Enter Full Screen came
+        // and went with the mode. Saying so keeps full screen available in every mode.
+        if !window.collectionBehavior.contains(.fullScreenPrimary) {
+            window.collectionBehavior.insert(.fullScreenPrimary)
+        }
     }
 
     static func setTrafficLightsVisible(_ visible: Bool, in window: NSWindow) {
@@ -89,7 +127,10 @@ enum ViewerWindow {
     }
 
     static func setAlwaysOnTop(_ onTop: Bool, in window: NSWindow) {
-        window.level = onTop ? .floating : .normal
+        AuxiliaryWindowLevel.shared.registerDocument(window)
+        let level: NSWindow.Level = onTop ? .floating : .normal
+        if window.level != level { window.level = level }
+        AuxiliaryWindowLevel.shared.refresh(windows: NSApp.windows)
     }
 
     /// The paper size for a newly opened document: as tall as comfortably fits the screen, at the unit's aspect.
@@ -128,16 +169,25 @@ enum ViewerWindow {
     }
 
     /// Resizes the window so that the paper area is `paper`, keeping the top-left (or top-right) corner in place and
-    /// the window on screen, and locks resizing to the paper's aspect ratio.
+    /// the window on screen, and locks resizing to the paper's aspect ratio. `topGrowth` raises the top edge instead,
+    /// for room that comes or goes above the paper.
     static func setPaperSize(
         _ paper: CGSize, band: CGFloat, of window: NSWindow, animate: Bool, keepsRightEdge: Bool = false,
-        side: CGFloat = 0
+        side: CGFloat = 0, topGrowth: CGFloat = 0
     ) {
         guard paper.width > 0, paper.height > 0 else { return }
+        // Every size the app gives the view mode leaves the bands room for what never leaves them; the paper keeps its
+        // shape at that width.
+        var paper = paper
+        let minimum = bandMinimumWidth(of: window)
+        if paper.width + side < minimum {
+            let width = (minimum - side).rounded(.up)
+            paper = CGSize(width: width, height: (paper.height * width / paper.width).rounded())
+        }
         let content = NSRect(x: 0, y: 0, width: paper.width + side, height: paper.height + band)
         var frame = window.frameRect(forContentRect: content)
         frame.origin.x = keepsRightEdge ? window.frame.maxX - frame.width : window.frame.minX
-        frame.origin.y = window.frame.maxY - frame.height
+        frame.origin.y = window.frame.maxY + topGrowth - frame.height
         setFrame(constrained(frame, on: window.screen), of: window, animate: animate)
         lockAspectRatio(of: window, unit: paper, band: band, side: side)
     }
@@ -148,15 +198,57 @@ enum ViewerWindow {
         let paperWidth = paperHeight * unit.width / unit.height
         // An aspect ratio cannot express "paper plus a fixed band", so the band is included at the current size.
         window.contentAspectRatio = NSSize(width: paperWidth + side, height: paperHeight + band)
-        window.contentMinSize = NSSize(
-            width: minimumPaperHeight * unit.width / unit.height + side, height: minimumPaperHeight + band)
+        aspectLocks.setObject(AspectLock(unit: unit, band: band, side: side), forKey: window)
+        window.contentMinSize = minimumContentSize(
+            unit: unit, band: band, side: side, bandMinimum: bandMinimumWidth(of: window))
     }
 
     static func unlockAspectRatio(of window: NSWindow) {
         // Per AppKit, resize increments of 1×1 remove an aspect ratio constraint.
         window.resizeIncrements = NSSize(width: 1, height: 1)
-        window.contentMinSize = NSSize(width: 480, height: 360)
+        aspectLocks.removeObject(forKey: window)
+        window.contentMinSize = NSSize(width: max(480, bandMinimumWidth(of: window)), height: 360)
     }
+
+    /// The smallest content of a window locked to the paper's shape: the paper no lower than `minimumPaperHeight`, and
+    /// no narrower than the bands' fixed parts (`bandMinimum`), with the height that keeps the shape at that width.
+    static func minimumContentSize(unit: CGSize, band: CGFloat, side: CGFloat, bandMinimum: CGFloat) -> NSSize {
+        let paperWidth = max(minimumPaperHeight * unit.width / unit.height, bandMinimum - side)
+        return NSSize(width: paperWidth + side, height: paperWidth * unit.height / unit.width + band)
+    }
+
+    /// The narrowest content the window's bands can lay out (`BandPlans.minimumWidth`), which every later minimum size
+    /// of the window respects too.
+    static func setBandMinimumWidth(_ width: CGFloat, of window: NSWindow) {
+        guard bandMinimumWidth(of: window) != width else { return }
+        bandMinimumWidths.setObject(NSNumber(value: Double(width)), forKey: window)
+        if let lock = aspectLocks.object(forKey: window) {
+            window.contentMinSize = minimumContentSize(
+                unit: lock.unit, band: lock.band, side: lock.side, bandMinimum: width)
+        } else if window.contentMinSize.width < width {
+            window.contentMinSize.width = width
+        }
+    }
+
+    static func bandMinimumWidth(of window: NSWindow) -> CGFloat {
+        bandMinimumWidths.object(forKey: window).map { CGFloat($0.doubleValue) } ?? 0
+    }
+
+    private final class AspectLock {
+        let unit: CGSize
+        let band: CGFloat
+        let side: CGFloat
+
+        init(unit: CGSize, band: CGFloat, side: CGFloat) {
+            self.unit = unit
+            self.band = band
+            self.side = side
+        }
+    }
+
+    private static let bandMinimumWidths = NSMapTable<NSWindow, NSNumber>.weakToStrongObjects()
+    /// The last shape each window was locked to, so that a new band minimum keeps it.
+    private static let aspectLocks = NSMapTable<NSWindow, AspectLock>.weakToStrongObjects()
 
     private static func constrained(_ frame: NSRect, on screen: NSScreen?) -> NSRect {
         guard let visible = (screen ?? NSScreen.main)?.visibleFrame else { return frame }

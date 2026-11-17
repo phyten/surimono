@@ -123,13 +123,17 @@ struct WebPageKeyTests {
 
     private func send(_ host: Host, characters: String, keyCode: UInt16) throws {
         for type in [NSEvent.EventType.keyDown, .keyUp] {
-            let event = try #require(
-                NSEvent.keyEvent(
-                    with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                    windowNumber: host.window.windowNumber, context: nil, characters: characters,
-                    charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode))
-            host.window.sendEvent(event)
+            try send(host, type, characters: characters, keyCode: keyCode)
         }
+    }
+
+    private func send(_ host: Host, _ type: NSEvent.EventType, characters: String, keyCode: UInt16) throws {
+        let event = try #require(
+            NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: host.window.windowNumber, context: nil, characters: characters,
+                charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode))
+        host.window.sendEvent(event)
     }
 
     private let arrow = "\u{F703}"
@@ -209,6 +213,32 @@ struct WebPageKeyTests {
         try await Task.sleep(for: .milliseconds(500))
         #expect(requests == 1)
         _ = try await host.controller.webView?.evaluateJavaScript("clearInterval(window.printTimer)")
+    }
+
+    @Test("キーを押したときと離したときの両方でページが印刷を頼んでも、1 回の押下で届く依頼は 1 つだけ")
+    func oneKeyPressLetsOneRequestThrough() async throws {
+        let host = try await host()
+        defer { host.close() }
+        var requests = 0
+        host.controller.onPrintRequest = { requests += 1 }
+        _ = try await host.controller.webView?.evaluateJavaScript(
+            """
+            window.ups = 0;
+            window.addEventListener('keydown', () => window.print());
+            window.addEventListener('keyup', () => { window.print(); window.ups += 1; });
+            """)
+        try send(host, .keyDown, characters: "p", keyCode: 35)
+        try await waitUntil { requests == 1 }
+        // The release belongs to the same press, so the request the page makes on it does not get through.
+        try send(host, .keyUp, characters: "p", keyCode: 35)
+        try await waitUntil { await ups(host) == 1 }
+        // The page has handled the release; one more round trip lets a request posted from it arrive first.
+        _ = await ups(host)
+        #expect(requests == 1)
+    }
+
+    private func ups(_ host: Host) async -> Int? {
+        try? await host.controller.webView?.evaluateJavaScript("window.ups") as? Int
     }
 
     @Test("JavaScript の設定を変えると、ページを新しい設定で開き直す")

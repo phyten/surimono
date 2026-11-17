@@ -6,6 +6,23 @@ import Testing
 
 @MainActor
 struct LanguageTests {
+    @Test("文言のカタログに同じキーが二度ない")
+    func catalogKeysAreUnique() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let text = try String(contentsOf: root.appending(path: "App/Localizable.xcstrings"), encoding: .utf8)
+        // Two branches can each add the same key, and a text merge keeps both; a JSON parser then silently keeps
+        // only the last one. Top-level entries sit at four spaces of indentation.
+        let entry = try Regex(#"(?m)^    ("(?:[^"\\]|\\.)*")\s*:\s*\{"#)
+        var seen = Set<Substring>()
+        var duplicates: [Substring] = []
+        for match in text.matches(of: entry) {
+            guard let key = match.output[1].substring else { continue }
+            if !seen.insert(key).inserted { duplicates.append(key) }
+        }
+        #expect(seen.count > 1000)
+        #expect(duplicates.isEmpty, "\(duplicates)")
+    }
+
     @Test("言語指定はAppleLanguagesに保存しシステムに戻すと削除する")
     func persistence() {
         let suite = TestDefaultsSuite()
@@ -86,6 +103,107 @@ struct LanguageTests {
                 }
             }
         }
+    }
+
+    @Test("ショートカット画面が参照するキーはカタログに存在し8言語で翻訳されている")
+    func shortcutCatalogCoverage() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        // Include dialogs, registration errors and spoken key names, not just the visible top rows.
+        let files = [
+            "ShortcutSettingsView", "ShortcutText", "ShortcutRecorder", "ShortcutController",
+            "SystemShortcutReservations", "ShortcutArchiveFiles", "ShortcutImportView", "ShortcutHints",
+        ]
+        let pattern =
+            #"(?:String\(\s*localized:\s*|(?:Text|TextField|Button|Label|Picker|Section|Toggle)\(\s*)"([^"\\]*(?:\\.[^"\\]*)*)""#
+        let expression = try NSRegularExpression(pattern: pattern)
+        var keys: Set<String> = [SettingsSection.keyboardShortcuts.rawValue]
+        for file in files {
+            let source = try String(contentsOf: root.appending(path: "App/\(file).swift"), encoding: .utf8)
+            let matches = expression.matches(in: source, range: NSRange(source.startIndex..., in: source))
+            #expect(!matches.isEmpty, "No localization references found in \(file)")
+            for match in matches {
+                let range = try #require(Range(match.range(at: 1), in: source))
+                let literal = "\"" + source[range] + "\""
+                let key = try JSONDecoder().decode(String.self, from: Data(literal.utf8))
+                if !key.isEmpty { keys.insert(key) }
+            }
+        }
+        #expect(keys.contains("Search Shortcuts"))
+        #expect(keys.contains("Open…"))
+        #expect(keys.contains("Left Arrow"))
+        #expect(keys.contains("Record Shortcut"))
+        #expect(keys.contains("Registered"))
+        keys.formUnion(["In Surimono", "Printing and Export", "Global"])
+        #expect(keys.contains("Merge Imported Shortcuts"))
+        #expect(keys.contains("Restore All Defaults?"))
+        #expect(keys.contains("Restore All Defaults"))
+        #expect(keys.contains("Custom assignments to remove: %lld"))
+        #expect(keys.contains("Shortcut Actions"))
+        for key in keys.sorted() {
+            let entry = try #require(catalog.strings[key], "Missing shortcut key: \(key)")
+            for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {
+                let translation = try #require(entry.localizations[language], "\(key): \(language)")
+                #expect(!translation.units.isEmpty, "\(key): \(language)")
+                for unit in translation.units {
+                    #expect(unit.state == "translated" && !unit.value.isEmpty, "\(key): \(language)")
+                }
+                for value in translation.expandedValues {
+                    #expect(specifiers(value) == specifiers(key), "\(key): \(language)")
+                }
+            }
+        }
+    }
+
+    @Test("ツールバーの配置画面の文言と読み上げには8言語の翻訳がある")
+    func arrangementEditorCoverage() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        // Every literal the editor localizes: titles, help, messages, announcements and the parts' descriptions.
+        let literal =
+            #/(?:String\(localized:\s*|Text\(|Button\(|Label\(|\.help\(|LocalizedStringKey\(|Picker\(|TextField\()\s*"((?:[^"\\]|\\.)*)"/#
+        var keys = Set<String>()
+        for file in [
+            "BandArrangementSettings.swift", "BandArrangementEditorSession.swift", "BandPartPresentation.swift",
+            "BandMenuContent.swift", "BandPaletteGroup.swift", "BandAdditionalPart.swift",
+        ] {
+            let source = try String(contentsOf: root.appending(path: "App/\(file)"), encoding: .utf8)
+            for match in source.matches(of: literal) { keys.insert(String(match.output.1)) }
+        }
+        #expect(keys.count > 100)
+        for key in keys {
+            // An interpolated value is a format specifier in the catalog's key.
+            let candidates = ["%@", "%lld"].map { key.replacing(#/\\\([^)]*\)/#, with: $0) }
+            let entry = try #require(candidates.lazy.compactMap { catalog.strings[$0] }.first, "\(key)")
+            for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {
+                let units = try #require(entry.localizations[language], "\(key): \(language)").units
+                #expect(!units.isEmpty && units.allSatisfy { $0.state == "translated" }, "\(key): \(language)")
+            }
+        }
+    }
+
+    @Test("ドイツ語の省略記号には空白があり繁体字はU2026を使い保存部品名に省略記号を付けない")
+    func toolbarTranslationPunctuation() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self, from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        for (key, entry) in catalog.strings {
+            for unit in entry.localizations["de"]?.units ?? [] {
+                // Quoted “…” names the literal More control, not a command with an ellipsis suffix.
+                let value = unit.value.replacingOccurrences(of: "„…“", with: "")
+                #expect(value.firstMatch(of: #/[^\s]…/#) == nil, "\(key): \(value)")
+            }
+            for unit in entry.localizations["zh-Hant"]?.units ?? [] {
+                #expect(!unit.value.contains("⋯"), "\(key)")
+            }
+        }
+        let save = try #require(catalog.strings["Save as File"])
+        #expect(save.localizations["de"]?.stringUnit?.value == "Als Datei sichern")
+        #expect(save.localizations["zh-Hant"]?.stringUnit?.value == "儲存為檔案")
+        #expect(catalog.strings["Vertical Scroll"]?.localizations["ja"]?.stringUnit?.value == "縦スクロール")
+        #expect(catalog.strings["Horizontal Scroll"]?.localizations["ja"]?.stringUnit?.value == "横スクロール")
     }
 
     private func specifiers(_ text: String) -> [String] {

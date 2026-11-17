@@ -38,6 +38,8 @@ struct PaperView: NSViewRepresentable {
     var logicalMargin: CGFloat? = nil
     var showsPageNumbers = false
     var changeMarks: [ChangeMark] = []
+    /// The header and footer the sheets draw on a logical page, by its index.
+    var furniture: [Int: FurniturePlacement] = [:]
     /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
     var narrowsLoneCover = false
     var keepsSpotInPage = false
@@ -49,8 +51,10 @@ struct PaperView: NSViewRepresentable {
     var onZoomChange: (Double) -> Void
     var onPageChange: (Int) -> Void
     var onTurn: () -> Void
-    /// Returns true when the overlay handled the key (menu keys such as Tab, M, V and Esc).
+    /// Returns true when the overlay handled a fixed key (Tab or Esc).
     var onKey: (NSEvent) -> Bool
+    var onShortcut: (ShortcutOperationID) -> Void = { _ in }
+    var allowsShortcutHandling: () -> Bool = { true }
 
     func makeNSView(context: Context) -> PaperPDFView {
         let view = PaperPDFView()
@@ -66,10 +70,13 @@ struct PaperView: NSViewRepresentable {
         view.onPageChange = onPageChange
         view.onTurn = onTurn
         view.onKey = onKey
+        view.onShortcut = onShortcut
+        view.allowsShortcutHandling = allowsShortcutHandling
         view.narrowsLoneCover = narrowsLoneCover
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
-            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, keepsSpotInPage: keepsSpotInPage)
+            showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture,
+            keepsSpotInPage: keepsSpotInPage)
         view.wheelSensitivity = wheelSensitivity
         view.selectsText = selectsText
         view.onFindHits = onFindHits
@@ -94,16 +101,27 @@ final class InvisibleScroller: NSScroller {
     override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {}
 }
 
-final class PaperPDFView: PageTextPDFView {
+final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     static let zoomSteps: [Double] = [1, 1.25, 1.5, 2, 3, 4, 6]
     /// Slows page-turn animations down; development screenshots use it to capture a turn halfway.
     static var animationScale: Double = 1
+    #if DEBUG
+        /// Holds a page turn still at this share of its length; development screenshots use it to look at a turn
+        /// frame by frame.
+        static var frozenTurnProgress: Double?
+    #endif
     static var maximumZoom: Double { zoomSteps[zoomSteps.count - 1] }
 
     var onZoomChange: ((Double) -> Void)?
     var onPageChange: ((Int) -> Void)?
     var onTurn: (() -> Void)?
     var onKey: ((NSEvent) -> Bool)?
+    var onShortcut: ((ShortcutOperationID) -> Void)?
+    var allowsShortcutHandling: () -> Bool = { true }
+    var shortcutController: ShortcutController = .shared
+    var dispatchKey: (NSEvent) -> Bool = { ShortcutDispatcher.shared.handle($0) }
+    var nativeKeyHandler: ((NSEvent) -> Void)?
+    var fullKeyboardAccess: () -> Bool = { NSApp.isFullKeyboardAccessEnabled }
     var onToast: ((Toast) -> Void)?
     // PDFView inherits delegate-shaped methods that forward to its delegate, so delegating to self recurses on zoom.
     private let linkDelegate = LinkDelegate()
@@ -167,6 +185,7 @@ final class PaperPDFView: PageTextPDFView {
         let source: PDFDocument
         let key: ViewPageLayout.DocumentKey?
         let marks: [ChangeMark]
+        let furniture: [Int: FurniturePlacement]
         let document: PDFDocument
     }
     private var shownDocuments: [ShownDocument] = []
@@ -174,6 +193,8 @@ final class PaperPDFView: PageTextPDFView {
     private var showsPageNumbers = false
     private var changeMarks: [ChangeMark] = []
     private var drawnChangeMarks: [ChangeMark] = []
+    private var furniture: [Int: FurniturePlacement] = [:]
+    private var drawnFurniture: [Int: FurniturePlacement] = [:]
     private var isUpdatingDocument = false
     private var isSwitchingSpreadMode = false
     var onFindHits: (([Int], String) -> Void)?
@@ -189,11 +210,12 @@ final class PaperPDFView: PageTextPDFView {
 
     func configure(
         _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool,
-        changeMarks: [ChangeMark] = [], keepsSpotInPage: Bool = false
+        changeMarks: [ChangeMark] = [], furniture: [Int: FurniturePlacement] = [:], keepsSpotInPage: Bool = false
     ) {
         guard
             sourceDocument !== source || self.options != options || self.logicalMargin != logicalMargin
                 || self.showsPageNumbers != showsPageNumbers || self.changeMarks != changeMarks
+                || self.furniture != furniture
         else { return }
         let point = keepsSpotInPage && sourceDocument !== source ? currentDestination?.point : nil
         let position = sourceDocument === source ? currentPageIndex : index
@@ -201,6 +223,7 @@ final class PaperPDFView: PageTextPDFView {
         self.logicalMargin = logicalMargin
         self.showsPageNumbers = showsPageNumbers
         self.changeMarks = changeMarks
+        self.furniture = furniture
         self.options = options
         configureDisplay(options)
         show(source, at: position)
@@ -301,11 +324,19 @@ final class PaperPDFView: PageTextPDFView {
             return PageSizes.displayed(page.bounds(for: .cropBox).size, rotation: page.rotation)
         }
         pageSize = PageSizes.representative(sizes)
+        // Joined pages keep the margins their printed header and footer stand in.
+        let keptEdges = furniture.mapValues { placement in
+            ViewPageLayout.CropEdges(
+                top: placement.lines.top.contains { !$0.isEmpty },
+                bottom: placement.lines.bottom.contains { !$0.isEmpty })
+        }
         let plan = ViewPageLayout(
             pageCount: source.pageCount, options: effectiveOptions, hasLogicalMargins: logicalMargin != nil,
-            showsNumbers: showsPageNumbers, pageSizes: sizes)
+            showsNumbers: showsPageNumbers, pageSizes: sizes, keptEdges: keptEdges)
         let key = plan.documentKey(margin: Double(logicalMargin ?? 0))
-        if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks, document != nil {
+        if sourceDocument === source, documentKey == key, drawnChangeMarks == changeMarks,
+            drawnFurniture == furniture, document != nil
+        {
             // Layout and navigation may change without touching page content or losing the PDFKit page cache.
             pagePlan = plan
             hideScrollersAndInsets()
@@ -315,18 +346,20 @@ final class PaperPDFView: PageTextPDFView {
         }
         sourceDocument = source
         let copy: PDFDocument?
-        if key.requiresCopy || !changeMarks.isEmpty {
+        if key.requiresCopy || !changeMarks.isEmpty || !furniture.isEmpty {
             if let shown = shownDocuments.first(where: {
-                $0.source === source && $0.key == key && $0.marks == changeMarks
+                $0.source === source && $0.key == key && $0.marks == changeMarks && $0.furniture == furniture
             }) {
                 copy = shown.document
             } else {
-                copy = ViewPageDocument.make(source, plan: plan, margin: logicalMargin ?? 0, changeMarks: changeMarks)
+                copy = ViewPageDocument.make(
+                    source, plan: plan, margin: logicalMargin ?? 0, changeMarks: changeMarks, furniture: furniture)
             }
         } else {
             copy = source
         }
         drawnChangeMarks = changeMarks
+        drawnFurniture = furniture
         documentKey = copy != nil ? key : nil
         let document = copy ?? source
         pagePlan =
@@ -347,6 +380,7 @@ final class PaperPDFView: PageTextPDFView {
             shownDocuments.append(
                 ShownDocument(
                     source: source, key: copy != nil ? key : nil, marks: copy != nil ? changeMarks : [],
+                    furniture: copy != nil ? furniture : [:],
                     document: document))
         }
         self.document = document
@@ -363,7 +397,7 @@ final class PaperPDFView: PageTextPDFView {
         if let sourceDocument {
             configure(
                 sourceDocument, at: currentPageIndex, options: options, logicalMargin: logicalMargin,
-                showsPageNumbers: showsPageNumbers)
+                showsPageNumbers: showsPageNumbers, changeMarks: changeMarks, furniture: furniture)
         } else {
             self.options = options
             configureDisplay(options)
@@ -787,15 +821,21 @@ final class PaperPDFView: PageTextPDFView {
             scale.timingFunction = transition.timingFunction
             layer.add(scale, forKey: "pageTurnScale")
         case .pageCurl:
-            guard let filter = CIFilter(name: "CIPageCurlTransition") else {
+            let curl = PageCurl(forward: forward, nextFromRight: nextFromRight)
+            guard let filter = curl.filter(extent: layer.bounds) else {
                 transition.type = .fade
                 break
             }
-            filter.setDefaults()
-            filter.setValue(forward == nextFromRight ? Double.pi : 0, forKey: kCIInputAngleKey)
             transition.filter = filter
-            transition.duration = 0.45 * Self.animationScale
+            transition.duration = PageCurl.duration * Self.animationScale
+            transition.timingFunction = PageCurl.timing
         }
+        #if DEBUG
+            if let progress = Self.frozenTurnProgress {
+                transition.speed = 0
+                transition.timeOffset = progress * transition.duration
+            }
+        #endif
         layer.add(transition, forKey: "pageTurn")
     }
 
@@ -872,32 +912,82 @@ final class PaperPDFView: PageTextPDFView {
         if !handleWheelEvent(event) { super.scrollWheel(with: event) }
     }
 
-    override func keyDown(with event: NSEvent) {
-        if onKey?(event) == true { return }
-        guard let options else {
-            super.keyDown(with: event)
+    var shortcutRegion: ShortcutRegion { selectsText ? .paperSelection : .paperReading }
+
+    /// Both the application monitor and the responder fallback use this same operation adapter.
+    func performShortcut(_ operation: ShortcutOperationID, event: NSEvent) {
+        guard let options else { return }
+        switch operation {
+        case .readingLeft: turnPage(forward: options.direction == .rightToLeft)
+        case .readingRight: turnPage(forward: options.direction != .rightToLeft)
+        case .readingPrevious, .readingNext:
+            if options.isContinuous || isZoomed {
+                // Keep PDFKit's scrolling for the default vertical arrows and Space. A replacement key has
+                // the same meaning, so use the responder's scroll action rather than interpreting its letter.
+                if let key = ShortcutDispatcher.combination(event, allowsBareKeys: true),
+                    ShortcutDefaults.keys(for: operation).contains(key)
+                {
+                    passKeyToPDFKit(event)
+                } else if operation == .readingNext {
+                    scrollPageDown(nil)
+                } else {
+                    scrollPageUp(nil)
+                }
+            } else {
+                turnPage(forward: operation == .readingNext)
+            }
+        case .readingPageUp: performNativeNavigation(.pageUp, code: 116, event: event)
+        case .readingPageDown: performNativeNavigation(.pageDown, code: 121, event: event)
+        case .readingFirst: performNativeNavigation(.home, code: 115, event: event)
+        case .readingLast: performNativeNavigation(.end, code: 119, event: event)
+        default: onShortcut?(operation)
+        }
+    }
+
+    /// Invoke PDFKit's existing navigation without posting a key to the application or its menus. Default events
+    /// go through unchanged; a replacement key asks PDFKit for the same named navigation, never for its new letter.
+    private func performNativeNavigation(_ key: ShortcutNamedKey, code: UInt16, event: NSEvent) {
+        if ShortcutDispatcher.combination(event, allowsBareKeys: true) == ShortcutCombination(key: .named(key)) {
+            passKeyToPDFKit(event)
             return
         }
-        let rightToLeft = options.direction == .rightToLeft
-        switch event.specialKey {
-        case .leftArrow?: turnPage(forward: rightToLeft)
-        case .rightArrow?: turnPage(forward: !rightToLeft)
-        case .upArrow?, .downArrow?:
-            if options.isContinuous || isZoomed {
-                super.keyDown(with: event)
-            } else {
-                turnPage(forward: event.specialKey == .downArrow)
-            }
-        default:
-            if event.charactersIgnoringModifiers == " ", !options.isContinuous, !isZoomed {
-                turnPage(forward: !event.modifierFlags.contains(.shift))
-            } else if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "=" {
-                // ⌘= is the unshifted Zoom In key on US keyboards; the menu item shows ⌘+.
-                stepZoom(up: true)
-            } else {
-                super.keyDown(with: event)
-            }
+        guard let text = ShortcutMenuKey.character(.named(key)),
+            let native = NSEvent.keyEvent(
+                with: .keyDown, location: event.locationInWindow, modifierFlags: [], timestamp: event.timestamp,
+                windowNumber: event.windowNumber, context: nil, characters: text, charactersIgnoringModifiers: text,
+                isARepeat: event.isARepeat, keyCode: code)
+        else { return }
+        passKeyToPDFKit(native)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if dispatchKey(event) { return }
+        guard !shortcutController.hotKeys.isRecording, window?.attachedSheet == nil, NSApp.modalWindow == nil,
+            allowsShortcutHandling(), ShortcutSurfaceKeys.owner(of: window?.firstResponder) === self
+        else {
+            passKeyToPDFKit(event)
+            return
         }
+        // Tab remains a fixed contextual alias; keyboard-access navigation takes precedence.
+        if event.specialKey != .tab || !fullKeyboardAccess() {
+            if onKey?(event) == true { return }
+        }
+        if let operation = ShortcutSurfaceKeys.match(event, region: shortcutRegion, controller: shortcutController) {
+            performShortcut(operation, event: event)
+            return
+        }
+        // A moved/cleared reading or zoom key must not revive PDFKit's internal binding. Selection navigation
+        // remains native; its region excludes unmodified navigation bindings.
+        if let key = ShortcutDispatcher.combination(event, allowsBareKeys: true),
+            ShortcutDispatcher.blocksNativePaperKey(key, region: shortcutRegion)
+        {
+            return
+        }
+        passKeyToPDFKit(event)
+    }
+
+    private func passKeyToPDFKit(_ event: NSEvent) {
+        if let nativeKeyHandler { nativeKeyHandler(event) } else { super.keyDown(with: event) }
     }
 
     /// Option swaps the two drags for as long as it is held, so a word can be copied without switching modes.

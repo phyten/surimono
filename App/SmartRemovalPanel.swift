@@ -31,10 +31,8 @@ struct SmartRemovalPanel: View {
                 }
             }
             .padding(.vertical, 8)
-            Text(
-                "The dashed frames on the paper show what was removed. Detection runs on this Mac only; nothing is sent anywhere. The result is remembered for this content."
-            )
-            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("The dashed frames show what was removed. Detection runs only on this Mac.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Turn Off") { model.setSmartRemoval(enabled: false) }
                 Spacer()
@@ -66,9 +64,9 @@ private struct CandidateRow: View {
                 if !candidate.excerpt.isEmpty {
                     Text(verbatim: candidate.excerpt).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
-                Text(verbatim: candidate.reason).font(.caption2).monospaced().foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
+            // What matched is for the curious; on the row it read as markup.
+            .help(Text(verbatim: candidate.reason))
             Spacer(minLength: 6)
             Button(isKept ? "Remove" : "Keep", action: toggle).controlSize(.small)
                 .fixedSize()

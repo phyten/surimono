@@ -16,12 +16,16 @@ final class ThemeTrial {
     /// Its logical pages, once laid out.
     private(set) var document: PDFDocument?
     private(set) var changeMarks: [ChangeMark] = []
+    /// The header and footer of its pages, as the sheets would draw them.
+    private(set) var furniture: [Int: FurniturePlacement] = [:]
     @ObservationIgnored private let renderer: DocumentRenderer
     @ObservationIgnored private var task: Task<Void, Never>?
     /// Recent trials, so going back to a theme just tried shows it at once.
     @ObservationIgnored private var recent:
-        [(source: DocumentSource, settings: RenderSettings, document: PDFDocument, marks: [ChangeMark])] =
-            []
+        [(
+            source: DocumentSource, settings: RenderSettings, document: PDFDocument, marks: [ChangeMark],
+            furniture: [Int: FurniturePlacement]
+        )] = []
     static let cacheLimit = 6
     static let delay: Duration = .milliseconds(200)
 
@@ -43,10 +47,12 @@ final class ThemeTrial {
         if let hit = recent.first(where: { $0.source == source && $0.settings == settings }) {
             document = hit.document
             changeMarks = hit.marks
+            furniture = hit.furniture
             return
         }
         document = nil
         changeMarks = []
+        furniture = [:]
         task = Task { [weak self] in
             do {
                 try await Task.sleep(for: Self.delay)
@@ -57,8 +63,10 @@ final class ThemeTrial {
                 guard themeID == id else { return }
                 document = prepared.logicalDocument
                 changeMarks = prepared.changeMarks
+                furniture = prepared.viewFurniture
                 recent.removeAll { $0.source == source && $0.settings == settings }
-                recent.insert((source, settings, prepared.logicalDocument, prepared.changeMarks), at: 0)
+                recent.insert(
+                    (source, settings, prepared.logicalDocument, prepared.changeMarks, prepared.viewFurniture), at: 0)
                 if recent.count > Self.cacheLimit { recent.removeLast(recent.count - Self.cacheLimit) }
             } catch {
                 // A cancelled or failed trial leaves the paper on the document's own pages.
@@ -73,6 +81,12 @@ final class ThemeTrial {
         themeID = nil
         document = nil
         changeMarks = []
+        furniture = [:]
+    }
+
+    /// Forgets the recent trials' pages without their layout, whose header and footer may show a day gone by.
+    func forgetRecent() {
+        recent = []
     }
 
     /// Forgets the recent trials, for example after the file changed outside the app.

@@ -8,19 +8,65 @@ extension DocumentViewModel {
     /// chosen on it. The system dialog stays one step away (⌥⌘P).
     var printCommand: PrintCommand { mode == .print ? .printNow : .enterPrintMode }
 
-    var canPerformPrintCommand: Bool { mode != .print || canOutput }
+    var canPerformPrintCommand: Bool {
+        manualDuplexSession == nil && (mode != .print || canStartPrint)
+    }
 
     func performPrintCommand() {
+        guard manualDuplexSession == nil else { return }
         switch printCommand {
         case .enterPrintMode: enterPrintMode()
         case .printNow: printDocument(quick: true)
         }
     }
 
+    /// What Esc closes on the print screen. Things open over one another there, and only the topmost takes the key: a
+    /// shortcut on what lies underneath would close it in the same press.
+    enum PrintEscapeTarget { case popover, settings, fold, screen }
+
+    var printEscapeTarget: PrintEscapeTarget {
+        if isThemePalettePresented || isPrintIssuesPresented { return .popover }
+        if isPrintFinishPresented { return .settings }
+        if showsFold { return .fold }
+        return .screen
+    }
+
+    /// The tray's "See It Folded" folds the current sheets only: older sheets kept on the tray while newer ones are
+    /// composed may be a booklet that the new ones are not, and a fold asked for then would wait unseen and take the
+    /// next Esc.
+    var canShowFold: Bool { hasCurrentPrintPreview && printTray?.isBooklet == true }
+
+    func showFold() {
+        guard mode == .print, canShowFold else { return }
+        showsFold = true
+    }
+
+    /// The sheets are current again: a fold of sheets that came out as no booklet ends, as it does when the layout is
+    /// changed to one that is no booklet.
+    func foldAvailabilityDidChange() {
+        if hasCurrentPrintPreview, printTray?.isBooklet != true { showsFold = false }
+    }
+
     /// Opens the print settings at one of their sections.
     func presentFinish(_ section: PrintFinishSection) {
         finishSection = section
         isPrintFinishPresented = true
+    }
+
+    /// "Print Settings…" in the "…" menu and the Document menu: one panel for both modes, since its settings change
+    /// the pages of both. The view mode hangs it off the window's edge in place of the style palette; the tray lays it
+    /// beside the sheets. The comparison stage has no such panel.
+    func presentPrintSettings() {
+        switch mode {
+        case .view:
+            themePaletteDidClose()
+            closeBandPopovers()
+            isPrintFinishPresented = true
+        case .print:
+            isPrintFinishPresented = true
+        case .compare:
+            break
+        }
     }
 
     /// What the tray's header and footer choice shows: Custom from the moment it is chosen, while the fields are empty.

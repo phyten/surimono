@@ -13,7 +13,7 @@ pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; background: #fbf
 table { width: 100%; }
 th, td { border: 1pt solid #14506b; padding: 0.3em 0.6em; }
 th { background: #14506b; color: #fff; }
-blockquote { border-left: 4pt solid #14506b; }
+blockquote { border-inline-start: 4pt solid #14506b; }
 hr { border: none; border-top: 3pt double #b1321e; margin: 1.4em 0; }
 a { color: #14506b; }
 pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

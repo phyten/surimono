@@ -23,7 +23,7 @@ p, ul, ol, table, pre { margin: 0.7em 0; }
 pre { font-size: 8.8pt; line-height: 1.6; padding: 0.6em 0.9em; border: 0.5pt solid #1e1c1a; }
 th, td { border: none; border-bottom: 0.5pt solid #1e1c1a; padding: 0.3em 0.7em; }
 thead th { border-top: 2.25pt solid #1e1c1a; border-bottom: 0.5pt solid #1e1c1a; font-weight: 600; }
-blockquote { border-left: 0.5pt solid #7c1f2c; }
+blockquote { border-inline-start: 0.5pt solid #7c1f2c; }
 hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
 hr::after { content: "❦"; color: #7c1f2c; }
 a { color: #7c1f2c; }

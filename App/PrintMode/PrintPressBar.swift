@@ -1,21 +1,26 @@
 import SurimonoCore
 import SwiftUI
 
-/// The press bar (刷り台バー): two groups. On the left, how to print: the paper and its orientation over the layout
-/// cards. On the right, the result and the ways to send it out: what comes out, the printer, PDF and Print. A window
-/// too narrow for both side by side puts the second under the first (`PrintPressArrangement`).
+/// The press bar (刷り台バー): two groups. On the left, how to print: the paper series and orientation menus over the
+/// layout cards. On the right, the result and the ways to send it out: the paper it takes, the copies and pages, the
+/// printer, PDF and Print. A window too narrow for both side by side puts the second under the first, and folds further
+/// as `PrintPressArrangement` says.
 struct PrintPressBar: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
         PrintPressLayout {
-            paperRow
+            menus
             cards
             summary
-            actions
+            PrinterPicker(model: model)
+            pdfButton
             printButton
             // The rule between the groups; the layout empties it where they are stacked.
             Rectangle().fill(PrintPalette.line)
+            // Measures the result's first line, which the layout keeps from wrapping while it can.
+            Text(verbatim: lead).font(Self.leadFont).monospacedDigit().lineLimit(1).fixedSize().hidden()
+                .accessibilityHidden(true)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 14)
@@ -31,69 +36,66 @@ struct PrintPressBar: View {
         }
     }
 
+    /// The bar's three sizes of type: 11 for hints and labels, 12 to 13 for values and card titles, 16 for Print.
+    private static let leadFont = Font.system(size: 13, weight: .semibold)
+
     private var printButton: some View {
         Button {
             model.performPrintCommand()
         } label: {
             VStack(spacing: 0) {
-                Text("Print").font(.system(size: 16, weight: .bold))
+                Text("Print").font(.system(size: 16, weight: .semibold))
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Text(verbatim: "⌘P").font(.system(size: 9.5)).tracking(0.4).opacity(0.85)
+                Text(verbatim: ShortcutHints.keys([.documentPrint])).font(.system(size: 11)).opacity(0.85)
             }
-            .padding(.top, 15)
-            .padding(.bottom, 12)
+            .padding(.top, 14)
+            .padding(.bottom, 11)
         }
         .buttonStyle(SealButtonStyle())
-        .disabled(!model.canOutput)
+        .disabled(!model.canStartPrint)
         .help(Text(verbatim: printHelp))
         .accessibilityLabel(Text(verbatim: printAccessibilityLabel))
     }
 
-    /// The paper the layouts are made on, and which way it lies.
-    private var paperRow: some View {
+    /// The series of paper the layouts are made from, and which way the paper lies: the two choices that apply to all
+    /// the cards, side by side over them at every width.
+    private var menus: some View {
         HStack(spacing: 8) {
-            Text("Paper to Use").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
-            PrintSeriesSwitch(model: model)
+            PaperSeriesMenu(model: model)
             OrientationPicker(model: model)
         }
         .fixedSize()
     }
 
     private var cards: some View {
-        PrintFlowLayout(spacing: 2, lineSpacing: 4, alignment: .leading) {
+        PrintCardGrid {
             let cards = Array(PrintLayout.presets(in: model.trayPaperSeries).enumerated())
             ForEach(cards, id: \.element.id) { index, preset in
                 let compact =
                     index == 4 && model.layout.series == model.trayPaperSeries
                     && (model.layout.kind == .twoUp || model.layout.kind == .fourUp)
                 let layout = compact ? model.layout : preset
-                VStack(spacing: 0) {
-                    LayoutCard(
-                        layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
-                        paper: PrintModeText.cardPaper(layout, language: model.language),
-                        help: PrintModeText.cardHelp(
-                            layout.displayName(language: model.language) + (compact ? "" : " (⌘\(index + 1))"),
-                            issue: model.printerIssue(for: layout), language: model.language),
-                        isSelected: model.layoutID == layout.id
-                    ) {
-                        model.chooseLayout(layout.id)
-                    }
-                    .printerIssueBadge(for: layout, model: model)
-                    if index == 4 {
-                        Menu {
-                            ForEach([preset] + PrintLayout.compactPresets(in: model.trayPaperSeries)) { option in
-                                Button(option.displayName(language: model.language)) { model.chooseLayout(option.id) }
-                            }
-                        } label: {
-                            Text("Paper & Pages").font(.system(size: 10)).lineLimit(1).minimumScaleFactor(0.7)
-                        }
-                        .menuStyle(.borderlessButton)
-                        .frame(width: 80, height: 22)
-                        .accessibilityIdentifier("compactLayoutMenu")
-                    }
+                let issue = model.printerIssue(for: layout)
+                LayoutCard(
+                    layout: layout, title: PrintModeText.cardTitle(layout, language: model.language),
+                    sheet: PrintModeText.cardSheet(layout),
+                    issue: issue.map { PrintModeText.issueBadge($0, language: model.language) },
+                    help: PrintModeText.cardHelp(
+                        [
+                            ShortcutHints.help(
+                                PrintModeText.cardTitleLine(layout, language: model.language),
+                                [ShortcutHints.layout(layout, index: index, compact: compact)]),
+                            PrintModeText.cardPaper(layout, language: model.language),
+                        ].compactMap { $0 }.joined(separator: "\n"),
+                        issue: issue, language: model.language),
+                    accessibilityLabel: PrintModeText.cardLabel(layout, issue: issue, language: model.language),
+                    isSelected: model.layoutID == layout.id,
+                    variants: index == 4 ? [preset] + PrintLayout.compactPresets(in: model.trayPaperSeries) : [],
+                    model: model
+                ) {
+                    model.chooseLayout(layout.id)
                 }
-                .frame(width: 80, height: 110, alignment: .top)
             }
         }
         .accessibilityElement(children: .contain)
@@ -101,19 +103,18 @@ struct PrintPressBar: View {
     }
 
     private var summary: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: outcome?.finished ?? String(localized: "Preparing pages…"))
-                        .font(.system(size: 12, weight: .semibold))
-                    if let paper = outcome?.paper {
-                        Text(verbatim: paper).font(.system(size: 12))
-                    }
-                }
-                .monospacedDigit()
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(verbatim: outcome == nil ? String(localized: "Preparing pages…") : lead)
+                    .font(Self.leadFont)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
                 if model.isRendering { ProgressView().controlSize(.mini) }
+            }
+            // What the first line does not say: what the sheets make, what the pages are, the copies. It wraps rather
+            // than being cut, at any width, and never inside a word.
+            if let outcome, let detail = outcome.detail(language: model.language) {
+                PrintOutcomeDetail(detail: detail, lines: outcome.detailLines(language: model.language) ?? [])
             }
             if model.printIssueCount > 0 {
                 Button("Check \(model.printIssueCount)") { model.reviewPrintIssues() }
@@ -124,99 +125,62 @@ struct PrintPressBar: View {
                     .padding(.vertical, 4)
                     .background(PrintPalette.aiTint, in: RoundedRectangle(cornerRadius: 6))
             }
-            // The notes are the part of the result that can be cut to the room there is; the hint shows them whole.
-            if let note {
-                Text(verbatim: note)
-                    .font(.system(size: 11))
-                    .foregroundStyle(PrintPalette.ink2)
-                    .lineLimit(1)
-                    .help(Text(verbatim: note))
-            }
             if let line = reminderLine {
                 Text(verbatim: line).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
-                    .monospacedDigit().lineLimit(1).help(Text(verbatim: line))
+                    .lineLimit(1).help(Text(verbatim: line))
             }
             PrinterIssueLine(model: model)
-            if model.canSaveAsFile {
-                Button {
-                    model.saveAsFile()
-                } label: {
-                    Text("Save as File…").underline()
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 12))
-                .foregroundStyle(PrintPalette.ink2)
-                .help("Kept in memory only")
-            }
             PrintJobControls(model: model).padding(.top, 2)
         }
     }
 
-    private var actions: some View {
-        // Two buttons as tall as the Print button beside them, so that their top and bottom edges line up with it.
-        VStack(spacing: 6) {
-            PrinterPicker(model: model)
-            actionButton("Export PDF", systemImage: "arrow.down.doc", help: "Export the imposed sheets as a PDF (⇧⌘E)")
-            {
-                model.exportPDF()
+    /// The PDF button keeps its icon and drops its label when the bar gives it no room for both.
+    private var pdfButton: some View {
+        Button {
+            model.exportPDF()
+        } label: {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 7) {
+                    pdfIcon
+                    Text("Export PDF").lineLimit(1).fixedSize()
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 9)
+                pdfIcon.padding(.horizontal, 10)
             }
-            .disabled(!model.canOutput)
-        }
-    }
-
-    private func actionButton(
-        _ title: LocalizedStringKey, systemImage: String, help: LocalizedStringKey, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 7) {
-                Image(systemName: systemImage).font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
-                    .frame(width: 15)
-                // The label is the narrowest the button is made, so that it never folds into two lines.
-                Text(title).lineLimit(1).fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 9)
-            .frame(minWidth: 130)
         }
         .buttonStyle(PrintBorderedButtonStyle())
-        .help(help)
+        .disabled(!model.canOutput)
+        .help(ShortcutHints.help(String(localized: "Export the imposed sheets as a PDF"), [.documentExportPDF]))
+        .accessibilityLabel(Text("Export PDF"))
     }
 
-    private var note: String? {
-        guard model.hasCurrentPrintPreview, let result = model.printResult else { return nil }
-        return PrintModeText.mixedNote(result.sheetOrientations, language: model.language)
-            ?? PrintModeText.note(result.layout, pageCount: result.plan.logicalPageCount, language: model.language)
+    private var pdfIcon: some View {
+        Image(systemName: "arrow.down.doc").font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
+            .frame(width: 15)
     }
 
-    /// What comes out, and what it takes: the pages of the finished piece and the paper for them.
-    private var outcome: (finished: String, paper: String)? {
-        guard let result = model.printResult, model.summary != nil else { return nil }
-        let slots = result.plan.sides.flatMap(\.slots)
-        let printed = Set(slots.compactMap { $0 })
-        let blanks = slots.filter { $0 == nil }.count + result.blankPages.intersection(printed).count
-        // Where the contents are among the pages is not told, so a range counts them with the body.
-        let contents = model.finishAppliesToText && result.pageSelection.pages == nil ? result.addedContentsPages : 0
-        let notes = result.notePages.filter(printed.contains).count
-        return (
-            PrintModeText.finished(
-                pages: slots.count, body: slots.count - blanks - contents - notes, contents: contents, notes: notes,
-                blanks: blanks, language: model.language),
-            PrintModeText.paper(
-                result.plan.paper.shortName, sheets: result.plan.sheetCount, duplex: result.layout.sentDuplex,
-                language: model.language)
-        )
+    /// The paper, the sheets and the sides, as `PrintOutcome` reads them from the sheets on the tray.
+    private var lead: String {
+        outcome?.lead(language: model.language) ?? String(localized: "Preparing pages…")
     }
+
+    private var outcome: PrintOutcome? { model.printOutcome }
 
     /// What the choices add to the sheets beyond the summary; the amount of text belongs to the document's information.
     private var reminderLine: String? {
+        // The options of the sheets shown, which may be older than the choices while newer sheets are composed.
+        let sheets = model.shownSheets
         var parts = [
-            PrintModeText.options(model.effectivePrintOptions, layout: model.printerLayout, language: model.language)
+            PrintModeText.options(
+                model.shownSheetSettings?.options ?? model.effectivePrintOptions,
+                layout: sheets?.layout ?? model.printerLayout, language: model.language)
         ].compactMap { $0 }
-        if model.hasCurrentPrintPreview, model.printResult?.addedNotePages ?? 0 > 0 {
+        if let sheets, sheets.addedNotePages > 0 {
             if model.coverIsNotePage {
                 parts.append(PrintModeText.string("The cover is a note page too", language: model.language))
             }
-            if model.notes.style.isFaint {
+            if (model.shownSheetSettings?.notes ?? model.notes).style.isFaint {
                 parts.append(
                     PrintModeText.string("The lines are faint and may fade when printed", language: model.language))
             }
@@ -226,17 +190,26 @@ struct PrintPressBar: View {
     }
 
     private var printAccessibilityLabel: String {
-        [PrintModeText.string("Print", language: model.language), model.selectedPrinterName, model.summary]
-            .compactMap { $0 }.joined(separator: ", ")
+        // The same words as the result's first line, so that VoiceOver says what the button sends.
+        [
+            PrintModeText.string("Print", language: model.language), model.selectedPrinterName,
+            outcome?.lead(language: model.language) ?? model.summary,
+        ]
+        .compactMap { $0 }.joined(separator: ", ")
     }
 
     private var printHelp: String {
         guard let printer = model.selectedPrinterName else {
-            return PrintModeText.string(
-                "No printer is set up, so Print opens the system print dialog (⌘P)", language: model.language)
+            return ShortcutHints.help(
+                PrintModeText.string(
+                    "No printer is set up, so Print opens the system print dialog", language: model.language),
+                [.documentPrint])
         }
-        if let issue = model.printerIssue { return PrintModeText.issuePrintHelp(issue, language: model.language) }
-        return PrintModeText.format("Print to %@ right away (⌘P)", language: model.language, printer)
+        if let issue = model.printerIssue {
+            return ShortcutHints.help(PrintModeText.issuePrintHelp(issue, language: model.language), [.documentPrint])
+        }
+        return ShortcutHints.help(
+            PrintModeText.format("Print to %@ right away", language: model.language, printer), [.documentPrint])
     }
 }
 
@@ -297,18 +270,21 @@ private struct PrinterPicker: View {
                 .pickerStyle(.inline)
             }
             Divider()
+            Button("Print Both Sides Manually…") { model.printDocument(intent: .manualDuplex) }
+                .disabled(!model.canPrintManualDuplex)
             Button("Duplex Test Print…") { model.printDuplexTest() }
                 .disabled(!model.canPrintDuplexTest)
             if model.layout.duplex == .none { Text("Choose a duplex layout to test back-side orientation.") }
             Divider()
             Button("Print with System Dialog…") { model.printDocument(quick: false) }
-                .disabled(!model.canOutput)
+                .disabled(!model.canStartPrint)
         } label: {
             HStack(spacing: 7) {
                 Image(systemName: "printer").font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
                     .frame(width: 15)
+                // A short word in the narrow button; the menu says it in full.
                 Text(
-                    verbatim: model.selectedPrinterName ?? PrintModeText.string("No Printers", language: model.language)
+                    verbatim: model.selectedPrinterName ?? PrintModeText.string("No Printer", language: model.language)
                 )
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -317,16 +293,22 @@ private struct PrinterPicker: View {
                     .foregroundStyle(PrintPalette.ink3)
             }
             .padding(.horizontal, 9)
-            // Room for a typical model name such as "Brother MFC-J7100CDW"; longer names lose their middle.
-            .frame(minWidth: 130, maxWidth: 230)
+            // The bar gives the menu its whole name where it can (`PrintPressArrangement.printerLimit` at most), and
+            // cuts the middle of the name last of all.
+            .frame(minWidth: PrintPressArrangement.printerMinimum, maxWidth: .infinity)
         }
         .menuStyle(.button)
         .menuIndicator(.hidden)
         .buttonStyle(PrintBorderedButtonStyle())
         // A printer set up while the tray is open shows up the next time the pointer comes back to the menu.
         .onHover { if $0 { model.refreshPrinters() } }
-        .help("Choose the printer for Print, or print with the system dialog")
+        // The printer's whole name, which the menu may cut in the middle.
+        .help(Text(verbatim: model.selectedPrinterName ?? ""))
         .accessibilityLabel(Text("Printer"))
+        .accessibilityValue(
+            Text(
+                verbatim: model.selectedPrinterName
+                    ?? PrintModeText.string("No Printer", language: model.language)))
     }
 
     private func title(for name: String) -> String {
@@ -335,41 +317,108 @@ private struct PrinterPicker: View {
     }
 }
 
+/// The series of paper the cards are made from: A4 and A3, B5 and B4, or Letter and Tabloid. Closed, it names the
+/// series by itself ("A Sizes"), so that it does not read as paper that both sizes are used on; the paper a print
+/// takes is the result's first line.
+private struct PaperSeriesMenu: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Menu {
+            Section("Paper Size Series") {
+                Picker(
+                    "Paper Size Series",
+                    selection: Binding(
+                        get: { model.trayPaperSeries }, set: { model.choosePaperSeries($0) })
+                ) {
+                    ForEach(PaperSeries.allCases, id: \.self) { series in
+                        Text(series.menuTitle).tag(series)
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "ruler").foregroundStyle(PrintPalette.ink2)
+                Text(model.trayPaperSeries.shortTitle)
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink2)
+            }
+            .font(.system(size: 12))
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.hover))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Paper Size Series")
+        .accessibilityLabel(Text("Paper Size Series"))
+        .accessibilityValue(Text(model.trayPaperSeries.menuTitle))
+    }
+}
+
+extension PaperSeries {
+    /// The series in a word or two, for the closed menu.
+    var shortTitle: LocalizedStringKey {
+        switch self {
+        case .a: "A Sizes"
+        case .b: "B Sizes (JIS)"
+        case .letter: "US Sizes"
+        }
+    }
+
+    /// The series with its sizes, for the open menu.
+    var menuTitle: LocalizedStringKey {
+        switch self {
+        case .a: "A Sizes (A4, A3)"
+        case .b: "B Sizes, JIS (B5, B4)"
+        case .letter: "US Sizes (Letter, Tabloid)"
+        }
+    }
+}
+
 /// A layout choice with a small paper pictogram; the selected card is drawn in ai. Every card is as wide and as high as
-/// the others and its title takes two lines whether it needs them or not, so that the paper lines under the titles
-/// stand in a row.
+/// the others, and its title keeps two lines whether it needs them or not, so that the titles stand in a row. A card
+/// whose paper is not what it makes (a booklet, two pages on one sheet) carries the paper in its top right corner. The
+/// fifth card has a menu of its own there for the other papers and pages it comes in.
 private struct LayoutCard: View {
     let layout: PrintLayout
     let title: String
-    /// The paper it prints on, where the title names what comes out.
-    let paper: String?
+    /// The paper it prints on, where that is not what the title names.
+    let sheet: String?
+    /// What the chosen printer cannot do with it, in a word or two.
+    let issue: String?
     let help: String
+    let accessibilityLabel: String
     let isSelected: Bool
+    /// The layouts the card's menu offers; none for a card without a menu.
+    let variants: [PrintLayout]
+    let model: DocumentViewModel
     let action: () -> Void
     @State private var hovering = false
 
+    static let size = CGSize(width: 80, height: 86)
     private static let titleFont = Font.system(size: 12, weight: .semibold)
+    private static let menuSize: CGFloat = 20
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 0) {
+                topRow.frame(height: 18)
                 LayoutPictogram(layout: layout)
                     .frame(width: 40, height: 26)
                     .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, 3)
                 titleLines
-                if let paper {
-                    Text(verbatim: paper)
-                        .font(.system(size: 11))
-                        .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .padding(.top, 2)
-                }
             }
-            .padding(.horizontal, 6)
-            .padding(.top, 8)
-            .frame(width: 80, height: 88, alignment: .top)
+            .padding(.horizontal, 4)
+            .padding(.top, 2)
+            .frame(width: Self.size.width, height: Self.size.height, alignment: .top)
             .background {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isSelected ? PrintPalette.aiTint : hovering ? PrintPalette.hover : .clear)
@@ -382,13 +431,65 @@ private struct LayoutCard: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(Text(verbatim: help))
-        .accessibilityLabel(
-            Text(verbatim: layout.displayName(language: Bundle.main.preferredLocalizations.first ?? "en"))
-        )
+        .accessibilityLabel(Text(verbatim: accessibilityLabel))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        // Beside the card's button, not in it: a control of its own, which VoiceOver reads as one.
+        .overlay(alignment: .topTrailing) {
+            if !variants.isEmpty { variantMenu.padding(.top, 1).padding(.trailing, 1) }
+        }
     }
 
-    /// The title, centered in the room for two lines.
+    /// The paper, or what the printer cannot do, which matters more; the menu's room is kept clear at the end.
+    private var topRow: some View {
+        HStack(spacing: 2) {
+            Spacer(minLength: 0)
+            if let issue {
+                Text(verbatim: issue)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ink)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 4)
+                    .background(PrintPalette.raised, in: Capsule())
+                    .overlay { Capsule().strokeBorder(PrintPalette.line3, lineWidth: 1) }
+            } else if let sheet {
+                HStack(spacing: 3) {
+                    SheetMark().frame(width: 7, height: 9)
+                    Text(verbatim: sheet).font(.system(size: 11)).lineLimit(1).fixedSize()
+                }
+                .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
+            }
+            if !variants.isEmpty { Color.clear.frame(width: Self.menuSize - 4) }
+        }
+    }
+
+    private var variantMenu: some View {
+        Menu {
+            Picker(
+                "Paper & Pages",
+                selection: Binding(get: { model.layoutID }, set: { model.chooseLayout($0) })
+            ) {
+                ForEach(variants) { option in
+                    Text(verbatim: option.displayName(language: model.language)).tag(option.id)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            VariantMenuLabel(isSelected: isSelected)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Paper & Pages")
+        .accessibilityLabel(Text("Paper & Pages"))
+        .accessibilityValue(Text(verbatim: layout.displayName(language: model.language)))
+        .accessibilityIdentifier("compactLayoutMenu")
+    }
+
+    /// The title, centered in the room for two lines. A title that needs two lines takes them; it is never shrunk or
+    /// cut to stay on one.
     private var titleLines: some View {
         ZStack {
             Text(verbatim: " \n ").font(Self.titleFont).lineLimit(2, reservesSpace: true).hidden()
@@ -397,8 +498,42 @@ private struct LayoutCard: View {
                 .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
-                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+/// The ▼ of a card's menu: a target of 20 by 20 points that shows under the pointer, apart from the card around it.
+private struct VariantMenuLabel: View {
+    let isSelected: Bool
+    @State private var hovering = false
+
+    var body: some View {
+        Image(systemName: "chevron.down")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
+            .frame(width: 20, height: 20)
+            .background(RoundedRectangle(cornerRadius: 5).fill(hovering ? PrintPalette.press : .clear))
+            .contentShape(RoundedRectangle(cornerRadius: 5))
+            .onHover { hovering = $0 }
+    }
+}
+
+/// A sheet of paper with a folded corner, small enough to stand before the name of a paper size.
+private struct SheetMark: View {
+    var body: some View {
+        Canvas { context, size in
+            let fold = min(size.width, size.height) * 0.35
+            var path = Path()
+            path.move(to: CGPoint(x: 0.5, y: 0.5))
+            path.addLine(to: CGPoint(x: size.width - fold, y: 0.5))
+            path.addLine(to: CGPoint(x: size.width - 0.5, y: fold))
+            path.addLine(to: CGPoint(x: size.width - 0.5, y: size.height - 0.5))
+            path.addLine(to: CGPoint(x: 0.5, y: size.height - 0.5))
+            path.closeSubpath()
+            context.stroke(path, with: .foreground, lineWidth: 1)
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -505,13 +640,41 @@ struct LayoutPictogram: View {
     }
 }
 
+/// The result's second line: on one line where it fits; otherwise the breakdown of the pages goes on a line of its own
+/// ("Finished: A4 booklet · 40 pages", then "Body 38 + Blank 2"), and a line still too long moves whole pieces to the
+/// next line. Wrapping the one string let Japanese break inside a word ("白／紙").
+private struct PrintOutcomeDetail: View {
+    let detail: String
+    let lines: [[String]]
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            Text(verbatim: detail).lineLimit(1).fixedSize()
+            VStack(alignment: .leading, spacing: 1) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, pieces in
+                    FlowLayout(spacing: 0, lineSpacing: 1, constrainsChips: true) {
+                        ForEach(Array(pieces.enumerated()), id: \.offset) { _, piece in
+                            Text(verbatim: piece).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(PrintPalette.ink2)
+        .monospacedDigit()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: detail))
+    }
+}
+
 /// The order the printer prints the sheets in. It belongs to the printer rather than the document, so one choice
 /// applies to every window, and it changes only the print job, not the sheets on the tray.
 struct PrintPageOrderPicker: View {
     @Binding var order: PrintPageOrder
 
-    static let hint: LocalizedStringKey =
-        "Initial values for printers without remembered settings. Last Sheet First keeps face-up sheets in page order."
+    /// For the settings, whose heading already says these are where a printer without settings of its own starts.
+    static let hint: LocalizedStringKey = "Last Sheet First keeps face-up sheets in page order."
 
     var body: some View {
         Picker("Output Order", selection: $order) {

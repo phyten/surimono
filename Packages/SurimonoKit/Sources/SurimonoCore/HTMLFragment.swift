@@ -3,10 +3,12 @@ import Foundation
 public struct HTMLFragment: Equatable, Sendable {
     public var body: String
     public var title: String?
+    public var language: String?
 
-    public init(body: String, title: String? = nil) {
+    public init(body: String, title: String? = nil, language: String? = nil) {
         self.body = body
         self.title = title
+        self.language = language
     }
 }
 
@@ -37,6 +39,61 @@ public enum PlainTextConverter {
 }
 
 public enum CSVConverter {
+    /// The delimiter of a table with no file name to tell it, such as one copied from a spreadsheet. As the
+    /// clipboard's detector decides: the delimiter under which every record on its first lines has the same number
+    /// of fields, and a tab when both do, so that the commas inside tab-separated cells ("1,200,000") stay data.
+    /// When neither is regular, the one that separates more fields.
+    public static func guessedDelimiter(of text: String) -> Character {
+        let characters = Array(TextDecoding.normalizeNewlines(String(text.prefix(65_536))))
+        var commas = 0
+        var tabs = 0
+        var records: [(commas: Int, tabs: Int)] = []
+        var quoted = false
+        var field = false
+        var blank = true
+        var index = 0
+        func endRecord() {
+            if !blank { records.append((commas, tabs)) }
+            commas = 0
+            tabs = 0
+            blank = true
+        }
+        // The same reading of quotes as `convert`, so that a delimiter inside a quoted field is not counted.
+        while index < characters.count, records.count < 64 {
+            let character = characters[index]
+            if character == "\"" {
+                if quoted && index + 1 < characters.count && characters[index + 1] == "\"" {
+                    index += 1
+                } else if quoted || !field {
+                    quoted.toggle()
+                }
+                field = true
+                blank = false
+            } else if !quoted && (character == "," || character == "\t") {
+                if character == "," { commas += 1 } else { tabs += 1 }
+                field = false
+                blank = false
+            } else if !quoted && character == "\n" {
+                endRecord()
+                field = false
+            } else {
+                field = true
+                if !character.isWhitespace { blank = false }
+            }
+            index += 1
+        }
+        if records.count < 64 { endRecord() }
+        func regular(_ count: ((commas: Int, tabs: Int)) -> Int) -> Bool {
+            guard let first = records.first.map(count), first > 0 else { return false }
+            return records.allSatisfy { count($0) == first }
+        }
+        if regular(\.tabs) { return "\t" }
+        if regular(\.commas) { return "," }
+        let allTabs = records.reduce(0) { $0 + $1.tabs }
+        let allCommas = records.reduce(0) { $0 + $1.commas }
+        return allTabs > 0 && allTabs >= allCommas ? "\t" : ","
+    }
+
     public static func convert(_ text: String, delimiter: Character = ",") -> HTMLFragment {
         let characters = Array(TextDecoding.normalizeNewlines(text))
         var rows: [[String]] = []

@@ -334,7 +334,8 @@ public enum DocumentOutline {
             }
             return true
         }
-        guard hiddenElements.contains(tag.name), !tag.isClosing, !tag.isSelfClosing else { return false }
+        let isComment = tag.attribute("class")?.split(separator: " ").contains("critic-comment") == true
+        guard hiddenElements.contains(tag.name) || isComment, !tag.isClosing, !tag.isSelfClosing else { return false }
         hidden = (tag.name, 1)
         return true
     }

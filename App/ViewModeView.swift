@@ -2,71 +2,98 @@ import AppKit
 import SurimonoCore
 import SwiftUI
 
-// The bands have their own room beside the paper and never cover it. The pointer only shows and hides what is in that
-// room, so the window keeps its size.
+// Bands that always show have their own room beside the paper and never cover it. Bands that show on pointing take
+// that room only while they show: the window grows around the paper and gives the room back when they hide, so the
+// window is the paper alone in between. Where the window cannot grow, they lie over the paper's edges.
 struct ViewModeView: View {
     @Bindable var model: DocumentViewModel
     @State private var menu = OverlayMenuState()
 
     private var bandVisible: Bool { model.isBandAlwaysVisible || menu.stage != .hidden }
+    /// Bands shown by the pointer or the keys rather than always.
+    private var hoverBandShown: Bool { !model.isBandAlwaysVisible && menu.stage != .hidden }
     private var isSplit: Bool { model.menuArrangement == .split }
     /// What floats over the paper stays clear of the bottom band's room.
     private var bottomInset: CGFloat { isSplit ? ViewerWindow.bandHeight : 0 }
     private var holdsBand: Bool {
-        model.isViewOptionsPresented || model.isThemePalettePresented || model.isOutlinePresented
-            || model.isFiguresPresented || model.drop.isActive
+        model.isViewOptionsPresented || model.isThemePalettePresented || model.isPrintFinishPresented
+            || model.isOutlinePresented || model.isFiguresPresented || model.drop.holdsBand
     }
 
     var body: some View {
         let plans = BandPlans(model: model, menu: menu)
         ZStack(alignment: .top) {
-            VStack(spacing: 0) {
-                topZone(plans)
-                HStack(spacing: 0) {
-                    if model.showsOutlineDrawer {
-                        OutlineDrawer(model: model).transition(.move(edge: .leading))
-                    }
-                    if model.showsSideList {
-                        if model.binder != nil {
-                            BinderDrawer(model: model)
-                        } else if model.imageBundle != nil {
-                            ImageBundleDrawer(model: model)
-                        }
-                    }
-                    // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
-                    PaperArea(model: model, menu: menu).clipped()
+            HStack(spacing: 0) {
+                if model.showsOutlineDrawer {
+                    OutlineDrawer(model: model).transition(.move(edge: .leading))
                 }
+                if model.showsSideList {
+                    if model.binder != nil {
+                        BinderDrawer(model: model)
+                    } else if model.imageBundle != nil {
+                        ImageBundleDrawer(model: model)
+                    }
+                }
+                // A page turn moves the pages past the paper's edge, where the panel beside it must stay in front.
+                PaperArea(model: model, menu: menu).clipped()
+            }
+            .padding(.top, model.currentBandRoom.top)
+            .padding(.bottom, model.currentBandRoom.bottom)
+            // Overlays, so that a band without room draws over the paper's own view. The zones stay the same views
+            // whether or not they have room, and so do the band and the popovers it anchors when the room comes or
+            // goes.
+            .overlay(alignment: .top) { topZone(plans) }
+            .overlay(alignment: .bottom) {
                 if isSplit, let plan = plans.bottom { bottomZone(plan) }
             }
             if model.isReviewingSmartRemoval {
                 SmartRemovalPanel(model: model)
-                    .padding(.top, ViewerWindow.bandHeight + 8)
+                    .padding(.top, model.topBandHeight + 8)
                     .padding(.bottom, bottomInset)
                     .padding([.trailing, .bottom], 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
             ToastOverlay(model: model).padding(.bottom, bottomInset)
+            BandPresentationHost(model: model, plans: plans)
             ThemePaletteAnchor(model: model)
+            PrintSettingsAnchor(model: model)
         }
+        .coordinateSpace(name: BandAnchors.coordinateSpace)
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
         .animation(.easeOut(duration: 0.16), value: menu.stage)
         .animation(.easeOut(duration: 0.2), value: model.showsOutlineDrawer)
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)
         .sheet(isPresented: $model.isGoToPagePresented) { GoToPageSheet(model: model) }
-        .onContinuousHover(coordinateSpace: .local) { phase in
-            switch phase {
-            case .active(let point): menu.pointerMoved(to: point)
-            case .ended: menu.pointerExited()
+        .background {
+            PointerTracker(isActive: !model.isBandAlwaysVisible) { point, contentHeight in
+                menu.contentHeight = contentHeight
+                if let point { menu.pointerMoved(to: point) } else { menu.pointerExited() }
             }
         }
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-        } action: { height in
-            menu.contentHeight = height
-        }
         .onChange(of: isSplit, initial: true) { _, split in menu.hasBottomBand = split }
+        .onChange(of: hoverBandShown) { _, shown in
+            model.bandRevealDidChange(shown)
+            followBandRoom()
+        }
+        .onChange(of: model.currentBandRoom, initial: true) { followBandRoom() }
+        .onChange(of: model.topBandHeight, initial: true) { _, height in menu.topZone = height }
+        // A window narrower than this would push the traffic lights, "…" or Print off a band.
+        .onChange(of: plans.minimumWidth, initial: true) { _, width in
+            menu.minimumWidth = width
+            model.bandMinimumWidthDidChange(width)
+        }
+        // The first plans can come before the window does.
+        .background {
+            WindowReader { window in model.bandMinimumWidthDidChange(menu.minimumWidth, in: window) }
+        }
+        .onChange(of: plans.resolved, initial: true) { _, plan in
+            model.bandAnchors.plan = plan
+            // The list button's place is a drop target only while the list is on a band: a fold or another arrangement
+            // leaves its last place behind, where a resting drag would open the list.
+            if plan.band(of: .thumbnails) == nil { model.drop.listButtonFrame = nil }
+        }
         .onChange(of: bandVisible) { _, visible in
             if let window = model.window { ViewerWindow.setTrafficLightsVisible(visible, in: window) }
         }
@@ -84,17 +111,25 @@ struct ViewModeView: View {
         #endif
     }
 
+    /// The pointer's zones move with the room at once, in the same update as the window.
+    private func followBandRoom() {
+        menu.topRoom = model.currentBandRoom.top
+        menu.bottomRoom = model.currentBandRoom.bottom
+    }
+
     private func topZone(_ plans: BandPlans) -> some View {
-        BandZone(edge: .top) {
-            if bandVisible {
-                OverlayBand(model: model, menu: menu).transition(.opacity)
-            }
+        BandZone(edge: .top, isShown: bandVisible, height: model.topBandHeight) {
+            OverlayBand(model: model, menu: menu, plans: plans)
         }
         .background(alignment: .topLeading) {
             BandMeasurements(model: model, items: BandLayout.Item.applicable(for: model), menu: menu)
         }
+        // Read while the band hides too, so that it shows on the buttons' line at once.
         .background {
-            if !isSplit { BandPopovers(model: model, menu: menu, plan: plans.top, arrowEdge: .bottom) }
+            TrafficLightsReader { lights in
+                if menu.trafficLights != lights { menu.trafficLights = lights }
+                if !menu.hasReadTrafficLights { menu.hasReadTrafficLights = true }
+            }
         }
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
@@ -103,13 +138,10 @@ struct ViewModeView: View {
         }
     }
 
-    private func bottomZone(_ plan: BandLayout.Plan) -> some View {
-        BandZone(edge: .bottom) {
-            if bandVisible {
-                BottomBand(model: model, menu: menu, plan: plan).transition(.opacity)
-            }
+    private func bottomZone(_ row: BandRowPlan) -> some View {
+        BandZone(edge: .bottom, isShown: bandVisible, height: ViewerWindow.bandHeight) {
+            BottomBand(model: model, row: row)
         }
-        .background { BandPopovers(model: model, menu: menu, plan: plan, arrowEdge: .top) }
     }
 }
 
@@ -130,13 +162,16 @@ private struct PaperArea: View {
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
+                    furniture: model.paperFurniture,
                     narrowsLoneCover: model.loneCoverWidth == .onePage,
                     keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
                     controller: model.paper,
                     onZoomChange: { model.zoom = $0 },
                     onPageChange: { model.paperDidChangePage($0) },
                     onTurn: { menu.pageTurned() },
-                    onKey: handleKey
+                    onKey: handleKey,
+                    onShortcut: { model.performPaperShortcut($0, menu: menu) },
+                    allowsShortcutHandling: { !model.blocksSurfaceShortcuts }
                 )
                 .paperFind(model)
             } else if model.error == nil {
@@ -190,28 +225,7 @@ private struct PaperArea: View {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-        switch KeyGuideEntry.paperAction(for: event) {
-        case .menu:
-            menu.toggle()
-            return true
-        case .escape:
-            // Esc closes the find bar first, also when the paper has the keys.
-            if model.find.isPresented {
-                model.closeFind()
-                return true
-            }
-            return menu.hideForEscape(alwaysVisible: model.isBandAlwaysVisible)
-        case .viewOptions:
-            menu.showFull()
-            model.isViewOptionsPresented = true
-            return true
-        case .selectText:
-            guard model.canSelectText else { return false }
-            model.toggleSelectingText()
-            return true
-        default:
-            return false
-        }
+        model.handleFixedPaperKey(event, menu: menu)
     }
 }
 
@@ -344,7 +358,6 @@ struct ThemeTrialBadge: View {
             if !isReady { ProgressView().controlSize(.mini) }
             Text(verbatim: String(format: String(localized: "Trying %@"), name)).font(
                 .system(size: 13, weight: .semibold))
-            Text("Click to choose. Move away to go back.").font(.system(size: 11)).opacity(0.75)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -374,5 +387,53 @@ struct ThemePaletteAnchor: View {
             ) {
                 ThemePalette(model: model)
             }
+    }
+}
+
+/// Hangs the print settings off the window's trailing edge, as the style palette is: the paper fills the window, which
+/// keeps the page's shape and is often narrower than the panel, so a panel over the paper would hide the very pages it
+/// changes. The tray has room beside its sheets and lays the same panel there instead.
+struct PrintSettingsAnchor: View {
+    @Bindable var model: DocumentViewModel
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .allowsHitTesting(false)
+            .popover(isPresented: $model.isPrintFinishPresented, arrowEdge: .trailing) {
+                PrintFinishSheet(model: model, isInPopover: true)
+            }
+    }
+}
+
+@MainActor
+extension DocumentViewModel {
+    func handleFixedPaperKey(_ event: NSEvent, menu: OverlayMenuState) -> Bool {
+        switch KeyGuideEntry.fixedPaperAction(for: event) {
+        case .menu:
+            performPaperShortcut(.viewToolbarToggle, menu: menu)
+            return true
+        case .escape:
+            // Find is the innermost presentation even after focus returns to the paper.
+            if find.isPresented {
+                closeFind()
+                return true
+            }
+            return menu.hideForEscape(alwaysVisible: isBandAlwaysVisible)
+        default: return false
+        }
+    }
+
+    func performPaperShortcut(_ operation: ShortcutOperationID, menu: OverlayMenuState) {
+        guard mode == .view, !showsWeb else { return }
+        switch operation {
+        case .viewToolbarToggle: menu.toggle()
+        case .viewOptions:
+            menu.showFull()
+            isViewOptionsPresented = true
+        case .viewSelectText: toggleSelectingText()
+        default: break
+        }
     }
 }

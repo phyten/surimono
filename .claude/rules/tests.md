@@ -14,3 +14,5 @@ paths:
   - AppTests（Xcode のホスト付きテスト。`Bundle.module` は無い）: `AppTests/` 配下に置くと synchronized folder によりテストバンドルに入るので、テストファイル内のクラス（例 `private final class BundleToken {}`）から `Bundle(for: BundleToken.self)` で読む。
 - 面付けや用紙寸法など仕様として固定した値は、AGENTS.md と同じ例でテストする。
 - WebKit を使うテストは最小限にし、`.timeLimit(.minutes(1))` を付ける。Kit の Rendering のテストは、`make test-kit`（`SWIFT_TEST_FLAGS` を指定しないとき）では直列に走る。`SWIFT_TEST_FLAGS` で個別に走らせるときは、必要に応じて `--no-parallel` を付ける。直列で 1 件が 1 分を超えるような重いテストは作らない。
+- Rendering のテストは静的な状態（`WebPaginator.clearBackground` など）を一時的に書き換えるので、並列には走らせられない。書き換えるテストを足すときは、`defer` で必ず元へ戻す。
+- ホスト付きテストは 1 つのホストのアプリで直列に走る（スキームの `parallelizable="NO"`）。Xcode の並列テストを有効にしない（ホストの複製が設定・保存先・窓を取り合って落ちる）。

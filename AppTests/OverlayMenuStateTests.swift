@@ -15,6 +15,74 @@ struct OverlayMenuStateTests {
         #expect(menu.stage == .full)
     }
 
+    @Test("上の帯が低ければ、紙の上端からその高さまでで帯を出す")
+    func topZoneFollowsTopBandHeight() {
+        let menu = OverlayMenuState()
+        menu.topZone = 32
+        menu.pointerMoved(to: CGPoint(x: 200, y: 33))
+        #expect(menu.stage == .hidden)
+        menu.pointerMoved(to: CGPoint(x: 200, y: 32))
+        #expect(menu.stage == .full)
+    }
+
+    @Test("帯が場所を取って紙の端が下がっても、止まったポインタは帯の範囲に入ったまま")
+    func roomKeepsStillPointerInside() {
+        let menu = OverlayMenuState()
+        menu.pointerMoved(to: CGPoint(x: 200, y: 30))
+        #expect(menu.stage == .full)
+        // The window grew 38pt upward around the paper: the same place on the screen is 38pt lower in the content.
+        menu.topRoom = 38
+        menu.pointerMoved(to: CGPoint(x: 200, y: 68))
+        #expect(menu.isPointerOverBand)
+        menu.pointerMoved(to: CGPoint(x: 200, y: 77))
+        #expect(!menu.isPointerOverBand)
+    }
+
+    @Test("隠す時間に帯の範囲へ入っていた帯は残り、そのあと離れるとまた1秒後に隠れる", .timeLimit(.minutes(1)))
+    func spentDeadlineIsRenewed() async throws {
+        let menu = OverlayMenuState()
+        menu.showFull()
+        // The window grew for the band after the pointer was read: for a moment the pointer seems below the zone.
+        menu.pointerMoved(to: CGPoint(x: 200, y: 50))
+        menu.topRoom = 38
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(menu.stage == .full)
+        menu.pointerMoved(to: CGPoint(x: 200, y: 300))
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(menu.stage == .hidden)
+    }
+
+    @Test("帯を隠して場所を返しても、離れたポインタは紙の端の範囲に戻らない")
+    func releasingRoomDoesNotReveal() {
+        let menu = OverlayMenuState()
+        menu.contentHeight = 800
+        menu.hasBottomBand = true
+        menu.topRoom = 38
+        menu.bottomRoom = 38
+        // Just beyond both zones while the bands have their room...
+        for y: CGFloat in [77, 723] {
+            menu.pointerMoved(to: CGPoint(x: 200, y: y))
+            #expect(!menu.isPointerOverBand)
+        }
+        // ...is just beyond the paper's edges once the room is given back.
+        menu.topRoom = 0
+        menu.bottomRoom = 0
+        menu.contentHeight = 724
+        for y: CGFloat in [39, 685] {
+            menu.pointerMoved(to: CGPoint(x: 200, y: y))
+            #expect(!menu.isPointerOverBand)
+        }
+    }
+
+    @Test("ポインタは画面の位置から窓の中の左上基準の位置にし、窓の外やほかの窓の下では持たない")
+    func trackerConvertsScreenPoints() {
+        let content = NSRect(x: 100, y: 200, width: 600, height: 800)
+        let inside = PointerTracker.TrackerView.contentPoint(of: NSPoint(x: 150, y: 990), in: content) { _ in true }
+        #expect(inside == CGPoint(x: 50, y: 10))
+        #expect(PointerTracker.TrackerView.contentPoint(of: NSPoint(x: 50, y: 990), in: content) { _ in true } == nil)
+        #expect(PointerTracker.TrackerView.contentPoint(of: NSPoint(x: 150, y: 990), in: content) { _ in false } == nil)
+    }
+
     @Test("上と下に分けると下の帯の場所でも全体を表示する")
     func bottomZoneShowsBands() {
         let menu = OverlayMenuState()

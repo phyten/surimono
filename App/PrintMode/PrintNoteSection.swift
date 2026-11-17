@@ -5,6 +5,7 @@ import SwiftUI
 /// The note pages' part of the paper's finish: where they go, a shelf of presets, and the lines themselves.
 struct PrintNoteSection: View {
     @Bindable var model: DocumentViewModel
+    @Environment(\.printAccent) private var accent
     @State private var shelf = Shelf.practical
     @State private var saveName = ""
 
@@ -105,8 +106,10 @@ struct PrintNoteSection: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 6)
         }
-        if model.coverIsNotePage {
-            warning("With this setting, the cover is a note page.")
+        // This warning speaks about the current setting, so it waits for sheets composed with it; the sheets still
+        // on the tray from the previous setting would describe a different result.
+        if model.hasCurrentPrintPreview, model.coverIsNotePage {
+            warning("The cover is a note page too")
         }
     }
 
@@ -202,9 +205,9 @@ struct PrintNoteSection: View {
                     }
                     .padding(3)
                     .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(isOn ? PrintPalette.aiTint2 : .clear))
+                    .background(RoundedRectangle(cornerRadius: 7).fill(isOn ? accent.opacity(0.17) : .clear))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 7).strokeBorder(isOn ? PrintPalette.ai : .clear, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 7).strokeBorder(isOn ? accent : .clear, lineWidth: 1)
                     )
                     .contentShape(RoundedRectangle(cornerRadius: 7))
                 }
@@ -297,9 +300,9 @@ struct PrintNoteSection: View {
                     .padding(.horizontal, 2)
                     .padding(.vertical, 4)
                     .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(isOn ? PrintPalette.aiTint2 : .clear))
+                    .background(RoundedRectangle(cornerRadius: 6).fill(isOn ? accent.opacity(0.17) : .clear))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6).strokeBorder(isOn ? PrintPalette.ai : .clear, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 6).strokeBorder(isOn ? accent : .clear, lineWidth: 1)
                     )
                     .contentShape(RoundedRectangle(cornerRadius: 6))
                 }
@@ -366,7 +369,7 @@ struct PrintNoteSection: View {
                             .frame(width: 20, height: 20)
                             .overlay(Circle().strokeBorder(PrintPalette.line3, lineWidth: 1))
                             .padding(2)
-                            .overlay(Circle().strokeBorder(isOn ? PrintPalette.ai : .clear, lineWidth: 2))
+                            .overlay(Circle().strokeBorder(isOn ? accent : .clear, lineWidth: 2))
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -407,8 +410,8 @@ struct PrintNoteSection: View {
                 .fixedSize()
                 .padding(.horizontal, 9)
                 .frame(height: 26)
-                .background(Capsule().fill(isOn.wrappedValue ? PrintPalette.aiTint2 : .clear))
-                .overlay(Capsule().strokeBorder(isOn.wrappedValue ? PrintPalette.ai : PrintPalette.line2, lineWidth: 1))
+                .background(Capsule().fill(isOn.wrappedValue ? accent.opacity(0.17) : .clear))
+                .overlay(Capsule().strokeBorder(isOn.wrappedValue ? accent : PrintPalette.line2, lineWidth: 1))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)

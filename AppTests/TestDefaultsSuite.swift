@@ -1,9 +1,16 @@
 import Foundation
+import SurimonoCore
 import Synchronization
 
 /// A UserDefaults suite of one test's own, so tests share no settings and leave no plist in ~/Library/Preferences.
 struct TestDefaultsSuite {
     let name = "SurimonoTests.\(UUID().uuidString)"
+
+    init() {
+        // Binder decision tests inject a presenter and choose their policy explicitly.
+        // Every other fixture, including windows created indirectly, keeps the last child in its binder.
+        defaults.set(SingleDocumentBinderPolicy.stay.rawValue, forKey: "singleDocumentBinderPolicy")
+    }
 
     /// A new object for the suite on every call; all of them read and write the same settings.
     var defaults: UserDefaults { UserDefaults(suiteName: name)! }

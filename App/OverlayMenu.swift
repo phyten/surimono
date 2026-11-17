@@ -18,8 +18,17 @@ final class OverlayMenuState {
     /// The window's content height; the bottom band's room is measured from it.
     @ObservationIgnored var contentHeight: CGFloat = 0
     @ObservationIgnored var hasBottomBand = false
-    /// Where the band's items stand in their band, for the popovers the band hangs off them.
-    @ObservationIgnored var itemFrames: [BandLayout.Item: CGRect] = [:]
+    /// The room the bands take at the top and bottom of the content, beside the paper.
+    @ObservationIgnored var topRoom: CGFloat = 0
+    @ObservationIgnored var bottomRoom: CGFloat = 0
+    /// The top band's height, which is also how far into the paper's top edge the pointer reveals it.
+    @ObservationIgnored var topZone: CGFloat = OverlayMenuState.revealZone
+    /// The narrowest width the bands can lay out, for the window once it is known.
+    @ObservationIgnored var minimumWidth: CGFloat = 0
+    /// The window's traffic lights as last read, which the top band lines up with; `hasReadTrafficLights` tells a
+    /// window without them (full screen) from one not read yet.
+    var trafficLights: TrafficLights?
+    var hasReadTrafficLights = false
     // Measurements outlive the band so it reopens with the tools that fit.
     var bandWidths: [BandSlot: CGFloat] = [:]
     var bandWidth: CGFloat = 0
@@ -55,10 +64,13 @@ final class OverlayMenuState {
     }
 
     private var isHeld: Bool { isHolding || menuTracking > 0 }
-    private var isPointerOverBand: Bool {
+    /// The edge of the paper under a hidden band, and the band's room with that edge while it shows. A band that makes
+    /// room for itself moves the paper's edge away from a still pointer, which therefore stays inside; and the band
+    /// hides only once the pointer is beyond both, where giving the room back cannot bring the edge under it again.
+    var isPointerOverBand: Bool {
         guard let pointerY else { return false }
-        if pointerY >= 0, pointerY <= Self.revealZone { return true }
-        return hasBottomBand && pointerY >= contentHeight - Self.revealZone && pointerY <= contentHeight
+        if pointerY >= 0, pointerY <= topRoom + topZone { return true }
+        return hasBottomBand && pointerY >= contentHeight - bottomRoom - Self.revealZone && pointerY <= contentHeight
     }
 
     func pointerMoved(to point: CGPoint) {
@@ -109,7 +121,12 @@ final class OverlayMenuState {
         guard stage != .hidden, hideTask == nil else { return }
         hideTask = Task { [weak self] in
             do { try await Task.sleep(for: Self.hideDelay) } catch { return }
-            guard let self, !Task.isCancelled, !isHeld, !isPointerOverBand else { return }
+            guard let self, !Task.isCancelled else { return }
+            // Kept by then (back on the band, or held), the band needs a new deadline the next time it is left.
+            guard !isHeld, !isPointerOverBand else {
+                hideTask = nil
+                return
+            }
             hideNow()
         }
     }
@@ -120,64 +137,67 @@ final class OverlayMenuState {
     }
 }
 
-/// What each band shows at the current width. The "…" menu is on the top band and takes in what left either band.
+/// What each band shows at the current width, from the saved arrangement of the band's parts.
 struct BandPlans {
-    let top: BandLayout.Plan
-    /// Nil when the arrangement has no bottom band.
-    let bottom: BandLayout.Plan?
+    let resolved: BandResolvedPlan
 
-    var overflow: [BandLayout.Item] {
-        let left = Set(top.overflow + (bottom?.overflow ?? []))
-        return BandLayout.Item.allCases.filter(left.contains)
-    }
+    var top: BandRowPlan { resolved.top }
+    /// Nil when the arrangement has no bottom band.
+    var bottom: BandRowPlan? { resolved.bottom }
+    /// The narrowest window whose bands still hold what never leaves them: the traffic lights, "…" and Print.
+    var minimumWidth: CGFloat { max(top.minimumWidth, bottom?.minimumWidth ?? 0) }
+
+    /// The band a part is on now, or nil when it is not in use, cannot be used here or did not fit.
+    func band(of item: BandLayout.Item) -> VerticalEdge? { resolved.band(of: item) }
 
     init(model: DocumentViewModel, menu: OverlayMenuState) {
         let measured = menu.bandWidths
-        let arrangement = model.menuArrangement
-        let available = menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude
-        func widths(at position: BandLayout.Position) -> [BandLayout.Item: BandLayout.Widths] {
-            var widths: [BandLayout.Item: BandLayout.Widths] = [:]
-            for item in BandLayout.Item.applicable(for: model)
-            where BandLayout.position(of: item, in: arrangement) == position {
-                let gap = item.bandGap(in: arrangement)
-                widths[item] = BandLayout.Widths(
-                    full: (measured[.item(item, .full)] ?? 0) + gap,
-                    compact: item.hasCompactForm ? (measured[.item(item, .compact)] ?? 0) + gap : nil)
-            }
-            return widths
+        let applicable = BandLayout.Item.applicable(for: model)
+        var widths: [BandLayout.Item: BandLayout.Widths] = [:]
+        for item in applicable {
+            widths[item] = BandLayout.Widths(
+                full: measured[.item(item, .full)] ?? 0,
+                compact: item.hasCompactForm ? measured[.item(item, .compact)] ?? 0 : nil)
         }
-        let separator = 1 + OverlayBand.toolSpacing
+        let lights = OverlayBand.lights(model: model, menu: menu)
+        // Separator cost includes the line and its following gap; the plan adds the preceding gap only when drawn.
+        let metrics = BandMetrics(
+            topFixed: OverlayBand.fixedWidth(lights: lights) + (measured[.more] ?? 0),
+            bottomFixed: BottomBand.fixedWidth, separator: 1 + OverlayBand.toolSpacing,
+            titleGap: OverlayBand.titleSpacing, toolGap: OverlayBand.toolSpacing, outerGap: OverlayBand.spacing)
         // Until the band has been laid out once, its width is unknown: show everything rather than guess.
-        top = BandLayout.plan(
-            widths: widths(at: .top), fixed: OverlayBand.fixedWidth + (measured[.more] ?? 0), separator: separator,
-            name: measured[.name] ?? .greatestFiniteMagnitude, available: available)
-        bottom =
-            arrangement == .split
-            ? BandLayout.plan(
-                widths: widths(at: .bottom), fixed: BottomBand.fixedWidth, separator: separator, name: 0,
-                available: available, steps: BandLayout.bottomSteps)
-            : nil
+        resolved = BandLayout.resolve(
+            arrangement: model.preferences.activeBandArrangement, mode: model.menuArrangement,
+            availableItems: Set(applicable),
+            measurements: BandMeasurementsValue(items: widths, name: measured[.name] ?? .greatestFiniteMagnitude),
+            metrics: metrics, availableWidth: menu.bandWidth > 0 ? menu.bandWidth : .greatestFiniteMagnitude)
     }
 }
 
-/// The room of one band beside the paper. It stays whether or not the band shows, so that the window never changes
-/// with the pointer, and what the band leaves empty moves the window.
+/// The place of one band: its own room beside the paper while it always shows, or the paper's edge it lies over while
+/// it shows on pointing. What the band leaves empty moves the window. A hidden band draws nothing, so the paper under
+/// it stays in view and takes the clicks.
 struct BandZone<Content: View>: View {
-    static var coordinateSpace: String { "band" }
-
     let edge: VerticalEdge
+    let isShown: Bool
+    let height: CGFloat
     @ViewBuilder let content: Content
 
     var body: some View {
         ZStack {
-            WindowDragArea()
-            content
+            if isShown {
+                WindowDragArea()
+                content
+            }
         }
-        .frame(height: ViewerWindow.bandHeight)
+        .frame(height: height)
         .frame(maxWidth: .infinity)
-        .background(PrintPalette.raised)
-        .overlay(alignment: edge == .top ? .bottom : .top) { Divider() }
-        .coordinateSpace(name: Self.coordinateSpace)
+        .background {
+            if isShown { PrintPalette.raised }
+        }
+        .overlay(alignment: edge == .top ? .bottom : .top) {
+            if isShown { Divider() }
+        }
     }
 }
 
@@ -192,174 +212,268 @@ struct WindowDragArea: NSViewRepresentable {
     func updateNSView(_ view: DragView, context: Context) {}
 }
 
+/// Where the band's parts and "…" stand in the window, for the popovers that hang off them. Only the parts on the bands
+/// record their place: `BandMeasurements` draws another copy of each out of sight.
+@Observable
+final class BandAnchors {
+    enum Anchor: Hashable {
+        case item(BandLayout.Item)
+        case more
+    }
+
+    /// The view mode's whole content, which the bands and the popovers' host share.
+    nonisolated static let coordinateSpace = "viewMode"
+
+    var frames: [Anchor: CGRect] = [:]
+    /// The plan the window's bands drew last. A part's recorded place counts only while this has it on a band.
+    @ObservationIgnored var plan: BandResolvedPlan?
+}
+
+extension BandResolvedPlan {
+    /// The band a part is on, or nil when it is not in use, cannot be used here or did not fit.
+    func band(of item: BandLayout.Item) -> VerticalEdge? {
+        if top.forms[item] != nil { return .top }
+        return bottom?.forms[item] != nil ? .bottom : nil
+    }
+}
+
 extension View {
-    /// Records where a band's item stands, for the popover that hangs off it.
-    func bandItemFrame(_ item: BandLayout.Item, in menu: OverlayMenuState) -> some View {
+    /// Records where a part of the band stands, for the popover that hangs off it.
+    func bandAnchor(_ anchor: BandAnchors.Anchor, in anchors: BandAnchors) -> some View {
         onGeometryChange(for: CGRect.self) {
-            $0.frame(in: .named(BandZone<EmptyView>.coordinateSpace))
+            $0.frame(in: .named(BandAnchors.coordinateSpace))
         } action: { frame in
-            menu.itemFrames[item] = frame
+            if anchors.frames[anchor] != frame { anchors.frames[anchor] = frame }
         }
     }
 }
 
-/// The popovers of the table of contents and the document's figures. They hang off the band's room rather than off
-/// their buttons: `BandMeasurements` draws every item a second time, a folded item has no button, and the room stays
-/// when the band hides or rearranges.
-struct BandPopovers: View {
+/// The popovers of the band's parts: the table of contents, the document's figures and the view options. One host for
+/// the window holds them all, outside the bands: a part that folds into "…", moves to the other band or comes back
+/// after a resize changes only where its popover points, never which view presents it, so an open popover neither
+/// closes nor shows twice. A part that is not on a band lends its popover to "…".
+struct BandPresentationHost: View {
     @Bindable var model: DocumentViewModel
-    let menu: OverlayMenuState
-    let plan: BandLayout.Plan?
-    let arrowEdge: Edge
+    let plans: BandPlans
+
+    /// Where a popover points: a part actually on a band, or "…" when no displayed part frame is available.
+    /// A nil rect means "…" has not been laid out yet.
+    struct Placement: Equatable {
+        var rect: CGRect?
+        var arrowEdge: Edge
+    }
+
+    static func placement(
+        of item: BandLayout.Item?, plans: BandPlans, frames: [BandAnchors.Anchor: CGRect]
+    ) -> Placement {
+        if let item, let band = plans.band(of: item), let frame = frames[.item(item)] {
+            // Under a part of the top band, above a part of the bottom band.
+            return Placement(rect: frame, arrowEdge: band == .bottom ? .top : .bottom)
+        }
+        return Placement(rect: frames[.more], arrowEdge: .bottom)
+    }
 
     var body: some View {
         // One popover to a view: two on the same view would compete for its presentation.
         ZStack {
+            let outline = placement(.outline)
+            let figures = placement(.pageIndicator)
+            let more = placement(.viewOptions)
             Color.clear.popover(
-                isPresented: $model.isOutlinePresented, attachmentAnchor: anchor(.outline), arrowEdge: arrowEdge
+                isPresented: $model.isOutlinePresented, attachmentAnchor: anchor(outline),
+                arrowEdge: outline.arrowEdge
             ) {
                 OutlinePopover(model: model)
             }
             Color.clear.popover(
-                isPresented: $model.isFiguresPresented, attachmentAnchor: anchor(.pageIndicator), arrowEdge: arrowEdge
+                isPresented: $model.isFiguresPresented, attachmentAnchor: anchor(figures),
+                arrowEdge: figures.arrowEdge
             ) {
                 DocumentFiguresPopover(model: model)
+            }
+            Color.clear.popover(
+                isPresented: $model.isViewOptionsPresented, attachmentAnchor: anchor(more),
+                arrowEdge: more.arrowEdge
+            ) {
+                ViewOptionsPopover(model: model)
             }
         }
         .allowsHitTesting(false)
     }
 
-    private func anchor(_ item: BandLayout.Item) -> PopoverAttachmentAnchor {
-        let frame = plan?.forms[item] != nil ? menu.itemFrames[item] : nil
-        return .rect(.rect(frame ?? CGRect(x: 16, y: 0, width: 80, height: ViewerWindow.bandHeight)))
+    private func placement(_ item: BandLayout.Item?) -> Placement {
+        Self.placement(of: item, plans: plans, frames: model.bandAnchors.frames)
+    }
+
+    private func anchor(_ placement: Placement) -> PopoverAttachmentAnchor {
+        placement.rect.map { .rect(.rect($0)) } ?? .point(.topTrailing)
     }
 }
 
-/// The top band of the view mode window. It shows as many tools as fit and folds the rest into "…" in one fixed
-/// order (`BandLayout`). Every part keeps its identity whatever fits, so a popover opened from the band stays open
-/// when a layout change resizes the window.
+/// One part on a band, which records its place for the popovers and the image drop.
+struct BandPart: View {
+    @Bindable var model: DocumentViewModel
+    let item: BandLayout.Item
+    let form: BandLayout.Form
+
+    var body: some View {
+        BandItemView(model: model, item: item, form: form)
+            .bandAnchor(.item(item), in: model.bandAnchors)
+            // Only the part on the band: `BandMeasurements` draws another one out of sight.
+            .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .global)
+            } action: { frame in
+                if item == .thumbnails { model.drop.listButtonFrame = frame }
+            }
+    }
+}
+
+/// The thin line between parts of a band. It draws only the line: the room around it is the plan's
+/// (`BandRowGeometry.separatorWidth`), so the band and anything that shows a band's arrangement can share it.
+struct BandSeparator: View {
+    var body: some View {
+        Divider().frame(height: 16)
+    }
+}
+
+/// The parts of one zone in their saved order, with the separators where the plan put them
+/// (`BandRowGeometry.separatorsBefore`). A layout in the Standard order keeps the stacks' own spacing, so it looks as the
+/// bands always have; any other order spaces each part and separator as the plan counted them, and the caller's stack
+/// then has no spacing of its own.
+@ViewBuilder
+func bandParts(_ items: [BandLayout.Item], row: BandRowPlan, model: DocumentViewModel) -> some View {
+    let geometry = row.geometry
+    ForEach(items, id: \.self) { item in
+        let separated = geometry.separatorsBefore.contains(item)
+        let form = row.forms[item] ?? .full
+        if geometry.usesStandardSpacing {
+            if separated { BandSeparator() }
+            BandPart(model: model, item: item, form: form)
+        } else {
+            let gap = geometry.gapsBefore[item] ?? 0
+            HStack(spacing: 0) {
+                if separated { BandSeparator().padding(.leading, gap) }
+                // A separator's width is its line and the room after it.
+                BandPart(model: model, item: item, form: form)
+                    .padding(.leading, separated ? max(geometry.separatorWidth - 1, 0) : gap)
+            }
+        }
+    }
+}
+
+/// The top band of the view mode window. The file name stays first and "…" at the trailing end; the parts of the two
+/// top zones stand around a flexible space in their saved order, as many as fit, and the rest fold into "…"
+/// (`BandLayout.resolve`). Popovers hang off `BandPresentationHost`, so none closes when the band rearranges.
 struct OverlayBand: View {
     @Bindable var model: DocumentViewModel
     let menu: OverlayMenuState
+    let plans: BandPlans
 
     static let spacing: CGFloat = 10
     static let toolSpacing: CGFloat = 8
     static let titleSpacing: CGFloat = 6
     static let nameFont = Font.system(size: 13, weight: .semibold)
-    private static let lightsWidth: CGFloat = 64
+    /// Where the traffic lights end in a window without a toolbar, for a window that has none of its own to measure.
+    private static let fallbackLightsTrailing: CGFloat = 69
     private static let spacerMinimum: CGFloat = 8
     private static let trailingPadding: CGFloat = 8
-    /// What always stays apart from the "…" button: the room for the traffic lights, spacing and padding.
-    static var fixedWidth: CGFloat { lightsWidth + spacerMinimum + trailingPadding + spacing * 4 }
 
-    var body: some View {
-        let plans = BandPlans(model: model, menu: menu)
-        let plan = plans.top
-        HStack(spacing: Self.spacing) {
-            // Room for the traffic lights.
-            Color.clear.frame(width: Self.lightsWidth, height: 1)
-            title(plan)
-            Spacer(minLength: Self.spacerMinimum)
-            tools(plans)
-            PrintButton(model: model, iconOnly: plan.forms[.print] == .compact)
-        }
-        .padding(.trailing, Self.trailingPadding)
+    /// The traffic lights the band lines up with: the last reading, or the window's own until the first one comes.
+    static func lights(model: DocumentViewModel, menu: OverlayMenuState) -> TrafficLights? {
+        menu.hasReadTrafficLights ? menu.trafficLights : model.window.flatMap { TrafficLights(window: $0) }
     }
 
-    private func title(_ plan: BandLayout.Plan) -> some View {
-        HStack(spacing: Self.titleSpacing) {
-            if plan.showsName {
+    /// The room before the title: the traffic lights and the gap after them, less the stack's spacing.
+    static func lightsRoom(_ lights: TrafficLights?) -> CGFloat {
+        (lights?.titleLeading ?? fallbackLightsTrailing + TrafficLights.titleGap) - spacing
+    }
+
+    /// What always stays apart from the "…" button: the room for the traffic lights, spacing and padding.
+    static func fixedWidth(lights: TrafficLights?) -> CGFloat {
+        lightsRoom(lights) + spacerMinimum + trailingPadding + spacing * 4
+    }
+
+    var body: some View {
+        let row = plans.top
+        let lights = Self.lights(model: model, menu: menu)
+        // Print last on the right stays after "…", where it has always been.
+        let docksPrint = row.geometry.moreDock == .beforePrint
+        HStack(spacing: Self.spacing) {
+            // Room for the traffic lights.
+            Color.clear.frame(width: Self.lightsRoom(lights), height: 1)
+            title(row)
+            Spacer(minLength: Self.spacerMinimum)
+            tools(docksPrint ? row.trailing.filter { $0 != .print } : row.trailing, row: row)
+            if docksPrint, row.geometry.usesStandardSpacing, !row.geometry.separatorsBefore.contains(.print) {
+                BandPart(model: model, item: .print, form: row.forms[.print] ?? .full)
+            } else if docksPrint {
+                HStack(spacing: row.geometry.usesStandardSpacing ? Self.toolSpacing : 0) {
+                    // Print lives outside the tools stack, but its reader-placed separator still belongs to the zone.
+                    bandParts([.print], row: row, model: model)
+                }
+            }
+        }
+        .padding(.trailing, Self.trailingPadding)
+        // Every part sits on the traffic lights' centre line. The band is as tall as twice that line, so this moves
+        // nothing unless the band had to be taller than the title bar AppKit centres the buttons in.
+        .offset(y: TrafficLights.lineOffset(lights, barHeight: model.topBandHeight))
+    }
+
+    private func title(_ row: BandRowPlan) -> some View {
+        HStack(spacing: row.geometry.usesStandardSpacing ? Self.titleSpacing : 0) {
+            if row.showsName {
                 Text(verbatim: model.displayName)
                     .font(Self.nameFont)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .frame(maxWidth: plan.nameWidth + 0.5, alignment: .leading)
+                    .frame(maxWidth: row.nameWidth + 0.5, alignment: .leading)
                     .help(model.fileURL?.path ?? model.displayName)
             }
-            if plan.forms[.formatBadge] != nil { FormatBadge(text: model.formatBadge) }
-            if plan.forms[.pageIndicator] != nil {
-                PageIndicatorButton(model: model).bandItemFrame(.pageIndicator, in: menu)
-            }
-        }
-    }
-
-    private func tools(_ plans: BandPlans) -> some View {
-        HStack(spacing: Self.toolSpacing) {
-            BandTools(model: model, menu: menu, plan: plans.top)
-            BandMoreMenu(model: model, overflow: plans.overflow, header: header(plans))
-                .popover(isPresented: $model.isViewOptionsPresented, arrowEdge: .bottom) {
-                    ViewOptionsPopover(model: model)
-                }
+            bandParts(row.leading, row: row, model: model)
         }
         .buttonStyle(.borderless)
-        .controlSize(.regular)
+        .controlSize(ViewerWindow.bandControlSize)
+    }
+
+    private func tools(_ items: [BandLayout.Item], row: BandRowPlan) -> some View {
+        let spacing = row.geometry.usesStandardSpacing ? Self.toolSpacing : 0
+        return HStack(spacing: spacing) {
+            HStack(spacing: spacing) { bandParts(items, row: row, model: model) }.fixedSize()
+            BandMoreMenu(model: model)
+                .bandAnchor(.more, in: model.bandAnchors)
+                // The plan's gap before "…"; in the Standard order the stack's spacing draws it instead.
+                .padding(.leading, row.geometry.moreGap)
+        }
+        .buttonStyle(.borderless)
+        .controlSize(ViewerWindow.bandControlSize)
         // The plan already made the tools fit; without this the stack would squeeze a label to make room for the
         // spacer instead of leaving the slack to it.
         .fixedSize()
     }
 
-    /// The document's name, format and page, when the bands no longer show them in full.
-    private func header(_ plans: BandPlans) -> String? {
-        let plan = plans.top
-        let truncated = plan.nameWidth + 0.5 < (menu.bandWidths[.name] ?? 0)
-        guard
-            !plan.showsName || truncated || plans.overflow.contains(.formatBadge)
-                || plans.overflow.contains(.pageIndicator)
-        else { return nil }
-        return ([model.displayName, model.formatBadge] + [model.pageIndicator].compactMap { $0 })
-            .joined(separator: " · ")
-    }
 }
 
-/// The band under the paper when the menu is split: the reading tools on the left, the page on the right.
+/// The band under the paper when the menu is split: the bottom-left zone's parts on the left, the bottom-right zone's
+/// on the right, in their saved order.
 struct BottomBand: View {
     @Bindable var model: DocumentViewModel
-    let menu: OverlayMenuState
-    let plan: BandLayout.Plan
+    let row: BandRowPlan
 
     private static let padding: CGFloat = 10
     private static let spacerMinimum: CGFloat = 8
     static var fixedWidth: CGFloat { padding * 2 + spacerMinimum }
 
     var body: some View {
-        HStack(spacing: OverlayBand.toolSpacing) {
-            BandTools(model: model, menu: menu, plan: plan)
+        let spacing = row.geometry.usesStandardSpacing ? OverlayBand.toolSpacing : 0
+        HStack(spacing: spacing) {
+            HStack(spacing: spacing) { bandParts(row.leading, row: row, model: model) }.fixedSize()
             Spacer(minLength: Self.spacerMinimum)
-            if plan.forms[.pageIndicator] != nil {
-                PageIndicatorButton(model: model).bandItemFrame(.pageIndicator, in: menu)
-            }
-            if plan.forms[.pageTurn] != nil { PageTurnButtons(model: model) }
+            bandParts(row.trailing, row: row, model: model)
         }
         .buttonStyle(.borderless)
-        .controlSize(.regular)
+        // The same size as the top band's, whose widths the same measurements give.
+        .controlSize(ViewerWindow.bandControlSize)
         .padding(.horizontal, Self.padding)
-    }
-}
-
-/// The grouped tools of one band, with a thin separator between the groups.
-struct BandTools: View {
-    @Bindable var model: DocumentViewModel
-    let menu: OverlayMenuState
-    let plan: BandLayout.Plan
-
-    var body: some View {
-        let shown = BandLayout.Item.allCases.filter { $0.group != nil && plan.forms[$0] != nil }
-        HStack(spacing: OverlayBand.toolSpacing) {
-            ForEach(Array(shown.enumerated()), id: \.element) { index, item in
-                if index > 0, shown[index - 1].group != item.group {
-                    Divider().frame(height: 16)
-                }
-                BandItemView(model: model, item: item, form: plan.forms[item] ?? .full)
-                    .bandItemFrame(item, in: menu)
-                    // Only the item on the band: `BandMeasurements` draws another one out of sight.
-                    .onGeometryChange(for: CGRect.self) {
-                        $0.frame(in: .global)
-                    } action: { frame in
-                        if item == .thumbnails { model.drop.listButtonFrame = frame }
-                    }
-            }
-        }
-        .fixedSize()
     }
 }
 
@@ -382,24 +496,27 @@ struct PrintButton: View {
     @Bindable var model: DocumentViewModel
     /// The narrowest band keeps Print as an icon rather than dropping it: printing takes two steps at most.
     var iconOnly = false
+    /// The button's word, without the ellipsis of the File menu's item: on the band the dots read as a word cut short,
+    /// and the printer icon beside it already says that a screen follows.
+    static let titleKey = "Print"
 
     var body: some View {
         Button {
             model.performPrintCommand()
         } label: {
             if iconOnly {
-                Label("Print…", systemImage: "printer").labelStyle(.iconOnly)
+                Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.iconOnly)
             } else {
-                Label("Print…", systemImage: "printer").labelStyle(.titleAndIcon)
+                Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.titleAndIcon)
             }
         }
         .buttonStyle(.borderedProminent)
         // Vermilion is the color of printing, whatever accent color the Mac is set to.
         .tint(PrintPalette.shu)
-        .controlSize(.regular)
+        .controlSize(ViewerWindow.bandControlSize)
         // The file name gives way to the one button that must always show in full.
         .fixedSize()
-        .help("Open the print screen (⌘P)")
+        .help(ShortcutHints.help(String(localized: "Open the print screen"), [.documentPrint]))
     }
 }
 
@@ -445,23 +562,31 @@ struct StyleMenu: View {
     @ViewBuilder private var label: some View {
         // "textformat" is drawn as kana in Japanese and as other letters elsewhere, so it does not match the line icons
         // beside it. The palette symbol is the same in every language.
-        let label = Label(model.styleName, systemImage: model.usesHTMLPreset ? "wand.and.rays" : "paintpalette")
-        if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+        let label = Label(model.styleName, systemImage: symbol)
+        Group {
+            if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
+        }
+        .accessibilityValue(model.usesHTMLPreset && model.isSmartRemovalEnabled ? Text("Smart Removal") : Text(""))
+    }
+
+    /// For HTML, Smart Removal on the preset shows as the wand's stars rather than as words beside its name.
+    private var symbol: String {
+        guard model.usesHTMLPreset else { return "paintpalette" }
+        return model.isSmartRemovalEnabled ? "wand.and.stars" : "wand.and.rays"
     }
 }
 
 extension DocumentViewModel {
-    /// The chosen print theme, or for HTML the cleanup preset and whether Smart Removal follows it.
+    /// The chosen print theme, or for HTML the cleanup preset (Smart Removal shows in the band's icon).
     var styleName: String {
         if usesHTMLPreset && !usesPrintTheme {
-            let preset = library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
-            return isSmartRemovalEnabled ? preset + " + β" : preset
+            return library.presets.first { $0.id == presetID }?.displayName(language: language) ?? presetID
         }
         let theme = library.themes.first { $0.id == themeID }?.displayName(language: language) ?? themeID
         return usesPrintTheme && textScale != 1 ? theme + " · " + textScalePercentage : theme
     }
 
-    var textScalePercentage: String { "\(Int((textScale * 100).rounded()))%" }
+    var textScalePercentage: String { "\(TextScale.percent(textScale))%" }
 
     var zoomPercentage: String { "\(Int(((showsWeb ? webZoom : zoom) * 100).rounded()))%" }
 }
@@ -559,7 +684,7 @@ struct TextSizeMenuItems: View {
     var body: some View {
         Divider()
         Picker("Text Size", selection: Binding(get: { model.textScale }, set: { model.setTextScale($0) })) {
-            ForEach(TextScale.steps, id: \.self) { scale in
+            ForEach(TextScale.choices(including: model.textScale), id: \.self) { scale in
                 Text(verbatim: "\(Int((scale * 100).rounded()))%").tag(scale)
             }
         }
@@ -592,7 +717,7 @@ struct LayoutPicker: View {
             "View",
             selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) })
         ) {
-            ForEach(ViewOptions.Layout.allCases, id: \.self) { layout in
+            ForEach(ViewOptions.Layout.displayOrder, id: \.self) { layout in
                 Label(layout.title, systemImage: layout.symbol).tag(layout)
             }
         }
@@ -600,7 +725,7 @@ struct LayoutPicker: View {
         .labelsHidden()
         .labelStyle(.iconOnly)
         .fixedSize()
-        .help("Spread or Single Page (⌥⌘1 / ⌥⌘2)")
+        .help(ShortcutHints.help(String(localized: "Single Page or Spread"), [.viewSingle, .viewSpread]))
     }
 }
 

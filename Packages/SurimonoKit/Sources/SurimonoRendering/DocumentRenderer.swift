@@ -201,6 +201,11 @@ struct FinishedPages {
     /// Where the note pages go, for pages laid out knowing about them.
     var plan: FinishedPagePlan?
     var notePages: [Int] = []
+    /// Where the pages of the text went among the added ones; nil when nothing was added. With the text below, it lets
+    /// the chapter of each page be found only when a header or footer asks for it.
+    var pagePlan: FinishedPagePlan?
+    var bodyHTML: String?
+    var showsSourceContents = false
 }
 
 /// The logical pages of a render, ready to show before the printed sheets are composed.
@@ -238,6 +243,13 @@ public struct PreparedRender {
     public var pageSelection = PageRange.Selection.everything
     /// How the logical pages took their mirrored margins, for showing a range of them as they print.
     public var laidOutSides: PDFComposer.LaidOutSides { sheetKey.sides }
+    /// The header and footer the sheets draw on the pages of `viewDocument`, by page, for the view mode to draw on
+    /// its paper too.
+    public var viewFurniture: [Int: FurniturePlacement] = [:]
+    /// The header and footer these pages were finished with.
+    public var furniture: PageFurniture { options.furniture }
+    /// The day their header and footer show, as written on them; empty without one.
+    public var furnitureDate: String { sheetKey.furniture.date }
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -463,6 +475,10 @@ public final class DocumentRenderer {
 
     /// Prepares the logical pages only. The screen can show them while `composeSheet(for:)` imposes them on paper.
     public func prepare(_ source: DocumentSource, settings: RenderSettings) async throws -> PreparedRender {
+        let interval = renderingSignposter.beginInterval(
+            "prepare", id: renderingSignposter.makeSignpostID(), "format=\(source.format.rawValue, privacy: .public)")
+        var pageCount = 0
+        defer { renderingSignposter.endInterval("prepare", interval, "pages=\(pageCount)") }
         let output = try await prepareOnce(source, settings: settings)
         // HTML in Auto turns with its `@page` rules, which are known only once it has been laid out. A document that
         // asks for landscape is laid out again; the common upright one costs nothing more.
@@ -470,14 +486,21 @@ public final class DocumentRenderer {
             settings.slides == nil, let rule = sourcePageRule, rule.source == source,
             (rule.orientation == .landscape) != (output.resolvedOrientation == .landscape)
         {
-            return try await prepareOnce(source, settings: settings)
+            let revised = try await prepareOnce(source, settings: settings)
+            pageCount = revised.logicalDocument.pageCount
+            return revised
         }
+        pageCount = output.logicalDocument.pageCount
         return output
     }
 
     /// Composes the printed sheets of a prepared render, reusing the sheets of a recent render with the same logical
     /// pages and imposition settings.
     public func composeSheet(for prepared: PreparedRender, rotatesBackSides: Bool? = nil) async throws -> RenderResult {
+        let interval = renderingSignposter.beginInterval(
+            "composeSheet", id: renderingSignposter.makeSignpostID(),
+            "pages=\(prepared.logicalDocument.pageCount)")
+        defer { renderingSignposter.endInterval("composeSheet", interval) }
         // Printer calibration depends on the orientation resolved by prepare, without changing the logical pages.
         var options = prepared.options
         if let rotatesBackSides { options.rotatesBackSides = rotatesBackSides }
@@ -596,7 +619,8 @@ public final class DocumentRenderer {
                     && settings.layout.mirrorsMargins(options: settings.options),
                 rightBound: !isPlainPDF && settings.layout.mirrorsMargins(options: settings.options)
                     && settings.layout.isRightBound,
-                contentsLanguage: isThemed && settings.finish.toc.mode == .front ? settings.pageLanguage : nil,
+                contentsLanguage: isThemed && (settings.finish.toc.mode == .front || settings.finish.links == .endnotes)
+                    ? settings.pageLanguage : nil,
                 hasNotes: settings.activeNotes != nil,
                 textNotes: isThemed
                     ? settings.activeNotes.map {
@@ -678,6 +702,8 @@ public final class DocumentRenderer {
             let pages = try await noted(logical, source: source, settings: settings)
             try Task.checkCancellation()
             let selection = settings.pageRange.selection(pageCount: pages.document.pageCount)
+            let furniture = furnitureContext(source, logical: pages, settings: settings)
+            let orientsEachPage = settings.usesPerPageOrientation && (source.format == .pdf || source.format == .image)
             let plan =
                 selection.pages.map { Imposition.plan(pages: $0, layout: settings.layout) }
                 ?? Imposition.plan(pageCount: pages.document.pageCount, layout: settings.layout)
@@ -693,11 +719,13 @@ public final class DocumentRenderer {
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
                 blankPages: pages.finishing.blankPages, notePages: pages.finishing.notePages,
                 pageSelection: selection,
+                viewFurniture: pages.viewDocument === pages.document && source.images == nil
+                    ? Self.viewFurniture(
+                        of: pages.document, layout: settings.layout, options: settings.options,
+                        orientsEachPage: orientsEachPage, context: furniture) : [:],
                 sheetKey: SheetKey(
                     logicalID: pages.id, layout: settings.layout, options: settings.options,
-                    orientsEachPage: settings.usesPerPageOrientation
-                        && (source.format == .pdf || source.format == .image),
-                    furniture: furnitureContext(source, logical: pages, settings: settings), pages: selection.pages,
+                    orientsEachPage: orientsEachPage, furniture: furniture, pages: selection.pages,
                     // As `mirroringMargins` and `noted` moved them: texts and images, and never a note page.
                     sides: PDFComposer.LaidOutSides(
                         movesContent: source.format != .pdf && source.children == nil,
@@ -828,6 +856,7 @@ public final class DocumentRenderer {
             do {
                 var childSettings = settings
                 childSettings.binderStartsOnFront = false
+                childSettings.finish.footnotes = .end
                 childSettings.markdownChanges = []
                 // Left and right belong to the bound pages, which a document on its own does not know.
                 childSettings.options.mirrorsMargins = false
@@ -1053,12 +1082,13 @@ public final class DocumentRenderer {
             if source.format == .markdown, !settings.markdownChanges.isEmpty {
                 fragment =
                     MarkdownConverter.convertWithSourceMap(
-                        try Self.decodedText(source.data), pageBreakLine: settings.finish.breaks.customLine
+                        try Self.decodedText(source.data), pageBreakLine: settings.finish.breaks.customLine,
+                        proof: settings.finish.proof
                     ).fragment
             } else {
                 guard
                     let themed = try Self.themedFragment(
-                        source, pageBreakLine: settings.finish.breaks.customLine,
+                        source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                         imageExists: { url in
                             if let access, !access.permits(url) {
                                 missingImage = true
@@ -1085,8 +1115,13 @@ public final class DocumentRenderer {
             let directory = source.fileURL?.deletingLastPathComponent()
             // Without clear pages the paper stays on the text pages, which WebKit draws inside the margins only.
             let separatesPaper = WebPaginator.drawsClearPages
+            let paperFragment = HTMLFragment(
+                body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
+                title: fragment.title,
+                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code)
             let html = HTMLDocumentBuilder.build(
-                fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
+                fragment: paperFragment, format: source.format, theme: settings.theme, baseURL: directory,
+                language: settings.pageLanguage,
                 textScale: settings.textScale, removesPaper: separatesPaper, finish: settings.finish.styleSheet,
                 code: settings.code)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
@@ -1103,20 +1138,31 @@ public final class DocumentRenderer {
             // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
             let parts = [marksScript, codeScript, themeScript].filter { !$0.isEmpty }
             let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")
-            var text = try await paginateCheckingIssues(
-                PaginationRequest(
-                    source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
-                    margins: WebPaginator.Margins(margins),
-                    allowsJavaScript: false,
-                    preparationScript: preparation,
-                    readsPageRules: false, drawsBackground: !separatesPaper,
-                    rendersMermaid: (source.format == .markdown || source.format == .org)
-                        && fragment.body.contains("class=\"mermaid-block\"")), source: source)
+            var text: WebPaginator.Result
+            if settings.finish.footnotes == .pageBottom,
+                let plan = PageFootnotes.plan(for: paperFragment.body),
+                let placed = try await paginateFootnotes(
+                    plan, fragment: paperFragment, source: source, settings: settings, preparation: preparation)
+            {
+                text = placed
+            } else {
+                text = try await paginateCheckingIssues(
+                    PaginationRequest(
+                        source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
+                        margins: WebPaginator.Margins(margins),
+                        allowsJavaScript: false,
+                        preparationScript: preparation,
+                        readsPageRules: false, drawsBackground: !separatesPaper,
+                        rendersMermaid: (source.format == .markdown || source.format == .org)
+                            && fragment.body.contains("class=\"mermaid-block\"")), source: source)
+            }
             if missingImage { text.requiredFolderAccess = directory }
             text = try await finished(text, fragment: fragment, source: source, settings: settings)
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
-                theme: settings.theme, format: source.format, baseURL: directory, textScale: settings.textScale,
+                theme: settings.theme, format: source.format, baseURL: directory,
+                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code,
+                textScale: settings.textScale,
                 pageSize: pageSize, margins: margins, pixelsPerPoint: WebPaginator.printPixelsPerPoint)
             // A paper that cannot be drawn leaves the text on white, as a theme without one; a cancelled render stops.
             let paper: WebPaginator.Result
@@ -1155,6 +1201,8 @@ public final class DocumentRenderer {
         let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
         let wantsContents = finish.toc.mode == .front && !facts.headings.isEmpty
         let notes = settings.activeNotes
+        result.finishing.bodyHTML = fragment.body
+        result.finishing.showsSourceContents = finish.toc.showsSourceContents
         guard usesRightPages || wantsContents || settings.mirrorsLaidOutPages || notes != nil else { return result }
         let pageCount = text.document.pageCount
         var plan = FinishedPagePlan(bodyPageCount: pageCount, contentsPageCount: 0, rightPageStarts: [])
@@ -1219,7 +1267,8 @@ public final class DocumentRenderer {
         }
         finished.finishing = FinishedPages(
             facts: facts, contentsPageCount: contents?.pageCount ?? 0, blankPages: plan.blankPages,
-            plan: notes != nil ? plan : nil)
+            plan: notes != nil ? plan : nil, pagePlan: plan, bodyHTML: fragment.body,
+            showsSourceContents: finish.toc.showsSourceContents)
         return finished
     }
 
@@ -1236,6 +1285,7 @@ public final class DocumentRenderer {
             title: PaperContents.title(language: settings.pageLanguage))
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
+            language: settings.pageLanguage,
             textScale: settings.textScale, removesPaper: separatesPaper)
         let script = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script
         return try await paginate(
@@ -1314,10 +1364,125 @@ public final class DocumentRenderer {
         return PageFurniture.Context(
             fileName: fileName, title: title.flatMap { $0.isEmpty ? nil : $0 } ?? fallback,
             date: furniture.dateText(now(), language: settings.pageLanguage),
-            blankPages: logical.finishing.blankPages.union(logical.finishing.notePages))
+            blankPages: logical.finishing.blankPages.union(logical.finishing.notePages),
+            chapters: furniture.uses(.chapter) ? Self.chapters(of: logical) : [])
     }
 
-    private func paginateCheckingIssues(_ request: PaginationRequest, source: DocumentSource) async throws
+    /// The date a header or footer laid out with `settings` shows today; nil when it shows no date. Pages laid out on
+    /// another day show that day's, so they are laid out again before they are shown or printed today.
+    public func furnitureDate(for settings: RenderSettings) -> String? {
+        let furniture = settings.options.furniture
+        guard furniture.uses(.date) else { return nil }
+        return furniture.dateText(now(), language: settings.pageLanguage)
+    }
+
+    /// What the sheets draw on each page that the view mode shows as it is, by the page's index. The view mode has
+    /// no page range, so each page stands at its own place among the printed ones. A page of another size than the
+    /// layout's logical page, such as a PDF's own page, is scaled into its place on the sheet, while the header and
+    /// footer are measured on the logical page around it: its paper is not the box they stand in, so it has none.
+    static func viewFurniture(
+        of document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool,
+        context: PageFurniture.Context
+    ) -> [Int: FurniturePlacement] {
+        guard !options.furniture.isEmpty else { return [:] }
+        var placements: [Int: FurniturePlacement] = [:]
+        for index in 0..<document.pageCount {
+            guard let page = document.page(at: index) else { continue }
+            let box = page.bounds(for: .cropBox).size
+            let size = page.rotation % 180 == 0 ? box : CGSize(width: box.height, height: box.width)
+            // As the composer turns the sheet of a single-sided layout to each page.
+            let pageLayout =
+                orientsEachPage && layout.kind == .normal && layout.duplex == .none
+                ? layout.oriented(size.width > size.height) : layout
+            guard
+                let placement = PDFComposer.furniture(
+                    onPage: index, at: index, pageCount: document.pageCount, layout: pageLayout, options: options,
+                    context: context),
+                abs(placement.pageSize.width - size.width) < 0.5, abs(placement.pageSize.height - size.height) < 0.5
+            else { continue }
+            placements[index] = placement
+        }
+        return placements
+    }
+
+    /// The chapter in force on each page, read from the finished pages. Reading the text of every page takes time, so
+    /// this runs only for a header or footer that names the chapter.
+    private static func chapters(of logical: Logical) -> [String] {
+        let finishing = logical.finishing
+        guard let facts = finishing.facts, !facts.headings.isEmpty, let body = finishing.bodyHTML else { return [] }
+        let plan = finishing.pagePlan
+        let places = plan?.bodyPageIndices ?? Array(0..<logical.document.pageCount)
+        let pageTexts = places.map { logical.document.page(at: $0)?.string ?? "" }
+        let headingPages = DocumentOutline.pages(
+            of: facts.headings, inPageTexts: pageTexts,
+            contentsEntries: finishing.showsSourceContents ? DocumentOutline.sourceContentsEntries(inHTML: body) : [])
+        return PageChapters.titles(headings: facts.headings, pages: headingPages, pageCount: places.count, plan: plan)
+    }
+
+    /// A failed measurement leaves the original single-pagination path in charge, with no partially moved notes.
+    private func paginateFootnotes(
+        _ plan: PageFootnotes.Plan, fragment: HTMLFragment, source: DocumentSource,
+        settings: RenderSettings, preparation: String?
+    ) async throws -> WebPaginator.Result? {
+        do {
+            let pageSize = settings.layout.logicalPageSize(options: settings.options)
+            let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
+            let directory = source.fileURL?.deletingLastPathComponent()
+            func request(_ body: String) -> PaginationRequest {
+                let html = HTMLDocumentBuilder.build(
+                    fragment: HTMLFragment(
+                        body: body, title: fragment.title,
+                        language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code),
+                    format: source.format,
+                    theme: settings.theme, baseURL: directory, language: settings.pageLanguage,
+                    textScale: settings.textScale,
+                    removesPaper: WebPaginator.drawsClearPages, finish: settings.finish.styleSheet, code: settings.code)
+                return PaginationRequest(
+                    source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
+                    margins: margins, allowsJavaScript: false, preparationScript: preparation,
+                    readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
+                    rendersMermaid: (source.format == .markdown || source.format == .org)
+                        && body.contains("class=\"mermaid-block\""))
+            }
+            try Task.checkCancellation()
+            let measured = try await paginateCheckingIssues(
+                request(plan.measuringHTML(placing: plan.eligibleNotes)), source: source)
+            try Task.checkCancellation()
+            let measurement = try FootnotePlacer.measure(measured.document, plan: plan, placing: plan.eligibleNotes)
+            let groups = try FootnotePlacer.groups(
+                for: measurement, plan: plan,
+                contentHeight: pageSize.height - margins.top - margins.bottom, textScale: settings.textScale)
+            // A line with something drawn in its room (a tinted box, a float beside it) keeps its notes at the end; the
+            // rest is laid out again without it. A document full of such lines is not worth more passes.
+            var remaining = groups
+            for _ in 0..<4 {
+                guard !remaining.isEmpty else { return nil }
+                let placing = remaining
+                do {
+                    let result = try await paginateCheckingIssues(
+                        request(plan.reservingHTML(groups: placing)), source: source
+                    ) {
+                        try FootnotePlacer.compose($0, plan: plan, groups: placing, margins: margins)
+                    }
+                    try Task.checkCancellation()
+                    return result
+                } catch FootnotePlacer.PlacementError.inkInBand(let first) {
+                    try Task.checkCancellation()
+                    remaining.removeAll { $0.firstReference == first }
+                }
+            }
+            return nil
+        } catch {
+            if error is CancellationError { throw error }
+            try Task.checkCancellation()
+            return nil
+        }
+    }
+
+    private func paginateCheckingIssues(
+        _ request: PaginationRequest, source: DocumentSource,
+        transform: ((PDFDocument) throws -> PDFDocument)? = nil
+    ) async throws
         -> WebPaginator.Result
     {
         let wrapped = PaginationRequest(
@@ -1331,6 +1496,7 @@ public final class DocumentRenderer {
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
         }
+        let document = try transform?(output.document) ?? output.document
         let access = resourceAccess(for: source)
         let issues = (preparation?.issues ?? []).map { issue in
             var issue = issue
@@ -1348,10 +1514,10 @@ public final class DocumentRenderer {
             return issue
         }
         var result = WebPaginator.Result(
-            document: output.document,
+            document: document,
             preparationResult: preparation.map { $0.previous } ?? output.preparationResult,
             pageRules: output.pageRules, requiredFolderAccess: output.requiredFolderAccess)
-        result.issues = PrintIssueAnchors.extract(from: output.document, issues: issues)
+        result.issues = PrintIssueAnchors.extract(from: document, issues: issues)
         return result
     }
 
@@ -1383,18 +1549,19 @@ public final class DocumentRenderer {
 
     /// The HTML a document's headings and amount of text are read from, or nil for formats without one. It converts
     /// the whole source, so it is meant to run away from the main actor.
-    public nonisolated static func structureHTML(of source: DocumentSource) -> String? {
+    public nonisolated static func structureHTML(of source: DocumentSource, proof: ProofMarks = .shown) -> String? {
         if source.format == .html { return TextDecoding.decode(source.data).text }
-        return (try? themedFragment(source))??.body
+        return (try? themedFragment(source, proof: proof))??.body
     }
 
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
-        _ source: DocumentSource, pageBreakLine: String = "",
+        _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
         switch source.format {
-        case .markdown: MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine)
+        case .markdown:
+            MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:
             LaTeXConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
@@ -1402,11 +1569,22 @@ public final class DocumentRenderer {
         case .org: OrgConverter.convert(try decodedText(source.data))
         case .plainText: PlainTextConverter.convert(try decodedText(source.data))
         case .csv:
-            CSVConverter.convert(
-                try decodedText(source.data),
-                delimiter: source.fileURL?.pathExtension.lowercased() == "tsv" ? "\t" : ",")
+            try csvFragment(source)
         default: nil
         }
+    }
+
+    /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no
+    /// name, so its text tells.
+    private nonisolated static func csvFragment(_ source: DocumentSource) throws -> HTMLFragment {
+        let text = try decodedText(source.data)
+        let delimiter: Character =
+            if let url = source.fileURL {
+                url.pathExtension.lowercased() == "tsv" ? "\t" : ","
+            } else {
+                CSVConverter.guessedDelimiter(of: text)
+            }
+        return CSVConverter.convert(text, delimiter: delimiter)
     }
 
     private nonisolated static func decodedText(_ data: Data) throws -> String {

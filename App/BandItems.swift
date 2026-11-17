@@ -10,19 +10,12 @@ enum BandSlot: Hashable {
 extension BandLayout.Item {
     var hasCompactForm: Bool {
         switch self {
-        case .presentation, .style, .outline, .transition, .print: true
+        case .presentation, .style, .outline, .transition, .print,
+            .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
+            .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions,
+            .saveAsFile, .keysAndGestures:
+            true
         default: false
-        }
-    }
-
-    /// The spacing in front of the item on its band, which the plan counts as part of its width. Print's spacing
-    /// belongs to the band's fixed part.
-    func bandGap(in arrangement: MenuArrangement) -> CGFloat {
-        switch self {
-        case .formatBadge: OverlayBand.titleSpacing
-        case .pageIndicator: arrangement == .split ? OverlayBand.toolSpacing : OverlayBand.titleSpacing
-        case .print: 0
-        default: OverlayBand.toolSpacing
         }
     }
 
@@ -31,14 +24,24 @@ extension BandLayout.Item {
         let paper = !model.showsWeb
         return allCases.filter { item in
             switch item {
-            case .formatBadge, .print: true
+            case .formatBadge, .floatOnTop, .print, .alwaysShowToolbar, .printSettings, .viewOptions, .keysAndGestures:
+                true
+            case .readingDirection, .scrollDirection, .paperOrientation: paper
+            case .paperSeries: model.offersPaperSeries
+            case .cover: paper && model.viewOptions.usesCoverOption
+            case .selectText: paper && model.canSelectText
+            case .margins: model.marginsApply
+            case .ignoreSlides: model.detectedSlideDeck != nil && model.usesHTMLPresentation
+            case .beforePrinting: model.printIssueCount > 0
+            case .saveAsFile: model.canSaveAsFile
             case .layout, .transition: paper
             case .presentation: model.usesHTMLPresentation
             // On the web, only a slide deck has pages to count.
             case .pageIndicator: model.pageIndicator != nil
             case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
-            case .outline: model.hasOutline && model.preferences.showsOutlineOnBand
-            case .pageTurn: paper && model.menuArrangement == .split && model.pageCount > 1
+            // Whether the band shows them is the arrangement's business; these say only what the document allows.
+            case .outline: model.hasOutline
+            case .pageTurn: paper && model.pageCount > 1
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil || model.binder != nil
             }
@@ -63,7 +66,13 @@ struct BandItemView: View {
 
     var body: some View {
         switch item {
-        case .formatBadge: FormatBadge(text: model.formatBadge)
+        case .formatBadge:
+            // A text whose format was a guess can open again as another; a file's format is the file's.
+            if model.textKind != nil {
+                TextFormatBadgeMenu(model: model)
+            } else {
+                FormatBadge(text: model.formatBadge)
+            }
         case .pageIndicator: PageIndicatorButton(model: model)
         case .pageTurn: PageTurnButtons(model: model)
         case .outline: OutlineButton(model: model, showsName: form == .full)
@@ -77,7 +86,7 @@ struct BandItemView: View {
             } label: {
                 Text(verbatim: model.zoomPercentage).monospacedDigit()
             }
-            .help("Fit to Window (⌘0)")
+            .help(ShortcutHints.help(String(localized: "Fit to Window"), [.viewZoomFit]))
         case .thumbnails:
             Toggle(isOn: $model.isDrawerOpen) {
                 if let binder = model.binder {
@@ -86,8 +95,13 @@ struct BandItemView: View {
                     Text("Images \(bundle.items.count)")
                 }
             }
-            .toggleStyle(.button).help("List (⌃⌘S)")
+            .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
+        case .floatOnTop: FloatOnTopButton(model: model)
         case .print: PrintButton(model: model, iconOnly: form == .compact)
+        case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
+            .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions,
+            .saveAsFile, .keysAndGestures:
+            BandAdditionalPart(model: model, item: item, form: form)
         }
     }
 }
@@ -131,7 +145,7 @@ struct PresentationPicker: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(presentation.title))
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .help("Switch Web or Paper (⌃⌘P)")
+        .help(ShortcutHints.help(String(localized: "Switch Web or Paper"), [.viewHtmlPresentation]))
     }
 }
 
@@ -193,7 +207,7 @@ struct PageIndicatorButton: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Document Info")
+            .help(ShortcutHints.help(String(localized: "Document Info"), [.viewDocumentInfo]))
         }
     }
 }
@@ -214,7 +228,7 @@ struct OutlineButton: View {
             .foregroundStyle(model.isOutlineShown ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
         }
         .fixedSize()
-        .help("Contents")
+        .help(ShortcutHints.help(String(localized: "Contents"), [.viewOutline]))
     }
 }
 
@@ -239,7 +253,10 @@ struct PageTurnButtons: View {
             Label(title, systemImage: symbol).labelStyle(.iconOnly).frame(width: 22, height: 22)
                 .contentShape(Rectangle())
         }
-        .help(title)
+        .help(
+            ShortcutHints.help(
+                forward ? String(localized: "Next Page") : String(localized: "Previous Page"),
+                [forward ? .readingNext : .readingPrevious]))
     }
 }
 
@@ -283,7 +300,7 @@ struct TransitionMenu: View {
     }
 }
 
-private struct TransitionPicker: View {
+struct TransitionPicker: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
@@ -297,212 +314,6 @@ private struct TransitionPicker: View {
     }
 }
 
-// The menu stays on the band so its view-options popover keeps its anchor when the band rearranges.
-struct BandMoreMenu: View {
-    @Bindable var model: DocumentViewModel
-    /// Empty while measuring: only the menu label needs a width.
-    let overflow: [BandLayout.Item]
-    /// Names the document when the band no longer shows its name, format or page in full.
-    let header: String?
-
-    var body: some View {
-        Menu {
-            if let header {
-                Text(verbatim: header)
-                Divider()
-            }
-            let tools = overflow.filter { $0.group != nil }
-            ForEach(Array(tools.enumerated()), id: \.element) { index, item in
-                if index > 0, tools[index - 1].group != item.group { Divider() }
-                BandMenuItem(model: model, item: item)
-            }
-            if !tools.isEmpty { Divider() }
-            if overflow.contains(.pageIndicator), model.pageCount > 0, !model.showsWeb {
-                Button("Document Info…") { model.isFiguresPresented = true }
-            }
-            // Taken off the band on purpose, the contents stay within reach here.
-            if model.hasOutline, !model.preferences.showsOutlineOnBand {
-                Button("Contents…") { model.toggleOutline() }
-            }
-            ForEach(SecondaryViewControl.applicable(for: model), id: \.self) { item in
-                SecondaryViewMenuItem(model: model, item: item)
-            }
-            Divider()
-            if model.marginsApply {
-                MarginMenu(model: model)
-                Divider()
-            }
-            if model.detectedSlideDeck != nil, model.usesHTMLPresentation {
-                Toggle(
-                    "Don't Treat as Slides",
-                    isOn: Binding(get: { model.ignoresSlides }, set: { model.setIgnoresSlides($0) }))
-                Divider()
-            }
-            if model.printIssueCount > 0 {
-                Button("Before Printing (\(model.printIssueCount))…") { model.reviewPrintIssues() }
-            }
-            Button("View Options…") { model.isViewOptionsPresented = true }
-                .help("View Options (V)")
-            Divider()
-            if model.canSaveAsFile {
-                Button("Save as File…") { model.saveAsFile() }
-                Divider()
-            }
-            Button("Keys and Gestures") { KeyGuideWindow.shared.show() }
-        } label: {
-            Label("More", systemImage: "ellipsis.circle").labelStyle(.iconOnly)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help("More · View Options (V)")
-    }
-}
-
-/// A choice and its current value on one line, such as "Direction: Left to Right", so that the "…" menu stays as compact
-/// as a menu of single-line items.
-func choice(_ title: String, _ value: String) -> String {
-    String(
-        format: String(localized: "%@: %@", comment: "A menu item that names a choice and its current value"), title,
-        value)
-}
-
-/// An item that left the band, as the "…" menu shows it: choices as submenus, switches as checked items.
-private struct BandMenuItem: View {
-    @Bindable var model: DocumentViewModel
-    let item: BandLayout.Item
-
-    var body: some View {
-        switch item {
-        case .presentation:
-            Menu {
-                Picker(
-                    "Web or Paper",
-                    selection: Binding(get: { model.htmlPresentation }, set: { model.setHTMLPresentation($0) })
-                ) {
-                    ForEach(HTMLPresentation.allCases, id: \.self) { presentation in
-                        Label(presentation.title, systemImage: presentation.symbol).tag(presentation)
-                    }
-                }
-                .pickerStyle(.inline).labelsHidden()
-            } label: {
-                Text(verbatim: choice(String(localized: "View As"), model.htmlPresentation.name))
-            }
-        case .style:
-            Menu {
-                if model.usesPrintTheme {
-                    Button("Choose from Samples…") { model.openThemePalette() }
-                    Divider()
-                }
-                StyleMenuItems(model: model)
-            } label: {
-                let title =
-                    model.usesHTMLPreset ? String(localized: "HTML Preset") : String(localized: "Style")
-                Text(verbatim: choice(title, model.styleName))
-            }
-        case .layout:
-            Menu {
-                Picker("View", selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) })) {
-                    ForEach(ViewOptions.Layout.allCases, id: \.self) { layout in
-                        Label(layout.title, systemImage: layout.symbol).tag(layout)
-                    }
-                }
-                .pickerStyle(.inline).labelsHidden()
-            } label: {
-                Text(verbatim: choice(String(localized: "View Type"), model.viewOptions.layout.name))
-            }
-        case .transition:
-            Menu {
-                TransitionPicker(model: model)
-            } label: {
-                Text(verbatim: choice(String(localized: "Page Turn"), model.viewOptions.transition.name))
-            }
-        case .outline:
-            Button("Contents…") { model.toggleOutline() }
-        case .zoom:
-            Button(String(format: String(localized: "Fit to Window (%@)"), model.zoomPercentage)) {
-                model.zoomToFit()
-            }
-        case .thumbnails:
-            Toggle("Show List", isOn: $model.isDrawerOpen)
-        case .formatBadge, .pageIndicator, .pageTurn, .print:
-            EmptyView()
-        }
-    }
-}
-
-// Keeping these separate from BandLayout prevents measurements or narrow windows from moving them onto the band.
-enum SecondaryViewControl: CaseIterable {
-    case direction, scrollAxis, paperOrientation, paperSeries, cover, selectText, floatOnTop, alwaysShowMenu
-
-    static func applicable(for model: DocumentViewModel) -> [Self] {
-        allCases.filter { item in
-            switch item {
-            case .direction, .scrollAxis, .paperOrientation: !model.showsWeb
-            case .paperSeries: model.offersPaperSeries
-            case .cover: !model.showsWeb && model.viewOptions.usesCoverOption
-            case .selectText: !model.showsWeb && model.canSelectText
-            case .floatOnTop, .alwaysShowMenu: true
-            }
-        }
-    }
-}
-
-private struct SecondaryViewMenuItem: View {
-    @Bindable var model: DocumentViewModel
-    let item: SecondaryViewControl
-
-    var body: some View {
-        switch item {
-        case .direction:
-            Menu {
-                Picker("Reading Direction", selection: model.viewOption(\.direction)) {
-                    Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
-                    Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
-                }
-                .pickerStyle(.inline).labelsHidden()
-            } label: {
-                let value =
-                    model.viewOptions.direction == .leftToRight
-                    ? String(localized: "Left to Right") : String(localized: "Right to Left")
-                Text(verbatim: choice(String(localized: "Reading Direction"), value))
-            }
-        case .paperOrientation: PaperOrientationControl(model: model)
-        case .paperSeries:
-            Menu {
-                PaperSeriesPicker(selection: $model.paperSeries)
-                    .pickerStyle(.inline).labelsHidden()
-            } label: {
-                Text(verbatim: choice(String(localized: "Paper on Screen"), model.paperSeries.name))
-            }
-        case .scrollAxis:
-            Menu {
-                Picker("Scroll Direction", selection: model.viewOption(\.scrollAxis)) {
-                    Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
-                    Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
-                }
-                .pickerStyle(.inline).labelsHidden()
-            } label: {
-                let value =
-                    model.viewOptions.scrollAxis == .vertical
-                    ? String(localized: "Vertical") : String(localized: "Horizontal")
-                Text(verbatim: choice(String(localized: "Scroll Direction"), value))
-            }
-            .disabled(!model.viewOptions.usesScrollAxis)
-        case .cover:
-            Toggle("Show First Page Alone", isOn: model.viewOption(\.showsCoverAlone))
-        case .selectText:
-            Toggle("Select Text", isOn: $model.isSelectingText)
-                .help("Select Text (T)")
-        case .floatOnTop:
-            Toggle("Float on Top", isOn: $model.isAlwaysOnTop)
-        case .alwaysShowMenu:
-            Toggle("Always Show Toolbar", isOn: $model.isBandAlwaysVisible)
-                .help("Always Show Toolbar (⌥⌘T)")
-        }
-    }
-}
-
 /// Lays out every applicable item in each of its forms out of sight and records the widths, so the band can decide
 /// what fits without trying arrangements on screen.
 struct BandMeasurements: View {
@@ -513,7 +324,7 @@ struct BandMeasurements: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             measure(.name) { Text(verbatim: model.displayName).font(OverlayBand.nameFont).lineLimit(1) }
-            measure(.more) { BandMoreMenu(model: model, overflow: [], header: nil) }
+            measure(.more) { BandMoreButton { EmptyView() } }
             ForEach(items, id: \.self) { item in
                 measure(.item(item, .full)) { BandItemView(model: model, item: item, form: .full) }
                 if item.hasCompactForm {
@@ -522,7 +333,7 @@ struct BandMeasurements: View {
             }
         }
         .buttonStyle(.borderless)
-        .controlSize(.regular)
+        .controlSize(ViewerWindow.bandControlSize)
         .hidden()
         .allowsHitTesting(false)
         .accessibilityHidden(true)

@@ -58,7 +58,7 @@ struct SlideDeckModelTests {
 
     /// The shape of the page area, without the room of the bands the window's ratio includes.
     private func aspect(of window: NSWindow) -> Double {
-        Double(window.contentAspectRatio.width / (window.contentAspectRatio.height - 2 * ViewerWindow.bandHeight))
+        Double(window.contentAspectRatio.width / (window.contentAspectRatio.height - BandRoom.full(for: .split).total))
     }
 
     @Test("ウェブでスライドと分かると窓を 16:9 にして 1 枚を合わせ、「スライドとして扱わない」で縦横比を外す")
@@ -69,7 +69,7 @@ struct SlideDeckModelTests {
         model.slideDeckDidChange(deck)
         #expect(abs(aspect(of: fixture.window) - 16.0 / 9.0) < 0.01)
         let content = fixture.window.contentRect(forFrameRect: fixture.window.frame).size
-        #expect(abs(Double(content.width / (content.height - 2 * ViewerWindow.bandHeight)) - 16.0 / 9.0) < 0.01)
+        #expect(abs(Double(content.width / (content.height - BandRoom.full(for: .split).total)) - 16.0 / 9.0) < 0.01)
         #expect(model.web.fitSize == CGSize(width: 1280, height: 720))
 
         model.setIgnoresSlides(true)
@@ -93,6 +93,40 @@ struct SlideDeckModelTests {
         #expect(fixture.model.web.fitSize == nil)
     }
 
+    @Test("画面の9割より広げたスライドの窓は、ツールバーを切り替えても紙の幅・高さ・上端を保つ")
+    func wideDeckKeepsSizeAcrossToolbarToggle() async throws {
+        let fixture = try fixture()
+        defer { fixture.close() }
+        let model = fixture.model
+        let window = fixture.window
+        model.start()
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.sizeWindowToPaper(initialOnly: true)
+        model.slideDeckDidChange(deck)
+        let visible = try #require((window.screen ?? NSScreen.main)?.visibleFrame)
+        // As wide as the screen allows for the slide's shape with both bands, past the share a new window takes.
+        let bands = BandRoom.full(for: .split).total
+        let width = min(visible.width * 0.97, (visible.height - bands - 20) * 16 / 9).rounded()
+        let height = (width * 9 / 16).rounded()
+        window.setFrame(
+            NSRect(x: visible.minX, y: visible.maxY - 10 - height - bands, width: width, height: height + bands),
+            display: false)
+        let paperTop = window.frame.maxY - ViewerWindow.titleBandHeight
+
+        model.isBandAlwaysVisible = false
+        var content = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(content.width - width) <= 3)
+        #expect(abs(content.height - height) <= 3)
+        #expect(abs(content.maxY - paperTop) <= 3)
+
+        model.isBandAlwaysVisible = true
+        content = window.contentRect(forFrameRect: window.frame)
+        #expect(abs(content.width - width) <= 3)
+        #expect(abs(content.height - height - bands) <= 3)
+        #expect(abs(content.maxY - ViewerWindow.titleBandHeight - paperTop) <= 3)
+        #expect(abs(aspect(of: window) - 16.0 / 9.0) < 0.01)
+    }
+
     @Test("スライドを送っても窓の形は変えず、帯にはスライドの番号を出し、ふつうのページには出さない")
     func indicator() throws {
         let fixture = try fixture()
@@ -112,7 +146,26 @@ struct SlideDeckModelTests {
         #expect(BandLayout.Item.applicable(for: model).contains(.pageIndicator))
     }
 
-    @Test("「スライドとして扱わない」は内容のハッシュで覚え、次に開くと戻り、触らなければ保存しない")
+    @Test("スライドが見つかっていないページでは、「スライドとして表示」を選んでも設定を変えない")
+    func commandLeavesOrdinaryPagesAlone() async throws {
+        let fixture = try fixture()
+        defer { fixture.close() }
+        fixture.model.start()
+        try await waitUntil {
+            fixture.model.contentHash != nil && fixture.model.result != nil && !fixture.model.isRendering
+        }
+        fixture.model.toggleShowsSlides()
+        #expect(!fixture.model.ignoresSlides)
+        fixture.model.slideDeckDidChange(deck)
+        fixture.model.toggleShowsSlides()
+        #expect(fixture.model.ignoresSlides)
+        #expect(fixture.model.slideDeck == nil)
+        fixture.model.toggleShowsSlides()
+        #expect(!fixture.model.ignoresSlides)
+        #expect(fixture.model.slideDeck != nil)
+    }
+
+    @Test("「スライドとして表示」をオフにしたことは内容のハッシュで覚え、次に開くと戻り、触らなければ保存しない")
     func remembersIgnoring() async throws {
         let first = try fixture()
         first.model.start()

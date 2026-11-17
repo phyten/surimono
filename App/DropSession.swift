@@ -31,6 +31,11 @@ final class DropSession {
     @ObservationIgnored private var springTask: Task<Void, Never>?
 
     var isActive: Bool { plan != nil }
+    /// Whether the drag needs the band: only for the list's button, which opens the list when a drag rests on it.
+    /// Elsewhere the band would only come and go under the drop's own overlay.
+    var holdsBand: Bool { isActive && hasList }
+    /// The window shows a list of documents or images, whose button the band carries.
+    @ObservationIgnored var hasList = false
 
     func begin(_ plan: DropPlan, rows: [URL], at point: CGPoint) {
         self.plan = plan

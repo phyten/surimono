@@ -22,11 +22,13 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 4; }
 code, pre { font-family: "SFMono-Regular", Menlo, monospace; }
 pre code { font-size: inherit; }
 table { border-collapse: collapse; max-width: 100%; }
-th, td { border: 0.5pt solid #888; padding: 0.25em 0.5em; text-align: left; }
+/* Cells take the start of the line, the right in a right-to-left document; a column aligned to a side keeps that side. */
+th, td { border: 0.5pt solid #888; padding: 0.25em 0.5em; text-align: start; }
+th[align="left"], td[align="left"] { text-align: left; }
 th[align="center"], td[align="center"] { text-align: center; }
 th[align="right"], td[align="right"] { text-align: right; }
 a { color: inherit; text-decoration: underline; }
-blockquote { margin-inline: 1em; padding-left: 0.8em; border-left: 2pt solid #aaa; }
+blockquote { margin-inline: 1em; padding-inline-start: 0.8em; border-inline-start: 2pt solid #aaa; }
 /* A task's box takes the bullet's place. The native control prints gray and blurred, so the box is drawn instead. */
 li.task-list-item { list-style-type: none; }
 li.task-list-item > input[type="checkbox"],
@@ -38,7 +40,10 @@ li.task-list-item > p:first-child > input[type="checkbox"] {
     box-sizing: border-box;
     width: 0.9em;
     height: 0.9em;
-    margin: 0 0.4em 0 -1.3em;
+    /* Hangs the box in the margin: the margins and the width add up to zero, so the first line starts where the
+       wrapped lines do. No space follows the box in the HTML, so the right margin is the whole gap to the text. */
+    margin-block: 0;
+    margin-inline: -1.5em 0.6em;
     vertical-align: -0.1em;
     border: 1pt solid currentColor;
     border-radius: 0.15em;
@@ -50,17 +55,127 @@ li.task-list-item > input[type="checkbox"]:checked,
 li.task-list-item > p:first-child > input[type="checkbox"]:checked {
     background: currentColor url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat;
 }
-.org-todo, .org-done, .org-priority, .org-tag { font-size: 0.8em; font-family: sans-serif; }
-.org-todo { font-weight: bold; border: 0.5pt solid currentColor; padding: 0 0.2em; }
-.org-done { text-decoration: line-through; }
-.org-tag { border: 0.5pt solid #999; border-radius: 2pt; padding: 0 0.25em; }
-.org-planning { display: block; font-size: 0.8em; }
-.org-title-block { text-align: center; margin-bottom: 1.5em; }
-.org-author, .org-date { margin: 0.25em 0; }
+/* A task still open shows its box, one in progress a bar across it. */
+li.task-list-item > input[type="checkbox"].org-partial:not(:checked),
+li.task-list-item > p:first-child > input[type="checkbox"].org-partial:not(:checked) {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-position: center;
+    background-size: 56% 1.4pt;
+    background-repeat: no-repeat;
+}
+
+/* Org documents (OrgConverter). The marks of a heading take the theme's type and ink from the heading and leave behind
+   what the heading is dressed in (letter spacing, capitals, outlines, shadows), which would make a keyword or a tag
+   hard to read. Open and done differ by shape, a frame or a tick, so they stay apart in black and white. */
+:root {
+    /* How much of the body text's ink the planning lines and inactive dates keep. Only text in the body's own ink is
+       made lighter: in a quote or a callout the ink is light already. A heading's cookie and tags keep the heading's
+       full ink for the same reason. */
+    --org-quiet: 72%;
+    /* Near the body's size rather than the heading's, yet not below a small print size in a large heading. */
+    --org-tag-size: max(0.55em, 0.72rem);
+    /* The keywords' ink; a theme with an accent may give open and done their own. */
+    --org-todo-ink: currentColor;
+    --org-done-ink: currentColor;
+}
+.org-todo, .org-done, .org-priority, .org-cookie, .org-tags {
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    font-variant: normal;
+    font-style: normal;
+    text-shadow: none;
+    -webkit-text-stroke: 0;
+    white-space: nowrap;
+}
+.org-todo, .org-done, .org-priority { font-size: 0.78em; vertical-align: 0.08em; }
+.org-todo {
+    color: var(--org-todo-ink);
+    font-weight: 700;
+    padding: 0 0.25em;
+    border: 0.75pt solid currentColor;
+    border-radius: 0.12em;
+}
+.org-done { color: var(--org-done-ink); font-weight: 600; }
+.org-done::before { content: "\2713\2009"; }
+.org-priority { font-weight: 700; }
+.org-cookie {
+    font-size: 0.78em;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+/* Tags go to the end of the heading's first line, at the heading's own line height so they sit on its baseline; a
+   heading too long for one line wraps beside them. Their size follows the text, not the heading. The small right
+   margin keeps the last tag's frame inside the text width, where the edge of the page would clip it. */
+.org-tags { float: inline-end; margin-block: 0; margin-inline: 1em 0.75pt; font-weight: 400; }
+/* The heading holds its tags, so tags pushed down a line stay above the heading's rule and ground instead of reaching
+   into what follows. No specificity, so a theme that lays its headings out itself keeps its display. */
+:where(:is(h1, h2, h3, h4, h5, h6):has(> .org-tags)) { display: flow-root; }
+.org-tag {
+    display: inline-block;
+    font-size: var(--org-tag-size);
+    line-height: 1.3;
+    padding: 0 0.35em;
+    border: 0.5pt solid color-mix(in srgb, currentColor 45%, transparent);
+    border-radius: 0.3em;
+}
+.org-tag + .org-tag { margin-inline-start: 0.15em; }
+p.org-planning {
+    margin: 0.15em 0 0.6em;
+    font-size: 0.85em;
+    text-indent: 0;
+}
+body > p.org-planning { color: color-mix(in srgb, currentColor var(--org-quiet), transparent); }
+.org-planning-item { white-space: nowrap; }
+.org-planning-item + .org-planning-item { margin-inline-start: 1.4em; }
+.org-planning-label { font-size: 0.86em; font-weight: 700; letter-spacing: 0.04em; margin-inline-end: 0.15em; }
+time.org-timestamp { font-variant-numeric: tabular-nums; white-space: nowrap; }
+body > p:not(.org-planning) > time.org-timestamp-inactive {
+    color: color-mix(in srgb, currentColor var(--org-quiet), transparent);
+}
+.org-title-block { text-align: center; margin-bottom: 1.8em; }
+.org-title-block > h1:not(:last-child) { margin-bottom: 0.45em; }
+.org-subtitle { font-size: 1.12em; }
+.org-title-block > p { margin: 0.2em 0; }
+/* The title block keeps its own alignment and plain first letters, whatever a theme does to the paragraph after an h1,
+   and a rule a theme draws under its h1 stays under the centred title. Same for LaTeX's title. A planning line right
+   under a heading is not the section's opening paragraph either, so it takes no drop cap. */
+:is(.org-title-block, .latex-title-block) > p { text-align: inherit; text-indent: 0; }
+:is(.org-title-block, .latex-title-block) > p::first-letter, p.org-planning::first-letter {
+    float: none;
+    margin: 0;
+    font: inherit;
+    line-height: inherit;
+    color: inherit;
+}
+:is(.org-title-block, .latex-title-block) > h1::after { margin-inline: auto; }
+figure.org-figure { margin: 1em 0; break-inside: avoid; page-break-inside: avoid; }
+figure.org-table > figcaption { margin: 0 0 0.3em; }
+figure.org-image { text-align: center; }
+figure.org-figure > figcaption { font-size: 0.9em; }
+.org-block {
+    margin: 1em 0;
+    padding-inline-start: 0.9em;
+    border-inline-start: 1.5pt solid color-mix(in srgb, currentColor 35%, transparent);
+}
+.org-block > :first-child { margin-top: 0; }
+.org-block > :last-child { margin-bottom: 0; }
 .org-center { text-align: center; }
-.org-verse { white-space: pre-wrap; }
-.org-checkbox { font-family: sans-serif; }
-.surimono-plain { font-family: inherit; line-height: inherit; }
+.org-verse { white-space: pre-wrap; margin: 1em 0; margin-inline-start: 2em; }
+/* Plain text is the document itself, not a code sample in it: it keeps the body's type, size and paper instead of the
+   box a theme draws around code. As specific as a class alone: it outranks a theme's bare pre, and a user's style that
+   names the class later still changes it. */
+:where(pre).surimono-plain {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+}
 .surimono-csv { width: 100%; }
 .surimono-csv td { white-space: pre-wrap; }
 
@@ -77,15 +192,31 @@ mark {
 ruby rt { font-size: 0.5em; }
 dl { margin-block: 0.7em; }
 dt { font-weight: 700; break-after: avoid; page-break-after: avoid; }
-dd { margin: 0.15em 0 0.5em 1.5em; }
+dd { margin: 0.15em 0 0.5em; margin-inline-start: 1.5em; }
 .footnote-ref a { text-decoration: none; }
 .footnotes { margin-top: 2em; padding-top: 0.5em; border-top: 0.5pt solid #888; font-size: 0.9em; }
-.footnotes ol { padding-left: 1.6em; }
+.footnotes ol { padding-inline-start: 1.6em; }
 .footnotes li > p { margin-block: 0.2em; }
+/* Disposable stock pages and line-local room for page-bottom footnotes. */
+.paper-footnote-stock { break-before: page; page-break-before: always; border: 0; margin: 0; padding: 0; }
+.paper-footnote { break-inside: avoid; page-break-inside: avoid; position: relative;
+    display: flow-root; font-size: 0.85em; line-height: 1.4; padding-inline-start: 1.8em; }
+.paper-footnote-number { float: inline-start; width: 1.8em; margin-inline-start: -1.8em; }
+.paper-footnote p { margin-block: 0.15em; }
+.paper-footnote-room { display: inline-block; width: 0; vertical-align: top; position: relative;
+    /* Keep the reference's own line above the removable band, even with a large superscript. */
+    box-sizing: content-box; padding: 1lh 0 0; margin: 0; border: 0; }
+.paper-footnote-mark, .paper-footnote-stock-mark { position: absolute; left: 0; width: 4px; height: 4px;
+    display: block; padding: 0; margin: 0; border: 0; background: transparent; font-size: 0; line-height: 0; }
+.paper-footnote-mark, .paper-footnote-bottom { bottom: 0; }
+.paper-footnote-top { top: 0; }
+.paper-footnote-mark::before, .paper-footnote-mark::after,
+.paper-footnote-stock-mark::before, .paper-footnote-stock-mark::after { content: none !important; }
+
 .page-break { height: 0; break-after: page; page-break-after: always; }
 nav.toc { margin-block: 1em; }
-nav.toc ul { list-style: none; margin-block: 0.15em; padding-left: 1.2em; }
-nav.toc > ul { padding-left: 0; }
+nav.toc ul { list-style: none; margin-block: 0.15em; padding-inline-start: 1.2em; }
+nav.toc > ul { padding-inline-start: 0; }
 nav.toc a { text-decoration: none; }
 /* Formulas are SwaTex's SVG. A display formula wider than the page shrinks to fit instead of running into the margin. */
 .math svg { overflow: visible; }
@@ -99,8 +230,8 @@ nav.toc a { text-decoration: none; }
 .latex-title-block { text-align: center; margin-bottom: 1.5em; }
 .latex-title-block > :first-child { margin-top: 0; }
 .latex-author, .latex-date { margin: 0.3em 0; }
-.latex-author-name + .latex-author-name { margin-left: 2em; }
-.secnum { margin-right: 0.7em; }
+.latex-author-name + .latex-author-name { margin-inline-start: 2em; }
+.secnum { margin-inline-end: 0.7em; }
 .abstract { margin: 1em 2em; font-size: 0.95em; }
 .abstract-title { text-align: center; font-weight: 700; margin-bottom: 0.3em; }
 .latex-center, figure.latex-figure, figure.latex-table { text-align: center; }
@@ -112,11 +243,11 @@ figcaption { margin: 0.4em 0; font-size: 0.95em; }
 .latex-caption-label { font-weight: 700; }
 img.latex-graphic { max-width: 100%; }
 ol.latex-enumerate, li.latex-custom-label { list-style: none; }
-.item-label { display: inline-block; min-width: 1.8em; margin-left: -2.2em; margin-right: 0.4em; text-align: right; }
-.latex-description dd { margin-left: 2em; }
+.item-label { display: inline-block; min-width: 1.8em; margin-inline-start: -2.2em; margin-inline-end: 0.4em; text-align: end; }
+.latex-description dd { margin-inline-start: 2em; }
 table.latex-tabular th, table.latex-tabular td { border: none; padding: 0.2em 0.6em; }
 .latex-equation { position: relative; }
-.latex-equation > .eqno { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+.latex-equation > .eqno { position: absolute; inset-inline-end: 0; top: 50%; transform: translateY(-50%); }
 .latex-unsupported {
     margin: 1em 0;
     padding: 0.8em 1em;
@@ -142,10 +273,10 @@ table.latex-tabular th, table.latex-tabular td { border: none; padding: 0.2em 0.
 .latex-theorem-plain .theorem-head { font-style: normal; }
 .latex-theorem-remark .theorem-head { font-weight: 400; font-style: italic; }
 .proof-head { font-style: italic; }
-.qed { float: right; margin-left: 1em; }
-.qed-line { text-align: right; margin-top: 0; }
-ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
-.bib-label { display: inline-block; min-width: 2em; margin-left: -2.5em; margin-right: 0.5em; }
+.qed { float: inline-end; margin-inline-start: 1em; }
+.qed-line { text-align: end; margin-top: 0; }
+ol.latex-bibliography { list-style: none; padding-inline-start: 2.5em; }
+.bib-label { display: inline-block; min-width: 2em; margin-inline-start: -2.5em; margin-inline-end: 0.5em; }
 
 /* Defaults are dark enough for white paper; themes may override each token independently. */
 :root {
@@ -266,7 +397,8 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
     box-sizing: border-box;
     width: fit-content;
     max-width: 100%;
-    margin: 0 0 0.3em -0.15em;
+    margin: 0 0 0.3em;
+    margin-inline-start: -0.15em;
     padding: 0.08em 0.6em;
     border: 0.75pt solid var(--callout-color);
     border-radius: var(--callout-tag-radius);
@@ -274,7 +406,7 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
     color: var(--callout-tag-ink);
     font-weight: var(--callout-title-weight);
     line-height: 1.4;
-    text-align: left;
+    text-align: start;
     text-indent: 0;
     break-after: avoid;
     page-break-after: avoid;
@@ -291,7 +423,7 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
 .callout-icon {
     width: 1.15em;
     height: 1.15em;
-    margin-right: 0.38em;
+    margin-inline-end: 0.38em;
     vertical-align: -0.2em;
     fill: none;
     stroke: currentColor;
@@ -300,7 +432,7 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
     stroke-linejoin: round;
 }
 .callout-name {
-    margin-left: 0.5em;
+    margin-inline-start: 0.5em;
     padding: 0 0.4em;
     border: 0.75pt solid currentColor;
     border-radius: 2pt;
@@ -308,8 +440,8 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
 }
 /* A quotation is someone's words rather than a remark on the text, so it keeps a quotation's shape: a rule beside it
    and a small heading, on the paper itself. */
-.callout-quote { margin-inline: 1em; padding: 0.1em 0 0.1em 0.9em; }
-.callout-quote::before { inset: 0; border: none; border-left: 2.25pt solid var(--callout-color); border-radius: 0; background: none; }
+.callout-quote { margin-inline: 1em; padding: 0.1em 0; padding-inline-start: 0.9em; }
+.callout-quote::before { inset: 0; border: none; border-inline-start: 2.25pt solid var(--callout-color); border-radius: 0; background: none; }
 .callout-quote > .callout-title {
     margin: 0 0 0.15em;
     padding: 0;
@@ -322,3 +454,51 @@ ol.latex-bibliography { list-style: none; padding-left: 2.5em; }
 .mermaid-block > svg { display: block; max-width: 100%; height: auto; margin-inline: auto; }
 .mermaid-source { text-align: start; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mermaid-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0.4em; }
+
+/* Link destinations remain legible on paper without taking the theme's accent color. */
+.paper-link-url, .paper-links { overflow-wrap: anywhere; word-break: break-all; color: currentColor; }
+.paper-links { font-size: 0.85em; }
+.paper-links ol { list-style: none; padding-inline-start: 0; }
+.paper-link-ref { font-size: 0.7em; vertical-align: super; line-height: 0; }
+
+/* Revision marks remain distinguishable without color. */
+ins.critic {
+  background: none;
+  text-decoration: underline;
+  text-decoration-thickness: 0.1em;
+  color: #0b5d2a;
+}
+del.critic { text-decoration: line-through; color: #9a1c1c; }
+mark.critic { background: #fff2a8; color: inherit; }
+.critic-comment {
+  font-size: 0.85em;
+  border: 0.5pt solid currentColor;
+  padding: 0.1em 0.2em;
+  border-radius: 2pt;
+  color: #333;
+  margin-inline: 0.2em;
+}
+
+/* The document's language, which <html lang> carries (and dir="rtl" for a right-to-left one). */
+/* Korean breaks lines between words, at the spaces, not between syllables. Set on the root and inherited, so
+   .long-token and link destinations still break anywhere and a word longer than the line still wraps. */
+:root:lang(ko) { word-break: keep-all; }
+/* Letter spacing pulls apart the joined letters of Arabic and Hebrew script, the headline of Devanagari and the
+   clusters of Thai. Themes space their headings with selectors of their own that come later, so this one is important. */
+[dir="rtl"], [dir="rtl"] *, :is(:lang(hi), :lang(mr), :lang(ne), :lang(th)) {
+    letter-spacing: normal !important;
+}
+/* Code reads left to right in a right-to-left document too. Plain text is the document itself and keeps its direction. */
+[dir="rtl"] pre:not(.surimono-plain) { direction: ltr; text-align: left; }
+[dir="rtl"] :not(pre) > code { direction: ltr; unicode-bidi: isolate; }
+/* A justified theme hyphenates its words; code and paths are not words. */
+/* Only running text is hyphenated: a heading or a table cell is not justified, and a word broken there reads badly. */
+pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5, h6, table, .callout-title {
+    -webkit-hyphens: manual; hyphens: manual;
+}
+/* Japanese, Chinese and Korean documents keep their Latin words whole, as before: WebKit would hyphenate the English
+   in them. Every element matches its document's language, so this outweighs a theme's rule on body or p. */
+:is(:lang(ja), :lang(zh), :lang(ko)) { -webkit-hyphens: manual; hyphens: manual; }
+/* The hyphen itself is the plain one. U+2010, the default, is missing from many Latin fonts and would come from a
+   Japanese font, full-width and away from its word. */
+:root { -webkit-hyphenate-character: "-"; hyphenate-character: "-"; }

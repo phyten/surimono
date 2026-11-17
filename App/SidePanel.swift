@@ -105,12 +105,17 @@ struct SelectedRowClicks: NSViewRepresentable {
 struct PanelIconButton: View {
     let symbol: String
     let label: LocalizedStringKey
+    /// The tooltip, when it says more than the label.
+    let help: LocalizedStringKey?
     let action: () -> Void
     @State private var isHovered = false
 
-    init(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) {
+    init(
+        _ symbol: String, label: LocalizedStringKey, help: LocalizedStringKey? = nil, action: @escaping () -> Void
+    ) {
         self.symbol = symbol
         self.label = label
+        self.help = help
         self.action = action
     }
 
@@ -124,7 +129,7 @@ struct PanelIconButton: View {
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .accessibilityLabel(label)
-        .help(label)
+        .help(help ?? label)
     }
 }
 
@@ -155,7 +160,8 @@ struct PanelFileIssues: View {
     }
 }
 
-/// Says that files can be dropped on the list. The whole window takes them; this is what shows that it does.
+/// Says that files can be dropped on the list, while something is dragged over the window: the whole window takes
+/// them, and dropping is the standard way to add, so the frame is not there the rest of the time.
 struct PanelDropHint: View {
     var body: some View {
         Text("Drop here to add")

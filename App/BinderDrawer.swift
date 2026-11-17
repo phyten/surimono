@@ -7,13 +7,24 @@ struct BinderDrawer: View {
     var body: some View {
         if let binder = model.binder {
             SidePanel("Binder", subtitle: summary(binder)) {
+                Menu {
+                    Button("Sort by Name") { binder.sortByName() }
+                        .disabled(binder.isSortedByName)
+                    Divider()
+                    Button("Leave Binder Mode") { model.binderExit.leave(model) }
+                        .disabled(!model.binderExit.canLeave(model))
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
                 PanelIconButton("plus", label: "Add Documents…") { model.chooseDocumentsToAdd() }
                 if model.mode == .view {
                     PanelIconButton("xmark", label: "Close") { model.isDrawerOpen = false }
                 }
             } content: {
                 BinderList(model: model, binder: binder)
-                PanelDropHint()
+                if model.drop.isActive { PanelDropHint() }
                 PanelFileIssues(
                     names: binder.unreadableURLs.map(\.lastPathComponent),
                     summary: String(
@@ -44,6 +55,7 @@ private struct BinderList: View {
     let model: DocumentViewModel
     @Bindable var binder: BinderModel
     @State private var pointedRow: URL?
+    @FocusState private var hasKeyboardFocus: Bool
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -87,7 +99,8 @@ private struct BinderList: View {
             .background(
                 SelectedRowClicks(pointedRow: pointedRow, selection: binder.selection) { model.goToBinderDocument($0) }
             )
-            .onDeleteCommand { if let url = binder.selection { model.removeFromBinder(url) } }
+            .focused($hasKeyboardFocus)
+            .onChange(of: hasKeyboardFocus) { _, focused in model.shortcutListFocused = focused }
             .onChange(of: binder.selection) { _, url in
                 if let url { proxy.scrollTo(url) }
             }
@@ -97,7 +110,10 @@ private struct BinderList: View {
             } action: { frame in
                 model.drop.listFrame = frame
             }
-            .onDisappear { model.drop.listFrame = nil }
+            .onDisappear {
+                model.drop.listFrame = nil
+                model.shortcutListFocused = false
+            }
             .accessibilityLabel("Binder")
         }
     }

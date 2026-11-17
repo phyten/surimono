@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingSetMenu<Label: View>: View {
     let preferences: AppPreferences
+    let library: UserLibrary
     // Resolve the active document at the action, including for AppKit-owned image bundle windows.
     var model: () -> DocumentViewModel?
     @ViewBuilder var label: () -> Label
@@ -17,6 +18,7 @@ struct SettingSetMenu<Label: View>: View {
                 set: { _ in model()?.applyPrintSettingSet(set) })
         ) {
             Text(verbatim: set.name)
+            Text(verbatim: SettingSetSummary(library: library).subtitle(set))
         }
     }
 
@@ -32,12 +34,13 @@ struct SettingSetMenu<Label: View>: View {
             }
             ForEach(preferences.printSettingSets.filter { model()?.matchesPrintSettingSet($0) == true }) { set in
                 Button("Replace “\(set.name)” with Current Settings") {
-                    model()?.savePrintSettingSet(named: set.name)
+                    model()?.savePrintSettingSet(named: set.name, parts: set.parts)
                 }
             }
             Divider()
             Button("Manage Setting Sets…") {
-                preferences.settingsSection = .settingSets
+                // Through the arrangement editor's question, as the Settings sidebar goes.
+                BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
                 openSettings()
             }
         } label: {
@@ -47,8 +50,8 @@ struct SettingSetMenu<Label: View>: View {
 }
 
 extension SettingSetMenu where Label == Text {
-    init(preferences: AppPreferences, model: @escaping () -> DocumentViewModel?) {
-        self.init(preferences: preferences, model: model) { Text("Setting Sets") }
+    init(preferences: AppPreferences, library: UserLibrary, model: @escaping () -> DocumentViewModel?) {
+        self.init(preferences: preferences, library: library, model: model) { Text("Setting Sets") }
     }
 }
 
@@ -57,15 +60,24 @@ enum SettingSetDialogs {
         // Let menus and popovers finish handling the click before entering AppKit's modal loop.
         Task { @MainActor in
             await Task.yield()
-            guard
-                let name = promptName(
-                    title: String(localized: "Save Current Settings…"),
-                    initial: model.preferences.nextPrintSettingSetName)
-            else { return }
+            let selection = SettingSetSaveAccessory(model: model)
+            let alert = NSAlert()
+            // The menu item's ellipsis promises this dialog; the dialog itself is titled without one.
+            alert.messageText = String(localized: "Save Current Settings")
+            alert.accessoryView = selection.view
+            let save = alert.addButton(withTitle: String(localized: "Save"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
+            selection.saveButton = save
+            selection.updateValidation()
+            alert.window.initialFirstResponder = selection.nameField
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            let name = selection.nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, !selection.parts.isEmpty else { return }
             if model.preferences.printSettingSets.contains(where: { $0.name == name }), !confirmReplacement(name) {
                 return
             }
-            model.savePrintSettingSet(named: name)
+            // The parts ticked here win over those of a set being replaced: the reader has just chosen them.
+            model.savePrintSettingSet(named: name, parts: selection.parts)
         }
     }
 
@@ -178,23 +190,118 @@ struct SettingSetRemovalNotice: View {
 
 struct SettingSetsSettings: View {
     let preferences: AppPreferences
+    let library: UserLibrary
     @Environment(\.undoManager) private var undoManager
+    private var summary: SettingSetSummary { SettingSetSummary(library: library) }
+
+    private func description(_ set: PrintSettingSet) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: set.name).lineLimit(2)
+            Text(verbatim: summary.oneLine(set)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+        }
+    }
 
     var body: some View {
-        if preferences.printSettingSets.isEmpty {
-            Text("No setting sets yet. Save the current settings from a document’s Setting Sets menu.")
+        Section {
+            ForEach(PrintSettingSet.builtIns(language: summary.language)) { set in
+                description(set)
+            }
+        } header: {
+            Text("Built-in Sets")
+        } footer: {
+            SettingsFootnote(
+                "Applies paper and layout, margins, headers and footers, finishing, notes, style and text size, and HTML presets in one step. View layout and zoom are not included."
+            )
+        }
+        Section("Your Sets") {
+            if preferences.printSettingSets.isEmpty {
+                Text(
+                    "None yet. Save one from Document > Setting Sets > Save Current Settings… or from Setting Sets on the print screen."
+                )
                 .foregroundStyle(.secondary)
-        } else {
-            ForEach(preferences.printSettingSets) { set in
-                HStack {
-                    Text(verbatim: set.name).lineLimit(2)
-                    Spacer()
-                    Button("Rename…") { SettingSetDialogs.rename(set, preferences: preferences) }
-                    Button("Delete", role: .destructive) {
-                        SettingSetRemoval.delete(set.id, from: preferences, history: undoManager)
+            } else {
+                ForEach(preferences.printSettingSets) { set in
+                    HStack {
+                        Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
+                        description(set)
+                        Spacer()
+                        Button("Rename…") { SettingSetDialogs.rename(set, preferences: preferences) }
+                        Button("Delete", role: .destructive) {
+                            SettingSetRemoval.delete(set.id, from: preferences, history: undoManager)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .draggable(set.id.uuidString)
+                    .dropDestination(for: String.self) { items, _ in
+                        guard items.count == 1, let id = UUID(uuidString: items[0]),
+                            let from = preferences.printSettingSets.firstIndex(where: { $0.id == id }),
+                            let to = preferences.printSettingSets.firstIndex(where: { $0.id == set.id }), from != to
+                        else { return false }
+                        preferences.movePrintSettingSets(from: IndexSet(integer: from), to: from < to ? to + 1 : to)
+                        return true
                     }
                 }
             }
         }
+    }
+}
+
+/// AppKit controls work in the modal alert even when the originating window is not owned by SwiftUI.
+private final class SettingSetSaveAccessory: NSObject, NSTextFieldDelegate {
+    let view = NSStackView()
+    let nameField: NSTextField
+    weak var saveButton: NSButton?
+    private var choices: [(PrintSettingSet.Part, NSButton)] = []
+    private static let width: CGFloat = 360
+    /// Where a checkbox's title starts, past the box.
+    private static let checkboxIndent: CGFloat = 20
+
+    var parts: Set<PrintSettingSet.Part> {
+        Set(choices.filter { $0.1.state == .on }.map { $0.0 })
+    }
+
+    init(model: DocumentViewModel) {
+        nameField = NSTextField(string: model.preferences.nextPrintSettingSetName)
+        super.init()
+        nameField.delegate = self
+        nameField.setAccessibilityLabel(String(localized: "Setting Set Name"))
+        view.orientation = .vertical
+        view.alignment = .leading
+        view.spacing = 10
+        view.addArrangedSubview(nameField)
+        nameField.widthAnchor.constraint(equalToConstant: Self.width).isActive = true
+        // The name stands apart from the parts it names.
+        view.setCustomSpacing(16, after: nameField)
+        let set = model.currentPrintSettingSet
+        let summary = SettingSetSummary(library: model.library)
+        for part in PrintSettingSet.Part.allCases where set.parts.contains(part) {
+            let checkbox = NSButton(
+                checkboxWithTitle: summary.title(part), target: self, action: #selector(updateValidation))
+            checkbox.state = .on
+            choices.append((part, checkbox))
+            // Each part is its checkbox with its value under the title, not under the box.
+            let group = NSStackView(views: [checkbox])
+            group.orientation = .vertical
+            group.alignment = .leading
+            group.spacing = 2
+            if let line = summary.line(part, in: set) {
+                let label = NSTextField(wrappingLabelWithString: line)
+                label.textColor = .secondaryLabelColor
+                label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                label.widthAnchor.constraint(equalToConstant: Self.width - Self.checkboxIndent).isActive = true
+                let indented = NSStackView(views: [label])
+                indented.edgeInsets = NSEdgeInsets(top: 0, left: Self.checkboxIndent, bottom: 0, right: 0)
+                group.addArrangedSubview(indented)
+            }
+            view.addArrangedSubview(group)
+        }
+        view.frame.size = view.fittingSize
+    }
+
+    func controlTextDidChange(_ notification: Notification) { updateValidation() }
+
+    @objc func updateValidation() {
+        saveButton?.isEnabled =
+            !parts.isEmpty && !nameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

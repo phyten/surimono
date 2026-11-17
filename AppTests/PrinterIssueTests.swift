@@ -72,6 +72,36 @@ struct PrinterIssueTests {
         try #require(model.canOutput)
     }
 
+    @Test("両面なしだけなら印刷を手動両面へ振り分け用紙の問題はシステム画面を優先する")
+    func manualRoutes() {
+        let direct = PrintRequest(printerName: "A", showsPanel: false)
+        #expect(
+            PrintRoute.resolve(
+                intent: .quick, request: direct, layout: .a4Duplex,
+                issue: .duplexNotAvailable) == .manualDuplex(direct))
+        #expect(
+            PrintRoute.resolve(
+                intent: .manualDuplex, request: direct, layout: .a4Duplex,
+                issue: nil) == .manualDuplex(direct))
+        #expect(
+            PrintRoute.resolve(
+                intent: .quick, request: direct, layout: .a4Duplex,
+                issue: nil) == .direct(direct))
+        #expect(
+            PrintRoute.resolve(
+                intent: .manualDuplex, request: direct, layout: .a3BookletA4,
+                issue: .paperNotAccepted(.a3)) == .systemDialog(.init(printerName: "A", showsPanel: true)))
+        #expect(
+            PrintRoute.resolve(
+                intent: .systemDialog, request: direct, layout: .a4Duplex,
+                issue: .duplexNotAvailable) == .systemDialog(.init(printerName: "A", showsPanel: true)))
+        let missing = PrinterList(names: ["B"], defaultName: "B").request(quick: true, shown: "A", remembered: "A")
+        #expect(
+            PrintRoute.resolve(
+                intent: .manualDuplex, request: missing, layout: .a4Duplex,
+                issue: .duplexNotAvailable) == .systemDialog(missing))
+    }
+
     @Test("プリンターの答えが届くまではバッジを出さず、届くと刷れないレイアウトに付く")
     func badgesAppearWhenThePrinterAnswers() async throws {
         let fixture = Fixture()
@@ -264,11 +294,11 @@ struct PrinterIssueTests {
     @Test("バッジの文言はカードの読み上げに含まれ、ヒントは刷れない理由を文で伝える")
     func badgeWords() {
         #expect(PrintModeText.issueBadge(.paperNotAccepted(.a3), language: "ja") == "A3 なし")
-        #expect(PrintModeText.issueBadge(.duplexNotAvailable, language: "ja") == "両面なし")
+        #expect(PrintModeText.issueBadge(.duplexNotAvailable, language: "ja") == "手動両面")
         #expect(PrintModeText.issueBadge(.paperNotAccepted(.b4), language: "en") == "No B4")
         #expect(
             PrintModeText.cardLabel(.a3BookletA4, issue: .paperNotAccepted(.a3), language: "ja")
-                == "\(PrintLayout.a3BookletA4.displayName(language: "ja")), A3 なし")
+                == "A4 冊子・用紙：A3・両面・A3 なし")
         #expect(
             PrintModeText.cardLabel(.a4Single, issue: nil, language: "ja")
                 == PrintLayout.a4Single.displayName(language: "ja"))
@@ -283,9 +313,19 @@ struct PrinterIssueTests {
         #expect(
             PrintModeText.issueLine(.paperNotAccepted(.a3), language: "ja")
                 == "このプリンターは A3 に刷れません。「印刷」はシステムの印刷画面を開きます。")
+    }
+
+    @Test("両面だけができないとき、要約の行は短く手動両面を伝え、印刷のヒントは用紙を戻す手順まで伝える")
+    func manualDuplexSummaryLine() {
+        #expect(
+            PrintModeText.issueLine(.duplexNotAvailable, language: "ja")
+                == "自動では両面に印刷できません。「印刷」で表を印刷し、用紙を戻して裏を印刷します。")
         #expect(
             PrintModeText.issueLine(.duplexNotAvailable, language: "en")
-                == "This printer cannot print on both sides. Print opens the system print dialog.")
+                == "No automatic 2-sided printing. Print sends the fronts, then the backs.")
+        #expect(
+            PrintModeText.issuePrintHelp(.duplexNotAvailable, language: "ja")
+                == "このプリンターは自動で両面に印刷できません。「印刷」で表を先に印刷し、用紙を戻してから裏を印刷します。")
     }
 
     @Test("バッジと要約の行が出ていても、印刷の帯は幅0で大きさを聞かれて低いままでいる")

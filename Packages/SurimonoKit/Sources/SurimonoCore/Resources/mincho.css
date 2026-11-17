@@ -1,10 +1,10 @@
-body { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: 10.5pt; line-height: 1.85; text-align: justify; }
+body { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: 10.5pt; line-height: 1.85; text-align: justify; -webkit-hyphens: auto; hyphens: auto; }
 h1, h2, h3, h4, h5, h6 { text-align: center; line-height: 1.5; margin: 1.4em 0 0.6em; }
 h1 { font-size: 1.7em; }
 h2 { font-size: 1.35em; }
 h3 { font-size: 1.15em; }
 p { margin: 0.7em 0; }
-pre { text-align: left; font-size: 9pt; }
+pre { text-align: start; font-size: 9pt; }
 :root {
     --callout-info: #2f5270; --callout-success: #39593f; --callout-warning: #6e5420; --callout-danger: #843237;
     --callout-plain: #555555; --callout-frame: 0.6pt; --callout-title-weight: 600;

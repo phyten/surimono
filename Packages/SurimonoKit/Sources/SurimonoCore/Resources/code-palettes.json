@@ -268,17 +268,6 @@
         "de": "Tiefgrün",
         "es": "Verde profundo"
       },
-      "note": "Mostly green",
-      "localizedNotes": {
-        "en": "Mostly green",
-        "ja": "緑を主に",
-        "zh-Hans": "以绿色为主",
-        "zh-Hant": "以綠色為主",
-        "ko": "녹색 위주",
-        "fr": "Surtout vert",
-        "de": "Vorwiegend Grün",
-        "es": "Sobre todo verde"
-      },
       "colors": {
         "keyword": "#14573a",
         "type": "#2c5a1e",
@@ -314,17 +303,6 @@
         "fr": "Indigo seul",
         "de": "Nur Indigo",
         "es": "Solo índigo"
-      },
-      "note": "One-color print",
-      "localizedNotes": {
-        "en": "One-color print",
-        "ja": "一色刷り",
-        "zh-Hans": "单色印刷",
-        "zh-Hant": "單色印刷",
-        "ko": "단색 인쇄",
-        "fr": "Impression une couleur",
-        "de": "Einfarbdruck",
-        "es": "Impresión a una tinta"
       },
       "colors": {
         "keyword": "#142e4e",
@@ -364,17 +342,6 @@
         "fr": "Sépia seul",
         "de": "Nur Sepia",
         "es": "Solo sepia"
-      },
-      "note": "One-color print",
-      "localizedNotes": {
-        "en": "One-color print",
-        "ja": "一色刷り",
-        "zh-Hans": "单色印刷",
-        "zh-Hant": "單色印刷",
-        "ko": "단색 인쇄",
-        "fr": "Impression une couleur",
-        "de": "Einfarbdruck",
-        "es": "Impresión a una tinta"
       },
       "colors": {
         "keyword": "#38260f",
@@ -606,17 +573,6 @@
         "fr": "Code sur fond sombre",
         "de": "Code auf dunklem Grund",
         "es": "Código sobre fondo oscuro"
-      },
-      "note": "Dark ground",
-      "localizedNotes": {
-        "en": "Dark ground",
-        "ja": "暗い地",
-        "zh-Hans": "深色底",
-        "zh-Hant": "深色底",
-        "ko": "어두운 바탕",
-        "fr": "Fond sombre",
-        "de": "Dunkler Grund",
-        "es": "Fondo oscuro"
       },
       "colors": {
         "keyword": "#c9a6e8",

@@ -12,10 +12,19 @@ public enum StandalonePage {
 
     public static func copy(of page: PDFPage) -> PDFPage? {
         guard let copy = page.copy() as? PDFPage else { return nil }
-        if let source = page.pageRef?.document {
-            objc_setAssociatedObject(copy, documentKey, source, .OBJC_ASSOCIATION_RETAIN)
-        }
+        retainSources(of: page, on: copy)
         return copy
+    }
+
+    // An annotation's appearance can still refer to the document before the page was redrawn. Keeping only
+    // pageRef.document loses that owner on the next copy, so carry the full set through every composition.
+    static func retainSources(of source: PDFPage, on target: PDFPage) {
+        var documents = objc_getAssociatedObject(target, documentKey) as? [CGPDFDocument] ?? []
+        let inherited = objc_getAssociatedObject(source, documentKey) as? [CGPDFDocument] ?? []
+        for document in inherited + [source.pageRef?.document, target.pageRef?.document].compactMap({ $0 }) {
+            if !documents.contains(where: { $0 === document }) { documents.append(document) }
+        }
+        objc_setAssociatedObject(target, documentKey, documents, .OBJC_ASSOCIATION_RETAIN)
     }
 
     public static func first(of data: Data) -> PDFPage? {
@@ -25,9 +34,7 @@ public enum StandalonePage {
 
     public static func first(of document: PDFDocument) -> PDFPage? {
         guard let page = document.page(at: 0) else { return nil }
-        if let source = page.pageRef?.document {
-            objc_setAssociatedObject(page, documentKey, source, .OBJC_ASSOCIATION_RETAIN)
-        }
+        retainSources(of: page, on: page)
         return withExtendedLifetime(document) { page }
     }
 }

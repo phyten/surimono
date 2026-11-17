@@ -52,6 +52,17 @@ struct PaperBackgroundTests {
         #expect(html.contains("<body class=\"surimono format-org\"></body>"))
     }
 
+    @Test("右から左の文書では、紙の版も右から左になり、本文と罫線の向きがそろう")
+    func paperDocumentFollowsTheDirection() {
+        func html(_ language: String) -> String {
+            PaperBackground.document(
+                theme: theme, format: .markdown, language: language, pageSize: a4, margins: .uniform(15),
+                pixelsPerPoint: 1.25)
+        }
+        #expect(html("ar").contains("<html lang=\"ar\" dir=\"rtl\">"))
+        #expect(html("ja").contains("<html lang=\"ja\">"))
+    }
+
     @Test("紙のある組み込みテーマは、body の背景を透明か紙と同じ指定にし、模様を描かない")
     func builtInPaperStaysOnTheRoot() throws {
         for theme in try PrintThemeLibrary.load() {

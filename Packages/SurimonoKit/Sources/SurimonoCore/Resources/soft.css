@@ -14,7 +14,7 @@ pre { font-size: 8.8pt; line-height: 1.6; padding: 0.8em 1em; background: #faf6f
 table { border-radius: 6pt; }
 th, td { border: 0.5pt solid #e8d6cd; padding: 0.35em 0.7em; }
 th { background: #fcefe9; color: #6e3d2f; }
-blockquote { border-left: 3pt solid #e9c2b4; border-radius: 2pt; color: #5e524d; }
+blockquote { border-inline-start: 3pt solid #e9c2b4; border-radius: 2pt; color: #5e524d; }
 hr { border: none; border-top: 1.5pt dotted #e2a48f; margin: 1.6em 0; }
 a { color: #a2533d; }
 h2, pre, th, :not(pre) > code { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

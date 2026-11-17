@@ -35,7 +35,12 @@ final class OpenRouter {
                 data, format: format, title: title ?? String(localized: "Selected Text"), printing: printing)
         },
         openIncludes: { BinderWindows.shared.open($0) },
-        openWindows: { DocumentWindows.shared.openModels }, isActive: { NSApp.isActive })
+        openWindows: { DocumentWindows.shared.openModels }, isActive: { NSApp.isActive },
+        openText: { text, hints, title, printing in
+            ClipboardWindows.shared.open(
+                text: text, hints: hints, title: title ?? String(localized: "Selected Text"), source: .selection,
+                window: NSApp.keyWindow, printing: printing)
+        })
 
     private let openDocument: (URL, @escaping (Bool) -> Void) -> Void
     private let openBundle: ([URL], [URL]) -> DocumentViewModel?
@@ -44,6 +49,7 @@ final class OpenRouter {
     private let hasOpenWindows: () -> Bool
     private let showWelcome: () -> Void
     private let openMemory: (Data, DocumentFormat, String?, Bool) -> Void
+    private let openText: (String, ClipboardFormatHints, String?, Bool) -> Void
     private let openIncludes: (MarkdownIncludes.Plan) -> Void
     private let openWindows: () -> [DocumentViewModel]
     private let isActive: () -> Bool
@@ -68,6 +74,9 @@ final class OpenRouter {
         BinderWindows.shared.preferences?.replaceRecentBinder($0, with: $1)
     }
 
+    /// Replaceable so that tests can open the guide without the app's bundle.
+    var gettingStartedURL: () -> URL? = { GettingStarted.url() }
+
     /// Replaceable so that tests can follow the menu action without presenting a panel.
     var presentOpenPanel: (@escaping ([URL]) -> Void) -> Void = { completion in
         let panel = NSOpenPanel()
@@ -86,9 +95,11 @@ final class OpenRouter {
         warn: @escaping (NSWindow?) -> Void, hasOpenWindows: @escaping () -> Bool, showWelcome: @escaping () -> Void,
         openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in },
         openIncludes: @escaping (MarkdownIncludes.Plan) -> Void = { _ in },
-        openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true }
+        openWindows: @escaping () -> [DocumentViewModel] = { [] }, isActive: @escaping () -> Bool = { true },
+        openText: @escaping (String, ClipboardFormatHints, String?, Bool) -> Void = { _, _, _, _ in }
     ) {
         self.isActive = isActive
+        self.openText = openText
         self.openDocument = openDocument
         self.openBundle = openBundle
         self.openBinder = openBinder
@@ -148,13 +159,17 @@ final class OpenRouter {
     }
 
     /// What a service hands over: files take the way of any other file, and text and images open from memory, as the
-    /// clipboard's do, under `title` when what they came from has a name.
+    /// clipboard's do, under `title` when what they came from has a name. Text takes the clipboard's way to its
+    /// format, which may ask the reader first.
     @discardableResult
     func open(_ content: ClipboardContent, printing: Bool, title: String? = nil) -> Bool {
         switch content {
         case .files(let urls): return open(urls, printing: printing)
         case .document(let data, let format):
             openMemory(data, format, title, printing)
+            return true
+        case .text(let text, let hints):
+            openText(text, hints, title, printing)
             return true
         case .empty: return false
         }
@@ -178,7 +193,7 @@ final class OpenRouter {
     func reopen(_ url: URL, restoring origin: BinderOrigin, completion: @escaping (Bool) -> Void) {
         let key = url.standardizedFileURL
         restorations[key] = origin
-        if origin.wasPrinting { printRequests.insert(key) }
+        if origin.wasPrinting && !origin.leavingBinder { printRequests.insert(key) }
         pendingOpens += 1
         openDocument(url) { [weak self] opened in
             if !opened {
@@ -220,9 +235,19 @@ final class OpenRouter {
     /// Takes the window to the print tray if it is the document of a file that was asked to open there.
     func printIfRequested(_ model: DocumentViewModel) {
         guard let url = model.fileURL?.standardizedFileURL else { return }
-        if let origin = restorations.removeValue(forKey: url) { model.restoreWindow(origin) }
+        if let origin = restorations.removeValue(forKey: url) {
+            if origin.leavingBinder { model.restoreAfterLeavingBinder(origin) } else { model.restoreWindow(origin) }
+        }
         guard printRequests.remove(url) != nil else { return }
         model.requestPrintMode()
+    }
+
+    /// The guide that comes with the app opens as any single file does, so a second request brings its window
+    /// forward. The recent files leave it out (`RecentFileHistory`).
+    @discardableResult
+    func openGettingStarted() -> Bool {
+        guard let url = gettingStartedURL() else { return false }
+        return open([url])
     }
 
     func showOpenPanel() {

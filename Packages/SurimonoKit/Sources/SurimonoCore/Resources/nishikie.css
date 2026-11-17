@@ -16,7 +16,7 @@ p, ul, ol, table, pre { margin: 0.7em 0; }
 pre { font-size: 8.8pt; line-height: 1.6; padding: 0.6em 0.9em; background: #f6f1e4; }
 th, td { border: 0.5pt solid #b9ae98; padding: 0.3em 0.6em; }
 th { background: #f3ecdc; color: #27476b; font-weight: 600; }
-blockquote { border-left: 2pt solid #a8322a; color: #3c3f47; }
+blockquote { border-inline-start: 2pt solid #a8322a; color: #3c3f47; }
 hr { border: none; border-top: 0.75pt solid #27476b; margin: 1.5em 0; }
 a { color: #27476b; }
 pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

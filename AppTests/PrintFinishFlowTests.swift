@@ -120,22 +120,98 @@ struct PrintFinishFlowTests {
         model.choosePaperSeries(.b)
         #expect(model.layoutID == PrintLayout.b5BookletB6.id)
         #expect(model.trayPaperSeries == .b)
-        #expect(AppPreferences(defaults: environment.suite.defaults).paperSeries == .b)
+        // The default layout was A4 single-sided; it is now its B counterpart, for the next documents.
+        #expect(AppPreferences(defaults: environment.suite.defaults).layoutID == "b5Single")
         model.choosePaperSeries(.a)
         #expect(model.layoutID == PrintLayout.a4BookletA5.id)
     }
 
-    @Test("判の初期値は文書の用紙から決まり、既定のレイアウトの文書では覚えた判を出す")
-    func initialSeries() {
+    @Test("旧版が判だけを覚えていた設定でも、次の文書はその判の片面で始まり、カードも同じ判になる")
+    func seriesRememberedByAnEarlierVersion() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        // What an earlier version stored after a series was chosen on a tray: the series, and no default layout.
+        environment.suite.defaults.set("b", forKey: "paperSeries")
+        let preferences = environment.preferences
+        #expect(preferences.layoutID == "b5Single")
+        let fresh = environment.model(preferences: preferences)
+        #expect(fresh.layoutID == "b5Single")
+        #expect(fresh.trayPaperSeries == .b)
+        // Reading the old setting does not store a default layout.
+        #expect(environment.suite.defaults.object(forKey: "layout") == nil)
+    }
+
+    @Test(
+        "旧版が既定のレイアウトと別の判を覚えていた設定では、既定のレイアウトが残り、カードもその紙の判になる",
+        arguments: ["ja_JP", "en_US"])
+    func layoutAndAnotherSeriesStoredByAnEarlierVersion(region: String) {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let defaults = environment.suite.defaults
+        defaults.set("a4Duplex", forKey: "layout")
+        defaults.set("b", forKey: "paperSeries")
+        let preferences = AppPreferences(defaults: defaults, locale: Locale(identifier: region))
+        #expect(preferences.layoutID == "a4Duplex")
+        let fresh = environment.model(preferences: preferences)
+        #expect(fresh.layoutID == "a4Duplex")
+        #expect(fresh.trayPaperSeries == .a)
+        // Reading leaves what was stored as it was.
+        #expect(defaults.string(forKey: "layout") == "a4Duplex")
+        #expect(defaults.string(forKey: "paperSeries") == "b")
+    }
+
+    @Test("既定でないレイアウトの文書のカードは、覚えた判ではなくその文書の用紙の判になる")
+    func cardsFollowTheDocumentsOwnPaper() {
         let environment = Environment()
         defer { environment.cleanUp() }
         let preferences = environment.preferences
-        preferences.paperSeries = .b
+        preferences.choosePaperSeries(.b)
         let fresh = environment.model(preferences: preferences)
         #expect(fresh.trayPaperSeries == .b)
-        #expect(fresh.layoutID == PrintLayout.a4Single.id)
-        fresh.layoutID = PrintLayout.a3BookletA4.id
+        fresh.layoutID = "a3BookletA4"
         #expect(fresh.trayPaperSeries == .a)
+    }
+
+    @Test("判を変えると、次に開く文書も同じ刷り方のままその判で始まる")
+    func chosenSeriesStartsTheNextDocument() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        preferences.layoutID = "a4Duplex"
+        let model = environment.model(preferences: preferences)
+        model.layoutID = "a3BookletA4"
+        model.choosePaperSeries(.letter)
+        #expect(model.layoutID == "tabloidBookletLetter")
+        #expect(preferences.layoutID == "letterDuplex")
+        let next = environment.model("次の文書", preferences: preferences)
+        #expect(next.layoutID == "letterDuplex")
+        #expect(next.trayPaperSeries == .letter)
+        #expect(AppPreferences(defaults: environment.suite.defaults).layoutID == "letterDuplex")
+    }
+
+    @Test("設定で既定のレイアウトを選ぶと、刷り台のカードもその紙の判になる")
+    func cardsFollowTheDefaultLayoutChosenInSettings() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        preferences.choosePaperSeries(.letter)
+        preferences.layoutID = "b5Duplex"
+        let model = environment.model(preferences: preferences)
+        #expect(model.layoutID == "b5Duplex")
+        #expect(model.trayPaperSeries == .b)
+    }
+
+    @Test("見せるだけの判の切り替えは、覚えた判と既定のレイアウトを変えない")
+    func shownSeriesIsNotRemembered() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        let model = environment.model(preferences: preferences)
+        model.choosePaperSeries(.b, remembers: false)
+        #expect(model.layoutID == "b5Single")
+        #expect(model.trayPaperSeries == .b)
+        #expect(preferences.layoutID == "a4Single")
+        #expect(environment.suite.defaults.object(forKey: "layout") == nil)
     }
 
     @Test("⌘1〜⌘6 は表示中の判のカードの順に当たる")
@@ -206,19 +282,6 @@ struct PrintFinishFlowTests {
         #expect(model.printOptions.furniture == .pageNumber)
     }
 
-    @Test("要約は仕上がりのページの内訳と使う用紙に分ける")
-    func outcome() {
-        #expect(
-            PrintModeText.finished(pages: 4, body: 1, contents: 0, notes: 2, blanks: 1, language: "ja")
-                == "仕上がり 4 ページ / 本文 1・ノート 2・白紙 1")
-        #expect(
-            PrintModeText.finished(pages: 6, body: 6, contents: 0, notes: 0, blanks: 0, language: "ja")
-                == "仕上がり 6 ページ")
-        #expect(
-            PrintModeText.paper("A4", sheets: 1, duplex: .shortEdge, language: "ja") == "使う用紙 A4 1 枚（両面）")
-        #expect(PrintModeText.paper("A4", sheets: 3, duplex: .none, language: "ja") == "使う用紙 A4 3 枚（片面）")
-    }
-
     @Test("ヘッダーは刷り台の行で見えるので、要約の下には裏面の回転だけを知らせる")
     func reminder() {
         var options = PrintOptions()
@@ -243,6 +306,60 @@ struct PrintFinishFlowTests {
         model.chooseFurniture(.number)
         #expect(model.furnitureChoice == .number)
         #expect(model.printOptions.furniture == .pageNumber)
+    }
+
+    @Test("表示モードで開いた印刷の設定は、スタイルのパレットを閉じ、刷り台に入ると閉じる")
+    func printSettingsInViewMode() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.openThemePalette()
+        model.presentPrintSettings()
+        #expect(model.mode == .view)
+        #expect(model.isPrintFinishPresented)
+        #expect(!model.isThemePalettePresented)
+        model.enterPrintMode()
+        #expect(model.mode == .print)
+        #expect(!model.isPrintFinishPresented)
+    }
+
+    @Test("表示モードでスタイルのパレットを開くと印刷の設定は閉じる")
+    func paletteClosesPrintSettings() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.presentPrintSettings()
+        model.openThemePalette()
+        #expect(model.isThemePalettePresented)
+        #expect(!model.isPrintFinishPresented)
+    }
+
+    @Test("刷り台で開いた印刷の設定は、表示モードへ戻ると閉じる")
+    func printSettingsOnTray() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.enterPrintMode()
+        model.presentPrintSettings()
+        #expect(model.isPrintFinishPresented)
+        model.exitPrintMode()
+        #expect(model.mode == .view)
+        #expect(!model.isPrintFinishPresented)
+    }
+
+    @Test("表示で組んだページが刷り台と同じなら、刷り台に入ったときから文書の情報に今の設定の枚数を出す")
+    func trayFiguresWithoutRender() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model()
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.start()
+        try await waitUntil { model.printResult != nil && !model.isRendering }
+        #expect(model.currentTrayFigures == nil)
+        model.enterPrintMode()
+        #expect(model.isUpToDate)
+        #expect(model.currentTrayFigures?.sheetCount == 1)
+        #expect(model.currentTrayFigures?.paper == "A4")
     }
 
     @Test("文書の情報は、印刷画面を開いて組んだあとだけ今の設定の枚数を出す")

@@ -142,23 +142,24 @@ struct HTMLPresentationTests {
         reopened.stop()
     }
 
-    @Test("ウェブの帯は切り替えと印刷に絞り窓の道具は常にその他に置く")
+    @Test("ウェブの帯は紙専用の操作を出さず適用できる部品を返す")
     func bandOnTheWeb() throws {
         let environment = try environment()
         defer { environment.cleanUp() }
         let model = try model(environment)
         #expect(
             BandLayout.Item.applicable(for: model) == [
-                .formatBadge, .presentation, .print,
+                .formatBadge, .presentation, .floatOnTop, .print,
+                .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .keysAndGestures,
             ])
-        #expect(SecondaryViewControl.applicable(for: model) == [.floatOnTop, .alwaysShowMenu])
+        #expect(BandLayout.Item.applicable(for: model).contains(.alwaysShowToolbar))
         model.setHTMLPresentation(.paper)
         let paper = BandLayout.Item.applicable(for: model)
         #expect(paper.contains(.presentation))
         #expect(paper.contains(.style))
         #expect(paper.contains(.layout))
         #expect(paper.contains(.transition))
-        #expect(SecondaryViewControl.applicable(for: model).contains(.selectText))
+        #expect(BandLayout.Item.applicable(for: model).contains(.selectText))
     }
 
     @Test("HTML 以外と、ファイルのない HTML は紙面だけで見せる", arguments: [(DocumentFormat.markdown, true), (.html, false)])
@@ -301,6 +302,7 @@ struct WebCaptureTests {
         switch output {
         case .exportPDF: model.exportPDF()
         case .print(let quick): model.printDocument(quick: quick)
+        case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }
         try await waitUntil { fixture.snapshots.requestCount == 1 }
         #expect(model.outputAfterReview == output)
@@ -364,19 +366,15 @@ struct WebCaptureTests {
         switch output {
         case .exportPDF: model.exportPDF()
         case .print(let quick): model.printDocument(quick: quick)
+        case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }
         #expect(model.outputAfterReview == output)
         #expect(outputs.isEmpty)
         #expect(!model.canOutput)
         try await waitUntil { fixture.snapshots.requestCount == 1 }
         fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Booklet copy</p>")))
-        try await waitUntil { model.mode == .print && !model.isCapturingWeb }
-        #expect(fixture.requests().count == requestsBefore)
-        #expect(model.outputAfterReview == output)
-        #expect(outputs.isEmpty)
-        #expect(!model.canOutput)
-        // DocumentContent observes the changed settings; without a view the test starts that render.
-        model.render()
+        // The tray lays out the same pages as the view mode, so the copy is laid out once, already as the booklet's
+        // pages, and the output follows that one render.
         try await waitUntil { model.mode == .print && !model.isRendering && !model.isCapturingWeb }
         #expect(fixture.snapshots.requestCount == 1)
         #expect(fixture.requests().count == requestsBefore + 1)
@@ -390,6 +388,11 @@ struct WebCaptureTests {
         #expect(executed == output)
         #expect(result.layout == .a4BookletA5)
         #expect(result.id == model.printResult?.id)
+
+        // Another completed render must not execute the consumed request again.
+        model.render()
+        try await waitUntil { !model.isRendering }
+        #expect(outputs.count == 1)
     }
 
     @Test("ウェブや紙面の写しと A4 片面の用紙が変わらなければ出力を組版待ちに残さない", arguments: [false, true])

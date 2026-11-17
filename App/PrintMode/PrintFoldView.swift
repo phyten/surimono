@@ -38,7 +38,6 @@ struct PrintFoldView: View {
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
                 .disabled(!book.canTurn(by: book.rightBound ? 1 : -1))
                 .help(book.rightBound ? "Next Spread" : "Previous Spread")
-                .keyboardShortcut(.leftArrow, modifiers: [])
                 Button {
                     book.turn(by: book.rightBound ? -1 : 1)
                 } label: {
@@ -47,13 +46,12 @@ struct PrintFoldView: View {
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
                 .disabled(!book.canTurn(by: book.rightBound ? -1 : 1))
                 .help(book.rightBound ? "Previous Spread" : "Next Spread")
-                .keyboardShortcut(.rightArrow, modifiers: [])
                 Rectangle().fill(PrintPalette.line2).frame(width: 1, height: 18).padding(.horizontal, 4)
                 Button(action: close) {
                     Label("Back to Sheets", systemImage: "rectangle.split.2x1").padding(.horizontal, 12)
                 }
                 .buttonStyle(PrintBorderedButtonStyle(height: 30))
-                .keyboardShortcut(.cancelAction)
+                .keyboardShortcut(model.printEscapeTarget == .fold ? .cancelAction : nil)
                 .fixedSize()
             }
         }
@@ -283,6 +281,7 @@ private struct FoldBookView: NSViewRepresentable {
         view.pageShadowsEnabled = true
         view.autoScales = true
         book.attach(view)
+        view.book = book
         return view
     }
 
@@ -305,7 +304,38 @@ private struct FoldBookView: NSViewRepresentable {
 
 /// A spread always fits, so an idle scroll bar would only draw a stripe beside the book. PDFKit turns its scroll bars
 /// back on in every layout pass, so its scroll view uses overlay scroll bars, which stay hidden while nothing scrolls.
-private final class FoldPDFView: PageTextPDFView {
+final class FoldPDFView: PageTextPDFView, ShortcutSurface {
+    weak var book: FoldBook?
+    var shortcutRegion: ShortcutRegion { .foldedPreview }
+
+    func performShortcut(_ operation: ShortcutOperationID, event: NSEvent) {
+        guard let book else { return }
+        switch operation {
+        case .foldLeft: book.turn(by: book.rightBound ? 1 : -1)
+        case .foldRight: book.turn(by: book.rightBound ? -1 : 1)
+        default: break
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // A newly opened fold replaces the tray, which has no paper responder of its own.
+        Task { @MainActor [weak self] in
+            guard let self, let window, window.attachedSheet == nil,
+                !ShortcutDispatcher.isTextInput(window.firstResponder),
+                !(window.firstResponder is NSControl)
+            else { return }
+            window.makeFirstResponder(self)
+        }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if ShortcutDispatcher.shared.handle(event) { return }
+        // Do not let PDFKit turn a spread through an old arrow after the binding moves.
+        if event.specialKey == .leftArrow || event.specialKey == .rightArrow { return }
+        super.keyDown(with: event)
+    }
+
     override func layout() {
         super.layout()
         if let scrollView = documentView?.enclosingScrollView, scrollView.scrollerStyle != .overlay {

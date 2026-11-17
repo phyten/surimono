@@ -38,6 +38,10 @@ struct SettingsMenuTests {
         #expect(restored.loneCoverWidth == .twoPages)
         #expect(restored.defaultAlwaysOnTop && restored.defaultBandVisibility == .always)
         #expect(restored.defaultTextScale == 1.25)
+        preferences.defaultTextScale = 1.13
+        preferences.margin = 12.5
+        #expect(AppPreferences(defaults: suite.defaults).defaultTextScale == 1.13)
+        #expect(AppPreferences(defaults: suite.defaults).margin == 12.5)
         #expect(restored.defaultPaperOrientation == .landscape)
         restored.defaultShowsCoverAlone = true
         #expect(AppPreferences(defaults: suite.defaults).defaultShowsCoverAlone == true)
@@ -101,7 +105,7 @@ struct SettingsMenuTests {
         #expect(!titles.contains(localized("Images")))
     }
 
-    @Test("帯から移した文字選択と固定操作は表示メニューに残る")
+    @Test("文字選択と窓の固定操作は表示メニューにあり、ツールバーを常に表示は⌥⌘Tで切り替わる")
     func secondaryViewCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
         for key in ["Select Text", "Always Show Toolbar", "Float on Top", "View Options…"] {
@@ -113,13 +117,42 @@ struct SettingsMenuTests {
         #expect(pin.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == [.option, .command])
     }
 
+    @Test("表示メニューは単ページと見開きの順で⌥⌘1と⌥⌘2を割り当てる")
+    func viewLayoutOrderAndShortcuts() throws {
+        let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        let entries = menu.items.filter { [localized("Single Page"), localized("Spread")].contains($0.title) }
+        #expect(entries.map(\.title) == [localized("Single Page"), localized("Spread")])
+        #expect(entries.map(\.keyEquivalent) == ["1", "2"])
+        #expect(
+            entries.map { $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) }
+                == [[.option, .command], [.option, .command]])
+        #expect(entries.allSatisfy { $0.isEnabled })
+    }
+
+    @Test(
+        "表示の既定値は従来の文字列を読み込み変更後も同じ値で保存する",
+        arguments: [("single", ViewOptions.Layout.single), ("spread", .spread)])
+    func storedViewLayout(storedValue: String, layout: ViewOptions.Layout) {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        suite.defaults.set(storedValue, forKey: "defaultViewLayout")
+        let preferences = AppPreferences(defaults: suite.defaults)
+        #expect(preferences.defaultViewLayout == layout)
+        preferences.defaultViewLayout = nil
+        #expect(suite.defaults.string(forKey: "defaultViewLayout") == nil)
+        preferences.defaultViewLayout = layout
+        #expect(suite.defaults.string(forKey: "defaultViewLayout") == storedValue)
+        #expect(AppPreferences(defaults: suite.defaults).defaultViewLayout == layout)
+    }
+
     @Test("文書メニューに印刷レイアウト・スタイル・リセット・再読み込みをまとめ、一覧の項目は束と合本の窓だけに出す")
     func documentItems() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
         #expect(
-            menu.items.filter { !$0.isSeparatorItem }.map(\.title)
+            menu.items.filter { !$0.isSeparatorItem && !$0.isHidden }.map(\.title)
                 == [
-                    "Print Layout", "Choose Style…", "Add Documents…", "Reset Document Settings", "Reload",
+                    "Print Layout", "Setting Sets", "Print Settings…", "Choose Style…", "Add Documents…",
+                    "Reset Document Settings", "Reload",
                 ].map(localized))
         let layouts = try #require(menu.items.first?.submenu)
         // The six cards keep ⌘1 to ⌘6; the layouts that save paper on the same sheet follow without a key.
@@ -132,9 +165,17 @@ struct SettingsMenuTests {
             })
     }
 
-    @Test("表示メニューの設定セットは文書がなくても保存と管理の項目を有効に保つ")
+    @Test("文書メニューには印刷の設定がひとつだけあり、文書がなくても有効なままにする")
+    func printSettingsItem() throws {
+        let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
+        let entries = menu.items.filter { $0.title == localized("Print Settings…") }
+        #expect(entries.count == 1)
+        #expect(entries.first?.isEnabled == true)
+    }
+
+    @Test("文書メニューの設定セットは文書がなくても保存と管理の項目を有効に保つ")
     func settingSetCommands() throws {
-        let menu = try #require(NSApp.mainMenu?.items[3].submenu)
+        let menu = try #require(NSApp.mainMenu?.items[4].submenu)
         let sets = try #require(menu.items.first { $0.title == localized("Setting Sets") }?.submenu)
         for key in ["Save Current Settings…", "Manage Setting Sets…"] {
             let item = try #require(sets.items.first { $0.title == localized(key) })

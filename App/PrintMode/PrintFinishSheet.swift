@@ -6,18 +6,42 @@ enum PrintFinishSection: Hashable {
     case furniture, breaks, contents, notes, printer
 }
 
-/// All the print settings. It stays beside the sheets, which show each change right away.
+/// All the print settings, one panel for both modes. It stays beside the pages, which show each change as it is made:
+/// on the tray it lies beside the sheets, and in the view mode it hangs off the window's edge in a popover. The view
+/// mode's paper shows the header and footer too; only the note pages, which the tray alone adds, show on the tray only.
 struct PrintFinishSheet: View {
     @Bindable var model: DocumentViewModel
+    /// In a popover, which draws the panel's background and edge itself.
+    let isInPopover: Bool
     @State private var slot = PageFurniture.Slot.bottomCenter
     @State private var customLine = ""
     @FocusState private var isEditingCustomLine: Bool
 
-    init(model: DocumentViewModel) {
+    init(model: DocumentViewModel, isInPopover: Bool = false) {
         self.model = model
+        self.isInPopover = isInPopover
     }
 
+    static let width: CGFloat = 460
+    /// The popover's height, short enough for a small screen; the settings scroll inside it.
+    static let popoverHeight: CGFloat = 560
+
     var body: some View {
+        if isInPopover {
+            panel
+                .frame(width: Self.width, height: Self.popoverHeight)
+                .presentationBackground(PrintPalette.raised)
+        } else {
+            panel
+                .frame(maxWidth: Self.width)
+                .background(RoundedRectangle(cornerRadius: 14).fill(PrintPalette.raised))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PrintPalette.line, lineWidth: 1))
+                .shadow(color: PrintPalette.popShadow, radius: 20, y: 6)
+        }
+    }
+
+    private var panel: some View {
         VStack(spacing: 0) {
             heading
             Rectangle().fill(PrintPalette.line).frame(height: 1)
@@ -28,16 +52,17 @@ struct PrintFinishSheet: View {
                 .onAppear { scrollToSection(scroller) }
                 .onChange(of: model.finishSection) { _, _ in scrollToSection(scroller) }
             }
-            Rectangle().fill(PrintPalette.line).frame(height: 1)
-            footer
+            // The popover closes from the × in its heading; a second way to close it would only repeat it.
+            if !isInPopover {
+                Rectangle().fill(PrintPalette.line).frame(height: 1)
+                footer
+            }
         }
-        .frame(maxWidth: 460)
         .foregroundStyle(PrintPalette.ink)
-        .tint(PrintPalette.ai)
-        .background(RoundedRectangle(cornerRadius: 14).fill(PrintPalette.raised))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PrintPalette.line, lineWidth: 1))
-        .shadow(color: PrintPalette.popShadow, radius: 20, y: 6)
+        // From the view mode the settings sit among the system's controls, so they take its accent.
+        .tint(isInPopover ? Color.accentColor : PrintPalette.ai)
+        .environment(\.printAccent, isInPopover ? Color.accentColor : PrintPalette.ai)
+        .environment(\.printAccentInk, isInPopover ? Color.white : PrintPalette.raised)
         .clearsInitialFocus()
         .onAppear { customLine = model.printFinish.breaks.customLine }
     }
@@ -64,7 +89,7 @@ struct PrintFinishSheet: View {
                 }
             }
             if model.marginsAffectPrinting {
-                section("Paper & Margins", isFirst: true) { PrintMarginEditor(model: model) }
+                section("Paper & Margins", isFirst: true) { PrintMarginEditor(model: model, unit: .current) }
             }
             section("Header & Footer", isFirst: !model.marginsAffectPrinting) {
                 PrintFurnitureChoice(model: model)
@@ -84,6 +109,31 @@ struct PrintFinishSheet: View {
                     contentsDetails
                 }
                 .id(PrintFinishSection.contents)
+                if model.format == .markdown, model.binder == nil {
+                    section("Proof Marks") {
+                        Picker("Proof Marks", selection: $model.printFinish.proof) {
+                            Text("Show Marks").tag(ProofMarks.shown)
+                            Text("Print as Accepted").tag(ProofMarks.accepted)
+                            Text("Print as Original").tag(ProofMarks.original)
+                        }
+                        .labelsHidden()
+                    }
+                }
+                section("Footnotes") {
+                    Picker("Footnotes", selection: $model.printFinish.footnotes) {
+                        Text("At the End").tag(FootnotePlacement.end)
+                        Text("At the Bottom of the Page (Beta)").tag(FootnotePlacement.pageBottom)
+                    }
+                    .labelsHidden()
+                }
+                section("Links on Paper") {
+                    Picker("Links on Paper", selection: $model.printFinish.links) {
+                        Text("As They Are").tag(PaperLinks.asIs)
+                        Text("List at the End").tag(PaperLinks.endnotes)
+                        Text("After the Text").tag(PaperLinks.inline)
+                    }
+                    .labelsHidden()
+                }
             }
             if model.offersNotes {
                 section("Note Pages") { PrintNoteSection(model: model) }.id(PrintFinishSection.notes)
@@ -95,11 +145,13 @@ struct PrintFinishSheet: View {
     }
 
     private var heading: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("Print Settings").font(.system(size: 14, weight: .bold))
-            Text("Added only when printing. The document does not change.")
-                .font(.system(size: 11.5))
-                .foregroundStyle(PrintPalette.ink2)
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Print Settings").font(.system(size: 14, weight: .bold))
+            }
+            Spacer(minLength: 0)
+            // Centred on the title's line rather than on the two lines.
+            if isInPopover { PopoverCloseButton().padding(.top, -3) }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -116,7 +168,7 @@ struct PrintFinishSheet: View {
             }
             .buttonStyle(PrintBorderedButtonStyle())
             .fixedSize()
-            .keyboardShortcut(.cancelAction)
+            .keyboardShortcut(model.printEscapeTarget == .settings ? .cancelAction : nil)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -133,7 +185,7 @@ struct PrintFinishSheet: View {
                 Text("Use These Print Settings for New Documents")
             }
             .buttonStyle(PrintLinkButtonStyle())
-            Text("New documents start with these margins, header and footer, page breaks and contents")
+            Text("Note pages are not included.")
                 .font(.system(size: 11))
                 .foregroundStyle(PrintPalette.ink3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -151,12 +203,15 @@ struct PrintFinishSheet: View {
         .padding(.bottom, 11)
     }
 
-    private func hint(_ text: LocalizedStringKey) -> some View {
-        Text(text)
-            .font(.system(size: 11.5))
-            .foregroundStyle(PrintPalette.ink2)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 6)
+    /// A consequence the choice above does not show; nil when its name says it all.
+    @ViewBuilder private func hint(_ text: LocalizedStringKey?) -> some View {
+        if let text {
+            Text(text)
+                .font(.system(size: 11.5))
+                .foregroundStyle(PrintPalette.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 6)
+        }
     }
 
     private func subheading(_ title: LocalizedStringKey) -> some View {
@@ -226,6 +281,9 @@ struct PrintFinishSheet: View {
                 HStack(spacing: 4) {
                     chip("File Name", .fileName)
                     chip("Title", .title)
+                    chip("Chapter", .chapter)
+                }
+                HStack(spacing: 4) {
                     chip("Date", .date)
                     chip("Page", .page)
                     chip("Total Pages", .pageCount)
@@ -315,10 +373,9 @@ struct PrintFinishSheet: View {
 
     // MARK: Page breaks
 
-    private var breakHint: LocalizedStringKey {
+    private var breakHint: LocalizedStringKey? {
         switch model.printFinish.breaks.h1 {
-        case .none: "Headings do not break the page."
-        case .page: "Breaks the page before the largest headings."
+        case .none, .page: nil
         case .rightPage:
             model.layout.hasFacingPages
                 ? "Adds blank pages so that chapters start on a right-hand page."
@@ -335,7 +392,7 @@ struct PrintFinishSheet: View {
             levelRow(level: 2, rule: $model.printFinish.breaks.h2)
             levelRow(level: 3, rule: $model.printFinish.breaks.h3)
             if model.format == .markdown {
-                subheading("Syntax in the Text (Read Only; the Text Does Not Change)")
+                subheading("Syntax in the Text")
                 codeRow("<!--BREAK-->", isOn: syntax(.comment), count: facts?.pageBreakCounts[.comment] ?? 0)
                 codeRow("<!-- pagebreak -->", isOn: syntax(.pagebreak), count: facts?.pageBreakCounts[.pagebreak] ?? 0)
                 codeRow("\\newpage", isOn: syntax(.newpage), count: facts?.pageBreakCounts[.newpage] ?? 0)
@@ -397,15 +454,13 @@ struct PrintFinishSheet: View {
 
     // MARK: Contents
 
-    private var contentsHint: LocalizedStringKey {
+    private var contentsHint: LocalizedStringKey? {
         let hasSource = facts?.hasSourceContents == true
         switch model.printFinish.toc.mode {
-        case .hidden: return hasSource ? "The text's [TOC] does not print." : "No contents on the paper."
+        case .hidden: return hasSource ? "The text's [TOC] does not print." : nil
         case .source:
-            return hasSource
-                ? "Prints where the text's [TOC] stands."
-                : "This document does not say where contents go. To add them, choose “Add Contents to Front”."
-        case .front: return "Adds pages of contents in front, with or without a [TOC] in the text."
+            return hasSource ? nil : "This document has no [TOC]. Choose “Add Contents to Front” to add one."
+        case .front: return nil
         }
     }
 
@@ -465,6 +520,7 @@ struct PrintTextField: View {
     var isHighlighted: Bool
     var onFocus: () -> Void
     @FocusState private var isFocused: Bool
+    @Environment(\.printAccent) private var accent
 
     init(
         title: LocalizedStringKey, text: Binding<String>, isHighlighted: Bool = false,
@@ -486,7 +542,7 @@ struct PrintTextField: View {
             .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.chrome))
             .overlay(
                 RoundedRectangle(cornerRadius: 5).strokeBorder(
-                    isHighlighted ? PrintPalette.ai : PrintPalette.line2, lineWidth: 1)
+                    isHighlighted ? accent : PrintPalette.line2, lineWidth: 1)
             )
             .focused($isFocused)
             .onChange(of: isFocused) { _, focused in if focused { onFocus() } }
@@ -496,10 +552,11 @@ struct PrintTextField: View {
 /// The four margins around a sheet of paper, with the text area drawn to scale.
 struct PrintMarginEditor: View {
     @Bindable var model: DocumentViewModel
+    let unit: MarginUnit
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Margins (mm)")
+            Text(unit.fieldTitle)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(PrintPalette.ink2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -529,7 +586,7 @@ struct PrintMarginEditor: View {
             if model.layout.hasFacingPages, model.binder == nil {
                 toggle("Treat Left and Right as Inside and Outside", isOn: $model.printOptions.mirrorsMargins)
             }
-            Text("Applies to text documents and images. PDFs keep their own margins.")
+            Text("PDFs keep their own margins.")
                 .font(.system(size: 11))
                 .foregroundStyle(PrintPalette.ink3)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -552,9 +609,14 @@ struct PrintMarginEditor: View {
             TextField(
                 title,
                 value: Binding(
-                    get: { model.printOptions.margins[keyPath: side] },
-                    set: { model.setMargin(side, to: $0) }),
-                format: .number.precision(.fractionLength(0...1))
+                    get: { unit.value(fromMillimeters: model.printOptions.margins[keyPath: side]) },
+                    set: { value in
+                        let current = model.printOptions.margins[keyPath: side]
+                        if let millimeters = unit.millimeters(from: value, replacing: current) {
+                            model.setMargin(side, to: millimeters)
+                        }
+                    }),
+                format: .number.precision(.fractionLength(0...unit.fractionDigits))
             )
             .labelsHidden()
             .textFieldStyle(.roundedBorder)
@@ -615,9 +677,10 @@ struct PrintPrinterOptions: View {
         return "Remembered for \(name). Last Sheet First keeps face-up sheets in page order."
     }
 
-    private var rotationHint: LocalizedStringKey {
+    /// Without a printer the order's hint above already says to choose one.
+    private var rotationHint: LocalizedStringKey? {
         guard isDuplex else { return "Available for duplex layouts (A4 Duplex and booklets)." }
-        guard let name = model.selectedPrinterName else { return "Choose a printer to remember its settings." }
+        guard let name = model.selectedPrinterName else { return nil }
         return model.printerLayout.sentDuplex == .longEdge
             ? "Remembered for \(name) with long-edge binding."
             : "Remembered for \(name) with short-edge binding."
@@ -626,7 +689,7 @@ struct PrintPrinterOptions: View {
     private var isDuplex: Bool { model.layout.duplex != .none }
 
     private func row<Control: View>(
-        _ title: LocalizedStringKey, hint: LocalizedStringKey, @ViewBuilder control: () -> Control
+        _ title: LocalizedStringKey, hint: LocalizedStringKey?, @ViewBuilder control: () -> Control
     ) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Rectangle().fill(PrintPalette.line).frame(height: 1)
@@ -634,10 +697,12 @@ struct PrintPrinterOptions: View {
                 Text(title).font(.system(size: 12.5)).frame(width: 145, alignment: .leading).padding(.top, 3)
                 VStack(alignment: .leading, spacing: 5) {
                     control()
-                    Text(hint)
-                        .font(.system(size: 11))
-                        .foregroundStyle(PrintPalette.ink3)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if let hint {
+                        Text(hint)
+                            .font(.system(size: 11))
+                            .foregroundStyle(PrintPalette.ink3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

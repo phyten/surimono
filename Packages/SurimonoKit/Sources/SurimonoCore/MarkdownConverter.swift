@@ -3,31 +3,37 @@ import Markdown
 
 public enum MarkdownConverter {
     /// - Parameter pageBreakLine: A line of the reader's own that stands for a page break, besides the usual ones.
-    public static func convert(_ text: String, pageBreakLine: String = "") -> HTMLFragment {
-        convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine).fragment
+    public static func convert(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown) -> HTMLFragment {
+        convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof).fragment
     }
 
-    public static func convertWithSourceMap(_ text: String, pageBreakLine: String = "") -> MarkdownMappedDocument {
-        convertDocument(text, mapsSource: true, pageBreakLine: pageBreakLine)
+    public static func convertWithSourceMap(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown)
+        -> MarkdownMappedDocument
+    {
+        convertDocument(text, mapsSource: true, pageBreakLine: pageBreakLine, proof: proof)
     }
 
     private static func convertDocument(
-        _ text: String, mapsSource: Bool, pageBreakLine: String
+        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks
     ) -> MarkdownMappedDocument {
         let original = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
         var source = mapsSource ? MarkdownSourceLines(original) : .unmapped(original)
         var lines = original
         let mapping = mapsSource ? BlockMapping(original: original) : nil
         var title: String?
+        var language: String?
         if let end = frontMatterEnd(in: lines) {
-            for line in lines[1..<end] where line.hasPrefix("title:") {
-                var value = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+            for line in lines[1..<end] {
+                guard let colon = line.firstIndex(of: ":") else { continue }
+                let key = String(line[..<colon])
+                guard ["title", "lang", "language"].contains(key) else { continue }
+                var value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
                 if value.count >= 2,
                     value.first == "\"" && value.last == "\"" || value.first == "'" && value.last == "'"
                 {
                     value = String(value.dropFirst().dropLast())
                 }
-                title = value
+                if key == "title" { title = value } else { language = value }
             }
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
@@ -38,18 +44,22 @@ public enum MarkdownConverter {
             definitions: extracted.definitions.mapValues { $0.lines.joined(separator: "\n") })
         let formulas = MarkdownExtensions.Formulas()
         let (body, document) = renderBody(
-            extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping)
+            extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping,
+            proof: proof)
         if title == nil { title = firstHeading(in: document, formulas: formulas) }
         let html =
-            body + footnoteSection(footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping)
+            body
+            + footnoteSection(
+                footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = MathRenderer.fontFaces(for: html)
         return MarkdownMappedDocument(
-            fragment: HTMLFragment(body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title),
+            fragment: HTMLFragment(
+                body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title, language: language),
             blocks: mapping?.blocks ?? [])
     }
 
-    private static func frontMatterEnd(in lines: [String]) -> Int? {
+    static func frontMatterEnd(in lines: [String]) -> Int? {
         guard lines.first == "---", lines.count > 1,
             !lines[1].trimmingCharacters(in: .whitespaces).isEmpty,
             let end = lines.dropFirst().firstIndex(where: { $0 == "---" || $0 == "..." })
@@ -139,10 +149,10 @@ public enum MarkdownConverter {
 
     private static func renderBody(
         _ lines: MarkdownSourceLines, footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        anchorsHeadings: Bool, mapping: BlockMapping? = nil
+        anchorsHeadings: Bool, mapping: BlockMapping? = nil, proof: ProofMarks
     ) -> (String, Document) {
         let source = MarkdownCallouts.preprocess(
-            MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas))
+            MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas, proof: proof))
         let document = Document(parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
         let context = Context(
             source: source,
@@ -171,7 +181,7 @@ public enum MarkdownConverter {
     /// end of the list. Paper has no way back from a note, so the notes carry no return links.
     private static func footnoteSection(
         _ footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        definitions: [String: MarkdownSourceLines], mapping: BlockMapping?
+        definitions: [String: MarkdownSourceLines], mapping: BlockMapping?, proof: ProofMarks
     ) -> String {
         guard !footnotes.order.isEmpty else { return "" }
         var items = ""
@@ -181,7 +191,7 @@ public enum MarkdownConverter {
             let (html, _) = renderBody(
                 MarkdownSourceLines.unmapped(definition.components(separatedBy: "\n")), footnotes: footnotes,
                 formulas: formulas,
-                anchorsHeadings: false)
+                anchorsHeadings: false, proof: proof)
             let item = "<li id=\"fn-\(index + 1)\">\(html)</li>\n"
             let origins =
                 definitions[footnotes.order[index]]?.origins.reduce(into: Set<Int>()) { $0.formUnion($1) } ?? []
@@ -390,9 +400,11 @@ public enum MarkdownConverter {
             guard let item = child as? ListItem else {
                 return render(child, context, autolinks: autolinks)
             }
+            // No space follows the box: the themes hang it in the margin with its own gap, and a space would push only
+            // the first line past the edge its wrapped lines start at.
             let checkbox =
                 item.checkbox.map {
-                    "<input type=\"checkbox\" disabled" + ($0 == .checked ? " checked" : "") + "> "
+                    "<input type=\"checkbox\" disabled" + ($0 == .checked ? " checked" : "") + ">"
                 } ?? ""
             var leadsWithCheckbox = !checkbox.isEmpty
             let body = item.children.map { block -> String in
@@ -482,12 +494,17 @@ public enum MarkdownConverter {
         return output
     }
 
-    private static func renderAutolinks(_ text: String) -> String {
+    /// Compiled once: every text run of a document goes through it, and compiling it for each run took most of the
+    /// time of converting a long Markdown document.
+    private static let autolinkPattern: NSRegularExpression? = {
         let domain = #"(?:[\p{L}\p{N}_-]+\.)*[\p{L}\p{N}-]+\.[\p{L}\p{N}-]+"#
         let web = #"(?<![^\s*_~(])(?:https?://|www\.)"# + domain + #"[^\s<]*"#
         let email = #"(?:mailto:|xmpp:)?[A-Za-z0-9._+\-]+@[A-Za-z0-9_\-]+(?:\.[A-Za-z0-9_\-]+)+"#
-        guard let regex = try? NSRegularExpression(pattern: "(?<web>\(web))|\(email)", options: [.caseInsensitive])
-        else {
+        return try? NSRegularExpression(pattern: "(?<web>\(web))|\(email)", options: [.caseInsensitive])
+    }()
+
+    private static func renderAutolinks(_ text: String) -> String {
+        guard let regex = autolinkPattern else {
             return HTML.escape(MarkdownExtensions.emojified(text))
         }
         var output = ""

@@ -4,14 +4,14 @@ body {
     font-size: 9.5pt;
     line-height: 1.55;
     color: #111;
-    text-align: justify;
+    text-align: justify; -webkit-hyphens: auto; hyphens: auto;
 }
 h1, h2, h3, h4, h5, h6 {
     margin: 0.8em 0 0.3em;
     line-height: 1.2;
     font-family: "Toppan Bunkyu Midashi Gothic", "Hiragino Sans", sans-serif;
     font-weight: 900;
-    text-align: left;
+    text-align: start;
 }
 h1 {
     font-size: 3em;
@@ -21,9 +21,9 @@ h1 {
     border-bottom: 1.5pt solid #111;
 }
 h1::before {
-    content: "号外";
+    content: "EXTRA";
     display: inline-block;
-    margin-right: 0.3em;
+    margin-inline-end: 0.3em;
     padding: 0.05em 0.2em;
     font-size: 0.55em;
     vertical-align: 0.25em;
@@ -32,9 +32,13 @@ h1::before {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
+/* The badge reads 号外 in Japanese and Chinese, 號外 in traditional Chinese, 호외 in Korean and EXTRA elsewhere. */
+h1:is(:lang(ja), :lang(zh))::before { content: "号外"; }
+h1:is(:lang(zh-Hant), :lang(zh-TW), :lang(zh-HK))::before { content: "號外"; }
+h1:lang(ko)::before { content: "호외"; }
 h2 { font-size: 1.8em; color: #c4161c; border-bottom: 2pt solid #111; }
 h3 { font-size: 1.3em; }
-h3::before { content: "\25BC"; color: #c4161c; margin-right: 0.2em; }
+h3::before { content: "\25BC"; color: #c4161c; margin-inline-end: 0.2em; }
 h4, h5, h6 { font-size: 1.05em; }
 body > :first-child { margin-top: 0; }
 p { margin: 0.25em 0; text-indent: 1em; }
@@ -42,11 +46,11 @@ li p, td p, blockquote p, .callout p { text-indent: 0; }
 ul, ol, pre, table, blockquote { margin: 0.4em 0; }
 li { margin: 0; }
 strong { font-family: "Hiragino Sans", sans-serif; font-weight: 700; }
-pre { font-size: 8.5pt; line-height: 1.4; padding: 0.3em 0.6em; border: 0.75pt solid #111; text-align: left; }
+pre { font-size: 8.5pt; line-height: 1.4; padding: 0.3em 0.6em; border: 0.75pt solid #111; text-align: start; }
 code { font-size: 0.9em; }
 th, td { border-color: #111; padding: 0.15em 0.4em; }
 th { font-family: "Hiragino Sans", sans-serif; }
-blockquote { border-left: 3pt solid #c4161c; }
+blockquote { border-inline-start: 3pt solid #c4161c; }
 hr { border: none; border-top: 1.5pt solid #111; border-bottom: 0.5pt solid #111; height: 2pt; margin: 0.8em 0; }
 :root {
     --callout-info: #111; --callout-success: #111; --callout-warning: #c4161c; --callout-danger: #c4161c;

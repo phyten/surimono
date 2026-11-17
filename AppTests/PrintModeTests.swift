@@ -49,38 +49,16 @@ struct PrintTrayTests {
         #expect(sheets.count == 3)
         #expect(sheets[2].sides[0].pages == [7, nil, nil])
         #expect(PrintModeText.cardTitle(.a4Handout3, language: "ja") == "3 ページ＋\nメモ欄")
-        #expect(PrintModeText.cardTitle(.a4Handout3, language: "en") == "3 Pages + Notes Column")
+        #expect(PrintModeText.cardTitle(.a4Handout3, language: "en") == "3 Pages + Notes")
         #expect(PrintModeText.handoutCaption([1, 2, 3], language: "ja") == "1–3 ページ")
         #expect(PrintModeText.handoutCaption([7, nil, nil], language: "ja") == "7 ページ")
         #expect(PrintModeText.handoutCaption([4, 5, nil], language: "en") == "Pages 4–5")
         #expect(PrintModeText.sheetSubtitle(sheets[0], layout: .a4Handout3, language: "ja") == "A4 縦")
-        #expect(PrintModeText.note(.a4Handout3, pageCount: 7, language: "ja") == "左に3ページ・右にメモ欄・最後の空き枠は白紙")
-        #expect(
-            PrintModeText.note(.a4Handout3, pageCount: 6, language: "en")
-                == "Three pages on the left · notes on the right")
     }
 
-    @Test("横向き通常印刷の説明は解決済み用紙の向きを示す")
-    func landscapeNote() {
-        #expect(
-            PrintModeText.note(PrintLayout.a4Single.oriented(true), pageCount: 4, language: "ja") == "A4 横・1ページを1枚に")
-        #expect(PrintModeText.note(.a4Single, pageCount: 4, language: "en") == "A4 portrait · one page per sheet")
-        #expect(
-            PrintModeText.note(PrintLayout.a4Single.oriented(true), pageCount: 4, language: "en")
-                == "A4 landscape · one page per sheet")
-    }
-
-    @Test("上下2アップの説明とラベルは奇数ページの下半分の白紙を示す")
-    func stackedNotesAndCaptions() {
+    @Test("上下2アップのラベルは奇数ページの下半分の白紙を示す")
+    func stackedCaptions() {
         let layout = PrintLayout.a3TwoUp.oriented(true)
-        #expect(PrintModeText.note(layout, pageCount: 4, language: "ja") == "2ページを上下に配置・折らずに使う")
-        #expect(PrintModeText.note(layout, pageCount: 3, language: "ja") == "2ページを上下に配置・折らずに使う・最後の下半分は白紙")
-        #expect(
-            PrintModeText.note(layout, pageCount: 3, language: "en")
-                == "Two pages stacked, no folding · the last bottom half is blank")
-        #expect(
-            PrintModeText.note(.a3TwoUp, pageCount: 3, language: "en")
-                == "Two pages side by side, no folding · the last right half is blank")
         let sheets = tray(layout, pages: 3).sheets
         #expect(sheets[1].sides[0].visiblePages == [3, nil])
         #expect(PrintModeText.stackedCaption(sheets[0].sides[0].visiblePages, language: "ja") == "1–2 ページ")
@@ -186,17 +164,6 @@ struct PrintTrayTests {
         #expect(PrintModeText.faceLabel(tray(.a4Single, pages: 1).sheets[0].sides[0], language: "ja") == nil)
     }
 
-    @Test("冊子の要約の2行目は、折ってできる冊子と白紙の数を示す")
-    func bookletNote() {
-        #expect(PrintModeText.note(.a3BookletA4, pageCount: 12, language: "ja") == "重ねて中央で折ると A4 冊子・白紙なし")
-        #expect(
-            PrintModeText.note(.a4BookletA5, pageCount: 5, language: "ja")
-                == "重ねて中央で折ると A5 冊子・白紙 3 ページ（最後の 3 ページ）")
-        #expect(
-            PrintModeText.note(.a4BookletA5, pageCount: 7, language: "ja")
-                == "重ねて中央で折ると A5 冊子・白紙 1 ページ（裏表紙）")
-    }
-
     @Test("レイアウトのカードは上に結果、下に用紙を示す")
     func cardTitles() {
         #expect(
@@ -213,6 +180,48 @@ struct PrintTrayTests {
                 nil, nil, "用紙：A3・両面", "用紙：A4・両面", "用紙：A3", "用紙：A4",
                 nil, nil, "用紙：B4・両面", "用紙：B5・両面", "用紙：B4",
             ])
+    }
+
+    @Test("カードの右上の札は、仕上がりと違う用紙を使うカードにだけ判の名前を出す")
+    func cardSheets() {
+        #expect(
+            PrintLayout.presets(in: .a).map(PrintModeText.cardSheet) == [nil, nil, "A3", "A4", "A3", "A4"])
+        #expect(PrintModeText.cardSheet(.tabloidBookletLetter) == "Tabloid")
+        #expect(PrintModeText.cardSheet(.b4TwoUp) == "B4")
+        #expect(PrintModeText.cardSheet(.a4FourUp) == "A4")
+    }
+
+    @Test("カードの読み上げは、名前と使う用紙をひとまとまりで読み、題の改行を空白か詰めにする")
+    func cardLabels() {
+        #expect(PrintModeText.cardLabel(.a3BookletA4, issue: nil, language: "ja") == "A4 冊子・用紙：A3・両面")
+        #expect(PrintModeText.cardLabel(.a3BookletA4, issue: nil, language: "en") == "A4 Booklet, Paper: A3, Two-Sided")
+        #expect(PrintModeText.cardLabel(.a3TwoUp, issue: nil, language: "ja") == "2 ページを 1 枚に・用紙：A3")
+        #expect(PrintModeText.cardLabel(.a4Handout3, issue: nil, language: "ja") == "3 ページ＋メモ欄・用紙：A4")
+        #expect(PrintModeText.cardLabel(.a4Single, issue: nil, language: "ja") == "A4 片面")
+    }
+
+    @Test("どの言語でもカードの題は2行に収まる")
+    func cardTitlesFitTwoLines() {
+        // The card leaves 72 points for its title in 12-point semibold; a third line would be cut.
+        let font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+        func width(_ text: String) -> CGFloat { (text as NSString).size(withAttributes: [.font: font]).width }
+        let layouts = PaperSeries.allCases.flatMap { PrintLayout.presets(in: $0) + PrintLayout.compactPresets(in: $0) }
+        for language in ["en", "ja", "zh-Hans", "zh-Hant", "ko", "fr", "de", "es"] {
+            for layout in layouts {
+                let title = PrintModeText.cardTitle(layout, language: language)
+                let storage = NSTextStorage(string: title, attributes: [.font: font])
+                let manager = NSLayoutManager()
+                let container = NSTextContainer(size: CGSize(width: 72, height: CGFloat.greatestFiniteMagnitude))
+                container.lineFragmentPadding = 0
+                manager.addTextContainer(container)
+                storage.addLayoutManager(manager)
+                var lines = 0
+                manager.enumerateLineFragments(forGlyphRange: NSRange(location: 0, length: manager.numberOfGlyphs)) {
+                    _, _, _, _, _ in lines += 1
+                }
+                #expect(lines <= 2, "\(language) \(layout.id): \(title) (\(width(title)))")
+            }
+        }
     }
 
     @Test("上の説明は1行目に何を何に刷るか、2行目に綴じ方を書き、折り方の手順は含めない")
@@ -431,6 +440,23 @@ struct PrintModeTests {
         #expect(restored.layoutID == "b5Duplex")
     }
 
+    @Test("初回の既定は地域で決まり、単位がメートル法のカナダでもLetterになる")
+    func regionalPreferencesFollowTheRegion() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let canada = AppPreferences(defaults: suite.defaults, locale: Locale(identifier: "en_CA"))
+        #expect(canada.layoutID == "letterSingle")
+        let japan = AppPreferences(defaults: suite.defaults, locale: Locale(identifier: "ja_JP"))
+        #expect(japan.layoutID == "a4Single")
+        // The Mac's own default paper comes before the region.
+        let abroad = AppPreferences(
+            defaults: suite.defaults, locale: Locale(identifier: "en_US"),
+            defaultPaperSize: CGSize(width: 595, height: 842))
+        #expect(abroad.layoutID == "a4Single")
+        // Looking at the first default does not store it.
+        #expect(suite.defaults.object(forKey: "layout") == nil)
+    }
+
     @Test("新しいウィンドウは表示モードで開く")
     func startsInViewMode() {
         let fixture = Fixture()
@@ -597,13 +623,15 @@ struct PrintModeTests {
         #expect(window.frame == original)
         window.setFrame(NSRect(x: 100, y: 100, width: 1000, height: 640), display: false)
         model.exitPrintMode()
-        // The bands keep 76pt of the 640: the paper is 564 high and 846 wide.
-        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 846, height: 640) }
+        // The bands keep their room of the 640 (70pt on macOS 26: the title band and the bottom band), and the paper
+        // of the rest is half as wide again as high.
+        let width = ((640 - BandRoom.full(for: .split).total) * 1.5).rounded()
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: width, height: 640) }
         #expect(window.frame.height == 640)
-        #expect(window.frame.width == 846)
+        #expect(window.frame.width == width)
     }
 
-    @Test("刷り台でレイアウトを変えると復帰時の幅は新しい紙の形に合う", .timeLimit(.minutes(1)))
+    @Test("刷り台で横長の紙から Letter 冊子へ変えると復帰時の幅は新しい紙の形に合う", .timeLimit(.minutes(1)))
     func returnFitsNewlyRenderedLayout() async throws {
         let fixture = Fixture()
         // Only pagination is substituted; the renderer still rebuilds the logical pages for the selected layout.
@@ -626,18 +654,33 @@ struct PrintModeTests {
         let original = window.frame
         model.enterPrintMode()
         #expect(window.frame == original)
-        model.chooseLayout(PrintLayout.a4BookletA5.id)
+        model.chooseLayout(PrintLayout.letterBookletHalfLetter.id)
         try await render(model)
         let newPaper = try #require(model.paperUnitSize)
-        #expect(abs(newPaper.width - 419.52756) < 0.01)
-        #expect(abs(newPaper.height - 595.27559) < 0.01)
+        #expect(abs(newPaper.width - 396) < 0.01)
+        #expect(abs(newPaper.height - 612) < 0.01)
         #expect(newPaper != firstPaper)
         #expect(renderer.logicalRenderCount == 2)
         model.exitPrintMode()
-        // The bands keep 76pt of the 600: the paper is 524 high.
-        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 369, height: 600) }
+        // The bands keep their room of the 600 (70pt on macOS 26); the paper is the rest high.
+        let paperHeight = 600 - BandRoom.full(for: .split).total
+        let letterWidth = (paperHeight * 396 / 612).rounded()
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: letterWidth, height: 600) }
         #expect(window.frame.height == 600)
-        #expect(window.frame.width == 369)
+        #expect(window.frame.width == letterWidth)
+        // Completing the view render must not restore the old page shape.
+        try await render(model)
+        model.sizeWindowToPaper()
+        #expect(model.paperUnitSize == CGSize(width: 396, height: 612))
+        #expect(window.frame.size == CGSize(width: letterWidth, height: 600))
+
+        model.choosePaperSeries(.b)
+        try await render(model)
+        model.sizeWindowToPaper()
+        #expect(model.mode == .view)
+        #expect(model.layoutID == PrintLayout.b5BookletB6.id)
+        // B6 (JIS) is 128 × 182 mm.
+        #expect(window.frame.size == CGSize(width: (paperHeight * 128 / 182).rounded(), height: 600))
     }
 
     @Test("復帰後の初回限定のサイズ調整は枠を変えない", .timeLimit(.minutes(1)))
@@ -656,7 +699,8 @@ struct PrintModeTests {
         ViewerWindow.setPaperSize(CGSize(width: 900, height: 600), band: 0, of: window, animate: false)
         model.enterPrintMode()
         model.exitPrintMode()
-        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: 786, height: 600) }
+        let width = ((600 - BandRoom.full(for: .split).total) * 1.5).rounded()
+        try await waitUntil { model.mode == .view && window.frame.size == CGSize(width: width, height: 600) }
         // A deliberately non-paper frame makes an accidental second fit observable.
         ViewerWindow.unlockAspectRatio(of: window)
         let chosen = NSRect(x: 100, y: 100, width: 1000, height: 650)

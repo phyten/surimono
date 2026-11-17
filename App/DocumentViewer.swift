@@ -104,6 +104,7 @@ struct DocumentContent: View {
         .sheet(item: $model.duplexTestResult) { test in
             DuplexTestSheet(model: model, test: test)
         }
+        .modifier(ManualDuplexPresentation(model: model))
         .modifier(DocumentContentChanges(model: model))
         .modifier(DocumentWindowChanges(model: model))
     }
@@ -167,6 +168,12 @@ private struct DocumentWindowChanges: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
                 if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { note in
+                if let window = note.object as? NSWindow, window === model.window { model.windowWillEnterFullScreen() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { note in
+                if let window = note.object as? NSWindow, window === model.window { model.windowDidExitFullScreen() }
+            }
     }
 }
 
@@ -196,8 +203,10 @@ struct WindowReader: NSViewRepresentable {
             super.init(frame: .zero)
         }
         required init?(coder: NSCoder) { nil }
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
+        // AppKit also calls this while an autorelease pool tears down a window, outside a Swift task. Keep the
+        // Objective-C entry nonisolated; all view and SwiftUI state access happens in the main-actor task below.
+        nonisolated override func viewDidMoveToWindow() {
+            // NSView's implementation is a no-op; do not call its actor-isolated entry during teardown.
             // SwiftUI may be updating its views right now (for example when a toolbar comes or goes); changing the
             // window from inside that update can crash it, so wait until the update is done.
             Task { @MainActor [weak self] in

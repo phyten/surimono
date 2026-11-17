@@ -636,6 +636,12 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
         state = .finished
     }
 
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        state = .failed(
+            NSError(domain: WKError.errorDomain, code: WKError.Code.webContentProcessTerminated.rawValue)
+                .localizedDescription)
+    }
+
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         hasCommitted = true
     }

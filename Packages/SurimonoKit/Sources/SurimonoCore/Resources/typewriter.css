@@ -21,10 +21,10 @@ p, ul, ol, pre, table { margin: 0.6em 0; }
 li { margin: 0.1em 0; }
 ul { list-style-type: "-  "; }
 code, pre { font-family: "Courier New", Menlo, "Osaka", "Hiragino Sans", monospace; }
-pre { font-size: 9.5pt; line-height: 1.55; padding-left: 1em; border-left: 1pt dashed #555; }
+pre { font-size: 9.5pt; line-height: 1.55; padding-inline-start: 1em; border-inline-start: 1pt dashed #555; }
 code { font-size: 1em; }
 th, td { border: 0.75pt dashed #555; }
-blockquote { border-left: 1pt dashed #555; font-style: italic; }
+blockquote { border-inline-start: 1pt dashed #555; font-style: italic; }
 /* Typed ribbon colors: black and the red half of a two-color ribbon. */
 :root { --hl-keyword: #a3261d; --hl-string: #333; --hl-function: #1e1e1e; --hl-type: #a3261d; --hl-number: #333; }
 hr { border: none; text-align: center; margin: 1.2em 0; height: auto; }

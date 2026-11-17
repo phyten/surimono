@@ -12,9 +12,9 @@ img { display: block; margin: 1.6em auto 0.5em; }
 figcaption, img + em { display: block; font-size: 0.78em; font-style: normal; color: #55504a; }
 pre { font-size: 8.4pt; line-height: 1.6; }
 table { font-size: 0.88em; }
-th, td { border: none; border-bottom: 0.4pt solid #a8a29a; padding: 0.3em 0.8em 0.3em 0; font-weight: 400; }
+th, td { border: none; border-bottom: 0.4pt solid #a8a29a; padding: 0.3em 0; padding-inline-end: 0.8em; font-weight: 400; }
 th { color: #6e5a3a; }
-blockquote { border-left: none; margin-inline: 2em; padding: 0; color: #3c3a38; }
+blockquote { border-inline-start: none; margin-inline: 2em; padding: 0; color: #3c3a38; }
 hr { border: none; height: 2.4em; }
 a { color: inherit; }
 :root {
@@ -22,10 +22,10 @@ a { color: inherit; }
     --callout-plain: #5a5a5a; --callout-tint-amount: 0%;
 }
 /* No frame and no ground: the kind shows in the heading's icon and in the line under it. */
-.callout { --callout-tag-fill: transparent; --callout-tag-ink: var(--callout-color); padding: 0 0 0 2em; }
+.callout { --callout-tag-fill: transparent; --callout-tag-ink: var(--callout-color); padding: 0; padding-inline-start: 2em; }
 .callout::before { border: none; }
 .callout > .callout-title {
-    margin-left: 0;
+    margin-inline-start: 0;
     padding: 0 0 0.1em;
     border: none;
     border-bottom: var(--callout-line-width) var(--callout-line) var(--callout-color);
@@ -33,6 +33,6 @@ a { color: inherit; }
     font-weight: 400;
     letter-spacing: 0.06em;
 }
-.callout-quote { margin-inline: 0; padding-left: 2em; }
-.callout-quote::before { border-left: none; }
+.callout-quote { margin-inline: 0; padding-inline-start: 2em; }
+.callout-quote::before { border-inline-start: none; }
 .callout-quote > .callout-title { border-bottom: none; }

@@ -4,6 +4,39 @@ import Testing
 @testable import SurimonoCore
 
 struct PrintSettingSetTests {
+    @Test("部分の選択は所属する項目だけを残し識別子と保存形式を保つ")
+    func keepingParts() throws {
+        let set = PrintSettingSet(
+            name: "All",
+            settings: DocumentSettings(
+                layoutID: "a4Duplex", themeID: "mincho", textScale: 1.25, presetID: "none",
+                printOptions: PrintOptions(), paperOrientation: .landscape,
+                printFinish: PrintFinish(), notes: NotePages()))
+        #expect(set.parts == Set(PrintSettingSet.Part.allCases))
+        let kept = set.keeping([.style, .margins])
+        #expect(kept.parts == [.style, .margins])
+        #expect(kept.id == set.id && kept.name == set.name)
+        #expect(kept.themeID == "mincho" && kept.textScale == 1.25)
+        #expect(kept.layoutID == nil && kept.paperOrientation == nil && kept.notes == nil)
+        #expect(try JSONDecoder().decode(PrintSettingSet.self, from: JSONEncoder().encode(kept)) == kept)
+        #expect(set.keeping([]).parts.isEmpty)
+    }
+
+    @Test("部分は単独の項目からも判定され除外した項目は一致判定に含めない")
+    func partialFields() {
+        var set = PrintSettingSet(name: "Partial", settings: DocumentSettings(textScale: 1.25))
+        set.linksMargins = false
+        set.paperOrientation = .portrait
+        #expect(set.parts == [.layout, .margins, .style])
+        let marginsOnly = set.keeping([.margins])
+        // Linking is how the fields are edited, not a choice that shows on paper, so it never decides a match.
+        #expect(marginsOnly.parts == [.margins])
+        #expect(!marginsOnly.matches(DocumentSettings(printOptions: PrintOptions())))
+        let kept = set.keeping([.style])
+        #expect(kept.matches(DocumentSettings(layoutID: "a4Single", textScale: 1.25)))
+        #expect(!kept.matches(DocumentSettings(textScale: 1)))
+    }
+
     @Test("形式の集合からテーマと文字サイズとHTMLプリセットを同時に適用する")
     func mixedFormats() {
         let set = PrintSettingSet(
@@ -85,6 +118,17 @@ struct PrintSettingSetTests {
         #expect(pdf.marginsInMillimeters == 10)
     }
 
+    @Test("以前に保存した 112.6% のセットは 113% として当て、113% の文書と一致する")
+    func fractionalPercentIsNormalized() {
+        let set = PrintSettingSet(name: "Old", settings: DocumentSettings(textScale: 1.126))
+        let applicable = set.applicable(to: .markdown, themeIDs: [], presetIDs: [])
+        #expect(applicable.textScale == 1.13)
+        #expect(applicable.matches(DocumentSettings(textScale: 1.13)))
+        #expect(set.applicable(to: .markdown, themeIDs: [], presetIDs: []).textScale == TextScale.scale(percent: 113))
+        let outside = PrintSettingSet(name: "Outside", settings: DocumentSettings(textScale: 2.5))
+        #expect(outside.applicable(to: .markdown, themeIDs: [], presetIDs: []).textScale == nil)
+    }
+
     @Test("一致判定はセットが持つ項目だけを比較し裏面回転や表示を無視する")
     func matchesOnlyIncludedFields() {
         var current = DocumentSettings(
@@ -124,12 +168,19 @@ struct PrintSettingSetTests {
         #expect(!set.matches(current))
     }
 
+    @Test("文書指定の段階にない文字倍率も設定セットへ保存して適用できる")
+    func continuousScale() throws {
+        let set = PrintSettingSet(name: "Directive", settings: DocumentSettings(textScale: 1.23))
+        let restored = try JSONDecoder().decode(PrintSettingSet.self, from: JSONEncoder().encode(set))
+        #expect(restored.applicable(to: .markdown, themeIDs: [], presetIDs: []).textScale == 1.23)
+    }
+
     @Test("不正な余白や対応しない文字倍率だけを当てずに飛ばす")
     func invalidNumbers() {
         let set = PrintSettingSet(
             name: "Invalid",
             settings: DocumentSettings(
-                layoutID: "a4Duplex", textScale: 1.23, printOptions: PrintOptions(marginsInMillimeters: -10)))
+                layoutID: "a4Duplex", textScale: 2.3, printOptions: PrintOptions(marginsInMillimeters: -10)))
         let applicable = set.applicable(to: .markdown, themeIDs: [], presetIDs: [])
         #expect(applicable.layoutID == "a4Duplex")
         #expect(applicable.marginsInMillimeters == nil)

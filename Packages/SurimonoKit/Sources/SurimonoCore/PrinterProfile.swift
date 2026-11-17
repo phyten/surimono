@@ -2,6 +2,7 @@ import Foundation
 
 public struct PrinterProfile: Codable, Equatable, Sendable {
     public private(set) var rotatesBackSides: [DuplexMode: Bool]
+    public private(set) var manualDuplex: [DuplexMode: ManualDuplexCorrection] = [:]
     public var pageOrder: PrintPageOrder?
 
     public init(rotatesBackSides: [DuplexMode: Bool] = [:], pageOrder: PrintPageOrder? = nil) {
@@ -22,7 +23,16 @@ public struct PrinterProfile: Codable, Equatable, Sendable {
         rotatesBackSides[duplex] = rotates
     }
 
-    private enum CodingKeys: String, CodingKey { case rotatesBackSides, pageOrder }
+    public func manualCorrection(for duplex: DuplexMode) -> ManualDuplexCorrection {
+        duplex == .none ? ManualDuplexCorrection() : manualDuplex[duplex] ?? ManualDuplexCorrection()
+    }
+
+    public mutating func setManualCorrection(_ correction: ManualDuplexCorrection, for duplex: DuplexMode) {
+        guard duplex != .none else { return }
+        manualDuplex[duplex] = correction
+    }
+
+    private enum CodingKeys: String, CodingKey { case rotatesBackSides, pageOrder, manualDuplex }
     private enum BindingKeys: String, CodingKey { case longEdge, shortEdge }
 
     public init(from decoder: any Decoder) throws {
@@ -33,6 +43,10 @@ public struct PrinterProfile: Codable, Equatable, Sendable {
             if let value = try? bindings.decode(Bool.self, forKey: .longEdge) { rotatesBackSides[.longEdge] = value }
             if let value = try? bindings.decode(Bool.self, forKey: .shortEdge) { rotatesBackSides[.shortEdge] = value }
         }
+        if let bindings = try? values.nestedContainer(keyedBy: BindingKeys.self, forKey: .manualDuplex) {
+            manualDuplex[.longEdge] = try? bindings.decode(ManualDuplexCorrection.self, forKey: .longEdge)
+            manualDuplex[.shortEdge] = try? bindings.decode(ManualDuplexCorrection.self, forKey: .shortEdge)
+        }
         pageOrder = try? values.decode(PrintPageOrder.self, forKey: .pageOrder)
     }
 
@@ -41,6 +55,9 @@ public struct PrinterProfile: Codable, Equatable, Sendable {
         var bindings = values.nestedContainer(keyedBy: BindingKeys.self, forKey: .rotatesBackSides)
         try bindings.encodeIfPresent(rotatesBackSides[.longEdge], forKey: .longEdge)
         try bindings.encodeIfPresent(rotatesBackSides[.shortEdge], forKey: .shortEdge)
+        var manual = values.nestedContainer(keyedBy: BindingKeys.self, forKey: .manualDuplex)
+        try manual.encodeIfPresent(manualDuplex[.longEdge], forKey: .longEdge)
+        try manual.encodeIfPresent(manualDuplex[.shortEdge], forKey: .shortEdge)
         try values.encodeIfPresent(pageOrder, forKey: .pageOrder)
     }
 }

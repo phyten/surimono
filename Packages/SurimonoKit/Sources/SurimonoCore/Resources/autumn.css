@@ -12,14 +12,14 @@ h2::before { content: "🍁 "; font-size: 0.85em; }
 h3 { font-size: 1.15em; color: #8a4a12; }
 p, pre, table { margin: 0.7em 0; }
 ul > li:not(.task-list-item) { list-style: none; position: relative; }
-ul > li:not(.task-list-item)::before { content: "🍂"; position: absolute; left: -1.5em; font-size: 0.85em; }
+ul > li:not(.task-list-item)::before { content: "🍂"; position: absolute; inset-inline-start: -1.5em; font-size: 0.85em; }
 ol > li::marker { color: #b2401c; font-weight: 700; }
 hr { border: none; text-align: center; height: auto; margin: 1.4em 0; }
 hr::after { content: "🍁 🍂 🌰 🍂 🍁"; letter-spacing: 0.5em; }
 code { font-size: 0.9em; }
-pre { background: #fdf6ee; border-left: 3pt solid #d9711a; padding: 0.6em 0.8em; font-size: 9pt;
+pre { background: #fdf6ee; border-inline-start: 3pt solid #d9711a; padding: 0.6em 0.8em; font-size: 9pt;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left-color: #c9894a; color: #4a3626; }
+blockquote { border-inline-start-color: #c9894a; color: #4a3626; }
 th { background: #fbeee0; color: #7a2e12; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 th, td { border-color: #d8b293; }
 :root {

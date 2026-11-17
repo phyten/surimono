@@ -17,11 +17,17 @@ final class BinderModel {
     struct Item: Identifiable, Equatable, Sendable {
         let url: URL
         let format: DocumentFormat
+        struct Memory: Equatable, Sendable {
+            let data: Data
+            let title: String
+        }
+        var memory: Memory? = nil
         /// The parent file's own text, without the lines that name the other documents.
         var isPreface = false
         var id: URL { url }
         var name: String {
-            isPreface
+            if let memory { return memory.title }
+            return isPreface
                 ? String(format: String(localized: "%@ (Preface)"), url.lastPathComponent) : url.lastPathComponent
         }
     }
@@ -69,6 +75,14 @@ final class BinderModel {
             OpenRequest.binderFormat(url).map { Item(url: url, format: $0) }
         }
         selection = items.first?.url
+    }
+
+    /// An in-memory child has a stable list identity, never a file to read or write.
+    convenience init(memory data: Data, format: DocumentFormat, title: String, urls: [URL]) {
+        self.init(orderedURLs: urls)
+        let identity = URL(fileURLWithPath: "/surimono-memory/" + UUID().uuidString)
+        items.insert(Item(url: identity, format: format, memory: .init(data: data, title: title)), at: 0)
+        selection = identity
     }
 
     /// The documents a parent file names, in its order. Only the parent's text changes, and only in memory. The reader
@@ -240,7 +254,7 @@ final class BinderModel {
     func source() async throws -> DocumentSource {
         let items = items
         let known = sources
-        for item in items {
+        for item in items where item.memory == nil {
             if !scopedURLs.contains(item.url), item.url.startAccessingSecurityScopedResource() {
                 scopedURLs.insert(item.url)
             }
@@ -253,7 +267,10 @@ final class BinderModel {
             var loaded: [URL: DocumentSource] = [:]
             for item in items {
                 try Task.checkCancellation()
-                if let cached = known[item.url] {
+                if let memory = item.memory {
+                    loaded[item.url] = DocumentSource(data: memory.data, fileURL: item.url, format: item.format)
+                        .hashed()
+                } else if let cached = known[item.url] {
                     loaded[item.url] = cached
                 } else if let data = try? read(item.url) {
                     loaded[item.url] = DocumentSource(data: data, fileURL: item.url, format: item.format).hashed()

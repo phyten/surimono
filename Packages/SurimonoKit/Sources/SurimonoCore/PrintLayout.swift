@@ -72,13 +72,28 @@ public enum PaperSize: String, CaseIterable, Codable, Sendable {
 public enum PaperSeries: String, CaseIterable, Codable, Sendable {
     case a, b, letter
 
+    /// The regions whose paper is US Letter in CLDR's supplemental data (`paperSize type="US-Letter"`); everywhere
+    /// else it is A4.
+    static let letterRegions: Set<String> = [
+        "BZ", "CA", "CL", "CO", "CR", "GT", "MX", "NI", "PA", "PH", "PR", "SV", "US", "VE",
+    ]
+
+    /// The series a first launch starts on: the Mac's default paper when that is A4 or Letter, otherwise the paper
+    /// of the region. The language and the units do not tell the paper: Canada measures in meters and prints on
+    /// Letter, and a reader in the United States may have switched to metric units. Without a region it is A4.
     public static func initial(locale: Locale, defaultPaperSize: CGSize? = nil) -> PaperSeries {
-        if let size = defaultPaperSize,
-            abs(min(size.width, size.height) - 612) < 1 && abs(max(size.width, size.height) - 792) < 1
-        {
-            return .letter
+        if let size = defaultPaperSize {
+            if isSize(size, of: .letter) { return .letter }
+            if isSize(size, of: .a4) { return .a }
         }
-        return locale.measurementSystem == .us ? .letter : .a
+        guard let region = locale.region?.identifier else { return .a }
+        return letterRegions.contains(region) ? .letter : .a
+    }
+
+    /// Whether a size is a paper in either orientation; the print system reports whole points (A4 as 595 by 842).
+    private static func isSize(_ size: CGSize, of paper: PaperSize) -> Bool {
+        abs(min(size.width, size.height) - paper.size.width) < 1
+            && abs(max(size.width, size.height) - paper.size.height) < 1
     }
 }
 
@@ -367,6 +382,15 @@ public struct PageMargins: Codable, Hashable, Sendable {
     }
 
     public static let zero = uniform(0)
+
+    /// The margins a page can have, in millimeters.
+    public static let range: ClosedRange<Double> = 0...40
+
+    /// A margin kept in the range. Hundredths of a millimeter only take out floating-point noise: a typed 12.5 mm or an
+    /// inch's 6.35 mm stays what it is.
+    public static func clamped(_ millimeters: Double) -> Double {
+        (min(max(millimeters, range.lowerBound), range.upperBound) * 100).rounded() / 100
+    }
 
     public var isValid: Bool { [top, left, bottom, right].allSatisfy { $0.isFinite && $0 >= 0 } }
 

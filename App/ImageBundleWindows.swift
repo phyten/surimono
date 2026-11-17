@@ -14,6 +14,7 @@ final class ImageBundleWindows {
 
     @discardableResult
     func open(_ urls: [URL], excluded: [URL] = []) -> DocumentViewModel {
+        for url in urls { NSDocumentController.shared.noteNewRecentDocumentURL(url) }
         let id = UUID()
         let model = DocumentViewModel(
             data: Data(), fileURL: nil, format: .image,

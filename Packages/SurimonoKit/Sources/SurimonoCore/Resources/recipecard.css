@@ -4,7 +4,7 @@ body { font-family: "Hiragino Maru Gothic ProN", sans-serif; font-size: 10.5pt; 
 body > :first-child { margin-top: 0; }
 h1, h2, h3, h4, h5, h6 { color: #7a3b1d; line-height: 1.4; margin: 1.2em 0 0.5em; }
 h1 { font-size: 1.8em; padding-bottom: 0.2em; border-bottom: 3pt double #7a3b1d; }
-h2 { width: fit-content; max-width: 100%; box-sizing: border-box; font-size: 1.1em; padding: 0.15em 0.9em; border-radius: 3pt 12pt 12pt 3pt;
+h2 { width: fit-content; max-width: 100%; box-sizing: border-box; font-size: 1.1em; padding: 0.15em 0.9em; border-radius: 3pt; border-start-end-radius: 12pt; border-end-end-radius: 12pt;
     background: #7a3b1d; color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 h3 { font-size: 1.05em; color: #2f6b4a; }
 h4, h5, h6 { font-size: 1em; }
@@ -14,7 +14,7 @@ table { width: 100%; }
 th, td { border: none; border-bottom: 0.75pt dotted #b08a6a; padding: 0.25em 0.5em; }
 th { color: #7a3b1d; border-bottom: 1pt solid #7a3b1d; }
 pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; background: #f9f1e4; border-radius: 4pt; }
-blockquote { border-left: 3pt solid #d9b892; color: #4a3f36; }
+blockquote { border-inline-start: 3pt solid #d9b892; color: #4a3f36; }
 hr { border: none; border-top: 1pt dashed #b08a6a; margin: 1.3em 0; }
 a { color: #2f6b4a; }
 pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -23,6 +23,8 @@ pre { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     --callout-plain: #6f4a2e; --callout-paper: #fffdf8; --callout-frame: 1pt; --callout-radius: 6pt;
     --callout-tag-radius: 3pt 10pt 10pt 3pt;
 }
+/* The tag points to the end of the line, the left in a right-to-left document. */
+:root[dir="rtl"] { --callout-tag-radius: 10pt 3pt 3pt 10pt; }
 /* Here `:::recipe` is at home, so it needs no name beside its title. */
 .callout[data-callout="recipe"] { --callout-color: #6f4a2e; --callout-tint: #fbf3e6; --callout-line: double; --callout-line-width: 3pt; }
 .callout[data-callout="recipe"] > .callout-title > .callout-name { display: none; }

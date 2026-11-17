@@ -44,6 +44,9 @@ struct ThemePalette: View {
         .onAppear { model.followThemeSamples() }
         .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
         .onChange(of: model.preferences.themeSampleSource) { _, _ in model.followThemeSamples() }
+        .onChange(of: model.preferences.triesThemeOnHover) { _, enabled in
+            if !enabled { model.endThemeTrial() }
+        }
         .onExitCommand { model.themePaletteDidClose() }
         .onDisappear { model.themePaletteDidClose() }
     }
@@ -78,21 +81,26 @@ struct ThemePalette: View {
                 Text("Style").font(.system(size: 14, weight: .semibold)).fixedSize()
                 Text(verbatim: model.theme(model.themeID)?.displayName(language: model.language) ?? model.themeID)
                     .font(.system(size: 12))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
+                PopoverCloseButton()
             }
-            Picker(
-                "Sample Document",
-                selection: Binding(
-                    get: { model.preferences.themeSampleSource },
-                    set: { model.preferences.themeSampleSource = $0 })
-            ) {
-                Text("This Document").tag(ThemeSampleSource.document)
-                Text("Sample Document").tag(ThemeSampleSource.specimen)
+            // Named, because it chooses what the samples show, not what the style is applied to.
+            HStack(spacing: 8) {
+                Text("Sample From").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+                Picker(
+                    "Sample From",
+                    selection: Binding(
+                        get: { model.preferences.themeSampleSource },
+                        set: { model.preferences.themeSampleSource = $0 })
+                ) {
+                    Text("This Document").tag(ThemeSampleSource.document)
+                    Text("Sample Document").tag(ThemeSampleSource.specimen)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Search by name or category", text: $query)
@@ -121,7 +129,7 @@ struct ThemePalette: View {
             section(
                 String(format: String(localized: "Matching “%@”"), query.trimmingCharacters(in: .whitespaces)),
                 count: matches.count, themes: matches,
-                empty: String(localized: "No styles match. Try a category instead."))
+                empty: String(localized: "No matching styles"))
         } else {
             LazyVStack(alignment: .leading, spacing: 18) {
                 ForEach(model.themeMenu.sections, id: \.id) { group in
@@ -146,10 +154,6 @@ struct ThemePalette: View {
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8).strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                            .foregroundStyle(.quaternary))
             } else {
                 LazyVGrid(
                     columns: Array(
@@ -197,7 +201,6 @@ struct ThemePalette: View {
                 } label: {
                     Label("Compare…", systemImage: "square.grid.2x2")
                 }
-                .help("Lay a few styles side by side")
             }
             if isPrinting {
                 Menu("Code Colors") { CodePaletteMenuContent(model: model) }
@@ -207,14 +210,16 @@ struct ThemePalette: View {
                     Text("Code Appearance")
                 }
                 .toggleStyle(.button)
-                .help("Code Appearance")
             }
         }
     }
 
     private var textSize: some View {
         HStack(spacing: 8) {
-            Text("Body Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+            // The same name as in the view options, for the same setting.
+            Text("Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+            // Any percent typed or stepped by 1%; the buttons beside it move to the next step, from an in-between size too.
+            TextSizeField(title: "Text Size", scale: model.textScale) { model.setTextScale($0) }
             ControlGroup {
                 Button {
                     model.decreaseTextSize()
@@ -222,18 +227,14 @@ struct ThemePalette: View {
                     Image(systemName: "textformat.size.smaller")
                 }
                 .accessibilityLabel(Text("Smaller"))
-                Button {
-                    model.resetTextSize()
-                } label: {
-                    Text(verbatim: model.textScalePercentage).monospacedDigit().frame(minWidth: 38)
-                }
-                .help("Original Size")
+                .help("Smaller")
                 Button {
                     model.increaseTextSize()
                 } label: {
                     Image(systemName: "textformat.size.larger")
                 }
                 .accessibilityLabel(Text("Larger"))
+                .help("Larger")
             }
             .fixedSize()
         }
@@ -294,9 +295,10 @@ struct ThemePaletteCell: View {
                             .accessibilityHidden(true)
                     }
                 }
+                // The border and the check mark the current style; the name stays plain.
                 Text(verbatim: name)
-                    .font(.system(size: 11, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity)
@@ -324,7 +326,6 @@ struct ThemePaletteCell: View {
             if inside { model.hoverPaletteTheme(theme.id) }
         }
         .task(id: model.paletteSamples.taskID(for: theme)) { await model.paletteSamples.load(theme) }
-        .help(name)
         .accessibilityLabel(Text(verbatim: name))
         .accessibilityIdentifier("themePaletteCell.\(theme.id)")
         .accessibilityAddTraits(isCurrent ? .isSelected : [])

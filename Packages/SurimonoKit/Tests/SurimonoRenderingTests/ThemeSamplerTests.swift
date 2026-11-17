@@ -1,8 +1,10 @@
 import AppKit
 import PDFKit
 import SurimonoCore
-import SurimonoRendering
 import Testing
+import WebKit
+
+@testable import SurimonoRendering
 
 @MainActor
 struct ThemeSamplerTests {
@@ -31,6 +33,34 @@ struct ThemeSamplerTests {
         #expect(abs(bounds.width - 595.3) < 1)
         #expect(abs(bounds.height - 841.9) < 1)
         #expect(abs(sampler.printableSize.width - 510.4) < 1)
+    }
+
+    @Test("見本の鍵は名前には依存せず、描画内容と寸法と言語に依存する")
+    func persistentKey() {
+        func make(
+            html: String = "<p>Sample</p>", width: CGFloat = 595, margin: Double = 15,
+            scale: Double = 1, code: CodeStyle = CodeStyle()
+        ) -> ThemeSampler {
+            ThemeSampler(
+                html: html, baseURL: nil, pageSize: CGSize(width: width, height: 842),
+                margins: .uniform(millimeters: margin), textScale: scale, code: code)
+        }
+        let first = theme("same", css: "body { color: black; }")
+        let sample = make()
+        let key = sample.cacheKey(for: first, language: "en")
+        #expect(key.count == 64)
+        #expect(key != sample.cacheKey(for: first, language: "en", sourceHash: "changed source"))
+        #expect(key == make().cacheKey(for: first, language: "en"))
+        #expect(key == sample.cacheKey(for: PrintTheme(id: "same", name: "Renamed", css: first.css), language: "en"))
+        #expect(key != sample.cacheKey(for: first, language: "ja"))
+        #expect(key != sample.cacheKey(for: theme("same", css: "body { color: blue; }"), language: "en"))
+        #expect(key != sample.cacheKey(for: theme("same", css: first.css, script: "decorate()"), language: "en"))
+        #expect(key != make(html: "<p>Changed</p>").cacheKey(for: first, language: "en"))
+        #expect(key != make(width: 420).cacheKey(for: first, language: "en"))
+        #expect(key != make(margin: 20).cacheKey(for: first, language: "en"))
+        #expect(key != make(scale: 1.2).cacheKey(for: first, language: "en"))
+        let code = CodeStyle(palette: CodePalette(id: "test", name: "Test", colors: [:], ground: "#eeeeee"))
+        #expect(key != make(code: code).cacheKey(for: first, language: "en"))
     }
 
     // MARK: Places
@@ -273,6 +303,56 @@ struct ThemeSamplerTests {
         _ = await first.result
         let page = try await sampler.firstPage(for: standard)
         #expect(page.string?.contains("取り消しのあとの見本") == true)
+    }
+
+    @Test("読み込み後に WebContent が終了したら読み込み済みとして扱わない")
+    func terminationInvalidatesNavigation() {
+        _ = NSApplication.shared
+        let view = WKWebView()
+        let tracker = NavigationTracker()
+        tracker.webView(view, didFinish: nil)
+        #expect(tracker.state == .finished)
+        tracker.webViewWebContentProcessDidTerminate(view)
+        guard case .failed = tracker.state else {
+            Issue.record("終了したプロセスを読み込み済みとして扱っている")
+            return
+        }
+    }
+
+    @Test("WebContent の終了後は古い見本を保ち、新しい見本は文書を読み直して描く", .timeLimit(.minutes(1)))
+    func reloadsAfterContentProcessTermination() async throws {
+        let standard = theme("first", css: "")
+        let next = theme("next", css: "body { color: navy; }")
+        let sampler = try sampler("# Process recovery", theme: standard)
+        defer { sampler.close() }
+        let first = try await sampler.firstPage(for: standard)
+        let views = NSApp.windows.compactMap { $0.contentView as? WKWebView }
+        try #require(!views.isEmpty)
+        for view in views { view.navigationDelegate?.webViewWebContentProcessDidTerminate?(view) }
+        let page = try await sampler.firstPage(for: next)
+        #expect(page.string?.contains("Process recovery") == true)
+        #expect(try await sampler.firstPage(for: standard) === first)
+        #expect(sampler.drawCount == 2)
+        // A terminated web view cannot be reused even if a later PDF request appears to succeed.
+        let remaining = NSApp.windows.compactMap { $0.contentView as? WKWebView }
+        #expect(!remaining.contains { current in views.contains { $0 === current } })
+    }
+
+    @Test("紙の判定が失敗した見本を白紙のテーマとして覚えず、次は新しく読み込む", .timeLimit(.minutes(1)))
+    func failedPaperDetectionIsNotCached() async throws {
+        let broken = theme(
+            "broken", css: "",
+            script: "window.getComputedStyle = () => { throw new Error('fixture failure'); };")
+        let plain = theme("plain", css: "")
+        let sampler = try sampler("# Retry after failure", theme: plain)
+        defer { sampler.close() }
+        var failed = false
+        do { _ = try await sampler.firstPage(for: broken) } catch { failed = true }
+        #expect(failed)
+        #expect(sampler.drawCount == 0)
+        let page = try await sampler.firstPage(for: plain)
+        #expect(page.string?.contains("Retry after failure") == true)
+        #expect(sampler.drawCount == 1)
     }
 
     @Test("テーマを使わない形式には見本を作らず、閉じた見本はそれ以上描かない")

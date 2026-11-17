@@ -1,10 +1,19 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var appearanceKeeper: AppearanceKeeper?
+
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        // Before any window exists, so that none shows in the system's appearance first.
+        if let preferences = WelcomeController.shared.preferences {
+            appearanceKeeper = AppearanceKeeper(preferences: preferences)
+            appearanceKeeper?.start()
+        }
+        RecentFileHistory.shared?.restoreOnLaunch()
         NSWindow.allowsAutomaticWindowTabbing = false
         // The document controller's launch-time open panel opens a multi-file selection one document at a time and
         // bypasses OpenRouter. The welcome window offers Open… instead.
@@ -38,13 +47,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return (1...list.numberOfItems).compactMap { list.atIndex($0)?.fileURLValue }
     }
 
+    /// Quitting does not close the Settings window, whose close asks about an unsaved toolbar arrangement; the editor
+    /// asks here instead and holds the quit until the reader answers.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        BandArrangementEditorSession.app?.shouldTerminate() ?? .terminateNow
+    }
+
     /// A window's settings are saved a moment after a change, and quitting does not close the windows first.
     func applicationWillTerminate(_ notification: Notification) {
+        DistributedNotificationCenter.default().removeObserver(self)
+        ShortcutDispatcher.shared.stop()
+        GlobalHotKeys.shared.stop()
         DocumentWindows.shared.flushPendingSettings()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let preferences = ClipboardWindows.shared.preferences {
+            GlobalHotKeys.shared.start()
+            ShortcutController.shared.start(preferences: preferences)
+        }
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(keyboardInputSourceChanged),
+            name: Notification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil)
         DocumentEditMenu.startHiding()
+        ShortcutDispatcher.shared.start()
         #if DEBUG
             // Screenshots of a clipboard window open a file's text through a private pasteboard, leaving the user's
             // clipboard alone.
@@ -57,6 +83,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ClipboardWindows.shared.open(from: board)
             }
             DebugSnapshot.openFeeds()
+            DebugSnapshot.askClipboardQuestion()
+            DebugSnapshot.openGettingStarted()
         #endif
         // Restored windows appear shortly after launch; do not cover them with the welcome window. A rejected
         // multi-file selection opens nothing, so the welcome window still follows its alert.
@@ -66,7 +94,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func keyboardInputSourceChanged() {
+        ShortcutController.shared.refresh()
+    }
+
     func applicationDidBecomeActive(_ notification: Notification) {
+        ShortcutController.shared.refresh()
         // What brought the app forward may be a file to open, which arrives right after.
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(300))
@@ -101,6 +134,9 @@ final class WelcomeController {
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window
+        #if DEBUG
+            DebugSnapshot.captureWelcome(window)
+        #endif
     }
 
     func close() { window?.close() }
@@ -108,20 +144,15 @@ final class WelcomeController {
 
 private struct WelcomeView: View {
     let preferences: AppPreferences
-    @State private var recent: [URL] = NSDocumentController.shared.recentDocumentURLs
+    @State private var recent: [URL] =
+        RecentFileHistory.shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
     @State private var window: NSWindow?
     @State private var isTargeted = false
+    @State private var isGuideHovered = false
 
     var body: some View {
         VStack(spacing: 16) {
             dropZone
-            Button {
-                ClipboardWindows.shared.open()
-            } label: {
-                Text("Open from Clipboard").underline()
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(PrintPalette.ink2)
             if !recent.isEmpty { recentFiles }
         }
         .padding(24)
@@ -137,7 +168,7 @@ private struct WelcomeView: View {
         }
         .background(WindowReader { window = $0 })
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-            recent = NSDocumentController.shared.recentDocumentURLs
+            recent = RecentFileHistory.shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
         }
     }
 
@@ -151,9 +182,31 @@ private struct WelcomeView: View {
                 .foregroundStyle(PrintPalette.ink)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Open…") { OpenRouter.shared.showOpenPanel() }
-                .keyboardShortcut("o")
-                .controlSize(.large)
+            // The two ways in look alike: neither is a lesser link beside the other.
+            HStack(spacing: 10) {
+                Button("Open…") { OpenRouter.shared.showOpenPanel() }
+
+                Button("Open from Clipboard") { ClipboardWindows.shared.open() }
+            }
+            .controlSize(.large)
+            // A third way in for someone who has nothing to open yet. A line of its own keeps the two buttons from
+            // crowding at the window's fixed width, and indigo is the color of the print screen's text buttons.
+            Button {
+                OpenRouter.shared.openGettingStarted()
+            } label: {
+                Label("Getting Started with Surimono", systemImage: "book")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(PrintPalette.ai)
+                    .padding(.horizontal, 8)
+                    .frame(height: 26)
+                    .background {
+                        RoundedRectangle(cornerRadius: 6).fill(isGuideHovered ? PrintPalette.aiTint : .clear)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+            .onHover { isGuideHovered = $0 }
+            .help("A short guide to view, print and fold into a booklet")
         }
         .padding(24)
         .frame(maxWidth: .infinity)
@@ -186,27 +239,53 @@ private struct WelcomeView: View {
     }
 }
 
-private struct RecentFileRow: View {
+struct RecentFileRow: View {
     let url: URL
     @State private var isHovered = false
 
     var body: some View {
         Button {
-            OpenRouter.shared.open([url])
+            let started = url.startAccessingSecurityScopedResource()
+            let leases =
+                started ? [FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() })] : []
+            OpenRouter.shared.open([url], access: leases)
         } label: {
-            Text(verbatim: url.lastPathComponent)
-                .font(.system(size: 13))
-                .foregroundStyle(PrintPalette.ink)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .background { RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear) }
-                .contentShape(Rectangle())
+            // The folder tells apart files of the same name and says where a file is before it opens.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(verbatim: url.lastPathComponent)
+                    .font(.system(size: 13))
+                    .foregroundStyle(PrintPalette.ink)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+                Text(verbatim: Self.folder(of: url))
+                    .font(.system(size: 11))
+                    .foregroundStyle(PrintPalette.ink2)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background { RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear) }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
         .help(url.path)
+    }
+
+    /// The file's folder, the home folder written as ~. In the sandbox the home directory APIs name the container, so
+    /// the reader's own home comes from the account.
+    static func folder(of url: URL, home: String = RecentFileRow.userHome) -> String {
+        let folder = url.deletingLastPathComponent().path
+        guard !home.isEmpty else { return folder }
+        if folder == home { return "~" }
+        return folder.hasPrefix(home + "/") ? "~" + folder.dropFirst(home.count) : folder
+    }
+
+    static var userHome: String {
+        guard let entry = getpwuid(getuid()), let directory = entry.pointee.pw_dir else { return NSHomeDirectory() }
+        return String(cString: directory)
     }
 }

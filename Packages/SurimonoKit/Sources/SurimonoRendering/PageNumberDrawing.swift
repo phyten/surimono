@@ -39,7 +39,7 @@ enum PageFurnitureDrawing {
     /// Draws above and below the text area; `margins` are in the units of `rect`.
     static func draw(
         _ lines: PageFurniture.Lines, in rect: CGRect, margins: WebPaginator.Margins, scale: CGFloat,
-        context: CGContext
+        asOutlines: Bool = false, context: CGContext
     ) {
         context.saveGState()
         defer { context.restoreGState() }
@@ -58,7 +58,7 @@ enum PageFurnitureDrawing {
                 let width = CTLineGetTypographicBounds(line, nil, nil, nil)
                 let x = index == 0 ? left : index == 1 ? center - width / 2 : right - width
                 context.textPosition = CGPoint(x: x, y: y)
-                CTLineDraw(line, context)
+                show(line, asOutlines: asOutlines, context: context)
             }
         }
         draw(lines.top) { rect.maxY - max(margins.top / 2, $0 / 2 + 2) }
@@ -93,6 +93,59 @@ enum PageFurnitureDrawing {
             }
             CTLineDraw(line, context)
         }
+    }
+
+    /// Draws a line at the context's text position, as text or as the shapes of its letters. The view mode's paper
+    /// keeps the text of its page alone, for selecting, copying and finding it; the sheets keep real text.
+    static func show(_ line: CTLine, asOutlines: Bool, context: CGContext) {
+        guard asOutlines else { return CTLineDraw(line, context) }
+        let origin = context.textPosition
+        for run in CTLineGetGlyphRuns(line) as? [CTRun] ?? [] {
+            let count = CTRunGetGlyphCount(run)
+            let attributes = CTRunGetAttributes(run) as? [NSAttributedString.Key: Any] ?? [:]
+            // Each run has its own font, also where a letter came from a fallback font, and its own color.
+            guard count > 0, let font = attributes[.font] as? NSFont else { continue }
+            let color = (attributes[.foregroundColor] as? NSColor)?.cgColor ?? CGColor(gray: 0, alpha: 1)
+            var glyphs = [CGGlyph](repeating: 0, count: count)
+            var positions = [CGPoint](repeating: .zero, count: count)
+            CTRunGetGlyphs(run, CFRange(location: 0, length: 0), &glyphs)
+            CTRunGetPositions(run, CFRange(location: 0, length: 0), &positions)
+            let path = CGMutablePath()
+            for (glyph, position) in zip(glyphs, positions) {
+                let place = CGPoint(x: origin.x + position.x, y: origin.y + position.y)
+                if let outline = CTFontCreatePathForGlyph(font, glyph, nil) {
+                    path.addPath(outline, transform: CGAffineTransform(translationX: place.x, y: place.y))
+                } else {
+                    // A color glyph such as an emoji has no outline; it is drawn as the picture it is.
+                    drawPicture(of: glyph, font: font, at: place, context: context)
+                }
+            }
+            context.saveGState()
+            context.setFillColor(color)
+            context.addPath(path)
+            context.fillPath()
+            context.restoreGState()
+        }
+    }
+
+    /// How much finer than the page a glyph's picture is, so that it stays sharp at the paper's largest zoom.
+    static let pictureScale: CGFloat = 8
+
+    private static func drawPicture(of glyph: CGGlyph, font: NSFont, at place: CGPoint, context: CGContext) {
+        var glyph = glyph
+        let bounds = CTFontGetBoundingRectsForGlyphs(font, .default, &glyph, nil, 1).integral
+        guard !bounds.isEmpty, bounds.width.isFinite, bounds.height.isFinite,
+            let space = CGColorSpace(name: CGColorSpace.sRGB),
+            let bitmap = CGContext(
+                data: nil, width: Int(bounds.width * pictureScale), height: Int(bounds.height * pictureScale),
+                bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return }
+        bitmap.scaleBy(x: pictureScale, y: pictureScale)
+        var origin = CGPoint(x: -bounds.minX, y: -bounds.minY)
+        CTFontDrawGlyphs(font, &glyph, &origin, 1, bitmap)
+        guard let image = bitmap.makeImage() else { return }
+        context.draw(image, in: bounds.offsetBy(dx: place.x, dy: place.y))
     }
 
     /// The lines of a row, each kept to its share of `width` so that long names do not run into each other.

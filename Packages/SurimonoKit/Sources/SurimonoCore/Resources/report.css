@@ -9,14 +9,14 @@ h3 { font-size: 1.1em; counter-increment: h3; }
 body:not(.format-latex) h2::before { content: counter(h2) ". "; }
 body:not(.format-latex) h3::before { content: counter(h2) "." counter(h3) " "; }
 h4, h5, h6 { font-size: 1em; color: #333; }
-p { margin: 0.6em 0; text-align: justify; }
+p { margin: 0.6em 0; text-align: justify; -webkit-hyphens: auto; hyphens: auto; }
 ul, ol, table, pre { margin: 0.65em 0; }
 pre { font-size: 8.6pt; line-height: 1.5; padding: 0.6em 0.8em; background: #f4f6f9; border: 0.5pt solid #d3dae4; }
 table { width: 100%; }
 th, td { border: none; border-bottom: 0.5pt solid #c3ccd8; padding: 0.35em 0.6em; }
 thead th { border-top: 1.5pt solid #1b2f4f; border-bottom: 1pt solid #1b2f4f; background: #eef1f6; color: #1b2f4f; }
 tbody tr:last-child td { border-bottom: 1.5pt solid #1b2f4f; }
-blockquote { border-left-color: #8a9ab3; color: #333; }
+blockquote { border-inline-start-color: #8a9ab3; color: #333; }
 hr { border: none; border-top: 0.75pt solid #c3ccd8; margin: 1.4em 0; }
 a { color: #1b2f4f; }
 pre, thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

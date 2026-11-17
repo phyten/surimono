@@ -124,8 +124,6 @@ final class DocumentViewModel {
     private var defaultTextScale: Double
     private var defaultPaperOrientation: PaperOrientation
     private var defaultBandVisibility: BandVisibility
-    /// The paper the view mode lays text out on; the print tray has its own layout.
-    var paperSeries: ViewPaperSeries = .a
     var loneCoverWidth: LoneCoverWidth { preferences.loneCoverWidth }
     var viewOptions: ViewOptions
     /// Magnification relative to fitting the current page or spread into the window.
@@ -135,8 +133,35 @@ final class DocumentViewModel {
     /// The page the paper shows, which is a trial's page while a theme is tried; `currentPageIndex` keeps the reading
     /// position in the document's own pages for when the trial ends.
     var shownPageIndex = 0
-    /// Whether the bands show all the time; their room beside the paper stays either way.
-    var bandVisibility: BandVisibility
+    /// Whether the bands show all the time, in their own room beside the paper, or only on pointing, over its edges.
+    var bandVisibility: BandVisibility {
+        didSet {
+            guard bandVisibility != oldValue else { return }
+            let previous = Self.bandRoom(of: menuArrangement, oldValue, revealed: revealedBandRoom, top: topBandHeight)
+            // Bands that always show keep their room; the pointer no longer gives or takes it.
+            revealedBandRoom = BandRoom()
+            areHoverBandsShown = false
+            pendsBandRoomRelease = false
+            bandRoomDidChange(from: previous, animate: false)
+        }
+    }
+    /// The room bands that show on pointing have made for themselves: the window grew by it around the paper.
+    private(set) var revealedBandRoom = BandRoom()
+    /// Whether bands that show on pointing are out, which they can be without any room: at the top of the screen they
+    /// lie over the paper.
+    @ObservationIgnored private var areHoverBandsShown = false
+    /// The bands hid while the reader was resizing the window; their room goes when the resize ends.
+    @ObservationIgnored private var pendsBandRoomRelease = false
+    /// From the start of entering full screen until it has been left: the frame is the system's then, so the view
+    /// mode's sizing leaves it alone and catches up once the window is back.
+    /// Observed: the top band takes its plain height while there are no traffic lights to line up with.
+    private(set) var isInFullScreen = false
+    /// The room of the bands in the frame the system gives back on leaving full screen.
+    @ObservationIgnored private var fullScreenReturnRoom: BandRoom?
+    /// The paper the window showed before full screen, remembered for the document in place of the screen's size.
+    @ObservationIgnored private var paperSizeBeforeFullScreen: CGSize?
+    /// Counts the attempts to enter full screen, so that a late check finds out whether it is still about its own.
+    @ObservationIgnored private var fullScreenAttempt = 0
     var isAlwaysOnTop: Bool
     var isDrawerOpen = false
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
@@ -149,8 +174,14 @@ final class DocumentViewModel {
     @ObservationIgnored weak var trayZoomer: TrayZoomer?
     /// A file drag over this window.
     let drop = DropSession()
+    /// Where the view mode's band parts stand, for the popovers that hang off them.
+    let bandAnchors = BandAnchors()
     /// The window this binder took the place of, for as long as going back can bring it.
     @ObservationIgnored var binderOrigin: BinderOrigin?
+    @ObservationIgnored var binderExit = BinderExit()
+    @ObservationIgnored private var pendingBinderRestoration: BinderOrigin?
+    @ObservationIgnored private var binderExitTrayPage: Int?
+    @ObservationIgnored var binderTrayPageIndex: Int?
     /// The reader took this binder back, so its window leaves nothing to open again when it closes.
     @ObservationIgnored var isBinderUndone = false
     /// Called once, when the first pages are ready or could not be made.
@@ -178,6 +209,8 @@ final class DocumentViewModel {
     /// The reader chose to write the header and footer themselves, which an empty one does not show by its content.
     var isWritingFurniture = false
     var isPrintIssuesPresented = false
+    /// The tray shows the booklet folded (「折ってみる」).
+    var showsFold = false
     @ObservationIgnored private var pendingPrintIssue: (issue: PrintIssue, pageCount: Int)?
     /// Waits for the paper to show the page of a problem the reader was sent to, then frames the spot.
     @ObservationIgnored private var spotTask: Task<Void, Never>?
@@ -192,8 +225,7 @@ final class DocumentViewModel {
     /// The theme the pointer rests on in the palette, laid out on the paper.
     let themeTrial: ThemeTrial
     /// A trial the user then chose: the paper keeps it until the document's own pages in that theme are ready.
-    private(set) var chosenTrial:
-        (themeID: String, codePaletteID: String, document: PDFDocument, changeMarks: [ChangeMark])?
+    private(set) var chosenTrial: ChosenTrial?
     /// The candidates on the comparison stage, kept while the window lives.
     var themeComparison: ThemeComparison?
     /// Where the stage's pages start, kept with the candidates; nil is the first page.
@@ -218,7 +250,7 @@ final class DocumentViewModel {
     private(set) var opensClosedDetails = false
     /// The slide deck the live page looks like, as last measured; nil for an ordinary page.
     private(set) var detectedSlideDeck: SlideDeck?
-    /// 「スライドとして扱わない」: the reader says the page is not a deck. Remembered for the document.
+    /// The reader turned off 「スライドとして表示」: the page is not a deck. Remembered for the document.
     private(set) var ignoresSlides = false
     /// The tray's 「今の 1 枚」: print only the slide shown on the web. It belongs to the visit to the tray.
     private(set) var printsCurrentSlideOnly = false
@@ -235,9 +267,15 @@ final class DocumentViewModel {
     @ObservationIgnored var printSubmit: ((RenderResult, PrintRequest, PrintPageOrder) -> Void)?
     private struct PendingPrint {
         var request: PrintRequest
-        let quick: Bool
+        let intent: PrintIntent
     }
     private var pendingPrint: PendingPrint?
+    var manualDuplexSession: ManualDuplexSession?
+    @ObservationIgnored var manualDuplexTask: Task<Void, Never>?
+    @ObservationIgnored var manualDuplexSubmit:
+        ((ManualDuplexSubmission, @escaping (ManualDuplexSubmissionResult) -> Void) -> Void)?
+    /// Replaces saving the manual corrections for every session this window starts, so a snapshot never writes them.
+    @ObservationIgnored var manualDuplexSaveCorrection: ((ManualDuplexCorrection) -> Void)?
     var duplexTestResult: DuplexTestResult?
     /// Replaces submission in tests so calibration never sends a physical print job.
     @ObservationIgnored var duplexTestSubmit:
@@ -253,13 +291,29 @@ final class DocumentViewModel {
     /// Replaces the save panel in tests.
     @ObservationIgnored var chooseSaveDestination: ((String, @escaping (URL?) -> Void) -> Void)?
     /// The logical pages the paper shows. They are published before the sheets are composed.
-    private(set) var result: PreparedRender?
+    private(set) var result: PreparedRender? { didSet { followViewFurniture(after: oldValue) } }
+    /// The header and footer the paper draws. They follow the pages' own at once, except while the custom header is
+    /// being typed, when they wait for a pause: the paper keeps every copy of its pages it has shown.
+    private(set) var shownFurniture: [Int: FurniturePlacement] = [:]
+    @ObservationIgnored private var furnitureTask: Task<Void, Never>?
+    /// How often the paper's header and footer changed, for tests.
+    @ObservationIgnored private(set) var shownFurnitureChangeCount = 0
+    static let furnitureTypingPause: Duration = .milliseconds(400)
+    /// Waits out the pause in typing before the paper shows the new header; tests hold it open and let it go.
+    @ObservationIgnored var awaitTypingPause: () async -> Void = {
+        try? await Task.sleep(for: DocumentViewModel.furnitureTypingPause)
+    }
+    @ObservationIgnored private var dayObserver: (any NSObjectProtocol)?
     /// The composed sheets for the tray and the outputs. It may still belong to an earlier `result` while the sheets
     /// of the current one are composed; `canOutput` checks that it matches.
     private(set) var printResult: RenderResult?
     private var trayFigures: TrayFigures?
     /// The sheets of `printResult`, grouped as they come out of the printer; built once per composition.
     private(set) var printTray: PrintTray?
+    /// The settings and the files `printTray` was composed with. The tray keeps showing its sheets while newer ones are
+    /// composed (`showsTrayPreview`), and whatever describes them is read from the same generation (`shownSheets`).
+    private(set) var printTraySettings: RenderSettings?
+    @ObservationIgnored private(set) var printTraySourceURLs: [URL]?
     private(set) var renderedSettings: RenderSettings?
     /// What the render in flight is making, once its back-side correction is settled.
     @ObservationIgnored private var renderingSettings: RenderSettings?
@@ -300,6 +354,8 @@ final class DocumentViewModel {
     @ObservationIgnored let settingsStore: DocumentSettingsStore?
     /// The settings as last loaded, restored, reset or saved; any other value means the user changed something.
     @ObservationIgnored private var settingsBaseline: DocumentSettings?
+    private var documentDirectives = DocumentDirectives()
+    private var didCustomizeSinceLoad = false
     @ObservationIgnored private var pendingImageOrder: [String]?
     /// What the last reset took away, until it is brought back.
     @ObservationIgnored private(set) var resetOrigin: ResetOrigin?
@@ -310,6 +366,9 @@ final class DocumentViewModel {
     @ObservationIgnored private(set) var viewPaperSizeBeforePrinting: CGSize?
     /// An undo on a stage brought back a size for the view mode, which the window takes on the way back.
     @ObservationIgnored private var returnsToRestoredPaperSize = false
+    /// The bands' room when a stage took the window. The stage keeps its own frame, so a toolbar turned on or off there
+    /// is applied to the view mode's frame on the way back.
+    @ObservationIgnored private var stageBandRoom: BandRoom?
     @ObservationIgnored private(set) var hasSizedWindow = false
     /// The tray was asked for before the first pages were there.
     @ObservationIgnored private(set) var isPrintModeRequested = false
@@ -329,7 +388,7 @@ final class DocumentViewModel {
     @ObservationIgnored private var defaultViewOptions: ViewOptions?
     /// The guess shown before the pages are known; a different value then can only come from the user.
     @ObservationIgnored private let initialViewOptions: ViewOptions
-    private let renderer: DocumentRenderer
+    let renderer: DocumentRenderer
     private var renderTask: Task<Void, Never>?
     private var toastTask: Task<Void, Never>?
     private var watcher: FileWatcher?
@@ -353,9 +412,12 @@ final class DocumentViewModel {
     private(set) var documentStatistics: DocumentStatistics?
     @ObservationIgnored private var structureTask: Task<Void, Never>?
     @ObservationIgnored private var readStructure:
-        (source: DocumentSource, headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String])?
+        (
+            source: DocumentSource, proof: ProofMarks, headings: [DocumentHeading], statistics: DocumentStatistics,
+            contents: [String]
+        )?
     @ObservationIgnored private var structureDocument: PDFDocument?
-    @ObservationIgnored private var textSizeKeyMonitor: Any?
+    var shortcutListFocused = false
     private var printCompletion: PrintCompletion?
     private var printOperation: NSPrintOperation?
     private var exportingDocument: PDFDocument?
@@ -400,9 +462,14 @@ final class DocumentViewModel {
         viewOptions = guess
         initialViewOptions = guess
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
+        specimenSamples.diskCache = ThemeSampleCache.application
+        specimenSamples.specimenLanguage = { [weak self] in self?.language ?? "en" }
         specimenSamples.inputs = { [weak self] in
             guard let self else { return (nil, nil) }
-            return (ThemeSpecimen.source(language: language), ThemeSpecimen.settings)
+            var settings = ThemeSpecimen.settings
+            settings.layout = renderLayout
+            settings.paperOrientation = paperOrientation
+            return (ThemeSpecimen.source(language: language), settings)
         }
         paper.onToast = { [weak self] toast in
             self?.showToast(toast, dismissAfter: toast.action == .allowFolderAccess ? nil : .seconds(5))
@@ -452,7 +519,7 @@ final class DocumentViewModel {
     func selectTheme(_ id: String) {
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
-            chosenTrial = (id, codePaletteID, document, themeTrial.changeMarks)
+            chosenTrial = (id, codePaletteID, document, themeTrial.changeMarks, themeTrial.furniture)
         }
         themeTrial.end()
         themeComparison?.choose(id)
@@ -463,7 +530,7 @@ final class DocumentViewModel {
     /// The user picked a code palette. The pages of a trial of it stay on the paper as they do for a theme.
     func selectCodePalette(_ id: String) {
         if id != codePaletteID, themeTrial.themeID == Self.codeTrialID(id), let document = themeTrial.document {
-            chosenTrial = (themeID, id, document, themeTrial.changeMarks)
+            chosenTrial = (themeID, id, document, themeTrial.changeMarks, themeTrial.furniture)
         }
         themeTrial.end()
         codePaletteID = id
@@ -489,14 +556,35 @@ final class DocumentViewModel {
     var layout: PrintLayout {
         (PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single).bound(effectiveBookletBinding)
     }
-    /// Reading and comparing keep the paper's shape independent of how pages are arranged for printing.
+    /// Reading and comparing show the pages the tray composes, so what is read is what prints. Images are the
+    /// exception: nothing in them reflows, and the paper and the window take the image's shape whatever the layout,
+    /// so reading and comparing keep them on A4 single-sided and only the tray arranges them on the print layout.
     var renderLayout: PrintLayout { renderLayout(in: mode) }
 
-    private func renderLayout(in mode: ViewerMode) -> PrintLayout { mode == .print ? layout : paperSeries.layout }
-    /// Text can be laid out again on other paper; PDFs and images keep their pages, and a binder its documents.
-    var offersPaperSeries: Bool { !showsWeb && binder == nil && imageBundle == nil && format.isWebRendered }
+    private func renderLayout(in mode: ViewerMode) -> PrintLayout {
+        mode != .print && (imageBundle != nil || format == .image) ? .a4Single : layout
+    }
+
+    /// Text can be laid out again on other paper, also in a binder; PDFs and images keep their pages.
+    var offersPaperSeries: Bool {
+        guard !showsWeb, imageBundle == nil else { return false }
+        return binder.map { $0.items.contains { $0.format.isWebRendered } } ?? format.isWebRendered
+    }
 
     var renderSettings: RenderSettings? { renderSettings(in: mode) }
+
+    /// Whether pages laid out with these settings, from the live page's copy or not, are the logical pages the view
+    /// mode shows, now or once the tray is left. The tray's page range and the turning of back sides choose and turn
+    /// sheets and leave the logical pages as they are. Its note pages, current-slide-only, opened details and original
+    /// page change them, and the last two are also turned off on leaving the tray (`resetPrintChoices()`), so the
+    /// view is judged without them.
+    func showsReadingPages(_ settings: RenderSettings, fromSnapshot: Bool) -> Bool {
+        guard var reading = renderSettings(in: .view) else { return false }
+        reading.opensDetails = false
+        reading.pageRange = settings.pageRange
+        reading.options.rotatesBackSides = settings.options.rotatesBackSides
+        return reading == settings && fromSnapshot == (usesHTMLPresentation && liveSnapshot != nil)
+    }
 
     private func renderSettings(in mode: ViewerMode) -> RenderSettings? {
         guard
@@ -551,6 +639,33 @@ final class DocumentViewModel {
         error == nil && result != nil && printResult?.id == result?.id && renderedSourceURLs == sourceURLs
             && renderedSettings?.smartRemoval?.highlightsCandidates != true
     }
+    /// What the tray shows: the current sheets, or, while the sheets of newer logical pages are composed, the sheets it
+    /// showed until then. They are of the same files and stay consistent among themselves; swapping them for a progress
+    /// message for the few hundred milliseconds of a composition made the tray and the press bar under it jump on
+    /// every change of layout or paper. Outputs still wait for `hasCurrentPrintPreview` (`canOutput`).
+    var showsTrayPreview: Bool {
+        if hasCurrentPrintPreview { return true }
+        return isRendering && error == nil && printTray != nil && printResult != nil
+            && printTraySourceURLs == sourceURLs && renderedSettings?.smartRemoval?.highlightsCandidates != true
+            && printTraySettings?.smartRemoval?.highlightsCandidates != true
+    }
+    /// The composed sheets the tray shows, nil while it shows none. The page counts, labels and notes that describe the
+    /// sheets come from here rather than from `result`, which runs ahead while newer sheets are composed; so the sheets
+    /// and their descriptions change together, once.
+    var shownSheets: RenderResult? { showsTrayPreview ? printResult : nil }
+    /// The settings of `shownSheets`.
+    var shownSheetSettings: RenderSettings? { shownSheets == nil ? nil : printTraySettings }
+    /// The pages the tray's top bar counts, and the note pages among them, both of the shown sheets; before there are
+    /// any, the pages laid out, without notes.
+    var trayPageCount: (pages: Int, notes: Int)? {
+        if let sheets = shownSheets { return (sheets.plan.logicalPageCount, sheets.addedNotePages) }
+        return result.map { ($0.plan.logicalPageCount, 0) }
+    }
+    /// The names under the tray's images, of the images the shown sheets were made of.
+    var trayImageNames: [String]? {
+        guard imageBundle != nil, let sheets = shownSheets, let urls = printTraySourceURLs else { return nil }
+        return urls.filter { !sheets.unreadableImageURLs.contains($0) }.map(\.lastPathComponent)
+    }
     /// The review's outlined pages are for the screen only and never reach the printer or a PDF.
     var canOutput: Bool {
         isUpToDate && hasCurrentPrintPreview && !isPrinting && !isExporting && !isCapturingWeb && !webCaptureFailed
@@ -563,8 +678,10 @@ final class DocumentViewModel {
     /// document prints everything, which the tray shows.
     var pageRangeProblem: PageRangeProblem? {
         if isPageRangeUnreadable { return .unreadable }
-        guard mode == .print, renderedSettings?.pageRange == pageRange, result?.pageSelection.isOutOfDocument == true
-        else { return nil }
+        // Told of the sheets on the tray, which change after the logical pages do.
+        let settings = shownSheets == nil ? renderedSettings : shownSheetSettings
+        let outOfDocument = shownSheets?.pageSelection.isOutOfDocument ?? result?.pageSelection.isOutOfDocument
+        guard mode == .print, settings?.pageRange == pageRange, outOfDocument == true else { return nil }
         return .noSuchPages
     }
 
@@ -594,23 +711,19 @@ final class DocumentViewModel {
     /// The page breaks and the contents are read from a text; a binder keeps its documents as they are.
     var finishAppliesToText: Bool { binder == nil && format.usesPrintTheme }
 
-    /// The series of the tray's cards. A document shown on B sizes opens the tray on them, one on the default layout
-    /// shows the series last chosen on a tray, and any other the series of its own paper.
-    var trayPaperSeries: PaperSeries {
-        if let shownPaperSeries { return shownPaperSeries }
-        if paperSeries == .b { return .b }
-        if layoutID == Self.defaultLayoutID(preferences), let series = preferences.paperSeries { return series }
-        return layout.series
-    }
+    /// The series of the tray's cards: the series of the paper the pages are on, so the cards never show another
+    /// paper than the sheets.
+    var trayPaperSeries: PaperSeries { shownPaperSeries ?? layout.series }
 
-    /// Switching the series brings the layout along, so the sheets on the tray follow the switch.
-    func choosePaperSeries(_ series: PaperSeries) {
-        preferences.paperSeries = series
+    /// Switching the series brings the layout along, so the sheets on the tray follow the switch. The series is also
+    /// the paper the next documents start on, unless it is only shown, as for a screenshot.
+    func choosePaperSeries(_ series: PaperSeries, remembers: Bool = true) {
+        if remembers { preferences.choosePaperSeries(series) }
         layoutID = layout.counterpart(in: series).id
         shownPaperSeries = series
     }
 
-    /// The compact alternatives have no shortcut, so the six existing positions stay stable.
+    /// The six default card shortcuts keep their positions; the compact alternatives start unassigned.
     func chooseCard(at index: Int) {
         let cards = PrintLayout.presets(in: trayPaperSeries)
         let choice =
@@ -638,7 +751,10 @@ final class DocumentViewModel {
         guard let page = issue.pageNumber else { return }
         isPrintIssuesPresented = false
         setHTMLPresentation(.paper, capturesWeb: false)
-        if (renderedSettings?.layout ?? renderLayout) == paperSeries.layout {
+        // Notes and live HTML choices can still change the pages on the way back to reading, so the pages are judged
+        // against the view as it will be once the tray's own choices are reset.
+        let fromSnapshot = renderedSettings == nil ? rendersSnapshot : renderedFromSnapshot
+        if let settings = renderedSettings ?? renderSettings, showsReadingPages(settings, fromSnapshot: fromSnapshot) {
             pendingPrintIssue = nil
             currentPageIndex = max(0, page - 1)
             pointOut(issue, onPage: max(0, page - 1))
@@ -669,6 +785,54 @@ final class DocumentViewModel {
     private func dropSpot() {
         spotTask?.cancel()
         spotTask = nil
+    }
+
+    private func followViewFurniture(after old: PreparedRender?) {
+        let placements = result?.viewFurniture ?? [:]
+        furnitureTask?.cancel()
+        guard placements != shownFurniture else { return }
+        // Typing into the custom header changes only its text, on the same pages.
+        let isTyping =
+            old?.logicalDocument != nil && old?.logicalDocument === result?.logicalDocument
+            && old?.furniture.preset == .custom && result?.furniture.preset == .custom
+        guard isTyping else { return showFurniture(placements) }
+        let pause = awaitTypingPause
+        furnitureTask = Task { [weak self] in
+            await pause()
+            guard !Task.isCancelled else { return }
+            self?.showFurniture(placements)
+        }
+    }
+
+    private func showFurniture(_ placements: [Int: FurniturePlacement]) {
+        shownFurniture = placements
+        shownFurnitureChangeCount += 1
+    }
+
+    /// Whether the pages show a date in their header or footer other than today's, as after midnight.
+    var showsStaleDate: Bool {
+        guard let result, let settings = renderedSettings, let today = renderer.furnitureDate(for: settings) else {
+            return false
+        }
+        return result.furnitureDate != today
+    }
+
+    /// A new day, also after the Mac wakes: a header or footer with the date shows today's. The logical pages stay;
+    /// only the header and footer and the sheets are made again.
+    func calendarDayDidChange() {
+        themeTrial.forgetRecent()
+        guard let settings = renderSettings, renderer.furnitureDate(for: settings) != nil else { return }
+        render()
+    }
+
+    /// An output never carries an earlier day's date, also when the day changed while nothing was laid out. The date
+    /// is the day the output was asked for: a save panel or print dialog left open across midnight keeps it, as it
+    /// keeps the pages it was asked for (`beginPDFExport()`).
+    private func deferUntilDateIsCurrent(_ output: Output) -> Bool {
+        guard mode == .print, showsStaleDate else { return false }
+        outputAfterReview = output
+        render()
+        return true
     }
 
     private func resumePrintIssueNavigation() {
@@ -753,17 +917,6 @@ final class DocumentViewModel {
             // Pages of the old copy would no longer count as up to date, so they are made from the file again.
             if renderedFromSnapshot { render() }
         }
-        if textSizeKeyMonitor == nil {
-            textSizeKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                let handled = MainActor.assumeIsolated {
-                    guard let self, let window = self.window, event.window === window,
-                        window.isKeyWindow, window.attachedSheet == nil
-                    else { return false }
-                    return self.handleTextSizeKey(event) || self.handleTrayZoomKey(event)
-                }
-                return handled ? nil : event
-            }
-        }
         if watcher == nil, let fileURL {
             watcher = FileWatcher(
                 url: fileURL,
@@ -787,6 +940,13 @@ final class DocumentViewModel {
             }
         }
         computeContentHash()
+        if dayObserver == nil {
+            dayObserver = NotificationCenter.default.addObserver(
+                forName: .NSCalendarDayChanged, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.calendarDayDidChange() }
+            }
+        }
         refreshIncludePlan()
         // A window that replaces another has its pages from before it appeared.
         if result == nil { render() }
@@ -799,13 +959,18 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        binderExit.cancel()
+        pendingBinderRestoration = nil
+        binderExitTrayPage = nil
+        cancelManualDuplex()
+        if let dayObserver { NotificationCenter.default.removeObserver(dayObserver) }
+        dayObserver = nil
+        furnitureTask?.cancel()
         pendingPrint = nil
         duplexTestTask?.cancel()
         duplexTestTask = nil
         pendingPrintIssue = nil
         dropSpot()
-        if let textSizeKeyMonitor { NSEvent.removeMonitor(textSizeKeyMonitor) }
-        textSizeKeyMonitor = nil
         renderTask?.cancel()
         toastTask?.cancel()
         hashTask?.cancel()
@@ -966,6 +1131,19 @@ final class DocumentViewModel {
             web.reload()
             webZoom = web.zoom
         }
+        let updatedDirectives = currentDirectives
+        if updatedDirectives != documentDirectives {
+            let canApply =
+                !hasSavedSettings && !didCustomizeSinceLoad && !didResizeWindow
+                && rememberedSettings == settingsBaseline
+            documentDirectives = updatedDirectives
+            if canApply {
+                settingsBaseline = nil
+                notes = NotePages()
+                applyDirectiveDefaults()
+                settingsBaseline = rememberedSettings
+            }
+        }
         computeContentHash()
         refreshIncludePlan()
         render()
@@ -981,6 +1159,12 @@ final class DocumentViewModel {
 
     /// The bytes of a document that exists only in this window.
     var memoryContent: Data? { fileURL == nil && binder == nil && imageBundle == nil ? data : nil }
+
+    /// How text from the clipboard or a service came by its format; nil for every other document, whose format its
+    /// file or its sender decides.
+    var textFormatOrigin: TextFormatOrigin?
+    /// Opens this window's text again as another kind, in a window where this one is (`ClipboardWindows`).
+    @ObservationIgnored var textReopener: ((ClipboardTextKind) -> Void)?
 
     private func refreshIncludePlan() {
         includeTask?.cancel()
@@ -1157,15 +1341,17 @@ final class DocumentViewModel {
                 result = prepared
                 if source.format == .markdown { displayedMarkdownData = source.data }
                 chosenTrial = nil
-                refreshStructure(of: source, in: prepared)
+                // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline
+                // and the place read follow them there too and stay right on the way back, where nothing renders.
+                let forReading = mode == .view || showsReadingPages(settings, fromSnapshot: fromSnapshot)
+                refreshStructure(of: source, in: prepared, forReading: forReading)
                 announceChanges(in: prepared)
                 renderedSettings = settings
                 renderedSourceURLs = sourceURLs
                 renderedFromSnapshot = fromSnapshot
                 unreadableImageURLs = prepared.unreadableImageURLs
-                binder?.didRender(prepared, forReading: mode == .view)
-                // The tray lays the documents out on its own paper, whose pages are not the ones being read.
-                if mode == .view, let page = binder?.settleReadingPage() ?? selectedImagePage {
+                binder?.didRender(prepared, forReading: forReading)
+                if forReading, let page = binder?.settleReadingPage() ?? selectedImagePage {
                     currentPageIndex = page
                 }
                 resolveViewOptionsIfNeeded(for: prepared.viewDocument)
@@ -1186,12 +1372,18 @@ final class DocumentViewModel {
                         settings: settings, data: data, sourceURLs: sourceURLs, sheetCount: output.plan.sheetCount,
                         paper: output.plan.paper.shortName)
                 }
+                printTraySourceURLs = sourceURLs
+                printTraySettings = settings
                 printTray = PrintTray(
                     plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
                     sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
                     notePages: output.notePages)
                 isRendering = false
                 resolveTrayRequest()
+                if mode == .print, let page = binderExitTrayPage, let printTray {
+                    requestedTrayRow = printTray.bodyPage(at: page).flatMap(printTray.rowID(containing:))
+                    binderExitTrayPage = nil
+                }
                 finishFirstRender(succeeded: true)
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false
@@ -1229,6 +1421,7 @@ final class DocumentViewModel {
     }
 
     private func finishFirstRender(succeeded: Bool) {
+        if succeeded, !finishBinderRestorationIfReady() { return }
         let report = onFirstRender
         onFirstRender = nil
         report?(succeeded)
@@ -1258,7 +1451,6 @@ final class DocumentViewModel {
         bookletBinding = source.bookletBinding
         layoutID = source.layoutID
         shownPaperSeries = source.shownPaperSeries
-        paperSeries = source.paperSeries
         paperOrientation = source.paperOrientation
         printOptions = source.printOptions
         viewOptions = source.viewOptions
@@ -1278,8 +1470,47 @@ final class DocumentViewModel {
         guard mode == .print, let window else { return }
         hasSizedWindow = true
         refreshPrinters()
+        rememberStageBandRoom()
         ViewerWindow.setTrafficLightsVisible(true, in: window)
         PrintModeWindow.enter(window, size: traySize)
+    }
+
+    /// Waits for the single document's settings and pages before mapping the binder's reading position.
+    func restoreAfterLeavingBinder(_ origin: BinderOrigin) {
+        pendingBinderRestoration = origin
+        finishBinderRestorationIfReady()
+    }
+
+    @discardableResult
+    private func finishBinderRestorationIfReady() -> Bool {
+        guard let origin = pendingBinderRestoration else { return true }
+        guard contentHash != nil, result != nil, !isRendering else { return false }
+        guard isUpToDate else {
+            render()
+            return false
+        }
+        pendingBinderRestoration = nil
+        let mapped = BinderOrigin(
+            contents: origin.contents, frame: origin.frame,
+            pageIndex: min(origin.pageIndex, max(0, pageCount - 1)), wasPrinting: origin.wasPrinting,
+            leavingBinder: true)
+        restoreWindow(mapped)
+        if origin.wasPrinting {
+            // Enter without animating through a different frame: the source was already on this tray.
+            mode = .print
+            refreshPrinters()
+            rememberStageBandRoom()
+            if let window {
+                ViewerWindow.unlockAspectRatio(of: window)
+                ViewerWindow.setTrafficLightsVisible(true, in: window)
+            }
+            binderExitTrayPage = mapped.pageIndex
+            renderForChangedSettings()
+        } else {
+            sizeWindowToPaper()
+            if let window { window.setFrameOrigin(origin.frame.origin) }
+        }
+        return true
     }
 
     /// Back where a window was before a binder took its place.
@@ -1291,17 +1522,15 @@ final class DocumentViewModel {
         ViewerWindow.setFrame(origin.frame, of: window, animate: false)
     }
 
+    /// Any whole percent of the range; a value between two percents takes the nearer one.
     func setTextScale(_ value: Double) {
-        guard usesPrintTheme, TextScale.steps.contains(value) else { return }
-        textScale = value
+        guard usesPrintTheme, value.isFinite, TextScale.range.contains(value) else { return }
+        textScale = TextScale.clamped(value)
     }
 
     func increaseTextSize() { setTextScale(TextScale.larger(than: textScale)) }
     func decreaseTextSize() { setTextScale(TextScale.smaller(than: textScale)) }
     func resetTextSize() { setTextScale(1) }
-
-    static let marginRange: ClosedRange<Double> = 0...40
-    static let marginPresets: [Double] = [0, 5, 10, 15, 20, 25]
 
     /// Only themed text guarantees blank margins. HTML may override them with @page rules, and the
     /// prepared pages do not expose that information here, so HTML keeps all its content like PDFs and images.
@@ -1320,24 +1549,14 @@ final class DocumentViewModel {
     /// Whether the margin changes the printed sheets: everything but PDFs, including the 3-up handout's sheet.
     var marginsAffectPrinting: Bool { binder != nil || format != .pdf }
 
-    /// The presets, plus the current margin when it is none of them, so the menu always checks the current value.
-    var marginChoices: [Double] {
-        guard let current = printOptions.margins.uniformValue, !Self.marginPresets.contains(current) else {
-            return Self.marginPresets
-        }
-        return (Self.marginPresets + [current]).sorted()
-    }
-
-    private static func clampedMargin(_ millimeters: Double) -> Double {
-        // Margins go in whole millimeters; a record from an earlier version can still hold a fraction.
-        min(max(millimeters.rounded(), marginRange.lowerBound), marginRange.upperBound)
-    }
+    /// The presets of the unit, plus the current margin when it is none of them, so the menu always checks it.
+    func marginChoices(in unit: MarginUnit) -> [Double] { unit.choices(including: printOptions.margins.uniformValue) }
 
     /// The one way to give all four margins one value, so the viewer and the tray re-paginate and remember it the same
     /// way.
     func setMargins(_ millimeters: Double) {
         guard millimeters.isFinite else { return }
-        printOptions.margins = .uniform(Self.clampedMargin(millimeters))
+        printOptions.margins = .uniform(PageMargins.clamped(millimeters))
         printOptions.linksMargins = true
     }
 
@@ -1345,7 +1564,7 @@ final class DocumentViewModel {
     func setMargin(_ side: WritableKeyPath<PageMargins, Double>, to millimeters: Double) {
         guard millimeters.isFinite else { return }
         guard !printOptions.linksMargins else { return setMargins(millimeters) }
-        printOptions.margins[keyPath: side] = Self.clampedMargin(millimeters)
+        printOptions.margins[keyPath: side] = PageMargins.clamped(millimeters)
     }
 
     /// Keeping the margins together evens them out to the top margin.
@@ -1354,24 +1573,11 @@ final class DocumentViewModel {
         if linked { printOptions.margins = .uniform(printOptions.margins.top) }
     }
 
-    /// The unshifted US key for ⌥⌘+ must work in both the viewer and the print tray, before PDFKit handles ⌘=.
-    func handleTextSizeKey(_ event: NSEvent) -> Bool {
-        guard event.modifierFlags.intersection([.command, .option, .control]) == [.option, .command],
-            event.charactersIgnoringModifiers == "="
-        else { return false }
-        increaseTextSize()
-        return true
-    }
-
-    /// ⌘= is the unshifted Zoom In key on US keyboards, which the menu's ⌘+ does not take. The paper of the view mode
-    /// takes it as a key of its own; the tray has no view that takes keys.
-    func handleTrayZoomKey(_ event: NSEvent) -> Bool {
-        guard mode == .print, let trayZoomer,
-            event.modifierFlags.intersection([.command, .option, .control]) == [.command],
-            event.charactersIgnoringModifiers == "="
-        else { return false }
-        trayZoomer.zoomIn()
-        return true
+    /// A popover can leave its parent window's paper as first responder while it is opening.
+    var blocksSurfaceShortcuts: Bool {
+        isViewOptionsPresented || isThemePalettePresented || isPrintFinishPresented
+            || isOutlinePresented || isFiguresPresented || isGoToPagePresented || isReviewingSmartRemoval
+            || isPrintIssuesPresented || showsNoteAdjustments
     }
 
     // MARK: - View mode
@@ -1408,7 +1614,7 @@ final class DocumentViewModel {
         }
     }
 
-    private func closeBandPopovers() {
+    func closeBandPopovers() {
         isViewOptionsPresented = false
         isOutlinePresented = false
         isFiguresPresented = false
@@ -1432,14 +1638,33 @@ final class DocumentViewModel {
         refreshPrinters()
         themePaletteDidClose()
         closeBandPopovers()
+        // The view mode's print settings hang off the window's edge, which the tray's frame moves away.
+        isPrintFinishPresented = false
+        showsFold = false
         // The tray shows what prints, so the review and its outlined pages end here.
         isReviewingSmartRemoval = false
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
+        rememberStageBandRoom()
         mode = .print
+        // The pages read are often the tray's already, and then no render follows to count their sheets.
+        if isUpToDate, hasCurrentPrintPreview, let settings = renderedSettings, let output = printResult {
+            trayFigures = TrayFigures(
+                settings: settings, data: data, sourceURLs: sourceURLs, sheetCount: output.plan.sheetCount,
+                paper: output.plan.paper.shortName)
+        }
         guard let window else { return }
         // Stage controls need free resizing and visible traffic lights.
         ViewerWindow.setTrafficLightsVisible(true, in: window)
         PrintModeWindow.enter(window, size: traySize)
+    }
+
+    /// Switching from one stage to the other keeps the room of the view mode the window left.
+    private func rememberStageBandRoom() {
+        if stageBandRoom == nil { stageBandRoom = currentBandRoom }
+        // The view mode's bands start hidden again on the way back, where the remembered room is given back.
+        revealedBandRoom = BandRoom()
+        areHoverBandsShown = false
+        pendsBandRoomRelease = false
     }
 
     /// The tray keeps the list beside the sheets, which need their own room next to it.
@@ -1449,6 +1674,8 @@ final class DocumentViewModel {
         return size
     }
 
+    var compareFilterID = "featured"
+
     func enterCompareMode() {
         guard mode == .view, usesPrintTheme else { return }
         pendingPrintIssue = nil
@@ -1456,6 +1683,7 @@ final class DocumentViewModel {
         isThemePalettePresented = false
         themeTrial.end()
         closeBandPopovers()
+        isPrintFinishPresented = false
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
         let featured = library.themes.filter { $0.featuredRank != nil }
             .sorted { ($0.featuredRank ?? 0) < ($1.featuredRank ?? 0) }.map(\.id)
@@ -1464,6 +1692,8 @@ final class DocumentViewModel {
             themeComparison = ThemeComparison(
                 current: themeID, suggestions: (themeComparison?.candidates.reversed() ?? []) + featured)
         }
+        compareFilterID = "featured"
+        rememberStageBandRoom()
         mode = .compare
         guard let window else { return }
         ViewerWindow.setTrafficLightsVisible(true, in: window)
@@ -1483,10 +1713,12 @@ final class DocumentViewModel {
         requestedTrayRow = nil
         guard mode != .view else { return }
         isPrintIssuesPresented = false
+        isPrintFinishPresented = false
         themePaletteDidClose()
         outputAfterReview = nil
         guard let window else {
             resetPrintChoices()
+            stageBandRoom = nil
             mode = .view
             resumePrintIssueNavigation()
             return
@@ -1497,13 +1729,25 @@ final class DocumentViewModel {
             ViewerWindow.markResizing(window, for: 0.3)
             mode = .view
             ViewerWindow.setTrafficLightsVisible(isBandAlwaysVisible, in: window)
+            // In full screen the frame is the system's; the window catches up when it leaves full screen.
+            guard !isInFullScreen else {
+                resumePrintIssueNavigation()
+                return
+            }
+            // The frame is the one from before the stage, or the stage's own; either holds the room the bands had then.
+            if let room = stageBandRoom {
+                stageBandRoom = nil
+                if room != currentBandRoom { bandRoomDidChange(from: room, animate: false) }
+            }
             // The view mode shows only the paper, and the print layout may have changed the pages' shape on the
             // stage, so the window keeps its height and takes the pages' width again.
             if returnsToRestoredPaperSize {
                 returnsToRestoredPaperSize = false
                 applyRestoredPaperSize()
             } else {
-                sizeWindowToPaper(keepHeight: true)
+                // In the same step as the frame from before the stage: a fit animated after it showed the window
+                // jump back and then slide to the pages' new shape.
+                sizeWindowToPaper(keepHeight: true, animate: false)
             }
             resumePrintIssueNavigation()
         }
@@ -1653,8 +1897,8 @@ final class DocumentViewModel {
     /// Reads the headings of the pages just laid out for reading, and how much text the document holds. Only the
     /// pages' text is read on the main actor, a page at a time; the conversion runs elsewhere and only when the source
     /// changed.
-    private func refreshStructure(of source: DocumentSource, in prepared: PreparedRender) {
-        guard mode != .print, structureDocument !== prepared.logicalDocument else { return }
+    private func refreshStructure(of source: DocumentSource, in prepared: PreparedRender, forReading: Bool) {
+        guard forReading, structureDocument !== prepared.logicalDocument else { return }
         structureDocument = prepared.logicalDocument
         structureTask?.cancel()
         let document = prepared.logicalDocument
@@ -1666,13 +1910,14 @@ final class DocumentViewModel {
         guard source.format.isWebRendered else { return }
         structureTask = Task { [weak self] in
             guard let self else { return }
-            let known = readStructure?.source == source ? readStructure : nil
+            let proof = printFinish.proof
+            let known = readStructure?.source == source && readStructure?.proof == proof ? readStructure : nil
             let read: (headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String])?
             if let known {
                 read = (known.headings, known.statistics, known.contents)
             } else {
                 read = await Task.detached(priority: .utility) {
-                    DocumentRenderer.structureHTML(of: source).map {
+                    DocumentRenderer.structureHTML(of: source, proof: proof).map {
                         (
                             DocumentOutline.headings(inHTML: $0), DocumentStatistics(html: $0),
                             DocumentOutline.sourceContentsEntries(inHTML: $0)
@@ -1681,7 +1926,7 @@ final class DocumentViewModel {
                 }.value
             }
             guard !Task.isCancelled, let read else { return }
-            readStructure = (source, read.headings, read.statistics, read.contents)
+            readStructure = (source, proof, read.headings, read.statistics, read.contents)
             documentStatistics = read.statistics
             var texts: [String] = []
             for index in 0..<(read.headings.isEmpty ? 0 : document.pageCount) {
@@ -1783,7 +2028,7 @@ final class DocumentViewModel {
         if reshapes, !ignoresSlides { applyWebShape() }
     }
 
-    /// The "…" and View menus' 「スライドとして扱わない」, for a page that only looks like a deck.
+    /// The "…" and View menus' 「スライドとして表示」, turned off for a page that only looks like a deck.
     func setIgnoresSlides(_ ignores: Bool) {
         guard usesHTMLPresentation, ignoresSlides != ignores else { return }
         ignoresSlides = ignores
@@ -1791,11 +2036,18 @@ final class DocumentViewModel {
         applyWebShape()
     }
 
+    /// The reader's command 「スライドとして表示」. A page with no slides found has nothing to switch, so the command
+    /// leaves its setting alone instead of quietly saving "not a deck" for a page whose slides are measured later.
+    func toggleShowsSlides() {
+        guard detectedSlideDeck != nil else { return }
+        setIgnoresSlides(!ignoresSlides)
+    }
+
     /// On the web a deck shows one slide to the window: the window takes the slide's shape, keeping its height, and
     /// the page zooms to fit unless the deck scales itself. An ordinary page takes any shape the reader gives it.
     func applyWebShape(animate: Bool = true) {
         web.fitSize = slideDeck.flatMap { $0.scalesItself ? nil : $0.size }
-        guard showsWeb, let window else { return }
+        guard showsWeb, !isInFullScreen, let window else { return }
         guard let deck = slideDeck else { return ViewerWindow.unlockAspectRatio(of: window) }
         let size = ViewerWindow.paperSize(
             unit: deck.size, height: ViewerWindow.paperHeight(of: window, band: bandInset), on: window.screen)
@@ -1830,6 +2082,8 @@ final class DocumentViewModel {
                 result = nil
                 printResult = nil
                 printTray = nil
+                printTraySettings = nil
+                printTraySourceURLs = nil
                 needsRender = true
                 isRendering = true
             }
@@ -1903,6 +2157,7 @@ final class DocumentViewModel {
         defer { isRunningCapturedOutput = false }
         switch output {
         case .print(let quick): printDocument(quick: quick)
+        case .manualDuplex: printDocument(intent: .manualDuplex)
         case .exportPDF: exportPDF()
         }
     }
@@ -2006,15 +2261,22 @@ final class DocumentViewModel {
             codePaletteID: usesPrintTheme ? codePaletteID : nil,
             codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
-            paperSeries: paperSeries == .a ? nil : paperSeries,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
             pageRange: pageRange.isAll ? nil : pageRange)
     }
 
-    func savePrintSettingSet(named name: String) {
-        var set = PrintSettingSet(name: name, settings: rememberedSettings)
+    var currentPrintSettingSet: PrintSettingSet {
+        var set = PrintSettingSet(name: "", settings: rememberedSettings)
         // A set saved without notes turns them off, which a document's record has no need to say.
         if offersNotes { set.notes = notes }
+        return applicablePrintSettingSet(set)
+    }
+
+    func savePrintSettingSet(named name: String, parts: Set<PrintSettingSet.Part> = Set(PrintSettingSet.Part.allCases))
+    {
+        var set = currentPrintSettingSet.keeping(parts)
+        guard !set.parts.isEmpty else { return }
+        set.name = name
         preferences.savePrintSettingSet(set)
         selectedSettingSetID = preferences.printSettingSets.first { $0.name == name }?.id
     }
@@ -2033,7 +2295,7 @@ final class DocumentViewModel {
     /// Saves the current settings over the active set, which only the reader's own sets allow.
     func overwriteActiveSettingSet() {
         guard let set = activeSettingSet, !set.isBuiltIn else { return }
-        savePrintSettingSet(named: set.name)
+        savePrintSettingSet(named: set.name, parts: set.parts)
     }
 
     private func applicablePrintSettingSet(_ set: PrintSettingSet) -> PrintSettingSet {
@@ -2055,7 +2317,11 @@ final class DocumentViewModel {
         if let id = set.layoutID { layoutID = id }
         if let orientation = set.paperOrientation { paperOrientation = orientation }
         if let margins = set.margins { printOptions.margins = margins }
-        printOptions.linksMargins = set.linksMargins ?? (printOptions.margins.uniformValue != nil)
+        if let links = set.linksMargins {
+            printOptions.linksMargins = links
+        } else if set.margins != nil {
+            printOptions.linksMargins = printOptions.margins.uniformValue != nil
+        }
         if let mirrors = set.mirrorsMargins { printOptions.mirrorsMargins = mirrors }
         if let furniture = set.furniture { printOptions.furniture = furniture }
         if let finish = set.finish { printFinish = finish }
@@ -2071,6 +2337,10 @@ final class DocumentViewModel {
     /// What this document has when the user changes nothing. Until the pages are known, the reading layout is the
     /// initial guess, so a layout chosen while the pages are prepared still counts as a change.
     private var defaultSettings: DocumentSettings {
+        defaultsWithDirectives(appDefaultSettings)
+    }
+
+    private var appDefaultSettings: DocumentSettings {
         DocumentSettings(
             view: defaultViewOptions ?? initialViewOptions, zoom: 1, layoutID: Self.defaultLayoutID(preferences),
             themeID: usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
@@ -2081,6 +2351,69 @@ final class DocumentViewModel {
             binderStartsOnFront: binder != nil ? false : nil,
             printFinish: finishAppliesToText ? preferences.printFinish : nil,
             codePaletteID: usesPrintTheme ? Self.defaultCodePaletteID(preferences, library) : nil)
+    }
+
+    private func defaultsWithDirectives(_ defaults: DocumentSettings) -> DocumentSettings {
+        guard format == .markdown, binder == nil, imageBundle == nil else { return defaults }
+        var resolved = defaults
+        if let name = documentDirectives.setName,
+            let named = preferences.printSettingSets.first(where: { $0.name == name })
+        {
+            let set = applicablePrintSettingSet(named)
+            if let id = set.layoutID { resolved.layoutID = id }
+            if let orientation = set.paperOrientation { resolved.paperOrientation = orientation }
+            var options = resolved.printOptions ?? PrintOptions()
+            if let margins = set.margins { options.margins = margins }
+            if let links = set.linksMargins {
+                options.linksMargins = links
+            } else if set.margins != nil {
+                options.linksMargins = options.margins.uniformValue != nil
+            }
+            if let mirrors = set.mirrorsMargins { options.mirrorsMargins = mirrors }
+            if let furniture = set.furniture { options.furniture = furniture }
+            resolved.printOptions = options
+            if let finish = set.finish { resolved.printFinish = finish }
+            if let notes = set.notes { resolved.notes = notes == NotePages() ? nil : notes }
+            if let id = set.themeID { resolved.themeID = id }
+            if let scale = set.textScale { resolved.textScale = scale }
+        }
+        if let id = documentDirectives.layoutID,
+            let layout = PrintLayout.presets.first(where: { $0.id.caseInsensitiveCompare(id) == .orderedSame })
+        {
+            resolved.layoutID = layout.id
+        }
+        if let orientation = documentDirectives.orientation { resolved.paperOrientation = orientation }
+        if let margin = documentDirectives.marginMillimeters {
+            resolved.printOptions?.margins = PageMargins.uniform(margin)
+            resolved.printOptions?.linksMargins = true
+        }
+        if let style = documentDirectives.style,
+            let theme = library.themes.first(where: {
+                [$0.id, $0.name, $0.localizedNames["ja"] ?? ""].contains {
+                    $0.caseInsensitiveCompare(style) == .orderedSame
+                }
+            })
+        {
+            resolved.themeID = theme.id
+        }
+        if let scale = documentDirectives.textScale { resolved.textScale = scale }
+        return resolved
+    }
+
+    private func applyDirectiveDefaults() {
+        let resolved = defaultSettings
+        if let id = resolved.layoutID { layoutID = id }
+        if let orientation = resolved.paperOrientation { paperOrientation = orientation }
+        if let options = resolved.printOptions { printOptions = options }
+        if let finish = resolved.printFinish { printFinish = finish }
+        notes = resolved.notes ?? NotePages()
+        if let id = resolved.themeID { themeID = id }
+        if let scale = resolved.textScale { setTextScale(scale) }
+    }
+
+    private var currentDirectives: DocumentDirectives {
+        guard format == .markdown, binder == nil, imageBundle == nil else { return DocumentDirectives() }
+        return DocumentDirectives.read(fromMarkdown: TextDecoding.decode(data).text)
     }
 
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
@@ -2117,6 +2450,11 @@ final class DocumentViewModel {
     }
 
     private func didComputeHash(_ hash: ContentHash) {
+        defer {
+            if pendingBinderRestoration != nil, finishBinderRestorationIfReady() {
+                finishFirstRender(succeeded: true)
+            }
+        }
         let previous = contentHash
         guard previous != hash else { return }
         let previousSources = hashedSourceURLs
@@ -2143,11 +2481,18 @@ final class DocumentViewModel {
             return
         }
         guard let saved else {
+            let untouched = rememberedSettings == appDefaultSettings && !didCustomizeSinceLoad && !didResizeWindow
+            documentDirectives = currentDirectives
+            if untouched {
+                settingsBaseline = nil
+                applyDirectiveDefaults()
+            }
             // Anything that already differs from the defaults was changed by the user while the content was read.
             settingsBaseline = defaultSettings
             rememberedSettingsDidChange()
             return
         }
+        documentDirectives = currentDirectives
         apply(saved)
         hasSavedSettings = true
         settingsBaseline = rememberedSettings
@@ -2156,7 +2501,6 @@ final class DocumentViewModel {
     private func apply(_ saved: DocumentSettings) {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
-        paperSeries = saved.paperSeries ?? .a
         if let order = saved.binderOrder { binder?.applyOrder(order) }
         if let scale = saved.textScale { setTextScale(scale) }
         if let view = saved.view {
@@ -2195,6 +2539,7 @@ final class DocumentViewModel {
     func rememberedSettingsDidChange() {
         if let binder, binder.setHash != contentHash { return }
         guard contentHash != nil, let settingsBaseline, rememberedSettings != settingsBaseline else { return }
+        didCustomizeSinceLoad = true
         scheduleSave()
     }
 
@@ -2316,6 +2661,7 @@ final class DocumentViewModel {
     static let undoNoticeDuration: Duration = .seconds(8)
 
     private func applyDefaultSettings(resizesWindow: Bool) {
+        settingsBaseline = nil
         dismissToast()
         saveTask?.cancel()
         saveTask = nil
@@ -2331,7 +2677,6 @@ final class DocumentViewModel {
         defaultPaperOrientation = preferences.defaultPaperOrientation
         defaultBandVisibility = preferences.defaultBandVisibility
         bandVisibility = defaultBandVisibility
-        paperSeries = .a
         textScale = usesPrintTheme ? defaultTextScale : 1
         paperOrientation = defaultPaperOrientation
         layoutID = Self.defaultLayoutID(preferences)
@@ -2367,6 +2712,11 @@ final class DocumentViewModel {
                 of: window,
                 animate: true, side: sideInset)
         }
+        documentDirectives = currentDirectives
+        applyDirectiveDefaults()
+        didCustomizeSinceLoad = false
+        // The pending save of a resize was cancelled above; left set, the flag would hold later directives back.
+        didResizeWindow = false
         settingsBaseline = rememberedSettings
     }
 
@@ -2398,24 +2748,126 @@ final class DocumentViewModel {
 
     var menuArrangement: MenuArrangement { preferences.menuArrangement }
 
-    /// The room the bands take beside the paper, whether or not they show.
-    private var bandInset: CGFloat { Self.bandInset(of: menuArrangement) }
+    /// The room the bands take beside the paper.
+    var bandInset: CGFloat { currentBandRoom.total }
 
-    private static func bandInset(of arrangement: MenuArrangement) -> CGFloat {
-        ViewerWindow.bandHeight * CGFloat(arrangement.bandCount)
+    var currentBandRoom: BandRoom {
+        Self.bandRoom(of: menuArrangement, bandVisibility, revealed: revealedBandRoom, top: topBandHeight)
+    }
+
+    /// The top band's height: the title band's in a window, the plain band's in full screen, where the system shows the
+    /// traffic lights elsewhere.
+    var topBandHeight: CGFloat { isInFullScreen ? ViewerWindow.bandHeight : ViewerWindow.titleBandHeight }
+
+    /// Bands that always show have room of their own. Bands that show on pointing take theirs only while they show, so
+    /// that the window is the paper alone while they are hidden.
+    private static func bandRoom(
+        of arrangement: MenuArrangement, _ visibility: BandVisibility, revealed: BandRoom, top: CGFloat
+    ) -> BandRoom {
+        visibility == .always ? BandRoom.full(for: arrangement, top: top) : revealed
+    }
+
+    /// Bands that show on pointing came out or went away. Coming out, they take their room where the window can grow
+    /// around the paper without moving it; where it cannot (at the top of the screen, in full screen, while the reader
+    /// resizes), they lie over the paper's edges instead.
+    func bandRevealDidChange(_ shown: Bool) {
+        guard bandVisibility == .onHover, let window else { return }
+        areHoverBandsShown = shown
+        if shown {
+            pendsBandRoomRelease = false
+            // A band shown for a drag lies over the paper: growing the window under the pointer would move the place
+            // the files are dropped on, and the window would shrink again once the drag is over.
+            guard revealedBandRoom == BandRoom(), mode == .view, hasSizedWindow, !drop.isActive else { return }
+            let room = roomToGrow(window, wanted: BandRoom.full(for: menuArrangement), around: BandRoom())
+            guard room != BandRoom() else { return }
+            revealedBandRoom = room
+            bandRoomDidChange(from: BandRoom(), animate: false)
+        } else {
+            guard revealedBandRoom != BandRoom() else { return }
+            guard !window.inLiveResize else {
+                pendsBandRoomRelease = true
+                return
+            }
+            let previous = currentBandRoom
+            revealedBandRoom = BandRoom()
+            bandRoomDidChange(from: previous, animate: false)
+        }
+    }
+
+    /// Each band grows the window on its own edge where the screen has room beside the paper; the other lies over the
+    /// paper. `existing` is the room the window already has, which is measured from the paper rather than the frame.
+    private func roomToGrow(_ window: NSWindow, wanted: BandRoom, around existing: BandRoom) -> BandRoom {
+        guard !isInFullScreen, !window.styleMask.contains(.fullScreen), !window.inLiveResize,
+            let visible = (window.screen ?? NSScreen.main)?.visibleFrame
+        else { return BandRoom() }
+        let paperTop = window.frame.maxY - existing.top
+        let paperBottom = window.frame.minY + existing.bottom
+        return BandRoom(
+            top: paperTop + wanted.top <= visible.maxY + 0.5 ? wanted.top : 0,
+            bottom: paperBottom - wanted.bottom >= visible.minY - 0.5 ? wanted.bottom : 0)
+    }
+
+    func windowWillEnterFullScreen() {
+        guard !isInFullScreen, let window else { return }
+        paperSizeBeforeFullScreen = currentPaperSize
+        // A stage keeps its own frame, which the way back to reading reads as holding the stage's remembered room.
+        fullScreenReturnRoom = mode == .view ? currentBandRoom : stageBandRoom ?? currentBandRoom
+        isInFullScreen = true
+        // In full screen the bands lie over the paper; the room they had stays in the frame the system gives back.
+        revealedBandRoom = BandRoom()
+        pendsBandRoomRelease = false
+        // There is no notification for a failed attempt; a window still not in full screen a while later stayed out.
+        // The check belongs to this attempt only: leaving and entering again starts another.
+        fullScreenAttempt += 1
+        let attempt = fullScreenAttempt
+        Task { @MainActor [weak self, weak window] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self, let window, attempt == fullScreenAttempt, isInFullScreen,
+                !window.styleMask.contains(.fullScreen)
+            else { return }
+            windowDidExitFullScreen()
+        }
+    }
+
+    /// The frame is the one from before full screen again: it takes the bands' room as they are now and the pages'
+    /// shape, which may have changed meanwhile.
+    func windowDidExitFullScreen() {
+        guard isInFullScreen else { return }
+        fullScreenAttempt += 1
+        isInFullScreen = false
+        let room = fullScreenReturnRoom ?? currentBandRoom
+        fullScreenReturnRoom = nil
+        paperSizeBeforeFullScreen = nil
+        guard mode == .view else {
+            // Back on a stage, the frame read on the way back to reading is this one.
+            stageBandRoom = room
+            return
+        }
+        stageBandRoom = nil
+        if room != currentBandRoom { bandRoomDidChange(from: room, animate: false) }
+        if returnsToRestoredPaperSize {
+            returnsToRestoredPaperSize = false
+            applyRestoredPaperSize()
+        } else {
+            sizeWindowToPaper(keepHeight: true)
+        }
     }
 
     /// The paper the window shows in the view mode. Before the first pages fit the window to the paper, its size is
     /// only where it opened, and remembering that would open the document that small next time.
     var currentPaperSize: CGSize? {
+        if isInFullScreen { return paperSizeBeforeFullScreen }
         guard mode == .view, hasSizedWindow, let window else { return nil }
         let content = window.contentRect(forFrameRect: window.frame).size
         return CGSize(width: (content.width - sideInset).rounded(), height: (content.height - bandInset).rounded())
     }
 
     /// Fits the window to the paper: the first time at a comfortable or remembered size, later keeping the height.
-    func sizeWindowToPaper(keepHeight: Bool = false, initialOnly: Bool = false, keepsRightEdge: Bool = false) {
-        guard !initialOnly || !hasSizedWindow else { return }
+    /// `animate` defaults to animating the changes that keep the height.
+    func sizeWindowToPaper(
+        keepHeight: Bool = false, initialOnly: Bool = false, keepsRightEdge: Bool = false, animate: Bool? = nil
+    ) {
+        guard !initialOnly || !hasSizedWindow, !isInFullScreen else { return }
         guard mode == .view, let window, let unit = paperUnitSize else { return }
         guard hasSizedWindow else {
             hasSizedWindow = true
@@ -2434,8 +2886,8 @@ final class DocumentViewModel {
         guard !isWebPresentation else { return applyWebShape() }
         let height = ViewerWindow.paperHeight(of: window, band: bandInset)
         ViewerWindow.setPaperSize(
-            paperSize(unit: unit, height: height, in: window), band: bandInset, of: window, animate: keepHeight,
-            keepsRightEdge: keepsRightEdge, side: sideInset)
+            paperSize(unit: unit, height: height, in: window), band: bandInset, of: window,
+            animate: animate ?? keepHeight, keepsRightEdge: keepsRightEdge, side: sideInset)
     }
 
     /// The paper of the unit's shape at `height`. A window stopped at the screen's edge at full height would leave
@@ -2448,6 +2900,10 @@ final class DocumentViewModel {
     }
 
     private func applyRestoredPaperSize() {
+        guard !isInFullScreen else {
+            returnsToRestoredPaperSize = true
+            return
+        }
         guard let window, let unit = paperUnitSize, let size = restoredPaperSize else { return }
         // Keep the remembered height; the width follows the pages as they are now.
         ViewerWindow.setPaperSize(
@@ -2455,19 +2911,81 @@ final class DocumentViewModel {
             side: sideInset)
     }
 
-    /// The paper keeps its size and place when the bands change: the window grows or shrinks at the bottom.
     func menuArrangementDidChange(from previous: MenuArrangement) {
-        guard mode == .view, let window else { return }
-        let paper = CGSize(
-            width: window.contentRect(forFrameRect: window.frame).width - sideInset,
-            height: ViewerWindow.paperHeight(of: window, band: Self.bandInset(of: previous)))
-        ViewerWindow.setPaperSize(paper, band: bandInset, of: window, animate: true, side: sideInset)
-        if isWebPresentation { applyWebShape(animate: false) }
+        let before = Self.bandRoom(of: previous, bandVisibility, revealed: revealedBandRoom, top: topBandHeight)
+        // Shown bands of the new arrangement take room where the screen has it beside the paper, as they do on showing,
+        // also when the old ones had none.
+        if bandVisibility == .onHover, areHoverBandsShown, mode == .view, let window {
+            revealedBandRoom = roomToGrow(window, wanted: BandRoom.full(for: menuArrangement), around: before)
+        }
+        bandRoomDidChange(from: before, animate: true)
+    }
+
+    /// The paper keeps its size and place when the bands' room changes: the window grows or shrinks around it.
+    private func bandRoomDidChange(from previous: BandRoom, animate: Bool) {
+        guard mode == .view, hasSizedWindow, !isInFullScreen, let window else { return }
+        let room = currentBandRoom
+        let content = window.contentRect(forFrameRect: window.frame).size
+        let paper = CGSize(width: content.width - sideInset, height: content.height - previous.total)
+        ViewerWindow.setPaperSize(
+            paper, band: room.total, of: window, animate: animate, side: sideInset,
+            topGrowth: room.top - previous.top)
+        // Only the resizing rule follows the new room: the live page keeps the size the reader gave it, even past the
+        // share of the screen that a newly shaped window takes.
+        guard isWebPresentation else { return }
+        if let deck = slideDeck {
+            ViewerWindow.lockAspectRatio(of: window, unit: deck.size, band: bandInset)
+        } else {
+            ViewerWindow.unlockAspectRatio(of: window)
+        }
+    }
+
+    /// The bands' narrowest width (`BandPlans.minimumWidth`). A window narrower than it grows to it after SwiftUI's
+    /// update, as one of the app's own resizes, so nothing is saved for it; on a stage and in full screen it waits
+    /// until reading resumes, when the view mode reports the width again.
+    func bandMinimumWidthDidChange(_ width: CGFloat, in window: NSWindow? = nil) {
+        guard let window = window ?? self.window else { return }
+        ViewerWindow.setBandMinimumWidth(width, of: window)
+        Task { @MainActor [weak self] in self?.fitWindowToBands() }
+    }
+
+    private func fitWindowToBands(attempt: Int = 0) {
+        guard mode == .view, hasSizedWindow, !isInFullScreen, let window, !window.styleMask.contains(.fullScreen),
+            !window.inLiveResize
+        else { return }
+        let content = window.contentRect(forFrameRect: window.frame).size
+        guard content.width + 0.5 < ViewerWindow.bandMinimumWidth(of: window) else { return }
+        // A stage's frame on its way back to reading would overwrite this one.
+        guard !ViewerWindow.isResizingProgrammatically(window) else {
+            guard attempt < 5 else { return }
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(300))
+                self?.fitWindowToBands(attempt: attempt + 1)
+            }
+            return
+        }
+        ViewerWindow.setPaperSize(
+            CGSize(width: content.width - sideInset, height: content.height - bandInset), band: bandInset,
+            of: window, animate: false, side: sideInset)
+        // A live page keeps its free shape; only a slide deck keeps the slide's.
+        guard isWebPresentation else { return }
+        if let deck = slideDeck {
+            ViewerWindow.lockAspectRatio(of: window, unit: deck.size, band: bandInset)
+        } else {
+            ViewerWindow.unlockAspectRatio(of: window)
+        }
     }
 
     func windowDidEndLiveResize() {
+        defer {
+            if pendsBandRoomRelease {
+                pendsBandRoomRelease = false
+                bandRevealDidChange(false)
+            }
+        }
         // The window size remembered is the paper's; the web page takes whatever size the reader likes.
-        guard mode == .view, !isWebPresentation, let window, !ViewerWindow.isResizingProgrammatically(window),
+        guard mode == .view, !isWebPresentation, !isInFullScreen, let window,
+            !ViewerWindow.isResizingProgrammatically(window),
             let unit = paperUnitSize
         else { return }
         heightBeforeScreenLimit = nil
@@ -2578,17 +3096,19 @@ final class DocumentViewModel {
 
     enum Output: Equatable {
         case print(quick: Bool)
+        case manualDuplex
         case exportPDF
     }
 
-    /// Outputs use the tray's layout even when requested from reading or comparison. The view observes the changed
-    /// render settings and draws once; do not start a second render here or output the reading pages in the meantime.
+    /// Outputs go through the tray even when requested from reading or comparison: its own choices (note pages, the
+    /// page range, the back sides' rotation) may need other sheets. When they do, the view observes the changed render
+    /// settings and draws once; do not start a second render here or output the earlier sheets in the meantime.
     private func deferUntilPrintMode(_ output: Output) -> Bool {
         guard mode != .print else { return false }
         outputAfterReview = output
         enterPrintMode()
         guard mode == .print, canOutput else { return true }
-        // A4 single-sided may already be composed, so no settings change will trigger another render.
+        // The chosen layout may already be composed, so no settings change will trigger another render.
         outputAfterReview = nil
         return false
     }
@@ -2661,7 +3181,7 @@ final class DocumentViewModel {
     }
 
     var canPrintDuplexTest: Bool {
-        canOutput && printerLayout.sentDuplex != .none && pendingPrint == nil && duplexTestResult == nil
+        canStartPrint && printerLayout.sentDuplex != .none
     }
 
     func answerDuplexTest(rotatesBackSides: Bool?) {
@@ -2778,17 +3298,25 @@ final class DocumentViewModel {
     /// Prints the sheets: right away to the selected printer when `quick`, otherwise through the system dialog,
     /// which starts on that printer.
     func printDocument(quick: Bool = false) {
-        guard pendingPrint == nil else { return }
-        guard !deferUntilPrintMode(.print(quick: quick)),
-            !deferUntilWebIsCaptured(.print(quick: quick)), !deferUntilReviewEnds(.print(quick: quick))
-        else {
-            return
-        }
+        printDocument(intent: quick ? .quick : .systemDialog)
+    }
+
+    var canStartPrint: Bool {
+        canOutput && pendingPrint == nil && manualDuplexSession == nil && duplexTestResult == nil
+    }
+
+    func printDocument(intent: PrintIntent) {
+        guard pendingPrint == nil, manualDuplexSession == nil, duplexTestResult == nil, !isPrinting else { return }
+        let output: Output = intent == .manualDuplex ? .manualDuplex : .print(quick: intent == .quick)
+        guard !deferUntilPrintMode(output), !deferUntilWebIsCaptured(output), !deferUntilReviewEnds(output),
+            !deferUntilDateIsCurrent(output)
+        else { return }
         guard canOutput else { return }
-        // Known before the sheets are: an output that waits for them is already one through the dialog.
-        let quick = quick && issue(sending: printerLayout, to: selectedPrinterName) == nil
+        let knownIssue = issue(sending: printerLayout, to: selectedPrinterName)
+        let intent = knownIssue != nil && knownIssue != .duplexNotAvailable ? PrintIntent.systemDialog : intent
         pendingPrint = PendingPrint(
-            request: PrintRequest(printerName: selectedPrinterName, showsPanel: !quick), quick: quick)
+            request: PrintRequest(printerName: selectedPrinterName, showsPanel: intent == .systemDialog), intent: intent
+        )
         resumePendingPrint()
     }
 
@@ -2800,8 +3328,12 @@ final class DocumentViewModel {
         }
         refreshPrinters()
         // Once a destination change required the panel, later refreshes must not turn the job into a quick print.
-        pending.request = printRequest(
-            quick: !pending.request.showsPanel, shown: pending.request.printerName, layout: printerLayout)
+        let destination = printers.request(
+            quick: !pending.request.showsPanel, shown: pending.request.printerName, remembered: preferences.printerName)
+        let route = PrintRoute.resolve(
+            intent: pending.intent, request: destination, layout: printerLayout,
+            issue: issue(sending: printerLayout, to: destination.printerName))
+        pending.request = route.request
         // The system dialog starts with the same number, where it can still be changed.
         pending.request.copies = copies
         pendingPrint = pending
@@ -2816,14 +3348,42 @@ final class DocumentViewModel {
         let request = pending.request
         let pageOrder = printPageOrder
         pendingPrint = nil
+        sendPrint(
+            result, route: route, request: request, prepared: self.result, pageOrder: pageOrder,
+            intent: pending.intent)
+    }
+
+    /// The last step of a print. The manual route never falls through to an ordinary submission: that would send the
+    /// job to a printer without duplex as automatic duplex, so without the preparation its passes come from, nothing
+    /// is sent.
+    func sendPrint(
+        _ result: RenderResult, route: PrintRoute, request: PrintRequest, prepared: PreparedRender?,
+        pageOrder: PrintPageOrder, intent: PrintIntent
+    ) {
+        if case .manualDuplex = route {
+            guard let prepared else {
+                outputError = String(localized: "The print job could not be created.")
+                return
+            }
+            startManualDuplex(prepared: prepared, request: request, pageOrder: pageOrder)
+            return
+        }
+        submitDocument(result, request: request, pageOrder: pageOrder, output: .print(quick: intent == .quick))
+    }
+
+    func submitDocument(
+        _ result: RenderResult, request: PrintRequest, pageOrder: PrintPageOrder, output: Output? = nil,
+        jobTitle: String? = nil
+    ) {
         if let printSubmit { return printSubmit(result, request, pageOrder) }
-        if let outputOverride { return outputOverride(.print(quick: pending.quick), result) }
+        if let outputOverride { return outputOverride(output ?? .print(quick: !request.showsPanel), result) }
         guard let window else { return }
         outputError = nil
         let destination = request.printerName.flatMap(NSPrinter.init(name:))
         // Without a printer the system dialog still offers saving a PDF or adding a printer.
         let quick = !request.showsPanel && destination != nil
-        guard let operation = makePrintOperation(for: result, request: request, pageOrder: pageOrder)
+        guard
+            let operation = makePrintOperation(for: result, request: request, pageOrder: pageOrder, jobTitle: jobTitle)
         else {
             outputError = String(localized: "The print job could not be created.")
             return
@@ -2854,18 +3414,21 @@ final class DocumentViewModel {
     }
 
     /// Made apart from running it, so that what would be sent can be read without a printer.
-    func makePrintOperation(for result: RenderResult, request: PrintRequest, pageOrder: PrintPageOrder)
+    func makePrintOperation(
+        for result: RenderResult, request: PrintRequest, pageOrder: PrintPageOrder, jobTitle: String? = nil
+    )
         -> NSPrintOperation?
     {
         let destination = request.printerName.flatMap(NSPrinter.init(name:))
         return PrintJobFactory().printOperation(
             for: result.sheetDocument, layout: result.layout, showsPrintPanel: request.showsPanel || destination == nil,
-            printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: printJobTitle)
+            printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: jobTitle ?? printJobTitle)
     }
 
     func exportPDF() {
         guard !deferUntilPrintMode(.exportPDF),
-            !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF)
+            !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF),
+            !deferUntilDateIsCurrent(.exportPDF)
         else { return }
         guard canOutput, let result = printResult else { return }
         if let outputOverride { return outputOverride(.exportPDF, result) }

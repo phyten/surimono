@@ -69,7 +69,7 @@ struct PrintSheetFlowTests {
     }
 
     @Test(
-        "表示からの書き出しと印刷は刷り台に入り、印刷レイアウトの用紙ができるまで保留する",
+        "表示からの書き出しと印刷は刷り台に入り、選んだレイアウトの用紙ができるまで保留する",
         .timeLimit(.minutes(1)),
         arguments: [DocumentViewModel.Output.exportPDF, .print(quick: false), .print(quick: true)])
     func outputFromViewWaitsForPrintSheets(output: DocumentViewModel.Output) async throws {
@@ -83,7 +83,8 @@ struct PrintSheetFlowTests {
         defer { model.stop() }
         model.exitPrintMode()
         model.layoutID = PrintLayout.a4BookletA5.id
-        #expect(model.canOutput)
+        // The view mode shows the new layout too, so the A4 pages still on the paper are no longer output.
+        #expect(!model.canOutput)
         #expect(model.renderedSettings?.layout == .a4Single)
 
         var outputs: [(DocumentViewModel.Output, RenderResult)] = []
@@ -91,6 +92,7 @@ struct PrintSheetFlowTests {
         switch output {
         case .exportPDF: model.exportPDF()
         case .print(let quick): model.printDocument(quick: quick)
+        case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }
         #expect(model.mode == .print)
         #expect(model.outputAfterReview == output)
@@ -164,10 +166,11 @@ struct PrintSheetFlowTests {
         model.exitPrintMode()
         #expect(model.mode == .view)
         #expect(model.outputAfterReview == nil)
-        #expect(model.renderSettings?.layout == .a4Single)
+        // The view mode shows the pages of the chosen layout too.
+        #expect(model.renderSettings?.layout == .a4BookletA5)
     }
 
-    @Test("論理ページを出してから用紙ができるまでは、刷り台にも出力にも前の用紙を使わない", .timeLimit(.minutes(1)))
+    @Test("論理ページを出してから用紙ができるまでは、刷り台は前の用紙を見せたままにし、出力と折ってみるには使わない", .timeLimit(.minutes(1)))
     func logicalPagesBeforeSheets() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -189,6 +192,7 @@ struct PrintSheetFlowTests {
         #expect(model.result?.logicalDocument === old.logicalDocument)
         #expect(model.printResult?.id == old.id)
         #expect(!model.hasCurrentPrintPreview)
+        #expect(model.showsTrayPreview)
         #expect(!model.canOutput)
         #expect(FoldSource.current(model) == nil)
 

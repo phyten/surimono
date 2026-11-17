@@ -150,6 +150,23 @@ struct RecentBindersTests {
         #expect(fixture.preferences.recentBinders.entries[0].files.allSatisfy { $0.bookmark == nil })
     }
 
+    @Test("同梱の案内を含む合本は、閉じても最近の合本に覚えず、案内のブックマークも作らない", .timeLimit(.minutes(1)))
+    func skipsABinderWithTheBundledGuide() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let guide = try #require(GettingStarted.url(for: ["en"]))
+        let own = try fixture.file("notes.md")
+        var bookmarked: [URL] = []
+        fixture.windows.recentFiles = RecentBinderFiles(
+            backend: recorder(create: { url in
+                bookmarked.append(url)
+                return Data([1])
+            }), isSandboxed: { true })
+        fixture.windows.open([guide, own]).window?.close()
+        #expect(fixture.preferences.recentBinders.isEmpty)
+        #expect(bookmarked.isEmpty)
+    }
+
     @Test("同じファイルの合本を閉じ直しても1件のまま先頭に残る", .timeLimit(.minutes(1)))
     func closingTheSameBinderAgain() throws {
         let fixture = try Fixture()

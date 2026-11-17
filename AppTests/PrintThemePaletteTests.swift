@@ -10,16 +10,71 @@ import Testing
 @MainActor
 @Suite(.serialized, .timeLimit(.minutes(1)))
 struct PrintThemePaletteTests {
-    @Test("見本の既定はこの文書で、切り替えは次の起動にも残る")
+    @Test("見本の既定は見本の文書で、切り替えは次の起動にも残る")
     func samplePreference() {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let preferences = AppPreferences(defaults: suite.defaults)
-        #expect(preferences.themeSampleSource == .document)
+        #expect(preferences.themeSampleSource == .specimen)
+        preferences.themeSampleSource = .document
+        #expect(AppPreferences(defaults: suite.defaults).themeSampleSource == .document)
         preferences.themeSampleSource = .specimen
         #expect(AppPreferences(defaults: suite.defaults).themeSampleSource == .specimen)
         suite.defaults.set("unknown", forKey: "themeSampleSource")
-        #expect(AppPreferences(defaults: suite.defaults).themeSampleSource == .document)
+        #expect(AppPreferences(defaults: suite.defaults).themeSampleSource == .specimen)
+    }
+
+    @Test("紙で試す設定は既定オンで、オフの選択を保存する")
+    func hoverPreference() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        #expect(preferences.triesThemeOnHover)
+        preferences.triesThemeOnHover = false
+        #expect(!AppPreferences(defaults: suite.defaults).triesThemeOnHover)
+    }
+
+    @Test("表示の窓で試す設定を切ると紙は戻り、乗せても描かずクリックで選べる")
+    func hostedHoverPreference() async throws {
+        let suite = TestDefaultsSuite()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer {
+            suite.remove()
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let renderer = DocumentRenderer(paginate: { _ in PDFDocument(data: TestFixtures.pdf("Own"))! })
+        let trial = DocumentRenderer(paginate: { _ in PDFDocument(data: TestFixtures.pdf("Trial"))! })
+        let preferences = AppPreferences(defaults: suite.defaults)
+        preferences.triesThemeOnHover = false
+        let model = DocumentViewModel(
+            data: Data("# Own document".utf8), fileURL: nil, format: .markdown,
+            preferences: preferences, library: UserLibrary(root: directory), renderer: renderer, trialRenderer: trial)
+        model.specimenSamples.diskCache = ThemeSampleCache(directory: directory.appendingPathComponent("cache"))
+        defer { model.stop() }
+        let window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 1000, height: 800),
+            styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        window.contentView = NSHostingView(rootView: DocumentContent(model: model))
+        window.makeKeyAndOrderFront(nil)
+        try await waitUntil { model.result != nil && !model.isRendering }
+        model.openThemePalette()
+        try await Task.sleep(for: .milliseconds(400))
+        model.hoverPaletteTheme("mincho")
+        try await Task.sleep(for: .milliseconds(400))
+        #expect(trial.logicalRenderCount == 0)
+        #expect(model.themeTrial.themeID == nil)
+        #expect(model.themeID == "standard")
+        model.selectTheme("mincho")
+        try await waitUntil { model.themeID == "mincho" && !model.isRendering }
+        #expect(preferences.recentThemeIDs.first == "mincho")
+        // The hosted palette has no pointer over it and ends a trial at once, so only the switch is checked here;
+        // `ThemePaletteTests` covers the trial itself.
+        #expect(!model.canTryThemesOnHover)
+        preferences.triesThemeOnHover = true
+        #expect(model.canTryThemesOnHover)
+        model.themePaletteDidClose()
     }
 
     @Test("吹き出しはテーマのない文書では消費せず、最初の対象文書で一度だけ出す")
@@ -60,6 +115,7 @@ struct PrintThemePaletteTests {
             data: Data("# Own document".utf8), fileURL: nil, format: .markdown,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
             renderer: renderer, trialRenderer: trial)
+        model.specimenSamples.diskCache = ThemeSampleCache(directory: directory.appendingPathComponent("cache"))
         defer { model.stop() }
         model.enterPrintMode()
         let window = NSWindow(
@@ -126,7 +182,9 @@ struct PrintThemePaletteTests {
         let model = DocumentViewModel(
             data: Data("# Own document".utf8), fileURL: nil, format: .markdown,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
+        model.specimenSamples.diskCache = ThemeSampleCache(directory: directory.appendingPathComponent("cache"))
         defer { model.stop() }
+        model.preferences.themeSampleSource = .document
         let theme = try #require(model.theme("standard"))
         await model.paletteSamples.load(theme)
         let own = try #require(model.paletteSamples.page(for: theme))

@@ -16,7 +16,7 @@ struct CodePaletteColumn: View {
                 .padding(.bottom, 8)
             Divider()
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     groupTitle("Color Schemes")
                     CodePaletteRow(model: model, palette: nil)
                     groupTitle("Suggested")
@@ -54,30 +54,33 @@ struct CodePaletteColumn: View {
         Text(title)
             .font(.system(size: 11.5, weight: .semibold))
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
+            // In line with the names, past the rows' place for the check.
+            .padding(.leading, 20)
             .padding(.top, 10)
             .padding(.bottom, 2)
     }
 }
 
-/// How a palette's ink is told on its row. The usual amount goes unsaid, so that the few palettes that use less or
-/// more stand out, instead of every row repeating "Normal".
+/// How a palette's ink is told on its row. The usual amount goes unsaid, so that the few palettes that use more stand
+/// out, instead of every row repeating "Normal". Less ink goes unsaid too: the palette that uses less is named for it
+/// (Ink Saver).
 enum CodeInkNote {
     static func text(for level: CodePalette.InkLevel) -> String? {
         switch level {
-        case .low: String(localized: "Ink: Low")
-        case .normal: nil
+        case .low, .normal: nil
         case .raised: String(localized: "Ink: Slightly High")
         case .high: String(localized: "Ink: High")
         }
     }
 }
 
-/// A palette, or "Match Style" for nil: its name, what it costs on paper, and a line of code in its colors.
+/// A palette, or "Match Style" for nil: its name, what it costs on paper, and a line of code in its colors. The rows are
+/// a plain list: no box per row, and the chosen one is told by a check before its name.
 private struct CodePaletteRow: View {
     let model: DocumentViewModel
     let palette: CodePalette?
     @State private var isHovering = false
+    @Environment(\.colorScheme) private var colorScheme
 
     private var id: String { palette?.id ?? CodePalette.matchesStyleID }
 
@@ -86,37 +89,47 @@ private struct CodePaletteRow: View {
         Button {
             model.selectCodePalette(id)
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(verbatim: model.codePaletteName(id))
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .lineLimit(1)
-                        .fixedSize()
-                    Text(verbatim: note)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    Spacer(minLength: 0)
-                    if let badge {
-                        Text(verbatim: badge)
-                            .font(.system(size: 11).monospacedDigit())
-                            .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tint)
+                    .opacity(isCurrent ? 1 : 0)
+                    .frame(width: Self.checkWidth)
+                    .accessibilityHidden(true)
+                // The name sits close to its own sample and further from the next scheme, so each pair reads as one.
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(verbatim: model.codePaletteName(id))
+                            .font(.system(size: 12.5, weight: .medium))
                             .lineLimit(1)
                             .fixedSize()
+                        // The ink follows the description it qualifies; at the far edge it read as a separate column.
+                        // A palette whose name says it all has no description, and its row shows the name alone.
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            if !note.isEmpty {
+                                Text(verbatim: note)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
+                            if let badge {
+                                Text(verbatim: note.isEmpty ? badge : " · " + badge)
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
+                        }
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
                     }
+                    sample
                 }
-                sample
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.leading, 2)
+            .padding(.trailing, 8)
+            .padding(.vertical, 9)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(rowFill(isCurrent: isCurrent))
+                RoundedRectangle(cornerRadius: 6).fill(isHovering ? Color.primary.opacity(0.06) : .clear)
             )
-            .overlay {
-                if isCurrent { RoundedRectangle(cornerRadius: 8).strokeBorder(.tint) }
-            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -132,10 +145,7 @@ private struct CodePaletteRow: View {
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
     }
 
-    private func rowFill(isCurrent: Bool) -> AnyShapeStyle {
-        if isCurrent { return AnyShapeStyle(.tint.opacity(0.14)) }
-        return AnyShapeStyle(isHovering ? Color.primary.opacity(0.06) : .clear)
-    }
+    private static let checkWidth: CGFloat = 14
 
     /// The current style for "Match Style", whose colors it takes.
     private var note: String {
@@ -145,8 +155,12 @@ private struct CodePaletteRow: View {
         return palette.displayNote(language: model.language)
     }
 
+    /// The ink, unless the group's own name ("Uses More Ink") already says it.
     private var badge: String? {
-        palette.flatMap { CodeInkNote.text(for: $0.inkLevel) }
+        guard let palette, !(palette.group == .inkHeavy && [.raised, .high].contains(palette.inkLevel)) else {
+            return nil
+        }
+        return CodeInkNote.text(for: palette.inkLevel)
     }
 
     private var contrast: String? {
@@ -155,15 +169,21 @@ private struct CodePaletteRow: View {
         }
     }
 
-    /// Always on paper, in both appearances: the sample shows how the code prints.
+    /// The code as it prints. On white paper it needs no frame; a palette with a ground of its own shows it behind the
+    /// line, and in the dark appearance every sample keeps its paper, or dark ink would vanish into the popover.
     private var sample: some View {
-        Text(sampleText)
+        let ground = palette?.ground
+        let showsGround = ground != nil || colorScheme == .dark
+        return Text(sampleText)
             .lineLimit(1)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .padding(.horizontal, showsGround ? 6 : 0)
+            .padding(.vertical, showsGround ? 3 : 0)
+            .background {
+                if showsGround {
+                    RoundedRectangle(cornerRadius: 4).fill(Color(codeHex: ground ?? "#ffffff"))
+                }
+            }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 3).fill(Color(codeHex: palette?.ground ?? "#ffffff")))
-            .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color.black.opacity(0.1), lineWidth: 0.5))
     }
 
     private var sampleText: AttributedString {
@@ -214,7 +234,7 @@ private struct CodeBlockControls: View {
                 Text("Shrink the Text").tag(CodeBlockOptions.LongLines.shrink)
                 Text("Cut with a Mark").tag(CodeBlockOptions.LongLines.cut)
             }
-            row("Show Language Name", selection: $model.codeBlock.languageLabel) {
+            row("Language Name", selection: $model.codeBlock.languageLabel) {
                 Text("No Label").tag(CodeBlockOptions.LanguageLabel.none)
                 Text("Top Right").tag(CodeBlockOptions.LanguageLabel.corner)
                 Text("Top Band").tag(CodeBlockOptions.LanguageLabel.band)

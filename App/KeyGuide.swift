@@ -1,39 +1,53 @@
 import AppKit
+import SurimonoCore
 import SwiftUI
 
-// The paper dispatches through these entries so the guide cannot silently lose a handled key.
+// The guide and paper adapter read the same catalog; cancellation and focus traversal stay fixed.
 enum KeyGuideEntry: CaseIterable {
-    case menu, viewOptions, selectText, alternateDrag, pageEdge, doubleClick, pinch
+    case menu, alwaysShowToolbar, viewOptions, selectText, alternateDrag, pageEdge, doubleClick, pinch
     case find, findStep, goToPage, reload
     case print, systemPrint, printLayouts, escape
     case moveSelection, removeFromList, showList
 
-    var trigger: String {
-        switch self {
-        case .menu: "Tab / M"
-        case .viewOptions: "V"
-        case .selectText: "T"
-        case .alternateDrag: String(localized: "Hold ⌥")
-        case .pageEdge: String(localized: "Click a paper edge")
-        case .doubleClick: String(localized: "Double-click")
-        case .pinch: String(localized: "Pinch / ⌘-scroll")
-        case .find: "⌘F"
-        case .findStep: "⌘G / ⇧⌘G"
-        case .goToPage: "⌥⌘G"
-        case .reload: "⌘R"
-        case .print: "⌘P"
-        case .systemPrint: "⌥⌘P"
-        case .printLayouts: "⌘1–⌘6"
-        case .escape: "Esc"
-        case .moveSelection: "⌥⌘↑ / ⌥⌘↓"
-        case .removeFromList: "⌫"
-        case .showList: "⌃⌘S"
-        }
+    var trigger: String { trigger(controller: .shared) }
+
+    func trigger(controller: ShortcutController) -> String {
+        let text =
+            switch self {
+            case .menu:
+                (["Tab", "⇧Tab"] + controller.localKeys(for: .viewToolbarToggle).map { controller.layout.display($0) })
+                    .joined(separator: " / ")
+            case .alwaysShowToolbar: ShortcutHints.keys([.viewToolbarAlways], controller: controller)
+            case .viewOptions: shortcutHint(.viewOptions, controller: controller)
+            case .selectText: shortcutHint(.viewSelectText, controller: controller)
+            case .alternateDrag: String(localized: "Hold ⌥")
+            case .pageEdge: String(localized: "Click a paper edge")
+            case .doubleClick: String(localized: "Double-click")
+            case .pinch: String(localized: "Pinch / ⌘-scroll")
+            case .find: ShortcutHints.keys([.documentFind], controller: controller)
+            case .findStep: ShortcutHints.keys([.documentFindNext, .documentFindPrevious], controller: controller)
+            case .goToPage: ShortcutHints.keys([.documentGoToPage], controller: controller)
+            case .reload: ShortcutHints.keys([.documentReload], controller: controller)
+            case .print: ShortcutHints.keys([.documentPrint], controller: controller)
+            case .systemPrint: ShortcutHints.keys([.documentPrintSystem], controller: controller)
+            case .printLayouts: ShortcutHints.keys(ShortcutHints.layouts, controller: controller)
+            case .escape: "Esc"
+            case .moveSelection: ShortcutHints.keys([.listMoveUp, .listMoveDown], controller: controller)
+            case .removeFromList: shortcutHint(.listRemove, controller: controller)
+            case .showList: ShortcutHints.keys([.listToggle], controller: controller)
+            }
+        return text.isEmpty ? String(localized: "Unassigned") : text
+    }
+
+    private func shortcutHint(_ operation: ShortcutOperationID, controller: ShortcutController) -> String {
+        ShortcutHints.keys([operation], controller: controller)
     }
 
     var explanation: String {
         switch self {
         case .menu: String(localized: "Show or hide the toolbar")
+        // The View menu is the one place of this switch, so the guide names it as the menu does.
+        case .alwaysShowToolbar: String(localized: "Always Show Toolbar")
         case .viewOptions: String(localized: "Open view options")
         case .selectText: String(localized: "Select text ⇄ move paper")
         case .alternateDrag: String(localized: "Swap what dragging the paper does")
@@ -54,14 +68,19 @@ enum KeyGuideEntry: CaseIterable {
         }
     }
 
-    static func paperAction(for event: NSEvent) -> Self? {
+    static func fixedPaperAction(for event: NSEvent) -> Self? {
         guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else { return nil }
         if event.specialKey == .tab { return .menu }
         if event.keyCode == 53 { return .escape }
-        switch event.charactersIgnoringModifiers?.lowercased() {
-        case "m": return .menu
-        case "v": return .viewOptions
-        case "t": return .selectText
+        return nil
+    }
+
+    static func paperAction(for event: NSEvent, controller: ShortcutController = .shared) -> Self? {
+        if let fixed = fixedPaperAction(for: event) { return fixed }
+        switch ShortcutSurfaceKeys.match(event, region: .paperReading, controller: controller) {
+        case .viewToolbarToggle: return .menu
+        case .viewOptions: return .viewOptions
+        case .viewSelectText: return .selectText
         default: return nil
         }
     }
@@ -74,8 +93,12 @@ struct KeyGuide: View {
                 Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 14) {
                     ForEach(KeyGuideEntry.allCases, id: \.self) { entry in
                         GridRow(alignment: .top) {
-                            Text(verbatim: entry.trigger)
-                                .font(.system(size: 12, design: .monospaced))
+                            let trigger = entry.trigger
+                            Text(verbatim: trigger)
+                                .font(
+                                    .system(
+                                        size: 12,
+                                        design: trigger == String(localized: "Unassigned") ? .default : .monospaced))
                             Text(verbatim: entry.explanation)
                                 .font(.system(size: 12))
                         }
@@ -83,7 +106,7 @@ struct KeyGuide: View {
                 }
                 .foregroundStyle(Color.primary)
                 Divider()
-                Text("Paper keys work when the paper has focus. A toolbar set to always show stays visible.")
+                Text("Paper keys work when the paper has focus.")
                 Text(
                     "Edge clicks and double-click zoom work when text selection is off. Edge clicks also require fit-to-window and non-continuous page turns."
                 )
