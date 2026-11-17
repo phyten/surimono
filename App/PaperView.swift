@@ -7,6 +7,7 @@ import SwiftUI
 /// Lets menus and the overlay drive the paper view of one window.
 final class PaperController {
     fileprivate weak var view: PaperPDFView?
+    var onReadingJump: ((Int) -> Void)?
     var onToast: ((Toast) -> Void)?
 
     func zoomIn() { view?.stepZoom(up: true) }
@@ -60,12 +61,14 @@ struct PaperView: NSViewRepresentable {
         let view = PaperPDFView()
         controller.view = view
         view.onToast = controller.onToast
+        view.onReadingJump = controller.onReadingJump
         return view
     }
 
     func updateNSView(_ view: PaperPDFView, context: Context) {
         controller.view = view
         view.onToast = controller.onToast
+        view.onReadingJump = controller.onReadingJump
         view.onZoomChange = onZoomChange
         view.onPageChange = onPageChange
         view.onTurn = onTurn
@@ -122,6 +125,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     var dispatchKey: (NSEvent) -> Bool = { ShortcutDispatcher.shared.handle($0) }
     var nativeKeyHandler: ((NSEvent) -> Void)?
     var fullKeyboardAccess: () -> Bool = { NSApp.isFullKeyboardAccessEnabled }
+    var onReadingJump: ((Int) -> Void)?
     var onToast: ((Toast) -> Void)?
     // PDFView inherits delegate-shaped methods that forward to its delegate, so delegating to self recurses on zoom.
     private let linkDelegate = LinkDelegate()
@@ -714,6 +718,11 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     override func go(to destination: PDFDestination) {
+        if isTrackingSelectionLink, let page = destination.page, let document, page.document === document,
+            let target = pagePlan?.readingIndex(at: document.index(for: page))
+        {
+            onReadingJump?(target)
+        }
         super.go(to: destination)
         if let page = destination.page { alignHorizontalScroll(to: page) }
     }
@@ -987,6 +996,8 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     }
 
     private func passKeyToPDFKit(_ event: NSEvent) {
+        if event.specialKey == .home { onReadingJump?(0) }
+        if event.specialKey == .end, let sourceDocument { onReadingJump?(sourceDocument.pageCount - 1) }
         if let nativeKeyHandler { nativeKeyHandler(event) } else { super.keyDown(with: event) }
     }
 
@@ -1004,10 +1015,15 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
             clickCount: event.clickCount, pressure: event.pressure) ?? event
     }
 
+    private var isTrackingSelectionLink = false
+
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         dragSelectsText = selectsText(for: event)
         if dragSelectsText {
+            // Record only a destination actually followed, not a drag or a cancelled link click.
+            isTrackingSelectionLink = link(at: convert(event.locationInWindow, from: nil)) != nil
+            defer { isTrackingSelectionLink = false }
             // PDFKit selects by drag, words by double-click and lines by triple-click; no page turns or zoom here. It
             // tracks the drag in a loop of its own and returns when the button goes up.
             mouseDownEvent = nil
@@ -1096,6 +1112,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     private func follow(_ link: PDFAnnotation) {
         let destination = link.destination ?? (link.action as? PDFActionGoTo)?.destination
         if let destination, let page = destination.page, let document, page.document === document {
+            if let target = pagePlan?.readingIndex(at: document.index(for: page)) { onReadingJump?(target) }
             if let options, !options.isContinuous, !isZoomed,
                 let target = pagePlan?.readingIndex(at: document.index(for: page))
             {

@@ -10,10 +10,22 @@ private struct OutlineList: View {
         let entries = model.outlineEntries
         let current = model.currentOutlineEntry
         let top = entries.map(\.level).min() ?? 1
+        VStack(alignment: .leading, spacing: 8) {
+            // The marks stay above the headings: the list opens scrolled to the chapter being read, which would hide
+            // them.
+            if model.outlineFilter.query.isEmpty, !model.bookmarkPages.isEmpty {
+                BookmarkList(model: model)
+                if !entries.isEmpty { Divider() }
+            }
+            headings(entries: entries, current: current, top: top)
+        }
+    }
+
+    private func headings(entries: [OutlineEntry], current: Int?, top: Int) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 1) {
-                    if model.outlineFilter.matches.isEmpty {
+                    if !model.outlineFilter.query.isEmpty, model.outlineFilter.matches.isEmpty {
                         Text("No Matching Headings").font(.system(size: 13)).foregroundStyle(PrintPalette.ink2)
                             .padding(.vertical, 8)
                     }
@@ -101,11 +113,78 @@ private struct OutlineRow: View {
     }
 }
 
+/// The reader's marks, in the order of the document. More than five scroll on their own.
+private struct BookmarkList: View {
+    @Bindable var model: DocumentViewModel
+    static let rowHeight: CGFloat = 33
+    static let headingHeight: CGFloat = 22
+
+    static func height(count: Int) -> CGFloat { headingHeight + CGFloat(min(count, 5)) * rowHeight }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("Bookmarks").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                .padding(.horizontal, 8).frame(height: Self.headingHeight - 1)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 1) {
+                    ForEach(model.bookmarkPages, id: \.self) { page in BookmarkRow(model: model, page: page) }
+                }
+            }
+            .frame(height: CGFloat(min(model.bookmarkPages.count, 5)) * Self.rowHeight)
+        }
+    }
+}
+
+private struct BookmarkRow: View {
+    @Bindable var model: DocumentViewModel
+    let page: Int
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button {
+                model.goToBookmark(page: page)
+                model.paper.focus()
+            } label: {
+                HStack(spacing: 10) {
+                    Text(verbatim: model.bookmarkTitle(page: page))
+                        .lineLimit(2).multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // A mark with no heading to name it is named by its page already.
+                    if model.hasOutline {
+                        Text(verbatim: "\(page + 1)").monospacedDigit().foregroundStyle(PrintPalette.ink2)
+                    }
+                }
+                .frame(minHeight: 32).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Button {
+                model.removeBookmark(page: page)
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 9))
+                    .frame(width: 22, height: 32).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).foregroundStyle(PrintPalette.ink2)
+            .opacity(isHovered ? 1 : 0)
+            .accessibilityLabel("Remove Bookmark")
+            .help("Remove Bookmark")
+        }
+        .font(.system(size: 13)).foregroundStyle(PrintPalette.ink)
+        .padding(.leading, 8).padding(.trailing, 4)
+        .background(RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear))
+        .onHover { isHovered = $0 }
+    }
+}
+
 struct OutlinePopover: View {
     @Bindable var model: DocumentViewModel
 
     private static let rowHeight: CGFloat = 33
     private static let maximumListHeight: CGFloat = 420
+    private var bookmarkHeight: CGFloat {
+        model.outlineFilter.query.isEmpty && !model.bookmarkPages.isEmpty
+            ? BookmarkList.height(count: model.bookmarkPages.count) + (model.outlineEntries.isEmpty ? 0 : 17) : 0
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -118,7 +197,9 @@ struct OutlinePopover: View {
                 OutlineSearchField(model: model, autofocus: true).frame(height: 28)
             }
             OutlineList(model: model)
-                .frame(height: min(CGFloat(model.outlineEntries.count) * Self.rowHeight, Self.maximumListHeight))
+                .frame(
+                    height: min(
+                        CGFloat(model.outlineEntries.count) * Self.rowHeight + bookmarkHeight, Self.maximumListHeight))
         }
         .padding(12)
         .frame(width: 286)

@@ -48,6 +48,6 @@ extension DocumentViewModel {
     func goToPage(entered text: String) {
         isGoToPagePresented = false
         guard let index = GoToPage.index(for: text, pageCount: pageCount) else { return }
-        paper.goToPage(index: index)
+        jumpToReadingPage(index)
     }
 }

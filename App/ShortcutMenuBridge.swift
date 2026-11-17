@@ -33,6 +33,11 @@ final class ShortcutMenuBridge: NSObject {
             .init(.viewIgnoreSlides, 3, ["Show as Slides"]),
             .init(.viewSingle, 3, ["Single Page"]), .init(.viewSpread, 3, ["Spread"]),
             .init(.documentGoToPage, 3, ["Go to Page…"]),
+            .init(.readingBack, 3, ["Back"]),
+            .init(.readingForward, 3, ["Forward"]),
+            .init(.bookmarkToggle, 3, ["Bookmark This Page"]),
+            .init(.bookmarkNext, 3, ["Next Bookmark"]),
+            .init(.bookmarkPrevious, 3, ["Previous Bookmark"]),
             .init(.textIncrease, 3, ["Increase Text Size"]),
             .init(.textDecrease, 3, ["Decrease Text Size"]), .init(.textReset, 3, ["Original Text Size"]),
             .init(.viewZoomIn, 3, ["Zoom In"]),
@@ -228,6 +233,7 @@ final class ShortcutMenuBridge: NSObject {
             if let item = items[operation], item.title != localize(title) { item.title = localize(title) }
         }
         let states: [ShortcutOperationID: Bool] = [
+            .bookmarkToggle: current?.isVisiblePageBookmarked ?? false,
             .viewIgnoreSlides: current?.slideDeck != nil,
             .viewToolbarAlways: current?.isBandAlwaysVisible ?? false,
             .viewFloatOnTop: current?.isAlwaysOnTop ?? false,
@@ -266,7 +272,10 @@ final class ShortcutMenuBridge: NSObject {
             let protectsInput =
                 ShortcutDispatcher.isTextInput(keyWindow()?.firstResponder)
                 && candidate?.modifiers.contains(.command) == false
-            let key = item.isHidden || protectsInput ? nil : candidate.flatMap(ShortcutMenuKey.init)
+            let surfaceOnly =
+                ShortcutOperation.operation(operation).allowsBareKeys
+                && candidate?.modifiers.intersection([.command, .control]).isEmpty == true
+            let key = item.isHidden || protectsInput || surfaceOnly ? nil : candidate.flatMap(ShortcutMenuKey.init)
             if item.keyEquivalent != (key?.key ?? "") { item.keyEquivalent = key?.key ?? "" }
             if item.keyEquivalentModifierMask != (key?.modifiers ?? .command) {
                 item.keyEquivalentModifierMask = key?.modifiers ?? .command

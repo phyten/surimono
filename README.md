@@ -55,6 +55,9 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Before printing, checks show unreadable images, overly wide blocks, formula errors, and unsupported LaTeX with their pages and suggested fixes. Documents without issues gain no extra controls; printing is never blocked.
 - Print layouts: single-sided and duplex A4, B5, and Letter; saddle-stitch booklets A3 → A4, A4 → A5, B4 → B5, B5 → B6, Tabloid → Letter, and Letter → Half Letter. Choose left or right binding in Print Settings.
 - Put two pages on A3 / A4, B4 / B5, or Tabloid / Letter, or four pages on portrait A4, B5, or Letter (top left, top right, bottom left, bottom right). Choose the paper and page count from the ▼ on the 2-up card. Each paper family also offers three pages plus notes. With no saved default layout, the region and default printer paper determine whether A sizes or Letter are offered first.
+- Filter the contents by heading text to find a section quickly
+- Show the current chapter in the reading toolbar
+- Bookmark pages, revisit them from the contents, and go Back or Forward after a jump
 - Print settings, which change the pages (on screen too) and never the document: margins on each side in 0.1 mm steps, shown in inches where the region uses them (inside and outside too), header and footer, page breaks by heading and chapters from the right-hand page, and contents added to the paper
 - Headers and footers can show the current chapter. For themed text documents, print external link destinations after the link text or in a numbered list at the end.
 - Note pages to write on: on one side of each spread, behind each page or after each chapter. 17 templates such as college ruled, grid, manuscript paper and cute patterns, with line style, thickness, spacing and color you can adjust and save. They work with PDFs and images too

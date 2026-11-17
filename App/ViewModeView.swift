@@ -433,6 +433,11 @@ extension DocumentViewModel {
             menu.showFull()
             isViewOptionsPresented = true
         case .viewSelectText: toggleSelectingText()
+        case .readingBack: goBack()
+        case .readingForward: goForward()
+        case .bookmarkToggle: toggleBookmark()
+        case .bookmarkNext: goToNextBookmark()
+        case .bookmarkPrevious: goToPreviousBookmark()
         default: break
         }
     }

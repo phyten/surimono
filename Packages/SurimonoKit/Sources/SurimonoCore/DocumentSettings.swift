@@ -55,6 +55,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     public var notes: NotePages?
     /// Nil is every page, which is what every record before the choice existed printed.
     public var pageRange: PageRange?
+    /// The reader's marks, kept with the settings because both follow the content, not the file's name.
+    public var bookmarks: Bookmarks?
 
     public init(
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
@@ -64,7 +66,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
         codePaletteID: String? = nil, codeBlock: CodeBlockOptions? = nil, bandVisibility: BandVisibility? = nil,
         notes: NotePages? = nil, bookletBinding: BookletBinding? = nil,
-        pageRange: PageRange? = nil
+        pageRange: PageRange? = nil, bookmarks: Bookmarks? = nil
     ) {
         self.view = view
         self.zoom = zoom
@@ -88,13 +90,14 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.bandVisibility = bandVisibility
         self.notes = notes
         self.pageRange = pageRange
+        self.bookmarks = bookmarks
     }
 
     private enum CodingKeys: String, CodingKey {
         case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
-        case bandVisibility, paperSeries, notes, bookletBinding, pageRange
+        case bandVisibility, paperSeries, notes, bookletBinding, pageRange, bookmarks
     }
 
     // Rotation belongs to the printer. Keep the old field readable without carrying it into document records.
@@ -135,6 +138,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(bandVisibility, forKey: .bandVisibility)
         try values.encodeIfPresent(notes, forKey: .notes)
         try values.encodeIfPresent(pageRange, forKey: .pageRange)
+        if let bookmarks, !bookmarks.isEmpty { try values.encode(bookmarks, forKey: .bookmarks) }
         try values.encodeIfPresent(printOptions.map(StoredPrintOptions.init), forKey: .printOptions)
         try values.encodeIfPresent(printFinish, forKey: .printFinish)
     }
@@ -172,6 +176,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         _ = field(String.self, .paperSeries)
         notes = field(NotePages.self, .notes)
         pageRange = field(PageRange.self, .pageRange)
+        bookmarks = field(Bookmarks.self, .bookmarks)
     }
 }
 

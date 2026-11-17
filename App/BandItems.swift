@@ -41,7 +41,7 @@ extension BandLayout.Item {
             case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
             // Whether the band shows them is the arrangement's business; these say only what the document allows.
             case .chapter: paper && model.hasOutline && model.chapterEntries.contains { $0.pageIndex != nil }
-            case .outline: model.hasOutline
+            case .outline: model.hasContents
             case .pageTurn: paper && model.pageCount > 1
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
             case .thumbnails: model.imageBundle != nil || model.binder != nil
@@ -181,11 +181,24 @@ struct PageIndicatorText: View {
 
     var body: some View {
         if let indicator = model.pageIndicator {
-            Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
-                .overlay(alignment: .leading) { Text(verbatim: indicator) }
-                .font(.system(size: 11)).monospacedDigit().foregroundStyle(PrintPalette.ink)
-                .lineLimit(1)
-                .fixedSize()
+            HStack(spacing: 4) {
+                if !model.bookmarks.isEmpty, !model.showsWeb {
+                    Image(systemName: "bookmark.fill")
+                        .font(.system(size: 9)).foregroundStyle(PrintPalette.ink2)
+                        .opacity(model.isVisiblePageBookmarked ? 1 : 0)
+                        .accessibilityHidden(true)
+                }
+                Text(verbatim: model.pageIndicatorTemplate ?? indicator).hidden()
+                    .overlay(alignment: .leading) { Text(verbatim: indicator) }
+                    .font(.system(size: 11)).monospacedDigit().foregroundStyle(PrintPalette.ink)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                Text(
+                    verbatim: model.isVisiblePageBookmarked
+                        ? indicator + ", " + String(localized: "Bookmarked") : indicator))
         }
     }
 }

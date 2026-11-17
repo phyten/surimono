@@ -28,9 +28,10 @@ struct ShortcutTests {
                 "view.documentInfo", "view.ignoreSlides", "list.sortByName", "binder.oddPageStarts", "style.compare",
                 "style.favorite", "compare.shuffle", "print.foldPreview", "print.reviewIssues", "html.smartRemoval",
                 "html.reviewRemoval", "print.manualDuplex", "print.duplexTest",
+                "reading.back", "reading.forward", "bookmark.toggle", "bookmark.next", "bookmark.previous",
             ])
-        #expect(ShortcutOperation.catalog.count == 76)
-        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 76)
+        #expect(ShortcutOperation.catalog.count == 81)
+        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 81)
     }
 
     @Test("既定の印刷と別名と未割当を明示する")
@@ -430,6 +431,8 @@ struct ShortcutContractTests {
                 #"list.toggle=s["control","command"]"#, #"list.moveUp=upArrow["option","command"]"#,
                 #"list.moveDown=downArrow["option","command"]"#, #"list.remove=deleteBackward[]"#,
                 #"fold.left=leftArrow[]"#, #"fold.right=rightArrow[]"#,
+                #"reading.back=[["command"]"#, #"reading.forward=]["command"]"#,
+                #"bookmark.toggle=b[]"#, #"bookmark.next=][]"#, #"bookmark.previous=[[]"#,
             ])
     }
 

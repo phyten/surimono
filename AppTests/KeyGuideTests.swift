@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 struct KeyGuideTests {
-    @Test("キーと操作の一覧は紙・ツールバー・検索・印刷・手の操作を19項目で案内する")
+    @Test("キーと操作の一覧は紙・ツールバー・検索・印刷・手の操作と履歴・しおりを24項目で案内する")
     func entries() throws {
         let f = try ShortcutSurfaceFixture()
         defer { f.close() }
@@ -14,11 +14,17 @@ struct KeyGuideTests {
                 .menu, .alwaysShowToolbar, .viewOptions, .selectText, .alternateDrag, .pageEdge, .doubleClick, .pinch,
                 .find, .findStep, .goToPage, .reload,
                 .print, .systemPrint, .printLayouts, .escape, .moveSelection, .removeFromList, .showList,
+                .readingBack, .readingForward, .bookmarkToggle, .bookmarkNext, .bookmarkPrevious,
             ])
         #expect(KeyGuideEntry.find.trigger(controller: f.controller) == "⌘F")
         #expect(KeyGuideEntry.findStep.trigger(controller: f.controller) == "⌘G / ⇧⌘G")
         #expect(KeyGuideEntry.goToPage.trigger(controller: f.controller) == "⌥⌘G")
         #expect(KeyGuideEntry.reload.trigger(controller: f.controller) == "⌘R")
+        #expect(KeyGuideEntry.readingBack.trigger(controller: f.controller) == "⌘[")
+        #expect(KeyGuideEntry.readingForward.trigger(controller: f.controller) == "⌘]")
+        #expect(KeyGuideEntry.bookmarkToggle.trigger(controller: f.controller) == "B")
+        #expect(KeyGuideEntry.bookmarkNext.trigger(controller: f.controller) == "]")
+        #expect(KeyGuideEntry.bookmarkPrevious.trigger(controller: f.controller) == "[")
         #expect(KeyGuideEntry.menu.trigger(controller: f.controller) == "Tab / ⇧Tab / M / ⇧M")
         #expect(KeyGuideEntry.alwaysShowToolbar.trigger(controller: f.controller) == "⌥⌘T")
         #expect(KeyGuideEntry.viewOptions.trigger(controller: f.controller) == "V / ⇧V")

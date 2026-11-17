@@ -1,6 +1,11 @@
 public enum ShortcutDefaults: Sendable {
     public static func keys(for operation: ShortcutOperationID) -> [ShortcutCombination] {
         switch operation {
+        case .readingBack: [character("[", .command)]
+        case .readingForward: [character("]", .command)]
+        case .bookmarkToggle: [character("b", [])]
+        case .bookmarkNext: [character("]", [])]
+        case .bookmarkPrevious: [character("[", [])]
         case .appOpen: [character("o", .command)]
         case .clipboardOpen: [character("n", .command)]
         case .appSettings: [character(",", .command)]

@@ -595,3 +595,30 @@ extension ShortcutSurfaceTests {
         #expect(KeyGuideEntry.removeFromList.trigger(controller: f.controller) == "X")
     }
 }
+
+@MainActor
+extension ShortcutSurfaceTests {
+    @Test("履歴としおりのキーは紙と文字選択に届き、入力欄の裸キーは奪わない")
+    func readingPlacesKeys() throws {
+        let fixture = try ShortcutSurfaceFixture()
+        defer { fixture.close() }
+        let keys: [(String, NSEvent.ModifierFlags, ShortcutOperationID)] = [
+            ("[", .command, .readingBack), ("]", .command, .readingForward),
+            ("b", [], .bookmarkToggle), ("]", [], .bookmarkNext), ("[", [], .bookmarkPrevious),
+        ]
+        for selectsText in [false, true] {
+            fixture.paper.selectsText = selectsText
+            for (text, flags, operation) in keys {
+                #expect(fixture.dispatcher.handle(fixture.event(text, flags: flags)))
+                #expect(fixture.operations.last == operation)
+            }
+        }
+        let input = NSTextView()
+        fixture.responder = input
+        let before = fixture.operations
+        for key in ["b", "[", "]"] {
+            #expect(!fixture.dispatcher.handle(fixture.event(key)))
+        }
+        #expect(fixture.operations == before)
+    }
+}

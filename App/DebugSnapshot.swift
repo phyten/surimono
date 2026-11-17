@@ -588,6 +588,14 @@
                     window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 20))
                     try? await Task.sleep(for: .milliseconds(800))
                 }
+                if let value = argument("SurimonoBookmarks") {
+                    for page in Set(value.split(separator: ",").compactMap { Int($0) }).sorted() {
+                        if !model.bookmarkPages.contains(page - 1) {
+                            model.toggleBookmark(page: page - 1, visiblePages: [page - 1])
+                        }
+                    }
+                    model.flushPendingSettings()
+                }
                 if let value = argument("SurimonoPage"), let page = Int(value) {
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))

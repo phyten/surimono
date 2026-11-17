@@ -887,11 +887,12 @@ struct ViewBandTests {
     }
 
     @Test("ポップオーバーの目次は項目を選ぶと閉じる")
-    func choosingEntryClosesPopover() {
+    func choosingEntryClosesPopover() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         let model = environment.model(TestFixtures.pdf("Choose"))
         defer { model.stop() }
+        try await open(model)
         model.isOutlinePresented = true
         model.goToOutlineEntry(OutlineEntry(level: 1, title: "章", pageIndex: 1))
         #expect(!model.isOutlinePresented)
