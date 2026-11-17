@@ -3,7 +3,7 @@ import Foundation
 extension ClipboardTextKind {
     /// The kinds a reader can choose, in the order every list of them follows. Opening a URL is not built yet, so it
     /// is never offered.
-    public static let choosable: [ClipboardTextKind] = [.markdown, .org, .html, .latex, .csv, .plainText]
+    public static let choosable: [ClipboardTextKind] = [.markdown, .org, .html, .latex, .csv, .notebook, .plainText]
 
     /// The format a document of this kind opens as. A URL opens as text until the app can load the page it names.
     public var documentFormat: DocumentFormat {
@@ -12,6 +12,7 @@ extension ClipboardTextKind {
         case .org: .org
         case .html: .html
         case .latex: .latex
+        case .notebook: .notebook
         case .csv: .csv
         case .url, .plainText: .plainText
         }

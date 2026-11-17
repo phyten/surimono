@@ -10,6 +10,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case csv
     case zipArchive
     case latex
+    case notebook
 
     public init?(fileExtension: String) {
         switch fileExtension.lowercased() {
@@ -21,13 +22,14 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "csv", "tsv": self = .csv
         case "zip": self = .zipArchive
         case "tex", "latex", "ltx": self = .latex
+        case "ipynb": self = .notebook
         case "png", "jpg", "jpeg", "gif", "tif", "tiff", "heic", "heif", "webp", "bmp", "svg", "ico", "icns":
             self = .image
         default: return nil
         }
     }
 
-    public var usesPrintTheme: Bool { [.markdown, .org, .plainText, .csv, .latex].contains(self) }
+    public var usesPrintTheme: Bool { [.markdown, .org, .plainText, .csv, .latex, .notebook].contains(self) }
     public var usesHTMLPreset: Bool { self == .html }
     public var isWebRendered: Bool { self != .pdf && self != .image && self != .zipArchive }
 
@@ -39,7 +41,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
-            "public.zip-archive": .zipArchive, "org.tug.tex": .latex,
+            "public.zip-archive": .zipArchive, "org.tug.tex": .latex, "org.jupyter.ipynb": .notebook,
         ]
         if let format = known[contentType.identifier] {
             self = format
@@ -53,6 +55,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             self = .markdown
         } else if contentType.conforms(to: .surimonoOrg) {
             self = .org
+        } else if contentType.conforms(to: .surimonoNotebook) {
+            self = .notebook
         } else if contentType.conforms(to: .surimonoLaTeX) {
             self = .latex
         } else if contentType.conforms(to: .commaSeparatedText) {
@@ -83,11 +87,13 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .csv: "CSV"
         case .zipArchive: "ZIP"
         case .latex: "LaTeX"
+        case .notebook: "Jupyter Notebook"
         }
     }
 }
 
 extension UTType {
+    public static let surimonoNotebook = UTType(importedAs: "org.jupyter.ipynb", conformingTo: .json)
     public static let surimonoMarkdown = UTType(importedAs: "net.daringfireball.markdown", conformingTo: .plainText)
     public static let surimonoOrg = UTType(importedAs: "org.orgmode.org", conformingTo: .plainText)
     /// The identifier TeX distributions and editors on the Mac use for `.tex` files.

@@ -13,8 +13,12 @@ public enum MarkdownConverter {
         convertDocument(text, mapsSource: true, pageBreakLine: pageBreakLine, proof: proof)
     }
 
+    static func notebookCell(_ text: String, pageBreakLine: String, proof: ProofMarks, toc: String) -> HTMLFragment {
+        convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof, notebookTOC: toc).fragment
+    }
+
     private static func convertDocument(
-        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks
+        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String? = nil
     ) -> MarkdownMappedDocument {
         let original = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
         var source = mapsSource ? MarkdownSourceLines(original) : .unmapped(original)
@@ -45,14 +49,14 @@ public enum MarkdownConverter {
         let formulas = MarkdownExtensions.Formulas()
         let (body, document) = renderBody(
             extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping,
-            proof: proof)
+            proof: proof, notebookTOC: notebookTOC)
         if title == nil { title = firstHeading(in: document, formulas: formulas) }
         let html =
             body
             + footnoteSection(
                 footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
-        let fonts = MathRenderer.fontFaces(for: html)
+        let fonts = notebookTOC == nil ? MathRenderer.fontFaces(for: html) : ""
         return MarkdownMappedDocument(
             fragment: HTMLFragment(
                 body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title, language: language),
@@ -133,6 +137,7 @@ public enum MarkdownConverter {
         let anchors: [MarkdownExtensions.HeadingAnchor]
         let formulas: MarkdownExtensions.Formulas
         var nextAnchor = 0
+        var notebookTOC: String?
 
         init(
             source: MarkdownSourceLines, anchors: [MarkdownExtensions.HeadingAnchor],
@@ -149,7 +154,7 @@ public enum MarkdownConverter {
 
     private static func renderBody(
         _ lines: MarkdownSourceLines, footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        anchorsHeadings: Bool, mapping: BlockMapping? = nil, proof: ProofMarks
+        anchorsHeadings: Bool, mapping: BlockMapping? = nil, proof: ProofMarks, notebookTOC: String? = nil
     ) -> (String, Document) {
         let source = MarkdownCallouts.preprocess(
             MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas, proof: proof))
@@ -158,6 +163,7 @@ public enum MarkdownConverter {
             source: source,
             anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
             formulas: formulas, mapping: mapping)
+        context.notebookTOC = notebookTOC
         return (render(document, context), document)
     }
 
@@ -257,7 +263,7 @@ public enum MarkdownConverter {
             return "<h\(heading.level)\(attributes)>\(content)</h\(heading.level)>\n"
         case let paragraph as Paragraph:
             if MarkdownExtensions.isTableOfContentsMarker(paragraph) {
-                return MarkdownExtensions.tableOfContents(context.anchors)
+                return context.notebookTOC ?? MarkdownExtensions.tableOfContents(context.anchors)
             }
             return definitionList(paragraph, context, autolinks: autolinks) ?? (wrap("p") + "\n")
         case is Strong: return wrap("strong")

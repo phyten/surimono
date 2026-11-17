@@ -42,6 +42,7 @@ public enum ClipboardContent: Equatable, Sendable {
         case .html: "html"
         case .org: "org"
         case .latex: "tex"
+        case .notebook: "ipynb"
         case .csv: CSVConverter.guessedDelimiter(of: TextDecoding.decode(data).text) == "\t" ? "tsv" : "csv"
         case .image: data.starts(with: [0x89, 0x50, 0x4E, 0x47]) ? "png" : "tiff"
         default: "txt"

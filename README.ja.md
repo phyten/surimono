@@ -40,6 +40,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 - Markdown の ```` ```mermaid ```` と Org の `#+begin_src mermaid` を、オフラインで SVG の図にして印刷。描けない図は原文を残し、印刷前の確認に表示します。
 - Markdown の数式（`$…$`・`$$…$$`・```` ```math ````）を、純 Swift の KaTeX 互換の組版（[SwaTex](https://github.com/PhraseHQ/SwaTex)）で JavaScript なしに描画。化学式（mhchem）も
 - Markdown・PDF・画像・Org・テキスト・HTML・CSV・LaTeX のクイックビューア
+- Jupyter Notebook の Markdown・コード・保存済み出力を印刷。コードは実行しません。nbformat 4 に対応し、対話型出力は枠で知らせます。
 - LaTeX の文書をスタイルで刷る: 表題、番号つきの節と参照、リスト（enumitem）、コード（listings）、SwaTex による数式と式番号、脚注、hyperref、xcolor、図（graphicx）、表（booktabs）、定理と証明（amsthm）、参考文献と引用、単位（siunitx）。TeX を動かすのではなく、よく使う部分集合を読む。TikZ の図は場所を枠で示す
 - Markdown・Org・テキスト・CSV・LaTeX・HTML・PDF・画像を「合本」にまとめ、開いているウインドウへのドロップや「文書を足す…」で足し、並べ替え・取り除きの後、1 つの PDF や冊子として出力（各文書を奇数ページから始める設定付き）。閉じた合本は「ファイル > 最近使った合本」から開き直せる
 - 種類が混ざった複数の画像を、1 つの「画像の束」としてまとめて開く
@@ -95,6 +96,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
+| Jupyter Notebook | `.ipynb` |
 | 画像の ZIP | `.zip`（1 つの画像の束として開く） |
 
 ## 動作環境

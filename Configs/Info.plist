@@ -39,6 +39,7 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.jupyter.ipynb</string>
 				<string>public.plain-text</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
@@ -71,6 +72,7 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.jupyter.ipynb</string>
 				<string>public.plain-text</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
@@ -95,6 +97,7 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.jupyter.ipynb</string>
 				<string>public.plain-text</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
@@ -107,6 +110,19 @@
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>org.jupyter.ipynb</string>
+            <key>UTTypeDescription</key>
+            <string>Jupyter Notebook</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.json</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array><string>ipynb</string></array>
+            </dict>
+        </dict>
 		<dict>
 			<key>UTTypeIdentifier</key>
 			<string>net.daringfireball.markdown</string>
