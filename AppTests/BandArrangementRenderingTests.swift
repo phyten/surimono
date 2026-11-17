@@ -556,13 +556,16 @@ struct BandArrangementRenderingTests {
         let wide = BandPlans(model: model, menu: menu(width: 2000))
         // Presentation, Zoom and List do not apply to this document.
         #expect(
-            wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded + [.chapter])
+            wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded + [
+                .chapter
+            ])
         // Narrow, the bottom band gives way; unused and overflow remain separate.
         let narrow = BandPlans(model: model, menu: menu(width: 140))
         #expect(narrow.bottom?.forms == [.outline: .compact, .pageIndicator: .full])
         #expect(narrow.resolved.overflow == [.layout, .pageTurn])
         #expect(
-            narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded + [.chapter])
+            narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded
+                + [.chapter])
         #expect(!narrow.resolved.overflow.contains(.print))
         #expect(narrow.top.forms[.print] != nil)
 
