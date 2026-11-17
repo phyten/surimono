@@ -3,10 +3,12 @@ import Foundation
 public struct HTMLFragment: Equatable, Sendable {
     public var body: String
     public var title: String?
+    public var language: String?
 
-    public init(body: String, title: String? = nil) {
+    public init(body: String, title: String? = nil, language: String? = nil) {
         self.body = body
         self.title = title
+        self.language = language
     }
 }
 

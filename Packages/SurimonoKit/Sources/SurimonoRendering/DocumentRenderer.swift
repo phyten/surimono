@@ -1117,9 +1117,11 @@ public final class DocumentRenderer {
             let separatesPaper = WebPaginator.drawsClearPages
             let paperFragment = HTMLFragment(
                 body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
-                title: fragment.title)
+                title: fragment.title,
+                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code)
             let html = HTMLDocumentBuilder.build(
                 fragment: paperFragment, format: source.format, theme: settings.theme, baseURL: directory,
+                language: settings.pageLanguage,
                 textScale: settings.textScale, removesPaper: separatesPaper, finish: settings.finish.styleSheet,
                 code: settings.code)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
@@ -1158,7 +1160,9 @@ public final class DocumentRenderer {
             text = try await finished(text, fragment: fragment, source: source, settings: settings)
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
-                theme: settings.theme, format: source.format, baseURL: directory, textScale: settings.textScale,
+                theme: settings.theme, format: source.format, baseURL: directory,
+                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code,
+                textScale: settings.textScale,
                 pageSize: pageSize, margins: margins, pixelsPerPoint: WebPaginator.printPixelsPerPoint)
             // A paper that cannot be drawn leaves the text on white, as a theme without one; a cancelled render stops.
             let paper: WebPaginator.Result
@@ -1281,6 +1285,7 @@ public final class DocumentRenderer {
             title: PaperContents.title(language: settings.pageLanguage))
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
+            language: settings.pageLanguage,
             textScale: settings.textScale, removesPaper: separatesPaper)
         let script = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script
         return try await paginate(
@@ -1425,8 +1430,12 @@ public final class DocumentRenderer {
             let directory = source.fileURL?.deletingLastPathComponent()
             func request(_ body: String) -> PaginationRequest {
                 let html = HTMLDocumentBuilder.build(
-                    fragment: HTMLFragment(body: body, title: fragment.title), format: source.format,
-                    theme: settings.theme, baseURL: directory, textScale: settings.textScale,
+                    fragment: HTMLFragment(
+                        body: body, title: fragment.title,
+                        language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code),
+                    format: source.format,
+                    theme: settings.theme, baseURL: directory, language: settings.pageLanguage,
+                    textScale: settings.textScale,
                     removesPaper: WebPaginator.drawsClearPages, finish: settings.finish.styleSheet, code: settings.code)
                 return PaginationRequest(
                     source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,

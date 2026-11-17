@@ -25,7 +25,7 @@ public enum OrgConverter {
         let fonts = MathRenderer.fontFaces(for: html)
         return HTMLFragment(
             body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"),
-            title: parser.context.metadata["TITLE"])
+            title: parser.context.metadata["TITLE"], language: parser.context.metadata["LANGUAGE"])
     }
 }
 
