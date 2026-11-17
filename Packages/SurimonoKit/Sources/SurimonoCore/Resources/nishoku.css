@@ -13,7 +13,7 @@ li::marker { color: #c7321f; }
 pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; border: 1pt solid #17358c; }
 th, td { border: 0.75pt solid #17358c; padding: 0.3em 0.6em; }
 th { background: #17358c; color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left: 3pt solid #c7321f; }
+blockquote { border-inline-start: 3pt solid #c7321f; }
 hr { border: none; border-top: 2pt solid #c7321f; margin: 1.4em 0; }
 a { color: #17358c; }
 :root {

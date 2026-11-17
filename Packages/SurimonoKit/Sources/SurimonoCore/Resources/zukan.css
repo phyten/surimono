@@ -2,7 +2,7 @@
 body { font-family: "Hiragino Maru Gothic ProN", sans-serif; font-size: 11pt; line-height: 1.85; color: #22302a; }
 body > :first-child { margin-top: 0; }
 h1, h2, h3, h4, h5, h6 { color: #2f6b4f; line-height: 1.4; margin: 1.2em 0 0.5em; }
-h1 { font-size: 1.9em; padding: 0.2em 0.6em; border-left: 8pt solid #2f6b4f; background: #eef6f1;
+h1 { font-size: 1.9em; padding: 0.2em 0.6em; border-inline-start: 8pt solid #2f6b4f; background: #eef6f1;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 h2 { font-size: 1.35em; padding-bottom: 0.15em; border-bottom: 2pt dotted #2f6b4f; }
 h2::before { content: "● "; color: #a2520f; font-size: 0.7em; vertical-align: 0.15em; }
@@ -16,7 +16,7 @@ figcaption, img + em { display: block; width: fit-content; max-width: 100%; box-
 pre { font-size: 9pt; line-height: 1.5; padding: 0.6em 0.8em; background: #f1f7f3; border-radius: 6pt; }
 th, td { border: 0.75pt solid #9dbcab; padding: 0.3em 0.6em; }
 th { background: #e6f1ea; color: #2f6b4f; }
-blockquote { border-left: 4pt solid #9dbcab; }
+blockquote { border-inline-start: 4pt solid #9dbcab; }
 hr { border: none; border-top: 2pt dotted #9dbcab; margin: 1.4em 0; }
 a { color: #2f6b4f; }
 pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

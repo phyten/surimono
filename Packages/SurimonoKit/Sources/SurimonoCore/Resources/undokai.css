@@ -18,7 +18,7 @@ pre { font-size: 8.8pt; line-height: 1.5; padding: 0.6em 0.8em; background: #eef
 table { width: 100%; }
 th, td { border: 0.75pt solid #9db8d9; padding: 0.3em 0.6em; }
 th { background: #1d4f91; color: #fff; }
-blockquote { border-left: 4pt solid #c21f30; }
+blockquote { border-inline-start: 4pt solid #c21f30; }
 hr { border: none; border-top: 2pt dotted #1d4f91; margin: 1.4em 0; }
 a { color: #1d4f91; }
 pre, th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }

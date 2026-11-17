@@ -9,12 +9,12 @@ h3, h4, h5, h6 { font-size: 0.9em; color: #666; }
 p { margin: 1.2em 0; }
 ul, ol { list-style: none; padding: 0; margin: 1.2em 0; }
 li + li { margin-top: 0.4em; }
-li.task-list-item input { margin-right: 0.5em; }
+li.task-list-item input { margin-inline-end: 0.5em; }
 table { margin: 1.2em auto; }
 th, td { border: none; border-bottom: 0.25pt solid #bbb; padding: 0.3em 1em; letter-spacing: normal; }
 th { font-weight: 500; color: #555; }
-pre { text-align: left; font-size: 9pt; line-height: 1.6; letter-spacing: normal; }
-blockquote { border-left: none; padding: 0; color: #555; margin-inline: 0; }
+pre { text-align: start; font-size: 9pt; line-height: 1.6; letter-spacing: normal; }
+blockquote { border-inline-start: none; padding: 0; color: #555; margin-inline: 0; }
 hr { border: none; text-align: center; height: auto; margin: 2.2em 0; }
 hr::after { content: "・"; color: #888; }
 a { color: inherit; }
@@ -23,4 +23,4 @@ a { color: inherit; }
     --callout-plain: #555555; --callout-tint-amount: 0%; --callout-frame: 0.5pt;
 }
 .callout { --callout-tag-fill: var(--callout-paper); --callout-tag-ink: var(--callout-color); }
-.callout { text-align: left; letter-spacing: normal; }
+.callout { text-align: start; letter-spacing: normal; }

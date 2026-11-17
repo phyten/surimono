@@ -9,7 +9,7 @@ li { margin: 0.2em 0; }
 pre { font-size: 12pt; line-height: 1.5; }
 code { font-size: 0.95em; }
 th, td { border-color: #000; padding: 0.35em 0.6em; }
-blockquote { border-left-color: #000; }
+blockquote { border-inline-start-color: #000; }
 /* Comments and notes stay dark enough to read at this size. */
 :root { --hl-comment: #333; }
 :root { --callout-frame: 1pt; }

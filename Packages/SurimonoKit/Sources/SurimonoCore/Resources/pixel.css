@@ -35,7 +35,7 @@ pre { font-size: 9pt; line-height: 1.55; padding: 0.6em 0.9em; border: 2pt solid
 code { font-size: 1em; }
 th, td { border: 2pt solid #111; }
 th { background: #e3f0e3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-blockquote { border-left: 4pt solid #111; }
+blockquote { border-inline-start: 4pt solid #111; }
 img { border: 2pt solid #111; }
 hr { border: none; height: 4pt; margin: 1.2em 0; background: repeating-linear-gradient(to right, #111 0, #111 4pt, transparent 4pt, transparent 8pt); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 :root {

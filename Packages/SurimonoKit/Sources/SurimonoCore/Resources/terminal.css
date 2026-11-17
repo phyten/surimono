@@ -10,16 +10,16 @@ h3::before { content: "### "; color: #1f7a3a; }
 h4::before, h5::before, h6::before { content: "> "; color: #8a5a00; }
 h2 { font-size: 1.15em; }
 p { margin: 0.5em 0; }
-ul, ol { margin: 0.4em 0; padding-left: 2.2em; }
+ul, ol { margin: 0.4em 0; padding-inline-start: 2.2em; }
 ul > li { list-style: none; position: relative; }
-ul > li:not(.task-list-item)::before { content: "-"; color: #1f7a3a; position: absolute; left: -1.3em; }
+ul > li:not(.task-list-item)::before { content: "-"; color: #1f7a3a; position: absolute; inset-inline-start: -1.3em; }
 ol > li::marker { color: #1f7a3a; }
 strong { color: #000; }
 em { font-style: normal; text-decoration: underline; text-decoration-color: #8a5a00; }
 code { font-size: 1em; }
 :not(pre) > code::before, :not(pre) > code::after { content: "`"; color: #8a5a00; }
-pre { font-size: 9pt; line-height: 1.5; border: 0.75pt solid #222; border-left: 3pt solid #1f7a3a; padding: 0.5em 0.8em; }
-blockquote { border-left: none; padding-left: 0; margin-inline: 0; color: #444; }
+pre { font-size: 9pt; line-height: 1.5; border: 0.75pt solid #222; border-inline-start: 3pt solid #1f7a3a; padding: 0.5em 0.8em; }
+blockquote { border-inline-start: none; padding-inline-start: 0; margin-inline: 0; color: #444; }
 blockquote::before { content: "/* "; color: #6b6b6b; }
 blockquote::after { content: " */"; color: #6b6b6b; }
 table { margin: 0.7em 0; }

@@ -17,16 +17,16 @@ h2::before { content: "▸ "; }
 h3 { font-size: 1.1em; margin: 1.1em 0 0.4em; border-bottom: 0.5pt dashed #4a7fc1; display: table; }
 h4, h5, h6 { font-size: 1em; margin: 0.9em 0 0.3em; }
 p { margin: 0.5em 0; }
-ul, ol { margin: 0.4em 0; padding-left: 1.6em; }
+ul, ol { margin: 0.4em 0; padding-inline-start: 1.6em; }
 li::marker { color: #1d4e89; }
 a { color: #1d4e89; }
 code { font-size: 0.88em; color: #1d4e89; }
-pre { font-size: 8.8pt; line-height: 1.5; background: white; border: 0.75pt solid #4a7fc1; border-left: 3pt solid #1d4e89; padding: 0.6em 0.8em; }
+pre { font-size: 8.8pt; line-height: 1.5; background: white; border: 0.75pt solid #4a7fc1; border-inline-start: 3pt solid #1d4e89; padding: 0.6em 0.8em; }
 pre code { color: #10243e; }
 table { margin: 0.8em 0; background: white; border: 1.2pt solid #1d4e89; }
 th, td { border: 0.5pt solid #4a7fc1; }
 th { color: #1d4e89; font-family: "Avenir Next Condensed", "Hiragino Sans", sans-serif; text-transform: uppercase; letter-spacing: 0.04em; }
-blockquote { border-left: 2pt dashed #4a7fc1; color: #22406a; }
+blockquote { border-inline-start: 2pt dashed #4a7fc1; color: #22406a; }
 hr { border: none; border-top: 1pt dashed #4a7fc1; margin: 1.4em 0; }
 :root {
     --callout-info: #1d4e89; --callout-success: #1f6b5a; --callout-warning: #7a5a10; --callout-danger: #a8322a;

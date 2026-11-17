@@ -10,7 +10,7 @@ h4, h5, h6 { font-size: 1em; }
 p, ul, ol, table, pre { margin: 0.6em 0; }
 pre { font-size: 11pt; line-height: 1.5; padding: 0.6em 0.8em; border: 2pt solid #8c3a12; border-radius: 6pt; }
 th, td { border: 1.5pt solid #8c3a12; padding: 0.3em 0.6em; }
-blockquote { border-left: 6pt solid #1d5f7a; }
+blockquote { border-inline-start: 6pt solid #1d5f7a; }
 hr { border: none; border-top: 4pt dotted #8c3a12; margin: 1.2em 0; }
 a { color: #1d5f7a; }
 :root {
