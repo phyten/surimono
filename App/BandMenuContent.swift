@@ -275,6 +275,8 @@ struct BandMoreButton<Items: View>: View {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        // A borderless control takes the window's tint, and indigo on the band means "open" or "chosen".
+        .tint(PrintPalette.ink)
         .fixedSize()
     }
 }

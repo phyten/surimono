@@ -18,7 +18,7 @@ private struct PinToggleStyle: ToggleStyle {
             configuration.isOn.toggle()
         } label: {
             PinGlyph(isPinned: configuration.isOn)
-                .foregroundStyle(configuration.isOn ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
+                .foregroundStyle(configuration.isOn ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
                 // The whole square takes the click, not only the strokes of the outline.
                 .frame(width: 22, height: 22)
                 .contentShape(Rectangle())

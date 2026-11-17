@@ -62,6 +62,8 @@ struct ViewModeView: View {
         .coordinateSpace(name: BandAnchors.coordinateSpace)
         .ignoresSafeArea()
         .background(Color(nsColor: .underPageBackgroundColor))
+        // Indigo marks what is chosen in every mode of a document window, so that vermilion alone means Print.
+        .tint(PrintPalette.aiControl)
         .animation(.easeOut(duration: 0.16), value: menu.stage)
         .animation(.easeOut(duration: 0.2), value: model.showsOutlineDrawer)
         .animation(.easeOut(duration: 0.2), value: model.isReviewingSmartRemoval)

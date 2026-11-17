@@ -70,7 +70,7 @@ struct BandAdditionalPart: View {
                 perform(entry.id)
             } label: {
                 label(entry)
-                    .foregroundStyle(isOpen ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
+                    .foregroundStyle(isOpen ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
             }
         }
     }
@@ -169,14 +169,14 @@ extension BandLayout.Item {
     }
 }
 
-/// Match the pin: ordinary ink off, accent on, with AppKit dimming only disabled controls.
+/// Match the pin: ordinary ink off, indigo on, with AppKit dimming only disabled controls.
 private struct BandPartToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button {
             configuration.isOn.toggle()
         } label: {
             configuration.label
-                .foregroundStyle(configuration.isOn ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
+                .foregroundStyle(configuration.isOn ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

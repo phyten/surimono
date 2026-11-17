@@ -59,10 +59,8 @@ struct PrintFinishSheet: View {
             }
         }
         .foregroundStyle(PrintPalette.ink)
-        // From the view mode the settings sit among the system's controls, so they take its accent.
-        .tint(isInPopover ? Color.accentColor : PrintPalette.ai)
-        .environment(\.printAccent, isInPopover ? Color.accentColor : PrintPalette.ai)
-        .environment(\.printAccentInk, isInPopover ? Color.white : PrintPalette.raised)
+        // The view mode's standard controls draw white text on their fill, which needs the darker night indigo.
+        .tint(isInPopover ? PrintPalette.aiControl : PrintPalette.ai)
         .clearsInitialFocus()
         .onAppear { customLine = model.printFinish.breaks.customLine }
     }

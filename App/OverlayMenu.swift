@@ -537,7 +537,8 @@ struct StyleMenu: View {
                     label
                     BandMenuChevron()
                 }
-                .foregroundStyle(model.isThemePalettePresented ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
+                .foregroundStyle(
+                    model.isThemePalettePresented ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
             }
             .fixedSize()
             .help("Style")
