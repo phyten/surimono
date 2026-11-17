@@ -69,18 +69,6 @@ struct MarginField: View {
     private var stepBase: Double { millimeters ?? stepperMillimeters ?? 0 }
 }
 
-/// The document's margins in one field, for the view options and the print screen.
-struct MarginControl: View {
-    @Bindable var model: DocumentViewModel
-
-    var body: some View {
-        MarginField(
-            title: MarginUnit.current.fieldTitle, millimeters: model.printOptions.margins.uniformValue,
-            stepperMillimeters: model.printOptions.margins.top, unit: .current
-        ) { model.setMargins($0) }
-    }
-}
-
 /// The margin presets as a submenu of the "…" menu, with the current value checked. The choices are stored
 /// millimeters, so choosing a preset always sets it, also when the current margin shows like it.
 struct MarginMenu: View {

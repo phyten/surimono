@@ -1,7 +1,9 @@
 import SurimonoCore
 import SwiftUI
 
-// Frequent choices stay on the band; this popover keeps the remaining document values under the strip of spreads.
+// Frequent choices stay on the band; this popover keeps the rest of how the pages stand on screen, under the strip of
+// spreads. Nothing here changes the printed pages: the paper series, the margins, the text size and the setting sets
+// have their places on the print screen, in the print settings, in the style list and in the menus.
 struct ViewOptionsPopover: View {
     @Bindable var model: DocumentViewModel
     /// The longest row label and the widest value control in the current language, measured out of sight.
@@ -11,7 +13,7 @@ struct ViewOptionsPopover: View {
     /// The widest the popover gets; a narrower content makes it narrower, so that it covers no more of the page than
     /// its rows need.
     private static let maximumWidth: CGFloat = 560
-    /// Room for the title, the file name and the close button, and for the row of the reset and the setting sets.
+    /// Room for the title, the file name and the close button.
     private static let minimumWidth: CGFloat = 340
     private static let padding: CGFloat = 16
     private static let columnSpacing: CGFloat = 12
@@ -19,7 +21,6 @@ struct ViewOptionsPopover: View {
     static let spreadMapLimit = 8
     private static let labels: [LocalizedStringKey] = [
         "Page Arrangement", "Reading Direction", "Scroll Direction", "Show First Page Alone", "Join Pages", "Toolbar",
-        "Paper Size Series", "Text Margins", "Text Size",
     ]
 
     /// Labels over their settings, where the longest label beside the widest setting would not fit the popover: a
@@ -47,7 +48,6 @@ struct ViewOptionsPopover: View {
                 PopoverCloseButton()
             }
             Grid(alignment: .leading, horizontalSpacing: Self.columnSpacing, verticalSpacing: stacksLabels ? 10 : 12) {
-                heading("On Screen")
                 // The pages as the options below arrange them: it changes as they do, with the current unit marked.
                 if !model.displayUnits.isEmpty {
                     // How the pages stand under these options; a click on one goes there, but it arranges nothing.
@@ -78,38 +78,17 @@ struct ViewOptionsPopover: View {
                     }
                 }
                 row("Toolbar") { BandVisibilityPicker(selection: $model.bandVisibility) }
-                // The paper series decides the paper the document prints on as well, so it goes with the text.
-                if model.offersPaperSeries || model.marginsApply || model.usesPrintTheme {
-                    heading("Paper and Text")
-                }
-                if model.offersPaperSeries {
-                    row("Paper Size Series") { paperSeriesPicker(seriesBinding) }
-                }
-                if model.marginsApply {
-                    row("Text Margins") { MarginControl(model: model) }
-                }
-                if model.usesPrintTheme {
-                    row("Text Size") {
-                        TextSizeField(title: "Text Size", scale: model.textScale) { model.setTextScale($0) }
-                    }
-                }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Divider()
-            HStack(spacing: 8) {
-                // The setting sets are a separate, stronger choice on the other side.
-                // Only a document with settings of its own has something to reset; a dimmed link read as broken.
-                if model.hasSavedSettings {
-                    Button("Reset This Document") { model.resetDocumentSettings() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12))
-                        .foregroundStyle(PrintPalette.ai)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 8)
-                SettingSetMenu(preferences: model.preferences, library: model.library, model: { model })
-                    .fixedSize()
+            // Only a document with settings of its own has something to reset; a dimmed link read as broken.
+            if model.hasSavedSettings {
+                Divider()
+                Button("Reset This Document") { model.resetDocumentSettings() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12))
+                    .foregroundStyle(PrintPalette.ai)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(Self.padding)
@@ -151,25 +130,6 @@ struct ViewOptionsPopover: View {
         }
     }
 
-    private func heading(_ key: LocalizedStringKey) -> some View {
-        Text(key)
-            .font(.system(size: 13, weight: .bold))
-            .padding(.top, 4)
-            .gridCellColumns(stacksLabels ? 1 : 2)
-            .gridCellAnchor(.leading)
-    }
-
-    private var seriesBinding: Binding<PaperSeries> {
-        Binding(get: { model.layout.series }, set: { model.choosePaperSeries($0) })
-    }
-
-    /// Named as the print screen's menu names the series ("A Sizes"), so that the two places agree.
-    private func paperSeriesPicker(_ selection: Binding<PaperSeries>) -> some View {
-        Picker("Paper Size Series", selection: selection) {
-            ForEach(PaperSeries.allCases, id: \.self) { Text($0.shortTitle).tag($0) }
-        }
-    }
-
     private func directionPicker(_ selection: Binding<ViewOptions.Direction>) -> some View {
         Picker("Reading Direction", selection: selection) {
             Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
@@ -196,7 +156,6 @@ struct ViewOptionsPopover: View {
                 directionPicker(.constant(.leftToRight)).fixedSize()
                 NarrowestWidth { BandVisibilityPicker(selection: .constant(.always)).pickerStyle(.segmented) }
                     .fixedSize()
-                NarrowestWidth { paperSeriesPicker(.constant(.a)).pickerStyle(.segmented) }.fixedSize()
             }
             .labelsHidden()
             .fixedSize()
