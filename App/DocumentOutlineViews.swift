@@ -4,6 +4,7 @@ import SwiftUI
 /// The headings of the document, deepest indented, with the chapter being read picked out.
 private struct OutlineList: View {
     @Bindable var model: DocumentViewModel
+    @State private var isHovered = false
 
     var body: some View {
         let entries = model.outlineEntries
@@ -12,16 +13,35 @@ private struct OutlineList: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 1) {
-                    ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
-                        OutlineRow(entry: entry, indent: entry.level - top, isCurrent: index == current) {
+                    if model.outlineFilter.matches.isEmpty {
+                        Text("No Matching Headings").font(.system(size: 13)).foregroundStyle(PrintPalette.ink2)
+                            .padding(.vertical, 8)
+                    }
+                    ForEach(model.outlineFilter.matches, id: \.self) { index in
+                        let entry = entries[index]
+                        OutlineRow(
+                            entry: entry, indent: model.outlineFilter.query.isEmpty ? entry.level - top : 0,
+                            isCurrent: index == current,
+                            isSelected: !model.outlineFilter.query.isEmpty && model.outlineFilter.selection == index
+                        ) {
+                            model.outlineFilter.setQuery("", entries: entries)
                             model.goToOutlineEntry(entry)
+                            model.paper.focus()
                         }
                         .id(index)
                     }
                 }
             }
             .onAppear {
-                if let current { proxy.scrollTo(current, anchor: .center) }
+                if model.outlineFilter.query.isEmpty, let current { proxy.scrollTo(current, anchor: .center) }
+            }
+            .onHover { isHovered = $0 }
+            .onChange(of: current) { _, value in
+                guard model.outlineFilter.query.isEmpty, !isHovered, let value else { return }
+                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(value, anchor: .center) }
+            }
+            .onChange(of: model.outlineFilter.selection) { _, value in
+                if !model.outlineFilter.query.isEmpty, let value { proxy.scrollTo(value, anchor: .center) }
             }
         }
         .accessibilityLabel("Contents")
@@ -32,14 +52,16 @@ private struct OutlineRow: View {
     let entry: OutlineEntry
     let indent: Int
     let isCurrent: Bool
+    let isSelected: Bool
     let onSelect: () -> Void
     @State private var isHovered = false
     @Environment(\.colorScheme) private var colorScheme
 
-    init(entry: OutlineEntry, indent: Int, isCurrent: Bool, onSelect: @escaping () -> Void) {
+    init(entry: OutlineEntry, indent: Int, isCurrent: Bool, isSelected: Bool, onSelect: @escaping () -> Void) {
         self.entry = entry
         self.indent = indent
         self.isCurrent = isCurrent
+        self.isSelected = isSelected
         self.onSelect = onSelect
     }
 
@@ -64,9 +86,11 @@ private struct OutlineRow: View {
             .background {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(
-                        isCurrent
-                            ? Color.accentColor.opacity(colorScheme == .dark ? 0.28 : 0.16)
-                            : isHovered ? PrintPalette.hover : .clear)
+                        isSelected
+                            ? PrintPalette.hover
+                            : isCurrent
+                                ? Color.accentColor.opacity(colorScheme == .dark ? 0.28 : 0.16)
+                                : isHovered ? PrintPalette.hover : .clear)
             }
             .contentShape(Rectangle())
         }
@@ -90,6 +114,9 @@ struct OutlinePopover: View {
                 Spacer(minLength: 0)
                 PopoverCloseButton()
             }
+            if OutlineFilterState.showsField(count: model.outlineEntries.count) {
+                OutlineSearchField(model: model, autofocus: true).frame(height: 28)
+            }
             OutlineList(model: model)
                 .frame(height: min(CGFloat(model.outlineEntries.count) * Self.rowHeight, Self.maximumListHeight))
         }
@@ -107,6 +134,9 @@ struct OutlineDrawer: View {
         SidePanel("Contents") {
             PanelIconButton("xmark", label: "Close") { model.isOutlineDrawerOpen = false }
         } content: {
+            if OutlineFilterState.showsField(count: model.outlineEntries.count) {
+                OutlineSearchField(model: model, autofocus: false).frame(height: 28)
+            }
             OutlineList(model: model)
         }
     }

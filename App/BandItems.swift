@@ -40,6 +40,7 @@ extension BandLayout.Item {
             case .pageIndicator: model.pageIndicator != nil
             case .style: paper && (model.usesPrintTheme || model.usesHTMLPreset)
             // Whether the band shows them is the arrangement's business; these say only what the document allows.
+            case .chapter: paper && model.hasOutline && model.chapterEntries.contains { $0.pageIndex != nil }
             case .outline: model.hasOutline
             case .pageTurn: paper && model.pageCount > 1
             case .zoom: paper ? model.zoom > 1.001 : abs(model.webZoom - 1) > 0.001
@@ -63,6 +64,7 @@ struct BandItemView: View {
     @Bindable var model: DocumentViewModel
     let item: BandLayout.Item
     let form: BandLayout.Form
+    var trailing = false
 
     var body: some View {
         switch item {
@@ -73,6 +75,7 @@ struct BandItemView: View {
             } else {
                 FormatBadge(text: model.formatBadge)
             }
+        case .chapter: CurrentChapterButton(model: model, trailing: trailing)
         case .pageIndicator: PageIndicatorButton(model: model)
         case .pageTurn: PageTurnButtons(model: model)
         case .outline: OutlineButton(model: model, showsName: form == .full)

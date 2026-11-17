@@ -78,7 +78,8 @@ struct BandArrangementStoreTests {
         try store.overwrite(.user(id), layouts: layouts)
         #expect(store.active == .user(id))
         #expect(store.sets.first?.id == id && store.sets.first?.name == "Book")
-        #expect(store.activeLayouts.split.bottomRight.compactMap(\.item) == [.pageIndicator, .pageTurn, .print])
+        #expect(
+            store.activeLayouts.split.bottomRight.compactMap(\.item) == [.chapter, .pageIndicator, .pageTurn, .print])
         #expect(throws: BandArrangementStoreError.duplicateIdentity) {
             try store.insert(BandArrangementSet(id: id, name: "Other"))
         }
@@ -131,7 +132,8 @@ struct BandArrangementStoreTests {
         #expect(loaded.store.sets.map(\.name) == ["Reading", "Second"])
         #expect(loaded.store.active == .user(id))
         #expect(loaded.store.sets[0].layouts.split.topLeft.compactMap(\.item) == [.style])
-        #expect(loaded.store.sets[0].layouts.top.topLeft.compactMap(\.item) == [.formatBadge, .pageIndicator])
+        #expect(
+            loaded.store.sets[0].layouts.top.topLeft.compactMap(\.item) == [.formatBadge, .pageIndicator, .chapter])
         #expect(loaded.notices.contains(.invalidRecord(1)) && loaded.notices.contains(.invalidRecord(2)))
         #expect(loaded.notices.contains(.recoveredVariant(.top)))
         let roundTrip = BandArrangementStore.load(try JSONEncoder().encode(loaded.store))

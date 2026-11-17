@@ -769,6 +769,23 @@ struct ViewBandTests {
         #expect(BandLayout.Item.applicable(for: model).contains(.outline))
     }
 
+    @Test("最初の章より前は今の章の題名が空でも部品を置ける")
+    func beforeFirstChapter() async throws {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let model = environment.model(
+            Data("# First Chapter\n\nbody\n\n# Second Chapter\n\nbody".utf8), format: .markdown,
+            pages: TestFixtures.textPDF(["Cover", "First Chapter", "Second Chapter"]))
+        defer { model.stop() }
+        try await open(model)
+        try await waitUntil { !model.outlineEntries.isEmpty }
+        model.viewOptions.layout = .single
+        model.currentPageIndex = 0
+        #expect(BandLayout.Item.applicable(for: model).contains(.chapter))
+        #expect(model.currentChapterTitle.isEmpty)
+        #expect(!BandLayout.Item.chapter.hasCompactForm)
+    }
+
     @Test("刷り台で冊子に組み直して表示へ戻ると、組み直さなくても目次は冊子のページを指す", .timeLimit(.minutes(1)))
     func outlineFollowsTrayLayout() async throws {
         let environment = Environment()
@@ -831,6 +848,7 @@ struct ViewBandTests {
         try await open(model)
         try await waitUntil { model.documentStatistics != nil }
         #expect(!model.hasOutline)
+        #expect(!BandLayout.Item.applicable(for: model).contains(.chapter))
         #expect(!BandLayout.Item.applicable(for: model).contains(.outline))
     }
 

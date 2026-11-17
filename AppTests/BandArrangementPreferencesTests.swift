@@ -17,7 +17,7 @@ struct BandArrangementPreferencesTests {
         #expect(preferences.bandArrangementStore.sets == [])
         #expect(
             preferences.bandArrangementStore.activeLayouts.top.topLeft.compactMap(\.item) == [
-                .formatBadge, .pageIndicator,
+                .formatBadge, .pageIndicator, .chapter,
             ])
         #expect(preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems)
         #expect(preferences.menuArrangement == .top && preferences.showsOutlineOnBand)
@@ -62,12 +62,12 @@ struct BandArrangementPreferencesTests {
             migrated.layouts.split.bottomLeft.compactMap(\.item) == [
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails,
             ])
-        #expect(migrated.layouts.split.unused == BandTestCatalog.addedItems + [.outline])
+        #expect(migrated.layouts.split.unused == BandTestCatalog.addedItems + [.outline, .chapter])
         #expect(
             migrated.layouts.top.topRight.compactMap(\.item) == [
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print,
             ])
-        #expect(migrated.layouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems + [.outline])
+        #expect(migrated.layouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems + [.outline, .chapter])
         #expect(!preferences.showsOutlineOnBand)
         #expect(defaults.data(forKey: "bandArrangementStore") == nil)
         #expect(AppPreferences(defaults: suite.defaults).bandArrangementStore.sets.first?.id == migrated.id)

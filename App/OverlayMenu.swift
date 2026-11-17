@@ -315,9 +315,10 @@ struct BandPart: View {
     @Bindable var model: DocumentViewModel
     let item: BandLayout.Item
     let form: BandLayout.Form
+    var trailing = false
 
     var body: some View {
-        BandItemView(model: model, item: item, form: form)
+        BandItemView(model: model, item: item, form: form, trailing: trailing)
             .bandAnchor(.item(item), in: model.bandAnchors)
             // Only the part on the band: `BandMeasurements` draws another one out of sight.
             .onGeometryChange(for: CGRect.self) {
@@ -348,13 +349,13 @@ func bandParts(_ items: [BandLayout.Item], row: BandRowPlan, model: DocumentView
         let form = row.forms[item] ?? .full
         if geometry.usesStandardSpacing {
             if separated { BandSeparator() }
-            BandPart(model: model, item: item, form: form)
+            BandPart(model: model, item: item, form: form, trailing: row.trailing.contains(item))
         } else {
             let gap = geometry.gapsBefore[item] ?? 0
             HStack(spacing: 0) {
                 if separated { BandSeparator().padding(.leading, gap) }
                 // A separator's width is its line and the room after it.
-                BandPart(model: model, item: item, form: form)
+                BandPart(model: model, item: item, form: form, trailing: row.trailing.contains(item))
                     .padding(.leading, separated ? max(geometry.separatorWidth - 1, 0) : gap)
             }
         }

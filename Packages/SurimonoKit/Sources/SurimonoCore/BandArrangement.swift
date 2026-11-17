@@ -101,12 +101,12 @@ public struct BandArrangement: Codable, Equatable, Sendable {
                     .part(.presentation), .separator, .part(.style), .part(.outline), .separator,
                     .part(.layout), .part(.transition), .separator, .part(.zoom), .part(.thumbnails),
                 ],
-                .bottomRight: [.part(.pageIndicator), .part(.pageTurn)],
+                .bottomRight: [.part(.chapter), .part(.pageIndicator), .part(.pageTurn)],
             ])
         case .top:
             arrangement = Self(
                 entries: [
-                    .topLeft: [.part(.formatBadge), .part(.pageIndicator)],
+                    .topLeft: [.part(.formatBadge), .part(.pageIndicator), .part(.chapter)],
                     .topRight: [
                         .part(.presentation), .separator, .part(.style), .part(.outline), .separator,
                         .part(.layout), .part(.transition), .separator, .part(.zoom), .part(.thumbnails),

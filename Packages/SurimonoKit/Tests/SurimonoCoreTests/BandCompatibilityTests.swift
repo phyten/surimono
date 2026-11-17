@@ -77,7 +77,7 @@ struct BandCompatibilityTests {
     @Test("v0.30.0の領域と区切りと未使用順と全セットの識別子と名前と選択を変えずに読む")
     func oldStore() throws {
         let data = Data(oldJSON.utf8)
-        let loaded = BandArrangementStore.load(data)
+        let loaded = BandArrangementStore.load(data, knownItems: oldItems + BandLayoutTests.addedItems)
         #expect(loaded.retainedData == nil)
         #expect(
             loaded.notices
@@ -102,7 +102,8 @@ struct BandCompatibilityTests {
                 #expect(newLayout.unused == oldLayout.unused + BandLayoutTests.addedItems.map(\.rawValue))
             }
         }
-        let again = BandArrangementStore.load(try JSONEncoder().encode(loaded.store))
+        let again = BandArrangementStore.load(
+            try JSONEncoder().encode(loaded.store), knownItems: oldItems + BandLayoutTests.addedItems)
         #expect(again.store == loaded.store)
         #expect(again.notices == [])
     }
@@ -160,7 +161,7 @@ struct BandCompatibilityTests {
         let old = BandArrangementStore.load(data, knownItems: oldItems)
         let encoded = try JSONEncoder().encode(old.store)
         #expect(try raw(encoded) == raw(data))
-        let current = BandArrangementStore.load(encoded)
+        let current = BandArrangementStore.load(encoded, knownItems: oldItems + BandLayoutTests.addedItems)
         #expect(try saved(current.store).sets[0] == raw(data).sets[0])
         #expect(current.store.sets[1].layouts.split.unused == BandLayoutTests.addedItems)
         #expect(current.store.sets[1].layouts.top.unused == BandLayoutTests.addedItems)
@@ -215,7 +216,8 @@ struct BandCompatibilityTests {
         let copyID = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
         try store.insert(.init(id: copyID, name: "Copy", layouts: original), knownItems: oldItems)
         try store.overwrite(.user(secondID), layouts: original, knownItems: oldItems)
-        let restored = BandArrangementStore.load(try JSONEncoder().encode(store))
+        let restored = BandArrangementStore.load(
+            try JSONEncoder().encode(store), knownItems: oldItems + BandLayoutTests.addedItems)
         #expect(restored.store.sets.map(\.id) == [id, secondID, copyID])
         #expect(restored.store.sets.map(\.name) == ["Renamed", "Second", "Copy"])
         #expect(restored.store.active == .user(copyID))
@@ -257,7 +259,8 @@ struct BandCompatibilityTests {
             ])
         layouts.split = split
         try store.overwrite(.user(id), layouts: layouts, knownItems: oldItems)
-        let restored = BandArrangementStore.load(try JSONEncoder().encode(store))
+        let restored = BandArrangementStore.load(
+            try JSONEncoder().encode(store), knownItems: oldItems + BandLayoutTests.addedItems)
         let actual = try saved(restored.store)
         var expected = try raw(Data(futureJSON.utf8)).sets[0].layouts.split
         expected.topLeft = [

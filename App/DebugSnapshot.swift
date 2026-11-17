@@ -642,13 +642,18 @@
                 default: break
                 }
                 // The table of contents is read after the pages are laid out.
-                if ["toc", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer") {
+                if ["toc", "outline", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer") {
                     NotificationCenter.default.post(name: showMenu, object: model)
                     try? await Task.sleep(for: .milliseconds(600))
                     switch argument("SurimonoPopover") {
-                    case "toc": model.toggleOutline()
+                    case "toc", "outline": model.isOutlinePresented = true
                     case "stats": model.isFiguresPresented = true
-                    default: model.isOutlineDrawerOpen = true
+                    default:
+                        model.snapshotOutlineDrawer = true
+                        model.isOutlineDrawerOpen = true
+                    }
+                    if let query = argument("SurimonoOutlineFilter") {
+                        model.outlineFilter.setQuery(query, entries: model.outlineEntries)
                     }
                     try? await Task.sleep(for: .milliseconds(800))
                 }

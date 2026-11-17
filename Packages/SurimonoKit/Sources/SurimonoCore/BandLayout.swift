@@ -32,12 +32,13 @@ public enum BandLayout {
         case viewOptions = "viewOptions"
         case saveAsFile = "saveAsFile"
         case keysAndGestures = "keysAndGestures"
+        case chapter = "chapter"
 
         /// Tools of one group sit together, and a thin separator divides neighbouring groups. The title's parts and
         /// Print stand outside the groups.
         public var group: Int? {
             switch self {
-            case .formatBadge, .pageIndicator, .pageTurn, .print: nil
+            case .formatBadge, .pageIndicator, .pageTurn, .print, .chapter: nil
             case .presentation, .ignoreSlides: 0
             case .style, .outline: 1
             case .layout, .transition, .readingDirection, .scrollDirection, .cover: 2
@@ -88,7 +89,7 @@ public enum BandLayout {
     /// keeps the window on top is one small icon whose state shows at a glance, so it stays until only Print is left.
     public static let steps: [Step] = [
         .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
-        .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
+        .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
         .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
         .remove(.floatOnTop), .compact(.print),
     ]
@@ -96,7 +97,8 @@ public enum BandLayout {
     /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.
     public static let bottomSteps: [Step] = [
         .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
-        .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style), .remove(.outline),
+        .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
+        .remove(.outline),
         .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
     ]
 
@@ -256,7 +258,7 @@ public enum BandLayout {
                 .presentation, .thumbnails, .zoom, .floatOnTop, .pageIndicator,
             ]
         let added = additionalCompactOrder
-        return added.map { .compact($0) } + compact + added.map { .remove($0) }
+        return added.map { .compact($0) } + compact + [.remove(.chapter)] + added.map { .remove($0) }
             + removed.map { .remove($0) } + [.compact(.print)]
     }
 

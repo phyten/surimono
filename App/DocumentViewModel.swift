@@ -198,7 +198,13 @@ final class DocumentViewModel {
     let find = PaperFind()
     var isGoToPagePresented = false
     var isViewOptionsPresented = false
-    var isOutlinePresented = false
+    var isOutlinePresented = false {
+        didSet { if !isOutlinePresented { outlineFilter.setQuery("", entries: outlineEntries) } }
+    }
+    var outlineFilter = OutlineFilterState()
+    #if DEBUG
+        var snapshotOutlineDrawer = false
+    #endif
     var isOutlineDrawerOpen = false
     var isFiguresPresented = false
     var isPrintFinishPresented = false
@@ -407,7 +413,9 @@ final class DocumentViewModel {
     /// The changes of the last reload have not been brought to the reader's attention yet.
     @ObservationIgnored private var hasUnannouncedChanges = false
     /// The table of contents, with the page of each entry as laid out for reading.
-    private(set) var outlineEntries: [OutlineEntry] = []
+    private(set) var outlineEntries: [OutlineEntry] = [] {
+        didSet { outlineFilter.reload(entries: outlineEntries) }
+    }
     /// The amount of text; only documents laid out from text have one.
     private(set) var documentStatistics: DocumentStatistics?
     @ObservationIgnored private var structureTask: Task<Void, Never>?
@@ -1836,16 +1844,33 @@ final class DocumentViewModel {
     /// The live page has no pages to go to.
     var hasOutline: Bool { !outlineEntries.isEmpty && !showsWeb }
     var showsOutlineDrawer: Bool {
-        isOutlineDrawerOpen && hasOutline && preferences.outlinePresentation == .drawer
+        isOutlineDrawerOpen && hasOutline && usesOutlineDrawer
     }
+    var usesOutlineDrawer: Bool {
+        #if DEBUG
+            if snapshotOutlineDrawer { return true }
+        #endif
+        return preferences.outlinePresentation == .drawer
+    }
+
+    var chapterEntries: [OutlineEntry] {
+        let level = DocumentOutline.chapterLevel(of: outlineEntries.map(\.level))
+        return outlineEntries.filter { $0.level == level }
+    }
+
+    var currentChapterTitle: String {
+        DocumentOutline.currentChapter(in: outlineEntries, page: lastVisiblePageIndex)
+            .map { outlineEntries[$0].title } ?? ""
+    }
+
     var isOutlineShown: Bool { isOutlinePresented || showsOutlineDrawer }
 
     private static let outlineDrawerMinimumWindowWidth: CGFloat = 560
 
     func toggleOutline() {
-        switch preferences.outlinePresentation {
-        case .popover: isOutlinePresented.toggle()
-        case .drawer:
+        if !usesOutlineDrawer {
+            isOutlinePresented.toggle()
+        } else {
             // The drawer takes its width from the paper, which a narrow window does not have to spare.
             if (window?.frame.width ?? .infinity) < Self.outlineDrawerMinimumWindowWidth {
                 isOutlineDrawerOpen = false

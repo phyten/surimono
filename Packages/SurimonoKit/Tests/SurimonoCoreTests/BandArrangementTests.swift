@@ -94,7 +94,8 @@ struct BandArrangementTests {
         layout.bottomLeft = [.part(.style)]
         #expect(
             BandArrangementValidation.issues(in: layout, for: .top) == [
-                .duplicate(.formatBadge), .missing(.pageIndicator), .duplicate(.style), .printIsUnused,
+                .duplicate(.formatBadge), .missing(.pageIndicator), .duplicate(.style), .missing(.chapter),
+                .printIsUnused,
                 .bottomZoneInTopOnly(.bottomLeft),
             ])
     }
@@ -112,7 +113,7 @@ struct BandArrangementTests {
             result.arrangement.unused == [
                 .outline, .formatBadge, .pageIndicator, .presentation, .layout,
                 .transition, .thumbnails, .floatOnTop, .pageTurn,
-            ] + BandLayoutTests.addedItems)
+            ] + BandLayoutTests.addedItems + [.chapter])
         #expect(result.notices.contains(.restoredPrint))
     }
 

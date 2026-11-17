@@ -65,7 +65,7 @@ struct BandSeparatorTests {
             deleted.unused == [
                 .formatBadge, .pageIndicator, .presentation, .layout, .transition, .zoom, .thumbnails, .floatOnTop,
                 .pageTurn,
-            ] + BandLayoutTests.addedItems)
+            ] + BandLayoutTests.addedItems + [.chapter])
         #expect(
             try initial.movingEntry(at: 1, from: .zone(.topLeft), to: .zone(.topLeft), at: 1, for: .split) == initial)
         #expect(
@@ -79,7 +79,7 @@ struct BandSeparatorTests {
             try layout.insertingSeparator(at: -1, in: .topLeft, for: .top)
         }
         #expect(throws: BandArrangementMoveError.invalidIndex) {
-            try layout.removingSeparator(at: 2, in: .topLeft, for: .top)
+            try layout.removingSeparator(at: 3, in: .topLeft, for: .top)
         }
         #expect(throws: BandArrangementMoveError.notSeparator) {
             try layout.removingSeparator(at: 0, in: .topLeft, for: .top)
@@ -138,8 +138,8 @@ extension BandSeparatorTests {
                 "presentation", "@separator", "style", "outline", "@separator", "layout", "transition", "@separator",
                 "zoom", "thumbnails",
             ])
-        #expect(split.bottomRight == ["pageIndicator", "pageTurn"])
-        #expect(top.topLeft == ["formatBadge", "pageIndicator"])
+        #expect(split.bottomRight == ["chapter", "pageIndicator", "pageTurn"])
+        #expect(top.topLeft == ["formatBadge", "pageIndicator", "chapter"])
         #expect(
             top.topRight == [
                 "presentation", "@separator", "style", "outline", "@separator", "layout", "transition", "@separator",
@@ -167,7 +167,10 @@ extension BandSeparatorTests {
             try layout.insertingSeparator(at: 0, in: .topLeft, for: .top)
         }
         let repaired = BandArrangementRepair.repair(StoredBandArrangement(layout), for: .top)
-        #expect(repaired.arrangement.topLeft == [.part(.formatBadge), .part(.pageIndicator), .separator, .separator])
+        #expect(
+            repaired.arrangement.topLeft == [
+                .part(.formatBadge), .part(.pageIndicator), .part(.chapter), .separator, .separator,
+            ])
         #expect(repaired.arrangement.bottomLeft == [])
         #expect(BandArrangementValidation.issues(in: repaired.arrangement, for: .top) == [])
         #expect(BandArrangementRepair.repair(repaired.stored, for: .top).arrangement == repaired.arrangement)
