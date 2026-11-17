@@ -214,4 +214,48 @@ struct DocumentOutlineTests {
         #expect(DocumentStatistics.duplexSheets(pageCount: 6) == 3)
         #expect(DocumentStatistics.duplexSheets(pageCount: 7) == 4)
     }
+    @Test("単独の表題を除き節ではなく章を選ぶ")
+    func currentChapterIgnoresSections() {
+        let entries: [OutlineEntry] = [
+            .init(level: 1, title: "題", pageIndex: 0), .init(level: 2, title: "甲", pageIndex: 1),
+            .init(level: 3, title: "節", pageIndex: 2), .init(level: 2, title: "乙", pageIndex: 4),
+        ]
+        #expect(DocumentOutline.currentChapter(in: entries, page: 0) == nil)
+        #expect(DocumentOutline.currentChapter(in: entries, page: 3) == 1)
+        #expect(DocumentOutline.currentChapter(in: entries, page: 4) == 3)
+    }
+
+    @Test("ページ不明の章を飛ばし同じページでは最後の章を選ぶ")
+    func currentChapterSkipsUnknown() {
+        let entries: [OutlineEntry] = [
+            .init(level: 1, title: "甲", pageIndex: 2), .init(level: 1, title: "乙", pageIndex: 2),
+            .init(level: 1, title: "不明", pageIndex: nil),
+        ]
+        #expect(DocumentOutline.currentChapter(in: entries, page: 1) == nil)
+        #expect(DocumentOutline.currentChapter(in: entries, page: 2) == 1)
+        #expect(DocumentOutline.currentChapter(in: entries, page: 10) == 1)
+    }
+
+    @Test("空の目次には今の章がない")
+    func currentChapterEmpty() {
+        #expect(DocumentOutline.currentChapter(in: [], page: 0) == nil)
+    }
+
+    @Test("今の章の題名はヘッダーの章と全ページで一致する")
+    func currentChapterMatchesFurniture() {
+        let entries: [OutlineEntry] = [
+            .init(level: 1, title: "題", pageIndex: 0), .init(level: 2, title: "甲", pageIndex: 1),
+            .init(level: 3, title: "節", pageIndex: 2), .init(level: 2, title: "乙", pageIndex: 3),
+            .init(level: 2, title: "丙", pageIndex: 3), .init(level: 2, title: "不明", pageIndex: nil),
+        ]
+        let titles = PageChapters.titles(
+            headings: entries.map { DocumentHeading(level: $0.level, text: $0.title) }, pages: entries.map(\.pageIndex),
+            pageCount: 5)
+        #expect(titles == ["", "甲", "甲", "丙", "丙"])
+        for page in 0..<5 {
+            #expect(
+                DocumentOutline.currentChapter(in: entries, page: page).map { entries[$0].title } ?? "" == titles[page])
+        }
+    }
+
 }

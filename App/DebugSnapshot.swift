@@ -588,6 +588,14 @@
                     window.setFrameTopLeftPoint(NSPoint(x: visible.minX + 40, y: visible.maxY - 20))
                     try? await Task.sleep(for: .milliseconds(800))
                 }
+                if let value = argument("SurimonoBookmarks") {
+                    for page in Set(value.split(separator: ",").compactMap { Int($0) }).sorted() {
+                        if !model.bookmarkPages.contains(page - 1) {
+                            model.toggleBookmark(page: page - 1, visiblePages: [page - 1])
+                        }
+                    }
+                    model.flushPendingSettings()
+                }
                 if let value = argument("SurimonoPage"), let page = Int(value) {
                     model.paper.goToPage(index: page - 1)
                     try? await Task.sleep(for: .milliseconds(300))
@@ -642,13 +650,18 @@
                 default: break
                 }
                 // The table of contents is read after the pages are laid out.
-                if ["toc", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer") {
+                if ["toc", "outline", "stats"].contains(argument("SurimonoPopover")) || flag("SurimonoOutlineDrawer") {
                     NotificationCenter.default.post(name: showMenu, object: model)
                     try? await Task.sleep(for: .milliseconds(600))
                     switch argument("SurimonoPopover") {
-                    case "toc": model.toggleOutline()
+                    case "toc", "outline": model.isOutlinePresented = true
                     case "stats": model.isFiguresPresented = true
-                    default: model.isOutlineDrawerOpen = true
+                    default:
+                        model.snapshotOutlineDrawer = true
+                        model.isOutlineDrawerOpen = true
+                    }
+                    if let query = argument("SurimonoOutlineFilter") {
+                        model.outlineFilter.setQuery(query, entries: model.outlineEntries)
                     }
                     try? await Task.sleep(for: .milliseconds(800))
                 }

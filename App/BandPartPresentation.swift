@@ -9,6 +9,7 @@ extension BandLayout.Item {
         case .pageIndicator: String(localized: "Page Indicator")
         case .presentation: String(localized: "Web or Paper")
         case .style: String(localized: "Style")
+        case .chapter: String(localized: "Current Chapter")
         case .outline: String(localized: "Contents")
         case .layout: String(localized: "View Type")
         case .transition: String(localized: "Page Turn")
@@ -41,6 +42,7 @@ extension BandLayout.Item {
         case .pageIndicator: String(localized: "Shows your page position; on paper, opens Document Info.")
         case .presentation: String(localized: "Switches an HTML document between web and paper views.")
         case .style: String(localized: "Chooses a print style or an HTML cleanup preset.")
+        case .chapter: String(localized: "Shows the chapter you are reading; opens Contents.")
         case .outline: String(localized: "Opens the document’s headings or PDF bookmarks.")
         case .layout: String(localized: "Switches between a single page and a spread.")
         case .transition: String(localized: "Chooses scrolling or a page-turn effect.")
@@ -73,6 +75,7 @@ extension BandLayout.Item {
         case .pageIndicator: String(localized: "Appears for documents with pages, and for slides on the web.")
         case .presentation: String(localized: "Appears only for HTML documents.")
         case .style: String(localized: "Appears for documents that use a print style or an HTML preset.")
+        case .chapter: String(localized: "Appears for documents with chapters.")
         case .outline: String(localized: "Appears for documents with headings or bookmarks.")
         case .layout, .transition: String(localized: "Appears on paper, not on a live web page.")
         case .zoom: String(localized: "Appears only while zoomed in.")
@@ -128,6 +131,7 @@ struct BandPartGlyph: View {
             Text(verbatim: "3 / 12").font(.system(size: 11)).monospacedDigit().foregroundStyle(PrintPalette.ink)
         case .presentation: Segments(symbols: ["globe", "doc.text"], selected: 1)
         case .style: WithChevron(symbol: "paintpalette")
+        case .chapter: symbol("text.book.closed")
         case .outline: symbol("list.bullet")
         case .layout:
             Segments(

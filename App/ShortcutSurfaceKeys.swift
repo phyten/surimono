@@ -4,6 +4,7 @@ import SurimonoCore
 /// Surface commands never acquire a menu equivalent: a bare key must not become window-wide through AppKit.
 enum ShortcutSurfaceKeys {
     static let paper: Set<ShortcutOperationID> = [
+        .readingBack, .readingForward, .bookmarkToggle, .bookmarkNext, .bookmarkPrevious,
         .viewToolbarToggle, .viewOptions, .viewSelectText, .readingLeft, .readingRight,
         .readingPrevious, .readingNext, .readingPageUp, .readingPageDown, .readingFirst, .readingLast,
     ]

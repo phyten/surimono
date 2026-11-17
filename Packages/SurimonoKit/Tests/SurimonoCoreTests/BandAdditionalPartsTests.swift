@@ -3,7 +3,7 @@ import SurimonoCore
 import Testing
 
 struct BandAdditionalPartsTests {
-    @Test("二十六部品の保存識別子は旧十二個の順を保ち区切りと衝突しない")
+    @Test("二十七部品の保存識別子は旧十二個の順を保ち区切りと衝突しない")
     func catalog() {
         let values = BandLayout.Item.allCases.map(\.rawValue)
         #expect(
@@ -12,8 +12,9 @@ struct BandAdditionalPartsTests {
                 "thumbnails", "floatOnTop", "pageTurn", "print", "readingDirection", "scrollDirection",
                 "paperOrientation", "paperSeries", "cover", "selectText", "alwaysShowToolbar", "margins",
                 "printSettings", "ignoreSlides", "beforePrinting", "viewOptions", "saveAsFile", "keysAndGestures",
+                "chapter",
             ])
-        #expect(Set(values).count == 26)
+        #expect(Set(values).count == 27)
         #expect(!values.contains("@separator"))
         #expect(BandLayoutTests.addedItems.map(\.group) == [2, 2, 5, 5, 2, 3, 4, 5, 6, 0, 6, 4, 6, 7])
     }

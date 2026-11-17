@@ -90,6 +90,15 @@ struct DocumentCommands: Commands {
             }
             Button("Go to Page…") { perform(.documentGoToPage) }
                 .keyboardShortcut("g", modifiers: [.option, .command])
+            Button("Back") { perform(.readingBack) }.keyboardShortcut("[", modifiers: .command)
+            Button("Forward") { perform(.readingForward) }.keyboardShortcut("]", modifiers: .command)
+            Divider()
+            Toggle(
+                "Bookmark This Page",
+                isOn: Binding(get: { model?.isVisiblePageBookmarked ?? false }, set: { _ in perform(.bookmarkToggle) })
+            )
+            Button("Next Bookmark") { perform(.bookmarkNext) }
+            Button("Previous Bookmark") { perform(.bookmarkPrevious) }
             Divider()
             Button("Increase Text Size") { perform(.textIncrease) }
                 .keyboardShortcut("+", modifiers: [.option, .command])

@@ -11,10 +11,10 @@ struct BandLayoutTests {
     static let standardSplit: [[BandLayout.Item]] = [
         [.formatBadge], [.floatOnTop, .print],
         [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails],
-        [.pageIndicator, .pageTurn], addedItems,
+        [.chapter, .pageIndicator, .pageTurn], addedItems,
     ]
     static let standardTop: [[BandLayout.Item]] = [
-        [.formatBadge, .pageIndicator],
+        [.formatBadge, .pageIndicator, .chapter],
         [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print],
         [], [], [.pageTurn] + addedItems,
     ]
@@ -112,13 +112,13 @@ struct BandLayoutTests {
         BandLayout.plan(widths: widths, fixed: 150, separator: 10, name: name, available: available)
     }
 
-    @Test("既存十二部品の後ろに十四部品を並べる")
+    @Test("既存十二部品の後ろに十四部品と今の章を並べる")
     func itemsFollowTheSpecification() {
         #expect(
             BandLayout.Item.allCases == [
                 .formatBadge, .pageIndicator, .presentation, .style, .outline, .layout, .transition, .zoom,
                 .thumbnails, .floatOnTop, .pageTurn, .print,
-            ] + Self.addedItems)
+            ] + Self.addedItems + [.chapter])
     }
 
     @Test("名前を先に省き、タイトルと操作を畳み、最前面に固定は最後まで残してから印刷をアイコンにする")
@@ -126,7 +126,8 @@ struct BandLayoutTests {
         #expect(
             BandLayout.steps == [
                 .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
-                .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
+                .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style),
+                .remove(.transition),
                 .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
                 .remove(.floatOnTop), .compact(.print),
             ])
@@ -148,7 +149,8 @@ struct BandLayoutTests {
         #expect(
             BandLayout.bottomSteps == [
                 .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
-                .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style), .remove(.outline),
+                .remove(.chapter), .remove(.transition), .remove(.layout), .remove(.pageTurn), .remove(.style),
+                .remove(.outline),
                 .remove(.presentation), .remove(.thumbnails), .remove(.zoom), .remove(.pageIndicator),
             ])
     }

@@ -464,7 +464,7 @@ enum PrintModeText {
         switch side.face {
         case .single: nil
         case .front: string("Front", language: language)
-        case .back: string(side.isRotated ? "Back 180°" : "Back", language: language)
+        case .back: string(side.isRotated ? "Back 180°" : "Back Side", language: language)
         }
     }
 

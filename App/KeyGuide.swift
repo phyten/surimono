@@ -8,6 +8,7 @@ enum KeyGuideEntry: CaseIterable {
     case find, findStep, goToPage, reload
     case print, systemPrint, printLayouts, escape
     case moveSelection, removeFromList, showList
+    case readingBack, readingForward, bookmarkToggle, bookmarkNext, bookmarkPrevious
 
     var trigger: String { trigger(controller: .shared) }
 
@@ -27,6 +28,11 @@ enum KeyGuideEntry: CaseIterable {
             case .find: ShortcutHints.keys([.documentFind], controller: controller)
             case .findStep: ShortcutHints.keys([.documentFindNext, .documentFindPrevious], controller: controller)
             case .goToPage: ShortcutHints.keys([.documentGoToPage], controller: controller)
+            case .readingBack: ShortcutHints.keys([.readingBack], controller: controller)
+            case .readingForward: ShortcutHints.keys([.readingForward], controller: controller)
+            case .bookmarkToggle: ShortcutHints.keys([.bookmarkToggle], controller: controller)
+            case .bookmarkNext: ShortcutHints.keys([.bookmarkNext], controller: controller)
+            case .bookmarkPrevious: ShortcutHints.keys([.bookmarkPrevious], controller: controller)
             case .reload: ShortcutHints.keys([.documentReload], controller: controller)
             case .print: ShortcutHints.keys([.documentPrint], controller: controller)
             case .systemPrint: ShortcutHints.keys([.documentPrintSystem], controller: controller)
@@ -57,6 +63,11 @@ enum KeyGuideEntry: CaseIterable {
         case .find: String(localized: "Find in the document; Esc closes the find bar")
         case .findStep: String(localized: "Go to the next or previous match")
         case .goToPage: String(localized: "Go to a page by its number")
+        case .readingBack: String(localized: "Back")
+        case .readingForward: String(localized: "Forward")
+        case .bookmarkToggle: String(localized: "Bookmark This Page")
+        case .bookmarkNext: String(localized: "Next Bookmark")
+        case .bookmarkPrevious: String(localized: "Previous Bookmark")
         case .reload: String(localized: "Reload the document")
         case .print: String(localized: "Open the print screen; print when on it")
         case .systemPrint: String(localized: "Open the system print dialog")

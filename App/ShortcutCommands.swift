@@ -53,7 +53,7 @@ extension DocumentViewModel {
     func performAdditionalShortcut(_ operation: ShortcutOperationID) {
         switch operation {
         case .viewOutline:
-            if mode == .view, hasOutline { toggleOutline() }
+            if mode == .view, hasContents { toggleOutline() }
         case .viewDocumentInfo:
             if mode == .view, !showsWeb { isFiguresPresented.toggle() }
         case .styleCompare: enterCompareMode()

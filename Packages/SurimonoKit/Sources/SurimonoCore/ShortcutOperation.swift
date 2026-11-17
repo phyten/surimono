@@ -75,6 +75,11 @@ public enum ShortcutOperationID: String, CaseIterable, Codable, Sendable {
     case htmlReviewRemoval = "html.reviewRemoval"
     case printManualDuplex = "print.manualDuplex"
     case printDuplexTest = "print.duplexTest"
+    case readingBack = "reading.back"
+    case readingForward = "reading.forward"
+    case bookmarkToggle = "bookmark.toggle"
+    case bookmarkNext = "bookmark.next"
+    case bookmarkPrevious = "bookmark.previous"
 }
 
 public enum ShortcutRegion: String, CaseIterable, Codable, Sendable {
@@ -241,6 +246,10 @@ public struct ShortcutOperation: Equatable, Sendable {
         case .viewSelectText:
             return Self(
                 id: id, group: .reading, applicability: .selectableText, safety: .ordinary,
+                regions: [.paperReading, .paperSelection], allowsBareKeys: true)
+        case .readingBack, .readingForward, .bookmarkToggle, .bookmarkNext, .bookmarkPrevious:
+            return Self(
+                id: id, group: .reading, applicability: .paperWithPages, safety: .ordinary,
                 regions: [.paperReading, .paperSelection], allowsBareKeys: true)
         case .readingLeft:
             return Self(

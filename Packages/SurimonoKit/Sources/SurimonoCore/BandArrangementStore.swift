@@ -119,9 +119,11 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         var store = Self()
         var layouts = BandArrangementVariants()
         layouts.split.bottomLeft.removeAll { $0 == .part(.outline) }
-        layouts.split.unused.append(.outline)
+        layouts.split.bottomRight.removeAll { $0 == .part(.chapter) }
+        layouts.split.unused += [.outline, .chapter]
         layouts.top.topRight.removeAll { $0 == .part(.outline) }
-        layouts.top.unused.append(.outline)
+        layouts.top.topLeft.removeAll { $0 == .part(.chapter) }
+        layouts.top.unused += [.outline, .chapter]
         // A deterministic migration identity survives repeated loads before the first explicit save.
         let id = UUID(
             uuid: (0x82, 0xA9, 0xDE, 0x17, 0x83, 0xDC, 0x4E, 0x32, 0x97, 0x56, 0x26, 0xCB, 0x8D, 0x83, 0x2F, 0x19))

@@ -9,6 +9,11 @@ enum ShortcutText {
 
     private static func cardName(_ value: ShortcutOperationID) -> String {
         switch value {
+        case .readingBack: String(localized: "Back")
+        case .readingForward: String(localized: "Forward")
+        case .bookmarkToggle: String(localized: "Bookmark This Page")
+        case .bookmarkNext: String(localized: "Next Bookmark")
+        case .bookmarkPrevious: String(localized: "Previous Bookmark")
         case .appOpen: String(localized: "Open…")
         case .clipboardOpen: String(localized: "Open from Clipboard")
         case .appSettings: String(localized: "Settings…")

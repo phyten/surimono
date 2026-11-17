@@ -15,6 +15,7 @@ struct ShortcutMenuBaselineTests {
         ("Show as Paper", "p", [.control, .command]),
         ("Single Page", "1", [.option, .command]), ("Spread", "2", [.option, .command]),
         ("Go to Page…", "g", [.option, .command]),
+        ("Back", "[", .command), ("Forward", "]", .command),
         ("Increase Text Size", "+", [.option, .command]),
         ("Decrease Text Size", "-", [.option, .command]), ("Original Text Size", "0", [.option, .command]),
         ("Zoom In", "+", .command), ("Zoom Out", "-", .command), ("Fit to Window", "0", .command),
@@ -45,7 +46,7 @@ struct ShortcutMenuBaselineTests {
             "Show as Slides", "Getting Started with Surimono", "Keys and Gestures", "Check for Updates…",
             "Open as Binder", "Add Documents…", "Reset Document Settings", "Choose Style…", "Print Settings…",
             "Save Current Settings…", "Manage Setting Sets…", "Sort by Name", "Start Each Document on an Odd Page",
-            "Remove from List",
+            "Remove from List", "Bookmark This Page", "Next Bookmark", "Previous Bookmark",
         ] {
             for item in all where item.title == localized(title) {
                 #expect(item.keyEquivalent.isEmpty, "Unexpected default key: \(title)")

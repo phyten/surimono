@@ -114,6 +114,9 @@ final class ShortcutDispatcher {
             }
             return false
         }
+        if Self.isTextInput(responder), matches.contains(where: { ShortcutOperation.operation($0).allowsBareKeys }) {
+            return true
+        }
         let activeMatches = matches.filter { Self.isActive($0, model: model) }
         guard activeMatches.count == 1, let operation = activeMatches.first, !bridge.ambiguous.contains(operation)
         else {
@@ -233,6 +236,11 @@ final class ShortcutDispatcher {
         case .documentFindNext: model?.findStep(forward: true)
         case .documentFindPrevious: model?.findStep(forward: false)
         case .documentGoToPage: model?.presentGoToPage()
+        case .readingBack: model?.goBack()
+        case .readingForward: model?.goForward()
+        case .bookmarkToggle: model?.toggleBookmark()
+        case .bookmarkNext: model?.goToNextBookmark()
+        case .bookmarkPrevious: model?.goToPreviousBookmark()
         case .documentReload: model?.reload()
         case .documentSaveAsFile: model?.saveAsFile()
         case .documentAdd: model?.chooseDocumentsToAdd()

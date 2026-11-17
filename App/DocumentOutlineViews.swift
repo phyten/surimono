@@ -4,24 +4,56 @@ import SwiftUI
 /// The headings of the document, deepest indented, with the chapter being read picked out.
 private struct OutlineList: View {
     @Bindable var model: DocumentViewModel
+    @State private var isHovered = false
 
     var body: some View {
         let entries = model.outlineEntries
         let current = model.currentOutlineEntry
         let top = entries.map(\.level).min() ?? 1
+        VStack(alignment: .leading, spacing: 8) {
+            // The marks stay above the headings: the list opens scrolled to the chapter being read, which would hide
+            // them.
+            if model.outlineFilter.query.isEmpty, !model.bookmarkPages.isEmpty {
+                BookmarkList(model: model)
+                if !entries.isEmpty { Divider() }
+            }
+            headings(entries: entries, current: current, top: top)
+        }
+    }
+
+    private func headings(entries: [OutlineEntry], current: Int?, top: Int) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 1) {
-                    ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
-                        OutlineRow(entry: entry, indent: entry.level - top, isCurrent: index == current) {
+                    if !model.outlineFilter.query.isEmpty, model.outlineFilter.matches.isEmpty {
+                        Text("No Matching Headings").font(.system(size: 13)).foregroundStyle(PrintPalette.ink2)
+                            .padding(.vertical, 8)
+                    }
+                    ForEach(model.outlineFilter.matches, id: \.self) { index in
+                        let entry = entries[index]
+                        OutlineRow(
+                            entry: entry, indent: model.outlineFilter.query.isEmpty ? entry.level - top : 0,
+                            isCurrent: index == current,
+                            isSelected: !model.outlineFilter.query.isEmpty && model.outlineFilter.selection == index
+                        ) {
+                            model.outlineFilter.setQuery("", entries: entries)
                             model.goToOutlineEntry(entry)
+                            model.paper.focus()
                         }
                         .id(index)
                     }
                 }
             }
             .onAppear {
-                if let current { proxy.scrollTo(current, anchor: .center) }
+                if model.outlineFilter.query.isEmpty, let current { proxy.scrollTo(current, anchor: .center) }
+            }
+            .onHover { isHovered = $0 }
+            .onChange(of: current) { _, value in
+                guard model.outlineFilter.query.isEmpty, !isHovered, let value else { return }
+                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(value, anchor: .center) }
+            }
+            .onChange(of: model.outlineFilter.selection) { _, value in
+                if !model.outlineFilter.query.isEmpty, let value { proxy.scrollTo(value, anchor: .center) }
             }
         }
         .accessibilityLabel("Contents")
@@ -32,14 +64,16 @@ private struct OutlineRow: View {
     let entry: OutlineEntry
     let indent: Int
     let isCurrent: Bool
+    let isSelected: Bool
     let onSelect: () -> Void
     @State private var isHovered = false
     @Environment(\.colorScheme) private var colorScheme
 
-    init(entry: OutlineEntry, indent: Int, isCurrent: Bool, onSelect: @escaping () -> Void) {
+    init(entry: OutlineEntry, indent: Int, isCurrent: Bool, isSelected: Bool, onSelect: @escaping () -> Void) {
         self.entry = entry
         self.indent = indent
         self.isCurrent = isCurrent
+        self.isSelected = isSelected
         self.onSelect = onSelect
     }
 
@@ -64,9 +98,11 @@ private struct OutlineRow: View {
             .background {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(
-                        isCurrent
-                            ? Color.accentColor.opacity(colorScheme == .dark ? 0.28 : 0.16)
-                            : isHovered ? PrintPalette.hover : .clear)
+                        isSelected
+                            ? PrintPalette.hover
+                            : isCurrent
+                                ? Color.accentColor.opacity(colorScheme == .dark ? 0.28 : 0.16)
+                                : isHovered ? PrintPalette.hover : .clear)
             }
             .contentShape(Rectangle())
         }
@@ -77,11 +113,78 @@ private struct OutlineRow: View {
     }
 }
 
+/// The reader's marks, in the order of the document. More than five scroll on their own.
+private struct BookmarkList: View {
+    @Bindable var model: DocumentViewModel
+    static let rowHeight: CGFloat = 33
+    static let headingHeight: CGFloat = 22
+
+    static func height(count: Int) -> CGFloat { headingHeight + CGFloat(min(count, 5)) * rowHeight }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("Bookmarks").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
+                .padding(.horizontal, 8).frame(height: Self.headingHeight - 1)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 1) {
+                    ForEach(model.bookmarkPages, id: \.self) { page in BookmarkRow(model: model, page: page) }
+                }
+            }
+            .frame(height: CGFloat(min(model.bookmarkPages.count, 5)) * Self.rowHeight)
+        }
+    }
+}
+
+private struct BookmarkRow: View {
+    @Bindable var model: DocumentViewModel
+    let page: Int
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button {
+                model.goToBookmark(page: page)
+                model.paper.focus()
+            } label: {
+                HStack(spacing: 10) {
+                    Text(verbatim: model.bookmarkTitle(page: page))
+                        .lineLimit(2).multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // A mark with no heading to name it is named by its page already.
+                    if model.hasOutline {
+                        Text(verbatim: "\(page + 1)").monospacedDigit().foregroundStyle(PrintPalette.ink2)
+                    }
+                }
+                .frame(minHeight: 32).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Button {
+                model.removeBookmark(page: page)
+            } label: {
+                Image(systemName: "xmark").font(.system(size: 9))
+                    .frame(width: 22, height: 32).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).foregroundStyle(PrintPalette.ink2)
+            .opacity(isHovered ? 1 : 0)
+            .accessibilityLabel("Remove Bookmark")
+            .help("Remove Bookmark")
+        }
+        .font(.system(size: 13)).foregroundStyle(PrintPalette.ink)
+        .padding(.leading, 8).padding(.trailing, 4)
+        .background(RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear))
+        .onHover { isHovered = $0 }
+    }
+}
+
 struct OutlinePopover: View {
     @Bindable var model: DocumentViewModel
 
     private static let rowHeight: CGFloat = 33
     private static let maximumListHeight: CGFloat = 420
+    private var bookmarkHeight: CGFloat {
+        model.outlineFilter.query.isEmpty && !model.bookmarkPages.isEmpty
+            ? BookmarkList.height(count: model.bookmarkPages.count) + (model.outlineEntries.isEmpty ? 0 : 17) : 0
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -90,8 +193,13 @@ struct OutlinePopover: View {
                 Spacer(minLength: 0)
                 PopoverCloseButton()
             }
+            if OutlineFilterState.showsField(count: model.outlineEntries.count) {
+                OutlineSearchField(model: model, autofocus: true).frame(height: 28)
+            }
             OutlineList(model: model)
-                .frame(height: min(CGFloat(model.outlineEntries.count) * Self.rowHeight, Self.maximumListHeight))
+                .frame(
+                    height: min(
+                        CGFloat(model.outlineEntries.count) * Self.rowHeight + bookmarkHeight, Self.maximumListHeight))
         }
         .padding(12)
         .frame(width: 286)
@@ -107,6 +215,9 @@ struct OutlineDrawer: View {
         SidePanel("Contents") {
             PanelIconButton("xmark", label: "Close") { model.isOutlineDrawerOpen = false }
         } content: {
+            if OutlineFilterState.showsField(count: model.outlineEntries.count) {
+                OutlineSearchField(model: model, autofocus: false).frame(height: 28)
+            }
             OutlineList(model: model)
         }
     }

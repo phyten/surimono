@@ -303,6 +303,13 @@ public enum DocumentOutline {
         entries.lastIndex { entry in entry.pageIndex.map { $0 <= page } ?? false }
     }
 
+    public static func currentChapter(in entries: [OutlineEntry], page: Int) -> Int? {
+        guard let level = chapterLevel(of: entries.map(\.level)) else { return nil }
+        return entries.lastIndex { entry in
+            entry.level == level && (entry.pageIndex.map { $0 <= page } ?? false)
+        }
+    }
+
     public static func title(ofHTML html: String) -> String? {
         let range = NSRange(html.startIndex..., in: html)
         guard let match = titlePattern.firstMatch(in: html, range: range),

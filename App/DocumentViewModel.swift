@@ -128,6 +128,8 @@ final class DocumentViewModel {
     var viewOptions: ViewOptions
     /// Magnification relative to fitting the current page or spread into the window.
     var zoom: Double = 1
+    var pageHistory = PageHistory()
+    var bookmarks = Bookmarks()
     /// The 0-based index of the first visible logical page.
     var currentPageIndex = 0 { didSet { shownPageIndex = currentPageIndex } }
     /// The page the paper shows, which is a trial's page while a theme is tried; `currentPageIndex` keeps the reading
@@ -198,7 +200,13 @@ final class DocumentViewModel {
     let find = PaperFind()
     var isGoToPagePresented = false
     var isViewOptionsPresented = false
-    var isOutlinePresented = false
+    var isOutlinePresented = false {
+        didSet { if !isOutlinePresented { outlineFilter.setQuery("", entries: outlineEntries) } }
+    }
+    var outlineFilter = OutlineFilterState()
+    #if DEBUG
+        var snapshotOutlineDrawer = false
+    #endif
     var isOutlineDrawerOpen = false
     var isFiguresPresented = false
     var isPrintFinishPresented = false
@@ -407,7 +415,9 @@ final class DocumentViewModel {
     /// The changes of the last reload have not been brought to the reader's attention yet.
     @ObservationIgnored private var hasUnannouncedChanges = false
     /// The table of contents, with the page of each entry as laid out for reading.
-    private(set) var outlineEntries: [OutlineEntry] = []
+    private(set) var outlineEntries: [OutlineEntry] = [] {
+        didSet { outlineFilter.reload(entries: outlineEntries) }
+    }
     /// The amount of text; only documents laid out from text have one.
     private(set) var documentStatistics: DocumentStatistics?
     @ObservationIgnored private var structureTask: Task<Void, Never>?
@@ -471,6 +481,7 @@ final class DocumentViewModel {
             settings.paperOrientation = paperOrientation
             return (ThemeSpecimen.source(language: language), settings)
         }
+        paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
         paper.onToast = { [weak self] toast in
             self?.showToast(toast, dismissAfter: toast.action == .allowFolderAccess ? nil : .seconds(5))
         }
@@ -1836,16 +1847,34 @@ final class DocumentViewModel {
     /// The live page has no pages to go to.
     var hasOutline: Bool { !outlineEntries.isEmpty && !showsWeb }
     var showsOutlineDrawer: Bool {
-        isOutlineDrawerOpen && hasOutline && preferences.outlinePresentation == .drawer
+        isOutlineDrawerOpen && hasContents && usesOutlineDrawer
     }
+    var usesOutlineDrawer: Bool {
+        #if DEBUG
+            if snapshotOutlineDrawer { return true }
+        #endif
+        return preferences.outlinePresentation == .drawer
+    }
+
+    var chapterEntries: [OutlineEntry] {
+        let level = DocumentOutline.chapterLevel(of: outlineEntries.map(\.level))
+        return outlineEntries.filter { $0.level == level }
+    }
+
+    var currentChapterTitle: String {
+        DocumentOutline.currentChapter(in: outlineEntries, page: lastVisiblePageIndex)
+            .map { outlineEntries[$0].title } ?? ""
+    }
+
     var isOutlineShown: Bool { isOutlinePresented || showsOutlineDrawer }
 
     private static let outlineDrawerMinimumWindowWidth: CGFloat = 560
 
     func toggleOutline() {
-        switch preferences.outlinePresentation {
-        case .popover: isOutlinePresented.toggle()
-        case .drawer:
+        guard mode == .view, hasContents else { return }
+        if !usesOutlineDrawer {
+            isOutlinePresented.toggle()
+        } else {
             // The drawer takes its width from the paper, which a narrow window does not have to spare.
             if (window?.frame.width ?? .infinity) < Self.outlineDrawerMinimumWindowWidth {
                 isOutlineDrawerOpen = false
@@ -1866,9 +1895,9 @@ final class DocumentViewModel {
     var currentOutlineEntry: Int? { DocumentOutline.currentEntry(in: outlineEntries, page: lastVisiblePageIndex) }
 
     func goToOutlineEntry(_ entry: OutlineEntry) {
-        guard let page = entry.pageIndex else { return }
+        guard canNavigateReading, let page = entry.pageIndex else { return }
         isOutlinePresented = false
-        paper.goToPage(index: page)
+        jumpToReadingPage(page)
     }
 
     /// 「刷り台で確かめる」 in the figures.
@@ -2262,7 +2291,7 @@ final class DocumentViewModel {
             codeBlock: usesPrintTheme && codeBlock != CodeBlockOptions() ? codeBlock : nil,
             bandVisibility: bandVisibility == defaultBandVisibility ? nil : bandVisibility,
             notes: offersNotes && notes != NotePages() ? notes : nil, bookletBinding: bookletBinding,
-            pageRange: pageRange.isAll ? nil : pageRange)
+            pageRange: pageRange.isAll ? nil : pageRange, bookmarks: bookmarks.isEmpty ? nil : bookmarks)
     }
 
     var currentPrintSettingSet: PrintSettingSet {
@@ -2493,6 +2522,7 @@ final class DocumentViewModel {
             return
         }
         documentDirectives = currentDirectives
+        bookmarks = saved.bookmarks ?? Bookmarks()
         apply(saved)
         hasSavedSettings = true
         settingsBaseline = rememberedSettings
@@ -2665,7 +2695,7 @@ final class DocumentViewModel {
         dismissToast()
         saveTask?.cancel()
         saveTask = nil
-        if let contentHash {
+        if bookmarks.isEmpty, let contentHash {
             try? settingsStore?.removeRecord(for: contentHash.hex)
             ownedRecordTokens[contentHash.hex] = nil
         }
@@ -2718,6 +2748,16 @@ final class DocumentViewModel {
         // The pending save of a resize was cancelled above; left set, the flag would hold later directives back.
         didResizeWindow = false
         settingsBaseline = rememberedSettings
+        if !bookmarks.isEmpty, let contentHash {
+            do {
+                try settingsStore?.save(DocumentSettings(bookmarks: bookmarks), for: contentHash.hex)
+                ownedRecordTokens[contentHash.hex] = settingsStore?.token(for: contentHash.hex)
+                hasSavedSettings = settingsStore != nil
+            } catch {
+                Self.logger.error(
+                    "Saving bookmarks after reset failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     // MARK: - Window geometry
@@ -3210,7 +3250,7 @@ final class DocumentViewModel {
                 let testLayout = try renderer.layout(for: layout)
                 let labels = DuplexTestRenderer.Labels(
                     front: PrintModeText.string("Front", language: language),
-                    back: PrintModeText.string("Back", language: language),
+                    back: PrintModeText.string("Back Side", language: language),
                     top: PrintModeText.string("Top", language: language),
                     binding: PrintModeText.string(
                         layout.sentDuplex == .longEdge ? "Long-edge binding" : "Short-edge binding", language: language),

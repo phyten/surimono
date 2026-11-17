@@ -155,11 +155,11 @@ struct BandArrangementRenderingTests {
             #expect(wide.top.leading == [.formatBadge])
             #expect(wide.top.trailing == [.floatOnTop, .print])
             #expect(wide.bottom?.leading == [.style, .outline, .layout, .transition])
-            #expect(wide.bottom?.trailing == [.pageIndicator, .pageTurn])
+            #expect(wide.bottom?.trailing == [.chapter, .pageIndicator, .pageTurn])
             #expect(wide.bottom?.geometry.usesStandardSpacing == true)
             #expect(wide.resolved.unusedAvailable == Self.availableAdded)
         case .top:
-            #expect(wide.top.leading == [.formatBadge, .pageIndicator])
+            #expect(wide.top.leading == [.formatBadge, .pageIndicator, .chapter])
             #expect(wide.top.trailing == [.style, .outline, .layout, .transition, .floatOnTop, .print])
             #expect(wide.bottom == nil)
             // Standard Top Only leaves Page Turn off the band; "…" now offers its two actions.
@@ -556,13 +556,16 @@ struct BandArrangementRenderingTests {
         let wide = BandPlans(model: model, menu: menu(width: 2000))
         // Presentation, Zoom and List do not apply to this document.
         #expect(
-            wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded)
+            wide.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded + [
+                .chapter
+            ])
         // Narrow, the bottom band gives way; unused and overflow remain separate.
         let narrow = BandPlans(model: model, menu: menu(width: 140))
         #expect(narrow.bottom?.forms == [.outline: .compact, .pageIndicator: .full])
         #expect(narrow.resolved.overflow == [.layout, .pageTurn])
         #expect(
-            narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded)
+            narrow.resolved.unusedAvailable == [.formatBadge, .style, .transition, .floatOnTop] + Self.availableAdded
+                + [.chapter])
         #expect(!narrow.resolved.overflow.contains(.print))
         #expect(narrow.top.forms[.print] != nil)
 
@@ -578,7 +581,7 @@ struct BandArrangementRenderingTests {
         let preferences = AppPreferences(defaults: suite.defaults)
         #expect(preferences.activeBandArrangement == .standard(for: .split))
         preferences.showsOutlineOnBand = false
-        #expect(preferences.activeBandArrangement.unused == BandTestCatalog.addedItems + [.outline])
+        #expect(preferences.activeBandArrangement.unused == BandTestCatalog.addedItems + [.outline, .chapter])
         #expect(!preferences.activeBandArrangement.bottomLeft.contains(.outline))
         #expect(suite.defaults.data(forKey: "bandArrangementStore") == nil)
         preferences.showsOutlineOnBand = true
