@@ -5,9 +5,9 @@ import SurimonoRendering
 import UniformTypeIdentifiers
 
 enum ReadingExportKind: Equatable {
-    case png, html, richText, htmlText, share
+    case png, html, htmlText, share
 
-    var needsTheme: Bool { self == .html || self == .richText || self == .htmlText }
+    var needsTheme: Bool { self == .html || self == .htmlText }
 }
 
 extension DocumentViewModel {
@@ -146,10 +146,8 @@ extension DocumentViewModel {
             }
             guard let settings = renderSettings(in: .view) else { return false }
             let source = withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format))
-            let content = try await HTMLExporter.content(
-                source: source, settings: settings, title: metadataTitle,
-                richText: kind == .richText, figureLabel: String(localized: "Figure"))
-            let html = content.html
+            let html = try await HTMLExporter.html(
+                source: source, settings: settings, title: metadataTitle)
             try checkCurrent()
             if kind == .html {
                 let target: URL?
@@ -163,12 +161,8 @@ extension DocumentViewModel {
                 defer { if access { target.stopAccessingSecurityScopedResource() } }
                 try Data(html.utf8).write(to: target, options: .atomic)
             } else {
-                if kind == .richText {
-                    try ExportClipboard.copy(html: html, plainText: content.plainText, to: pasteboard)
-                } else {
-                    pasteboard.clearContents()
-                    guard pasteboard.setString(html, forType: .string) else { throw CocoaError(.fileWriteUnknown) }
-                }
+                pasteboard.clearContents()
+                guard pasteboard.setString(html, forType: .string) else { throw CocoaError(.fileWriteUnknown) }
                 showToast(Toast(systemImage: "checkmark", title: String(localized: "Copied")))
             }
             return true

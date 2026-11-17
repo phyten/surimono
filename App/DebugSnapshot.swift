@@ -911,47 +911,6 @@
                     dpi: argument("SurimonoExportDPI").flatMap(Double.init))
             case "html":
                 return await model.performReadingExport(.html, destination: destination)
-            case "richtext":
-                let board = NSPasteboard(name: .init("SurimonoExport-" + UUID().uuidString))
-                defer { board.releaseGlobally() }
-                let html = URL(fileURLWithPath: path + ".html")
-                let rtf = URL(fileURLWithPath: path + ".rtf")
-                let plain = URL(fileURLWithPath: path + ".txt")
-                let rtfd = URL(fileURLWithPath: path + ".rtfd")
-                guard
-                    [html, rtf, plain, rtfd].allSatisfy({
-                        DocumentViewModel.canExport(
-                            to: $0,
-                            sourceURLs: model.protectedSourceURLs)
-                    })
-                else { return false }
-                guard await model.performReadingExport(.richText, pasteboard: board),
-                    let htmlData = board.data(forType: .html), let rtfData = board.data(forType: .rtf),
-                    let plainText = board.string(forType: .string), let rtfdData = board.data(forType: .rtfd)
-                else { return false }
-                do {
-                    guard
-                        [html, rtf, plain, rtfd].allSatisfy({
-                            DocumentViewModel.canExport(
-                                to: $0,
-                                sourceURLs: model.protectedSourceURLs)
-                        })
-                    else { return false }
-                    try htmlData.write(to: html, options: .atomic)
-                    try rtfData.write(to: rtf, options: .atomic)
-                    try Data(plainText.utf8).write(to: plain, options: .atomic)
-                    let attributed = try NSAttributedString(
-                        data: rtfdData, options: [.documentType: NSAttributedString.DocumentType.rtfd],
-                        documentAttributes: nil)
-                    let package = try attributed.fileWrapper(
-                        from: NSRange(location: 0, length: attributed.length),
-                        documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd])
-                    try package.write(to: rtfd, options: .atomic, originalContentsURL: nil)
-                    return true
-                } catch {
-                    logger.error("Rich text export failed")
-                    return false
-                }
             default:
                 logger.error("Unknown export kind")
                 return false

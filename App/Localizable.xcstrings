@@ -40391,59 +40391,6 @@
         }
       }
     },
-    "Figure": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Figure"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "図"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Abbildung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Figura"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Figure"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "그림"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "图"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "圖"
-          }
-        }
-      }
-    },
     "Figure Exceeds the Text Width": {
       "localizations": {
         "en": {
@@ -66353,108 +66300,55 @@
         }
       }
     },
-    "Share…": {
+    "Share PDF…": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Share…"
+            "value": "Share PDF…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "共有…"
+            "value": "PDF を共有…"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "共享…"
+            "value": "共享 PDF…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "分享…"
+            "value": "分享 PDF…"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "공유…"
+            "value": "PDF 공유…"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partager…"
+            "value": "Partager le PDF…"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Teilen …"
+            "value": "PDF teilen …"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Compartir…"
-          }
-        }
-      }
-    },
-    "Copy as Rich Text": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copy as Rich Text"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "リッチテキストとしてコピー"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "复制为富文本"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "拷貝為豐富文字"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "서식 있는 텍스트로 복사"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copier en texte enrichi"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Als formatierten Text kopieren"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copiar como texto enriquecido"
+            "value": "Compartir PDF…"
           }
         }
       }

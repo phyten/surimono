@@ -3,19 +3,9 @@ import SurimonoCore
 
 @MainActor
 public enum HTMLExporter {
-    public static func html(source: DocumentSource, settings: RenderSettings, title: String) async throws -> String {
-        try await content(source: source, settings: settings, title: title).html
-    }
-
-    public struct Content {
-        public let html: String
-        public let plainText: String?
-    }
-
-    public static func content(
-        source: DocumentSource, settings: RenderSettings, title: String, richText: Bool = false,
-        figureLabel: String = "Figure"
-    ) async throws -> Content {
+    public static func html(
+        source: DocumentSource, settings: RenderSettings, title: String
+    ) async throws -> String {
         guard
             let fragment = try await Task.detached(
                 priority: .utility,
@@ -46,10 +36,9 @@ public enum HTMLExporter {
         let preparation = code + "\n" + (settings.theme.script ?? "")
         let result = try await WebPaginator().paginateWithResult(
             input, pageSize: size, margins: margins,
-            allowsJavaScript: false, preparationScript: preparation, rendersMermaid: true, exportHTMLTitle: title,
-            exportRichText: richText, exportFigureLabel: figureLabel)
+            allowsJavaScript: false, preparationScript: preparation, rendersMermaid: true, exportHTMLTitle: title)
         guard let exported = result.exportedHTML else { throw WebPaginator.PaginationError.emptyDocument }
-        return Content(html: exported, plainText: result.exportedPlainText)
+        return exported
     }
 
     // Only bytes WebKit accepted as an image may leave the app. An img pointing at an arbitrary local text file

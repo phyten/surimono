@@ -83,7 +83,6 @@ public enum ShortcutOperationID: String, CaseIterable, Codable, Sendable {
     case documentExportReadingPDF = "document.exportReadingPDF"
     case documentExportPNG = "document.exportPNG"
     case documentExportHTML = "document.exportHTML"
-    case documentCopyRichText = "document.copyRichText"
     case documentCopyHTML = "document.copyHTML"
     case documentShare = "document.share"
 }
@@ -178,7 +177,7 @@ public struct ShortcutOperation: Equatable, Sendable {
             return Self(
                 id: id, group: .documentAndPrinting, applicability: .document, safety: .export,
                 regions: ShortcutRegion.document, allowsBareKeys: false)
-        case .documentExportHTML, .documentCopyRichText, .documentCopyHTML:
+        case .documentExportHTML, .documentCopyHTML:
             return Self(
                 id: id, group: .documentAndPrinting, applicability: .themedText, safety: .export,
                 regions: ShortcutRegion.document, allowsBareKeys: false)

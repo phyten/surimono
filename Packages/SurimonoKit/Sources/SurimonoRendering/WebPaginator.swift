@@ -57,7 +57,6 @@ public final class WebPaginator: NSObject {
         public var requiredFolderAccess: URL?
         public var issues: [PrintIssue] = []
         public var exportedHTML: String?
-        public var exportedPlainText: String?
         /// What the renderer added to the pages of a text and read from it.
         var finishing = FinishedPages()
 
@@ -120,7 +119,6 @@ public final class WebPaginator: NSObject {
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, exportHTMLTitle: String? = nil,
-        exportRichText: Bool = false, exportFigureLabel: String = "Figure",
         timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
@@ -182,9 +180,6 @@ public final class WebPaginator: NSObject {
         }
         try Task.checkCancellation()
         if let exportHTMLTitle {
-            let plainText =
-                exportRichText
-                ? try await RichTextSVG.prepare(in: session.webView, figureLabel: exportFigureLabel) : nil
             let imageURLs =
                 try await session.webView.callAsyncJavaScript(
                     HTMLExporter.imageResourceScript,
@@ -208,13 +203,13 @@ public final class WebPaginator: NSObject {
             }
             let html =
                 try await session.webView.callAsyncJavaScript(
-                    HTMLExporter.serializationScript, arguments: ["title": exportHTMLTitle, "embeddedImages": images],
+                    HTMLExporter.serializationScript,
+                    arguments: ["title": exportHTMLTitle, "embeddedImages": images],
                     in: nil,
                     contentWorld: Self.preparationWorld) as? String
             guard let html else { throw PaginationError.emptyDocument }
             var result = Result(document: PDFDocument())
             result.exportedHTML = html
-            result.exportedPlainText = plainText
             return result
         }
         // Only a document with `@page` rules can set margins of its own and so draw below the paper; an unknown

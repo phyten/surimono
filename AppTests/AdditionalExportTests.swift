@@ -59,48 +59,4 @@ struct AdditionalExportTests {
         #expect(preferences.exportImageDPI == 144)
     }
 
-    @Test("リッチテキストは専用ペーストボードへ四形式を渡す")
-    func clipboard() throws {
-        let board = NSPasteboard(name: .init("SurimonoTests-" + UUID().uuidString))
-        defer { board.releaseGlobally() }
-        try ExportClipboard.copy(html: "<html><body><b>Hello</b></body></html>", to: board)
-        #expect(board.data(forType: .html) != nil)
-        #expect(board.data(forType: .rtf) != nil)
-        #expect(board.data(forType: .rtfd) != nil)
-        #expect(board.string(forType: .string) == "Hello")
-    }
-
-    @Test("数式と図のコピーは文字の崩れがなくRTFDに画像を含む", .timeLimit(.minutes(1)))
-    func richMathClipboard() async throws {
-        let board = NSPasteboard(name: .init("SurimonoTests-" + UUID().uuidString))
-        defer { board.releaseGlobally() }
-        let content = try await HTMLExporter.content(
-            source: DocumentSource(
-                data: Data("$a^2 + b^2$\n\n```mermaid\ngraph TD\nA --> B\n```".utf8),
-                format: .markdown),
-            settings: RenderSettings(
-                layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
-                preset: HTMLCleanupPreset(id: "none", name: "None")), title: "Test", richText: true)
-        try ExportClipboard.copy(html: content.html, plainText: content.plainText, to: board)
-        let html = try #require(board.string(forType: .html))
-        #expect(html.contains("data:image/png"))
-        #expect(!html.contains("<svg"))
-        let rtf = try NSAttributedString(
-            data: #require(board.data(forType: .rtf)),
-            options: [.documentType: NSAttributedString.DocumentType.rtf], documentAttributes: nil)
-        for text in [try #require(board.string(forType: .string)), rtf.string] {
-            #expect(!text.contains("font-family"))
-            #expect(!text.contains("#surimono-mermaid"))
-            #expect(text.range(of: #"(?m)^\s*a\s*\n\s*2\s*\n"#, options: .regularExpression) == nil)
-        }
-        let rtfd = try NSAttributedString(
-            data: #require(board.data(forType: .rtfd)),
-            options: [.documentType: NSAttributedString.DocumentType.rtfd], documentAttributes: nil)
-        var attachments = 0
-        rtfd.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rtfd.length)) { value, _, _ in
-            if value is NSTextAttachment { attachments += 1 }
-        }
-        #expect(attachments >= 1)
-    }
-
 }

@@ -18,33 +18,3 @@ enum ExportFiles {
         return name + "-" + String(format: "%0*d", digits, index + 1) + ".png"
     }
 }
-
-enum ExportClipboard {
-    static func copy(html: String, plainText: String? = nil, to pasteboard: NSPasteboard = .general) throws {
-        let bytes = Data(html.utf8)
-        // AppKit's HTML importer can load external resources. Deny them in its private conversion copy;
-        // the public HTML representation still retains the document's remote image URLs.
-        let policy =
-            "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:\">"
-        let conversion = html.replacingOccurrences(of: "<head>", with: "<head>" + policy)
-        let text = try NSAttributedString(
-            data: Data((policy + conversion).utf8),
-            options: [
-                .documentType: NSAttributedString.DocumentType.html, .characterEncoding: String.Encoding.utf8.rawValue,
-            ],
-            documentAttributes: nil)
-        let rtf = try text.data(
-            from: NSRange(location: 0, length: text.length),
-            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
-        let rtfd = try text.data(
-            from: NSRange(location: 0, length: text.length),
-            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtfd])
-        let item = NSPasteboardItem()
-        item.setData(bytes, forType: .html)
-        item.setData(rtf, forType: .rtf)
-        item.setData(rtfd, forType: .rtfd)
-        item.setString(plainText ?? text.string, forType: .string)
-        pasteboard.clearContents()
-        guard pasteboard.writeObjects([item]) else { throw CocoaError(.fileWriteUnknown) }
-    }
-}

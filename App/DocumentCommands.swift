@@ -58,13 +58,15 @@ struct DocumentCommands: Commands {
                     .keyboardShortcut("e", modifiers: [.shift, .command])
                 Button("Images (PNG)…") { perform(.documentExportPNG) }
                 Button("HTML…") { perform(.documentExportHTML) }
+                // The system's own Share item above hands over the opened file; this one hands over the reading
+                // PDF, so it sits with the exports under a name that says what is shared.
+                Divider()
+                Button("Share PDF…") { perform(.documentShare) }
             }
-            Button("Share…") { perform(.documentShare) }
         }
         // Like the print items, these stay enabled; the model does nothing where there is no paper to search.
         CommandGroup(after: .pasteboard) {
             Divider()
-            Button("Copy as Rich Text") { perform(.documentCopyRichText) }
             Button("Copy as HTML") { perform(.documentCopyHTML) }
             Divider()
             Button("Find…") { perform(.documentFind) }
