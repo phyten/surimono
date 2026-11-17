@@ -92,7 +92,7 @@ private struct CodePaletteRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Image(systemName: "checkmark")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(PrintPalette.ai)
                     .opacity(isCurrent ? 1 : 0)
                     .frame(width: Self.checkWidth)
                     .accessibilityHidden(true)

@@ -107,8 +107,7 @@ private struct SealButton: View {
 }
 
 extension EnvironmentValues {
-    /// The color of a chosen print setting: indigo on the print screen, the system accent where the settings open
-    /// from the view mode, among the system's own controls.
+    /// The color of a chosen print setting.
     @Entry var printAccent: Color = PrintPalette.ai
     /// The text on a chosen setting filled with `printAccent`.
     @Entry var printAccentInk: Color = PrintPalette.raised

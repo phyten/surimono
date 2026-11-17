@@ -240,8 +240,8 @@ struct OutlineButton: View {
             Group {
                 if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
             }
-            // Open is shown in the accent color, as the style button does: indigo belongs to the print screen.
-            .foregroundStyle(model.isOutlineShown ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.ink))
+            // Open is shown in indigo, as the style button does.
+            .foregroundStyle(model.isOutlineShown ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
         }
         .fixedSize()
         .help(ShortcutHints.help(String(localized: "Contents"), [.viewOutline]))
@@ -268,6 +268,8 @@ struct PageTurnButtons: View {
         } label: {
             Label(title, systemImage: symbol).labelStyle(.iconOnly).frame(width: 22, height: 22)
                 .contentShape(Rectangle())
+                // A borderless button takes the window's tint, and indigo on the band means "open" or "chosen".
+                .foregroundStyle(PrintPalette.ink)
         }
         .help(
             ShortcutHints.help(

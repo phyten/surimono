@@ -130,7 +130,8 @@ final class WelcomeController {
         // The washi color runs up under the title bar, as it does on the print screen.
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: WelcomeView(preferences: preferences ?? AppPreferences()))
+        window.contentView = NSHostingView(
+            rootView: WelcomeView(preferences: preferences ?? AppPreferences()))
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window
@@ -213,13 +214,13 @@ private struct WelcomeView: View {
         .background {
             ZStack {
                 RoundedRectangle(cornerRadius: 12).fill(PrintPalette.stage)
-                if isTargeted { RoundedRectangle(cornerRadius: 12).fill(Color.accentColor.opacity(0.12)) }
+                if isTargeted { RoundedRectangle(cornerRadius: 12).fill(PrintPalette.ai.opacity(0.12)) }
             }
         }
         .overlay {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(
-                    isTargeted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(PrintPalette.line3),
+                    isTargeted ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.line3),
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
         }
     }

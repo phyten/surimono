@@ -89,8 +89,7 @@ private struct OutlineRow: View {
                 }
             }
             .font(.system(size: 13, weight: isCurrent ? .semibold : .regular))
-            // The chapter being read is picked out by the accent color's tint and the weight; the text stays ink, which
-            // keeps its contrast whatever accent color the Mac is set to.
+            // The chapter being read is picked out by an indigo wash and the weight; the text stays ink.
             .foregroundStyle(PrintPalette.ink)
             .padding(.leading, 8 + CGFloat(min(indent, 4)) * 12)
             .padding(.trailing, 8)
@@ -101,7 +100,7 @@ private struct OutlineRow: View {
                         isSelected
                             ? PrintPalette.hover
                             : isCurrent
-                                ? Color.accentColor.opacity(colorScheme == .dark ? 0.28 : 0.16)
+                                ? PrintPalette.ai.opacity(colorScheme == .dark ? 0.28 : 0.16)
                                 : isHovered ? PrintPalette.hover : .clear)
             }
             .contentShape(Rectangle())

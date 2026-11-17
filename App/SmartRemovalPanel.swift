@@ -13,7 +13,7 @@ struct SmartRemovalPanel: View {
                 Text(verbatim: "β")
                     .font(.system(size: 10, weight: .bold))
                     .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.18)))
+                    .background(Capsule().fill(PrintPalette.ai.opacity(0.18)))
                 Spacer()
                 PanelIconButton("xmark", label: "Close") { model.endSmartRemovalReview() }
                     .foregroundStyle(.secondary)

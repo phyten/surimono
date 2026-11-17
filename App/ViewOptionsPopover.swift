@@ -104,7 +104,7 @@ struct ViewOptionsPopover: View {
                     Button("Reset This Document") { model.resetDocumentSettings() }
                         .buttonStyle(.plain)
                         .font(.system(size: 12))
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(PrintPalette.ai)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
@@ -350,7 +350,7 @@ struct SpreadGlyph: View {
         .background {
             // Outside the sheets, so that picking the current unit does not move its neighbours.
             if isCurrent {
-                RoundedRectangle(cornerRadius: 4).strokeBorder(Color.accentColor, lineWidth: 2).padding(-4)
+                RoundedRectangle(cornerRadius: 4).strokeBorder(PrintPalette.ai, lineWidth: 2).padding(-4)
             }
         }
         .accessibilityHidden(true)

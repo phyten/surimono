@@ -17,6 +17,9 @@ enum PrintPalette {
     static let line2 = dynamic(light: 0x26272B, lightAlpha: 0.19, dark: 0xFFFFFF, darkAlpha: 0.15)
     static let line3 = dynamic(light: 0x26272B, lightAlpha: 0.32, dark: 0xFFFFFF, darkAlpha: 0.26)
     static let ai = dynamic(light: 0x2B4C6F, dark: 0x92B3D9)
+    /// The fill of a selected standard control in the reading window. The system draws white text on it, which the
+    /// bright night indigo of `ai` cannot carry.
+    static let aiControl = dynamic(light: 0x2B4C6F, dark: 0x426FA6)
     static let aiTint = dynamic(light: 0x2B4C6F, lightAlpha: 0.09, dark: 0x92B3D9, darkAlpha: 0.11)
     static let warn = dynamic(light: 0x7A5200, dark: 0xE5C07A)
     static let warnTint = dynamic(light: 0xA06E00, lightAlpha: 0.12, dark: 0xE5C07A, darkAlpha: 0.12)
