@@ -2,8 +2,9 @@ import SurimonoCore
 import SwiftUI
 
 // Frequent choices stay on the band; this popover keeps the rest of how the pages stand on screen, under the strip of
-// spreads. Nothing here changes the printed pages: the paper series, the margins, the text size and the setting sets
-// have their places on the print screen, in the print settings, in the style list and in the menus.
+// spreads. No setting here changes the printed pages: the paper series, the margins, the text size and the setting sets
+// have their places on the print screen, in the print settings, in the style list and in the menus. The reset at the
+// bottom is the exception: it drops everything this document changed, the printed side included.
 struct ViewOptionsPopover: View {
     @Bindable var model: DocumentViewModel
     /// The longest row label and the widest value control in the current language, measured out of sight.
