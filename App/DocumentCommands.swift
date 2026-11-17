@@ -52,11 +52,22 @@ struct DocumentCommands: Commands {
             .keyboardShortcut("p")
             Button("Print with System Dialog…") { perform(.documentPrintSystem) }
                 .keyboardShortcut("p", modifiers: [.option, .command])
-            Button("Export as PDF…") { perform(.documentExportPDF) }
-                .keyboardShortcut("e", modifiers: [.shift, .command])
+            Menu("Export") {
+                Button("PDF for Reading…") { perform(.documentExportReadingPDF) }
+                Button("PDF of the Sheets…") { perform(.documentExportPDF) }
+                    .keyboardShortcut("e", modifiers: [.shift, .command])
+                Button("Images (PNG)…") { perform(.documentExportPNG) }
+                Button("HTML…") { perform(.documentExportHTML) }
+                // The system's own Share item above hands over the opened file; this one hands over the reading
+                // PDF, so it sits with the exports under a name that says what is shared.
+                Divider()
+                Button("Share PDF…") { perform(.documentShare) }
+            }
         }
         // Like the print items, these stay enabled; the model does nothing where there is no paper to search.
         CommandGroup(after: .pasteboard) {
+            Divider()
+            Button("Copy as HTML") { perform(.documentCopyHTML) }
             Divider()
             Button("Find…") { perform(.documentFind) }
                 .keyboardShortcut("f")

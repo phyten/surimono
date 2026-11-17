@@ -301,6 +301,8 @@ struct WebCaptureTests {
         model.outputOverride = { outputs.append(($0, $1)) }
         switch output {
         case .exportPDF: model.exportPDF()
+        case .exportReadingPDF: model.exportReadingPDF()
+        case .additional(let kind): model.exportReading(kind)
         case .print(let quick): model.printDocument(quick: quick)
         case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }
@@ -365,6 +367,8 @@ struct WebCaptureTests {
         let requestsBefore = fixture.requests().count
         switch output {
         case .exportPDF: model.exportPDF()
+        case .exportReadingPDF: model.exportReadingPDF()
+        case .additional(let kind): model.exportReading(kind)
         case .print(let quick): model.printDocument(quick: quick)
         case .manualDuplex: model.printDocument(intent: .manualDuplex)
         }

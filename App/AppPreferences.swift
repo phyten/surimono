@@ -45,6 +45,14 @@ final class AppPreferences {
         }
     }
 
+    var exportImageDPI: Int {
+        get {
+            [72, 144, 300].contains(defaults.integer(forKey: "exportImageDPI"))
+                ? defaults.integer(forKey: "exportImageDPI") : 144
+        }
+        set { defaults.set([72, 144, 300].contains(newValue) ? newValue : 144, forKey: "exportImageDPI") }
+    }
+
     private let defaults: UserDefaults
     private let languageDomainName: String?
     /// Only the application's persistent domain determines the override, never the global AppleLanguages value.

@@ -563,6 +563,19 @@
 
         static func captureIfReady(_ model: DocumentViewModel) {
             if firstDocument == nil { firstDocument = model }
+            if firstDocument === model, !captured, !scheduled, model.isUpToDate,
+                let kind = argument("SurimonoExport"), let path = argument("SurimonoExportPath"), path.hasPrefix("/")
+            {
+                scheduled = true
+                model.additionalExportTask = Task { @MainActor in
+                    defer { model.additionalExportTask = nil }
+                    let success = await export(model, kind: kind, path: path)
+                    captured = true
+                    scheduled = false
+                    if success, flag("SurimonoSnapshotQuit") { quitAfterCapture() }
+                }
+                return
+            }
             guard firstDocument === model, !captured, !scheduled, model.isUpToDate, model.window != nil,
                 let path = argument("SurimonoSnapshotPath"), path.hasPrefix("/")
             else { return }
@@ -878,6 +891,29 @@
                 } catch {
                     logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
                 }
+            }
+        }
+
+        private static func export(_ model: DocumentViewModel, kind: String, path: String) async -> Bool {
+            let destination = URL(fileURLWithPath: path)
+            guard DocumentViewModel.canExport(to: destination, sourceURLs: model.protectedSourceURLs) else {
+                logger.error("Export destination matches an open document")
+                return false
+            }
+            switch kind {
+            case "reading":
+                guard await model.beginReadingPDFExport() else { return false }
+                model.completePDFExport(to: destination)
+                return model.outputError == nil
+            case "png":
+                return await model.performReadingExport(
+                    .png, destination: destination,
+                    dpi: argument("SurimonoExportDPI").flatMap(Double.init))
+            case "html":
+                return await model.performReadingExport(.html, destination: destination)
+            default:
+                logger.error("Unknown export kind")
+                return false
             }
         }
 

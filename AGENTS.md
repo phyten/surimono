@@ -68,10 +68,14 @@ make clean
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
 → 論理ページの PDF（WebPaginator: WKWebView を NSPrintOperation で論理ページ寸法に組版）
+  ├ 読むための PDF（ReadingPDFExporter: 論理ページ・見出しのしおり・リンク・題名）
 → 面付け（PDFComposer: レイアウトに従って用紙へ配置。冊子・2ページ配置・4ページ配置・ページ番号・裏面回転）
 → プレビュー（PDFView）/ 印刷（PrintJobFactory: 用紙・向き・両面を設定した NSPrintInfo）/ PDF 書き出し
 ```
 
+- ファイル > 書き出すは「読むための PDF…」（既定キーなし）と「用紙の PDF…」（⇧⌘E）。後者と刷り台の PDF ボタン・ショートカットのインテントは従来どおり面付けした用紙を出す。前者は刷り台へ移らず、表示用の論理ページを読む順に出す（ノート・ページ範囲・現在のスライドだけの指定は除く）。`ReadingBookmark`（Core）が目次の見出しを階層化し、`ReadingPDFExporter`（Rendering）が PDF 全体の独立した複製にしおりと Title・Creator（Surimono）を付ける。見出しは目次と同じページ照合で、縦位置は持たないのでページ上端へ向ける。PDF 原文のしおりと既存のリンク注釈は保持し、WebKit が出さない内部アンカーは追加しない。スマート削除の確認を終えて最新の組版と目次を待ち、保存先は元ファイル保護の `canExport` を通す。
+- 同じ「書き出す」に「画像（PNG）…」「HTML…」と、区切り線の下に「PDF を共有…」を置く（ファイルメニューには macOS 標準の「共有」があり、そちらは開いたファイルそのものを渡す。同じ名前を 2 つ並べない）。PNG と共有は読むための PDF と同じ表示設定のページを使う。PNG は白背景・sRGB、72 / 144 / 300 dpi（既定144、アプリ全体で記憶）、長辺12,000pxを上限に解像度を下げて知らせる。複数ページは選んだフォルダーの中へ新しい連番フォルダーを作り、既存の中へ書かない。再読み込みと窓を閉じたときは作業を取り消す。
+- HTML と「編集 > HTML としてコピー」は単独のテーマ対応文書だけに効く。`HTMLExporter` は `HTMLDocumentBuilder` と `WebPaginator` の準備（Mermaid・飾り・コード）を再利用し、印刷の前に DOM の複製を取り出す。書き出し中のネットワークを遮断し、許可されたローカル画像は data URL にする。スクリプト・元ファイルの位置の属性・ローカル URL を除き、画面だけ中央の幅と余白を加える。共有は非公開の一時フォルダーへ読む PDF を置き、システムの共有メニューへ渡す。次の共有か窓を閉じたときに消す。コピーのテスト・DEBUG は専用ペーストボードだけを使う。
 - これらを束ねるのが `DocumentRenderer`（SurimonoRendering）。文書ごとに 1 つ持ち、論理ページの PDF を使い回す（両面設定やページ番号の変更だけなら組版し直さない）。ファイルが変わったら `clearCache()` を呼ぶ。
 - Markdown と Org のコードは SurimonoCore の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
 - Org（`OrgConverter`・`OrgInline`・`OrgContext`、SurimonoCore）は、紙で読むための形にして出す。原文の記号（`[fn:1]`・`SCHEDULED: <…>`・`#+begin_note`）を紙に残さない。
@@ -196,7 +200,7 @@ make clean
 
 ## キーボードショートカットのメニュー・紙面接続
 
-- `ShortcutController` のスナップショットを設定・グローバル登録・メニューで共有する。`ShortcutMenuBridge.operations`・`ShortcutCommands.operations`・`ShortcutSurfaceKeys.operations` でローカル79操作を接続し、グローバル2操作とともに編集できる。固定キーは編集しない。アップデーターのない版の更新確認は理由を添えた情報表示、macOSのユーザー割当は引き続き外部管理にする。
+- `ShortcutController` のスナップショットを設定・グローバル登録・メニューで共有する。`ShortcutMenuBridge.operations`・`ShortcutCommands.operations`・`ShortcutSurfaceKeys.operations` でローカル80操作を接続し、グローバル2操作とともに編集できる。固定キーは編集しない。アップデーターのない版の更新確認は理由を添えた情報表示、macOSのユーザー割当は引き続き外部管理にする。
 - `ShortcutMenuBridge` は標準の「開く」を `openDocument:`、「設定」をアプリメニュー内の標準アクションまたは既定キーから見つける。アプリ所有項目はメニューバーの位置・親メニュー・翻訳済みタイトルの明示表で照合する。一意な項目にだけ `surimono.shortcut.<operation ID>` を付け、再生成された項目も識別し直す。SwiftUI の `.id` が AppKit に伝わるとは仮定しない。
 - 受理した変更の直後、メニュー項目の追加・変更・削除、追跡開始、アクティブ化、キー窓変更で `keyEquivalent` と修飾キーを同期する。イベント処理の前にも同期する。同期中の通知は再入させない。メニューの再生成だけでキーの更新を待たせない。
 - アプリ所有の接続済みメニューのクリックとキーは `ShortcutDispatcher.perform` を通す。標準の「開く」「設定」は元の target/action を保持し、キーも同じ標準アクションへ転送する。文書は `DocumentWindows.currentModel` でその時点のキー窓から引き、登録モデルの窓が一致しなければ実行しない。対応する文書がなくても一致した管理キーは消費し、別の操作へ落とさない。
@@ -246,7 +250,7 @@ make clean
 
 ## 印刷モード（刷り台）
 
-- 表示・見比べ台からの印刷と PDF 書き出しも、まず刷り台に入り、同じ論理ページを用紙へ配置してから出力する。ノート・ページ範囲・今のスライドだけの指定は刷り台で適用する。
+- 表示・見比べ台からの印刷と用紙の PDF 書き出しは、まず刷り台に入り、同じ論理ページを用紙へ配置してから出力する。ノート・ページ範囲・今のスライドだけの指定は刷り台で適用する。
 - 表示モードの帯の「印刷」（プリンターの絵と「印刷」。8 言語とも省略記号を付けない。省略記号は切れた文字に見えたため。ツールチップは「印刷画面を開く（⌘P）」。ファイルメニューの項目は「印刷…」のまま）・⌘P で入り、Esc・「表示に戻る」で戻る。印刷モードの朱の「印刷」と ⌘P は、刷り台で選んだプリンターへダイアログなしで送る（プリンターはアプリ全体で `AppPreferences.printerName` に覚え、外されていればシステムの既定。1 台もないときと、刷り台に出ていたプリンターが印刷の直前に外されていたときは、別のプリンターへ黙って送らずにシステムの印刷画面を開く。判断は `PrinterList.request`）。システムの印刷画面は ⌥⌘P と、プリンターのメニューの「システムの印刷画面で印刷…」から。⌘1〜⌘6 はレイアウトを選んで印刷モードへ。モードはウィンドウごと（`DocumentViewModel.mode`）。印刷の設定（`PrintFinishSheet`）は両方のモードで同じ 1 つのパネルで、刷り台では用紙の右に重ね、表示モードではスタイルのパレットと同じくウインドウの右の縁から外へポップオーバーで出す（`PrintSettingsAnchor`。紙がウインドウいっぱいでウインドウは紙の縦横比のまま狭いので、紙の上に重ねると変えている紙面そのものが隠れるため）。刷り台に入る・出ると閉じ、表示モードではパレットと同時に開かない（`presentPrintSettings()`）。印刷の順番（後ろの紙から／前の紙から。既定は後ろの紙から）はプリンター名ごとの `PrinterProfile.pageOrder` に覚え、`PrintJobFactory` が印刷設定の `OutputOrder`（Reverse / Normal）に毎回明示する（プリンター任せにしない。両面の表裏の組は印刷システムが保つ）。刷り台の用紙と PDF の書き出しの並びは変えない。
 - 選んだプリンターに刷れないレイアウトのカードには、小さな札（「A3 なし」「手動両面」）を付ける。プリンターに何ができるかは、何も送らずにシステムの記録から読む（`SystemPrinterCapabilities`: `PMPrinterGetPaperList` の用紙と、`PMPrinterCopyDescriptionURL` の PPD の `*PaperDimension`・`*ParamCustomPageSize`・`*Duplex`。ドライバーなしの IPP / AirPrint のキューにもシステムが書いた PPD がある）。メインスレッドの外で聞き、答えはプリンター名ごとに起動中だけ覚える（`PrinterCapabilityCache`）。刷り台は答えを待たない。判断は純粋な型 `PrinterCapabilities.issue(for:)`（SurimonoCore。用紙は 2pt までの違いと縦横を同じとみなし、カスタム用紙の範囲に収まれば刷れる）。分からないこと（PPD がない、聞けなかった、標準の `*Duplex` がなくメーカー独自の両面の項目がある）は問題にしない。札は警告で、カードは選べるまま。選んでいるレイアウトに問題があるあいだは、結果の下に理由を出す。両面なしだけなら朱の「印刷」と ⌘P は手動両面へ進み（結果の下の行は刷り台の最小の幅でも 2 行に収まる短い文にし、用紙を戻す手順まで書いた文は「印刷」とその行のヒントに出す）、用紙など別の問題があれば従来どおりシステムの印刷画面を開く（PDF の書き出しは変わらない）。札（11pt）はカードの右上、使う用紙の札の位置に、それに代えて出す（刷れない理由の方が大事なため。用紙はヒントと VoiceOver に残る）。
 - 裏面の 180° 回転はプリンター名ごとの `PrinterProfile` に長辺／短辺とじを別々に覚える。出てくる順とともに `AppPreferences.printerProfiles` の JSON に保存し、刷り台で選んだプリンターに合わせて切り替える。未設定の値だけ `rotateBack`・`printPageOrder` の既定値を使う。回転は描画時の `effectivePrintOptions` に合成し、古い文書の回転値は無視し、新しい文書設定には書かない。「既定に戻す」や印刷設定セットはプリンターの値を変えない。
@@ -298,7 +302,7 @@ make clean
 
 ## ノートページ
 
-- 書き込むための線のページを本文の間に入れる。刷り台の行の「ノート」と `PrintFinishSheet` の「ノートページ」の節で選ぶ。既定はオフ。全形式で効くが、合本と 3枚＋メモには入れない（`NotePages.applies(to:)`・`offersNotes`）。紙に入れる物なので、表示モードと見比べ台の紙には入れない（`renderSettings` は `mode == .print` のときだけ `notes` を載せる）。出力は刷り台を通るので必ず入る。
+- 書き込むための線のページを本文の間に入れる。刷り台の行の「ノート」と `PrintFinishSheet` の「ノートページ」の節で選ぶ。既定はオフ。全形式で効くが、合本と 3枚＋メモには入れない（`NotePages.applies(to:)`・`offersNotes`）。紙に入れる物なので、表示モードと見比べ台の紙には入れない（`renderSettings` は `mode == .print` のときだけ `notes` を載せる）。用紙の出力は刷り台を通るので必ず入る（読むための PDF には入れない）。
 - 持ち方: `NotePages`（オン / オフ・入れ方・元のプリセットの id・線の `NotePaperStyle`）を `RenderSettings.notes`・`DocumentSettings.notes`・`PrintSettingSet.notes` に持つ。文書の記録には既定と違うときだけ書く。メモを含めて保存する設定セットと組み込みのセットは `notes` を持ち（オフでも）、当てるとノートも揃う。`notes` のない古いセットはノートに触らない。「この印刷設定を新しい文書にも使う」はノートを含めない（新しい文書のページ数が勝手に増えないため）。自分のプリセットは `AppPreferences.notePresets`。組み込みは保存しないので上書きできない。使っていたプリセットを消しても文書の線は残る。
 - 入れ方は 4 つ（`NotePagePlan.Placement`）。見開きの片側と両面の裏は、本文がいつも同じ奇偶のページに並ぶようにノートを足すので、右ページ始まりの白紙は入らない。目次は本文の前に置き、足りないときだけノートで揃える。章の終わりは本文の後ろへ足し、次の章の右ページ始まりは足したあとの位置で数え直す。章は目次と同じ `DocumentOutline.chapterLevel`。章の頭がページの途中なら、そのページを前の章の終わりとする（`chapterEnds`）。PDF はしおりの一番上の階層、HTML は見出し、画像は章なし。章がなければ最後に 1 ページ。
 - 差し込みは 2 段。文字の文書は `finished` がノートの位置も含めた `FinishedPagePlan` で目次の番号と白紙を決め、ノートの面は入れないまま `FinishedPages.plan` に計画を残す。すべての形式で、`DocumentRenderer.noted` がキャッシュの論理ページの複製にノートを差し、`Logical.noted` に覚える。線だけの変更は WebKit を通らず（`logicalRenderCount` は増えない）、入れ方の変更で組み直すのは文字の文書だけ。キャッシュの論理ページ自体は変えない。

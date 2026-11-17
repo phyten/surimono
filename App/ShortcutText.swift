@@ -19,7 +19,12 @@ enum ShortcutText {
         case .appSettings: String(localized: "Settings…")
         case .documentPrint: String(localized: "Print…")
         case .documentPrintSystem: String(localized: "Print with System Dialog…")
-        case .documentExportPDF: String(localized: "Export as PDF…")
+        case .documentExportPDF: String(localized: "PDF of the Sheets…")
+        case .documentExportReadingPDF: String(localized: "PDF for Reading…")
+        case .documentExportPNG: String(localized: "Images (PNG)…")
+        case .documentExportHTML: String(localized: "HTML…")
+        case .documentCopyHTML: String(localized: "Copy as HTML")
+        case .documentShare: String(localized: "Share PDF…")
         case .documentFind: String(localized: "Find…")
         case .documentFindNext: String(localized: "Find Next")
         case .documentFindPrevious: String(localized: "Find Previous")
@@ -213,6 +218,10 @@ extension ShortcutText {
             String(localized: "Opens the print screen; a new press there prints to the selected printer.")
         case .documentPrintSystem:
             String(localized: "This key opens the system print dialog after preparing the print screen.")
+        case .documentExportPNG, .documentExportHTML, .documentCopyHTML, .documentShare:
+            String(localized: "This key exports or shares the document in reading order.")
+        case .documentExportReadingPDF:
+            String(localized: "This key opens the save dialog for a PDF in reading order.")
         case .documentExportPDF:
             String(localized: "This key prepares the print screen and opens the PDF save dialog.")
         case .printManualDuplex:

@@ -75,7 +75,7 @@ final class DocumentViewModel {
     private(set) var unreadableImageURLs: [URL] = []
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
-    private var data: Data
+    private(set) var data: Data
     let preferences: AppPreferences
     let library: UserLibrary
     var paperOrientation: PaperOrientation
@@ -268,7 +268,7 @@ final class DocumentViewModel {
     /// While reviewing, the paper outlines the detected parts instead of removing them.
     private(set) var isReviewingSmartRemoval = false
     /// An output waiting for the print layout, a web capture, or the end of a review; it runs when sheets are ready.
-    @ObservationIgnored private(set) var outputAfterReview: Output?
+    @ObservationIgnored var outputAfterReview: Output?
     /// Replaces the system output UI in tests, after readiness checks, with the exact sheets being output.
     @ObservationIgnored var outputOverride: ((Output, RenderResult) -> Void)?
     /// Replaces submission after resolving the destination and matching its settings to the composed sheets.
@@ -424,13 +424,13 @@ final class DocumentViewModel {
     @ObservationIgnored private var readStructure:
         (
             source: DocumentSource, proof: ProofMarks, headings: [DocumentHeading], statistics: DocumentStatistics,
-            contents: [String]
+            contents: [String], title: String?
         )?
     @ObservationIgnored private var structureDocument: PDFDocument?
     var shortcutListFocused = false
     private var printCompletion: PrintCompletion?
     private var printOperation: NSPrintOperation?
-    private var exportingDocument: PDFDocument?
+    var exportingDocument: PDFDocument?
 
     init(
         data: Data, fileURL: URL?, format: DocumentFormat,
@@ -597,7 +597,7 @@ final class DocumentViewModel {
         return reading == settings && fromSnapshot == (usesHTMLPresentation && liveSnapshot != nil)
     }
 
-    private func renderSettings(in mode: ViewerMode) -> RenderSettings? {
+    func renderSettings(in mode: ViewerMode) -> RenderSettings? {
         guard
             let theme = library.themes.first(where: { $0.id == (usesPrintTheme ? themeID : "standard") })
                 ?? library.themes.first(where: { $0.id == "standard" }),
@@ -970,6 +970,8 @@ final class DocumentViewModel {
     }
 
     func stop() {
+        cancelAdditionalExport()
+        clearSharedExport()
         binderExit.cancel()
         pendingBinderRestoration = nil
         binderExitTrayPage = nil
@@ -986,6 +988,8 @@ final class DocumentViewModel {
         toastTask?.cancel()
         hashTask?.cancel()
         structureTask?.cancel()
+        readingExportTask?.cancel()
+        readingExportTask = nil
         flushPendingSettings()
         reloadGeneration += 1
         reloadTask?.cancel()
@@ -1124,6 +1128,7 @@ final class DocumentViewModel {
     }
 
     private func applyReload(reloadsWeb: Bool) {
+        cancelAdditionalExport()
         pendingPrintIssue = nil
         dropSpot()
         reloadOwnsProgress = false
@@ -1163,6 +1168,7 @@ final class DocumentViewModel {
     /// A window without a file takes what its feed sends, as a file's window takes a change of the file.
     func replaceContent(_ bytes: Data, format: DocumentFormat) {
         guard fileURL == nil, binder == nil, imageBundle == nil, bytes != data || format != self.format else { return }
+        cancelAdditionalExport()
         data = bytes
         self.format = format
         applyReload(reloadsWeb: false)
@@ -1401,7 +1407,9 @@ final class DocumentViewModel {
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 // A render that a later change made stale leaves the output to the render that follows it.
                 if pendingPrint != nil, settings == renderSettings { resumePendingPrint() }
-                if let output = outputAfterReview, mode == .print, settings == renderSettings {
+                if let output = outputAfterReview, mode == .print || output.readsPages,
+                    settings == renderSettings
+                {
                     outputAfterReview = nil
                     run(output)
                 }
@@ -1941,21 +1949,21 @@ final class DocumentViewModel {
             guard let self else { return }
             let proof = printFinish.proof
             let known = readStructure?.source == source && readStructure?.proof == proof ? readStructure : nil
-            let read: (headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String])?
+            let read: (headings: [DocumentHeading], statistics: DocumentStatistics, contents: [String], title: String?)?
             if let known {
-                read = (known.headings, known.statistics, known.contents)
+                read = (known.headings, known.statistics, known.contents, known.title)
             } else {
                 read = await Task.detached(priority: .utility) {
                     DocumentRenderer.structureHTML(of: source, proof: proof).map {
                         (
                             DocumentOutline.headings(inHTML: $0), DocumentStatistics(html: $0),
-                            DocumentOutline.sourceContentsEntries(inHTML: $0)
+                            DocumentOutline.sourceContentsEntries(inHTML: $0), DocumentOutline.title(ofHTML: $0)
                         )
                     }
                 }.value
             }
             guard !Task.isCancelled, let read else { return }
-            readStructure = (source, proof, read.headings, read.statistics, read.contents)
+            readStructure = (source, proof, read.headings, read.statistics, read.contents, read.title)
             documentStatistics = read.statistics
             var texts: [String] = []
             for index in 0..<(read.headings.isEmpty ? 0 : document.pageCount) {
@@ -2168,7 +2176,7 @@ final class DocumentViewModel {
 
     /// An output asked for on the web, or while the page is being copied, waits for the copy and the pages made from
     /// it; it is dropped with a notice if the copy fails, so that nothing prints from an earlier state.
-    private func deferUntilWebIsCaptured(_ output: Output) -> Bool {
+    func deferUntilWebIsCaptured(_ output: Output) -> Bool {
         guard showsWeb || isCapturingWeb || webCaptureFailed, !isRunningCapturedOutput else { return false }
         captureWeb { [weak self] outcome in
             guard let self else { return }
@@ -2188,6 +2196,8 @@ final class DocumentViewModel {
         case .print(let quick): printDocument(quick: quick)
         case .manualDuplex: printDocument(intent: .manualDuplex)
         case .exportPDF: exportPDF()
+        case .exportReadingPDF: exportReadingPDF()
+        case .additional(let kind): exportReading(kind)
         }
     }
 
@@ -3040,7 +3050,7 @@ final class DocumentViewModel {
         scheduleSave()
     }
 
-    private func withFolderAccess(_ source: DocumentSource) -> DocumentSource {
+    func withFolderAccess(_ source: DocumentSource) -> DocumentSource {
         var source = source
         source.allowedResourceFolders = folderLease.map { [$0.url] } ?? []
         return source
@@ -3138,6 +3148,15 @@ final class DocumentViewModel {
         case print(quick: Bool)
         case manualDuplex
         case exportPDF
+        case exportReadingPDF
+        case additional(ReadingExportKind)
+
+        var readsPages: Bool {
+            switch self {
+            case .exportReadingPDF, .additional: true
+            default: false
+            }
+        }
     }
 
     /// Outputs go through the tray even when requested from reading or comparison: its own choices (note pages, the
@@ -3154,7 +3173,7 @@ final class DocumentViewModel {
     }
 
     /// An output asked for during the review ends it and waits for the pages without the outlines.
-    private func deferUntilReviewEnds(_ output: Output) -> Bool {
+    func deferUntilReviewEnds(_ output: Output) -> Bool {
         guard isReviewingSmartRemoval else { return false }
         isReviewingSmartRemoval = false
         outputAfterReview = output
@@ -3465,6 +3484,144 @@ final class DocumentViewModel {
             printer: destination, pageOrder: pageOrder, copies: request.copies, jobTitle: jobTitle ?? printJobTitle)
     }
 
+    @ObservationIgnored var additionalExportTask: Task<Void, Never>?
+    @ObservationIgnored var exportPanel: NSSavePanel?
+    @ObservationIgnored var sharedExportDirectory: URL?
+    @ObservationIgnored var sharePicker: NSSharingServicePicker?
+    @ObservationIgnored private var readingExportTask: Task<Void, Never>?
+    @ObservationIgnored private var exportingSourceURLs: [URL] = []
+
+    var canExportReadingPDF: Bool {
+        isUpToDate && !isPrinting && !isExporting && !isCapturingWeb && !webCaptureFailed
+            && !isBecomingBinder && !isReviewingSmartRemoval
+            && renderedSettings?.smartRemoval?.highlightsCandidates != true
+    }
+
+    var readingExportName: String {
+        let name =
+            binder?.title(language: language) ?? imageBundle?.title(language: language)
+            ?? title ?? fileURL?.deletingPathExtension().lastPathComponent ?? String(localized: "Document")
+        return name.replacingOccurrences(of: ":", with: "-").replacingOccurrences(of: "/", with: "-") + ".pdf"
+    }
+
+    func exportReadingPDF() {
+        guard readingExportTask == nil, !isExporting, !isPrinting,
+            !deferUntilWebIsCaptured(.exportReadingPDF), !deferUntilReviewEnds(.exportReadingPDF)
+        else { return }
+        // A render already in flight owns the request until its current pages are ready.
+        guard isUpToDate else {
+            guard error == nil else { return }
+            outputAfterReview = .exportReadingPDF
+            if !isRendering { render() }
+            return
+        }
+        readingExportTask = Task { [weak self] in
+            guard let self else { return }
+            defer { readingExportTask = nil }
+            guard await beginReadingPDFExport() else { return }
+            guard let window else {
+                completePDFExport(to: nil)
+                return
+            }
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.pdf]
+            panel.nameFieldStringValue = readingExportName
+            panel.beginSheetModal(for: window) { [weak self] response in
+                self?.completePDFExport(to: response == .OK ? panel.url : nil)
+            }
+        }
+    }
+
+    func beginThemedExport() async -> String? {
+        let structure = structureDocument
+        await structureTask?.value
+        guard !Task.isCancelled, structureDocument === structure, canExportReadingPDF,
+            format.usesPrintTheme, binder == nil, imageBundle == nil, let result
+        else { return nil }
+        isExporting = true
+        outputError = nil
+        return [result.facts?.title, result.facts?.headings.first?.text, outlineEntries.first?.title]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? String(readingExportName.dropLast(4))
+    }
+
+    func endReadingExport() {
+        exportingDocument = nil
+        exportingSourceURLs = []
+        isExporting = false
+    }
+
+    func beginReadingPDFExport() async -> Bool {
+        let structure = structureDocument
+        await structureTask?.value
+        guard !Task.isCancelled, structureDocument === structure, canExportReadingPDF, let current = result,
+            let settings = renderSettings(in: .view)
+        else { return false }
+        let sources = protectedSourceURLs
+        let originalData = data
+        let originalURLs = sourceURLs
+        let originalSettings = renderSettings
+        isExporting = true
+        outputError = nil
+        do {
+            let prepared: PreparedRender
+            var entries = outlineEntries
+            var headings = readStructure?.headings ?? current.facts?.headings ?? []
+            var htmlTitle = format == .html ? readStructure?.title : nil
+            if mode == .view {
+                prepared = current
+            } else {
+                // Tray-only notes, ranges and slide selections must never enter a reading copy. Preparing with
+                // view settings leaves the window and its print choices untouched and does not impose sheets.
+                let source: DocumentSource
+                if let binder {
+                    source = try await binder.source()
+                } else if let imageBundle {
+                    source = try await imageBundle.source()
+                } else {
+                    source = withFolderAccess(
+                        usesHTMLPresentation && liveSnapshot != nil
+                            ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
+                            : DocumentSource(data: data, fileURL: fileURL, format: format))
+                }
+                prepared = try await DocumentRenderer().prepare(source, settings: settings)
+                if binder == nil, imageBundle == nil, source.format.isWebRendered {
+                    let structure = await ReadingPDFExporter.outline(
+                        of: source, in: prepared.logicalDocument, proof: settings.finish.proof,
+                        includesSourceContents: !finishAppliesToText || settings.finish.toc.showsSourceContents)
+                    entries = structure.entries
+                    headings = structure.headings
+                    htmlTitle = structure.title
+                }
+            }
+            guard !Task.isCancelled, data == originalData, sourceURLs == originalURLs,
+                renderSettings == originalSettings
+            else {
+                isExporting = false
+                return false
+            }
+            let document = prepared.viewDocument
+            let candidates = [
+                prepared.facts?.title, htmlTitle,
+                format == .pdf ? document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String : nil,
+                prepared.facts?.headings.first?.text, entries.first?.title,
+            ]
+            let metadataTitle =
+                candidates.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first { !$0.isEmpty } ?? String(readingExportName.dropLast(4))
+            exportingDocument = try ReadingPDFExporter.document(
+                from: document, entries: entries, title: metadataTitle, preservesOutline: format == .pdf,
+                headings: headings, sourceURL: fileURL)
+            exportingSourceURLs = sources
+            return true
+        } catch {
+            isExporting = false
+            if Task.isCancelled { return false }
+            outputError = String(localized: "The PDF could not be exported.") + "\n" + error.localizedDescription
+            return false
+        }
+    }
+
     func exportPDF() {
         guard !deferUntilPrintMode(.exportPDF),
             !deferUntilWebIsCaptured(.exportPDF), !deferUntilReviewEnds(.exportPDF),
@@ -3485,6 +3642,7 @@ final class DocumentViewModel {
         guard canOutput, let result = printResult else { return false }
         // Keep the selected output stable even if the file reloads while the save panel is open.
         exportingDocument = result.sheetDocument
+        exportingSourceURLs = protectedSourceURLs
         isExporting = true
         outputError = nil
         return true
@@ -3494,11 +3652,12 @@ final class DocumentViewModel {
         guard isExporting, let exportingDocument else { return }
         defer {
             self.exportingDocument = nil
+            exportingSourceURLs = []
             isExporting = false
         }
         guard let url else { return }
         do {
-            let sources = protectedSourceURLs
+            let sources = protectedSourceURLs + exportingSourceURLs
             guard Self.canExport(to: url, sourceURLs: sources) else { throw CocoaError(.fileWriteNoPermission) }
             guard let data = exportingDocument.dataRepresentation() else { throw CocoaError(.fileWriteUnknown) }
             try data.write(to: url, options: .atomic)
