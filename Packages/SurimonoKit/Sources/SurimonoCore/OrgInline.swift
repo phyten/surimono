@@ -41,8 +41,10 @@ enum OrgInline {
         var tokens: [Int: (end: Int, source: String)] = [:]
         var utf16 = 0
         var offsets: [Int: Int] = [:]
+        var utf16Offsets: [Int] = []
         for (offset, character) in text.enumerated() {
             offsets[utf16] = offset
+            utf16Offsets.append(utf16)
             utf16 += String(character).utf16.count
         }
         offsets[utf16] = text.count
@@ -63,12 +65,69 @@ enum OrgInline {
                 stack.removeAll(keepingCapacity: true)
             }
         }
+        // A formula is looked for only where the scan arrives, so one that would open inside code, which the scan
+        // steps over, cannot hide what follows the code. Each position is tried once.
+        var formulaEnds: [Int: Int?] = [:]
+        func formulaEnd(_ position: Int) -> Int? {
+            guard characters[position] == "$" || characters[position] == "\\" else { return nil }
+            if let known = formulaEnds[position] { return known }
+            let start = utf16Offsets[position]
+            let match = orgExpression(OrgMath.inlinePattern)?.firstMatch(
+                in: text, options: [.anchored, .withTransparentBounds],
+                range: NSRange(location: start, length: nsText.length - start))
+            let end = match.flatMap { offsets[NSMaxRange($0.range)] }
+            formulaEnds[position] = .some(end)
+            return end
+        }
         let tags: [Character: String] = ["*": "strong", "/": "em", "_": "u", "=": "code", "~": "code", "+": "del"]
         var output = ""
         var index = 0
         var linkSearchExhausted = false
-        var exhaustedEmphasis: Set<Character> = []
+        // The first opener of each kind known to have no closing delimiter after it. The search for one kind looks
+        // ahead of the scan, so a failure there says nothing about openers before it.
+        var exhaustedEmphasis: [Character: Int] = [:]
+        func opensEmphasis(_ position: Int) -> Bool {
+            tags[characters[position]] != nil && position < exhaustedEmphasis[characters[position]] ?? Int.max
+                && position + 1 < characters.count && !characters[position + 1].isWhitespace
+                && (position == 0 || characters[position - 1].isWhitespace
+                    || "([{'\"".contains(characters[position - 1]))
+        }
+        /// The closing delimiter for the one at `opener`. Code is literal; in other emphasis, a delimiter inside a
+        /// formula or inside code belongs to that formula or code, as the main scan will read them.
+        func emphasisEnd(_ opener: Int) -> Int? {
+            let character = characters[opener]
+            let literal = tags[character] == "code"
+            var position = opener + 1
+            while position < characters.count {
+                if !literal, let end = formulaEnd(position) {
+                    position = end
+                    continue
+                }
+                if position > opener + 1, characters[position] == character,
+                    !characters[position - 1].isWhitespace,
+                    position + 1 == characters.count || characters[position + 1].isWhitespace
+                        || ")]},.!?;:'\"".contains(characters[position + 1])
+                {
+                    return position
+                }
+                if !literal, tags[characters[position]] == "code", opensEmphasis(position),
+                    let end = emphasisEnd(position)
+                {
+                    position = end + 1
+                    continue
+                }
+                position += 1
+            }
+            // Once no closing delimiter remains, later openers of this kind cannot succeed either.
+            exhaustedEmphasis[character] = min(opener, exhaustedEmphasis[character] ?? Int.max)
+            return nil
+        }
         while index < characters.count {
+            if let end = formulaEnd(index) {
+                output += OrgMath.inline(String(characters[index..<end]), context: context)
+                index = end
+                continue
+            }
             var token = tokens[index]
             if index + 3 < characters.count, characters[index] == "[", characters[index + 1] == "f",
                 characters[index + 2] == "n", characters[index + 3] == ":", let end = brackets[index]
@@ -150,20 +209,7 @@ enum OrgInline {
                 continue
             }
             let character = characters[index]
-            var emphasisEnd: Int?
-            if tags[character] != nil, !exhaustedEmphasis.contains(character),
-                index + 1 < characters.count, !characters[index + 1].isWhitespace,
-                index == 0 || characters[index - 1].isWhitespace || "([{'\"".contains(characters[index - 1])
-            {
-                emphasisEnd = ((index + 2)..<characters.count).first(where: {
-                    characters[$0] == character && !characters[$0 - 1].isWhitespace
-                        && ($0 + 1 == characters.count || characters[$0 + 1].isWhitespace
-                            || ")]},.!?;:'\"".contains(characters[$0 + 1]))
-                })
-                // Once no closing delimiter remains, later openers of this kind cannot succeed either.
-                if emphasisEnd == nil { exhaustedEmphasis.insert(character) }
-            }
-            if let tag = tags[character], let end = emphasisEnd {
+            if let tag = tags[character], opensEmphasis(index), let end = emphasisEnd(index) {
                 let inner = String(characters[(index + 1)..<end])
                 output +=
                     "<\(tag)>\(tag == "code" ? HTML.escape(inner) : render(inner, context: context, depth: depth + 1, cookies: cookies))</\(tag)>"

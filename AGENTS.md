@@ -81,7 +81,8 @@ make clean
   - チェックボックス・脚注・囲みは Markdown と同じ HTML にする（`li.task-list-item`、`section.footnotes`、`callout-*`）。テーマのタスクや囲みの見た目と、ページ下の脚注がそのまま効く。途中（`[-]`）の箱は `input.org-partial`。囲みの名前でない特殊ブロックは `.org-block`、`comment` と `export` のブロックは刷らない。
   - `#+CAPTION` は直後の表か画像の `figure.org-figure` の見出しにする。表は、数の列を右に寄せ（Org と同じく半分以上が数のとき）、`<r>` などの行に従う。
   - 見た目は `common.css` の Org の部分が受け持つ。書体と色は見出しや本文から受け継ぎ（明朝のテーマで印だけゴシックにしない）、見出しの字間・大文字・縁取りは印に持ち込まない。進行中は枠、完了は「✓」で分け、白黒でも見分けられる。タグは見出しの 1 行目の右端。色を変えたいテーマは `--org-todo-ink`・`--org-done-ink` だけを決める（`OrgThemeStyleTests`）。
-  - 数式・`#+INCLUDE`・表計算の式・`:noexport:` は読まない。
+  - 数式（`OrgMath`）: `$…$`・`\(…\)`・`\[…\]`・`$$…$$` と、行頭の `\begin{equation}`・`align`・`gather` などの環境を、Markdown・LaTeX と同じ `MathRenderer`（SwaTex）で SVG にする。式は強調より先に取り出すので、`*` や `_` が式を崩さない。`$` は式に接していて、前後が半角の英数字でないときだけ（`$5 と $10`・`$HOME` は文字のまま。和文に続けて書いた式は読む）。段落がまるごと別行の式なら `div.math-block`、環境の番号は LaTeX と同じ振り方（星なしの equation は右端、align は行ごと）。`#+LATEX_HEADER` の `\newcommand`・`\DeclareMathOperator` は式に定義として渡す。式の番号への参照と、数式でない環境（tabular など）は読まない。式を描くのと番号を進めるのは、2 回目（描く回）だけ。
+  - `#+INCLUDE`・表計算の式・`:noexport:` は読まない。コードは実行しない（`:exports` も見ず、ファイルにある `#+RESULTS:` はそのまま刷る）。
 - 柱の `{章}` は紙の目次と同じ章レベルを使い、本文までに始まった最後の章を表示する（目次・白紙・ノート・合本は空）。`PageChapters` が本文のページを仕上げ後のページへ対応づける。
 - `PrintFinish.links` はテーマを使う文書の外部リンクを末尾の番号付き一覧または文字の後ろへ添える。`PaperLinks` が HTML 断片を後処理し、コード・数式・目次・見出し（紙の上の文字が変わると、目次や柱の章がページを見つけられない）・内部リンク・自動リンク・画像だけのリンクを除く。既定の `asIs` は保存キーも出力も変えない。
 - 囲み（`MarkdownCallouts`）: 表題を札にし、名前を意味の 4 群へ畳む。情報（note・info・todo・example）は `callout-note`、成功（tip・success）は `callout-tip`、注意（important・warning・question）は `callout-warning`、危険（danger・bug）は `callout-danger`（クラス名は以前のもので、ユーザー CSS のために変えない）。important と example には、以前のクラス `callout-important` を群のクラスの前に併記する。手書きの HTML の `callout callout-important` は注意の見た目になる。ほかに `callout-quote` と無地の `callout-neutral`（neutral・details）。`data-callout` には書いた名前がそのまま残る。
