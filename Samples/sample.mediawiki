@@ -1,0 +1,38 @@
+= 紙の試験室 / Paper workshop =
+__TOC__
+== 観察 ==
+折り目に沿って紙をひらく。[[#記録|測定表]]を参照。A [[sheet]] has two faces.
+{{Infobox trial
+| 素材 = {{lang|en|linen paper}}
+| 温度 = 20 °C
+}}
+* 生成りの紙
+*# 端をそろえる
+*# 半分に折る
+;見当:位置合わせの目印
+: 記録者の追記。
+== 記録 ==
+{| class="wikitable"
+|+ 折りの記録
+! 回数 !! 厚み
+|-
+| 1 || 2 mm
+|}
+厚みは <math>t_n=2^n t_0</math> と仮定した。<ref name="log">{{cite book|author=Paper workshop|title=Trial notebook|year=2026}}</ref>
+同じ記録を再掲する。<ref name="log" />
+[[ファイル:fold-study.png|thumb|200px|折り目の ''模式図'']]
+<poem>Paper opens
+影がひらく</poem>
+<syntaxhighlight lang="swift">let folds = 2</syntaxhighlight>
+<blockquote>紙の繊維を <abbr title="grain direction">目</abbr> と呼ぶ。</blockquote>
+----
+{{See also|紙目}}
+[https://example.org Workshop] ・ [https://example.org]
+<nowiki>{{原文のまま}}</nowiki> / <chem>H2O</chem>
+: <math>a^2+b^2=c^2</math>
+<gallery>
+File:cross-section.png|断面のスケッチ
+</gallery>
+<timeline>Trial history</timeline>
+<references />
+[[Category:紙の実験]]

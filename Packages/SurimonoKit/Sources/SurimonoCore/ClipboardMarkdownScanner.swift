@@ -103,6 +103,7 @@ extension ClipboardScanners {
         var quotes = 0
         var inlineCodes = 0
         var orgSyntax = false
+        var hasWikiLink = false
         var invalidTable = false
         var ownsStart = frontMatter
         func offset(line: Int, column: Int) -> Int {
@@ -298,6 +299,11 @@ extension ClipboardScanners {
         for range in window.lines {
             let line = ClipboardSlice(window.bytes, range).trimmed
             work.visit(range.count)
+            // Obsidian page links support an existing Markdown heading, but alone cannot identify a document.
+            let visible = ClipboardSlice(running, range)
+            if headings > 0 && visible.contains("[[") && visible.contains("]]") && !visible.contains("][") {
+                hasWikiLink = true
+            }
             if line.hasPrefix("#+") || line.contains("[[")
                 || ([42, 83, 68].contains(line.first ?? 0)
                     && matches(
@@ -333,7 +339,7 @@ extension ClipboardScanners {
         result.leadingProseOnly = result.accepted && !ownsStart
         result.accepted = result.accepted && ownsStart
         let mathSupport = running.contains(36) && headings > 0 ? 2 : 0
-        let rich = emphasis + links + inlineCodes + mathSupport
+        let rich = emphasis + links + inlineCodes + mathSupport + (hasWikiLink ? 1 : 0)
         let support = headings + lists + rich
         switch level {
         case .careful:

@@ -38,6 +38,7 @@ enum ClipboardFormatText {
         case .rMarkdown: "R Markdown"
         case .djot: "Djot"
         case .textile: "Textile"
+        case .mediawiki: "MediaWiki"
         case .asciidoc: "AsciiDoc"
         case .notebook: "Jupyter Notebook"
         case .graphviz: "Graphviz"
