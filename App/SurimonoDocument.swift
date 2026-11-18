@@ -13,7 +13,7 @@ struct SurimonoDocument: FileDocument {
             .plainText, .html, .pdf, .image,
             .commaSeparatedText,
             .tabSeparatedText, .zip,
-        ] + wordTemplate
+        ] + wordTemplate + [UTType("org.openxmlformats.wordprocessingml.document")].compactMap { $0 }
     }
 
     /// macOS gives the `.dot` extension to Word templates, so a Graphviz file arrives with that type. The initializer
@@ -47,6 +47,7 @@ struct SurimonoDocument: FileDocument {
             switch DocumentFormat(fileExtension: suffix) {
             case .quarto: .surimonoQuarto
             case .rMarkdown: .surimonoRMarkdown
+            case .docx: UTType("org.openxmlformats.wordprocessingml.document") ?? contentType
             case .djot: .surimonoDjot
             case .textile: .surimonoTextile
             case .asciidoc: .surimonoAsciiDoc

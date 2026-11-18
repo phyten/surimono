@@ -563,6 +563,8 @@ public final class DocumentRenderer {
         case let error as WebPaginator.PaginationError: return RenderingError.pagination(error)
         case let error as ImagePageRenderer.RenderingError: return RenderingError.image(error)
         case let error as PDFComposer.CompositionError: return RenderingError.composition(error)
+        // Says what is wrong with the file; "could not be paginated" would send the reader to reload it.
+        case let error as DocxError: return error
         default: return RenderingError.paginationFailed
         }
     }
@@ -1076,12 +1078,22 @@ public final class DocumentRenderer {
                 requiredFolderAccess: page.requiredFolderAccess)
             mirrored.issues = page.issues
             return mirrored
-        case .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook,
+        case .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .docx,
+            .notebook,
             .graphviz, .plantuml:
             var missingImage = false
             let access = resourceAccess(for: source)
             let fragment: HTMLFragment
-            if source.format == .markdown, !settings.markdownChanges.isEmpty {
+            if source.format == .docx {
+                let conversion = Task.detached(priority: Task.currentPriority) {
+                    try DocxConverter.convert(source.data)
+                }
+                fragment = try await withTaskCancellationHandler {
+                    try await conversion.value
+                } onCancel: {
+                    conversion.cancel()
+                }
+            } else if source.format == .markdown, !settings.markdownChanges.isEmpty {
                 fragment =
                     MarkdownConverter.convertWithSourceMap(
                         try Self.decodedText(source.data), pageBreakLine: settings.finish.breaks.customLine,
@@ -1575,6 +1587,7 @@ public final class DocumentRenderer {
             DiagramConverter.convert(try decodedText(source.data), format: source.format)
         case .quarto, .rMarkdown:
             ComputationalMarkdown.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
+        case .docx: try DocxConverter.convert(source.data)
         case .djot:
             try DjotConverter.convert(try decodedText(source.data))
         case .textile:

@@ -5,6 +5,7 @@ import Foundation
 private final class PrintMarkupWriter {
     let format: DocumentFormat
     private(set) var title: String?
+    private(set) var wordTitle: String?
     private var headings: [xmlNodePtr: String] = [:]
     private var aliases: [String: String] = [:]
     private var definitions: [String: MarkupElement] = [:]
@@ -12,7 +13,37 @@ private final class PrintMarkupWriter {
     private var numbers: [String: Int] = [:]
     private var references: [String: Int] = [:]
 
-    init(format: DocumentFormat) { self.format = format }
+    private var vectorLabels: [String: [String]]
+    private var numbering: DocxNumbering?
+
+    init(format: DocumentFormat, numbering: DocxNumbering?, vectorLabels: [String: [String]]) {
+        self.format = format
+        self.vectorLabels = vectorLabels
+        self.numbering = numbering
+    }
+
+    private func numberedList(_ node: MarkupElement) -> String {
+        var start = ""
+        var items = ""
+        var expected = 1
+        var first = true
+        for item in node.children {
+            guard item.name == "li" else {
+                items += render(item)
+                continue
+            }
+            let label = item.children.filter { !["ol", "ul"].contains($0.name) }.map(\.text).joined()
+            let value = numbering?.take(for: label) ?? expected
+            var attribute = ""
+            if value != expected {
+                if first { start = " start=\"\(value)\"" } else { attribute = " value=\"\(value)\"" }
+            }
+            expected = value == Int.max ? value : value + 1
+            first = false
+            items += "<li\(attribute)\(item.attributes)>\(inner(item))</li>"
+        }
+        return "<ol\(start)\(node.attributes)>\(items)</ol>"
+    }
 
     func index(_ body: MarkupElement) {
         var automatic: [MarkupElement] = []
@@ -24,6 +55,7 @@ private final class PrintMarkupWriter {
             if let explicit { occupied.insert(explicit) }
             if ["h1", "h2", "h3", "h4", "h5", "h6"].contains(node.name) {
                 if explicit == nil { automatic.append(node) }
+                if format == .docx, wordTitle == nil, node.has("org-title") { wordTitle = node.text }
                 if title == nil, node.name == "h1" { title = node.text }
             }
             if isDefinition(node), let explicit { definitions["#" + explicit] = node }
@@ -45,6 +77,9 @@ private final class PrintMarkupWriter {
     }
 
     private func isDefinition(_ node: MarkupElement) -> Bool {
+        if format == .docx, node.name == "li", let id = node.attribute("id") {
+            return id.hasPrefix("footnote-") || id.hasPrefix("endnote-")
+        }
         if format == .textile { return node.name == "p" && node.has("footnote") }
         guard node.name == "li", let section = node.ptr.pointee.parent?.pointee.parent else { return false }
         return MarkupElement(ptr: section).attribute("role") == "doc-endnotes"
@@ -77,13 +112,48 @@ private final class PrintMarkupWriter {
         return "<section class=\"footnotes\"><ol>" + items + "</ol></section>"
     }
 
-    func inner(_ node: MarkupElement) -> String { node.children.map(render).joined() }
+    func inner(_ node: MarkupElement) -> String {
+        guard format == .docx else { return node.children.map(render).joined() }
+        let nodes = node.children
+        var result = ""
+        var index = 0
+        while index < nodes.count {
+            let current = nodes[index]
+            index += 1
+            if index < nodes.count {
+                let next = nodes[index]
+                if current.has("docx-caption"), let figure = captioned(next, caption: current) {
+                    result += figure
+                    index += 1
+                    continue
+                }
+                if next.has("docx-caption"), let figure = captioned(current, caption: next) {
+                    result += figure
+                    index += 1
+                    continue
+                }
+            }
+            result += render(current)
+        }
+        return result
+    }
+
+    private func captioned(_ node: MarkupElement, caption: MarkupElement) -> String? {
+        if node.name == "table" {
+            return "<table\(node.attributes)><caption>\(inner(caption))</caption>\(inner(node))</table>"
+        }
+        if node.name == "p", node.children.count == 1, node.child("img") != nil {
+            return "<figure>\(inner(node))<figcaption>\(inner(caption))</figcaption></figure>"
+        }
+        return nil
+    }
 
     func render(_ node: MarkupElement) -> String {
         if node.ptr.pointee.type == XML_TEXT_NODE || node.ptr.pointee.type == XML_CDATA_SECTION_NODE {
             return HTML.escape(node.text)
         }
         guard node.ptr.pointee.type == XML_ELEMENT_NODE, node.name != "script" else { return "" }
+        if format == .docx, let html = wordElement(node) { return html }
         let role = node.attribute("role")
         if role == "doc-endnotes" || role == "doc-backlink" || isDefinition(node) { return "" }
         if node.name == "a", let href = node.attribute("href") {
@@ -98,7 +168,7 @@ private final class PrintMarkupWriter {
                     "<a href=\"\(HTML.escape(replacement))\"\(node.attributes(excluding: ["href"]))>\(inner(node))</a>"
             }
         }
-        if node.name == "sup", node.has("footnote"), let key = node.child("a")?.attribute("href"),
+        if node.name == "sup", format == .docx || node.has("footnote"), let key = node.child("a")?.attribute("href"),
             definitions[key] != nil
         {
             return reference(key)
@@ -155,6 +225,47 @@ private final class PrintMarkupWriter {
         return node.wrapped { inner(node) }
     }
 
+    private func wordElement(_ node: MarkupElement) -> String? {
+        if node.name == "ol", node.children.contains(where: isDefinition) { return "" }
+        if node.name == "ol", numbering != nil { return numberedList(node) }
+        if node.name == "a", let href = node.attribute("href"),
+            href.hasPrefix("#footnote-ref-") || href.hasPrefix("#endnote-ref-"), node.text == "↑"
+        {
+            return ""
+        }
+        if node.name == "img", let src = node.attribute("src"),
+            let mime = src.prefix(64).split(separator: ";").first,
+            mime.hasSuffix("emf") || mime.hasSuffix("wmf")
+        {
+            var alt = node.attribute("alt") ?? ""
+            if alt.isEmpty, !vectorLabels.isEmpty, let comma = src.firstIndex(of: ",") {
+                alt = vectorLabels[String(src.suffix(from: src.index(after: comma)))]?.popLast() ?? ""
+            }
+            let label = mime.hasSuffix("emf") ? "EMF" : "WMF"
+            return "<span class=\"docx-image-note\">\(label) \(HTML.escape(alt))</span>"
+        }
+        if node.name == "p", node.children.contains(where: { $0.name == "br" && $0.has("page-break") }) {
+            var html = ""
+            var line = ""
+            for child in node.children {
+                if child.name == "br", child.has("page-break") {
+                    if !line.isEmpty { html += "<p\(node.attributes)>\(line)</p>" }
+                    html += "<div class=\"page-break\"></div>"
+                    line = ""
+                } else {
+                    line += render(child)
+                }
+            }
+            return html + (line.isEmpty ? "" : "<p\(node.attributes)>\(line)</p>")
+        }
+        if node.name == "pre" {
+            let code = node.child("code") ?? node
+            let text = code.children.map { $0.name == "br" ? "\n" : $0.text }.joined()
+            return MarkupHTML.listing(text, language: nil)
+        }
+        return nil
+    }
+
     private func span(_ contents: String, attributes: String) -> String {
         attributes.isEmpty ? contents : "<span\(attributes)>\(contents)</span>"
     }
@@ -166,15 +277,18 @@ private final class PrintMarkupWriter {
 }
 
 enum PrintMarkup {
-    static func fragment(_ html: String, format: DocumentFormat) throws -> HTMLFragment {
+    static func fragment(
+        _ html: String, format: DocumentFormat, metadataTitle: String? = nil, numbering: DocxNumbering? = nil,
+        vectorLabels: [String: [String]] = [:]
+    ) throws -> HTMLFragment {
         try MarkupHTML.withBody(html) { body in
-            let writer = PrintMarkupWriter(format: format)
+            let writer = PrintMarkupWriter(format: format, numbering: numbering, vectorLabels: vectorLabels)
             writer.index(body)
             var html = writer.inner(body)
             html += writer.notes()
             let fonts = MathRenderer.fontFaces(for: html)
             if !fonts.isEmpty { html += "<style>\(fonts)</style>" }
-            return HTMLFragment(body: html, title: writer.title)
+            return HTMLFragment(body: html, title: writer.wordTitle ?? metadataTitle ?? writer.title)
         }
     }
 }

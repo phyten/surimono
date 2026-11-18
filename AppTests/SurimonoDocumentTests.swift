@@ -6,6 +6,20 @@ import UniformTypeIdentifiers
 @testable import Surimono
 
 struct SurimonoDocumentTests {
+    @Test("ZIPの型で届いたdocxをシステムのWord型で読み、バイト列を保持する")
+    func opensWord() throws {
+        let type = try #require(UTType(filenameExtension: "docx"))
+        let bytes = Data([0x50, 0x4b, 3, 4])
+        let file = FileWrapper(regularFileWithContents: bytes)
+        file.preferredFilename = "Sample.DOCX"
+        let document = try SurimonoDocument(file: file, contentType: .zip)
+        #expect(type.identifier == "org.openxmlformats.wordprocessingml.document")
+        #expect(document.contentType == type)
+        #expect(document.format == .docx)
+        #expect(document.data == bytes)
+        #expect(SurimonoDocument.readableContentTypes.contains(type))
+    }
+
     @Test("図の拡張子で汎用テキスト型を補い原文を保持する", arguments: ["dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd"])
     func diagramFiles(suffix: String) throws {
         let bytes = Data("図の原文".utf8)

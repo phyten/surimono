@@ -2274,7 +2274,7 @@ final class DocumentViewModel {
         case .image: return .image
         case .zipArchive: return .imageBundle
         case .markdown, .org, .plainText, .html, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile,
-            .notebook, .graphviz,
+            .docx, .notebook, .graphviz,
             .plantuml:
             return .flowingText
         }

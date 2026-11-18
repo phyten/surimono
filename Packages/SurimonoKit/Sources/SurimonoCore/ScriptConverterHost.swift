@@ -14,9 +14,11 @@ struct ScriptDocument {
 final class ScriptConverterHost: @unchecked Sendable {
     private let library: String
     private let bridge: String
+    private let prelude: String?
     private let commonJS: Bool
 
-    init(_ library: String, bridge: String, category: String, commonJS: Bool = true) {
+    init(_ library: String, bridge: String, category: String, commonJS: Bool = true, prelude: String? = nil) {
+        self.prelude = prelude
         self.library = library
         self.bridge = bridge
         self.commonJS = commonJS
@@ -50,12 +52,59 @@ final class ScriptConverterHost: @unchecked Sendable {
             }
             module = String(module[..<end.lowerBound]).replacingOccurrences(of: "import.meta.url", with: "''")
         }
+        if let prelude {
+            context.evaluateScript(try script(prelude))
+            guard context.exception == nil else { throw CocoaError(.executableLoad) }
+        }
         context.evaluateScript(module)
         guard context.exception == nil else { throw CocoaError(.executableLoad) }
         context.evaluateScript(try script(bridge))
         guard context.exception == nil else { throw CocoaError(.executableLoad) }
         self.context = context
         return context
+    }
+
+    /// Native Promise continuations drain when a call returns to Swift. A failed job discards its VM
+    /// so callbacks retained by that job cannot run against the next document.
+    func wordHTML(_ bytes: Data, maximumRounds: Int) throws -> String {
+        try lock.withLock {
+            #if DEBUG
+                let start = DispatchTime.now().uptimeNanoseconds
+            #endif
+            let vm = try load()
+            #if DEBUG
+                let loaded = DispatchTime.now().uptimeNanoseconds
+            #endif
+            var completed = false
+            defer { if !completed { context = nil } }
+            guard
+                let array = JSObjectMakeTypedArray(
+                    vm.jsGlobalContextRef, kJSTypedArrayTypeUint8Array, bytes.count, nil),
+                let value = JSValue(jsValueRef: array, in: vm),
+                let buffer = JSObjectGetTypedArrayBytesPtr(vm.jsGlobalContextRef, array, nil)
+            else { throw DocxError.conversionFailed }
+            bytes.copyBytes(to: buffer.assumingMemoryBound(to: UInt8.self), count: bytes.count)
+            vm.objectForKeyedSubscript("startWord")?.call(withArguments: [value])
+            let pump = vm.objectForKeyedSubscript("pump")
+            for _ in 0..<max(0, maximumRounds) {
+                try Task.checkCancellation()
+                guard vm.exception == nil else { throw DocxError.conversionFailed }
+                if let result = vm.objectForKeyedSubscript("wordResult"), result.isObject {
+                    guard let html = result.forProperty("html"), html.isString else { throw DocxError.conversionFailed }
+                    #if DEBUG
+                        let loadMS = Double(loaded - start) / 1e6
+                        let convertMS = Double(DispatchTime.now().uptimeNanoseconds - loaded) / 1e6
+                        let warnings = result.forProperty("warnings")?.toInt32() ?? 0
+                        logger.debug("load_ms=\(loadMS) convert_ms=\(convertMS) warnings=\(warnings)")
+                    #endif
+                    vm.setObject(NSNull(), forKeyedSubscript: "wordResult" as NSString)
+                    completed = true
+                    return html.toString()
+                }
+                pump?.call(withArguments: [])
+            }
+            throw DocxError.conversionFailed
+        }
     }
 
     private func parts(_ source: String) throws -> ScriptDocument {

@@ -15,6 +15,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case rMarkdown = "rmarkdown"
     case djot
     case textile
+    case docx
     case notebook
     case graphviz
     case plantuml
@@ -32,6 +33,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "qmd": self = .quarto
         case "rmd", "rmarkdown": self = .rMarkdown
         case "dj", "djot": self = .djot
+        case "docx": self = .docx
         case "textile": self = .textile
         case "adoc", "asciidoc": self = .asciidoc
         case "ipynb": self = .notebook
@@ -45,7 +47,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
 
     public var usesPrintTheme: Bool {
         [
-            .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook,
+            .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .docx,
+            .notebook,
             .graphviz, .plantuml,
         ]
         .contains(self)
@@ -64,6 +67,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "org.graphviz.dot": .graphviz, "net.sourceforge.plantuml": .plantuml,
             "public.zip-archive": .zipArchive, "org.tug.tex": .latex, "org.jupyter.ipynb": .notebook,
             "org.quarto.qmarkdown": .quarto, "org.rstudio.rmarkdown": .rMarkdown,
+            "org.openxmlformats.wordprocessingml.document": .docx,
             "net.djot.djot": .djot,
             "org.textile-lang.textile": .textile,
             "org.asciidoc.asciidoc": .asciidoc,
@@ -130,6 +134,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .rMarkdown: "R Markdown"
         case .djot: "Djot"
         case .textile: "Textile"
+        case .docx: "Word"
         case .asciidoc: "AsciiDoc"
         case .notebook: "Jupyter Notebook"
         case .graphviz: "Graphviz"

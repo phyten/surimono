@@ -99,6 +99,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 | LaTeX | `.tex`, `.latex`, `.ltx` |
 | Quarto（指定に従いコードを表示。実行結果は生成しません） | `.qmd` |
 | R Markdown（同上） | `.Rmd`, `.rmd`, `.Rmarkdown` |
+| Word | `.docx` |
 | Djot | `.dj`, `.djot` |
 | Textile | `.textile` |
 | AsciiDoc | `.adoc`, `.asciidoc` |

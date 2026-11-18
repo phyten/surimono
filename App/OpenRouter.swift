@@ -5,6 +5,11 @@ import SurimonoCore
 final class OpenRouter {
     static let shared: OpenRouter = OpenRouter(
         openDocument: { url, completion in
+            if url.pathExtension.lowercased() == "doc" {
+                NSApp.presentError(DocxError.encryptedOrLegacy)
+                completion(false)
+                return
+            }
             NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { document, _, error in
                 if let error { NSApp.presentError(error) }
                 // Explicitly bring an already open document forward as well.

@@ -251,7 +251,8 @@ private struct ErrorPanel: View {
             Text(verbatim: message).multilineTextAlignment(.center).textSelection(.enabled)
             HStack {
                 Button("Reload") { model.reload() }
-                if model.format.isWebRendered && model.format != .plainText {
+                // A Word document is a ZIP: as text it would be a page of noise.
+                if model.format.isWebRendered && model.format != .plainText && model.format != .docx {
                     Button("Open as Plain Text") { model.reopenAsText() }
                 }
             }

@@ -33,7 +33,7 @@ public enum HTMLDocumentBuilder {
     /// The document and its separate paper page both load theme CSS. Permit local resources and the bundled
     /// diagram engine's WebAssembly, while the renderer keeps document JavaScript disabled.
     static func offlinePolicy(for format: DocumentFormat) -> String {
-        guard format == .quarto || format == .rMarkdown else { return "" }
+        guard format == .docx || format == .quarto || format == .rMarkdown else { return "" }
         let policy =
             "default-src 'none'; img-src file: data: blob:; font-src file: data:; "
             + "style-src 'unsafe-inline' file: data:; script-src 'wasm-unsafe-eval'; form-action 'none'"
