@@ -142,7 +142,7 @@ extension ViewOptions {
     public static func defaults(for context: ViewDefaultsContext) -> ViewOptions {
         switch context.kind {
         case .flowingText:
-            return ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false)
+            return ViewOptions(layout: .single, scrollAxis: .vertical, transition: .slide, showsCoverAlone: false)
         case .image:
             return ViewOptions(layout: .single, scrollAxis: .horizontal, transition: .slide, showsCoverAlone: false)
         case .imageBundle:
