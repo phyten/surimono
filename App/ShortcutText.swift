@@ -14,6 +14,8 @@ enum ShortcutText {
         case .bookmarkToggle: "Bookmark This Page"
         case .bookmarkNext: "Next Bookmark"
         case .bookmarkPrevious: "Previous Bookmark"
+        case .appOpenURL: "Open from URL…"
+        case .clipboardReopen: "Reopen Closed Clipboard Document"
         case .appOpen: "Open…"
         case .clipboardOpen: "Open from Clipboard"
         case .appSettings: "Settings…"

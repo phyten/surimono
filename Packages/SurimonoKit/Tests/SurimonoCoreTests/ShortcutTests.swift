@@ -31,10 +31,10 @@ struct ShortcutTests {
                 "html.reviewRemoval", "print.manualDuplex", "print.duplexTest",
                 "reading.back", "reading.forward", "bookmark.toggle", "bookmark.next", "bookmark.previous",
                 "document.exportReadingPDF", "document.exportPNG", "document.exportHTML",
-                "document.copyHTML", "document.share", "document.copyRichText",
+                "document.copyHTML", "document.share", "document.copyRichText", "app.openURL", "clipboard.reopen",
             ])
-        #expect(ShortcutOperation.catalog.count == 88)
-        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 88)
+        #expect(ShortcutOperation.catalog.count == 90)
+        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 90)
     }
 
     @Test("既定の印刷と別名と未割当を明示する")
@@ -66,6 +66,9 @@ struct ShortcutTests {
         #expect(configuration.keys(for: .readingLast) == [.init(key: .named(.end))])
         #expect(configuration.keys(for: .globalClipboardOpen) == [])
         #expect(configuration.keys(for: .clipboardOpenPrintScreen) == [])
+        #expect(configuration.keys(for: .appOpenURL).isEmpty)
+        #expect(
+            configuration.keys(for: .clipboardReopen) == [.init(key: .character("t"), modifiers: [.shift, .command])])
         #expect(ShortcutValidator(environment: .init()).conflicts(in: configuration).isEmpty)
     }
 
@@ -443,6 +446,7 @@ struct ShortcutContractTests {
                 #"fold.left=leftArrow[]"#, #"fold.right=rightArrow[]"#,
                 #"reading.back=[["command"]"#, #"reading.forward=]["command"]"#,
                 #"bookmark.toggle=b[]"#, #"bookmark.next=][]"#, #"bookmark.previous=[[]"#,
+                #"clipboard.reopen=t["shift","command"]"#,
             ])
     }
 

@@ -35,7 +35,6 @@ struct ClipboardQuestionFlowTests {
                 closeWelcome: {})
             windows.preferences = preferences
             windows.library = UserLibrary(root: directory.appendingPathComponent("Library"))
-            windows.settingsStore = DocumentSettingsStore(directory: directory.appendingPathComponent("Settings"))
             windows.ask = { [unowned self] question, source, window, completion in
                 questions.append((question, source, window))
                 // The property, not the initializer's argument: tests change their answer as they go.
@@ -266,6 +265,7 @@ struct ClipboardQuestionFlowTests {
         let topLeft = NSPoint(x: firstWindow.frame.minX, y: firstWindow.frame.maxY)
         first.model.reopenText(as: .plainText)
         #expect(!firstWindow.isVisible)
+        #expect(fixture.preferences.closedClipboardDocuments.entries.isEmpty)
         #expect(fixture.windows.hasWindows)
         let second = try #require(fixture.windows.open(from: fixture.board, window: nil))
         #expect(second !== first)
@@ -284,6 +284,11 @@ struct ClipboardQuestionFlowTests {
         // Choosing the format it already has does nothing.
         second.model.reopenText(as: .plainText)
         #expect(try #require(fixture.windows.open(from: fixture.board, window: nil)) === second)
+        second.close()
+        let restored = try #require(fixture.windows.reopenClosed())
+        #expect(restored.model.textFormatOrigin == .chosen)
+        #expect(restored.model.textKind == .plainText)
+        #expect(fixture.questions.isEmpty)
     }
 
     @Test("「…」のメニューは、クリップボードの文字にだけ形式の選び直しを出す")

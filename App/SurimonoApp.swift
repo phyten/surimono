@@ -34,7 +34,6 @@ struct SurimonoApp: App {
         BinderWindows.shared.settingsStore = settingsStore
         ClipboardWindows.shared.preferences = preferences
         ClipboardWindows.shared.library = library
-        ClipboardWindows.shared.settingsStore = settingsStore
         StreamingPreviewWindows.shared.preferences = preferences
         StreamingPreviewWindows.shared.library = library
         ShortcutEnvironment.preferences = preferences

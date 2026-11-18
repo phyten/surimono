@@ -86,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 board.setString(text, forType: .string)
                 ClipboardWindows.shared.open(from: board)
             }
+            DebugSnapshot.openURL()
             DebugSnapshot.openFeeds()
             DebugSnapshot.askClipboardQuestion()
             DebugSnapshot.openGettingStarted()

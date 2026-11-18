@@ -8,13 +8,15 @@ struct ClipboardSettings: View {
     private typealias Mode = ClipboardFormatSettings.Mode
     private typealias Carefulness = ClipboardFormatSettings.Carefulness
 
-    /// The kinds the detector may open without asking. Text is always a choice, and a URL opens as text for now.
+    /// The kinds the detector may open without asking. Text is always a choice, and a pasted URL opens as text.
     static let recognizable: [ClipboardTextKind] = [
         .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .textile, .mediawiki, .notebook,
     ]
 
     var body: some View {
         Section {
+            Toggle("Keep Closed Clipboard Documents Until Quit", isOn: $preferences.keepsClosedClipboardDocuments)
+                .settingSearchRow("Keep Closed Clipboard Documents Until Quit")
             Picker("Choosing the Format", selection: $preferences.clipboardFormat.mode) {
                 Text("Ask When Unsure").tag(Mode.askWhenUnsure)
                 Text("Open as Text When Unsure").tag(Mode.plainTextWhenUnsure)

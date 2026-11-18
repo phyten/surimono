@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import PDFKit
 import SurimonoCore
 import SurimonoRendering
 import Testing
@@ -46,6 +47,34 @@ struct SmartRemovalWebTests {
         #expect(kept.smartRemovalCandidates == removed.smartRemovalCandidates)
         #expect(kept.logicalDocument.string?.contains("NEWSLETTER-MARKER") == true)
         #expect(kept.logicalDocument.string?.contains("COOKIE-MARKER") == false)
+    }
+
+    @Test("URL の記事を紙に組み、相対リンク、本文、プリセットとスマート削除の結果を PDF で確かめる", .timeLimit(.minutes(1)))
+    func downloadedPaper() async throws {
+        _ = NSApplication.shared
+        let base = URL(string: "https://fixture.invalid/news/article.html")!
+        let original = try fixture()
+        let html = original.replacingOccurrences(
+            of: "<h1>A garden made of paper</h1>",
+            with: "<h1>A garden made of paper</h1><a href='next.html'>Read more</a><p class='omit'>PRESET-MARKER</p>")
+        var settings = RenderSettings(
+            layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
+            preset: HTMLCleanupPreset(id: "article", name: "Article"), smartRemoval: SmartRemovalRequest())
+        settings.preset.removeSelectors = [".omit"]
+        let source = DocumentSource(data: Data(html.utf8), format: .html, htmlBaseURL: base)
+        let result = try await DocumentRenderer().render(source, settings: settings)
+        let pdf = result.logicalDocument
+        let text = try #require(pdf.string)
+        #expect(text.contains("A garden made of paper"))
+        #expect(!text.contains("PRESET-MARKER"))
+        #expect(!text.contains("COOKIE-MARKER"))
+        #expect(result.smartRemovalCandidates.contains { $0.id == "#cookie" })
+        let links = (0..<pdf.pageCount).flatMap { pdf.page(at: $0)?.annotations ?? [] }
+        #expect(
+            links.contains {
+                (($0.action as? PDFActionURL)?.url ?? $0.url)?.absoluteString
+                    == "https://fixture.invalid/news/next.html"
+            })
     }
 
     @Test("本文を段落から見つけ確認モードでは残す部分を別の輪郭で示す", .timeLimit(.minutes(1)))

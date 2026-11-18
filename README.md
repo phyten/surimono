@@ -30,7 +30,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Markdown front matter can choose a print setting set, layout, orientation, margins, style, and text size with `surimono:`; saved document settings take priority.
 
 - Open copied Markdown, text, HTML source, or images directly from the clipboard with ⌘N, without saving a source file
-- Copied text opens formatted (Markdown, Org, HTML, LaTeX, CSV or TSV) only when its format is clear; otherwise Surimono asks, showing the first lines and what each format would do. The format on the toolbar opens the same text again in another format, and Settings › Clipboard sets how the format is chosen. A copied URL opens as text for now.
+- Copied text opens formatted (Markdown, Org, HTML, LaTeX, CSV or TSV) only when its format is clear; otherwise Surimono asks, showing the first lines and what each format would do. The format on the toolbar opens the same text again in another format, and Settings › Clipboard sets how the format is chosen. A copied URL opens as text. Use **File › Open from URL…** to load a page and print it with the HTML cleanup settings.
 - Set two global shortcuts in Settings > Keyboard Shortcuts to open the clipboard in the viewer or on the print screen while Surimono is running (both are unset by default).
 - Open or print selected text from any app with the Services menu (Open in Surimono, Print with Surimono). It stays in memory until you choose Save as File…
 - Bind a Markdown file's parts: `<<[file]` (Marked), `{{file}}` (MultiMarkdown), `/file` (iA Writer), or a SUMMARY.md of links open as a binder when you ask, with the parent's text as a preface
@@ -79,6 +79,12 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Open a ZIP of images as one image bundle (images in nested folders, sorted by name; never extracted to disk)
 - Choose **Float on Top** or **Page Turn** in **…**. Add either to the toolbar in Settings. **Single or Spread** stays on the toolbar. **View › Float on Top** also pins the window. Choose **View › Show on All Spaces** to see it on every desktop.
 - Light by default; choose Dark or Match System under **Settings › General › Appearance**. The paper stays white in every appearance
+
+## Privacy and network access
+
+Surimono works offline and has no telemetry. It connects when you press **Open** in **Open from URL…**, when a document loads its own resources, and for update checks. If you enter an HTTP address, Surimono changes it to HTTPS before connecting. It follows only HTTPS redirects and uses a temporary session without stored cookies. HTML opens on paper and resolves images and styles relative to the final URL.
+
+**File › Recently Closed Clipboard Documents** lists the last ten clipboard, selection, or URL documents closed during this run (up to 50 MB in total). Reopen the latest with ⇧⌘T. The history stays in memory. Turn off **Keep Closed Clipboard Documents Until Quit** in **Settings › Clipboard** to clear it immediately.
 
 ## From Finder and Shortcuts
 

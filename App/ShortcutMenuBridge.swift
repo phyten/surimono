@@ -19,6 +19,8 @@ final class ShortcutMenuBridge: NSObject {
     static let entries: [Entry] =
         [
             .init(.appOpen, 1, []), .init(.appSettings, 0, []),
+            .init(.appOpenURL, 1, ["Open from URL…"]),
+            .init(.clipboardReopen, 1, ["Reopen Closed Clipboard Document"]),
             .init(.clipboardOpen, 1, ["Open from Clipboard"]),
             .init(.clipboardOpenPrintScreen, 1, ["Open Clipboard on the Print Screen"]),
             .init(.documentPrint, 1, ["Print…", "Print"]),
@@ -111,6 +113,9 @@ final class ShortcutMenuBridge: NSObject {
         ] {
             NotificationCenter.default.addObserver(self, selector: #selector(changed), name: name, object: nil)
         }
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(changed), name: ClosedClipboardDocuments.didChange,
+            object: ClipboardWindows.shared.preferences)
         for name in [
             NSApplication.didFinishLaunchingNotification, NSApplication.didBecomeActiveNotification,
             NSApplication.didUpdateNotification,
@@ -171,6 +176,7 @@ final class ShortcutMenuBridge: NSObject {
         DocumentEditMenu.hideItems(in: root)
         var found: [ShortcutOperationID: NSMenuItem] = [:]
         var external: [ShortcutOperationID: ShortcutCombination] = [:]
+        let history = ClipboardWindows.shared.preferences?.closedClipboardDocuments.entries.map(\.menuItem) ?? []
         ambiguous = []
         for entry in Self.entries {
             guard root.items.indices.contains(entry.menu), var parent = root.items[entry.menu].submenu else { continue }
@@ -211,7 +217,9 @@ final class ShortcutMenuBridge: NSObject {
                 if !item.isEnabled { item.isEnabled = true }
             }
             item.allowsKeyEquivalentWhenHidden = false
-            let desired = controller.snapshot.keys(for: entry.operation).first
+            let desired =
+                entry.operation == .clipboardReopen && history.isEmpty
+                ? nil : controller.snapshot.keys(for: entry.operation).first
             item.allowsAutomaticKeyEquivalentLocalization = controller.snapshot.overrides[entry.operation] == nil
             item.allowsAutomaticKeyEquivalentMirroring = controller.snapshot.overrides[entry.operation] == nil
             let value = desired.flatMap(ShortcutMenuKey.init)
@@ -252,6 +260,11 @@ final class ShortcutMenuBridge: NSObject {
             let state: NSControl.StateValue = checked ? .on : .off
             if let item = items[operation], item.state != state { item.state = state }
         }
+        items[.clipboardReopen]?.isHidden = history.isEmpty
+        if let parent = items[.clipboardReopen]?.menu?.item(withTitle: localize("Recently Closed Clipboard Documents"))
+        {
+            updateHistoryMenu(parent, history)
+        }
         items[.documentSaveAsFile]?.isHidden = current?.canSaveAsFile != true
         items[.documentOpenBinder]?.isHidden = current?.includePlan == nil
         if let parent = items[.listToggle]?.menu {
@@ -289,6 +302,28 @@ final class ShortcutMenuBridge: NSObject {
                 item.keyEquivalentModifierMask = key?.modifiers ?? .command
             }
         }
+    }
+
+    private func updateHistoryMenu(_ parent: NSMenuItem, _ history: [ClosedClipboardDocuments.MenuItem]) {
+        let submenu = parent.submenu ?? NSMenu(title: parent.title)
+        if parent.submenu == nil { parent.submenu = submenu }
+        parent.isHidden = history.isEmpty
+        if !submenu.items.elementsEqual(
+            history, by: { $0.representedObject as? ContentHash == $1.id && $0.title == $1.title })
+        {
+            submenu.removeAllItems()
+            for entry in history {
+                let item = submenu.addItem(
+                    withTitle: entry.title, action: #selector(reopenClosed(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = entry.id
+            }
+        }
+    }
+
+    @objc private func reopenClosed(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? ContentHash else { return }
+        ClipboardWindows.shared.reopenClosed(id)
     }
 
     @objc private func invoke(_ sender: NSMenuItem) {

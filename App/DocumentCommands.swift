@@ -24,6 +24,11 @@ struct DocumentCommands: Commands {
             Button("Open from Clipboard") { perform(.clipboardOpen) }
                 .keyboardShortcut("n")
             Button("Open Clipboard on the Print Screen") { perform(.clipboardOpenPrintScreen) }
+            Button("Open from URL…") { perform(.appOpenURL) }
+            Button("Reopen Closed Clipboard Document") { perform(.clipboardReopen) }
+                .keyboardShortcut("t", modifiers: [.shift, .command])
+            // The bridge fills the submenu when a window closes, before SwiftUI next tracks the File menu.
+            Button("Recently Closed Clipboard Documents") {}
             Button("Streaming Preview") { perform(.appStreamingPreview) }
             // A binder has no file of its own, so the standard Open Recent cannot list it.
             if !preferences.recentBinders.isEmpty {

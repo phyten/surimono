@@ -74,6 +74,35 @@ struct SmartRemovalRenderingTests {
         #expect(calls == 1)
     }
 
+    @Test("URL の HTML はファイルを開かず、応答の URL、原文、プリセット、スマート削除を組版へ渡す")
+    func downloadedArticle() async throws {
+        var changed = settings
+        changed.preset.removeSelectors = [".preset-only"]
+        let expected =
+            HTMLCleanupScript.javaScript(for: changed.preset) + "\n"
+            + PaperCleanupScript.following(SmartRemovalScript.javaScript(for: SmartRemovalRequest()))
+        let base = URL(string: "https://fixture.invalid/news/index.html")!
+        let html = "<article><img src='pic.png'>Body</article>"
+        let renderer = DocumentRenderer(
+            isSandboxed: { true },
+            paginateWithResult: { request in
+                guard case .html(let body, let url) = request.source else {
+                    Issue.record("メモリ上の HTML を組版する")
+                    return WebPaginator.Result(document: try RenderingFixtures.pdf())
+                }
+                #expect(body == html)
+                #expect(url == base)
+                #expect(request.preparationScript?.contains(expected) == true)
+                #expect(!request.allowsJavaScript)
+                return WebPaginator.Result(document: try RenderingFixtures.pdf())
+            })
+        let source = DocumentSource(data: Data(html.utf8), format: .html, htmlBaseURL: base)
+        _ = try await renderer.render(source, settings: changed)
+        #expect(renderer.logicalRenderCount == 1)
+        #expect(source.fileURL == nil)
+        #expect(source != DocumentSource(data: source.data, format: .html))
+    }
+
     @Test("既存のPDFだけを返す組版フックをそのまま使える")
     func legacyHook() async throws {
         let renderer = DocumentRenderer(paginate: { _ in try RenderingFixtures.pdf() })

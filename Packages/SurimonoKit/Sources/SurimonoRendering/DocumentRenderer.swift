@@ -5,6 +5,7 @@ import SurimonoCore
 public struct DocumentSource: Equatable, Sendable {
     public let data: Data
     public let fileURL: URL?
+    public private(set) var htmlBaseURL: URL?
     public let format: DocumentFormat
     public let images: [Image]?
     public let children: [DocumentSource]?
@@ -78,7 +79,7 @@ public struct DocumentSource: Equatable, Sendable {
         return sameContent && lhs.fileURL == rhs.fileURL && lhs.format == rhs.format
             && lhs.images == rhs.images && lhs.children == rhs.children
             && lhs.allowedResourceFolders == rhs.allowedResourceFolders && lhs.isLiveSnapshot == rhs.isLiveSnapshot
-            && lhs.usesLoadedHTML == rhs.usesLoadedHTML
+            && lhs.usesLoadedHTML == rhs.usesLoadedHTML && lhs.htmlBaseURL == rhs.htmlBaseURL
     }
 
     public static func images(_ images: [Image]) -> Self { Self(images: images) }
@@ -98,8 +99,9 @@ public struct DocumentSource: Equatable, Sendable {
         isLiveSnapshot = false
     }
 
-    public init(data: Data, fileURL: URL? = nil, format: DocumentFormat) {
+    public init(data: Data, fileURL: URL? = nil, format: DocumentFormat, htmlBaseURL: URL? = nil) {
         self.init(data: data, fileURL: fileURL, format: format, isLiveSnapshot: false)
+        if format == .html, let htmlBaseURL { self.htmlBaseURL = URLDocument.address(htmlBaseURL.absoluteString) }
     }
 
     private init(
@@ -1102,7 +1104,7 @@ public final class DocumentRenderer {
             } else if let url = source.fileURL {
                 input = .file(url, readAccessURL: url.deletingLastPathComponent())
             } else {
-                input = .html(try Self.decodedText(source.data), baseURL: nil)
+                input = .html(try Self.decodedText(source.data), baseURL: source.htmlBaseURL)
             }
             var preparation =
                 (settings.opensDetails ? HTMLSnapshotScript.openDetailsJavaScript + "\n" : "")
