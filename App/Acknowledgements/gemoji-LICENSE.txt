@@ -1,4 +1,4 @@
-The emoji shortcodes in Packages/SurimonoKit/Sources/SurimonoCore/Resources/emoji.json are derived from
+The emoji shortcodes in Packages/SurimonoKit/Sources/SurimonoFormats/Resources/emoji.json are derived from
 gemoji (https://github.com/github/gemoji), db/emoji.json.
 
 Copyright (c) 2019 GitHub, Inc.

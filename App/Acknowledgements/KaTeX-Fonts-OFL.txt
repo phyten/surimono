@@ -1,4 +1,4 @@
-The KaTeX fonts in Packages/SurimonoKit/Sources/SurimonoCore/Resources (KaTeX_*.ttf) come from the KaTeX project
+The KaTeX fonts in Packages/SurimonoKit/Sources/SurimonoFormats/Resources (KaTeX_*.ttf) come from the KaTeX project
 (https://github.com/KaTeX/KaTeX), as bundled by SwaTex. They are licensed under the SIL Open Font License 1.1:
 
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007

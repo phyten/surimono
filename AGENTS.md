@@ -18,7 +18,8 @@ App/                    アプリ本体（SwiftUI）。Xcode の synchronized fo
 AppTests/               アプリのテスト（ホストアプリ付き）
 Configs/                xcconfig・Info.plist・entitlements。ビルド設定はここで変える
 Packages/SurimonoKit/   ロジック本体（SwiftPM）
-  Sources/SurimonoCore/       純粋ロジック（形式判定、HTML への変換、テーマ・プリセット、用紙・レイアウト、面付け計算）。AppKit / WebKit / PDFKit に依存しない
+  Sources/SurimonoFormats/    形式判定、入力文書の HTML 断片への変換。Resources/ に変換用 JavaScript・絵文字・KaTeX 書体を同梱
+  Sources/SurimonoCore/       純粋ロジック（テーマ・プリセット、用紙・レイアウト、面付け計算）。AppKit / WebKit / PDFKit に依存しない
   Sources/SurimonoRendering/  AppKit / WebKit / PDFKit / CoreGraphics を使う描画（ページ分割、画像の PDF 化、面付け PDF の合成、印刷設定）
   Tests/                      Swift Testing のテスト
 Samples/                手動確認用のサンプル文書
@@ -36,7 +37,8 @@ Surimono.xcodeproj      手書きの最小プロジェクト（objectVersion 77�
 make build                      # Debug ビルド（build/DerivedData。開発版の Surimono Dev）
 make run FILE=Samples/sample.md # ビルドしてファイルを開く（FILE 省略可）
 make test                       # test-kit のあとに test-app（順に走らせる）
-make test-kit                   # SurimonoKit のテスト（swift test。Core のあとに Rendering を直列で）
+make test-kit                   # SurimonoKit のテスト（swift test。Formats・Core のあとに Rendering を直列で）
+make test-formats               # SurimonoFormats のテストだけ
 make test-core                  # SurimonoCore のテストだけ
 make test-rendering             # SurimonoRendering のテストだけ（直列）
 make bench                      # 任意の描画計測（既定 5 回。JSON の保存先を表示）
@@ -57,13 +59,13 @@ make clean
   - アイコンの絵は、背の外側から見た薄い中綴じの冊子（生成りの冊子、藍の地、朱のホチキス）。16・32px では紙の重なりがつぶれるので、重なりを省いて折り目とホチキスを太くした `AppIcon-small.svg` を使う。
   - PNG は `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で書き出す。公開版も開発版も、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は small の SVG から、残りの 7 枚は大きい方の SVG から。`AppIcon.svg` か `AppIcon-small.svg` を変えたら、対応する開発版の SVG にも同じ変更を入れて、両方を書き出し直す。
 - CI（`.github/workflows/ci.yml`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
-- CI は 5 つの macOS のジョブを同時に走らせる: `lint-and-core`（`make lint`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`）、`package`（`make package` と成果物の保存）。それぞれ自分の runner で組み立てる。必須チェックの `build-and-test` は Linux の門番のジョブで、5 つすべてが成功したときだけ通る（失敗・取り消し・スキップがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
+- CI は 5 つの macOS のジョブを同時に走らせる: `lint-and-core`（`make lint`・`make test-formats`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`）、`package`（`make package` と成果物の保存）。それぞれ自分の runner で組み立てる。必須チェックの `build-and-test` は Linux の門番のジョブで、5 つすべてが成功したときだけ通る（失敗・取り消し・スキップがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
 
 ## アーキテクチャ（印刷パイプライン）
 
 ```text
 ファイル → DocumentFormat 判定
-  ├ Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Quarto / R Markdown / Word / MediaWiki / Djot / Textile / Notebook / Graphviz / PlantUML → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
+  ├ Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Quarto / R Markdown / Word / MediaWiki / Djot / Textile / Notebook / Graphviz / PlantUML → HTML 断片（SurimonoFormats）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
   ├ HTML → そのまま。ノイズ除去プリセット（CSS / JS）を注入
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
@@ -77,8 +79,8 @@ make clean
 - 同じ「書き出す」に「画像（PNG）…」「HTML…」と、区切り線の下に「PDF を共有…」を置く（ファイルメニューには macOS 標準の「共有」があり、そちらは開いたファイルそのものを渡す。同じ名前を 2 つ並べない）。PNG と共有は読むための PDF と同じ表示設定のページを使う。PNG は白背景・sRGB、72 / 144 / 300 dpi（既定144、アプリ全体で記憶）、長辺12,000pxを上限に解像度を下げて知らせる。複数ページは選んだフォルダーの中へ新しい連番フォルダーを作り、既存の中へ書かない。再読み込みと窓を閉じたときは作業を取り消す。
 - HTML と「編集 > HTML としてコピー」は単独のテーマ対応文書だけに効く。`HTMLExporter` は `HTMLDocumentBuilder` と `WebPaginator` の準備（Mermaid・飾り・コード）を再利用し、印刷の前に DOM の複製を取り出す。書き出し中のネットワークを遮断し、許可されたローカル画像は data URL にする。スクリプト・元ファイルの位置の属性・ローカル URL を除き、画面だけ中央の幅と余白を加える。「編集 > リッチテキストとしてコピー」も同じ単独文書に対応し、表・リスト・リンク・画像を RTFD と HTML に、文字と表を RTF に、画像の代替文字をプレーンテキストに渡す。装飾を除き、数式や図の SVG は表示寸法の 2 倍で PNG 化する（長辺 4,000 px、400 個まで。超過分は代替文字）。共有は非公開の一時フォルダーへ読む PDF を置き、システムの共有メニューへ渡す。次の共有か窓を閉じたときに消す。コピーのテスト・DEBUG は専用ペーストボードだけを使う。
 - これらを束ねるのが `DocumentRenderer`（SurimonoRendering）。文書ごとに 1 つ持ち、論理ページの PDF を使い回す（両面設定やページ番号の変更だけなら組版し直さない）。ファイルが変わったら `clearCache()` を呼ぶ。
-- Markdown と Org のコードは SurimonoCore の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
-- Org（`OrgConverter`・`OrgInline`・`OrgContext`、SurimonoCore）は、紙で読むための形にして出す。原文の記号（`[fn:1]`・`SCHEDULED: <…>`・`#+begin_note`）を紙に残さない。
+- Markdown と Org のコードは SurimonoFormats の `SyntaxHighlighter` で色付けする（JavaScript は使わない）。Markdown の `:::` と `> [!note]` は囲み（`callout-*`）にする。
+- Org（`OrgConverter`・`OrgInline`・`OrgContext`、SurimonoFormats）は、紙で読むための形にして出す。原文の記号（`[fn:1]`・`SCHEDULED: <…>`・`#+begin_note`）を紙に残さない。
   - `#+TITLE` があるときは表題だけが h1 で、`*` は h2 から（org-export と同じ。テーマは h1 を文書の表題として作ってある）。表題がなければ `*` が h1 のまま。表題ブロックは表題・副題（`#+SUBTITLE`）・著者・日付の順。
   - 見出しの TODO の語は大文字小文字を区別し、`#+TODO`・`#+SEQ_TODO`・`#+TYP_TODO` の宣言に従う（既定は TODO・NEXT・WAITING・WAIT・HOLD と DONE・CANCELLED・CANCELED）。進行中は `.org-todo`、完了は `.org-done`（見出しに `.org-done-heading`）。優先度 `.org-priority`、進み具合 `[2/4]` は `.org-cookie`、タグは `.org-tags > .org-tag`。
   - 予定の行（SCHEDULED・DEADLINE・CLOSED）は `p.org-planning`、日付は `time.org-timestamp`（角括弧の方は `.org-timestamp-inactive`）。
@@ -93,31 +95,31 @@ make clean
   - 未知の名前は `callout-unknown callout-neutral` で、アイコンの代わりに名前の札（`.callout-name`）を出す。表題を書かなければ名前の見出し語が札の文字になる。Zenn の `:::message`（`alert` も）は、Zenn と同じく表題がなければ札を出さず、枠と地だけの箱にする。
   - アイコンは表題の中のインラインの SVG。CSS の画像では `currentColor` が届かず、テーマごとの札の文字色にならない。
 - `:::` は markdown-it-container と同じく、段落・参照定義・引用・リストの続きを打ち切る（コード・HTML・明示的な引用行・字下げしたリスト本文・AST のブロックに属さない行は除く）。
-- Markdown の拡張記法（`MarkdownExtensions`、SurimonoCore）: 脚注 `[^id]`、`==ハイライト==`、`^上付き^`、`~下付き~`（pandoc と同じく `~~` は取り消し線）、ルビ `{漢字|かんじ}`・`{漢字|かん|じ}`、絵文字 `:name:`、定義リスト（語の次の行の `: 説明`）、見出しの ID（GitHub と同じ slug、`{#id}` で指定）と目次 `[TOC]`。
+- Markdown の拡張記法（`MarkdownExtensions`、SurimonoFormats）: 脚注 `[^id]`、`==ハイライト==`、`^上付き^`、`~下付き~`（pandoc と同じく `~~` は取り消し線）、ルビ `{漢字|かんじ}`・`{漢字|かん|じ}`、絵文字 `:name:`、定義リスト（語の次の行の `: 説明`）、見出しの ID（GitHub と同じ slug、`{#id}` で指定）と目次 `[TOC]`。
   - CriticMarkup は Markdown の `PrintFinish.proof` で記号表示・反映後・元の姿を選ぶ。コードは変えず、見出しの文字は紙に残る本文からコメントを除いて作る。記号は 1 つの段落の中だけで読み、コードスパンをまたぐ記号は文字のまま残す。記号だけの行で囲んでも、要素の前後の改行を外して、タグだけの行（HTML ブロックになり中の Markdown が読まれない）を作らない。
   - フロントマターの `surimono:` は設定セット・レイアウト・向き・余白・スタイル・文字サイズを指定する。保存済み設定を優先し、既定に戻すとアプリの既定値に指示を重ねる。指示だけでは設定を保存しない。`set:` は利用者が保存した設定セットの名前だけを指す（組み込みのセットは名前が言語で変わるので対象にしない）。
   - インラインの記法は、cmark の前に原文を inline HTML へ書き換える。中の Markdown もそのまま読まれ、表の `|` とも混ざらない。コードブロック・HTML ブロック・コードスパン・タグ・リンク先・URL は書き換えない。
   - 脚注は最初に参照した順に番号を振り、本文は末尾の `section.footnotes` にまとめる。紙からは戻れないので、戻りのリンクは付けない。
   - `PrintFinish.footnotes.pageBottom`（ベータ）は `PageFootnotes` と `FootnotePlacer` で2回組版し、参照行の下に予約した帯を PDF 上で切り取って本文を上へ詰め、脚注をページ下へ置く。表・コード・図などの参照は除外し、合本・HTMLには効かない。描き直したページはクリップ描画で抽出テキストが重複する。注のページは最初の参照で決め、それが表などの中なら注は文末に残す。詰める帯は紙の色だけでなければならない（`FootnotePlacer.isBlank`。行ごとに同じ絵でも、詰めれば棒グラフの棒が短くなる）。帯に何か描かれている行（横の回り込み、ドロップキャップ、色つきの囲みや引用の縦罫の中の参照）は、その行の注だけを文末に残して組み直す。目印が揃わないときは全体を文末の脚注に戻す。WebKit が書くリンクの行き先は、組版後に切り戻す 2pt ぶん注釈の矩形より上にあるので、測って補正する（`destinationLift`）。
   - Mermaid: Markdown の ```` ```mermaid ```` と Org の `#+begin_src mermaid` は、原文をエスケープした `.mermaid-block` にする。Rendering に同梱する mermaid.js を隔離された世界 `surimono` で一度評価し、neutral・strict・本文の書体で SVG にしてから、変更の印・紙の判定・印刷前の確認・ページ分割を行う。文書の JavaScript は無効のまま。図のない文書ではライブラリを読み込まない。元の文書のリソースを読み込んだ後、図による追加のリソース取得は遮断する。描けない図や時間内に終わらない図は原文を残し、印刷前の確認に出す。パレットの小さな見本は原文のまま（乗せて試す紙と見比べ台は図になる）。
-  - 絵文字の対応表 `Resources/emoji.json` は GitHub の gemoji（MIT）の別名だけを取り出したもの。ライセンス文を `App/Acknowledgements/` に同梱している。
+  - 絵文字の対応表 `Sources/SurimonoFormats/Resources/emoji.json` は GitHub の gemoji（MIT）の別名だけを取り出したもの。ライセンス文を `App/Acknowledgements/` に同梱している。
   - 数式 `$…$`・`$$…$$`（複数行も）・`\(…\)`・`\[…\]`・```` ```math ```` は、SwaTex（純 Swift の KaTeX 互換の組版）で SVG にする（`MathRenderer`）。式は cmark の前に取り出し、インラインは私用領域の文字の目印、行をまたぐものは HTML ブロックにするので、強調やエスケープが LaTeX に触れない。インラインの `$` は式に接していて後ろに数字が来ないときだけ（`$5 と $10` は文字のまま）。字形は KaTeX の書体の `<text>` で、使った書体だけを本文の最後の `<style>` に data URL の `@font-face` で埋め込む（文書の隣のファイルを読まずに刷れる。テーマの「Web フォントを使わない」とは別で、アプリが同梱する数式用の書体）。大きさは em（文字の 1.1 倍）、色は `currentColor` でテーマに従う。読めない式は原文を `.math-error` で残す。
-- AsciiDoc（`.adoc`・`.asciidoc`）は SurimonoCore の JavaScriptCore で同梱の Asciidoctor.js を使う。目次と統計もバックグラウンドで同期変換できるよう、文書間で共有する JSContext をロックする。表題・節・表・脚注・囲み・コード・図・LaTeX 数式を印刷スタイルに合わせる。secure モードで外部 include は読み込まず、AsciiMath は原文を残す。5 MB を超える原文はテキストで表示する。
+- AsciiDoc（`.adoc`・`.asciidoc`）は SurimonoFormats の JavaScriptCore で同梱の Asciidoctor.js を使う。目次と統計もバックグラウンドで同期変換できるよう、文書間で共有する JSContext をロックする。表題・節・表・脚注・囲み・コード・図・LaTeX 数式を印刷スタイルに合わせる。secure モードで外部 include は読み込まず、AsciiMath は原文を残す。5 MB を超える原文はテキストで表示する。
 - Quarto（`.qmd`）と R Markdown（`.Rmd`・`.rmarkdown`）は `ComputationalMarkdown` で YAML の書誌情報、チャンクの表示指定、囲み、図表と相互参照を読み、Markdown と同じ経路で組版する。コードは一切実行せず、結果が入る場所に枠付きの注記を出す。Mermaid と Graphviz は同梱の描画器を使う。`_freeze/`・`*_files/`・`*_cache/` の保存結果、引用・参考文献、Quarto プロジェクト（`_quarto.yml`）、拡張、Lua フィルター、OJS の実行結果、include 先は読まない。
 - MediaWiki（`.mediawiki`・`.wiki`・`.wikitext`）は Swift で見出し・リンク・リスト・表・脚注・数式と文書の隣の画像を読み、印刷スタイルで組む。他のページやサイト CSS は取得しない。テンプレートは展開せず、独立したものは名前と名前付き引数を枠に出す。
 - Word（`.docx`）は mammoth.js で見出し・段落・強調・リスト・表・画像・脚注・リンクを読み、Surimono のテーマで組む。元の配置・書体・色・位置揃え・ヘッダー・フッター・コメント・変更履歴の削除部分・OMML 数式は刷らない。暗号化した文書と旧形式の .doc は対象外。
 - Djot（`.dj`・`.djot`）は同梱の @djot/djot で見出し・属性・定義リスト・タスク・表・脚注・スマート句読点を読み、数式・囲み・図・絵文字を印刷用に整える。生の断片は HTML だけを読む。Markdown と似ているためクリップボードでは手動選択。
 - Textile（`.textile`）は同梱の textile-js で見出し・引用・コード・脚注・表・多段リスト・定義リスト・画像・リンク・略語・属性・生 HTML と整形抑止記法を読む。ライブラリの既定どおり段落内の改行は `<br>` になる。両形式ともスクリプトとイベント属性を除き、5 MB を超える原文はテキストで表示する。
-- Notebook（`.ipynb`、`NotebookConverter`、SurimonoCore）は nbformat 4 の Markdown・コード・raw セルと保存済み出力を読み、印刷テーマで刷る。コードは実行しない。第3版と未知の版は第4版への保存を案内するエラーにする。
+- Notebook（`.ipynb`、`NotebookConverter`、SurimonoFormats）は nbformat 4 の Markdown・コード・raw セルと保存済み出力を読み、印刷テーマで刷る。コードは実行しない。第3版と未知の版は第4版への保存を案内するエラーにする。
   - Markdown の記法・数式・添付画像を読み、セルごとに見出しと脚注の ID を分け、目次は文書全体で作る。コードは既存の色付けと枠の設定を使う。画像・HTML の表・Markdown・数式・文字の MIME 表現から優先順に一つを選ぶ。HTML は静的な要素だけ残し、スクリプト・イベント属性・スタイルを除く。
   - 対話型など紙に出せない出力は `.notebook-note` の枠で知らせる。remove/hide タグと Jupyter の非表示設定に従う。端末の制御文字を処理し、400 行または約200 KB を超える文字出力は先頭200行・末尾50行を上限に残し、省略を示す。画像は切らない。
-- LaTeX（`.tex`・`.latex`・`.ltx`、UTType `org.tug.tex`）は `LaTeXConverter`（SurimonoCore）が HTML 断片にする。TeX エンジンではなく、よく使う部分集合を読んで印刷テーマで刷る（Swift で書かれた TeX エンジンはなく、Tectonic などは TeX Live の同梱とネットからの取得が要るため）。
+- LaTeX（`.tex`・`.latex`・`.ltx`、UTType `org.tug.tex`）は `LaTeXConverter`（SurimonoFormats）が HTML 断片にする。TeX エンジンではなく、よく使う部分集合を読んで印刷テーマで刷る（Swift で書かれた TeX エンジンはなく、Tectonic などは TeX Live の同梱とネットからの取得が要るため）。
   - 読むもの: 前置きの `\documentclass`・`\title`／`\author`／`\date`・`\newcommand`／`\def`・`\DeclareMathOperator`・`\definecolor`・`\graphicspath`、`\maketitle`、abstract、`\tableofcontents`、番号つきの節（章のある文書クラス、`\appendix`、和文の文書クラスは「第1章」）、`\label`／`\ref`／`\eqref`、書体とサイズ、itemize／enumerate（enumitem の `label=`・`start=`）／description、quote・center など、verbatim・lstlisting・minted（色付けは `SyntaxHighlighter`）、`\verb`、数式（`$`・`\(`・`\[`・equation・align などは SwaTex。星なしの環境に式番号）、`\footnote`、hyperref の `\href`／`\url`、xcolor、figure／table の `\caption`（図と表は別の番号）、graphicx の `\includegraphics`（拡張子がなければ文書の隣と `\graphicspath` を探す）、tabular（列の揃え・縦線・`\hline`・booktabs・`\multicolumn`・`\multirow`）、amsthm の `\newtheorem`（節ごと・共有・番号なし、`\theoremstyle`。和文の文書は plain でも斜体にしない）と proof、thebibliography と `\cite`（natbib の `\citep` なども番号で）、siunitx の `\num`・`\qty`（`\SI`）・`\unit`（`\si`）・`\ang`（数式の中でも使える）。
   - 前置きの `\newcommand` は文章の中では展開し、数式には定義として渡す（SwaTex が読めない定義は外す）。知らないコマンドは名前を捨てて引数の文字を残し、設定だけのコマンド（`\setlength` など）は引数ごと消す。geometry は無視して Surimono の用紙と余白を使う。TikZ などの図と `\input`・`\bibliography`（.bib）は、描けない・読まないことを枠で示す。
   - 題の中の `\label` は、その見出し・図表・定理の番号を指す。enumerate の短い番号指定は `[a)]`・`[(i)]` など、番号の文字が一つで前後が記号だけのものを読み、余白などの設定キーは番号にしない。`\url`・`\href` の最初の引数・`\path`・`\nolinkurl` の `%` は URL の文字として残す。
   - tabular*／tabularx／tabulary は幅と位置を捨てて列の指定を読み、wrapfigure／wraptable は回り込みの引数を捨てて通常の図表として読む。longtable の題は表の番号を使い、最初の見出しだけを表の見出しにする。TeX の繰り返し用の見出しと途中の脚注は出さず、最後の脚注（なければ通常の脚注）は本文の末尾に一度だけ出す。ページ分割は Surimono が行う。
   - 改行をはさんだ和文の文字の間には空白を入れない（和文の TeX と同じ）。参照・文献の番号・目次は文書の終わりまで読んでから埋める。`\bibitem` のない `\cite` はキーを太字で出す。
-- 文書の言語（`DocumentLanguage`、SurimonoCore）: 生成する HTML の `<html lang>` は、文書ごとに本文から決める（前はいつも `ja`）。右から左の言語（ar・fa・ur・he など）には `dir="rtl"` も付ける。紙の背景のページ（`PaperBackground`）も同じ言語と向きにする。
+- 文書の言語（`DocumentLanguage`、SurimonoFormats）: 生成する HTML の `<html lang>` は、文書ごとに本文から決める（前はいつも `ja`）。右から左の言語（ar・fa・ur・he など）には `dir="rtl"` も付ける。紙の背景のページ（`PaperBackground`）も同じ言語と向きにする。
   - 決め方: 文書の宣言（Markdown の front matter の `lang`・`language`、Org の `#+LANGUAGE`）が最優先。なければ、コード・数式・図を除いた本文の文字を文字種ごとに数える。かな・漢字・ハングルが文字の 8% 以上なら東アジアの文書（英語の用語が多い日本語のメモを日本語のままにするため、低くしてある）で、ハングルが多ければ `ko`、かながあれば `ja`。かなのない漢字は、中国語の機能語（这・们・没 など）が 2 つ以上あるときだけ中国語（簡体・繁体は `NLLanguageRecognizer`）にし、なければ既定値（UI の言語が日本語か中国語ならそれ、ほかは `ja`）。漢字だけの名簿や章題を中国語と決めつけない。ほかは一番多い文字種で決め、ラテン文字・キリル文字などの中の言語は `NLLanguageRecognizer` に聞く。文字がなければ既定値（`pageLanguage`、UI の言語）。
   - 書体（`LanguageFonts`）: 簡体字・繁体字・韓国語・キリル文字・ギリシャ文字の文書では、スタイルシートの書体の並びの、最初の日本語の書体の直前に、その書体の種類（ゴシック・明朝・丸ゴシック・教科書体・等幅）に合う書体を 1 つ入れる（PingFang / Songti、Apple SD Gothic Neo / AppleMyungjo、Helvetica Neue / Times New Roman）。日本語の書体は、漢字を日本の字形で、キリル文字を全角で描くため。日本語とそのほかの言語では 1 バイトも変えない。テーマが使う日本語の書体はすべて分類しておく（`LanguageFontsTests` が全テーマで確かめる）。
   - 言語ごとの組み方は `common.css` の終わりにある: 韓国語は語の途中で折らない（`word-break: keep-all`）、右から左の文書とデーヴァナーガリー・タイ文字では字間を外す、右から左の文書でもコードは左から右。両端揃えのテーマはハイフネーションを入れるが、日本語・中国語・韓国語の文書では入れない（WebKit は `lang="ja"` でも英単語を分ける）。見出し・表・コードにも入れない。
@@ -147,7 +149,7 @@ make clean
   例: n = 8 → 用紙1 表[8|1] 裏[2|7]、用紙2 表[6|3] 裏[4|5]。右とじ n = 8 → 用紙1 表[1|8] 裏[7|2]、用紙2 表[3|6] 裏[5|4]。この式はテストで固定している。変更するときはテストと `.agents/skills/project-surimono-print-layout` を先に更新する。
 - 外での保存: `FileWatcher` がパスのメタデータを 250 ms ごとに裏で見て（エディタは保存でファイルを差し替えることが多いので、開いたファイルではなくパスを見る）、変わったら `DocumentViewModel` が裏で読み直す。内容が同じなら組み直さない。手で押した再読み込みはいつも読み直す。イベントの見張り（vnode）と比べ、速さと負荷の差は誤差で、ネットワークやクラウドの場所では届かないことがあるのでポーリングのままにしている。
 - Markdown の変更の印: 読み直したとき、前に表示していた原文と行ごとに比べ（`MarkdownChanges`。前処理をまたいで原文の行とブロックを対応づける）、変わったブロックの位置を、各ブロックに見えないリンク（`surimono-mark:`）を置いた別の組版から WebKit のリンク注釈として受け取る（`ChangeMark`）。表示・印刷に使う組版には何も足さず、線は表示用の写し（`ViewPageDocument`）にだけ、本文の左端のすぐ外に描く。HTML・Org・LaTeX には印を付けない。
-- 依存の向き: App → SurimonoRendering → SurimonoCore。Core から AppKit / WebKit を import しない。
+- 依存の向き: App → SurimonoRendering → SurimonoCore → SurimonoFormats。Core・Formats から AppKit / WebKit / PDFKit を import しない。
 - 外観（`AppAppearance`）は `AppPreferences.appearance` に保存し、何も保存されていなければライト（以前ダークで使っていた人も）。`AppearanceKeeper` が起動時の `applicationWillFinishLaunching`（最初の窓より前）と選び直したときに `NSApp.appearance` へ当てるので、文書・刷り台・ウェルカム・設定・キーと操作・シート・ポップオーバー・Sparkle の窓が一度にそろう。窓ごとに外観を付けない。開発版の `-SurimonoAppearance light|dark` はその起動だけ設定より優先し、設定には書かない。
 - 配置画面の未使用パレット（画面の語は「追加できる部品」）は「移動と文書情報・表示・読み方・本文と用紙・ウインドウ・印刷と保存・ヘルプ」の7群に分け、空の群は表示しない。分類は表示上の投影だけで、保存された `unused` の順序を変更しない。群の中も保存順を保ち、移動・ドロップ・Undo・読み上げの位置には元の `unused` 配列の添字を使う。パレットの部品名は最大2行、帯の見本は1行。スクロールは画面全体の縦方向だけとし、キーボードや移動ボタンで移した選択部品を画面内へ送る。
 - アプリの既定値（既定のレイアウト・余白、表示の型・ページ送り・読む向き・スクロール方向・表紙、窓を開いたときの最前面とメニューの固定、文字の大きさ・用紙の向き）と、スタイルの最近使ったもの・お気に入り（アプリ全体）と帯の部品の配置セット（`bandArrangementStore`。版つきの JSON 1 つにセットと選択をまとめる）は `AppPreferences` が `UserDefaults` に保存する。スタイルを選んだと記録するのは利用者がメニューで選んだとき（`DocumentViewModel.selectTheme`）だけで、復元・既定に戻す・代わりのテーマへの切り替えでは記録しない。ユーザー CSS とユーザープリセットは `~/Library/Application Support/Surimono/` 配下の `Styles/`（*.css）と `Presets/`（*.json）に置く（`UserLibrary`。Debug ビルドは `Surimono Dev/` 配下）。
@@ -182,7 +184,7 @@ make clean
   - サンドボックス版では、渡されたファイルが security-scoped URL で届く。`ShortcutFileAccess` が、書き出しでは組版の間だけ、印刷モードで開くときは `OpenRouter.open(_:printing:access:)` へ渡し、開いた窓のモデルが受け取って（`DocumentViewModel.keep`）`stop()` で手放す。単独の文書は窓がモデルを登録したとき（`DocumentWindows.register` → `OpenRouter.handAccess`。刷り台への移動と違い、組版の終わりを待たない）に、画像の束と合本は開く処理が返すモデルに渡す。開けなかったファイル、警告だけで開かなかった選択、束から外れたファイル、すでに開いていて前面に出すだけの文書の分は、その場で手放す。受け取る前に終わったモデルは、`stop()` で待っている分を手放させる（`giveUpAccess`）。
   - 文言は `App/Shortcuts.xcstrings`（表 `Shortcuts`。`LocalizedStringResource(_:table:)` で指す）、呼び出しの言葉は `App/AppShortcuts.xcstrings`（この名前でないと読まれない。値は `stringSet`）。どちらも 8 言語。インテントの型に `nonisolated` は付けられない（`@Parameter` が可変の保存プロパティになる）。`perform()` に `@MainActor` を付ける。
 - 「ファイルとして保存…」（`DocumentViewModel.saveAsFile`）は、メモリ上の文書（クリップボード・サービス・ストリーミング）にだけ、ファイルメニューと帯の「…」と刷り台に出す。保存パネルで選んだ場所へ新しいファイルを書くだけで、窓はメモリ上の文書のまま。`DocumentEditMenu` が隠す NSDocument の保存の項目とは別の項目にする。
-- Markdown の親ファイル: `MarkdownIncludes`（SurimonoCore）が、行に単独の `<<[file]`・`{{file}}`・`/file` と、見出し・区切り線・リンクだけのリストでできた文書（SUMMARY.md の形。ファイル名は問わない）を読む。`{{…}}` と `/…` は拡張子があるときだけ。コードブロックの中は読まない。パスは親の隣から相対で、絶対パス・URL・親のフォルダーの外へ出る `..` とシンボリックリンクは読まず、見つからないファイルと同じく引き出しに示す。親が名指しした子は、読むたびに `ConfinedFile`（SurimonoCore。`LocalResourceSchemeHandler` と共有）で、計画のときの親のフォルダーの実パス（`Plan.root`）の下にあることを開いた記述子の実パスで確かめ、その記述子から読む。再読み込みの前に子や途中のフォルダーがリンクへ差し替えられても外を読まない。利用者が足した文書は制約しない。本文には差し込まない（開いた文書は原文のまま刷れる）。読める文書が 2 つ以上あればトーストと「文書」メニューの「合本で開く」で誘い、親の窓を合本の窓に入れ替える。合本は親の本文（インクルード行を除いたもの）を前書きにして並びの順に続け、1 段だけ読む（子の中の記法は読まない）。並びの順のままなら順序を設定に記録せず、「既定に戻す」は並びの順へ戻す（`BinderModel.isInStartingOrder`・`resetOrder`）。窓の再利用は URL の集合と生まれ（`BinderModel.Origin`）の両方が同じときだけ。サンドボックスではフォルダーを許可するまで隣を確かめられないので、書かれた数で誘い、押したときに許可を求める。
+- Markdown の親ファイル: `MarkdownIncludes`（SurimonoFormats）が、行に単独の `<<[file]`・`{{file}}`・`/file` と、見出し・区切り線・リンクだけのリストでできた文書（SUMMARY.md の形。ファイル名は問わない）を読む。`{{…}}` と `/…` は拡張子があるときだけ。コードブロックの中は読まない。パスは親の隣から相対で、絶対パス・URL・親のフォルダーの外へ出る `..` とシンボリックリンクは読まず、見つからないファイルと同じく引き出しに示す。親が名指しした子は、読むたびに `ConfinedFile`（SurimonoFormats。`LocalResourceSchemeHandler` と共有）で、計画のときの親のフォルダーの実パス（`Plan.root`）の下にあることを開いた記述子の実パスで確かめ、その記述子から読む。再読み込みの前に子や途中のフォルダーがリンクへ差し替えられても外を読まない。利用者が足した文書は制約しない。本文には差し込まない（開いた文書は原文のまま刷れる）。読める文書が 2 つ以上あればトーストと「文書」メニューの「合本で開く」で誘い、親の窓を合本の窓に入れ替える。合本は親の本文（インクルード行を除いたもの）を前書きにして並びの順に続け、1 段だけ読む（子の中の記法は読まない）。並びの順のままなら順序を設定に記録せず、「既定に戻す」は並びの順へ戻す（`BinderModel.isInStartingOrder`・`resetOrder`）。窓の再利用は URL の集合と生まれ（`BinderModel.Origin`）の両方が同じときだけ。サンドボックスではフォルダーを許可するまで隣を確かめられないので、書かれた数で誘い、押したときに許可を求める。
 - ストリーミングプレビュー（ファイル > ストリーミングプレビュー）は Marked と同じ名前付きペーストボード `mkStreamingPreview` の `public.utf8-plain-text` を読む窓で、1 つだけ開く。`StreamingPreviewWindows` が窓の開いている間だけ 0.5 秒ごとに `changeCount` を見て `DocumentViewModel.replaceContent` でメモリ上の文書を組み直す。組版中の変更は読まずに残し、終わってから一番新しい文字を読む。`changeCount` が増えるのは `clearContents` のときだけで `setString` では増えないので、本文が取れたときだけ既読に進める。文書の設定は保存しない。Marked の基準 URL は使わない（別のアプリの指定でローカルのファイルを読まないため）。
 - 画像の束は NSDocument ではなく、`ImageBundleWindows` が AppKit の NSWindow に SwiftUI の `DocumentContent` を載せて開く。メニュー操作は `DocumentWindows.activeModel`（キーウィンドウのモデル）に届ける。
 - 合本は `BinderWindows` が `MemoryDocumentWindowController` で開き、`DocumentViewModel.binder`（`BinderModel`）が子と並び順を持つ。紙の左の共通パネル（`SidePanel`）で追加・ドラッグ / ⌥⌘↑↓による並べ替え・一覧から外す・名前順を操作する。最後の 1 文書は外せない。利用者の取り除きで 1 文書になったときだけ、合本を解除するか標準シートで確認する（開く・復元・取り消しでは確認しない）。設定の「一般 > 文書を開いたあと」で、確認する（既定）・確認せず解除・確認せず合本を維持を選べる。「次回から確認しない」は今回の回答を保存する。一覧のメニューの「合本を解除」は 1 文書のときだけ有効。解除は `BinderExit` から単独文書の通常の開く経路へ戻し、その内容のハッシュの設定を使う。合本の設定は写さない。ウインドウの位置・大きさと文書内のページを引き継ぎ、刷り台なら刷り台に戻す。同じ文書が既に開いていれば、そのウインドウと読書位置を優先して前面に出し、合本を閉じる。行を選ぶと文書の先頭へ移り、紙を送ると選択が追いかける。見開きでは選んだ文書が見えている間は選択を保つ。並べ替え・取り除きの後も文書内の読書位置を保つ（取り除いた場合は同じ行の次の文書）。一覧を開くと窓を左へ広げ、紙の位置と大きさを保つ。画面に入らないときは紙も縦横比を保って縮め、閉じると元の高さへ戻す。刷り台も同じ一覧で、行を選ぶと先頭ページを載せた用紙へ移る。追加は末尾、読み取り・組版に失敗した子は除いて一覧に示す。監視はせず、再読み込みで子と隣のリソースを読み直す。子のフォルダー許可は `FolderAccess` の lease を窓が保持する。合本の保存ファイルは作らない。
@@ -191,7 +193,7 @@ make clean
   - メニュー: 項目名は窓の名前と同じ形（`BinderModel.title(firstName:count:language:)`）で、最後に「メニューを消去」。1 件もなければサブメニューごと出さない。選ぶと `OpenRouter.open(recentBinder:)` が `OpenRequest` を通さずに `openBinder` へ渡すので、画像だけの組も合本のまま開く。見つからないファイルも渡し、一覧の読めない文書として見せる。
   - サンドボックス: 記録のときだけ、各ファイルの読み取り専用のセキュリティスコープのブックマークを作る（`RecentBinderFiles`。作れなければパスだけ）。開くときは解決してアクセスを始め、窓が閉じる通知の 1 回あとに手放す。窓が閉じる処理が同じ合本のブックマークを作り直すのに、アクセスがまだ要るため。ファイルが動いていたら開くときに項目のパスを直し（`RecentBinders.replace`）、閉じるときに読めずブックマークを作れなかったファイルは、同じパスの項目が持っていたブックマークを残す（`RecentBinders.record`）。
 - `DocumentSource.binder` は子の `DocumentSource` の配列。`DocumentRenderer` が子ごとの renderer で論理ページを作り、安全にコピーして結合し、既存の面付けへ渡す。子の比較は内容のハッシュ・URL・形式・リソース許可で行い、並べ替え・取り除き・奇数ページ開始だけなら子の組版を再利用する。テーマと文字サイズはテーマ形式、プリセットは HTML に適用する。印刷設定セットの適用・一致判定も子の形式の集合で決める。自動の出力方向は、白紙を除いた子の論理ページの多数決（同数なら先頭）で決め、冊子は固定方向を保つ。HTML の子は再読み込みまで保持した原文のバイト列から組版し、本文と集合ハッシュを一致させる。相対リソースは元の文書 URL とフォルダー許可で読む。`BinderPagination` は奇数ページ開始がオンで両面または冊子を刷るとき、次の読める子が奇数ページから始まるよう文書間だけに白紙を足す。`PrintIssue` は白紙を含む先頭オフセットを加え、ID と原文の鍵に子の識別子を付ける。表示も他の文書と同じく刷り台と同じ論理ページで、奇数ページ開始の白紙も見える。刷り台で組んだページが表示と同じなら、読んでいる文書の場所もそのページで決め直し、表示へ戻っても同じ文書を出す（`showsReadingPages(_:)`）。
-- ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。開いた枚数のトーストは、画像以外を除いたなど `excludedSummary` が空でないときだけ、除いたものと一緒に出す。
+- ZIP は 1 つのファイルとして DocumentGroup で開き、中の画像を `ZipArchive`（SurimonoFormats）・`ZipImageSelection`（SurimonoCore）で集めて `ImageBundleModel` の束にする。ディスクへ展開せず、メモリ上で必要なときに 1 枚ずつ展開する。開いた枚数のトーストは、画像以外を除いたなど `excludedSummary` が空でないときだけ、除いたものと一緒に出す。
 - 新しい「開く」経路を足すときは `OpenRouter` を通し、`OpenRouterTests` にケースを足す。
 
 ## クリップボードの文字の形式
@@ -413,7 +415,7 @@ make clean
 - WebKit を使うテストは遅く不安定になりやすい。数を絞り、タイムアウトを設ける。Kit の Rendering のテストは、`make test-kit`（`SWIFT_TEST_FLAGS` を指定しないとき）が直列（`--no-parallel`）で走らせる。新しい CI の runner で並列に走らせると、複数件がまとめて時間切れになることがあった（比較では、並列で 10 台中 1 台、直列で 10 台中 0 台が失敗）。個別に走らせるときも、必要なら `--no-parallel` を付ける。
 - 手元の `make test` は `test-kit` のあとに `test-app` を順に走らせる。テスト同士を 1 台の Mac で重ねない。速くするのは CI の側で、ジョブを別々の runner に分けている（「コマンド」の CI の項）。計測（18 コアの Mac）で確かめた理由:
   - `test-kit` と `test-app` を同時に走らせない。同時にすると 5 回中 2 回、ホスト付きテストのうち待ち時間に頼るもの（`FileWatcherTests`・`WebPageKeyTests`・`PrintThemePaletteTests`。回ごとに違う）が落ちた。Kit の側の優先度を下げても（nice）2 回中 2 回落ちた。順に走らせると 6 回中 0 回。縮むのも約 20% で、通った回でも順に走らせたときと変わらないことがあった。
-  - Core と Rendering は同時に走らせない。同じ `.build` を使う `swift test` は SwiftPM のロックで順番待ちになり（`--skip-build` でも）、速くならない。`test-app` の方が長いので、Kit の側を縮めても全体は変わらない。
+  - Formats・Core・Rendering は同時に走らせない。同じ `.build` を使う `swift test` は SwiftPM のロックで順番待ちになり（`--skip-build` でも）、速くならない。`test-app` の方が長いので、Kit の側を縮めても全体は変わらない。
   - Rendering のテストは手元でも並列にしない。並列にすると毎回 18〜24 件が落ちた（5 回中 5 回。`WebPaginator.clearBackground` などの静的な状態を書き換えるテストと、それが空であることを確かめるテストが同時に走るのと、WebKit の読み込みの失敗）。
   - ホスト付きテストに Xcode の並列テスト（`-parallel-testing-enabled YES`）を使わない。テストのホストの複製が同じ設定・保存先・窓・メインメニューを取り合い、3 回とも 23〜140 件が落ちた（ホストが落ちた回もある）。直列なら 3 回とも全件が通った。スキームの `parallelizable="NO"` はそのためで、変えない。
 - fixture に個人情報や実データを入れない。

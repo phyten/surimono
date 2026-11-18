@@ -31,6 +31,7 @@ jobs:
           xcodebuild -version
           swift --version
       - run: make lint
+      - run: make test-formats
       - run: make test-core
 
   # The Rendering tests drive WebKit against timeouts, so they get a runner of their own and run one at a time on it
