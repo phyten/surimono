@@ -4,7 +4,7 @@
 
 ## プロダクト
 
-- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
+- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX / Jupyter Notebook を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
 - 主な機能: 出てくる用紙をそのまま並べる印刷モード（刷り台。画面の語は「印刷画面」）、印刷テーマ（画面の語は「スタイル」。CSS。12 のカテゴリーに 108 種。固定の見本（実文書にも切り替え可）を並べたパレットで、最近使った・お気に入り・定番・カテゴリーから選べ、表示モードでは乗せると紙で試せる（刷り台では見本だけを拡大）。4 つまで並べ、同じ見出しやコードからそろえて比べる見比べ台もある）の切替とユーザー CSS・文字の大きさ、スタイルとは別の軸のコードの配色（12 の候補と枠・行番号などのオプション）、HTML のノイズ除去プリセット（ユーザー追加可）とスマート削除（ベータ）、印刷レイアウト（A判・B判（JIS）・Letter系の片面・両面、左とじ / 右とじの中綴じ冊子 A3→A4 / A4→A5 / B4→B5 / B5→B6 / Tabloid→Letter / Letter→Half Letter、2ページ配置・4ページ配置・3ページ＋メモ）、紙の仕上げ（上下左右の余白、ヘッダー・フッター、改ページ、紙の目次、書き込むためのノートページ）、刷り台で選んだプリンターへのダイアログなしの印刷（システムの印刷画面も選べる）、PDF 書き出し、紙の外に帯を置く表示モード（上だけ / 上と下に分けるメニュー、常に表示 / ポインタを乗せたときだけ（紙の端に重ねて出す）、設定の「ツールバーの配置」で部品と区切り線を並べ替えて配置セットとして保存・切り替え、目次、文書の数字、用紙の系列、単ページ / 見開き、拡大縮小、最前面に固定）、内容のハッシュごとの設定の保存、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観は設定の「一般」の「外観」で選ぶ（ライト（既定）・ダーク・システムに合わせる。紙はどの外観でも白い）。
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
@@ -63,7 +63,7 @@ make clean
 
 ```text
 ファイル → DocumentFormat 判定
-  ├ Markdown / Org / テキスト / CSV / LaTeX → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
+  ├ Markdown / Org / テキスト / CSV / LaTeX / Notebook → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
   ├ HTML → そのまま。ノイズ除去プリセット（CSS / JS）を注入
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
@@ -102,6 +102,9 @@ make clean
   - Mermaid: Markdown の ```` ```mermaid ```` と Org の `#+begin_src mermaid` は、原文をエスケープした `.mermaid-block` にする。Rendering に同梱する mermaid.js を隔離された世界 `surimono` で一度評価し、neutral・strict・本文の書体で SVG にしてから、変更の印・紙の判定・印刷前の確認・ページ分割を行う。文書の JavaScript は無効のまま。図のない文書ではライブラリを読み込まない。元の文書のリソースを読み込んだ後、図による追加のリソース取得は遮断する。描けない図や時間内に終わらない図は原文を残し、印刷前の確認に出す。パレットの小さな見本は原文のまま（乗せて試す紙と見比べ台は図になる）。
   - 絵文字の対応表 `Resources/emoji.json` は GitHub の gemoji（MIT）の別名だけを取り出したもの。ライセンス文を `App/Acknowledgements/` に同梱している。
   - 数式 `$…$`・`$$…$$`（複数行も）・`\(…\)`・`\[…\]`・```` ```math ```` は、SwaTex（純 Swift の KaTeX 互換の組版）で SVG にする（`MathRenderer`）。式は cmark の前に取り出し、インラインは私用領域の文字の目印、行をまたぐものは HTML ブロックにするので、強調やエスケープが LaTeX に触れない。インラインの `$` は式に接していて後ろに数字が来ないときだけ（`$5 と $10` は文字のまま）。字形は KaTeX の書体の `<text>` で、使った書体だけを本文の最後の `<style>` に data URL の `@font-face` で埋め込む（文書の隣のファイルを読まずに刷れる。テーマの「Web フォントを使わない」とは別で、アプリが同梱する数式用の書体）。大きさは em（文字の 1.1 倍）、色は `currentColor` でテーマに従う。読めない式は原文を `.math-error` で残す。
+- Notebook（`.ipynb`、`NotebookConverter`、SurimonoCore）は nbformat 4 の Markdown・コード・raw セルと保存済み出力を読み、印刷テーマで刷る。コードは実行しない。第3版と未知の版は第4版への保存を案内するエラーにする。
+  - Markdown の記法・数式・添付画像を読み、セルごとに見出しと脚注の ID を分け、目次は文書全体で作る。コードは既存の色付けと枠の設定を使う。画像・HTML の表・Markdown・数式・文字の MIME 表現から優先順に一つを選ぶ。HTML は静的な要素だけ残し、スクリプト・イベント属性・スタイルを除く。
+  - 対話型など紙に出せない出力は `.notebook-note` の枠で知らせる。remove/hide タグと Jupyter の非表示設定に従う。端末の制御文字を処理し、400 行または約200 KB を超える文字出力は先頭200行・末尾50行を上限に残し、省略を示す。画像は切らない。
 - LaTeX（`.tex`・`.latex`・`.ltx`、UTType `org.tug.tex`）は `LaTeXConverter`（SurimonoCore）が HTML 断片にする。TeX エンジンではなく、よく使う部分集合を読んで印刷テーマで刷る（Swift で書かれた TeX エンジンはなく、Tectonic などは TeX Live の同梱とネットからの取得が要るため）。
   - 読むもの: 前置きの `\documentclass`・`\title`／`\author`／`\date`・`\newcommand`／`\def`・`\DeclareMathOperator`・`\definecolor`・`\graphicspath`、`\maketitle`、abstract、`\tableofcontents`、番号つきの節（章のある文書クラス、`\appendix`、和文の文書クラスは「第1章」）、`\label`／`\ref`／`\eqref`、書体とサイズ、itemize／enumerate（enumitem の `label=`・`start=`）／description、quote・center など、verbatim・lstlisting・minted（色付けは `SyntaxHighlighter`）、`\verb`、数式（`$`・`\(`・`\[`・equation・align などは SwaTex。星なしの環境に式番号）、`\footnote`、hyperref の `\href`／`\url`、xcolor、figure／table の `\caption`（図と表は別の番号）、graphicx の `\includegraphics`（拡張子がなければ文書の隣と `\graphicspath` を探す）、tabular（列の揃え・縦線・`\hline`・booktabs・`\multicolumn`・`\multirow`）、amsthm の `\newtheorem`（節ごと・共有・番号なし、`\theoremstyle`。和文の文書は plain でも斜体にしない）と proof、thebibliography と `\cite`（natbib の `\citep` なども番号で）、siunitx の `\num`・`\qty`（`\SI`）・`\unit`（`\si`）・`\ang`（数式の中でも使える）。
   - 前置きの `\newcommand` は文章の中では展開し、数式には定義として渡す（SwaTex が読めない定義は外す）。知らないコマンドは名前を捨てて引数の文字を残し、設定だけのコマンド（`\setlength` など）は引数ごと消す。geometry は無視して Surimono の用紙と余白を使う。TikZ などの図と `\input`・`\bibliography`（.bib）は、描けない・読まないことを枠で示す。
@@ -112,7 +115,7 @@ make clean
   - 決め方: 文書の宣言（Markdown の front matter の `lang`・`language`、Org の `#+LANGUAGE`）が最優先。なければ、コード・数式・図を除いた本文の文字を文字種ごとに数える。かな・漢字・ハングルが文字の 8% 以上なら東アジアの文書（英語の用語が多い日本語のメモを日本語のままにするため、低くしてある）で、ハングルが多ければ `ko`、かながあれば `ja`。かなのない漢字は、中国語の機能語（这・们・没 など）が 2 つ以上あるときだけ中国語（簡体・繁体は `NLLanguageRecognizer`）にし、なければ既定値（UI の言語が日本語か中国語ならそれ、ほかは `ja`）。漢字だけの名簿や章題を中国語と決めつけない。ほかは一番多い文字種で決め、ラテン文字・キリル文字などの中の言語は `NLLanguageRecognizer` に聞く。文字がなければ既定値（`pageLanguage`、UI の言語）。
   - 書体（`LanguageFonts`）: 簡体字・繁体字・韓国語・キリル文字・ギリシャ文字の文書では、スタイルシートの書体の並びの、最初の日本語の書体の直前に、その書体の種類（ゴシック・明朝・丸ゴシック・教科書体・等幅）に合う書体を 1 つ入れる（PingFang / Songti、Apple SD Gothic Neo / AppleMyungjo、Helvetica Neue / Times New Roman）。日本語の書体は、漢字を日本の字形で、キリル文字を全角で描くため。日本語とそのほかの言語では 1 バイトも変えない。テーマが使う日本語の書体はすべて分類しておく（`LanguageFontsTests` が全テーマで確かめる）。
   - 言語ごとの組み方は `common.css` の終わりにある: 韓国語は語の途中で折らない（`word-break: keep-all`）、右から左の文書とデーヴァナーガリー・タイ文字では字間を外す、右から左の文書でもコードは左から右。両端揃えのテーマはハイフネーションを入れるが、日本語・中国語・韓国語の文書では入れない（WebKit は `lang="ja"` でも英単語を分ける）。見出し・表・コードにも入れない。
-- JavaScript: Markdown / Org / テキスト / CSV / LaTeX から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りと Mermaid の描画スクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
+- JavaScript: Markdown / Org / テキスト / CSV / LaTeX / Notebook から作る HTML では、文書の JavaScript は常に無効。HTML 文書は設定（既定は許可）とプリセットの両方が許すときだけ有効。組み込みテーマの飾りと Mermaid の描画スクリプトは例外で、組版の準備としてアプリの隔離された世界（`world(name: "surimono")`）で走り、文書のスクリプトとは混ざらない。
 - 文字の大きさ（`TextScale`、SurimonoCore）は 80〜200% の 1% 刻み（`percent / 100` でいつも同じ数にし、保存した 113% が変更に見えないようにする）。パレット・設定の既定は数の欄と 1% の矢印（`TextSizeField`）。⌥⌘+ / ⌥⌘−・メニュー・パレットのボタンは 8 段階（`TextScale.steps`）を進み、段階の間の値からは次の段階へ。メニューは今の値が段階でなければ足して印を付ける（`TextScale.choices(including:)`）。フロントマターの `text-size` も 1% 刻みにして収める。
 - 印刷テーマの目録は `Resources/themes.json`（SurimonoCore）: カテゴリー（順と名前）、定番の順、各テーマの id・英語名・日本語名・カテゴリー・飾りのスクリプトを持つ。テーマの CSS は `Resources/<id>.css` で、`common.css` の後に重ねる（`PrintThemeLibrary`）。メニューの並び（最近使った 5 つ・お気に入り・定番・カテゴリー・自分のスタイル）は純粋な型 `PrintThemeMenu` が決め、テストで固定している。
   - テーマを足すときの決まり: 左右は論理プロパティ（`margin-inline-start`・`padding-inline-end`・`border-inline-start`・`text-align: start`・`float: inline-start`・`inset-inline-start`）で書く（右から左の文書で鏡像になる。背景で描いた縦線は `[dir="rtl"]` に鏡像の指定を足す）。CSS の `content:` で言葉を出すときは、既定を言語によらない形か英語にし、`:lang(ja)` などで各言語の言葉にする。`@page`・CSS の段組み・`position: fixed`・アニメーション・外部の URL・Web フォントは使わない。書体は macOS に入っているものだけで、最後に日本語の書体と総称の書体を置く。例外として、アプリが同梱する KaTeX の書体を `ThemeFonts`（SurimonoCore）の名前 `"Surimono Computer Modern"`・`"Surimono Computer Modern Typewriter"`（引用符つき）で使える。使ったスタイル（ユーザー CSS も）にだけ、欧文の範囲に絞った data URL の `@font-face` がスタイルの要素に入る（パレットが要素を差し替えても書体が付いてくる）。数式の書体とは別の名前で欧文の範囲に絞るので、和文や … ・矢印はこの書体を使わず、テーマの書体の並びで次の書体に任せる（「LaTeX 風」テーマが使う）。パレットは要素を差し替えたあと、書体の読み込みを待ってから見本を描く。見出しに CSS のカウンターで番号を振るときは、`body:not(.format-latex)` を付けて LaTeX の文書を外す（LaTeX は自分で番号を持つ）。紙の地は白かごく淡い色にする（インクを使い切らないため）。本文は 4.5:1 以上のコントラストにする。

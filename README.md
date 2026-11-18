@@ -41,6 +41,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Mermaid diagrams in Markdown (```` ```mermaid ````) and Org (`#+begin_src mermaid`) rendered as printable SVG offline. Invalid diagrams keep their source and appear in the preflight checks.
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)
 - Quick viewer for Markdown, PDF, images, Org, plain text, HTML, CSV, and LaTeX
+- Print Jupyter Notebook Markdown, code and saved outputs without executing code. Supports nbformat 4; interactive-only outputs are marked with a framed note.
 - LaTeX documents printed with the styles: titles, numbered sections and references, lists (enumitem), code (listings), math through SwaTex with equation numbers, footnotes, hyperref, xcolor, figures (graphicx), tables (booktabs), theorems and proofs (amsthm), the bibliography and citations, and units (siunitx). Surimono reads the common subset rather than running TeX; TikZ pictures are marked where they would be
 - Combine Markdown, Org, text, CSV, LaTeX, HTML, PDFs, and images into one binder: drop files on an open window or use Add Documents…, reorder, remove, and print or export as one PDF or booklet, optionally starting each document on an odd page. A binder you close stays in File > Recent Binders.
 - Open multiple images together as one image bundle, including mixed image formats
@@ -96,6 +97,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
+| Jupyter Notebook | `.ipynb` |
 | ZIP of images | `.zip` (opened as one image bundle) |
 
 ## Requirements

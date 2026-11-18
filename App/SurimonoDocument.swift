@@ -6,7 +6,8 @@ import UniformTypeIdentifiers
 struct SurimonoDocument: FileDocument {
     nonisolated static var readableContentTypes: [UTType] {
         [
-            .surimonoMarkdown, .surimonoOrg, .surimonoLaTeX, .plainText, .html, .pdf, .image, .commaSeparatedText,
+            .surimonoMarkdown, .surimonoOrg, .surimonoLaTeX, .surimonoNotebook, .plainText, .html, .pdf, .image,
+            .commaSeparatedText,
             .tabSeparatedText, .zip,
         ]
     }
@@ -30,7 +31,9 @@ struct SurimonoDocument: FileDocument {
             throw CocoaError(.fileReadCorruptFile)
         }
         self.data = data
-        self.contentType = contentType
+        // Some systems have only the JSON association installed; use the file name without claiming all JSON.
+        let suffix = ((file.preferredFilename ?? file.filename ?? "") as NSString).pathExtension
+        self.contentType = DocumentFormat(fileExtension: suffix) == .notebook ? .surimonoNotebook : contentType
     }
 
     nonisolated func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {

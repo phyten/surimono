@@ -8,9 +8,9 @@ struct ClipboardQuestionTests {
             text: text, detection: ClipboardFormatDetector.detect(text, settings: settings), settings: settings)
     }
 
-    @Test("選べる形式は Markdown・Org・HTML・LaTeX・CSV・テキストの順で URL を含まない")
+    @Test("選べる形式は Markdown・Org・HTML・LaTeX・CSV・Notebook・テキストの順で URL を含まない")
     func choosableKinds() {
-        #expect(ClipboardTextKind.choosable == [.markdown, .org, .html, .latex, .csv, .plainText])
+        #expect(ClipboardTextKind.choosable == [.markdown, .org, .html, .latex, .csv, .notebook, .plainText])
     }
 
     @Test("種類は同じ名前の文書の形式で開き、URL はテキストで開く")
@@ -34,7 +34,7 @@ struct ClipboardQuestionTests {
         #expect(asked.preferred == .markdown)
         #expect(asked.competing == [.markdown, .org])
         #expect(asked.options.map(\.kind) == [.markdown, .org, .plainText])
-        #expect(asked.others.map(\.kind) == [.html, .latex, .csv])
+        #expect(asked.others.map(\.kind) == [.html, .latex, .csv, .notebook])
     }
 
     @Test("テキストの点数が 2 つの形式のあいだでも、テキストは最後の行に並び、最初の選択は判定器の勧めのまま")
@@ -51,7 +51,7 @@ struct ClipboardQuestionTests {
         #expect(asked.preferred == .plainText)
         #expect(asked.options.map(\.kind) == [.markdown, .plainText])
         #expect(asked.options.first?.evidence == [.headings(1)])
-        #expect(asked.others.map(\.kind) == [.org, .html, .latex, .csv])
+        #expect(asked.others.map(\.kind) == [.org, .html, .latex, .csv, .notebook])
         #expect(asked.others.allSatisfy { $0.evidence.isEmpty })
         #expect(asked.competing.isEmpty)
     }
@@ -62,7 +62,7 @@ struct ClipboardQuestionTests {
         settings.automaticKinds.remove(.markdown)
         let asked = question("# 見出し", settings: settings)
         #expect(asked.options.map(\.kind) == [.plainText])
-        #expect(asked.others.map(\.kind) == [.markdown, .org, .html, .latex, .csv])
+        #expect(asked.others.map(\.kind) == [.markdown, .org, .html, .latex, .csv, .notebook])
         #expect(asked.others.first?.evidence == [.headings(1)])
     }
 
@@ -84,7 +84,7 @@ struct ClipboardQuestionTests {
             settings: .standard)
         #expect(asked.preferred == .plainText)
         #expect(!(asked.options + asked.others).contains { $0.kind == .url })
-        #expect((asked.options + asked.others).count == 6)
+        #expect((asked.options + asked.others).count == 7)
     }
 
     @Test("見本は先頭の空行を飛ばした最初の 5 行で、長い行と続きは切ったと分かる")

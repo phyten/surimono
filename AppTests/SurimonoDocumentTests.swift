@@ -6,6 +6,27 @@ import UniformTypeIdentifiers
 @testable import Surimono
 
 struct SurimonoDocumentTests {
+    @Test("JSONの型で渡されたipynbだけをNotebookとして開く")
+    func notebookJSON() throws {
+        let file = FileWrapper(regularFileWithContents: Data(#"{"nbformat":4,"cells":[]}"#.utf8))
+        file.preferredFilename = "sample.ipynb"
+        let notebook = try SurimonoDocument(file: file, contentType: .json)
+        #expect(notebook.format == .notebook)
+        file.preferredFilename = "sample.json"
+        #expect(try SurimonoDocument(file: file, contentType: .json).format != .notebook)
+        #expect(SurimonoDocument.readableContentTypes.contains(.surimonoNotebook))
+    }
+
+    @Test("Notebookの取り込み型はJSONに準拠し拡張子を宣言する")
+    func notebookRegistration() throws {
+        let imported = try #require(
+            Bundle.main.object(forInfoDictionaryKey: "UTImportedTypeDeclarations") as? [[String: Any]])
+        let notebook = try #require(imported.first { $0["UTTypeIdentifier"] as? String == "org.jupyter.ipynb" })
+        #expect(notebook["UTTypeConformsTo"] as? [String] == ["public.json"])
+        let tags = try #require(notebook["UTTypeTagSpecification"] as? [String: Any])
+        #expect(tags["public.filename-extension"] as? [String] == ["ipynb"])
+    }
+
     @Test("読み込んだ文書のバイト列と形式を保持する")
     func preservesDocumentData() throws {
         let data = Data("# 摺物\n".utf8)
@@ -50,7 +71,7 @@ struct SurimonoDocumentTests {
             Set(imported.compactMap { $0["UTTypeIdentifier"] as? String })
                 == Set([
                     UTType.surimonoMarkdown.identifier, UTType.surimonoOrg.identifier,
-                    UTType.surimonoLaTeX.identifier,
+                    UTType.surimonoLaTeX.identifier, UTType.surimonoNotebook.identifier,
                 ]))
     }
 }

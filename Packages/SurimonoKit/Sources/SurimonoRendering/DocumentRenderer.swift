@@ -1075,7 +1075,7 @@ public final class DocumentRenderer {
                 requiredFolderAccess: page.requiredFolderAccess)
             mirrored.issues = page.issues
             return mirrored
-        case .markdown, .org, .plainText, .csv, .latex:
+        case .markdown, .org, .plainText, .csv, .latex, .notebook:
             var missingImage = false
             let access = resourceAccess(for: source)
             let fragment: HTMLFragment
@@ -1566,6 +1566,8 @@ public final class DocumentRenderer {
         switch source.format {
         case .markdown:
             MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
+        case .notebook:
+            try NotebookConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:
             LaTeXConverter.convert(
                 try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),

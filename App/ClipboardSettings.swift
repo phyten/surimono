@@ -9,7 +9,7 @@ struct ClipboardSettings: View {
     private typealias Carefulness = ClipboardFormatSettings.Carefulness
 
     /// The kinds the detector may open without asking. Text is always a choice, and a URL opens as text for now.
-    private static let recognizable: [ClipboardTextKind] = [.markdown, .org, .html, .latex, .csv]
+    private static let recognizable: [ClipboardTextKind] = [.markdown, .org, .html, .latex, .csv, .notebook]
 
     var body: some View {
         Section {
