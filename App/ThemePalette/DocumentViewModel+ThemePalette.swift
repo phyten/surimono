@@ -17,9 +17,20 @@ extension DocumentViewModel {
 
     var paperChangeMarks: [ChangeMark] {
         guard mode == .view else { return [] }
-        if themeTrial.themeID != nil, themeTrial.document != nil { return themeTrial.changeMarks }
-        if let chosenTrial, isCurrentLook(chosenTrial) { return chosenTrial.changeMarks }
-        return result?.changeMarks ?? []
+        let marks: [ChangeMark]
+        if themeTrial.themeID != nil, themeTrial.document != nil {
+            marks = themeTrial.changeMarks
+        } else if let chosenTrial, isCurrentLook(chosenTrial) {
+            marks = chosenTrial.changeMarks
+        } else {
+            marks = result?.changeMarks ?? []
+        }
+        return marks.map { mark in
+            var updated = mark
+            updated.backgroundHex = preferences.changeBackgroundHex
+            updated.textHex = preferences.changeTextHex
+            return updated
+        }
     }
 
     /// The header and footer the sheets draw on the pages the paper shows, so that what is read is what prints.

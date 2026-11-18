@@ -308,8 +308,8 @@ struct ViewPageDocumentTests {
         #expect(
             page.selection(for: CGRect(x: 100, y: 0, width: 100, height: 12))?.string?.trimmingCharacters(
                 in: .whitespacesAndNewlines) == "3")
-        let pixel = try RenderingFixtures.pixel(page, x: 9, y: 70)
-        #expect(pixel[0] > 200 && pixel[1] < 200 && pixel[2] < 200)
+        let pixel = try RenderingFixtures.pixel(page, x: 40, y: 60)
+        #expect(pixel[0] > 245 && pixel[1] > 230 && (155...180).contains(pixel[2]))
         #expect(source.page(at: 2)?.bounds(for: .cropBox).size == CGSize(width: 500, height: 300))
     }
 

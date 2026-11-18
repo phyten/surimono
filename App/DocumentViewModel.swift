@@ -413,7 +413,7 @@ final class DocumentViewModel {
         try await Task.detached(priority: .utility) { try Data(contentsOf: url) }.value
     }
     private var reloadGeneration = 0
-    private var displayedMarkdownData: Data?
+    private var displayedChangeSource: DocumentSource?
     private(set) var markdownChanges: [MarkdownMarkRequest] = []
     /// The changes of the last reload have not been brought to the reader's attention yet.
     @ObservationIgnored private var hasUnannouncedChanges = false
@@ -595,6 +595,9 @@ final class DocumentViewModel {
     /// view is judged without them.
     func showsReadingPages(_ settings: RenderSettings, fromSnapshot: Bool) -> Bool {
         guard var reading = renderSettings(in: .view) else { return false }
+        reading.markdownChanges = settings.markdownChanges
+        reading.changeTextHex = settings.changeTextHex
+        reading.changeBackgroundHex = settings.changeBackgroundHex
         reading.opensDetails = false
         reading.pageRange = settings.pageRange
         reading.options.rotatesBackSides = settings.options.rotatesBackSides
@@ -618,7 +621,10 @@ final class DocumentViewModel {
             opensDetails: rendersSnapshot && opensClosedDetails,
             slides: slideDeck.map {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
-            }, markdownChanges: format == .markdown ? markdownChanges : [])
+            }, markdownChanges: mode == .view ? markdownChanges : [])
+        if !settings.markdownChanges.isEmpty, let hex = preferences.changeTextHex {
+            settings.changeTextHex = hex
+        }
         settings.binderStartsOnFront = binder != nil && binderStartsOnFront && settings.layout.hasFacingPages
         if finishAppliesToText { settings.finish = printFinish }
         if mode == .print, offersNotes { settings.notes = notes }
@@ -1027,18 +1033,19 @@ final class DocumentViewModel {
     func handleFileEvent(_ event: FileWatcher.Event) {
         switch event {
         case .check:
-            guard let fileURL else { return }
+            guard preferences.reloadsChangedFiles, let fileURL else { return }
             let generation = reloadGeneration
             let reader = readReloadData
             reconciliationTask?.cancel()
             reconciliationTask = Task { [weak self] in
                 // Initial registration is not evidence of a change: leave an in-flight layout alone.
                 guard let bytes = try? await reader(fileURL), let self,
-                    !Task.isCancelled, generation == reloadGeneration, bytes != data
+                    !Task.isCancelled, generation == reloadGeneration, preferences.reloadsChangedFiles, bytes != data
                 else { return }
                 reload(reloadsWeb: true, onlyIfChanged: true)
             }
-        case .changed: reload(reloadsWeb: true, onlyIfChanged: true)
+        case .changed:
+            if preferences.reloadsChangedFiles { reload(reloadsWeb: true, onlyIfChanged: true) }
         case .removed:
             reloadGeneration += 1
             reloadTask?.cancel()
@@ -1089,7 +1096,16 @@ final class DocumentViewModel {
             do {
                 let bytes = try await reader(fileURL)
                 guard let self, !Task.isCancelled, reloadGeneration == generation else { return }
-                if !reloadRequiresRefresh && bytes == data {
+                var changes: [MarkdownMarkRequest] = []
+                if let previous = displayedChangeSource, previous.format == format, previous.data != bytes,
+                    reloadRequiresRefresh || (preferences.reloadsChangedFiles && bytes != data)
+                {
+                    let current = withFolderAccess(DocumentSource(data: bytes, fileURL: fileURL, format: format))
+                    changes = await renderer.changeRequests(from: previous, to: current, finish: printFinish)
+                    guard !Task.isCancelled, reloadGeneration == generation else { return }
+                }
+                // A reader can turn off watching while the file or its diff is being read.
+                if !reloadRequiresRefresh && (!preferences.reloadsChangedFiles || bytes == data) {
                     reloadTask = nil
                     reloadOwnsProgress = false
                     reloadRequiresWebRefresh = false
@@ -1097,19 +1113,9 @@ final class DocumentViewModel {
                     if isRendering { render() }
                     return
                 }
-                if format == .markdown, bytes != data || displayedMarkdownData != bytes {
-                    let previous = displayedMarkdownData
-                    let diff = Task.detached(priority: .utility) {
-                        previous.map {
-                            MarkdownChanges.marks(
-                                from: TextDecoding.decode($0).text, to: TextDecoding.decode(bytes).text)
-                        } ?? []
-                    }
-                    let changes = await diff.value
-                    guard !Task.isCancelled, reloadGeneration == generation else { return }
-                    markdownChanges = changes
-                    hasUnannouncedChanges = !changes.isEmpty
-                }
+                markdownChanges = changes
+                hasUnannouncedChanges = !changes.isEmpty
+                if toast?.action == .nextChange { dismissToast() }
                 reloadTask = nil
                 data = bytes
                 applyReload(reloadsWeb: reloadRequiresWebRefresh)
@@ -1360,7 +1366,7 @@ final class DocumentViewModel {
                 settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
                 renderingSettings = settings
                 result = prepared
-                if source.format == .markdown { displayedMarkdownData = source.data }
+                if source.format.supportsChangeMarks { displayedChangeSource = source }
                 chosenTrial = nil
                 // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline
                 // and the place read follow them there too and stay right on the way back, where nothing renders.

@@ -7739,6 +7739,58 @@
         }
       }
     },
+    "Choose…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auswählen …"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisir…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選ぶ…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "선택…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇…"
+          }
+        }
+      }
+    },
     "Choose Arrangement": {
       "extractionState": "manual",
       "localizations": {
@@ -49890,55 +49942,267 @@
         }
       }
     },
-    "Changes are marked in Markdown documents.": {
+    "Changes are highlighted on screen only.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Changes are marked in Markdown documents."
+            "value": "Changes are highlighted on screen only."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown の文書では変わった所に印を付けます。"
+            "value": "変更した所に色を付けます。印刷には出ません。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown 文稿中的更改处会加上标记。"
+            "value": "更改处只在屏幕上高亮显示。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown 文件中的變更處會加上標記。"
+            "value": "變更處只在螢幕上以顏色標示。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Markdown 문서에서는 바뀐 곳에 표시를 합니다."
+            "value": "바뀐 곳은 화면에서만 색으로 표시합니다."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les modifications sont marquées dans les documents Markdown."
+            "value": "Les modifications sont surlignées uniquement à l’écran."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Änderungen werden in Markdown-Dokumenten markiert."
+            "value": "Änderungen werden nur auf dem Bildschirm farbig markiert."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los cambios se marcan en los documentos Markdown."
+            "value": "Los cambios se resaltan solo en pantalla."
+          }
+        }
+      }
+    },
+    "Changed Places": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changed Places"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更した所の色"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更改处的颜色"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "變更處的顏色"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "바뀐 곳의 색"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Passages modifiés"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geänderte Stellen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lugares modificados"
+          }
+        }
+      }
+    },
+    "Changed Text": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changed Text"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更した所の文字の色"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更改处的文字颜色"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "變更處的文字顏色"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "바뀐 글자의 색"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texte modifié"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geänderter Text"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Texto modificado"
+          }
+        }
+      }
+    },
+    "Same as the Document": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same as the Document"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書のまま"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "与文稿相同"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "與文件相同"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서와 동일"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comme dans le document"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wie im Dokument"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Igual que en el documento"
+          }
+        }
+      }
+    },
+    "Reload When the File Changes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reload When the File Changes"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルが変わったら読み直す"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件更改时重新载入"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "檔案變更時重新載入"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일이 바뀌면 다시 읽기"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recharger le fichier en cas de modification"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei Dateiänderungen neu laden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volver a cargar cuando cambie el archivo"
           }
         }
       }

@@ -48,21 +48,22 @@ struct MarkdownChangeMarksTests {
         }
     }
 
-    private func fixture(_ text: String) async throws -> Fixture {
+    private func fixture(_ text: String, format: DocumentFormat = .markdown) async throws -> Fixture {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let file = directory.appendingPathComponent("document.md")
+        let file = directory.appendingPathComponent(format == .org ? "document.org" : "document.md")
         let data = Data(text.utf8)
         try data.write(to: file)
         let suite = TestDefaultsSuite()
         let probe = Probe()
         let renderer = DocumentRenderer(paginate: { try probe.paginate($0) })
         let model = DocumentViewModel(
-            data: data, fileURL: file, format: .markdown,
+            data: data, fileURL: file, format: format,
             preferences: AppPreferences(defaults: suite.defaults),
             library: UserLibrary(root: directory.appendingPathComponent("Library")),
             renderer: renderer,
-            settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
+            settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")),
+            trialRenderer: DocumentRenderer(paginate: { try probe.paginate($0) }))
         model.start()
         try await wait { model.result != nil && !model.isRendering }
         return Fixture(model: model, probe: probe, renderer: renderer, directory: directory, file: file, suite: suite)
@@ -150,7 +151,7 @@ struct MarkdownChangeMarksTests {
         #expect(fixture.model.canOutput)
     }
 
-    @Test("初回は印を出さず次の異なる内容で置き換え同じ内容の明示的再読込は印を保ち再描画する")
+    @Test("初回は印を出さず次の異なる内容で置き換え同じ内容の明示的再読込は印を消す")
     func lifecycle() async throws {
         let fixture = try await fixture("First\n\nSecond")
         defer { fixture.close() }
@@ -165,7 +166,8 @@ struct MarkdownChangeMarksTests {
         let calls = fixture.probe.calls
         model.reload()
         try await wait { fixture.probe.calls > calls && !model.isRendering }
-        #expect(model.markdownChanges == first)
+        #expect(model.markdownChanges.isEmpty)
+        #expect(model.paperChangeMarks.isEmpty)
         try await reload("Edited\n\nChanged", fixture)
         #expect(model.markdownChanges.count == 1)
         #expect(model.markdownChanges != first)
@@ -183,13 +185,42 @@ struct MarkdownChangeMarksTests {
         #expect(reopened.markdownChanges.isEmpty)
     }
 
-    @Test("既定では変わった所の数をトーストで知らせ、次の変更へ進む操作を付ける")
+    @Test("飛ぶか聞く設定では変わった所の数をトーストで知らせ、次の変更へ進む操作を付ける")
     func asksWithToast() async throws {
         let fixture = try await fixture("First\n\nSecond")
         defer { fixture.close() }
+        fixture.model.preferences.changeFollowing = .ask
         try await reload("Edited\n\nSecond", fixture)
         #expect(fixture.model.toast?.action == .nextChange)
         #expect(fixture.model.toast?.title.contains("1") == true)
+    }
+
+    @Test("自動読み直しがオフでも手動でOrgを読み直すと変更した段落に印が付く")
+    func manualOrgReload() async throws {
+        let fixture = try await fixture("* Title\n\nFirst\n\nSecond", format: .org)
+        defer { fixture.close() }
+        let model = fixture.model
+        #expect(model.markdownChanges.isEmpty)
+        model.preferences.reloadsChangedFiles = false
+        let previous = model.data
+        let edited = Data("* Title\n\nEdited\n\nSecond".utf8)
+        try edited.write(to: fixture.file, options: .atomic)
+        let reader = model.readReloadData
+        model.readReloadData = { _ in
+            Issue.record("自動読み直しを切った後に監視からファイルを読みました")
+            return previous
+        }
+        model.handleFileEvent(.check)
+        model.handleFileEvent(.changed)
+        let calls = fixture.probe.calls
+        await Task.yield()
+        #expect(model.data == previous)
+        #expect(fixture.probe.calls == calls)
+        model.readReloadData = reader
+        model.reload()
+        try await wait { model.data == edited && !model.isRendering }
+        #expect(model.markdownChanges == [.init(blockID: "fragment-1")])
+        #expect(model.paperChangeMarks.count == 1)
     }
 
     @Test("印だけの設定ではトーストを出さず今の場所のままにする")
@@ -208,7 +239,6 @@ struct MarkdownChangeMarksTests {
     func jumps() async throws {
         let fixture = try await fixture("First\n\nSecond")
         defer { fixture.close() }
-        fixture.model.preferences.changeFollowing = .jump
         fixture.model.currentPageIndex = 2
         try await reload("Edited\n\nSecond", fixture)
         #expect(fixture.model.toast == nil)
@@ -240,6 +270,32 @@ struct MarkdownChangeMarksTests {
         fixture.model.reload()
         try await wait { fixture.probe.calls > calls && !fixture.model.isRendering }
         #expect(fixture.model.toast == nil)
+    }
+
+    @Test("背景色だけを変えると元の紙と試し置きと選んだ直後の紙に組版なしで反映する")
+    func backgroundOnAllPapers() async throws {
+        let fixture = try await fixture("First")
+        defer { fixture.close() }
+        let model = fixture.model
+        try await reload("Edited", fixture)
+        func check(_ color: String) {
+            let settings = model.renderSettings
+            let calls = fixture.probe.calls
+            model.preferences.changeBackgroundHex = color
+            #expect(model.preferences.changeTextHex == nil)
+            #expect(model.paperChangeMarks.map(\.backgroundHex) == [color])
+            #expect(model.renderSettings == settings)
+            #expect(fixture.probe.calls == calls)
+        }
+        check("#BBFFCC")
+        model.hoverTrialLimit = .seconds(60)
+        let theme = try #require(model.library.themes.first { $0.id != model.themeID })
+        model.tryTheme(theme.id)
+        try await wait { model.themeTrial.document != nil }
+        check("#CCDDEE")
+        model.selectTheme(theme.id)
+        #expect(model.chosenTrial != nil)
+        check("#AABBDD")
     }
 
     @Test("テーマと用紙と文字の大きさを変えても同じ変更ブロックの矩形を組み直す")

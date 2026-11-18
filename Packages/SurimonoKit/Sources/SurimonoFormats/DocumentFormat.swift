@@ -56,6 +56,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         ]
         .contains(self)
     }
+    public var supportsChangeMarks: Bool { usesPrintTheme && self != .graphviz && self != .plantuml }
+
     public var usesHTMLPreset: Bool { self == .html }
     public var isWebRendered: Bool { self != .pdf && self != .image && self != .zipArchive }
 

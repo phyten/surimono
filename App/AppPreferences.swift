@@ -1,5 +1,6 @@
 import Observation
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 
 /// A deleted setting set and where it was in the list.
@@ -215,6 +216,19 @@ final class AppPreferences {
         bandArrangementStore =
             showsOutlineOnBand
             ? BandArrangementStore() : .previousArrangement(named: String(localized: "Previous Arrangement"))
+    }
+    var reloadsChangedFiles: Bool {
+        didSet { defaults.set(reloadsChangedFiles, forKey: "reloadsChangedFiles") }
+    }
+    var changeBackgroundHex: String {
+        didSet { defaults.set(changeBackgroundHex, forKey: "changeBackgroundHex") }
+    }
+    var changeTextHex: String? {
+        didSet { defaults.set(changeTextHex, forKey: "changeTextHex") }
+    }
+    private static func storedColor(_ defaults: UserDefaults, key: String) -> String? {
+        guard let hex = defaults.string(forKey: key), CodeColor.components(hex) != nil else { return nil }
+        return hex
     }
     var changeFollowing: ChangeFollowing {
         didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
@@ -463,9 +477,12 @@ final class AppPreferences {
             }
         #endif
 
+        reloadsChangedFiles = defaults.object(forKey: "reloadsChangedFiles") as? Bool ?? true
+        changeBackgroundHex = Self.storedColor(defaults, key: "changeBackgroundHex") ?? ChangeMark.defaultBackgroundHex
+        changeTextHex = Self.storedColor(defaults, key: "changeTextHex")
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
-            ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .ask
+            ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .jump
         // Any whole percent of the range, as the Settings field takes it; earlier versions kept one of the steps.
         let scale = defaults.double(forKey: "defaultTextScale")
         defaultTextScale = TextScale.range.contains(scale) ? TextScale.clamped(scale) : 1

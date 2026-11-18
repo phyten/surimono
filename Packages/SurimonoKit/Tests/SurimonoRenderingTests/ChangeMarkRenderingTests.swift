@@ -30,8 +30,7 @@ struct ChangeMarkRenderingTests {
         let marks = ChangeMarkAnchors.extract(from: document, requests: [.init(blockID: "changed", isShort: true)])
         #expect(
             marks == [
-                ChangeMark(pageIndex: 0, rect: CGRect(x: 40, y: 80, width: 1, height: 100), isShort: true),
-                ChangeMark(pageIndex: 1, rect: CGRect(x: 40, y: 80, width: 1, height: 100), isShort: true),
+                ChangeMark(pageIndex: 0, rect: CGRect(x: 40, y: 80, width: 1, height: 100), isShort: true)
             ])
         let saved = try #require(document.dataRepresentation().flatMap(PDFDocument.init(data:)))
         for index in 0..<2 {
@@ -106,8 +105,8 @@ struct ChangeMarkRenderingTests {
         #expect(renderer.sheetCompositionCount == 1)
     }
 
-    @Test("HTMLとOrgとLaTeXにはマーク用のアンカーを注入しない", arguments: [DocumentFormat.html, .org, .latex])
-    func onlyMarkdown(format: DocumentFormat) async throws {
+    @Test("HTMLにはマーク用のアンカーを注入しない", arguments: [DocumentFormat.html])
+    func skipsHTML(format: DocumentFormat) async throws {
         let renderer = DocumentRenderer(paginate: { request in
             #expect(request.preparationScript?.contains("surimono-mark:") != true)
             return try RenderingFixtures.pdf(count: 1, size: CGSize(width: 300, height: 500))
@@ -119,7 +118,7 @@ struct ChangeMarkRenderingTests {
         #expect(output.changeMarks.isEmpty)
     }
 
-    @Test("表示用の赤いバーは元のPDFと見開きの補助白紙に入らない")
+    @Test("表示用の黄色い背景は元のPDFと見開きの補助白紙に入らない")
     func spreadCopyOnly() throws {
         let source = try RenderingFixtures.pdf(count: 1, size: CGSize(width: 300, height: 500))
         let options = ViewOptions(layout: .spread, scrollAxis: .vertical, transition: .instant, showsCoverAlone: true)
@@ -128,26 +127,264 @@ struct ChangeMarkRenderingTests {
             ViewPageDocument.make(
                 source, plan: plan, margin: 40,
                 changeMarks: [
-                    ChangeMark(pageIndex: 0, rect: CGRect(x: 40, y: 100, width: 1, height: 100))
+                    ChangeMark(pageIndex: 0, rect: CGRect(x: 40, y: 100, width: 80, height: 100))
                 ]))
-        let marked = try RenderingFixtures.pixel(try #require(copy.page(at: 1)), x: 35, y: 150)
-        #expect(marked[0] > 200 && marked[1] < 180 && marked[2] < 170)
+        let marked = try RenderingFixtures.pixel(try #require(copy.page(at: 1)), x: 55, y: 150)
+        #expect(marked[0] > 245 && marked[1] > 230 && (155...180).contains(marked[2]))
         let saved = try #require(copy.dataRepresentation().flatMap(PDFDocument.init(data:)))
-        #expect(try RenderingFixtures.pixel(try #require(saved.page(at: 0)), x: 35, y: 150)[1] > 240)
-        #expect(try RenderingFixtures.pixel(try #require(source.page(at: 0)), x: 35, y: 150)[1] > 240)
+        #expect(try RenderingFixtures.pixel(try #require(saved.page(at: 0)), x: 55, y: 150)[1] > 240)
+        #expect(try RenderingFixtures.pixel(try #require(source.page(at: 0)), x: 55, y: 150)[1] > 240)
         #expect(copy.page(at: 1)?.string == source.page(at: 0)?.string)
     }
 
-    @Test("見えている範囲の左端に短い削除マークを描き、本文の左端があればその外にそろえる")
+    @Test("削除の印は先頭の短い帯を残し紙の外の部分を切る")
     func croppedEdge() {
-        let mark = ChangeMark(pageIndex: 1, rect: CGRect(x: 40, y: 100, width: 1, height: 100), isShort: true)
+        let mark = ChangeMark(pageIndex: 1, rect: CGRect(x: 40, y: 100, width: 80, height: 100), isShort: true)
         #expect(
-            mark.bar(in: CGRect(x: 40, y: 0, width: 260, height: 500)) == CGRect(x: 40, y: 192, width: 2, height: 8))
-        // Given the text area's left edge, bars line up just outside it whatever the block's indent.
-        let item = ChangeMark(pageIndex: 0, rect: CGRect(x: 90, y: 100, width: 1, height: 20))
+            mark.highlight(in: CGRect(x: 60, y: 0, width: 260, height: 500))
+                == CGRect(x: 60, y: 200, width: 60, height: 3))
+    }
+
+    @Test(
+        "テーマ対応形式の再読み込みは実際の変換結果から変更したブロックを見つける",
+        arguments: [
+            DocumentFormat.org, .latex, .plainText, .csv, .asciidoc, .djot, .textile, .mediawiki, .quarto,
+            .rMarkdown, .notebook, .docx,
+        ])
+    func convertedChanges(format: DocumentFormat) async throws {
+        func bytes(_ value: String) throws -> Data {
+            switch format {
+            case .notebook:
+                return Data(
+                    #"{"nbformat":4,"cells":[{"cell_type":"markdown","source":"\#(value)","metadata":{}}]}"#.utf8)
+            case .docx:
+                let here = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+                let path =
+                    value == "First"
+                    ? "../SurimonoFormatsTests/Fixtures/word-structure.docx" : "../../../../Samples/sample.docx"
+                return try Data(contentsOf: here.appendingPathComponent(path))
+            default: return Data(value.utf8)
+            }
+        }
+        let old = DocumentSource(data: try bytes("First"), format: format)
+        let new = DocumentSource(data: try bytes("Edited"), format: format)
+        let requests = await DocumentRenderer().changeRequests(from: old, to: new, finish: PrintFinish())
+        #expect(requests.contains { !$0.isShort })
+        let html = try #require(DocumentRenderer.structureHTML(of: new))
+        let mapped = FragmentChanges.identifyingBlocks(in: html, for: requests)
+        for request in requests { #expect(mapped.contains("data-surimono-block=\"\(request.blockID)\"")) }
+    }
+
+    @Test("後ろのページのテキスト一行とCSVの一行だけに帯が出る")
+    func precisePrintedRows() async throws {
+        _ = NSApplication.shared
+        let lines = (0..<120).map { "Line \($0) body" }.joined(separator: "\n")
+        for (format, old, text) in [
+            (DocumentFormat.plainText, lines, lines.replacingOccurrences(of: "Line 83 body", with: "Chosen line")),
+            (.csv, "Heading,Count\nOne,1\nTwo,2\nThree,3", "Heading,Count\nOne,1\nChosen line,2\nThree,3"),
+        ] {
+            let source = DocumentSource(data: Data(text.utf8), format: format)
+            let renderer = DocumentRenderer()
+            var marked = settings
+            marked.textScale = 1.25
+            marked.markdownChanges = await renderer.changeRequests(
+                from: .init(data: Data(old.utf8), format: format),
+                to: source, finish: marked.finish)
+            let output = try await renderer.prepare(source, settings: marked)
+            #expect(output.changeMarks.count == 1)
+            let mark = try #require(output.changeMarks.first)
+            let page = try #require(output.logicalDocument.page(at: mark.pageIndex))
+            let selection = try #require(output.logicalDocument.findString("Chosen line").first)
+            let textBox = selection.bounds(for: page)
+            #expect(mark.rect.contains(CGPoint(x: textBox.midX, y: textBox.midY)))
+            #expect(mark.rect.height < 2.5 * textBox.height)
+            if format == .plainText { #expect(mark.pageIndex > 0) }
+        }
+    }
+
+    @Test("削除位置の帯は隣の文字の外側に置きリストでも本文幅にする")
+    func deletionGap() async throws {
+        _ = NSApplication.shared
+        let text = "First paragraph.\n\n- Neighbour"
+        let source = DocumentSource(data: Data(text.utf8), format: .markdown)
+        let renderer = DocumentRenderer()
+        var marked = settings
+        marked.markdownChanges = MarkdownChanges.marks(from: "Other", to: "First paragraph.")
+        let first = try await renderer.prepare(source, settings: marked)
+        let paragraph = try #require(first.changeMarks.first)
+        for old in ["First paragraph.\n\n- Removed\n- Neighbour", text + "\n- Removed"] {
+            marked.markdownChanges = MarkdownChanges.marks(from: old, to: text)
+            let output = try await renderer.prepare(source, settings: marked)
+            let mark = try #require(output.changeMarks.first)
+            let page = try #require(output.logicalDocument.page(at: mark.pageIndex))
+            let selection = try #require(output.logicalDocument.findString("Neighbour").first)
+            let word = selection.bounds(for: page)
+            let band = mark.highlight(in: page.bounds(for: .cropBox))
+            #expect(mark.isShort)
+            #expect(band.height == 3)
+            #expect(abs(band.minX - paragraph.rect.minX) <= 1)
+            #expect(abs(band.width - paragraph.rect.width) <= 1)
+            #expect(old.hasSuffix("Removed") ? band.maxY <= word.minY + 1 : band.minY >= word.maxY - 1)
+        }
+    }
+
+    @Test("数式の帯は同じ寸法のブロックより下へ二ポイント伸びる")
+    func displayMathDepth() async throws {
+        _ = NSApplication.shared
+        func measured(_ className: String) async throws -> CGRect {
+            let html = "<div data-surimono-block='sum' class='\(className)' style='height:40px'>k = 1</div>"
+            let pdf = try await WebPaginator().paginate(
+                .html(html, baseURL: nil),
+                pageSize: CGSize(width: 320, height: 400), margins: .uniform(millimeters: 12), allowsJavaScript: false,
+                preparationScript: ChangeMarkAnchors.javaScript([.init(blockID: "sum")]))
+            return try #require(ChangeMarkAnchors.extract(from: pdf, requests: [.init(blockID: "sum")]).first).rect
+        }
+        let plain = try await measured("ordinary")
+        let math = try await measured("math-block")
+        #expect(abs(plain.maxY - math.maxY) < 0.3)
+        #expect(abs(plain.minY - math.minY - 2) < 0.8)
+    }
+
+    @Test("文字の印を初回から使い組版済みの紙は色を変えても利用できる")
+    func inkWithoutScriptResult() async throws {
+        var calls = 0
+        var failsOnce = true
+        let renderer = DocumentRenderer(paginate: { request in
+            calls += 1
+            let document = try RenderingFixtures.pdf()
+            let script = request.preparationScript ?? ""
+            guard script.contains("surimono-mark:") else { return document }
+            if script.contains("data-surimono-ink"), failsOnce {
+                failsOnce = false
+                return document
+            }
+            let anchor = PDFAnnotation(
+                bounds: CGRect(x: 30, y: 720, width: 90, height: 22),
+                forType: .link, withProperties: nil)
+            anchor.url = URL(string: "surimono-mark:chosen")
+            document.page(at: 0)?.addAnnotation(anchor)
+            return document
+        })
+        let source = DocumentSource(data: Data("Words".utf8), format: .org)
+        var marked = settings
+        marked.markdownChanges = [.init(blockID: "chosen")]
+        let plain = try await renderer.prepare(source, settings: marked)
+        #expect(plain.changeMarks.first?.textDrawing == nil)
+        marked.changeTextHex = "#3399CC"
+        let missing = try await renderer.prepare(source, settings: marked)
+        #expect(missing.changeMarks.first?.textDrawing == nil)
+        let recovered = try await renderer.prepare(source, settings: marked)
+        let ink = try #require(recovered.changeMarks.first?.textDrawing)
+        let before = calls
+        marked.changeTextHex = "#EEFF99"
+        let recolored = try await renderer.prepare(source, settings: marked)
+        #expect(recolored.changeMarks.first?.textDrawing === ink)
+        #expect(recolored.changeMarks.first?.textHex == "#EEFF99")
+        marked.changeBackgroundHex = "#AABBCC"
+        let background = try await renderer.prepare(source, settings: marked)
+        #expect(background.changeMarks.first?.backgroundHex == "#AABBCC")
+        #expect(background.changeMarks.first?.textDrawing === ink)
+        #expect(calls == before)
+        #expect(plain.logicalDocument === recolored.logicalDocument)
+    }
+
+    @Test("色をそろえるとPDFの抽出順が変わるコードでも初回と前の位置への編集で文字色を保つ")
+    func savesInSyntaxHighlightedCode() async throws {
+        _ = NSApplication.shared
+        let sample = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../../../Samples/markdown-features.md")
+        let theme = try #require(try PrintThemeLibrary.load().first { $0.id == "standard" })
+        var marked = settings
+        marked.theme = theme
+        marked.changeTextHex = "#FF0000"
+        let renderer = DocumentRenderer()
+        var text = try String(contentsOf: sample, encoding: .utf8)
+        for needle in ["星の散歩道\"];", "console.log(books.map(label));", "星の散歩道\"];", "let book =", "struct Book {"] {
+            let edited = text.replacingOccurrences(of: needle, with: needle + " 改")
+            marked.markdownChanges = MarkdownChanges.marks(from: text, to: edited)
+            let output = try await renderer.prepare(.init(data: Data(edited.utf8), format: .markdown), settings: marked)
+            let mark = try #require(output.changeMarks.first)
+            #expect(mark.textDrawing != nil)
+            let plan = ViewPageLayout(
+                pageCount: output.logicalDocument.pageCount,
+                options: .init(
+                    layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false),
+                hasLogicalMargins: false, showsNumbers: false)
+            let view = try #require(
+                ViewPageDocument.make(output.logicalDocument, plan: plan, margin: 0, changeMarks: [mark]))
+            let page = try #require(view.page(at: mark.pageIndex))
+            let clean = try #require(output.logicalDocument.page(at: mark.pageIndex))
+            let screen = try pixels(page)
+            let original = try pixels(clean)
+            #expect(
+                stride(from: 0, to: screen.count, by: 4).contains {
+                    screen[$0] > 220 && screen[$0 + 1] < 40 && screen[$0 + 2] < 40
+                        && (original[$0] < 180 || original[$0 + 1] > 80)
+                })
+            #expect(page.string == clean.string)
+            text = edited
+        }
+    }
+
+    @Test("指定した文字色はOrgの変更段落にだけ出て論理ページと用紙には混ざらない", .timeLimit(.minutes(1)))
+    func coloredOrgPaper() async throws {
+        _ = NSApplication.shared
+        let source = DocumentSource(data: Data("First paragraph.\n\nChanged words.".utf8), format: .org)
+        let renderer = DocumentRenderer()
+        let plain = try await renderer.render(source, settings: settings)
+        var marked = settings
+        marked.markdownChanges = [.init(blockID: "fragment-1")]
+        marked.changeBackgroundHex = "#A8EEFF"
+        marked.changeTextHex = "#FF0000"
+        let output = try await renderer.render(source, settings: marked)
+        let mark = try #require(output.changeMarks.first)
+        #expect(mark.rect.width > 10)
+        #expect(mark.textDrawing != nil)
+        #expect(output.logicalDocument === plain.logicalDocument)
+        #expect(output.sheetDocument === plain.sheetDocument)
+        let plan = ViewPageLayout(
+            pageCount: 1,
+            options: ViewOptions(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false),
+            hasLogicalMargins: false, showsNumbers: false)
+        let view = try #require(
+            ViewPageDocument.make(output.logicalDocument, plan: plan, margin: 0, changeMarks: [mark]))
+        let page = try #require(view.page(at: 0))
+        let original = try #require(plain.logicalDocument.page(at: 0))
+        #expect(page.string == original.string)
+        let colored = try pixels(page)
+        let clean = try pixels(original)
+        func redPixels(_ bytes: [UInt8]) -> Int {
+            stride(from: 0, to: bytes.count, by: 4).count {
+                bytes[$0] > 200 && bytes[$0 + 1] < 80 && bytes[$0 + 2] < 80
+            }
+        }
+        #expect(redPixels(colored) > 0)
+        #expect(redPixels(clean) == 0)
+        let band = try RenderingFixtures.pixel(page, x: Int(mark.rect.maxX - 3), y: Int(mark.rect.midY))
+        #expect(abs(Int(band[0]) - 168) <= 2 && abs(Int(band[1]) - 238) <= 2 && band[2] >= 253)
+        let unchanged = try #require(page.selection(for: NSRange(location: 0, length: 5))).bounds(for: page)
+        let width = Int(ceil(page.bounds(for: .mediaBox).width))
+        let height = Int(ceil(page.bounds(for: .mediaBox).height))
+        for y in Int(unchanged.minY)..<Int(unchanged.maxY) {
+            let start = ((height - 1 - y) * width + Int(unchanged.minX)) * 4
+            let end = start + Int(unchanged.width) * 4
+            #expect(colored[start..<end] == clean[start..<end])
+        }
+    }
+
+    @Test("小数点以下の丸めは許し別の行やページの文字は重ねない")
+    func rejectsMovedInk() {
+        let box = CGRect(x: 20, y: 200, width: 140, height: 19)
+        let clean = ChangeMark(pageIndex: 0, rect: box)
+        let neighbour = ChangeMark(pageIndex: 1, rect: box)
+        let rounded = ChangeMark(pageIndex: 0, rect: box.offsetBy(dx: 0.01, dy: -0.02))
+        let moved = ChangeMark(pageIndex: 1, rect: box.offsetBy(dx: 0, dy: 11))
+        #expect(ChangeMarkAnchors.matchingGeometry([clean, neighbour], [rounded, moved]) == [0])
+        #expect(ChangeMarkAnchors.matchingGeometry([clean], [neighbour]).isEmpty)
         #expect(
-            item.bar(in: CGRect(x: 0, y: 0, width: 300, height: 500), textLeft: 42)
-                == CGRect(x: 36, y: 100, width: 2, height: 20))
+            ChangeMark(pageIndex: 0, rect: box, isShort: true, afterBlock: true)
+                .highlight(in: CGRect(x: 0, y: 0, width: 600, height: 800))
+                == CGRect(x: 20, y: 197, width: 140, height: 3))
     }
 
     @Test("実際のMarkdown印刷で各ブロックのアンカーは画素を変えず出力から消える", .timeLimit(.minutes(1)))

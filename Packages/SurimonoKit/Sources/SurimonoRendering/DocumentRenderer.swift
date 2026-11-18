@@ -139,6 +139,8 @@ public struct RenderSettings: Equatable, Sendable {
     public var slides: SlidePrintRequest?
     public var binderStartsOnFront = false
     public var markdownChanges: [MarkdownMarkRequest]
+    public var changeBackgroundHex = ChangeMark.defaultBackgroundHex
+    public var changeTextHex: String?
     /// Where a text breaks and how it shows its table of contents.
     public var finish = PrintFinish()
     /// Pages to write on among the document's own; only a document of its own takes them, not a binder.
@@ -383,6 +385,7 @@ public final class DocumentRenderer {
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
         var markRequests: [MarkdownMarkRequest] = []
+        var hasInkStencil = false
         var finishing = FinishedPages()
         /// The serialized pages the sheets are drawn from, made once for all compositions.
         var composingSource: CGPDFDocument?
@@ -688,15 +691,7 @@ public final class DocumentRenderer {
                 // An older suspended render must not overwrite the cache of a newer request.
                 if generation == currentGeneration { cache = (key, logical) }
             }
-            let requests = source.format == .markdown ? settings.markdownChanges : []
-            if !requests.isEmpty, logical.markRequests != requests {
-                // Geometry comes from a disposable pass; output always uses the anchor-free cached PDF.
-                // Structural selectors in a theme can slightly offset these rectangles, never the output.
-                let marked = try await logicalDocument(source, settings: settings)
-                try Task.checkCancellation()
-                logical.changeMarks = ChangeMarkAnchors.extract(from: marked.document, requests: requests)
-                logical.markRequests = requests
-            }
+            let marks = try await screenMarks(for: source, settings: settings, logical: logical)
             if source.children != nil, settings.paperOrientation == .auto, settings.layout.kind != .booklet {
                 // Children keep their own logical orientation; only the shared output follows the majority.
                 landscape = PaperOrientation.auto.isLandscape(pageSizes: logical.binderPageSizes)
@@ -716,7 +711,7 @@ public final class DocumentRenderer {
                 summary: PrintSummary(plan: plan),
                 requiredFolderAccess: pages.requiredFolderAccess, unreadableImageURLs: pages.unreadable,
                 smartRemovalCandidates: pages.candidates, issues: pages.issues,
-                changeMarks: requests.isEmpty ? [] : logical.changeMarks,
+                changeMarks: marks,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
                 binderPageStarts: pages.binderPageStarts,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
@@ -737,6 +732,63 @@ public final class DocumentRenderer {
         } catch {
             throw Self.renderingError(error)
         }
+    }
+
+    private func screenMarks(for source: DocumentSource, settings: RenderSettings, logical: Logical) async throws
+        -> [ChangeMark]
+    {
+        let requests = settings.markdownChanges
+        guard source.format.supportsChangeMarks, !requests.isEmpty else { return [] }
+        let needsInk = settings.changeTextHex != nil && requests.contains { !$0.isShort }
+        func tinted(_ marks: [ChangeMark]) -> [ChangeMark] {
+            marks.map { mark in
+                var result = mark
+                result.backgroundHex = settings.changeBackgroundHex
+                result.textHex = settings.changeTextHex
+                return result
+            }
+        }
+        if logical.markRequests == requests, !needsInk || logical.hasInkStencil {
+            return tinted(logical.changeMarks)
+        }
+
+        // Geometry comes from a disposable pass; output always uses the anchor-free cached PDF.
+        // Structural selectors in a theme can slightly offset these rectangles, never the output.
+        var geometry = settings
+        geometry.changeTextHex = nil
+        guard let measured = try? await logicalDocument(source, settings: geometry) else {
+            try Task.checkCancellation()
+            return []
+        }
+        try Task.checkCancellation()
+        var marks = ChangeMarkAnchors.extract(from: measured.document, requests: requests).filter {
+            $0.pageIndex < logical.document.pageCount
+        }
+        var complete = false
+        if needsInk, measured.document.pageCount == logical.document.pageCount,
+            let stencil = try? await logicalDocument(source, settings: settings),
+            stencil.document.pageCount == measured.document.pageCount
+        {
+            // Both passes carry the same anchors. Compare the printed blocks themselves, independent of how PDFKit
+            // groups coloured glyphs into words, runs or synthetic whitespace elsewhere on the page.
+            let inkMarks = ChangeMarkAnchors.extract(from: stencil.document, requests: requests)
+            let drawing = ChangeTextDrawing(stencil.document)
+            let matching = ChangeMarkAnchors.matchingGeometry(marks, inkMarks)
+            for index in matching
+            where !marks[index].isShort
+                && ChangeMarkAnchors.matchesCleanPage(
+                    marks[index], measured: measured.document, clean: logical.document)
+            {
+                marks[index].textDrawing = drawing
+            }
+            complete =
+                marks.contains { $0.textDrawing != nil } && marks.allSatisfy { $0.isShort || $0.textDrawing != nil }
+        }
+        try Task.checkCancellation()
+        logical.changeMarks = marks
+        logical.markRequests = requests
+        logical.hasInkStencil = complete
+        return tinted(marks)
     }
 
     /// The pages with their note pages, or the pages themselves without any. Everything here is drawn, so it stays
@@ -1084,7 +1136,7 @@ public final class DocumentRenderer {
             .graphviz, .plantuml:
             var missingImage = false
             let access = resourceAccess(for: source)
-            let fragment: HTMLFragment
+            var fragment: HTMLFragment
             if source.format == .docx {
                 let conversion = Task.detached(priority: Task.currentPriority) {
                     try DocxConverter.convert(source.data)
@@ -1127,6 +1179,9 @@ public final class DocumentRenderer {
                 else { throw RenderingError.unsupportedFormat }
                 fragment = themed
             }
+            if source.format != .markdown, !settings.markdownChanges.isEmpty {
+                fragment.body = FragmentChanges.identifyingBlocks(in: fragment.body, for: settings.markdownChanges)
+            }
             let directory = source.fileURL?.deletingLastPathComponent()
             // Without clear pages the paper stays on the text pages, which WebKit draws inside the margins only.
             let separatesPaper = WebPaginator.drawsClearPages
@@ -1141,18 +1196,28 @@ public final class DocumentRenderer {
                 code: settings.code)
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margins = settings.layout.logicalMargins(options: settings.options)
-            let marksScript = source.format == .markdown ? ChangeMarkAnchors.javaScript(settings.markdownChanges) : ""
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
             let paperMargins = WebPaginator.Margins(margins)
-            let codeScript =
-                CodeFitScript.javaScript(
-                    for: settings.code,
-                    layoutWidth: (pageSize.width - paperMargins.left - paperMargins.right)
-                        * WebPaginator.printPixelsPerPoint)
-                ?? ""
-            // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
-            let parts = [marksScript, codeScript, themeScript].filter { !$0.isEmpty }
-            let preparation: String? = parts.isEmpty ? nil : parts.joined(separator: "\n")
+            let layoutWidth =
+                (pageSize.width - paperMargins.left - paperMargins.right) * WebPaginator.printPixelsPerPoint
+            let codeScript = CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
+            let preparation: String?
+            if settings.markdownChanges.isEmpty {
+                // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
+                let parts = [codeScript, themeScript].filter { !$0.isEmpty }
+                preparation = parts.isEmpty ? nil : parts.joined(separator: "\n")
+            } else {
+                // Cleanup catches script errors. Only an explicit success may replace the background-only drawing.
+                // Emit the same anchors after decorations in both passes. In the stencil they attest that paint was ready.
+                let needsInk = settings.changeTextHex != nil
+                preparation = """
+                    \(codeScript)
+                    const paper = await (async () => { \(themeScript) })();
+                    \(needsInk ? ChangeMarkAnchors.textScript(settings.markdownChanges) : "")
+                    \(ChangeMarkAnchors.javaScript(settings.markdownChanges, layoutWidth: layoutWidth))
+                    return \(needsInk ? "null" : "paper");
+                    """
+            }
             var text: WebPaginator.Result
             if settings.finish.footnotes == .pageBottom,
                 let plan = PageFootnotes.plan(for: paperFragment.body),
@@ -1580,6 +1645,34 @@ public final class DocumentRenderer {
     public nonisolated static func structureHTML(of source: DocumentSource, proof: ProofMarks = .shown) -> String? {
         if source.format == .html { return TextDecoding.decode(source.data).text }
         return (try? themedFragment(source, proof: proof))??.body
+    }
+
+    /// Compare the last successful layout's source with this save off the UI actor, using the same converter options.
+    public func changeRequests(from old: DocumentSource, to new: DocumentSource, finish: PrintFinish) async
+        -> [MarkdownMarkRequest]
+    {
+        guard old.format == new.format, new.format.supportsChangeMarks, old.data != new.data else { return [] }
+        let access = resourceAccess(for: new)
+        let diff = Task.detached(priority: .utility) { () -> [MarkdownMarkRequest] in
+            if new.format == .markdown {
+                return MarkdownChanges.marks(
+                    from: TextDecoding.decode(old.data).text, to: TextDecoding.decode(new.data).text)
+            }
+            func body(_ source: DocumentSource) -> String? {
+                (try? Self.themedFragment(
+                    source, pageBreakLine: finish.breaks.customLine, proof: finish.proof,
+                    imageExists: { url in
+                        (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
+                    }))?.body
+            }
+            guard let before = body(old), !Task.isCancelled, let after = body(new), !Task.isCancelled else { return [] }
+            return FragmentChanges.marks(from: before, to: after)
+        }
+        return await withTaskCancellationHandler {
+            await diff.value
+        } onCancel: {
+            diff.cancel()
+        }
     }
 
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.

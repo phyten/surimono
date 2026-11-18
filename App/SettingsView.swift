@@ -1,4 +1,5 @@
 import SurimonoCore
+import SurimonoRendering
 import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Identifiable {
@@ -35,6 +36,7 @@ struct SettingsView: View {
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
     let arrangementEditor: BandArrangementEditorSession
+    @State private var initialTextWell = InitialTextWell()
     private let updater = AppUpdater.shared
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
@@ -45,6 +47,66 @@ struct SettingsView: View {
                 guard preset != .custom else { return }
                 preferences.defaultFurniture.apply(preset)
             })
+    }
+
+    private func changeColor(
+        _ label: LocalizedStringKey, hex: String?, resetLabel: LocalizedStringKey, isDefault: Bool,
+        set: @escaping (String?) -> Void
+    ) -> some View {
+        LabeledContent {
+            HStack {
+                if let hex {
+                    ColorPicker(
+                        label,
+                        selection: Binding(
+                            get: { Color(codeHex: hex) },
+                            set: { if let hex = Self.hex(NSColor($0)) { set(hex) } }),
+                        supportsOpacity: false
+                    ).labelsHidden()
+                    Button(resetLabel) {
+                        initialTextWell.deactivate()
+                        set(nil)
+                    }.disabled(isDefault)
+                } else {
+                    Button("Choose…") { initialTextWell.choose { if let hex = Self.hex($0) { set(hex) } } }
+                }
+            }
+            .controlSize(.small).fixedSize()
+            // The well uses the row's vertical padding so the label has the same height as its neighbours.
+            .frame(height: 16)
+        } label: {
+            Text(label)
+        }
+    }
+
+    private static func hex(_ color: NSColor) -> String? {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return nil }
+        return "#"
+            + [rgb.redComponent, rgb.greenComponent, rgb.blueComponent].map {
+                String(format: "%02X", Int((min(1, max(0, $0)) * 255).rounded()))
+            }.joined()
+    }
+
+    /// Opening or closing the system panel leaves document ink selected until the reader picks a colour.
+    private final class InitialTextWell: NSColorWell {
+        private var selection: ((NSColor) -> Void)?
+
+        func choose(_ selection: @escaping (NSColor) -> Void) {
+            self.selection = nil
+            supportsAlpha = false
+            target = self
+            action = #selector(selected)
+            activate(true)
+            NSColorPanel.shared.makeKeyAndOrderFront(nil)
+            self.selection = selection
+        }
+
+        override func deactivate() {
+            super.deactivate()
+            selection = nil
+        }
+
+        @objc private func selected() { selection?(color) }
     }
 
     var body: some View {
@@ -77,6 +139,7 @@ struct SettingsView: View {
             .overlay(alignment: .bottom) { SettingSetRemovalNotice(preferences: preferences) }
             .navigationTitle(Text(LocalizedStringKey(preferences.settingsSection.rawValue)))
         }
+        .onDisappear { initialTextWell.deactivate() }
         .frame(minWidth: 820, idealWidth: 860, minHeight: 540)
         .background {
             WindowReader { window in
@@ -142,15 +205,25 @@ struct SettingsView: View {
                         Text("Leave Binder Mode Without Asking").tag(SingleDocumentBinderPolicy.leave)
                         Text("Stay a Binder Without Asking").tag(SingleDocumentBinderPolicy.stay)
                     }
+                    Toggle("Reload When the File Changes", isOn: $preferences.reloadsChangedFiles)
                     Picker("After a File Is Saved", selection: $preferences.changeFollowing) {
                         Text("Jump to the Change").tag(ChangeFollowing.jump)
                         Text("Stay Here, Marks Only").tag(ChangeFollowing.mark)
                         Text("Ask Whether to Jump").tag(ChangeFollowing.ask)
                     }
+                    changeColor(
+                        "Changed Places", hex: preferences.changeBackgroundHex,
+                        resetLabel: "Restore Default",
+                        isDefault: preferences.changeBackgroundHex == ChangeMark.defaultBackgroundHex,
+                        set: { preferences.changeBackgroundHex = $0 ?? ChangeMark.defaultBackgroundHex })
+                    changeColor(
+                        "Changed Text", hex: preferences.changeTextHex,
+                        resetLabel: "Same as the Document", isDefault: preferences.changeTextHex == nil,
+                        set: { preferences.changeTextHex = $0 })
                 } header: {
                     Text("After a Document Opens")
                 } footer: {
-                    SettingsFootnote("Changes are marked in Markdown documents.")
+                    SettingsFootnote("Changes are highlighted on screen only.")
                 }
             case .view:
                 Section {
