@@ -17,6 +17,18 @@ struct DocumentSettingsFlowTests {
         let directory: URL
         let suite: TestDefaultsSuite
 
+        var locations: KeyedRecordStore<ContentHash> {
+            KeyedRecordStore(directory: directory.appendingPathComponent("DocumentLocations"))
+        }
+
+        func file(_ bytes: Data, named name: String) throws -> URL {
+            let url = directory.appendingPathComponent(name)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try bytes.write(to: url)
+            return url
+        }
+
         func cleanUp() {
             try? FileManager.default.removeItem(at: directory)
             suite.remove()
@@ -679,7 +691,121 @@ struct DocumentSettingsFlowTests {
         copy.stop()
     }
 
-    @Test("内容が違う文書は既定値で開き、戻した知らせを出さない", .timeLimit(.minutes(1)))
+    @Test("閉じている間に編集したファイルは同じ場所から設定としおりを戻し、新しい内容の記録を作る", .timeLimit(.minutes(1)))
+    func restoresSettingsByLocation() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let original = pdf("Before", pages: 4)
+        let url = try environment.file(original, named: "draft.pdf")
+        let first = environment.model(original, url: environment.directory.appendingPathComponent("./draft.pdf"))
+        try await open(first)
+        first.setLayout(.single)
+        first.layoutID = PrintLayout.a4BookletA5.id
+        first.toggleBookmark(page: 3, visiblePages: [3])
+        first.rememberedSettingsDidChange()
+        first.stop()
+
+        let edited = pdf("After", pages: 2)
+        try edited.write(to: url)
+        let reopened = environment.model(edited, url: url)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.hasSavedSettings)
+        #expect(reopened.toast == nil)
+        #expect(reopened.viewOptions.layout == .single)
+        #expect(reopened.layoutID == PrintLayout.a4BookletA5.id)
+        #expect(reopened.bookmarkPages == [1])
+        let key = ContentHash.of(edited)
+        let migrated = try #require(environment.store.record(for: key.hex))
+        #expect(migrated == environment.store.record(for: ContentHash.of(original).hex))
+        #expect(environment.locations.record(for: ContentHash.of(Data(url.standardizedFileURL.path.utf8)).hex) == key)
+    }
+
+    @Test("別の場所で内容も異なる同名ファイルには設定を引き継がない", .timeLimit(.minutes(1)))
+    func unrelatedLocation() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let shared = try await sharedRecord(environment)
+        shared.first.stop()
+        let other = pdf("Other")
+        let url = try environment.file(other, named: "elsewhere/doc.pdf")
+        let model = environment.model(other, url: url)
+        defer { model.stop() }
+        try await open(model)
+        #expect(!model.hasSavedSettings)
+        #expect(model.viewOptions.layout == .spread)
+        #expect(environment.locations.keys().count == 1)
+    }
+
+    @Test("別々の場所で共有した記録は片方を閉じて編集した後ももう片方の場所から戻る", .timeLimit(.minutes(1)))
+    func sharedLocationsSurviveEditing() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let shared = try await sharedRecord(environment)
+        shared.first.stop()
+        let copy = environment.model(shared.data, url: shared.copyURL)
+        try await open(copy)
+        #expect(copy.hasSavedSettings)
+        copy.stop()
+
+        for (index, url) in [shared.firstURL, shared.copyURL].enumerated() {
+            let edited = pdf("Edit \(index)")
+            try edited.write(to: url)
+            let reopened = environment.model(edited, url: url)
+            try await open(reopened)
+            #expect(reopened.hasSavedSettings)
+            #expect(reopened.viewOptions.layout == .single)
+            #expect(environment.store.record(for: ContentHash.of(edited).hex)?.view?.layout == .single)
+            reopened.stop()
+        }
+    }
+
+    @Test("内容の記録は場所の記録より先に使い、その場所を新しい内容へ向ける", .timeLimit(.minutes(1)))
+    func contentTakesPrecedence() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let shared = try await sharedRecord(environment)
+        shared.first.stop()
+        let replacement = pdf("Replacement")
+        let hash = ContentHash.of(replacement)
+        try environment.store.save(DocumentSettings(zoom: 1.75), for: hash.hex)
+        try replacement.write(to: shared.firstURL)
+        let model = environment.model(replacement, url: shared.firstURL)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.zoom == 1.75)
+        let key = ContentHash.of(Data(shared.firstURL.standardizedFileURL.path.utf8)).hex
+        #expect(environment.locations.record(for: key) == hash)
+    }
+
+    @Test("場所の索引と設定のファイル名・本文に元のパスを保存しない", .timeLimit(.minutes(1)))
+    func storesOnlyHashedLocation() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let bytes = pdf("Document")
+        let url = try environment.file(bytes, named: "private-folder/private-filename.pdf")
+        let model = environment.model(bytes, url: url)
+        try await open(model)
+        model.zoom = 2
+        model.rememberedSettingsDidChange()
+        model.stop()
+
+        let locations = environment.locations.directory
+        let key = ContentHash.of(Data(url.standardizedFileURL.path.utf8)).hex
+        let names = try FileManager.default.contentsOfDirectory(atPath: locations.path)
+        #expect(names == [key + ".json"])
+        let entry = try Data(contentsOf: locations.appendingPathComponent(key + ".json"))
+        #expect(try JSONDecoder().decode(String.self, from: entry) == ContentHash.of(bytes).hex)
+        for file in try FileManager.default.contentsOfDirectory(
+            at: environment.store.directory, includingPropertiesForKeys: nil)
+        {
+            #expect(file.lastPathComponent == ContentHash.of(bytes).hex + ".json")
+            let json = try String(contentsOf: file, encoding: .utf8)
+            #expect(!json.contains("private-folder") && !json.contains("private-filename"))
+        }
+    }
+
+    @Test("メモリ文書は場所を記録せず、異なる内容は知らせを出さずに既定値で開く", .timeLimit(.minutes(1)))
     func differentContentOpensWithDefaults() async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
@@ -695,20 +821,25 @@ struct DocumentSettingsFlowTests {
         #expect(!edited.hasSavedSettings)
         #expect(edited.toast == nil)
         edited.stop()
+        #expect(environment.locations.keys().isEmpty)
     }
 
     @Test("既定に戻すと保存を消し、表示と印刷の設定を既定値にする", .timeLimit(.minutes(1)))
     func resetRemovesSavedSettings() async throws {
         let environment = try environment()
         defer { environment.cleanUp() }
-        let model = environment.model(pdf("a"))
+        let data = pdf("a")
+        let url = try environment.file(data, named: "reset.pdf")
+        let model = environment.model(data, url: url)
         try await open(model)
         model.setLayout(.single)
         model.layoutID = PrintLayout.a4BookletA5.id
         model.printOptions.furniture = .pageNumber
         model.rememberedSettingsDidChange()
         try await waitUntil { model.hasSavedSettings }
+        #expect(environment.locations.keys().count == 1)
         model.resetDocumentSettings()
+        #expect(environment.locations.keys().isEmpty)
         #expect(environment.store.keys().isEmpty)
         #expect(model.viewOptions.layout == .spread)
         #expect(model.layoutID == PrintLayout.a4Single.id)
@@ -836,6 +967,25 @@ struct DocumentSettingsFlowTests {
         #expect(Set(environment.store.keys()) == [oldKey, newKey])
         #expect(environment.store.record(for: oldKey)?.view?.direction == .rightToLeft)
         #expect(environment.store.record(for: newKey)?.view?.direction == .leftToRight)
+    }
+
+    @Test("容量整理の後に作り直した内容の記録も別の場所から参照されていれば残す", .timeLimit(.minutes(1)))
+    func recreatedRecordStillHasAnotherLocation() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let shared = try await sharedRecord(environment)
+        shared.first.stop()
+        let key = ContentHash.of(shared.data).hex
+        try environment.store.removeRecord(for: key)
+        let copy = environment.model(shared.data, url: shared.copyURL)
+        defer { copy.stop() }
+        try await open(copy)
+        #expect(!copy.hasSavedSettings)
+        copy.zoom = 1.75
+        copy.rememberedSettingsDidChange()
+        copy.flushPendingSettings()
+        _ = try await edit(copy, at: shared.copyURL, in: environment)
+        #expect(environment.store.record(for: key)?.zoom == 1.75)
     }
 
     @Test("別の窓が既定に戻してから保存し直した記録は、元の窓の文書が書き換えられても消さない", .timeLimit(.minutes(1)))
@@ -1016,6 +1166,77 @@ struct DocumentSettingsFlowTests {
         #expect(saved.view?.layout == .spread)
         #expect(saved.windowSize == nil)
         withExtendedLifetime(window) {}
+    }
+
+    @Test("同じ場所の ZIP を作り直したときは画像の内容がそろう場合だけ並び順を引き継ぐ", .timeLimit(.minutes(1)), arguments: [false, true])
+    func editedArchiveOrder(replacesImage: Bool) async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let a = TestFixtures.png(red: 0.1)
+        let b = TestFixtures.png(red: 0.6)
+        let original = TestFixtures.storedZip([("a.png", a), ("b.png", b)])
+        let url = try environment.file(original, named: "photos.zip")
+        func model(_ bytes: Data) throws -> DocumentViewModel {
+            let archive = try ZipArchive(data: bytes)
+            let bundle = ImageBundleModel(
+                archive: archive, selection: ZipImageSelection(archive: archive), archiveURL: url)
+            return DocumentViewModel(
+                data: bytes, fileURL: url, format: .zipArchive, preferences: environment.preferences,
+                library: environment.library, imageBundle: bundle, settingsStore: environment.store)
+        }
+        let first = try model(original)
+        try await open(first)
+        first.imageBundle?.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        first.zoom = 1.75
+        first.rememberedSettingsDidChange()
+        first.stop()
+
+        let edited = TestFixtures.storedZip([("a.png", a), ("c.png", replacesImage ? TestFixtures.png(red: 0.9) : b)])
+        try edited.write(to: url)
+        let reopened = try model(edited)
+        defer { reopened.stop() }
+        try await open(reopened)
+        #expect(reopened.zoom == 1.75)
+        #expect(reopened.imageBundle?.items.first?.name == (replacesImage ? "a.png" : "c.png"))
+        let record = try #require(environment.store.record(for: ContentHash.of(edited).hex))
+        #expect(record.imageOrder == (replacesImage ? nil : [ContentHash.of(b).hex, ContentHash.of(a).hex]))
+    }
+
+    @Test("場所から復元した HTML は再検出できた部分だけをスマート削除の残す一覧に引き継ぐ", .timeLimit(.minutes(1)))
+    func editedHTMLKeepList() async throws {
+        let environment = try environment()
+        defer { environment.cleanUp() }
+        let original = Data("<p>Before</p>".utf8)
+        let url = try environment.file(original, named: "article.html")
+        let pages = pdf("Article")
+        func model(_ bytes: Data) -> DocumentViewModel {
+            let renderer = DocumentRenderer(paginateWithResult: { _ in
+                WebPaginator.Result(
+                    document: PDFDocument(data: pages)!,
+                    preparationResult: ##"[{"id":"#nav","category":"relatedLinks","excerpt":"Links","reason":"nav"}]"##)
+            })
+            return DocumentViewModel(
+                data: bytes, fileURL: url, format: .html, preferences: environment.preferences,
+                library: environment.library, renderer: renderer, settingsStore: environment.store)
+        }
+        let first = model(original)
+        try await open(first)
+        first.setSmartRemoval(enabled: true)
+        first.toggleKeep("#nav")
+        first.toggleKeep("#old")
+        first.rememberedSettingsDidChange()
+        first.stop()
+
+        let edited = Data("<p>After</p>".utf8)
+        try edited.write(to: url)
+        let reopened = model(edited)
+        defer { reopened.stop() }
+        try await open(reopened)
+        reopened.render()
+        try await waitUntil { !reopened.isRendering }
+        #expect(reopened.isSmartRemovalEnabled)
+        #expect(reopened.smartRemovalKeptIDs == ["#nav"])
+        #expect(environment.store.record(for: ContentHash.of(edited).hex)?.smartRemoval?.keptIDs == ["#nav"])
     }
 
     @Test("保存した並び順の ZIP は、開いて閉じるだけでは設定を書き換えない", .timeLimit(.minutes(1)))

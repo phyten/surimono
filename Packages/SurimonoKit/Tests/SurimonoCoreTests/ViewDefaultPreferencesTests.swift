@@ -101,20 +101,22 @@ struct ViewDefaultPreferencesTests {
         let context = ViewDefaultsContext(kind: .flowingText, pageCount: 10, firstPageSize: .zero)
         let layoutOnly = ViewOptions.resolved(for: context, preferences: ViewDefaultPreferences(layout: .spread))
         #expect(layoutOnly.layout == .spread)
-        #expect(layoutOnly.transition == .scroll)
-        let transitionOnly = ViewOptions.resolved(for: context, preferences: ViewDefaultPreferences(transition: .fade))
+        #expect(layoutOnly.transition == .slide)
+        let transitionOnly = ViewOptions.resolved(
+            for: context, preferences: ViewDefaultPreferences(transition: .scroll))
         #expect(transitionOnly.layout == .single)
-        #expect(transitionOnly.transition == .fade)
+        #expect(transitionOnly.transition == .scroll)
         let joinsOnly = ViewOptions.resolved(for: context, preferences: ViewDefaultPreferences(joinsPages: false))
         #expect(joinsOnly.layout == .single)
-        #expect(joinsOnly.transition == .scroll)
+        #expect(joinsOnly.transition == .slide)
         #expect(!joinsOnly.joinsPages)
     }
 
-    @Test("保存済みの表示設定はアプリの既定値より優先する")
+    @Test("文書に保存済みのスクロールはアプリの既定値より優先する")
     func savedWins() {
         let context = ViewDefaultsContext(kind: .flowingText, pageCount: 10, firstPageSize: .zero)
-        let saved = ViewOptions.defaults(for: context)
+        var saved = ViewOptions.defaults(for: context)
+        saved.transition = .scroll
         #expect(ViewOptions.resolved(for: context, preferences: preferences, saved: saved) == saved)
     }
 

@@ -26,6 +26,15 @@ public final class KeyedRecordStore<Record: Codable> {
 
     /// Returns nil when the record is missing, is not a regular file, or cannot be decoded.
     public func record(for key: String) -> Record? {
+        record(for: key, markingUsed: true)
+    }
+
+    /// Checking for other references before deleting a record must not refresh unrelated locations.
+    public func contains(_ value: Record) -> Bool where Record: Equatable {
+        keys().contains { record(for: $0, markingUsed: false) == value }
+    }
+
+    private func record(for key: String, markingUsed: Bool) -> Record? {
         guard let url = fileURL(for: key) else { return nil }
         // Open the record itself, never what a symbolic link points to, and touch the very file that was read.
         // Opening a FIFO would block until a writer appears, so do not wait; non-regular files are rejected below.
@@ -36,6 +45,7 @@ public final class KeyedRecordStore<Record: Codable> {
         guard fstat(descriptor, &status) == 0, status.st_mode & S_IFMT == S_IFREG,
             let data = try? handle.readToEnd(), let record = try? JSONDecoder().decode(Record.self, from: data)
         else { return nil }
+        guard markingUsed else { return record }
         // The modification date doubles as the last use, so recently opened documents survive pruning.
         var times = [timespec(tv_sec: 0, tv_nsec: Int(UTIME_OMIT)), timespec(tv_sec: 0, tv_nsec: Int(UTIME_NOW))]
         _ = futimens(descriptor, &times)

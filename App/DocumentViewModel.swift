@@ -362,10 +362,12 @@ final class DocumentViewModel {
     private(set) var contentHash: ContentHash?
     private(set) var hasSavedSettings = false
     @ObservationIgnored let settingsStore: DocumentSettingsStore?
+    @ObservationIgnored private let location: (key: String, store: KeyedRecordStore<ContentHash>)?
     /// The settings as last loaded, restored, reset or saved; any other value means the user changed something.
     @ObservationIgnored private var settingsBaseline: DocumentSettings?
     private var documentDirectives = DocumentDirectives()
     private var didCustomizeSinceLoad = false
+    @ObservationIgnored private var validatesMigratedContent = false
     @ObservationIgnored private var pendingImageOrder: [String]?
     /// What the last reset took away, until it is brought back.
     @ObservationIgnored private(set) var resetOrigin: ResetOrigin?
@@ -445,6 +447,18 @@ final class DocumentViewModel {
         self.imageBundle = imageBundle
         self.binder = binder
         self.settingsStore = settingsStore
+        if let settingsStore, let fileURL, fileURL.isFileURL, binder == nil,
+            imageBundle == nil || imageBundle?.archiveURL != nil
+        {
+            let root = settingsStore.directory.deletingLastPathComponent()
+            location = (
+                ContentHash.of(Data(fileURL.standardizedFileURL.path.utf8)).hex,
+                KeyedRecordStore(
+                    directory: root.appendingPathComponent("DocumentLocations"), capacity: settingsStore.capacity)
+            )
+        } else {
+            location = nil
+        }
         self.data = data
         self.fileURL = fileURL
         self.title = title
@@ -1382,6 +1396,7 @@ final class DocumentViewModel {
                     currentPageIndex = page
                 }
                 resolveViewOptionsIfNeeded(for: prepared.viewDocument)
+                validateMigratedContentIfReady()
                 if let imageBundle {
                     // The digests of the images are known now, so a remembered order can be restored.
                     if let order = pendingImageOrder {
@@ -2524,19 +2539,21 @@ final class DocumentViewModel {
         contentHash = hash
         hashedSourceURLs = Set(sourceURLs)
         if let previous {
+            validatesMigratedContent = false
             // Saved in an editor while open: the settings on screen carry over to the new content.
             guard hasSavedSettings, saveSettings() else { return }
             // The same files no longer have the content the previous record described, so every save in the editor
             // would leave one more record behind and push other documents' settings out of the store. A set that
             // gained or lost a file still exists as it was, and keeps its record.
             if let token = ownedRecordTokens.removeValue(forKey: previous.hex), previousSources == hashedSourceURLs,
-                settingsStore?.token(for: previous.hex) == token
+                settingsStore?.token(for: previous.hex) == token,
+                location?.store.contains(previous) != true
             {
                 try? settingsStore?.removeRecord(for: previous.hex)
             }
             return
         }
-        let saved = settingsStore?.record(for: hash.hex)
+        let saved = savedSettings(for: hash)
         if keepsSettingsOverSaved, saved != nil {
             // What this window took over replaces the record, even where it equals the defaults.
             settingsBaseline = defaultSettings
@@ -2560,6 +2577,56 @@ final class DocumentViewModel {
         apply(saved)
         hasSavedSettings = true
         settingsBaseline = rememberedSettings
+        validateMigratedContentIfReady()
+    }
+
+    private func savedSettings(for hash: ContentHash) -> DocumentSettings? {
+        guard let settingsStore else { return nil }
+        if let saved = settingsStore.record(for: hash.hex) {
+            rememberLocation(for: hash)
+            return saved
+        }
+        guard openFailure == nil, let location, let previous = location.store.record(for: location.key),
+            previous != hash, let saved = settingsStore.record(for: previous.hex)
+        else { return nil }
+        validatesMigratedContent = saved.imageOrder != nil || saved.smartRemoval?.keptIDs.isEmpty == false
+        // A newly opened window has no ownership token for the previous record. A copy may still use it.
+        do {
+            try writeRecord(saved, for: hash, in: settingsStore)
+            rememberLocation(for: hash)
+        } catch {
+            Self.logger.error("Saving document settings for the changed file failed.")
+        }
+        return saved
+    }
+
+    private func validateMigratedContentIfReady() {
+        guard validatesMigratedContent else { return }
+        // The hash can arrive before or after image digests and HTML candidates are available.
+        if let imageBundle {
+            guard imageBundle.orderDigests != nil else { return }
+            validatesMigratedContent = false
+            guard let order = pendingImageOrder else { return }
+            pendingImageOrder = nil
+            if imageBundle.applyOrder(order) {
+                settingsBaseline = rememberedSettings
+                return
+            }
+        } else {
+            guard renderedSettings?.smartRemoval != nil, renderedSettings == renderSettings,
+                !renderedFromSnapshot, result?.requiredFolderAccess == nil
+            else { return }
+            validatesMigratedContent = false
+            let candidates = Set(smartRemovalCandidates.map(\.id))
+            let kept = smartRemovalKeptIDs.filter(candidates.contains)
+            guard kept != smartRemovalKeptIDs else { return }
+            smartRemovalKeptIDs = kept
+            settingsBaseline?.smartRemoval?.keptIDs = kept
+        }
+        // Another window may have saved new choices while this one waited for the render.
+        if let key = contentHash?.hex, let token = ownedRecordTokens[key], settingsStore?.token(for: key) == token {
+            saveSettings(force: true)
+        }
     }
 
     private func apply(_ saved: DocumentSettings) {
@@ -2621,7 +2688,7 @@ final class DocumentViewModel {
         }
     }
 
-    /// Returns whether a record was written.
+    /// The previous record can be retired only once both the settings and their location were saved.
     @discardableResult
     private func saveSettings(force: Bool = false) -> Bool {
         saveTask?.cancel()
@@ -2633,20 +2700,41 @@ final class DocumentViewModel {
             return false
         }
         var settings = rememberedSettings
+        // A resize or another choice can be saved before the ZIP has finished hashing its images.
+        if validatesMigratedContent, let pendingImageOrder { settings.imageOrder = pendingImageOrder }
         settings.windowSize = currentPaperSize ?? viewPaperSizeBeforePrinting ?? restoredPaperSize
         do {
-            let key = contentHash.hex
-            // Without reading the record, which would itself change its state.
-            let before = settingsStore.token(for: key)
-            let owns = before == nil || before == ownedRecordTokens[key]
-            try settingsStore.save(settings, for: key)
-            ownedRecordTokens[key] = owns ? settingsStore.token(for: key) : nil
+            try writeRecord(settings, for: contentHash, in: settingsStore)
             hasSavedSettings = true
             didResizeWindow = false
             settingsBaseline = rememberedSettings
-            return true
+            return rememberLocation(for: contentHash)
         } catch {
             Self.logger.error("Saving document settings failed: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+    }
+
+    private func writeRecord(_ settings: DocumentSettings, for hash: ContentHash, in store: DocumentSettingsStore)
+        throws
+    {
+        // Without reading the record, which would itself change its state.
+        let before = store.token(for: hash.hex)
+        let owns = before == nil || before == ownedRecordTokens[hash.hex]
+        try store.save(settings, for: hash.hex)
+        ownedRecordTokens[hash.hex] = owns ? store.token(for: hash.hex) : nil
+    }
+
+    @discardableResult
+    private func rememberLocation(for hash: ContentHash) -> Bool {
+        guard let location else { return true }
+        do {
+            if location.store.record(for: location.key) != hash {
+                try location.store.save(hash, for: location.key)
+            }
+            return true
+        } catch {
+            Self.logger.error("Updating the location for document settings failed.")
             return false
         }
     }
@@ -2729,11 +2817,13 @@ final class DocumentViewModel {
         dismissToast()
         saveTask?.cancel()
         saveTask = nil
+        if let location { try? location.store.removeRecord(for: location.key) }
         if bookmarks.isEmpty, let contentHash {
             try? settingsStore?.removeRecord(for: contentHash.hex)
             ownedRecordTokens[contentHash.hex] = nil
         }
         hasSavedSettings = false
+        validatesMigratedContent = false
         pendingImageOrder = nil
         restoredPaperSize = nil
         returnsToRestoredPaperSize = false

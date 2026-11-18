@@ -28,6 +28,23 @@ struct KeyedRecordStoreTests {
         }
     }
 
+    @Test("ほかの場所が同じ値を指すか調べても所有の印と削除順は変わらない")
+    func checksReferencesWithoutTouchingRecords() throws {
+        try withStore(capacity: 2) { store, directory in
+            try store.save(Record(value: 1), for: "old")
+            try store.save(Record(value: 2), for: "recent")
+            try age("old", in: directory, secondsAgo: 60)
+            let old = try #require(store.token(for: "old"))
+            let recent = try #require(store.token(for: "recent"))
+            #expect(store.contains(Record(value: 1)))
+            #expect(!store.contains(Record(value: 3)))
+            #expect(store.token(for: "old") == old)
+            #expect(store.token(for: "recent") == recent)
+            try store.save(Record(value: 3), for: "new")
+            #expect(Set(store.keys()) == ["recent", "new"])
+        }
+    }
+
     @Test("記録の状態の印は、読むたびと書くたびに変わり、何もしなければ変わらない")
     func tokenChangesOnLoadAndWrite() throws {
         try withStore { store, _ in

@@ -147,14 +147,14 @@ struct ViewOptionsTests {
         #expect(options.slideEdge(forward: forward) == edge)
     }
 
-    @Test("流し込みの文書は単ページの縦の連続スクロールで開く")
+    @Test("流し込みの文書は単ページの縦のスライドで開く")
     func flowingTextDefaults() {
         let options = ViewOptions.defaults(
             for: ViewDefaultsContext(kind: .flowingText, pageCount: 30, firstPageSize: portrait))
         #expect(
             options
                 == ViewOptions(
-                    layout: .single, direction: .leftToRight, scrollAxis: .vertical, transition: .scroll,
+                    layout: .single, direction: .leftToRight, scrollAxis: .vertical, transition: .slide,
                     showsCoverAlone: false))
     }
 
