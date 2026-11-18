@@ -96,7 +96,9 @@ for (const [index, source] of Array.from(sources).entries()) {
       .reduce((total, property) => total + (parseFloat(style[property]) || 0), 2);
     const scale = Math.min(1, Math.max(1, pageHeight / zoom - spacing) / height);
     svg.style.cssText += `;width:${width * scale}px;max-width:100%;height:auto;display:block;margin:auto;background:white;color:black;direction:ltr;letter-spacing:normal;word-spacing:normal;text-transform:none`;
-    block.replaceChildren(document.importNode(svg, true));
+    const rendered = document.importNode(svg, true);
+    block.replaceChildren(rendered);
+    globalThis.surimonoRenderedDiagrams?.add(rendered);
     block.classList.remove('diagram-error');
   } catch (error) {
     block.classList.add('diagram-error');

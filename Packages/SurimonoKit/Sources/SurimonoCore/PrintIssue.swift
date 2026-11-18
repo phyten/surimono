@@ -1,7 +1,9 @@
 import Foundation
 
 public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
-    public enum Kind: String, Codable, Sendable { case image, overflow, math, latex, mermaid, verticalWriting }
+    public enum Kind: String, Codable, Sendable {
+        case image, overflow, math, latex, bibliography, mermaid, verticalWriting
+    }
     public enum ImageFailure: String, Codable, Sendable { case missing, folderAccess, other }
     public enum Element: String, Codable, Sendable { case table, image, figure, code, math }
 

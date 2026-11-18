@@ -72,12 +72,11 @@ Markdown, Org, text, CSV and LaTeX documents can take a style.
 
 Compare Styles lays up to four side by side. Change the text size with Increase Text Size (⌥⌘+) and Decrease Text Size (⌥⌘−) in the View menu.
 
-This guide's note box is written like this:
+### Markdown notation
 
-```markdown
-> [!note] The print screen is for checking
-> Opening the print screen prints nothing.
-```
+Put `bibliography: refs.bib` in the front matter to cite a book by number with `[@key, p. 33]` or by author and number with `@key`. References go at the end or in an empty `::: {#refs}` div.
+
+Use `title` for a title and `toc: true` for a table of contents. The notes in this guide are block quotes starting with `> [!note]`. You can also wrap a note in `::: {.note}` and `:::`.
 
 ## Add finishing touches
 

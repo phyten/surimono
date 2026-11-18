@@ -44,6 +44,12 @@ enum MarkdownExtensions {
     /// Inline formulas leave a token in the text, which `restore(_:)` turns back into their HTML.
     final class Formulas {
         private var html: [String] = []
+        let citations: MarkdownCitations?
+
+        init(citations: MarkdownCitations? = nil) { self.citations = citations }
+
+        fileprivate lazy var escapedCitationSign = "\u{E004}\(nonce)\u{E005}"
+
         /// Random for each document, so a token never matches text the document itself contains.
         private let nonce = String((0..<12).map { _ in "abcdefghijklmnopqrstuvwxyz".randomElement() ?? "x" })
         private lazy var pattern = try? NSRegularExpression(pattern: "\u{E000}\(nonce)([0-9]+)\u{E001}")
@@ -67,6 +73,9 @@ enum MarkdownExtensions {
 
         /// Only tokens this document issued are replaced; anything else stays as written.
         private func replacingTokens(in text: String, with replacement: (String) -> String) -> String {
+            let text =
+                citations != nil && text.contains("\u{E004}")
+                ? text.replacingOccurrences(of: escapedCitationSign, with: "@") : text
             guard text.contains("\u{E000}"), let regex = pattern else { return text }
             let nsText = text as NSString
             var output = ""
@@ -631,7 +640,7 @@ enum MarkdownExtensions {
             } else if let latex = capture("inlineMath") ?? capture("inlineMath2") {
                 output += formulas.token(latex, display: false, source: whole)
             } else if capture("verbatim") != nil {
-                output += whole
+                output += whole == #"\@"# && formulas.citations != nil ? formulas.escapedCitationSign : whole
             } else if capture("criticUnclosed") != nil {
                 output += whole.unicodeScalars.map { "&#\($0.value);" }.joined()
             } else if let comment = capture("criticComment") {

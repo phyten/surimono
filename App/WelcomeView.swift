@@ -160,6 +160,11 @@ private struct WelcomeView: View {
         VStack(spacing: 16) {
             dropZone
             if !recent.isEmpty { recentFiles }
+            Button("Open Sample Document") { OpenRouter.shared.openSampleDocument() }
+                .buttonStyle(.link)
+                .foregroundStyle(PrintPalette.ai)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
         }
         .padding(24)
         // The window takes its height from this view, whose minimum width is the window's: at a narrower width the

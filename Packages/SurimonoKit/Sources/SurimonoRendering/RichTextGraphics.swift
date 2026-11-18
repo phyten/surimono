@@ -9,19 +9,21 @@ protocol GraphicSnapshotting {
 
 @MainActor
 struct WebGraphicSnapshot: GraphicSnapshotting {
+    var requestedScale: CGFloat?
+
     static func scale(for size: CGSize) -> CGFloat {
         min(2, 4000 / max(size.width, size.height))
     }
 
     func png(in view: WKWebView, viewport: CGRect, document: CGRect) async throws -> Data {
-        let scale = Self.scale(for: document.size)
+        let scale = requestedScale ?? Self.scale(for: document.size)
         if view.bounds.contains(viewport) {
             let config = WKSnapshotConfiguration()
             config.rect = viewport
             config.snapshotWidth = NSNumber(value: viewport.width * scale)
             if let snapshot = try? await view.takeSnapshot(configuration: config),
                 let image = snapshot.cgImage(forProposedRect: nil, context: nil, hints: nil),
-                let png = bitmap(image, size: document.size, scale: scale)
+                let png = bitmap(size: document.size, scale: scale, draw: { $0.draw(image, in: $1) })
             {
                 return png
             }
@@ -34,11 +36,30 @@ struct WebGraphicSnapshot: GraphicSnapshotting {
         guard let page = PDFDocument(data: bytes)?.page(at: 0) else { throw WebPaginator.PaginationError.emptyDocument }
         let pdfSize = page.bounds(for: .cropBox).size
         guard pdfSize.width > 0, pdfSize.height > 0 else { throw WebPaginator.PaginationError.emptyDocument }
+        if let requestedScale {
+            // The snapshot PDF may round a fractional rectangle to whole points. Map it back to the requested
+            // pixel dimensions on both axes, including when a long diagram spans several paper pages.
+            guard let reference = page.pageRef,
+                let png = bitmap(
+                    size: document.size, scale: requestedScale, checksInk: false,
+                    draw: { context, box in
+                        context.scaleBy(x: box.width / pdfSize.width, y: box.height / pdfSize.height)
+                        context.concatenate(
+                            reference.getDrawingTransform(
+                                .cropBox, rect: CGRect(origin: .zero, size: pdfSize), rotate: 0,
+                                preserveAspectRatio: true))
+                        context.drawPDFPage(reference)
+                    })
+            else { throw WebPaginator.PaginationError.emptyDocument }
+            return png
+        }
         let pdfScale = min(document.width * scale / pdfSize.width, 4000 / max(pdfSize.width, pdfSize.height))
         return try PageImageExporter.png(page, dpi: 72 * pdfScale)
     }
 
-    private func bitmap(_ image: CGImage, size: CGSize, scale: CGFloat) -> Data? {
+    private func bitmap(
+        size: CGSize, scale: CGFloat, checksInk: Bool = true, draw: (CGContext, CGRect) -> Void
+    ) -> Data? {
         // snapshotWidth is in points. Normalize Retina backing pixels to the requested pixel budget.
         let width = max(1, Int((size.width * scale).rounded()))
         let height = max(1, Int((size.height * scale).rounded()))
@@ -51,8 +72,8 @@ struct WebGraphicSnapshot: GraphicSnapshotting {
         let box = CGRect(x: 0, y: 0, width: width, height: height)
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(box)
-        context.draw(image, in: box)
-        guard (0..<(width * height)).contains(where: { bytes[$0] != bytes[0] }),
+        draw(context, box)
+        guard !checksInk || (0..<(width * height)).contains(where: { bytes[$0] != bytes[0] }),
             let rendered = context.makeImage()
         else { return nil }
         return NSBitmapImageRep(cgImage: rendered).representation(using: .png, properties: [:])

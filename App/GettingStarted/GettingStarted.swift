@@ -20,6 +20,13 @@ enum GettingStarted {
         bundle.url(forResource: edition(for: languages).rawValue, withExtension: "md")
     }
 
+    static func sampleURL(for languages: [String] = Bundle.main.preferredLocalizations, in bundle: Bundle = .main)
+        -> URL?
+    {
+        let name = edition(for: languages) == .japanese ? "Surimono 見本" : "Surimono Sample"
+        return bundle.url(forResource: name, withExtension: "md")
+    }
+
     /// A file inside the app is not one the reader chose, so it has no place among their recent files.
     static func isInsideApp(_ url: URL, bundle: Bundle = .main) -> Bool {
         guard url.isFileURL else { return false }

@@ -39,6 +39,8 @@ struct PaperView: NSViewRepresentable {
     var logicalMargin: CGFloat? = nil
     var showsPageNumbers = false
     var changeMarks: [ChangeMark] = []
+    var diagrams: [RenderedDiagram] = []
+    var onDiagram: (RenderedDiagram, PaperDiagramAction) -> Void = { _, _ in }
     /// The header and footer the sheets draw on a logical page, by its index.
     var furniture: [Int: FurniturePlacement] = [:]
     /// A spread that shows its cover alone shows it one page wide (`LoneCoverWidth.onePage`).
@@ -77,6 +79,8 @@ struct PaperView: NSViewRepresentable {
         view.onKey = onKey
         view.onShortcut = onShortcut
         view.allowsShortcutHandling = allowsShortcutHandling
+        view.diagrams = diagrams
+        view.onDiagram = onDiagram
         view.narrowsLoneCover = narrowsLoneCover
         view.configure(
             document, at: initialPageIndex, options: options, logicalMargin: logicalMargin,
@@ -211,6 +215,37 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         didSet {
             guard narrowsLoneCover != oldValue, document != nil else { return }
             goToPage(index: currentPageIndex)
+        }
+    }
+
+    var diagrams: [RenderedDiagram] = []
+    var onDiagram: ((RenderedDiagram, PaperDiagramAction) -> Void)?
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let existing = super.menu(for: event)
+        let location = convert(event.locationInWindow, from: nil)
+        guard !diagrams.isEmpty, let document, let plan = pagePlan,
+            let page = page(for: location, nearest: false)
+        else { return existing }
+        let slot = document.index(for: page)
+        guard let index = plan.logicalIndex(at: slot) else { return existing }
+        let scale = plan.scale(at: slot)
+        let point = convert(location, to: page).applying(CGAffineTransform(scaleX: 1 / scale, y: 1 / scale))
+        guard let diagram = RenderedDiagram.hitTest(point, pageIndex: index, in: diagrams) else { return existing }
+        let menu = existing?.copy() as? NSMenu ?? NSMenu()
+        if !menu.items.isEmpty { menu.addItem(.separator()) }
+        for action in PaperDiagramAction.allCases {
+            let item = NSMenuItem(title: action.title, action: #selector(chooseDiagramAction(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = (diagram, action)
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    @objc private func chooseDiagramAction(_ sender: NSMenuItem) {
+        if let (diagram, action) = sender.representedObject as? (RenderedDiagram, PaperDiagramAction) {
+            onDiagram?(diagram, action)
         }
     }
 

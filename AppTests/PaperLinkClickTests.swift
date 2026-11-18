@@ -105,6 +105,29 @@ struct PaperLinkClickTests {
         withExtendedLifetime(window) {}
     }
 
+    @Test("紙の図の上にだけ三つの保存・コピー項目があり、選んだ図を渡す")
+    func diagramMenu() throws {
+        let (view, window, _) = try paper()
+        let diagram = RenderedDiagram(
+            number: 1, pageIndex: 0, rect: CGRect(x: 250, y: 400, width: 100, height: 50), svg: "<svg/>")
+        view.diagrams = [diagram]
+        let titles = PaperDiagramAction.allCases.map(\.title)
+        let outside = view.menu(for: event(.rightMouseDown, view, window, at: Self.offLink))
+        #expect(outside?.items.contains { titles.contains($0.title) } != true)
+        let inside = try #require(view.menu(for: event(.rightMouseDown, view, window, at: Self.onLink)))
+        #expect(inside.items.filter { titles.contains($0.title) }.map(\.title) == titles)
+        var chosen: RenderedDiagram?
+        view.onDiagram = { selected, action in
+            #expect(action == .copyPNG)
+            chosen = selected
+        }
+        let copy = try #require(inside.items.first { $0.title == PaperDiagramAction.copyPNG.title })
+        let action = try #require(copy.action)
+        #expect(NSApp.sendAction(action, to: copy.target, from: copy))
+        #expect(chosen == diagram)
+        withExtendedLifetime(window) {}
+    }
+
     // MARK: - Helpers
 
     @MainActor

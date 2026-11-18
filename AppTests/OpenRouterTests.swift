@@ -14,7 +14,8 @@ struct OpenRouterTests {
         openBinder: @escaping ([URL], [URL]) -> Void = { _, _ in Issue.record("合本は開かない") },
         warn: @escaping (NSWindow?) -> Void = { _ in Issue.record("警告しない") },
         hasOpenWindows: @escaping () -> Bool = { false },
-        showWelcome: @escaping () -> Void = { Issue.record("ウェルカム画面は出さない") }
+        showWelcome: @escaping () -> Void = { Issue.record("ウェルカム画面は出さない") },
+        openMemory: @escaping (Data, DocumentFormat, String?, Bool) -> Void = { _, _, _, _ in }
     ) -> OpenRouter {
         OpenRouter(
             openDocument: openDocument,
@@ -28,7 +29,7 @@ struct OpenRouterTests {
             },
             warn: warn,
             hasOpenWindows: hasOpenWindows,
-            showWelcome: showWelcome)
+            showWelcome: showWelcome, openMemory: openMemory)
     }
 
     @Test("1つのファイルは文書を開く処理に渡す")
@@ -54,6 +55,22 @@ struct OpenRouterTests {
         let router = router()
         router.gettingStartedURL = { nil }
         #expect(!router.openGettingStarted())
+    }
+
+    @Test("見本を開くとファイルの場所を渡さず、文書名と内容からメモリの Markdown を表示する")
+    func sampleDocument() throws {
+        let url = try #require(GettingStarted.sampleURL())
+        let expected = try Data(contentsOf: url)
+        var calls = 0
+        let router = router(openMemory: { data, format, title, printing in
+            calls += 1
+            #expect(data == expected)
+            #expect(format == .markdown)
+            #expect(title == url.deletingPathExtension().lastPathComponent)
+            #expect(!printing)
+        })
+        #expect(router.openSampleDocument())
+        #expect(calls == 1)
     }
 
     @Test("画像3つは自然順の束として開く")

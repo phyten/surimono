@@ -2,6 +2,7 @@ import Foundation
 
 /// A deliberately small mapping inside the converter's front matter, never a general YAML parser.
 public struct DocumentDirectives: Equatable, Sendable {
+    public private(set) var metadata = MarkdownMetadata()
     public var setName: String?
     public var layoutID: String?
     public var orientation: PaperOrientation?
@@ -10,8 +11,13 @@ public struct DocumentDirectives: Equatable, Sendable {
     public var textScale: Double?
 
     public var isEmpty: Bool {
-        setName == nil && layoutID == nil && orientation == nil && marginMillimeters == nil
-            && style == nil && textScale == nil
+        hasSamePrintSettings(as: Self())
+    }
+
+    /// A change to the title or bibliography should refresh the pages without resetting print options.
+    public func hasSamePrintSettings(as other: Self) -> Bool {
+        setName == other.setName && layoutID == other.layoutID && orientation == other.orientation
+            && marginMillimeters == other.marginMillimeters && style == other.style && textScale == other.textScale
     }
 
     public init() {}
@@ -20,6 +26,7 @@ public struct DocumentDirectives: Equatable, Sendable {
         let lines = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
         var result = DocumentDirectives()
         guard let end = MarkdownConverter.frontMatterEnd(in: lines) else { return result }
+        result.metadata = MarkdownMetadata(lines: lines[1..<end])
         var inMapping = false
         var childIndent: Int?
         for line in lines[1..<end] {

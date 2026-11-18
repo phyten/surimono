@@ -262,6 +262,13 @@ final class OpenRouter {
         return open([url])
     }
 
+    @discardableResult
+    func openSampleDocument() -> Bool {
+        guard let url = GettingStarted.sampleURL(), let data = try? Data(contentsOf: url) else { return false }
+        openMemory(data, .markdown, url.deletingPathExtension().lastPathComponent, false)
+        return true
+    }
+
     func showOpenPanel() {
         presentOpenPanel { [weak self] urls in self?.open(urls) }
     }
