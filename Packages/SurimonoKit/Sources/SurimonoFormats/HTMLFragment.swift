@@ -4,11 +4,14 @@ public struct HTMLFragment: Equatable, Sendable {
     public var body: String
     public var title: String?
     public var language: String?
+    /// Document-level diagnostics that have no position on a printed page.
+    public var readingIssues: [String]
 
-    public init(body: String, title: String? = nil, language: String? = nil) {
+    public init(body: String, title: String? = nil, language: String? = nil, readingIssues: [String] = []) {
         self.body = body
         self.title = title
         self.language = language
+        self.readingIssues = readingIssues
     }
 }
 

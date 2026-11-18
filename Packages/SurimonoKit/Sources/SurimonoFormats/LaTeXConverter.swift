@@ -12,13 +12,22 @@ public enum LaTeXConverter {
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) -> HTMLFragment {
         let source = TextDecoding.normalizeNewlines(text)
-        let document = LaTeXDocument()
-        document.directory = directory
-        document.imageExists = imageExists
-        let (preamble, body) = split(source)
-        if let preamble { LaTeXReader(preamble, document: document, isBlock: false).readPreamble() }
-        if LaTeXLexer.find("chapter", in: Array(body)) != nil { document.hasChapters = true }
-        var html = LaTeXReader(body, document: document, isBlock: true).read()
+        func makeReader() -> LaTeXReader {
+            let document = LaTeXDocument()
+            document.directory = directory
+            document.imageExists = imageExists
+            return LaTeXReader(source, document: document, isBlock: true)
+        }
+        var reader = makeReader()
+        // Definitions, comments, code and untaken branches may quote a document boundary. Only a command
+        // actually reached by the reader starts or ends the body. A fragment can quote both boundaries.
+        if source.range(of: #"\\begin\s*\{document\}"#, options: .regularExpression) != nil {
+            reader.readPreamble()
+            if !reader.document.startedDocument { reader = makeReader() }
+        }
+        let document = reader.document
+        var html = reader.read()
+        document.endedDocument = false
         if document.titleHTML == nil, let title = document.title {
             // Without \maketitle the title still names the window and the exported PDF.
             let plain = title.replacingOccurrences(of: #"\\thanks\s*\{[^}]*\}"#, with: "", options: .regularExpression)
@@ -29,42 +38,14 @@ public enum LaTeXConverter {
         html = document.resolvePlaceholders(in: html)
         let fonts = MathRenderer.fontFaces(for: html)
         if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
-        return HTMLFragment(body: html, title: document.plainTitle)
+        return HTMLFragment(body: html, title: document.plainTitle, readingIssues: document.readingIssues)
     }
 
-    /// The preamble and the body inside `document`; a fragment without one is all body. Comments and code are
-    /// stepped over, so `\\end{document}` written in either does not end the document.
-    private static func split(_ source: String) -> (preamble: String?, body: String) {
-        let characters = Array(source)
-        func environment(_ command: String, from start: Int) -> Int? {
-            var cursor = start
-            let marker = Array("{document}")
-            while let found = LaTeXLexer.find(command, in: characters, from: cursor) {
-                let after = found + command.count + 1
-                if after + marker.count <= characters.count, Array(characters[after..<(after + marker.count)]) == marker
-                {
-                    return found
-                }
-                cursor = found + 1
-            }
-            return nil
-        }
-        guard let begin = environment("begin", from: 0) else { return (nil, source) }
-        let bodyStart = begin + "\\begin{document}".count
-        let bodyEnd = environment("end", from: bodyStart) ?? characters.count
-        return (String(characters[..<begin]), String(characters[bodyStart..<bodyEnd]))
-    }
 }
 
 /// What one document's conversion shares across nested groups: definitions, counters, labels and notes.
 final class LaTeXDocument {
     var imageExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
-    struct Macro {
-        let parameters: Int
-        let defaultArgument: String?
-        let body: String
-    }
-
     struct Heading {
         let level: Int
         let number: String?
@@ -86,11 +67,8 @@ final class LaTeXDocument {
         let after: String?
     }
 
-    enum ReferenceStyle {
-        case number
-        case equation
-    }
-
+    var startedDocument = false
+    var endedDocument = false
     var documentClass = "article"
     var title: String?
     var titleHTML: String?
@@ -98,55 +76,89 @@ final class LaTeXDocument {
     /// nil prints today's date, as LaTeX does; an empty date prints none.
     var date: String?
     var macros: [String: Macro] = [:]
+    var hasExtendedMathDefinitions = false
+    var environments: [String: (begin: Macro, end: String)] = [:]
     /// Definitions given to every formula, so commands defined in the preamble work in math too.
     var mathDefinitions = ""
+    var booleans: [String: Bool] = [:]
+    var toggles: [String: Bool] = [:]
+    var loopMathNames: Set<String> = []
     var colors: [String: (Double, Double, Double)] = [:]
-    var hasChapters = false
+    var hasChapters = false {
+        didSet {
+            if hasChapters && !oldValue { counters.within("section", parent: "chapter", prefix: true) }
+        }
+    }
     var isAppendix = false
-    var sectionCounters = Array(repeating: 0, count: 6)
-    var partCounter = 0
+    let counters = LaTeXCounters()
+    var subequationPrefix: String?
     var headings: [Heading] = []
     var labels: [String: (number: String, id: String)] = [:]
     /// The most recent numbered thing; a `\label` names it.
     var labelTarget: (number: String, id: String)?
-    var equationCount = 0
-    var figureCount = 0
     var taggedCount = 0
     var itemCount = 0
-    var tableCount = 0
     var directory: URL?
     var graphicsPaths: [String] = []
-    var footnotes: [String] = []
-    var references: [(key: String, style: ReferenceStyle)] = []
+    var footnotes: [Footnote] = []
+    var references: [Reference] = []
+    var resolvingReferences: Set<Int> = []
+    /// After 200 KB of nested link text, use an ellipsis so repeated captions cannot multiply indefinitely.
+    var nestedReferenceWork = 200_000
+    var targetDescriptions: [String: TargetDescription] = [:]
+    var sharesReferenceNames = false
+    var nameCopies = 0
+    var referenceNames: [String: ReferenceNames] = [:]
+    var deferredMath: [ReferencedFormula] = []
     var enumerateDepth = 0
     var theorems: [String: Theorem] = [:]
     var theoremStyle = "plain"
     /// amsthm's look (a period after the heading, the note in roman) rather than LaTeX's own `\newtheorem`.
     var usesAMSTheorem = false
-    /// What a theorem counter counts within (`\newtheorem{…}{…}[section]`).
-    var counterParents: [String: String] = [:]
-    /// Each theorem counter's value and the number it counted under; a new parent number starts it again.
-    var counterValues: [String: (value: Int, parent: String)] = [:]
     var theoremCount = 0
     var bibliography: [String: (label: String, id: String)] = [:]
     var bibliographyCount = 0
     var citations: [Citation] = []
     /// How many readers are reading inside one another.
     var depth = 0
+    /// A hundred levels allow nested prose and macros while leaving stack space for the reader to recover.
     static let maximumDepth = 100
     /// Set while `\maketitle` reads the title, so a title that makes the title again is not read again.
     var makingTitle = false
     /// Each theorem's heading, read once: a heading that opens its own environment would otherwise read itself again.
     var theoremHeadings: [String: String] = [:]
+    /// Two MB allow long theorem headings throughout a paper. Once spent, the environment name still identifies them.
     var headingBudget = 2_000_000
     var expansions = 0
+    var unknownNames: [String] = []
+    var seenUnknown: Set<String> = []
+    var uppercase: Bool?
+    var usedNoteIDs: Set<String> = []
+    var emphasisDepth = 0
+    var highlightColor: String?
+    var nextPendingNote = 0
+    var pendingByNumber: [String: ArraySlice<Int>] = [:]
     /// Characters macros produced, and the work spent putting them back into the source; both are bounded so a
     /// recursive or doubling definition cannot exhaust memory or time.
     var expandedCharacters = 0
+    /// Stop expansion after 50 million units of scanning and copying: even small insertions can shift a long tail.
     var expansionWork = 0
-    /// Set once a limit is reached: later macros are dropped and their arguments read as text.
+    /// Plain source continues to print after expansion stops; the fragment reports the limit once.
     var stopsExpanding = false
     let nonce = String((0..<12).map { _ in "abcdefghijklmnopqrstuvwxyz".randomElement() ?? "x" })
+
+    /// The print check panel can explain omissions here without putting diagnostic text on the paper.
+    var readingIssues: [String] {
+        var issues: [String] = []
+        if !unknownNames.isEmpty { issues.append("commands not read: " + unknownNames.joined(separator: ", ")) }
+        if stopsExpanding { issues.append("LaTeX expansion limit reached") }
+        return issues
+    }
+
+    /// Keep first-use order so a repeated command yields one name and authors can locate it in source order.
+    func recordUnknown(_ name: String) {
+        if seenUnknown.insert(name).inserted { unknownNames.append(name) }
+    }
 
     var isJapanese: Bool {
         let japanese = ["j", "ltjs", "bxjs", "ujarticle", "ujreport", "ujbook", "utarticle", "tarticle"]
@@ -154,17 +166,13 @@ final class LaTeXDocument {
     }
 
     var plainTitle: String? {
-        titleHTML.map { $0.replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression) }
+        titleHTML.map { replacing("M", in: replacing("C", in: replacing("R", in: $0))) }
+            .map { $0.replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression) }
             .map { HTML.unescape($0).trimmingCharacters(in: .whitespacesAndNewlines) }
             .flatMap { $0.isEmpty ? nil : $0 }
     }
 
     func placeholder(_ kind: String, _ index: Int) -> String { "\u{E000}\(nonce)\(kind)\(index)\u{E001}" }
-
-    func reference(_ key: String, style: ReferenceStyle) -> String {
-        references.append((key, style))
-        return placeholder("R", references.count - 1)
-    }
 
     func citation(_ citation: Citation) -> String {
         citations.append(citation)
@@ -175,7 +183,7 @@ final class LaTeXDocument {
     /// the document and may sit in the headings the table of contents repeats.
     func resolvePlaceholders(in html: String) -> String {
         resolveCitations()
-        return replacing("C", in: replacing("R", in: replacing("T", in: html)))
+        return replacing("M", in: replacing("C", in: replacing("R", in: replacing("T", in: html))))
     }
 
     private var resolvedCitations: [String] = []
@@ -185,6 +193,7 @@ final class LaTeXDocument {
     /// that cite a lot, or a long label cited many times, could still multiply the text, so each citation is built
     /// within a size limit and all of them within a budget; past either, it shows its keys as written.
     private func resolveCitations() {
+        // Allow 20 KB per citation for notes and 2 MB across the paper so repeated notes fall back to compact keys.
         var budget = 2_000_000
         resolvedCitations = []
         for (index, citation) in citations.enumerated() {
@@ -225,7 +234,7 @@ final class LaTeXDocument {
 
     /// A piece of a citation with its references and earlier citations filled in, or nil once it would pass `limit`.
     /// Filling in never makes a placeholder shorter, so the check before each addition is enough.
-    private func filled(_ piece: String, below index: Int, limit: Int) -> String? {
+    func filled(_ piece: String, below index: Int, limit: Int) -> String? {
         guard piece.utf8.count <= limit else { return nil }
         guard piece.contains("\u{E000}\(nonce)"),
             let regex = try? NSRegularExpression(pattern: "\u{E000}\(nonce)([RC])([0-9]+)\u{E001}")
@@ -265,6 +274,7 @@ final class LaTeXDocument {
         let nsHTML = html as NSString
         var output = ""
         var cursor = 0
+        // Four MB allows rendered math and a long contents list. Omit excess contents or abbreviate other output.
         var budget = 4_000_000
         var contents: String?
         for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
@@ -289,22 +299,21 @@ final class LaTeXDocument {
                 } else {
                     output += "<span class=\"latex-cite\">[…]</span>"
                 }
-            default: output += referenceHTML(index)
+            default:
+                guard budget > 0 else {
+                    output += "…"
+                    continue
+                }
+                let resolved = kind == "M" ? renderFormula(index) : referenceHTML(index)
+                if resolved.utf8.count <= budget {
+                    output += resolved
+                    budget -= resolved.utf8.count
+                } else {
+                    output += "…"
+                }
             }
         }
         return output + nsHTML.substring(from: cursor)
-    }
-
-    /// A reference's number linking to what it names. A number is short unless it is an equation's own `\tag`; that
-    /// is cut, so a long tag referred to many times cannot multiply.
-    private func referenceHTML(_ index: Int) -> String {
-        guard references.indices.contains(index) else { return "" }
-        let (key, style) = references[index]
-        // LaTeX prints ?? for a label it cannot find.
-        guard let target = labels[key] else { return "<span class=\"latex-missing\">??</span>" }
-        let number = target.number.utf8.count > 300 ? String(target.number.prefix(100)) + "…" : target.number
-        let text = style == .equation ? "(\(number))" : number
-        return "<a href=\"#\(HTML.escape(target.id))\">\(HTML.escape(text))</a>"
     }
 
     private func tableOfContents() -> String {
@@ -336,12 +345,6 @@ final class LaTeXDocument {
             depth -= 1
         }
         return html + "</nav>\n"
-    }
-
-    func footnoteSection() -> String {
-        guard !footnotes.isEmpty else { return "" }
-        let items = footnotes.enumerated().map { "<li id=\"fn-\($0.offset + 1)\">\($0.element)</li>\n" }.joined()
-        return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }
 
     /// An image's path as written, or with the extension LaTeX would find: graphicx tries several when a file is

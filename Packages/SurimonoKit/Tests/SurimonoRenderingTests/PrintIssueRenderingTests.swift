@@ -32,6 +32,25 @@ struct PrintIssueRenderingTests {
         #expect(saved.page(at: 1)?.annotations.map { $0.url?.absoluteString } == ["https://example.com"])
     }
 
+    @Test("未知の LaTeX コマンドは印刷前の確認に一件だけ渡し、紙面には出さない")
+    func unreadCommands() async throws {
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            if case .html(let html, _) = request.source {
+                #expect(html.contains("<p>Visible</p>"))
+                #expect(!html.contains("secret-option"))
+                #expect(!html.contains("commands not read"))
+            } else {
+                Issue.record("LaTeX の本文は HTML として組版する")
+            }
+            return WebPaginator.Result(document: try RenderingFixtures.pdf(), preparationResult: nil)
+        })
+        let source = DocumentSource(data: Data(#"\unknown[secret-option]{Visible}\other\unknown"#.utf8), format: .latex)
+        let result = try await renderer.render(source, settings: settings)
+        #expect(result.issues.map(\.detail) == [#"commands not read: \unknown, \other"#])
+        #expect(result.issues.first?.kind == .latex)
+        #expect(result.issues.first?.pageNumber == nil)
+    }
+
     @Test("問題と既存の準備結果はキャッシュと両面の再合成で失われない")
     func cache() async throws {
         let renderer = DocumentRenderer(paginateWithResult: { _ in

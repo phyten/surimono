@@ -8,10 +8,12 @@ final class LaTeXReader {
         case newline
     }
 
-    private let document: LaTeXDocument
-    private var characters: [Character]
-    private var index = 0
-    private let isBlock: Bool
+    let document: LaTeXDocument
+    var characters: [Character]
+    var index = 0
+    // Distances from the end remain valid when a replacement is inserted before its caller returns.
+    var macroFrameEnds: [Int] = []
+    let isBlock: Bool
     private var output = ""
     private var paragraph = ""
     private var newlines = 0
@@ -28,16 +30,19 @@ final class LaTeXReader {
         self.isBlock = isBlock
     }
 
+    var inPreamble = false
+
     func read() -> String {
         document.depth += 1
         defer { document.depth -= 1 }
         // Every group and environment is read by a reader of its own. Source nested deeper than any real document
         // would exhaust the stack, so past the limit it prints as text.
         guard document.depth <= LaTeXDocument.maximumDepth else {
+            document.stopsExpanding = true
             let text = HTML.escape(String(characters))
             return isBlock ? "<p>\(text)</p>\n" : text
         }
-        while let character = peek() { step(character) }
+        while !document.endedDocument, let character = peek() { step(character) }
         if isBlock {
             flush()
             return output
@@ -48,11 +53,11 @@ final class LaTeXReader {
 
     // MARK: - Characters
 
-    private func peek(_ offset: Int = 0) -> Character? {
+    func peek(_ offset: Int = 0) -> Character? {
         index + offset < characters.count ? characters[index + offset] : nil
     }
 
-    private func step(_ character: Character) {
+    func step(_ character: Character) {
         switch character {
         case "\\": command()
         case "%": skipComment()
@@ -87,14 +92,14 @@ final class LaTeXReader {
     }
 
     /// TeX ignores a comment and the end of its line, and the spaces that start the next line.
-    private func skipComment() {
+    func skipComment() {
         while let character = peek(), character != "\n" { index += 1 }
         if peek() == "\n" { index += 1 }
         while peek() == " " || peek() == "\t" { index += 1 }
     }
 
     /// The source not read yet.
-    private var rest: String { index < characters.count ? String(characters[index...]) : "" }
+    var rest: String { index < characters.count ? String(characters[index...]) : "" }
 
     private func newline() {
         index += 1
@@ -126,21 +131,22 @@ final class LaTeXReader {
         return " "
     }
 
-    private func appendText(_ text: String) {
+    func appendText(_ text: String) {
+        let text = document.uppercase.map { $0 ? text.uppercased() : text.lowercased() } ?? text
         guard let first = text.first else { return }
         startContent()
         paragraph += pendingSeparator(before: first) + HTML.escape(text)
         lastCharacter = text.last
     }
 
-    private func appendHTML(_ html: String, last: Character? = "x") {
+    func appendHTML(_ html: String, last: Character? = "x") {
         guard !html.isEmpty else { return }
         startContent()
         paragraph += pendingSeparator(before: html.first) + html
         lastCharacter = last
     }
 
-    private func appendBlock(_ html: String) {
+    func appendBlock(_ html: String) {
         startContent()
         if isBlock {
             flush()
@@ -151,12 +157,31 @@ final class LaTeXReader {
         pendingSpace = nil
     }
 
-    private func paragraphBreak() {
+    func paragraphBreak() {
         if isBlock {
             flush()
         } else if pendingSpace == nil {
             pendingSpace = .space
         }
+    }
+
+    /// An environment is a TeX group even when it contributes only part of the surrounding paragraph.
+    func readEnvironmentGroup(_ source: String) {
+        let previous = (
+            document.macros, document.environments, document.mathDefinitions, document.highlightColor,
+            document.referenceNames
+        )
+        let outer = openDeclarations.count
+        let printed = output.utf8.count
+        readExpansionBody(source)
+        (
+            document.macros, document.environments, document.mathDefinitions, document.highlightColor,
+            document.referenceNames
+        ) = previous
+        // A block within the environment may already have closed the outer paragraph and all its declarations.
+        let retain = printed == output.utf8.count ? min(outer, openDeclarations.count) : 0
+        paragraph += openDeclarations[retain...].reversed().joined()
+        openDeclarations.removeLast(openDeclarations.count - retain)
     }
 
     private func closeDeclarations() {
@@ -174,13 +199,13 @@ final class LaTeXReader {
         newlines = 0
     }
 
-    private func inline(_ text: String) -> String {
+    func inline(_ text: String) -> String {
         let reader = LaTeXReader(text, document: document, isBlock: false)
         reader.floatKind = floatKind
         return reader.read()
     }
 
-    private func blocks(_ text: String) -> String {
+    func blocks(_ text: String) -> String {
         let reader = LaTeXReader(text, document: document, isBlock: true)
         reader.floatKind = floatKind
         return reader.read()
@@ -199,7 +224,7 @@ final class LaTeXReader {
 
     // MARK: - Arguments
 
-    private func skipSpaces() {
+    func skipSpaces() {
         while let character = peek() {
             if character == " " || character == "\t" || character == "\n" {
                 index += 1
@@ -213,7 +238,7 @@ final class LaTeXReader {
 
     /// The source up to the brace that closes the one just read, without it. Escaped braces and comments do not
     /// count; with `comments` off, `%` is an ordinary character, as hyperref reads a URL.
-    private func balanced(open: Character = "{", close: Character = "}", comments: Bool = true) -> String {
+    func balanced(open: Character = "{", close: Character = "}", comments: Bool = true) -> String {
         var depth = 1
         var text: [Character] = []
         while let character = peek() {
@@ -248,7 +273,7 @@ final class LaTeXReader {
     }
 
     /// A braced argument's source, or a single token as TeX takes it when there are no braces.
-    private func argument(comments: Bool = true) -> String? {
+    func argument(comments: Bool = true) -> String? {
         skipSpaces()
         guard let character = peek() else { return nil }
         if character == "{" {
@@ -261,7 +286,7 @@ final class LaTeXReader {
         return String(character)
     }
 
-    private func optional() -> String? {
+    func optional() -> String? {
         let start = index
         skipSpaces()
         guard peek() == "[" else {
@@ -281,13 +306,13 @@ final class LaTeXReader {
         return String(text)
     }
 
-    private func star() -> Bool {
+    func star() -> Bool {
         guard peek() == "*" else { return false }
         index += 1
         return true
     }
 
-    private func controlToken() -> String {
+    func controlToken() -> String {
         guard peek() == "\\" else { return "" }
         index += 1
         var name = "\\"
@@ -311,11 +336,16 @@ final class LaTeXReader {
     // MARK: - Commands
 
     private func command() {
+        retireMacroFrames()
         index += 1
         guard let next = peek() else { return }
         guard next.isASCII, next.isLetter else {
             index += 1
-            controlSymbol(next)
+            if document.macros[String(next)] != nil {
+                _ = handleMacro(String(next))
+            } else {
+                controlSymbol(next)
+            }
             return
         }
         var name = ""
@@ -328,7 +358,7 @@ final class LaTeXReader {
     }
 
     /// TeX skips the spaces after a control word, and the end of its line, but not a blank line.
-    private func skipSpacesAfterControlWord() {
+    func skipSpacesAfterControlWord() {
         while peek() == " " || peek() == "\t" { index += 1 }
         guard peek() == "\n" else { return }
         var lookahead = index + 1
@@ -339,7 +369,7 @@ final class LaTeXReader {
         index = lookahead
     }
 
-    private func controlSymbol(_ symbol: Character) {
+    func controlSymbol(_ symbol: Character) {
         switch symbol {
         case "\\":
             _ = star()
@@ -357,7 +387,9 @@ final class LaTeXReader {
                     appendText(text)
                 }
             } else {
+                document.recordUnknown("\\" + String(symbol))
                 appendText(String(symbol))
+                readUnknownArguments()
             }
         }
     }
@@ -376,14 +408,17 @@ final class LaTeXReader {
         appendText((base + String(mark)).precomposedStringWithCanonicalMapping)
     }
 
-    private func dispatch(_ name: String) {
-        if let macro = document.macros[name], !document.stopsExpanding, document.expansions < 10_000 {
-            expand(macro)
-            return
-        }
+    func dispatch(_ name: String) {
+        if handleMacro(name) { return }
+        dispatchBuiltin(name)
+    }
+
+    func dispatchBuiltin(_ name: String) {
+        if handleControl(name) || handleCounter(name) || handleText(name) || handleReference(name) { return }
         switch name {
         case "begin": environment()
-        case "end": _ = argument()
+        case "end":
+            if argument() == "document", document.startedDocument { document.endedDocument = true }
         case "part", "chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph":
             section(name)
         case "maketitle":
@@ -397,9 +432,6 @@ final class LaTeXReader {
         case "date": document.date = argument() ?? ""
         case "today": appendText(document.today())
         case "label": label()
-        case "ref", "autoref", "cref", "Cref", "pageref", "vref", "nameref":
-            appendHTML(document.reference(argument() ?? "", style: .number))
-        case "eqref": appendHTML(document.reference(argument() ?? "", style: .equation))
         case "cite", "citep", "citet", "parencite", "textcite", "autocite": cite()
         case "bibliography", "printbibliography":
             let files = name == "bibliography" ? (argument() ?? "") : (optional() ?? "")
@@ -411,8 +443,6 @@ final class LaTeXReader {
                     : "\(names.joined(separator: ", ")) \(names.count == 1 ? "is" : "are") not included")
                 : (document.isJapanese ? "文献のデータベースは読み込みません" : "The bibliography database is not read")
             appendBlock(unsupported(message))
-        case "newtheorem": newTheorem()
-        case "theoremstyle": document.theoremStyle = argument()?.trimmingCharacters(in: .whitespaces) ?? "plain"
         case "qed", "qedsymbol": appendText("□")
         case "qedhere": break
         case "num":
@@ -432,7 +462,6 @@ final class LaTeXReader {
         case "ang":
             _ = optional()
             appendHTML(LaTeXUnits.angleHTML(argument() ?? ""))
-        case "footnote", "thanks": footnote()
         case "href": link()
         case "url", "nolinkurl":
             let url = unescapedURL(argument(comments: false) ?? "")
@@ -481,9 +510,8 @@ final class LaTeXReader {
         case "graphicspath": document.graphicsPaths = graphicsPaths(argument() ?? "")
         case "appendix":
             document.isAppendix = true
-            document.sectionCounters[document.hasChapters ? 0 : 1] = 0
-        case "newcommand", "renewcommand", "providecommand": define(name)
-        case "def": defineTeXMacro()
+            document.counters[document.hasChapters ? "chapter" : "section"] = 0
+
         case "DeclareMathOperator": declareOperator()
         case "definecolor": defineColor()
         case "includegraphics": appendHTML(image())
@@ -496,9 +524,11 @@ final class LaTeXReader {
 
     private func generic(_ name: String) {
         if let wrapper = LaTeXSymbols.wrappers[name] {
-            if name == "makebox" || name == "framebox" {
-                _ = optional()
-                _ = optional()
+            if let count = wrapper.setup {
+                _ = star()
+                while optional() != nil {}
+                for _ in 0..<count { _ = argument() }
+                while optional() != nil {}
             }
             appendHTML(wrapper.open + inline(argument() ?? "") + wrapper.close)
         } else if let declaration = LaTeXSymbols.declarations[name] {
@@ -514,85 +544,50 @@ final class LaTeXReader {
         } else if let count = LaTeXSymbols.ignored[name] {
             _ = star()
             dropArguments(count)
+        } else {
+            // Report any other command by name. Drop its options and keep mandatory groups for the prose they may hold.
+            document.recordUnknown("\\" + name)
+            readUnknownArguments()
         }
-        // Any other command is dropped; the groups after it are read as text, so its words stay on the paper.
-    }
-
-    private func expand(_ macro: LaTeXDocument.Macro) {
-        document.expansions += 1
-        var arguments: [String] = []
-        if let defaultArgument = macro.defaultArgument, macro.parameters > 0 {
-            arguments.append(optional() ?? defaultArgument)
-        }
-        while arguments.count < macro.parameters { arguments.append(argument() ?? "") }
-        // One pass over the body records where each argument goes; an argument is never searched again, so its own
-        // `#1` stays text. The size is counted during the pass and checked before anything is built.
-        let template = Array(macro.body)
-        let values = arguments.map { Array($0) }
-        let limit = min(100_000, 2_000_000 - document.expandedCharacters)
-        var pieces: [MacroPiece] = []
-        var size = 0
-        var position = 0
-        while position < template.count {
-            var piece = MacroPiece.text(template[position])
-            var length = 1
-            if template[position] == "#", position + 1 < template.count {
-                let next = template[position + 1]
-                if next == "#" {
-                    position += 1
-                } else if let number = next.wholeNumberValue, number >= 1, number <= values.count {
-                    piece = .argument(number - 1)
-                    length = values[number - 1].count
-                    position += 1
-                }
-            }
-            position += 1
-            size += length
-            guard size <= limit else {
-                document.stopsExpanding = true
-                return
-            }
-            pieces.append(piece)
-        }
-        let remaining = characters.count - index
-        guard document.expansionWork + remaining + size <= 50_000_000 else {
-            document.stopsExpanding = true
-            return
-        }
-        document.expandedCharacters += size
-        document.expansionWork += remaining + size
-        var expansion: [Character] = []
-        expansion.reserveCapacity(size)
-        for piece in pieces {
-            switch piece {
-            case .text(let character): expansion.append(character)
-            case .argument(let offset): expansion += values[offset]
-            }
-        }
-        characters.insert(contentsOf: expansion, at: index)
-    }
-
-    private enum MacroPiece {
-        case text(Character)
-        case argument(Int)
     }
 
     // MARK: - Definitions
 
     func readPreamble() {
-        while let character = peek() {
-            if character == "%" {
-                skipComment()
+        let previous = inPreamble
+        inPreamble = true
+        defer { inPreamble = previous }
+        while !document.startedDocument, let character = peek() {
+            if let end = LaTeXLexer.opaqueEnd(characters, at: index) {
+                index = end
+                continue
+            }
+            if character == "{" {
+                index += 1
+                _ = balanced()
                 continue
             }
             guard character == "\\" else {
                 index += 1
                 continue
             }
+            retireMacroFrames()
             index += 1
             let name = String(controlTokenName())
             skipSpacesAfterControlWord()
+            if handleMacro(name) { continue }
+            if handleControl(name) || handleCounter(name) || handleReference(name)
+                || name == "sethlcolor" && handleText(name)
+            {
+                continue
+            }
             switch name {
+            case "begin":
+                if argument() == "document" {
+                    document.startedDocument = true
+                    flush()
+                    output = ""
+                }
             case "documentclass":
                 _ = optional()
                 document.documentClass = argument()?.trimmingCharacters(in: .whitespaces) ?? "article"
@@ -604,8 +599,6 @@ final class LaTeXReader {
             case "title": document.title = argument()
             case "author": document.authors = argument()
             case "date": document.date = argument() ?? ""
-            case "newcommand", "renewcommand", "providecommand": define(name)
-            case "def": defineTeXMacro()
             case "DeclareMathOperator": declareOperator()
             case "definecolor": defineColor()
             case "graphicspath": document.graphicsPaths = graphicsPaths(argument() ?? "")
@@ -616,9 +609,7 @@ final class LaTeXReader {
                 }) {
                     document.usesAMSTheorem = true
                 }
-            case "newtheorem": newTheorem()
-            case "theoremstyle": document.theoremStyle = argument()?.trimmingCharacters(in: .whitespaces) ?? "plain"
-            default: break
+            default: generic(name)
             }
         }
     }
@@ -630,58 +621,11 @@ final class LaTeXReader {
         return Substring(String(characters[start..<index]))
     }
 
-    private func define(_ command: String) {
-        _ = star()
-        skipSpaces()
-        let name: String
-        if peek() == "{" {
-            index += 1
-            name = balanced().trimmingCharacters(in: .whitespaces)
-        } else {
-            name = controlToken()
-        }
-        guard name.hasPrefix("\\"), name.count > 1 else { return }
-        let count = optional().map { Int($0.trimmingCharacters(in: .whitespaces)) } ?? 0
-        let defaultArgument = (count ?? 0) > 0 ? optional() : nil
-        let body = argument() ?? ""
-        // TeX allows nine parameters; anything else is not a definition to follow.
-        guard let parameters = count, (0...9).contains(parameters) else { return }
-        let key = String(name.dropFirst())
-        if command == "providecommand", document.macros[key] != nil { return }
-        document.macros[key] = .init(parameters: parameters, defaultArgument: defaultArgument, body: body)
-        let math =
-            defaultArgument.map { "\\newcommand{\(name)}[\(parameters)][\($0)]{\(body)}" }
-            ?? "\\def\(name)" + (0..<parameters).map { "#\($0 + 1)" }.joined() + "{\(body)}"
-        addMathDefinition(math)
-    }
-
-    private func defineTeXMacro() {
-        let name = controlToken()
-        guard name.count > 1 else { return }
-        var parameters = 0
-        while let character = peek(), character != "{" {
-            if character == "#" { parameters += 1 }
-            index += 1
-        }
-        let body = argument() ?? ""
-        guard parameters <= 9 else { return }
-        document.macros[String(name.dropFirst())] = .init(parameters: parameters, defaultArgument: nil, body: body)
-        addMathDefinition("\\def\(name)" + (0..<parameters).map { "#\($0 + 1)" }.joined() + "{\(body)}")
-    }
-
     private func declareOperator() {
         let limits = star()
         guard let name = argument()?.trimmingCharacters(in: .whitespaces), name.hasPrefix("\\") else { return }
         let text = argument() ?? ""
         addMathDefinition("\\def\(name){\\operatorname\(limits ? "*" : ""){\(text)}}")
-    }
-
-    /// A definition every formula starts with; one SwaTex cannot read is left out, so it cannot break the others.
-    private func addMathDefinition(_ definition: String) {
-        guard MathRenderer.html("x", display: false, macros: document.mathDefinitions + definition) != nil else {
-            return
-        }
-        document.mathDefinitions += definition
     }
 
     /// `\graphicspath{{figures/}{images/}}`: folders, relative to the document, where images are looked up.
@@ -702,31 +646,30 @@ final class LaTeXReader {
     // MARK: - Structure
 
     private func section(_ name: String) {
+        // A chapter in skipped code cannot change the numbering of an article.
+        if name == "chapter" { document.hasChapters = true }
         let starred = star()
         _ = optional()
         let source = argument() ?? ""
         if name == "part" {
-            document.partCounter += 1
-            let numeral = LaTeXSymbols.format(document.partCounter, as: "Roman")
+            let numeral = starred ? "" : stepCounter("part")
             let label = document.isJapanese ? "第\(numeral)部" : "Part \(numeral)"
-            let id = "part-\(document.partCounter)"
+            let id = document.counters.anchor("part", suffix: starred ? "u" : String(document.counters["part"]))
             document.labelTarget = (numeral, id)
             let title = inline(source)
+            document.describeTarget(id, kind: "part", title: title)
             appendBlock(
-                "<h2 class=\"latex-part\" id=\"\(id)\">\(starred ? "" : "<span class=\"secnum\">\(label)</span>")\(title)</h2>\n"
+                "<h2 class=\"latex-part\" id=\"\(id)\">\(starred ? "" : "<span class=\"secnum\">\(HTML.escape(label))</span>")\(title)</h2>\n"
             )
             return
         }
-        let levels = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"]
-        let level = levels.firstIndex(of: name) ?? 1
+        let level = LaTeXCounters.levels.firstIndex(of: name) ?? 1
         let first = document.hasChapters ? 0 : 1
         let deepestNumbered = document.hasChapters ? 2 : 3
         var number: String?
         var display: String?
         if !starred, level <= deepestNumbered, level >= first {
-            document.sectionCounters[level] += 1
-            for deeper in (level + 1)..<document.sectionCounters.count { document.sectionCounters[deeper] = 0 }
-            number = sectionNumber(through: level)
+            number = stepCounter(name)
             if level == 0, let chapter = number {
                 display =
                     document.isAppendix
@@ -736,25 +679,15 @@ final class LaTeXReader {
                 display = number
             }
         }
-        let id =
-            number.map { "sec-" + $0.replacingOccurrences(of: ".", with: "-") }
-            ?? "sec-u\(document.headings.count + 1)"
+        let suffix = number?.replacingOccurrences(of: ".", with: "-") ?? "u\(document.headings.count + 1)"
+        let id = document.counters.anchor("sec", suffix: suffix)
         let tag = min(level - first + 2, 6)
-        if let number { document.labelTarget = (number, id) }
+        document.labelTarget = (number ?? "", id)
         let title = inline(source)
+        document.describeTarget(id, kind: document.isAppendix && level == first ? "appendix" : name, title: title)
         document.headings.append(.init(level: level, number: number, id: id, title: title))
         let numberHTML = display.map { "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
         appendBlock("<h\(tag) id=\"\(id)\">\(numberHTML)\(title)</h\(tag)>\n")
-    }
-
-    /// The number of the current heading at `level`, with the levels above it, as `\thesection` prints it.
-    private func sectionNumber(through level: Int) -> String {
-        let first = document.hasChapters ? 0 : 1
-        guard level >= first, level < document.sectionCounters.count else { return "" }
-        return (first...level).map { position -> String in
-            let value = document.sectionCounters[position]
-            return document.isAppendix && position == first ? LaTeXSymbols.format(value, as: "Alph") : String(value)
-        }.joined(separator: ".")
     }
 
     private func titleBlock() -> String {
@@ -778,17 +711,6 @@ final class LaTeXReader {
     private func label() {
         let key = argument()?.trimmingCharacters(in: .whitespaces) ?? ""
         if let target = document.labelTarget, !key.isEmpty { document.labels[key] = target }
-    }
-
-    private func footnote() {
-        _ = optional()
-        let text = argument() ?? ""
-        document.footnotes.append("")
-        let number = document.footnotes.count
-        // Reserved first, so a note inside the note numbers after it.
-        document.footnotes[number - 1] = blocks(text)
-        appendHTML(
-            "<sup class=\"footnote-ref\"><a href=\"#fn-\(number)\" id=\"fnref-\(number)\">\(number)</a></sup>")
     }
 
     private func unsupported(_ message: String) -> String {
@@ -817,7 +739,7 @@ final class LaTeXReader {
         appendHTML("<a href=\"\(HTML.escape(url))\">\(text)</a>")
     }
 
-    private func color() -> String? {
+    func color() -> String? {
         let model = optional()?.trimmingCharacters(in: .whitespaces)
         guard let spec = argument() else { return nil }
         return LaTeXSymbols.cssColor(spec, model: model, defined: document.colors)
@@ -889,7 +811,7 @@ final class LaTeXReader {
     }
 
     /// A key's value in a `key=value` list such as listings' and graphicx's options.
-    private func option(_ key: String, in options: String?) -> String? {
+    func option(_ key: String, in options: String?) -> String? {
         guard let options else { return nil }
         var depth = 0
         var current = ""
@@ -953,12 +875,20 @@ final class LaTeXReader {
         return text
     }
 
-    private func formula(_ latex: String, display: Bool, source: String) -> String {
+    func formula(_ latex: String, display: Bool, source: String, expanded: Bool = false) -> String {
         // amsthm's `\qedhere` only moves the end-of-proof box, which SwaTex does not know.
-        MathRenderer.html(
-            LaTeXUnits.expandingInMath(latex.replacingOccurrences(of: "\\qedhere", with: "")), display: display,
-            macros: document.mathDefinitions)
-            ?? MathRenderer.fallback(source, display: display)
+        let (clean, labels) = Self.removingLabels(expanded ? latex : expandMathCommands(latex))
+        let anchor = mathAnchor(labels, tag: Self.explicitTag(clean))
+        let units = LaTeXUnits.expandingInMath(clean.replacingOccurrences(of: "\\qedhere", with: ""))
+        guard let math = mathWithLoopVariables(units) else { return anchor }
+        if math.contains("\\ref") || math.contains("\\eqref") {
+            document.deferredMath.append(
+                .init(latex: math, display: display, fallback: source, macros: document.mathDefinitions))
+            return anchor + document.placeholder("M", document.deferredMath.count - 1)
+        }
+        return anchor
+            + (MathRenderer.html(math, display: display, macros: document.mathDefinitions)
+                ?? MathRenderer.fallback(source, display: display))
     }
 
     private func inlineMath(closing: String) {
@@ -997,11 +927,12 @@ final class LaTeXReader {
     }
 
     /// An anchor for a formula with its own tag, and its labels pointing at the tag.
-    private func registerTag(_ tag: String, labels: [String]) -> String {
+    func registerTag(_ tag: String, labels: [String]) -> String {
         // References print the tag; a long one is cut here once rather than at each reference.
         let tag = tag.utf8.count > 300 ? String(tag.prefix(100)) + "…" : tag
         document.taggedCount += 1
-        let id = "eq-t\(document.taggedCount)"
+        let id = document.counters.anchor("eq", suffix: "t\(document.taggedCount)")
+        document.describeTarget(id, kind: "equation", title: "")
         for key in labels where !key.isEmpty { document.labels[key] = (tag, id) }
         document.labelTarget = (tag, id)
         return id
@@ -1013,15 +944,18 @@ final class LaTeXReader {
     private func mathEnvironment(_ name: String, body: String) {
         let starred = name.hasSuffix("*")
         let base = starred ? String(name.dropLast()) : name
-        var latex = Self.withoutComments(body)
+        // Resolve macro arguments before collecting labels or splitting rows. Their counters still belong
+        // to the row that will receive a number below.
+        var latex = expandMathCommands(Self.withoutComments(body), includingCounters: false)
         // alignat's column count is not part of the formula.
         if base == "alignat", latex.drop(while: \.isWhitespace).first == "{", let close = latex.firstIndex(of: "}") {
             latex = String(latex[latex.index(after: close)...])
         }
         let wrapper = Self.mathEnvironments[base] ?? nil
         let source = "\\begin{\(name)}\(body)\\end{\(name)}"
-        func render(_ formula: String) -> String {
-            self.formula(wrapper.map { $0.0 + formula + $0.1 } ?? formula, display: true, source: source)
+        func render(_ formula: String, expanded: Bool = false) -> String {
+            self.formula(
+                wrapper.map { $0.0 + formula + $0.1 } ?? formula, display: true, source: source, expanded: expanded)
         }
         if Self.numberedRows.contains(base) {
             var anchors = ""
@@ -1040,37 +974,45 @@ final class LaTeXReader {
                 if let tag = Self.explicitTag(row) {
                     anchors += "<span id=\"\(registerTag(tag, labels: labels))\"></span>"
                 } else if !starred, !skipped, !isEmpty {
-                    document.equationCount += 1
-                    let number = String(document.equationCount)
-                    let id = "eq-\(number)"
-                    row += "\\tag{\(number)}"
+                    let number = stepCounter("equation")
+                    let id = document.counters.anchor("eq", suffix: number)
+                    document.describeTarget(id, kind: "equation", title: "")
+                    row += "\\tag{\(LaTeXSymbols.mathText(number))}"
                     anchors += "<span id=\"\(id)\"></span>"
                     for key in labels where !key.isEmpty { document.labels[key] = (number, id) }
                     document.labelTarget = (number, id)
+                } else {
+                    anchors += mathAnchor(labels, tag: nil)
                 }
-                rows[position] = row
+                // Freeze the row here: the next row advances the same equation counter before SwaTex draws either.
+                let (frozen, generatedLabels) = Self.removingLabels(expandMathCommands(row))
+                if !generatedLabels.isEmpty {
+                    anchors += mathAnchor(generatedLabels, tag: Self.explicitTag(frozen))
+                }
+                rows[position] = frozen
             }
-            appendBlock("<div class=\"math-block\">\(anchors)\(render(rows.joined(separator: "\\\\")))</div>\n")
+            appendBlock(
+                "<div class=\"math-block\">\(anchors)\(render(rows.joined(separator: "\\\\"), expanded: true))</div>\n")
             return
         }
         let (formula, labels) = Self.removingLabels(
             latex.replacingOccurrences(of: "\\nonumber", with: "").replacingOccurrences(of: "\\notag", with: ""))
-        let rendered = render(formula)
         if let tag = Self.explicitTag(formula) {
-            appendBlock("<div class=\"math-block\" id=\"\(registerTag(tag, labels: labels))\">\(rendered)</div>\n")
+            appendBlock(
+                "<div class=\"math-block\" id=\"\(registerTag(tag, labels: labels))\">\(render(formula))</div>\n")
             return
         }
         guard !starred, base != "displaymath" else {
-            appendBlock("<div class=\"math-block\">\(rendered)</div>\n")
+            appendBlock("<div class=\"math-block\">\(mathAnchor(labels, tag: nil))\(render(formula))</div>\n")
             return
         }
-        document.equationCount += 1
-        let number = String(document.equationCount)
-        let id = "eq-\(number)"
+        let number = stepCounter("equation")
+        let id = document.counters.anchor("eq", suffix: number)
+        document.describeTarget(id, kind: "equation", title: "")
         for key in labels where !key.isEmpty { document.labels[key] = (number, id) }
         document.labelTarget = (number, id)
         appendBlock(
-            "<div class=\"math-block latex-equation\" id=\"\(id)\">\(rendered)<span class=\"eqno\">(\(number))</span></div>\n"
+            "<div class=\"math-block latex-equation\" id=\"\(id)\">\(render(formula))<span class=\"eqno\">(\(HTML.escape(number)))</span></div>\n"
         )
     }
 
@@ -1142,6 +1084,10 @@ final class LaTeXReader {
 
     private func environment() {
         guard let name = argument()?.trimmingCharacters(in: .whitespaces) else { return }
+        if let environment = document.environments[name] {
+            expandEnvironment(name, environment)
+            return
+        }
         switch name {
         case "verbatim", "verbatim*", "Verbatim", "alltt":
             if name == "Verbatim" { _ = optionalOnLine() }
@@ -1162,7 +1108,7 @@ final class LaTeXReader {
     }
 
     /// An optional argument only on the line that opens an environment, so a body starting with `[` stays text.
-    private func optionalOnLine() -> String? {
+    func optionalOnLine() -> String? {
         var lookahead = index
         while lookahead < characters.count, characters[lookahead] == " " || characters[lookahead] == "\t" {
             lookahead += 1
@@ -1173,7 +1119,7 @@ final class LaTeXReader {
     }
 
     /// The source up to the `\end` that matches the environment just opened.
-    private func environmentBody(_ name: String) -> String {
+    func environmentBody(_ name: String) -> String {
         let begin = Array("\\begin{\(name)}")
         let end = Array("\\end{\(name)}")
         var depth = 1
@@ -1202,7 +1148,7 @@ final class LaTeXReader {
                     index += begin.count
                     continue
                 }
-                index += 2
+                index = min(index + 2, characters.count)
                 continue
             }
             index += 1
@@ -1240,6 +1186,7 @@ final class LaTeXReader {
                 "<div class=\"abstract\">\n<p class=\"abstract-title\">\(heading)</p>\n\(blocks(body))</div>\n")
         case "figure", "table", "SCfigure":
             float(base == "table" ? "table" : "figure", body: body)
+        case "listing": float("listing", body: body)
         case "wrapfigure", "wraptable":
             let reader = LaTeXReader(body, document: document, isBlock: false)
             _ = reader.optional()
@@ -1254,17 +1201,21 @@ final class LaTeXReader {
             _ = reader.optional()
             _ = reader.argument()
             appendBlock("<div class=\"latex-minipage\">\n\(blocks(reader.rest))</div>\n")
+        case "subequations": subequations(body)
         case "proof": proof(body)
         case "thebibliography": bibliography(body)
         default:
-            if let theorem = document.theorems[name] {
+            if let theorem = document.theorems[name] ?? conventionalTheorem(name) {
                 self.theorem(name, theorem, body: body)
             } else if Self.unsupportedEnvironments.contains(base) {
                 appendBlock(
                     unsupported(
                         document.isJapanese ? "TikZ などの図（Surimono では描けません）" : "TikZ picture (Surimono cannot draw it)"))
             } else {
-                appendBlock(blocks(body))
+                document.recordUnknown(name)
+                let reader = LaTeXReader(body, document: document, isBlock: true)
+                while reader.optional() != nil {}
+                appendBlock(reader.read())
             }
         }
     }
@@ -1272,7 +1223,8 @@ final class LaTeXReader {
     // MARK: - Lists
 
     private func list(_ kind: String, options: String?, body: String) -> String {
-        let items = Self.items(of: body)
+        var prefix = ""
+        let items = Self.items(of: body) { prefix = $0 }
         switch kind {
         case "itemize":
             let html = items.map { label, content -> String in
@@ -1291,12 +1243,16 @@ final class LaTeXReader {
             document.enumerateDepth += 1
             defer { document.enumerateDepth -= 1 }
             let (template, style, start) = enumerateStyle(options)
-            var value = start - 1
+            let counter = LaTeXCounters.listLevels[min(document.enumerateDepth - 1, 3)]
+            document.counters[counter] = start - 1
+            // Assignments between the opening environment and its first item affect that item.
+            if !prefix.isEmpty { _ = inline(prefix) }
             let html = items.map { label, content -> String in
-                value += 1
-                let number = LaTeXSymbols.format(value, as: style)
+                document.counters.advance(counter)
+                let number = LaTeXSymbols.format(document.counters[counter], as: style)
                 document.itemCount += 1
                 let id = "item-\(document.itemCount)"
+                document.describeTarget(id, kind: "item", title: "")
                 document.labelTarget = (number, id)
                 let marker =
                     label.map { inline($0) } ?? inline(template.replacingOccurrences(of: "\u{E000}", with: number))
@@ -1345,7 +1301,9 @@ final class LaTeXReader {
 
     /// The items of a list body, split at each `\item` outside nested groups and environments, with the label
     /// written in brackets after it.
-    private static func items(of body: String, command: String = "item") -> [(label: String?, content: String)] {
+    private static func items(of body: String, command: String = "item", prefix: ((String) -> Void)? = nil)
+        -> [(label: String?, content: String)]
+    {
         let characters = Array(body)
         var items: [(String?, String)] = []
         var current: [Character]?
@@ -1374,7 +1332,11 @@ final class LaTeXReader {
                     !(index + command.count + 1 < characters.count && characters[index + command.count + 1].isASCII
                         && characters[index + command.count + 1].isLetter)
                 {
-                    if let current { items.append((nil, String(current))) }
+                    if let current {
+                        items.append((nil, String(current)))
+                    } else {
+                        prefix?(String(characters[..<index]))
+                    }
                     current = []
                     index += command.count + 1
                     continue
@@ -1399,53 +1361,18 @@ final class LaTeXReader {
 
     // MARK: - Theorems and the bibliography
 
-    /// `\newtheorem{name}{Title}`, `\newtheorem{name}[shared]{Title}`, `\newtheorem{name}{Title}[parent]` and
-    /// `\newtheorem*{name}{Title}`.
-    private func newTheorem() {
-        let starred = star()
-        guard let name = argument()?.trimmingCharacters(in: .whitespaces), !name.isEmpty else { return }
-        let shared = optional()?.trimmingCharacters(in: .whitespaces)
-        let title = argument() ?? ""
-        let parent = shared == nil ? optional()?.trimmingCharacters(in: .whitespaces) : nil
-        var counter: String?
-        if !starred {
-            counter = shared.map { document.theorems[$0]?.counter ?? $0 } ?? name
-            if let parent { document.counterParents[name] = parent }
-        }
-        let styles = ["plain", "definition", "remark"]
-        let style = styles.contains(document.theoremStyle) ? document.theoremStyle : "plain"
-        document.theorems[name] = .init(title: title, counter: counter, style: style)
-    }
-
-    /// The next value of a theorem counter, after the number of what it counts within: `2.3` is the third in
-    /// section 2.
-    private func stepCounter(_ counter: String) -> String {
-        var parent = ""
-        if let within = document.counterParents[counter] {
-            let levels = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"]
-            if let level = levels.firstIndex(of: within) {
-                parent = sectionNumber(through: level)
-            } else if let state = document.counterValues[within] {
-                parent = state.parent.isEmpty ? String(state.value) : "\(state.parent).\(state.value)"
-            }
-        }
-        var state = document.counterValues[counter] ?? (0, parent)
-        if state.parent != parent { state = (0, parent) }
-        state.value += 1
-        document.counterValues[counter] = state
-        return parent.isEmpty ? String(state.value) : "\(parent).\(state.value)"
-    }
-
     /// A theorem-like environment: its heading and number in front of the first paragraph. amsthm's plain style
     /// sets the body in italics; a Japanese document keeps it upright, as its fonts have no italics.
     private func theorem(_ name: String, _ theorem: LaTeXDocument.Theorem, body: String) {
         let reader = LaTeXReader(body, document: document, isBlock: false)
         var anchor = ""
         var numberHTML = ""
+        var targetID: String?
         if let counter = theorem.counter {
             let number = stepCounter(counter)
             document.theoremCount += 1
             let id = "thm-\(document.theoremCount)"
+            targetID = id
             document.labelTarget = (number, id)
             numberHTML = " " + HTML.escape(number)
             anchor = " id=\"\(id)\""
@@ -1470,6 +1397,7 @@ final class LaTeXReader {
         } else {
             head = HTML.escape(name)
         }
+        if let targetID { document.describeTarget(targetID, kind: name, title: note ?? head) }
         head += numberHTML
         let noteHTML = note.map { document.isJapanese ? "（\($0)）" : " (\($0))" } ?? ""
         head =
@@ -1572,21 +1500,21 @@ final class LaTeXReader {
         _ = optional()
         let source = argument() ?? ""
         let kind = floatKind ?? "figure"
-        let number: Int
-        if kind == "table" {
-            document.tableCount += 1
-            number = document.tableCount
-        } else {
-            document.figureCount += 1
-            number = document.figureCount
+        let number = stepCounter(kind)
+        let prefix: String
+        let name: String
+        switch kind {
+        case "table": (prefix, name) = ("tab", document.isJapanese ? "表" : "Table")
+        case "listing": (prefix, name) = ("listing", document.isJapanese ? "リスト" : "Listing")
+        default: (prefix, name) = ("fig", document.isJapanese ? "図" : "Figure")
         }
-        let id = "\(kind == "table" ? "tab" : "fig")-\(number)"
-        document.labelTarget = (String(number), id)
+        let id = document.counters.anchor(prefix, suffix: number)
+        document.labelTarget = (number, id)
         let text = inline(source)
-        let name = kind == "table" ? (document.isJapanese ? "表" : "Table") : (document.isJapanese ? "図" : "Figure")
+        document.describeTarget(id, kind: kind, title: text)
         let separator = document.isJapanese ? "　" : ": "
         appendBlock(
-            "<figcaption id=\"\(id)\"><span class=\"latex-caption-label\">\(name) \(number)</span>\(separator)\(text)</figcaption>\n"
+            "<figcaption id=\"\(id)\"><span class=\"latex-caption-label\">\(name) \(HTML.escape(number))</span>\(separator)\(text)</figcaption>\n"
         )
     }
 
