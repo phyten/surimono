@@ -769,6 +769,7 @@ extension DocumentFormat {
         case .latex: "TEX"
         case .quarto: "QMD"
         case .rMarkdown: "RMD"
+        case .docx: "DOCX"
         case .djot: "DJOT"
         case .textile: "TEXTILE"
         case .asciidoc: "ADOC"

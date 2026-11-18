@@ -100,6 +100,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 | LaTeX | `.tex`, `.latex`, `.ltx` |
 | Quarto (code is shown as configured; results are not generated) | `.qmd` |
 | R Markdown (code is shown as configured; results are not generated) | `.Rmd`, `.rmd`, `.Rmarkdown` |
+| Word | `.docx` |
 | Djot | `.dj`, `.djot` |
 | Textile | `.textile` |
 | AsciiDoc | `.adoc`, `.asciidoc` |

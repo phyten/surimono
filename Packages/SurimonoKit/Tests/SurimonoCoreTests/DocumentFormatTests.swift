@@ -66,7 +66,7 @@ struct DocumentFormatTests {
             DocumentFormat.allCases.map(\.displayName) == [
                 "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV", "ZIP", "LaTeX", "AsciiDoc", "Quarto",
                 "R Markdown", "Djot",
-                "Textile",
+                "Textile", "Word",
                 "Jupyter Notebook",
                 "Graphviz", "PlantUML",
             ])

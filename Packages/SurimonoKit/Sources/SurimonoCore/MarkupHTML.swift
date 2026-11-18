@@ -48,6 +48,12 @@ struct MarkupElement {
         while let current = attr {
             let key = String(cString: current.pointee.name)
             if !excluded.contains(key), !key.lowercased().hasPrefix("on"), let value = attribute(key) {
+                if ["href", "src", "xlink:href"].contains(key.lowercased()),
+                    String(value.lazy.filter { !$0.isWhitespace }.prefix(11)).lowercased() == "javascript:"
+                {
+                    attr = current.pointee.next
+                    continue
+                }
                 result += " \(key)=\"\(HTML.escape(value))\""
             }
             attr = current.pointee.next
