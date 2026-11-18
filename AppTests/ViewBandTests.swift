@@ -74,7 +74,7 @@ struct ViewBandTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
-    @Test("新しい設定の既定は上と下に分ける・常に表示・ポップオーバー・ツールバーに目次・トースト")
+    @Test("新しい設定の既定は上と下に分ける・常に表示・ポップオーバー・ツールバーに目次・変更へ移動")
     func defaults() {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -83,7 +83,7 @@ struct ViewBandTests {
         #expect(preferences.defaultBandVisibility == .always)
         #expect(preferences.outlinePresentation == .popover)
         #expect(preferences.showsOutlineOnBand)
-        #expect(preferences.changeFollowing == .ask)
+        #expect(preferences.changeFollowing == .jump)
     }
 
     @Test("設定は次の起動でも覚えている")
@@ -93,12 +93,37 @@ struct ViewBandTests {
         environment.preferences.menuArrangement = .top
         environment.preferences.outlinePresentation = .drawer
         environment.preferences.showsOutlineOnBand = false
-        environment.preferences.changeFollowing = .jump
+        environment.preferences.changeFollowing = .ask
         let restored = AppPreferences(defaults: environment.suite.defaults)
         #expect(restored.menuArrangement == .top)
         #expect(restored.outlinePresentation == .drawer)
         #expect(!restored.showsOutlineOnBand)
-        #expect(restored.changeFollowing == .jump)
+        #expect(restored.changeFollowing == .ask)
+    }
+
+    @Test("変更の色と自動読み直しを保存し不正な色は既定に戻す")
+    func savedChangeColors() {
+        let environment = Environment()
+        defer { environment.cleanUp() }
+        let preferences = environment.preferences
+        let defaults = environment.suite.defaults
+        #expect(preferences.reloadsChangedFiles)
+        #expect(preferences.changeBackgroundHex == "#FFF2A8")
+        #expect(preferences.changeTextHex == nil)
+        preferences.reloadsChangedFiles = false
+        preferences.changeBackgroundHex = "#123456"
+        preferences.changeTextHex = "#ABCDEF"
+        let saved = AppPreferences(defaults: defaults)
+        #expect(!saved.reloadsChangedFiles)
+        #expect(saved.changeBackgroundHex == "#123456")
+        #expect(saved.changeTextHex == "#ABCDEF")
+        saved.changeTextHex = nil
+        #expect(defaults.object(forKey: "changeTextHex") == nil)
+        defaults.set("#-12345", forKey: "changeBackgroundHex")
+        defaults.set("not a color", forKey: "changeTextHex")
+        let repaired = AppPreferences(defaults: defaults)
+        #expect(repaired.changeBackgroundHex == "#FFF2A8")
+        #expect(repaired.changeTextHex == nil)
     }
 
     @Test("旧版の常に固定の記録は常に出すとして読む")

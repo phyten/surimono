@@ -15,10 +15,12 @@ public struct MarkdownMappedDocument: Sendable {
 public struct MarkdownMarkRequest: Equatable, Sendable {
     public let blockID: String
     public let isShort: Bool
+    public let afterBlock: Bool
 
-    public init(blockID: String, isShort: Bool = false) {
+    public init(blockID: String, isShort: Bool = false, afterBlock: Bool = false) {
         self.blockID = blockID
         self.isShort = isShort
+        self.afterBlock = afterBlock
     }
 }
 
@@ -77,6 +79,7 @@ public enum MarkdownChanges {
         guard let changes = lines(from: old, to: new, cellLimit: cellLimit) else { return [] }
         let blocks = MarkdownConverter.convertWithSourceMap(new).blocks
         var selected: [String: Bool] = [:]
+        var after = Set<String>()
         func innermost(at line: Int) -> MarkdownBlock? {
             blocks.filter { $0.lines.contains(line) }.min { $0.lines.count < $1.lines.count }
         }
@@ -97,6 +100,7 @@ public enum MarkdownChanges {
             }
             if let block = innermost(at: line) ?? next?.0 ?? previous, selected[block.id] == nil {
                 selected[block.id] = true
+                if (block.lines.max() ?? 0) < line { after.insert(block.id) }
             }
         }
         // If a marker line changed along with its body, use the inner units only, not overlapping parent bars.
@@ -106,7 +110,9 @@ public enum MarkdownChanges {
                 child.id != parent.id && child.lines.count < parent.lines.count
                     && child.lines.isSubset(of: parent.lines)
             }
-        }.map { MarkdownMarkRequest(blockID: $0.id, isShort: selected[$0.id] ?? false) }
+        }.map {
+            MarkdownMarkRequest(blockID: $0.id, isShort: selected[$0.id] ?? false, afterBlock: after.contains($0.id))
+        }
     }
 }
 

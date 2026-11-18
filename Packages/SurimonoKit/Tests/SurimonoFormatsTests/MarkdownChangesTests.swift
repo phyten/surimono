@@ -79,9 +79,11 @@ struct MarkdownChangesTests {
         let blocks = MarkdownConverter.convertWithSourceMap(new).blocks
         let middle = try #require(MarkdownChanges.marks(from: old, to: new).only)
         #expect(middle.isShort)
+        #expect(!middle.afterBlock)
         #expect(blocks.first { $0.id == middle.blockID }?.lines == [3])
         let end = try #require(MarkdownChanges.marks(from: new, to: "First").only)
         #expect(end.isShort)
+        #expect(end.afterBlock)
         #expect(end.blockID == MarkdownConverter.convertWithSourceMap("First").blocks.first?.id)
     }
 

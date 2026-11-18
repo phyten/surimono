@@ -253,12 +253,18 @@ public enum ViewPageDocument {
         if let number { PageNumberDrawing.draw(number, in: displayed, margin: margin, context: context) }
         if let furniture { PDFComposer.draw(furniture, in: displayed, asOutlines: true, context: context) }
         context.restoreGState()
-        context.setFillColor(CGColor(srgbRed: 229.0 / 255, green: 83.0 / 255, blue: 61.0 / 255, alpha: 0.7))
-        let textLeft = margin.isFinite && margin > 0 ? media.minX + margin : nil
-        for mark in marks {
-            let bar = mark.bar(in: visibleBox, textLeft: textLeft)
-            if !bar.isNull, !bar.isEmpty { context.fill(bar) }
+        if let hex = marks.first?.backgroundHex, let color = CodeColor.components(hex) {
+            context.setBlendMode(.multiply)
+            context.setFillColor(CGColor(srgbRed: color.red, green: color.green, blue: color.blue, alpha: 1))
+            for mark in marks {
+                let rect = mark.highlight(in: visibleBox)
+                if !rect.isNull, !rect.isEmpty { context.addRect(rect) }
+            }
+            // A single fill leaves overlapping block highlights the same shade.
+            context.fillPath()
         }
+        context.setBlendMode(.normal)
+        for mark in marks { mark.textDrawing?.paint(mark, clippedTo: visibleBox, in: context) }
         context.endPage()
         return true
     }

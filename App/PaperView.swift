@@ -212,6 +212,33 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         }
     }
 
+    override func copy(_ sender: Any?) {
+        guard !drawnChangeMarks.isEmpty, let selection = currentSelection,
+            let sourceDocument, let document, let pagePlan
+        else {
+            super.copy(sender)
+            return
+        }
+        // PDFKit can copy the screen's foreground color as rich text. Take the same ranges from the clean pages.
+        let clean = PDFSelection(document: sourceDocument)
+        for page in selection.pages {
+            guard let index = pagePlan.logicalIndex(at: document.index(for: page)),
+                let original = sourceDocument.page(at: index)
+            else { continue }
+            for offset in 0..<selection.numberOfTextRanges(on: page) {
+                let range = selection.range(at: offset, on: page)
+                if NSMaxRange(range) <= original.numberOfCharacters, let part = original.selection(for: range) {
+                    clean.add(part)
+                }
+            }
+        }
+        guard let text = selection.string else { return }
+        let content = clean.string == text ? clean.attributedString : nil
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.writeObjects([content ?? NSAttributedString(string: text)])
+    }
+
     func configure(
         _ source: PDFDocument, at index: Int, options: ViewOptions, logicalMargin: CGFloat?, showsPageNumbers: Bool,
         changeMarks: [ChangeMark] = [], furniture: [Int: FurniturePlacement] = [:], keepsSpotInPage: Bool = false
