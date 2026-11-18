@@ -27,7 +27,7 @@ struct StreamingPreviewTests {
         #expect(StreamingPreviewWindows.pollInterval == 0.5)
     }
 
-    @Test("開いたときの文字を見せ、変わったらメモリ上の文書として組み直す", .timeLimit(.minutes(1)))
+    @Test("開いたときの文字は前に届いたものだと知らせて見せ、変わったらメモリ上の文書として組み直す", .timeLimit(.minutes(1)))
     func follows() async throws {
         let board = board()
         defer { board.releaseGlobally() }
@@ -43,12 +43,14 @@ struct StreamingPreviewTests {
         model.start()
         #expect(model.memoryContent == Data("# 一".utf8))
         #expect(model.fileURL == nil)
-        #expect(model.toast == nil)
+        // The pasteboard keeps its text until logout, so what is there may be hours old.
+        #expect(model.toast?.title == String(localized: "Text sent earlier"))
         try await settle(model)
         board.clearContents()
         board.setString("# 二", forType: .string)
         windows.poll()
         #expect(model.memoryContent == Data("# 二".utf8))
+        #expect(model.toast == nil)
         try await settle(model)
         #expect(model.result != nil)
         #expect(model.error == nil)
