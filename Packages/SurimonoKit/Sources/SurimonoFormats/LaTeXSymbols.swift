@@ -18,6 +18,7 @@ package enum LaTeXSymbols {
         "quad": "\u{2003}", "qquad": "\u{2003}\u{2003}", "enspace": "\u{2002}", "thinspace": "\u{2009}",
         "hfill": " ", "hfil": " ", "dotfill": " … ", "relax": "", "protect": "", "noindent": "", "indent": "",
         "centering": "", "raggedright": "", "raggedleft": "", "null": "", "leavevmode": "", "nobreak": "",
+        "expandafter": "", "phantomsection": "", "frenchspacing": "", "nonfrenchspacing": "",
         "allowbreak": "", "hline": "", "smallskip": "", "fussy": "", "sloppy": "",
     ]
 
@@ -51,22 +52,26 @@ package enum LaTeXSymbols {
         "rmfamily": ("", ""), "rm": ("", ""), "mdseries": ("", ""), "upshape": ("", ""), "normalfont": ("", ""),
     ]
 
-    /// Commands with one text argument and the markup around it.
-    static let wrappers: [String: (open: String, close: String)] = [
-        "textbf": ("<strong>", "</strong>"), "textit": ("<em>", "</em>"), "emph": ("<em>", "</em>"),
-        "textsl": ("<em>", "</em>"), "texttt": ("<code>", "</code>"), "underline": ("<u>", "</u>"),
-        "uline": ("<u>", "</u>"), "sout": ("<del>", "</del>"), "st": ("<del>", "</del>"),
-        "hl": ("<mark>", "</mark>"), "textsc": ("<span class=\"latex-sc\">", "</span>"),
-        "textsf": ("<span class=\"latex-sf\">", "</span>"), "textrm": ("", ""), "textup": ("", ""),
-        "textmd": ("", ""), "textnormal": ("", ""), "mbox": ("<span class=\"latex-nowrap\">", "</span>"),
-        "makebox": ("<span class=\"latex-nowrap\">", "</span>"), "fbox": ("<span class=\"latex-fbox\">", "</span>"),
-        "framebox": ("<span class=\"latex-fbox\">", "</span>"), "textsuperscript": ("<sup>", "</sup>"),
-        "textsubscript": ("<sub>", "</sub>"), "enquote": ("“", "”"), "text": ("", ""),
+    /// Commands with one text argument and the markup around it. Box wrappers can also discard options and leading dimensions.
+    static let wrappers: [String: (open: String, close: String, setup: Int?)] = [
+        "parbox": ("", "", 1), "raisebox": ("", "", 1), "resizebox": ("", "", 2), "scalebox": ("", "", 1),
+        "rotatebox": ("", "", 1), "foreignlanguage": ("", "", 1),
+        "textbf": ("<strong>", "</strong>", nil), "textit": ("<em>", "</em>", nil), "emph": ("<em>", "</em>", nil),
+        "textsl": ("<em>", "</em>", nil), "texttt": ("<code>", "</code>", nil), "underline": ("<u>", "</u>", nil),
+        "uline": ("<u>", "</u>", nil), "sout": ("<del>", "</del>", nil), "st": ("<del>", "</del>", nil),
+        "hl": ("<mark>", "</mark>", nil), "textsc": ("<span class=\"latex-sc\">", "</span>", nil),
+        "textsf": ("<span class=\"latex-sf\">", "</span>", nil), "textrm": ("", "", nil), "textup": ("", "", nil),
+        "textmd": ("", "", nil), "textnormal": ("", "", nil), "mbox": ("<span class=\"latex-nowrap\">", "</span>", nil),
+        "makebox": ("<span class=\"latex-nowrap\">", "</span>", 0),
+        "fbox": ("<span class=\"latex-fbox\">", "</span>", nil),
+        "framebox": ("<span class=\"latex-fbox\">", "</span>", 0), "textsuperscript": ("<sup>", "</sup>", nil),
+        "textsubscript": ("<sub>", "</sub>", nil), "enquote": ("“", "”", nil), "text": ("", "", nil),
     ]
 
     /// Commands that only set something up for TeX; their arguments are read and dropped. The value is the number of
     /// mandatory arguments; an optional argument in front is dropped too.
     package static let ignored: [String: Int] = [
+        "rule": 2, "settowidth": 2, "allowdisplaybreaks": 0, "settoheight": 2, "settodepth": 2,
         "setlength": 2, "addtolength": 2, "setcounter": 2, "addtocounter": 2, "stepcounter": 1, "pagestyle": 1,
         "thispagestyle": 1, "pagenumbering": 1, "vspace": 1, "hspace": 1, "geometry": 1, "hypersetup": 1,
         "lstset": 1, "graphicspath": 1, "bibliographystyle": 1, "usetikzlibrary": 1, "numberwithin": 2,
@@ -99,11 +104,27 @@ package enum LaTeXSymbols {
         }
     }
 
+    /// Printed reference numbers are plain text, even when a formatter contains TeX punctuation.
+    static func mathText(_ value: String) -> String {
+        value.map { character in
+            switch character {
+            case "\\": "\\textbackslash{}"
+            case "^": "\\textasciicircum{}"
+            case "~": "\\textasciitilde{}"
+            case "{", "}", "%", "$", "#", "&", "_": "\\\(character)"
+            default: String(character)
+            }
+        }.joined()
+    }
+
     /// A counter value written as `\arabic`, `\alph`, `\Alph`, `\roman` or `\Roman` would write it.
     static func format(_ value: Int, as style: String) -> String {
         switch style {
         case "alph": return letters(value, uppercase: false)
         case "Alph": return letters(value, uppercase: true)
+        case "fnsymbol":
+            let symbols = ["", "*", "†", "‡", "§", "¶", "‖", "**", "††", "‡‡"]
+            return symbols.indices.contains(value) ? symbols[value] : String(value)
         case "roman": return roman(value).lowercased()
         case "Roman": return roman(value)
         default: return String(value)

@@ -8,8 +8,13 @@
 \usepackage{booktabs}
 \usepackage{amsthm}
 \usepackage{siunitx}
+\usepackage{pgffor,iftex,thmtools,cleveref}
 
 \newtheorem{kimari}{決まり}[section]
+\newenvironment{exhibit}[1][案内]{\begin{quote}\textbf{#1}\quad}{\end{quote}}
+\NewDocumentCommand{\cardtitle}{m O{Guide}}{\emph{#1} (#2)}
+\newcounter{card}
+\declaretheorem[name=展示例,numberwithin=section,style=definition]{exhibitexample}
 
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\shelf}[1]{\textbf{棚#1}}
@@ -108,6 +113,17 @@ def lend(books, limit=5):
 
 詳しくは \url{https://example.com/hoshimi} か
 \href{https://example.com/hoshimi/faq}{よくある質問}へ。決まり~\ref{rule:return}の背景は文献\cite{shelves,hoshimi2026}にあります。
+
+\section{展示カード / Exhibit cards}\label{sec:cards}
+\begin{exhibit}[展示順]
+\ifLuaTeX 星と月の展示です。\else Astronomy exhibit.\fi
+\foreach \shelfname in {星,月,空}{\stepcounter{card}\arabic{card}. \cardtitle{\shelfname}\quad}
+\end{exhibit}
+\begin{exhibitexample}\label{ex:card}
+一枚目は星のカードです。\footnotemark
+\end{exhibitexample}
+\footnotetext{The guide also lists the cards in English.}
+\cref{ex:card}は「\nameref{sec:cards}」の見本です。
 
 \begin{thebibliography}{9}
 \bibitem{hoshimi2026} 架空の司書『星見図書室の十年』星見出版, 2026.

@@ -1174,6 +1174,10 @@ public final class DocumentRenderer {
                             && fragment.body.contains("class=\"mermaid-block\""), rendersDiagrams: true), source: source
                 )
             }
+            // Reader diagnostics describe the source as a whole and have no rectangle on a printed page.
+            for (offset, detail) in fragment.readingIssues.enumerated() {
+                text.issues.append(PrintIssue(id: "latex-reader-\(offset)", kind: .latex, detail: detail))
+            }
             if missingImage { text.requiredFolderAccess = directory }
             text = try await finished(text, fragment: fragment, source: source, settings: settings)
             guard separatesPaper, text.preparationResult == "paper" else { return text }
