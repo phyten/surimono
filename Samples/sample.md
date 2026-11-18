@@ -19,3 +19,16 @@ print(message)
 ```
 
 > まずは一枚、試しに刷ってみましょう。
+
+## Graphviz と PlantUML
+
+```dot
+digraph { 開始 -> 確認 -> 印刷 }
+```
+
+```plantuml
+@startuml
+利用者 -> 摺物 : 印刷依頼
+摺物 --> 利用者 : プレビュー
+@enduml
+```

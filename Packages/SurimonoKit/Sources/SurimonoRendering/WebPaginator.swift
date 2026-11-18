@@ -118,7 +118,8 @@ public final class WebPaginator: NSObject {
     public func paginateWithResult(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
-        drawsBackground: Bool = true, rendersMermaid: Bool = false, exportHTMLTitle: String? = nil,
+        drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
+        exportHTMLTitle: String? = nil,
         timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
@@ -164,6 +165,14 @@ public final class WebPaginator: NSObject {
             try await runPreparationScript(MermaidScript.probe, in: session.webView, timeout: timeout) == "yes"
         {
             try await prepareMermaid(in: session.webView, timeout: timeout)
+        }
+        if rendersDiagrams {
+            try await DiagramScript.prepare(
+                in: session.webView,
+                height: (pageSize.height - margins.top - margins.bottom) * Self.printPixelsPerPoint
+            ) { script in
+                try await self.runPreparationScript(script, in: session.webView, timeout: timeout)
+            }
         }
         // Before the preparation, whose presets may remove the document's style elements.
         let pageRules =

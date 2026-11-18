@@ -181,7 +181,11 @@ public struct DocumentLanguage: Equatable, Sendable {
                 let classes = Set((tag.attribute("class") ?? "").split(whereSeparator: \.isWhitespace).map(String.init))
                 // Plain text uses pre for whitespace preservation, not for source code.
                 let skip = excluded.contains(tag.name) && !(tag.name == "pre" && classes.contains("surimono-plain"))
-                if !hidden.isEmpty || skip || !classes.isDisjoint(with: ["math", "math-block", "mermaid-block"]) {
+                if !hidden.isEmpty || skip
+                    || !classes.isDisjoint(with: [
+                        "math", "math-block", "mermaid-block", "graphviz-block", "plantuml-block",
+                    ])
+                {
                     hidden.append(tag.name)
                 }
             }

@@ -35,6 +35,8 @@ enum ClipboardFormatText {
         case .html: "HTML"
         case .latex: "LaTeX"
         case .notebook: "Jupyter Notebook"
+        case .graphviz: "Graphviz"
+        case .plantuml: "PlantUML"
         case .csv: "CSV"
         case .url: "URL"
         case .plainText: String(localized: "Plain Text")

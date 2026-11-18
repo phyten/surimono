@@ -6,6 +6,28 @@ import UniformTypeIdentifiers
 @testable import Surimono
 
 struct SurimonoDocumentTests {
+    @Test("図の拡張子で汎用テキスト型を補い原文を保持する", arguments: ["dot", "gv", "puml", "plantuml", "pu", "iuml", "wsd"])
+    func diagramFiles(suffix: String) throws {
+        let bytes = Data("図の原文".utf8)
+        let file = FileWrapper(regularFileWithContents: bytes)
+        file.preferredFilename = "sample." + suffix
+        let document = try SurimonoDocument(file: file, contentType: .plainText)
+        #expect(document.format == (["dot", "gv"].contains(suffix) ? .graphviz : .plantuml))
+        #expect(document.data == bytes)
+    }
+
+    @Test("Wordテンプレートの型で届いたdotをGraphvizとして開く")
+    func dotAsWordTemplate() throws {
+        // macOS declares `.dot` as a Word template; machines without that declaration have nothing to check.
+        guard let word = UTType("com.microsoft.word.dot") else { return }
+        #expect(SurimonoDocument.readableContentTypes.contains(word))
+        let file = FileWrapper(regularFileWithContents: Data("digraph { a -> b }".utf8))
+        file.preferredFilename = "sample.dot"
+        #expect(try SurimonoDocument(file: file, contentType: word).format == .graphviz)
+        let types = try #require(Bundle.main.infoDictionary?["CFBundleDocumentTypes"] as? [[String: Any]])
+        #expect(types.contains { ($0["LSItemContentTypes"] as? [String])?.contains("com.microsoft.word.dot") == true })
+    }
+
     @Test("JSONの型で渡されたipynbだけをNotebookとして開く")
     func notebookJSON() throws {
         let file = FileWrapper(regularFileWithContents: Data(#"{"nbformat":4,"cells":[]}"#.utf8))
@@ -72,6 +94,7 @@ struct SurimonoDocumentTests {
                 == Set([
                     UTType.surimonoMarkdown.identifier, UTType.surimonoOrg.identifier,
                     UTType.surimonoLaTeX.identifier, UTType.surimonoNotebook.identifier,
+                    UTType.surimonoGraphviz.identifier, UTType.surimonoPlantUML.identifier,
                 ]))
     }
 }

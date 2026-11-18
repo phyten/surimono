@@ -40,6 +40,9 @@
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
 				<string>org.jupyter.ipynb</string>
+				<string>org.graphviz.dot</string>
+				<string>com.microsoft.word.dot</string>
+				<string>net.sourceforge.plantuml</string>
 				<string>public.plain-text</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
@@ -73,6 +76,9 @@
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
 				<string>org.jupyter.ipynb</string>
+				<string>org.graphviz.dot</string>
+				<string>com.microsoft.word.dot</string>
+				<string>net.sourceforge.plantuml</string>
 				<string>public.plain-text</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
@@ -98,6 +104,9 @@
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
 				<string>org.jupyter.ipynb</string>
+				<string>org.graphviz.dot</string>
+				<string>com.microsoft.word.dot</string>
+				<string>net.sourceforge.plantuml</string>
 				<string>public.plain-text</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
@@ -110,6 +119,22 @@
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+        <dict>
+            <key>UTTypeIdentifier</key><string>org.graphviz.dot</string>
+            <key>UTTypeDescription</key><string>Graphviz</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>dot</string><string>gv</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>net.sourceforge.plantuml</string>
+            <key>UTTypeDescription</key><string>PlantUML</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>puml</string><string>plantuml</string><string>pu</string><string>iuml</string><string>wsd</string></array>
+            </dict>
+        </dict>
         <dict>
             <key>UTTypeIdentifier</key>
             <string>org.jupyter.ipynb</string>

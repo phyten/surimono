@@ -11,6 +11,7 @@ struct AcknowledgementsTests {
         arguments: [
             "swift-markdown-LICENSE.txt", "swift-markdown-NOTICE.txt", "swift-cmark-COPYING.txt",
             "SwaTex-LICENSE.txt", "SwaTex-THIRD-PARTY-NOTICES.md", "KaTeX-Fonts-OFL.txt",
+            "viz-LICENSE.txt", "viz-THIRD-PARTY-NOTICES.txt", "plantuml-LICENSE.txt",
             "mermaid-LICENSE.txt", "gemoji-LICENSE.txt", "Sparkle-LICENSE.txt",
         ])
     func bundled(name: String) throws {

@@ -768,6 +768,8 @@ extension DocumentFormat {
         case .zipArchive: "ZIP"
         case .latex: "TEX"
         case .notebook: "IPYNB"
+        case .graphviz: "Graphviz"
+        case .plantuml: "PlantUML"
         }
     }
 }

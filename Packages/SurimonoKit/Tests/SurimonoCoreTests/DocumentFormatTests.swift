@@ -35,6 +35,7 @@ struct DocumentFormatTests {
             (.plainText, .plainText), (.html, .html), (.pdf, .pdf), (.image, .image),
             (.png, .image), (.jpeg, .image), (.commaSeparatedText, .csv), (.zip, .zipArchive),
             (.surimonoLaTeX, .latex), (.surimonoNotebook, .notebook),
+            (.surimonoGraphviz, .graphviz), (.surimonoPlantUML, .plantuml),
         ])
     func detectsContentType(contentType: UTType, expected: DocumentFormat) {
         #expect(DocumentFormat(contentType: contentType) == expected)
@@ -59,6 +60,7 @@ struct DocumentFormatTests {
         #expect(
             DocumentFormat.allCases.map(\.displayName) == [
                 "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV", "ZIP", "LaTeX", "Jupyter Notebook",
+                "Graphviz", "PlantUML",
             ])
     }
 

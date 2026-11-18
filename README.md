@@ -39,6 +39,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Extended Markdown: footnotes, `==highlight==`, `^superscript^` and `~subscript~`, ruby `{漢字|かんじ}`, emoji `:tada:`, definition lists, heading ids and a `[TOC]` table of contents
 - Org files print as documents, not as source: TODO keywords (your `#+TODO` ones too), priorities, tags, progress cookies, planning dates, checkboxes, footnotes, captions and `#+begin_note`-style blocks each get a form that follows the chosen style and stays readable in black and white. LaTeX math (`$…$`, `\[…\]`, `\begin{equation}` and the like) is typeset too
 - Mermaid diagrams in Markdown (```` ```mermaid ````) and Org (`#+begin_src mermaid`) rendered as printable SVG offline. Invalid diagrams keep their source and appear in the preflight checks.
+- Graphviz (`dot` / `graphviz`) and PlantUML (`plantuml` / `puml`) code blocks in Markdown and Org render offline, without Java. Standalone PlantUML files can contain multiple diagrams. External includes and optional sprite libraries are unavailable; failed diagrams retain their source and an error message.
 - Math in Markdown (`$…$`, `$$…$$`, ```` ```math ````) typeset without JavaScript by [SwaTex](https://github.com/PhraseHQ/SwaTex), a KaTeX-compatible engine in pure Swift, including chemistry (mhchem)
 - Quick viewer for Markdown, PDF, images, Org, plain text, HTML, CSV, and LaTeX
 - Print Jupyter Notebook Markdown, code and saved outputs without executing code. Supports nbformat 4; interactive-only outputs are marked with a framed note.
@@ -98,6 +99,8 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
 | Jupyter Notebook | `.ipynb` |
+| Graphviz | `.dot`, `.gv` |
+| PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |
 | ZIP of images | `.zip` (opened as one image bundle) |
 
 ## Requirements

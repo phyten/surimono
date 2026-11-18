@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ClipboardTextKind: String, CaseIterable, Codable, Sendable {
-    case markdown, org, html, latex, csv, notebook, url, plainText
+    case markdown, org, html, latex, csv, notebook, graphviz, plantuml, url, plainText
 }
 
 public struct ClipboardFormatHints: Equatable, Sendable {
@@ -140,23 +140,26 @@ public enum ClipboardFormatDetector {
     public static func detect(
         _ text: String, hints: ClipboardFormatHints = .init(), settings: ClipboardFormatSettings = .standard
     ) -> ClipboardFormatDetection {
-        // JSON structure is decisive, even when long image data exceeds the ordinary markup scanning window.
-        if text.drop(while: { $0.isWhitespace }).first == "{",
+        var decisive = DiagramConverter.clipboardKind(text)
+        if decisive == nil, text.drop(while: { $0.isWhitespace }).first == "{",
             let root = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
             root["cells"] is [Any], NotebookConverter.version(root) != nil
         {
-            let enabled = settings.automaticKinds.contains(.notebook)
+            decisive = .notebook
+        }
+        if let decisive {
+            let enabled = settings.automaticKinds.contains(decisive)
             let selected: ClipboardTextKind =
-                settings.mode == .fixed ? settings.fixedKind : (enabled ? .notebook : .plainText)
+                settings.mode == .fixed ? settings.fixedKind : (enabled ? decisive : .plainText)
             let asks = settings.mode == .alwaysAsk
             return ClipboardFormatDetection(
                 action: asks ? .ask(preferred: selected) : .open(selected),
                 reason: asks ? .alwaysAsk : (settings.mode == .fixed ? .fixed : (enabled ? .accepted : .ordinaryText)),
                 choices: [
-                    .init(kind: .notebook, confidence: 0.95, evidence: [.document]),
+                    .init(kind: decisive, confidence: 0.95, evidence: [.document]),
                     .init(kind: .plainText, confidence: 0.5, evidence: []),
                 ]
-                    + ClipboardTextKind.allCases.filter { $0 != .notebook && $0 != .plainText }.map {
+                    + ClipboardTextKind.allCases.filter { $0 != decisive && $0 != .plainText }.map {
                         .init(kind: $0, confidence: 0, evidence: [])
                     }, tableDelimiter: nil,
                 analysedUnits: text.utf8.count, analysedLines: 0, isTruncated: false)
@@ -171,6 +174,7 @@ public enum ClipboardFormatDetector {
             ClipboardScanners.csv(window, hints: hints, level: settings.carefulness, work: &work),
             ClipboardScanners.url(window, hints: hints, work: &work),
             ClipboardCandidate(kind: .notebook),
+            ClipboardCandidate(kind: .graphviz), ClipboardCandidate(kind: .plantuml),
         ]
         let hintedTable =
             hints.hasTabularData

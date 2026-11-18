@@ -525,3 +525,11 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 .format-notebook table.dataframe { border-collapse: collapse; width: auto; max-width: 100%; font-size: .9em; }
 .format-notebook table.dataframe :is(th, td) { padding: .35em .65em; border-bottom: 1px solid var(--callout-plain); }
 .format-notebook table.dataframe th { font-weight: bold; }
+
+/* Diagram engines own their colours and fonts; only their paper placement follows the print style. */
+.graphviz-block, .plantuml-block { margin-block: 0.8em; text-align: center; break-inside: avoid; }
+.graphviz-block > svg, .plantuml-block > svg { max-width: 100%; height: auto; margin-inline: auto; }
+.diagram-source { text-align: start; white-space: pre-wrap; overflow-wrap: anywhere; }
+.diagram-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0.4em; break-inside: auto; }
+.diagram-message { text-align: start; font-size: 0.9em; }
+.diagram-document > div + div { break-before: page; }

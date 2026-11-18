@@ -191,6 +191,7 @@ public struct PaginationRequest: Sendable {
     /// it (`WebPaginator.drawsClearPages`).
     public var drawsBackground = true
     public var rendersMermaid = false
+    public var rendersDiagrams = false
 }
 
 /// What the renderer adds to the pages of a text and what it reads from the text on the way.
@@ -445,7 +446,7 @@ public final class DocumentRenderer {
                     request.source, pageSize: request.pageSize, margins: request.margins,
                     allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
                     readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-                    rendersMermaid: request.rendersMermaid)
+                    rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams)
             }
         }
     }
@@ -1075,7 +1076,7 @@ public final class DocumentRenderer {
                 requiredFolderAccess: page.requiredFolderAccess)
             mirrored.issues = page.issues
             return mirrored
-        case .markdown, .org, .plainText, .csv, .latex, .notebook:
+        case .markdown, .org, .plainText, .csv, .latex, .notebook, .graphviz, .plantuml:
             var missingImage = false
             let access = resourceAccess(for: source)
             let fragment: HTMLFragment
@@ -1154,7 +1155,8 @@ public final class DocumentRenderer {
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
                         rendersMermaid: (source.format == .markdown || source.format == .org)
-                            && fragment.body.contains("class=\"mermaid-block\"")), source: source)
+                            && fragment.body.contains("class=\"mermaid-block\""), rendersDiagrams: true), source: source
+                )
             }
             if missingImage { text.requiredFolderAccess = directory }
             text = try await finished(text, fragment: fragment, source: source, settings: settings)
@@ -1442,7 +1444,7 @@ public final class DocumentRenderer {
                     margins: margins, allowsJavaScript: false, preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
                     rendersMermaid: (source.format == .markdown || source.format == .org)
-                        && body.contains("class=\"mermaid-block\""))
+                        && body.contains("class=\"mermaid-block\""), rendersDiagrams: true)
             }
             try Task.checkCancellation()
             let measured = try await paginateCheckingIssues(
@@ -1491,7 +1493,7 @@ public final class DocumentRenderer {
             preparationScript: PrintIssueAnchors.following(
                 request.preparationScript, themed: source.format.usesPrintTheme),
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-            rendersMermaid: request.rendersMermaid)
+            rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
@@ -1566,6 +1568,8 @@ public final class DocumentRenderer {
         switch source.format {
         case .markdown:
             MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
+        case .graphviz, .plantuml:
+            DiagramConverter.convert(try decodedText(source.data), format: source.format)
         case .notebook:
             try NotebookConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:

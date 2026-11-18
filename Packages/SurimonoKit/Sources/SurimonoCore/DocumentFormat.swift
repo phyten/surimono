@@ -11,6 +11,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case zipArchive
     case latex
     case notebook
+    case graphviz
+    case plantuml
 
     public init?(fileExtension: String) {
         switch fileExtension.lowercased() {
@@ -23,13 +25,17 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "zip": self = .zipArchive
         case "tex", "latex", "ltx": self = .latex
         case "ipynb": self = .notebook
+        case "dot", "gv": self = .graphviz
+        case "puml", "plantuml", "pu", "iuml", "wsd": self = .plantuml
         case "png", "jpg", "jpeg", "gif", "tif", "tiff", "heic", "heif", "webp", "bmp", "svg", "ico", "icns":
             self = .image
         default: return nil
         }
     }
 
-    public var usesPrintTheme: Bool { [.markdown, .org, .plainText, .csv, .latex, .notebook].contains(self) }
+    public var usesPrintTheme: Bool {
+        [.markdown, .org, .plainText, .csv, .latex, .notebook, .graphviz, .plantuml].contains(self)
+    }
     public var usesHTMLPreset: Bool { self == .html }
     public var isWebRendered: Bool { self != .pdf && self != .image && self != .zipArchive }
 
@@ -41,6 +47,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
+            "org.graphviz.dot": .graphviz, "net.sourceforge.plantuml": .plantuml,
             "public.zip-archive": .zipArchive, "org.tug.tex": .latex, "org.jupyter.ipynb": .notebook,
         ]
         if let format = known[contentType.identifier] {
@@ -57,6 +64,10 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             self = .org
         } else if contentType.conforms(to: .surimonoNotebook) {
             self = .notebook
+        } else if contentType.conforms(to: .surimonoGraphviz) {
+            self = .graphviz
+        } else if contentType.conforms(to: .surimonoPlantUML) {
+            self = .plantuml
         } else if contentType.conforms(to: .surimonoLaTeX) {
             self = .latex
         } else if contentType.conforms(to: .commaSeparatedText) {
@@ -88,11 +99,15 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .zipArchive: "ZIP"
         case .latex: "LaTeX"
         case .notebook: "Jupyter Notebook"
+        case .graphviz: "Graphviz"
+        case .plantuml: "PlantUML"
         }
     }
 }
 
 extension UTType {
+    public static let surimonoGraphviz = UTType(importedAs: "org.graphviz.dot", conformingTo: .plainText)
+    public static let surimonoPlantUML = UTType(importedAs: "net.sourceforge.plantuml", conformingTo: .plainText)
     public static let surimonoNotebook = UTType(importedAs: "org.jupyter.ipynb", conformingTo: .json)
     public static let surimonoMarkdown = UTType(importedAs: "net.daringfireball.markdown", conformingTo: .plainText)
     public static let surimonoOrg = UTType(importedAs: "org.orgmode.org", conformingTo: .plainText)

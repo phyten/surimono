@@ -38,6 +38,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 - Markdown の拡張記法: 脚注、`==ハイライト==`、`^上付き^`・`~下付き~`、ルビ `{漢字|かんじ}`、絵文字 `:tada:`、定義リスト、見出しの ID と目次 `[TOC]`
 - Org は原文の記号のままではなく、読むための形で刷る。TODO の語（`#+TODO` で決めた語も）・優先度・タグ・進み具合・予定の日付・チェックボックス・脚注・表の見出し・`#+begin_note` などの囲みが、選んだスタイルに合わせて整い、白黒で刷っても見分けられる。数式（`$…$`・`\[…\]`・`\begin{equation}` など）も組んで刷る
 - Markdown の ```` ```mermaid ```` と Org の `#+begin_src mermaid` を、オフラインで SVG の図にして印刷。描けない図は原文を残し、印刷前の確認に表示します。
+- Markdown と Org の Graphviz（`dot` / `graphviz`）・PlantUML（`plantuml` / `puml`）ブロックを、Java なし・オフラインで描きます。PlantUML ファイルは複数の図に対応します。外部 include と追加のスプライトライブラリには対応せず、描けない図は原文とエラーを残します。
 - Markdown の数式（`$…$`・`$$…$$`・```` ```math ````）を、純 Swift の KaTeX 互換の組版（[SwaTex](https://github.com/PhraseHQ/SwaTex)）で JavaScript なしに描画。化学式（mhchem）も
 - Markdown・PDF・画像・Org・テキスト・HTML・CSV・LaTeX のクイックビューア
 - Jupyter Notebook の Markdown・コード・保存済み出力を印刷。コードは実行しません。nbformat 4 に対応し、対話型出力は枠で知らせます。
@@ -97,6 +98,8 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
 | Jupyter Notebook | `.ipynb` |
+| Graphviz | `.dot`, `.gv` |
+| PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |
 | 画像の ZIP | `.zip`（1 つの画像の束として開く） |
 
 ## 動作環境

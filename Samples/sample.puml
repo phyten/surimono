@@ -1,0 +1,19 @@
+@startuml
+participant "利用者" as User
+participant "摺物 / Surimono" as App
+User -> App : 文書を開く
+App --> User : 印刷プレビュー
+User -> App : 印刷する
+@enduml
+
+@startuml
+class "文書 / Document" as Document {
+  title : String
+  open()
+}
+class "用紙 / Paper" as Paper {
+  size : A4
+  print()
+}
+Document --> Paper : 組版
+@enduml
