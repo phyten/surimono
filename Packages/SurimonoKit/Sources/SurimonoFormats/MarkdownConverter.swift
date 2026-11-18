@@ -4,14 +4,23 @@ import Markdown
 
 public enum MarkdownConverter {
     /// - Parameter pageBreakLine: A line of the reader's own that stands for a page break, besides the usual ones.
-    public static func convert(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown) -> HTMLFragment {
-        convertDocument(text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof).fragment
+    public static func convert(
+        _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
+        directory: URL? = nil, readFile: @escaping (URL) -> Data? = { _ in nil }
+    ) -> HTMLFragment {
+        convertDocument(
+            text, mapsSource: false, pageBreakLine: pageBreakLine, proof: proof, directory: directory,
+            readFile: readFile
+        ).fragment
     }
 
-    public static func convertWithSourceMap(_ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown)
-        -> MarkdownMappedDocument
-    {
-        convertDocument(text, mapsSource: true, pageBreakLine: pageBreakLine, proof: proof)
+    public static func convertWithSourceMap(
+        _ text: String, pageBreakLine: String = "", proof: ProofMarks = .shown,
+        directory: URL? = nil, readFile: @escaping (URL) -> Data? = { _ in nil }
+    ) -> MarkdownMappedDocument {
+        convertDocument(
+            text, mapsSource: true, pageBreakLine: pageBreakLine, proof: proof, directory: directory, readFile: readFile
+        )
     }
 
     static func notebookCell(_ text: String, pageBreakLine: String, proof: ProofMarks, toc: String) -> HTMLFragment {
@@ -19,27 +28,16 @@ public enum MarkdownConverter {
     }
 
     private static func convertDocument(
-        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String? = nil
+        _ text: String, mapsSource: Bool, pageBreakLine: String, proof: ProofMarks, notebookTOC: String? = nil,
+        directory: URL? = nil, readFile: @escaping (URL) -> Data? = { _ in nil }
     ) -> MarkdownMappedDocument {
         let original = TextDecoding.normalizeNewlines(text).components(separatedBy: "\n")
         var source = mapsSource ? MarkdownSourceLines(original) : .unmapped(original)
         var lines = original
         let mapping = mapsSource ? BlockMapping(original: original) : nil
-        var title: String?
-        var language: String?
+        var metadata = MarkdownMetadata()
         if let end = frontMatterEnd(in: lines) {
-            for line in lines[1..<end] {
-                guard let colon = line.firstIndex(of: ":") else { continue }
-                let key = String(line[..<colon])
-                guard ["title", "lang", "language"].contains(key) else { continue }
-                var value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
-                if value.count >= 2,
-                    value.first == "\"" && value.last == "\"" || value.first == "'" && value.last == "'"
-                {
-                    value = String(value.dropFirst().dropLast())
-                }
-                if key == "title" { title = value } else { language = value }
-            }
+            metadata = MarkdownMetadata(lines: lines[1..<end])
             lines.removeFirst(end + 1)
             source = MarkdownSourceLines(lines, origins: Array(source.origins.dropFirst(end + 1)))
         }
@@ -47,20 +45,30 @@ public enum MarkdownConverter {
         let extracted = MarkdownExtensions.extractFootnotes(source)
         let footnotes = MarkdownExtensions.Footnotes(
             definitions: extracted.definitions.mapValues { $0.lines.joined(separator: "\n") })
-        let formulas = MarkdownExtensions.Formulas()
+        let citations =
+            metadata.bibliography.isEmpty || notebookTOC != nil
+            ? nil : MarkdownCitations(metadata: metadata, directory: directory, readFile: readFile)
+        let formulas = MarkdownExtensions.Formulas(citations: citations)
         let (body, document) = renderBody(
             extracted.body, footnotes: footnotes, formulas: formulas, anchorsHeadings: true, mapping: mapping,
-            proof: proof, notebookTOC: notebookTOC)
-        if title == nil { title = firstHeading(in: document, formulas: formulas) }
-        let html =
-            body
+            proof: proof, notebookTOC: notebookTOC, tocAtTop: metadata.tableOfContents && notebookTOC == nil)
+        let title = metadata.title ?? firstHeading(in: document, formulas: formulas)
+        let leadingHeading = document.child(at: 0) as? Heading
+        var html =
+            (leadingHeading?.level != 1 && notebookTOC == nil ? metadata.titleBlock() : "") + body
             + footnoteSection(
                 footnotes, formulas: formulas, definitions: extracted.definitions, mapping: mapping, proof: proof)
+        if let citations { html = citations.finish(html) }
+        var issues = citations?.issues ?? []
+        if metadata.hasCSL && notebookTOC == nil {
+            issues.append("CSL styles are not supported; numeric citations are used.")
+        }
         // At the end of the body, so the theme's rules for the first block still find the document's first block.
         let fonts = notebookTOC == nil ? MathRenderer.fontFaces(for: html) : ""
         return MarkdownMappedDocument(
             fragment: HTMLFragment(
-                body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title, language: language),
+                body: html + (fonts.isEmpty ? "" : "<style>\n\(fonts)\n</style>\n"), title: title,
+                language: metadata.language, readingIssues: issues),
             blocks: mapping?.blocks ?? [])
     }
 
@@ -141,6 +149,9 @@ public enum MarkdownConverter {
         let formulas: MarkdownExtensions.Formulas
         var nextAnchor = 0
         var notebookTOC: String?
+        func tableOfContents() -> String {
+            notebookTOC ?? formulas.citations?.tableOfContents(anchors) ?? MarkdownExtensions.tableOfContents(anchors)
+        }
 
         init(
             source: MarkdownSourceLines, anchors: [MarkdownExtensions.HeadingAnchor],
@@ -157,17 +168,20 @@ public enum MarkdownConverter {
 
     private static func renderBody(
         _ lines: MarkdownSourceLines, footnotes: MarkdownExtensions.Footnotes, formulas: MarkdownExtensions.Formulas,
-        anchorsHeadings: Bool, mapping: BlockMapping? = nil, proof: ProofMarks, notebookTOC: String? = nil
+        anchorsHeadings: Bool, mapping: BlockMapping? = nil, proof: ProofMarks, notebookTOC: String? = nil,
+        tocAtTop: Bool = false
     ) -> (String, Document) {
         let source = MarkdownCallouts.preprocess(
-            MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas, proof: proof))
+            MarkdownExtensions.rewriteInline(lines, footnotes: footnotes, formulas: formulas, proof: proof),
+            referencesMarker: formulas.citations?.referencesMarker)
         let document = Document(parsing: source.lines.joined(separator: "\n"), options: [.disableSmartOpts])
         let context = Context(
             source: source,
             anchors: anchorsHeadings ? MarkdownExtensions.headingAnchors(in: document, formulas: formulas) : [],
             formulas: formulas, mapping: mapping)
         context.notebookTOC = notebookTOC
-        return (render(document, context), document)
+        let toc = tocAtTop ? context.tableOfContents() : ""
+        return (toc + render(document, context), document)
     }
 
     private static func sourceLines(of node: any Markup, _ context: Context) -> Set<Int> {
@@ -242,7 +256,9 @@ public enum MarkdownConverter {
         switch node {
         case let text as Text:
             let html =
-                autolinks ? renderAutolinks(text.string) : HTML.escape(MarkdownExtensions.emojified(text.string))
+                autolinks
+                ? renderAutolinks(text.string, citations: context.formulas.citations)
+                : HTML.escape(MarkdownExtensions.emojified(text.string))
             return context.formulas.restore(html)
         case let code as InlineCode: return "<code>\(HTML.escape(code.code))</code>"
         case let code as CodeBlock where code.language?.lowercased() == "math":
@@ -269,7 +285,7 @@ public enum MarkdownConverter {
             return "<h\(heading.level)\(attributes)>\(content)</h\(heading.level)>\n"
         case let paragraph as Paragraph:
             if MarkdownExtensions.isTableOfContentsMarker(paragraph) {
-                return context.notebookTOC ?? MarkdownExtensions.tableOfContents(context.anchors)
+                return context.tableOfContents()
             }
             return definitionList(paragraph, context, autolinks: autolinks) ?? (wrap("p") + "\n")
         case is Strong: return wrap("strong")
@@ -515,9 +531,12 @@ public enum MarkdownConverter {
         return try? NSRegularExpression(pattern: "(?<web>\(web))|\(email)", options: [.caseInsensitive])
     }()
 
-    private static func renderAutolinks(_ text: String) -> String {
+    private static func renderAutolinks(_ text: String, citations: MarkdownCitations?) -> String {
+        func prose(_ text: String) -> String {
+            citations?.prose(text) ?? HTML.escape(MarkdownExtensions.emojified(text))
+        }
         guard let regex = autolinkPattern else {
-            return HTML.escape(MarkdownExtensions.emojified(text))
+            return prose(text)
         }
         var output = ""
         var cursor = text.startIndex
@@ -557,11 +576,11 @@ public enum MarkdownConverter {
                 destination = "mailto:" + label
             }
             // Emoji shortcodes apply around a URL, never inside it, so the link keeps its destination.
-            output += HTML.escape(MarkdownExtensions.emojified(String(text[cursor..<range.lowerBound])))
+            output += prose(String(text[cursor..<range.lowerBound]))
             output += "<a href=\"\(HTML.escape(destination))\">\(HTML.escape(label))</a>"
             cursor = text.index(range.lowerBound, offsetBy: label.count)
         }
-        return output + HTML.escape(MarkdownExtensions.emojified(String(text[cursor...])))
+        return output + prose(String(text[cursor...]))
     }
 
     private static func renderTable(_ table: Table, _ context: Context) -> String {

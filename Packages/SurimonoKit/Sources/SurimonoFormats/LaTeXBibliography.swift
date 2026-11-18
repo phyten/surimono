@@ -40,7 +40,7 @@ final class LaTeXBibliography {
         for key in keys where seen.insert(key).inserted { citationOrder.append(key) }
     }
 
-    func render(in document: LaTeXDocument) -> String {
+    func render(in document: LaTeXDocument, heading customHeading: String? = nil) -> String {
         guard !records.isEmpty else { return "" }
         // Unsorted styles follow the first citation, then append uncited records in file order for \nocite{*}.
         // Sort only the selected records, preserving the citation order when two authors have the same name.
@@ -70,7 +70,9 @@ final class LaTeXBibliography {
             selected = selected.sorted { $0.entry.sortKey < $1.entry.sortKey }
         }
         guard !selected.isEmpty else { return "" }
-        let heading = document.isJapanese ? "参考文献" : document.hasChapters ? "Bibliography" : "References"
+        let heading =
+            customHeading.map(HTML.escape)
+            ?? (document.isJapanese ? "参考文献" : document.hasChapters ? "Bibliography" : "References")
         var html = "<h2 class=\"latex-bibliography-heading\">\(heading)</h2>\n"
         if authorYear {
             html += "<ol class=\"latex-bibliography\">\n"

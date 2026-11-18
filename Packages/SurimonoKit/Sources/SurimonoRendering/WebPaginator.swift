@@ -57,6 +57,8 @@ public final class WebPaginator: NSObject {
         public var requiredFolderAccess: URL?
         public var issues: [PrintIssue] = []
         public var exportedHTML: String?
+        var diagramPass: DiagramGeometry.Pass?
+        var diagrams: [RenderedDiagram] = []
         var richTextFigures: [RichTextFigure] = []
         /// What the renderer added to the pages of a text and read from it.
         var finishing = FinishedPages()
@@ -101,6 +103,36 @@ public final class WebPaginator: NSObject {
     public static var clearBackground: (@MainActor (WKWebView) -> Void)?
     public static var drawsClearPages: Bool { clearBackground != nil }
 
+    /// Load the SVG as an image so its text is rasterized at export scale on a plain white background.
+    public static func diagramPNG(_ diagram: RenderedDiagram) async throws -> Data {
+        let size = diagram.pointSize
+        guard size.width.isFinite, size.height.isFinite, size.width > 0, size.height > 0,
+            (size.width * 3).rounded(.up) * (size.height * 3).rounded(.up) <= 12_000 * 12_000
+        else { throw PaginationError.emptyDocument }
+        let image = Data(diagram.svg.utf8).base64EncodedString()
+        let html = """
+            <!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+            <style>*{margin:0}body{background:white}img{display:block;width:\(size.width)px;height:\(size.height)px}</style>
+            <img src="data:image/svg+xml;base64,\(image)">
+            """
+        let source = Source.html(html, baseURL: nil)
+        let session = PaginationSession(
+            source: source, pageSize: size, margins: .uniform(millimeters: 0), allowsJavaScript: false,
+            printsBackgrounds: true, printTimeout: .seconds(15), onPrintStart: {}, onPrintFinish: {}, onClose: {})
+        defer { session.requestClose() }
+        try session.load(source)
+        try await waitUntil(timeout: .seconds(15)) { session.navigationState != .loading }
+        guard session.navigationState == .finished,
+            try await session.webView.callAsyncJavaScript(
+                "const image = document.images[0]; await image.decode(); return image.naturalWidth > 0;",
+                arguments: [:], in: nil, contentWorld: preparationWorld) as? Bool == true
+        else { throw PaginationError.emptyDocument }
+        try Task.checkCancellation()
+        let bounds = CGRect(origin: .zero, size: size)
+        return try await WebGraphicSnapshot(requestedScale: 3).png(
+            in: session.webView, viewport: bounds, document: bounds)
+    }
+
     public func paginate(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, timeout: Duration = .seconds(15)
@@ -120,7 +152,7 @@ public final class WebPaginator: NSObject {
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
-        exportHTMLTitle: String? = nil, richText: Bool = false,
+        collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
         timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
@@ -162,6 +194,11 @@ public final class WebPaginator: NSObject {
         // The stopped resources never report back, so the full wait would only be spent a second time.
         try await Self.waitForResources(
             in: session.webView, timeout: stoppedResources ? min(timeout, .seconds(1)) : timeout)
+        if collectsDiagrams {
+            // Keep the engine-created nodes in the isolated world without marking the printable DOM.
+            _ = try await runPreparationScript(
+                "globalThis.surimonoRenderedDiagrams = new Set();", in: session.webView, timeout: timeout)
+        }
         if rendersMermaid,
             try await runPreparationScript(MermaidScript.probe, in: session.webView, timeout: timeout) == "yes"
         {
@@ -256,6 +293,29 @@ public final class WebPaginator: NSObject {
             preparationResult: preparationResult, pageRules: pageRules,
             requiredFolderAccess: session.localHandler?.requiredFolderAccess)
         if adjusted { result.issues = [Self.verticalWritingIssue] }
+        if collectsDiagrams {
+            // Keep the finished PDF untouched even if measurement fails or a theme styles the extra anchors.
+            do {
+                let token = UUID().uuidString
+                let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
+                let webView = session.webView
+                let previousMedia = webView.mediaType
+                webView.mediaType = "print"
+                defer { webView.mediaType = previousMedia }
+                if let json = try await runPreparationScript(
+                    DiagramGeometry.anchors(printWidth: width, token: token), in: webView, timeout: timeout),
+                    let sources = try? JSONDecoder().decode([DiagramGeometry.Source].self, from: Data(json.utf8)),
+                    !sources.isEmpty
+                {
+                    let geometry = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
+                    if geometry.pageCount == document.pageCount {
+                        result.diagramPass = .init(document: geometry, sources: sources, token: token)
+                    }
+                }
+            } catch {
+                try Task.checkCancellation()
+            }
+        }
         return result
     }
 

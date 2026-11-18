@@ -88,7 +88,7 @@ struct PrintIssuesPopover: View {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
-        case .math, .latex, .mermaid, .verticalWriting: EmptyView()
+        case .math, .latex, .bibliography, .mermaid, .verticalWriting: EmptyView()
         }
     }
 }
@@ -109,6 +109,15 @@ enum PrintIssueText {
         case .image: key = "Could Not Load Image: %@"
         case .math: key = "Could Not Render Formula: %@"
         case .mermaid: key = "Could Not Render Diagram: %@"
+        case .bibliography:
+            if issue.detail.hasSuffix(" could not be read") {
+                let file = String(issue.detail.dropLast(" could not be read".count))
+                return PrintModeText.format("Could not read bibliography file: %@", language: language, file)
+            }
+            if issue.detail == "LaTeX expansion limit reached" {
+                return PrintModeText.string("The bibliography is too large to read in full.", language: language)
+            }
+            return PrintModeText.string("Citations use the numeric style.", language: language)
         case .latex: key = "Unsupported LaTeX: %@"
         case .overflow:
             switch issue.element {
@@ -133,7 +142,7 @@ enum PrintIssueText {
                 key = "Folder access is not allowed: allow access to the folder containing the document and its images."
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
-        case .verticalWriting: return ""
+        case .verticalWriting, .bibliography: return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."

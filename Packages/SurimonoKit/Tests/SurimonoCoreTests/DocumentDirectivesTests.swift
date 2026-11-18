@@ -9,6 +9,7 @@ struct DocumentDirectivesTests {
             fromMarkdown:
                 "---\ntitle: 議事録\nsurimono:\n  set: '配布用'\n  layout: a4BookletA5\n  orientation: landscape\n  margins: 15mm\n  style: \"standard\"\n  text-size: 110%\n---\n本文"
         )
+        #expect(value.metadata.title == "議事録")
         #expect(value.setName == "配布用")
         #expect(value.layoutID == "a4BookletA5")
         #expect(value.orientation == .landscape)
@@ -32,6 +33,15 @@ struct DocumentDirectivesTests {
         arguments: [("110%", 1.1), ("1.1", 1.1), ("20%", 0.8), ("500%", 2.0), ("113%", 1.13), ("112.6%", 1.13)])
     func scales(_ pair: (String, Double)) {
         #expect(read("text-size: \(pair.0)").textScale == pair.1)
+    }
+
+    @Test("文献や表題だけの変更では印刷設定を戻さない")
+    func changesToMetadata() {
+        let before = DocumentDirectives.read(fromMarkdown: "---\ntitle: One\n---")
+        let after = DocumentDirectives.read(fromMarkdown: "---\ntitle: Two\nbibliography: refs.bib\n---")
+        #expect(after.isEmpty)
+        #expect(before.hasSamePrintSettings(as: after))
+        #expect(!read("margins: 10mm").hasSamePrintSettings(as: after))
     }
 
     @Test("未知の項目と読めない値を無視する")

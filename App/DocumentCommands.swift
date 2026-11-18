@@ -153,6 +153,7 @@ struct DocumentCommands: Commands {
         }
         CommandGroup(replacing: .help) {
             Button("Getting Started with Surimono") { perform(.appGettingStarted) }
+            Button("Open Sample Document") { OpenRouter.shared.openSampleDocument() }
             Button("Keys and Gestures") { perform(.appKeyGuide) }
         }
         CommandMenu("Document") {

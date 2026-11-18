@@ -565,7 +565,9 @@ final class DocumentViewModel {
         guard theme(id) != nil else { return }
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
-            chosenTrial = (id, codePaletteID, document, themeTrial.changeMarks, themeTrial.furniture)
+            chosenTrial = (
+                id, codePaletteID, document, themeTrial.changeMarks, themeTrial.furniture, themeTrial.diagrams
+            )
         }
         themeTrial.end()
         themeComparison?.choose(id)
@@ -576,7 +578,7 @@ final class DocumentViewModel {
     /// The user picked a code palette. The pages of a trial of it stay on the paper as they do for a theme.
     func selectCodePalette(_ id: String) {
         if id != codePaletteID, themeTrial.themeID == Self.codeTrialID(id), let document = themeTrial.document {
-            chosenTrial = (themeID, id, document, themeTrial.changeMarks, themeTrial.furniture)
+            chosenTrial = (themeID, id, document, themeTrial.changeMarks, themeTrial.furniture, themeTrial.diagrams)
         }
         themeTrial.end()
         codePaletteID = id
@@ -1198,11 +1200,12 @@ final class DocumentViewModel {
         }
         let updatedDirectives = currentDirectives
         let updatedClassStyle = UserLibrary.classStyle(for: themedSource, renderer: renderer)
-        if updatedDirectives != documentDirectives || updatedClassStyle != classStyle {
+        let printSettingsChanged = !updatedDirectives.hasSamePrintSettings(as: documentDirectives)
+        documentDirectives = updatedDirectives
+        if printSettingsChanged || updatedClassStyle != classStyle {
             let canApply =
                 !hasSavedSettings && !didCustomizeSinceLoad && !didResizeWindow
                 && rememberedSettings == settingsBaseline
-            documentDirectives = updatedDirectives
             classStyle = updatedClassStyle
             if canApply {
                 settingsBaseline = nil
@@ -3713,6 +3716,13 @@ final class DocumentViewModel {
                 self?.completePDFExport(to: response == .OK ? panel.url : nil)
             }
         }
+    }
+
+    func beginDiagramExport() -> Bool {
+        guard additionalExportTask == nil, !isExporting, !isPrinting else { return false }
+        isExporting = true
+        outputError = nil
+        return true
     }
 
     func beginThemedExport() async -> String? {

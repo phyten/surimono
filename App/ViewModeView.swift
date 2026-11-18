@@ -164,7 +164,7 @@ private struct PaperArea: View {
                     zoom: model.zoom, wheelSensitivity: model.preferences.wheelSensitivity,
                     selectsText: model.isSelectingText, logicalMargin: model.viewLogicalMargin,
                     showsPageNumbers: model.preferences.viewPageNumbers, changeMarks: model.paperChangeMarks,
-                    furniture: model.paperFurniture,
+                    diagrams: model.paperDiagrams, onDiagram: model.exportDiagram, furniture: model.paperFurniture,
                     narrowsLoneCover: model.loneCoverWidth == .onePage,
                     keepsSpotInPage: model.binder != nil || model.imageBundle != nil,
                     controller: model.paper,

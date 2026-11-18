@@ -85,7 +85,9 @@ enum MermaidScript {
             if (width > 0) svg.style.width = width + 'px';
             svg.style.maxWidth = '100%';
             svg.style.height = 'auto';
-            block.replaceChildren(document.importNode(svg, true));
+            const rendered = document.importNode(svg, true);
+            block.replaceChildren(rendered);
+            globalThis.surimonoRenderedDiagrams?.add(rendered);
             block.classList.remove('mermaid-error');
           } catch (_) {
             // A bad diagram keeps its escaped source; later diagrams may still be valid.

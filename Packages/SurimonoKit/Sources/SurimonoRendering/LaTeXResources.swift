@@ -10,7 +10,7 @@ extension DocumentRenderer {
         onDenied: @escaping () -> Void,
         imageExists: @escaping (URL) -> Bool
     ) throws -> HTMLFragment {
-        let resources = LaTeXResources(source, access: access, onDenied: onDenied)
+        let resources = CompanionTextResources(source, access: access, onDenied: onDenied)
         return LaTeXConverter.convert(
             try decodedText(source.data), documentURL: resources.file, textWidthPoints: textWidthPoints,
             imageExists: { resources.permits($0) && imageExists($0) }, readFile: resources.read,
@@ -21,17 +21,39 @@ extension DocumentRenderer {
             fileIdentity: resources.identity)
     }
 
+    nonisolated static func markdownFragment(
+        _ source: DocumentSource, pageBreakLine: String, proof: ProofMarks, mapsSource: Bool,
+        access: LocalResourceAccess?, onDenied: @escaping () -> Void
+    ) throws -> HTMLFragment {
+        let text = try decodedText(source.data)
+        let directory = source.fileURL.flatMap { $0.isFileURL ? $0.deletingLastPathComponent() : nil }
+        // Ordinary Markdown never needs to resolve a resource root on disk.
+        lazy var resources = CompanionTextResources(source, access: access, onDenied: {})
+        func readBibliography(_ url: URL) -> Data? {
+            let data = resources.read(url)
+            if data == nil, access != nil { onDenied() }
+            return data
+        }
+        if mapsSource {
+            return MarkdownConverter.convertWithSourceMap(
+                text, pageBreakLine: pageBreakLine, proof: proof, directory: directory, readFile: readBibliography
+            ).fragment
+        }
+        return MarkdownConverter.convert(
+            text, pageBreakLine: pageBreakLine, proof: proof, directory: directory, readFile: readBibliography)
+    }
+
     /// Find the default style without laying out pages or converting the body. Includes in the preamble
     /// must see exactly the same files as the subsequent conversion, including after a folder grant.
     public func latexClassInfo(for source: DocumentSource) -> LaTeXDocumentClassInfo {
-        let resources = LaTeXResources(source, access: resourceAccess(for: source), onDenied: {})
+        let resources = CompanionTextResources(source, access: resourceAccess(for: source), onDenied: {})
         return LaTeXConverter.documentClassInfo(
             TextDecoding.decode(source.data).text, documentURL: resources.file,
             readFile: resources.read, fileIdentity: resources.identity)
     }
 }
 
-private struct LaTeXResources {
+private struct CompanionTextResources {
     let file: URL?
     let access: LocalResourceAccess?
     let onDenied: () -> Void

@@ -117,7 +117,7 @@ enum MarkdownCallouts {
         preprocess(MarkdownSourceLines.unmapped(lines)).lines.joined(separator: "\n")
     }
 
-    static func preprocess(_ mapped: MarkdownSourceLines) -> MarkdownSourceLines {
+    static func preprocess(_ mapped: MarkdownSourceLines, referencesMarker: String? = nil) -> MarkdownSourceLines {
         let lines = mapped.lines
         var output = MarkdownSourceLines()
         var stack: [(length: Int, input: Int, output: Int)] = []
@@ -141,6 +141,23 @@ enum MarkdownCallouts {
                 } else {
                     output.append(line, from: mapped.origins[index])
                 }
+                continue
+            }
+            if let attributes = fencedAttributes(rest) {
+                let id = attributes.id.map { " id=\"\(HTML.escape($0))\"" } ?? ""
+                let classes = attributes.classes.joined(separator: " ")
+                let kind = attributes.classes.lazy.map { Kind(name: $0.lowercased()) }.first { $0.canonicalName != nil }
+                let opening = output.lines.count + 1
+                if let kind {
+                    output.append(
+                        "\n\(kind.opening(extraClasses: classes, attributes: id))\n", from: mapped.origins[index])
+                    output.append("\(kind.title(HTML.escape(kind.defaultTitle)))\n", from: mapped.origins[index])
+                } else {
+                    let attribute = classes.isEmpty ? "" : " class=\"\(HTML.escape(classes))\""
+                    output.append("\n<div\(attribute)\(id)>\n", from: mapped.origins[index])
+                }
+                if attributes.id == "refs", let referencesMarker { output.append(referencesMarker + "\n", from: []) }
+                stack.append((length, index, opening))
                 continue
             }
             let name = rest.prefix { $0 != " " && $0 != "\t" }
@@ -174,6 +191,22 @@ enum MarkdownCallouts {
             output.append("\n</div>\n", from: [])
         }
         return output
+    }
+
+    private static func fencedAttributes(_ rest: String) -> (classes: [String], id: String?)? {
+        guard rest.first == "{", rest.last == "}" else { return nil }
+        var classes: [String] = []
+        var id: String?
+        for part in rest.dropFirst().dropLast().split(whereSeparator: \.isWhitespace) {
+            guard part.count > 1 else { return nil }
+            let value = String(part.dropFirst())
+            switch part.first {
+            case ".": classes.append(value)
+            case "#" where id == nil: id = value
+            default: return nil
+            }
+        }
+        return classes.isEmpty && id == nil ? nil : (classes, id)
     }
 
     private struct LineContext: Sendable {

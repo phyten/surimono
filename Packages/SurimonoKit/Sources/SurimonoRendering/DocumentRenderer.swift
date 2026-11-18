@@ -201,6 +201,7 @@ public struct PaginationRequest: Sendable {
     public var drawsBackground = true
     public var rendersMermaid = false
     public var rendersDiagrams = false
+    public var collectsDiagrams = false
 }
 
 /// What the renderer adds to the pages of a text and what it reads from the text on the way.
@@ -238,6 +239,7 @@ public struct PreparedRender {
     public let smartRemovalCandidates: [SmartRemovalCandidate]
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
+    public var diagrams: [RenderedDiagram] = []
     public var unreadableDocumentURLs: [URL] = []
     public var binderDocuments: [URL: PDFDocument] = [:]
     public var binderPageStarts: [URL: Int] = [:]
@@ -300,6 +302,7 @@ public struct RenderResult {
     public let smartRemovalCandidates: [SmartRemovalCandidate]
     public let issues: [PrintIssue]
     public let changeMarks: [ChangeMark]
+    public let diagrams: [RenderedDiagram]
     public let facts: DocumentFacts?
     public let addedContentsPages: Int
     public let blankPages: Set<Int>
@@ -323,6 +326,7 @@ public struct RenderResult {
         smartRemovalCandidates = prepared.smartRemovalCandidates
         issues = prepared.issues
         changeMarks = prepared.changeMarks
+        diagrams = prepared.diagrams
         facts = prepared.facts
         addedContentsPages = prepared.addedContentsPages
         blankPages = prepared.blankPages
@@ -391,6 +395,7 @@ public final class DocumentRenderer {
         var binderPageSizes: [CGSize] = []
         var issues: [PrintIssue] = []
         var changeMarks: [ChangeMark] = []
+        var diagrams: [RenderedDiagram] = []
         var markRequests: [MarkdownMarkRequest] = []
         var hasInkStencil = false
         var finishing = FinishedPages()
@@ -456,7 +461,8 @@ public final class DocumentRenderer {
                     request.source, pageSize: request.pageSize, margins: request.margins,
                     allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
                     readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-                    rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams)
+                    rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
+                    collectsDiagrams: request.collectsDiagrams)
             }
         }
     }
@@ -647,6 +653,7 @@ public final class DocumentRenderer {
             } else {
                 var requiredFolderAccess: URL?
                 var issues: [PrintIssue] = []
+                var diagrams: [RenderedDiagram] = []
                 var binderOutput: BinderOutput?
                 var finishing = FinishedPages()
                 let document: PDFDocument
@@ -659,6 +666,7 @@ public final class DocumentRenderer {
                     unreadable = []
                     candidates = []
                     issues = output.issues
+                    diagrams = output.diagrams
                     requiredFolderAccess = output.requiredFolderAccess
                     finishing.blankPages = output.blankPages
                 } else if let images = source.images {
@@ -673,6 +681,7 @@ public final class DocumentRenderer {
                     }
                     requiredFolderAccess = result.requiredFolderAccess
                     issues = result.issues
+                    diagrams = result.diagrams
                     document = result.document
                     finishing = result.finishing
                     candidates =
@@ -689,6 +698,7 @@ public final class DocumentRenderer {
                     unreadable: unreadable, candidates: candidates)
                 logical.requiredFolderAccess = requiredFolderAccess
                 logical.issues = issues
+                logical.diagrams = diagrams
                 logical.unreadableDocuments = binderOutput?.unreadable ?? []
                 logical.binderDocuments = binderOutput?.documents ?? [:]
                 logical.binderPageStarts = binderOutput?.pageStarts ?? [:]
@@ -718,7 +728,7 @@ public final class DocumentRenderer {
                 summary: PrintSummary(plan: plan),
                 requiredFolderAccess: pages.requiredFolderAccess, unreadableImageURLs: pages.unreadable,
                 smartRemovalCandidates: pages.candidates, issues: pages.issues,
-                changeMarks: marks,
+                changeMarks: marks, diagrams: pages.diagrams,
                 unreadableDocumentURLs: pages.unreadableDocuments, binderDocuments: pages.binderDocuments,
                 binderPageStarts: pages.binderPageStarts,
                 facts: pages.finishing.facts, addedContentsPages: pages.finishing.contentsPageCount,
@@ -851,6 +861,18 @@ public final class DocumentRenderer {
         let noted = Logical(
             id: logicalSerial, document: output, viewDocument: output, unreadable: logical.unreadable,
             candidates: logical.candidates)
+        let places = plan.pages.indices.filter { plan.pages[$0] != .note }
+        noted.diagrams = logical.diagrams.compactMap {
+            guard places.indices.contains($0.pageIndex) else { return nil }
+            var diagram = $0
+            diagram.pageIndex = places[$0.pageIndex]
+            if output !== document {
+                diagram.rect = DiagramGeometry.redrawn(
+                    diagram.rect, on: document.page(at: diagram.pageIndex),
+                    shift: settings.layout.swapsSides(onPage: diagram.pageIndex) ? shift : 0)
+            }
+            return diagram
+        }
         noted.requiredFolderAccess = logical.requiredFolderAccess
         noted.unreadableDocuments = logical.unreadableDocuments
         // A text already counted its issues with the notes in place.
@@ -895,6 +917,7 @@ public final class DocumentRenderer {
         var issues: [PrintIssue] = []
         var requiredFolderAccess: URL?
         var blankPages: Set<Int> = []
+        var diagrams: [RenderedDiagram] = []
     }
 
     private func binder(_ children: [DocumentSource], settings: RenderSettings) async throws -> BinderOutput {
@@ -951,6 +974,13 @@ public final class DocumentRenderer {
                 if let url = child.fileURL {
                     output.documents[url] = document
                     if document.pageCount > 0 { output.pageStarts[url] = offset }
+                }
+                let firstNumber = output.diagrams.last?.number ?? 0
+                output.diagrams += prepared.diagrams.map {
+                    var diagram = $0
+                    diagram.pageIndex += offset
+                    diagram.number += firstNumber
+                    return diagram
                 }
                 let prefix = "\(key):\(occurrence):"
                 output.issues += prepared.issues.map { issue in
@@ -1153,18 +1183,13 @@ public final class DocumentRenderer {
                 } onCancel: {
                     conversion.cancel()
                 }
-            } else if source.format == .markdown, !settings.markdownChanges.isEmpty {
-                fragment =
-                    MarkdownConverter.convertWithSourceMap(
-                        try Self.decodedText(source.data), pageBreakLine: settings.finish.breaks.customLine,
-                        proof: settings.finish.proof
-                    ).fragment
             } else {
                 guard
                     let themed = try Self.themedFragment(
                         source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
                         textWidthPoints: settings.textWidthPoints(in: settings.layout),
-                        access: access, onDenied: { needsFolderAccess = true },
+                        mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
+                        onDenied: { needsFolderAccess = true },
                         imageExists: { url in
                             if let access, !access.permits(url) {
                                 needsFolderAccess = true
@@ -1246,12 +1271,16 @@ public final class DocumentRenderer {
                         rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki]
                             .contains(
                                 source.format)
-                            && fragment.body.contains("class=\"mermaid-block\""), rendersDiagrams: true), source: source
+                            && fragment.body.contains("class=\"mermaid-block\""), rendersDiagrams: true,
+                        collectsDiagrams: settings.markdownChanges.isEmpty
+                            && DiagramGeometry.hasBlocks(in: fragment.body)),
+                    source: source
                 )
             }
             // Reader diagnostics describe the source as a whole and have no rectangle on a printed page.
             for (offset, detail) in fragment.readingIssues.enumerated() {
-                text.issues.append(PrintIssue(id: "latex-reader-\(offset)", kind: .latex, detail: detail))
+                let kind: PrintIssue.Kind = source.format == .markdown ? .bibliography : .latex
+                text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
             if needsFolderAccess { text.requiredFolderAccess = directory }
             text = try await finished(text, fragment: fragment, source: source, settings: settings)
@@ -1281,6 +1310,11 @@ public final class DocumentRenderer {
                 document: composed, preparationResult: text.preparationResult, pageRules: text.pageRules,
                 requiredFolderAccess: text.requiredFolderAccess ?? paper.requiredFolderAccess)
             result.issues = text.issues
+            result.diagrams = text.diagrams.map {
+                var diagram = $0
+                diagram.rect = DiagramGeometry.redrawn(diagram.rect, on: text.document.page(at: diagram.pageIndex))
+                return diagram
+            }
             result.finishing = text.finishing
             return result
         }
@@ -1351,10 +1385,33 @@ public final class DocumentRenderer {
             }
         }
         let document = Self.assembled(text.document, contents: contents, plan: plan, settings: settings)
+        let mirrored = Self.mirroringMargins(of: document, settings: settings, plan: notes != nil ? plan : nil)
         var finished = WebPaginator.Result(
-            document: Self.mirroringMargins(of: document, settings: settings, plan: notes != nil ? plan : nil),
+            document: mirrored,
             preparationResult: text.preparationResult, pageRules: text.pageRules,
             requiredFolderAccess: text.requiredFolderAccess)
+        if !text.diagrams.isEmpty {
+            // assembled() leaves note pages to noted(); the side of the paper already includes them.
+            let beforeNotes = plan.pages.filter { $0 != .note }
+            let bodyPlaces = beforeNotes.indices.filter {
+                if case .body = beforeNotes[$0] { return true }
+                return false
+            }
+            let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
+            finished.diagrams = text.diagrams.compactMap {
+                guard bodyPlaces.indices.contains($0.pageIndex) else { return nil }
+                var diagram = $0
+                diagram.pageIndex = bodyPlaces[$0.pageIndex]
+                if mirrored !== document {
+                    let shift =
+                        settings.layout.swapsSides(onPage: plan.bodyPageIndices[$0.pageIndex])
+                        ? margins.right - margins.left : 0
+                    diagram.rect = DiagramGeometry.redrawn(
+                        diagram.rect, on: document.page(at: diagram.pageIndex), shift: shift)
+                }
+                return diagram
+            }
+        }
         finished.issues = text.issues.map { issue in
             var issue = issue
             issue.pageNumber = issue.pageNumber.flatMap { number in
@@ -1525,7 +1582,7 @@ public final class DocumentRenderer {
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
             let directory = source.fileURL?.deletingLastPathComponent()
-            func request(_ body: String) -> PaginationRequest {
+            func request(_ body: String, collectsDiagrams: Bool = false) -> PaginationRequest {
                 let html = HTMLDocumentBuilder.build(
                     fragment: HTMLFragment(
                         body: body, title: fragment.title,
@@ -1542,7 +1599,9 @@ public final class DocumentRenderer {
                     rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki]
                         .contains(
                             source.format)
-                        && body.contains("class=\"mermaid-block\""), rendersDiagrams: true)
+                        && body.contains("class=\"mermaid-block\""), rendersDiagrams: true,
+                    collectsDiagrams: collectsDiagrams && settings.markdownChanges.isEmpty
+                        && DiagramGeometry.hasBlocks(in: body))
             }
             try Task.checkCancellation()
             let measured = try await paginateCheckingIssues(
@@ -1560,7 +1619,7 @@ public final class DocumentRenderer {
                 let placing = remaining
                 do {
                     let result = try await paginateCheckingIssues(
-                        request(plan.reservingHTML(groups: placing)), source: source
+                        request(plan.reservingHTML(groups: placing), collectsDiagrams: true), source: source
                     ) {
                         try FootnotePlacer.compose($0, plan: plan, groups: placing, margins: margins)
                     }
@@ -1591,7 +1650,8 @@ public final class DocumentRenderer {
             preparationScript: PrintIssueAnchors.following(
                 request.preparationScript, themed: source.format.usesPrintTheme),
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
-            rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams)
+            rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
+            collectsDiagrams: request.collectsDiagrams)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
@@ -1617,6 +1677,10 @@ public final class DocumentRenderer {
             document: document,
             preparationResult: preparation.map { $0.previous } ?? output.preparationResult,
             pageRules: output.pageRules, requiredFolderAccess: output.requiredFolderAccess)
+        if let pass = output.diagramPass {
+            result.diagrams = (try? pass.diagrams(transform: transform)) ?? []
+            try Task.checkCancellation()
+        }
         result.issues = PrintIssueAnchors.extract(from: document, issues: issues) + output.issues
         return result
     }
@@ -1689,7 +1753,8 @@ public final class DocumentRenderer {
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
-        textWidthPoints: Double? = nil, access: LocalResourceAccess? = nil, onDenied: @escaping () -> Void = {},
+        textWidthPoints: Double? = nil, mapsMarkdownSource: Bool = false, access: LocalResourceAccess? = nil,
+        onDenied: @escaping () -> Void = {},
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
         let access =
@@ -1699,7 +1764,9 @@ public final class DocumentRenderer {
                 : nil)
         return switch source.format {
         case .markdown:
-            MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
+            try markdownFragment(
+                source, pageBreakLine: pageBreakLine, proof: proof, mapsSource: mapsMarkdownSource,
+                access: access, onDenied: onDenied)
         case .graphviz, .plantuml:
             DiagramConverter.convert(try decodedText(source.data), format: source.format)
         case .quarto, .rMarkdown:
