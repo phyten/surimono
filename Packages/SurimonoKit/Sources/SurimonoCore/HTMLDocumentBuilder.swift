@@ -17,7 +17,7 @@ public enum HTMLDocumentBuilder {
             <!doctype html>
             <html lang="\(HTML.escape(language.code))"\(direction)>
             <head>
-            <meta charset="utf-8">
+            <meta charset="utf-8">\(offlinePolicy(for: format))
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
             \(styleSheet(theme: theme, textScale: textScale, code: code, language: language.code))
@@ -28,6 +28,16 @@ public enum HTMLDocumentBuilder {
             </body>
             </html>
             """
+    }
+
+    /// The document and its separate paper page both load theme CSS. Permit local resources and the bundled
+    /// diagram engine's WebAssembly, while the renderer keeps document JavaScript disabled.
+    static func offlinePolicy(for format: DocumentFormat) -> String {
+        guard format == .quarto || format == .rMarkdown else { return "" }
+        let policy =
+            "default-src 'none'; img-src file: data: blob:; font-src file: data:; "
+            + "style-src 'unsafe-inline' file: data:; script-src 'wasm-unsafe-eval'; form-action 'none'"
+        return "<meta http-equiv=\"Content-Security-Policy\" content=\"\(policy)\">"
     }
 
     public static func language(for fragment: HTMLFragment, fallback: String = "ja") -> DocumentLanguage {

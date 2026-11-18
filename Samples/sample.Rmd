@@ -1,0 +1,53 @@
+---
+title: Paper measurements
+author:
+  - name: Workshop team
+date: "2026-01-01"
+lang: en
+output: pdf_document
+bibliography: references.bib
+---
+
+# Measurements {#sec-measure}
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+The plot in \@ref(fig:widths) compares the widths. The inline estimate is `r mean(widths)`.
+
+```{r widths, fig.cap="Measured widths"}
+plot(c(2, 4, 6))
+```
+
+```{r, echo=TRUE, eval=FALSE}
+widths <- c(2, 4, 6)
+```
+
+```{.r filename="summary.R"}
+summary(widths)
+```
+
+\newpage
+
+| Width | Unit |
+|------:|:-----|
+|     2 | mm   |
+
+: Paper width {#tbl-width}
+
+See @tbl-width. The source citation is [@workshop].
+
+::: {.aside}
+An [underlined note]{.underline} remains visible in print.[^unit]
+:::
+
+[^unit]: All widths use the same unit.
+
+```{=html}
+<p>Measurements are illustrative.</p>
+```
+
+::: {.notes}
+Presenter cue for the slide deck.
+:::

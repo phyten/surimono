@@ -6,7 +6,12 @@ public enum SyntaxHighlighter {
 
     /// HTML with tokens wrapped in spans, or nil for an unknown language or code too large to highlight.
     public static func highlight(_ code: String, language: String) -> String? {
-        guard code.utf16.count <= maximumUTF16Count, let id = canonicalLanguage(for: language) else { return nil }
+        guard let id = canonicalLanguage(for: language) else { return nil }
+        return highlight(code, canonicalID: id)
+    }
+
+    static func highlight(_ code: String, canonicalID id: String) -> String? {
+        guard code.utf16.count <= maximumUTF16Count else { return nil }
         var scanner = SyntaxScanner(code, language: SyntaxLanguage.definition(id))
         return scanner.render()
     }

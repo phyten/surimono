@@ -11,7 +11,8 @@ struct DocumentFormatTests {
             ("html", .html), ("htm", .html), ("pdf", .pdf), ("csv", .csv), ("zip", .zipArchive),
             ("png", .image), ("jpg", .image), ("jpeg", .image), ("gif", .image),
             ("tif", .image), ("tiff", .image), ("heic", .image), ("webp", .image),
-            ("DJ", .djot), ("djot", .djot), ("textile", .textile), ("adoc", .asciidoc), ("asciidoc", .asciidoc),
+            ("qmd", .quarto), ("Rmd", .rMarkdown), ("Rmarkdown", .rMarkdown), ("DJ", .djot), ("djot", .djot),
+            ("textile", .textile), ("adoc", .asciidoc), ("asciidoc", .asciidoc),
             ("ipynb", .notebook), ("tex", .latex), ("latex", .latex),
             ("ltx", .latex),
         ])
@@ -36,7 +37,8 @@ struct DocumentFormatTests {
             (UTType.surimonoMarkdown, DocumentFormat.markdown), (.surimonoOrg, .org),
             (.plainText, .plainText), (.html, .html), (.pdf, .pdf), (.image, .image),
             (.png, .image), (.jpeg, .image), (.commaSeparatedText, .csv), (.zip, .zipArchive),
-            (.surimonoLaTeX, .latex), (.surimonoAsciiDoc, .asciidoc), (.surimonoDjot, .djot),
+            (.surimonoLaTeX, .latex), (.surimonoAsciiDoc, .asciidoc), (.surimonoQuarto, .quarto),
+            (.surimonoRMarkdown, .rMarkdown), (.surimonoDjot, .djot),
             (.surimonoTextile, .textile), (.surimonoNotebook, .notebook),
             (.surimonoGraphviz, .graphviz), (.surimonoPlantUML, .plantuml),
         ])
@@ -62,7 +64,8 @@ struct DocumentFormatTests {
     func providesDisplayNames() {
         #expect(
             DocumentFormat.allCases.map(\.displayName) == [
-                "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV", "ZIP", "LaTeX", "AsciiDoc", "Djot",
+                "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV", "ZIP", "LaTeX", "AsciiDoc", "Quarto",
+                "R Markdown", "Djot",
                 "Textile",
                 "Jupyter Notebook",
                 "Graphviz", "PlantUML",

@@ -42,6 +42,20 @@ struct SurimonoDocumentTests {
         #expect(document.data == bytes)
     }
 
+    @Test("QuartoとR Markdownは拡張子を登録して原文を保持する", arguments: ["qmd", "Rmd", "rmarkdown"])
+    func opensComputationalMarkdown(suffix: String) throws {
+        let expected: UTType = suffix == "qmd" ? .surimonoQuarto : .surimonoRMarkdown
+        let declared = try #require(UTType(filenameExtension: suffix))
+        #expect(declared == expected)
+        #expect(declared.conforms(to: .plainText))
+        let bytes = Data("紙".utf8)
+        let file = FileWrapper(regularFileWithContents: bytes)
+        file.preferredFilename = "sample." + suffix
+        let document = try SurimonoDocument(file: file, contentType: .plainText)
+        #expect(document.contentType == expected)
+        #expect(document.data == bytes)
+    }
+
     @Test("AsciiDocの拡張子と宣言型を照合し元のバイト列を保持する", arguments: ["adoc", "asciidoc"])
     func asciiDocFiles(suffix: String) throws {
         let type = try #require(UTType(filenameExtension: suffix))
@@ -125,6 +139,7 @@ struct SurimonoDocumentTests {
             Set(imported.compactMap { $0["UTTypeIdentifier"] as? String })
                 == Set([
                     UTType.surimonoMarkdown.identifier, UTType.surimonoOrg.identifier,
+                    UTType.surimonoQuarto.identifier, UTType.surimonoRMarkdown.identifier,
                     UTType.surimonoDjot.identifier, UTType.surimonoTextile.identifier,
                     UTType.surimonoAsciiDoc.identifier, UTType.surimonoLaTeX.identifier,
                     UTType.surimonoNotebook.identifier,

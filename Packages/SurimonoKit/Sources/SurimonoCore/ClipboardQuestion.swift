@@ -4,7 +4,8 @@ extension ClipboardTextKind {
     /// The kinds a reader can choose, in the order every list of them follows. Opening a URL is not built yet, so it
     /// is never offered.
     public static let choosable: [ClipboardTextKind] = [
-        .markdown, .org, .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml, .plainText,
+        .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook, .graphviz,
+        .plantuml, .plainText,
     ]
 
     /// The format a document of this kind opens as. A URL opens as text until the app can load the page it names.
@@ -14,6 +15,8 @@ extension ClipboardTextKind {
         case .org: .org
         case .html: .html
         case .latex: .latex
+        case .quarto: .quarto
+        case .rMarkdown: .rMarkdown
         case .djot: .djot
         case .textile: .textile
         case .asciidoc: .asciidoc

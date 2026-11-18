@@ -70,13 +70,16 @@ enum MarkupHTML {
         return try visit(body)
     }
 
-    static func listing(_ source: String, language: String?) -> String {
+    static func listing(_ source: String, language: String?, computational: Bool = false) -> String {
         guard let language, !language.isEmpty else { return "<pre><code>\(HTML.escape(source))</code></pre>" }
         if language == "mermaid" { return MermaidBlock.html(source) }
         if let format = DiagramConverter.format(language: language) {
             return DiagramConverter.block(source, format: format)
         }
-        let highlighted = SyntaxHighlighter.highlight(source, language: language)
+        let highlighted =
+            computational && ["r", "julia"].contains(language)
+            ? SyntaxHighlighter.highlight(source, canonicalID: language)
+            : SyntaxHighlighter.highlight(source, language: language)
         let cls = HTML.escape(language) + (highlighted == nil ? "" : " hl")
         return "<pre><code class=\"language-\(cls)\">\(highlighted ?? HTML.escape(source))</code></pre>"
     }

@@ -97,6 +97,8 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
+| Quarto（指定に従いコードを表示。実行結果は生成しません） | `.qmd` |
+| R Markdown（同上） | `.Rmd`, `.rmd`, `.Rmarkdown` |
 | Djot | `.dj`, `.djot` |
 | Textile | `.textile` |
 | AsciiDoc | `.adoc`, `.asciidoc` |
