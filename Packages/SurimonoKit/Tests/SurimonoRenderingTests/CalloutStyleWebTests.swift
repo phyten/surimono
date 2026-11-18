@@ -24,21 +24,23 @@ struct CalloutStyleWebTests {
         return try #require(result.preparationResult)
     }
 
-    private func sheets() throws -> String {
-        let themes = try PrintThemeLibrary.load().filter(\.isBuiltIn).map { [$0.id, $0.css] }
-        return String(decoding: try JSONEncoder().encode(themes), as: UTF8.self)
-    }
-
     @Test("全テーマの札の中のリンク・強調・コードは札の文字色のまま地を持たない")
     func inlineMarkupKeepsTheTagInk() async throws {
+        let themes = try PrintThemeLibrary.load().filter(\.isBuiltIn)
+        let sheets = themes.map { theme in
+            let format = theme.formats?.first ?? .markdown
+            return [theme.id, theme.css, "format-\(format.rawValue)"]
+        }
+        let encoded = String(decoding: try JSONEncoder().encode(sheets), as: UTF8.self)
+        let callouts = ["note", "tip", "warning", "danger", "quote", "recipe"]
         let title = "[リンク](https://example.com) **強調** *斜体* `コード` ==印=="
-        let markdown = ["note", "tip", "warning", "danger", "quote", "recipe"]
-            .map { "> [!\($0)] \(title)\n> 本文\n" }.joined(separator: "\n")
+        let markdown = callouts.map { "> [!\($0)] \(title)\n> 本文\n" }.joined(separator: "\n")
         let script = """
             const style = document.querySelector('style');
             const failures = [];
             let checked = 0;
-            for (const [id, css] of \(try sheets())) {
+            for (const [id, css, format] of \(encoded)) {
+              document.body.className = 'surimono ' + format;
               style.textContent = css;
               for (const title of document.querySelectorAll('.callout > .callout-title')) {
                 const ink = getComputedStyle(title).color;
@@ -54,8 +56,9 @@ struct CalloutStyleWebTests {
             return JSON.stringify({ checked, failures });
             """
         let result = try await report(markdown: markdown, script: script)
-        // 108 themes, 6 callouts and 5 kinds of markup.
-        #expect(result == #"{"checked":3240,"failures":[]}"#)
+        // Each built-in style, including format-limited ones, must cover all five elements in every title.
+        let expected = themes.count * callouts.count * 5
+        #expect(result == #"{"checked":\#(expected),"failures":[]}"#, "Callout checks: \(result)")
     }
 
     @Test("以前のクラスを併記した囲みは群の見た目になり、以前のクラスだけの HTML は注意の見た目になる")

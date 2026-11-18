@@ -44,6 +44,72 @@ struct PrintThemeRenderingTests {
         return (width, height, data)
     }
 
+    @Test("改ページ直後の整列数式の上付き文字が前の用紙に残らない", .timeLimit(.minutes(1)))
+    func displayInkAtPageBoundary() async throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex" })
+        // Put the alignment at the top of a sheet. Even a single painted pixel in
+        // the lower half of the preceding sheet is a leak across the print clip.
+        let forcedBreak = PrintTheme(
+            id: "math-boundary", name: "Test", css: theme.css + "\n.math-block { break-before: page; }")
+        let text = #"Before\begin{align*}f(x)&=x^3-3x+1,\\f'(x)&=3x^2-3.\end{align*}"#
+        let doc = try await render(text, theme: forcedBreak, format: .latex)
+        try #require(doc.pageCount == 2)
+        let page = try pixels(of: #require(doc.page(at: 0)))
+        let lowerHalf = page.width * (page.height / 2) * 4
+        #expect(!page.data[lowerHalf...].contains(where: { $0 < 240 }))
+        #expect(doc.page(at: 1)?.string?.contains("3") == true)
+    }
+
+    @Test("長い表の表題と見出しは最初の用紙に一度だけ刷られ、終端罫は最終行の下に一本だけ引かれる", .timeLimit(.minutes(1)))
+    func longtablePrintedHeader() async throws {
+        let rows = (1...130).map { "Data\($0) \\\\ " }.joined()
+        let tex =
+            #"\begin{longtable}{l}\caption{OnlyCaption}\\Heading\\\endfirsthead Heading\\\endhead \bottomrule\endfoot "#
+            + rows + #"\end{longtable}"#
+        let article = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        // Tint either form of closing stroke without adding a width or generating pseudo-element content.
+        // Its presence and position still depend entirely on the reader and the production style.
+        let tint = """
+            .latex-longtable :is(th, td) { border-bottom-color: red !important; }
+            .latex-longtable :is(th, td)::after {
+                color: red;
+                -webkit-print-color-adjust: exact;
+            }
+            """
+        let css = article.css + "\n" + tint
+        let doc = try await render(tex, theme: PrintTheme(id: article.id, name: article.name, css: css), format: .latex)
+        try #require(doc.pageCount >= 2)
+        for index in 0..<doc.pageCount {
+            let page = try #require(doc.page(at: index))
+            let text = try #require(page.string)
+            let expectedCount = index == 0 ? 1 : 0
+            #expect(text.ranges(of: "Heading").count == expectedCount, "page \(index + 1)")
+            #expect(text.ranges(of: "OnlyCaption").count == expectedCount, "page \(index + 1)")
+
+            let image = try pixels(of: page)
+            var ruleRows = IndexSet()
+            var lastTextRow = -1
+            for offset in stride(from: 0, to: image.data.count, by: 4) {
+                let red = image.data[offset]
+                let green = image.data[offset + 1]
+                let blue = image.data[offset + 2]
+                if red > 200 && green < 180 && blue < 180 {
+                    ruleRows.insert(offset / (image.width * 4))
+                } else if max(red, green, blue) < 100 {
+                    lastTextRow = offset / (image.width * 4)
+                }
+            }
+            if index == doc.pageCount - 1 {
+                #expect(text.contains("Data130"))
+                #expect(ruleRows.rangeView.count == 1)
+                #expect(lastTextRow >= 0)
+                #expect(try #require(ruleRows.first) > lastTextRow)
+            } else {
+                #expect(ruleRows.isEmpty, "page \(index + 1)")
+            }
+        }
+    }
+
     @Test("囲みの札と地とアイコンは印刷でも色のまま出る", .timeLimit(.minutes(1)))
     func calloutPrintsItsTagGroundAndIcon() async throws {
         let text = ":::warning 表題\n本文\n:::"

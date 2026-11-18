@@ -6,9 +6,11 @@ struct DefaultStyleChoices: View {
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
     var body: some View {
-        ForEach(library.themeCategories) { category in
+        let general = library.themes.filter { $0.supports(nil) }
+        ForEach(library.themeCategories.filter { category in general.contains { $0.category == category.id } }) {
+            category in
             Section {
-                ForEach(library.themes.filter { $0.category == category.id }) { theme in
+                ForEach(general.filter { $0.category == category.id }) { theme in
                     Text(verbatim: theme.displayName(language: language)).tag(theme.id)
                 }
             } header: {
@@ -16,7 +18,7 @@ struct DefaultStyleChoices: View {
             }
         }
         // Themes without a known category: the user's styles, or every theme if the catalog failed.
-        let others = library.themes.filter { theme in
+        let others = general.filter { theme in
             !library.themeCategories.contains { $0.id == theme.category }
         }
         if !others.isEmpty {

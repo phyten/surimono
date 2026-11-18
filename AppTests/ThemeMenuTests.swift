@@ -130,5 +130,18 @@ struct ThemeMenuTests {
         }
         #expect(first.id == "everyday")
         #expect(!sections.contains { $0.kind == .user })
+
+        let tex = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .latex, preferences: preferences, library: model.library)
+        tex.selectTheme("latex-report")
+        tex.toggleFavoriteTheme()
+        let latexSections = tex.themeMenu.sections
+        try #require(latexSections.count >= 4)
+        #expect(latexSections[0].themes.map(\.id) == ["latex-article", "latex-report", "latex-plain-ja"])
+        #expect(latexSections[1].kind == .recent)
+        #expect(latexSections[1].themes.first?.id == "latex-report")
+        #expect(latexSections[2].kind == .favorites)
+        #expect(latexSections[3].kind == .featured)
+        #expect(model.themeMenu.sections == sections)
     }
 }

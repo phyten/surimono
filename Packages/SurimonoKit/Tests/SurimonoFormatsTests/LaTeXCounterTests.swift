@@ -35,7 +35,9 @@ struct LaTeXCounterTests {
     @Test("refstepcounter は次のラベルにリンク先と独自の表示番号を渡す")
     func referenceCounter() {
         let html = body(#"\newcounter{x}\renewcommand{\thex}{X-\Alph{x}}\refstepcounter{x}\label{a}\ref{a}"#)
-        #expect(html.contains(##"<span id="counter-x-X-A"></span><a href="#counter-x-X-A">X-A</a>"##))
+        #expect(
+            html.contains(
+                ##"<span id="counter-x-X-A"></span><a class="latex-number-ref" href="#counter-x-X-A">X-A</a>"##))
     }
 
     @Test("節番号の再定義を見出し・下位の節・目次・参照に使う")
@@ -48,7 +50,7 @@ struct LaTeXCounterTests {
         #expect(html.contains(#"<h2 id="sec-S-IV"><span class="secnum">S-IV</span>Main</h2>"#))
         #expect(html.contains(##"<a href="#sec-S-IV"><span class="secnum">S-IV</span>Main</a>"##))
         #expect(html.contains(#"<span class="secnum">S-IV.1</span>Sub"#))
-        #expect(html.contains(##"<a href="#sec-S-IV">S-IV</a>"##))
+        #expect(html.contains(##"<a class="latex-number-ref" href="#sec-S-IV">S-IV</a>"##))
     }
 
     @Test("読まない分岐と未使用のマクロにある章は節の番号を変えない")
@@ -70,6 +72,86 @@ struct LaTeXCounterTests {
         #expect(html.contains("<p>2/2.0/2.0.0</p>"))
     }
 
+    @Test("report と book は章ごとに式・図・表・章付き定理・脚注を振り直し、前の章への参照を保つ", arguments: ["report", "book"])
+    func chapterCounters(_ documentClass: String) {
+        let contents = (1...2).map { chapter in
+            #"""
+            \chapter{Chapter \#(chapter)}
+            \begin{equation}a\label{eq\#(chapter)}\end{equation}
+            \begin{figure}\caption{Figure text}\label{fig\#(chapter)}\end{figure}
+            \begin{table}\caption{Table text}\label{tab\#(chapter)}\end{table}
+            \begin{thm}\label{thm\#(chapter)}Text\end{thm}
+            \begin{independent}Text\end{independent}
+            Text\footnote{\label{fn\#(chapter)}Note \#(chapter)}
+            """#
+        }.joined(separator: "\n")
+        let html = body(
+            #"""
+            \documentclass{\#(documentClass)}\newtheorem{thm}{Theorem}[chapter]\newtheorem{independent}{Result}
+            \begin{document}\tableofcontents\#(contents)
+            \eqref{eq1}/\ref{fig1}/\ref{tab1}/\ref{thm1}/\ref{fn1}
+            \eqref{eq2}/\ref{fig2}/\ref{tab2}/\ref{thm2}/\ref{fn2}
+            \end{document}
+            """#)
+        for chapter in 1...2 {
+            let n = "\(chapter).1"
+            #expect(html.contains("<span class=\"eqno\">(\(n))</span>"))
+            #expect(html.contains("Figure \(n)</span>"))
+            #expect(html.contains("Table \(n)</span>"))
+            #expect(html.contains(">Theorem \(n)</span>"))
+            #expect(html.contains(">Result \(chapter)</span>"))
+            #expect(html.contains("href=\"#eq-\(n)\">(\(n))</a>"))
+            for id in ["fig-\(n)", "tab-\(n)", "thm-\(chapter * 2 - 1)"] {
+                #expect(html.contains("href=\"#\(id)\">\(n)</a>"))
+            }
+            #expect(html.contains("<li class=\"latex-toc-chapter\"><a href=\"#sec-\(chapter)\">"))
+        }
+        for id in ["fn-1", "fn-repeat-2"] {
+            #expect(html.contains("<li id=\"\(id)\" value=\"1\">"))
+            #expect(html.contains("class=\"latex-number-ref\" href=\"#\(id)\">1</a>"))
+        }
+    }
+
+    @Test("章の前の図番号は章ゼロを出さず、章番号を外す指定と付録の章文字を尊重する")
+    func frontMatterAndAppendix() {
+        let html = body(
+            #"""
+            \documentclass{report}\counterwithout{table}{chapter}\begin{document}
+            \begin{figure}\caption{Front}\end{figure}\chapter{Main}\begin{table}\caption{One}\end{table}
+            \appendix\chapter{Data}\begin{figure}\caption{Appendix}\end{figure}\begin{table}\caption{Two}\end{table}
+            \end{document}
+            """#)
+        #expect(html.contains("Figure 1</span>: Front"))
+        #expect(html.contains("Figure A.1</span>: Appendix"))
+        #expect(html.contains("Table 2</span>: Two"))
+    }
+
+    @Test("前付け・本章・付録で脚注は独立し、別行の式と整列の各行が同じ章の式番号を使う")
+    func chapterNotesAndEquationRows() {
+        let html = body(
+            #"""
+            \documentclass{report}\begin{document}
+            Front\footnote{\label{nf}front note}\begin{align}a&=0\label{ef}\end{align}
+            \chapter{Main}Main\footnote{\label{nm}main note}
+            \begin{equation}b=1\label{em}\end{equation}
+            \begin{align}c&=2\label{r1}\\d&=3\label{r2}\end{align}
+            \appendix\chapter{Data}Appendix\footnote{\label{na}appendix note}
+            \begin{align}e&=4\label{ra}\\f&=5\notag\end{align}
+            \begin{multline}g\\=6\label{ma}\end{multline}
+            \eqref{ef}/\eqref{em}/\eqref{r1}/\eqref{r2}/\eqref{ra}/\eqref{ma}
+            \ref{nf}/\ref{nm}/\ref{na}\end{document}
+            """#)
+        for n in ["1", "1.1", "1.2", "1.3", "A.1", "A.2"] {
+            #expect(html.contains("id=\"eq-\(n)\""))
+            #expect(html.contains("href=\"#eq-\(n)\">(\(n))</a>"))
+            #expect(html.contains(">(\(n))</span>"))
+        }
+        for (id, text) in [("fn-1", "front note"), ("fn-repeat-2", "main note"), ("fn-repeat-3", "appendix note")] {
+            #expect(html.contains("<li id=\"\(id)\" value=\"1\"><p>\(text)</p>"))
+            #expect(html.contains("class=\"latex-number-ref\" href=\"#\(id)\">1</a>"))
+        }
+    }
+
     @Test("節ごとの式番号を式の横と参照に出す")
     func numberWithinEquation() {
         let html = body(
@@ -80,7 +162,10 @@ struct LaTeXCounterTests {
             """#)
         #expect(html.contains(#"<span class="eqno">(1.2)</span>"#))
         #expect(html.contains(#"<span class="eqno">(2.1)</span>"#))
-        #expect(html.contains(##"<a href="#eq-1.1">(1.1)</a>/<a href="#eq-2.1">(2.1)</a>"##))
+        #expect(
+            html.contains(
+                ##"<a class="latex-number-ref" href="#eq-1.1">(1.1)</a>/<a class="latex-number-ref" href="#eq-2.1">(2.1)</a>"##
+            ))
     }
 
     @Test("独自の式番号を数式と整列の行および参照に出す")
@@ -92,14 +177,17 @@ struct LaTeXCounterTests {
             \eqref{b}/\eqref{d}
             """#)
         #expect(html.contains(#"<span class="eqno">(Q-I)</span>"#))
-        #expect(html.contains(##"<a href="#eq-Q-II">(Q-II)</a>/<a href="#eq-Q-III">(Q-III)</a>"##))
+        #expect(
+            html.contains(
+                ##"<a class="latex-number-ref" href="#eq-Q-II">(Q-II)</a>/<a class="latex-number-ref" href="#eq-Q-III">(Q-III)</a>"##
+            ))
         #expect(!html.contains("math-error"))
     }
 
     @Test("独自の式番号に含まれる特殊文字を整列のタグで文字として刷る")
     func equationTagPunctuation() {
-        let html = body(#"\renewcommand\theequation{\{A\%\#\}-\arabic{equation}}\begin{align}x&=1\end{align}"#)
-        #expect(html.contains(#"\tag{\{A\%\#\}-1}"#))
+        let html = body(##"\renewcommand\theequation{\{A\%\#\}-\arabic{equation}}\begin{align}x&=1\end{align}"##)
+        #expect(html.contains("({A%#}-1)</span>"))
         #expect(!html.contains("math-error"))
     }
 
@@ -107,7 +195,9 @@ struct LaTeXCounterTests {
     func listingFloat() {
         let html = body(#"\begin{listing}\caption{Sample}\label{code}\end{listing}\Cref{code}/\nameref{code}"#)
         #expect(html.contains("Listing 1</span>: Sample"))
-        #expect(html.contains(##"<a href="#listing-1">Listing 1</a>/<a href="#listing-1">Sample</a>"##))
+        #expect(
+            html.contains(
+                ##"<a class="latex-number-ref" href="#listing-1">Listing 1</a>/<a href="#listing-1">Sample</a>"##))
     }
 
     @Test("独自の図表番号をキャプションと参照に使う", arguments: [("figure", "Figure"), ("table", "Table")])
@@ -134,7 +224,10 @@ struct LaTeXCounterTests {
     @Test("番号を振り直しても先のラベルと次のラベルのリンク先が重ならない")
     func repeatedNumberIDs() {
         let html = body(#"\section{One}\label{a}\setcounter{section}{0}\section{Two}\label{b}\ref{a}/\ref{b}"#)
-        #expect(html.contains(##"<a href="#sec-1">1</a>/<a href="#sec-1-1">1</a>"##))
+        #expect(
+            html.contains(
+                ##"<a class="latex-number-ref" href="#sec-1">1</a>/<a class="latex-number-ref" href="#sec-1-1">1</a>"##)
+        )
     }
 
     @Test("最初の項目の前と項目の途中で enumerate のカウンターを設定できる")
@@ -153,7 +246,10 @@ struct LaTeXCounterTests {
             \end{subequations}\begin{equation}c\end{equation}\ref{group}/\ref{a}/\ref{b}
             """#)
         #expect(html.contains(#"<span class="eqno">(4)</span>"#))
-        #expect(html.contains(##"<a href="#eq-3">3</a>/<a href="#eq-3a">3a</a>/<a href="#eq-3b">3b</a>"##))
+        #expect(
+            html.contains(
+                ##"<a class="latex-number-ref" href="#eq-3">3</a>/<a class="latex-number-ref" href="#eq-3a">3a</a>/<a class="latex-number-ref" href="#eq-3b">3b</a>"##
+            ))
     }
 
     @Test("未宣言の定理・補題環境が独立した番号を持つ")

@@ -117,7 +117,16 @@ extension LaTeXDocument {
                         of: #"</?a\b[^>]*>"#, with: "", options: .regularExpression) ?? "…"
             }
             // Pagination comes later. Show the object's number for \pageref and mark the link for a future page lookup.
-            let attribute = command == "pageref" ? " class=\"latex-pageref\"" : ""
+            let attribute: String
+            if command == "pageref" {
+                attribute = " class=\"latex-pageref\""
+            } else if command == "nameref" || command == "namecref" || reference.text != nil {
+                attribute = ""
+            } else {
+                // A counter reference keeps its upright form inside an italic theorem, regardless of
+                // the target's kind or the author's choice of digits, letters, or Roman numerals.
+                attribute = " class=\"latex-number-ref\""
+            }
             html += "<a\(attribute) href=\"#\(HTML.escape(target.id))\">\(text)</a>"
         }
         return html
@@ -212,6 +221,7 @@ extension LaTeXDocument {
         let display: Bool
         let fallback: String
         let macros: String
+        let numbers: [String?]
     }
 
     private static let mathReference = try? NSRegularExpression(pattern: #"\\(eqref|ref)\s*\{([^{}]*)\}"#)
@@ -233,8 +243,22 @@ extension LaTeXDocument {
             cursor = NSMaxRange(match.range)
         }
         latex += source.substring(from: cursor)
-        return MathRenderer.html(latex, display: formula.display, macros: formula.macros)
-            ?? MathRenderer.fallback(formula.fallback, display: formula.display)
+        return mathHTML(
+            latex, display: formula.display, macros: formula.macros, source: formula.fallback, numbers: formula.numbers)
+    }
+
+    /// Failed equations keep their source on paper. Limit the diagnostic excerpts so a damaged
+    /// document cannot fill the print check panel with a second copy of its entire math source.
+    func mathHTML(_ latex: String, display: Bool, macros: String, source: String, numbers: [String?]) -> String {
+        if let rendered = MathRenderer.html(latex, display: display, macros: macros, rowNumberHTML: numbers) {
+            return rendered
+        }
+        let issue = (isJapanese ? "数式を描けません: " : "Formula could not be typeset: ") + String(source.prefix(100))
+        if !seenFormulaIssues.contains(issue), reserveExpansion(characters: issue.utf8.count) {
+            seenFormulaIssues.insert(issue)
+            failedFormulas.append(issue)
+        }
+        return MathRenderer.fallback(source, display: display)
     }
 }
 

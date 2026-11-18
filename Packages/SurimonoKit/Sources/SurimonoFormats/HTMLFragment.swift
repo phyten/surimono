@@ -6,12 +6,17 @@ public struct HTMLFragment: Equatable, Sendable {
     public var language: String?
     /// Document-level diagnostics that have no position on a printed page.
     public var readingIssues: [String]
+    public var latexClass: LaTeXDocumentClassInfo?
 
-    public init(body: String, title: String? = nil, language: String? = nil, readingIssues: [String] = []) {
+    public init(
+        body: String, title: String? = nil, language: String? = nil, readingIssues: [String] = [],
+        latexClass: LaTeXDocumentClassInfo? = nil
+    ) {
         self.body = body
         self.title = title
         self.language = language
         self.readingIssues = readingIssues
+        self.latexClass = latexClass
     }
 }
 

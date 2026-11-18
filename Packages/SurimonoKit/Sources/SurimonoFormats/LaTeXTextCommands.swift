@@ -25,19 +25,25 @@ extension LaTeXDocument {
         return nil
     }
 
-    /// Let the ordered list supply sequential numbers, overriding the marker only for a jump or a symbolic number.
+    /// Keep the printed number on the list item as well as its anchor. The class styles can lift this
+    /// exact mark into a superscript, including jumps, resets, and symbolic title acknowledgements.
     func footnoteSection() -> String {
         guard !footnotes.isEmpty else { return "" }
-        var expected = 1
         let items = footnotes.map { note in
             let value = Int(note.number)
-            let attribute =
-                value.map { $0 == expected ? "" : " value=\"\($0)\"" }
-                ?? " style=\"list-style:none\""
-            let previous = value ?? expected
-            expected = previous == Int.max ? previous : previous + 1
-            let label = value == nil ? HTML.escape(note.number) + " " : ""
-            return "<li id=\"\(note.id)\"\(attribute)>\(label)\(note.html ?? "")</li>\n"
+            let attribute = value.map { " value=\"\($0)\"" } ?? " style=\"list-style:none\""
+            var content = note.html ?? ""
+            if value == nil {
+                // A superscript before a block paragraph takes a line of its own. Put the mark on the
+                // first text baseline, including when the note starts with an explicitly unindented paragraph.
+                let mark = "<sup class=\"latex-symbolic-note\">\(HTML.escape(note.number))</sup>&nbsp;"
+                if content.hasPrefix("<p>") || content.hasPrefix("<p "), let tagEnd = content.firstIndex(of: ">") {
+                    content.insert(contentsOf: mark, at: content.index(after: tagEnd))
+                } else {
+                    content = mark + content
+                }
+            }
+            return "<li id=\"\(note.id)\"\(attribute)>\(content)</li>\n"
         }.joined()
         return "<section class=\"footnotes\">\n<ol>\n\(items)</ol>\n</section>\n"
     }
@@ -89,7 +95,7 @@ extension LaTeXReader {
         case "endgraf": paragraphBreak()
         case "ensuremath":
             let source = argument() ?? ""
-            appendHTML(formula(source, display: false, source: source))
+            appendInlineFormula(source, source: source)
         case "texorpdfstring":
             let tex = argument() ?? ""
             _ = argument()
@@ -108,7 +114,14 @@ extension LaTeXReader {
             slot = pending
         } else {
             // Reserve the number before reading the note's own text so a note inside it numbers after the outer one.
-            let number = explicit ?? stepCounter("footnote")
+            let number: String
+            if command == "thanks" && document.makingTitle {
+                // Title acknowledgements have their own symbolic series, independent of body footnotes.
+                document.titleNoteCount += 1
+                number = LaTeXSymbols.format(document.titleNoteCount, as: "fnsymbol")
+            } else {
+                number = explicit ?? stepCounter("footnote")
+            }
             slot = document.footnotes.count
             let candidate = Int(number).map { "fn-\($0)" } ?? "fn-symbol-\(slot + 1)"
             let id = document.usedNoteIDs.insert(candidate).inserted ? candidate : "fn-repeat-\(slot + 1)"

@@ -12,6 +12,17 @@ struct LaTeXReferenceTests {
         return body.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
     }
 
+    @Test("斜体の定理から節・表を指す番号は立体、見出しの名前とリンクの指定文字は本文の書体を使う")
+    func uprightCounterReferences() {
+        let html = LaTeXConverter.convert(
+            #"\section{Topic}\label{s}\begin{table}\caption{Data}\label{t}\end{table}\begin{theorem}\ref{s}/\ref{t}/\nameref{s}/\hyperref[t]{custom}\end{theorem}"#
+        ).body
+        #expect(
+            html.contains(
+                ##"<a class="latex-number-ref" href="#sec-1">1</a>/<a class="latex-number-ref" href="#tab-1">1</a>/<a href="#sec-1">Topic</a>/<a href="#tab-1">custom</a>"##
+            ))
+    }
+
     @Test("欧文の図への参照には種類と単数・複数・範囲を付ける")
     func englishFigures() {
         let source = #"\cref{f1};\Cref{f1,f2};\crefrange{f1}{f3};\namecref{f1};\labelcref{f1,f2}"# + figures
@@ -82,7 +93,7 @@ struct LaTeXReferenceTests {
         #expect(!html.contains("math-error"))
         #expect(!html.contains(#"\label"#))
         #expect(html.contains("id=\"eq-t1\""))
-        #expect(html.contains("<a href=\"#eq-t1\">(1)</a>"))
+        #expect(html.contains("<a class=\"latex-number-ref\" href=\"#eq-t1\">(1)</a>"))
     }
 
     @Test("式中で前方参照した番号を数式の文字として組む")

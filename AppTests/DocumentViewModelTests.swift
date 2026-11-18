@@ -203,7 +203,12 @@ struct DocumentViewModelTests {
             let model = DocumentViewModel(
                 data: Data(), fileURL: nil, format: format, preferences: preferences, library: library)
             let settings = try #require(model.renderSettings)
-            #expect(settings.theme.id == (format.usesPrintTheme ? "mincho" : "standard"))
+            // LaTeX opens in its class style until the document has a saved choice.
+            if format == .latex {
+                #expect(settings.theme.id == "latex-article")
+            } else {
+                #expect(settings.theme.id == (format.usesPrintTheme ? "mincho" : "standard"))
+            }
             #expect(settings.preset.id == (format.usesHTMLPreset ? "clean" : "none"))
             #expect(settings.allowsJavaScriptInHTML)
             #expect(settings.options.marginsInMillimeters == 12)

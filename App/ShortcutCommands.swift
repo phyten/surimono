@@ -45,7 +45,7 @@ extension DocumentViewModel {
     func shuffleComparison() {
         guard mode == .compare, usesPrintTheme else { return }
         let group = themeMenu.sections.first { $0.id == compareFilterID }?.themes.map(\.id) ?? []
-        let pool = group.count > 3 ? group : library.themes.filter(\.isBuiltIn).map(\.id)
+        let pool = group.count > 3 ? group : availableThemes.filter(\.isBuiltIn).map(\.id)
         var generator = SystemRandomNumberGenerator()
         themeComparison?.shuffle(from: pool, using: &generator)
     }

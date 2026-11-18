@@ -1,0 +1,4 @@
+/* In article the title, abstract and first section share the first sheet. */
+.latex-title-block { break-after: auto; page-break-after: auto; }
+body { word-spacing: 0.083em; }
+.latex-title-block h1 { letter-spacing: -0.02em; }

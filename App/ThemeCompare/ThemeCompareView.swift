@@ -126,16 +126,17 @@ struct ThemeCompareView: View {
     }
 
     private var filters: [(id: String, title: String)] {
-        [
+        let groups = model.themeGroups
+        func filter(_ group: PrintThemeMenu.Section) -> (id: String, title: String) {
+            switch group.kind {
+            case .category(let category): (group.id, category.displayName(language: model.language))
+            default: (group.id, String(localized: "My Styles"))
+            }
+        }
+        return groups.filter(\.isFormatSpecific).map(filter) + [
             ("featured", String(localized: "Suggested")), ("favorites", String(localized: "Favorites")),
             ("recent", String(localized: "Recent")),
-        ]
-            + model.themeGroups.map { group in
-                switch group.kind {
-                case .category(let category): (group.id, category.displayName(language: model.language))
-                default: (group.id, String(localized: "My Styles"))
-                }
-            }
+        ] + groups.filter { !$0.isFormatSpecific }.map(filter)
     }
 
     private func themes(for filterID: String) -> [PrintTheme] {

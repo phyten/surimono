@@ -4,7 +4,8 @@ import Foundation
 package enum LaTeXSymbols {
     /// Control words that stand for one piece of text.
     static let text: [String: String] = [
-        "LaTeX": "LaTeX", "LaTeXe": "LaTeX2ε", "TeX": "TeX", "ldots": "…", "dots": "…", "textellipsis": "…",
+        "LaTeX": "LaTeX", "LaTeXe": "LaTeX2ε", "TeX": "TeX", "BibTeX": "BibTeX", "ldots": "…", "dots": "…",
+        "textellipsis": "…",
         "ss": "ß", "ae": "æ", "AE": "Æ", "oe": "œ", "OE": "Œ", "o": "ø", "O": "Ø", "aa": "å", "AA": "Å", "l": "ł",
         "L": "Ł", "i": "ı", "j": "ȷ", "copyright": "©", "textcopyright": "©", "textregistered": "®",
         "texttrademark": "™", "S": "§", "P": "¶", "dag": "†", "ddag": "‡", "textdagger": "†", "textdaggerdbl": "‡",
@@ -21,6 +22,21 @@ package enum LaTeXSymbols {
         "expandafter": "", "phantomsection": "", "frenchspacing": "", "nonfrenchspacing": "",
         "allowbreak": "", "hline": "", "smallskip": "", "fussy": "", "sloppy": "",
     ]
+
+    /// Position letters, not an image, so the logo can inherit the paper's font and remain searchable.
+    static func logoHTML(_ name: String) -> String? {
+        let tex = "T<span class=\"latex-logo-e\">e</span>X"
+        let latex = "L<span class=\"latex-logo-a\">a</span>" + tex
+        let letters: String
+        switch name {
+        case "TeX": letters = tex
+        case "LaTeX": letters = latex
+        case "LaTeXe": letters = latex + "2<span class=\"latex-logo-epsilon\">ε</span>"
+        case "BibTeX": letters = "B<span class=\"latex-logo-ib\">ib</span>" + tex
+        default: return nil
+        }
+        return "<span class=\"latex-logo\">\(letters)</span>"
+    }
 
     /// Control symbols (a backslash and one non-letter).
     static let controlSymbols: [Character: String] = [
@@ -54,7 +70,7 @@ package enum LaTeXSymbols {
 
     /// Commands with one text argument and the markup around it. Box wrappers can also discard options and leading dimensions.
     static let wrappers: [String: (open: String, close: String, setup: Int?)] = [
-        "parbox": ("", "", 1), "raisebox": ("", "", 1), "resizebox": ("", "", 2), "scalebox": ("", "", 1),
+        "raisebox": ("", "", 1), "resizebox": ("", "", 2), "scalebox": ("", "", 1),
         "rotatebox": ("", "", 1), "foreignlanguage": ("", "", 1),
         "textbf": ("<strong>", "</strong>", nil), "textit": ("<em>", "</em>", nil), "emph": ("<em>", "</em>", nil),
         "textsl": ("<em>", "</em>", nil), "texttt": ("<code>", "</code>", nil), "underline": ("<u>", "</u>", nil),
@@ -74,7 +90,14 @@ package enum LaTeXSymbols {
         "rule": 2, "settowidth": 2, "allowdisplaybreaks": 0, "settoheight": 2, "settodepth": 2,
         "setlength": 2, "addtolength": 2, "setcounter": 2, "addtocounter": 2, "stepcounter": 1, "pagestyle": 1,
         "thispagestyle": 1, "pagenumbering": 1, "vspace": 1, "hspace": 1, "geometry": 1, "hypersetup": 1,
-        "lstset": 1, "graphicspath": 1, "bibliographystyle": 1, "usetikzlibrary": 1, "numberwithin": 2,
+        "graphicspath": 1, "bibliographystyle": 1, "usetikzlibrary": 1, "numberwithin": 2,
+        "fancyhf": 1, "fancyhead": 1, "fancyfoot": 1, "lhead": 1, "chead": 1, "rhead": 1, "lfoot": 1,
+        "cfoot": 1, "rfoot": 1, "fancyhfoffset": 1, "fancyheadoffset": 1, "fancyfootoffset": 1,
+        "newgeometry": 1, "restoregeometry": 0, "savegeometry": 1, "loadgeometry": 1,
+        "defaultfontfeatures": 1, "defaultjfontfeatures": 1, "addfontfeatures": 1, "addjfontfeatures": 1,
+        "ltjsetparameter": 1, "ltjglobalsetparameter": 1, "usepgfplotslibrary": 1,
+        "urlstyle": 1, "titlelabel": 1, "assignpagestyle": 2, "fancypagestyleassign": 2,
+        "ltjdefcharrange": 2, "setjafontscale": 1, "CJKfamily": 1, "addCJKfontfeatures": 1,
         "newtheoremstyle": 9, "captionsetup": 1, "setmainfont": 1, "setsansfont": 1, "setmonofont": 1,
         "setmainjfont": 1, "setsansjfont": 1, "newlength": 1, "colorlet": 2, "linespread": 1, "usepackage": 1,
         "RequirePackage": 1, "documentclass": 1, "label": 1, "index": 1, "glossary": 1, "nocite": 1,
@@ -223,10 +246,12 @@ package enum LaTeXSymbols {
     /// A TeX length as CSS: `0.5\textwidth` is 50%, `3cm` stays 3cm, `1em` stays 1em.
     static func cssLength(_ length: String) -> String? {
         let text = length.trimmingCharacters(in: .whitespaces)
+        guard text.utf8.count <= 64 else { return nil }
         for relative in ["\\textwidth", "\\linewidth", "\\columnwidth", "\\hsize"] where text.hasSuffix(relative) {
             let factor = text.dropLast(relative.count).trimmingCharacters(in: .whitespaces)
             let value = factor.isEmpty ? 1 : Double(factor)
-            return value.map { String(format: "%g%%", $0 * 100) }
+            guard let value, (value * 100).isFinite else { return nil }
+            return String(format: "%g%%", value * 100)
         }
         guard
             let match = text.range(

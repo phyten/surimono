@@ -77,15 +77,16 @@ extension LaTeXReader {
             document.stopsExpanding = true
             return
         }
-        let parent = (characters, index, macroFrameEnds, inPreamble)
+        let parent = (characters, index, macroFrameEnds, inPreamble, fileFrames, document.inputChain)
         defer {
-            (characters, index, macroFrameEnds, inPreamble) = parent
+            (characters, index, macroFrameEnds, inPreamble, fileFrames, document.inputChain) = parent
             document.depth -= 1
         }
         document.depth += 1
         characters = Array(source)
         index = 0
         macroFrameEnds = []
+        fileFrames = []
         if inPreamble {
             readPreamble()
         } else {

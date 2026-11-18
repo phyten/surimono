@@ -187,7 +187,7 @@ struct CodeStyleSheetTests {
                 == HTMLDocumentBuilder.styleSheet(theme: theme))
         let html = HTMLDocumentBuilder.build(fragment: fragment, format: .markdown, theme: theme)
         #expect(html.contains(fragment.body))
-        #expect(!html.contains("code-line"))
+        #expect(!html.contains(#"class="code-line""#))
     }
 
     @Test("重ねる順は 共通、テーマ、コードの配色、文字の大きさ")

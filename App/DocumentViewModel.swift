@@ -77,6 +77,13 @@ final class DocumentViewModel {
     private var renderedSourceURLs: [URL] = []
     private(set) var format: DocumentFormat
     private(set) var data: Data
+    private var classStyle: String?
+    var themeFormat: DocumentFormat? { binder == nil && imageBundle == nil ? format : nil }
+    var availableThemes: [PrintTheme] { library.themes.filter { $0.supports(themeFormat) } }
+
+    private var defaultThemeID: String {
+        library.defaultThemeID(preferred: preferences.themeID, format: themeFormat, classStyle: classStyle)
+    }
     let preferences: AppPreferences
     let library: UserLibrary
     var paperOrientation: PaperOrientation
@@ -477,7 +484,11 @@ final class DocumentViewModel {
         self.renderer = renderer
         layoutID = Self.defaultLayoutID(preferences)
         bookletBinding = nil
-        themeID = Self.defaultThemeID(preferences, library)
+        let themeFormat = binder == nil && imageBundle == nil ? format : nil
+        let source = themeFormat.map { DocumentSource(data: data, fileURL: fileURL, format: $0) }
+        let inferredStyle = UserLibrary.classStyle(for: source, renderer: renderer)
+        classStyle = inferredStyle
+        themeID = library.defaultThemeID(preferred: preferences.themeID, format: themeFormat, classStyle: inferredStyle)
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
@@ -497,7 +508,7 @@ final class DocumentViewModel {
             var settings = ThemeSpecimen.settings
             settings.layout = renderLayout
             settings.paperOrientation = paperOrientation
-            return (ThemeSpecimen.source(language: language), settings)
+            return (ThemeSpecimen.source(language: language, format: self.themeFormat), settings)
         }
         paper.onReadingJump = { [weak self] page in self?.recordReadingJump(to: page) }
         paper.onToast = { [weak self] toast in
@@ -546,6 +557,7 @@ final class DocumentViewModel {
 
     /// The user picked a print theme, so it also becomes the most recent one in every window's menu.
     func selectTheme(_ id: String) {
+        guard theme(id) != nil else { return }
         // The pages of a trial of the same theme stay on the paper until the document's own are laid out.
         if id != themeID, themeTrial.themeID == id, let document = themeTrial.document {
             chosenTrial = (id, codePaletteID, document, themeTrial.changeMarks, themeTrial.furniture)
@@ -580,7 +592,7 @@ final class DocumentViewModel {
     var themeMenu: PrintThemeMenu {
         PrintThemeMenu(
             themes: library.themes, categories: library.themeCategories, recentIDs: preferences.recentThemeIDs,
-            favoriteIDs: preferences.favoriteThemeIDs)
+            favoriteIDs: preferences.favoriteThemeIDs, format: themeFormat)
     }
     var layout: PrintLayout {
         (PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single).bound(effectiveBookletBinding)
@@ -620,7 +632,7 @@ final class DocumentViewModel {
 
     func renderSettings(in mode: ViewerMode) -> RenderSettings? {
         guard
-            let theme = library.themes.first(where: { $0.id == (usesPrintTheme ? themeID : "standard") })
+            let theme = self.theme(usesPrintTheme ? themeID : "standard")
                 ?? library.themes.first(where: { $0.id == "standard" }),
             let preset = library.presets.first(where: { $0.id == (usesHTMLPreset ? presetID : "none") })
                 ?? library.presets.first(where: { $0.id == "none" })
@@ -939,7 +951,10 @@ final class DocumentViewModel {
         if SandboxEnvironment.isSandboxed, folderLease == nil, let fileURL {
             folderLease = FolderAccess.shared.acquire(for: fileURL)
             web.allowedResourceFolders = folderLease.map { [$0.url] } ?? []
-            if folderLease != nil { web.reload() }
+            if folderLease != nil {
+                updateClassStyleAfterGrant()
+                web.reload()
+            }
         }
         web.onZoomChange = { [weak self] zoom in self?.webZoom = zoom }
         web.onPrintRequest = { [weak self] in self?.pageDidRequestPrint() }
@@ -1152,6 +1167,11 @@ final class DocumentViewModel {
     }
 
     private func applyReload(reloadsWeb: Bool) {
+        // Companion files can change the headings even when the main LaTeX source is byte-for-byte identical.
+        if format == .latex {
+            structureTask?.cancel()
+            readStructure = nil
+        }
         cancelAdditionalExport()
         pendingPrintIssue = nil
         dropSpot()
@@ -1172,16 +1192,21 @@ final class DocumentViewModel {
             webZoom = web.zoom
         }
         let updatedDirectives = currentDirectives
-        if updatedDirectives != documentDirectives {
+        let updatedClassStyle = UserLibrary.classStyle(for: themedSource, renderer: renderer)
+        if updatedDirectives != documentDirectives || updatedClassStyle != classStyle {
             let canApply =
                 !hasSavedSettings && !didCustomizeSinceLoad && !didResizeWindow
                 && rememberedSettings == settingsBaseline
             documentDirectives = updatedDirectives
+            classStyle = updatedClassStyle
             if canApply {
                 settingsBaseline = nil
                 notes = NotePages()
                 applyDirectiveDefaults()
                 settingsBaseline = rememberedSettings
+            } else if theme(themeID) == nil {
+                // Reinterpreting a feed may invalidate only its style. Preserve its other remembered choices.
+                themeID = defaultThemeID
             }
         }
         computeContentHash()
@@ -1258,7 +1283,7 @@ final class DocumentViewModel {
     }
 
     func reloadLibrary() {
-        if !library.themes.contains(where: { $0.id == themeID }) { themeID = "standard" }
+        if theme(themeID) == nil { themeID = defaultThemeID }
         codePaletteID = Self.knownCodePaletteID(codePaletteID, library) ?? CodePalette.matchesStyleID
         if !library.presets.contains(where: { $0.id == presetID }) { presetID = "none" }
         reload(reloadsWeb: false)
@@ -1266,6 +1291,8 @@ final class DocumentViewModel {
 
     func reopenAsText() {
         format = .plainText
+        classStyle = nil
+        if theme(themeID) == nil { themeID = defaultThemeID }
         renderer.clearCache()
         themeTrial.clear()
         themeSamples.invalidate()
@@ -1487,7 +1514,7 @@ final class DocumentViewModel {
     func takeOver(from source: DocumentViewModel) {
         keepsSettingsOverSaved = true
         if source.usesPrintTheme {
-            themeID = source.themeID
+            themeID = theme(source.themeID)?.id ?? defaultThemeID
             setTextScale(source.textScale)
             codePaletteID = source.codePaletteID
             codeBlock = source.codeBlock
@@ -1731,14 +1758,17 @@ final class DocumentViewModel {
         closeBandPopovers()
         isPrintFinishPresented = false
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
-        let featured = library.themes.filter { $0.featuredRank != nil }
+        let featured = availableThemes.filter { $0.featuredRank != nil }
             .sorted { ($0.featuredRank ?? 0) < ($1.featuredRank ?? 0) }.map(\.id)
-        if themeComparison?.current != themeID {
+        if themeComparison?.current != themeID
+            || themeComparison?.candidates.contains(where: { theme($0) == nil }) == true
+        {
             // The theme chosen since leads; the latest choices of an earlier visit follow, before the suggestions.
             themeComparison = ThemeComparison(
-                current: themeID, suggestions: (themeComparison?.candidates.reversed() ?? []) + featured)
+                current: themeID,
+                suggestions: (themeComparison?.candidates.reversed().filter { theme($0) != nil } ?? []) + featured)
         }
-        compareFilterID = "featured"
+        compareFilterID = themeMenu.sections.first(where: \.isFormatSpecific)?.id ?? "featured"
         rememberStageBandRoom()
         mode = .compare
         guard let window else { return }
@@ -2379,7 +2409,7 @@ final class DocumentViewModel {
     private func applicablePrintSettingSet(_ set: PrintSettingSet) -> PrintSettingSet {
         var set = set.applicable(
             to: Set(binder?.items.map(\.format) ?? [format]),
-            themeIDs: Set(library.themes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
+            themeIDs: Set(availableThemes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
         if !offersNotes { set.notes = nil }
         // A binder can hold texts and still have no page breaks or contents of its own to compare.
         if !finishAppliesToText { set.finish = nil }
@@ -2421,7 +2451,7 @@ final class DocumentViewModel {
     private var appDefaultSettings: DocumentSettings {
         DocumentSettings(
             view: defaultViewOptions ?? initialViewOptions, zoom: 1, layoutID: Self.defaultLayoutID(preferences),
-            themeID: usesPrintTheme ? Self.defaultThemeID(preferences, library) : nil,
+            themeID: usesPrintTheme ? defaultThemeID : nil,
             textScale: usesPrintTheme ? defaultTextScale : nil,
             presetID: usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
             printOptions: preferences.printOptions, paperOrientation: defaultPaperOrientation,
@@ -2466,7 +2496,7 @@ final class DocumentViewModel {
             resolved.printOptions?.linksMargins = true
         }
         if let style = documentDirectives.style,
-            let theme = library.themes.first(where: {
+            let theme = availableThemes.first(where: {
                 [$0.id, $0.name, $0.localizedNames["ja"] ?? ""].contains {
                     $0.caseInsensitiveCompare(style) == .orderedSame
                 }
@@ -2497,10 +2527,6 @@ final class DocumentViewModel {
     private static func defaultLayoutID(_ preferences: AppPreferences) -> String {
         PrintLayout.presets.contains(where: { $0.id == preferences.layoutID })
             ? preferences.layoutID : PrintLayout.a4Single.id
-    }
-
-    private static func defaultThemeID(_ preferences: AppPreferences, _ library: UserLibrary) -> String {
-        library.themes.contains(where: { $0.id == preferences.themeID }) ? preferences.themeID : "standard"
     }
 
     private static func defaultCodePaletteID(_ preferences: AppPreferences, _ library: UserLibrary) -> String {
@@ -2642,7 +2668,7 @@ final class DocumentViewModel {
         if let orientation = saved.paperOrientation { paperOrientation = orientation }
         bookletBinding = saved.bookletBinding
         if let id = saved.layoutID, PrintLayout.presets.contains(where: { $0.id == id }) { layoutID = id }
-        if let id = saved.themeID, library.themes.contains(where: { $0.id == id }) { themeID = id }
+        if let id = saved.themeID, theme(id) != nil { themeID = id }
         if let id = saved.codePaletteID.flatMap({ Self.knownCodePaletteID($0, library) }) { codePaletteID = id }
         if let block = saved.codeBlock { codeBlock = block }
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
@@ -2835,7 +2861,7 @@ final class DocumentViewModel {
         paperOrientation = defaultPaperOrientation
         layoutID = Self.defaultLayoutID(preferences)
         bookletBinding = nil
-        themeID = Self.defaultThemeID(preferences, library)
+        themeID = defaultThemeID
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
         codeBlock = CodeBlockOptions()
         presetID = Self.defaultPresetID(preferences, library)
@@ -3171,6 +3197,18 @@ final class DocumentViewModel {
         return source
     }
 
+    private func updateClassStyleAfterGrant() {
+        guard themeFormat == .latex else { return }
+        // A newly readable preamble can set the document class. Change only an untouched default and
+        // its baseline, so granting permission alone creates no settings record.
+        let followsClass = !hasSavedSettings && !didCustomizeSinceLoad && themeID == classStyle
+        classStyle = UserLibrary.classStyle(for: themedSource, renderer: renderer)
+        if followsClass {
+            themeID = defaultThemeID
+            settingsBaseline?.themeID = themeID
+        }
+    }
+
     func requestFolderAccess() {
         guard SandboxEnvironment.isSandboxed, fileURL != nil || binder != nil, toast?.action != .allowFolderAccess
         else { return }
@@ -3220,6 +3258,7 @@ final class DocumentViewModel {
                 }
                 folderLease?.close()
                 folderLease = lease
+                updateClassStyleAfterGrant()
                 web.allowedResourceFolders = [lease.url]
                 dismissToast()
                 renderer.clearCache()

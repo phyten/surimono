@@ -368,7 +368,7 @@ extension ShortcutOutputTests {
     func comparisonCommands() throws {
         let f = ShortcutOutputFixture(format: .markdown)
         defer { f.close() }
-        let chosen = Array(f.model.library.themes.filter(\.isBuiltIn).prefix(5).map(\.id))
+        let chosen = Array(f.model.availableThemes.filter(\.isBuiltIn).prefix(5).map(\.id))
         try #require(chosen.count == 5)
         for id in chosen { f.preferences.toggleFavoriteTheme(id) }
         try f.controller.edit(.styleCompare, keys: [.init(key: .character("k"), modifiers: .command)])

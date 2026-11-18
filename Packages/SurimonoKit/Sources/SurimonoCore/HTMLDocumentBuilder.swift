@@ -10,6 +10,11 @@ public enum HTMLDocumentBuilder {
         textScale: Double = 1, removesPaper: Bool = false, finish: String = "", code: CodeStyle = CodeStyle()
     ) -> String {
         let language = Self.language(for: fragment, fallback: language)
+        let latex =
+            fragment.latexClass.flatMap { info in
+                format == .latex
+                    ? " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\"" : nil
+            } ?? ""
         let direction = language.isRightToLeft ? " dir=\"rtl\"" : ""
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let finishStyle = finish.isEmpty ? "" : "\n<style id=\"surimono-finish\">\n\(finish)\n</style>"
@@ -23,7 +28,7 @@ public enum HTMLDocumentBuilder {
             \(styleSheet(theme: theme, textScale: textScale, code: code, language: language.code))
             </style>\(finishStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
-            <body class="surimono format-\(format.rawValue)">
+            <body class="surimono format-\(format.rawValue)"\(latex)>
             \(LongTokenMarks.marked(CodeBlockMarkup.apply(code, to: fragment.body)))
             </body>
             </html>

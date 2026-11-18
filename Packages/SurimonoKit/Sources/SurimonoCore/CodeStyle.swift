@@ -260,45 +260,8 @@ public enum CodeBlockMarkup {
         return info.isEmpty ? nil : SyntaxHighlighter.displayName(for: info)
     }
 
-    /// The lines of highlighted code, each closing the spans it leaves open for the next to open again. A line with no
-    /// text is empty, even inside a token that goes on after it.
     static func lines(of body: Substring) -> [String]? {
-        var lines: [String] = []
-        var current = ""
-        var hasText = false
-        var open: [String] = []
-        var index = body.startIndex
-        while index < body.endIndex {
-            let character = body[index]
-            if character == "<" {
-                guard let end = body[index...].firstIndex(of: ">") else { return nil }
-                let tag = String(body[index...end])
-                if tag == "</span>" {
-                    guard let last = open.popLast() else { return nil }
-                    // A span that ended with the line opens nothing on the next.
-                    if current.hasSuffix(last) { current.removeLast(last.count) } else { current += tag }
-                } else if tag.hasPrefix("<span class=\"hl-") {
-                    open.append(tag)
-                    current += tag
-                } else {
-                    return nil
-                }
-                index = body.index(after: end)
-                continue
-            }
-            if character.isNewline {
-                lines.append(hasText ? current + String(repeating: "</span>", count: open.count) : "")
-                current = open.joined()
-                hasText = false
-            } else {
-                current.append(character)
-                hasText = true
-            }
-            index = body.index(after: index)
-        }
-        guard open.isEmpty else { return nil }
-        if hasText { lines.append(current) }
-        return lines
+        SyntaxHighlighter.lines(of: body)
     }
 }
 
@@ -347,6 +310,8 @@ public enum CodeFitScript {
     // the scale leaves a little room.
     private static let shrink = """
           for (const code of document.querySelectorAll('pre.$BLOCK > code')) {
+            // A listings breaklines declaration keeps the source at the requested size.
+            if (code.closest('body.format-latex .latex-wrap-code')) { continue; }
             const block = code.parentElement;
             block.style.removeProperty('--code-shrink');
             const style = getComputedStyle(block);
@@ -368,6 +333,7 @@ public enum CodeFitScript {
             line.classList.remove('code-is-cut');
             for (const mark of line.querySelectorAll('.code-cut')) { mark.remove(); }
             const source = line.querySelector('.code-src');
+            if (line.closest('body.format-latex .latex-wrap-code')) { continue; }
             if (!source || source.scrollWidth <= source.clientWidth + 1) { continue; }
             const nodes = [];
             const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT);

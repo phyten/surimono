@@ -1,6 +1,214 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "A Little Library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A Little Library"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小さな図書室"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine kleine Bibliothek"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una pequeña biblioteca"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une petite bibliothèque"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작은 도서관"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小小图书馆"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小小圖書館"
+          }
+        }
+      }
+    },
+    "Today’s reading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today’s reading"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日の読書"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die heutige Lektüre"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lectura de hoy"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lecture du jour"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘의 독서"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日阅读"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日閱讀"
+          }
+        }
+      }
+    },
+    "An open book changes the everyday view.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An open book changes the everyday view."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本をひらくと、いつもの景色が少し変わります。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein aufgeschlagenes Buch verändert den Blick auf den Alltag."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir un libro cambia nuestra forma de ver lo cotidiano."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir un livre change le regard que l’on porte sur le quotidien."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "책을 펼치면 평소의 풍경이 조금 달라집니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "翻开一本书，眼前的日常景色就有了些许变化。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "翻開一本書，眼前的日常景色就有了些許變化。"
+          }
+        }
+      }
+    },
+    "Keep a few words on paper, then look for the next book on the shelf.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep a few words on paper, then look for the next book on the shelf."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "心に残った言葉をメモして、次に読む本を棚から探します。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wir schreiben ein paar Worte auf und suchen im Regal nach dem nächsten Buch."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anotamos unas palabras y buscamos en el estante el próximo libro."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On note quelques mots sur le papier, puis on cherche le prochain livre sur l’étagère."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "마음에 남은 말을 적어 두고 책장에서 다음에 읽을 책을 찾습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把喜欢的话记下来，再到书架上找下一本书。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "把喜歡的話記下來，再到書架上找下一本書。"
+          }
+        }
+      }
+    },
     "New text replaces it when it arrives": {
       "localizations": {
         "en": {
@@ -3585,6 +3793,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preguntar"
+          }
+        }
+      }
+    },
+    "Each LaTeX document uses its class style until you choose a style for it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each LaTeX document uses its class style until you choose a style for it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX 文書では、その文書のスタイルを選ぶまでは文書クラスに合ったスタイルを使います。"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX-Dokumente verwenden den Stil ihrer Dokumentklasse, bis Sie für das jeweilige Dokument einen Stil auswählen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los documentos LaTeX usan el estilo de su clase hasta que elijas un estilo para ese documento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chaque document LaTeX utilise le style de sa classe jusqu’à ce que vous lui choisissiez un style."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX 문서는 해당 문서의 스타일을 직접 선택할 때까지 문서 클래스에 맞는 스타일을 사용합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX 文档使用文档类对应的样式，直到你为该文档选择其他样式。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX 文件會使用文件類別對應的樣式，直到你為該文件選擇其他樣式。"
           }
         }
       }

@@ -27,8 +27,11 @@ package enum LaTeXLexer {
                 if start < characters.count, characters[start] == "*" { start += 1 }
                 return delimited(characters, from: start)
             case "lstinline", "mintinline":
-                var start = skipping(characters, optionalFrom: after)
-                if name == "mintinline" { start = skipping(characters, groupFrom: start) }
+                var start = skippingSpaces(characters, from: after)
+                start = skippingSpaces(characters, from: skipping(characters, optionalFrom: start))
+                if name == "mintinline" {
+                    start = skippingSpaces(characters, from: skipping(characters, groupFrom: start))
+                }
                 if start < characters.count, characters[start] == "{" { return skipping(characters, groupFrom: start) }
                 return delimited(characters, from: start)
             case "begin":
@@ -120,11 +123,24 @@ package enum LaTeXLexer {
         return min(cursor + 1, characters.count)
     }
 
+    private static func skippingSpaces(_ characters: [Character], from start: Int) -> Int {
+        var cursor = start
+        while cursor < characters.count, characters[cursor].isWhitespace { cursor += 1 }
+        return cursor
+    }
+
     private static func skipping(_ characters: [Character], optionalFrom start: Int) -> Int {
-        guard start < characters.count, characters[start] == "[",
-            let close = characters[start...].firstIndex(of: "]")
-        else { return start }
-        return close + 1
+        guard start < characters.count, characters[start] == "[" else { return start }
+        var cursor = start + 1
+        var braces = 0
+        while cursor < characters.count {
+            let character = characters[cursor]
+            cursor += 1
+            if character == "{" { braces += 1 }
+            if character == "}" { braces -= 1 }
+            if character == "]", braces == 0 { break }
+        }
+        return cursor
     }
 
     private static func skipping(_ characters: [Character], groupFrom start: Int) -> Int {
@@ -132,6 +148,10 @@ package enum LaTeXLexer {
         var depth = 0
         var cursor = start
         while cursor < characters.count {
+            if characters[cursor] == "\\" {
+                cursor = min(cursor + 2, characters.count)
+                continue
+            }
             if characters[cursor] == "{" { depth += 1 }
             if characters[cursor] == "}" {
                 depth -= 1

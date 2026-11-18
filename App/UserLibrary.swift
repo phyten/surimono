@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import SurimonoCore
+import SurimonoRendering
 
 @Observable
 final class UserLibrary {
@@ -65,6 +66,23 @@ final class UserLibrary {
             presetErrors = []
         }
         revision += 1
+    }
+
+    func theme(_ id: String, for format: DocumentFormat?) -> PrintTheme? {
+        themes.first { $0.id == id && $0.supports(format) }
+    }
+
+    func defaultThemeID(preferred: String, format: DocumentFormat?, classStyle: String?) -> String {
+        let candidate = classStyle ?? preferred
+        return theme(candidate, for: format)?.id ?? "standard"
+    }
+
+    /// Only the main document selects its class style. Mixed binders have a common theme for all their children.
+    static func classStyle(for source: DocumentSource?, renderer: DocumentRenderer) -> String? {
+        guard let source, source.format == .latex, source.children == nil else { return nil }
+        let info = renderer.latexClassInfo(for: source)
+        if info.isJapanese { return "latex-plain-ja" }
+        return info.hasChapters ? "latex-report" : "latex-article"
     }
 
     /// nil for "Match Style" and for an id this version does not know.

@@ -8,6 +8,14 @@ public struct PrintTheme: Equatable, Sendable, Identifiable {
     public let isBuiltIn: Bool
     /// The catalog category of a built-in theme; user styles have none.
     public let category: String?
+    /// Nil denotes a general-purpose style, including user styles that predate format restrictions.
+    public let formats: Set<DocumentFormat>?
+
+    public func supports(_ format: DocumentFormat?) -> Bool {
+        guard let formats else { return true }
+        return format.map(formats.contains) ?? false
+    }
+
     /// The position among the suggested themes, or nil when the theme is not one of them.
     public let featuredRank: Int?
     /// A script the theme decorates the page with before printing, run in the app's isolated world; the document's
@@ -16,7 +24,7 @@ public struct PrintTheme: Equatable, Sendable, Identifiable {
 
     public init(
         id: String, name: String, localizedNames: [String: String] = [:], css: String, isBuiltIn: Bool = false,
-        category: String? = nil, featuredRank: Int? = nil, script: String? = nil
+        category: String? = nil, formats: Set<DocumentFormat>? = nil, featuredRank: Int? = nil, script: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -24,6 +32,7 @@ public struct PrintTheme: Equatable, Sendable, Identifiable {
         self.css = css
         self.isBuiltIn = isBuiltIn
         self.category = category
+        self.formats = formats
         self.featuredRank = featuredRank
         self.script = script
     }
@@ -39,7 +48,10 @@ public struct PrintThemeCategory: Equatable, Sendable, Identifiable {
     public let name: String
     public let localizedNames: [String: String]
 
-    public init(id: String, name: String, localizedNames: [String: String] = [:]) {
+    public let formats: Set<DocumentFormat>?
+
+    public init(id: String, name: String, localizedNames: [String: String] = [:], formats: Set<DocumentFormat>? = nil) {
+        self.formats = formats
         self.id = id
         self.name = name
         self.localizedNames = localizedNames
@@ -65,12 +77,14 @@ public enum PrintThemeLibrary {
             let name: String
             let ja: String?
             let localizedNames: [String: String]?
+            let formats: Set<DocumentFormat>?
         }
         struct Theme: Decodable {
             let id: String
             let name: String
             let ja: String?
             let localizedNames: [String: String]?
+            let formats: Set<DocumentFormat>?
             let category: String
             let script: String?
         }
@@ -84,7 +98,8 @@ public enum PrintThemeLibrary {
         try catalog().categories.map {
             PrintThemeCategory(
                 id: $0.id, name: $0.name,
-                localizedNames: UILanguage.names(english: $0.name, japanese: $0.ja, localized: $0.localizedNames))
+                localizedNames: UILanguage.names(english: $0.name, japanese: $0.ja, localized: $0.localizedNames),
+                formats: $0.formats)
         }
     }
 
@@ -93,7 +108,11 @@ public enum PrintThemeLibrary {
         let common = try String(contentsOf: CoreResources.url("common", extension: "css"), encoding: .utf8)
         let catalog = try catalog()
         var scripts: [String: String] = [:]
+        let tex = try String(contentsOf: CoreResources.url("latex-typesetting", extension: "css"), encoding: .utf8)
         let builtIns = try catalog.themes.map { entry in
+            let groupFormats = catalog.categories.first { $0.id == entry.category }?.formats
+            // A theme may narrow its category's formats but cannot widen them.
+            let formats = entry.formats.map { own in groupFormats.map(own.intersection) ?? own } ?? groupFormats
             let css = try String(contentsOf: CoreResources.url(entry.id, extension: "css"), encoding: .utf8)
             let script = try entry.script.map { name in
                 if let loaded = scripts[name] { return loaded }
@@ -105,7 +124,8 @@ public enum PrintThemeLibrary {
                 id: entry.id, name: entry.name,
                 localizedNames: UILanguage.names(
                     english: entry.name, japanese: entry.ja, localized: entry.localizedNames),
-                css: common + "\n" + css, isBuiltIn: true, category: entry.category,
+                css: common + "\n" + (entry.category == "latex" ? tex + "\n" : "") + css, isBuiltIn: true,
+                category: entry.category, formats: formats,
                 featuredRank: catalog.featured.firstIndex(of: entry.id), script: script)
         }
         let users = try CoreResources.userFiles(in: userDirectory, extension: "css").map { url in

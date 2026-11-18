@@ -226,14 +226,16 @@ struct CalloutThemeTests {
 }
 
 struct ThemeCatalogContentTests {
-    @Test("組み込みのテーマは 12 のカテゴリーに 9 種ずつ、108 種ある")
+    @Test("組み込みのテーマは 通常の12分類に各9種、LaTeX専用の分類に3種ある")
     func counts() throws {
         let themes = try PrintThemeLibrary.load().filter(\.isBuiltIn)
         let categories = try PrintThemeLibrary.categories()
-        #expect(themes.count == 108)
-        #expect(categories.count == 12)
+        #expect(themes.count == 111)
+        #expect(categories.count == 13)
         for category in categories {
-            #expect(themes.filter { $0.category == category.id }.count == 9, "\(category.id)")
+            #expect(
+                themes.filter { $0.category == category.id }.count == (category.id == "latex" ? 3 : 9), "\(category.id)"
+            )
         }
     }
 

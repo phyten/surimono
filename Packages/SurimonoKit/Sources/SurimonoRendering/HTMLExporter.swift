@@ -25,13 +25,13 @@ public enum HTMLExporter {
                 operation: {
                     try DocumentRenderer.themedFragment(
                         source, pageBreakLine: settings.finish.breaks.customLine,
-                        proof: settings.finish.proof)
+                        proof: settings.finish.proof, textWidthPoints: settings.textWidthPoints(in: settings.layout))
                 }
             ).value
         else { throw DocumentRenderer.RenderingError.unsupportedFormat }
         let body = HTMLFragment(
             body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
-            title: fragment.title, language: fragment.language)
+            title: fragment.title, language: fragment.language, latexClass: fragment.latexClass)
         let directory = source.fileURL?.deletingLastPathComponent()
         let html = HTMLDocumentBuilder.build(
             fragment: body, format: source.format, theme: settings.theme,
@@ -82,8 +82,13 @@ public enum HTMLExporter {
           image.src = embeddedImages[url];
         }
         copy.querySelectorAll('script,base,meta[http-equiv],meta[name=author],link,iframe,object,embed,picture source,template').forEach(el => el.remove());
+        // Only the generated LaTeX body carries these class options. Retain their finite values
+        // for the print stylesheet without opening the data-attribute filter to arbitrary source metadata.
+        const latexBody = copy.querySelector('body.format-latex');
         for (const el of [copy, ...copy.querySelectorAll('*')]) {
           for (const attr of Array.from(el.attributes)) {
+            if (el === latexBody && ((attr.name === 'data-latex-size' && /^(10|11|12)$/.test(attr.value)) ||
+                (attr.name === 'data-latex-chapters' && /^(true|false)$/.test(attr.value)))) continue;
             if (/^on/i.test(attr.name) || /^(javascript|vbscript):/i.test(attr.value.trim()) || (attr.name.startsWith('data-') && !['data-deco','data-no','data-code-label','data-syntax','data-callout'].includes(attr.name)) ||
                 /file:\/\/|surimono-local:|surimono-snapshot:/i.test(attr.value)) el.removeAttribute(attr.name);
           }
@@ -148,7 +153,12 @@ public enum HTMLExporter {
           return {html:'<!DOCTYPE html>\n' + copy.outerHTML, figures};
         }
         const screen = document.createElement('style');
-        screen.textContent = '@media screen { body { box-sizing:border-box; max-width:52rem; margin-inline:auto; padding:2rem clamp(1rem,4vw,3rem); } img,svg { max-width:100%; } }';
+        // Class styles already center a measured text block. Put the screen gutter around the paper
+        // so it neither replaces that measure with 52rem nor consumes part of the text width.
+        const classMeasure = latexBody && getComputedStyle(document.body).getPropertyValue('--tex-width');
+        const screenLayout = classMeasure ? 'html { padding:2rem clamp(1rem,4vw,3rem); }' :
+          'body { box-sizing:border-box; max-width:52rem; margin-inline:auto; padding:2rem clamp(1rem,4vw,3rem); }';
+        screen.textContent = '@media screen { ' + screenLayout + ' img,svg { max-width:100%; } }';
         head.append(screen);
         return '<!DOCTYPE html>\n' + copy.outerHTML;
         """#

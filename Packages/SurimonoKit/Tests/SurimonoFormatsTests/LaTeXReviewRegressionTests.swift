@@ -15,8 +15,14 @@ struct LaTeXReviewRegressionTests {
             \ref{p}/\ref{c}/\ref{s}/\ref{ss}
             \end{document}
             """#)
-        #expect(html.contains("<a href=\"#part-1\">I</a>/<a href=\"#sec-1\">1</a>"))
-        #expect(html.contains("<a href=\"#sec-1-2\">1.2</a>/<a href=\"#sec-1-2-1\">1.2.1</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#part-1\">I</a>/<a class=\"latex-number-ref\" href=\"#sec-1\">1</a>"
+            ))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#sec-1-2\">1.2</a>/<a class=\"latex-number-ref\" href=\"#sec-1-2-1\">1.2.1</a>"
+            ))
     }
 
     @Test("図と表の題の中のラベルはその図と表の独立した番号を指す")
@@ -29,7 +35,10 @@ struct LaTeXReviewRegressionTests {
             \begin{figure}\caption[短い題]{次の図\label{f2}}\end{figure}
             \ref{f1}/\ref{t1}/\ref{f2}
             """#)
-        #expect(html.contains("<a href=\"#fig-1\">1</a>/<a href=\"#tab-1\">1</a>/<a href=\"#fig-2\">2</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#fig-1\">1</a>/<a class=\"latex-number-ref\" href=\"#tab-1\">1</a>/<a class=\"latex-number-ref\" href=\"#fig-2\">2</a>"
+            ))
     }
 
     @Test("定理の補足題の中のラベルは現在の定理の番号を指す")
@@ -41,7 +50,10 @@ struct LaTeXReviewRegressionTests {
             \begin{thm}[次\label{t2}]本文\end{thm}
             \ref{t1}/\ref{t2}
             """#)
-        #expect(html.contains("<a href=\"#thm-1\">2.1</a>/<a href=\"#thm-2\">2.2</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#thm-1\">2.1</a>/<a class=\"latex-number-ref\" href=\"#thm-2\">2.2</a>"
+            ))
     }
 
     @Test(
@@ -80,7 +92,7 @@ struct LaTeXReviewRegressionTests {
         let link = "\\\(command){https://example.com/a\(percent)b}" + (command == "href" ? "{リンク}" : "")
         let html = body("\\begin{itemize}\\item \(link)\n\\item 次\\end{itemize}後")
         #expect(html.contains("https://example.com/a%20b"))
-        #expect(html.contains("</li>\n<li>次</li>\n</ul>\n<p>後</p>"))
+        #expect(html.contains("</li>\n<li>次</li>\n</ul>\n<p class=\"latex-noindent\">後</p>"))
     }
 
     @Test("グループ内の URL はコメントを始めず href の表示名と通常の本文ではコメントを消す")
@@ -117,12 +129,15 @@ struct LaTeXReviewRegressionTests {
             """#)
         #expect(html.contains("<figure class=\"latex-figure\">\n<p>図の本文</p>"))
         #expect(html.contains("<figure class=\"latex-table\">\n<p>表の本文</p>"))
-        #expect(html.contains("<a href=\"#fig-1\">1</a>/<a href=\"#tab-1\">1</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#fig-1\">1</a>/<a class=\"latex-number-ref\" href=\"#tab-1\">1</a>"
+            ))
         #expect(!html.contains("0.4"))
         #expect(!html.contains("1em"))
     }
 
-    @Test("longtable の題は表として数え最初の見出しだけを残して本文と最後の脚注を並べる")
+    @Test("longtable の題は表として数え endhead の見出しと本文を残し継続ページの脚注を落とす")
     func longtableCaptionAndSections() {
         let html = body(
             #"""
@@ -141,13 +156,13 @@ struct LaTeXReviewRegressionTests {
             """#)
         #expect(
             html.contains("<figcaption id=\"tab-2\"><span class=\"latex-caption-label\">表 2</span>　長い表</figcaption>"))
-        #expect(html.contains("<th style=\"text-align: left\">名前</th><th style=\"text-align: right\">数</th>"))
+        #expect(html.contains("<th style=\"text-align: left\">繰り返す見出し</th><th style=\"text-align: right\">数</th>"))
         #expect(html.contains("<td style=\"text-align: left\">甲</td><td style=\"text-align: right\">1</td>"))
-        #expect(html.contains("<td style=\"text-align: left\">最後の脚注</td>"))
-        #expect(!html.contains("繰り返す見出し"))
+        #expect(!html.contains("最後の脚注"))
+        #expect(!html.contains(">名前</th>"))
         #expect(!html.contains("途中の脚注"))
-        #expect(html.components(separatedBy: "<tr>").count == 5)
-        #expect(html.contains("<a href=\"#tab-2\">2</a>"))
+        #expect(html.components(separatedBy: "<tr>").count == 4)
+        #expect(html.contains("<a class=\"latex-number-ref\" href=\"#tab-2\">2</a>"))
         #expect(html.contains("<span class=\"latex-caption-label\">図 1</span>"))
     }
 
@@ -167,7 +182,10 @@ struct LaTeXReviewRegressionTests {
             \newtheorem{thm}{定理\label{title}}\begin{thm}本文\end{thm}
             \ref{deep}/\ref{title}
             """#)
-        #expect(html.contains("<a href=\"#sec-1-1-1\">1.1.1</a>/<a href=\"#thm-1\">1</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#sec-1-1-1\">1.1.1</a>/<a class=\"latex-number-ref\" href=\"#thm-1\">1</a>"
+            ))
     }
 
     @Test("URL 内のエスケープした波括弧と項目や環境の文字は構造を変えない")
@@ -178,7 +196,7 @@ struct LaTeXReviewRegressionTests {
             \item 次\end{itemize}後
             """#)
         #expect(html.contains("https://example.com/a%20}b/item/end{itemize}"))
-        #expect(html.contains("</li>\n<li>次</li>\n</ul>\n<p>後</p>"))
+        #expect(html.contains("</li>\n<li>次</li>\n</ul>\n<p class=\"latex-noindent\">後</p>"))
     }
 
     @Test(
@@ -210,17 +228,22 @@ struct LaTeXReviewRegressionTests {
         #expect(html.components(separatedBy: "<tr>").count == 4)
     }
 
-    @Test("longtable の最後の脚注が罫線だけでも本文の最終行に罫線を残す")
+    @Test("longtable は見出しを thead に置き最終行だけに脚の罫線を引く")
     func longtableFooterRule() {
         let html = body(
             #"""
             \begin{longtable}{l}
-            名前\\\endhead
+            \hline\hline 名前\\\endhead
+            \midrule\endfoot
             \bottomrule\endlastfoot
-            甲\\
+            甲\\乙\\
             \end{longtable}
             """#)
-        #expect(html.contains("<td style=\"text-align: left; border-bottom: 1pt solid currentColor\">甲</td>"))
-        #expect(html.components(separatedBy: "<tr>").count == 3)
+        #expect(html.contains("<thead>\n<tr><th style=\"text-align: left\" class=\"latex-top-double\">名前"))
+        #expect(html.contains("<td style=\"text-align: left\">甲</td>"))
+        #expect(html.contains("class=\"latex-bottom-heavy\">乙</td>"))
+        #expect(html.components(separatedBy: "latex-bottom-heavy").count == 2)
+        let fallback = body(#"\begin{longtable}{l}\hline\hline\endfoot 甲\\\end{longtable}"#)
+        #expect(fallback.contains("class=\"latex-bottom-double\">甲</td>"))
     }
 }

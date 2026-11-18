@@ -11,8 +11,8 @@ struct UILanguageTests {
         let themes = try PrintThemeLibrary.load()
         let categories = try PrintThemeLibrary.categories()
         let presets = try HTMLCleanupPresetLibrary.load().presets
-        #expect(themes.count == 108)
-        #expect(categories.count == 12)
+        #expect(themes.count == 111)
+        #expect(categories.count == 13)
         #expect(presets.count == 4)
         for names in themes.map(\.localizedNames) + categories.map(\.localizedNames) + presets.map(\.localizedNames) {
             for language in languages {
