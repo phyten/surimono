@@ -13,7 +13,7 @@
 	<true/>
 	<key>com.apple.security.print</key>
 	<true/>
-	<!-- Only for resources a document itself refers to, such as images in an HTML page. There is no telemetry. -->
+	<!-- For pages the reader opens by URL and resources a document refers to, such as images in an HTML page. -->
 	<key>com.apple.security.network.client</key>
 	<true/>
 </dict>

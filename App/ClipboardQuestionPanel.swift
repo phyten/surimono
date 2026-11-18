@@ -114,6 +114,7 @@ final class ClipboardQuestionState {
     var title: String {
         switch source {
         case .clipboard: String(localized: "Which format should the clipboard’s text open in?")
+        case .url: String(localized: "Which format should the downloaded text open in?")
         case .selection: String(localized: "Which format should the selected text open in?")
         }
     }

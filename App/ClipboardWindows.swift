@@ -3,7 +3,7 @@ import SurimonoCore
 
 /// Where a text to open came from, which the question names.
 enum ClipboardTextSource {
-    case clipboard, selection
+    case clipboard, selection, url
 }
 
 final class ClipboardWindows {
@@ -19,7 +19,6 @@ final class ClipboardWindows {
 
     var preferences: AppPreferences?
     var library: UserLibrary?
-    var settingsStore: DocumentSettingsStore?
     /// Asks which format unsure text opens as; nil is Cancel. Replaceable so that hosted tests answer it.
     var ask: (ClipboardQuestion, ClipboardTextSource, NSWindow?, @escaping (ClipboardTextKind?) -> Void) -> Void = {
         question, source, window, completion in
@@ -99,11 +98,13 @@ final class ClipboardWindows {
     @discardableResult
     func open(
         text: String, hints: ClipboardFormatHints, title: String, source: ClipboardTextSource, window: NSWindow?,
-        printing: Bool, alwaysAsks: Bool = false
+        printing: Bool, alwaysAsks: Bool = false, originalData: Data? = nil, baseURL: URL? = nil,
+        didOpen: @escaping (MemoryDocumentWindowController) -> Void = { _ in }
     ) -> MemoryDocumentWindowController? {
-        let data = Data(text.utf8)
+        let data = originalData ?? Data(text.utf8)
         if let existing = controllers[ContentHash.of(data)] {
             show(existing, printing: printing)
+            didOpen(existing)
             return existing
         }
         guard !isAsking else {
@@ -114,7 +115,11 @@ final class ClipboardWindows {
         let detection = ClipboardFormatDetector.detect(text, hints: hints, settings: settings)
         if case .open(let kind) = detection.action, !alwaysAsks {
             let origin: TextFormatOrigin = detection.reason == .fixed ? .settings : .automatic
-            return open(data, format: kind.documentFormat, title: title, printing: printing, textOrigin: origin)
+            let controller = open(
+                data, format: kind.documentFormat, title: title, printing: printing, textOrigin: origin,
+                baseURL: baseURL)
+            didOpen(controller)
+            return controller
         }
         isAsking = true
         var opened: MemoryDocumentWindowController?
@@ -123,7 +128,11 @@ final class ClipboardWindows {
             guard let self else { return }
             isAsking = false
             guard let kind else { return }
-            opened = open(data, format: kind.documentFormat, title: title, printing: printing, textOrigin: .chosen)
+            let controller = open(
+                data, format: kind.documentFormat, title: title, printing: printing, textOrigin: .chosen,
+                baseURL: baseURL)
+            opened = controller
+            didOpen(controller)
         }
         return opened
     }
@@ -133,13 +142,37 @@ final class ClipboardWindows {
     @discardableResult
     func open(
         _ data: Data, format: DocumentFormat, title: String, printing: Bool = false,
-        textOrigin: TextFormatOrigin? = nil
+        textOrigin: TextFormatOrigin? = nil, baseURL: URL? = nil
     ) -> MemoryDocumentWindowController {
         let hash = ContentHash.of(data)
         let controller =
             controllers[hash]
-            ?? makeController(data, format: format, title: title, hash: hash, textOrigin: textOrigin)
+            ?? makeController(
+                data, format: format, title: title, hash: hash, textOrigin: textOrigin, baseURL: baseURL,
+                restoring: preferences?.closedClipboardDocuments.entries.first {
+                    $0.menuItem.id == hash && $0.format == format
+                })
         show(controller, printing: printing)
+        return controller
+    }
+
+    @discardableResult
+    func reopenClosed(_ id: ContentHash? = nil) -> MemoryDocumentWindowController? {
+        guard let preferences,
+            let entry = preferences.closedClipboardDocuments.entries.first(where: {
+                id == nil || $0.menuItem.id == id
+            })
+        else { return nil }
+        let hash = entry.menuItem.id
+        preferences.closedClipboardDocuments.remove(hash)
+        if let existing = controllers[hash] {
+            show(existing, printing: false)
+            return existing
+        }
+        let controller = makeController(
+            entry.data, format: entry.format, title: entry.title, hash: hash, textOrigin: entry.origin,
+            baseURL: entry.baseURL, restoring: entry)
+        show(controller, printing: entry.wasPrinting)
         return controller
     }
 
@@ -152,7 +185,7 @@ final class ClipboardWindows {
         let printing = model.mode == .print
         let controller = makeController(
             data, format: kind.documentFormat, title: model.displayName, hash: hash, textOrigin: .chosen,
-            cascades: false)
+            baseURL: model.htmlBaseURL, cascades: false)
         // The window fits its new paper from the top left, as every window of the view mode does.
         if let frame { controller.window?.setFrameTopLeftPoint(NSPoint(x: frame.minX, y: frame.maxY)) }
         show(controller, printing: printing)
@@ -169,12 +202,14 @@ final class ClipboardWindows {
 
     private func makeController(
         _ data: Data, format: DocumentFormat, title: String, hash: ContentHash, textOrigin: TextFormatOrigin?,
-        cascades: Bool = true
+        baseURL: URL?, restoring entry: ClosedClipboardDocuments.Entry? = nil, cascades: Bool = true
     ) -> MemoryDocumentWindowController {
         let model = DocumentViewModel(
             data: data, fileURL: nil, format: format,
             preferences: preferences ?? AppPreferences(), library: library ?? UserLibrary(),
-            settingsStore: settingsStore, title: title)
+            title: title, htmlBaseURL: baseURL)
+        model.keepsClipboardSettingsInMemory = true
+        entry?.restore(in: model)
         if let textOrigin, ClipboardTextKind(format) != nil {
             model.textFormatOrigin = textOrigin
             model.textReopener = { [weak self, weak model] kind in
@@ -183,9 +218,14 @@ final class ClipboardWindows {
         }
         let controller = MemoryDocumentWindowController(model: model) { [weak self, weak model] in
             // A window opened again as another kind has already taken this one's place.
-            guard let self, controllers[hash]?.model === model else { return }
+            guard let self, let model, controllers[hash]?.model === model else { return }
+            if let preferences, preferences.keepsClosedClipboardDocuments, let data = model.memoryContent {
+                preferences.closedClipboardDocuments.remember(.init(model: model, hash: hash, data: data, date: Date()))
+            }
             controllers.removeValue(forKey: hash)
         }
+        controller.window?.isRestorable = false
+        controller.window?.disableSnapshotRestoration()
         controllers[hash] = controller
         if cascades, let window = controller.window { cascadePoint = window.cascadeTopLeft(from: cascadePoint) }
         return controller

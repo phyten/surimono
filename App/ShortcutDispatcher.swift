@@ -182,6 +182,12 @@ final class ShortcutDispatcher {
     func performFromMenu(_ operation: ShortcutOperationID, event: NSEvent?) {
         if let event, event.type == .keyDown, let key = Self.combination(event) {
             guard controller.localKeys(for: operation).contains(key) else { return }
+            if keyWindow() == nil, operation == .clipboardReopen || operation == .appOpenURL {
+                // Closing the last document can leave the File menu without a key window.
+                bridge.reconcile()
+                if !event.isARepeat, !bridge.ambiguous.contains(operation) { perform(operation) }
+                return
+            }
             _ = handle(event, fromMenu: true)
         } else {
             // Return/Space confirming a focused menu item are fixed native activation, not an assigned equivalent.
@@ -229,6 +235,8 @@ final class ShortcutDispatcher {
         case .clipboardOpenPrintScreen: openClipboardPrintScreen()
         case .appOpen: bridge.invokeStandard(.appOpen)
         case .appSettings: bridge.invokeStandard(.appSettings)
+        case .appOpenURL: OpenURLPanel.present()
+        case .clipboardReopen: ClipboardWindows.shared.reopenClosed()
         case .clipboardOpen: ClipboardWindows.shared.open()
         case .appStreamingPreview: StreamingPreviewWindows.shared.open()
         case .appGettingStarted: OpenRouter.shared.openGettingStarted()

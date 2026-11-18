@@ -11,6 +11,7 @@
         static let showMenu = Notification.Name("SurimonoDebugShowMenu")
         private static var captured = false
         private static var loggedMoreMenu = false
+        private static let openURLArgument = argument("SurimonoOpenURL")
         private static weak var firstDocument: DocumentViewModel?
         private static var scheduled = false
         private static var appliedOverrides = false
@@ -244,6 +245,26 @@
                 editor.insertSeparator(in: first, at: index)
             }
             editor.select(nil)
+        }
+
+        static func openURL() {
+            guard let openURLArgument else { return }
+            guard let url = URLDocument.address(openURLArgument), url.scheme?.lowercased() == "https" else {
+                logger.error("Snapshot URL must be HTTPS")
+                return
+            }
+            Task {
+                do {
+                    try await OpenURLPanel.openDocument(
+                        at: url,
+                        didOpen: { controller in
+                            firstDocument = controller.model
+                            captureIfReady(controller.model)
+                        })
+                } catch {
+                    logger.error("Snapshot URL could not be opened")
+                }
+            }
         }
 
         /// Stands in for another app: a service's selection and a streaming feed come through private pasteboards, leaving
@@ -563,6 +584,8 @@
         }
 
         static func captureIfReady(_ model: DocumentViewModel) {
+            // A restored window can finish rendering before the requested download.
+            if openURLArgument != nil, firstDocument !== model { return }
             if firstDocument == nil { firstDocument = model }
             if firstDocument === model, !captured, !scheduled, model.isUpToDate,
                 let kind = argument("SurimonoExport"), let path = argument("SurimonoExportPath"), path.hasPrefix("/")
@@ -861,7 +884,7 @@
                 }
                 do {
                     guard let window = settingsWindow ?? model.window else { return }
-                    let data = try await capturePNG(around: window)
+                    let data = try await capturePNG(around: window, includeNearbyWindows: openURLArgument == nil)
                     let destination = URL(fileURLWithPath: path)
                     let sources = model.protectedSourceURLs
                     guard DocumentViewModel.canExport(to: destination, sourceURLs: sources) else {
@@ -1039,7 +1062,8 @@
             return lines.joined(separator: "\n") + "\n"
         }
 
-        private static func capturePNG(around window: NSWindow) async throws -> Data {
+        private static func capturePNG(around window: NSWindow, includeNearbyWindows: Bool = true) async throws -> Data
+        {
             let content = try await SCShareableContent.currentProcess
             guard let main = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
                 throw CocoaError(.fileNoSuchFile)
@@ -1048,7 +1072,7 @@
             // Leave out the menu bar and status layers and anything as large as a screen.
             let windows = content.windows.filter { other in
                 other.windowID == main.windowID
-                    || (other.isOnScreen && !(24...25).contains(other.windowLayer)
+                    || (includeNearbyWindows && other.isOnScreen && !(24...25).contains(other.windowLayer)
                         && nearby.contains(other.frame) && other.frame.width > 1 && other.frame.height > 1)
             }
             guard

@@ -510,6 +510,10 @@ private final class PaginationSession {
             localHandler = nil
         }
         let configuration = WKWebViewConfiguration()
+        if case .html(_, let base?) = source, !base.isFileURL {
+            configuration.websiteDataStore = .nonPersistent()
+            navigationTracker.isDownloadedPage = true
+        }
         if let localHandler {
             configuration.setURLSchemeHandler(localHandler, forURLScheme: LocalResourceSchemeHandler.scheme)
         }
@@ -716,11 +720,21 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     /// or a `<meta http-equiv="refresh">` in the document's raw HTML could otherwise put an unopened file, such as a
     /// private key, onto the paper. Only this page itself is loaded as a document; no frame loads a local file.
     var generatedPageURL: URL?
+    var isDownloadedPage = false
+    private var allowedDownloadedPage = false
 
     func webView(
         _ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
     ) {
+        if isDownloadedPage, navigationAction.targetFrame?.isMainFrame != false {
+            // The paper is the fetched response, even if a script or meta refresh tries to navigate elsewhere.
+            guard navigationAction.targetFrame != nil, !allowedDownloadedPage else {
+                decisionHandler(.cancel)
+                return
+            }
+            allowedDownloadedPage = true
+        }
         decisionHandler(Self.allows(navigationAction, generatedPageURL: generatedPageURL) ? .allow : .cancel)
     }
 

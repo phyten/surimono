@@ -379,6 +379,16 @@ final class AppPreferences {
         }
     }
 
+    var closedClipboardDocuments = ClosedClipboardDocuments() {
+        didSet { NotificationCenter.default.post(name: ClosedClipboardDocuments.didChange, object: self) }
+    }
+    var keepsClosedClipboardDocuments: Bool {
+        didSet {
+            defaults.set(keepsClosedClipboardDocuments, forKey: "keepsClosedClipboardDocuments")
+            if !keepsClosedClipboardDocuments { closedClipboardDocuments = ClosedClipboardDocuments() }
+        }
+    }
+
     /// How text from the clipboard or a service gets its format. A value this build cannot read starts over from the
     /// standard choices.
     var clipboardFormat: ClipboardFormatSettings {
@@ -567,6 +577,7 @@ final class AppPreferences {
             defaults.data(forKey: "recentBinders").flatMap {
                 try? JSONDecoder().decode(RecentBinders.self, from: $0)
             } ?? RecentBinders()
+        keepsClosedClipboardDocuments = defaults.object(forKey: "keepsClosedClipboardDocuments") as? Bool ?? true
         clipboardFormat =
             defaults.data(forKey: "clipboardFormat").flatMap {
                 try? JSONDecoder().decode(ClipboardFormatSettings.self, from: $0)

@@ -87,6 +87,8 @@ public enum ShortcutOperationID: String, CaseIterable, Codable, Sendable {
     case documentCopyHTML = "document.copyHTML"
     case documentShare = "document.share"
     case documentCopyRichText = "document.copyRichText"
+    case appOpenURL = "app.openURL"
+    case clipboardReopen = "clipboard.reopen"
 }
 
 public enum ShortcutRegion: String, CaseIterable, Codable, Sendable {
@@ -159,7 +161,7 @@ public struct ShortcutOperation: Equatable, Sendable {
             return Self(
                 id: id, group: .application, applicability: .application, safety: .ordinary,
                 regions: ShortcutRegion.application, allowsBareKeys: false)
-        case .clipboardOpen:
+        case .clipboardOpen, .clipboardReopen, .appOpenURL:
             return Self(
                 id: id, group: .application, applicability: .application, safety: .ordinary,
                 regions: ShortcutRegion.application, allowsBareKeys: false)

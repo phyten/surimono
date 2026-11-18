@@ -67,6 +67,7 @@ final class DocumentViewModel {
     /// waits, which is then for a newer request to open the same file.
     @ObservationIgnored var hasTakenItsFileAccess = false
     let fileURL: URL?
+    let htmlBaseURL: URL?
     private let title: String?
     let imageBundle: ImageBundleModel?
     let binder: BinderModel?
@@ -111,7 +112,7 @@ final class DocumentViewModel {
     var printFinish: PrintFinish
     /// Pages to write on among the document's own. They belong to the paper, so the reading view leaves them out.
     var notes = NotePages()
-    /// How many copies the tray prints. It belongs to the window: it is not remembered, and a new window starts at 1.
+    /// A new document starts at one copy. Reopening a closed clipboard window restores its own count.
     var copies = 1 {
         didSet {
             let range = PrintJobFactory.copiesRange
@@ -373,6 +374,7 @@ final class DocumentViewModel {
     /// The settings as last loaded, restored, reset or saved; any other value means the user changed something.
     @ObservationIgnored private var settingsBaseline: DocumentSettings?
     private var documentDirectives = DocumentDirectives()
+    var keepsClipboardSettingsInMemory = false
     private var didCustomizeSinceLoad = false
     @ObservationIgnored private var validatesMigratedContent = false
     @ObservationIgnored private var pendingImageOrder: [String]?
@@ -448,7 +450,8 @@ final class DocumentViewModel {
         data: Data, fileURL: URL?, format: DocumentFormat,
         preferences: AppPreferences, library: UserLibrary, renderer: DocumentRenderer = DocumentRenderer(),
         imageBundle: ImageBundleModel? = nil, settingsStore: DocumentSettingsStore? = nil,
-        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, binder: BinderModel? = nil
+        trialRenderer: DocumentRenderer = DocumentRenderer(), title: String? = nil, binder: BinderModel? = nil,
+        htmlBaseURL: URL? = nil
     ) {
         themeTrial = ThemeTrial(renderer: trialRenderer)
         self.imageBundle = imageBundle
@@ -468,6 +471,7 @@ final class DocumentViewModel {
         }
         self.data = data
         self.fileURL = fileURL
+        self.htmlBaseURL = htmlBaseURL
         self.title = title
         self.format = format
         self.preferences = preferences
@@ -500,6 +504,7 @@ final class DocumentViewModel {
                 firstPageSize: PaperSize.a4.size), preferences: preferences.viewDefaults)
         viewOptions = guess
         initialViewOptions = guess
+        if format == .html, htmlBaseURL != nil { htmlPresentation = .paper }
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
         specimenSamples.diskCache = ThemeSampleCache.application
         specimenSamples.specimenLanguage = { [weak self] in self?.language ?? "en" }
@@ -1378,7 +1383,7 @@ final class DocumentViewModel {
         let singleSource =
             fromSnapshot
             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
-            : DocumentSource(data: data, fileURL: fileURL, format: format)
+            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL)
         let started = ContinuousClock.now
         let layoutsBefore = renderer.logicalRenderCount
         renderTask = Task { [weak self] in
@@ -2655,6 +2660,13 @@ final class DocumentViewModel {
         }
     }
 
+    func restoreClosedDocument(_ settings: DocumentSettings) {
+        didCustomizeSinceLoad = true
+        hasSavedSettings = true
+        bookmarks = settings.bookmarks ?? Bookmarks()
+        apply(settings)
+    }
+
     private func apply(_ saved: DocumentSettings) {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
@@ -2706,6 +2718,10 @@ final class DocumentViewModel {
     }
 
     private func scheduleSave() {
+        if keepsClipboardSettingsInMemory {
+            hasSavedSettings = true
+            return
+        }
         guard settingsStore != nil else { return }
         saveTask?.cancel()
         saveTask = Task { [weak self] in
@@ -3749,7 +3765,7 @@ final class DocumentViewModel {
                     source = withFolderAccess(
                         usesHTMLPresentation && liveSnapshot != nil
                             ? DocumentSource.liveSnapshot(liveSnapshot?.html ?? "", of: fileURL)
-                            : DocumentSource(data: data, fileURL: fileURL, format: format))
+                            : DocumentSource(data: data, fileURL: fileURL, format: format, htmlBaseURL: htmlBaseURL))
                 }
                 prepared = try await DocumentRenderer().prepare(source, settings: settings)
                 if binder == nil, imageBundle == nil, source.format.isWebRendered {

@@ -8,6 +8,8 @@ public enum ShortcutDefaults: Sendable {
         case .bookmarkPrevious: [character("[", [])]
         case .appOpen: [character("o", .command)]
         case .clipboardOpen: [character("n", .command)]
+        case .clipboardReopen: [character("t", [.command, .shift])]
+        case .appOpenURL: []
         case .appSettings: [character(",", .command)]
         case .documentPrint: [character("p", .command)]
         case .documentPrintSystem: [character("p", [.option, .command])]

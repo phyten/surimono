@@ -201,7 +201,6 @@ struct ClipboardWindowsTests {
             }, closeWelcome: {})
         windows.preferences = AppPreferences(defaults: suite.defaults)
         windows.library = UserLibrary(root: directory.appendingPathComponent("Library"))
-        windows.settingsStore = DocumentSettingsStore(directory: directory.appendingPathComponent("Settings"))
         let first = try #require(windows.open(from: board))
         defer { first.window?.close() }
         first.model.start()
@@ -223,8 +222,125 @@ struct ClipboardWindowsTests {
         defer { reopened.window?.close() }
         reopened.model.start()
         for _ in 0..<500 where reopened.model.contentHash == nil { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(reopened.model.settingsStore == nil)
         #expect(reopened.model.hasSavedSettings)
         #expect(reopened.model.layoutID == "a4Duplex")
+    }
+
+    @Test("閉じた URL 文書を元の表題・基準 URL・紙面設定で開き直し、既に開いていればその窓を使う")
+    func restoresClosed() throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let prefs = AppPreferences(defaults: suite.defaults)
+        let windows = ClipboardWindows(openFiles: { _, _, _ in }, warn: { _ in }, closeWelcome: {})
+        windows.preferences = prefs
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        windows.library = UserLibrary(root: root)
+        let bytes = Data("<p>Article</p>".utf8)
+        let base = URL(string: "https://fixture.invalid/news/article")!
+        let first = windows.open(bytes, format: .html, title: "Article", baseURL: base)
+        first.model.setSmartRemoval(enabled: true)
+        first.model.layoutID = PrintLayout.a4Duplex.id
+        first.model.copies = 3
+        first.close()
+        #expect(prefs.closedClipboardDocuments.entries.count == 1)
+        #expect(AppPreferences(defaults: suite.defaults).closedClipboardDocuments.entries.isEmpty)
+        let reopened = try #require(windows.reopenClosed())
+        defer { reopened.close() }
+        #expect(reopened !== first)
+        #expect(prefs.closedClipboardDocuments.entries.isEmpty)
+        #expect(reopened.model.memoryContent == bytes)
+        #expect(reopened.model.settingsStore == nil)
+        #expect(reopened.model.displayName == "Article")
+        #expect(reopened.model.format == .html)
+        #expect(reopened.model.htmlPresentation == .paper)
+        #expect(!reopened.model.usesHTMLPresentation)
+        #expect(reopened.model.htmlBaseURL == base)
+        #expect(reopened.model.isSmartRemovalEnabled)
+        #expect(reopened.model.layoutID == PrintLayout.a4Duplex.id)
+        #expect(reopened.model.copies == 3)
+        reopened.close()
+        let open = windows.open(bytes, format: .html, title: "Already open", baseURL: base)
+        defer { open.close() }
+        #expect(windows.reopenClosed() === open)
+        open.close()
+        prefs.keepsClosedClipboardDocuments = false
+        #expect(windows.reopenClosed() == nil)
+        windows.open(bytes, format: .html, title: "Again", baseURL: base).close()
+        #expect(prefs.closedClipboardDocuments.entries.isEmpty)
+    }
+
+    @Test("閉じた順に 10 件まで覚え、本文が上限を超えると古い文書から外す")
+    func limitsHistory() {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let prefs = AppPreferences(defaults: suite.defaults)
+        let library = UserLibrary(root: root)
+        var history = ClosedClipboardDocuments(byteLimit: 20)
+        func remember(_ value: String) {
+            let data = Data(value.utf8)
+            let model = DocumentViewModel(
+                data: data, fileURL: nil, format: .plainText, preferences: prefs,
+                library: library, title: value)
+            history.remember(.init(model: model, hash: .of(data), data: data, date: .now))
+        }
+        for i in 0..<12 { remember(String(i)) }
+        #expect(history.entries.map(\.title) == (2..<12).reversed().map { String($0) })
+        remember("012345678901234567")
+        #expect(history.entries.map(\.title) == ["012345678901234567", "11"])
+        remember(String(repeating: "x", count: 21))
+        #expect(history.entries.count == 2)
+    }
+
+    @Test("ファイルメニューには URL と履歴の項目が一つずつあり、閉じた文書がないと履歴を隠す")
+    func closedDocumentMenu() throws {
+        let windows = ClipboardWindows.shared
+        let prefs = try #require(windows.preferences)
+        let original = prefs.closedClipboardDocuments
+        let wasKeeping = prefs.keepsClosedClipboardDocuments
+        defer {
+            prefs.keepsClosedClipboardDocuments = wasKeeping
+            prefs.closedClipboardDocuments = original
+        }
+        prefs.keepsClosedClipboardDocuments = true
+        prefs.closedClipboardDocuments = ClosedClipboardDocuments()
+        let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
+        let historyTitle = String(localized: "Recently Closed Clipboard Documents")
+        let latestTitle = String(localized: "Reopen Closed Clipboard Document")
+        #expect(file.item(withTitle: historyTitle)?.isHidden == true)
+        #expect(file.item(withTitle: latestTitle)?.isHidden == true)
+
+        windows.open(Data(UUID().uuidString.utf8), format: .plainText, title: "Menu sample").close()
+        windows.open(Data(UUID().uuidString.utf8), format: .plainText, title: "Second sample").close()
+        for key in ["Open from URL…", "Reopen Closed Clipboard Document", "Recently Closed Clipboard Documents"] {
+            let title = Bundle.main.localizedString(forKey: key, value: key, table: nil)
+            let matches = file.items.filter { $0.title == title }
+            #expect(matches.count == 1)
+            #expect(matches.first?.isHidden == false)
+        }
+        let items = try #require(file.item(withTitle: historyTitle)?.submenu?.items)
+        try #require(items.count == 2)
+        #expect(items[0].title.contains("Second sample"))
+        #expect(items[1].title.contains("Menu sample"))
+        file.update()
+        let submenu = try #require(file.item(withTitle: historyTitle)?.submenu)
+        submenu.update()
+        let selected = try #require(submenu.items.firstIndex { $0.title.contains("Menu sample") })
+        submenu.performActionForItem(at: selected)
+        let reopened = try #require(
+            NSApp.windows.compactMap { $0.windowController as? MemoryDocumentWindowController }
+                .first { $0.model.displayName == "Menu sample" && $0.window?.isVisible == true })
+        defer { reopened.close() }
+        let remaining = try #require(file.item(withTitle: historyTitle)?.submenu?.items)
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.title.contains("Second sample") == true)
+        prefs.keepsClosedClipboardDocuments = false
+        #expect(file.item(withTitle: historyTitle)?.submenu?.items.isEmpty == true)
+        #expect(file.item(withTitle: historyTitle)?.isHidden == true)
+        #expect(file.item(withTitle: latestTitle)?.isHidden == true)
     }
 
     @Test("ファイルメニューのコマンドNはクリップボードから開く一つだけ")
