@@ -123,7 +123,7 @@ struct PanelIconButton: View {
         Button(action: action) {
             Image(systemName: symbol).font(.system(size: 10, weight: .semibold))
                 .frame(width: 22, height: 22)
-                .background(RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear))
+                .background(CornerRole.control.shape.fill(isHovered ? PrintPalette.hover : .clear))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -170,7 +170,7 @@ struct PanelDropHint: View {
             .padding(8)
             .frame(maxWidth: .infinity)
             .overlay {
-                RoundedRectangle(cornerRadius: 6)
+                CornerRole.control.shape
                     .strokeBorder(PrintPalette.line3, style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
             }
     }

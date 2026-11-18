@@ -113,11 +113,27 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
     public private(set) var sets: [BandArrangementSet] = []
     public private(set) var repairNotices: [BandRepairNotice] = []
 
+    // Older stores could save a selection of Standard without writing either row.
+    private var usesPreviousStandard = false
+
     public init() {}
+
+    public static func legacyOutlineChoice(_ showsOutline: Bool, name: String) -> Self {
+        if !showsOutline { return previousArrangement(named: name) }
+        var store = Self()
+        store.usesPreviousStandard = true
+        return store
+    }
+
+    private static var previousStandard: BandArrangementVariants {
+        BandArrangementVariants(
+            split: .builtIn(for: .split, includesLegacyParts: true), top: .builtIn(for: .top, includesLegacyParts: true)
+        )
+    }
 
     public static func previousArrangement(named name: String) -> Self {
         var store = Self()
-        var layouts = BandArrangementVariants()
+        var layouts = previousStandard
         layouts.split.bottomLeft.removeAll { $0 == .part(.outline) }
         layouts.split.bottomRight.removeAll { $0 == .part(.chapter) }
         layouts.split.unused += [.outline, .chapter]
@@ -137,7 +153,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
 
     public var activeLayouts: BandArrangementVariants {
         if case .user(let id) = active, let set = sets.first(where: { $0.id == id }) { return set.layouts }
-        return BandArrangementVariants()
+        return usesPreviousStandard ? Self.previousStandard : BandArrangementVariants()
     }
 
     public func contains(_ selection: BandArrangementSelection) -> Bool {
@@ -150,6 +166,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
     public mutating func select(_ selection: BandArrangementSelection) throws {
         guard contains(selection) else { throw BandArrangementStoreError.missingSet }
         active = selection
+        usesPreviousStandard = false
     }
 
     public mutating func insert(
@@ -161,7 +178,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         set.name = try validName(set.name)
         set.layouts = try completedLayouts(set.layouts, knownItems: knownItems)
         sets.append(set)
-        if activate { active = .user(set.id) }
+        if activate { try select(.user(set.id)) }
     }
 
     public mutating func overwrite(
@@ -187,7 +204,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
             guard replacement != selection, contains(replacement) else {
                 throw BandArrangementStoreError.invalidReplacement
             }
-            active = replacement
+            try select(replacement)
         }
         sets.remove(at: index)
     }
@@ -236,7 +253,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         return completed
     }
 
-    private enum CodingKeys: String, CodingKey { case schemaVersion, active, sets }
+    private enum CodingKeys: String, CodingKey { case schemaVersion, active, sets, standardRevision }
 
     private struct Record: Decodable {
         let value: BandArrangementSet?
@@ -269,6 +286,7 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         }
         if let selection = try? values.decode(BandArrangementSelection.self, forKey: .active), contains(selection) {
             active = selection
+            usesPreviousStandard = selection == .standard && !values.contains(.standardRevision)
         } else {
             active = .standard
             repairNotices.append(.missingActiveSet)
@@ -280,9 +298,12 @@ public struct BandArrangementStore: Codable, Equatable, Sendable {
         try values.encode(schemaVersion, forKey: .schemaVersion)
         try values.encode(active, forKey: .active)
         try values.encode(sets, forKey: .sets)
+        if active == .standard, !usesPreviousStandard { try values.encode(2, forKey: .standardRevision) }
     }
 
-    public static func == (lhs: Self, rhs: Self) -> Bool { lhs.active == rhs.active && lhs.sets == rhs.sets }
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.active == rhs.active && lhs.sets == rhs.sets && lhs.usesPreviousStandard == rhs.usesPreviousStandard
+    }
 
     public static func load(
         _ data: Data?, knownItems: [BandLayout.Item] = BandLayout.Item.allCases

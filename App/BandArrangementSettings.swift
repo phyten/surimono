@@ -305,7 +305,7 @@ private struct RepairNotice: View {
             }
             .font(.system(size: 12))
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor.opacity(0.1)))
+            .background(CornerRole.tile.shape.fill(Color.accentColor.opacity(0.1)))
         }
     }
 }
@@ -328,7 +328,7 @@ private struct ConflictNotice: View {
         }
         .font(.system(size: 12))
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.warnTint))
+        .background(CornerRole.tile.shape.fill(PrintPalette.warnTint))
     }
 }
 
@@ -351,7 +351,7 @@ private struct RecoveryNotice: View {
         }
         .font(.system(size: 12))
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.warnTint))
+        .background(CornerRole.tile.shape.fill(PrintPalette.warnTint))
     }
 }
 
@@ -361,7 +361,6 @@ private enum MiniatureMetrics {
     static let chipHeight: CGFloat = 26
     static let chipSpacing: CGFloat = 3
     static let bandHeight: CGFloat = 38
-    static let corner: CGFloat = 10
 }
 
 private struct ArrangementMiniature: View {
@@ -402,8 +401,8 @@ private struct ArrangementMiniature: View {
                 .overlay(alignment: .top) { Divider() }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: MiniatureMetrics.corner))
-        .overlay(RoundedRectangle(cornerRadius: MiniatureMetrics.corner).strokeBorder(PrintPalette.line2))
+        .clipShape(CornerRole.toast.shape)
+        .overlay(CornerRole.toast.shape.strokeBorder(PrintPalette.line2))
         .shadow(color: PrintPalette.popShadow, radius: 6, y: 2)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Toolbar Arrangement"))
@@ -504,9 +503,9 @@ private struct ZoneEditor: View {
             }
         }
         .background {
-            RoundedRectangle(cornerRadius: 7)
+            CornerRole.largeControl.shape
                 .fill(targeted ? Color.accentColor.opacity(0.12) : .clear)
-            RoundedRectangle(cornerRadius: 7)
+            CornerRole.largeControl.shape
                 .strokeBorder(
                     targeted ? Color.accentColor : PrintPalette.line3,
                     style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: targeted ? [] : [3, 3])
@@ -517,7 +516,7 @@ private struct ZoneEditor: View {
             if case .zone(zone, let index) = session.dropTarget,
                 let marker = BandEditorDrop.marker(at: index, frames: ordered(entries.count))
             {
-                Capsule().fill(Color.accentColor)
+                AppCornerShape.capsule.fill(Color.accentColor)
                     .frame(width: 2.5, height: marker.height)
                     .offset(x: marker.minX, y: marker.minY)
                     .allowsHitTesting(false)
@@ -621,9 +620,9 @@ private struct EntryChip: View {
             .frame(minHeight: MiniatureMetrics.chipHeight)
             .padding(.horizontal, entry == .separator ? 1 : (entry == .part(.print) && !showsName ? 1 : 4))
             .background {
-                RoundedRectangle(cornerRadius: 6)
+                CornerRole.control.shape
                     .fill(isSelected ? Color.accentColor.opacity(0.18) : (plain ? .clear : PrintPalette.raised))
-                RoundedRectangle(cornerRadius: 6)
+                CornerRole.control.shape
                     .strokeBorder(
                         isSelected ? Color.accentColor : (plain ? .clear : PrintPalette.line2),
                         lineWidth: isSelected ? 1.5 : 1)
@@ -807,9 +806,9 @@ private struct UnusedPalette: View {
         }
         .background {
             // The grouped forms' box, so the editor sits on the same ground as the other sections.
-            RoundedRectangle(cornerRadius: 8).fill(
+            CornerRole.tile.shape.fill(
                 targeted ? AnyShapeStyle(Color.accentColor.opacity(0.12)) : AnyShapeStyle(.quinary))
-            if targeted { RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 1.5) }
+            if targeted { CornerRole.tile.shape.strokeBorder(Color.accentColor, lineWidth: 1.5) }
         }
         .onDrop(
             of: [.utf8PlainText], delegate: BandEditorDropDelegate(session: session, target: { _ in .unused })
@@ -836,8 +835,8 @@ private struct SeparatorSource: View {
             .padding(.horizontal, 7)
             .frame(height: MiniatureMetrics.chipHeight)
             .background {
-                RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised)
-                RoundedRectangle(cornerRadius: 6)
+                CornerRole.control.shape.fill(PrintPalette.raised)
+                CornerRole.control.shape
                     .strokeBorder(PrintPalette.line3, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
             }
             .contentShape(Rectangle())
@@ -869,7 +868,7 @@ private struct Inspector: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(.quinary))
+        .background(CornerRole.tile.shape.fill(.quinary))
     }
 
     @ViewBuilder

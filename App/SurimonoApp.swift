@@ -5,7 +5,7 @@ import WebKit
 @main
 struct SurimonoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @State private var preferences = AppPreferences()
+    @State private var preferences: AppPreferences
     @State private var library = UserLibrary()
     private let settingsStore: DocumentSettingsStore
     /// Outlives the Settings window, which SwiftUI may build again.
@@ -17,7 +17,7 @@ struct SurimonoApp: App {
                 WebPaginator.clearBackground = { $0.setValue(false, forKey: "drawsBackground") }
             }
         #endif
-        let preferences = AppPreferences()
+        let preferences = AppPreferences.shared
         _preferences = State(initialValue: preferences)
         let library = UserLibrary()
         _library = State(initialValue: library)

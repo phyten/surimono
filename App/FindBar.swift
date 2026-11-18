@@ -31,8 +31,8 @@ struct FindBar: View {
         .padding(.leading, 10)
         .padding(.trailing, 6)
         .padding(.vertical, 6)
-        .paperOverlayBackground(cornerRadius: 10)
-        .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(.primary.opacity(0.12)) }
+        .paperOverlayBackground(.toast)
+        .overlay { CornerRole.toast.shape.strokeBorder(.primary.opacity(0.12)) }
         .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
     }
 }

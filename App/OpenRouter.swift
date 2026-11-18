@@ -185,6 +185,13 @@ final class OpenRouter {
         openIncludes(plan)
     }
 
+    func openRecent(_ url: URL) {
+        let started = url.startAccessingSecurityScopedResource()
+        let leases =
+            started ? [FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() })] : []
+        open([url], access: leases)
+    }
+
     /// A binder the reader closed, from the Recent Binders menu. The reader made these files a binder, so it stays one
     /// even when they are all images, which `OpenRequest` would open as an image bundle. A file that is gone opens
     /// anyway and shows as unreadable in the list.

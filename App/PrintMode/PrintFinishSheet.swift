@@ -34,9 +34,9 @@ struct PrintFinishSheet: View {
         } else {
             panel
                 .frame(maxWidth: Self.width)
-                .background(RoundedRectangle(cornerRadius: 14).fill(PrintPalette.raised))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(PrintPalette.line, lineWidth: 1))
+                .background(CornerRole.sheet.shape.fill(PrintPalette.raised))
+                .clipShape(CornerRole.sheet.shape)
+                .overlay(CornerRole.sheet.shape.strokeBorder(PrintPalette.line, lineWidth: 1))
                 .shadow(color: PrintPalette.popShadow, radius: 20, y: 6)
         }
     }
@@ -271,8 +271,8 @@ struct PrintFinishSheet: View {
                     .foregroundStyle(Color(.sRGB, red: 0.33, green: 0.34, blue: 0.35, opacity: 1))
                     .frame(maxWidth: .infinity)
                     .frame(height: 64)
-                    .background(RoundedRectangle(cornerRadius: 2).fill(PrintPalette.paper))
-                    .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(PrintPalette.line2, lineWidth: 1))
+                    .background(CornerRole.thumbnail.shape.fill(PrintPalette.paper))
+                    .overlay(CornerRole.thumbnail.shape.strokeBorder(PrintPalette.line2, lineWidth: 1))
                     .padding(.vertical, 5)
                 slotFields([.bottomLeft, .bottomCenter, .bottomRight])
                 subheading("Items to Insert")
@@ -346,8 +346,8 @@ struct PrintFinishSheet: View {
                 .fixedSize()
                 .padding(.horizontal, 8)
                 .frame(height: 24)
-                .overlay(Capsule().strokeBorder(PrintPalette.line2, lineWidth: 1))
-                .contentShape(Capsule())
+                .overlay(AppCornerShape.capsule.strokeBorder(PrintPalette.line2, lineWidth: 1))
+                .contentShape(AppCornerShape.capsule)
         }
         .buttonStyle(.plain)
     }
@@ -537,9 +537,9 @@ struct PrintTextField: View {
             .font(.system(size: 11.5))
             .padding(.horizontal, 6)
             .frame(height: 27)
-            .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.chrome))
+            .background(CornerRole.smallControl.shape.fill(PrintPalette.chrome))
             .overlay(
-                RoundedRectangle(cornerRadius: 5).strokeBorder(
+                CornerRole.smallControl.shape.strokeBorder(
                     isHighlighted ? accent : PrintPalette.line2, lineWidth: 1)
             )
             .focused($isFocused)

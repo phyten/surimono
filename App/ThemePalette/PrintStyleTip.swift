@@ -20,8 +20,8 @@ struct PrintStyleTip: ViewModifier {
                             .foregroundStyle(PrintPalette.ink)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 9)
-                            .paperOverlayBackground(cornerRadius: 8)
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PrintPalette.line2))
+                            .paperOverlayBackground(.tile)
+                            .overlay(CornerRole.tile.shape.strokeBorder(PrintPalette.line2))
                     }
                     .buttonStyle(.plain)
                     .fixedSize()

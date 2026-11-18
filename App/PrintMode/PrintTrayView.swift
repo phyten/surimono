@@ -146,8 +146,8 @@ struct PrintTrayView: View {
                             .padding(.leading, 11)
                             .padding(.trailing, 13)
                             .frame(height: 30)
-                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.ai, lineWidth: 1))
-                            .contentShape(RoundedRectangle(cornerRadius: 6))
+                            .overlay(CornerRole.control.shape.strokeBorder(PrintPalette.ai, lineWidth: 1))
+                            .contentShape(CornerRole.control.shape)
                     }
                     .buttonStyle(.plain)
                     .fixedSize()
@@ -502,8 +502,8 @@ private struct TrayNavigator: View {
         .buttonStyle(PrintIconButtonStyle())
         .padding(3)
         .frame(width: 44)
-        .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.raised))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PrintPalette.line2, lineWidth: 1))
+        .background(CornerRole.tile.shape.fill(PrintPalette.raised))
+        .overlay(CornerRole.tile.shape.strokeBorder(PrintPalette.line2, lineWidth: 1))
         .shadow(color: PrintPalette.popShadow, radius: 9, y: 6)
     }
 

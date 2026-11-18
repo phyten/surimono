@@ -29,7 +29,7 @@ struct BandResolvedPlanTests {
         #expect(top.top.requiredWidth == 1002 && split.bottom?.requiredWidth == 679)
         #expect(
             top.unusedAvailable == [.outline, .showOnAllSpaces, .pageTurn] + BandLayoutTests.addedItems
-                && split.unusedAvailable == [.outline] + BandLayoutTests.standardUnused)
+                && split.unusedAvailable == [.outline, .showOnAllSpaces] + BandLayoutTests.addedItems)
     }
 
     private let metrics = BandMetrics(
@@ -49,33 +49,35 @@ struct BandResolvedPlanTests {
         let split = resolve(.standard(for: .split), width: CGFloat(width))
         let bottom = try #require(split.bottom)
         #expect(top.bottom == nil)
-        #expect(top.unusedAvailable == [.showOnAllSpaces, .pageTurn] + BandLayoutTests.addedItems)
+        #expect(
+            top.unusedAvailable == [.transition, .floatOnTop, .showOnAllSpaces, .pageTurn] + BandLayoutTests.addedItems)
         #expect(split.unusedAvailable == BandLayoutTests.standardUnused)
         switch width {
         case 1000:
             #expect(top.top.leading == [.formatBadge, .pageIndicator])
             #expect(
                 top.top.trailing == [
-                    .presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print,
+                    .presentation, .style, .outline, .layout, .zoom, .thumbnails, .print,
                 ])
-            #expect(top.top.forms.count == 11 && top.top.forms.values.allSatisfy { $0 == .full })
+            #expect(top.top.forms.count == 9 && top.top.forms.values.allSatisfy { $0 == .full })
             #expect(top.top.nameWidth == 120 && top.overflow == [])
-            #expect(split.top.forms == [.formatBadge: .full, .floatOnTop: .full, .print: .full])
-            #expect(bottom.forms.count == 9 && bottom.forms.values.allSatisfy { $0 == .full })
+            #expect(split.top.forms == [.formatBadge: .full, .print: .full])
+            #expect(bottom.forms.count == 8 && bottom.forms.values.allSatisfy { $0 == .full })
             #expect(split.top.nameWidth == 120 && split.overflow == [])
         case 650:
             #expect(
                 top.top.forms == [
-                    .presentation: .compact, .outline: .compact, .layout: .full,
-                    .transition: .compact, .zoom: .full, .thumbnails: .full, .floatOnTop: .full, .print: .full,
+                    .pageIndicator: .full, .presentation: .compact, .style: .compact, .outline: .compact,
+                    .layout: .full,
+                    .zoom: .full, .thumbnails: .full, .print: .full,
                 ])
-            #expect(top.top.nameWidth == 102 && top.overflow == [.formatBadge, .pageIndicator, .style])
-            #expect(split.top.forms == [.formatBadge: .full, .floatOnTop: .full, .print: .full])
+            #expect(top.top.nameWidth == 90 && top.overflow == [.formatBadge])
+            #expect(split.top.forms == [.formatBadge: .full, .print: .full])
             #expect(split.top.nameWidth == 120 && split.overflow == [])
             #expect(
                 bottom.forms == [
-                    .presentation: .full, .style: .compact, .outline: .full, .layout: .full,
-                    .transition: .full, .zoom: .full, .thumbnails: .full, .pageIndicator: .full, .pageTurn: .full,
+                    .presentation: .full, .style: .full, .outline: .full, .layout: .full,
+                    .zoom: .full, .thumbnails: .full, .pageIndicator: .full, .pageTurn: .full,
                 ])
         default:
             #expect(top.top.forms == [.print: .compact] && top.top.nameWidth == 66)
@@ -83,11 +85,11 @@ struct BandResolvedPlanTests {
             #expect(bottom.leading == [.presentation, .zoom, .thumbnails])
             #expect(bottom.trailing == [.pageIndicator])
             #expect(bottom.forms == [.presentation: .compact, .zoom: .full, .thumbnails: .full, .pageIndicator: .full])
-            #expect(split.overflow == [.formatBadge, .style, .outline, .layout, .transition, .floatOnTop, .pageTurn])
+            #expect(split.overflow == [.formatBadge, .style, .outline, .layout, .pageTurn])
             #expect(
                 top.overflow == [
                     .formatBadge, .pageIndicator, .presentation, .style, .outline,
-                    .layout, .transition, .zoom, .thumbnails, .floatOnTop,
+                    .layout, .zoom, .thumbnails,
                 ])
         }
         #expect(top.top.minimumWidth == 184 && split.top.minimumWidth == 184 && bottom.minimumWidth == 30)
@@ -127,10 +129,31 @@ struct BandResolvedPlanTests {
             measurements: .init(items: BandLayoutTests.workedWidths, name: 120), metrics: numeric, availableWidth: 2000)
         #expect(full.top.geometry.usesStandardSpacing)
         #expect(full.top.geometry.gapsBefore[.formatBadge] == 6)
-        #expect(full.top.geometry.gapsBefore[.floatOnTop] == 8)
+        #expect(full.top.geometry.gapsBefore[.floatOnTop] == nil)
         #expect(full.top.geometry.gapsBefore[.print] == 0)
         #expect(full.top.geometry.moreDock == .beforePrint)
         #expect(full.top.geometry.fixedWidth == 150)
+    }
+
+    @Test("標準の上の帯は拡大率とサムネイルがないときも目次が入る幅まで残す")
+    func outlineFitsBesidePrint() {
+        let layout = BandArrangement.standard(for: .top)
+        let available: Set<BandLayout.Item> = [
+            .formatBadge, .pageIndicator, .chapter, .style, .outline, .layout, .print,
+        ]
+        func row(at width: CGFloat) -> BandRowPlan {
+            BandLayout.resolve(
+                arrangement: layout, mode: .top, availableItems: available,
+                measurements: .init(items: BandLayoutTests.workedWidths, name: 120),
+                metrics: .init(topFixed: 153, bottomFixed: 28, separator: 9), availableWidth: width
+            ).top
+        }
+        #expect(row(at: 900).geometry.separatorsBefore == [.layout])
+        let fit = row(at: 341)
+        #expect(fit.forms == [.outline: .compact, .print: .full])
+        #expect(fit.nameWidth == 80 && fit.requiredWidth == 341)
+        #expect(fit.geometry.separatorsBefore.isEmpty)
+        #expect(row(at: 340).forms == [.print: .full])
     }
 
     @Test("下へ移した印刷は選んだ位置に残り物理的な帯の順で畳まれる", arguments: [220, 180, 140, 90, 1])
@@ -211,6 +234,6 @@ struct BandResolvedPlanTests {
         #expect(plan.top.forms == [.print: .compact])
         #expect(plan.bottom?.forms == [:])
         #expect(
-            layout.bottomLeft.compactMap(\.item) == [.presentation, .style, .layout, .transition, .zoom, .thumbnails])
+            layout.bottomLeft.compactMap(\.item) == [.presentation, .style, .layout, .zoom, .thumbnails])
     }
 }

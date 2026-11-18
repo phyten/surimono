@@ -69,6 +69,8 @@ struct PaperView: NSViewRepresentable {
         controller.view = view
         view.onToast = controller.onToast
         view.onReadingJump = controller.onReadingJump
+        let spotRadius = AppPreferences.shared.corners.radius(for: .badge, shortestSide: .infinity)
+        view.subviews.first { $0 is PaperSpotFrameView }?.layer?.cornerRadius = spotRadius
         view.onZoomChange = onZoomChange
         view.onPageChange = onPageChange
         view.onTurn = onTurn
@@ -1441,7 +1443,7 @@ final class PaperSpotFrameView: NSView {
         let indigo = NSColor(PrintPalette.paperAi)
         layer?.borderColor = indigo.cgColor
         layer?.borderWidth = 2
-        layer?.cornerRadius = 4
+        layer?.cornerRadius = AppPreferences.shared.corners.radius(for: .badge, shortestSide: .infinity)
         layer?.backgroundColor = indigo.withAlphaComponent(0.08).cgColor
         setAccessibilityElement(false)
     }

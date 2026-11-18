@@ -28,6 +28,8 @@ enum ShortcutPreferencesError: Error {
 /// App-wide defaults. Settings a user changes in a document window are remembered per document instead.
 @Observable
 final class AppPreferences {
+    static let shared = AppPreferences()
+
     private(set) var keyboardShortcuts: ShortcutConfiguration
     private(set) var keyboardShortcutsLoadState: ShortcutPreferencesLoadState
     private(set) var keyboardShortcutsRevision: UInt64 = 0
@@ -70,6 +72,16 @@ final class AppPreferences {
         didSet { defaults.set(singleDocumentBinderPolicy.rawValue, forKey: "singleDocumentBinderPolicy") }
     }
 
+    var corners: CornerPreset {
+        didSet { defaults.set(corners.rawValue, forKey: "corners") }
+    }
+    @ObservationIgnored var menuBarVisibilityDidChange: ((Bool) -> Void)?
+    var showsMenuBarItem: Bool {
+        didSet {
+            defaults.set(showsMenuBarItem, forKey: "showsMenuBarItem")
+            menuBarVisibilityDidChange?(showsMenuBarItem)
+        }
+    }
     /// The look of the app's windows. Nothing stored means Light, also for readers who saw the app in Dark before.
     var appearance: AppAppearance {
         didSet { defaults.set(appearance.rawValue, forKey: "appearance") }
@@ -213,9 +225,7 @@ final class AppPreferences {
         guard defaults.data(forKey: "bandArrangementStore") == nil, retainedBandArrangementData == nil,
             !showsBandArrangementFixture
         else { return }
-        bandArrangementStore =
-            showsOutlineOnBand
-            ? BandArrangementStore() : .previousArrangement(named: String(localized: "Previous Arrangement"))
+        bandArrangementStore = .legacyOutlineChoice(showsOutlineOnBand, name: String(localized: "Previous Arrangement"))
     }
     var reloadsChangedFiles: Bool {
         didSet { defaults.set(reloadsChangedFiles, forKey: "reloadsChangedFiles") }
@@ -417,6 +427,10 @@ final class AppPreferences {
         languageOverride = savedLanguages?.first.flatMap { saved in
             UILanguage.candidates(for: saved).dropLast().first { UILanguage.supported.contains($0) }
         }
+        corners =
+            Self.screenshotChoice("SurimonoCorners")
+            ?? defaults.string(forKey: "corners").flatMap(CornerPreset.init(rawValue:)) ?? .standard
+        showsMenuBarItem = defaults.bool(forKey: "showsMenuBarItem")
         appearance = AppAppearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .default
         wheelSensitivity =
             WheelPageTurner.Sensitivity(rawValue: defaults.string(forKey: "wheelSensitivity") ?? "") ?? .normal
@@ -443,9 +457,11 @@ final class AppPreferences {
         showsOutlineOnBand = defaults.object(forKey: "showsOutlineOnBand") as? Bool ?? true
         let bandData = defaults.data(forKey: "bandArrangementStore")
         let bandLoad = BandArrangementStore.load(bandData)
-        bandArrangementStore =
-            bandData == nil && defaults.object(forKey: "showsOutlineOnBand") as? Bool == false
-            ? .previousArrangement(named: String(localized: "Previous Arrangement")) : bandLoad.store
+        if bandData == nil, let legacy = defaults.object(forKey: "showsOutlineOnBand") as? Bool {
+            bandArrangementStore = .legacyOutlineChoice(legacy, name: String(localized: "Previous Arrangement"))
+        } else {
+            bandArrangementStore = bandLoad.store
+        }
         bandArrangementNotices = bandLoad.notices
         retainedBandArrangementData = bandLoad.retainedData
         if bandLoad.retainedData == nil, bandLoad.notices.contains(where: \.losesData) {

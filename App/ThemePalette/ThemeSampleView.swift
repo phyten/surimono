@@ -8,7 +8,7 @@ struct ThemeSampleView: View {
     let page: PDFPage?
     let paperSize: CGSize
     let margins: WebPaginator.Margins
-    var cornerRadius: CGFloat = 3
+    var corner: CornerRole = .tag
 
     var body: some View {
         Canvas { context, size in
@@ -35,8 +35,8 @@ struct ThemeSampleView: View {
         }
         .aspectRatio(paperSize.width / max(paperSize.height, 1), contentMode: .fit)
         // Under a theme's paper the sheet is white in both appearances, like the printed one.
-        .background(RoundedRectangle(cornerRadius: cornerRadius).fill(Color.white))
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .background(corner.shape.fill(Color.white))
+        .clipShape(corner.shape)
         .accessibilityHidden(true)
     }
 

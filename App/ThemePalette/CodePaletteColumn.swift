@@ -128,7 +128,7 @@ private struct CodePaletteRow: View {
             .padding(.trailing, 8)
             .padding(.vertical, 9)
             .background(
-                RoundedRectangle(cornerRadius: 6).fill(isHovering ? Color.primary.opacity(0.06) : .clear)
+                CornerRole.control.shape.fill(isHovering ? Color.primary.opacity(0.06) : .clear)
             )
             .contentShape(Rectangle())
         }
@@ -180,7 +180,7 @@ private struct CodePaletteRow: View {
             .padding(.vertical, showsGround ? 3 : 0)
             .background {
                 if showsGround {
-                    RoundedRectangle(cornerRadius: 4).fill(Color(codeHex: ground ?? "#ffffff"))
+                    CornerRole.badge.shape.fill(Color(codeHex: ground ?? "#ffffff"))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -217,38 +217,46 @@ private struct CodeBlockControls: View {
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
-            row("Frame", selection: $model.codeBlock.frame) {
-                Text("Match Style").tag(CodeBlockOptions.Frame.style)
-                Text("No Frame").tag(CodeBlockOptions.Frame.none)
-                Text("Pale Ground").tag(CodeBlockOptions.Frame.tint)
-                Text("Thin Border").tag(CodeBlockOptions.Frame.rule)
-                Text("Left Line").tag(CodeBlockOptions.Frame.left)
-            }
-            row("Line Numbers", selection: $model.codeBlock.lineNumbers) {
-                Text("No Numbers").tag(CodeBlockOptions.LineNumbers.none)
-                Text("Every Line").tag(CodeBlockOptions.LineNumbers.all)
-                Text("Every 5 Lines").tag(CodeBlockOptions.LineNumbers.everyFive)
-            }
-            row("Long Lines", selection: $model.codeBlock.longLines) {
-                Text("Wrap").tag(CodeBlockOptions.LongLines.wrap)
-                Text("Shrink the Text").tag(CodeBlockOptions.LongLines.shrink)
-                Text("Cut with a Mark").tag(CodeBlockOptions.LongLines.cut)
-            }
-            row("Language Name", selection: $model.codeBlock.languageLabel) {
-                Text("No Label").tag(CodeBlockOptions.LanguageLabel.none)
-                Text("Top Right").tag(CodeBlockOptions.LanguageLabel.corner)
-                Text("Top Band").tag(CodeBlockOptions.LanguageLabel.band)
-            }
+            row(
+                "Frame", selection: $model.codeBlock.frame,
+                options: [
+                    .init(.style, "Match Style"),
+                    .init(.none, "No Frame"),
+                    .init(.tint, "Pale Ground"),
+                    .init(.rule, "Thin Border"),
+                    .init(.left, "Left Line"),
+                ])
+            row(
+                "Line Numbers", selection: $model.codeBlock.lineNumbers,
+                options: [
+                    .init(.none, "No Numbers"),
+                    .init(.all, "Every Line"),
+                    .init(.everyFive, "Every 5 Lines"),
+                ])
+            row(
+                "Long Lines", selection: $model.codeBlock.longLines,
+                options: [
+                    .init(.wrap, "Wrap"),
+                    .init(.shrink, "Shrink the Text"),
+                    .init(.cut, "Cut with a Mark"),
+                ])
+            row(
+                "Language Name", selection: $model.codeBlock.languageLabel,
+                options: [
+                    .init(.none, "No Label"),
+                    .init(.corner, "Top Right"),
+                    .init(.band, "Top Band"),
+                ])
         }
         .controlSize(.small)
     }
 
-    private func row<Value: Hashable, Choices: View>(
-        _ title: LocalizedStringKey, selection: Binding<Value>, @ViewBuilder choices: () -> Choices
+    private func row<Value: Hashable>(
+        _ title: LocalizedStringKey, selection: Binding<Value>, options: [PrintChoice<Value>]
     ) -> some View {
         GridRow {
             Text(title).font(.system(size: 11.5)).foregroundStyle(.secondary)
-            Picker(title, selection: selection, content: choices)
+            CornerMenuPicker(title: title, selection: selection, options: options, preset: model.preferences.corners)
                 .labelsHidden()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

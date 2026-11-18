@@ -125,7 +125,7 @@ struct DropOverlay: View {
                         .foregroundStyle(PrintPalette.toastInk)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
+                        .background(CornerRole.toast.shape.fill(PrintPalette.toast))
                 }
             }
             .overlay(alignment: .topLeading) { insertionLine }
@@ -152,22 +152,22 @@ struct DropOverlay: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         // The words stay readable over whatever is on the page behind them.
-        .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.raised))
+        .background(CornerRole.tile.shape.fill(PrintPalette.raised))
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(isHovered ? AnyShapeStyle(PrintPalette.aiTint) : AnyShapeStyle(.clear))
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
+            CornerRole.panel.shape
                 .strokeBorder(
                     isHovered ? PrintPalette.ai : PrintPalette.line3,
                     style: StrokeStyle(lineWidth: isHovered ? 2 : 1.5, dash: isHovered ? [] : [6, 4]))
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(CornerRole.panel.shape)
     }
 
     @ViewBuilder private var insertionLine: some View {
         if let y = session.insertionY, let list = session.listFrame {
-            RoundedRectangle(cornerRadius: 1)
+            CornerRole.rule.shape
                 .fill(PrintPalette.ai)
                 .frame(width: list.width - 8, height: 2)
                 .offset(x: list.minX + 4, y: y - 1)

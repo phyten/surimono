@@ -78,7 +78,7 @@ private struct BinderList: View {
                     .id(item.url)
                     .background {
                         if binder.flashedURLs.contains(item.url) {
-                            RoundedRectangle(cornerRadius: 6).fill(PrintPalette.aiTint2)
+                            CornerRole.control.shape.fill(PrintPalette.aiTint2)
                         }
                     }
                     .onGeometryChange(for: CGRect.self) {

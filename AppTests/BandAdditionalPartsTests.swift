@@ -353,7 +353,7 @@ struct BandAdditionalPartsTests {
         #expect(fixture.model.isBandAlwaysVisible)
         #expect(
             fixture.preferences.activeBandArrangement.topRight.compactMap(\.item)
-                == [.floatOnTop] + parts + [.print])
+                == parts + [.print])
         // Exercise repeated native layout passes after rendering, including the orientation label's final value.
         // On a busy machine a measurement may still arrive after the four quiet passes above, so the plan may take
         // it once or twice; what must not happen is a plan that keeps changing, or a layout that starts a render.
@@ -457,7 +457,7 @@ struct BandAdditionalPartsTests {
         let fixture = try #require(DebugSnapshot.bandPartsFixture("readingDirection,selectText,viewOptions,margins"))
         #expect(
             fixture.activeLayouts.split.topRight == [
-                .part(.floatOnTop), .part(.readingDirection), .part(.selectText), .part(.viewOptions), .part(.margins),
+                .part(.readingDirection), .part(.selectText), .part(.viewOptions), .part(.margins),
                 .part(.print),
             ])
         #expect(fixture.activeLayouts.top == .standard(for: .top))

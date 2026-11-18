@@ -45,8 +45,9 @@ struct BandMeasurementAgreementTests {
         let window: NSWindow
 
         /// A Markdown file named as in the screenshots, with the given parts before Print at the top right of Split.
-        init(parts: [BandLayout.Item], width: CGFloat) throws {
+        init(parts: [BandLayout.Item], width: CGFloat, corners: CornerPreset = .standard) throws {
             let preferences = AppPreferences(defaults: defaults.defaults)
+            preferences.corners = corners
             preferences.menuArrangement = .split
             var layouts = BandArrangementVariants()
             for item in parts {
@@ -153,11 +154,32 @@ struct BandMeasurementAgreementTests {
         #expect(sawShortName)
     }
 
+    @Test("角の丸みごとに実測した標準の帯が最小幅から900ptまで収まる", arguments: CornerPreset.allCases, MenuArrangement.allCases)
+    func defaultBandFits(corners: CornerPreset, mode: MenuArrangement) async throws {
+        let fixture = try Fixture(parts: [], width: 1000, corners: corners)
+        defer { fixture.close() }
+        fixture.model.preferences.menuArrangement = mode
+        try await settle(fixture, width: 1000)
+        let measured = OverlayMenuState()
+        measured.hasReadTrafficLights = true
+        measured.bandWidths = fixture.menu.bandWidths
+        for slot: BandSlot in [.name, .item(.layout, .full), .item(.print, .full), .item(.print, .compact)] {
+            try #require((measured.bandWidths[slot] ?? 0) > 0)
+        }
+        for width in 1...900 {
+            measured.bandWidth = CGFloat(width)
+            let plans = BandPlans(model: fixture.model, menu: measured)
+            for row in [plans.top, plans.bottom].compactMap({ $0 }) {
+                #expect(row.requiredWidth <= max(row.minimumWidth, CGFloat(width)) + 0.01)
+            }
+        }
+    }
+
     @Test(
         "帯に描いた部品と「…」の幅は、見えない所で測った同じ形の幅より1ptを超えて広くならず、2ptを超えて狭くならない",
-        arguments: [CGFloat(1800), 640])
-    func drawnWidthsMatchMeasured(width: CGFloat) async throws {
-        let fixture = try Fixture(parts: BandTestCatalog.addedItems, width: width)
+        arguments: [CGFloat(1800), 640], CornerPreset.allCases)
+    func drawnWidthsMatchMeasured(width: CGFloat, corners: CornerPreset) async throws {
+        let fixture = try Fixture(parts: BandTestCatalog.addedItems, width: width, corners: corners)
         defer { fixture.close() }
         try await settle(fixture, width: width)
         let plan = try #require(fixture.plan)
@@ -189,9 +211,9 @@ struct BandMeasurementAgreementTests {
 
     @Test(
         "畳んでいく帯で、描いたファイル名は計画の幅を1pt以上下回らず、最小の80ptを保つ",
-        arguments: [BandTestCatalog.addedItems, sixParts])
-    func nameKeepsPlannedWidth(parts: [BandLayout.Item]) async throws {
-        let fixture = try Fixture(parts: parts, width: 760)
+        arguments: [BandTestCatalog.addedItems, sixParts], CornerPreset.allCases)
+    func nameKeepsPlannedWidth(parts: [BandLayout.Item], corners: CornerPreset) async throws {
+        let fixture = try Fixture(parts: parts, width: 760, corners: corners)
         defer { fixture.close() }
         var sawMinimum = false
         for width in stride(from: CGFloat(760), through: 380, by: -4) {

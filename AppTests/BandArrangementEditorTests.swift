@@ -68,12 +68,13 @@ struct BandArrangementEditorTests {
         let session = environment.session
         let before = session.draft
         let groups = BandPaletteGroup.project(session.arrangement.unused)
-        #expect(groups.map(\.id) == [.reading, .bodyAndPaper, .window, .printingAndSaving, .help])
+        #expect(groups.map(\.id) == [.display, .reading, .bodyAndPaper, .window, .printingAndSaving, .help])
         #expect(
             groups.map { $0.parts.map(\.id) } == [
-                [.readingDirection, .scrollDirection, .cover, .selectText],
+                [.transition], [.readingDirection, .scrollDirection, .cover, .selectText],
                 [.paperOrientation, .paperSeries, .margins, .ignoreSlides],
-                [.showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .beforePrinting, .saveAsFile],
+                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
+                [.printSettings, .beforePrinting, .saveAsFile],
                 [.keysAndGestures],
             ])
         #expect(session.draft == before && !session.isDirty && !session.canUndo)
@@ -139,14 +140,14 @@ struct BandArrangementEditorTests {
         }
     }
 
-    @Test("標準復帰は両配置の新14部品を未使用へ戻し一度の取り消しで変更と閉じる前の確認を戻す")
+    @Test("標準復帰は両配置の追加部品と最前面とめくり方を未使用へ戻し一度の取り消しで変更と閉じる前の確認を戻す")
     func restoreGroupedParts() throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         let session = environment.session
         for mode in [MenuArrangement.top, .split] {
             session.mode = mode
-            for item in BandTestCatalog.addedItems {
+            for item in BandTestCatalog.standardUnused {
                 session.select(.part(item))
                 session.moveSelection(to: .zone(.topLeft))
             }
@@ -180,15 +181,15 @@ struct BandArrangementEditorTests {
         defer { environment.cleanUp() }
         let session = environment.session
         #expect(session.mode == .split)
-        // Standard bottom left: presentation | style outline | layout transition | zoom thumbnails.
+        // Standard bottom left: presentation | style outline | layout | zoom thumbnails.
         #expect(session.move(location(.zone(.bottomLeft), 2), to: .zone(.bottomLeft), at: 6))
         #expect(
             session.draft.split.bottomLeft == [
                 .part(.presentation), .separator, .part(.outline), .separator, .part(.layout), .part(.style),
-                .part(.transition), .separator, .part(.zoom), .part(.thumbnails),
+                .separator, .part(.zoom), .part(.thumbnails),
             ])
         #expect(session.selection == .part(.style))
-        #expect(session.message == .moved(BandLayout.Item.style.editorName, BandZoneID.bottomLeft.editorName, 6, 10))
+        #expect(session.message == .moved(BandLayout.Item.style.editorName, BandZoneID.bottomLeft.editorName, 6, 9))
         #expect(session.isDirty)
         #expect(environment.preferences.bandArrangementStore.activeLayouts == BandArrangementVariants())
         #expect(environment.suite.defaults.object(forKey: "bandArrangementStore") == nil)
@@ -206,12 +207,14 @@ struct BandArrangementEditorTests {
         // A trailing separator and a doubled one stay in the draft, though the toolbar draws neither.
         #expect(session.separatorIsIdle(at: 1, in: .topLeft) && session.separatorIsIdle(at: 2, in: .topLeft))
         #expect(session.hasIdleSeparators)
+        session.select(.part(.floatOnTop))
+        session.moveSelection(to: .zone(.topRight))
         #expect(session.move(location(.zone(.topLeft), 2), to: .zone(.topRight), at: 1))
-        #expect(session.draft.split.topRight == [.part(.floatOnTop), .separator, .part(.print)])
+        #expect(session.draft.split.topRight == [.part(.print), .separator, .part(.floatOnTop)])
         #expect(session.selection == .separator(.topRight, 1))
         #expect(!session.separatorIsIdle(at: 1, in: .topRight))
         session.removeSelection()
-        #expect(session.draft.split.topRight == [.part(.floatOnTop), .part(.print)])
+        #expect(session.draft.split.topRight == [.part(.print), .part(.floatOnTop)])
         #expect(session.message == .separatorDeleted)
         #expect(!session.draft.split.unused.contains(.print))
     }
@@ -300,8 +303,8 @@ struct BandArrangementEditorTests {
         defer { environment.cleanUp() }
         let session = environment.session
         let payload = session.beginDrag(.entry(location(.zone(.bottomLeft), 0), .part(.presentation)))
-        #expect(session.drop(payload, on: .zone(.topRight, index: 1)))
-        #expect(session.draft.split.topRight == [.part(.floatOnTop), .part(.presentation), .part(.print)])
+        #expect(session.drop(payload, on: .zone(.topRight, index: 0)))
+        #expect(session.draft.split.topRight == [.part(.presentation), .part(.print)])
         session.undo()
         #expect(session.draft == BandArrangementVariants())
         #expect(!session.canUndo)
@@ -393,7 +396,7 @@ struct BandArrangementEditorTests {
         let environment = Environment()
         defer { environment.cleanUp() }
         let session = environment.session
-        session.select(.part(.floatOnTop))
+        session.select(.part(.formatBadge))
         session.moveSelection(to: .unused)
         session.request(.section(.styles))
         #expect(!session.saveForLeaving())
@@ -407,7 +410,7 @@ struct BandArrangementEditorTests {
         let copy = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(
             session.active == .user(copy.id)
-                && copy.layouts.split.unused == BandTestCatalog.standardUnused + [.floatOnTop])
+                && copy.layouts.split.unused == BandTestCatalog.standardUnused + [.formatBadge])
         #expect(environment.preferences.bandArrangementStore.contains(.standard))
     }
 
@@ -513,15 +516,15 @@ struct BandArrangementEditorTests {
             library: UserLibrary(root: directory.appendingPathComponent("Library")), renderer: renderer,
             settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
         let menu = OverlayMenuState()
-        #expect(BandPlans(model: model, menu: menu).top.trailing == [.floatOnTop, .print])
+        #expect(BandPlans(model: model, menu: menu).top.trailing == [.print])
         let session = environment.session
         #expect(session.duplicate(named: "Reading") == nil)
         session.select(.part(.print))
         session.moveSelection(to: .zone(.bottomLeft))
-        #expect(BandPlans(model: model, menu: menu).top.trailing == [.floatOnTop, .print])
+        #expect(BandPlans(model: model, menu: menu).top.trailing == [.print])
         #expect(session.overwrite() == nil)
         let plans = BandPlans(model: model, menu: menu)
-        #expect(plans.top.trailing == [.floatOnTop])
+        #expect(plans.top.trailing.isEmpty)
         #expect(plans.bottom?.leading.last == .print)
     }
 
@@ -537,9 +540,9 @@ struct BandArrangementEditorTests {
         #expect(session.drop(payload, on: .zone(.topLeft, index: 0)))
         #expect(session.draft.split.topLeft == [.part(.pageTurn), .part(.formatBadge)])
         payload = session.beginDrag(.entry(location(.zone(.topLeft), 0), .part(.pageTurn)))
-        #expect(session.drop(payload, on: .zone(.topRight, index: 2)))
-        #expect(session.draft.split.topRight == [.part(.floatOnTop), .part(.print), .part(.pageTurn)])
-        payload = session.beginDrag(.entry(location(.zone(.topRight), 2), .part(.pageTurn)))
+        #expect(session.drop(payload, on: .zone(.topRight, index: 1)))
+        #expect(session.draft.split.topRight == [.part(.print), .part(.pageTurn)])
+        payload = session.beginDrag(.entry(location(.zone(.topRight), 1), .part(.pageTurn)))
         #expect(session.drop(payload, on: .unused))
         #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.pageTurn])
         payload = session.beginDrag(.newSeparator)
@@ -563,7 +566,7 @@ struct BandArrangementEditorTests {
         let environment = Environment()
         defer { environment.cleanUp() }
         let session = environment.session
-        let payload = session.beginDrag(.entry(location(.zone(.topRight), 1), .part(.print)))
+        let payload = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
         #expect(session.proposal(for: .unused) == .forbidden)
         #expect(session.message == .printIsRequired)
         #expect(!session.drop(payload, on: .unused))
@@ -575,18 +578,18 @@ struct BandArrangementEditorTests {
         let environment = Environment()
         defer { environment.cleanUp() }
         let session = environment.session
-        let stale = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.floatOnTop)))
+        let stale = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
         session.insertSeparator(in: .topLeft, at: 0)
         #expect(!session.drop(stale, on: .zone(.topLeft, index: 0)))
         let other = BandArrangementEditorSession(preferences: environment.preferences)
-        let foreign = other.beginDrag(.entry(location(.zone(.topRight), 0), .part(.floatOnTop)))
+        let foreign = other.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
         #expect(!session.drop(foreign, on: .zone(.topLeft, index: 0)))
         let lying = BandEditorPayload(
             session: session.id, revision: session.revision, mode: .split,
-            source: .entry(location(.zone(.topRight), 0), .part(.print)))
+            source: .entry(location(.zone(.topRight), 0), .part(.zoom)))
         #expect(!session.drop(lying, on: .zone(.topLeft, index: 0)))
-        #expect(session.draft.split.topRight == [.part(.floatOnTop), .part(.print)])
-        let current = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.floatOnTop)))
+        #expect(session.draft.split.topRight == [.part(.print)])
+        let current = session.beginDrag(.entry(location(.zone(.topRight), 0), .part(.print)))
         let parsed = try #require(BandEditorPayload(string: current.string))
         #expect(parsed == current)
         #expect(

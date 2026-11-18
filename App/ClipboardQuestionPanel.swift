@@ -189,8 +189,8 @@ struct ClipboardQuestionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised))
-        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2))
+        .background(CornerRole.control.shape.fill(PrintPalette.raised))
+        .overlay(CornerRole.control.shape.strokeBorder(PrintPalette.line2))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text("Beginning of the text"))
     }
@@ -213,8 +213,8 @@ struct ClipboardQuestionView: View {
             }
         }
         .padding(ListMetrics.inset)
-        .background(RoundedRectangle(cornerRadius: ListMetrics.corner).fill(PrintPalette.raised))
-        .overlay(RoundedRectangle(cornerRadius: ListMetrics.corner).strokeBorder(PrintPalette.line2))
+        .background(CornerRole.tile.shape.fill(PrintPalette.raised))
+        .overlay(CornerRole.tile.shape.strokeBorder(PrintPalette.line2))
     }
 
     private var buttons: some View {
@@ -241,11 +241,9 @@ struct ClipboardQuestionView: View {
     }
 }
 
-/// The box of the choices and the selection inside it, whose corners follow the box's at its inset.
+/// The inset keeps the selection inside the box of choices.
 private enum ListMetrics {
-    static let corner: CGFloat = 8
     static let inset: CGFloat = 4
-    static let selectionCorner = corner - inset
 }
 
 private struct ClipboardQuestionRow: View {
@@ -274,7 +272,7 @@ private struct ClipboardQuestionRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: ListMetrics.selectionCorner)
+                    CornerRole.badge.shape
                         .fill(Color(nsColor: .selectedContentBackgroundColor))
                 }
             }

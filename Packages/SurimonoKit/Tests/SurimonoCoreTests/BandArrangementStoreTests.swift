@@ -169,3 +169,23 @@ struct BandArrangementStoreTests {
         #expect(BandArrangementStore.load(nil).notices == [])
     }
 }
+
+extension BandArrangementStoreTests {
+    @Test("以前に標準を選んで保存した人は標準を選び直すまで元の帯を使う")
+    func savedStandard() throws {
+        let old = Data(#"{"schemaVersion":1,"active":{"kind":"standard"},"sets":[]}"#.utf8)
+        var store = try JSONDecoder().decode(BandArrangementStore.self, from: old)
+        let original = store.activeLayouts
+        #expect(original.split.topRight == [.part(.floatOnTop), .part(.print)])
+        #expect(original.split.bottomLeft.contains(.transition))
+        #expect(original.top.topRight.contains(.floatOnTop) && original.top.topRight.contains(.transition))
+        try store.insert(.init(name: "Copy"), activate: false)
+        store = try JSONDecoder().decode(BandArrangementStore.self, from: JSONEncoder().encode(store))
+        #expect(store.activeLayouts == original)
+        try store.select(.standard)
+        let reloaded = try JSONDecoder().decode(BandArrangementStore.self, from: JSONEncoder().encode(store))
+        #expect(reloaded.activeLayouts.split.topRight == [.part(.print)])
+        #expect(reloaded.activeLayouts.top.unused.contains(.floatOnTop))
+        #expect(reloaded.activeLayouts.split.unused.contains(.transition))
+    }
+}

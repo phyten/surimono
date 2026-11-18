@@ -3,6 +3,7 @@ import Carbon.HIToolbox
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var menuBarController: MenuBarController?
     private var appearanceKeeper: AppearanceKeeper?
 
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
@@ -55,6 +56,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// A window's settings are saved a moment after a change, and quitting does not close the windows first.
     func applicationWillTerminate(_ notification: Notification) {
+        menuBarController?.remove()
+        menuBarController = nil
         DistributedNotificationCenter.default().removeObserver(self)
         ShortcutDispatcher.shared.stop()
         GlobalHotKeys.shared.stop()
@@ -63,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if let preferences = ClipboardWindows.shared.preferences {
+            menuBarController = MenuBarController(preferences: preferences)
             GlobalHotKeys.shared.start()
             ShortcutController.shared.start(preferences: preferences)
         }
@@ -146,7 +150,7 @@ final class WelcomeController {
 private struct WelcomeView: View {
     let preferences: AppPreferences
     @State private var recent: [URL] =
-        RecentFileHistory.shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
+        RecentFileHistory.welcomeURLs
     @State private var window: NSWindow?
     @State private var isTargeted = false
     @State private var isGuideHovered = false
@@ -169,7 +173,7 @@ private struct WelcomeView: View {
         }
         .background(WindowReader { window = $0 })
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-            recent = RecentFileHistory.shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
+            recent = RecentFileHistory.welcomeURLs
         }
     }
 
@@ -186,8 +190,10 @@ private struct WelcomeView: View {
             // The two ways in look alike: neither is a lesser link beside the other.
             HStack(spacing: 10) {
                 Button("Open…") { OpenRouter.shared.showOpenPanel() }
+                    .cornerButton(preferences.corners)
 
                 Button("Open from Clipboard") { ClipboardWindows.shared.open() }
+                    .cornerButton(preferences.corners)
             }
             .controlSize(.large)
             // A third way in for someone who has nothing to open yet. A line of its own keeps the two buttons from
@@ -201,9 +207,9 @@ private struct WelcomeView: View {
                     .padding(.horizontal, 8)
                     .frame(height: 26)
                     .background {
-                        RoundedRectangle(cornerRadius: 6).fill(isGuideHovered ? PrintPalette.aiTint : .clear)
+                        CornerRole.control.shape.fill(isGuideHovered ? PrintPalette.aiTint : .clear)
                     }
-                    .contentShape(RoundedRectangle(cornerRadius: 6))
+                    .contentShape(CornerRole.control.shape)
             }
             .buttonStyle(.plain)
             .onHover { isGuideHovered = $0 }
@@ -213,12 +219,12 @@ private struct WelcomeView: View {
         .frame(maxWidth: .infinity)
         .background {
             ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(PrintPalette.stage)
-                if isTargeted { RoundedRectangle(cornerRadius: 12).fill(PrintPalette.ai.opacity(0.12)) }
+                CornerRole.panel.shape.fill(PrintPalette.stage)
+                if isTargeted { CornerRole.panel.shape.fill(PrintPalette.ai.opacity(0.12)) }
             }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 12)
+            CornerRole.panel.shape
                 .strokeBorder(
                     isTargeted ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.line3),
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
@@ -246,10 +252,7 @@ struct RecentFileRow: View {
 
     var body: some View {
         Button {
-            let started = url.startAccessingSecurityScopedResource()
-            let leases =
-                started ? [FolderAccess.Lease(url: url, release: { url.stopAccessingSecurityScopedResource() })] : []
-            OpenRouter.shared.open([url], access: leases)
+            OpenRouter.shared.openRecent(url)
         } label: {
             // The folder tells apart files of the same name and says where a file is before it opens.
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -268,7 +271,7 @@ struct RecentFileRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
             .frame(height: 28)
-            .background { RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear) }
+            .background { CornerRole.control.shape.fill(isHovered ? PrintPalette.hover : .clear) }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

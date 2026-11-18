@@ -97,8 +97,8 @@ struct PrintModeView: View {
             }
             .font(.system(size: 12.5))
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 8).fill(PrintPalette.raised))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PrintPalette.line2))
+            .background(CornerRole.tile.shape.fill(PrintPalette.raised))
+            .overlay(CornerRole.tile.shape.strokeBorder(PrintPalette.line2))
             .padding(16)
         }
     }
@@ -333,9 +333,9 @@ struct PrintTopBar: View {
             .padding(.leading, 10)
             .padding(.trailing, 8)
             .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .background(CornerRole.control.shape.fill(PrintPalette.raised))
+            .overlay(CornerRole.control.shape.strokeBorder(PrintPalette.line2, lineWidth: 1))
+            .contentShape(CornerRole.control.shape)
         }
         .help(
             Text(
@@ -371,8 +371,8 @@ struct PrintTopBar: View {
             .lineLimit(1)
             .padding(.horizontal, 8)
             .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.aiTint))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .background(CornerRole.control.shape.fill(PrintPalette.aiTint))
+            .contentShape(CornerRole.control.shape)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -477,9 +477,9 @@ struct PrintStyleMenu: View {
         .padding(.leading, 10)
         .padding(.trailing, 8)
         .frame(height: 28)
-        .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.raised))
-        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(PrintPalette.line2, lineWidth: 1))
-        .contentShape(RoundedRectangle(cornerRadius: 6))
+        .background(CornerRole.control.shape.fill(PrintPalette.raised))
+        .overlay(CornerRole.control.shape.strokeBorder(PrintPalette.line2, lineWidth: 1))
+        .contentShape(CornerRole.control.shape)
         .opacity(isEnabled ? 1 : 0.6)
     }
 

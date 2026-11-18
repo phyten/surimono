@@ -61,24 +61,26 @@ struct ViewOptionsPopover: View {
                 }
                 row("Reading Direction") { directionPicker(option(\.direction)) }
                 row("Scroll Direction") {
-                    Picker("Scroll Direction", selection: option(\.scrollAxis)) {
-                        Text("Vertical").tag(ViewOptions.ScrollAxis.vertical)
-                        Text("Horizontal").tag(ViewOptions.ScrollAxis.horizontal)
-                    }
+                    CornerSegments(
+                        title: "Scroll Direction", selection: option(\.scrollAxis),
+                        values: [ViewOptions.ScrollAxis.vertical, .horizontal],
+                        preset: model.preferences.corners
+                    ) { axis in Text(axis == .vertical ? LocalizedStringKey("Vertical") : "Horizontal") }
                     .disabled(!model.viewOptions.usesScrollAxis)
                 }
                 row("Show First Page Alone") {
-                    Toggle("Show First Page Alone", isOn: option(\.showsCoverAlone))
-                        .toggleStyle(.switch).controlSize(.small)
-                        .disabled(!model.viewOptions.usesCoverOption)
+                    CornerSwitch(
+                        title: "Show First Page Alone", isOn: option(\.showsCoverAlone),
+                        preset: model.preferences.corners
+                    )
+                    .disabled(!model.viewOptions.usesCoverOption)
                 }
                 if model.viewOptions.canJoinPages, model.viewLogicalMargin != nil {
                     row("Join Pages") {
-                        Toggle("Join Pages", isOn: option(\.joinsPages))
-                            .toggleStyle(.switch).controlSize(.small)
+                        CornerSwitch(title: "Join Pages", isOn: option(\.joinsPages), preset: model.preferences.corners)
                     }
                 }
-                row("Toolbar") { BandVisibilityPicker(selection: $model.bandVisibility) }
+                row("Toolbar") { visibilityPicker($model.bandVisibility) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -95,7 +97,7 @@ struct ViewOptionsPopover: View {
         .padding(Self.padding)
         .frame(width: width)
         .background(alignment: .topLeading) { measurements }
-        .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
+        .paperOverlayBackground(nil, tintOpacity: 0.985)
         .clearsInitialFocus()
     }
 
@@ -132,11 +134,21 @@ struct ViewOptionsPopover: View {
     }
 
     private func directionPicker(_ selection: Binding<ViewOptions.Direction>) -> some View {
-        Picker("Reading Direction", selection: selection) {
-            Text("Left to Right · Bound Left").tag(ViewOptions.Direction.leftToRight)
-            Text("Right to Left · Bound Right").tag(ViewOptions.Direction.rightToLeft)
-        }
+        CornerMenuPicker(
+            title: "Reading Direction", selection: selection,
+            options: [
+                .init(.leftToRight, "Left to Right · Bound Left"), .init(.rightToLeft, "Right to Left · Bound Right"),
+            ],
+            preset: model.preferences.corners
+        )
         .pickerStyle(.menu)
+    }
+
+    private func visibilityPicker(_ selection: Binding<BandVisibility>) -> some View {
+        CornerSegments(
+            title: "Toolbar Visibility", selection: selection, values: [.always, .onHover],
+            preset: model.preferences.corners
+        ) { visibility in Text(visibility == .always ? LocalizedStringKey("Always") : "On Hover") }
     }
 
     /// Copies of the labels and of the widest settings, which decide whether the labels go over the settings and how
@@ -155,7 +167,7 @@ struct ViewOptionsPopover: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 directionPicker(.constant(.leftToRight)).fixedSize()
-                NarrowestWidth { BandVisibilityPicker(selection: .constant(.always)).pickerStyle(.segmented) }
+                NarrowestWidth { visibilityPicker(.constant(.always)) }
                     .fixedSize()
             }
             .labelsHidden()
@@ -310,7 +322,8 @@ struct SpreadGlyph: View {
         .background {
             // Outside the sheets, so that picking the current unit does not move its neighbours.
             if isCurrent {
-                RoundedRectangle(cornerRadius: 4).strokeBorder(PrintPalette.ai, lineWidth: 2).padding(-4)
+                AppCornerShape.spreadFrame(preset: AppPreferences.shared.corners)
+                    .strokeBorder(PrintPalette.ai, lineWidth: 2).padding(-4)
             }
         }
         .accessibilityHidden(true)

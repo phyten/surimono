@@ -123,7 +123,7 @@ struct PrintPressBar: View {
                     .foregroundStyle(PrintPalette.ai)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(PrintPalette.aiTint, in: RoundedRectangle(cornerRadius: 6))
+                    .background(PrintPalette.aiTint, in: CornerRole.control.shape)
             }
             if let line = reminderLine {
                 Text(verbatim: line).font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
@@ -235,8 +235,8 @@ private struct OrientationPicker: View {
                 .lineLimit(1)
                 .padding(.horizontal, 8)
                 .frame(height: 28)
-                .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.hover))
-                .contentShape(RoundedRectangle(cornerRadius: 6))
+                .background(CornerRole.control.shape.fill(PrintPalette.hover))
+                .contentShape(CornerRole.control.shape)
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
@@ -349,8 +349,8 @@ private struct PaperSeriesMenu: View {
             .lineLimit(1)
             .padding(.horizontal, 8)
             .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.hover))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .background(CornerRole.control.shape.fill(PrintPalette.hover))
+            .contentShape(CornerRole.control.shape)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -420,13 +420,13 @@ private struct LayoutCard: View {
             .padding(.top, 2)
             .frame(width: Self.size.width, height: Self.size.height, alignment: .top)
             .background {
-                RoundedRectangle(cornerRadius: 8)
+                CornerRole.tile.shape
                     .fill(isSelected ? PrintPalette.aiTint : hovering ? PrintPalette.hover : .clear)
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 8).strokeBorder(isSelected ? PrintPalette.ai : .clear, lineWidth: 1)
+                CornerRole.tile.shape.strokeBorder(isSelected ? PrintPalette.ai : .clear, lineWidth: 1)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(CornerRole.tile.shape)
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -450,8 +450,8 @@ private struct LayoutCard: View {
                     .lineLimit(1)
                     .fixedSize()
                     .padding(.horizontal, 4)
-                    .background(PrintPalette.raised, in: Capsule())
-                    .overlay { Capsule().strokeBorder(PrintPalette.line3, lineWidth: 1) }
+                    .background(PrintPalette.raised, in: AppCornerShape.capsule)
+                    .overlay { AppCornerShape.capsule.strokeBorder(PrintPalette.line3, lineWidth: 1) }
             } else if let sheet {
                 HStack(spacing: 3) {
                     SheetMark().frame(width: 7, height: 9)
@@ -513,8 +513,8 @@ private struct VariantMenuLabel: View {
             .font(.system(size: 9, weight: .semibold))
             .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
             .frame(width: 20, height: 20)
-            .background(RoundedRectangle(cornerRadius: 5).fill(hovering ? PrintPalette.press : .clear))
-            .contentShape(RoundedRectangle(cornerRadius: 5))
+            .background(CornerRole.smallControl.shape.fill(hovering ? PrintPalette.press : .clear))
+            .contentShape(CornerRole.smallControl.shape)
             .onHover { hovering = $0 }
     }
 }

@@ -73,6 +73,8 @@ final class RecentFileHistory {
         }
     }
 
+    static var welcomeURLs: [URL] { shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs }
+
     var visibleURLs: [URL] {
         let system = systemURLs()
         return system.isEmpty ? preferences.recentFiles.entries.compactMap(locate) : system

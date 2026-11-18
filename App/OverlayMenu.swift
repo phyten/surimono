@@ -432,7 +432,7 @@ struct OverlayBand: View {
             }
             bandParts(row.leading, row: row, model: model)
         }
-        .buttonStyle(.borderless)
+        .cornerButton(model.preferences.corners, .borderless)
         .controlSize(ViewerWindow.bandControlSize)
     }
 
@@ -445,7 +445,7 @@ struct OverlayBand: View {
                 // The plan's gap before "…"; in the Standard order the stack's spacing draws it instead.
                 .padding(.leading, row.geometry.moreGap)
         }
-        .buttonStyle(.borderless)
+        .cornerButton(model.preferences.corners, .borderless)
         .controlSize(ViewerWindow.bandControlSize)
         // The plan already made the tools fit; without this the stack would squeeze a label to make room for the
         // spacer instead of leaving the slack to it.
@@ -471,7 +471,7 @@ struct BottomBand: View {
             Spacer(minLength: Self.spacerMinimum)
             bandParts(row.trailing, row: row, model: model)
         }
-        .buttonStyle(.borderless)
+        .cornerButton(model.preferences.corners, .borderless)
         // The same size as the top band's, whose widths the same measurements give.
         .controlSize(ViewerWindow.bandControlSize)
         .padding(.horizontal, Self.padding)
@@ -489,7 +489,7 @@ struct FormatBadge: View {
             .fixedSize()
             .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
-            .background(RoundedRectangle(cornerRadius: 4).fill(.quaternary))
+            .background(CornerRole.badge.shape.fill(.quaternary))
     }
 }
 
@@ -511,7 +511,7 @@ struct PrintButton: View {
                 Label(LocalizedStringKey(Self.titleKey), systemImage: "printer").labelStyle(.titleAndIcon)
             }
         }
-        .buttonStyle(.borderedProminent)
+        .cornerButton(model.preferences.corners, .print)
         // Vermilion is the color of printing, whatever accent color the Mac is set to.
         .tint(PrintPalette.shu)
         .controlSize(ViewerWindow.bandControlSize)
@@ -715,16 +715,12 @@ struct LayoutPicker: View {
     @Bindable var model: DocumentViewModel
 
     var body: some View {
-        Picker(
-            "View",
-            selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) })
-        ) {
-            ForEach(ViewOptions.Layout.displayOrder, id: \.self) { layout in
-                Label(layout.title, systemImage: layout.symbol).tag(layout)
-            }
+        CornerSegments(
+            title: "View Type", selection: Binding(get: { model.viewOptions.layout }, set: { model.setLayout($0) }),
+            values: ViewOptions.Layout.displayOrder, preset: model.preferences.corners
+        ) { layout in
+            Label(layout.title, systemImage: layout.symbol)
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
         .labelStyle(.iconOnly)
         .fixedSize()
         .help(ShortcutHints.help(String(localized: "Single Page or Spread"), [.viewSingle, .viewSpread]))

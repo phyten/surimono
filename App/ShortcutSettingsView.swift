@@ -159,8 +159,8 @@ struct ShortcutSettingsView: View {
         }
         .padding(.horizontal, 9)
         .frame(height: 28)
-        .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .textBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.separator))
+        .background(CornerRole.largeControl.shape.fill(Color(nsColor: .textBackgroundColor)))
+        .overlay(CornerRole.largeControl.shape.strokeBorder(.separator))
     }
 
     @ViewBuilder private func localSection(_ group: ShortcutGroup) -> some View {
