@@ -50,12 +50,15 @@ enum MarkdownCallouts {
             }
         }
 
-        var opening: String {
+        var opening: String { opening(extraClasses: "", attributes: "") }
+
+        func opening(extraClasses: String, attributes: String) -> String {
             let classes = [
                 "callout", canonicalName == nil ? "callout-unknown" : nil, compatibilityClass, "callout-\(style)",
+                extraClasses.isEmpty ? nil : HTML.escape(extraClasses),
             ]
-            return
-                "<div class=\"\(classes.compactMap(\.self).joined(separator: " "))\" data-callout=\"\(HTML.escape(name))\">"
+            let className = classes.compactMap(\.self).joined(separator: " ")
+            return "<div class=\"\(className)\" data-callout=\"\(HTML.escape(name))\"\(attributes)>"
         }
 
         func title(_ html: String) -> String {

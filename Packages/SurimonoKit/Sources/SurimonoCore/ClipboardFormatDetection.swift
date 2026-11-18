@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ClipboardTextKind: String, CaseIterable, Codable, Sendable {
-    case markdown, org, html, latex, csv, asciidoc, notebook, graphviz, plantuml, url, plainText
+    case markdown, org, html, latex, csv, asciidoc, djot, textile, notebook, graphviz, plantuml, url, plainText
 }
 
 public struct ClipboardFormatHints: Equatable, Sendable {
@@ -137,6 +137,20 @@ struct ClipboardCandidate: Sendable {
 
 /// Inspects a single bounded window without reading files, loading resources, or modifying the source.
 public enum ClipboardFormatDetector {
+    private static let textileBlock = try? NSRegularExpression(
+        pattern: #"(?m)^(?:h[1-6]|bq|bc|fn[0-9]+)\. (?=\S)|^\|_\. (?=\S)"#)
+
+    private static func looksLikeTextile(_ text: String) -> Bool {
+        let prefix = String(decoding: text.utf8.prefix(8192), as: UTF8.self)
+        // Markdown examples often quote several real Textile blocks inside one code fence.
+        guard let textileBlock, !prefix.contains("```"), !prefix.contains("~~~") else { return false }
+        let range = NSRange(prefix.startIndex..., in: prefix)
+        let blocks = textileBlock.numberOfMatches(in: prefix, range: range)
+        if blocks >= 2 { return true }
+        // A quoted key followed by a colon also occurs in ordinary JSON. Require a Textile block alongside a link.
+        return blocks == 1 && prefix.range(of: #""[^"\r\n]+":\S"#, options: .regularExpression) != nil
+    }
+
     public static func detect(
         _ text: String, hints: ClipboardFormatHints = .init(), settings: ClipboardFormatSettings = .standard
     ) -> ClipboardFormatDetection {
@@ -159,6 +173,8 @@ public enum ClipboardFormatDetector {
                 decisive = .asciidoc
             }
         }
+        // Djot and Markdown share their ordinary syntax. Only an explicit choice selects Djot.
+        if decisive == nil, looksLikeTextile(text) { decisive = .textile }
         if let decisive {
             let enabled = settings.automaticKinds.contains(decisive)
             let selected: ClipboardTextKind =
@@ -185,7 +201,8 @@ public enum ClipboardFormatDetector {
             ClipboardScanners.latex(window, level: settings.carefulness, work: &work),
             ClipboardScanners.csv(window, hints: hints, level: settings.carefulness, work: &work),
             ClipboardScanners.url(window, hints: hints, work: &work),
-            ClipboardCandidate(kind: .asciidoc), ClipboardCandidate(kind: .notebook),
+            ClipboardCandidate(kind: .djot), ClipboardCandidate(kind: .textile), ClipboardCandidate(kind: .asciidoc),
+            ClipboardCandidate(kind: .notebook),
             ClipboardCandidate(kind: .graphviz), ClipboardCandidate(kind: .plantuml),
         ]
         let hintedTable =

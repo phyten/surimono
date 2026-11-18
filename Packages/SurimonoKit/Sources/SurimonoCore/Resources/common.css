@@ -548,4 +548,4 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 .format-asciidoc .adoc-include { display: inline-block; }
 /* Asciidoctor wraps every cell in a paragraph and titles a table with a caption as narrow as the table. */
 .format-asciidoc :is(td, th) > p { margin: 0; }
-.format-asciidoc table > caption { white-space: nowrap; text-align: start; }
+:is(.format-asciidoc, .format-djot) table > caption { white-space: nowrap; text-align: start; }

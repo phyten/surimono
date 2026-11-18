@@ -6,7 +6,8 @@ import UniformTypeIdentifiers
 struct SurimonoDocument: FileDocument {
     nonisolated static var readableContentTypes: [UTType] {
         [
-            .surimonoMarkdown, .surimonoOrg, .surimonoAsciiDoc, .surimonoLaTeX, .surimonoNotebook, .surimonoGraphviz,
+            .surimonoMarkdown, .surimonoOrg, .surimonoAsciiDoc, .surimonoDjot, .surimonoTextile, .surimonoLaTeX,
+            .surimonoNotebook, .surimonoGraphviz,
             .surimonoPlantUML,
             .plainText, .html, .pdf, .image,
             .commaSeparatedText,
@@ -43,6 +44,8 @@ struct SurimonoDocument: FileDocument {
         let suffix = ((file.preferredFilename ?? file.filename ?? "") as NSString).pathExtension
         self.contentType =
             switch DocumentFormat(fileExtension: suffix) {
+            case .djot: .surimonoDjot
+            case .textile: .surimonoTextile
             case .asciidoc: .surimonoAsciiDoc
             case .notebook: .surimonoNotebook
             case .graphviz: .surimonoGraphviz

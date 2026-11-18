@@ -10,7 +10,8 @@ struct AcknowledgementsTests {
         "同梱している依存のライセンス文と表示が、アプリの中に入っている",
         arguments: [
             "swift-markdown-LICENSE.txt", "swift-markdown-NOTICE.txt", "swift-cmark-COPYING.txt",
-            "asciidoctor-LICENSE.txt", "SwaTex-LICENSE.txt", "SwaTex-THIRD-PARTY-NOTICES.md", "KaTeX-Fonts-OFL.txt",
+            "djot-LICENSE.txt", "textile-LICENSE.txt", "asciidoctor-LICENSE.txt", "SwaTex-LICENSE.txt",
+            "SwaTex-THIRD-PARTY-NOTICES.md", "KaTeX-Fonts-OFL.txt",
             "viz-LICENSE.txt", "viz-THIRD-PARTY-NOTICES.txt", "plantuml-LICENSE.txt",
             "mermaid-LICENSE.txt", "gemoji-LICENSE.txt", "Sparkle-LICENSE.txt",
         ])
