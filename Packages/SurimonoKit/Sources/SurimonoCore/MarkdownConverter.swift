@@ -248,6 +248,9 @@ public enum MarkdownConverter {
             return "<div class=\"math-block\">\(formula)</div>\n"
         case let code as CodeBlock where code.language?.lowercased() == "mermaid":
             return MermaidBlock.html(code.code)
+        case let code as CodeBlock where DiagramConverter.format(language: code.language) != nil:
+            return DiagramConverter.block(
+                code.code, format: DiagramConverter.format(language: code.language) ?? .graphviz)
         case let code as CodeBlock:
             let highlighted = code.language.flatMap { SyntaxHighlighter.highlight(code.code, language: $0) }
             let language =

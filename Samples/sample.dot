@@ -1,0 +1,13 @@
+digraph Surimono {
+  rankdir=LR;
+  start [label="開始 / Start"];
+  subgraph cluster_print {
+    label="印刷 / Print";
+    paper [label=<<B>用紙 / Paper</B><BR/>A4 → A5>];
+    preview [label="確認 / Preview"];
+    paper -> preview;
+  }
+  done [label="完了 / Done", shape=doublecircle];
+  start -> paper;
+  preview -> done;
+}

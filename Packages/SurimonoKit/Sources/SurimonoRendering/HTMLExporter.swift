@@ -36,7 +36,8 @@ public enum HTMLExporter {
         let preparation = code + "\n" + (settings.theme.script ?? "")
         let result = try await WebPaginator().paginateWithResult(
             input, pageSize: size, margins: margins,
-            allowsJavaScript: false, preparationScript: preparation, rendersMermaid: true, exportHTMLTitle: title)
+            allowsJavaScript: false, preparationScript: preparation, rendersMermaid: true, rendersDiagrams: true,
+            exportHTMLTitle: title)
         guard let exported = result.exportedHTML else { throw WebPaginator.PaginationError.emptyDocument }
         return exported
     }

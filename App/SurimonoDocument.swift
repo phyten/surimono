@@ -6,10 +6,17 @@ import UniformTypeIdentifiers
 struct SurimonoDocument: FileDocument {
     nonisolated static var readableContentTypes: [UTType] {
         [
-            .surimonoMarkdown, .surimonoOrg, .surimonoLaTeX, .surimonoNotebook, .plainText, .html, .pdf, .image,
+            .surimonoMarkdown, .surimonoOrg, .surimonoLaTeX, .surimonoNotebook, .surimonoGraphviz, .surimonoPlantUML,
+            .plainText, .html, .pdf, .image,
             .commaSeparatedText,
             .tabSeparatedText, .zip,
-        ]
+        ] + wordTemplate
+    }
+
+    /// macOS gives the `.dot` extension to Word templates, so a Graphviz file arrives with that type. The initializer
+    /// goes by the file name and reads it as Graphviz.
+    nonisolated private static var wordTemplate: [UTType] {
+        UTType("com.microsoft.word.dot").map { [$0] } ?? []
     }
 
     nonisolated static var writableContentTypes: [UTType] { [] }
@@ -33,7 +40,13 @@ struct SurimonoDocument: FileDocument {
         self.data = data
         // Some systems have only the JSON association installed; use the file name without claiming all JSON.
         let suffix = ((file.preferredFilename ?? file.filename ?? "") as NSString).pathExtension
-        self.contentType = DocumentFormat(fileExtension: suffix) == .notebook ? .surimonoNotebook : contentType
+        self.contentType =
+            switch DocumentFormat(fileExtension: suffix) {
+            case .notebook: .surimonoNotebook
+            case .graphviz: .surimonoGraphviz
+            case .plantuml: .surimonoPlantUML
+            default: contentType
+            }
     }
 
     nonisolated func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {

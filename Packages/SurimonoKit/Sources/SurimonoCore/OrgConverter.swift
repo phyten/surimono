@@ -213,6 +213,9 @@ struct OrgParser {
         case "SRC":
             let language = arguments.split(whereSeparator: \.isWhitespace).first.map(String.init)
             if language?.lowercased() == "mermaid" { return MermaidBlock.html(text) }
+            if let format = DiagramConverter.format(language: language) {
+                return DiagramConverter.block(text, format: format)
+            }
             let highlighted = language.flatMap { SyntaxHighlighter.highlight(text, language: $0) }
             let attribute =
                 language.map { " class=\"language-\(HTML.escape($0))\(highlighted == nil ? "" : " hl")\"" } ?? ""

@@ -277,6 +277,12 @@ public final class ThemeSampler {
             if self.session === session { self.session = nil }
             throw error
         }
+        if format.usesPrintTheme {
+            try await DiagramScript.prepare(in: session.webView, height: printableSize.height) { script in
+                try await session.webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: self.world)
+                    as? String
+            }
+        }
         session.didLoadResources = true
         try session.checkReady()
         return session

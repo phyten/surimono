@@ -234,7 +234,9 @@ struct ConverterTests {
     func formatCapabilities() {
         #expect(DocumentFormat(fileExtension: "tsv") == .csv)
         #expect(
-            DocumentFormat.allCases.filter(\.usesPrintTheme) == [.markdown, .org, .plainText, .csv, .latex, .notebook])
+            DocumentFormat.allCases.filter(\.usesPrintTheme) == [
+                .markdown, .org, .plainText, .csv, .latex, .notebook, .graphviz, .plantuml,
+            ])
         #expect(DocumentFormat.allCases.filter(\.usesHTMLPreset) == [.html])
         #expect(DocumentFormat.allCases.filter { !$0.isWebRendered } == [.pdf, .image, .zipArchive])
     }
