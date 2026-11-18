@@ -79,6 +79,45 @@ struct ClipboardContentTests {
         #expect(ClipboardContent.streaming(text: text) == .document(data: Data(text.utf8), format: .html))
     }
 
+    @Test(
+        "先頭の目印に形式があれば、目印を外してその形式で読む",
+        arguments: [
+            ("<!--format: org-->\n* 見出し", DocumentFormat.org, "* 見出し"),
+            ("\u{FEFF} <!-- FORMAT:Org -->\n\n* 見出し", .org, "* 見出し"),
+            ("<!--\nsource: Emacs\nformat: latex\n-->\n\\section{a}", .latex, "\\section{a}"),
+            ("<!--format: asciidoc-->\n= 題", .asciidoc, "= 題"),
+            ("<!--format: mediawiki-->\n== 題 ==", .mediawiki, "== 題 =="),
+            ("<!--format: text-->\n# そのまま", .plainText, "# そのまま"),
+            ("<!--format: qmd-->\n# 題", .quarto, "# 題"),
+            ("<!--format: markdown-->\n<!doctype html><html></html>", .markdown, "<!doctype html><html></html>"),
+        ] as [(String, DocumentFormat, String)])
+    func streamedFormatHint(text: String, format: DocumentFormat, body: String) {
+        #expect(ClipboardContent.streaming(text: text) == .document(data: Data(body.utf8), format: format))
+    }
+
+    @Test(
+        "知らない形式や文字でない形式の目印は外すだけで、いつもの読み方をする",
+        arguments: [
+            ("<!--format: fountain-->\n# 題", DocumentFormat.markdown, "# 題"),
+            ("<!--source: Bear.app-->\n# 題", .markdown, "# 題"),
+            ("<!--format: pdf-->\n# 題", .markdown, "# 題"),
+            ("<!--format: docx-->\n<!doctype html><html></html>", .html, "<!doctype html><html></html>"),
+        ] as [(String, DocumentFormat, String)])
+    func streamedUnknownHint(text: String, format: DocumentFormat, body: String) {
+        #expect(ClipboardContent.streaming(text: text) == .document(data: Data(body.utf8), format: format))
+    }
+
+    @Test("目印だけで本文がまだないあいだは何もしない", arguments: ["<!--format: org-->", "<!--format: org-->\n \n"])
+    func streamedHintOnly(text: String) {
+        #expect(ClipboardContent.streaming(text: text) == .empty)
+    }
+
+    @Test("形式の行だけでできていないコメントは目印として扱わない")
+    func streamedOrdinaryComment() {
+        let text = "<!-- format: org のつもりの覚え書き\nほかの行 -->\n# 題"
+        #expect(ClipboardContent.streaming(text: text) == .document(data: Data(text.utf8), format: .markdown))
+    }
+
     @Test("流し込まれた文字が空か空白だけなら何もしない", arguments: [nil, "", " \n"] as [String?])
     func streamedNothing(text: String?) {
         #expect(ClipboardContent.streaming(text: text) == .empty)
