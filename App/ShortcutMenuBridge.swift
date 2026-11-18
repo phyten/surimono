@@ -49,6 +49,7 @@ final class ShortcutMenuBridge: NSObject {
             .init(.viewZoomIn, 3, ["Zoom In"]),
             .init(.viewZoomOut, 3, ["Zoom Out"]), .init(.viewZoomFit, 3, ["Fit to Window"]),
             .init(.viewToolbarAlways, 3, ["Always Show Toolbar"]), .init(.viewFloatOnTop, 3, ["Float on Top"]),
+            .init(.viewShowOnAllSpaces, 3, ["Show on All Spaces"]),
             .init(.appGettingStarted, 6, ["Getting Started with Surimono"]),
             .init(.appKeyGuide, 6, ["Keys and Gestures"]), .init(.appCheckUpdates, 0, ["Check for Updates…"]),
             .init(.documentOpenBinder, 4, ["Open as Binder"]), .init(.documentAdd, 4, ["Add Documents…"]),
@@ -243,6 +244,7 @@ final class ShortcutMenuBridge: NSObject {
             .viewIgnoreSlides: current?.slideDeck != nil,
             .viewToolbarAlways: current?.isBandAlwaysVisible ?? false,
             .viewFloatOnTop: current?.isAlwaysOnTop ?? false,
+            .viewShowOnAllSpaces: current?.showsOnAllSpaces ?? false,
             .listToggle: current?.isDrawerOpen ?? false,
             .binderOddPageStarts: current?.binderStartsOnFront ?? false,
         ]

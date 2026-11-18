@@ -33,6 +33,38 @@ struct AuxiliaryWindowLevelTests {
         #expect(document.level == .normal)
     }
 
+    @Test("すべての操作スペースを切り替えるとフルスクリーンの役割だけが入れ替わる")
+    func documentSpaces() {
+        let document = window()
+        defer { document.close() }
+        document.collectionBehavior = [.fullScreenPrimary, .moveToActiveSpace, .participatesInCycle]
+        ViewerWindow.setShowsOnAllSpaces(true, in: document)
+        #expect(document.collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .participatesInCycle])
+        ViewerWindow.setShowsOnAllSpaces(false, in: document)
+        #expect(document.collectionBehavior == [.fullScreenPrimary, .moveToActiveSpace, .participatesInCycle])
+    }
+
+    @Test("補助の窓は文書の操作スペースに従い、解除後は元の役割に戻る")
+    func auxiliarySpaces() {
+        let coordinator = AuxiliaryWindowLevel(observesNotifications: false)
+        let document = window()
+        let auxiliary = window()
+        defer {
+            document.close()
+            auxiliary.close()
+        }
+        coordinator.registerDocument(document)
+        auxiliary.collectionBehavior = [.moveToActiveSpace, .fullScreenNone, .ignoresCycle]
+        document.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        document.orderFront(nil)
+        auxiliary.orderFront(nil)
+        coordinator.refresh(windows: [document, auxiliary])
+        #expect(auxiliary.collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle])
+        document.collectionBehavior = [.fullScreenPrimary]
+        coordinator.refresh(windows: [document, auxiliary])
+        #expect(auxiliary.collectionBehavior == [.moveToActiveSpace, .fullScreenNone, .ignoresCycle])
+    }
+
     @Test("パネルと子窓と非表示の窓と独自レベルの窓は昇格しない")
     func exclusions() {
         #expect(

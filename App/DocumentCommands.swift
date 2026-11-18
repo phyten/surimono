@@ -141,6 +141,10 @@ struct DocumentCommands: Commands {
                 "Float on Top",
                 isOn: Binding(get: { model?.isAlwaysOnTop ?? false }, set: { _ in perform(.viewFloatOnTop) })
             )
+            Toggle(
+                "Show on All Spaces",
+                isOn: Binding(get: { model?.showsOnAllSpaces ?? false }, set: { _ in perform(.viewShowOnAllSpaces) })
+            )
         }
         CommandGroup(replacing: .help) {
             Button("Getting Started with Surimono") { perform(.appGettingStarted) }

@@ -28,8 +28,8 @@ struct BandResolvedPlanTests {
         #expect(top.top.geometry.usesStandardSpacing && split.bottom?.geometry.usesStandardSpacing == true)
         #expect(top.top.requiredWidth == 1002 && split.bottom?.requiredWidth == 679)
         #expect(
-            top.unusedAvailable == [.outline, .pageTurn] + BandLayoutTests.addedItems
-                && split.unusedAvailable == [.outline] + BandLayoutTests.addedItems)
+            top.unusedAvailable == [.outline, .showOnAllSpaces, .pageTurn] + BandLayoutTests.addedItems
+                && split.unusedAvailable == [.outline] + BandLayoutTests.standardUnused)
     }
 
     private let metrics = BandMetrics(
@@ -49,8 +49,8 @@ struct BandResolvedPlanTests {
         let split = resolve(.standard(for: .split), width: CGFloat(width))
         let bottom = try #require(split.bottom)
         #expect(top.bottom == nil)
-        #expect(top.unusedAvailable == [.pageTurn] + BandLayoutTests.addedItems)
-        #expect(split.unusedAvailable == BandLayoutTests.addedItems)
+        #expect(top.unusedAvailable == [.showOnAllSpaces, .pageTurn] + BandLayoutTests.addedItems)
+        #expect(split.unusedAvailable == BandLayoutTests.standardUnused)
         switch width {
         case 1000:
             #expect(top.top.leading == [.formatBadge, .pageIndicator])
@@ -197,7 +197,7 @@ struct BandResolvedPlanTests {
         #expect(wide.top.leading == [.formatBadge, .pageIndicator, .pageTurn])
         let narrow = resolve(arrangement, mode: .top, width: 250)
         #expect(narrow.top.forms == [.print: .compact])
-        #expect(narrow.overflow.contains(.pageTurn) && narrow.unusedAvailable == BandLayoutTests.addedItems)
+        #expect(narrow.overflow.contains(.pageTurn) && narrow.unusedAvailable == BandLayoutTests.standardUnused)
     }
 
     @Test("使えない部品と使わない部品と幅で外れた部品を混ぜず印刷を残す")

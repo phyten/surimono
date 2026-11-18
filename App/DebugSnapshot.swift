@@ -462,6 +462,7 @@
             }
             if let value = argument("SurimonoZoom"), let zoom = Double(value) { model.zoom = zoom }
             if argument("SurimonoAlwaysOnTop")?.uppercased() == "YES" { model.isAlwaysOnTop = true }
+            if argument("SurimonoShowsOnAllSpaces")?.uppercased() == "YES" { model.showsOnAllSpaces = true }
             if argument("SurimonoSelectText")?.uppercased() == "YES" { model.isSelectingText = true }
             if argument("SurimonoDrawer")?.uppercased() == "YES" { model.isDrawerOpen = true }
             switch argument("SurimonoMenu") {

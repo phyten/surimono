@@ -54,6 +54,7 @@ struct Toast: Equatable, Identifiable {
     var title: String
     var detail: String?
     var action: Action?
+    var showsDismissButton = true
 }
 
 @Observable
@@ -165,6 +166,7 @@ final class DocumentViewModel {
     /// Counts the attempts to enter full screen, so that a late check finds out whether it is still about its own.
     @ObservationIgnored private var fullScreenAttempt = 0
     var isAlwaysOnTop: Bool
+    var showsOnAllSpaces: Bool
     var isDrawerOpen = false
     var showsSideList: Bool { isDrawerOpen && (binder != nil || imageBundle != nil) }
     var sideInset: CGFloat { mode == .view && showsSideList ? SidePanelMetrics.width : 0 }
@@ -398,6 +400,7 @@ final class DocumentViewModel {
     @ObservationIgnored private let initialViewOptions: ViewOptions
     let renderer: DocumentRenderer
     private var renderTask: Task<Void, Never>?
+    @ObservationIgnored private var hasShownVerticalWritingNote = false
     private var toastTask: Task<Void, Never>?
     private var watcher: FileWatcher?
     private var reloadTask: Task<Void, Never>?
@@ -453,6 +456,7 @@ final class DocumentViewModel {
         textScale = (binder?.usesPrintTheme ?? format.usesPrintTheme) ? preferences.defaultTextScale : 1
         paperOrientation = preferences.defaultPaperOrientation
         isAlwaysOnTop = preferences.defaultAlwaysOnTop
+        showsOnAllSpaces = preferences.defaultShowsOnAllSpaces
         defaultBandVisibility = preferences.defaultBandVisibility
         bandVisibility = preferences.defaultBandVisibility
         self.library = library
@@ -1405,6 +1409,7 @@ final class DocumentViewModel {
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false
                 if prepared.requiredFolderAccess != nil { requestFolderAccess() }
+                showVerticalWritingNoteIfNeeded()
                 // A render that a later change made stale leaves the output to the render that follows it.
                 if pendingPrint != nil, settings == renderSettings { resumePendingPrint() }
                 if let output = outputAfterReview, mode == .print || output.readsPages,
@@ -1477,6 +1482,7 @@ final class DocumentViewModel {
         zoom = source.zoom
         bandVisibility = source.bandVisibility
         isAlwaysOnTop = source.isAlwaysOnTop
+        showsOnAllSpaces = source.showsOnAllSpaces
         currentPageIndex = source.currentPageIndex
         restoredPaperSize = source.currentPaperSize ?? source.viewPaperSizeBeforePrinting
         viewPaperSizeBeforePrinting = source.viewPaperSizeBeforePrinting
@@ -2041,6 +2047,7 @@ final class DocumentViewModel {
             return applyWebShape()
         }
         isViewOptionsPresented = false
+        showVerticalWritingNoteIfNeeded()
         guard wasWeb, capturesWeb else { return sizeWindowToPaper(keepHeight: true) }
         captureWeb { [weak self] outcome in
             // Paper then shows the last copy, or the file.
@@ -2239,6 +2246,13 @@ final class DocumentViewModel {
         isSelectingText.toggle()
     }
     func toggleAlwaysOnTop() { isAlwaysOnTop.toggle() }
+
+    func applyWindowSpacesAfterUpdate() {
+        Task { @MainActor [weak self] in
+            guard let self, !isInFullScreen, let window else { return }
+            ViewerWindow.setShowsOnAllSpaces(showsOnAllSpaces, in: window)
+        }
+    }
 
     /// Picks the reading layout once the pages are known, unless the user already chose one for this document.
     private func resolveViewOptionsIfNeeded(for document: PDFDocument) {
@@ -2886,6 +2900,7 @@ final class DocumentViewModel {
     /// The frame is the one from before full screen again: it takes the bands' room as they are now and the pages'
     /// shape, which may have changed meanwhile.
     func windowDidExitFullScreen() {
+        applyWindowSpacesAfterUpdate()
         guard isInFullScreen else { return }
         fullScreenAttempt += 1
         isInFullScreen = false
@@ -3130,6 +3145,18 @@ final class DocumentViewModel {
 
     // MARK: - Toasts
 
+    private func showVerticalWritingNoteIfNeeded() {
+        // The live page still shows the document's own vertical text; the note is about paper.
+        guard !hasShownVerticalWritingNote, toast == nil, !showsWeb,
+            let issue = result?.issues.first(where: { $0.kind == .verticalWriting })
+        else { return }
+        hasShownVerticalWritingNote = true
+        showToast(
+            Toast(
+                systemImage: "text.alignleft", title: PrintIssueText.title(issue, language: language),
+                showsDismissButton: false))
+    }
+
     func showToast(_ toast: Toast, dismissAfter delay: Duration? = .seconds(5)) {
         toastTask?.cancel()
         self.toast = toast
@@ -3137,13 +3164,14 @@ final class DocumentViewModel {
         let id = toast.id
         toastTask = Task { [weak self] in
             do { try await Task.sleep(for: delay) } catch { return }
-            if self?.toast?.id == id { self?.toast = nil }
+            if self?.toast?.id == id { self?.dismissToast() }
         }
     }
 
     func dismissToast() {
         toastTask?.cancel()
         toast = nil
+        showVerticalWritingNoteIfNeeded()
     }
 
     // MARK: - Output

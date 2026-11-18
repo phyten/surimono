@@ -47,6 +47,35 @@ struct PrintIssueTests {
         }
     }
 
+    @Test("縦書きの注記は組版をやり直しても一覧に残り、通知は開いたときの一度だけ", .timeLimit(.minutes(1)))
+    func verticalWritingNote() async throws {
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            var result = WebPaginator.Result(document: try #require(PDFDocument(data: TestFixtures.pdf("Body"))))
+            result.issues = [PrintIssue(id: "vertical-writing", kind: .verticalWriting, detail: "")]
+            return result
+        })
+        let model = DocumentViewModel(
+            data: Data("Body".utf8), fileURL: nil, format: .markdown,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer { model.stop() }
+        model.render()
+        try await waitUntil { !model.isRendering && model.toast != nil }
+        let issue = try #require(model.printIssues.first)
+        #expect(PrintIssueText.title(issue, language: "ja") == "縦書きには未対応なので、横書きで表示しています")
+        #expect(model.toast?.title == PrintIssueText.title(issue, language: model.language))
+        #expect(model.toast?.action == nil && model.toast?.showsDismissButton == false)
+        model.dismissToast()
+        model.render()
+        try await waitUntil { !model.isRendering }
+        #expect(model.printIssues.map(\.kind) == [.verticalWriting])
+        #expect(model.toast == nil)
+    }
+
     @Test("該当箇所を確認すると表示モードに戻り、横向きと文字の縮小も選べる")
     func actions() {
         let suite = TestDefaultsSuite()

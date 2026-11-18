@@ -17,6 +17,7 @@ extension BandLayout.Item {
         // It lists the images of a bundle or the documents of a binder, not only thumbnails.
         case .thumbnails: String(localized: "List")
         case .floatOnTop: String(localized: "Float on Top")
+        case .showOnAllSpaces: String(localized: "Show on All Spaces")
         case .pageTurn: String(localized: "Previous / Next Page")
         case .print: String(localized: "Print")
         case .readingDirection: String(localized: "Reading Direction")
@@ -49,6 +50,7 @@ extension BandLayout.Item {
         case .zoom: String(localized: "Shows the zoom while zoomed in; click to fit the window.")
         case .thumbnails: String(localized: "Opens the list of images in a bundle or documents in a binder.")
         case .floatOnTop: String(localized: "Keeps this window above other windows.")
+        case .showOnAllSpaces: String(localized: "Shows this window on every desktop.")
         case .pageTurn: String(localized: "Moves to the previous or next page.")
         case .print: String(localized: "Opens the print screen. This part cannot be removed.")
         case .readingDirection: String(localized: "Chooses the reading direction and binding side.")
@@ -71,7 +73,9 @@ extension BandLayout.Item {
     /// When a window shows the part; nil for a part every window has. The editor shows every part regardless.
     var editorAvailability: String? {
         switch self {
-        case .formatBadge, .floatOnTop, .print, .alwaysShowToolbar, .printSettings, .viewOptions, .keysAndGestures: nil
+        case .formatBadge, .floatOnTop, .showOnAllSpaces, .print, .alwaysShowToolbar, .printSettings, .viewOptions,
+            .keysAndGestures:
+            nil
         case .pageIndicator: String(localized: "Appears for documents with pages, and for slides on the web.")
         case .presentation: String(localized: "Appears only for HTML documents.")
         case .style: String(localized: "Appears for documents that use a print style or an HTML preset.")
@@ -145,6 +149,7 @@ struct BandPartGlyph: View {
             } else {
                 Text("Images \(12)").font(.system(size: 11)).foregroundStyle(PrintPalette.ink).lineLimit(1)
             }
+        case .showOnAllSpaces: symbol("rectangle.on.rectangle")
         case .floatOnTop: PinGlyph(isPinned: false).foregroundStyle(PrintPalette.ink).frame(width: 18, height: 18)
         case .pageTurn:
             HStack(spacing: 6) {

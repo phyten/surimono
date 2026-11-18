@@ -133,6 +133,7 @@ struct SettingsView: View {
                 }
                 Section("When Opening a Window") {
                     Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
+                    Toggle("Show on All Spaces", isOn: $preferences.defaultShowsOnAllSpaces)
                 }
                 Section {
                     Picker("When a Binder Is Down to One Document", selection: $preferences.singleDocumentBinderPolicy)

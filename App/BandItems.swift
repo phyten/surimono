@@ -24,7 +24,8 @@ extension BandLayout.Item {
         let paper = !model.showsWeb
         return allCases.filter { item in
             switch item {
-            case .formatBadge, .floatOnTop, .print, .alwaysShowToolbar, .printSettings, .viewOptions, .keysAndGestures:
+            case .formatBadge, .floatOnTop, .showOnAllSpaces, .print, .alwaysShowToolbar, .printSettings, .viewOptions,
+                .keysAndGestures:
                 true
             case .readingDirection, .scrollDirection, .paperOrientation: paper
             case .paperSeries: model.offersPaperSeries
@@ -100,6 +101,15 @@ struct BandItemView: View {
             }
             .toggleStyle(.button).help(ShortcutHints.help(String(localized: "List"), [.listToggle]))
         case .floatOnTop: FloatOnTopButton(model: model)
+        case .showOnAllSpaces:
+            Toggle(isOn: $model.showsOnAllSpaces) {
+                Label("Show on All Spaces", systemImage: "rectangle.on.rectangle")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(model.showsOnAllSpaces ? PrintPalette.ai : PrintPalette.ink)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .toggleStyle(.button).buttonStyle(.plain).help("Show on All Spaces")
         case .print: PrintButton(model: model, iconOnly: form == .compact)
         case .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText,
             .alwaysShowToolbar, .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions,

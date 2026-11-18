@@ -102,12 +102,27 @@ enum ViewerWindow {
         if window.titleVisibility != .hidden { window.titleVisibility = .hidden }
         if window.isMovableByWindowBackground { window.isMovableByWindowBackground = false }
         if window.tabbingMode != .disallowed { window.tabbingMode = .disallowed }
-        // AppKit decides on its own whether a window can go full screen, and the stages' free resizing (resize
-        // increments in place of the paper's aspect ratio) made it say no: the green button and Enter Full Screen came
-        // and went with the mode. Saying so keeps full screen available in every mode.
-        if !window.collectionBehavior.contains(.fullScreenPrimary) {
-            window.collectionBehavior.insert(.fullScreenPrimary)
+    }
+
+    private static let movedToActiveSpace = NSHashTable<NSWindow>.weakObjects()
+
+    static func setShowsOnAllSpaces(_ enabled: Bool, in window: NSWindow) {
+        guard !window.styleMask.contains(.fullScreen) else { return }
+        var behavior = window.collectionBehavior
+        behavior.subtract([.fullScreenPrimary, .fullScreenAuxiliary, .fullScreenNone, .canJoinAllSpaces])
+        if enabled {
+            if behavior.remove(.moveToActiveSpace) != nil { movedToActiveSpace.add(window) }
+            behavior.formUnion([.canJoinAllSpaces, .fullScreenAuxiliary])
+        } else {
+            // Free resizing on the print tray needs an explicit primary role to keep Enter Full Screen available.
+            behavior.insert(.fullScreenPrimary)
+            if movedToActiveSpace.contains(window) {
+                behavior.insert(.moveToActiveSpace)
+                movedToActiveSpace.remove(window)
+            }
         }
+        if behavior != window.collectionBehavior { window.collectionBehavior = behavior }
+        AuxiliaryWindowLevel.shared.refresh(windows: NSApp.windows)
     }
 
     static func setTrafficLightsVisible(_ visible: Bool, in window: NSWindow) {

@@ -8,7 +8,7 @@ struct BandMenuContent {
         case presentation, layout, transition, zoom
         case readingDirection, scrollDirection, cover, selectText
         case textFormat, style, paperOrientation, paperSeries, margins, ignoreSlides
-        case floatOnTop, alwaysShowToolbar, viewOptions
+        case floatOnTop, showOnAllSpaces, alwaysShowToolbar, viewOptions
         case printSettings, beforePrinting, print, saveAsFile
         case keysAndGestures
     }
@@ -22,7 +22,7 @@ struct BandMenuContent {
             case .display: [.presentation, .layout, .transition, .zoom]
             case .reading: [.readingDirection, .scrollDirection, .cover, .selectText]
             case .paper: [.textFormat, .style, .paperOrientation, .paperSeries, .margins, .ignoreSlides]
-            case .window: [.floatOnTop, .alwaysShowToolbar, .viewOptions]
+            case .window: [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions]
             case .output: [.printSettings, .beforePrinting, .print, .saveAsFile]
             case .help: [.keysAndGestures]
             }
@@ -129,7 +129,8 @@ struct BandMenuContent {
         case .ignoreSlides: return parts.contains(.ignoreSlides)
         case .beforePrinting: return parts.contains(.beforePrinting)
         case .saveAsFile: return parts.contains(.saveAsFile)
-        case .floatOnTop, .alwaysShowToolbar, .viewOptions, .printSettings, .print, .keysAndGestures: return true
+        case .floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions, .printSettings, .print, .keysAndGestures:
+            return true
         }
     }
 
@@ -199,6 +200,9 @@ struct BandMenuContent {
         case .floatOnTop:
             title = String(localized: "Float on Top")
             checked = model.isAlwaysOnTop
+        case .showOnAllSpaces:
+            title = String(localized: "Show on All Spaces")
+            checked = model.showsOnAllSpaces
         case .alwaysShowToolbar:
             title = String(localized: "Always Show Toolbar")
             checked = model.isBandAlwaysVisible
@@ -227,6 +231,7 @@ struct BandMenuContent {
         case .selectText: model.isSelectingText = checked
         case .ignoreSlides: model.setIgnoresSlides(!checked)
         case .floatOnTop: model.isAlwaysOnTop = checked
+        case .showOnAllSpaces: model.showsOnAllSpaces = checked
         case .alwaysShowToolbar: model.isBandAlwaysVisible = checked
         }
     }
@@ -245,6 +250,7 @@ struct BandMenuContent {
         case .selectText: model.isSelectingText.toggle()
         case .ignoreSlides: model.setIgnoresSlides(!model.ignoresSlides)
         case .floatOnTop: model.isAlwaysOnTop.toggle()
+        case .showOnAllSpaces: model.showsOnAllSpaces.toggle()
         case .alwaysShowToolbar: model.isBandAlwaysVisible.toggle()
         case .viewOptions: model.isViewOptionsPresented = true
         case .printSettings: model.presentPrintSettings()

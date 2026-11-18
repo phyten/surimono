@@ -19,6 +19,7 @@ struct SettingsMenuTests {
         #expect(preferences.defaultScrollAxis == nil)
         #expect(preferences.defaultShowsCoverAlone == nil)
         #expect(preferences.loneCoverWidth == .onePage)
+        #expect(!preferences.defaultShowsOnAllSpaces)
         #expect(!preferences.defaultAlwaysOnTop && preferences.defaultBandVisibility == .always)
         #expect(preferences.defaultTextScale == 1)
         #expect(preferences.defaultPaperOrientation == .auto)
@@ -27,6 +28,7 @@ struct SettingsMenuTests {
         preferences.defaultShowsCoverAlone = false
         preferences.loneCoverWidth = .twoPages
         preferences.defaultAlwaysOnTop = true
+        preferences.defaultShowsOnAllSpaces = true
         preferences.defaultBandVisibility = .always
         preferences.defaultTextScale = 1.25
         preferences.defaultPaperOrientation = .landscape
@@ -36,6 +38,7 @@ struct SettingsMenuTests {
                 == ViewDefaultPreferences(
                     direction: .rightToLeft, scrollAxis: .horizontal, showsCoverAlone: false))
         #expect(restored.loneCoverWidth == .twoPages)
+        #expect(restored.defaultShowsOnAllSpaces)
         #expect(restored.defaultAlwaysOnTop && restored.defaultBandVisibility == .always)
         #expect(restored.defaultTextScale == 1.25)
         preferences.defaultTextScale = 1.13
@@ -108,7 +111,7 @@ struct SettingsMenuTests {
     @Test("文字選択と窓の固定操作は表示メニューにあり、ツールバーを常に表示は⌥⌘Tで切り替わる")
     func secondaryViewCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
-        for key in ["Select Text", "Always Show Toolbar", "Float on Top", "View Options…"] {
+        for key in ["Select Text", "Always Show Toolbar", "Float on Top", "Show on All Spaces", "View Options…"] {
             let item = try #require(menu.items.first { $0.title == localized(key) })
             #expect(item.isEnabled)
         }

@@ -23,7 +23,7 @@ enum BandPaletteGroup: CaseIterable {
         case .presentation, .layout, .transition, .zoom: .display
         case .readingDirection, .scrollDirection, .cover, .selectText: .reading
         case .style, .paperOrientation, .paperSeries, .margins, .ignoreSlides: .bodyAndPaper
-        case .floatOnTop, .alwaysShowToolbar, .viewOptions: .window
+        case .floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions: .window
         case .printSettings, .beforePrinting, .print, .saveAsFile: .printingAndSaving
         case .keysAndGestures: .help
         }

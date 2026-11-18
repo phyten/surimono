@@ -61,6 +61,7 @@ public enum ShortcutOperationID: String, CaseIterable, Codable, Sendable {
     case settingSetSave = "settingSet.save"
     case settingSetManage = "settingSet.manage"
     case viewFloatOnTop = "view.floatOnTop"
+    case viewShowOnAllSpaces = "view.showOnAllSpaces"
     case viewOutline = "view.outline"
     case viewDocumentInfo = "view.documentInfo"
     case viewIgnoreSlides = "view.ignoreSlides"
@@ -393,7 +394,7 @@ public struct ShortcutOperation: Equatable, Sendable {
             return Self(
                 id: id, group: .application, applicability: .application, safety: .ordinary,
                 regions: ShortcutRegion.application, allowsBareKeys: false)
-        case .viewFloatOnTop:
+        case .viewFloatOnTop, .viewShowOnAllSpaces:
             return Self(
                 id: id, group: .reading, applicability: .document, safety: .ordinary,
                 regions: ShortcutRegion.document, allowsBareKeys: false)

@@ -19,7 +19,8 @@ struct BandArrangementPreferencesTests {
             preferences.bandArrangementStore.activeLayouts.top.topLeft.compactMap(\.item) == [
                 .formatBadge, .pageIndicator, .chapter,
             ])
-        #expect(preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems)
+        #expect(
+            preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.standardUnused)
         #expect(preferences.menuArrangement == .top && preferences.showsOutlineOnBand)
         #expect(defaults.object(forKey: "bandArrangementStore") == nil)
     }
@@ -62,12 +63,12 @@ struct BandArrangementPreferencesTests {
             migrated.layouts.split.bottomLeft.compactMap(\.item) == [
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails,
             ])
-        #expect(migrated.layouts.split.unused == BandTestCatalog.addedItems + [.outline, .chapter])
+        #expect(migrated.layouts.split.unused == BandTestCatalog.standardUnused + [.outline, .chapter])
         #expect(
             migrated.layouts.top.topRight.compactMap(\.item) == [
                 .presentation, .style, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print,
             ])
-        #expect(migrated.layouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems + [.outline, .chapter])
+        #expect(migrated.layouts.top.unused == [.pageTurn] + BandTestCatalog.standardUnused + [.outline, .chapter])
         #expect(!preferences.showsOutlineOnBand)
         #expect(defaults.data(forKey: "bandArrangementStore") == nil)
         #expect(AppPreferences(defaults: suite.defaults).bandArrangementStore.sets.first?.id == migrated.id)
@@ -133,14 +134,15 @@ struct BandArrangementPreferencesTests {
         try preferences.saveBandArrangement(set)
         var draft = preferences.bandArrangementStore.activeLayouts
         draft.top = try draft.top.moving(.style, to: .unused, for: .top)
-        #expect(preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems)
+        #expect(
+            preferences.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.standardUnused)
         try preferences.overwriteBandArrangement(.user(set.id), layouts: draft)
         try preferences.renameBandArrangement(.user(set.id), to: "  Book  ")
         let reloaded = AppPreferences(defaults: suite.defaults)
         #expect(reloaded.bandArrangementStore.active == .user(set.id))
         #expect(reloaded.bandArrangementStore.sets.first?.name == "Book")
         #expect(
-            reloaded.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.addedItems + [
+            reloaded.bandArrangementStore.activeLayouts.top.unused == [.pageTurn] + BandTestCatalog.standardUnused + [
                 .style
             ])
     }

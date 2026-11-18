@@ -82,6 +82,7 @@ enum ShortcutText {
         case .settingSetSave: String(localized: "Save Current Settings…")
         case .settingSetManage: String(localized: "Manage Setting Sets…")
         case .viewFloatOnTop: String(localized: "Float on Top")
+        case .viewShowOnAllSpaces: String(localized: "Show on All Spaces")
         case .viewOutline: String(localized: "Contents")
         case .viewDocumentInfo: String(localized: "Document Info…")
         case .viewIgnoreSlides: String(localized: "Show as Slides")

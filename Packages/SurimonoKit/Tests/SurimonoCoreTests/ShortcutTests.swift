@@ -24,7 +24,8 @@ struct ShortcutTests {
                 "app.gettingStarted", "app.keyGuide", "app.checkUpdates", "document.saveAsFile", "document.add",
                 "document.openBinder", "document.resetSettings", "print.settings", "style.choose",
                 "print.layout.twoUpSmall",
-                "print.layout.fourUp", "settingSet.save", "settingSet.manage", "view.floatOnTop", "view.outline",
+                "print.layout.fourUp", "settingSet.save", "settingSet.manage", "view.floatOnTop",
+                "view.showOnAllSpaces", "view.outline",
                 "view.documentInfo", "view.ignoreSlides", "list.sortByName", "binder.oddPageStarts", "style.compare",
                 "style.favorite", "compare.shuffle", "print.foldPreview", "print.reviewIssues", "html.smartRemoval",
                 "html.reviewRemoval", "print.manualDuplex", "print.duplexTest",
@@ -32,14 +33,15 @@ struct ShortcutTests {
                 "document.exportReadingPDF", "document.exportPNG", "document.exportHTML",
                 "document.copyHTML", "document.share", "document.copyRichText",
             ])
-        #expect(ShortcutOperation.catalog.count == 87)
-        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 87)
+        #expect(ShortcutOperation.catalog.count == 88)
+        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 88)
     }
 
     @Test("既定の印刷と別名と未割当を明示する")
     func defaults() {
         let configuration = ShortcutConfiguration()
         #expect(configuration.keys(for: .documentExportReadingPDF).isEmpty)
+        #expect(configuration.keys(for: .viewShowOnAllSpaces).isEmpty)
         for operation: ShortcutOperationID in [
             .documentExportPNG, .documentExportHTML, .documentCopyHTML, .documentCopyRichText, .documentShare,
         ] {

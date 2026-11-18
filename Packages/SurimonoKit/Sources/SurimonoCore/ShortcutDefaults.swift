@@ -54,7 +54,8 @@ public enum ShortcutDefaults: Sendable {
         case .globalClipboardOpen, .globalClipboardPrintScreen, .clipboardOpenPrintScreen, .appStreamingPreview,
             .appGettingStarted, .appKeyGuide, .appCheckUpdates, .documentSaveAsFile, .documentAdd, .documentOpenBinder,
             .documentResetSettings, .printSettings, .styleChoose, .printLayoutTwoUpSmall, .printLayoutFourUp,
-            .settingSetSave, .settingSetManage, .viewFloatOnTop, .viewOutline, .viewDocumentInfo, .viewIgnoreSlides,
+            .settingSetSave, .settingSetManage, .viewFloatOnTop, .viewShowOnAllSpaces, .viewOutline, .viewDocumentInfo,
+            .viewIgnoreSlides,
             .listSortByName, .binderOddPageStarts, .styleCompare, .styleFavorite, .compareShuffle,
             .printFoldPreview, .printReviewIssues, .htmlSmartRemoval, .htmlReviewRemoval,
             .printManualDuplex, .printDuplexTest:

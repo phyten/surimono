@@ -149,7 +149,7 @@ struct HTMLPresentationTests {
         let model = try model(environment)
         #expect(
             BandLayout.Item.applicable(for: model) == [
-                .formatBadge, .presentation, .floatOnTop, .print,
+                .formatBadge, .presentation, .floatOnTop, .showOnAllSpaces, .print,
                 .alwaysShowToolbar, .margins, .printSettings, .viewOptions, .keysAndGestures,
             ])
         #expect(BandLayout.Item.applicable(for: model).contains(.alwaysShowToolbar))

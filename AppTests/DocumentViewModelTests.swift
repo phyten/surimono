@@ -15,6 +15,7 @@ struct DocumentViewModelTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let preferences = AppPreferences(defaults: suite.defaults)
         preferences.defaultAlwaysOnTop = true
+        preferences.defaultShowsOnAllSpaces = true
         preferences.defaultBandVisibility = .always
         preferences.defaultTextScale = 1.5
         preferences.defaultPaperOrientation = .portrait
@@ -38,6 +39,7 @@ struct DocumentViewModelTests {
             for model in models { model.stop() }
         }
         for model in models {
+            #expect(model.showsOnAllSpaces)
             #expect(model.isAlwaysOnTop && model.isBandAlwaysVisible)
             #expect(model.paperOrientation == .portrait)
             #expect(model.loneCoverWidth == .twoPages)
@@ -46,12 +48,17 @@ struct DocumentViewModelTests {
         }
         let freshPreferences = AppPreferences(defaults: suite.defaults)
         freshPreferences.defaultAlwaysOnTop = false
+        freshPreferences.defaultShowsOnAllSpaces = false
         freshPreferences.defaultBandVisibility = .onHover
         let next = DocumentViewModel(
             data: Data(), fileURL: nil, format: .pdf,
             preferences: freshPreferences, library: library)
         defer { next.stop() }
+        #expect(!next.showsOnAllSpaces)
+        #expect(models.allSatisfy { $0.showsOnAllSpaces })
         #expect(!next.isAlwaysOnTop && !next.isBandAlwaysVisible)
+        next.takeOver(from: models[0])
+        #expect(next.showsOnAllSpaces)
         #expect(models.allSatisfy { $0.isAlwaysOnTop && $0.isBandAlwaysVisible })
     }
 

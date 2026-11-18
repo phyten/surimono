@@ -16,6 +16,7 @@ public enum BandLayout {
         case zoom = "zoom"
         case thumbnails = "thumbnails"
         case floatOnTop = "floatOnTop"
+        case showOnAllSpaces = "showOnAllSpaces"
         case pageTurn = "pageTurn"
         case print = "print"
         case readingDirection = "readingDirection"
@@ -43,7 +44,7 @@ public enum BandLayout {
             case .style, .outline: 1
             case .layout, .transition, .readingDirection, .scrollDirection, .cover: 2
             case .zoom, .thumbnails, .selectText: 3
-            case .floatOnTop, .alwaysShowToolbar, .viewOptions: 4
+            case .floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions: 4
             case .paperOrientation, .paperSeries, .margins: 5
             case .printSettings, .beforePrinting, .saveAsFile: 6
             case .keysAndGestures: 7
@@ -58,7 +59,7 @@ public enum BandLayout {
     /// Split, the top band names the document and prints; everything about reading it moves to the bottom band.
     public static func position(of item: Item, in arrangement: MenuArrangement) -> Position {
         guard arrangement == .split else { return .top }
-        return [.formatBadge, .floatOnTop, .print].contains(item) ? .top : .bottom
+        return [.formatBadge, .floatOnTop, .showOnAllSpaces, .print].contains(item) ? .top : .bottom
     }
 
     public enum Form: Equatable, Sendable {
@@ -85,13 +86,13 @@ public enum BandLayout {
 
     /// The order in which the band gives up room. Labels go before tools, and a tool leaves earlier the less often it
     /// is used while reading; Print, the second of the two steps to print, stays to the end. The switch between web
-    /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone. The pin that
-    /// keeps the window on top is one small icon whose state shows at a glance, so it stays until only Print is left.
+    /// and paper is nearly all an HTML page shows on the web, so it stays until the paper tools are gone. The window toggles
+    /// are small icons whose state shows at a glance, so they stay until only Print is left.
     public static let steps: [Step] = [
         .compact(.style), .compact(.transition), .compact(.presentation), .compact(.outline),
         .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style), .remove(.transition),
         .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
-        .remove(.floatOnTop), .compact(.print),
+        .remove(.floatOnTop), .remove(.showOnAllSpaces), .compact(.print),
     ]
 
     /// The bottom band gives way the same way, but the page indicator is its reason to be there, so it stays last.
@@ -251,11 +252,11 @@ public enum BandLayout {
             position == .top
             ? [
                 .formatBadge, .pageIndicator, .style, .transition, .pageTurn, .layout, .outline,
-                .presentation, .thumbnails, .zoom, .floatOnTop,
+                .presentation, .thumbnails, .zoom, .floatOnTop, .showOnAllSpaces,
             ]
             : [
                 .formatBadge, .transition, .layout, .pageTurn, .style, .outline,
-                .presentation, .thumbnails, .zoom, .floatOnTop, .pageIndicator,
+                .presentation, .thumbnails, .zoom, .floatOnTop, .showOnAllSpaces, .pageIndicator,
             ]
         let added = additionalCompactOrder
         return added.map { .compact($0) } + compact + [.remove(.chapter)] + added.map { .remove($0) }
