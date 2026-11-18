@@ -97,6 +97,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
+| AsciiDoc | `.adoc`, `.asciidoc` |
 | Jupyter Notebook | `.ipynb` |
 | Graphviz | `.dot`, `.gv` |
 | PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |

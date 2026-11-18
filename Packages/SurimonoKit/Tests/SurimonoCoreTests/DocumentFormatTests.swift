@@ -11,7 +11,8 @@ struct DocumentFormatTests {
             ("html", .html), ("htm", .html), ("pdf", .pdf), ("csv", .csv), ("zip", .zipArchive),
             ("png", .image), ("jpg", .image), ("jpeg", .image), ("gif", .image),
             ("tif", .image), ("tiff", .image), ("heic", .image), ("webp", .image),
-            ("ipynb", .notebook), ("tex", .latex), ("latex", .latex), ("ltx", .latex),
+            ("adoc", .asciidoc), ("asciidoc", .asciidoc), ("ipynb", .notebook), ("tex", .latex), ("latex", .latex),
+            ("ltx", .latex),
         ])
     func detectsExtension(fileExtension: String, expected: DocumentFormat) {
         #expect(DocumentFormat(fileExtension: fileExtension) == expected)
@@ -34,7 +35,7 @@ struct DocumentFormatTests {
             (UTType.surimonoMarkdown, DocumentFormat.markdown), (.surimonoOrg, .org),
             (.plainText, .plainText), (.html, .html), (.pdf, .pdf), (.image, .image),
             (.png, .image), (.jpeg, .image), (.commaSeparatedText, .csv), (.zip, .zipArchive),
-            (.surimonoLaTeX, .latex), (.surimonoNotebook, .notebook),
+            (.surimonoLaTeX, .latex), (.surimonoAsciiDoc, .asciidoc), (.surimonoNotebook, .notebook),
             (.surimonoGraphviz, .graphviz), (.surimonoPlantUML, .plantuml),
         ])
     func detectsContentType(contentType: UTType, expected: DocumentFormat) {
@@ -59,7 +60,8 @@ struct DocumentFormatTests {
     func providesDisplayNames() {
         #expect(
             DocumentFormat.allCases.map(\.displayName) == [
-                "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV", "ZIP", "LaTeX", "Jupyter Notebook",
+                "Markdown", "Org", "Plain Text", "HTML", "PDF", "Image", "CSV", "ZIP", "LaTeX", "AsciiDoc",
+                "Jupyter Notebook",
                 "Graphviz", "PlantUML",
             ])
     }

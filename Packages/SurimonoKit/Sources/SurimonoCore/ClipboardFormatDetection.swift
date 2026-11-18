@@ -1,7 +1,7 @@
 import Foundation
 
 public enum ClipboardTextKind: String, CaseIterable, Codable, Sendable {
-    case markdown, org, html, latex, csv, notebook, graphviz, plantuml, url, plainText
+    case markdown, org, html, latex, csv, asciidoc, notebook, graphviz, plantuml, url, plainText
 }
 
 public struct ClipboardFormatHints: Equatable, Sendable {
@@ -147,6 +147,18 @@ public enum ClipboardFormatDetector {
         {
             decisive = .notebook
         }
+        if decisive == nil, text.hasPrefix("= ") {
+            let lines = text.prefix(8192).split(whereSeparator: \.isNewline)
+            if lines.first.map({ $0.dropFirst(2).contains { !$0.isWhitespace } }) == true,
+                lines.dropFirst().contains(where: {
+                    $0.starts(with: "== ") || $0.starts(with: "[source,") || $0.starts(with: "NOTE: ")
+                        || $0.range(of: #"^:[\w-]+:(?:\s|$)"#, options: .regularExpression) != nil
+                        || $0 == "----" || $0 == "...."
+                })
+            {
+                decisive = .asciidoc
+            }
+        }
         if let decisive {
             let enabled = settings.automaticKinds.contains(decisive)
             let selected: ClipboardTextKind =
@@ -173,7 +185,7 @@ public enum ClipboardFormatDetector {
             ClipboardScanners.latex(window, level: settings.carefulness, work: &work),
             ClipboardScanners.csv(window, hints: hints, level: settings.carefulness, work: &work),
             ClipboardScanners.url(window, hints: hints, work: &work),
-            ClipboardCandidate(kind: .notebook),
+            ClipboardCandidate(kind: .asciidoc), ClipboardCandidate(kind: .notebook),
             ClipboardCandidate(kind: .graphviz), ClipboardCandidate(kind: .plantuml),
         ]
         let hintedTable =

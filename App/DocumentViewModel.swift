@@ -2273,7 +2273,8 @@ final class DocumentViewModel {
         case .pdf: return .pdf
         case .image: return .image
         case .zipArchive: return .imageBundle
-        case .markdown, .org, .plainText, .html, .csv, .latex, .notebook, .graphviz, .plantuml: return .flowingText
+        case .markdown, .org, .plainText, .html, .csv, .latex, .asciidoc, .notebook, .graphviz, .plantuml:
+            return .flowingText
         }
     }
 

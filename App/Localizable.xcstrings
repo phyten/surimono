@@ -1,6 +1,110 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "AsciiDoc": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc"
+          }
+        }
+      }
+    },
+    "AsciiDoc exceeds 5 MB. Showing the original text.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc exceeds 5 MB. Showing the original text."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc が 5 MB を超えたため、原文を表示します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc 超过 5 MB，现显示原文。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc 超過 5 MB，顯示原文。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AsciiDoc이 5 MB를 초과하여 원문을 표시합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le document AsciiDoc dépasse 5 Mo. Le texte original est affiché."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das AsciiDoc-Dokument ist größer als 5 MB. Der Originaltext wird angezeigt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El documento AsciiDoc supera los 5 MB. Se muestra el texto original."
+          }
+        }
+      }
+    },
     "Graphviz": {
       "localizations": {
         "en": {
