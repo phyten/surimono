@@ -92,15 +92,15 @@ struct PrintSegments<Value: Hashable>: View {
                         .padding(.horizontal, 9)
                         .frame(maxWidth: isVertical ? .infinity : nil, alignment: .leading)
                         .frame(height: 24)
-                        .background(RoundedRectangle(cornerRadius: 5).fill(isOn ? accent : .clear))
-                        .contentShape(RoundedRectangle(cornerRadius: 5))
+                        .background(CornerRole.smallControl.shape.fill(isOn ? accent : .clear))
+                        .contentShape(CornerRole.smallControl.shape)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
             }
         }
         .padding(2)
-        .background(RoundedRectangle(cornerRadius: 7).fill(PrintPalette.hover))
+        .background(CornerRole.largeControl.shape.fill(PrintPalette.hover))
         .fixedSize()
         .help(help.map { Text($0) } ?? Text(label))
         .accessibilityElement(children: .contain)
@@ -238,10 +238,10 @@ struct PrintFinishStrip: View {
             .padding(.horizontal, 8)
             .frame(height: 28)
             .background(
-                RoundedRectangle(cornerRadius: 6)
+                CornerRole.control.shape
                     .fill(model.isPrintFinishPresented ? PrintPalette.aiTint2 : .clear)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .contentShape(CornerRole.control.shape)
         }
         .buttonStyle(.plain)
         .fixedSize()
@@ -271,8 +271,8 @@ struct PrintFinishStrip: View {
             .lineLimit(1)
             .padding(.horizontal, 8)
             .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.hover))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .background(CornerRole.control.shape.fill(PrintPalette.hover))
+            .contentShape(CornerRole.control.shape)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -308,8 +308,8 @@ struct PrintFinishStrip: View {
             .lineLimit(1)
             .padding(.horizontal, 8)
             .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 6).fill(PrintPalette.hover))
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .background(CornerRole.control.shape.fill(PrintPalette.hover))
+            .contentShape(CornerRole.control.shape)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)

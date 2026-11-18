@@ -40,7 +40,7 @@ struct ThemePalette: View {
         }
         .frame(height: Self.height)
         // The controls stay readable over whatever shows through the popover behind them.
-        .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.94)
+        .paperOverlayBackground(nil, tintOpacity: 0.94)
         .onAppear { model.followThemeSamples() }
         .onChange(of: model.renderSettings) { _, _ in model.followThemeSamples() }
         .onChange(of: model.preferences.themeSampleSource) { _, _ in model.followThemeSamples() }
@@ -89,17 +89,14 @@ struct ThemePalette: View {
             // Named, because it chooses what the samples show, not what the style is applied to.
             HStack(spacing: 8) {
                 Text("Sample From").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
-                Picker(
-                    "Sample From",
+                CornerSegments(
+                    title: "Sample From",
                     selection: Binding(
-                        get: { model.preferences.themeSampleSource },
-                        set: { model.preferences.themeSampleSource = $0 })
-                ) {
-                    Text("This Document").tag(ThemeSampleSource.document)
-                    Text("Sample Document").tag(ThemeSampleSource.specimen)
+                        get: { model.preferences.themeSampleSource }, set: { model.preferences.themeSampleSource = $0 }),
+                    values: [ThemeSampleSource.document, .specimen], preset: model.preferences.corners
+                ) { source in
+                    Text(source == .document ? LocalizedStringKey("This Document") : "Sample Document")
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
             }
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -118,8 +115,8 @@ struct ThemePalette: View {
             .font(.system(size: 12.5))
             .padding(.horizontal, 9)
             .frame(height: 28)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.separator))
+            .background(CornerRole.largeControl.shape.fill(Color(nsColor: .textBackgroundColor)))
+            .overlay(CornerRole.largeControl.shape.strokeBorder(.separator))
         }
     }
 
@@ -201,15 +198,24 @@ struct ThemePalette: View {
                 } label: {
                     Label("Compare…", systemImage: "square.grid.2x2")
                 }
+                .cornerButton(model.preferences.corners)
             }
             if isPrinting {
-                Menu("Code Colors") { CodePaletteMenuContent(model: model) }
+                if model.preferences.corners.usesSystemControls {
+                    Menu("Code Colors") { CodePaletteMenuContent(model: model) }
+                } else {
+                    Menu("Code Colors") { CodePaletteMenuContent(model: model) }
+                        .menuStyle(.button)
+                        .cornerButton(model.preferences.corners)
+                }
                 Button("Open Styles Folder") { model.library.openFolder("Styles") }
+                    .cornerButton(model.preferences.corners)
             } else {
                 Toggle(isOn: Binding(get: { isCodeColumnShown }, set: { showsCodeColumn = $0 })) {
                     Text("Code Appearance")
                 }
                 .toggleStyle(.button)
+                .cornerButton(model.preferences.corners, isCodeColumnShown ? .selected : .normal)
             }
         }
     }
@@ -219,23 +225,38 @@ struct ThemePalette: View {
             // The same name as in the view options, for the same setting.
             Text("Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
             // Any percent typed or stepped by 1%; the buttons beside it move to the next step, from an in-between size too.
-            TextSizeField(title: "Text Size", scale: model.textScale) { model.setTextScale($0) }
+            TextSizeField(title: "Text Size", scale: model.textScale, corners: model.preferences.corners) {
+                model.setTextScale($0)
+            }
+            let smaller = Image(systemName: "textformat.size.smaller")
+            let larger = Image(systemName: "textformat.size.larger")
             ControlGroup {
                 Button {
                     model.decreaseTextSize()
                 } label: {
-                    Image(systemName: "textformat.size.smaller")
+                    smaller
                 }
                 .accessibilityLabel(Text("Smaller"))
                 .help("Smaller")
                 Button {
                     model.increaseTextSize()
                 } label: {
-                    Image(systemName: "textformat.size.larger")
+                    larger
                 }
                 .accessibilityLabel(Text("Larger"))
                 .help("Larger")
             }
+            .modifier(
+                CornerBezel(preset: model.preferences.corners, role: .control) { _ in
+                    HStack(spacing: 0) {
+                        smaller.frame(maxWidth: .infinity)
+                        Rectangle().fill(PrintPalette.line2).frame(width: 1).padding(.vertical, 3)
+                        larger.frame(maxWidth: .infinity)
+                    }
+                    .background(
+                        AppCornerShape(role: .control, preset: model.preferences.corners).fill(PrintPalette.press))
+                }
+            )
             .fixedSize()
         }
     }
@@ -278,7 +299,7 @@ struct ThemePaletteCell: View {
                 .frame(maxWidth: .infinity)
                 .shadow(color: .black.opacity(0.16), radius: 1.5, y: 0.5)
                 .overlay {
-                    RoundedRectangle(cornerRadius: 3)
+                    CornerRole.tag.shape
                         .strokeBorder(
                             isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.black.opacity(0.12)),
                             lineWidth: isCurrent ? 2 : 0.5)
@@ -304,7 +325,7 @@ struct ThemePaletteCell: View {
                     .frame(maxWidth: .infinity)
             }
             .padding(4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(isHovering ? Color.primary.opacity(0.06) : .clear))
+            .background(CornerRole.control.shape.fill(isHovering ? Color.primary.opacity(0.06) : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -387,9 +408,10 @@ struct ThemeGroupChip: View {
                 .frame(height: 24)
                 .foregroundStyle(isSelected ? AnyShapeStyle(selectedText) : AnyShapeStyle(.primary))
                 .background(
-                    Capsule().fill(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.primary.opacity(0.06)))
+                    AppCornerShape.capsule.fill(
+                        isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.primary.opacity(0.06)))
                 )
-                .contentShape(Capsule())
+                .contentShape(AppCornerShape.capsule)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])

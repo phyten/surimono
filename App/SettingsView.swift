@@ -168,6 +168,12 @@ struct SettingsView: View {
                     Picker("Appearance", selection: $preferences.appearance) {
                         ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
                     }
+                    Picker("Corners", selection: $preferences.corners) {
+                        Text("Square").tag(CornerPreset.square)
+                        Text("Standard").tag(CornerPreset.standard)
+                        Text("Round").tag(CornerPreset.round)
+                    }
+                    Toggle("Show in Menu Bar", isOn: $preferences.showsMenuBarItem)
                 }
                 if updater.isAvailable {
                     Section {
@@ -235,11 +241,10 @@ struct SettingsView: View {
                 }
                 // The heading says these are defaults, so the labels need not; "Automatic" is explained once below.
                 Section {
-                    Picker("View", selection: $preferences.defaultViewLayout) {
+                    Picker("View Type", selection: $preferences.defaultViewLayout) {
                         Text("Automatic").tag(nil as ViewOptions.Layout?)
                         ForEach(ViewOptions.Layout.displayOrder, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
-                    // Not the band's "Page Turn", which is short beside its value; here the label stands alone.
                     Picker("Page Turning", selection: $preferences.defaultPageTurn) {
                         Text("Automatic").tag(nil as ViewOptions.Transition?)
                         ForEach(ViewOptions.Transition.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }

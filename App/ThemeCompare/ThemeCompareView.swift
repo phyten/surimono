@@ -71,7 +71,7 @@ struct ThemeCompareView: View {
                         .foregroundStyle(PrintPalette.toastInk)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 9).fill(PrintPalette.toast))
+                        .background(CornerRole.compactToast.shape.fill(PrintPalette.toast))
                         .padding(.top, 8)
                         .transition(.opacity)
                 }
@@ -367,7 +367,7 @@ private struct ComparePlaceRow: View {
                 .padding(.trailing, 8)
                 .frame(minHeight: height)
                 .background {
-                    RoundedRectangle(cornerRadius: 6)
+                    CornerRole.control.shape
                         .fill(isCurrent ? PrintPalette.ai : isHovered ? PrintPalette.hover : .clear)
                 }
                 .contentShape(Rectangle())
@@ -404,18 +404,18 @@ private struct CompareCard: View {
                         .foregroundStyle(PrintPalette.raised)
                         .padding(.horizontal, 8)
                         .frame(height: ThemeCompareLayout.tagRowHeight)
-                        .background(Capsule().fill(PrintPalette.ai))
+                        .background(AppCornerShape.capsule.fill(PrintPalette.ai))
                 }
             }
             .frame(height: ThemeCompareLayout.tagRowHeight)
             ThemeSampleView(
                 page: page ?? lastPage, paperSize: model.themeSamples.paperSize,
-                margins: model.themeSamples.margins, cornerRadius: 2
+                margins: model.themeSamples.margins, corner: .thumbnail
             )
             .frame(width: width)
             .shadow(color: PrintPalette.paperShadow, radius: 7, y: 3)
             .overlay {
-                RoundedRectangle(cornerRadius: 2).strokeBorder(PrintPalette.paperRing, lineWidth: 1)
+                CornerRole.thumbnail.shape.strokeBorder(PrintPalette.paperRing, lineWidth: 1)
             }
             HStack(alignment: .top, spacing: 4) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -487,13 +487,13 @@ private struct CompareChooseButton: View {
             .lineLimit(1)
             .frame(maxWidth: .infinity)
             .frame(height: ThemeCompareLayout.buttonHeight)
-            .background { RoundedRectangle(cornerRadius: 6).fill(isFilled ? PrintPalette.ai : .clear) }
+            .background { CornerRole.control.shape.fill(isFilled ? PrintPalette.ai : .clear) }
             .overlay {
-                RoundedRectangle(cornerRadius: 6)
+                CornerRole.control.shape
                     .strokeBorder(isFilled ? PrintPalette.ai : PrintPalette.line3, lineWidth: 1)
             }
             .opacity(configuration.isPressed ? 0.85 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: 6))
+            .contentShape(CornerRole.control.shape)
             .onHover { hovering = $0 }
     }
 }
@@ -511,7 +511,7 @@ private struct EmptyCompareSlot: View {
         .foregroundStyle(PrintPalette.ink3)
         .frame(width: width, height: width * paperSize.height / max(paperSize.width, 1))
         .overlay {
-            RoundedRectangle(cornerRadius: 4).strokeBorder(
+            CornerRole.badge.shape.strokeBorder(
                 PrintPalette.line3, style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
         }
     }
@@ -534,12 +534,12 @@ private struct CompareTrayCell: View {
             VStack(spacing: 4) {
                 ThemeSampleView(
                     page: model.themeSamples.page(for: theme), paperSize: model.themeSamples.paperSize,
-                    margins: model.themeSamples.margins, cornerRadius: 2
+                    margins: model.themeSamples.margins, corner: .thumbnail
                 )
                 .frame(width: Self.width)
                 .shadow(color: PrintPalette.paperShadow, radius: 2, y: 1)
                 .overlay {
-                    RoundedRectangle(cornerRadius: 2).strokeBorder(PrintPalette.paperRing, lineWidth: 1)
+                    CornerRole.thumbnail.shape.strokeBorder(PrintPalette.paperRing, lineWidth: 1)
                 }
                 .overlay(alignment: .topTrailing) {
                     // Off the page's corner, clear of the page's own heading.
@@ -559,7 +559,7 @@ private struct CompareTrayCell: View {
                     .frame(width: Self.width)
             }
             .padding(4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(isHovering ? PrintPalette.hover : .clear))
+            .background(CornerRole.control.shape.fill(isHovering ? PrintPalette.hover : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

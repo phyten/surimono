@@ -132,7 +132,7 @@ struct PresentationPicker: View {
             }
         }
         .padding(1)
-        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+        .background(CornerRole.control.shape.fill(.quaternary))
         .fixedSize()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Web or Paper"))
@@ -151,7 +151,7 @@ struct PresentationPicker: View {
             .padding(.vertical, 3)
             .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
             .background {
-                RoundedRectangle(cornerRadius: 5).fill(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear))
+                CornerRole.smallControl.shape.fill(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear))
             }
             .contentShape(Rectangle())
         }
@@ -228,7 +228,7 @@ struct PageIndicatorButton: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 4)
                     .background {
-                        RoundedRectangle(cornerRadius: 6).fill(model.isFiguresPresented ? PrintPalette.hover : .clear)
+                        CornerRole.control.shape.fill(model.isFiguresPresented ? PrintPalette.hover : .clear)
                     }
                     .contentShape(Rectangle())
             }
@@ -360,7 +360,7 @@ struct BandMeasurements: View {
                 }
             }
         }
-        .buttonStyle(.borderless)
+        .cornerButton(model.preferences.corners, .borderless)
         .controlSize(ViewerWindow.bandControlSize)
         .hidden()
         .allowsHitTesting(false)

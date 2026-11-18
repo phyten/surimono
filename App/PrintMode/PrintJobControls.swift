@@ -73,9 +73,9 @@ private struct PageRangeFieldStyle: ViewModifier {
             .monospacedDigit()
             .padding(.horizontal, 6)
             .frame(width: 96, height: 22)
-            .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.raised))
+            .background(CornerRole.smallControl.shape.fill(PrintPalette.raised))
             .overlay {
-                RoundedRectangle(cornerRadius: 5)
+                CornerRole.smallControl.shape
                     .strokeBorder(isMarked ? PrintPalette.warn : PrintPalette.line2, lineWidth: isMarked ? 1.5 : 1)
             }
     }

@@ -39,7 +39,8 @@ extension DocumentViewModel {
 
 @MainActor
 enum BandTestCatalog {
-    nonisolated static let standardUnused: [BandLayout.Item] = [.showOnAllSpaces] + addedItems
+    nonisolated static let standardUnused: [BandLayout.Item] =
+        [.transition, .floatOnTop, .showOnAllSpaces] + addedItems
     nonisolated static let addedItems: [BandLayout.Item] = [
         .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText, .alwaysShowToolbar,
         .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,

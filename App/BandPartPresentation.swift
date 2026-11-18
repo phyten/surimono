@@ -198,13 +198,13 @@ struct BandPartGlyph: View {
                         .frame(width: 20, height: 15)
                         .foregroundStyle(index == selected ? AnyShapeStyle(.white) : AnyShapeStyle(PrintPalette.ink))
                         .background {
-                            RoundedRectangle(cornerRadius: 3.5)
+                            CornerRole.segment.shape
                                 .fill(index == selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear))
                         }
                 }
             }
             .padding(1)
-            .background(RoundedRectangle(cornerRadius: 4.5).fill(.quaternary))
+            .background(CornerRole.segmentGroup.shape.fill(.quaternary))
         }
     }
 }
@@ -219,7 +219,7 @@ struct PrintGlyph: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 7)
         .frame(height: 18)
-        .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.shu))
+        .background(CornerRole.smallControl.shape.fill(PrintPalette.shu))
     }
 }
 

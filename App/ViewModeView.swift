@@ -259,7 +259,7 @@ private struct ErrorPanel: View {
         }
         .padding(24)
         .frame(maxWidth: 420)
-        .paperOverlayBackground(cornerRadius: 12)
+        .paperOverlayBackground(.panel)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -312,7 +312,7 @@ struct ToastOverlay: View {
                 }
                 .foregroundStyle(PrintPalette.toastInk)
                 .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
+                .background(CornerRole.toast.shape.fill(PrintPalette.toast))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 18)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -334,7 +334,7 @@ struct NoticePlate: View {
             .foregroundStyle(PrintPalette.toastInk)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
+            .background(CornerRole.toast.shape.fill(PrintPalette.toast))
     }
 }
 
@@ -348,7 +348,7 @@ struct ToastActionButtonStyle: ButtonStyle {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background {
-                Capsule().fill(.white.opacity(configuration.isPressed ? 0.32 : 0.2))
+                AppCornerShape.capsule.fill(.white.opacity(configuration.isPressed ? 0.32 : 0.2))
             }
     }
 }
@@ -367,7 +367,7 @@ struct ThemeTrialBadge: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .foregroundStyle(PrintPalette.toastInk)
-        .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
+        .background(CornerRole.toast.shape.fill(PrintPalette.toast))
         .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
     }
 }

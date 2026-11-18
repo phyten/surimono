@@ -5626,13 +5626,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Single Page or Spread"
+            "value": "Single or Spread"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "単ページ・見開き"
+            "value": "1 枚・見開き"
           }
         },
         "zh-Hans": {
@@ -5650,13 +5650,13 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "단일 페이지 또는 두 페이지"
+            "value": "한 쪽 또는 두 쪽"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Page simple ou double page"
+            "value": "Page simple ou double"
           }
         },
         "de": {
@@ -5668,7 +5668,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Página individual o doble página"
+            "value": "Página individual o doble"
           }
         }
       }
@@ -8170,7 +8170,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スクロールやページの送り方を選びます。"
+            "value": "スクロールやページのめくり方を選びます。"
           }
         },
         "zh-Hans": {
@@ -20808,7 +20808,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open Clipboard on the Print Screen"
+            "value": "Open Clipboard in Print View"
           }
         },
         "ja": {
@@ -21594,7 +21594,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・ノート・スタイルと文字の大きさ・HTML プリセットをまとめて当てます。表示の型と拡大率は含みません。"
+            "value": "用紙とレイアウト・余白・ヘッダーとフッター・仕上げ・ノート・スタイルと文字の大きさ・HTML プリセットをまとめて当てます。1 枚・見開きと拡大率は含みません。"
           }
         },
         "zh-Hans": {
@@ -29293,7 +29293,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "送り方"
+            "value": "めくり方"
           }
         },
         "en": {
@@ -29305,13 +29305,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "翻页"
+            "value": "翻页方式"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "翻頁"
+            "value": "翻頁方式"
           }
         },
         "ko": {
@@ -29323,7 +29323,7 @@
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Transition"
+            "value": "Transition des pages"
           }
         },
         "de": {
@@ -29335,7 +29335,7 @@
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Transición"
+            "value": "Cambio de página"
           }
         }
       }
@@ -34671,49 +34671,49 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "表示の型"
+            "value": "1 枚・見開き"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "View Type"
+            "value": "Single or Spread"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视图类型"
+            "value": "单页或双页"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示類型"
+            "value": "單頁或跨頁"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "보기 유형"
+            "value": "한 쪽 또는 두 쪽"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Type d’affichage"
+            "value": "Page simple ou double"
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ansichtstyp"
+            "value": "Einzelseite oder Doppelseite"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tipo de vista"
+            "value": "Página individual o doble"
           }
         }
       }
@@ -55467,49 +55467,49 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Seiten"
+            "value": "Einzelseite oder Doppelseite"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pages"
+            "value": "Single or Spread"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Páginas"
+            "value": "Página individual o doble"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pages"
+            "value": "Page simple ou double"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ページの並び"
+            "value": "1 枚・見開き"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "페이지 배열"
+            "value": "한 쪽 또는 두 쪽"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "页面排列"
+            "value": "单页或双页"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "頁面排列"
+            "value": "單頁或跨頁"
           }
         }
       }
@@ -67663,19 +67663,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Art des Seitenwechsels"
+            "value": "Seitenwechsel"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Page Turning"
+            "value": "Page Turn"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Transición de página"
+            "value": "Cambio de página"
           }
         },
         "fr": {
@@ -67687,13 +67687,13 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ページの送り方"
+            "value": "めくり方"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "페이지 넘김 방식"
+            "value": "페이지 넘김"
           }
         },
         "zh-Hans": {
@@ -68444,6 +68444,214 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esta tecla exporta o comparte el documento en orden de lectura."
+          }
+        }
+      }
+    },
+    "Corners": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ecken"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corners"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esquinas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angles"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "角の丸み"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "모서리"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "边角"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "邊角"
+          }
+        }
+      }
+    },
+    "Square": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eckig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Square"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rectas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Droits"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "角ばった"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "각지게"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "方角"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "方角"
+          }
+        }
+      }
+    },
+    "Round": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rund"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Round"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redondeadas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrondis"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "丸い"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "둥글게"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "圆角"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "圓角"
+          }
+        }
+      }
+    },
+    "Show in Menu Bar": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In der Menüleiste anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Menu Bar"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar en la barra de menús"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher dans la barre des menus"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メニューバーに表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메뉴 막대에 표시"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在菜单栏中显示"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示於選單列"
           }
         }
       }

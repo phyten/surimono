@@ -95,7 +95,7 @@ private struct OutlineRow: View {
             .padding(.trailing, 8)
             .frame(minHeight: 32)
             .background {
-                RoundedRectangle(cornerRadius: 6)
+                CornerRole.control.shape
                     .fill(
                         isSelected
                             ? PrintPalette.hover
@@ -170,7 +170,7 @@ private struct BookmarkRow: View {
         }
         .font(.system(size: 13)).foregroundStyle(PrintPalette.ink)
         .padding(.leading, 8).padding(.trailing, 4)
-        .background(RoundedRectangle(cornerRadius: 6).fill(isHovered ? PrintPalette.hover : .clear))
+        .background(CornerRole.control.shape.fill(isHovered ? PrintPalette.hover : .clear))
         .onHover { isHovered = $0 }
     }
 }
@@ -202,7 +202,7 @@ struct OutlinePopover: View {
         }
         .padding(12)
         .frame(width: 286)
-        .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
+        .paperOverlayBackground(nil, tintOpacity: 0.985)
     }
 }
 
@@ -286,7 +286,7 @@ struct DocumentFiguresPopover: View {
         }
         .padding(12)
         .frame(width: 286, alignment: .leading)
-        .paperOverlayBackground(cornerRadius: 0, tintOpacity: 0.985)
+        .paperOverlayBackground(nil, tintOpacity: 0.985)
     }
 
     private func figure(_ title: String, _ value: String) -> some View {

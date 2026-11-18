@@ -33,17 +33,17 @@ struct BandArrangementTests {
             .style, to: .zone(.bottomLeft), before: .zoom, for: .split)
         #expect(
             moved.bottomLeft.compactMap(\.item) == [
-                .presentation, .outline, .layout, .transition, .style, .zoom, .thumbnails,
+                .presentation, .outline, .layout, .style, .zoom, .thumbnails,
             ])
         let appended = try moved.moving(.presentation, to: .zone(.bottomLeft), for: .split)
         #expect(
             appended.bottomLeft.compactMap(\.item) == [
-                .outline, .layout, .transition, .style, .zoom, .thumbnails, .presentation,
+                .outline, .layout, .style, .zoom, .thumbnails, .presentation,
             ])
         let earlier = try appended.moving(.style, to: .zone(.bottomLeft), before: .outline, for: .split)
         #expect(
             earlier.bottomLeft.compactMap(\.item) == [
-                .style, .outline, .layout, .transition, .zoom, .thumbnails, .presentation,
+                .style, .outline, .layout, .zoom, .thumbnails, .presentation,
             ])
     }
 
@@ -57,10 +57,10 @@ struct BandArrangementTests {
     func moveAcrossZones() throws {
         let moved = try BandArrangement.standard(for: .split).moving(
             .print, to: .zone(.bottomLeft), before: .style, for: .split)
-        #expect(moved.topRight.compactMap(\.item) == [.floatOnTop])
+        #expect(moved.topRight.compactMap(\.item) == [])
         #expect(
             moved.bottomLeft.compactMap(\.item) == [
-                .presentation, .print, .style, .outline, .layout, .transition, .zoom, .thumbnails,
+                .presentation, .print, .style, .outline, .layout, .zoom, .thumbnails,
             ])
         #expect(moved.location(of: .print) == .zone(.bottomLeft))
         let unused = try moved.moving(.outline, to: .unused, for: .split)
@@ -120,12 +120,11 @@ struct BandArrangementTests {
     @Test("追加された部品は既存の並びを変えず両方の使わない部品へ入る", arguments: MenuArrangement.allCases)
     func laterItem(mode: MenuArrangement) {
         var wire = StoredBandArrangement(BandArrangement.standard(for: mode))
-        wire.topRight.removeAll { $0 == "floatOnTop" }
+        wire.unused.removeAll { $0 == "floatOnTop" }
         let repaired = BandArrangementRepair.repair(wire, for: mode)
         #expect(
-            repaired.arrangement.unused == (mode == .top ? [.pageTurn] : []) + BandLayoutTests.standardUnused + [
-                .floatOnTop
-            ])
+            repaired.arrangement.unused == (mode == .top ? [.pageTurn] : []) + [.transition, .showOnAllSpaces]
+                + BandLayoutTests.addedItems + [.floatOnTop])
         #expect(repaired.stored.topRight == wire.topRight)
         #expect(repaired.notices == [.addedToUnused(.floatOnTop)])
     }

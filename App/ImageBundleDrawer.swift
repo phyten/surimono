@@ -55,7 +55,7 @@ private struct ImageBundleList: View {
                     .tag(item.url).id(item.url).help(item.name)
                     .background {
                         if bundle.flashedURLs.contains(item.url) {
-                            RoundedRectangle(cornerRadius: 6).fill(PrintPalette.aiTint2)
+                            CornerRole.control.shape.fill(PrintPalette.aiTint2)
                         }
                     }
                     .onGeometryChange(for: CGRect.self) {

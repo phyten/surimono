@@ -14,7 +14,7 @@ This guide is an ordinary Markdown document too: print it as a small booklet and
 
 ## Read the paper
 
-A document opens as pages of paper that fill the window. The toolbar offers the contents, single pages (⌥⌘1) or spreads (⌥⌘2), and how the pages turn. The keys you will use most:
+A document opens as pages of paper that fill the window. The toolbar offers Contents and Single or Spread. Choose Page Turn in the … menu to scroll or change the transition. The keys you will use most:
 
 | Key | What it does |
 | --- | --- |

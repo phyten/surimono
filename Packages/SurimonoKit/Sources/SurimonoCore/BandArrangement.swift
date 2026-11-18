@@ -92,26 +92,33 @@ public struct BandArrangement: Codable, Equatable, Sendable {
     public static func standard(
         for mode: MenuArrangement, knownItems: [BandLayout.Item] = BandLayout.Item.allCases
     ) -> Self {
+        builtIn(for: mode, knownItems: knownItems, includesLegacyParts: false)
+    }
+
+    // The old order also defines spacing for saved arrangements that still include both controls.
+    static func builtIn(
+        for mode: MenuArrangement, knownItems: [BandLayout.Item] = BandLayout.Item.allCases,
+        includesLegacyParts: Bool
+    ) -> Self {
+        var tools: [BandEntry] = [
+            .part(.presentation), .separator, .part(.style), .part(.outline), .separator, .part(.layout),
+        ]
+        if includesLegacyParts { tools.append(.part(.transition)) }
+        tools += [.separator, .part(.zoom), .part(.thumbnails)]
         var arrangement: Self
         switch mode {
         case .split:
             arrangement = Self(entries: [
-                .topLeft: [.part(.formatBadge)], .topRight: [.part(.floatOnTop), .part(.print)],
-                .bottomLeft: [
-                    .part(.presentation), .separator, .part(.style), .part(.outline), .separator,
-                    .part(.layout), .part(.transition), .separator, .part(.zoom), .part(.thumbnails),
-                ],
-                .bottomRight: [.part(.chapter), .part(.pageIndicator), .part(.pageTurn)],
+                .topLeft: [.part(.formatBadge)],
+                .topRight: includesLegacyParts ? [.part(.floatOnTop), .part(.print)] : [.part(.print)],
+                .bottomLeft: tools, .bottomRight: [.part(.chapter), .part(.pageIndicator), .part(.pageTurn)],
             ])
         case .top:
+            if includesLegacyParts { tools += [.separator, .part(.floatOnTop)] }
             arrangement = Self(
                 entries: [
                     .topLeft: [.part(.formatBadge), .part(.pageIndicator), .part(.chapter)],
-                    .topRight: [
-                        .part(.presentation), .separator, .part(.style), .part(.outline), .separator,
-                        .part(.layout), .part(.transition), .separator, .part(.zoom), .part(.thumbnails),
-                        .separator, .part(.floatOnTop), .part(.print),
-                    ],
+                    .topRight: tools + [.part(.print)],
                 ], unused: [.pageTurn])
         }
         let known = Set(knownItems).union([.print])

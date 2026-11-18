@@ -205,11 +205,11 @@ struct PrintNoteSection: View {
                     }
                     .padding(3)
                     .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(isOn ? accent.opacity(0.17) : .clear))
+                    .background(CornerRole.largeControl.shape.fill(isOn ? accent.opacity(0.17) : .clear))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 7).strokeBorder(isOn ? accent : .clear, lineWidth: 1)
+                        CornerRole.largeControl.shape.strokeBorder(isOn ? accent : .clear, lineWidth: 1)
                     )
-                    .contentShape(RoundedRectangle(cornerRadius: 7))
+                    .contentShape(CornerRole.largeControl.shape)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
@@ -267,7 +267,7 @@ struct PrintNoteSection: View {
             .foregroundStyle(PrintPalette.warn)
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
-            .background(RoundedRectangle(cornerRadius: 5).fill(PrintPalette.warnTint))
+            .background(CornerRole.smallControl.shape.fill(PrintPalette.warnTint))
             .padding(.top, 8)
     }
 
@@ -289,8 +289,8 @@ struct PrintNoteSection: View {
                             size: CGSize(width: 34, height: 24)
                         )
                         .frame(width: 34, height: 24)
-                        .clipShape(RoundedRectangle(cornerRadius: 2))
-                        .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(PrintPalette.line2, lineWidth: 1))
+                        .clipShape(CornerRole.thumbnail.shape)
+                        .overlay(CornerRole.thumbnail.shape.strokeBorder(PrintPalette.line2, lineWidth: 1))
                         Text(item.title)
                             .font(.system(size: 10.5, weight: isOn ? .semibold : .regular))
                             .foregroundStyle(isOn ? PrintPalette.ink : PrintPalette.ink2)
@@ -300,11 +300,11 @@ struct PrintNoteSection: View {
                     .padding(.horizontal, 2)
                     .padding(.vertical, 4)
                     .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(isOn ? accent.opacity(0.17) : .clear))
+                    .background(CornerRole.control.shape.fill(isOn ? accent.opacity(0.17) : .clear))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 6).strokeBorder(isOn ? accent : .clear, lineWidth: 1)
+                        CornerRole.control.shape.strokeBorder(isOn ? accent : .clear, lineWidth: 1)
                     )
-                    .contentShape(RoundedRectangle(cornerRadius: 6))
+                    .contentShape(CornerRole.control.shape)
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isOn ? .isSelected : [])
@@ -410,9 +410,11 @@ struct PrintNoteSection: View {
                 .fixedSize()
                 .padding(.horizontal, 9)
                 .frame(height: 26)
-                .background(Capsule().fill(isOn.wrappedValue ? accent.opacity(0.17) : .clear))
-                .overlay(Capsule().strokeBorder(isOn.wrappedValue ? accent : PrintPalette.line2, lineWidth: 1))
-                .contentShape(Capsule())
+                .background(AppCornerShape.capsule.fill(isOn.wrappedValue ? accent.opacity(0.17) : .clear))
+                .overlay(
+                    AppCornerShape.capsule.strokeBorder(isOn.wrappedValue ? accent : PrintPalette.line2, lineWidth: 1)
+                )
+                .contentShape(AppCornerShape.capsule)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])

@@ -177,7 +177,7 @@ struct SettingSetRemovalNotice: View {
                 }
                 .foregroundStyle(PrintPalette.toastInk)
                 .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 10).fill(PrintPalette.toast))
+                .background(CornerRole.toast.shape.fill(PrintPalette.toast))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 18)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

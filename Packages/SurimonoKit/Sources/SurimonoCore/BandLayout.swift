@@ -205,7 +205,7 @@ public enum BandLayout {
         leading: [BandEntry], trailing: [BandEntry], position: Position, mode: MenuArrangement,
         availableItems: Set<Item>, measurements: BandMeasurementsValue, metrics: BandMetrics, availableWidth: CGFloat
     ) -> BandRowPlan {
-        let standard = BandArrangement.standard(for: mode)
+        let standard = BandArrangement.builtIn(for: mode, includesLegacyParts: true)
         let standardLeading = position == .top ? standard.topLeft : standard.bottomLeft
         let standardTrailing = position == .top ? standard.topRight : standard.bottomRight
         // Omitting a part (including the old hidden-Outline preference) does not change the stack structure.
@@ -214,7 +214,10 @@ public enum BandLayout {
             let parts = Set(entries.compactMap(\.item))
             return order.filter { $0.item.map(parts.contains) ?? true } == entries
         }
-        let standardSpacing = follows(leading, order: standardLeading) && follows(trailing, order: standardTrailing)
+        let standardSpacing =
+            follows(leading, order: standardLeading)
+            && (follows(trailing, order: standardTrailing)
+                || (mode == .top && follows(trailing, order: BandArrangement.standard(for: .top).topRight)))
         let widths = Dictionary(
             uniqueKeysWithValues: (leading + trailing).compactMap(\.item).filter(availableItems.contains).map {
                 ($0, measurements.items[$0] ?? Widths(full: 0))
@@ -224,12 +227,18 @@ public enum BandLayout {
         let moreDock: BandRowGeometry.MoreDock =
             position == .bottom
             ? .absent : (trailing.last(where: { $0.item != nil }) == .part(.print) ? .beforePrint : .trailing)
+        // In the standard stack, a tool group's separator ends at "…". Only a separator placed directly
+        // before the docked Print belongs to it when the last tool group disappears.
+        var trailingForSeparators = trailing
+        if standardSpacing, moreDock == .beforePrint, trailing.dropLast().last != .separator {
+            trailingForSeparators.removeLast()
+        }
         func geometry(_ forms: [Item: Form]) -> BandRowGeometry {
             rowGeometry(
                 leading: leading.compactMap(\.item).filter { forms[$0] != nil },
                 trailing: trailing.compactMap(\.item).filter { forms[$0] != nil },
                 separators: visibleSeparators(in: leading, forms: forms)
-                    + visibleSeparators(in: trailing, forms: forms),
+                    + visibleSeparators(in: trailingForSeparators, forms: forms),
                 position: position, mode: mode, metrics: metrics, standardSpacing: standardSpacing, moreDock: moreDock)
         }
         let plan = collapse(

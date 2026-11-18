@@ -102,13 +102,12 @@ struct BandArrangementRenderingTests {
         return menu
     }
 
-    /// What the bands showed before arrangements existed, as the renderer computed it: fixed positions, each width
-    /// with the gap in front of it, one separator per group after the first.
+    /// Use the original width calculation with today's default parts to check every collapse boundary.
     private func legacy(_ model: DocumentViewModel, mode: MenuArrangement, width: CGFloat) -> (
         top: BandLayout.Plan, bottom: BandLayout.Plan?
     ) {
         let topItems: Set<BandLayout.Item> = [.formatBadge, .floatOnTop, .print]
-        // Before, Page Turn was a part of the document only in Split.
+        // The previous/next buttons start on the split band only.
         let applicable = BandLayout.Item.applicable(for: model).filter {
             !BandTestCatalog.standardUnused.contains($0) && (mode == .split || $0 != .pageTurn)
         }
@@ -139,7 +138,7 @@ struct BandArrangementRenderingTests {
         return (top, bottom)
     }
 
-    @Test("標準の配置は上下とも従来の位置と並びのまま帯に渡し、どの幅でも従来と同じ形と名前の幅になる", arguments: MenuArrangement.allCases)
+    @Test("標準配置の部品を帯へ順に渡し、どの幅でも部品とファイル名が収まる", arguments: MenuArrangement.allCases)
     func standardFeedsRenderer(mode: MenuArrangement) async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
@@ -153,17 +152,20 @@ struct BandArrangementRenderingTests {
         switch mode {
         case .split:
             #expect(wide.top.leading == [.formatBadge])
-            #expect(wide.top.trailing == [.floatOnTop, .print])
-            #expect(wide.bottom?.leading == [.style, .outline, .layout, .transition])
+            #expect(wide.top.trailing == [.print])
+            #expect(wide.bottom?.leading == [.style, .outline, .layout])
             #expect(wide.bottom?.trailing == [.chapter, .pageIndicator, .pageTurn])
             #expect(wide.bottom?.geometry.usesStandardSpacing == true)
-            #expect(wide.resolved.unusedAvailable == [.showOnAllSpaces] + Self.availableAdded)
+            #expect(
+                wide.resolved.unusedAvailable == [.transition, .floatOnTop, .showOnAllSpaces] + Self.availableAdded)
         case .top:
             #expect(wide.top.leading == [.formatBadge, .pageIndicator, .chapter])
-            #expect(wide.top.trailing == [.style, .outline, .layout, .transition, .floatOnTop, .print])
+            #expect(wide.top.trailing == [.style, .outline, .layout, .print])
             #expect(wide.bottom == nil)
             // Standard Top Only leaves Page Turn off the band; "…" now offers its two actions.
-            #expect(wide.resolved.unusedAvailable == [.showOnAllSpaces, .pageTurn] + Self.availableAdded)
+            #expect(
+                wide.resolved.unusedAvailable == [.transition, .floatOnTop, .showOnAllSpaces, .pageTurn]
+                    + Self.availableAdded)
         }
         #expect(wide.top.geometry.moreDock == .beforePrint)
 
@@ -581,11 +583,16 @@ struct BandArrangementRenderingTests {
         let preferences = AppPreferences(defaults: suite.defaults)
         #expect(preferences.activeBandArrangement == .standard(for: .split))
         preferences.showsOutlineOnBand = false
-        #expect(preferences.activeBandArrangement.unused == BandTestCatalog.standardUnused + [.outline, .chapter])
+        #expect(
+            preferences.activeBandArrangement.unused == [.showOnAllSpaces] + BandTestCatalog.addedItems + [
+                .outline, .chapter,
+            ])
         #expect(!preferences.activeBandArrangement.bottomLeft.contains(.outline))
         #expect(suite.defaults.data(forKey: "bandArrangementStore") == nil)
         preferences.showsOutlineOnBand = true
-        #expect(preferences.activeBandArrangement == .standard(for: .split))
+        #expect(preferences.activeBandArrangement.topRight == [.part(.floatOnTop), .part(.print)])
+        #expect(preferences.activeBandArrangement.bottomLeft.contains(.outline))
+        #expect(AppPreferences(defaults: suite.defaults).activeBandArrangement == preferences.activeBandArrangement)
 
         try preferences.selectBandArrangement(.standard)
         preferences.showsOutlineOnBand = false
