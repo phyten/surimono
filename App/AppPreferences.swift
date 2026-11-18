@@ -98,6 +98,9 @@ final class AppPreferences {
     var defaultAlwaysOnTop: Bool {
         didSet { defaults.set(defaultAlwaysOnTop, forKey: "defaultAlwaysOnTop") }
     }
+    var defaultShowsOnAllSpaces: Bool {
+        didSet { defaults.set(defaultShowsOnAllSpaces, forKey: "defaultShowsOnAllSpaces") }
+    }
     var defaultBandVisibility: BandVisibility {
         didSet { defaults.set(defaultBandVisibility.rawValue, forKey: "defaultBandVisibility") }
     }
@@ -412,6 +415,7 @@ final class AppPreferences {
         defaultShowsCoverAlone = defaults.object(forKey: "defaultShowsCoverAlone") as? Bool
         loneCoverWidth = LoneCoverWidth(rawValue: defaults.string(forKey: "loneCoverWidth") ?? "") ?? .onePage
         defaultAlwaysOnTop = defaults.bool(forKey: "defaultAlwaysOnTop")
+        defaultShowsOnAllSpaces = defaults.bool(forKey: "defaultShowsOnAllSpaces")
         // Earlier versions could only pin the band open when a window opened. Unpinned was then a choice of hiding it.
         defaultBandVisibility =
             BandVisibility(rawValue: defaults.string(forKey: "defaultBandVisibility") ?? "")

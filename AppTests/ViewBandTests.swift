@@ -360,6 +360,10 @@ struct ViewBandTests {
         let paperSize = model.currentPaperSize
 
         model.windowWillEnterFullScreen()
+        model.showsOnAllSpaces = true
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(window.collectionBehavior.contains(.fullScreenPrimary))
+        #expect(!window.collectionBehavior.contains(.canJoinAllSpaces))
         #expect(model.currentBandRoom == BandRoom())
         model.bandRevealDidChange(true)
         model.bandRevealDidChange(false)
@@ -369,6 +373,8 @@ struct ViewBandTests {
 
         // The system gives back the frame from before, which still holds the room the bands had then.
         model.windowDidExitFullScreen()
+        try await waitUntil { window.collectionBehavior.contains([.fullScreenAuxiliary, .canJoinAllSpaces]) }
+        #expect(!window.collectionBehavior.contains(.fullScreenPrimary))
         try await waitUntil {
             let back = window.contentRect(forFrameRect: window.frame)
             return abs(back.height - hover.paperOnly.height) <= 3 && abs(back.maxY - hover.paperOnly.maxY) <= 3

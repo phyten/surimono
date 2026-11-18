@@ -1,7 +1,7 @@
 import Foundation
 
 public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
-    public enum Kind: String, Codable, Sendable { case image, overflow, math, latex, mermaid }
+    public enum Kind: String, Codable, Sendable { case image, overflow, math, latex, mermaid, verticalWriting }
     public enum ImageFailure: String, Codable, Sendable { case missing, folderAccess, other }
     public enum Element: String, Codable, Sendable { case table, image, figure, code, math }
 
@@ -51,7 +51,7 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
     /// unreadable image is not mistaken for a table that merely runs past the margin.
     public enum Group: Sendable { case content, layout }
 
-    public var group: Group { kind == .overflow ? .layout : .content }
+    public var group: Group { kind == .overflow || kind == .verticalWriting ? .layout : .content }
 
     /// The issues by group, those that cost content first. A group without issues is left out, and each group keeps
     /// the order it was given in.

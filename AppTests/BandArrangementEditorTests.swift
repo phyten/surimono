@@ -31,12 +31,12 @@ struct BandArrangementEditorTests {
         BandEntryLocation(destination: destination, index: index)
     }
 
-    @Test("未使用の分類は全27部品を正しい群に一度ずつ元の順と添字で投影する")
+    @Test("未使用の分類は全28部品を正しい群に一度ずつ元の順と添字で投影する")
     func paletteProjection() {
         let unused: [BandLayout.Item] = [
             .keysAndGestures, .saveAsFile, .viewOptions, .ignoreSlides, .beforePrinting,
             .margins, .alwaysShowToolbar, .selectText, .cover, .paperSeries, .paperOrientation,
-            .scrollDirection, .readingDirection, .printSettings, .print, .pageTurn, .floatOnTop,
+            .scrollDirection, .readingDirection, .printSettings, .print, .pageTurn, .floatOnTop, .showOnAllSpaces,
             .thumbnails, .zoom, .transition, .layout, .outline, .style, .presentation,
             .pageIndicator, .formatBadge, .chapter,
         ]
@@ -48,11 +48,11 @@ struct BandArrangementEditorTests {
                 [.zoom, .transition, .layout, .presentation],
                 [.selectText, .cover, .scrollDirection, .readingDirection],
                 [.ignoreSlides, .margins, .paperSeries, .paperOrientation, .style],
-                [.viewOptions, .alwaysShowToolbar, .floatOnTop],
+                [.viewOptions, .alwaysShowToolbar, .floatOnTop, .showOnAllSpaces],
                 [.saveAsFile, .beforePrinting, .printSettings, .print], [.keysAndGestures],
             ])
         let parts = groups.flatMap(\.parts)
-        #expect(parts.count == 27 && Set(parts.map(\.id)).count == 27)
+        #expect(parts.count == 28 && Set(parts.map(\.id)).count == 28)
         for part in parts {
             #expect(part.location.destination == .unused)
             #expect(unused[part.location.index] == part.id)
@@ -73,7 +73,8 @@ struct BandArrangementEditorTests {
             groups.map { $0.parts.map(\.id) } == [
                 [.readingDirection, .scrollDirection, .cover, .selectText],
                 [.paperOrientation, .paperSeries, .margins, .ignoreSlides],
-                [.alwaysShowToolbar, .viewOptions], [.printSettings, .beforePrinting, .saveAsFile], [.keysAndGestures],
+                [.showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .beforePrinting, .saveAsFile],
+                [.keysAndGestures],
             ])
         #expect(session.draft == before && !session.isDirty && !session.canUndo)
         #expect(session.selection == nil)
@@ -161,8 +162,8 @@ struct BandArrangementEditorTests {
         #expect(session.pendingLeave == .closeWindow)
         session.cancelLeave()
         session.backToStandard()
-        #expect(session.draft.top.unused == [.pageTurn] + BandTestCatalog.addedItems)
-        #expect(session.draft.split.unused == BandTestCatalog.addedItems)
+        #expect(session.draft.top.unused == [.pageTurn] + BandTestCatalog.standardUnused)
+        #expect(session.draft.split.unused == BandTestCatalog.standardUnused)
         #expect(!session.isDirty && windowGuard.windowShouldClose(window))
         session.undo()
         #expect(session.draft == before)
@@ -267,7 +268,7 @@ struct BandArrangementEditorTests {
         #expect(!session.move(location(.zone(.topRight), 0), to: .zone(.bottomLeft), at: 0))
         #expect(session.move(location(.unused, 0), to: .zone(.topLeft), at: 0))
         #expect(session.draft.top.topLeft.first == .part(.pageTurn))
-        #expect(session.draft.split.unused == BandTestCatalog.addedItems + [.outline])
+        #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.outline])
     }
 
     // MARK: - History
@@ -384,7 +385,7 @@ struct BandArrangementEditorTests {
         #expect(session.active == .standard)
         let saved = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(saved.id == reading.id && saved.name == "Reading")
-        #expect(saved.layouts.split.unused == BandTestCatalog.addedItems + [.zoom])
+        #expect(saved.layouts.split.unused == BandTestCatalog.standardUnused + [.zoom])
     }
 
     @Test("標準を変えて保存すると名前を付けた複製になり標準は変わらない")
@@ -405,7 +406,8 @@ struct BandArrangementEditorTests {
         #expect(environment.preferences.settingsSection == .styles)
         let copy = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(
-            session.active == .user(copy.id) && copy.layouts.split.unused == BandTestCatalog.addedItems + [.floatOnTop])
+            session.active == .user(copy.id)
+                && copy.layouts.split.unused == BandTestCatalog.standardUnused + [.floatOnTop])
         #expect(environment.preferences.bandArrangementStore.contains(.standard))
     }
 
@@ -422,7 +424,7 @@ struct BandArrangementEditorTests {
         let store = environment.preferences.bandArrangementStore
         let reading = try #require(store.sets.first)
         #expect(reading.name == "Reading" && store.active == .user(reading.id))
-        #expect(reading.layouts.split.unused == BandTestCatalog.addedItems + [.thumbnails])
+        #expect(reading.layouts.split.unused == BandTestCatalog.standardUnused + [.thumbnails])
         #expect(!session.isDirty)
         #expect(session.duplicate(named: "reading") != nil)
         let newName = String(localized: "New Arrangement")
@@ -450,7 +452,7 @@ struct BandArrangementEditorTests {
         let saved = try #require(environment.preferences.bandArrangementStore.sets.first)
         #expect(
             saved.id == id && saved.name == "Reading"
-                && saved.layouts.split.unused == BandTestCatalog.addedItems + [.style])
+                && saved.layouts.split.unused == BandTestCatalog.standardUnused + [.style])
         #expect(session.rename(to: "Slides") == nil)
         #expect(environment.preferences.bandArrangementStore.active == .user(id))
         #expect(session.activeName == "Slides")
@@ -492,7 +494,7 @@ struct BandArrangementEditorTests {
         session.undo()
         #expect(session.active == reading)
         #expect(environment.preferences.bandArrangementStore.sets.map(\.name) == ["Printing", "Reading"])
-        #expect(session.draft.split.unused == BandTestCatalog.addedItems + [.outline])
+        #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.outline])
         session.redo()
         #expect(session.active == printing)
     }
@@ -539,7 +541,7 @@ struct BandArrangementEditorTests {
         #expect(session.draft.split.topRight == [.part(.floatOnTop), .part(.print), .part(.pageTurn)])
         payload = session.beginDrag(.entry(location(.zone(.topRight), 2), .part(.pageTurn)))
         #expect(session.drop(payload, on: .unused))
-        #expect(session.draft.split.unused == BandTestCatalog.addedItems + [.pageTurn])
+        #expect(session.draft.split.unused == BandTestCatalog.standardUnused + [.pageTurn])
         payload = session.beginDrag(.newSeparator)
         #expect(session.proposal(for: .zone(.bottomRight, index: 2)) == .copy)
         #expect(session.proposal(for: .unused) == .forbidden)
@@ -972,9 +974,8 @@ struct BandArrangementEditorTests {
         session.proceed()
         #expect(replies.values == [true])
         #expect(
-            environment.preferences.bandArrangementStore.activeLayouts.split.unused == BandTestCatalog.addedItems + [
-                .zoom
-            ])
+            environment.preferences.bandArrangementStore.activeLayouts.split.unused == BandTestCatalog.standardUnused
+                + [.zoom])
     }
 
     @Test("標準を変えて終了するとき複製の名前を取り消すと終了しない")
@@ -1093,9 +1094,8 @@ struct BandArrangementEditorTests {
         #expect(try await relaunch(environment, answer: .save, record: record))
         #expect(environment.preferences.bandArrangementStore.sets.count == 1)
         #expect(
-            environment.preferences.bandArrangementStore.activeLayouts.split.unused == BandTestCatalog.addedItems + [
-                .zoom
-            ])
+            environment.preferences.bandArrangementStore.activeLayouts.split.unused == BandTestCatalog.standardUnused
+                + [.zoom])
         #expect(record.launched == 2 && record.terminated == 2)
     }
 

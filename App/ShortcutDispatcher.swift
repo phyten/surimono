@@ -269,6 +269,8 @@ final class ShortcutDispatcher {
             if let model { model.isBandAlwaysVisible.toggle() }
         case .viewFloatOnTop:
             if let model { model.isAlwaysOnTop.toggle() }
+        case .viewShowOnAllSpaces:
+            if let model { model.showsOnAllSpaces.toggle() }
         case .styleChoose: model?.openThemePalette()
         case .settingSetSave:
             if let model { SettingSetDialogs.save(model) }

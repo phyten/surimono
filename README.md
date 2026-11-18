@@ -76,7 +76,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 - Open defaults for new documents and app-wide settings from **Surimono › Settings…** (⌘,). Actions on the current document live in the View and Document menus
 - Settings you change are remembered per document by its content (SHA-256), not its name; image bundles by the set of images
 - Open a ZIP of images as one image bundle (images in nested folders, sorted by name; never extracted to disk)
-- Keep a window floating on top of other apps with the pin on the toolbar (or **View › Float on Top**)
+- Keep a window floating on top of other apps with the pin on the toolbar (or **View › Float on Top**). Choose **View › Show on All Spaces** to see it on every desktop.
 - Light by default; choose Dark or Match System under **Settings › General › Appearance**. The paper stays white in every appearance
 
 ## From Finder and Shortcuts

@@ -7,16 +7,17 @@ struct BandLayoutTests {
         .readingDirection, .scrollDirection, .paperOrientation, .paperSeries, .cover, .selectText, .alwaysShowToolbar,
         .margins, .printSettings, .ignoreSlides, .beforePrinting, .viewOptions, .saveAsFile, .keysAndGestures,
     ]
+    static let standardUnused: [BandLayout.Item] = [.showOnAllSpaces] + addedItems
     // Freeze these independently of the arrangement model so later refactors cannot redefine Standard unnoticed.
     static let standardSplit: [[BandLayout.Item]] = [
         [.formatBadge], [.floatOnTop, .print],
         [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails],
-        [.chapter, .pageIndicator, .pageTurn], addedItems,
+        [.chapter, .pageIndicator, .pageTurn], standardUnused,
     ]
     static let standardTop: [[BandLayout.Item]] = [
         [.formatBadge, .pageIndicator, .chapter],
         [.presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails, .floatOnTop, .print],
-        [], [], [.pageTurn] + addedItems,
+        [], [], [.pageTurn] + standardUnused,
     ]
     static let workedWidths: [BandLayout.Item: BandLayout.Widths] = [
         .formatBadge: .init(full: 30), .pageIndicator: .init(full: 50),
@@ -30,8 +31,9 @@ struct BandLayoutTests {
     @Test("標準の上下配置は現在の部品順と一致する")
     func frozenSplit() {
         let top = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .top }
-        let bottom = BandLayout.Item.allCases.prefix(12).filter { BandLayout.position(of: $0, in: .split) == .bottom }
-        #expect(top == [.formatBadge, .floatOnTop, .print])
+        let bottom = BandLayout.Item.allCases.prefix { $0 != .readingDirection }
+            .filter { BandLayout.position(of: $0, in: .split) == .bottom }
+        #expect(top == [.formatBadge, .floatOnTop, .showOnAllSpaces, .print])
         #expect(
             bottom.filter { $0.group != nil } == [
                 .presentation, .style, .outline, .layout, .transition, .zoom, .thumbnails,
@@ -112,12 +114,12 @@ struct BandLayoutTests {
         BandLayout.plan(widths: widths, fixed: 150, separator: 10, name: name, available: available)
     }
 
-    @Test("既存十二部品の後ろに十四部品と今の章を並べる")
+    @Test("操作スペースの部品は最前面に固定の直後に並ぶ")
     func itemsFollowTheSpecification() {
         #expect(
             BandLayout.Item.allCases == [
                 .formatBadge, .pageIndicator, .presentation, .style, .outline, .layout, .transition, .zoom,
-                .thumbnails, .floatOnTop, .pageTurn, .print,
+                .thumbnails, .floatOnTop, .showOnAllSpaces, .pageTurn, .print,
             ] + Self.addedItems + [.chapter])
     }
 
@@ -129,7 +131,7 @@ struct BandLayoutTests {
                 .remove(.chapter), .remove(.formatBadge), .remove(.pageIndicator), .remove(.style),
                 .remove(.transition),
                 .remove(.layout), .remove(.outline), .remove(.presentation), .remove(.thumbnails), .remove(.zoom),
-                .remove(.floatOnTop), .compact(.print),
+                .remove(.floatOnTop), .remove(.showOnAllSpaces), .compact(.print),
             ])
     }
 
@@ -155,10 +157,10 @@ struct BandLayoutTests {
             ])
     }
 
-    @Test("上と下に分けると、上の帯には形式の印・最前面に固定・印刷だけが残る")
+    @Test("上下配置では形式の印と窓の切り替えと印刷を上の帯に割り当てる")
     func splitPlacesItems() {
         let top = BandLayout.Item.allCases.filter { BandLayout.position(of: $0, in: .split) == .top }
-        #expect(top == [.formatBadge, .floatOnTop, .print])
+        #expect(top == [.formatBadge, .floatOnTop, .showOnAllSpaces, .print])
     }
 
     @Test("上だけなら、すべての部品が上の帯に並ぶ")

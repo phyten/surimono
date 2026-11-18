@@ -81,6 +81,7 @@ struct DocumentContent: View {
                 // SwiftUI moves the content to the window again when the print mode adds its toolbar.
                 ViewerWindow.setTrafficLightsVisible(model.isBandAlwaysVisible || model.mode != .view, in: window)
                 ViewerWindow.setAlwaysOnTop(model.isAlwaysOnTop, in: window)
+                model.applyWindowSpacesAfterUpdate()
                 // Reattaching after a stage must preserve the frame chosen for the return to reading.
                 model.sizeWindowToPaper(initialOnly: true)
                 #if DEBUG
@@ -165,6 +166,7 @@ private struct DocumentWindowChanges: ViewModifier {
             .onChange(of: model.isAlwaysOnTop) { _, onTop in
                 if let window = model.window { ViewerWindow.setAlwaysOnTop(onTop, in: window) }
             }
+            .onChange(of: model.showsOnAllSpaces) { model.applyWindowSpacesAfterUpdate() }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEndLiveResizeNotification)) { note in
                 if let window = note.object as? NSWindow, window === model.window { model.windowDidEndLiveResize() }
             }

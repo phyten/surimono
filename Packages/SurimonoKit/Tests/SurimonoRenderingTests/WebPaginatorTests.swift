@@ -697,3 +697,68 @@ struct WebPaginatorTests {
         #expect(result.preparationResult == "摺物の枠")
     }
 }
+
+@MainActor
+@Suite(.serialized, .timeLimit(.minutes(1)))
+struct RootWritingModeTests {
+    private func paginate(_ html: String) async throws -> WebPaginator.Result {
+        _ = NSApplication.shared
+        return try await WebPaginator().paginateWithResult(
+            .html("<!doctype html>" + html, baseURL: nil), pageSize: CGSize(width: 400, height: 500),
+            margins: .uniform(millimeters: 10), allowsJavaScript: false)
+    }
+
+    @Test(
+        "根要素か本文の縦書きは横書きで最後まで組版し、印刷前の確認に一件載せる",
+        arguments: [
+            "<html style='writing-mode:vertical-rl'><body>",
+            "<html><body style='writing-mode:vertical-rl'>",
+            "<html><style>:root { -webkit-writing-mode:vertical-lr !important }</style><body>",
+            "<html><style>@media print { body { writing-mode:vertical-rl !important } }</style><body>",
+            "<html style='writing-mode:vertical-rl;writing-mode:sideways-rl'><body>",
+            "<html><body style='writing-mode:vertical-lr;writing-mode:sideways-lr'>",
+        ])
+    func vertical(opening: String) async throws {
+        let result = try await paginate(
+            opening + String(repeating: "<p>Paragraph</p>", count: 90) + "<p>END</p></body></html>")
+        #expect(result.document.pageCount > 1)
+        #expect(result.document.page(at: result.document.pageCount - 1)?.string?.contains("END") == true)
+        #expect(result.issues.map(\.kind) == [.verticalWriting])
+    }
+
+    @Test("HTML書き出しは根要素と本文だけを横書きにし、右から左の指定を保つ")
+    func exportedRoot() async throws {
+        _ = NSApplication.shared
+        let result = try await WebPaginator().paginateWithResult(
+            .html(
+                "<html dir='rtl'><style>body { writing-mode:vertical-rl !important }</style><p>Body</p>", baseURL: nil),
+            pageSize: CGSize(width: 400, height: 500), margins: .uniform(millimeters: 10),
+            allowsJavaScript: false, exportHTMLTitle: "Example")
+        let html = try #require(result.exportedHTML)
+        #expect(html.contains("dir=\"rtl\""))
+        #expect(html.components(separatedBy: "writing-mode: horizontal-tb !important").count == 3)
+        #expect(result.issues.map(\.kind) == [.verticalWriting])
+    }
+
+    @Test("横書きの文書には縦書きの注記がない")
+    func horizontal() async throws {
+        let result = try await paginate("<html dir='rtl'><body>Horizontal</body></html>")
+        #expect(result.document.pageCount == 1)
+        #expect(result.issues.isEmpty)
+    }
+
+    @Test("横書きの中の縦書きは次の段落が左の列に並ぶ")
+    func innerColumns() async throws {
+        let result = try await paginate(
+            """
+            <div style="writing-mode:vertical-rl;height:180px;font:20px monospace">
+            <div>A</div><div>B</div></div>
+            """)
+        #expect(result.issues.isEmpty)
+        let page = try #require(result.document.page(at: 0))
+        let a = try #require(result.document.findString("A", withOptions: []).first).bounds(for: page)
+        let b = try #require(result.document.findString("B", withOptions: []).first).bounds(for: page)
+        #expect(a.midX > b.midX + 5)
+        #expect(abs(a.midY - b.midY) < 3)
+    }
+}

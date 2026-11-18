@@ -6,11 +6,17 @@ final class AuxiliaryWindowLevel: NSObject {
     private let documents = NSHashTable<NSWindow>.weakObjects()
     private let raised = NSHashTable<NSWindow>.weakObjects()
 
+    private let borrowedSpaces = NSMapTable<NSWindow, NSNumber>.weakToStrongObjects()
+    private static let spaceRoles: NSWindow.CollectionBehavior = [
+        .canJoinAllSpaces, .moveToActiveSpace, .fullScreenPrimary, .fullScreenAuxiliary, .fullScreenNone,
+    ]
+
     init(observesNotifications: Bool = true) {
         super.init()
         if observesNotifications {
             for name in [
-                NSWindow.didBecomeKeyNotification, NSWindow.didBecomeMainNotification, NSWindow.willCloseNotification,
+                NSWindow.didExitFullScreenNotification, NSWindow.didBecomeKeyNotification,
+                NSWindow.didBecomeMainNotification, NSWindow.willCloseNotification,
             ] {
                 NotificationCenter.default.addObserver(
                     self, selector: #selector(windowChanged(_:)), name: name, object: nil)
@@ -19,6 +25,7 @@ final class AuxiliaryWindowLevel: NSObject {
     }
 
     func registerDocument(_ window: NSWindow) {
+        restoreSpaces(of: window)
         documents.add(window)
         raised.remove(window)
     }
@@ -42,6 +49,31 @@ final class AuxiliaryWindowLevel: NSObject {
                 raised.remove(window)
             }
         }
+        let hasAllSpacesDocument = documents.allObjects.contains {
+            $0 !== closed && $0.isVisible && $0.collectionBehavior.contains(.canJoinAllSpaces)
+        }
+        for window in windows where window !== closed && !window.styleMask.contains(.fullScreen) {
+            let eligible =
+                raised.contains(window)
+                || Self.shouldRaise(
+                    isDocument: documents.contains(window), isPanel: window is NSPanel, isVisible: window.isVisible,
+                    isTitled: window.styleMask.contains(.titled),
+                    hasParent: window.parent != nil || window.sheetParent != nil,
+                    level: window.level)
+            if hasAllSpacesDocument && eligible {
+                let original = window.collectionBehavior
+                let behavior = original.subtracting(Self.spaceRoles).union([.canJoinAllSpaces, .fullScreenAuxiliary])
+                if original != behavior {
+                    if borrowedSpaces.object(forKey: window) == nil {
+                        borrowedSpaces.setObject(
+                            NSNumber(value: original.intersection(Self.spaceRoles).rawValue), forKey: window)
+                    }
+                    window.collectionBehavior = behavior
+                }
+            } else {
+                restoreSpaces(of: window)
+            }
+        }
         guard hasFloatingDocument else { return }
         for window in windows where window !== closed {
             if Self.shouldRaise(
@@ -53,6 +85,14 @@ final class AuxiliaryWindowLevel: NSObject {
                 window.level = .floating
             }
         }
+    }
+
+    private func restoreSpaces(of window: NSWindow) {
+        guard let saved = borrowedSpaces.object(forKey: window) else { return }
+        borrowedSpaces.removeObject(forKey: window)
+        let behavior = window.collectionBehavior.subtracting(Self.spaceRoles)
+            .union(NSWindow.CollectionBehavior(rawValue: saved.uintValue))
+        if window.collectionBehavior != behavior { window.collectionBehavior = behavior }
     }
 
     @objc private func windowChanged(_ notification: Notification) {

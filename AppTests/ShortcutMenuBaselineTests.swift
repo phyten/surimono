@@ -71,6 +71,11 @@ struct ShortcutMenuBaselineTests {
                 #expect(item.keyEquivalent.isEmpty, "Unexpected default key: \(title)")
             }
         }
+        let view = try #require(menu.item(at: 3)?.submenu)
+        let pin = try #require(view.items.firstIndex { $0.title == localized("Float on Top") })
+        let spaces = try #require(view.items.dropFirst(pin + 1).first)
+        #expect(spaces.title == localized("Show on All Spaces"))
+        #expect(spaces.keyEquivalent.isEmpty)
         let edit = try #require(menu.item(at: 2)?.submenu)
         let copyIndex = try #require(edit.items.firstIndex { $0.title == localized("Copy as HTML") })
         #expect(edit.items.dropFirst(copyIndex + 1).first?.title == localized("Copy as Rich Text"))

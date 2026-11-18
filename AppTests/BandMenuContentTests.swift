@@ -96,7 +96,7 @@ struct BandMenuContentTests {
         [.layout, .transition],
         [.readingDirection, .scrollDirection, .selectText],
         [.style, .paperOrientation, .paperSeries, .margins],
-        [.floatOnTop, .alwaysShowToolbar, .viewOptions],
+        [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
         [.printSettings, .print],
         [.keysAndGestures],
     ]
@@ -167,7 +167,8 @@ struct BandMenuContentTests {
             expected: [
                 [.previousPage, .nextPage, .documentInfo], [.layout, .transition],
                 [.readingDirection, .scrollDirection, .selectText], [.paperOrientation],
-                [.floatOnTop, .alwaysShowToolbar, .viewOptions], [.printSettings, .print], [.keysAndGestures],
+                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .print],
+                [.keysAndGestures],
             ])
         let image = try fixture.make(.image)
         try await render(image)
@@ -176,7 +177,7 @@ struct BandMenuContentTests {
             image,
             expected: [
                 [.documentInfo], [.layout, .transition], [.readingDirection, .scrollDirection],
-                [.paperOrientation, .margins], [.floatOnTop, .alwaysShowToolbar, .viewOptions],
+                [.paperOrientation, .margins], [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
                 [.printSettings, .print], [.keysAndGestures],
             ])
         let bundle = try fixture.make(.image, bundle: true)
@@ -187,7 +188,8 @@ struct BandMenuContentTests {
             expected: [
                 [.thumbnails, .previousPage, .nextPage, .documentInfo], [.layout, .transition],
                 [.readingDirection, .scrollDirection], [.paperOrientation, .margins],
-                [.floatOnTop, .alwaysShowToolbar, .viewOptions], [.printSettings, .print], [.keysAndGestures],
+                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .print],
+                [.keysAndGestures],
             ])
         BandMenuContent(model: bundle).perform(.thumbnails)
         #expect(BandMenuContent(model: bundle).entry(.thumbnails).isChecked == true)
@@ -199,7 +201,7 @@ struct BandMenuContentTests {
         defer { fixture.cleanUp() }
         let model = try fixture.make(.html)
         let web: [[ID]] = [
-            [.presentation], [.margins], [.floatOnTop, .alwaysShowToolbar, .viewOptions],
+            [.presentation], [.margins], [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
             [.printSettings, .print], [.keysAndGestures],
         ]
         try verifyArrangements(model, expected: web)
@@ -209,7 +211,8 @@ struct BandMenuContentTests {
         try verifyArrangements(
             model,
             expected: [
-                [.presentation], [.margins, .ignoreSlides], [.floatOnTop, .alwaysShowToolbar, .viewOptions],
+                [.presentation], [.margins, .ignoreSlides],
+                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
                 [.printSettings, .print], [.keysAndGestures],
             ])
         #expect(
@@ -228,7 +231,8 @@ struct BandMenuContentTests {
                 [.outline, .previousPage, .nextPage, .documentInfo], [.presentation, .layout, .transition],
                 [.readingDirection, .scrollDirection, .selectText],
                 [.style, .paperOrientation, .paperSeries, .margins, .ignoreSlides],
-                [.floatOnTop, .alwaysShowToolbar, .viewOptions], [.printSettings, .print], [.keysAndGestures],
+                [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions], [.printSettings, .print],
+                [.keysAndGestures],
             ])
     }
 
@@ -263,7 +267,7 @@ struct BandMenuContentTests {
         try verifyArrangements(
             html,
             expected: [
-                [.presentation, .zoom], [.margins], [.floatOnTop, .alwaysShowToolbar, .viewOptions],
+                [.presentation, .zoom], [.margins], [.floatOnTop, .showOnAllSpaces, .alwaysShowToolbar, .viewOptions],
                 [.printSettings, .print], [.keysAndGestures],
             ])
     }
@@ -287,7 +291,7 @@ struct BandMenuContentTests {
         #expect(!content.entry(.scrollDirection).isEnabled)
         model.viewOptions.transition = .scroll
         #expect(content.entry(.scrollDirection).isEnabled)
-        for id: ID in [.cover, .selectText, .floatOnTop, .alwaysShowToolbar] {
+        for id: ID in [.cover, .selectText, .floatOnTop, .showOnAllSpaces, .alwaysShowToolbar] {
             #expect(content.entry(id).isChecked == false)
             content.perform(id)
             #expect(content.entry(id).isChecked == true)

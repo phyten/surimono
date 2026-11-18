@@ -190,6 +190,7 @@ public final class WebPaginator: NSObject {
         }
         try Task.checkCancellation()
         if let exportHTMLTitle {
+            let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView)
             if richText { try await RichTextGraphics.replace(in: session.webView) }
             let imageURLs =
                 try await session.webView.callAsyncJavaScript(
@@ -223,6 +224,7 @@ public final class WebPaginator: NSObject {
                     in: nil,
                     contentWorld: Self.preparationWorld)
             var result = Result(document: PDFDocument())
+            if adjusted { result.issues = [Self.verticalWritingIssue] }
             if richText, let fields = serialized as? [String: Any], let html = fields["html"] as? String,
                 let figures = fields["figures"] as? [[String: Any]]
             {
@@ -245,12 +247,47 @@ public final class WebPaginator: NSObject {
             mayDrawBelowPaper = true
         }
         didCheckPageRules?(mayDrawBelowPaper)
+        let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView)
+        try Task.checkCancellation()
         let document = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
         if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
-        return Result(
+        var result = Result(
             document: document,
             preparationResult: preparationResult, pageRules: pageRules,
             requiredFolderAccess: session.localHandler?.requiredFolderAccess)
+        if adjusted { result.issues = [Self.verticalWritingIssue] }
+        return result
+    }
+
+    private static let verticalWritingIssue = PrintIssue(id: "vertical-writing", kind: .verticalWriting, detail: "")
+
+    private static func useHorizontalRootForOutput(in webView: WKWebView) async throws -> Bool {
+        let adjusted = try await useHorizontalRoot(in: webView)
+        // A root can be horizontal on screen and vertical only when AppKit starts drawing.
+        let media = webView.mediaType
+        webView.mediaType = "print"
+        defer { webView.mediaType = media }
+        let adjustedForPrint = try await useHorizontalRoot(in: webView)
+        return adjusted || adjustedForPrint
+    }
+
+    /// WebKit's printing view crashes on a vertical root. Nested writing modes are safe.
+    static func useHorizontalRoot(in webView: WKWebView) async throws -> Bool {
+        let script = """
+            const roots = [document.documentElement, document.body].filter(Boolean);
+            const horizontal = element => {
+              const style = getComputedStyle(element);
+              return (style.writingMode || style.webkitWritingMode) === 'horizontal-tb';
+            };
+            if (roots.every(horizontal)) return false;
+            for (const root of roots) root.style.setProperty('writing-mode', 'horizontal-tb', 'important');
+            if (roots.every(horizontal)) return true;
+            """
+        guard
+            let adjusted = try await webView.callAsyncJavaScript(
+                script, arguments: [:], in: nil, contentWorld: preparationWorld) as? Bool
+        else { throw PaginationError.printFailed }
+        return adjusted
     }
 
     /// Returns "true" when a style sheet of the document, including those a script adopted, has an `@page` rule or

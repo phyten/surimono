@@ -1541,7 +1541,7 @@ public final class DocumentRenderer {
             document: document,
             preparationResult: preparation.map { $0.previous } ?? output.preparationResult,
             pageRules: output.pageRules, requiredFolderAccess: output.requiredFolderAccess)
-        result.issues = PrintIssueAnchors.extract(from: document, issues: issues)
+        result.issues = PrintIssueAnchors.extract(from: document, issues: issues) + output.issues
         return result
     }
 

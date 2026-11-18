@@ -84,7 +84,7 @@ public final class ThemeSampler {
     // an older specimen. Length prefixes keep adjacent fields unambiguous without persisting their contents.
     public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
         let fields = [
-            "theme-sample-v1", theme.id, language, sourceHash, html, format.rawValue,
+            "theme-sample-v2", theme.id, language, sourceHash, html, format.rawValue,
             HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, code: code, language: documentLanguage),
             theme.script ?? "",
             String(Double(pageSize.width)), String(Double(pageSize.height)),
@@ -130,6 +130,9 @@ public final class ThemeSampler {
         let session = try await openSession()
         try Task.checkCancellation()
         let hasPaper = try await apply(theme, in: session.webView)
+        let adjusted = try await WebPaginator.useHorizontalRoot(in: session.webView)
+        // An inline override for this sample must not hide the next theme’s own root styles.
+        defer { if adjusted { resetSessions() } }
         try Task.checkCancellation()
         var top: CGFloat = 0
         if let place { top = try await self.top(of: place, in: session.webView) }
@@ -372,6 +375,13 @@ public final class ThemeSampler {
             swap + "\n" + PaperBackground.opaqueScript, arguments: ["css": css], in: nil, contentWorld: world)
         if css.contains("@font-face") { try await WebPaginator.waitForResources(in: session.webView, timeout: timeout) }
         let configuration = WKPDFConfiguration()
+        let adjusted = try await WebPaginator.useHorizontalRoot(in: session.webView)
+        defer {
+            if adjusted {
+                session.close()
+                paperSession = nil
+            }
+        }
         configuration.rect = CGRect(origin: .zero, size: pageSize)
         let data = try await session.webView.pdf(configuration: configuration)
         try Task.checkCancellation()

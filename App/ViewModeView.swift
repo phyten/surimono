@@ -306,7 +306,9 @@ struct ToastOverlay: View {
                         }
                     }
                     .buttonStyle(ToastActionButtonStyle())
-                    PanelIconButton("xmark", label: "Dismiss") { model.dismissToast() }
+                    if toast.showsDismissButton {
+                        PanelIconButton("xmark", label: "Dismiss") { model.dismissToast() }
+                    }
                 }
                 .foregroundStyle(PrintPalette.toastInk)
                 .padding(.horizontal, 14).padding(.vertical, 10)

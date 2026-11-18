@@ -35,6 +35,23 @@ struct ThemeSamplerTests {
         #expect(abs(sampler.printableSize.width - 510.4) < 1)
     }
 
+    @Test("縦書きの見本は横書きになり、次のスタイルにはその指定が残らない", .timeLimit(.minutes(1)))
+    func verticalSample() async throws {
+        let vertical = theme(
+            "vertical",
+            css: """
+                body { writing-mode: vertical-rl !important }
+                body[style*="horizontal-tb"] p::after { content: " HORIZONTAL"; }
+                """)
+        let next = theme("next", css: "body[style*=\"horizontal-tb\"] p { display:none }")
+        let sampler = try sampler("Sample", theme: vertical)
+        defer { sampler.close() }
+        let first = try await sampler.firstPage(for: vertical)
+        #expect(first.string?.contains("HORIZONTAL") == true)
+        let second = try await sampler.firstPage(for: next)
+        #expect(second.string?.contains("Sample") == true)
+    }
+
     @Test("見本の鍵は名前には依存せず、描画内容と寸法と言語に依存する")
     func persistentKey() {
         func make(

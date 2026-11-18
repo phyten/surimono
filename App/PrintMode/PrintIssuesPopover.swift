@@ -54,9 +54,12 @@ struct PrintIssuesPopover: View {
             if let page = issue.pageNumber {
                 Text("Page \(page)").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
             }
-            Text(verbatim: PrintIssueText.advice(issue, language: model.language))
-                .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
-                .fixedSize(horizontal: false, vertical: true)
+            let advice = PrintIssueText.advice(issue, language: model.language)
+            if !advice.isEmpty {
+                Text(verbatim: advice)
+                    .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             PrintFlowLayout(spacing: 8, lineSpacing: 6) { actions(issue) }
                 .controlSize(.small)
         }
@@ -85,7 +88,7 @@ struct PrintIssuesPopover: View {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
-        case .math, .latex, .mermaid: EmptyView()
+        case .math, .latex, .mermaid, .verticalWriting: EmptyView()
         }
     }
 }
@@ -100,6 +103,9 @@ enum PrintIssueText {
     static func title(_ issue: PrintIssue, language: String) -> String {
         let key: String
         switch issue.kind {
+        case .verticalWriting:
+            return PrintModeText.string(
+                "Vertical writing is not supported yet. Showing it horizontally.", language: language)
         case .image: key = "Could Not Load Image: %@"
         case .math: key = "Could Not Render Formula: %@"
         case .mermaid: key = "Could Not Render Diagram: %@"
@@ -127,6 +133,7 @@ enum PrintIssueText {
                 key = "Folder access is not allowed: allow access to the folder containing the document and its images."
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
+        case .verticalWriting: return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."

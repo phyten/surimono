@@ -27,10 +27,10 @@ struct BandChapterTests {
         let result = BandLayout.resolve(
             arrangement: layout, mode: .split, availableItems: Set(items), measurements: measurements,
             metrics: .init(topFixed: 0, bottomFixed: 0, separator: 0, titleGap: 0, toolGap: 0, outerGap: 0),
-            availableWidth: 539)
+            availableWidth: 559)
         #expect(result.overflow == [.chapter])
         let row = try #require(bottom ? result.bottom : result.top)
-        #expect(row.forms.count == 26)
+        #expect(row.forms.count == 27)
     }
 
     @Test("旧配置に今の章がなくても配置を変えず追加できる部品へ入れる", arguments: MenuArrangement.allCases)
