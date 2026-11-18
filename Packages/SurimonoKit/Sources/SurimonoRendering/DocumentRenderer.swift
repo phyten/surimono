@@ -1078,7 +1078,8 @@ public final class DocumentRenderer {
                 requiredFolderAccess: page.requiredFolderAccess)
             mirrored.issues = page.issues
             return mirrored
-        case .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .docx,
+        case .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+            .docx,
             .notebook,
             .graphviz, .plantuml:
             var missingImage = false
@@ -1167,8 +1168,9 @@ public final class DocumentRenderer {
                         allowsJavaScript: false,
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
-                        rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile].contains(
-                            source.format)
+                        rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki]
+                            .contains(
+                                source.format)
                             && fragment.body.contains("class=\"mermaid-block\""), rendersDiagrams: true), source: source
                 )
             }
@@ -1457,8 +1459,9 @@ public final class DocumentRenderer {
                     source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
                     margins: margins, allowsJavaScript: false, preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
-                    rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile].contains(
-                        source.format)
+                    rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki]
+                        .contains(
+                            source.format)
                         && body.contains("class=\"mermaid-block\""), rendersDiagrams: true)
             }
             try Task.checkCancellation()
@@ -1590,6 +1593,10 @@ public final class DocumentRenderer {
         case .docx: try DocxConverter.convert(source.data)
         case .djot:
             try DjotConverter.convert(try decodedText(source.data))
+        case .mediawiki:
+            MediaWikiConverter.convert(
+                try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
+                imageExists: imageExists)
         case .textile:
             try TextileConverter.convert(try decodedText(source.data))
         case .asciidoc:

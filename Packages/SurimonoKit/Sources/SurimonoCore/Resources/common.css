@@ -248,6 +248,8 @@ ol.latex-enumerate, li.latex-custom-label { list-style: none; }
 table.latex-tabular th, table.latex-tabular td { border: none; padding: 0.2em 0.6em; }
 .latex-equation { position: relative; }
 .latex-equation > .eqno { position: absolute; inset-inline-end: 0; top: 50%; transform: translateY(-50%); }
+span.wiki-note { display: inline-block; }
+.wiki-note,
 .latex-unsupported {
     margin: 1em 0;
     padding: 0.8em 1em;
@@ -548,8 +550,8 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 .format-asciidoc ul.checklist { list-style: none; }
 .format-asciidoc .adoc-include { display: inline-block; }
 /* Asciidoctor wraps every cell in a paragraph and titles a table with a caption as narrow as the table. */
-:is(.format-asciidoc, .format-docx) :is(td, th) > p { margin: 0; }
-:is(.format-asciidoc, .format-djot) table > caption { white-space: nowrap; text-align: start; }
+:is(.format-asciidoc, .format-docx, .format-mediawiki) :is(td, th) > p { margin: 0; }
+:is(.format-asciidoc, .format-djot, .format-mediawiki) table > caption { white-space: nowrap; text-align: start; }
 
 :is(.format-quarto, .format-rmarkdown) .smallcaps { font-variant: small-caps; }
 :is(.format-quarto, .format-rmarkdown) .underline { text-decoration: underline; }
@@ -565,3 +567,5 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 .format-docx .docx-caption, .format-docx figcaption { font-size: .85em; }
 .format-docx .docx-image-note { border: 1px solid; padding: .15em .4em; font-size: .85em; }
 .format-docx br.page-break { display: block; }
+
+.format-mediawiki .wiki-nowrap { white-space: nowrap; }

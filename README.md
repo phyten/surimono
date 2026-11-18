@@ -102,6 +102,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 | R Markdown (code is shown as configured; results are not generated) | `.Rmd`, `.rmd`, `.Rmarkdown` |
 | Word | `.docx` |
 | Djot | `.dj`, `.djot` |
+| MediaWiki | `.mediawiki`, `.wiki`, `.wikitext` |
 | Textile | `.textile` |
 | AsciiDoc | `.adoc`, `.asciidoc` |
 | Jupyter Notebook | `.ipynb` |

@@ -15,6 +15,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case rMarkdown = "rmarkdown"
     case djot
     case textile
+    case mediawiki
     case docx
     case notebook
     case graphviz
@@ -35,6 +36,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "dj", "djot": self = .djot
         case "docx": self = .docx
         case "textile": self = .textile
+        case "mediawiki", "wiki", "wikitext": self = .mediawiki
         case "adoc", "asciidoc": self = .asciidoc
         case "ipynb": self = .notebook
         case "dot", "gv": self = .graphviz
@@ -47,7 +49,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
 
     public var usesPrintTheme: Bool {
         [
-            .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .docx,
+            .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+            .docx,
             .notebook,
             .graphviz, .plantuml,
         ]
@@ -70,6 +73,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "org.openxmlformats.wordprocessingml.document": .docx,
             "net.djot.djot": .djot,
             "org.textile-lang.textile": .textile,
+            "org.mediawiki.wikitext": .mediawiki,
             "org.asciidoc.asciidoc": .asciidoc,
         ]
         if let format = known[contentType.identifier] {
@@ -90,6 +94,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             self = .rMarkdown
         } else if contentType.conforms(to: .surimonoDjot) {
             self = .djot
+        } else if contentType.conforms(to: .surimonoMediaWiki) {
+            self = .mediawiki
         } else if contentType.conforms(to: .surimonoTextile) {
             self = .textile
         } else if contentType.conforms(to: .surimonoAsciiDoc) {
@@ -134,6 +140,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .rMarkdown: "R Markdown"
         case .djot: "Djot"
         case .textile: "Textile"
+        case .mediawiki: "MediaWiki"
         case .docx: "Word"
         case .asciidoc: "AsciiDoc"
         case .notebook: "Jupyter Notebook"
@@ -150,6 +157,7 @@ extension UTType {
     public static let surimonoRMarkdown = UTType(importedAs: "org.rstudio.rmarkdown", conformingTo: .plainText)
     public static let surimonoDjot = UTType(importedAs: "net.djot.djot", conformingTo: .plainText)
     public static let surimonoTextile = UTType(importedAs: "org.textile-lang.textile", conformingTo: .plainText)
+    public static let surimonoMediaWiki = UTType(importedAs: "org.mediawiki.wikitext", conformingTo: .plainText)
     public static let surimonoAsciiDoc = UTType(importedAs: "org.asciidoc.asciidoc", conformingTo: .plainText)
     public static let surimonoNotebook = UTType(importedAs: "org.jupyter.ipynb", conformingTo: .json)
     public static let surimonoMarkdown = UTType(importedAs: "net.daringfireball.markdown", conformingTo: .plainText)

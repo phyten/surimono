@@ -235,7 +235,8 @@ struct ConverterTests {
         #expect(DocumentFormat(fileExtension: "tsv") == .csv)
         #expect(
             DocumentFormat.allCases.filter(\.usesPrintTheme) == [
-                .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .docx,
+                .markdown, .org, .plainText, .csv, .latex, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+                .docx,
                 .notebook,
                 .graphviz, .plantuml,
             ])

@@ -772,6 +772,7 @@ extension DocumentFormat {
         case .docx: "DOCX"
         case .djot: "DJOT"
         case .textile: "TEXTILE"
+        case .mediawiki: "WIKI"
         case .asciidoc: "ADOC"
         case .notebook: "IPYNB"
         case .graphviz: "Graphviz"

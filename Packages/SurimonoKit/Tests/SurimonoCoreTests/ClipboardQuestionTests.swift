@@ -12,7 +12,8 @@ struct ClipboardQuestionTests {
     func choosableKinds() {
         #expect(
             ClipboardTextKind.choosable == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+                .notebook,
                 .graphviz, .plantuml,
                 .plainText,
             ])
@@ -41,7 +42,8 @@ struct ClipboardQuestionTests {
         #expect(asked.options.map(\.kind) == [.markdown, .org, .plainText])
         #expect(
             asked.others.map(\.kind) == [
-                .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook, .graphviz, .plantuml,
+                .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .notebook, .graphviz,
+                .plantuml,
             ])
     }
 
@@ -61,7 +63,8 @@ struct ClipboardQuestionTests {
         #expect(asked.options.first?.evidence == [.headings(1)])
         #expect(
             asked.others.map(\.kind) == [
-                .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook, .graphviz,
+                .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki, .notebook,
+                .graphviz,
                 .plantuml,
             ])
         #expect(asked.others.allSatisfy { $0.evidence.isEmpty })
@@ -76,7 +79,8 @@ struct ClipboardQuestionTests {
         #expect(asked.options.map(\.kind) == [.plainText])
         #expect(
             asked.others.map(\.kind) == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki,
+                .notebook,
                 .graphviz, .plantuml,
             ])
         #expect(asked.others.first?.evidence == [.headings(1)])

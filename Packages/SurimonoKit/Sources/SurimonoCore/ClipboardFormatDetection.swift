@@ -1,7 +1,8 @@
 import Foundation
 
 public enum ClipboardTextKind: String, CaseIterable, Codable, Sendable {
-    case markdown, org, html, latex, csv, asciidoc, quarto, rMarkdown, djot, textile, notebook, graphviz, plantuml, url,
+    case markdown, org, html, latex, csv, asciidoc, quarto, rMarkdown, djot, textile, mediawiki, notebook, graphviz,
+        plantuml, url,
         plainText
 }
 
@@ -162,7 +163,7 @@ public enum ClipboardFormatDetector {
         {
             decisive = .notebook
         }
-        if decisive == nil, text.hasPrefix("= ") {
+        if decisive == nil, text.hasPrefix("= "), text.prefix(8192).split(separator: "\n").first?.last != "=" {
             let lines = text.prefix(8192).split(whereSeparator: \.isNewline)
             if lines.first.map({ $0.dropFirst(2).contains { !$0.isWhitespace } }) == true,
                 lines.dropFirst().contains(where: {
@@ -175,6 +176,7 @@ public enum ClipboardFormatDetector {
             }
         }
         if decisive == nil { decisive = ComputationalMarkdown.clipboardKind(text) }
+        if decisive == nil, MediaWikiConverter.detects(text) { decisive = .mediawiki }
         // Djot and Markdown share their ordinary syntax. Only an explicit choice selects Djot.
         if decisive == nil, looksLikeTextile(text) { decisive = .textile }
         if let decisive {
@@ -204,7 +206,8 @@ public enum ClipboardFormatDetector {
             ClipboardScanners.csv(window, hints: hints, level: settings.carefulness, work: &work),
             ClipboardScanners.url(window, hints: hints, work: &work),
             ClipboardCandidate(kind: .quarto), ClipboardCandidate(kind: .rMarkdown),
-            ClipboardCandidate(kind: .djot), ClipboardCandidate(kind: .textile), ClipboardCandidate(kind: .asciidoc),
+            ClipboardCandidate(kind: .djot), ClipboardCandidate(kind: .textile), ClipboardCandidate(kind: .mediawiki),
+            ClipboardCandidate(kind: .asciidoc),
             ClipboardCandidate(kind: .notebook),
             ClipboardCandidate(kind: .graphviz), ClipboardCandidate(kind: .plantuml),
         ]

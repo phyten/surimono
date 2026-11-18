@@ -7,7 +7,7 @@ struct SurimonoDocument: FileDocument {
     nonisolated static var readableContentTypes: [UTType] {
         [
             .surimonoMarkdown, .surimonoOrg, .surimonoAsciiDoc, .surimonoQuarto, .surimonoRMarkdown, .surimonoDjot,
-            .surimonoTextile, .surimonoLaTeX,
+            .surimonoTextile, .surimonoMediaWiki, .surimonoLaTeX,
             .surimonoNotebook, .surimonoGraphviz,
             .surimonoPlantUML,
             .plainText, .html, .pdf, .image,
@@ -50,6 +50,7 @@ struct SurimonoDocument: FileDocument {
             case .docx: UTType("org.openxmlformats.wordprocessingml.document") ?? contentType
             case .djot: .surimonoDjot
             case .textile: .surimonoTextile
+            case .mediawiki: .surimonoMediaWiki
             case .asciidoc: .surimonoAsciiDoc
             case .notebook: .surimonoNotebook
             case .graphviz: .surimonoGraphviz

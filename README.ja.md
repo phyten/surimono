@@ -101,6 +101,7 @@ Mac で Markdown のメモや Org ファイル、長い HTML の記事を印刷�
 | R Markdown（同上） | `.Rmd`, `.rmd`, `.Rmarkdown` |
 | Word | `.docx` |
 | Djot | `.dj`, `.djot` |
+| MediaWiki | `.mediawiki`, `.wiki`, `.wikitext` |
 | Textile | `.textile` |
 | AsciiDoc | `.adoc`, `.asciidoc` |
 | Jupyter Notebook | `.ipynb` |
