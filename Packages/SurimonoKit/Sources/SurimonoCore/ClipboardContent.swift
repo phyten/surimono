@@ -28,11 +28,49 @@ public enum ClipboardContent: Equatable, Sendable {
     }
 
     /// Text fed to a live preview. Editors stream whatever is being typed, so a guess at its format would flip as the
-    /// first markup appears; Markdown shows plain text and HTML fragments as they are anyway.
+    /// first markup appears; Markdown shows plain text and HTML fragments as they are anyway. A feed that knows its
+    /// format says so in Marked's way, with a comment at the top (`<!--format: org-->`), which is taken off.
     public static func streaming(text: String?) -> ClipboardContent {
-        guard let text, text.contains(where: { !$0.isWhitespace }) else { return .empty }
-        let format: DocumentFormat = isHTMLDocument(text) ? .html : .markdown
-        return .document(data: Data(text.utf8), format: format)
+        guard let text else { return .empty }
+        let (hint, body) = streamingHeader(of: text)
+        guard body.contains(where: { !$0.isWhitespace }) else { return .empty }
+        let format = hint ?? (isHTMLDocument(String(body)) ? .html : .markdown)
+        return .document(data: Data(body.utf8), format: format)
+    }
+
+    /// Marked's header: one comment at the very top whose lines are all `source:` or `format:` (any case, the space
+    /// after the colon optional). Any other comment is the document's own and stays.
+    private static func streamingHeader(of text: String) -> (format: DocumentFormat?, body: Substring) {
+        let start = text.drop { $0.isWhitespace || $0 == "\u{FEFF}" }
+        guard start.hasPrefix("<!--"), let end = start.range(of: "-->") else { return (nil, text[...]) }
+        let lines = start[start.index(start.startIndex, offsetBy: 4)..<end.lowerBound]
+            .split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        var format: DocumentFormat?
+        for line in lines {
+            guard let colon = line.firstIndex(of: ":") else { return (nil, text[...]) }
+            let key = line[..<colon].trimmingCharacters(in: .whitespaces).lowercased()
+            guard key == "source" || key == "format" else { return (nil, text[...]) }
+            if key == "format" {
+                format = streamingFormat(named: line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces))
+            }
+        }
+        guard !lines.isEmpty else { return (nil, text[...]) }
+        return (format, start[end.upperBound...].drop(while: \.isWhitespace))
+    }
+
+    /// Formats that are text a feed can type. A name this app does not read (Marked's `fountain`) gives none, and the
+    /// text is then read as usual.
+    private static func streamingFormat(named name: String) -> DocumentFormat? {
+        let name = name.lowercased()
+        let aliases: [String: DocumentFormat] = [
+            "multimarkdown": .markdown, "gfm": .markdown, "commonmark": .markdown, "org-mode": .org, "orgmode": .org,
+            "plain": .plainText, "plaintext": .plainText, "quarto": .quarto, "r markdown": .rMarkdown,
+            "graphviz": .graphviz,
+        ]
+        guard let format = aliases[name] ?? DocumentFormat(fileExtension: name), format.isWebRendered,
+            format != .docx
+        else { return nil }
+        return format
     }
 
     /// The extension of a file that keeps what opened from memory as it is.
