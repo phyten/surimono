@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ShortcutSettingsView: View {
     let controller: ShortcutController
+    @Environment(\.settingsSearchHits) private var settingsHits
     @State private var search = ""
     @State private var restoringAll = false
     @State private var restoreSnapshot = ShortcutConfiguration()
@@ -11,22 +12,21 @@ struct ShortcutSettingsView: View {
     @State private var fileError: String?
     @FocusState private var actionsFocused: Bool
     var files = ShortcutArchiveFiles()
-    private let groups: [ShortcutGroup] = [.application, .documentAndPrinting, .reading, .styles, .lists]
 
     var body: some View {
         ScrollViewReader { proxy in
             Form {
                 archiveControls
-                ForEach(groups, id: \.self) { group in
+                ForEach(SettingsCatalogue.shortcutGroups, id: \.self) { group in
                     localSection(group)
                 }
                 fixedSection
                 globalSection
             }
+            .modifier(SettingsSearchReveal(proxy: proxy))
             .formStyle(.grouped)
             // Match the other Settings sections, including their title-bar inset correction.
             .contentMargins(.top, -28, for: .scrollContent)
-            .clearsInitialFocus()
             .onAppear { controller.refresh() }
             .onChange(of: fileError) { _, value in ShortcutHints.announce(value) }
             .sheet(isPresented: $restoringAll, onDismiss: { actionsFocused = true }) {
@@ -68,7 +68,7 @@ struct ShortcutSettingsView: View {
     private var archiveControls: some View {
         Section {
             HStack(spacing: 8) {
-                searchField
+                SettingsSearchField(title: "Search Shortcuts", text: $search)
                 Menu {
                     archiveButtons
                 } label: {
@@ -79,6 +79,7 @@ struct ShortcutSettingsView: View {
                 .help("Shortcut Actions")
                 .accessibilityLabel(Text("Shortcut Actions"))
             }
+            .settingSearchRow("Search Shortcuts")
             if let fileError {
                 Text(fileError).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
             }
@@ -140,29 +141,6 @@ struct ShortcutSettingsView: View {
         }.padding(24).frame(width: 440)
     }
 
-    private var searchField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-            TextField("", text: $search, prompt: Text("Search Shortcuts"))
-                .labelsHidden().accessibilityLabel(Text("Search Shortcuts"))
-                .multilineTextAlignment(.leading)
-                .textFieldStyle(.plain)
-            if !search.isEmpty {
-                Button {
-                    search = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Clear Search"))
-            }
-        }
-        .padding(.horizontal, 9)
-        .frame(height: 28)
-        .background(CornerRole.largeControl.shape.fill(Color(nsColor: .textBackgroundColor)))
-        .overlay(CornerRole.largeControl.shape.strokeBorder(.separator))
-    }
-
     @ViewBuilder private func localSection(_ group: ShortcutGroup) -> some View {
         let rows = ShortcutOperation.catalog.filter { $0.group == group && matches($0) }
         if !rows.isEmpty {
@@ -175,12 +153,16 @@ struct ShortcutSettingsView: View {
                     {
                         EditableShortcutRow(
                             controller: controller, operation: operation.id,
-                            scope: rowScope == sharedScope ? nil : rowScope)
+                            scope: rowScope == sharedScope ? nil : rowScope
+                        )
+                        .settingSearchRow(operation.id.rawValue)
                     } else {
                         ShortcutInfoRow(
                             name: ShortcutText.name(operation.id), scope: rowScope == sharedScope ? nil : rowScope,
                             keys: operation.defaults.map { controller.layout.display($0) },
-                            spokenKeys: operation.defaults.map { controller.layout.spoken($0) })
+                            spokenKeys: operation.defaults.map { controller.layout.spoken($0) }
+                        )
+                        .settingSearchRow(operation.id.rawValue)
                     }
                 }
             } header: {
@@ -204,11 +186,12 @@ struct ShortcutSettingsView: View {
 
     @ViewBuilder private var fixedSection: some View {
         let fixed = ShortcutFixedKey.catalog.filter { key in
-            matches(
-                [
-                    ShortcutText.fixedName(key.behavior),
-                    String(localized: "Fixed Keys"), String(localized: "In Surimono"),
-                ] + key.combinations.map { controller.layout.display($0) })
+            settingsHits.anchors.contains(key.behavior.rawValue)
+                || matches(
+                    [
+                        ShortcutText.fixedName(key.behavior),
+                        String(localized: "Fixed Keys"), String(localized: "In Surimono"),
+                    ] + key.combinations.map { controller.layout.display($0) })
         }
         if !fixed.isEmpty {
             // Native editing and window commands share explanations. Keep their catalog order.
@@ -224,7 +207,9 @@ struct ShortcutSettingsView: View {
                             name: ShortcutText.fixedName(key.behavior),
                             keys: key.combinations.map { controller.layout.display($0) },
                             spokenKeys: key.combinations.map { controller.layout.spoken($0) },
-                            emptyLabel: String(localized: "Managed by macOS"))
+                            emptyLabel: String(localized: "Managed by macOS")
+                        )
+                        .settingSearchRow(key.behavior.rawValue)
                     }
                 } header: {
                     if index == 0 { Text("Fixed Keys") }
@@ -250,6 +235,7 @@ struct ShortcutSettingsView: View {
             let global = ShortcutOperation.catalog.filter { $0.isGlobal && matches($0) }
             ForEach(global, id: \.id) { operation in
                 EditableShortcutRow(controller: controller, operation: operation.id)
+                    .settingSearchRow(operation.id.rawValue)
             }
             if global.isEmpty { Text("No matching shortcuts").foregroundStyle(.secondary) }
         } header: {
@@ -277,6 +263,7 @@ struct ShortcutSettingsView: View {
     }
 
     private func matches(_ operation: ShortcutOperation) -> Bool {
+        if settingsHits.anchors.contains(operation.id.rawValue) { return true }
         let keys = controller.externalMenuKeys[operation.id].map { [$0] } ?? controller.snapshot.keys(for: operation.id)
         return matches(
             [

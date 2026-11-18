@@ -251,6 +251,8 @@ final class AppPreferences {
     }
     /// Kept for this app run, including when the Settings window is closed and reopened.
     var settingsSection: SettingsSection = .general
+    // An explicit request can point to the current section while a search hides its contents.
+    var settingsNavigationRevision = 0
 
     var viewDefaults: ViewDefaultPreferences {
         ViewDefaultPreferences(
@@ -592,6 +594,13 @@ final class AppPreferences {
         } else {
             printSettingSets.append(set)
         }
+    }
+
+    func importPrintSettingSets(_ sets: [PrintSettingSet], language: String) -> [String] {
+        let result = PrintSettingSetArchive.merge(
+            sets, into: printSettingSets + PrintSettingSet.builtIns(language: language))
+        if !result.additions.isEmpty { printSettingSets += result.additions }
+        return result.alreadyHere
     }
 
     func movePrintSettingSets(from offsets: IndexSet, to destination: Int) {
