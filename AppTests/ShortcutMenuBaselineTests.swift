@@ -65,12 +65,15 @@ struct ShortcutMenuBaselineTests {
             "Open as Binder", "Add Documents…", "Reset Document Settings", "Choose Style…", "Print Settings…",
             "Save Current Settings…", "Manage Setting Sets…", "Sort by Name", "Start Each Document on an Odd Page",
             "Remove from List", "Bookmark This Page", "Next Bookmark", "Previous Bookmark",
-            "PDF for Reading…", "Images (PNG)…", "HTML…", "Share PDF…", "Copy as HTML",
+            "PDF for Reading…", "Images (PNG)…", "HTML…", "Share PDF…", "Copy as HTML", "Copy as Rich Text",
         ] {
             for item in all where item.title == localized(title) {
                 #expect(item.keyEquivalent.isEmpty, "Unexpected default key: \(title)")
             }
         }
+        let edit = try #require(menu.item(at: 2)?.submenu)
+        let copyIndex = try #require(edit.items.firstIndex { $0.title == localized("Copy as HTML") })
+        #expect(edit.items.dropFirst(copyIndex + 1).first?.title == localized("Copy as Rich Text"))
         let opens = all.filter {
             $0.action == NSSelectorFromString("openDocument:")
                 || $0.identifier?.rawValue == "surimono.shortcut.app.open"

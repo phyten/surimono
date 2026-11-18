@@ -57,6 +57,7 @@ public final class WebPaginator: NSObject {
         public var requiredFolderAccess: URL?
         public var issues: [PrintIssue] = []
         public var exportedHTML: String?
+        var richTextFigures: [RichTextFigure] = []
         /// What the renderer added to the pages of a text and read from it.
         var finishing = FinishedPages()
 
@@ -119,7 +120,7 @@ public final class WebPaginator: NSObject {
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
-        exportHTMLTitle: String? = nil,
+        exportHTMLTitle: String? = nil, richText: Bool = false,
         timeout: Duration = .seconds(15)
     ) async throws -> Result {
         openSessionCount += 1
@@ -189,6 +190,7 @@ public final class WebPaginator: NSObject {
         }
         try Task.checkCancellation()
         if let exportHTMLTitle {
+            if richText { try await RichTextGraphics.replace(in: session.webView) }
             let imageURLs =
                 try await session.webView.callAsyncJavaScript(
                     HTMLExporter.imageResourceScript,
@@ -210,15 +212,27 @@ public final class WebPaginator: NSObject {
                 }
                 images[address] = "data:" + mime + ";base64," + bytes.base64EncodedString()
             }
-            let html =
+            let serialized =
                 try await session.webView.callAsyncJavaScript(
                     HTMLExporter.serializationScript,
-                    arguments: ["title": exportHTMLTitle, "embeddedImages": images],
+                    arguments: [
+                        "title": exportHTMLTitle, "embeddedImages": images, "richText": richText,
+                        "systemFonts": richText ? RichTextExport.systemFonts : [],
+                        "pasteCSS": RichTextExport.styleSheet,
+                    ],
                     in: nil,
-                    contentWorld: Self.preparationWorld) as? String
-            guard let html else { throw PaginationError.emptyDocument }
+                    contentWorld: Self.preparationWorld)
             var result = Result(document: PDFDocument())
-            result.exportedHTML = html
+            if richText, let fields = serialized as? [String: Any], let html = fields["html"] as? String,
+                let figures = fields["figures"] as? [[String: Any]]
+            {
+                result.exportedHTML = html
+                result.richTextFigures = try figures.map { try RichTextFigure(fields: $0) }
+            } else if let html = serialized as? String {
+                result.exportedHTML = html
+            } else {
+                throw PaginationError.emptyDocument
+            }
             return result
         }
         // Only a document with `@page` rules can set margins of its own and so draw below the paper; an unknown

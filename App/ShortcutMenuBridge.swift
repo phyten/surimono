@@ -28,6 +28,7 @@ final class ShortcutMenuBridge: NSObject {
             .init(.documentExportPNG, 1, ["Images (PNG)…"], parents: ["Export"]),
             .init(.documentExportHTML, 1, ["HTML…"], parents: ["Export"]),
             .init(.documentCopyHTML, 2, ["Copy as HTML"]),
+            .init(.documentCopyRichText, 2, ["Copy as Rich Text"]),
             .init(.documentShare, 1, ["Share PDF…"], parents: ["Export"]),
             .init(.printSettings, 4, ["Print Settings…"]),
             .init(.appStreamingPreview, 1, ["Streaming Preview"]),
