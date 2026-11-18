@@ -20,8 +20,9 @@ extension View {
 }
 
 /// Updating the focus mark must not recreate a picker while AppKit is moving its key segment.
-@Observable private final class CornerSegmentFocus<Value> {
-    var value: Value?
+/// Not generic: Swift 6.3's optimizer crashes on the deinit of a private generic `@Observable` class in Release.
+@Observable private final class CornerSegmentFocus {
+    var value: AnyHashable?
 }
 
 /// The native segmented control gives each segment its label's width plus the same padding. Equal widths would
@@ -56,7 +57,7 @@ struct CornerSegments<Value: Hashable, Segment: View>: View {
     let preset: CornerPreset
     @ViewBuilder let segment: (Value) -> Segment
     @Environment(\.layoutDirection) private var direction
-    @State private var keySegment = CornerSegmentFocus<Value>()
+    @State private var keySegment = CornerSegmentFocus()
 
     var body: some View {
         Picker(title, selection: $selection) {
@@ -76,7 +77,7 @@ struct CornerSegments<Value: Hashable, Segment: View>: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(shape.fill(selected ? PrintPalette.aiControl : .clear))
                             .overlay {
-                                if focused, value == (keySegment.value ?? selection) {
+                                if focused, value == ((keySegment.value as? Value) ?? selection) {
                                     shape.strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 2)
                                 }
                             }
@@ -89,7 +90,8 @@ struct CornerSegments<Value: Hashable, Segment: View>: View {
         .onChange(of: selection) { keySegment.value = nil }
         .onKeyPress(keys: [.leftArrow, .rightArrow]) { key in
             // AppKit moves the key segment with an arrow and selects it with Space. Only mirror the focus ring.
-            if !preset.usesSystemControls, let index = values.firstIndex(of: keySegment.value ?? selection) {
+            let current = (keySegment.value as? Value) ?? selection
+            if !preset.usesSystemControls, let index = values.firstIndex(of: current) {
                 let forward = (key.key == .rightArrow) == (direction == .leftToRight)
                 keySegment.value = values[(index + (forward ? 1 : values.count - 1)) % values.count]
             }
