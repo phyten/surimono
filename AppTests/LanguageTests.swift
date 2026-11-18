@@ -105,6 +105,39 @@ struct LanguageTests {
         }
     }
 
+    @Test("設定の検索に載せる項目名と区分名はすべて文言カタログの8言語にある")
+    func settingsSearchLabels() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let catalog = try JSONDecoder().decode(
+            Catalog.self,
+            from: Data(contentsOf: root.appending(path: "App/Localizable.xcstrings")))
+        let keys =
+            SettingsCatalogue.rows.map(\.label) + SettingsGroup.allCases.map(\.rawValue)
+            + SettingsSection.allCases.map(\.rawValue) + ["Your Sets", "Built-in Sets"]
+        for key in Set(keys) {
+            let entry = try #require(catalog.strings[key], "\(key)")
+            for language in UILanguage.supported {
+                let translation = try #require(entry.localizations[language], "\(key): \(language)")
+                #expect(translation.units.contains { $0.state == "translated" && !$0.value.isEmpty })
+            }
+        }
+    }
+
+    @Test("設定は区分名と表示名を部分一致で探せ、かなと文字幅が違っても英語名でも見つかる")
+    func settingsSearch() {
+        let row = SettingsSearchRow(.printing, "Text Margins")
+        let names = ["Printing": "印刷", "Text Margins": "テキストの余白"]
+        for query in ["刷", "きすと", "ｷｽﾄ", "ＰＲＩＮＴ", "marg"] {
+            #expect(SettingsCatalogue.search(query, in: [row], localize: { names[$0] ?? $0 }).rows.count == 1)
+        }
+        #expect(SettingsCatalogue.search("見出し", in: [row]).rows.isEmpty)
+        #expect(
+            SettingsGroup.allCases.flatMap(\.sections) == [
+                .general, .keyboardShortcuts, .view, .toolbarArrangement, .styles,
+                .printing, .pageNumbers, .settingSets, .clipboard, .html,
+            ])
+    }
+
     @Test("ショートカット画面が参照するキーはカタログに存在し8言語で翻訳されている")
     func shortcutCatalogCoverage() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -114,9 +147,10 @@ struct LanguageTests {
         let files = [
             "ShortcutSettingsView", "ShortcutText", "ShortcutRecorder", "ShortcutController",
             "SystemShortcutReservations", "ShortcutArchiveFiles", "ShortcutImportView", "ShortcutHints",
+            "SettingsSearchField",
         ]
         let pattern =
-            #"(?:String\(\s*localized:\s*|(?:Text|TextField|Button|Label|Picker|Section|Toggle)\(\s*)"([^"\\]*(?:\\.[^"\\]*)*)""#
+            #"(?:String\(\s*localized:\s*|SettingsSearchField\(title:\s*|(?:Text|TextField|Button|Label|Picker|Section|Toggle)\(\s*)"([^"\\]*(?:\\.[^"\\]*)*)""#
         let expression = try NSRegularExpression(pattern: pattern)
         var keys: Set<String> = [SettingsSection.keyboardShortcuts.rawValue]
         for file in files {
@@ -131,6 +165,7 @@ struct LanguageTests {
             }
         }
         #expect(keys.contains("Search Shortcuts"))
+        keys.formUnion(ShortcutOperation.catalog.map { ShortcutText.nameResource($0.id).key })
         #expect(keys.contains("Open…"))
         #expect(keys.contains("Left Arrow"))
         #expect(keys.contains("Record Shortcut"))

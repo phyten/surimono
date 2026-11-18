@@ -9,7 +9,7 @@ struct ClipboardSettings: View {
     private typealias Carefulness = ClipboardFormatSettings.Carefulness
 
     /// The kinds the detector may open without asking. Text is always a choice, and a URL opens as text for now.
-    private static let recognizable: [ClipboardTextKind] = [
+    static let recognizable: [ClipboardTextKind] = [
         .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .textile, .mediawiki, .notebook,
     ]
 
@@ -20,13 +20,13 @@ struct ClipboardSettings: View {
                 Text("Open as Text When Unsure").tag(Mode.plainTextWhenUnsure)
                 Text("Always Ask").tag(Mode.alwaysAsk)
                 Text("Always Open in One Format").tag(Mode.fixed)
-            }
+            }.settingSearchRow("Choosing the Format")
             if preferences.clipboardFormat.mode == .fixed {
                 Picker("Format to Open", selection: $preferences.clipboardFormat.fixedKind) {
                     ForEach(ClipboardTextKind.choosable, id: \.self) { kind in
                         Text(verbatim: ClipboardFormatText.name(kind)).tag(kind)
                     }
-                }
+                }.settingSearchRow("Format to Open")
             }
             // Opening every text in one format asks the detector nothing, so how readily it formats would change
             // nothing there; the format to open takes its place.
@@ -36,7 +36,7 @@ struct ClipboardSettings: View {
                     Text("Standard").tag(Carefulness.standard)
                     Text("Eager").tag(Carefulness.eager)
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.segmented).settingSearchRow("How Readily to Format")
             }
         } header: {
             Text("When Opening from the Clipboard")
@@ -52,7 +52,7 @@ struct ClipboardSettings: View {
             ForEach(Self.recognizable, id: \.self) { kind in
                 Toggle(isOn: recognizes(kind)) {
                     Text(verbatim: kind == .csv ? String(localized: "CSV and TSV") : ClipboardFormatText.name(kind))
-                }
+                }.settingSearchRow(Self.labelKey(kind))
             }
         } header: {
             Text("Formats to Recognize Automatically")
@@ -66,8 +66,14 @@ struct ClipboardSettings: View {
                     Button("Back to Standard") { preferences.clipboardFormat = .standard }
                         .disabled(preferences.clipboardFormat == .standard)
                 }
+                .settingSearchRow("Back to Standard")
+                .environment(\.settingsRowVerticalInset, 0)
             }
         }
+    }
+
+    static func labelKey(_ kind: ClipboardTextKind) -> String {
+        kind == .csv ? "CSV and TSV" : ClipboardFormatText.name(kind)
     }
 
     /// What the chosen level does to text a reader can recognize, rather than the detector's criterion; the examples and

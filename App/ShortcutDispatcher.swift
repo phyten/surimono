@@ -236,7 +236,9 @@ final class ShortcutDispatcher {
         case .appCheckUpdates:
             if AppUpdater.shared.isAvailable { AppUpdater.shared.checkForUpdates() }
         case .settingSetManage:
-            WelcomeController.shared.preferences?.settingsSection = .settingSets
+            if let preferences = WelcomeController.shared.preferences {
+                BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
+            }
             bridge.invokeStandard(.appSettings)
         case .documentFind: model?.performFind()
         case .documentFindNext: model?.findStep(forward: true)

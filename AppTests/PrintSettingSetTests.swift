@@ -8,6 +8,29 @@ import Testing
 
 @MainActor
 struct PrintSettingSetFlowTests {
+    @Test("選んだ複数のJSONをまとめて読み、開いている原本への書き出しを断る")
+    func archiveFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = directory.appendingPathComponent("one.json")
+        let second = directory.appendingPathComponent("two.json")
+        let set = PrintSettingSet(name: "一つ目", settings: DocumentSettings(themeID: "custom"))
+        var other = set
+        other.name = "二つ目"
+        try SettingSetFiles.write([set], to: first, protecting: [])
+        try SettingSetFiles.write([other], to: second, protecting: [first])
+        #expect(throws: CocoaError.self) { try SettingSetFiles.write([other], to: first, protecting: [first]) }
+        #expect(try SettingSetFiles.read([first, second]) == [set, other])
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let preferences = AppPreferences(defaults: suite.defaults)
+        let imported = try SettingSetFiles.read([first, second])
+        #expect(preferences.importPrintSettingSets(imported, language: "ja").isEmpty)
+        #expect(preferences.importPrintSettingSets(imported, language: "ja") == ["一つ目", "二つ目"])
+        #expect(AppPreferences(defaults: suite.defaults).printSettingSets.map(\.name) == ["一つ目", "二つ目"])
+    }
+
     @MainActor private struct Environment {
         let suite = TestDefaultsSuite()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

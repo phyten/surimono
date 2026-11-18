@@ -2,41 +2,14 @@ import SurimonoCore
 import SurimonoRendering
 import SwiftUI
 
-enum SettingsSection: String, CaseIterable, Identifiable {
-    case general = "General"
-    case keyboardShortcuts = "Keyboard Shortcuts"
-    case view = "View & Page Turn"
-    case toolbarArrangement = "Toolbar Arrangement"
-    case pageNumbers = "Page Numbers"
-    case printing = "Printing"
-    case settingSets = "Setting Sets"
-    case styles = "Styles"
-    case html = "HTML"
-    case clipboard = "Clipboard"
-
-    var id: String { rawValue }
-    var symbol: String {
-        switch self {
-        case .general: "gearshape"
-        case .keyboardShortcuts: "keyboard"
-        case .view: "book"
-        case .toolbarArrangement: "menubar.rectangle"
-        case .pageNumbers: "number"
-        case .printing: "printer"
-        case .settingSets: "slider.horizontal.3"
-        // "textformat" is drawn as kana in Japanese, beside line icons; the band's palette is the same in every language.
-        case .styles: "paintpalette"
-        case .html: "globe"
-        case .clipboard: "doc.on.clipboard"
-        }
-    }
-}
-
 struct SettingsView: View {
     @Bindable var preferences: AppPreferences
     @Bindable var library: UserLibrary
     let arrangementEditor: BandArrangementEditorSession
     @State private var initialTextWell = InitialTextWell()
+    @State private var query = ""
+    @State private var searchSelection = SettingsSearchSelection()
+    @State private var pendingSearchPick: SettingsSection?
     private let updater = AppUpdater.shared
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
@@ -110,21 +83,17 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        let results = searchResults
+        let matches = results.rows
+        let visible = query.isEmpty ? Set(SettingsSection.allCases) : Set(matches.map(\.section))
         NavigationSplitView {
-            List(
-                selection: Binding<SettingsSection?>(
-                    get: { preferences.settingsSection },
-                    set: { section in
-                        guard let section else { return }
-                        // An unsaved arrangement is saved or discarded before the editor goes out of view.
-                        arrangementEditor.showSection(section)
-                    }
+            SettingsSidebar(
+                query: searchText, visible: visible,
+                selection: Binding(
+                    get: { visible.contains(preferences.settingsSection) ? preferences.settingsSection : nil },
+                    set: { if let section = $0 { selectSection(section) } }
                 )
-            ) {
-                ForEach(SettingsSection.allCases) { section in
-                    Label(LocalizedStringKey(section.rawValue), systemImage: section.symbol).tag(section)
-                }
-            }
+            )
             .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 300)
         } detail: {
             Group {
@@ -133,13 +102,57 @@ struct SettingsView: View {
                 } else if preferences.settingsSection == .keyboardShortcuts {
                     ShortcutSettingsView(controller: .shared)
                 } else {
-                    form
+                    ScrollViewReader { proxy in form.modifier(SettingsSearchReveal(proxy: proxy)) }
                 }
             }
-            .overlay(alignment: .bottom) { SettingSetRemovalNotice(preferences: preferences) }
-            .navigationTitle(Text(LocalizedStringKey(preferences.settingsSection.rawValue)))
+            .environment(
+                \.settingsSearchHits,
+                SettingsSearchHits(
+                    query: query, anchors: matches.filter { $0.section == preferences.settingsSection }.map(\.anchor))
+            )
+            .opacity(visible.isEmpty ? 0 : 1)
+            .disabled(visible.isEmpty)
+            .accessibilityHidden(visible.isEmpty)
+            .overlay(alignment: .topLeading) {
+                if visible.isEmpty {
+                    Text("No settings found").foregroundStyle(.secondary).padding(20)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !visible.isEmpty { SettingSetRemovalNotice(preferences: preferences) }
+            }
+            .navigationTitle(
+                visible.isEmpty ? Text(verbatim: "") : Text(LocalizedStringKey(preferences.settingsSection.rawValue)))
         }
-        .onDisappear { initialTextWell.deactivate() }
+        .onChange(of: query) {
+            guard !query.isEmpty, let best = results.bestSection(keeping: preferences.settingsSection) else { return }
+            arrangementEditor.showSection(best)
+        }
+        .onChange(of: visible) {
+            // A conditional row can disappear while the reader keeps the same query.
+            if !visible.contains(preferences.settingsSection), arrangementEditor.pendingLeave == nil,
+                let best = results.bestSection(keeping: preferences.settingsSection)
+            {
+                arrangementEditor.showSection(best)
+            }
+        }
+        .onChange(of: preferences.settingsNavigationRevision) { query = "" }
+        .onChange(of: arrangementEditor.pendingLeave) { previous, pending in
+            if pending == nil, let pick = pendingSearchPick {
+                if preferences.settingsSection == pick { searchSelection.pick(pick) }
+                pendingSearchPick = nil
+            }
+            if pending != nil && visible.isEmpty { query = "" }
+            // Cancelling navigation leaves the editor selected, so restore its sidebar entry.
+            if case .section = previous, pending == nil, !visible.contains(preferences.settingsSection) { query = "" }
+        }
+        .onChange(of: preferences.settingsSection) {
+            if !visible.contains(preferences.settingsSection) { query = "" }
+        }
+        .onDisappear {
+            initialTextWell.deactivate()
+            query = ""
+        }
         .frame(minWidth: 820, idealWidth: 860, minHeight: 540)
         .background {
             WindowReader { window in
@@ -159,32 +172,91 @@ struct SettingsView: View {
         }
     }
 
+    private func selectSection(_ section: SettingsSection) {
+        arrangementEditor.showSection(section)
+        guard !query.isEmpty else { return }
+        if preferences.settingsSection == section {
+            searchSelection.pick(section)
+        } else if arrangementEditor.pendingLeave == .section(section) {
+            // Remember this choice only after the reader has agreed to leave the toolbar editor.
+            pendingSearchPick = section
+        }
+    }
+
+    private var searchText: Binding<String> {
+        Binding(
+            get: { query },
+            set: { value in
+                if query.isEmpty && !value.isEmpty { searchSelection.begin(in: preferences.settingsSection) }
+                query = value
+                if value.isEmpty, let section = searchSelection.finish() { arrangementEditor.showSection(section) }
+            })
+    }
+
+    private var searchResults: SettingsSearchResults {
+        guard !query.isEmpty else { return SettingsSearchResults() }
+        let sets = PrintSettingSet.builtIns(language: language) + preferences.printSettingSets
+        let savedRows = sets.map { set in
+            SettingsSearchRow(
+                .settingSets, set.name, anchor: set.id.uuidString,
+                words: set.isBuiltIn ? ["Built-in Sets"] : ["Your Sets", "Export…", "Rename…", "Delete"])
+        }
+        let rows =
+            savedRows
+            + SettingsCatalogue.rows.filter { row in
+                switch row.label {
+                case "Check for Updates Automatically", "When an Update Is Found": updater.isAvailable
+                case "Updates are unavailable in development builds.":
+                    #if APP_STORE
+                        false
+                    #else
+                        !updater.isAvailable
+                    #endif
+                case "Move To": arrangementEditor.selectedEntry != nil
+                case "Start Over": arrangementEditor.needsRecovery
+                case "Use Saved": arrangementEditor.hasConflict
+                case "Format to Open": preferences.clipboardFormat.mode == .fixed
+                case "How Readily to Format": preferences.clipboardFormat.mode != .fixed
+                default: true
+                }
+            }
+        return SettingsCatalogue.search(query, in: rows)
+    }
+
     private var form: some View {
         Form {
             switch preferences.settingsSection {
             case .general:
                 Section {
                     LanguagePicker(preferences: preferences)
+                        .settingSearchRow("Language")
                     Picker("Appearance", selection: $preferences.appearance) {
                         ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
                     }
+                    .settingSearchRow("Appearance")
                     Picker("Corners", selection: $preferences.corners) {
                         Text("Square").tag(CornerPreset.square)
                         Text("Standard").tag(CornerPreset.standard)
                         Text("Round").tag(CornerPreset.round)
                     }
+                    .settingSearchRow("Corners")
                     Toggle("Show in Menu Bar", isOn: $preferences.showsMenuBarItem)
+                        .settingSearchRow("Show in Menu Bar")
                 }
                 if updater.isAvailable {
                     Section {
                         Toggle(
                             "Check for Updates Automatically",
                             isOn: Binding(
-                                get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) }))
+                                get: { updater.checksAutomatically }, set: { updater.setChecksAutomatically($0) })
+                        )
+                        .settingSearchRow("Check for Updates Automatically")
                         UpdateHandlingPicker(
                             installsAutomatically: Binding(
                                 get: { updater.installsAutomatically },
-                                set: { updater.setInstallsAutomatically($0) }))
+                                set: { updater.setInstallsAutomatically($0) })
+                        )
+                        .settingSearchRow("When an Update Is Found")
                     } footer: {
                         VStack(alignment: .leading, spacing: 2) {
                             SettingsFootnote("Nothing about your documents is sent to GitHub.")
@@ -197,12 +269,15 @@ struct SettingsView: View {
                         // The App Store build updates through the App Store and says nothing here.
                         Section("Updates") {
                             Text("Updates are unavailable in development builds.").foregroundStyle(.secondary)
+                                .settingSearchRow("Updates are unavailable in development builds.")
                         }
                     #endif
                 }
                 Section("When Opening a Window") {
                     Toggle("Float on Top", isOn: $preferences.defaultAlwaysOnTop)
+                        .settingSearchRow("Float on Top")
                     Toggle("Show on All Spaces", isOn: $preferences.defaultShowsOnAllSpaces)
+                        .settingSearchRow("Show on All Spaces")
                 }
                 Section {
                     Picker("When a Binder Is Down to One Document", selection: $preferences.singleDocumentBinderPolicy)
@@ -211,21 +286,28 @@ struct SettingsView: View {
                         Text("Leave Binder Mode Without Asking").tag(SingleDocumentBinderPolicy.leave)
                         Text("Stay a Binder Without Asking").tag(SingleDocumentBinderPolicy.stay)
                     }
+                    .settingSearchRow("When a Binder Is Down to One Document")
                     Toggle("Reload When the File Changes", isOn: $preferences.reloadsChangedFiles)
+                        .settingSearchRow("Reload When the File Changes")
                     Picker("After a File Is Saved", selection: $preferences.changeFollowing) {
                         Text("Jump to the Change").tag(ChangeFollowing.jump)
                         Text("Stay Here, Marks Only").tag(ChangeFollowing.mark)
                         Text("Ask Whether to Jump").tag(ChangeFollowing.ask)
                     }
+                    .settingSearchRow("After a File Is Saved")
                     changeColor(
                         "Changed Places", hex: preferences.changeBackgroundHex,
                         resetLabel: "Restore Default",
                         isDefault: preferences.changeBackgroundHex == ChangeMark.defaultBackgroundHex,
-                        set: { preferences.changeBackgroundHex = $0 ?? ChangeMark.defaultBackgroundHex })
+                        set: { preferences.changeBackgroundHex = $0 ?? ChangeMark.defaultBackgroundHex }
+                    )
+                    .settingSearchRow("Changed Places")
                     changeColor(
                         "Changed Text", hex: preferences.changeTextHex,
                         resetLabel: "Same as the Document", isDefault: preferences.changeTextHex == nil,
-                        set: { preferences.changeTextHex = $0 })
+                        set: { preferences.changeTextHex = $0 }
+                    )
+                    .settingSearchRow("Changed Text")
                 } header: {
                     Text("After a Document Opens")
                 } footer: {
@@ -238,6 +320,7 @@ struct SettingsView: View {
                         Text("Normal").tag(WheelPageTurner.Sensitivity.normal)
                         Text("High").tag(WheelPageTurner.Sensitivity.high)
                     }.pickerStyle(.segmented)
+                        .settingSearchRow("Scroll Sensitivity")
                 }
                 // The heading says these are defaults, so the labels need not; "Automatic" is explained once below.
                 Section {
@@ -245,32 +328,39 @@ struct SettingsView: View {
                         Text("Automatic").tag(nil as ViewOptions.Layout?)
                         ForEach(ViewOptions.Layout.displayOrder, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
+                    .settingSearchRow("View Type")
                     Picker("Page Turning", selection: $preferences.defaultPageTurn) {
                         Text("Automatic").tag(nil as ViewOptions.Transition?)
                         ForEach(ViewOptions.Transition.allCases, id: \.self) { Text($0.title).tag(Optional($0)) }
                     }
+                    .settingSearchRow("Page Turning")
                     Picker("Reading Direction", selection: $preferences.defaultReadingDirection) {
                         Text("Automatic").tag(nil as ViewOptions.Direction?)
                         Text("Left to Right").tag(Optional(ViewOptions.Direction.leftToRight))
                         Text("Right to Left").tag(Optional(ViewOptions.Direction.rightToLeft))
                     }
+                    .settingSearchRow("Reading Direction")
                     Picker("Scroll Direction", selection: $preferences.defaultScrollAxis) {
                         Text("Automatic").tag(nil as ViewOptions.ScrollAxis?)
                         Text("Vertical").tag(Optional(ViewOptions.ScrollAxis.vertical))
                         Text("Horizontal").tag(Optional(ViewOptions.ScrollAxis.horizontal))
                     }
+                    .settingSearchRow("Scroll Direction")
                     Picker("Show First Page Alone", selection: $preferences.defaultShowsCoverAlone) {
                         Text("Automatic").tag(nil as Bool?)
                         Text("On").tag(Optional(true))
                         Text("Off").tag(Optional(false))
                     }
+                    .settingSearchRow("Show First Page Alone")
                     // Beside the choice it depends on. Unlike the defaults around it, it applies to open windows too,
                     // which the footer says.
                     Picker("Window Width When the First Page Is Alone", selection: $preferences.loneCoverWidth) {
                         Text("One Page").tag(LoneCoverWidth.onePage)
                         Text("Two Pages").tag(LoneCoverWidth.twoPages)
                     }
+                    .settingSearchRow("Window Width When the First Page Is Alone")
                     Toggle("Join Pages in Single-Page Scrolling", isOn: $preferences.defaultJoinsPages)
+                        .settingSearchRow("Join Pages in Single-Page Scrolling")
                 } header: {
                     Text("Defaults for New Documents")
                 } footer: {
@@ -284,11 +374,14 @@ struct SettingsView: View {
                         Text("Top Only").tag(MenuArrangement.top)
                         Text("Split Top and Bottom").tag(MenuArrangement.split)
                     }
+                    .settingSearchRow("Toolbar Layout")
                     BandVisibilityPicker(selection: $preferences.defaultBandVisibility)
+                        .settingSearchRow("Toolbar Visibility")
                     // Which parts the toolbar shows, Contents among them, is the arrangement's business.
                     LabeledContent("Parts of the Toolbar") {
-                        Button("Arrange…") { arrangementEditor.showSection(.toolbarArrangement) }
+                        Button("Arrange…") { selectSection(.toolbarArrangement) }
                     }
+                    .settingSearchRow("Parts of the Toolbar")
                 } header: {
                     Text("Toolbar")
                 } footer: {
@@ -299,14 +392,16 @@ struct SettingsView: View {
                         Text("Popover").tag(OutlinePresentation.popover)
                         Text("Left Drawer").tag(OutlinePresentation.drawer)
                     }
+                    .settingSearchRow("Show Contents As")
                 }
             case .pageNumbers:
                 Section {
                     Toggle("In View Mode", isOn: $preferences.viewPageNumbers)
+                        .settingSearchRow("In View Mode")
                 } footer: {
                     SettingsFootnote("Page numbers are never shown in single-page scrolling.")
                 }
-                // As in View & Page Turn and Printing, the heading says these are defaults.
+                // As in View and Page Turn and Printing, the heading says these are defaults.
                 Section("Defaults for New Documents") {
                     Picker("In Print", selection: furnitureChoice) {
                         ForEach(PrintFurnitureChoice.choices.filter { $0.value != .custom }, id: \.value) { choice in
@@ -317,6 +412,7 @@ struct SettingsView: View {
                             Text("Specify Contents…").tag(PageFurniture.Preset.custom)
                         }
                     }
+                    .settingSearchRow("In Print")
                 }
             case .printing:
                 Section("Defaults for New Documents") {
@@ -325,22 +421,27 @@ struct SettingsView: View {
                             Text(verbatim: layout.displayName(language: language)).tag(layout.id)
                         }
                     }
+                    .settingSearchRow("Print Layout")
                     Picker("Paper Orientation", selection: $preferences.defaultPaperOrientation) {
                         Text("Automatic").tag(PaperOrientation.auto)
                         Text("Portrait").tag(PaperOrientation.portrait)
                         Text("Landscape").tag(PaperOrientation.landscape)
                     }
+                    .settingSearchRow("Paper Orientation")
                     // The same field, stepper and unit as the margins of the view options and the print screen.
                     LabeledContent("Text Margins") {
                         MarginField(title: "Text Margins", millimeters: preferences.margin, unit: .current) {
                             preferences.margin = $0
                         }
                     }
+                    .settingSearchRow("Text Margins")
                 }
                 // Both belong to the printer: they are where a printer starts until it remembers its own.
                 Section {
                     Toggle("Rotate Back Sides 180°", isOn: $preferences.rotateBack)
+                        .settingSearchRow("Rotate Back Sides 180°")
                     PrintPageOrderPicker(order: $preferences.printPageOrder)
+                        .settingSearchRow("Output Order")
                 } header: {
                     Text("Printers Without Remembered Settings")
                 } footer: {
@@ -351,20 +452,24 @@ struct SettingsView: View {
             case .styles:
                 Section {
                     Toggle("Try a Style on the Paper When Pointing at It", isOn: $preferences.triesThemeOnHover)
+                        .settingSearchRow("Try a Style on the Paper When Pointing at It")
                     Picker("Default Style", selection: $preferences.themeID) {
                         DefaultStyleChoices(library: library)
                     }
+                    .settingSearchRow("Default Style")
                     Picker("Default Code Colors", selection: $preferences.defaultCodePaletteID) {
                         Text("Match Style").tag(CodePalette.matchesStyleID)
                         ForEach(library.codePalettes) { palette in
                             Text(verbatim: palette.displayName(language: language)).tag(palette.id)
                         }
                     }
+                    .settingSearchRow("Default Code Colors")
                     LabeledContent("Default Text Size") {
                         TextSizeField(title: "Default Text Size", scale: preferences.defaultTextScale) {
                             preferences.defaultTextScale = $0
                         }
                     }
+                    .settingSearchRow("Default Text Size")
                 } footer: {
                     VStack(alignment: .leading) {
                         defaultsNote
@@ -377,6 +482,7 @@ struct SettingsView: View {
                         Button("Open Styles Folder") { library.openFolder("Styles") }
                         Button("Reload") { library.reload() }
                     }
+                    .settingSearchRow("Open Styles Folder")
                     libraryError
                 }
             case .html:
@@ -386,7 +492,9 @@ struct SettingsView: View {
                             Text(verbatim: preset.displayName(language: language)).tag(preset.id)
                         }
                     }
+                    .settingSearchRow("Default HTML Preset")
                     Toggle("Allow JavaScript in HTML", isOn: $preferences.allowsJavaScript)
+                        .settingSearchRow("Allow JavaScript in HTML")
                 } footer: {
                     defaultsNote
                 }
@@ -395,6 +503,7 @@ struct SettingsView: View {
                         Button("Open Presets Folder") { library.openFolder("Presets") }
                         Button("Reload") { library.reload() }
                     }
+                    .settingSearchRow("Open Presets Folder")
                     libraryError
                     if !library.presetErrors.isEmpty {
                         Text("Some presets could not be loaded:").font(.headline)
@@ -453,5 +562,41 @@ struct SettingsFootnote: View {
 
     var body: some View {
         text.font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct SettingsSidebar: View {
+    @Binding var query: String
+    let visible: Set<SettingsSection>
+    @Binding var selection: SettingsSection?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SettingsSearchField(title: "Search Settings", text: $query)
+                .padding(10)
+            List(selection: $selection) {
+                ForEach(SettingsGroup.allCases, id: \.self) { group in
+                    let sections = group.sections.filter(visible.contains)
+                    if !sections.isEmpty {
+                        Section {
+                            ForEach(sections) { section in
+                                Label(LocalizedStringKey(section.rawValue), systemImage: section.symbol)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                    // List does not change its binding when the already-selected row is clicked.
+                                    .simultaneousGesture(
+                                        TapGesture().onEnded { selection = section }, isEnabled: !query.isEmpty
+                                    )
+                                    .tag(section)
+                            }
+                        } header: {
+                            Text(LocalizedStringKey(group.rawValue))
+                        }
+                    }
+                }
+            }
+            // Replacing the filtered list keeps AppKit from changing selection during an outline update.
+            .id(visible)
+        }
     }
 }

@@ -3,37 +3,39 @@ import SwiftUI
 
 /// How the arrangement editor names and describes the band's parts. Stored arrangements keep only the stable IDs.
 extension BandLayout.Item {
-    var editorName: String {
+    var editorName: String { String(localized: editorNameResource) }
+
+    var editorNameResource: LocalizedStringResource {
         switch self {
-        case .formatBadge: String(localized: "Format")
-        case .pageIndicator: String(localized: "Page Indicator")
-        case .presentation: String(localized: "Web or Paper")
-        case .style: String(localized: "Style")
-        case .chapter: String(localized: "Current Chapter")
-        case .outline: String(localized: "Contents")
-        case .layout: String(localized: "View Type")
-        case .transition: String(localized: "Page Turn")
-        case .zoom: String(localized: "Zoom Level")
+        case .formatBadge: "Format"
+        case .pageIndicator: "Page Indicator"
+        case .presentation: "Web or Paper"
+        case .style: "Style"
+        case .chapter: "Current Chapter"
+        case .outline: "Contents"
+        case .layout: "View Type"
+        case .transition: "Page Turn"
+        case .zoom: "Zoom Level"
         // It lists the images of a bundle or the documents of a binder, not only thumbnails.
-        case .thumbnails: String(localized: "List")
-        case .floatOnTop: String(localized: "Float on Top")
-        case .showOnAllSpaces: String(localized: "Show on All Spaces")
-        case .pageTurn: String(localized: "Previous / Next Page")
-        case .print: String(localized: "Print")
-        case .readingDirection: String(localized: "Reading Direction")
-        case .scrollDirection: String(localized: "Scroll Direction")
-        case .paperOrientation: String(localized: "Paper Orientation")
-        case .paperSeries: String(localized: "Paper Series")
-        case .cover: String(localized: "Show First Page Alone")
-        case .selectText: String(localized: "Select Text")
-        case .alwaysShowToolbar: String(localized: "Always Show Toolbar")
-        case .margins: String(localized: "Margins")
-        case .printSettings: String(localized: "Print Settings")
-        case .ignoreSlides: String(localized: "Show as Slides")
-        case .beforePrinting: String(localized: "Before Printing")
-        case .viewOptions: String(localized: "View Options")
-        case .saveAsFile: String(localized: "Save as File")
-        case .keysAndGestures: String(localized: "Keys and Gestures")
+        case .thumbnails: "List"
+        case .floatOnTop: "Float on Top"
+        case .showOnAllSpaces: "Show on All Spaces"
+        case .pageTurn: "Previous / Next Page"
+        case .print: "Print"
+        case .readingDirection: "Reading Direction"
+        case .scrollDirection: "Scroll Direction"
+        case .paperOrientation: "Paper Orientation"
+        case .paperSeries: "Paper Series"
+        case .cover: "Show First Page Alone"
+        case .selectText: "Select Text"
+        case .alwaysShowToolbar: "Always Show Toolbar"
+        case .margins: "Margins"
+        case .printSettings: "Print Settings"
+        case .ignoreSlides: "Show as Slides"
+        case .beforePrinting: "Before Printing"
+        case .viewOptions: "View Options"
+        case .saveAsFile: "Save as File"
+        case .keysAndGestures: "Keys and Gestures"
         }
     }
 

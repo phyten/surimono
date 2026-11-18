@@ -14,6 +14,7 @@ struct BandArrangementSettings: View {
     var body: some View {
         ScrollViewReader { proxy in
             editorScroll
+                .modifier(SettingsSearchReveal(proxy: proxy, isForm: false))
                 .task(id: session.selectionRevealRevision) {
                     guard session.selectionRevealRevision > 0 else { return }
                     // Let the destination chip enter the updated layout before resolving its scroll identity.
@@ -28,27 +29,27 @@ struct BandArrangementSettings: View {
     private var editorScroll: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                if session.needsRecovery { RecoveryNotice(session: session) }
+                if session.needsRecovery { RecoveryNotice(session: session).settingSearchRow("Start Over") }
                 RepairNotice(notices: session.preferences.bandArrangementNotices)
-                if session.hasConflict { ConflictNotice(session: session) }
+                if session.hasConflict { ConflictNotice(session: session).settingSearchRow("Use Saved") }
                 Group {
-                    SetBar(session: session)
+                    SetBar(session: session).settingSearchRow("Arrangement Set")
                     StatusRow(session: session)
-                    ModeRow(session: session)
+                    ModeRow(session: session).settingSearchRow("Editing")
                     if width >= Self.sidePaletteWidth {
                         HStack(alignment: .top, spacing: 14) {
                             VStack(alignment: .leading, spacing: 10) {
-                                ArrangementMiniature(session: session)
+                                ArrangementMiniature(session: session).settingSearchRow("Toolbar Arrangement")
                                 MiniatureNotes(session: session)
-                                Inspector(session: session)
+                                Inspector(session: session).settingSearchRow("Move To")
                             }
-                            UnusedPalette(session: session).frame(width: 230)
+                            UnusedPalette(session: session).settingSearchRow("Parts to Add").frame(width: 230)
                         }
                     } else {
-                        ArrangementMiniature(session: session)
+                        ArrangementMiniature(session: session).settingSearchRow("Toolbar Arrangement")
                         MiniatureNotes(session: session)
-                        UnusedPalette(session: session)
-                        Inspector(session: session)
+                        UnusedPalette(session: session).settingSearchRow("Parts to Add")
+                        Inspector(session: session).settingSearchRow("Move To")
                     }
                 }
                 .disabled(session.needsRecovery)
@@ -220,7 +221,7 @@ private struct EditHistoryControls: View {
 }
 
 /// Which variant is edited, and the editing controls at its trailing end. Each set keeps both variants; which one the
-/// windows use is chosen in View & Page Turn.
+/// windows use is chosen in View and Page Turn.
 private struct ModeRow: View {
     @Bindable var session: BandArrangementEditorSession
 
@@ -275,7 +276,7 @@ private struct ModeRow: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize()
-                .help("Change it under View & Page Turn > Toolbar Layout.")
+                .help("Change it under View and Page Turn > Toolbar Layout.")
         }
     }
 }
@@ -627,6 +628,9 @@ private struct EntryChip: View {
                         isSelected ? Color.accentColor : (plain ? .clear : PrintPalette.line2),
                         lineWidth: isSelected ? 1.5 : 1)
             }
+            .settingSearchRow(
+                entry.item?.rawValue ?? "separator-\(location.destination)-\(location.index)", fillsRow: false
+            )
             .id(selection)
             .contentShape(Rectangle())
             .onTapGesture { session.select(selection) }

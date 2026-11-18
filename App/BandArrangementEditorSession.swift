@@ -607,6 +607,7 @@ final class BandArrangementEditorSession {
     static func showSection(
         _ section: SettingsSection, preferences: AppPreferences, editor: BandArrangementEditorSession? = app
     ) {
+        preferences.settingsNavigationRevision += 1
         if let editor, editor.preferences === preferences {
             editor.showSection(section)
         } else {

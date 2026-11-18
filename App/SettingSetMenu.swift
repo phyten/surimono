@@ -192,6 +192,7 @@ struct SettingSetsSettings: View {
     let preferences: AppPreferences
     let library: UserLibrary
     @Environment(\.undoManager) private var undoManager
+    @State private var notice: String?
     private var summary: SettingSetSummary { SettingSetSummary(library: library) }
 
     private func description(_ set: PrintSettingSet) -> some View {
@@ -204,7 +205,7 @@ struct SettingSetsSettings: View {
     var body: some View {
         Section {
             ForEach(PrintSettingSet.builtIns(language: summary.language)) { set in
-                description(set)
+                description(set).settingSearchRow(set.id.uuidString)
             }
         } header: {
             Text("Built-in Sets")
@@ -216,7 +217,7 @@ struct SettingSetsSettings: View {
         Section("Your Sets") {
             if preferences.printSettingSets.isEmpty {
                 Text(
-                    "None yet. Save one from Document > Setting Sets > Save Current Settings… or from Setting Sets on the print screen."
+                    "None yet. Save one from Document › Setting Sets › Save Current Settings… or from Setting Sets on the print screen."
                 )
                 .foregroundStyle(.secondary)
             } else {
@@ -225,11 +226,13 @@ struct SettingSetsSettings: View {
                         Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
                         description(set)
                         Spacer()
+                        Button("Export…") { export([set], named: set.name) }
                         Button("Rename…") { SettingSetDialogs.rename(set, preferences: preferences) }
                         Button("Delete", role: .destructive) {
                             SettingSetRemoval.delete(set.id, from: preferences, history: undoManager)
                         }
                     }
+                    .settingSearchRow(set.id.uuidString)
                     .contentShape(Rectangle())
                     .draggable(set.id.uuidString)
                     .dropDestination(for: String.self) { items, _ in
@@ -241,6 +244,42 @@ struct SettingSetsSettings: View {
                         return true
                     }
                 }
+            }
+            HStack {
+                Button("Import…") {
+                    SettingSetFiles.chooseImport { urls in
+                        do {
+                            let skipped = preferences.importPrintSettingSets(
+                                try SettingSetFiles.read(urls),
+                                language: summary.language)
+                            if !skipped.isEmpty {
+                                notice = String(localized: "Already here") + "\n" + skipped.joined(separator: "\n")
+                            }
+                        } catch PrintSettingSetArchive.FileError.unsupportedVersion {
+                            notice = String(localized: "This setting set file uses an unsupported version.")
+                        } catch {
+                            notice = String(localized: "Could not read the setting set file.")
+                        }
+                    }
+                }
+                Button("Export All…") { export(preferences.printSettingSets, named: String(localized: "Setting Sets")) }
+                    .disabled(preferences.printSettingSets.isEmpty)
+            }
+            .settingSearchRow("Import…")
+            .alert(
+                Text(verbatim: notice ?? ""),
+                isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })
+            ) { Button("OK") { notice = nil } }
+        }
+    }
+
+    private func export(_ sets: [PrintSettingSet], named name: String) {
+        SettingSetFiles.chooseExport(named: name) { url in
+            do {
+                try SettingSetFiles.write(
+                    sets, to: url, protecting: DocumentWindows.shared.openModels.flatMap(\.protectedSourceURLs))
+            } catch {
+                notice = String(localized: "Could not save the setting set file.")
             }
         }
     }
