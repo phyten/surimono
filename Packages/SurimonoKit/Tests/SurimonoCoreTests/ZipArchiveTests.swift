@@ -1,8 +1,9 @@
 import Compression
 import Foundation
+import SurimonoCore
 import Testing
 
-@testable import SurimonoCore
+@testable import SurimonoFormats
 
 @Suite(.timeLimit(.minutes(1)))
 struct ZipArchiveTests {

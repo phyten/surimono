@@ -12,9 +12,9 @@ description: Adds support for a new document format to Surimono end to end, from
 1. 紙にする方式を決める。
    - テキスト系 → HTML 断片に変換して Web 系のパイプラインに乗せる（印刷テーマが効く）。
    - 固定レイアウト系 → SurimonoRendering で PDF ページを直接作る。
-2. テストを先に書く（Swift Testing、日本語のテスト名）。形式の判定と変換結果を確かめる。入力はできるだけテスト内の文字列で用意し、ファイルの fixture が必要なら `.claude/rules/tests.md` の置き場所と読み方に従う（SurimonoKit は Package.swift の testTarget に resources の登録が必要）。
-3. `SurimonoCore` の `DocumentFormat` に case を足し、拡張子・UTType との対応と表示名を追加する。
-4. 変換を実装する。テキスト系は SurimonoCore に `<形式名>Converter` を足し、HTML 断片を返す。HTML の特殊文字のエスケープと、文字コード判定（`TextDecoding`）を忘れない。
+2. テストを先に書く（Swift Testing、日本語のテスト名）。形式の判定と HTML 断片への変換は `SurimonoFormatsTests`、テーマ・設定・クリップボードの判定も使うテストは `SurimonoCoreTests` に置く。入力はできるだけテスト内の文字列で用意し、ファイルの fixture が必要なら `.claude/rules/tests.md` の置き場所と読み方に従う（SurimonoKit は Package.swift の testTarget に resources の登録が必要）。
+3. `SurimonoFormats` の `DocumentFormat` に case を足し、拡張子・UTType との対応と表示名を追加する。
+4. 変換を実装する。テキスト系は `SurimonoFormats` に `<形式名>Converter` を足し、HTML 断片を返す。変換器が `Bundle.module` から読むリソースは `Sources/SurimonoFormats/Resources/` に置く。HTML の特殊文字のエスケープと、文字コード判定（`TextDecoding`）を忘れない。
 5. `DocumentRenderer`（SurimonoRendering）の形式ごとの分岐に接続し、印刷テーマの対象かどうかを `DocumentFormat` のフラグ（`usesPrintTheme` など）で決める。テキスト系は JavaScript を無効にして `WebPaginator` に渡す。
 6. アプリに登録する。
    - `Configs/Info.plist` の `CFBundleDocumentTypes`（役割 Viewer、`LSHandlerRank` は Alternate）と、システムに型がなければ `UTImportedTypeDeclarations`。コード側の `UTType(importedAs:)` と識別子をそろえる。

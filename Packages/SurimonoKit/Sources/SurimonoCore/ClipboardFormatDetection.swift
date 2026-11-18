@@ -156,7 +156,7 @@ public enum ClipboardFormatDetector {
     public static func detect(
         _ text: String, hints: ClipboardFormatHints = .init(), settings: ClipboardFormatSettings = .standard
     ) -> ClipboardFormatDetection {
-        var decisive = DiagramConverter.clipboardKind(text)
+        var decisive = DiagramConverter.clipboardKind(text).flatMap(ClipboardTextKind.init)
         if decisive == nil, text.drop(while: { $0.isWhitespace }).first == "{",
             let root = try? JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any],
             root["cells"] is [Any], NotebookConverter.version(root) != nil
@@ -175,7 +175,7 @@ public enum ClipboardFormatDetector {
                 decisive = .asciidoc
             }
         }
-        if decisive == nil { decisive = ComputationalMarkdown.clipboardKind(text) }
+        if decisive == nil { decisive = ComputationalMarkdown.clipboardKind(text).flatMap(ClipboardTextKind.init) }
         if decisive == nil, MediaWikiConverter.detects(text) { decisive = .mediawiki }
         // Djot and Markdown share their ordinary syntax. Only an explicit choice selects Djot.
         if decisive == nil, looksLikeTextile(text) { decisive = .textile }

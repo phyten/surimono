@@ -19,13 +19,14 @@ RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
 APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-core test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
+.PHONY: help build run test test-kit test-formats test-core test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
 	@echo "run        Build and launch; optionally FILE=Samples/sample.md"
 	@echo "test       Run package and hosted app tests"
-	@echo "test-kit   Run SurimonoKit tests (Core, then Rendering)"
+	@echo "test-kit   Run SurimonoKit tests (Formats, Core, then Rendering)"
+	@echo "test-formats Run the SurimonoFormats tests"
 	@echo "test-core  Run the SurimonoCore tests"
 	@echo "test-rendering  Run the SurimonoRendering tests, one at a time"
 	@echo "test-app   Run hosted app tests"
@@ -52,19 +53,23 @@ run: build
 test: test-kit test-app
 
 # The Rendering tests drive WebKit against timeouts. Run alongside the CPU-heavy Core tests on a slow CI runner, they
-# timed out, so the two targets run one after the other. Run in parallel on a fresh CI runner, several of them still
+# timed out, so the targets run one after the other. Run in parallel on a fresh CI runner, several of them still
 # timed out together (on 1 of 10 runners in a comparison, against 0 of 10 run serially), so the Rendering tests also
 # run one at a time; run in parallel locally, some of them also fail because they share WebKit and static state. Custom
 # flags run once as given: SwiftPM joins several --filter options with "or", which would undo the split.
 test-kit:
 ifeq ($(strip $(SWIFT_TEST_FLAGS)),)
+	$(SWIFT_TEST) --filter SurimonoFormatsTests
 	$(SWIFT_TEST) --filter SurimonoCoreTests
 	$(SWIFT_TEST) --filter SurimonoRenderingTests --no-parallel
 else
 	$(SWIFT_TEST) $(SWIFT_TEST_FLAGS)
 endif
 
-# The two halves of test-kit on their own, for CI, which runs them on separate runners.
+# CI runs Formats and Core on one runner and Rendering on another.
+test-formats:
+	$(SWIFT_TEST) --filter SurimonoFormatsTests
+
 test-core:
 	$(SWIFT_TEST) --filter SurimonoCoreTests
 

@@ -5,6 +5,7 @@ let package = Package(
     name: "SurimonoKit",
     platforms: [.macOS(.v15)],
     products: [
+        .library(name: "SurimonoFormats", targets: ["SurimonoFormats"]),
         .library(name: "SurimonoCore", targets: ["SurimonoCore"]),
         .library(name: "SurimonoRendering", targets: ["SurimonoRendering"]),
     ],
@@ -19,9 +20,16 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "SurimonoCore",
+            name: "SurimonoFormats",
             dependencies: [
                 .product(name: "Markdown", package: "swift-markdown"), .product(name: "SwaTex", package: "SwaTex"),
+            ],
+            resources: [.process("Resources")]
+        ),
+        .target(
+            name: "SurimonoCore",
+            dependencies: [
+                "SurimonoFormats",
                 .product(name: "cmark-gfm", package: "swift-cmark"),
                 .product(name: "cmark-gfm-extensions", package: "swift-cmark"),
             ],
@@ -29,6 +37,8 @@ let package = Package(
         ),
         .target(
             name: "SurimonoRendering", dependencies: ["SurimonoCore"], resources: [.process("Resources")]),
+        .testTarget(
+            name: "SurimonoFormatsTests", dependencies: ["SurimonoFormats"], resources: [.copy("Fixtures")]),
         .testTarget(
             name: "SurimonoCoreTests", dependencies: ["SurimonoCore"], resources: [.copy("Fixtures")]),
         .testTarget(

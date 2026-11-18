@@ -5,12 +5,6 @@ public enum HeadingBreak: String, CaseIterable, Codable, Sendable {
     case none, page, rightPage
 }
 
-/// The ways a Markdown text can ask for a new page, as read by `MarkdownConverter`.
-public enum PageBreakSyntax: String, CaseIterable, Codable, Sendable {
-    case comment = "break"
-    case pagebreak, newpage, kramdown, custom
-}
-
 public struct PageBreakRules: Codable, Hashable, Sendable {
     public var h1 = HeadingBreak.none
     public var h2 = HeadingBreak.none
