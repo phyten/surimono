@@ -12,7 +12,8 @@ struct ClipboardQuestionTests {
     func choosableKinds() {
         #expect(
             ClipboardTextKind.choosable == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook,
+                .graphviz, .plantuml,
                 .plainText,
             ])
     }
@@ -40,7 +41,7 @@ struct ClipboardQuestionTests {
         #expect(asked.options.map(\.kind) == [.markdown, .org, .plainText])
         #expect(
             asked.others.map(\.kind) == [
-                .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
+                .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook, .graphviz, .plantuml,
             ])
     }
 
@@ -60,7 +61,8 @@ struct ClipboardQuestionTests {
         #expect(asked.options.first?.evidence == [.headings(1)])
         #expect(
             asked.others.map(\.kind) == [
-                .org, .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
+                .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook, .graphviz,
+                .plantuml,
             ])
         #expect(asked.others.allSatisfy { $0.evidence.isEmpty })
         #expect(asked.competing.isEmpty)
@@ -74,7 +76,8 @@ struct ClipboardQuestionTests {
         #expect(asked.options.map(\.kind) == [.plainText])
         #expect(
             asked.others.map(\.kind) == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .notebook,
+                .graphviz, .plantuml,
             ])
         #expect(asked.others.first?.evidence == [.headings(1)])
     }
@@ -97,7 +100,7 @@ struct ClipboardQuestionTests {
             settings: .standard)
         #expect(asked.preferred == .plainText)
         #expect(!(asked.options + asked.others).contains { $0.kind == .url })
-        #expect((asked.options + asked.others).count == 12)
+        #expect((asked.options + asked.others).count == ClipboardTextKind.choosable.count)
     }
 
     @Test("見本は先頭の空行を飛ばした最初の 5 行で、長い行と続きは切ったと分かる")

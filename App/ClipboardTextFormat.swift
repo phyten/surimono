@@ -34,6 +34,8 @@ enum ClipboardFormatText {
         case .org: "Org"
         case .html: "HTML"
         case .latex: "LaTeX"
+        case .quarto: "Quarto"
+        case .rMarkdown: "R Markdown"
         case .djot: "Djot"
         case .textile: "Textile"
         case .asciidoc: "AsciiDoc"

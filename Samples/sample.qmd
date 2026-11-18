@@ -1,0 +1,63 @@
+---
+title: 紙の観察記録
+subtitle: Quarto の印刷見本
+author: [観察班, 記録班]
+lang: ja
+toc: true
+toc-title: 内容
+number-sections: true
+abstract: >
+  数式・図と、計算して初めて得られる結果を読み分ける。
+format: pdf
+---
+
+# 観察 {#sec-paper}
+
+@fig-count は観察点の数です。式は $n = 3$。^[個数の単位は点。]
+
+```{python}
+#| label: fig-count
+#| fig-cap: 観察点
+points = [2, 4, 6]
+len(points)
+```
+
+:::: {.panel-tabset}
+## 説明
+
+::: {.callout-tip icon=false}
+## 着目点
+[間隔]{.underline}を比べます。
+:::
+
+## 手順
+
+```{mermaid}
+flowchart LR
+  A[観察] --> B[記録]
+```
+::::
+
+::: {.content-visible when-format="pdf"}
+印刷して余白に記入します。
+:::
+
+{{< pagebreak >}}
+
+# まとめ {.unnumbered}
+
+記録先は {{< meta title >}}。観察手順は @sec-paper を参照してください。
+
+::: {#def-gap}
+隣り合う観察点の距離を「間隔」と呼びます。
+:::
+
+$$ d = x_2 - x_1 $$ {#eq-gap}
+
+@def-gap の間隔は @eq-gap で求めます。計算式 `{python} points[1] - points[0]` は原文のまま読めます。
+
+```{dot}
+digraph { observation -> record }
+```
+
+{{< include calibration.qmd >}}

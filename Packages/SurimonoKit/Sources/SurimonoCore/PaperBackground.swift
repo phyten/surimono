@@ -66,7 +66,7 @@ public enum PaperBackground {
             <!doctype html>
             <html lang="\(HTML.escape(language))"\(DocumentLanguage(code: language).isRightToLeft ? " dir=\"rtl\"" : "")>
             <head>
-            <meta charset="utf-8">
+            <meta charset="utf-8">\(HTMLDocumentBuilder.offlinePolicy(for: format))
             \(base)<style>
             \(css)
             </style>

@@ -1,7 +1,8 @@
 import Foundation
 
 public enum ClipboardTextKind: String, CaseIterable, Codable, Sendable {
-    case markdown, org, html, latex, csv, asciidoc, djot, textile, notebook, graphviz, plantuml, url, plainText
+    case markdown, org, html, latex, csv, asciidoc, quarto, rMarkdown, djot, textile, notebook, graphviz, plantuml, url,
+        plainText
 }
 
 public struct ClipboardFormatHints: Equatable, Sendable {
@@ -173,6 +174,7 @@ public enum ClipboardFormatDetector {
                 decisive = .asciidoc
             }
         }
+        if decisive == nil { decisive = ComputationalMarkdown.clipboardKind(text) }
         // Djot and Markdown share their ordinary syntax. Only an explicit choice selects Djot.
         if decisive == nil, looksLikeTextile(text) { decisive = .textile }
         if let decisive {
@@ -201,6 +203,7 @@ public enum ClipboardFormatDetector {
             ClipboardScanners.latex(window, level: settings.carefulness, work: &work),
             ClipboardScanners.csv(window, hints: hints, level: settings.carefulness, work: &work),
             ClipboardScanners.url(window, hints: hints, work: &work),
+            ClipboardCandidate(kind: .quarto), ClipboardCandidate(kind: .rMarkdown),
             ClipboardCandidate(kind: .djot), ClipboardCandidate(kind: .textile), ClipboardCandidate(kind: .asciidoc),
             ClipboardCandidate(kind: .notebook),
             ClipboardCandidate(kind: .graphviz), ClipboardCandidate(kind: .plantuml),

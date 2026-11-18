@@ -42,6 +42,8 @@ public enum ClipboardContent: Equatable, Sendable {
         case .html: "html"
         case .org: "org"
         case .latex: "tex"
+        case .quarto: "qmd"
+        case .rMarkdown: "Rmd"
         case .djot: "dj"
         case .textile: "textile"
         case .asciidoc: "adoc"

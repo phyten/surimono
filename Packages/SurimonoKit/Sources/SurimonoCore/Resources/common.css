@@ -517,7 +517,8 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 .format-notebook pre.notebook-short { break-inside: avoid; page-break-inside: avoid; }
 .format-notebook pre.notebook-stderr { border-inline-start: 2px solid var(--callout-warning); }
 .format-notebook pre.notebook-error { border-inline-start: 2px solid var(--callout-danger); }
-.format-notebook .notebook-note {
+.format-notebook .notebook-note,
+:is(.format-quarto, .format-rmarkdown) :is(.computational-note, .chunk-result-note) {
     border: 1px solid var(--callout-plain); padding: .6em .8em; margin-block: .7em;
     font-size: .9em; break-inside: avoid;
 }
@@ -549,3 +550,13 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 /* Asciidoctor wraps every cell in a paragraph and titles a table with a caption as narrow as the table. */
 .format-asciidoc :is(td, th) > p { margin: 0; }
 :is(.format-asciidoc, .format-djot) table > caption { white-space: nowrap; text-align: start; }
+
+:is(.format-quarto, .format-rmarkdown) .smallcaps { font-variant: small-caps; }
+:is(.format-quarto, .format-rmarkdown) .underline { text-decoration: underline; }
+:is(.format-quarto, .format-rmarkdown) .mark { background-color: #fff2ae; }
+:is(.format-quarto, .format-rmarkdown) :is(.code-filename, .table-caption, figcaption) { font-size: .9em; }
+:is(.format-quarto, .format-rmarkdown) .code-filename { break-after: avoid; }
+:is(.format-quarto, .format-rmarkdown) .equation-number { text-align: end; }
+
+:is(.format-quarto, .format-rmarkdown) .callout-simple { border-width: 0 0 0 2pt; background: transparent; }
+:is(.format-quarto, .format-rmarkdown) .callout-minimal { border: 0; background: transparent; }

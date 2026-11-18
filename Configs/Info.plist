@@ -39,6 +39,8 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.quarto.qmarkdown</string>
+				<string>org.rstudio.rmarkdown</string>
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.asciidoc.asciidoc</string>
@@ -78,6 +80,8 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.quarto.qmarkdown</string>
+				<string>org.rstudio.rmarkdown</string>
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.asciidoc.asciidoc</string>
@@ -109,6 +113,8 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.quarto.qmarkdown</string>
+				<string>org.rstudio.rmarkdown</string>
 				<string>net.djot.djot</string>
 				<string>org.textile-lang.textile</string>
 				<string>org.asciidoc.asciidoc</string>
@@ -142,6 +148,22 @@
             <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
             <key>UTTypeTagSpecification</key><dict>
                 <key>public.filename-extension</key><array><string>puml</string><string>plantuml</string><string>pu</string><string>iuml</string><string>wsd</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>org.quarto.qmarkdown</string>
+            <key>UTTypeDescription</key><string>Quarto</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>qmd</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>org.rstudio.rmarkdown</string>
+            <key>UTTypeDescription</key><string>R Markdown</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>rmd</string><string>rmarkdown</string></array>
             </dict>
         </dict>
         <dict>

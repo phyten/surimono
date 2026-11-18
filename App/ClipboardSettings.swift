@@ -10,7 +10,7 @@ struct ClipboardSettings: View {
 
     /// The kinds the detector may open without asking. Text is always a choice, and a URL opens as text for now.
     private static let recognizable: [ClipboardTextKind] = [
-        .markdown, .org, .html, .latex, .csv, .asciidoc, .textile, .notebook,
+        .markdown, .org, .html, .latex, .csv, .asciidoc, .quarto, .rMarkdown, .textile, .notebook,
     ]
 
     var body: some View {

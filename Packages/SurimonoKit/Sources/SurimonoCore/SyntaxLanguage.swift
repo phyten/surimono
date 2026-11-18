@@ -17,7 +17,8 @@ struct SyntaxLanguage: Sendable {
     static let aliases: [String: String] = {
         let groups = [
             "swift", "javascript js jsx mjs cjs node", "typescript ts tsx mts cts", "python py python3",
-            "ruby rb", "go golang", "rust rs", "java", "kotlin kt kts", "c h", "cpp c++ cc cxx hpp hh hxx",
+            "ruby rb", "go golang", "rust rs", "java", "kotlin kt kts", "c h",
+            "cpp c++ cc cxx hpp hh hxx",
             "csharp cs c#", "objectivec objc objective-c m mm", "php", "shell sh bash zsh console shellsession",
             "json jsonc json5", "yaml yml", "toml", "ini cfg conf properties", "html htm xhtml vue svelte",
             "xml svg plist xsl rss atom", "css scss less", "sql mysql postgresql postgres psql sqlite",
@@ -50,7 +51,9 @@ struct SyntaxLanguage: Sendable {
             language.lineComments = ["//"]
             language.blockComments = [("/*", "*/")]
         }
-        if ["python", "ruby", "shell", "yaml", "toml", "ini", "dockerfile", "makefile", "php"].contains(id) {
+        if ["r", "julia", "python", "ruby", "shell", "yaml", "toml", "ini", "dockerfile", "makefile", "php"].contains(
+            id)
+        {
             language.lineComments.append("#")
         }
         if ["toml", "ini"].contains(id) { language.lineComments.append(";") }
@@ -67,6 +70,8 @@ struct SyntaxLanguage: Sendable {
         case "swift", "ruby", "go", "lua": language.literals = words("true false nil")
         case "javascript", "typescript": language.literals = words("true false null undefined NaN Infinity")
         case "python": language.literals = words("True False None")
+        case "r": language.literals = words("TRUE FALSE NULL NA NaN Inf")
+        case "julia": language.literals = words("true false nothing missing NaN Inf")
         case "rust": language.literals = words("true false None")
         case "c", "cpp": language.literals = words("true false NULL nullptr")
         case "objectivec": language.literals = words("true false nil Nil NULL YES NO")
@@ -96,6 +101,13 @@ struct SyntaxLanguage: Sendable {
                 "and as assert async await break case class continue def del elif else except finally for from global if import in is lambda match nonlocal not or pass raise return try while with yield"
             types = "int float str bool list dict tuple set bytes object"
             builtins = "print len range enumerate zip map filter open sum min max sorted isinstance super input"
+        case "r":
+            keywords = "if else repeat while function for in next break return"
+            builtins = "c list data.frame matrix mean sum length seq print plot library"
+        case "julia":
+            keywords =
+                "begin end function macro struct mutable abstract primitive if else elseif for while let local global const return break continue try catch finally using import export module where do in"
+            builtins = "println print length sum collect map filter"
         case "ruby":
             keywords =
                 "alias and begin break case class def defined do else elsif end ensure for if in module next not or redo rescue retry return self super then undef unless until when while yield"

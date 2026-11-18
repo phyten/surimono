@@ -767,6 +767,8 @@ extension DocumentFormat {
         case .csv: "CSV"
         case .zipArchive: "ZIP"
         case .latex: "TEX"
+        case .quarto: "QMD"
+        case .rMarkdown: "RMD"
         case .djot: "DJOT"
         case .textile: "TEXTILE"
         case .asciidoc: "ADOC"
