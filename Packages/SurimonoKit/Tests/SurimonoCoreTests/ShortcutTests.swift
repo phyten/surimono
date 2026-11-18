@@ -30,10 +30,10 @@ struct ShortcutTests {
                 "html.reviewRemoval", "print.manualDuplex", "print.duplexTest",
                 "reading.back", "reading.forward", "bookmark.toggle", "bookmark.next", "bookmark.previous",
                 "document.exportReadingPDF", "document.exportPNG", "document.exportHTML",
-                "document.copyHTML", "document.share",
+                "document.copyHTML", "document.share", "document.copyRichText",
             ])
-        #expect(ShortcutOperation.catalog.count == 86)
-        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 86)
+        #expect(ShortcutOperation.catalog.count == 87)
+        #expect(Set(ShortcutOperation.catalog.map(\.id)).count == 87)
     }
 
     @Test("既定の印刷と別名と未割当を明示する")
@@ -41,7 +41,7 @@ struct ShortcutTests {
         let configuration = ShortcutConfiguration()
         #expect(configuration.keys(for: .documentExportReadingPDF).isEmpty)
         for operation: ShortcutOperationID in [
-            .documentExportPNG, .documentExportHTML, .documentCopyHTML, .documentShare,
+            .documentExportPNG, .documentExportHTML, .documentCopyHTML, .documentCopyRichText, .documentShare,
         ] {
             #expect(configuration.keys(for: operation).isEmpty)
         }

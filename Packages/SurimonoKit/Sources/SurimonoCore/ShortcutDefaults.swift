@@ -12,7 +12,7 @@ public enum ShortcutDefaults: Sendable {
         case .documentPrint: [character("p", .command)]
         case .documentPrintSystem: [character("p", [.option, .command])]
         case .documentExportReadingPDF, .documentExportPNG, .documentExportHTML,
-            .documentCopyHTML, .documentShare:
+            .documentCopyHTML, .documentCopyRichText, .documentShare:
             []
         case .documentExportPDF: [character("e", [.shift, .command])]
         case .documentFind: [character("f", .command)]

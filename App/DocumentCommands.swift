@@ -68,6 +68,7 @@ struct DocumentCommands: Commands {
         CommandGroup(after: .pasteboard) {
             Divider()
             Button("Copy as HTML") { perform(.documentCopyHTML) }
+            Button("Copy as Rich Text") { perform(.documentCopyRichText) }
             Divider()
             Button("Find…") { perform(.documentFind) }
                 .keyboardShortcut("f")

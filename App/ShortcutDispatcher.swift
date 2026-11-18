@@ -223,6 +223,7 @@ final class ShortcutDispatcher {
         case .documentExportPNG: model?.exportReading(.png)
         case .documentExportHTML: model?.exportReading(.html)
         case .documentCopyHTML: model?.exportReading(.htmlText)
+        case .documentCopyRichText: model?.exportReading(.richText)
         case .documentShare: model?.exportReading(.share)
         case .printSettings: model?.presentPrintSettings()
         case .clipboardOpenPrintScreen: openClipboardPrintScreen()

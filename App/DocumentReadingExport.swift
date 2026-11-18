@@ -5,9 +5,9 @@ import SurimonoRendering
 import UniformTypeIdentifiers
 
 enum ReadingExportKind: Equatable {
-    case png, html, htmlText, share
+    case png, html, htmlText, richText, share
 
-    var needsTheme: Bool { self == .html || self == .htmlText }
+    var needsTheme: Bool { self == .html || self == .htmlText || self == .richText }
 }
 
 extension DocumentViewModel {
@@ -36,16 +36,16 @@ extension DocumentViewModel {
         additionalExportTask = Task { [weak self] in
             guard let self else { return }
             defer { additionalExportTask = nil }
-            _ = await performReadingExport(kind)
+            _ = await performReadingExport(kind, pasteboard: kind == .richText || kind == .htmlText ? .general : nil)
         }
     }
 
-    /// The panel-free entry point is also used by DEBUG verification. Only the interactive copy command defaults
-    /// to the general pasteboard; its test and DEBUG callers explicitly supply their own board.
+    /// The panel-free entry point is also used by DEBUG verification. Only the interactive copy command writes
+    /// to the general pasteboard. File exports need no board.
     @discardableResult
     func performReadingExport(
         _ kind: ReadingExportKind, destination: URL? = nil, dpi: Double? = nil,
-        pasteboard: NSPasteboard = .general
+        pasteboard: NSPasteboard? = nil
     ) async -> Bool {
         if kind == .share { clearSharedExport() }
         let metadataTitle: String
@@ -146,6 +146,18 @@ extension DocumentViewModel {
             }
             guard let settings = renderSettings(in: .view) else { return false }
             let source = withFolderAccess(DocumentSource(data: data, fileURL: fileURL, format: format))
+            if kind == .richText {
+                let rich = try await HTMLExporter.richText(source: source, settings: settings, title: metadataTitle)
+                try checkCurrent()
+                if let destination {
+                    try writeRichText(rich, to: destination, name: name)
+                } else {
+                    guard let pasteboard else { return false }
+                    try rich.write(to: pasteboard)
+                    showToast(Toast(systemImage: "checkmark", title: String(localized: "Copied")))
+                }
+                return true
+            }
             let html = try await HTMLExporter.html(
                 source: source, settings: settings, title: metadataTitle)
             try checkCurrent()
@@ -161,6 +173,7 @@ extension DocumentViewModel {
                 defer { if access { target.stopAccessingSecurityScopedResource() } }
                 try Data(html.utf8).write(to: target, options: .atomic)
             } else {
+                guard let pasteboard else { return false }
                 pasteboard.clearContents()
                 guard pasteboard.setString(html, forType: .string) else { throw CocoaError(.fileWriteUnknown) }
                 showToast(Toast(systemImage: "checkmark", title: String(localized: "Copied")))
@@ -173,6 +186,36 @@ extension DocumentViewModel {
             if kind == .share { clearSharedExport() }
             outputError = String(localized: "The document could not be exported.") + "\n" + error.localizedDescription
             return false
+        }
+    }
+
+    private func writeRichText(_ export: RichTextExport, to folder: URL, name: String) throws {
+        let fm = FileManager.default
+        guard try folder.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        let base = folder.appendingPathComponent(name)
+        let package = base.appendingPathExtension("rtfd")
+        let files = [base.appendingPathExtension("rtf"), base.appendingPathExtension("html"), package]
+        guard files.allSatisfy({ Self.canExport(to: $0, sourceURLs: protectedSourceURLs) }) else {
+            throw CocoaError(.fileWriteNoPermission)
+        }
+        // Stage the package privately. Moving into place and exclusive file writes never replace an existing export.
+        let stage = folder.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: stage, withIntermediateDirectories: false)
+        defer { try? fm.removeItem(at: stage) }
+        let staged = stage.appendingPathComponent(package.lastPathComponent)
+        try export.rtfd.write(to: staged, options: .atomic, originalContentsURL: nil)
+        var created = [URL]()
+        do {
+            try export.rtf.write(to: files[0], options: .withoutOverwriting)
+            created.append(files[0])
+            try Data(export.html.utf8).write(to: files[1], options: .withoutOverwriting)
+            created.append(files[1])
+            try fm.moveItem(at: staged, to: package)
+        } catch {
+            for file in created { try? fm.removeItem(at: file) }
+            throw error
         }
     }
 

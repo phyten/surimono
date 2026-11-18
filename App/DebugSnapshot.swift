@@ -894,6 +894,9 @@
             }
         }
 
+        // -SurimonoExport reading|png|html|richtext -SurimonoExportPath <path>
+        // richtext writes the RTFD package, RTF and HTML into an existing folder without using a pasteboard.
+        // -SurimonoSnapshotQuit YES terminates after a successful export.
         private static func export(_ model: DocumentViewModel, kind: String, path: String) async -> Bool {
             let destination = URL(fileURLWithPath: path)
             guard DocumentViewModel.canExport(to: destination, sourceURLs: model.protectedSourceURLs) else {
@@ -909,6 +912,8 @@
                 return await model.performReadingExport(
                     .png, destination: destination,
                     dpi: argument("SurimonoExportDPI").flatMap(Double.init))
+            case "richtext":
+                return await model.performReadingExport(.richText, destination: destination)
             case "html":
                 return await model.performReadingExport(.html, destination: destination)
             default:
