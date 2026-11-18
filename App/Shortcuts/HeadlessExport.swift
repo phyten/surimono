@@ -31,30 +31,38 @@ struct HeadlessExport {
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
     /// The names a style answers to: its identifier, its English name, and its name in the app's language.
-    func theme(named name: String) -> PrintTheme? {
+    func theme(named name: String, format: DocumentFormat? = nil) -> PrintTheme? {
         let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return library.themes.first { theme in
+            guard theme.supports(format) else { return false }
             // In any language the app speaks, not only the one shown now: a shortcut is written once and may run
             // on a Mac set to another language.
-            ([theme.id, theme.name] + UILanguage.supported.map { theme.displayName(language: $0) }).contains {
+            return ([theme.id, theme.name] + UILanguage.supported.map { theme.displayName(language: $0) }).contains {
                 $0.compare(wanted, options: [.caseInsensitive, .widthInsensitive]) == .orderedSame
             }
         }
     }
 
-    func settings(format: DocumentFormat, name: String, layoutID: String?, style: String?) throws -> RenderSettings {
+    func settings(
+        format: DocumentFormat, name: String, layoutID: String?, style: String?, source: DocumentSource? = nil
+    ) throws
+        -> RenderSettings
+    {
         let layoutID = layoutID ?? preferences.layoutID
         let layout = PrintLayout.presets.first { $0.id == layoutID } ?? .a4Single
         let standard = library.themes.first { $0.id == "standard" }
         let theme: PrintTheme?
         if let style, format.usesPrintTheme {
-            guard let named = self.theme(named: style) else {
+            guard let named = self.theme(named: style, format: format) else {
                 throw Failure(
                     message: String(localized: "There is no style named “\(style)”.", table: "Shortcuts"))
             }
             theme = named
         } else {
-            let id = format.usesPrintTheme ? preferences.themeID : "standard"
+            let id = library.defaultThemeID(
+                preferred: format.usesPrintTheme ? preferences.themeID : "standard", format: format,
+                classStyle: UserLibrary.classStyle(
+                    for: source ?? DocumentSource(data: Data(), format: format), renderer: renderer))
             theme = library.themes.first { $0.id == id } ?? standard
         }
         let presetID = format.usesHTMLPreset ? preferences.presetID : "none"
@@ -87,11 +95,11 @@ struct HeadlessExport {
             throw Failure(
                 message: String(localized: "“\(name)” is not a file Surimono can export as a PDF.", table: "Shortcuts"))
         }
-        let settings = try settings(format: format, name: name, layoutID: layoutID, style: style)
+        let source = DocumentSource(data: data, fileURL: fileURL, format: format)
+        let settings = try settings(format: format, name: name, layoutID: layoutID, style: style, source: source)
         let result: RenderResult
         do {
-            result = try await renderer.render(
-                DocumentSource(data: data, fileURL: fileURL, format: format), settings: settings)
+            result = try await renderer.render(source, settings: settings)
         } catch let error as CancellationError {
             throw error
         } catch {

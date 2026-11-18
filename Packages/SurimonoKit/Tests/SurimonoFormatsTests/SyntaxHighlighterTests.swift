@@ -5,7 +5,7 @@ import Testing
 
 struct SyntaxHighlighterTests {
     static let languages =
-        "swift javascript typescript python ruby go rust java kotlin c cpp csharp objectivec php shell json yaml toml ini html xml css sql dockerfile makefile diff lua"
+        "swift javascript typescript python ruby go rust java kotlin c cpp csharp objectivec php shell json yaml toml ini html xml css sql dockerfile makefile diff lua r matlab latex haskell julia"
         .split(separator: " ").map(String.init)
 
     @Test(
@@ -13,6 +13,7 @@ struct SyntaxHighlighterTests {
         arguments: [
             ("JS", "javascript"), ("c++", "cpp"), ("swift title=a.swift", "swift"),
             ("js{1,3}", "javascript"), ("PY,extra", "python"), ("shellsession", "shell"),
+            ("octave", "matlab"), ("TeX", "latex"), ("hs", "haskell"), ("JL", "julia"),
             ("objc", "objectivec"), ("C#", "csharp"), ("yml", "yaml"), ("plist", "xml"),
         ])
     func aliases(info: String, expected: String) {
@@ -30,6 +31,14 @@ struct SyntaxHighlighterTests {
     @Test(
         "各言語の代表的なトークンを識別する",
         arguments: [
+            ("R", "f <- function(x) 2 # sample", "keyword", "function"),
+            ("Octave", "% comment", "comment", "% comment"),
+            ("matlab", "function f()", "keyword", "function"),
+            ("TeX", #"\section{Paper} % 1"#, "keyword", #"\section"#),
+            ("LaTeX", #"\% % real"#, "comment", "% real"),
+            ("hs", "module Demo where", "keyword", "module"),
+            ("Julia", "function f(x); 42; end", "number", "42"),
+            ("julia", "println(\"paper\")", "string", "\"paper\""),
             ("swift", "let x = \"a\\\"b\" // c", "keyword", "let"),
             ("javascript", "const n = `a\nb`;", "string", "`a\nb`"),
             ("typescript", "interface User {}", "type", "User"),

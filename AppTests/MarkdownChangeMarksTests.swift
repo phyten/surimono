@@ -289,7 +289,7 @@ struct MarkdownChangeMarksTests {
         }
         check("#BBFFCC")
         model.hoverTrialLimit = .seconds(60)
-        let theme = try #require(model.library.themes.first { $0.id != model.themeID })
+        let theme = try #require(model.availableThemes.first { $0.id != model.themeID })
         model.tryTheme(theme.id)
         try await wait { model.themeTrial.document != nil }
         check("#CCDDEE")

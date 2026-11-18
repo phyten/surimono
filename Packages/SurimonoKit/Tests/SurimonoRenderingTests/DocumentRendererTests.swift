@@ -513,7 +513,8 @@ struct DocumentRendererTests {
     func latex() async throws {
         let renderer = DocumentRenderer(paginate: { request in
             if case .html(let html, _) = request.source {
-                #expect(html.contains("<body class=\"surimono format-latex\">"))
+                let body = #"<body class="surimono format-latex" data-latex-size="10" data-latex-chapters="false">"#
+                #expect(html.contains(body))
                 #expect(html.contains("<h2 id=\"sec-1\"><span class=\"secnum\">1</span>見出し</h2>"))
             } else {
                 Issue.record("LaTeX は HTML に変換する")

@@ -361,7 +361,11 @@ struct SettingsView: View {
                         }
                     }
                 } footer: {
-                    defaultsNote
+                    VStack(alignment: .leading) {
+                        defaultsNote
+                        SettingsFootnote(
+                            "Each LaTeX document uses its class style until you choose a style for it.")
+                    }
                 }
                 Section {
                     HStack {

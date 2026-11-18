@@ -7,7 +7,7 @@ struct ThemeFontsTests {
     func onlyTheLaTeXThemeEmbedsFonts() throws {
         for theme in try PrintThemeLibrary.load() {
             let css = HTMLDocumentBuilder.styleSheet(theme: theme)
-            #expect(css.contains("@font-face") == (theme.id == "latex"), "\(theme.id)")
+            #expect(css.contains("@font-face") == (theme.id == "latex" || theme.category == "latex"), "\(theme.id)")
         }
         let latex = try #require(PrintThemeLibrary.load().first { $0.id == "latex" })
         let css = HTMLDocumentBuilder.styleSheet(theme: latex)

@@ -9,7 +9,7 @@ final class LaTeXCounters {
     // Built-in and user counters share values so \setcounter affects the next heading, caption or item too.
     private var values: [String: Int] = [:]
     private var children: [String: Set<String>] = [:]
-    private(set) var prefixes: [String: String] = [:]
+    private var prefixes: [String: (parent: String, omitNonpositiveParent: Bool)] = [:]
     private var usedAnchors: Set<String> = []
     private var nextAnchor = 0
     var formatting: Set<String> = []
@@ -39,16 +39,21 @@ final class LaTeXCounters {
     }
 
     /// Record the reset even when the starred command preserves the current printed form.
-    func within(_ name: String, parent: String, prefix: Bool) {
+    func within(_ name: String, parent: String, prefix: Bool, omitNonpositiveParent: Bool = false) {
         guard !name.isEmpty, !parent.isEmpty, name != parent else { return }
         children[parent, default: []].insert(name)
-        if prefix { prefixes[name] = parent }
+        if prefix { prefixes[name] = (parent, omitNonpositiveParent) }
+    }
+
+    func printedParent(of name: String) -> String? {
+        guard let prefix = prefixes[name], !prefix.omitNonpositiveParent || self[prefix.parent] > 0 else { return nil }
+        return prefix.parent
     }
 
     /// Removing one reset relationship should leave a printed prefix supplied by a different parent intact.
     func without(_ name: String, parent: String, removePrefix: Bool) {
         children[parent]?.remove(name)
-        if removePrefix, prefixes[name] == parent { prefixes[name] = nil }
+        if removePrefix, prefixes[name]?.parent == parent { prefixes[name] = nil }
     }
 
     /// Stepping a parent starts every counter that counts within it, including indirect descendants, back at zero.
@@ -175,7 +180,7 @@ extension LaTeXReader {
             }
         }
         let value = LaTeXSymbols.format(counters[name], as: style)
-        guard let parent = counters.prefixes[name] else { return value }
+        guard let parent = counters.printedParent(of: name) else { return value }
         return formattedCounter(parent, forMath: forMath) + "." + value
     }
 

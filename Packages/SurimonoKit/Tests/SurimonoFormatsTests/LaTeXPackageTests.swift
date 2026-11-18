@@ -32,7 +32,7 @@ struct LaTeXPackageTests {
         #expect(html.contains("<span class=\"theorem-head\">Lemma 1.2.</span> x"))
         #expect(html.contains("<span class=\"theorem-head\">Remark.</span> r"))
         #expect(html.contains("<span class=\"theorem-head\">Theorem 2.1.</span> y"))
-        #expect(html.contains("See Theorem&nbsp;<a href=\"#thm-1\">1.1</a>."))
+        #expect(html.contains("See Theorem&nbsp;<a class=\"latex-number-ref\" href=\"#thm-1\">1.1</a>."))
     }
 
     @Test("\\theoremstyle は後の定理の見た目を決め、和文の文書は plain でも斜体にしない")
@@ -94,7 +94,8 @@ struct LaTeXPackageTests {
         let html = body(
             "\\section{結果}\\label{s}\\cite[節~\\ref{s}]{a}"
                 + "\\begin{thebibliography}{9}\\bibitem{a}Author.\\end{thebibliography}")
-        #expect(html.contains("[<a href=\"#bib-1-1\">1</a>, 節&nbsp;<a href=\"#sec-1\">1</a>]"))
+        #expect(
+            html.contains("[<a href=\"#bib-1-1\">1</a>, 節&nbsp;<a class=\"latex-number-ref\" href=\"#sec-1\">1</a>]"))
         #expect(!html.contains("\u{E000}"))
     }
 
@@ -109,7 +110,7 @@ struct LaTeXPackageTests {
         #expect(noWidth.contains("[<a href=\"#bib-1-1\">1</a>]"))
     }
 
-    @Test("文献の見出しは和文なら参考文献、章のある文書クラスなら Bibliography、\\bibliography のファイルは読まない")
+    @Test("文献の見出しは和文なら参考文献、章のある文書クラスなら Bibliography、見つからない文献ファイルは紙に知らせる")
     func bibliographyHeadings() {
         let japanese = body(
             "\\documentclass{jsarticle}\\begin{document}\\begin{thebibliography}{9}\\bibitem{a}A\\end{thebibliography}\\end{document}"
@@ -119,8 +120,9 @@ struct LaTeXPackageTests {
             "\\documentclass{book}\\begin{document}\\begin{thebibliography}{9}\\bibitem{a}A\\end{thebibliography}\\end{document}"
         )
         #expect(book.contains(">Bibliography</h2>"))
-        #expect(
-            body("\\bibliography{refs}").contains("<div class=\"latex-unsupported\">refs.bib is not included</div>"))
+        let missing = LaTeXConverter.convert("\\bibliography{refs}")
+        #expect(missing.body.contains("latex-unsupported") && missing.body.contains("refs.bib"))
+        #expect(!missing.readingIssues.isEmpty)
     }
 
     @Test("\\num は 5 桁以上を 3 桁ずつ区切り、指数を × 10 の累乗に、マイナスを負号にする")

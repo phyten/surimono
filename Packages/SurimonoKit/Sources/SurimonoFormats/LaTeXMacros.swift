@@ -180,8 +180,13 @@ extension LaTeXReader {
         let end = environment ? argument() ?? "" : nil
         guard let name, !name.isEmpty, let parameters else { return }
         var macro = Macro(specification: parameters, body: body)
+        // SwaTex accepts the prefix of an optional-default declaration but lays out the remainder
+        // as ordinary math in every subsequent formula. Expand that signature at its call site.
         macro.extendedMath = xparse
-        if xparse || environment || Self.mayUseMathCounter(body) || body.contains("\\If") || body.contains("\\csname") {
+        if case .optional = parameters.first { macro.extendedMath = true }
+        if macro.extendedMath || environment || Self.mayUseMathCounter(body) || body.contains("\\If")
+            || body.contains("\\csname")
+        {
             document.hasExtendedMathDefinitions = true
         }
         if let end {
@@ -190,15 +195,9 @@ extension LaTeXReader {
             if command == "providecommand", isDefinedCommand(name) { return }
             document.macros[name] = macro
             document.saveAutoName(name)
-            if !xparse {
-                let math: String
-                if case .optional(let value?) = parameters.first {
-                    math = "\\newcommand{\\\(name)}[\(parameters.count)][\(value)]{\(body)}"
-                } else {
-                    let signature = parameters.indices.map { "#\($0 + 1)" }.joined()
-                    math = "\\def\\\(name)\(signature){\(body)}"
-                }
-                addMathDefinition(math)
+            if !macro.extendedMath {
+                let signature = parameters.indices.map { "#\($0 + 1)" }.joined()
+                addMathDefinition("\\def\\\(name)\(signature){\(body)}")
             }
         }
     }
@@ -404,7 +403,12 @@ extension LaTeXReader {
             document.stopsExpanding = true
             return
         }
-        let source = Self.joinTokens(Self.joinTokens(begin, body), environment.end)
+        // TeX tokenizes the definition separately from the user's body. A final font switch
+        // must not swallow a newline/space belonging to that body when we join them as source.
+        let lastWord = begin.reversed().prefix(while: { $0.isASCII && $0.isLetter }).reversed()
+        let fontSwitch = LaTeXSymbols.declarations[String(lastWord)] != nil && Self.endsInControlWord(begin[...])
+        let opening = fontSwitch && body.first?.isWhitespace == true ? begin + "{}" : begin
+        let source = Self.joinTokens(Self.joinTokens(opening, body), environment.end)
         guard document.reserveExpansion(characters: source.count) else { return }
         readEnvironmentGroup(source)
     }
@@ -477,19 +481,22 @@ extension LaTeXReader {
         "begin", "end", "part", "chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph",
         "maketitle", "tableofcontents", "title", "author", "date", "today", "ref", "eqref", "autoref", "cref", "Cref",
         "labelcref", "namecref", "crefrange", "crefname", "Crefname", "pageref", "vref", "nameref", "cite", "citep",
-        "citet", "parencite", "textcite", "autocite", "bibliography", "printbibliography", "newtheorem", "theoremstyle",
+        "citeauthor", "citeyear", "addbibresource", "citet", "parencite", "textcite", "autocite", "bibliography",
+        "printbibliography", "newtheorem", "theoremstyle",
         "declaretheorem", "qed", "qedsymbol", "qedhere", "num", "qty", "SI", "unit", "si", "ang", "footnote",
         "footnotemark", "footnotetext", "thanks", "href", "hyperref", "hyperlink", "hypertarget", "url", "nolinkurl",
         "path", "verb", "lstinline", "mintinline", "textcolor", "color", "colorbox", "fcolorbox", "newline",
         "linebreak",
         "newpage", "clearpage", "cleardoublepage", "pagebreak", "par", "bigskip", "medskip", "smallskip", "item",
-        "input", "include", "subfile", "lstinputlisting", "inputminted", "appendix", "newcommand", "renewcommand",
+        "input", "include", "subfile", "import", "includeonly", "tikzexternalize", "tikzsetnextfilename",
+        "lstinputlisting", "inputminted", "appendix", "newcommand", "renewcommand",
         "providecommand", "def", "let", "DeclareRobustCommand", "NewDocumentCommand", "RenewDocumentCommand",
         "NewDocumentEnvironment", "RenewDocumentEnvironment", "IfNoValueTF", "IfValueTF", "IfBooleanTF", "csname",
         "endcsname", "includegraphics", "caption", "c", "k", "d", "b", "r", "t", "u", "v", "H", "sethlcolor",
         "MakeUppercase", "MakeLowercase", "uppercase", "lowercase", "value", "arabic", "alph", "Alph", "roman",
         "Roman", "fnsymbol", "counterwithin", "counterwithout", "refstepcounter", "ensuremath", "endgraf",
         "texorpdfstring", "foreignlanguage", "parbox", "raisebox", "resizebox", "scalebox", "rotatebox",
-        "BooleanTrue", "BooleanFalse",
+        "subfloat", "subfigure", "subcaption", "subcaptionbox", "tcbox", "newtcolorbox", "newtcbtheorem", "makecell",
+        "BooleanTrue", "BooleanFalse", "lstset", "lstdefinestyle",
     ]
 }

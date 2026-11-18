@@ -4,17 +4,25 @@ import Foundation
 ///
 /// Surimono is not a TeX engine. It reads the commonly used subset of LaTeX and the standard packages (amsmath and
 /// friends through SwaTex, hyperref, xcolor, enumitem, listings), so a document prints in Surimono's own paper,
-/// margins and theme. Commands it does not know keep their text; TikZ pictures are marked where they would be.
+/// margins and theme. Commands it does not know keep their text; externalized TikZ pictures can be printed.
 public enum LaTeXConverter {
-    /// - Parameter directory: The document's folder, where images without an extension are looked up.
+    /// Companion files are supplied by the caller so parsing never implicitly opens a path from the document.
     public static func convert(
         _ text: String, directory: URL? = nil,
-        imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+        documentURL: URL? = nil, textWidthPoints: Double? = nil, imageExists: @escaping (URL) -> Bool = { _ in false },
+        readFile: @escaping (URL) -> Data? = { _ in nil },
+        modificationDate: @escaping (URL) -> Date? = { _ in nil },
+        fileIdentity: @escaping (URL) -> URL = { $0.standardizedFileURL }
     ) -> HTMLFragment {
         let source = TextDecoding.normalizeNewlines(text)
         func makeReader() -> LaTeXReader {
             let document = LaTeXDocument()
-            document.directory = directory
+            document.directory = directory ?? documentURL?.deletingLastPathComponent()
+            document.mainURL = documentURL
+            document.textWidthPoints = textWidthPoints
+            document.readFile = readFile
+            document.modificationDate = modificationDate
+            document.fileIdentity = fileIdentity
             document.imageExists = imageExists
             return LaTeXReader(source, document: document, isBlock: true)
         }
@@ -26,7 +34,7 @@ public enum LaTeXConverter {
             if !reader.document.startedDocument { reader = makeReader() }
         }
         let document = reader.document
-        var html = reader.read()
+        var html = document.preambleFileNotes + reader.read()
         document.endedDocument = false
         if document.titleHTML == nil, let title = document.title {
             // Without \maketitle the title still names the window and the exported PDF.
@@ -38,14 +46,29 @@ public enum LaTeXConverter {
         html = document.resolvePlaceholders(in: html)
         let fonts = MathRenderer.fontFaces(for: html)
         if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
-        return HTMLFragment(body: html, title: document.plainTitle, readingIssues: document.readingIssues)
+        return HTMLFragment(
+            body: html, title: document.plainTitle, readingIssues: document.readingIssues,
+            latexClass: document.classInfo)
     }
 
 }
 
 /// What one document's conversion shares across nested groups: definitions, counters, labels and notes.
 final class LaTeXDocument {
-    var imageExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+    var imageExists: (URL) -> Bool = { _ in false }
+    var textWidthPoints: Double?
+    var mainURL: URL?
+    var readFile: (URL) -> Data? = { _ in nil }
+    var modificationDate: (URL) -> Date? = { _ in nil }
+    var fileIdentity: (URL) -> URL = { $0.standardizedFileURL }
+    var inputChain: [URL] = []
+    var includeOnly: Set<String>?
+    var fileIssues: [String] = []
+    var seenFileIssues: Set<String> = []
+    var preambleFileNotes = ""
+    var pictureIndex = 0
+    var picturePrefix = ""
+    var nextPictureName: String?
     struct Heading {
         let level: Int
         let number: String?
@@ -62,6 +85,7 @@ final class LaTeXDocument {
     }
 
     struct Citation {
+        let command: String
         let keys: [String]
         let before: String?
         let after: String?
@@ -69,7 +93,7 @@ final class LaTeXDocument {
 
     var startedDocument = false
     var endedDocument = false
-    var documentClass = "article"
+    var classInfo = LaTeXDocumentClassInfo()
     var title: String?
     var titleHTML: String?
     var authors: String?
@@ -79,18 +103,29 @@ final class LaTeXDocument {
     var hasExtendedMathDefinitions = false
     var environments: [String: (begin: Macro, end: String)] = [:]
     /// Definitions given to every formula, so commands defined in the preamble work in math too.
-    var mathDefinitions = ""
+    // In a formula TeX is already in math mode. This identity also works inside nested
+    // ordinary macros that SwaTex expands itself, without changing the accessible source.
+    var mathDefinitions = "\\def\\ensuremath#1{#1}"
     var booleans: [String: Bool] = [:]
     var toggles: [String: Bool] = [:]
     var loopMathNames: Set<String> = []
     var colors: [String: (Double, Double, Double)] = [:]
     var hasChapters = false {
         didSet {
-            if hasChapters && !oldValue { counters.within("section", parent: "chapter", prefix: true) }
+            if hasChapters && !oldValue {
+                counters.within("section", parent: "chapter", prefix: true)
+                // The standard book/report classes omit chapter zero on floats and equations in front matter.
+                for name in ["equation", "figure", "table"] {
+                    counters.within(name, parent: "chapter", prefix: true, omitNonpositiveParent: true)
+                }
+                counters.within("footnote", parent: "chapter", prefix: false)
+            }
         }
     }
     var isAppendix = false
     let counters = LaTeXCounters()
+    var figureCaptions: LaTeXFigureCaptions?
+    var insideSubfigure = false
     var subequationPrefix: String?
     var headings: [Heading] = []
     var labels: [String: (number: String, id: String)] = [:]
@@ -100,6 +135,8 @@ final class LaTeXDocument {
     var itemCount = 0
     var directory: URL?
     var graphicsPaths: [String] = []
+    var listingDefaults: [String: String] = [:]
+    var listingStyles: [String: String] = [:]
     var footnotes: [Footnote] = []
     var references: [Reference] = []
     var resolvingReferences: Set<Int> = []
@@ -117,6 +154,7 @@ final class LaTeXDocument {
     var usesAMSTheorem = false
     var theoremCount = 0
     var bibliography: [String: (label: String, id: String)] = [:]
+    let bibDatabase = LaTeXBibliography()
     var bibliographyCount = 0
     var citations: [Citation] = []
     /// How many readers are reading inside one another.
@@ -125,6 +163,9 @@ final class LaTeXDocument {
     static let maximumDepth = 100
     /// Set while `\maketitle` reads the title, so a title that makes the title again is not read again.
     var makingTitle = false
+    var titleNoteCount = 0
+    var failedFormulas: [String] = []
+    var seenFormulaIssues: Set<String> = []
     /// Each theorem's heading, read once: a heading that opens its own environment would otherwise read itself again.
     var theoremHeadings: [String: String] = [:]
     /// Two MB allow long theorem headings throughout a paper. Once spent, the environment name still identifies them.
@@ -149,8 +190,9 @@ final class LaTeXDocument {
 
     /// The print check panel can explain omissions here without putting diagnostic text on the paper.
     var readingIssues: [String] {
-        var issues: [String] = []
+        var issues = fileIssues
         if !unknownNames.isEmpty { issues.append("commands not read: " + unknownNames.joined(separator: ", ")) }
+        issues.append(contentsOf: failedFormulas)
         if stopsExpanding { issues.append("LaTeX expansion limit reached") }
         return issues
     }
@@ -160,10 +202,7 @@ final class LaTeXDocument {
         if seenUnknown.insert(name).inserted { unknownNames.append(name) }
     }
 
-    var isJapanese: Bool {
-        let japanese = ["j", "ltjs", "bxjs", "ujarticle", "ujreport", "ujbook", "utarticle", "tarticle"]
-        return japanese.contains { documentClass.hasPrefix($0) }
-    }
+    var isJapanese: Bool { classInfo.isJapanese }
 
     var plainTitle: String? {
         titleHTML.map { replacing("M", in: replacing("C", in: replacing("R", in: $0))) }
@@ -175,6 +214,7 @@ final class LaTeXDocument {
     func placeholder(_ kind: String, _ index: Int) -> String { "\u{E000}\(nonce)\(kind)\(index)\u{E001}" }
 
     func citation(_ citation: Citation) -> String {
+        bibDatabase.remember(citation.keys)
         citations.append(citation)
         return placeholder("C", citations.count - 1)
     }
@@ -182,8 +222,10 @@ final class LaTeXDocument {
     /// Fills in the table of contents, then the references and citations, which may point at things defined later in
     /// the document and may sit in the headings the table of contents repeats.
     func resolvePlaceholders(in html: String) -> String {
+        let bibliography = bibDatabase.render(in: self)
+        let body = bibDatabase.printCount > 0 ? replacing("B", in: html, bibliography: bibliography) : html
         resolveCitations()
-        return replacing("M", in: replacing("C", in: replacing("R", in: replacing("T", in: html))))
+        return replacing("M", in: replacing("C", in: replacing("R", in: replacing("T", in: body))))
     }
 
     private var resolvedCitations: [String] = []
@@ -212,7 +254,14 @@ final class LaTeXDocument {
     /// does, so the reader can tell which source is meant. Each piece is checked against `limit` before it is added;
     /// nil when the citation would pass it.
     private func citationHTML(_ citation: Citation, before index: Int, limit: Int) -> String? {
-        var html = "<span class=\"latex-cite\">["
+        let authorOnly = citation.command == "citeauthor"
+        let yearOnly = citation.command == "citeyear"
+        let hasDatabaseLabel = citation.keys.contains { bibDatabase.citationLabels[$0] != nil }
+        let authorYear = hasDatabaseLabel && bibDatabase.authorYear
+        let textual = hasDatabaseLabel && ["citet", "textcite"].contains(citation.command)
+        let bare = (hasDatabaseLabel && (authorOnly || yearOnly)) || textual
+        let close = bare ? "" : authorYear ? ")" : "]"
+        var html = "<span class=\"latex-cite\">" + (bare ? "" : authorYear ? "(" : "[")
         func add(_ piece: String) -> Bool {
             guard let filled = filled(piece, below: index, limit: limit - html.utf8.count) else { return false }
             html += filled
@@ -220,16 +269,41 @@ final class LaTeXDocument {
         }
         if let before = citation.before, !before.isEmpty, !add(before + " ") { return nil }
         for (position, key) in citation.keys.enumerated() {
-            if position > 0, !add(", ") { return nil }
+            if position > 0, !add(authorYear && !bare ? "; " : ", ") { return nil }
             if let entry = bibliography[key] {
                 // The label goes in on its own, so a label too long is turned down before it is copied anywhere.
-                guard add("<a href=\"#\(HTML.escape(entry.id))\">"), add(entry.label), add("</a>") else { return nil }
+                func addLinked(_ text: String) -> Bool {
+                    entry.id.isEmpty
+                        ? add(text)
+                        : add("<a href=\"#\(HTML.escape(entry.id))\">") && add(text) && add("</a>")
+                }
+                if let label = bibDatabase.citationLabels[key], authorOnly || yearOnly || textual {
+                    if authorOnly {
+                        guard addLinked(label.author) else { return nil }
+                    } else if yearOnly {
+                        guard addLinked(label.year) else { return nil }
+                    } else {
+                        guard add(label.author), add(authorYear ? " (" : " ["),
+                            addLinked(authorYear ? label.year : entry.label)
+                        else { return nil }
+                        if position == citation.keys.count - 1, let after = citation.after, !after.isEmpty {
+                            guard add(", "), add(after) else { return nil }
+                        }
+                        guard add(authorYear ? ")" : "]") else { return nil }
+                    }
+                } else if !addLinked(entry.label) {
+                    return nil
+                }
             } else if !add("<span class=\"latex-missing\">\(HTML.escape(key))</span>") {
                 return nil
             }
         }
-        if let after = citation.after, !after.isEmpty, !add(", " + after) { return nil }
-        return add("]</span>") ? html : nil
+        if !textual || citation.keys.last.flatMap({ bibDatabase.citationLabels[$0] }) == nil,
+            let after = citation.after, !after.isEmpty, !add(", " + after)
+        {
+            return nil
+        }
+        return add(close + "</span>") ? html : nil
     }
 
     /// A piece of a citation with its references and earlier citations filled in, or nil once it would pass `limit`.
@@ -267,7 +341,7 @@ final class LaTeXDocument {
 
     /// Fills in one kind of placeholder. The table of contents and citations can be long and a placeholder can be
     /// repeated (in a theorem heading printed many times), so what they add in one pass has a budget.
-    private func replacing(_ kind: String, in html: String) -> String {
+    private func replacing(_ kind: String, in html: String, bibliography: String = "") -> String {
         guard html.contains("\u{E000}\(nonce)\(kind)"),
             let regex = try? NSRegularExpression(pattern: "\u{E000}\(nonce)\(kind)([0-9]+)\u{E001}")
         else { return html }
@@ -277,11 +351,27 @@ final class LaTeXDocument {
         // Four MB allows rendered math and a long contents list. Omit excess contents or abbreviate other output.
         var budget = 4_000_000
         var contents: String?
+        var repeatedBibliography: String?
         for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
             output += nsHTML.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
             cursor = match.range.location + match.range.length
             let index = Int(nsHTML.substring(with: match.range(at: 1))) ?? -1
             switch kind {
+            case "B":
+                if bibliography.utf8.count <= budget {
+                    if index == 0 {
+                        output += bibliography
+                    } else {
+                        // Citation links have a single destination even if the author prints the list twice.
+                        let repeated =
+                            repeatedBibliography
+                            ?? bibliography.replacingOccurrences(
+                                of: #"<li id="bib-db-[0-9]+">"#, with: "<li>", options: .regularExpression)
+                        repeatedBibliography = repeated
+                        output += repeated
+                    }
+                    budget -= bibliography.utf8.count
+                }
             case "T":
                 let toc = contents ?? tableOfContents()
                 contents = toc
@@ -319,7 +409,8 @@ final class LaTeXDocument {
     private func tableOfContents() -> String {
         let entries = headings.filter { $0.number != nil }
         guard let top = entries.map(\.level).min() else { return "" }
-        var html = "<nav class=\"toc\">"
+        let title = isJapanese ? "目次" : "Contents"
+        var html = "<nav class=\"toc\"><p class=\"latex-contents-title\">\(title)</p>"
         var depth = 0
         var open: [Bool] = []
         for entry in entries {
@@ -336,7 +427,8 @@ final class LaTeXDocument {
             }
             if open.last == true { html += "</li>" }
             let number = entry.number.map { "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
-            html += "<li><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"
+            let kind = entry.level == 0 ? " class=\"latex-toc-chapter\"" : ""
+            html += "<li\(kind)><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"
             open[open.count - 1] = true
         }
         while depth > 0 {
@@ -354,11 +446,16 @@ final class LaTeXDocument {
         let names =
             (file as NSString).pathExtension.isEmpty
             ? ["pdf", "png", "jpg", "jpeg", "svg", "gif"].map { file + "." + $0 } : [file]
-        for folder in [""] + graphicsPaths {
-            for name in names
-            where imageExists(directory.appending(path: folder + name)) {
-                return folder + name
+        for base in searchDirectories {
+            for folder in [""] + graphicsPaths {
+                for name in names {
+                    let url = base.appending(path: folder + name)
+                    if imageExists(url) { return resourceSource(url, relativeTo: directory) }
+                }
             }
+        }
+        if let base = inputChain.last?.deletingLastPathComponent() {
+            return resourceSource(base.appending(path: file), relativeTo: directory)
         }
         return file
     }

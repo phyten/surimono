@@ -22,7 +22,8 @@ struct SyntaxLanguage: Sendable {
             "csharp cs c#", "objectivec objc objective-c m mm", "php", "shell sh bash zsh console shellsession",
             "json jsonc json5", "yaml yml", "toml", "ini cfg conf properties", "html htm xhtml vue svelte",
             "xml svg plist xsl rss atom", "css scss less", "sql mysql postgresql postgres psql sqlite",
-            "dockerfile docker", "makefile make mk", "diff patch", "lua",
+            "dockerfile docker", "makefile make mk", "diff patch", "lua", "r", "julia jl",
+            "matlab octave", "latex tex", "haskell hs",
         ]
         var result: [String: String] = [:]
         for group in groups {
@@ -37,7 +38,7 @@ struct SyntaxLanguage: Sendable {
     static let displayNames = [
         "javascript": "JavaScript", "typescript": "TypeScript", "cpp": "C++", "csharp": "C#",
         "objectivec": "Objective-C", "php": "PHP", "json": "JSON", "yaml": "YAML", "toml": "TOML", "ini": "INI",
-        "html": "HTML", "xml": "XML", "css": "CSS", "sql": "SQL", "diff": "diff",
+        "html": "HTML", "xml": "XML", "css": "CSS", "sql": "SQL", "diff": "diff", "matlab": "MATLAB", "latex": "LaTeX",
     ]
 
     static func definition(_ id: String) -> Self {
@@ -57,11 +58,18 @@ struct SyntaxLanguage: Sendable {
             language.lineComments.append("#")
         }
         if ["toml", "ini"].contains(id) { language.lineComments.append(";") }
-        if ["sql", "lua"].contains(id) { language.lineComments = ["--"] }
+        if ["sql", "lua", "haskell"].contains(id) { language.lineComments = ["--"] }
         if id == "sql" { language.blockComments = [("/*", "*/")] }
         if id == "lua" { language.blockComments = [("--[[", "]]")] }
+        if id == "latex" { language.lineComments = ["%"] }
+        if id == "matlab" {
+            language.lineComments = ["%", "#"]
+            language.blockComments = [("%{", "%}"), ("#{", "#}")]
+        }
+        if id == "haskell" { language.blockComments = [("{-", "-}")] }
+        if id == "julia" { language.blockComments = [("#=", "=#")] }
         if id == "css" { language.lineComments = [] }
-        language.nestedComments = ["swift", "rust"].contains(id)
+        language.nestedComments = ["swift", "rust", "haskell", "julia"].contains(id)
         language.capitalizedTypes = ["swift", "kotlin", "java", "csharp", "typescript", "rust", "objectivec", "cpp"]
             .contains(id)
         language.decorators = ["swift", "java", "kotlin", "python", "typescript", "objectivec"].contains(id)
@@ -70,6 +78,8 @@ struct SyntaxLanguage: Sendable {
         case "swift", "ruby", "go", "lua": language.literals = words("true false nil")
         case "javascript", "typescript": language.literals = words("true false null undefined NaN Infinity")
         case "python": language.literals = words("True False None")
+        case "latex": language.literals = []
+        case "haskell": language.literals = words("True False Nothing")
         case "r": language.literals = words("TRUE FALSE NULL NA NaN Inf")
         case "julia": language.literals = words("true false nothing missing NaN Inf")
         case "rust": language.literals = words("true false None")
@@ -101,6 +111,15 @@ struct SyntaxLanguage: Sendable {
                 "and as assert async await break case class continue def del elif else except finally for from global if import in is lambda match nonlocal not or pass raise return try while with yield"
             types = "int float str bool list dict tuple set bytes object"
             builtins = "print len range enumerate zip map filter open sum min max sorted isinstance super input"
+        case "matlab":
+            keywords =
+                "function end endfunction if elseif else endif for endfor while endwhile switch case otherwise try catch break continue return classdef properties methods global persistent"
+            builtins = "disp plot zeros ones eye size length sum mean linspace"
+        case "haskell":
+            keywords =
+                "module import qualified as hiding data newtype type class instance deriving where let in case of if then else do infix infixl infixr default"
+            types = "Int Integer Double Float String Char Bool Maybe Either IO"
+            builtins = "print putStrLn map filter foldl foldr length sum"
         case "r":
             keywords = "if else repeat while function for in next break return"
             builtins = "c list data.frame matrix mean sum length seq print plot library"

@@ -34,6 +34,25 @@ struct PageFootnotesTests {
         }
     }
 
+    @Test("謝辞と章で振り直した脚注を文末の元の順に残し、同じ文書の本文脚注をページ下へ移す")
+    func mixedFootnoteIDs() throws {
+        let titleNote = #"<li id="fn-symbol-1"><p><sup>*</sup>Title</p></li>"#
+        let repeatedNote = #"<li id="fn-repeat-4" value="1"><p>Chapter two</p></li>"#
+        let html =
+            "<p>\(reference(1))</p><table>\(reference(2))</table><section class=\"footnotes\"><ol>"
+            + titleNote + "<li id=\"fn-1\">Move</li><li id=\"fn-2\">Table</li>" + repeatedNote + "</ol></section>"
+        let plan = try #require(PageFootnotes.plan(for: html))
+        #expect(plan.eligibleNotes == [1])
+        let remaining = titleNote + "<li id=\"fn-2\" value=\"2\">Table</li>" + repeatedNote
+        for rendered in [
+            plan.measuringHTML(placing: [1]),
+            plan.reservingHTML(groups: [.init(firstReference: 0, notes: [1], heightPixels: 24)]),
+        ] {
+            #expect(rendered.contains("<ol>" + remaining + "</ol>"))
+            #expect(rendered.contains(#"<div class="paper-footnote" id="fn-1">"#))
+        }
+    }
+
     @Test("最初の参照が表の中にある脚注は後で本文から参照しても文末に残す")
     func firstReferenceDecides() throws {
         let html = "<table>\(reference(1))</table><p>\(reference(1))</p><p>\(reference(2))</p>" + notes(["残す", "移す"])

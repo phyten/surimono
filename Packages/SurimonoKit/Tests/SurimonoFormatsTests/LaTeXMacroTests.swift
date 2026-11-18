@@ -24,7 +24,7 @@ struct LaTeXMacroTests {
     func renewBuiltInEnvironment() {
         let html = body(
             #"\begin{quote}前\end{quote}\renewenvironment*{quote}[1][中]{〈#1}{〉}\begin{quote}[後]文\end{quote}"#)
-        #expect(html == "<blockquote>\n<p>前</p>\n</blockquote>\n<p>〈後文〉</p>\n")
+        #expect(html == "<blockquote>\n<p>前</p>\n</blockquote>\n<p class=\"latex-noindent\">〈後文〉</p>\n")
     }
 
     @Test("区切り付き引数はグループ内の区切りを飛ばし一重の括弧を外す")
@@ -170,7 +170,7 @@ struct LaTeXMacroTests {
     @Test("align の各行の式中でその行のカウンター値を使う")
     func rowCountersInMath() {
         let html = body(#"\begin{align}x&=\theequation\\y&=\theequation\end{align}"#)
-        #expect(html.contains(#"x&amp;=1\tag{1}\\y&amp;=2\tag{2}"#))
+        #expect(html.contains(#"x&amp;=1\\y&amp;=2"#))
     }
 
     @Test("数式用の番号を読むときは書式に紛れたカウンター代入を実行しない")
@@ -185,7 +185,8 @@ struct LaTeXMacroTests {
             #"\NewDocumentCommand\pick{s m m}{\IfBooleanTF{#1}{#2}{#3}}"#
                 + #"\begin{equation}\pick*{x\label{hit}}{y\label{miss}}\end{equation}"#
                 + #"\ref{hit}/\ref{miss}"#)
-        #expect(html.contains(##"<a href="#eq-1">1</a>/<span class="latex-missing">??</span>"##))
+        #expect(
+            html.contains(##"<a class="latex-number-ref" href="#eq-1">1</a>/<span class="latex-missing">??</span>"##))
     }
 
     @Test("数式中の自己参照も本文と同じ展開上限で止まる", .timeLimit(.minutes(1)))

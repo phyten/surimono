@@ -70,10 +70,14 @@ nonisolated enum ShortcutLayout: String, AppEnum {
 
 /// The styles to pick from, by the names the style menus show. A name typed by hand works as well.
 nonisolated struct ShortcutStyleOptions: DynamicOptionsProvider {
+    @MainActor @IntentParameterDependency<ExportPDFIntent>(\.$file) var export
+
     @MainActor
     func results() async throws -> [String] {
         let language = Bundle.main.preferredLocalizations.first ?? "en"
-        return (ShortcutEnvironment.library ?? UserLibrary()).themes.map { $0.displayName(language: language) }
+        let format = (export?.file).flatMap(ShortcutFiles.format(of:))
+        return (ShortcutEnvironment.library ?? UserLibrary()).themes.filter { $0.supports(format) }
+            .map { $0.displayName(language: language) }
     }
 }
 

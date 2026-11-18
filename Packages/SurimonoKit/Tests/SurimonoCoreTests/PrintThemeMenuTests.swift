@@ -87,6 +87,48 @@ struct PrintThemeMenuTests {
         #expect(ids(menu, .recent) == nil)
     }
 
+    @Test("LaTeXでは専用分類が先頭に並び、Markdownでは履歴・お気に入り・検索にも現れない")
+    func scopedCatalog() throws {
+        let all = try PrintThemeLibrary.load()
+        let groups = try PrintThemeLibrary.categories()
+        let category = try #require(groups.first { $0.id == "latex" })
+        let specific = ["latex-article", "latex-report", "latex-plain-ja"]
+        func menu(_ format: DocumentFormat) -> PrintThemeMenu {
+            PrintThemeMenu(
+                themes: all, categories: groups, recentIDs: ["latex-report", "standard"],
+                favoriteIDs: ["latex-plain-ja", "latex"], format: format)
+        }
+        let tex = menu(.latex)
+        #expect(tex.sections.first?.kind == .category(category))
+        #expect(tex.sections.first?.themes.map(\.id) == specific)
+        #expect(ids(tex, .recent) == ["latex-report", "standard"])
+        #expect(ids(tex, .favorites) == ["latex-plain-ja", "latex"])
+        let md = menu(.markdown)
+        #expect(md.sections.prefix(3).map(\.kind) == [.recent, .favorites, .featured])
+        #expect(ids(md, .category(category)) == nil)
+        #expect(ids(md, .recent) == ["standard"])
+        #expect(ids(md, .favorites) == ["latex"])
+        #expect(
+            PrintThemeMenu.search("LaTeX", in: all, categories: groups, language: "ja", format: .markdown).map(\.id)
+                == ["latex"])
+        #expect(all.filter { $0.supports(.markdown) }.count == 108)
+        #expect(all.filter { $0.supports(.latex) }.count == 111)
+    }
+
+    @Test("スタイルとカテゴリーの両方の形式指定を検索と最近使った項目に適用する")
+    func individualAndGroupFormats() {
+        let category = PrintThemeCategory(id: "scoped", name: "Group", formats: [.latex, .markdown])
+        let style = PrintTheme(id: "example", name: "Example", css: "", category: "scoped", formats: [.latex, .org])
+        for format in [DocumentFormat.markdown, .org, .latex] {
+            let menu = PrintThemeMenu(
+                themes: [style], categories: [category], recentIDs: ["example"], favoriteIDs: [], format: format)
+            let found = PrintThemeMenu.search(
+                "example", in: [style], categories: [category], language: "en", format: format)
+            #expect(ids(menu, .recent) == (format == .latex ? ["example"] : nil))
+            #expect(found.map(\.id) == (format == .latex ? ["example"] : []))
+        }
+    }
+
     @Test("選んだテーマは最近使ったものの先頭へ移り、6つ目からは古いものが落ちる")
     func recording() {
         #expect(PrintThemeMenu.recording("b", in: ["a", "b", "c"]) == ["b", "a", "c"])

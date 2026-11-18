@@ -65,6 +65,74 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test(
+        "LaTeXは文書クラスに合う既定スタイルで開き、明示的に選んだスタイルだけを記憶する", .timeLimit(.minutes(1)),
+        arguments: [
+            ("article", "latex-article"), ("book", "latex-report"), ("report", "latex-report"),
+            ("jsarticle", "latex-plain-ja"), ("ltjsreport", "latex-plain-ja"), ("ltjsbook", "latex-plain-ja"),
+        ])
+    func latexClassStyle(documentClass: String, expected: String) async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        fixture.preferences.themeID = "compact"
+        let bytes = Data("\\documentclass{\(documentClass)}\\begin{document}Body\\end{document}".utf8)
+        let page = pdf("Body", pages: 1)
+        func makeModel(_ format: DocumentFormat) -> DocumentViewModel {
+            DocumentViewModel(
+                data: bytes, fileURL: nil, format: format, preferences: fixture.preferences,
+                library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in try #require(PDFDocument(data: page)) }),
+                settingsStore: fixture.store)
+        }
+        let original = makeModel(.latex)
+        try await open(original)
+        #expect(original.themeID == expected)
+        original.rememberedSettingsDidChange()
+        original.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+        #expect(fixture.preferences.recentThemeIDs.isEmpty)
+        original.selectTheme("latex-report" == expected ? "latex-article" : "latex-report")
+        original.rememberedSettingsDidChange()
+        original.flushPendingSettings()
+        #expect(original.hasSavedSettings)
+        original.stop()
+        let restored = makeModel(.latex)
+        defer { restored.stop() }
+        try await open(restored)
+        #expect(restored.themeID == original.themeID)
+        // A clipboard document may reinterpret exactly the same bytes, and so encounter the same saved record.
+        let markdown = makeModel(.markdown)
+        defer { markdown.stop() }
+        try await open(markdown)
+        #expect(markdown.themeID == "compact")
+        #expect(!markdown.availableThemes.contains { $0.id == original.themeID })
+    }
+
+    @Test("別ファイルの文書クラスを既定に使い、前置きだけを変えて読み直しても設定を保存しない", .timeLimit(.minutes(1)))
+    func includedClassStyle() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let bytes = Data(#"\input{preamble}\begin{document}Body\end{document}"#.utf8)
+        let main = try fixture.file(bytes, named: "main.tex")
+        let preamble = try fixture.file(Data(#"\documentclass{ltjsarticle}"#.utf8), named: "preamble.tex")
+        let page = pdf("Body", pages: 1)
+        let renderer = DocumentRenderer(
+            isSandboxed: { false }, paginate: { _ in try #require(PDFDocument(data: page)) })
+        let model = DocumentViewModel(
+            data: bytes, fileURL: main, format: .latex, preferences: fixture.preferences,
+            library: fixture.library, renderer: renderer, settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.themeID == "latex-plain-ja")
+        try Data(#"\documentclass{report}"#.utf8).write(to: preamble)
+        model.reload()
+        try await waitUntil { model.themeID == "latex-report" && !model.isRendering }
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+        #expect(fixture.preferences.recentThemeIDs.isEmpty)
+    }
+
     @Test("文書の指示は既定値とセットに重なり保存や最近使った記録を作らない", .timeLimit(.minutes(1)))
     func documentDirectivesDefaults() async throws {
         let fixture = try environment()

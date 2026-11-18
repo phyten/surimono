@@ -248,10 +248,10 @@ struct ComputationalMarkdownTests {
         #expect(!html.contains("href=\"#extra\""))
     }
 
-    @Test("通常のMarkdownのRコードと区別して計算文書で色付けする")
+    @Test("通常のMarkdownでも計算文書でも静的なRコードを色付けする")
     func staticListing() {
         let source = "~~~r\nprint(42)\n~~~"
-        #expect(MarkdownConverter.convert(source).body.contains("class=\"language-r\""))
+        #expect(MarkdownConverter.convert(source).body.contains("class=\"language-r hl\""))
         #expect(ComputationalMarkdown.convert(source).body.contains("class=\"language-r hl\""))
     }
 }

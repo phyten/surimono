@@ -1,0 +1,32 @@
+/* report/book put the title on its own page and begin each chapter on a fresh one.
+   Padding rather than a collapsing margin keeps the chapter head away from the page edge. */
+body { word-spacing: 0.083em; }
+.latex-title-block { padding-block-start: min(37vh, 28em); break-after: page; page-break-after: always; }
+body[data-latex-chapters="true"] h2[id^="sec-"] {
+    break-before: page; page-break-before: always;
+    padding-block-start: 2.2em; margin-block: 0 1.3em; font-size: calc(var(--tex-Huge) * var(--tex-pt));
+}
+body[data-latex-chapters="true"] h2 > .secnum { display: block; font-size: 0.84em; margin: 0 0 0.7em; }
+body[data-latex-chapters="true"] h3 { font-size: calc(var(--tex-Large) * var(--tex-pt)); }
+body[data-latex-chapters="true"] h4 { font-size: calc(var(--tex-large) * var(--tex-pt)); }
+body[data-latex-chapters="true"] nav.toc, body[data-latex-chapters="true"] .abstract {
+    break-before: page; page-break-before: always; break-after: page; page-break-after: always;
+    margin: 0;
+}
+body[data-latex-chapters="true"] .latex-contents-title {
+    --tex-toc-title: 20.74;
+    padding-block-start: calc(50 * var(--tex-pt)); margin-block-end: calc(40 * var(--tex-pt));
+    font-size: calc(var(--tex-toc-title) * var(--tex-pt)); line-height: 1.2; font-weight: bold;
+}
+body[data-latex-chapters="true"][data-latex-size="12"] .latex-contents-title { --tex-toc-title: 24.88; }
+body[data-latex-chapters="true"] nav.toc .latex-toc-chapter { margin-block-start: 1em; }
+body[data-latex-chapters="true"] nav.toc .latex-toc-chapter > a { font-weight: bold; }
+body[data-latex-chapters="true"] .abstract {
+    padding-block-start: min(33vh, 24em); font-size: inherit; line-height: inherit;
+}
+body[data-latex-chapters="true"] .abstract p { text-indent: 0; }
+body[data-latex-chapters="true"] .abstract-title { text-align: center; font-weight: bold; margin-block-end: 1em; }
+/* A title, contents or abstract already ended its page; honor only one break at that boundary. */
+body[data-latex-chapters="true"] :is(nav.toc, .abstract, .latex-title-block) + :is(h2[id^="sec-"], nav.toc, .abstract) {
+    break-before: auto; page-break-before: auto;
+}

@@ -471,16 +471,17 @@ extension DocumentRenderer {
         let access =
             SandboxEnvironment.isSandboxed
             ? source.fileURL.map { LocalResourceAccess(documentURL: $0, folders: source.allowedResourceFolders) } : nil
+        // Text formats stand upright unless the paper is turned by hand, as in pagination.
+        let layout = settings.layout.oriented(
+            settings.layout.kind != .booklet && settings.paperOrientation == .landscape)
         guard source.format.usesPrintTheme,
             let fragment = try themedFragment(
                 source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
+                textWidthPoints: settings.textWidthPoints(in: layout), access: access,
                 imageExists: { url in
                     (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
                 })
         else { return nil }
-        // Text formats stand upright unless the paper is turned by hand, as in pagination.
-        let layout = settings.layout.oriented(
-            settings.layout.kind != .booklet && settings.paperOrientation == .landscape)
         let directory = source.fileURL?.deletingLastPathComponent()
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,

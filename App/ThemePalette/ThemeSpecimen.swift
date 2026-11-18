@@ -15,8 +15,26 @@ enum ThemeSpecimen {
             preset: HTMLCleanupPreset(id: "none", name: "None"))
     }
 
-    static func source(language: String) -> DocumentSource {
-        DocumentSource(data: Data(markdown(language: language).utf8), format: .markdown)
+    static func source(language: String, format: DocumentFormat? = nil) -> DocumentSource {
+        if format == .latex {
+            // A Markdown specimen lacks the title, section and equation markup these styles are designed to print.
+            let code = UILanguage.candidates(for: language).first(where: UILanguage.supported.contains) ?? "en"
+            let bundle = Bundle.main.path(forResource: code, ofType: "lproj").flatMap(Bundle.init(path:)) ?? .main
+            func sample(_ key: String) -> String { bundle.localizedString(forKey: key, value: key, table: nil) }
+            let source = #"""
+                \documentclass{\#(code == "ja" ? "jsarticle" : "article")}
+                \title{\#(sample("A Little Library"))}\author{Surimono}\date{}
+                \begin{document}\maketitle
+                \section{\#(sample("Today’s reading"))}
+                \#(sample("An open book changes the everyday view."))
+
+                \#(sample("Keep a few words on paper, then look for the next book on the shelf."))
+                \begin{equation}S_n = \sum_{k=1}^{n} k = \frac{n(n+1)}{2}\end{equation}
+                \end{document}
+                """#
+            return DocumentSource(data: Data(source.utf8), format: .latex)
+        }
+        return DocumentSource(data: Data(markdown(language: language).utf8), format: .markdown)
     }
 
     /// Running text around one of each element (headings, a list, a table, code, a quote), long enough to fill most of

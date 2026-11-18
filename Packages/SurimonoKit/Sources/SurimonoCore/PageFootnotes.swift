@@ -36,6 +36,12 @@ public enum PageFootnotes {
         }
     }
 
+    /// Numeric IDs can be measured and moved. Other notes keep their original list item, in document order.
+    fileprivate enum Endnote: Sendable {
+        case numbered(index: Int)
+        case original(Range<Int>)
+    }
+
     public struct Plan: Sendable {
         public let references: [Reference]
         public var eligibleNotes: Set<Int> { Set(references.filter(\.eligible).map(\.note)) }
@@ -47,6 +53,7 @@ public enum PageFootnotes {
         fileprivate let tokens: [String]
         fileprivate let section: Range<Int>
         fileprivate let notes: [Note]
+        fileprivate let endnoteOrder: [Endnote]
 
         public func measuringHTML(placing: Set<Int>) -> String { html(placing: placing, groups: []) }
 
@@ -56,8 +63,16 @@ public enum PageFootnotes {
 
         private func html(placing: Set<Int>, groups: [Group]) -> String {
             let placing = placing.intersection(eligibleNotes)
-            let remaining = notes.filter { !placing.contains($0.number) }.map {
-                "<li id=\"fn-\($0.number)\" value=\"\($0.number)\"\($0.blockAttribute)>\($0.inner)</li>"
+            let remaining = endnoteOrder.compactMap { entry -> String? in
+                switch entry {
+                case .original(let range):
+                    return tokens[range].joined()
+                case .numbered(let index):
+                    let note = notes[index]
+                    guard !placing.contains(note.number) else { return nil }
+                    return "<li id=\"fn-\(note.number)\" value=\"\(note.number)\"\(note.blockAttribute)>"
+                        + "\(note.inner)</li>"
+                }
             }.joined()
             let endnotes = remaining.isEmpty ? "" : "<section class=\"footnotes\"><ol>\(remaining)</ol></section>"
             var insertions: [Int: String] = [:]
@@ -101,6 +116,7 @@ public enum PageFootnotes {
         var stack: [(name: String, start: Int, blocked: Bool, footnotes: Bool)] = []
         var section: Range<Int>?
         var notes: [Note] = []
+        var endnoteOrder: [Endnote] = []
         var references: [Reference] = []
         var pending: (start: Int, note: Int, eligible: Bool)?
         for (index, token) in tokens.enumerated() {
@@ -115,13 +131,21 @@ public enum PageFootnotes {
                 }
                 if tag.name == "li", element.footnotes,
                     !stack[..<opening].contains(where: { $0.name == "li" }),
-                    case .tag(let start) = tokens[element.start],
-                    let id = start.attribute("id"), id.hasPrefix("fn-"), let number = Int(id.dropFirst(3)), number > 0
+                    case .tag(let start) = tokens[element.start]
                 {
-                    notes.append(
-                        Note(
-                            number: number, inner: sources[(element.start + 1)..<index].joined(),
-                            blockID: start.attribute("data-surimono-block")))
+                    if let id = start.attribute("id"), id.hasPrefix("fn-"), let number = Int(id.dropFirst(3)),
+                        number > 0
+                    {
+                        endnoteOrder.append(.numbered(index: notes.count))
+                        notes.append(
+                            Note(
+                                number: number, inner: sources[(element.start + 1)..<index].joined(),
+                                blockID: start.attribute("data-surimono-block")))
+                    } else {
+                        // A symbolic title note or a restarted chapter series cannot use the numeric stock
+                        // markers. Keep its full markup, including its anchor and the author's printed label.
+                        endnoteOrder.append(.original(element.start..<(index + 1)))
+                    }
                 }
                 if tag.name == "section", case .tag(let start) = tokens[element.start], hasClass("footnotes", start) {
                     // Multiple footnote sections or duplicate ids are ambiguous; keep the original pagination.
@@ -158,7 +182,7 @@ public enum PageFootnotes {
                 eligible: $0.eligible && numbers.contains($0.note) && firstEligible[$0.note] == true, end: $0.end)
         }
         guard references.contains(where: \.eligible) else { return nil }
-        return Plan(references: references, tokens: sources, section: section, notes: notes)
+        return Plan(references: references, tokens: sources, section: section, notes: notes, endnoteOrder: endnoteOrder)
     }
 
     private static func hasClass(_ name: String, _ tag: HTMLScanner.Tag) -> Bool {

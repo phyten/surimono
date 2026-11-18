@@ -227,6 +227,17 @@ nav.toc a { text-decoration: none; }
 .math-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0 0.2em; white-space: pre-wrap; }
 
 /* LaTeX documents (LaTeXConverter). Plain HTML elements carry the structure, so the print themes style them too. */
+.format-latex .latex-logo { display: inline-block; white-space: nowrap; letter-spacing: normal; }
+/* Each inline-block starts a new line box. Inheriting the paragraph indent would put
+   a second first-line indent inside the logo, label or neighboring minipage. */
+.format-latex :is(.latex-logo, .latex-minipage, .item-label, .bib-label, .latex-hspace, .latex-symbolic-note, .paper-footnote-room) {
+    text-indent: 0;
+}
+.format-latex .latex-logo-e { position: relative; top: 0.2em; margin-inline: -0.16em -0.12em; text-transform: uppercase; }
+.format-latex .latex-logo-a { position: relative; top: -0.45em; font-size: 0.72em; margin-inline: -0.32em -0.17em; text-transform: uppercase; }
+.format-latex .latex-logo-ib { font-variant: small-caps; }
+.format-latex .latex-logo-epsilon { vertical-align: -0.18em; font-size: 0.77em; }
+.format-latex p.latex-noindent { text-indent: 0; }
 .latex-title-block { text-align: center; margin-bottom: 1.5em; }
 .latex-title-block > :first-child { margin-top: 0; }
 .latex-author, .latex-date { margin: 0.3em 0; }
@@ -242,11 +253,29 @@ figure.latex-table > table { margin-inline: auto; }
 figcaption { margin: 0.4em 0; font-size: 0.95em; }
 .latex-caption-label { font-weight: 700; }
 img.latex-graphic { max-width: 100%; }
+.latex-box-fill { text-align-last: justify; }
+.latex-minipage { display: inline-block; box-sizing: border-box; max-width: 100%; text-align: justify; text-align-last: auto; }
+.format-latex .latex-minipage p { text-indent: 0; }
+.latex-minipage > :first-child { margin-block-start: 0; }
+.latex-minipage > :last-child { margin-block-end: 0; }
+figure.latex-longtable, table.latex-longtable { break-inside: auto; page-break-inside: auto; }
+.latex-longtable > thead { display: table-header-group; break-inside: avoid; page-break-inside: avoid; }
 ol.latex-enumerate, li.latex-custom-label { list-style: none; }
 .item-label { display: inline-block; min-width: 1.8em; margin-inline-start: -2.2em; margin-inline-end: 0.4em; text-align: end; }
 .latex-description dd { margin-inline-start: 2em; }
 table.latex-tabular th, table.latex-tabular td { border: none; padding: 0.2em 0.6em; }
+/* Preserve the semantic rule weights in all styles. The TeX class styles paint fractional-point rules. */
+table.latex-tabular .latex-top-heavy { border-block-start: var(--latex-heavy-rule, 1pt) solid currentColor; }
+table.latex-tabular .latex-bottom-heavy { border-block-end: var(--latex-heavy-rule, 1pt) solid currentColor; }
+table.latex-tabular .latex-top-light { border-block-start: var(--latex-light-rule, 0.5pt) solid currentColor; }
+table.latex-tabular .latex-bottom-light { border-block-end: var(--latex-light-rule, 0.5pt) solid currentColor; }
+table.latex-tabular .latex-top-double { border-block-start: 2pt double currentColor; }
+table.latex-tabular .latex-bottom-double { border-block-end: 2pt double currentColor; }
 .latex-equation { position: relative; }
+.format-latex .eqno, .format-latex .latex-row-number, .format-latex .latex-number-ref, .format-latex .latex-pageref { font-style: normal; }
+.format-latex .math-display:has(> .latex-row-number) { position: relative; padding-inline: 2em; }
+.format-latex .math-display:has(> .latex-row-number) > svg { display: block; margin-inline: auto; }
+.format-latex .latex-row-number { position: absolute; inset-inline-end: 0; line-height: 1; transform: translateY(-0.8em); }
 .latex-equation > .eqno { position: absolute; inset-inline-end: 0; top: 50%; transform: translateY(-50%); }
 span.wiki-note { display: inline-block; }
 .wiki-note,
@@ -266,6 +295,50 @@ span.wiki-note { display: inline-block; }
 .latex-fbox { border: 0.5pt solid currentColor; }
 .latex-hspace { display: inline-block; }
 .latex-url { font-family: "SFMono-Regular", Menlo, monospace; font-size: 0.9em; }
+/* A superscript can paint just outside SwaTex's SVG. Keep that ink inside the unbroken
+   display box when WebKit clips the two adjacent printable areas at the same boundary. */
+.format-latex .math-block { padding-block: 0.15em; }
+.format-latex pre { text-align: start; text-align-last: auto; text-indent: 0; }
+.format-latex .latex-verbatim pre { margin-inline: 0; padding-inline-start: 0; }
+.format-latex .latex-frame-single pre { border: 0.5pt solid currentColor; padding: 0.4em; }
+.format-latex .latex-frame-lines pre { border: none; border-block: 0.5pt solid currentColor; padding-block: 0.4em; }
+.format-latex .latex-frame-none pre { border: none; }
+.format-latex .latex-wrap-code :is(pre, code, .code-src) { white-space: pre-wrap; overflow-wrap: anywhere; }
+.format-latex .latex-sized-code pre, .format-latex .latex-inline-listing[style*="--latex-code-size:"] code { font-size: var(--latex-code-size); }
+.format-latex .latex-sized-code pre code { font-size: inherit; }
+/* Listings uses one basic face for identifiers and all token classes without an explicit style.
+   Scope declarations to this listing: the next language can inherit or override the same lstset. */
+.format-latex :is(.latex-inline-listing, .latex-basic-listing) code {
+    color: var(--latex-code-ink, inherit);
+    font-weight: var(--latex-code-weight, inherit);
+    font-style: var(--latex-code-shape, inherit);
+}
+body.format-latex .latex-styled-listing .hl-keyword {
+    color: var(--latex-keyword-ink, inherit); font-weight: var(--latex-keyword-weight, inherit);
+    font-style: var(--latex-keyword-shape, inherit); font-size: var(--latex-keyword-size, inherit);
+}
+body.format-latex .latex-styled-listing .hl-comment {
+    color: var(--latex-comment-ink, inherit); font-weight: var(--latex-comment-weight, inherit);
+    font-style: var(--latex-comment-shape, inherit); font-size: var(--latex-comment-size, inherit);
+}
+body.format-latex .latex-styled-listing .hl-string {
+    color: var(--latex-string-ink, inherit); font-weight: var(--latex-string-weight, inherit);
+    font-style: var(--latex-string-shape, inherit); font-size: var(--latex-string-size, inherit);
+}
+/* Source-requested numbers also print when the user's code style uses its default settings. */
+/* The frame is the containing block. Each number keeps its source line's static vertical
+   position; its right edge sits outside the frame regardless of the padding inside it. */
+.format-latex .latex-numbered-listing pre { position: relative; overflow: visible; }
+.format-latex .latex-numbered-listing .code-line,
+.format-latex .latex-numbered-listing .code-src { display: block; }
+.format-latex .latex-numbered-listing .code-line { position: static; padding-inline-start: 0; }
+.format-latex .latex-numbered-listing .code-line[data-no]::before {
+    content: attr(data-no); position: absolute;
+    inset: auto; inset-inline-end: calc(100% + 0.7em); width: auto;
+    font-size: var(--latex-number-size, 0.8em); color: var(--latex-number-ink, #666);
+    font-weight: var(--latex-number-weight, normal); font-style: var(--latex-number-shape, normal);
+    text-align: end;
+}
 .latex-missing { font-weight: 700; }
 .latex-verse { white-space: pre-line; }
 .latex-theorem, .latex-proof { margin: 0.8em 0; }

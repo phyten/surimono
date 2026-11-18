@@ -32,8 +32,10 @@ struct LaTeXConverterTests {
                 "\\section{前}\\label{a}\n\\ref{b}節へ\n\\section{後}\\label{b}\n\\subsection{細目}\n\\ref{a}と\\ref{none}"))
         #expect(html.contains("<h2 id=\"sec-1\"><span class=\"secnum\">1</span>前</h2>"))
         #expect(html.contains("<h3 id=\"sec-2-1\"><span class=\"secnum\">2.1</span>細目</h3>"))
-        #expect(html.contains("<a href=\"#sec-2\">2</a>節へ"))
-        #expect(html.contains("<a href=\"#sec-1\">1</a>と<span class=\"latex-missing\">??</span>"))
+        #expect(html.contains("<a class=\"latex-number-ref\" href=\"#sec-2\">2</a>節へ"))
+        #expect(
+            html.contains("<a class=\"latex-number-ref\" href=\"#sec-1\">1</a>と<span class=\"latex-missing\">??</span>")
+        )
     }
 
     @Test("章のある文書クラスは章から番号を振り、付録は文字にし、星付きの節は番号なしで目次に入れない")
@@ -60,7 +62,10 @@ struct LaTeXConverterTests {
 
     @Test("ダッシュ・引用符・アクセント・空白の記号を文字にする")
     func typography() {
-        #expect(body("1--2---3 ``q'' \\'e\\\"o\\c{c} a~b \\LaTeX{} \\ldots").contains("1–2—3 “q” éöç a&nbsp;b LaTeX …"))
+        #expect(
+            body("1--2---3 ``q'' \\'e\\\"o\\c{c} a~b \\LaTeX{} \\ldots").replacingOccurrences(
+                of: "<[^>]+>", with: "", options: .regularExpression
+            ).contains("1–2—3 “q” éöç a&nbsp;b LaTeX …"))
     }
 
     @Test("書体のコマンドと、グループの終わりまで効く宣言と大きさ")
@@ -92,7 +97,7 @@ struct LaTeXConverterTests {
         #expect(html.contains("<div class=\"math-block\"><span class=\"math math-display\">"))
         #expect(html.contains("<div class=\"math-block latex-equation\" id=\"eq-1\">"))
         #expect(html.contains("<span class=\"eqno\">(1)</span>"))
-        #expect(html.contains("式<a href=\"#eq-1\">(1)</a>"))
+        #expect(html.contains("式<a class=\"latex-number-ref\" href=\"#eq-1\">(1)</a>"))
         #expect(html.components(separatedBy: "eqno").count == 2)
         #expect(!html.contains("math-error"))
     }
@@ -111,7 +116,7 @@ struct LaTeXConverterTests {
         #expect(html.contains("<span class=\"item-label\">(a)</span>下"))
         #expect(html.contains("<span class=\"item-label\">(iii)</span>三"))
         #expect(html.contains("<span class=\"item-label\">(A)</span>甲"))
-        #expect(html.contains("<dt>語</dt>\n<dd>説明</dd>"))
+        #expect(html.contains("<div><dt>語</dt><dd>説明</dd></div>"))
     }
 
     @Test("verbatim と lstlisting はそのまま出し、言語の指定があれば色を付ける")
@@ -128,7 +133,7 @@ struct LaTeXConverterTests {
     func footnotes() {
         let html = body("本文\\footnote{注の\\textbf{文}}と次")
         #expect(html.contains("本文<sup class=\"footnote-ref\"><a href=\"#fn-1\" id=\"fnref-1\">1</a></sup>と次"))
-        #expect(html.hasSuffix("<li id=\"fn-1\"><p>注の<strong>文</strong></p>\n</li>\n</ol>\n</section>\n"))
+        #expect(html.hasSuffix("<li id=\"fn-1\" value=\"1\"><p>注の<strong>文</strong></p>\n</li>\n</ol>\n</section>\n"))
     }
 
     @Test("\\href と \\url は URL の % や # を保ち、エスケープを外す")
@@ -164,7 +169,10 @@ struct LaTeXConverterTests {
         #expect(
             html.contains(
                 "<figcaption id=\"tab-1\"><span class=\"latex-caption-label\">Table 1</span>: 表題</figcaption>"))
-        #expect(html.contains("<a href=\"#fig-1\">1</a>と<a href=\"#tab-1\">1</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#fig-1\">1</a>と<a class=\"latex-number-ref\" href=\"#tab-1\">1</a>"
+            ))
     }
 
     @Test("拡張子のない画像は、文書の隣と \\graphicspath のフォルダから探す")
@@ -175,7 +183,8 @@ struct LaTeXConverterTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         try Data().write(to: folder.appending(path: "figures/plot.pdf"))
         let html = LaTeXConverter.convert(
-            "\\graphicspath{{figures/}}\\includegraphics{plot}\\includegraphics{missing}", directory: folder
+            "\\graphicspath{{figures/}}\\includegraphics{plot}\\includegraphics{missing}", directory: folder,
+            imageExists: { FileManager.default.fileExists(atPath: $0.path) }
         ).body
         #expect(html.contains("src=\"figures/plot.pdf\""))
         #expect(html.contains("src=\"missing\""))
@@ -192,17 +201,22 @@ struct LaTeXConverterTests {
                 "<td style=\"text-align: left; border-left: 0.5pt solid currentColor; border-right: 0.5pt solid currentColor; border-top: 0.5pt solid currentColor\">甲</td>"
             ))
         #expect(html.contains("border-bottom: 0.5pt solid currentColor\">丁</td>"))
-        #expect(html.contains("<th style=\"text-align: left; border-top: 1pt solid currentColor\">名</th>"))
+        #expect(
+            html.contains(
+                "<th style=\"text-align: left\" class=\"latex-top-heavy\">名</th>"))
         #expect(html.contains("colspan=\"2\">合計</td>"))
         #expect(html.contains("rowspan=\"2\">縦</td>"))
-        #expect(html.contains("<tr><td style=\"text-align: right; border-bottom: 1pt solid currentColor\">2</td></tr>"))
+        #expect(
+            html.contains(
+                "<tr class=\"latex-above-rule\"><td style=\"text-align: right\" class=\"latex-bottom-heavy\">2</td></tr>"
+            ))
     }
 
-    @Test("TikZ の図と \\input は、描けない・読まないことを枠で示す")
+    @Test("図や入力ファイルが見つからない場所を枠で示す")
     func unsupported() {
         let html = body(document("\\begin{tikzpicture}\\draw (0,0) -- (1,1);\\end{tikzpicture}\\input{chapter1}"))
         #expect(html.contains("<div class=\"latex-unsupported\">TikZ picture (Surimono cannot draw it)</div>"))
-        #expect(html.contains("<div class=\"latex-unsupported\">chapter1 is not included</div>"))
+        #expect(html.contains("<div class=\"latex-unsupported\">chapter1.tex could not be read</div>"))
         #expect(
             body(document("\\begin{tikzpicture}\\end{tikzpicture}", class: "jsarticle")).contains("Surimono では描けません"))
     }
@@ -299,7 +313,8 @@ struct LaTeXConverterBoundaryTests {
     @Test("脚注の中の \\ref も番号にする")
     func referenceInFootnote() {
         let html = body("\\section{節}\\label{s}本文\\footnote{第\\ref{s}節}")
-        #expect(html.contains("<li id=\"fn-1\"><p>第<a href=\"#sec-1\">1</a>節</p>"))
+        #expect(
+            html.contains("<li id=\"fn-1\" value=\"1\"><p>第<a class=\"latex-number-ref\" href=\"#sec-1\">1</a>節</p>"))
         #expect(!html.contains("\u{E000}"))
     }
 
@@ -311,7 +326,10 @@ struct LaTeXConverterBoundaryTests {
             html.contains(
                 "<div class=\"math-block\"><span id=\"eq-1\"></span><span id=\"eq-2\"></span><span class=\"math math-display\">"
             ))
-        #expect(html.contains("<a href=\"#eq-1\">(1)</a>と<a href=\"#eq-2\">(2)</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#eq-1\">(1)</a>と<a class=\"latex-number-ref\" href=\"#eq-2\">(2)</a>"
+            ))
         #expect(!html.contains("math-error"))
     }
 
@@ -322,7 +340,10 @@ struct LaTeXConverterBoundaryTests {
         )
         #expect(html.contains("<span id=\"eq-1\"></span><span id=\"eq-2\"></span><span class=\"math"))
         #expect(!html.contains("eq-3"))
-        #expect(html.contains("<a href=\"#eq-1\">(1)</a>と<a href=\"#eq-2\">(2)</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#eq-1\">(1)</a>と<a class=\"latex-number-ref\" href=\"#eq-2\">(2)</a>"
+            ))
     }
 
     @Test("\\tag を付けた式のラベルは、そのタグを指す")
@@ -331,8 +352,11 @@ struct LaTeXConverterBoundaryTests {
             "\\begin{equation}E=mc^2\\tag{A}\\label{e}\\end{equation}"
                 + "\\begin{align}a&=1\\tag{B}\\label{f}\\\\b&=2\\label{g}\\end{align}"
                 + "\\eqref{e}, \\ref{f}, \\eqref{g}")
-        #expect(html.contains("<div class=\"math-block\" id=\"eq-t1\">"))
-        #expect(html.contains("<a href=\"#eq-t1\">(A)</a>, <a href=\"#eq-t2\">B</a>, <a href=\"#eq-1\">(1)</a>"))
+        #expect(html.contains("<div class=\"math-block latex-equation\" id=\"eq-t1\">"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-number-ref\" href=\"#eq-t1\">(A)</a>, <a class=\"latex-number-ref\" href=\"#eq-t2\">B</a>, <a class=\"latex-number-ref\" href=\"#eq-1\">(1)</a>"
+            ))
     }
 
     @Test("表題の中の \\maketitle は表題をもう一度作らない", .timeLimit(.minutes(1)))
@@ -355,7 +379,8 @@ struct LaTeXConverterBoundaryTests {
         let html = body(
             "\\begin{equation}x\\tag{\(tag)}\\label{e}\\end{equation}" + String(repeating: "\\ref{e}", count: 10_000))
         #expect(html.utf8.count < 5_000_000)
-        #expect(html.contains("<a href=\"#eq-t1\">\(String(repeating: "T", count: 100))…</a>"))
+        #expect(
+            html.contains("<a class=\"latex-number-ref\" href=\"#eq-t1\">\(String(repeating: "T", count: 100))…</a>"))
     }
 
     @Test("拡張子のある画像も \\graphicspath のフォルダから探す")
@@ -365,8 +390,10 @@ struct LaTeXConverterBoundaryTests {
             at: folder.appending(path: "figures"), withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         try Data().write(to: folder.appending(path: "figures/plot.png"))
-        let html = LaTeXConverter.convert("\\graphicspath{{figures/}}\\includegraphics{plot.png}", directory: folder)
-            .body
+        let html = LaTeXConverter.convert(
+            "\\graphicspath{{figures/}}\\includegraphics{plot.png}", directory: folder,
+            imageExists: { FileManager.default.fileExists(atPath: $0.path) }
+        ).body
         #expect(html.contains("src=\"figures/plot.png\""))
     }
 }

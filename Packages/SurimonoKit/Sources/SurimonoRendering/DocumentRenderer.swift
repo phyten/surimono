@@ -152,6 +152,11 @@ public struct RenderSettings: Equatable, Sendable {
     /// The pages that go on the sheets. The logical pages are laid out the same whatever it is.
     public var pageRange = PageRange.all
 
+    func textWidthPoints(in layout: PrintLayout) -> Double {
+        let margins = layout.logicalMargins(options: options)
+        return layout.logicalPageSize(options: options).width - margins.left - margins.right
+    }
+
     var usesPerPageOrientation: Bool {
         layout.kind == .normal && layout.duplex == .none && paperOrientation == .auto
     }
@@ -1134,7 +1139,7 @@ public final class DocumentRenderer {
             .docx,
             .notebook,
             .graphviz, .plantuml:
-            var missingImage = false
+            var needsFolderAccess = false
             let access = resourceAccess(for: source)
             var fragment: HTMLFragment
             if source.format == .docx {
@@ -1156,9 +1161,11 @@ public final class DocumentRenderer {
                 guard
                     let themed = try Self.themedFragment(
                         source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
+                        textWidthPoints: settings.textWidthPoints(in: settings.layout),
+                        access: access, onDenied: { needsFolderAccess = true },
                         imageExists: { url in
                             if let access, !access.permits(url) {
-                                missingImage = true
+                                needsFolderAccess = true
                                 return false
                             }
                             guard access != nil else { return FileManager.default.fileExists(atPath: url.path) }
@@ -1171,7 +1178,7 @@ public final class DocumentRenderer {
                                     || ![CocoaError.fileNoSuchFile.rawValue, CocoaError.fileReadNoSuchFile.rawValue]
                                         .contains(failure.code)
                                 {
-                                    missingImage = true
+                                    needsFolderAccess = true
                                 }
                                 return false
                             }
@@ -1188,7 +1195,8 @@ public final class DocumentRenderer {
             let paperFragment = HTMLFragment(
                 body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
                 title: fragment.title,
-                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code)
+                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code,
+                latexClass: fragment.latexClass)
             let html = HTMLDocumentBuilder.build(
                 fragment: paperFragment, format: source.format, theme: settings.theme, baseURL: directory,
                 language: settings.pageLanguage,
@@ -1243,7 +1251,7 @@ public final class DocumentRenderer {
             for (offset, detail) in fragment.readingIssues.enumerated() {
                 text.issues.append(PrintIssue(id: "latex-reader-\(offset)", kind: .latex, detail: detail))
             }
-            if missingImage { text.requiredFolderAccess = directory }
+            if needsFolderAccess { text.requiredFolderAccess = directory }
             text = try await finished(text, fragment: fragment, source: source, settings: settings)
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
@@ -1519,7 +1527,8 @@ public final class DocumentRenderer {
                 let html = HTMLDocumentBuilder.build(
                     fragment: HTMLFragment(
                         body: body, title: fragment.title,
-                        language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code),
+                        language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code,
+                        latexClass: fragment.latexClass),
                     format: source.format,
                     theme: settings.theme, baseURL: directory, language: settings.pageLanguage,
                     textScale: settings.textScale,
@@ -1610,7 +1619,7 @@ public final class DocumentRenderer {
         return result
     }
 
-    private func resourceAccess(for source: DocumentSource) -> LocalResourceAccess? {
+    func resourceAccess(for source: DocumentSource) -> LocalResourceAccess? {
         guard isSandboxed(), let file = source.fileURL else { return nil }
         return LocalResourceAccess(documentURL: file, folders: source.allowedResourceFolders)
     }
@@ -1660,7 +1669,7 @@ public final class DocumentRenderer {
             }
             func body(_ source: DocumentSource) -> String? {
                 (try? Self.themedFragment(
-                    source, pageBreakLine: finish.breaks.customLine, proof: finish.proof,
+                    source, pageBreakLine: finish.breaks.customLine, proof: finish.proof, access: access,
                     imageExists: { url in
                         (access?.permits(url) ?? true) && FileManager.default.fileExists(atPath: url.path)
                     }))?.body
@@ -1678,9 +1687,15 @@ public final class DocumentRenderer {
     /// The HTML of a format that prints with a theme, or nil for the formats that print as they are.
     nonisolated static func themedFragment(
         _ source: DocumentSource, pageBreakLine: String = "", proof: ProofMarks = .shown,
+        textWidthPoints: Double? = nil, access: LocalResourceAccess? = nil, onDenied: @escaping () -> Void = {},
         imageExists: @escaping (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
     ) throws -> HTMLFragment? {
-        switch source.format {
+        let access =
+            access
+            ?? (SandboxEnvironment.isSandboxed
+                ? source.fileURL.map { LocalResourceAccess(documentURL: $0, folders: source.allowedResourceFolders) }
+                : nil)
+        return switch source.format {
         case .markdown:
             MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .graphviz, .plantuml:
@@ -1701,9 +1716,8 @@ public final class DocumentRenderer {
         case .notebook:
             try NotebookConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .latex:
-            LaTeXConverter.convert(
-                try decodedText(source.data), directory: source.fileURL?.deletingLastPathComponent(),
-                imageExists: imageExists)
+            try latexFragment(
+                source, textWidthPoints: textWidthPoints, access: access, onDenied: onDenied, imageExists: imageExists)
         case .org: OrgConverter.convert(try decodedText(source.data))
         case .plainText: PlainTextConverter.convert(try decodedText(source.data))
         case .csv:
@@ -1725,7 +1739,7 @@ public final class DocumentRenderer {
         return CSVConverter.convert(text, delimiter: delimiter)
     }
 
-    private nonisolated static func decodedText(_ data: Data) throws -> String {
+    nonisolated static func decodedText(_ data: Data) throws -> String {
         let decoded = TextDecoding.decode(data)
         // Core deliberately tolerates invalid byte sequences; printing must surface that data loss.
         guard String(data: data, encoding: decoded.encoding) != nil else { throw RenderingError.textDecodingFailed }

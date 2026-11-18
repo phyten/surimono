@@ -6,6 +6,23 @@ import Testing
 
 @MainActor
 struct HTMLExporterTests {
+    @Test("LaTeX を書き出した HTML の本文にも、組版時と同じ形式・文字サイズ・章の指定が残る", .timeLimit(.minutes(1)))
+    func latexBodyAttributes() async throws {
+        let tex = #"\documentclass[11pt]{report}\begin{document}\chapter{One}Text.\end{document}"#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
+        let html = try await HTMLExporter.html(
+            source: DocumentSource(data: Data(tex.utf8), format: .latex),
+            settings: RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "None")),
+            title: "Report")
+        let tag = try #require(html.range(of: #"<body\b[^>]*>"#, options: .regularExpression))
+        let body = html[tag]
+        #expect(body.contains(#"class="surimono format-latex""#))
+        #expect(body.contains(#"data-latex-size="11""#))
+        #expect(body.contains(#"data-latex-chapters="true""#))
+        #expect(html.contains("@media screen { html { padding:"))
+        #expect(!html.contains("max-width:52rem"))
+    }
+
     @Test("HTMLはローカル画像と図と数式を埋め込みスクリプトとパスを残さない", .timeLimit(.minutes(1)))
     func preparedDocument() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

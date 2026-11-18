@@ -10,10 +10,57 @@ public enum SyntaxHighlighter {
         return highlight(code, canonicalID: id)
     }
 
-    static func highlight(_ code: String, canonicalID id: String) -> String? {
+    static func highlight(_ code: String, canonicalID id: String, listingTokens: Set<String>? = nil) -> String? {
         guard code.utf16.count <= maximumUTF16Count else { return nil }
-        var scanner = SyntaxScanner(code, language: SyntaxLanguage.definition(id))
+        var language = SyntaxLanguage.definition(id)
+        if listingTokens != nil, ["c", "cpp", "objectivec"].contains(id) {
+            // listings' C dictionaries classify the built-in type words as keywords. A name
+            // supplied by a library (size_t, NSString, etc.) remains an ordinary identifier.
+            language.keywords.formUnion(["bool", "char", "double", "float", "int", "long", "short", "void"])
+        }
+        var scanner = SyntaxScanner(code, language: language, listingTokens: listingTokens)
         return scanner.render()
+    }
+
+    /// The lines of highlighted code, each closing the spans it leaves open for the next to open again. A line with no
+    /// text is empty, even inside a token that goes on after it.
+    package static func lines(of body: Substring) -> [String]? {
+        var lines: [String] = []
+        var current = ""
+        var hasText = false
+        var open: [String] = []
+        var index = body.startIndex
+        while index < body.endIndex {
+            let character = body[index]
+            if character == "<" {
+                guard let end = body[index...].firstIndex(of: ">") else { return nil }
+                let tag = String(body[index...end])
+                if tag == "</span>" {
+                    guard let last = open.popLast() else { return nil }
+                    // A span that ended with the line opens nothing on the next.
+                    if current.hasSuffix(last) { current.removeLast(last.count) } else { current += tag }
+                } else if tag.hasPrefix("<span class=\"hl-") {
+                    open.append(tag)
+                    current += tag
+                } else {
+                    return nil
+                }
+                index = body.index(after: end)
+                continue
+            }
+            if character.isNewline {
+                lines.append(hasText ? current + String(repeating: "</span>", count: open.count) : "")
+                current = open.joined()
+                hasText = false
+            } else {
+                current.append(character)
+                hasText = true
+            }
+            index = body.index(after: index)
+        }
+        guard open.isEmpty else { return nil }
+        if hasText { lines.append(current) }
+        return lines
     }
 
     /// The canonical id for a fence info string such as "JS", "c++" or "swift title=a.swift".
@@ -34,6 +81,7 @@ public enum SyntaxHighlighter {
 private struct SyntaxScanner: Sendable {
     let source: [Unicode.Scalar]
     let language: SyntaxLanguage
+    let listingTokens: Set<String>?
     // Cached lookahead prevents repeated scans of long whitespace suffixes.
     let nextContent: [Int]
     let lineEnds: [Int]
@@ -51,7 +99,8 @@ private struct SyntaxScanner: Sendable {
     var exhaustedStrings: Set<String> = []
     var output = ""
 
-    init(_ code: String, language: SyntaxLanguage) {
+    init(_ code: String, language: SyntaxLanguage, listingTokens: Set<String>?) {
+        self.listingTokens = listingTokens
         let scalars = Array(code.unicodeScalars)
         source = scalars
         self.language = language
@@ -106,7 +155,11 @@ private struct SyntaxScanner: Sendable {
     }
     mutating func emit(to end: Int, kind: String? = nil) {
         let escaped = HTML.escape(text(index, end))
-        if let kind { output += "<span class=\"hl-\(kind)\">\(escaped)</span>" } else { output += escaped }
+        if let kind, listingTokens?.contains(kind) != false {
+            output += "<span class=\"hl-\(kind)\">\(escaped)</span>"
+        } else {
+            output += escaped
+        }
         for i in index..<end where source[i] == "\n" || source[i] == "\r" { lineStart = i + 1 }
         index = end
     }
@@ -169,7 +222,14 @@ private struct SyntaxScanner: Sendable {
             return true
         }
         if atStart, language.preprocessor, source[index] == "#" {
-            emit(to: end, kind: "meta")
+            if listingTokens != nil, ["c", "cpp", "objectivec"].contains(id) {
+                // Only the directive word is a listings keyword: the header name after it keeps the basic ink.
+                let word = nextContent[index + 1]
+                let stop = word < end && isWord(source[word]) ? wordEnd(word) : index + 1
+                emit(to: stop, kind: "keyword")
+            } else {
+                emit(to: end, kind: "meta")
+            }
             return true
         }
         if atStart, id == "yaml", matches("---", at: index) || matches("...", at: index) {
@@ -353,6 +413,14 @@ private struct SyntaxScanner: Sendable {
     }
 
     mutating func meta() -> Bool {
+        // A TeX control word includes its backslash. An escaped percent is a control symbol, not a comment.
+        if id == "latex", source[index] == "\\" {
+            var end = index + 1
+            while end < count, CharacterSet.letters.contains(source[end]) || source[end] == "@" { end += 1 }
+            if end == index + 1 { end = min(end + 1, count) }
+            emit(to: end, kind: "keyword")
+            return true
+        }
         if language.decorators, source[index] == "@" {
             let end = wordEnd(index + 1)
             if end > index + 1 {
