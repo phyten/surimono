@@ -16,7 +16,8 @@ final class StreamingPreviewWindows {
     private var timer: Timer?
     /// The pasteboard's state last taken in, which is none until it has given text.
     private var seenChangeCount: Int?
-    private var isWaiting = false
+    /// A note that stays until the feed gives its next text: waiting for the first one, or showing an earlier one.
+    private var showsNote = false
     private let closeWelcome: () -> Void
 
     var hasWindow: Bool { controller != nil }
@@ -55,13 +56,22 @@ final class StreamingPreviewWindows {
             title: String(localized: "Streaming Preview"))
         let controller = MemoryDocumentWindowController(model: model) { [weak self] in self?.windowDidClose() }
         self.controller = controller
+        showsNote = true
         if data.isEmpty {
-            isWaiting = true
             model.showToast(
                 Toast(
                     systemImage: "dot.radiowaves.left.and.right",
                     title: String(localized: "Waiting for text from another app"),
                     detail: String(format: String(localized: "Pasteboard: %@"), Self.pasteboardName.rawValue)),
+                dismissAfter: nil)
+        } else {
+            // A named pasteboard keeps its contents until logout and carries no date. The text is shown, so that a
+            // window opened while writing has the draft at once, but it may be from a feed that stopped hours ago.
+            model.showToast(
+                Toast(
+                    systemImage: "clock",
+                    title: String(localized: "Text sent earlier"),
+                    detail: String(localized: "New text replaces it when it arrives")),
                 dismissAfter: nil)
         }
         let timer = Timer(timeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
@@ -83,8 +93,8 @@ final class StreamingPreviewWindows {
         guard case .document(let data, let format) = ClipboardContent.streaming(text: board.string(forType: .string))
         else { return }
         seenChangeCount = changeCount
-        if isWaiting {
-            isWaiting = false
+        if showsNote {
+            showsNote = false
             model.dismissToast()
         }
         model.replaceContent(data, format: format)
@@ -95,6 +105,6 @@ final class StreamingPreviewWindows {
         timer = nil
         board = nil
         controller = nil
-        isWaiting = false
+        showsNote = false
     }
 }
