@@ -533,3 +533,19 @@ pre:not(.surimono-plain), code, .long-token, .paper-link-url, h1, h2, h3, h4, h5
 .diagram-error { color: #9a1c1c; border: 0.5pt dashed #c84a4a; padding: 0.4em; break-inside: auto; }
 .diagram-message { text-align: start; font-size: 0.9em; }
 .diagram-document > div + div { break-before: page; }
+
+/* AsciiDoc's HTML backend records cell alignment and block roles as classes. */
+.format-asciidoc .halign-right { text-align: right; }
+.format-asciidoc .halign-center { text-align: center; }
+.format-asciidoc .halign-left { text-align: left; }
+.format-asciidoc .valign-top { vertical-align: top; }
+.format-asciidoc .valign-middle { vertical-align: middle; }
+.format-asciidoc .valign-bottom { vertical-align: bottom; }
+.format-asciidoc :is(.sidebarblock, .exampleblock) { margin-block: 1em; padding: .6em 1em; border: 1px solid; }
+.format-asciidoc :is(.sidebarblock, .exampleblock) .title { font-weight: bold; }
+.format-asciidoc .attribution { text-align: end; font-size: .9em; }
+.format-asciidoc ul.checklist { list-style: none; }
+.format-asciidoc .adoc-include { display: inline-block; }
+/* Asciidoctor wraps every cell in a paragraph and titles a table with a caption as narrow as the table. */
+.format-asciidoc :is(td, th) > p { margin: 0; }
+.format-asciidoc table > caption { white-space: nowrap; text-align: start; }

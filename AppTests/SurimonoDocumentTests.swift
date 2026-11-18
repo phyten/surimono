@@ -28,6 +28,24 @@ struct SurimonoDocumentTests {
         #expect(types.contains { ($0["LSItemContentTypes"] as? [String])?.contains("com.microsoft.word.dot") == true })
     }
 
+    @Test("AsciiDocの拡張子と宣言型を照合し元のバイト列を保持する", arguments: ["adoc", "asciidoc"])
+    func asciiDocFiles(suffix: String) throws {
+        let type = try #require(UTType(filenameExtension: suffix))
+        let bytes = Data("= Paper".utf8)
+        let file = FileWrapper(regularFileWithContents: bytes)
+        file.preferredFilename = "example." + suffix
+        let document = try SurimonoDocument(file: file, contentType: type)
+        #expect(document.format == .asciidoc)
+        #expect(document.data == bytes)
+        #expect(type.conforms(to: .plainText))
+        #expect(SurimonoDocument.readableContentTypes.contains(.surimonoAsciiDoc))
+        let imported = try #require(Bundle.main.infoDictionary?["UTImportedTypeDeclarations"] as? [[String: Any]])
+        let declaration = try #require(imported.first { $0["UTTypeIdentifier"] as? String == "org.asciidoc.asciidoc" })
+        #expect(declaration["UTTypeConformsTo"] as? [String] == ["public.plain-text"])
+        let tags = try #require(declaration["UTTypeTagSpecification"] as? [String: Any])
+        #expect(tags["public.filename-extension"] as? [String] == ["adoc", "asciidoc"])
+    }
+
     @Test("JSONの型で渡されたipynbだけをNotebookとして開く")
     func notebookJSON() throws {
         let file = FileWrapper(regularFileWithContents: Data(#"{"nbformat":4,"cells":[]}"#.utf8))
@@ -93,7 +111,8 @@ struct SurimonoDocumentTests {
             Set(imported.compactMap { $0["UTTypeIdentifier"] as? String })
                 == Set([
                     UTType.surimonoMarkdown.identifier, UTType.surimonoOrg.identifier,
-                    UTType.surimonoLaTeX.identifier, UTType.surimonoNotebook.identifier,
+                    UTType.surimonoAsciiDoc.identifier, UTType.surimonoLaTeX.identifier,
+                    UTType.surimonoNotebook.identifier,
                     UTType.surimonoGraphviz.identifier, UTType.surimonoPlantUML.identifier,
                 ]))
     }

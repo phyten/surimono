@@ -98,6 +98,7 @@ Printing a Markdown note, an Org file or a long HTML article on a Mac usually me
 | HTML | `.html`, `.htm` |
 | CSV / TSV | `.csv`, `.tsv` |
 | LaTeX | `.tex`, `.latex`, `.ltx` |
+| AsciiDoc | `.adoc`, `.asciidoc` |
 | Jupyter Notebook | `.ipynb` |
 | Graphviz | `.dot`, `.gv` |
 | PlantUML | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` |

@@ -4,7 +4,7 @@
 
 ## プロダクト
 
-- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX / Jupyter Notebook / Graphviz / PlantUML を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
+- **Surimono（摺物）**: Markdown / PDF / 画像 / Org / テキスト / HTML / LaTeX / AsciiDoc / Jupyter Notebook / Graphviz / PlantUML を「雑に開いて、雑に見て、さっと刷る」macOS アプリ。主役は印刷。
 - 主な機能: 出てくる用紙をそのまま並べる印刷モード（刷り台。画面の語は「印刷画面」）、印刷テーマ（画面の語は「スタイル」。CSS。12 のカテゴリーに 108 種。固定の見本（実文書にも切り替え可）を並べたパレットで、最近使った・お気に入り・定番・カテゴリーから選べ、表示モードでは乗せると紙で試せる（刷り台では見本だけを拡大）。4 つまで並べ、同じ見出しやコードからそろえて比べる見比べ台もある）の切替とユーザー CSS・文字の大きさ、スタイルとは別の軸のコードの配色（12 の候補と枠・行番号などのオプション）、HTML のノイズ除去プリセット（ユーザー追加可）とスマート削除（ベータ）、印刷レイアウト（A判・B判（JIS）・Letter系の片面・両面、左とじ / 右とじの中綴じ冊子 A3→A4 / A4→A5 / B4→B5 / B5→B6 / Tabloid→Letter / Letter→Half Letter、2ページ配置・4ページ配置・3ページ＋メモ）、紙の仕上げ（上下左右の余白、ヘッダー・フッター、改ページ、紙の目次、書き込むためのノートページ）、刷り台で選んだプリンターへのダイアログなしの印刷（システムの印刷画面も選べる）、PDF 書き出し、紙の外に帯を置く表示モード（上だけ / 上と下に分けるメニュー、常に表示 / ポインタを乗せたときだけ（紙の端に重ねて出す）、設定の「ツールバーの配置」で部品と区切り線を並べ替えて配置セットとして保存・切り替え、目次、文書の数字、用紙の系列、単ページ / 見開き、拡大縮小、最前面に固定）、内容のハッシュごとの設定の保存、複数の画像や ZIP の中の画像をまとめた「画像の束」（並び替え・印刷・PDF 書き出し）。外観は設定の「一般」の「外観」で選ぶ（ライト（既定）・ダーク・システムに合わせる。紙はどの外観でも白い）。
 - 守ること:
   - **開いたファイルを絶対に変更しない**（ビューア。保存・上書き・隣へのファイル生成もしない）
@@ -63,7 +63,7 @@ make clean
 
 ```text
 ファイル → DocumentFormat 判定
-  ├ Markdown / Org / テキスト / CSV / LaTeX / Notebook / Graphviz / PlantUML → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
+  ├ Markdown / Org / テキスト / CSV / LaTeX / AsciiDoc / Notebook / Graphviz / PlantUML → HTML 断片（SurimonoCore）→ 印刷テーマ CSS を付けて HTML 文書化（テーマは `common.css` の後に重ね、その後に文字の大きさを重ねる。WebKit の印刷では CSS の段組みが効かないので、段組みのテーマは作れない）
   ├ HTML → そのまま。ノイズ除去プリセット（CSS / JS）を注入
   ├ PDF  → PDFDocument
   └ 画像 → PDF ページ（ImagePageRenderer）
@@ -102,6 +102,7 @@ make clean
   - Mermaid: Markdown の ```` ```mermaid ```` と Org の `#+begin_src mermaid` は、原文をエスケープした `.mermaid-block` にする。Rendering に同梱する mermaid.js を隔離された世界 `surimono` で一度評価し、neutral・strict・本文の書体で SVG にしてから、変更の印・紙の判定・印刷前の確認・ページ分割を行う。文書の JavaScript は無効のまま。図のない文書ではライブラリを読み込まない。元の文書のリソースを読み込んだ後、図による追加のリソース取得は遮断する。描けない図や時間内に終わらない図は原文を残し、印刷前の確認に出す。パレットの小さな見本は原文のまま（乗せて試す紙と見比べ台は図になる）。
   - 絵文字の対応表 `Resources/emoji.json` は GitHub の gemoji（MIT）の別名だけを取り出したもの。ライセンス文を `App/Acknowledgements/` に同梱している。
   - 数式 `$…$`・`$$…$$`（複数行も）・`\(…\)`・`\[…\]`・```` ```math ```` は、SwaTex（純 Swift の KaTeX 互換の組版）で SVG にする（`MathRenderer`）。式は cmark の前に取り出し、インラインは私用領域の文字の目印、行をまたぐものは HTML ブロックにするので、強調やエスケープが LaTeX に触れない。インラインの `$` は式に接していて後ろに数字が来ないときだけ（`$5 と $10` は文字のまま）。字形は KaTeX の書体の `<text>` で、使った書体だけを本文の最後の `<style>` に data URL の `@font-face` で埋め込む（文書の隣のファイルを読まずに刷れる。テーマの「Web フォントを使わない」とは別で、アプリが同梱する数式用の書体）。大きさは em（文字の 1.1 倍）、色は `currentColor` でテーマに従う。読めない式は原文を `.math-error` で残す。
+- AsciiDoc（`.adoc`・`.asciidoc`）は SurimonoCore の JavaScriptCore で同梱の Asciidoctor.js を使う。目次と統計もバックグラウンドで同期変換できるよう、文書間で共有する JSContext をロックする。表題・節・表・脚注・囲み・コード・図・LaTeX 数式を印刷スタイルに合わせる。secure モードで外部 include は読み込まず、AsciiMath は原文を残す。5 MB を超える原文はテキストで表示する。
 - Notebook（`.ipynb`、`NotebookConverter`、SurimonoCore）は nbformat 4 の Markdown・コード・raw セルと保存済み出力を読み、印刷テーマで刷る。コードは実行しない。第3版と未知の版は第4版への保存を案内するエラーにする。
   - Markdown の記法・数式・添付画像を読み、セルごとに見出しと脚注の ID を分け、目次は文書全体で作る。コードは既存の色付けと枠の設定を使う。画像・HTML の表・Markdown・数式・文字の MIME 表現から優先順に一つを選ぶ。HTML は静的な要素だけ残し、スクリプト・イベント属性・スタイルを除く。
   - 対話型など紙に出せない出力は `.notebook-note` の枠で知らせる。remove/hide タグと Jupyter の非表示設定に従う。端末の制御文字を処理し、400 行または約200 KB を超える文字出力は先頭200行・末尾50行を上限に残し、省略を示す。画像は切らない。
@@ -385,7 +386,7 @@ make clean
 
 - Swift 6 言語モード。アプリターゲットは既定で MainActor 分離（`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`）。Kit では UI / WebKit を触る型に明示的に `@MainActor` を付ける。
 - デプロイメントターゲットは macOS 15.0。
-- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: @viz-js/viz 3.31.0（MIT、同梱 Graphviz 16.1.0 は EPL-2.0、Expat 2.8.5 は MIT。公式 npm の dist/viz-global.js を未変更で Resources に同梱）、@plantuml/core 1.2026.9（MIT。公式 npm の plantuml.js を未変更で同梱。両者の表示は App/Acknowledgements/。bump = re-copy、版を上げたら JS・ライセンスを写し直し、export 宣言のアダプターを検証）、mermaid.js 12.2.0（MIT。公式 npm tarball の `dist/mermaid.min.js` を変更せず SurimonoRendering の `Resources` に同梱し、ライセンス文を `App/Acknowledgements/` に置く。版を上げたら両方を差し替える）、swift-markdown（Apache-2.0。LICENSE と NOTICE を、依存の swift-cmark の COPYING とともに `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している。ライセンス文と第三者表示（THIRD_PARTY_NOTICES）を `App/Acknowledgements/` に同梱している）。同梱したライセンス文がアプリに入っていることは `AcknowledgementsTests` で固定している。SwaTex が同梱する KaTeX の書体（SIL OFL 1.1）は SurimonoCore の `Resources` に写して使い、ライセンス文を `App/Acknowledgements/` に同梱している。SwaTex を上げたら書体も写し直す。
+- 依存パッケージは最小限。追加するときは理由とライセンス（MIT と両立するか）を PR に書く。現在の外部依存: @asciidoctor/core 4.2.1（MIT、ブラウザー版を未変更で同梱）、@viz-js/viz 3.31.0（MIT、同梱 Graphviz 16.1.0 は EPL-2.0、Expat 2.8.5 は MIT。公式 npm の dist/viz-global.js を未変更で Resources に同梱）、@plantuml/core 1.2026.9（MIT。公式 npm の plantuml.js を未変更で同梱。両者の表示は App/Acknowledgements/。bump = re-copy、版を上げたら JS・ライセンスを写し直し、export 宣言のアダプターを検証）、mermaid.js 12.2.0（MIT。公式 npm tarball の `dist/mermaid.min.js` を変更せず SurimonoRendering の `Resources` に同梱し、ライセンス文を `App/Acknowledgements/` に置く。版を上げたら両方を差し替える）、swift-markdown（Apache-2.0。LICENSE と NOTICE を、依存の swift-cmark の COPYING とともに `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、Sparkle（MIT。アプリだけ。版は `Surimono.xcodeproj` で固定し、ライセンス文を `App/Acknowledgements/` に同梱している。版を上げたら差し替える）、SwaTex（MIT。SurimonoCore の数式。0.x なので版を固定している。ライセンス文と第三者表示（THIRD_PARTY_NOTICES）を `App/Acknowledgements/` に同梱している）。同梱したライセンス文がアプリに入っていることは `AcknowledgementsTests` で固定している。SwaTex が同梱する KaTeX の書体（SIL OFL 1.1）は SurimonoCore の `Resources` に写して使い、ライセンス文を `App/Acknowledgements/` に同梱している。SwaTex を上げたら書体も写し直す。
 - UI 文言は英語をキーにして String Catalog（`App/Localizable.xcstrings`）で日本語訳を付ける。
 - 整形は swift-format（`.swift-format`。インデント 4、行長 120）。
 - コメントは「なぜそうするか」を書く。自明な処理の説明コメントは付けない。**コードコメントとドキュメントコメントは英語**で書く（テスト名は日本語）。

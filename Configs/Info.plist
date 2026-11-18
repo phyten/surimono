@@ -39,6 +39,7 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
 				<string>com.microsoft.word.dot</string>
@@ -75,6 +76,7 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
 				<string>com.microsoft.word.dot</string>
@@ -103,6 +105,7 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
 				<string>com.microsoft.word.dot</string>
@@ -133,6 +136,14 @@
             <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
             <key>UTTypeTagSpecification</key><dict>
                 <key>public.filename-extension</key><array><string>puml</string><string>plantuml</string><string>pu</string><string>iuml</string><string>wsd</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>org.asciidoc.asciidoc</string>
+            <key>UTTypeDescription</key><string>AsciiDoc</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>adoc</string><string>asciidoc</string></array>
             </dict>
         </dict>
         <dict>
