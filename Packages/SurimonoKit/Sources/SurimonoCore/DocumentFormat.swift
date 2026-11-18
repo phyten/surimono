@@ -11,6 +11,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     case zipArchive
     case latex
     case asciidoc
+    case djot
+    case textile
     case notebook
     case graphviz
     case plantuml
@@ -25,6 +27,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case "csv", "tsv": self = .csv
         case "zip": self = .zipArchive
         case "tex", "latex", "ltx": self = .latex
+        case "dj", "djot": self = .djot
+        case "textile": self = .textile
         case "adoc", "asciidoc": self = .asciidoc
         case "ipynb": self = .notebook
         case "dot", "gv": self = .graphviz
@@ -36,7 +40,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
     }
 
     public var usesPrintTheme: Bool {
-        [.markdown, .org, .plainText, .csv, .latex, .asciidoc, .notebook, .graphviz, .plantuml].contains(self)
+        [.markdown, .org, .plainText, .csv, .latex, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml]
+            .contains(self)
     }
     public var usesHTMLPreset: Bool { self == .html }
     public var isWebRendered: Bool { self != .pdf && self != .image && self != .zipArchive }
@@ -51,6 +56,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             "public.tab-separated-values-text": .csv,
             "org.graphviz.dot": .graphviz, "net.sourceforge.plantuml": .plantuml,
             "public.zip-archive": .zipArchive, "org.tug.tex": .latex, "org.jupyter.ipynb": .notebook,
+            "net.djot.djot": .djot,
+            "org.textile-lang.textile": .textile,
             "org.asciidoc.asciidoc": .asciidoc,
         ]
         if let format = known[contentType.identifier] {
@@ -65,6 +72,10 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
             self = .markdown
         } else if contentType.conforms(to: .surimonoOrg) {
             self = .org
+        } else if contentType.conforms(to: .surimonoDjot) {
+            self = .djot
+        } else if contentType.conforms(to: .surimonoTextile) {
+            self = .textile
         } else if contentType.conforms(to: .surimonoAsciiDoc) {
             self = .asciidoc
         } else if contentType.conforms(to: .surimonoNotebook) {
@@ -103,6 +114,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         case .csv: "CSV"
         case .zipArchive: "ZIP"
         case .latex: "LaTeX"
+        case .djot: "Djot"
+        case .textile: "Textile"
         case .asciidoc: "AsciiDoc"
         case .notebook: "Jupyter Notebook"
         case .graphviz: "Graphviz"
@@ -114,6 +127,8 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
 extension UTType {
     public static let surimonoGraphviz = UTType(importedAs: "org.graphviz.dot", conformingTo: .plainText)
     public static let surimonoPlantUML = UTType(importedAs: "net.sourceforge.plantuml", conformingTo: .plainText)
+    public static let surimonoDjot = UTType(importedAs: "net.djot.djot", conformingTo: .plainText)
+    public static let surimonoTextile = UTType(importedAs: "org.textile-lang.textile", conformingTo: .plainText)
     public static let surimonoAsciiDoc = UTType(importedAs: "org.asciidoc.asciidoc", conformingTo: .plainText)
     public static let surimonoNotebook = UTType(importedAs: "org.jupyter.ipynb", conformingTo: .json)
     public static let surimonoMarkdown = UTType(importedAs: "net.daringfireball.markdown", conformingTo: .plainText)

@@ -1,0 +1,58 @@
+# 紙の実験 / Paper workshop
+
+## 準備 / Setup
+
+- [x] Choose paper
+- [ ] 余白を確認 :eyes:
+
+: Sheet
+
+  One piece of paper.
+
+| 紙 | Sheets |
+|:---|------:|
+| A4 |     2 |
+
+^ 用紙 / Paper sizes
+
+{#margin .workshop lang=ja}
+::: warning
+余白は $`x^2` に合わせます。[^margin]
+:::
+
+::: measurements
+$$`A = w \times h`
+:::
+
+```swift
+let sheets = 2
+```
+
+```mermaid
+graph LR
+  Paper --> Print
+```
+
+```dot
+digraph { paper -> print }
+```
+
+```plantuml
+@startuml
+Paper -> Printer
+@enduml
+```
+
+"Ready" -- [準備 / Setup][] :tada:
+
+`<b>Proof</b>`{=html}
+
+```=html
+<p lang="en">Paper proof</p>
+```
+
+```=latex
+\newpage
+```
+
+[^margin]: Check the margin before printing.

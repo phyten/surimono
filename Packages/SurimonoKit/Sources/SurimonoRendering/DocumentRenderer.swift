@@ -1076,7 +1076,7 @@ public final class DocumentRenderer {
                 requiredFolderAccess: page.requiredFolderAccess)
             mirrored.issues = page.issues
             return mirrored
-        case .markdown, .org, .plainText, .csv, .latex, .asciidoc, .notebook, .graphviz, .plantuml:
+        case .markdown, .org, .plainText, .csv, .latex, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml:
             var missingImage = false
             let access = resourceAccess(for: source)
             let fragment: HTMLFragment
@@ -1154,7 +1154,7 @@ public final class DocumentRenderer {
                         allowsJavaScript: false,
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
-                        rendersMermaid: [.markdown, .org, .asciidoc].contains(source.format)
+                        rendersMermaid: [.markdown, .org, .asciidoc, .djot, .textile].contains(source.format)
                             && fragment.body.contains("class=\"mermaid-block\""), rendersDiagrams: true), source: source
                 )
             }
@@ -1443,7 +1443,7 @@ public final class DocumentRenderer {
                     source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
                     margins: margins, allowsJavaScript: false, preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
-                    rendersMermaid: [.markdown, .org, .asciidoc].contains(source.format)
+                    rendersMermaid: [.markdown, .org, .asciidoc, .djot, .textile].contains(source.format)
                         && body.contains("class=\"mermaid-block\""), rendersDiagrams: true)
             }
             try Task.checkCancellation()
@@ -1570,6 +1570,10 @@ public final class DocumentRenderer {
             MarkdownConverter.convert(try decodedText(source.data), pageBreakLine: pageBreakLine, proof: proof)
         case .graphviz, .plantuml:
             DiagramConverter.convert(try decodedText(source.data), format: source.format)
+        case .djot:
+            try DjotConverter.convert(try decodedText(source.data))
+        case .textile:
+            try TextileConverter.convert(try decodedText(source.data))
         case .asciidoc:
             try AsciiDocConverter.convert(try decodedText(source.data))
         case .notebook:

@@ -39,6 +39,8 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>net.djot.djot</string>
+				<string>org.textile-lang.textile</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -76,6 +78,8 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>net.djot.djot</string>
+				<string>org.textile-lang.textile</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -105,6 +109,8 @@
 				<string>net.daringfireball.markdown</string>
 				<string>org.orgmode.org</string>
 				<string>org.tug.tex</string>
+				<string>net.djot.djot</string>
+				<string>org.textile-lang.textile</string>
 				<string>org.asciidoc.asciidoc</string>
 				<string>org.jupyter.ipynb</string>
 				<string>org.graphviz.dot</string>
@@ -136,6 +142,22 @@
             <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
             <key>UTTypeTagSpecification</key><dict>
                 <key>public.filename-extension</key><array><string>puml</string><string>plantuml</string><string>pu</string><string>iuml</string><string>wsd</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>net.djot.djot</string>
+            <key>UTTypeDescription</key><string>Djot</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>dj</string><string>djot</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>org.textile-lang.textile</string>
+            <key>UTTypeDescription</key><string>Textile</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>textile</string></array>
             </dict>
         </dict>
         <dict>

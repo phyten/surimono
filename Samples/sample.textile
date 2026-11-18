@@ -1,0 +1,48 @@
+h1. 紙の実験 / Paper workshop
+
+h2(workshop#setup)[ja]. 準備 / Setup
+
+bq. Paper remembers the fold.
+
+p(note#margin){color:navy}[ja]. 余白を確認[2]。
+次の行[1]。
+
+* Sheet
+** A4
+* [x] Fold
+
+# Prepare
+## Print
+
+|_. 紙 |_. Sheets |
+|<. A4 |>. 2 |
+|\2. Total |
+
+bc(swift). let sheets = 2
+
+bc(mermaid). graph LR
+  Paper --> Print
+
+bc(dot). digraph { paper -> print }
+
+bc(plantuml). @startuml
+Paper -> Printer
+@enduml
+
+<pre>fold &amp; print</pre>
+
+[guide]https://example.org/printing
+
+"準備":guide / PDF(Portable Document Format)
+
+!data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNQdMkAAAFXAM4veXlGAAAAAElFTkSuQmCC(Pixel)!
+
+notextile. *Paper* stays as written.
+
+==*Fold*== / <em lang="ja">校正</em>
+
+fn1. Check alignment.
+
+fn2. Leave room for notes.
+
+- Sheet := One piece of paper.

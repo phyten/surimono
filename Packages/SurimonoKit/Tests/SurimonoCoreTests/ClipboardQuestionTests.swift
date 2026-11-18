@@ -12,7 +12,8 @@ struct ClipboardQuestionTests {
     func choosableKinds() {
         #expect(
             ClipboardTextKind.choosable == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .notebook, .graphviz, .plantuml, .plainText,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
+                .plainText,
             ])
     }
 
@@ -37,7 +38,10 @@ struct ClipboardQuestionTests {
         #expect(asked.preferred == .markdown)
         #expect(asked.competing == [.markdown, .org])
         #expect(asked.options.map(\.kind) == [.markdown, .org, .plainText])
-        #expect(asked.others.map(\.kind) == [.html, .latex, .csv, .asciidoc, .notebook, .graphviz, .plantuml])
+        #expect(
+            asked.others.map(\.kind) == [
+                .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
+            ])
     }
 
     @Test("テキストの点数が 2 つの形式のあいだでも、テキストは最後の行に並び、最初の選択は判定器の勧めのまま")
@@ -54,7 +58,10 @@ struct ClipboardQuestionTests {
         #expect(asked.preferred == .plainText)
         #expect(asked.options.map(\.kind) == [.markdown, .plainText])
         #expect(asked.options.first?.evidence == [.headings(1)])
-        #expect(asked.others.map(\.kind) == [.org, .html, .latex, .csv, .asciidoc, .notebook, .graphviz, .plantuml])
+        #expect(
+            asked.others.map(\.kind) == [
+                .org, .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
+            ])
         #expect(asked.others.allSatisfy { $0.evidence.isEmpty })
         #expect(asked.competing.isEmpty)
     }
@@ -67,7 +74,7 @@ struct ClipboardQuestionTests {
         #expect(asked.options.map(\.kind) == [.plainText])
         #expect(
             asked.others.map(\.kind) == [
-                .markdown, .org, .html, .latex, .csv, .asciidoc, .notebook, .graphviz, .plantuml,
+                .markdown, .org, .html, .latex, .csv, .asciidoc, .djot, .textile, .notebook, .graphviz, .plantuml,
             ])
         #expect(asked.others.first?.evidence == [.headings(1)])
     }
@@ -90,7 +97,7 @@ struct ClipboardQuestionTests {
             settings: .standard)
         #expect(asked.preferred == .plainText)
         #expect(!(asked.options + asked.others).contains { $0.kind == .url })
-        #expect((asked.options + asked.others).count == 10)
+        #expect((asked.options + asked.others).count == 12)
     }
 
     @Test("見本は先頭の空行を飛ばした最初の 5 行で、長い行と続きは切ったと分かる")
