@@ -139,6 +139,9 @@ final class ShortcutMenuBridge: NSObject {
     }
 
     @objc private func changed(_ notification: Notification) {
+        // Reconciling writes to menu items, and every write posts an item change. Scheduling another pass for
+        // those would never end: the app sat at a full core while idle.
+        if reconciling { return }
         // A fully assembled menu can replace mainMenu without another item notification. Application updates
         // catch that installation even when no window becomes key and no menu is opened.
         if notification.name == NSApplication.didUpdateNotification, menu() === reconciledMenu { return }
@@ -168,8 +171,12 @@ final class ShortcutMenuBridge: NSObject {
         }
     }
 
+    /// How many passes ran; a test pins that an idle app stops reconciling.
+    private(set) var reconcilePasses = 0
+
     func reconcile() {
         guard !reconciling, let root = menu() else { return }
+        reconcilePasses += 1
         reconciledMenu = root
         reconciling = true
         defer { reconciling = false }
@@ -220,8 +227,14 @@ final class ShortcutMenuBridge: NSObject {
             let desired =
                 entry.operation == .clipboardReopen && history.isEmpty
                 ? nil : controller.snapshot.keys(for: entry.operation).first
-            item.allowsAutomaticKeyEquivalentLocalization = controller.snapshot.overrides[entry.operation] == nil
-            item.allowsAutomaticKeyEquivalentMirroring = controller.snapshot.overrides[entry.operation] == nil
+            // Unchanged values are not written: each write posts an item change.
+            let automatic = controller.snapshot.overrides[entry.operation] == nil
+            if item.allowsAutomaticKeyEquivalentLocalization != automatic {
+                item.allowsAutomaticKeyEquivalentLocalization = automatic
+            }
+            if item.allowsAutomaticKeyEquivalentMirroring != automatic {
+                item.allowsAutomaticKeyEquivalentMirroring = automatic
+            }
             let value = desired.flatMap(ShortcutMenuKey.init)
             if item.keyEquivalent != (value?.key ?? "") { item.keyEquivalent = value?.key ?? "" }
             let flags = value?.modifiers ?? .command
