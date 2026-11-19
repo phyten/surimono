@@ -1,0 +1,14 @@
+% !TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage{babel}\babelprovide[import,main]{turkish}\babelfont{rm}{Times New Roman}
+\begin{document}
+\title{Ölçüm tahtası}\author{}\date{14 Mayıs 2026}\maketitle
+\begin{abstract}İki işaret tahtanın ilk konumunu gösterir.\end{abstract}
+\tableofcontents
+\section{İşaretler}\begin{quote}“Önce alt işareti okuyun.”\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{Tahtanın konumu}\end{figure}
+\section{Yükseklik}
+\begin{table}[ht]\centering\begin{tabular}{cr}İşaret&Yükseklik (mm)\\\hline 1&12\\2&18\end{tabular}\caption{İşaretlerin yüksekliği}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{Ölçüm defteri}, 2025, \chaptername~2.\end{thebibliography}
+\end{document}

@@ -1,0 +1,16 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{tikz}
+
+\begin{document}
+\section*{Reading a travelling sled}
+\begin{figure}[ht]\centering
+\begin{tikzpicture}
+
+\draw[->] (0,0)--(5.6,0) node[right] {travel};
+\draw[->] (0,0)--(0,2.6) node[above] {lift};
+\foreach \x in {1,...,5} \draw (\x,.08)--(\x,-.08) node[below] {\x};
+\foreach \y in {1,2} \draw (.08,\y)--(-.08,\y) node[left] {\y};
+\draw[thick] (0,0)--(3,2)--(5,2);
+\end{tikzpicture}\caption{The sled rises for three divisions before levelling off.}\end{figure}
+\end{document}

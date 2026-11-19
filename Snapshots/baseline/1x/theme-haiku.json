@@ -1,0 +1,59 @@
+{
+  "fonts" : [
+    "Menlo-Regular",
+    "YuMin-Extrabold",
+    "YuMin-Medium"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 41.3,
+      "height" : 841.9,
+      "lastY" : 211.6,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 27.3,
+          "text" : "紙 ⾒ 本 \u0000 · \u0000 F i e l d \u0000 n o t e s",
+          "width" : 209.8,
+          "x" : 190.7,
+          "y" : 41.3
+        },
+        {
+          "height" : 20.1,
+          "text" : "薄い紙に\u0000太字、italic、code\u0000を並べる。",
+          "width" : 230.2,
+          "x" : 182.2,
+          "y" : 102.6
+        },
+        {
+          "height" : 19.5,
+          "text" : "Fold\u0000the\u0000sheet\u0000along\u0000the\u0000dotted\u0000line.",
+          "width" : 212.1,
+          "x" : 191.2,
+          "y" : 140.3
+        },
+        {
+          "height" : 19.5,
+          "text" : "紙 mm",
+          "width" : 57.5,
+          "x" : 268.9,
+          "y" : 181.1
+        },
+        {
+          "height" : 19.5,
+          "text" : "A5 148",
+          "width" : 57.5,
+          "x" : 268.9,
+          "y" : 211.6
+        }
+      ],
+      "textHeight" : 189.8,
+      "textLeft" : 182.2,
+      "textTop" : 41.3,
+      "textWidth" : 230.2,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "3fc53d6f450d55f39f7bdc15fdb66ccfc936f239dd6cccc28c55c3e052774b78"
+}

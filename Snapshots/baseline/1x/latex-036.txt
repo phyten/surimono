@@ -1,0 +1,5 @@
+Condition flags on the bench
+West rail: provisional; collect the strip.
+West rail: checked; file the strip.
+Matching stencil.
+1

@@ -1,0 +1,14 @@
+% !TEX program = pdflatex
+\documentclass{article}
+
+\makeatletter
+\newcommand{\racknames}{\@for\rack:=North,Middle,South\do{\rack\ shelf\par}}
+\makeatother
+\begin{document}
+\section*{A register of drying positions}
+
+\newcount\slotno\slotno=1
+\loop\textbf{Slot \the\slotno}\quad\rule{25mm}{.3pt}\par
+\advance\slotno by 1 \ifnum\slotno<5 \repeat
+\medskip\racknames
+\end{document}

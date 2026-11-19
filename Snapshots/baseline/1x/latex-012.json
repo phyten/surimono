@@ -1,0 +1,119 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.01923645345652601,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 155.28125,
+    "maxShiftPt" : 47.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 3
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 12,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Plates from the casting bench",
+          "width" : 211.6,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 10.9,
+          "text" : "Bench summary",
+          "width" : 72.9,
+          "x" : 260.9,
+          "y" : 180.9
+        },
+        {
+          "height" : 10.5,
+          "text" : "A bevel leaves a wider impression on the soft face.",
+          "width" : 199,
+          "x" : 165.8,
+          "y" : 195.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "Plate B-1: Edge impression",
+          "width" : 118.7,
+          "x" : 237.9,
+          "y" : 254
+        },
+        {
+          "height" : 11.7,
+          "text" : "Face Depth",
+          "width" : 59.4,
+          "x" : 267.6,
+          "y" : 289.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Soft 3",
+          "width" : 59.4,
+          "x" : 267.6,
+          "y" : 301.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Firm 1",
+          "width" : 59.4,
+          "x" : 267.6,
+          "y" : 313.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Schedule 1: Press readings",
+          "width" : 114.9,
+          "x" : 239.8,
+          "y" : 335.5
+        },
+        {
+          "height" : 17.5,
+          "text" : "Workshop records",
+          "width" : 130.7,
+          "x" : 125.4,
+          "y" : 374.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "[1]",
+          "width" : 10.5,
+          "x" : 125.4,
+          "y" : 401.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Casting desk, Press journal, trial edition.",
+          "width" : 180.1,
+          "x" : 145.3,
+          "y" : 401.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 239.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "4e07395a3db0531d8095a98ef34e23288512aacd82865abf35542a8de3f55137"
+}

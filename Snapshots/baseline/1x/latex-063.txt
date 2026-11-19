@@ -1,0 +1,8 @@
+Reading a travelling sled
+lift
+2
+1
+travel
+1 2 3 4 5
+Figure 1: The sled rises for three divisions before levelling off.
+1

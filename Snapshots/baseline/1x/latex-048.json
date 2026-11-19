@@ -1,0 +1,170 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.024477626948215182,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 24.6,
+    "maxLuminance" : 161.734375,
+    "maxShiftPt" : 27.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 129.7,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "Deska pomiarowa",
+          "width" : 120.8,
+          "x" : 237.4,
+          "y" : 129.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 maja 2026",
+          "width" : 66.7,
+          "x" : 264.3,
+          "y" : 160.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "Streszczenie",
+          "width" : 46.6,
+          "x" : 274.3,
+          "y" : 190.7
+        },
+        {
+          "height" : 9.9,
+          "text" : "Dwa znaki wskazują początkowe położenie deski.",
+          "width" : 183.9,
+          "x" : 97.2,
+          "y" : 205.1
+        },
+        {
+          "height" : 15.9,
+          "text" : "Spis treści",
+          "width" : 63.1,
+          "x" : 56.8,
+          "y" : 226.7
+        },
+        {
+          "height" : 11,
+          "text" : "1 Znaki 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 250.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 Wysokość 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 273
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Znaki",
+          "width" : 58.2,
+          "x" : 56.8,
+          "y" : 301.1
+        },
+        {
+          "height" : 11,
+          "text" : "„Najpierw odczytaj dolny znak”.",
+          "width" : 133.6,
+          "x" : 81.7,
+          "y" : 326.6
+        },
+        {
+          "height" : 11,
+          "text" : "Rysunek 1: Położenie deski",
+          "width" : 112.5,
+          "x" : 241.4,
+          "y" : 395.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Wysokość",
+          "width" : 82.4,
+          "x" : 56.8,
+          "y" : 435.4
+        },
+        {
+          "height" : 11,
+          "text" : "Znak Wysokość (mm)",
+          "width" : 97.8,
+          "x" : 248.7,
+          "y" : 473.6
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 90,
+          "x" : 256.5,
+          "y" : 486.4
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 90,
+          "x" : 256.5,
+          "y" : 498.4
+        },
+        {
+          "height" : 11,
+          "text" : "Tabela 1: Wysokość znaków",
+          "width" : 116,
+          "x" : 239.6,
+          "y" : 520
+        },
+        {
+          "height" : 15.9,
+          "text" : "Literatura",
+          "width" : 64.5,
+          "x" : 56.8,
+          "y" : 560.1
+        },
+        {
+          "height" : 11,
+          "text" : "[1]",
+          "width" : 11.6,
+          "x" : 56.8,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "Zeszyt pomiarów, 2025, Rozdział 2.",
+          "width" : 146.4,
+          "x" : 76.7,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 654.1,
+      "textLeft" : 56.8,
+      "textTop" : 129.7,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "bf226f7268e3ca282af5bbd6ff64d4f5b280bdd6ddcb0f3be5c2bcc887036dad"
+}

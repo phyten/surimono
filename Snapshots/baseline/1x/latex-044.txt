@@ -1,0 +1,19 @@
+A tábua de medição
+14 de maio de 2026
+Resumo
+Duas marcas indicam a posição inicial da tábua.
+Índice
+1 As marcas 1
+2 Altura 1
+1 As marcas
+«Ler primeiro a marca inferior.»
+Figura 1: Posição da tábua
+2 Altura
+Marca Altura (mm)
+1 12
+2 18
+Tabela 1: Altura das marcas
+Referências
+[1]
+Caderno de medições, 2025, Capítulo 2.
+1

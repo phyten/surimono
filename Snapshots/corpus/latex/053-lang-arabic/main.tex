@@ -1,0 +1,15 @@
+% !TEX program = lualatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage[bidi=basic]{babel}\babelprovide[import,main]{arabic}
+\babelfont{rm}[ItalicFont={Times New Roman},ItalicFeatures={FakeSlant=.13}]{Times New Roman}
+\begin{document}
+\title{لوح القياس}\author{}\date{١٤ مايو ٢٠٢٦}\maketitle
+\begin{abstract}تدل علامتان على موضع اللوح الأول.\end{abstract}
+\tableofcontents
+\section{العلامات}\begin{quote}«اقرأ العلامة السفلى أولًا».\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{موضع اللوح}\end{figure}
+\section{الارتفاع}
+\begin{table}[ht]\centering\begin{tabular}{cr}العلامة&الارتفاع (mm)\\\hline 1&12\\2&18\end{tabular}\caption{ارتفاع العلامات}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{دفتر القياس}, 2025, \chaptername~2.\end{thebibliography}
+\end{document}

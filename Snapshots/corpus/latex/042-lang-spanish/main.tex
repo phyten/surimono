@@ -1,0 +1,15 @@
+% !TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage{fontspec}\setmainfont{Times New Roman}
+\usepackage[spanish]{babel}
+\begin{document}
+\title{La tabla de medida}\author{}\date{14 de mayo de 2026}\maketitle
+\begin{abstract}Dos marcas indican la posición inicial de la tabla.\end{abstract}
+\tableofcontents
+\section{Las marcas}\begin{quote}«Primero se lee la marca inferior».\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{Posición de la tabla}\end{figure}
+\section{Altura}
+\begin{table}[ht]\centering\begin{tabular}{cr}Marca&Altura (mm)\\\hline 1&12\\2&18\end{tabular}\caption{Altura de las marcas}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{Cuaderno de medidas}, 2025, \chaptername~2.\end{thebibliography}
+\end{document}

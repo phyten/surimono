@@ -34,3 +34,6 @@ xcuserdata/
 .claude/settings.local.json
 .claude/launch.json
 CLAUDE.local.md
+
+/Snapshots/.runs/
+/Snapshots/.baseline-visual/

@@ -1,0 +1,91 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02680844645550528,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 144.0472412109375,
+    "maxShiftPt" : 29.3,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 8,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Marking the sample envelope",
+          "width" : 209.7,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 12.1,
+          "text" : "Dry stock",
+          "width" : 48.7,
+          "x" : 127.4,
+          "y" : 178.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "Keep this strip inside the enve-",
+          "width" : 140.4,
+          "x" : 127.4,
+          "y" : 191.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "lope.",
+          "width" : 20.5,
+          "x" : 127.4,
+          "y" : 203.1
+        },
+        {
+          "height" : 12.1,
+          "text" : "Trial stock",
+          "width" : 53.8,
+          "x" : 327.6,
+          "y" : 178.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "Return this strip after the fold",
+          "width" : 138.8,
+          "x" : 327.6,
+          "y" : 191.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "test.",
+          "width" : 18.9,
+          "x" : 327.6,
+          "y" : 203.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 340.9,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "8e1aa5c23c0fc4c2d6929f2cc8f6d625c95eef9a69af9e79e0d8d782664659b7"
+}

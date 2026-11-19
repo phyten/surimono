@@ -1,0 +1,163 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02195274007038713,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 24.6,
+    "maxLuminance" : 170.390625,
+    "maxShiftPt" : 27.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 129.7,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 18,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "Mätbrädan",
+          "width" : 71.9,
+          "x" : 261.9,
+          "y" : 129.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 maj 2026",
+          "width" : 61.4,
+          "x" : 266.9,
+          "y" : 160.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "Sammanfattning",
+          "width" : 64.3,
+          "x" : 265.5,
+          "y" : 190.7
+        },
+        {
+          "height" : 9.9,
+          "text" : "Två märken visar brädans ursprungliga läge.",
+          "width" : 164,
+          "x" : 97.2,
+          "y" : 205.1
+        },
+        {
+          "height" : 15.9,
+          "text" : "Innehåll",
+          "width" : 51,
+          "x" : 56.8,
+          "y" : 226.7
+        },
+        {
+          "height" : 11,
+          "text" : "1 Märkena 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 250.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 Höjd 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 273
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Märkena",
+          "width" : 78.1,
+          "x" : 56.8,
+          "y" : 301.1
+        },
+        {
+          "height" : 11,
+          "text" : "”Läs av det nedre märket först.”",
+          "width" : 131.9,
+          "x" : 81.7,
+          "y" : 326.6
+        },
+        {
+          "height" : 11,
+          "text" : "Figur 1: Brädans läge",
+          "width" : 88.5,
+          "x" : 253.4,
+          "y" : 395.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Höjd",
+          "width" : 52.6,
+          "x" : 56.8,
+          "y" : 435.4
+        },
+        {
+          "height" : 11,
+          "text" : "Märke Höjd (mm)",
+          "width" : 82.3,
+          "x" : 256.5,
+          "y" : 473.6
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 71.8,
+          "x" : 267,
+          "y" : 486.4
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 71.8,
+          "x" : 267,
+          "y" : 498.4
+        },
+        {
+          "height" : 11,
+          "text" : "Tabell 1: Märkenas höjd",
+          "width" : 99.4,
+          "x" : 247.9,
+          "y" : 520
+        },
+        {
+          "height" : 15.9,
+          "text" : "Referenser",
+          "width" : 66.6,
+          "x" : 56.8,
+          "y" : 560.1
+        },
+        {
+          "height" : 11,
+          "text" : "[1] Mätbok, 2025, Kapitel 2.",
+          "width" : 122,
+          "x" : 56.8,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 654.1,
+      "textLeft" : 56.8,
+      "textTop" : 129.7,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "20de9f3bbe3a1fc0c0076e645a86b2838d1cdaf66e281170b8b5540585f99d6a"
+}

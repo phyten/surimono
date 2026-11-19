@@ -1,0 +1,66 @@
+紙の実験 / Paper workshop
+Print Team, Sample Editor
+1.0, 2026-10-01, 校正
+Table of Contents
+1. 準備 / Setup
+2. 図と数式 / Figures
+1. 準備 / Setup
+Note
+余白を確かめます。1
+Tip
+Ctrl+P、Print、File › Print。
+Important
+原文を保存します。
+Warning
+用紙の向きに注意。
+Caution
+裏面も確認してください。
+let sheets = 2 // (1)
+計算
+1. 両面に刷る枚数。
+Table 1. 仕上がり
+用紙
+ページ
+A4 4
+合計 4
+見本を開く
+本文を確認
+用紙を選びます。
+印刷する
+用紙
+Paper
+余白
+Margin
+表 Front
+裏 Back
+紙にして確かめる。
+表と裏
+折って一冊
+補足
+小さなサイドバー。
+Example 1. 用例
+本文の例。
+Open block.
+Literal <text>
+̶ 編集部
+印刷ノート
+̶ Paper Team
+2. 図と数式 / Figures
+準備 / Setup と 準備。 Reference.
+A B
+図
+A B
+A B
+A
+B
+C
+D
+Figure 1. 小さな画像
+Inline .
+式 x2
+、y、未対応の a/b。
+x2 + y2
+= z2
+Sample HTML
+include:appendix.adoc[]
+1. 紙の端から本文まで。

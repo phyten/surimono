@@ -1,0 +1,147 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.011087340712491862,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 395,
+    "maxLuminance" : 152.515625,
+    "maxShiftPt" : 40.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 11
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 300.7,
+      "lineCount" : 16,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "A gate with a stop",
+          "width" : 130.8,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "Let u be the handle travel. The gate height is",
+          "width" : 199.9,
+          "x" : 125.4,
+          "y" : 177.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "h(u) =",
+          "width" : 29.7,
+          "x" : 246.4,
+          "y" : 221.9
+        },
+        {
+          "height" : 29.9,
+          "text" : "⎧",
+          "width" : 8.9,
+          "x" : 278.9,
+          "y" : 198.5
+        },
+        {
+          "height" : 29.9,
+          "text" : "⎨",
+          "width" : 8.9,
+          "x" : 278.9,
+          "y" : 213.5
+        },
+        {
+          "height" : 29.9,
+          "text" : "⎩",
+          "width" : 8.9,
+          "x" : 278.9,
+          "y" : 223.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "0 u < 0,",
+          "width" : 42.4,
+          "x" : 287.8,
+          "y" : 208
+        },
+        {
+          "height" : 11.7,
+          "text" : "u 0 ≤ u ≤ 3,",
+          "width" : 60.7,
+          "x" : 287.8,
+          "y" : 222.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "3 u > 3.",
+          "width" : 42.4,
+          "x" : 287.8,
+          "y" : 236.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "At the two stops we obtain",
+          "width" : 119.4,
+          "x" : 125.4,
+          "y" : 263.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "h(−1) = h(0),",
+          "width" : 60.7,
+          "x" : 267.2,
+          "y" : 284.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "h(3) = h(4).",
+          "width" : 53,
+          "x" : 271.1,
+          "y" : 299.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "h(2)− h(1) = 1.",
+          "width" : 70.1,
+          "x" : 262.4,
+          "y" : 326.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        },
+        {
+          "height" : 10.6,
+          "text" : "(1)",
+          "width" : 11.6,
+          "x" : 457.6,
+          "y" : 285.5
+        },
+        {
+          "height" : 10.6,
+          "text" : "(2)",
+          "width" : 11.6,
+          "x" : 457.6,
+          "y" : 300.7
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e9e98bc2195049398832588ff77b61454190d6e8def1595447513f0863f5d246"
+}

@@ -1,0 +1,370 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.04356907367790076,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 2,
+    "maxBoxDeltaPt" : 26.6,
+    "maxLuminance" : 165.109375,
+    "maxShiftPt" : 21.8,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 3
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 144.9,
+      "height" : 841.9,
+      "lastY" : 647.7,
+      "lineCount" : 38,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Shift log for the settling tank",
+          "width" : 206.5,
+          "x" : 125.4,
+          "y" : 144.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Table 1: Readings at ten-minute intervals",
+          "width" : 182.7,
+          "x" : 206,
+          "y" : 173.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "Interval Gate Surface Depth (mm)",
+          "width" : 179.8,
+          "x" : 207.4,
+          "y" : 195.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1 open rippled 25",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 208
+        },
+        {
+          "height" : 11.7,
+          "text" : "2 open rippled 26",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 220
+        },
+        {
+          "height" : 11.7,
+          "text" : "3 open rippled 27",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 232
+        },
+        {
+          "height" : 11.7,
+          "text" : "4 open rippled 28",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 244
+        },
+        {
+          "height" : 11.7,
+          "text" : "5 open rippled 29",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 256
+        },
+        {
+          "height" : 11.7,
+          "text" : "6 open rippled 30",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 268
+        },
+        {
+          "height" : 11.7,
+          "text" : "7 open rippled 31",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 280
+        },
+        {
+          "height" : 11.7,
+          "text" : "8 open rippled 32",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 292
+        },
+        {
+          "height" : 11.7,
+          "text" : "9 open rippled 33",
+          "width" : 150.4,
+          "x" : 236.8,
+          "y" : 304
+        },
+        {
+          "height" : 11.7,
+          "text" : "10 open rippled 34",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 316
+        },
+        {
+          "height" : 11.7,
+          "text" : "11 open rippled 35",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 328
+        },
+        {
+          "height" : 11.7,
+          "text" : "12 closed rippled 36",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 340
+        },
+        {
+          "height" : 11.7,
+          "text" : "13 closed rippled 37",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 352
+        },
+        {
+          "height" : 11.7,
+          "text" : "14 closed rippled 38",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 364
+        },
+        {
+          "height" : 11.7,
+          "text" : "15 closed rippled 39",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 376
+        },
+        {
+          "height" : 11.7,
+          "text" : "16 closed rippled 40",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 388
+        },
+        {
+          "height" : 11.7,
+          "text" : "17 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 400
+        },
+        {
+          "height" : 11.7,
+          "text" : "18 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 412
+        },
+        {
+          "height" : 11.7,
+          "text" : "19 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 424
+        },
+        {
+          "height" : 11.7,
+          "text" : "20 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 436
+        },
+        {
+          "height" : 11.7,
+          "text" : "21 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 448
+        },
+        {
+          "height" : 11.7,
+          "text" : "22 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 460
+        },
+        {
+          "height" : 11.7,
+          "text" : "23 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 472
+        },
+        {
+          "height" : 11.7,
+          "text" : "24 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 484
+        },
+        {
+          "height" : 11.7,
+          "text" : "25 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 496
+        },
+        {
+          "height" : 11.7,
+          "text" : "26 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 508
+        },
+        {
+          "height" : 11.7,
+          "text" : "27 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 520
+        },
+        {
+          "height" : 11.7,
+          "text" : "28 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 532
+        },
+        {
+          "height" : 11.7,
+          "text" : "29 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 544
+        },
+        {
+          "height" : 11.7,
+          "text" : "30 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 556
+        },
+        {
+          "height" : 11.7,
+          "text" : "31 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 568
+        },
+        {
+          "height" : 11.7,
+          "text" : "32 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 580
+        },
+        {
+          "height" : 11.7,
+          "text" : "33 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 592
+        },
+        {
+          "height" : 11.7,
+          "text" : "34 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 604
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 647.7
+        }
+      ],
+      "textHeight" : 514.4,
+      "textLeft" : 125.4,
+      "textTop" : 144.9,
+      "textWidth" : 263.2,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 145.6,
+      "height" : 841.9,
+      "lastY" : 647.7,
+      "lineCount" : 8,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "35 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 145.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "36 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 157.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "37 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 169.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "38 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 181.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "39 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 193.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "40 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 205.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "41 closed still 41",
+          "width" : 155.4,
+          "x" : 231.8,
+          "y" : 217.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 647.7
+        }
+      ],
+      "textHeight" : 513.8,
+      "textLeft" : 231.8,
+      "textTop" : 145.6,
+      "textWidth" : 155.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "24020102d45de51543341e82791292d8d01df137e8d3091511a5ae24ac19c1cd"
+}

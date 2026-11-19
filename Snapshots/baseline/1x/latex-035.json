@@ -1,0 +1,78 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.007041205469258674,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 133.609375,
+    "maxShiftPt" : 29.3,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 4
+  },
+  "fonts" : [
+    "Helvetica",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Labels for a sample drawer",
+          "width" : 191.4,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 12.1,
+          "text" : "Blue tray",
+          "width" : 47.1,
+          "x" : 150.3,
+          "y" : 177.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "WORKING: Quartz",
+          "width" : 72.9,
+          "x" : 150.3,
+          "y" : 190.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "RESERVE: Slate",
+          "width" : 61.3,
+          "x" : 150.3,
+          "y" : 202.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Length: 12 mm",
+          "width" : 65.2,
+          "x" : 150.3,
+          "y" : 214.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 191.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "c4007214a3fa4e9b92ee2b7d421894d4fbae82decf1289d9088794130133386d"
+}

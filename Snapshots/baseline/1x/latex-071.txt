@@ -1,0 +1,5 @@
+Neighbouring rack cells
+A1 A2 A3
+B1 B2 B3
+Figure 1: Move down one row while keeping the column fixed.
+1

@@ -46,7 +46,9 @@ final class DisplayAccessibility {
             if let value = DebugSnapshot.argument("SurimonoIncreaseContrast") {
                 options.increasedContrast = (value as NSString).boolValue
             }
-            if let value = DebugSnapshot.argument("SurimonoReduceTransparency") {
+            if DebugWindowCapture.requested {
+                options.reduceTransparency = true
+            } else if let value = DebugSnapshot.argument("SurimonoReduceTransparency") {
                 options.reduceTransparency = (value as NSString).boolValue
             }
         #endif

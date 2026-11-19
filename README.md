@@ -162,6 +162,8 @@ Sample documents in `Samples/` cover Djot (`sample.dj`), Textile (`sample.textil
 
 ## Contributing
 
+Contributors can compare rendered documents and UI against an approved local baseline with `make snapshots && make snapshots-report`. Open the reported HTML to review page images, text and layout shifts before approving selected cases. See [the snapshot workflow](AGENTS.md#スナップショット見た目の回帰).
+
 Issues and pull requests are welcome, in English or Japanese. See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License

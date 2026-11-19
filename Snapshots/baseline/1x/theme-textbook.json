@@ -1,0 +1,74 @@
+{
+  "fonts" : [
+    "HiraMaruProN-W4",
+    "Menlo-Regular",
+    "YuKyo_Yoko-Bold",
+    "YuKyo_Yoko-Medium"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 39.5,
+      "height" : 841.9,
+      "lastY" : 196.4,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 33.1,
+          "text" : "紙見本 · Field notes 紙見本 · Field notes 紙見本 · Field notes 紙見本 · Field notes",
+          "width" : 220.7,
+          "x" : 24,
+          "y" : 39.5
+        },
+        {
+          "height" : 17.7,
+          "text" : "薄紙\u0000太字、italic 、code\u0000並。",
+          "width" : 210.2,
+          "x" : 42.5,
+          "y" : 97.7
+        },
+        {
+          "height" : 17.2,
+          "text" : "Fold\u0000the\u0000sheet\u0000along\u0000the\u0000dotted\u0000line.",
+          "width" : 194.2,
+          "x" : 66.9,
+          "y" : 130.7
+        },
+        {
+          "height" : 18.9,
+          "text" : "紙 紙 紙 紙",
+          "width" : 12.4,
+          "x" : 49.2,
+          "y" : 165.7
+        },
+        {
+          "height" : 18.9,
+          "text" : "mm mm mm mm",
+          "width" : 21.6,
+          "x" : 79.2,
+          "y" : 165.7
+        },
+        {
+          "height" : 17.2,
+          "text" : "A5",
+          "width" : 16.1,
+          "x" : 49.2,
+          "y" : 196.4
+        },
+        {
+          "height" : 17.2,
+          "text" : "148",
+          "width" : 22.6,
+          "x" : 77.9,
+          "y" : 196.4
+        }
+      ],
+      "textHeight" : 174.1,
+      "textLeft" : 24,
+      "textTop" : 39.5,
+      "textWidth" : 237.1,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "375e0d44f187002b61c9303a17b10419d29e8fcf67b6922fc5010e7bd3fb0226"
+}

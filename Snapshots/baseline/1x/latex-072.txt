@@ -1,0 +1,4 @@
+Lettering the curved towpath
+Figure (TikZ)
+Figure 1: The route name follows the bend above the bank.
+1

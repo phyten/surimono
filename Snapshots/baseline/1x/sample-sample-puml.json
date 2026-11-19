@@ -1,0 +1,120 @@
+{
+  "fonts" : [
+    "HiraginoSans-W4",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 57.4,
+      "height" : 841.9,
+      "lastY" : 164.5,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 18.5,
+          "text" : "利用者 摺物 / Surimono",
+          "width" : 159.1,
+          "x" : 223.5,
+          "y" : 57.4
+        },
+        {
+          "height" : 17.2,
+          "text" : "文書を開く",
+          "width" : 52.1,
+          "x" : 246,
+          "y" : 86
+        },
+        {
+          "height" : 17.2,
+          "text" : "印刷プレビュー",
+          "width" : 72.6,
+          "x" : 254,
+          "y" : 108.8
+        },
+        {
+          "height" : 17.2,
+          "text" : "印刷する",
+          "width" : 41.7,
+          "x" : 246,
+          "y" : 131.6
+        },
+        {
+          "height" : 18.5,
+          "text" : "利用者 摺物 / Surimono",
+          "width" : 159.1,
+          "x" : 223.5,
+          "y" : 164.5
+        }
+      ],
+      "textHeight" : 125.6,
+      "textLeft" : 223.5,
+      "textTop" : 57.4,
+      "textWidth" : 159.1,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 51.3,
+      "height" : 841.9,
+      "lastY" : 216,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 18.5,
+          "text" : "C 文書 / Document",
+          "width" : 109.3,
+          "x" : 250.7,
+          "y" : 51.3
+        },
+        {
+          "height" : 18.5,
+          "text" : "title : String",
+          "width" : 66,
+          "x" : 247.6,
+          "y" : 73.4
+        },
+        {
+          "height" : 18.5,
+          "text" : "open()",
+          "width" : 36.8,
+          "x" : 247.6,
+          "y" : 92.1
+        },
+        {
+          "height" : 17.2,
+          "text" : "組版",
+          "width" : 20.8,
+          "x" : 297.8,
+          "y" : 132.7
+        },
+        {
+          "height" : 18.5,
+          "text" : "C 用紙 / Paper",
+          "width" : 84.1,
+          "x" : 261.3,
+          "y" : 175.2
+        },
+        {
+          "height" : 18.5,
+          "text" : "size : A4",
+          "width" : 47.9,
+          "x" : 258.2,
+          "y" : 197.3
+        },
+        {
+          "height" : 18.5,
+          "text" : "print()",
+          "width" : 35.2,
+          "x" : 258.2,
+          "y" : 216
+        }
+      ],
+      "textHeight" : 183.3,
+      "textLeft" : 247.6,
+      "textTop" : 51.3,
+      "textWidth" : 112.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e641b94849c70beca23362ef20c331ebbb6246320ab0dcd7566c3b94a979c67f"
+}

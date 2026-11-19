@@ -319,7 +319,12 @@ struct SpreadGlyph: View {
                 sheet(page)
             }
         }
-        .shadow(color: PrintPalette.paperShadow.opacity(0.5), radius: 1, y: 0.5)
+        #if DEBUG
+            .shadow(
+                color: DebugWindowCapture.requested ? .clear : PrintPalette.paperShadow.opacity(0.5), radius: 1, y: 0.5)
+        #else
+            .shadow(color: PrintPalette.paperShadow.opacity(0.5), radius: 1, y: 0.5)
+        #endif
         .background {
             // Outside the sheets, so that picking the current unit does not move its neighbours.
             if isCurrent {

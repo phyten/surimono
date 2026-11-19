@@ -1,0 +1,104 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.01726661085790469,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 24.3,
+    "maxLuminance" : 196.9375,
+    "maxShiftPt" : 25.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 221.6,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 25.2,
+          "text" : "Route index",
+          "width" : 125.4,
+          "x" : 125.4,
+          "y" : 221.6
+        },
+        {
+          "height" : 12.1,
+          "text" : "1 Channel inspection 2",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 286.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 509.3,
+      "textLeft" : 125.4,
+      "textTop" : 221.6,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 219.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 25.4,
+          "text" : "Circuit 1",
+          "width" : 91.7,
+          "x" : 125.4,
+          "y" : 219.4
+        },
+        {
+          "height" : 30.2,
+          "text" : "Channel inspection",
+          "width" : 235.6,
+          "x" : 125.4,
+          "y" : 258.8
+        },
+        {
+          "height" : 12.2,
+          "text" : "Station 1.1: North inlet. The slot cleared at the first turn.",
+          "width" : 268,
+          "x" : 125.4,
+          "y" : 321.7
+        },
+        {
+          "height" : 12.2,
+          "text" : "Station 1.2: South inlet. The handle stopped earlier than at station 1.1.",
+          "width" : 326.5,
+          "x" : 140.4,
+          "y" : 334.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 511.5,
+      "textLeft" : 125.4,
+      "textTop" : 219.4,
+      "textWidth" : 341.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "8b5573ccf1c94d60fbdfafcfef5297d77d87981463ffe28cca6a2cb36a545df0"
+}

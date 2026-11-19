@@ -1,0 +1,20 @@
+% !TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage{fontspec}\setmainfont[AutoFakeBold=2,AutoFakeSlant=.18]{Songti SC}
+\XeTeXlinebreaklocale "zh"
+\renewcommand{\abstractname}{摘要}
+\renewcommand{\contentsname}{目录}
+\renewcommand{\figurename}{图}
+\renewcommand{\tablename}{表}
+\renewcommand{\refname}{参考文献}
+\begin{document}
+\title{测量板的位置}\author{}\date{2026年5月14日}\maketitle
+\begin{abstract}木板上有两条刻线，用来记录初始位置。\end{abstract}
+\tableofcontents
+\section{刻线}\begin{quote}“先读下面的刻线。”\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{木板位置}\end{figure}
+\section{高度}
+\begin{table}[ht]\centering\begin{tabular}{cr}刻线&高度 (mm)\\\hline 1&12\\2&18\end{tabular}\caption{刻线高度}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{测量手册}, 2025, 第2章.\end{thebibliography}
+\end{document}

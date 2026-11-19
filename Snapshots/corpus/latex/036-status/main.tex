@@ -1,0 +1,14 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{ifthen}
+\makeatletter\def\bench@name{West rail}\newcommand{\benchname}{\bench@name}\makeatother
+\newif\ifdraft\def\mastercode{B}
+\newcommand{\status}[1]{\benchname: \ifdraft provisional\else checked\fi;
+\ifthenelse{\equal{#1}{open}}{collect the strip}{file the strip}.}
+\begin{document}
+\section*{Condition flags on the bench}
+
+\drafttrue\status{open}\par
+\draftfalse\status{closed}\par
+\def\copycode{B}\ifx\copycode\mastercode Matching stencil.\else Replacement stencil.\fi
+\end{document}

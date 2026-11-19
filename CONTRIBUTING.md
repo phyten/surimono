@@ -33,6 +33,8 @@ The maintainer writes commit descriptions in Japanese; English is equally welcom
 
 ## Code style and tests
 
+For rendering, theme, LaTeX or UI changes, run `make snapshots && make snapshots-report` on a logged-in Mac. Review the changed cases and their magnitudes, then approve intended changes with `make snapshots-approve ONLY="id id"`. Include the numeric/text baseline with the originating change. See [the snapshot workflow](AGENTS.md#スナップショット見た目の回帰).
+
 - Format Swift code with `make format` and check it with `make lint` (`xcrun swift-format`, configured in `.swift-format`).
 - New behavior should come with tests, and test names should describe the behavior.
 - Surimono must never modify the files it opens.

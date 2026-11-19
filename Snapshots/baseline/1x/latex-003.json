@@ -1,0 +1,125 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.021574220485949626,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 100.7,
+    "maxLuminance" : 195.96875,
+    "maxShiftPt" : 100.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 8
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 397.9,
+      "height" : 841.9,
+      "lastY" : 713.3,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 25.4,
+          "text" : "Part I",
+          "width" : 62.3,
+          "x" : 240.9,
+          "y" : 397.9
+        },
+        {
+          "height" : 30.2,
+          "text" : "The upper valley",
+          "width" : 207.9,
+          "x" : 168.1,
+          "y" : 437.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 269.6,
+          "y" : 713.3
+        }
+      ],
+      "textHeight" : 327.1,
+      "textLeft" : 168.1,
+      "textTop" : 397.9,
+      "textWidth" : 207.9,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 218.1,
+      "height" : 841.9,
+      "lastY" : 713.3,
+      "lineCount" : 8,
+      "lines" : [
+        {
+          "height" : 25.4,
+          "text" : "Chapter 1",
+          "width" : 103.7,
+          "x" : 151.4,
+          "y" : 218.1
+        },
+        {
+          "height" : 30.2,
+          "text" : "The spillway",
+          "width" : 156.1,
+          "x" : 151.4,
+          "y" : 257.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Fold the sheet along the blue channel. A cut through the ridge reveals the",
+          "width" : 343.7,
+          "x" : 151.4,
+          "y" : 320.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "two beds beneath the gravel.",
+          "width" : 126,
+          "x" : 151.4,
+          "y" : 332.1
+        },
+        {
+          "height" : 17.5,
+          "text" : "1.1 Reading the section",
+          "width" : 176.3,
+          "x" : 151.4,
+          "y" : 358.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "The wider bed continues past the bend. The narrow bed ends below the west-",
+          "width" : 343.7,
+          "x" : 151.4,
+          "y" : 384.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "ern ledge.",
+          "width" : 42.1,
+          "x" : 151.4,
+          "y" : 396.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 320.7,
+          "y" : 713.3
+        }
+      ],
+      "textHeight" : 506.9,
+      "textLeft" : 151.4,
+      "textTop" : 218.1,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "82f3829be8fe04bfebb1b9c21cfb56336bd623fad96d572e508805b1d9c3f275"
+}

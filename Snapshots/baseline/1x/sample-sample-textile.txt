@@ -1,0 +1,30 @@
+紙の実験 / Paper workshop
+準備 / Setup
+Paper remembers the fold.
+余白を確認1
+次の行2
+。
+。
+Sheet
+A4
+Fold
+1. Prepare
+1. Print
+紙 Sheets
+A4 2
+Total
+let sheets = 2
+Paper
+Print
+paper
+print
+Paper Printer
+Paper Printer
+fold & print
+準備 / PDF
+*Paper* stays as written.
+*Fold* / 校正
+Sheet
+One piece of paper.
+1. Leave room for notes.
+2. Check alignment.

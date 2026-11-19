@@ -1,0 +1,163 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.026318753142282554,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 24.6,
+    "maxLuminance" : 180.453125,
+    "maxShiftPt" : 27.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 129.7,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 18,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "De meetplank",
+          "width" : 93.1,
+          "x" : 251.2,
+          "y" : 129.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 mei 2026",
+          "width" : 61.4,
+          "x" : 266.9,
+          "y" : 160.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "Samenvatting",
+          "width" : 52.8,
+          "x" : 271.2,
+          "y" : 190.7
+        },
+        {
+          "height" : 9.9,
+          "text" : "Twee tekens geven de oorspronkelijke stand van de plank aan.",
+          "width" : 230.9,
+          "x" : 97.2,
+          "y" : 205.1
+        },
+        {
+          "height" : 15.9,
+          "text" : "Inhoudsopgave",
+          "width" : 93.3,
+          "x" : 56.8,
+          "y" : 226.7
+        },
+        {
+          "height" : 11,
+          "text" : "1 De merktekens 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 250.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 Hoogte 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 273
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 De merktekens",
+          "width" : 114.4,
+          "x" : 56.8,
+          "y" : 301.1
+        },
+        {
+          "height" : 11,
+          "text" : "‘Lees eerst het onderste teken af.’",
+          "width" : 138.6,
+          "x" : 81.7,
+          "y" : 326.6
+        },
+        {
+          "height" : 11,
+          "text" : "Figuur 1: Stand van de plank",
+          "width" : 119.5,
+          "x" : 237.9,
+          "y" : 395.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Hoogte",
+          "width" : 65.3,
+          "x" : 56.8,
+          "y" : 435.4
+        },
+        {
+          "height" : 11,
+          "text" : "Teken Hoogte (mm)",
+          "width" : 89.9,
+          "x" : 252.7,
+          "y" : 473.6
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 80.3,
+          "x" : 262.3,
+          "y" : 486.4
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 80.3,
+          "x" : 262.3,
+          "y" : 498.4
+        },
+        {
+          "height" : 11,
+          "text" : "Tabel 1: Hoogte van de tekens",
+          "width" : 124.9,
+          "x" : 235.2,
+          "y" : 520
+        },
+        {
+          "height" : 15.9,
+          "text" : "Referenties",
+          "width" : 69,
+          "x" : 56.8,
+          "y" : 560.1
+        },
+        {
+          "height" : 11,
+          "text" : "[1] Meetboekje, 2025, Hoofdstuk 2.",
+          "width" : 150.2,
+          "x" : 56.8,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 654.1,
+      "textLeft" : 56.8,
+      "textTop" : 129.7,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "7c235c92fdf2d2a55af9e9345a44b38f7edd2fcafda72ec182445bbba753623c"
+}

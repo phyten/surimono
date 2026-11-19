@@ -161,6 +161,8 @@ make clean                      # ビルド生成物を削除
 
 ## コントリビュート
 
+描画や UI を変更したら、`make snapshots && make snapshots-report` で承認済みの基準と比較できます。HTML でページ画像、本文、移動量を確認し、意図したケースだけを承認します。[スナップショットの手順](AGENTS.md#スナップショット見た目の回帰)を参照してください。
+
 Issue・Pull Request を歓迎します（日本語・英語どちらでも大丈夫です）。[CONTRIBUTING.md](CONTRIBUTING.md) と [行動規範](CODE_OF_CONDUCT.md) をご覧ください。
 
 ## ライセンス

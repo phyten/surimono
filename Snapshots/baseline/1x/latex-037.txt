@@ -1,0 +1,9 @@
+A register of drying positions
+Slot 1
+Slot 2
+Slot 3
+Slot 4
+North shelf
+Middle shelf
+South shelf
+1

@@ -1,0 +1,170 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02532428355957768,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 24.6,
+    "maxLuminance" : 179.578125,
+    "maxShiftPt" : 26.4,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 3
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 129.7,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "Мерная доска",
+          "width" : 98.6,
+          "x" : 248.5,
+          "y" : 129.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 мая 2026 года",
+          "width" : 87.2,
+          "x" : 254,
+          "y" : 160.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "Аннотация",
+          "width" : 45.4,
+          "x" : 275,
+          "y" : 190.7
+        },
+        {
+          "height" : 9.9,
+          "text" : "Две метки показывают исходное положение доски.",
+          "width" : 199.1,
+          "x" : 97.2,
+          "y" : 205.1
+        },
+        {
+          "height" : 15.9,
+          "text" : "Содержание",
+          "width" : 79.2,
+          "x" : 56.8,
+          "y" : 226.7
+        },
+        {
+          "height" : 11,
+          "text" : "1 Метки 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 250.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 Высота 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 273
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Метки",
+          "width" : 64.8,
+          "x" : 56.8,
+          "y" : 301.1
+        },
+        {
+          "height" : 11,
+          "text" : "«Сначала прочтите нижнюю метку».",
+          "width" : 158.6,
+          "x" : 81.7,
+          "y" : 326.6
+        },
+        {
+          "height" : 11,
+          "text" : "Рис. 1: Положение доски",
+          "width" : 108.4,
+          "x" : 243.4,
+          "y" : 395.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Высота",
+          "width" : 70,
+          "x" : 56.8,
+          "y" : 435.4
+        },
+        {
+          "height" : 11,
+          "text" : "Метка Высота (mm)",
+          "width" : 94.5,
+          "x" : 250.4,
+          "y" : 473.6
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 83.7,
+          "x" : 261.2,
+          "y" : 486.4
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 83.7,
+          "x" : 261.2,
+          "y" : 498.4
+        },
+        {
+          "height" : 11,
+          "text" : "Таблица 1: Высота меток",
+          "width" : 109.1,
+          "x" : 243.1,
+          "y" : 520
+        },
+        {
+          "height" : 15.9,
+          "text" : "Список литературы",
+          "width" : 130.8,
+          "x" : 56.8,
+          "y" : 560.1
+        },
+        {
+          "height" : 11,
+          "text" : "[1]",
+          "width" : 11.6,
+          "x" : 56.8,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "Журнал измерений, 2025, Глава 2.",
+          "width" : 145.1,
+          "x" : 76.7,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 654.1,
+      "textLeft" : 56.8,
+      "textTop" : 129.7,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "84d6e38d1cdf2694f9796eeff4f546ec95398820339a5f889482100f42c1c4cb"
+}

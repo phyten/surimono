@@ -19,3 +19,4 @@
 - [ ] コミットが Conventional Commits に沿っている / Commits follow Conventional Commits
 - [ ] 必要なテストとドキュメントを更新した / Tests and docs are updated as needed
 - [ ] 開いたファイルを変更しない / The app never modifies the files it opens
+- [ ] 描画・UI の変更はスナップショットの差分を読み、意図したケースだけ承認した / Reviewed visual changes and approved only intended cases

@@ -94,6 +94,9 @@ struct SettingsView: View {
                     set: { if let section = $0 { selectSection(section) } }
                 )
             )
+            #if DEBUG
+                .modifier(SnapshotSettingsSurface(sidebar: true))
+            #endif
             .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 300)
         } detail: {
             Group {
@@ -110,6 +113,9 @@ struct SettingsView: View {
                 SettingsSearchHits(
                     query: query, anchors: matches.filter { $0.section == preferences.settingsSection }.map(\.anchor))
             )
+            #if DEBUG
+                .modifier(SnapshotSettingsSurface(sidebar: false))
+            #endif
             .opacity(visible.isEmpty ? 0 : 1)
             .disabled(visible.isEmpty)
             .accessibilityHidden(visible.isEmpty)

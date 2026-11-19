@@ -1,0 +1,18 @@
+De meetplank
+14 mei 2026
+Samenvatting
+Twee tekens geven de oorspronkelijke stand van de plank aan.
+Inhoudsopgave
+1 De merktekens 1
+2 Hoogte 1
+1 De merktekens
+‘Lees eerst het onderste teken af.’
+Figuur 1: Stand van de plank
+2 Hoogte
+Teken Hoogte (mm)
+1 12
+2 18
+Tabel 1: Hoogte van de tekens
+Referenties
+[1] Meetboekje, 2025, Hoofdstuk 2.
+1

@@ -1,0 +1,238 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.018678733031674208,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 27,
+    "maxLuminance" : 184.890625,
+    "maxShiftPt" : 28.3,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 19
+  },
+  "fonts" : [
+    "AppleMyungjo"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 129.3,
+      "height" : 841.9,
+      "lastY" : 773,
+      "lineCount" : 29,
+      "lines" : [
+        {
+          "height" : 20.4,
+          "text" : "측정판의 위치",
+          "width" : 110.1,
+          "x" : 242.6,
+          "y" : 129.3
+        },
+        {
+          "height" : 14.2,
+          "text" : "2026년 5월 14일",
+          "width" : 98.9,
+          "x" : 248.2,
+          "y" : 160.3
+        },
+        {
+          "height" : 10.6,
+          "text" : "초록",
+          "width" : 18.2,
+          "x" : 288.4,
+          "y" : 190.1
+        },
+        {
+          "height" : 10.6,
+          "text" : "초록",
+          "width" : 9.2,
+          "x" : 297.6,
+          "y" : 190.1
+        },
+        {
+          "height" : 10.6,
+          "text" : "초록",
+          "width" : 9.1,
+          "x" : 297.7,
+          "y" : 190.1
+        },
+        {
+          "height" : 10.6,
+          "text" : "초록",
+          "width" : 9.2,
+          "x" : 297.9,
+          "y" : 190.1
+        },
+        {
+          "height" : 10.6,
+          "text" : "두 눈금은 판의 처음 위치를 나타낸다.",
+          "width" : 155.9,
+          "x" : 97.2,
+          "y" : 204.5
+        },
+        {
+          "height" : 17,
+          "text" : "차례",
+          "width" : 29.1,
+          "x" : 56.8,
+          "y" : 226.2
+        },
+        {
+          "height" : 17,
+          "text" : "차례",
+          "width" : 14.7,
+          "x" : 71.6,
+          "y" : 226.2
+        },
+        {
+          "height" : 17,
+          "text" : "차례",
+          "width" : 14.6,
+          "x" : 71.7,
+          "y" : 226.2
+        },
+        {
+          "height" : 17,
+          "text" : "차례",
+          "width" : 14.7,
+          "x" : 72,
+          "y" : 226.2
+        },
+        {
+          "height" : 11.8,
+          "text" : "1 1 1 1 눈금 눈금 눈금 눈금",
+          "width" : 35.7,
+          "x" : 56.8,
+          "y" : 250.8
+        },
+        {
+          "height" : 11.8,
+          "text" : "2 2 2 2 높이 높이 높이 높이",
+          "width" : 35.7,
+          "x" : 56.8,
+          "y" : 273.2
+        },
+        {
+          "height" : 17,
+          "text" : "1 1 1 1 눈금 눈금 눈금 눈금",
+          "width" : 53.8,
+          "x" : 56.8,
+          "y" : 300.6
+        },
+        {
+          "height" : 11.8,
+          "text" : "“아래 눈금을 먼저 읽는다.”",
+          "width" : 135.4,
+          "x" : 81.7,
+          "y" : 326.8
+        },
+        {
+          "height" : 11.8,
+          "text" : "1 1 1 1",
+          "width" : 6.9,
+          "x" : 531.8,
+          "y" : 250.8
+        },
+        {
+          "height" : 11.8,
+          "text" : "1 1 1 1",
+          "width" : 6.9,
+          "x" : 531.8,
+          "y" : 273.2
+        },
+        {
+          "height" : 11.8,
+          "text" : "그림 1: 판의 위치",
+          "width" : 81.4,
+          "x" : 256.9,
+          "y" : 395.5
+        },
+        {
+          "height" : 17,
+          "text" : "2 2 2 2 높이 높이 높이 높이",
+          "width" : 53.8,
+          "x" : 56.8,
+          "y" : 434.9
+        },
+        {
+          "height" : 11.8,
+          "text" : "눈금 높이 (mm)",
+          "width" : 81.3,
+          "x" : 257,
+          "y" : 473.8
+        },
+        {
+          "height" : 11.8,
+          "text" : "1 12",
+          "width" : 74.5,
+          "x" : 263.7,
+          "y" : 486.6
+        },
+        {
+          "height" : 11.8,
+          "text" : "2 18",
+          "width" : 74.5,
+          "x" : 263.7,
+          "y" : 498.6
+        },
+        {
+          "height" : 11.8,
+          "text" : "표 1: 눈금의 높이",
+          "width" : 81.4,
+          "x" : 256.9,
+          "y" : 520.2
+        },
+        {
+          "height" : 17,
+          "text" : "참고문헌",
+          "width" : 58.5,
+          "x" : 56.8,
+          "y" : 559.6
+        },
+        {
+          "height" : 17,
+          "text" : "참고문헌",
+          "width" : 51.4,
+          "x" : 64.4,
+          "y" : 559.6
+        },
+        {
+          "height" : 17,
+          "text" : "참고문헌",
+          "width" : 51.5,
+          "x" : 64.3,
+          "y" : 559.6
+        },
+        {
+          "height" : 17,
+          "text" : "참고문헌",
+          "width" : 51.4,
+          "x" : 64.8,
+          "y" : 559.6
+        },
+        {
+          "height" : 11.8,
+          "text" : "[1] 측정 기록장 , 2025, 제2장.",
+          "width" : 145.7,
+          "x" : 56.8,
+          "y" : 586.6
+        },
+        {
+          "height" : 11.8,
+          "text" : "1",
+          "width" : 6.4,
+          "x" : 294.5,
+          "y" : 773
+        }
+      ],
+      "textHeight" : 655.5,
+      "textLeft" : 56.8,
+      "textTop" : 129.3,
+      "textWidth" : 481.9,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "15c16be0423bdd385df7304aba9b3e45c50a8d311dc1294948c566e3005f9f54"
+}

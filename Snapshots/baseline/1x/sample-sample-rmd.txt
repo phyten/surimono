@@ -1,0 +1,19 @@
+Paper measurements
+Workshop team
+2026-01-01
+Measurements
+The plot in Figure 1 compares the widths. The inline estimate is mean(widths).
+Results are unavailable because the code is not run.
+Figure 1 Measured widths
+widths <- c(2, 4, 6)
+summary.R
+summary(widths)
+Width
+Unit
+2 mm
+Table 1 Paper width
+See Table 1. The source citation is [@workshop].
+An underlined note remains visible in print.1
+Measurements are ilustrative.
+Bibliography references are unresolved.
+1. Al widths use the same unit.

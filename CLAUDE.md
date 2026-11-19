@@ -4,6 +4,8 @@
 
 ## Claude Code 向けの補足
 
+- 描画・UI の変更では AGENTS.md「スナップショット（見た目の回帰）」と `project-surimono-snapshots` の手順に従う。
+
 - 正本は上の AGENTS.md。ここには Claude Code 固有のことだけを書く。
 - スキル: `.claude/skills/` は `.agents/skills/` へのシンボリックリンク（Codex と共有）。ビルド・起動・目視確認は `project-surimono-dev`、印刷レイアウトは `project-surimono-print-layout` を使う。
 - パス別の細則は `.claude/rules/` にあり、対象ファイルを扱うときに自動で読み込まれる。

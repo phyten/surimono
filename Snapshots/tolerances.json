@@ -1,0 +1,4 @@
+{
+  "_comment": "100 dpi throughout. Ignore channel differences <= 8/255. Larger changes fail at 0.05% of a page or when a local 8x8 luminance mean shifts by more than 12/255. PDF geometry is stored to tenths of a point; allow half a point. Page, dimension and text changes always count.",
+  "channel": 8, "areaRatio": 0.0005, "tile": 8, "luminance": 12, "shiftPt": 0.5
+}

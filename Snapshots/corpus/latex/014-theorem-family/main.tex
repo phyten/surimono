@@ -1,0 +1,14 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{amsthm}
+\theoremstyle{definition}\newtheorem{definition}{Definition}
+\theoremstyle{plain}\newtheorem{lemma}[definition]{Lemma}
+\theoremstyle{remark}\newtheorem*{remark}{Remark}\renewcommand{\proofname}{Verification}
+\begin{document}
+\section*{Bounds on a tray count}
+
+\begin{definition}A full row contains exactly four tokens.\end{definition}
+\begin{lemma}\label{lem}Two full rows contain an even number of tokens.\end{lemma}
+\begin{proof}Their combined count is eight.\end{proof}
+\begin{remark}Removing a pair preserves the parity in Lemma~\ref{lem}.\end{remark}
+\end{document}

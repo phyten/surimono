@@ -1,0 +1,7 @@
+Rack card format
+Separate the fields with |. The literal # introduces a comment.
+# rack | shelf | slots
+east | upper | 04
+east | lower | 06
+Leading zeros keep paper labels aligned.
+1

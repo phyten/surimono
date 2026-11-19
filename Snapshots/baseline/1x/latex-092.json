@@ -1,0 +1,50 @@
+{
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 148.7,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 16.9,
+          "text" : "Model rail practical",
+          "width" : 122.5,
+          "x" : 243.5,
+          "y" : 148.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "The strip is one millimetre thick. What height does a single fold produce?",
+          "width" : 328.7,
+          "x" : 140.4,
+          "y" : 164.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "18mm Explain how to check for a tilted rail.25mm",
+          "width" : 221.3,
+          "x" : 125.4,
+          "y" : 176.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 582.2,
+      "textLeft" : 125.4,
+      "textTop" : 148.7,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "02ae8336969911d0edf5199c60715abc4bdcbd7094bfdaf78cd580240caaf61c"
+}

@@ -1,0 +1,10 @@
+Indexing a sample rack
+Listing 1: Number a rectangular rack
+1
+2
+3
+def slot(row, column, width=4):
+# Counting begins at the upper left.
+return row * width + column
+The first slot on row two is slot(1, 0).
+1

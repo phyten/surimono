@@ -1,0 +1,8 @@
+Route index
+1 Channel inspection 2
+1
+Circuit 1
+Channel inspection
+Station 1.1: North inlet. The slot cleared at the first turn.
+Station 1.2: South inlet. The handle stopped earlier than at station 1.1.
+2

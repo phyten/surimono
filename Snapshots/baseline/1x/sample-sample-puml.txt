@@ -1,0 +1,12 @@
+利用者 摺物 / Surimono
+文書を開く
+印刷プレビュー
+印刷する
+利用者 摺物 / Surimono
+C 文書 / Document
+title : String
+open()
+組版
+C 用紙 / Paper
+size : A4
+print()

@@ -12,7 +12,7 @@ SWIFT_TEST_FLAGS ?=
 
 XCODEBUILD = xcodebuild -quiet -project Surimono.xcodeproj -scheme Surimono -derivedDataPath "$(DERIVED_DATA)" -destination 'platform=macOS'
 SWIFT_TEST = swift test --package-path Packages/SurimonoKit
-SWIFT_PATHS = App AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
+SWIFT_PATHS = Tools/Snapshots/Package.swift Tools/Snapshots/Sources Tools/Snapshots/Tests App AppTests Packages/SurimonoKit/Sources Packages/SurimonoKit/Tests
 APP = $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)/Surimono.app
 RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 # Both app targets make Surimono.app (the menu bar shows PRODUCT_NAME), so the App Store app gets derived data of its own.
@@ -30,6 +30,7 @@ help:
 	@echo "test-core  Run the SurimonoCore tests"
 	@echo "test-rendering  Run the SurimonoRendering tests, one at a time"
 	@echo "test-app   Run hosted app tests"
+	@echo "snapshots  Render local snapshots; snapshots-report compares and snapshots-approve accepts reviewed cases"
 	@echo "bench      Record rendering benchmarks (SURIMONO_BENCH_RUNS / SURIMONO_BENCH_OUT)"
 	@echo "bench-compare  Compare medians: BASE=<json> NEW=<json> [BENCH_THRESHOLD=20]"
 	@echo "lint       Check Swift formatting"
@@ -50,7 +51,7 @@ run: build
 # test-app failed 2 of 4 runs (and 2 of 2 with test-kit niced), each time in a different hosted test that depends on
 # waits (FileWatcherTests, WebPageKeyTests, PrintThemePaletteTests), against 0 of 6 sequential runs, and it saved only
 # about 20% of the time.
-test: test-kit test-app
+test: test-kit test-app test-tools
 
 # The Rendering tests drive WebKit against timeouts. Run alongside the CPU-heavy Core tests on a slow CI runner, they
 # timed out, so the targets run one after the other. Run in parallel on a fresh CI runner, several of them still
@@ -124,3 +125,35 @@ check-appstore: build-appstore
 
 clean:
 	rm -rf build "$(DERIVED_DATA)" "$(APP_STORE_DERIVED_DATA)" Packages/SurimonoKit/.build
+
+.PHONY: snapshots snapshots-selfcheck snapshots-report snapshots-approve snapshots-reference snapshots-baseline test-tools
+SNAPSHOTS = swift run -c release --package-path Tools/Snapshots surimono-snapshots
+export ONLY REF FORCE_SCALE
+SNAPSHOT_RUN ?= $(shell date -u +%Y%m%d-%H%M%S)-$(shell uuidgen | cut -c1-8 | tr A-Z a-z)
+
+test-tools:
+	swift test --package-path Tools/Snapshots
+
+snapshots:
+	$(MAKE) build CONFIGURATION=Debug
+	$(SNAPSHOTS) render "$(abspath $(DERIVED_DATA))/Build/Products/Debug/Surimono.app" "$(SNAPSHOT_RUN)"
+
+snapshots-selfcheck:
+ifneq ($(strip $(FIRST)$(SECOND)),)
+	$(SNAPSHOTS) selfcheck-files "$(FIRST)" "$(SECOND)"
+else
+	$(MAKE) build CONFIGURATION=Debug
+	$(SNAPSHOTS) selfcheck "$(abspath $(DERIVED_DATA))/Build/Products/Debug/Surimono.app" "$(SNAPSHOT_RUN)"
+endif
+
+snapshots-report:
+	$(SNAPSHOTS) report
+
+snapshots-approve:
+	$(SNAPSHOTS) approve
+
+snapshots-reference:
+	$(SNAPSHOTS) reference
+
+snapshots-baseline:
+	@Tools/Snapshots/baseline.sh "$(abspath $(DERIVED_DATA))"

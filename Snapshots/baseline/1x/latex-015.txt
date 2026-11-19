@@ -1,0 +1,9 @@
+Two reservoir readings
+1 Averaging
+For the pair S= (2, 6) the mean level and spread are
+mean(S) = (2 + 6)/2 = 4,
+d(S) = max(S)− min(S) = 4.
+Equation (1.1) places the mark halfway between the gauges.
+(1.1)
+(R)
+1

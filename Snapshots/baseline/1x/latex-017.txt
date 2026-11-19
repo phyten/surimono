@@ -1,0 +1,15 @@
+Turning the sample grid
+One quarter-turn maps the east vector to the north vector:
+(0−1
+1 0 ) [1
+0]= [0
+1].
+The worksheet prints the determinant, a bare grid and two delimiter samples:
+0−1
+1 0
+a b
+= 1,
+c d {a
+b}a
+b.
+1

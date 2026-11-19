@@ -1,0 +1,15 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{trees}
+
+\begin{document}
+\section*{Sorting the casting slips}
+\begin{figure}[ht]\centering
+\begin{tikzpicture}
+
+\node {Slip} [level distance=12mm,sibling distance=30mm]
+ child {node {Complete} child {node {Archive}}}
+ child {node {Incomplete} child {node {Return}}};
+\end{tikzpicture}\caption{Each slip follows one branch after inspection.}\end{figure}
+\end{document}

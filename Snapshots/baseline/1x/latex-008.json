@@ -1,0 +1,70 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.012149774181213118,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 5.7,
+    "maxLuminance" : 155.953125,
+    "maxShiftPt" : 2.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 4
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 132.7,
+      "height" : 841.9,
+      "lastY" : 662,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 21,
+          "text" : "Working measure",
+          "width" : 151.9,
+          "x" : 148.8,
+          "y" : 132.7
+        },
+        {
+          "height" : 14,
+          "text" : "Set the brass rule along the straight edge of the block.",
+          "width" : 297.6,
+          "x" : 148.8,
+          "y" : 164.7
+        },
+        {
+          "height" : 14,
+          "text" : "Read the position of the far shoulder twice, lifting the",
+          "width" : 297.6,
+          "x" : 148.8,
+          "y" : 179.1
+        },
+        {
+          "height" : 14,
+          "text" : "rule between readings.",
+          "width" : 117,
+          "x" : 148.8,
+          "y" : 193.5
+        },
+        {
+          "height" : 14,
+          "text" : "1",
+          "width" : 6,
+          "x" : 294.6,
+          "y" : 662
+        }
+      ],
+      "textHeight" : 543.3,
+      "textLeft" : 148.8,
+      "textTop" : 132.7,
+      "textWidth" : 297.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "fa3cda4d69a4c398b9f12fe0b9139363a88d921ca30ea9d8a4a6a5964bb981b3"
+}
