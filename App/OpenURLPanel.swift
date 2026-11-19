@@ -91,7 +91,7 @@ private struct OpenURLView: View {
                 .disabled(loading)
                 .onChange(of: address) { message = nil }
             if let message {
-                Text(verbatim: message).foregroundStyle(.secondary)
+                Text(verbatim: message).foregroundStyle(PrintPalette.ink2)
             }
             HStack {
                 if loading { ProgressView().controlSize(.small) }

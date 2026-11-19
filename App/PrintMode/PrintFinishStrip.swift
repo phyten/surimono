@@ -264,7 +264,7 @@ struct PrintFinishStrip: View {
             HStack(spacing: 5) {
                 Text("Print Settings").foregroundStyle(PrintPalette.ink)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(PrintPalette.ink2)
             }
             .font(.system(size: 12))
@@ -301,7 +301,7 @@ struct PrintFinishStrip: View {
                 Text(item.title).foregroundStyle(value == nil ? PrintPalette.ink : PrintPalette.ink2)
                 if let value { Text(value).fontWeight(.semibold).foregroundStyle(PrintPalette.ink) }
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(PrintPalette.ink2)
             }
             .font(.system(size: 12))

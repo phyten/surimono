@@ -7,7 +7,12 @@ import SwiftUI
 // window is the paper alone in between. Where the window cannot grow, they lie over the paper's edges.
 struct ViewModeView: View {
     @Bindable var model: DocumentViewModel
-    @State private var menu = OverlayMenuState()
+    @State private var menu: OverlayMenuState
+
+    init(model: DocumentViewModel, menu: OverlayMenuState? = nil) {
+        self.model = model
+        _menu = State(initialValue: menu ?? OverlayMenuState())
+    }
 
     private var bandVisible: Bool { model.isBandAlwaysVisible || menu.stage != .hidden }
     /// Bands shown by the pointer or the keys rather than always.
@@ -179,7 +184,7 @@ private struct PaperArea: View {
             } else if model.error == nil {
                 VStack(spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text("Preparing pages…").font(.callout).foregroundStyle(.secondary)
+                    Text("Preparing pages…").font(.callout).foregroundStyle(PrintPalette.ink2)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -247,7 +252,7 @@ private struct ErrorPanel: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "exclamationmark.triangle").font(.system(size: 28)).foregroundStyle(.secondary)
+            Image(systemName: "exclamationmark.triangle").font(.system(size: 28)).foregroundStyle(PrintPalette.ink2)
             Text(verbatim: message).multilineTextAlignment(.center).textSelection(.enabled)
             HStack {
                 if !model.layoutTooLarge {
@@ -279,7 +284,7 @@ struct ToastOverlay: View {
                         Text(verbatim: toast.title).font(.system(size: 13, weight: .semibold))
                             .fixedSize(horizontal: false, vertical: true)
                         if let detail = toast.detail {
-                            Text(verbatim: detail).font(.system(size: 11)).opacity(0.75)
+                            Text(verbatim: detail).font(.system(size: 11))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -349,7 +354,9 @@ struct ToastActionButtonStyle: ButtonStyle {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background {
-                AppCornerShape.capsule.fill(.white.opacity(configuration.isPressed ? 0.32 : 0.2))
+                AppCornerShape.capsule.fill(
+                    DisplayAccessibility.shared.options.fill(
+                        .white, opacity: configuration.isPressed ? 0.28 : 0.2, over: PrintPalette.toast))
             }
     }
 }

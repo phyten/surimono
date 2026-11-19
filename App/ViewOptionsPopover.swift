@@ -43,7 +43,8 @@ struct ViewOptionsPopover: View {
             HStack(spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("View Options").font(.headline)
-                    Text(verbatim: model.displayName).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: model.displayName).foregroundStyle(PrintPalette.ink2).lineLimit(1).truncationMode(
+                        .middle)
                 }
                 Spacer(minLength: 0)
                 PopoverCloseButton()
@@ -333,11 +334,11 @@ struct SpreadGlyph: View {
         // Four-digit page numbers shrink to stay on the sheet.
         Text(verbatim: "\(page)")
             .font(.system(size: 11, weight: .semibold)).monospacedDigit()
-            .foregroundStyle(.black.opacity(0.75))
+            .foregroundStyle(Color(.sRGB, white: 0.25))
             .lineLimit(1).minimumScaleFactor(0.5).padding(.horizontal, 2)
             .frame(width: Self.paperWidth, height: Self.paperHeight)
             .background(PrintPalette.paper)
-            .overlay { Rectangle().strokeBorder(PrintPalette.paperRing, lineWidth: 0.5) }
+            .overlay { Rectangle().strokeBorder(PrintPalette.paperRing, lineWidth: DisplayAccessibility.hairline) }
     }
 }
 
@@ -388,7 +389,7 @@ struct SpreadMap: View {
     }
 
     private var ellipsis: some View {
-        Text(verbatim: "…").foregroundStyle(.secondary).frame(width: Self.ellipsisWidth)
+        Text(verbatim: "…").foregroundStyle(PrintPalette.ink2).frame(width: Self.ellipsisWidth)
     }
 
     /// The width of the widest tile of the document: two sheets when it has facing pairs, otherwise one.

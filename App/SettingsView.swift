@@ -115,7 +115,7 @@ struct SettingsView: View {
             .accessibilityHidden(visible.isEmpty)
             .overlay(alignment: .topLeading) {
                 if visible.isEmpty {
-                    Text("No settings found").foregroundStyle(.secondary).padding(20)
+                    Text("No settings found").foregroundStyle(PrintPalette.ink2).padding(20)
                 }
             }
             .overlay(alignment: .bottom) {
@@ -268,7 +268,7 @@ struct SettingsView: View {
                         // Where the release build has its update settings, so both builds show updates in one place.
                         // The App Store build updates through the App Store and says nothing here.
                         Section("Updates") {
-                            Text("Updates are unavailable in development builds.").foregroundStyle(.secondary)
+                            Text("Updates are unavailable in development builds.").foregroundStyle(PrintPalette.ink2)
                                 .settingSearchRow("Updates are unavailable in development builds.")
                         }
                     #endif
@@ -533,7 +533,7 @@ struct SettingsView: View {
 
     @ViewBuilder private var libraryError: some View {
         if let error = library.error {
-            Text(verbatim: error).foregroundStyle(.red).textSelection(.enabled)
+            Text(verbatim: error).foregroundStyle(PrintPalette.warn).textSelection(.enabled)
         }
     }
 }
@@ -561,7 +561,7 @@ struct SettingsFootnote: View {
     init(verbatim string: String) { text = Text(verbatim: string) }
 
     var body: some View {
-        text.font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        text.font(.caption).foregroundStyle(PrintPalette.ink2).fixedSize(horizontal: false, vertical: true)
     }
 }
 

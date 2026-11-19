@@ -124,7 +124,7 @@ struct KeyGuide: View {
                 Text("On the print screen, Esc closes the folded preview first if it is open.")
             }
             .font(.system(size: 11))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(PrintPalette.ink2)
             .padding(24)
         }
         .foregroundStyle(.primary)

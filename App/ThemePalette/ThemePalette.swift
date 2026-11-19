@@ -31,10 +31,10 @@ struct ThemePalette: View {
         HStack(spacing: 0) {
             styles
             if isPrinting {
-                Divider()
+                Rectangle().fill(PrintPalette.line).frame(width: DisplayAccessibility.hairline)
                 PrintThemePreview(model: model)
             } else if isCodeColumnShown {
-                Divider()
+                Rectangle().fill(PrintPalette.line).frame(width: DisplayAccessibility.hairline)
                 CodePaletteColumn(model: model)
             }
         }
@@ -57,7 +57,7 @@ struct ThemePalette: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 10)
-            Divider()
+            Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline)
             ScrollView {
                 content
                     .padding(.horizontal, 16)
@@ -66,7 +66,7 @@ struct ThemePalette: View {
             }
             // Leaving the samples puts the paper back; moving between them keeps the last trial meanwhile.
             .onHover { inside in if !inside { model.endThemeTrial() } }
-            Divider()
+            Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline)
             footer
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -81,14 +81,14 @@ struct ThemePalette: View {
                 Text("Style").font(.system(size: 14, weight: .semibold)).fixedSize()
                 Text(verbatim: model.theme(model.themeID)?.displayName(language: model.language) ?? model.themeID)
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PrintPalette.ink2)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 PopoverCloseButton()
             }
             // Named, because it chooses what the samples show, not what the style is applied to.
             HStack(spacing: 8) {
-                Text("Sample From").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+                Text("Sample From").font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2).fixedSize()
                 CornerSegments(
                     title: "Sample From",
                     selection: Binding(
@@ -99,14 +99,14 @@ struct ThemePalette: View {
                 }
             }
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                Image(systemName: "magnifyingglass").foregroundStyle(PrintPalette.ink2)
                 TextField("Search by name or category", text: $query)
                     .textFieldStyle(.plain)
                 if !query.isEmpty {
                     Button {
                         query = ""
                     } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(PrintPalette.ink2)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text("Clear Search"))
@@ -116,7 +116,7 @@ struct ThemePalette: View {
             .padding(.horizontal, 9)
             .frame(height: 28)
             .background(CornerRole.largeControl.shape.fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(CornerRole.largeControl.shape.strokeBorder(.separator))
+            .overlay(CornerRole.largeControl.shape.strokeBorder(PrintPalette.line2))
         }
     }
 
@@ -141,15 +141,15 @@ struct ThemePalette: View {
     {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(verbatim: title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.secondary)
+                Text(verbatim: title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(PrintPalette.ink2)
                 if let count {
-                    Text(verbatim: "\(count)").font(.system(size: 11)).foregroundStyle(.tertiary)
+                    Text(verbatim: "\(count)").font(.system(size: 11)).foregroundStyle(PrintPalette.ink3)
                 }
             }
             if themes.isEmpty, let empty {
                 Text(verbatim: empty)
                     .font(.system(size: 11.5))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PrintPalette.ink2)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 LazyVGrid(
@@ -223,7 +223,7 @@ struct ThemePalette: View {
     private var textSize: some View {
         HStack(spacing: 8) {
             // The same name as in the view options, for the same setting.
-            Text("Text Size").font(.system(size: 11.5)).foregroundStyle(.secondary).fixedSize()
+            Text("Text Size").font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2).fixedSize()
             // Any percent typed or stepped by 1%; the buttons beside it move to the next step, from an in-between size too.
             TextSizeField(title: "Text Size", scale: model.textScale, corners: model.preferences.corners) {
                 model.setTextScale($0)
@@ -301,8 +301,8 @@ struct ThemePaletteCell: View {
                 .overlay {
                     CornerRole.tag.shape
                         .strokeBorder(
-                            isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.black.opacity(0.12)),
-                            lineWidth: isCurrent ? 2 : 0.5)
+                            isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(PrintPalette.paperRing),
+                            lineWidth: isCurrent ? 2 : DisplayAccessibility.hairline)
                 }
                 .overlay(alignment: .topTrailing) {
                     if isCurrent {
@@ -310,7 +310,7 @@ struct ThemePaletteCell: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 16))
                             .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, .tint)
+                            .foregroundStyle(.white, PrintPalette.aiControl)
                             .background(Circle().fill(.white).padding(-1.5))
                             .offset(x: 6, y: -6)
                             .accessibilityHidden(true)
@@ -318,6 +318,7 @@ struct ThemePaletteCell: View {
                 }
                 // The border and the check mark the current style; the name stays plain.
                 Text(verbatim: name)
+                    .emphasisForDisplayContrast(isHovering)
                     .font(.system(size: 11))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
@@ -325,7 +326,7 @@ struct ThemePaletteCell: View {
                     .frame(maxWidth: .infinity)
             }
             .padding(4)
-            .background(CornerRole.control.shape.fill(isHovering ? Color.primary.opacity(0.06) : .clear))
+            .background(CornerRole.control.shape.fill(isHovering ? PrintPalette.hover : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -362,7 +363,7 @@ struct FavoriteStarButton: View {
     let isFavorite: Bool
     let name: String
     /// The star's color while the theme is not a favorite.
-    var idleColor: Color = .secondary
+    var idleColor: Color = PrintPalette.ink2
     var onPage = false
     let action: () -> Void
 
@@ -396,20 +397,19 @@ struct FavoriteStarButton: View {
 struct ThemeGroupChip: View {
     let title: String
     let isSelected: Bool
-    /// The text on the tint when selected; a light tint, such as the stage's indigo at night, needs dark text.
-    var selectedText: Color = .white
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(verbatim: title)
+                .emphasisForDisplayContrast(isSelected)
                 .font(.system(size: 11.5))
                 .padding(.horizontal, 10)
                 .frame(height: 24)
-                .foregroundStyle(isSelected ? AnyShapeStyle(selectedText) : AnyShapeStyle(.primary))
+                .foregroundStyle(isSelected ? AnyShapeStyle(PrintPalette.raised) : AnyShapeStyle(.primary))
                 .background(
                     AppCornerShape.capsule.fill(
-                        isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.primary.opacity(0.06)))
+                        isSelected ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.hover))
                 )
                 .contentShape(AppCornerShape.capsule)
         }

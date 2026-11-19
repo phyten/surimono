@@ -73,12 +73,14 @@ struct CornerSegments<Value: Hashable, Segment: View>: View {
                         let shape = AppCornerShape(role: .segment, preset: preset)
                         segment(value).lineLimit(1)
                             .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                            .selectionRule(selected, color: .white)
                             .fixedSize(horizontal: true, vertical: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(shape.fill(selected ? PrintPalette.aiControl : .clear))
                             .overlay {
                                 if focused, value == ((keySegment.value as? Value) ?? selection) {
-                                    shape.strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 2)
+                                    shape.strokeBorder(
+                                        DisplayAccessibility.focusColor(onSelectedControl: selected), lineWidth: 2)
                                 }
                             }
                     }
@@ -150,13 +152,19 @@ struct CornerBezel<Face: View>: ViewModifier {
                     ZStack {
                         face(focused)
                         if enabled, pressed || hovered {
-                            shape.fill(pressed ? PrintPalette.press : PrintPalette.hover)
+                            if DisplayAccessibility.shared.options.reduceTransparency
+                                || DisplayAccessibility.shared.options.increasedContrast
+                            {
+                                shape.strokeBorder(PrintPalette.line3, lineWidth: 2)
+                            } else {
+                                shape.fill(pressed ? PrintPalette.press : PrintPalette.hover)
+                            }
                         }
                         if focused, role != .segmentGroup {
-                            shape.strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 2)
+                            shape.strokeBorder(DisplayAccessibility.focusColor(), lineWidth: 2)
                         }
                     }
-                    .opacity(enabled ? 1 : 0.45)
+                    .saturation(enabled ? 1 : 0)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                 }

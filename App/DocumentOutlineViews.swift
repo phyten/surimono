@@ -15,7 +15,7 @@ private struct OutlineList: View {
             // them.
             if model.outlineFilter.query.isEmpty, !model.bookmarkPages.isEmpty {
                 BookmarkList(model: model)
-                if !entries.isEmpty { Divider() }
+                if !entries.isEmpty { Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline) }
             }
             headings(entries: entries, current: current, top: top)
         }
@@ -67,7 +67,6 @@ private struct OutlineRow: View {
     let isSelected: Bool
     let onSelect: () -> Void
     @State private var isHovered = false
-    @Environment(\.colorScheme) private var colorScheme
 
     init(entry: OutlineEntry, indent: Int, isCurrent: Bool, isSelected: Bool, onSelect: @escaping () -> Void) {
         self.entry = entry
@@ -81,6 +80,7 @@ private struct OutlineRow: View {
         Button(action: onSelect) {
             HStack(spacing: 10) {
                 Text(verbatim: entry.title)
+                    .emphasisForDisplayContrast(isSelected || isHovered)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -100,7 +100,7 @@ private struct OutlineRow: View {
                         isSelected
                             ? PrintPalette.hover
                             : isCurrent
-                                ? PrintPalette.ai.opacity(colorScheme == .dark ? 0.28 : 0.16)
+                                ? PrintPalette.aiTint2
                                 : isHovered ? PrintPalette.hover : .clear)
             }
             .contentShape(Rectangle())
@@ -160,7 +160,7 @@ private struct BookmarkRow: View {
             Button {
                 model.removeBookmark(page: page)
             } label: {
-                Image(systemName: "xmark").font(.system(size: 9))
+                Image(systemName: "xmark").font(.system(size: 10))
                     .frame(width: 22, height: 32).contentShape(Rectangle())
             }
             .buttonStyle(.plain).foregroundStyle(PrintPalette.ink2)
@@ -278,7 +278,7 @@ struct DocumentFiguresPopover: View {
                 }
                 .padding(.top, 4)
             }
-            Divider().padding(.top, 4)
+            Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline).padding(.top, 4)
             Button("Check on the Print Screen") { model.checkFiguresOnTray() }
                 .buttonStyle(.plain)
                 .font(.system(size: 13, weight: .semibold))

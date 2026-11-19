@@ -251,7 +251,7 @@ final class FoldBook {
             string: label,
             attributes: [
                 .font: font, .kern: size.width * 0.015,
-                .foregroundColor: NSColor(srgbRed: 0xA2 / 255, green: 0xA2 / 255, blue: 0x9E / 255, alpha: 1),
+                .foregroundColor: NSColor(PrintPalette.blankInk),
             ])
         let line = CTLineCreateWithAttributedString(text)
         let bounds = CTLineGetBoundsWithOptions(line, .useOpticalBounds)

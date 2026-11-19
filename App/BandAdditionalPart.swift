@@ -176,6 +176,7 @@ private struct BandPartToggleStyle: ToggleStyle {
             configuration.isOn.toggle()
         } label: {
             configuration.label
+                .selectionRule(configuration.isOn)
                 .foregroundStyle(configuration.isOn ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
                 .contentShape(Rectangle())
         }

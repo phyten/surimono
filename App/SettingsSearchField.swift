@@ -7,7 +7,7 @@ struct SettingsSearchField: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+            Image(systemName: "magnifyingglass").foregroundStyle(PrintPalette.ink2).accessibilityHidden(true)
             TextField("", text: $text, prompt: Text(title))
                 .labelsHidden().accessibilityLabel(Text(title))
                 .multilineTextAlignment(.leading)
@@ -23,7 +23,7 @@ struct SettingsSearchField: View {
                     text = ""
                     focused = true
                 } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(PrintPalette.ink2)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Clear Search"))
@@ -32,6 +32,6 @@ struct SettingsSearchField: View {
         .padding(.horizontal, 9)
         .frame(height: 28)
         .background(CornerRole.largeControl.shape.fill(Color(nsColor: .textBackgroundColor)))
-        .overlay(CornerRole.largeControl.shape.strokeBorder(.separator))
+        .overlay(CornerRole.largeControl.shape.strokeBorder(PrintPalette.line2))
     }
 }

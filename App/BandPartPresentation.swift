@@ -206,7 +206,7 @@ struct BandPartGlyph: View {
                 }
             }
             .padding(1)
-            .background(CornerRole.segmentGroup.shape.fill(.quaternary))
+            .background(CornerRole.segmentGroup.shape.fill(PrintPalette.press))
         }
     }
 }

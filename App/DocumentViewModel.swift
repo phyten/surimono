@@ -2102,7 +2102,11 @@ final class DocumentViewModel {
         case .jump:
             // A change already in view is where the reader should be.
             let pages = prepared.changeMarks.map(\.pageIndex)
-            if let page = ChangeNavigation.next(after: currentPageIndex - 1, in: pages) { currentPageIndex = page }
+            if let page = ChangeNavigation.next(after: currentPageIndex - 1, in: pages) {
+                currentPageIndex = page
+                paper.followChange(
+                    on: page, in: prepared.viewDocument, pinnedBandHeight: isBandAlwaysVisible ? topBandHeight : 0)
+            }
         case .ask:
             showToast(
                 Toast(
@@ -2118,7 +2122,9 @@ final class DocumentViewModel {
     /// The notice's 「次の変更へ」; it stays as long as the reader keeps following it.
     func goToNextChange() {
         let pages = paperChangeMarks.map(\.pageIndex)
-        if let page = ChangeNavigation.next(after: lastVisiblePageIndex, in: pages) { paper.goToPage(index: page) }
+        if let page = ChangeNavigation.next(after: lastVisiblePageIndex, in: pages), let paperDocument {
+            paper.followChange(on: page, in: paperDocument, pinnedBandHeight: isBandAlwaysVisible ? topBandHeight : 0)
+        }
         if let toast { showToast(toast, dismissAfter: Self.changeNoticeDuration) }
     }
 

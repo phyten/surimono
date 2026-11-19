@@ -81,7 +81,7 @@ struct ShortcutSettingsView: View {
             }
             .settingSearchRow("Search Shortcuts")
             if let fileError {
-                Text(fileError).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                Text(fileError).foregroundStyle(PrintPalette.warn).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -125,7 +125,7 @@ struct ShortcutSettingsView: View {
                 "Local shortcuts return to their defaults. Global shortcuts become unassigned. macOS assignments stay unchanged."
             )
             .fixedSize(horizontal: false, vertical: true)
-            if let fileError { Text(fileError).foregroundStyle(.red) }
+            if let fileError { Text(fileError).foregroundStyle(PrintPalette.warn) }
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { restoringAll = false }.keyboardShortcut(.cancelAction)
@@ -168,7 +168,7 @@ struct ShortcutSettingsView: View {
             } header: {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(ShortcutText.group(group))
-                    Text(sharedScope).font(.caption).foregroundStyle(.secondary)
+                    Text(sharedScope).font(.caption).foregroundStyle(PrintPalette.ink2)
                 }
             }
         }
@@ -219,25 +219,25 @@ struct ShortcutSettingsView: View {
             }
         }
         if fixed.isEmpty && !ShortcutOperation.catalog.contains(where: { !$0.isGlobal && matches($0) }) {
-            Text("No matching shortcuts").foregroundStyle(.secondary)
+            Text("No matching shortcuts").foregroundStyle(PrintPalette.ink2)
         }
     }
 
     private var globalSection: some View {
         Section {
             if let error = controller.migrationError {
-                Text(error).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                Text(error).foregroundStyle(PrintPalette.warn).fixedSize(horizontal: false, vertical: true)
             }
             if controller.loadError {
                 Text(ShortcutController.message(ShortcutController.EditError.savedDataUnavailable))
-                    .foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                    .foregroundStyle(PrintPalette.warn).fixedSize(horizontal: false, vertical: true)
             }
             let global = ShortcutOperation.catalog.filter { $0.isGlobal && matches($0) }
             ForEach(global, id: \.id) { operation in
                 EditableShortcutRow(controller: controller, operation: operation.id)
                     .settingSearchRow(operation.id.rawValue)
             }
-            if global.isEmpty { Text("No matching shortcuts").foregroundStyle(.secondary) }
+            if global.isEmpty { Text("No matching shortcuts").foregroundStyle(PrintPalette.ink2) }
         } header: {
             HStack {
                 Image(systemName: "globe").accessibilityHidden(true)
@@ -290,7 +290,7 @@ private struct ShortcutInfoRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(name).fixedSize(horizontal: false, vertical: true)
                 if let scope {
-                    Text(scope).font(.caption).foregroundStyle(.secondary)
+                    Text(scope).font(.caption).foregroundStyle(PrintPalette.ink2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -349,7 +349,7 @@ private struct EditableShortcutRow: View {
                     .accessibilityHint(scope ?? "")
                 Spacer(minLength: 8)
                 if isInlineStatus {
-                    Text(status).font(.caption).foregroundStyle(.secondary).fixedSize()
+                    Text(status).font(.caption).foregroundStyle(PrintPalette.ink2).fixedSize()
                 }
                 HStack(spacing: 6) { controls }
                     .fixedSize().layoutPriority(1)
@@ -368,12 +368,14 @@ private struct EditableShortcutRow: View {
                 .font(.caption).fixedSize(horizontal: false, vertical: true)
             }
             if showsStatusLine {
-                Text(status).font(.caption).foregroundStyle(.secondary)
+                Text(status).font(.caption).foregroundStyle(PrintPalette.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let error {
-                Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.updatesFrequently)
+                Text(error).font(.caption).foregroundStyle(PrintPalette.warn).fixedSize(
+                    horizontal: false, vertical: true
+                )
+                .accessibilityAddTraits(.updatesFrequently)
             }
         }
         .sheet(isPresented: Binding(get: { pending != nil }, set: { if !$0 { pending = nil } })) {

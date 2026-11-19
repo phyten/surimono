@@ -41,7 +41,7 @@ struct ThemeSampleView: View {
     }
 
     private func placeholder(in content: CGRect, context: GraphicsContext) {
-        let line = Color.black.opacity(0.07)
+        let line = Color(.sRGB, white: 0.93)
         let lineHeight = max(content.height / 26, 1.5)
         for index in 0..<8 {
             let width = content.width * (index == 0 ? 0.55 : index % 3 == 2 ? 0.7 : 0.95)

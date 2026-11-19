@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import PDFKit
 import SurimonoCore
 import Testing
@@ -372,6 +373,53 @@ struct ChangeMarkRenderingTests {
         }
     }
 
+    @Test("拡大した変更文字の輪郭とタイルの境目に黒い縁が残らず元の文字を選択できる", arguments: [1.5, 5.625, 6.0])
+    func inkHasNoDarkFringe(scale: Double) throws {
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: 360, height: 48)
+        let consumer = try #require(CGDataConsumer(data: data))
+        let context = try #require(CGContext(consumer: consumer, mediaBox: &box, nil))
+        context.beginPDFPage(nil)
+        context.textPosition = CGPoint(x: 245.25, y: 14.125)
+        let text = NSAttributedString(string: "Fringe", attributes: [.font: NSFont.systemFont(ofSize: 24)])
+        CTLineDraw(CTLineCreateWithAttributedString(text), context)
+        context.endPDFPage()
+        context.closePDF()
+        let original = try #require(PDFDocument(data: data as Data))
+        var mark = ChangeMark(pageIndex: 0, rect: box.insetBy(dx: 0.3, dy: 0.2))
+        mark.backgroundHex = "#FDF4EF"
+        mark.textHex = "#888888"
+        mark.textDrawing = ChangeTextDrawing(original)
+        let plan = ViewPageLayout(
+            pageCount: 1,
+            options: .init(layout: .single, scrollAxis: .vertical, transition: .scroll, showsCoverAlone: false),
+            hasLogicalMargins: false, showsNumbers: false)
+        let copy = try #require(ViewPageDocument.make(original, plan: plan, margin: 0, changeMarks: [mark]))
+        let page = try #require(copy.page(at: 0))
+        #expect(page.selection(for: box)?.string == "Fringe")
+        let bytes = try pixels(page, scale: scale)
+
+        // Each channel of the warm background is lighter than the neutral ink, including at antialiased edges.
+        // For neutral sRGB levels 136 and 134 the relative luminances are 0.2462 and 0.2384.
+        var minimum = 1.0
+        var inkPixels = 0
+        let linear = (0...255).map { channel in
+            let value = Double(channel) / 255
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        for i in stride(from: 0, to: bytes.count, by: 4) {
+            let luminance =
+                0.2126 * linear[Int(bytes[i])] + 0.7152 * linear[Int(bytes[i + 1])]
+                + 0.0722 * linear[Int(bytes[i + 2])]
+            minimum = min(minimum, luminance)
+            if abs(Int(bytes[i]) - 136) <= 2 && abs(Int(bytes[i + 1]) - 136) <= 2 && abs(Int(bytes[i + 2]) - 136) <= 2 {
+                inkPixels += 1
+            }
+        }
+        #expect(minimum >= linear[136] - 0.008)
+        #expect(inkPixels > 100)
+    }
+
     @Test("小数点以下の丸めは許し別の行やページの文字は重ねない")
     func rejectsMovedInk() {
         let box = CGRect(x: 20, y: 200, width: 140, height: 19)
@@ -550,16 +598,17 @@ struct ChangeMarkRenderingTests {
         return differences
     }
 
-    private func pixels(_ page: PDFPage) throws -> [UInt8] {
+    private func pixels(_ page: PDFPage, scale: CGFloat = 1) throws -> [UInt8] {
         let size = page.bounds(for: .mediaBox).size
-        let width = Int(ceil(size.width))
-        let height = Int(ceil(size.height))
+        let width = Int(ceil(size.width * scale))
+        let height = Int(ceil(size.height * scale))
         let context = try #require(
             CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
                 space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.scaleBy(x: scale, y: scale)
         context.drawPDFPage(try #require(page.pageRef))
         return Array(
             UnsafeBufferPointer(

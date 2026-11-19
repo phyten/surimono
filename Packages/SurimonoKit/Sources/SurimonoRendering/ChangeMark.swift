@@ -1,3 +1,4 @@
+import Accelerate
 import Foundation
 import PDFKit
 import SurimonoCore
@@ -7,6 +8,7 @@ public struct ChangeMark: Equatable, Sendable {
     public static let defaultBackgroundHex = "#FFF2A8"
     public var backgroundHex = Self.defaultBackgroundHex
     public var textHex: String?
+    public var emphasizesEdge = false
     var blockID = ""
     var textDrawing: ChangeTextDrawing?
     public let pageIndex: Int
@@ -31,6 +33,7 @@ public struct ChangeMark: Equatable, Sendable {
         lhs.pageIndex == rhs.pageIndex && lhs.rect == rhs.rect && lhs.isShort == rhs.isShort
             && lhs.afterBlock == rhs.afterBlock
             && lhs.backgroundHex == rhs.backgroundHex && lhs.textHex == rhs.textHex
+            && lhs.emphasizesEdge == rhs.emphasizesEdge
             && lhs.textDrawing === rhs.textDrawing
     }
 }
@@ -46,41 +49,78 @@ final class ChangeTextDrawing {
     /// A theme's last-child rules must not change the rest of a page simply because one paragraph has a custom ink.
     func paint(_ mark: ChangeMark, clippedTo crop: CGRect, in context: CGContext) {
         guard let hex = mark.textHex, let ink = CodeColor.components(hex),
+            let ground = CodeColor.components(mark.backgroundHex),
             let page = document.page(at: mark.pageIndex)?.pageRef
         else { return }
         let rect = mark.rect.intersection(crop)
         guard !rect.isEmpty, !rect.isNull else { return }
-        // Tile long paragraphs so a four-pixel-per-point stencil only needs one MiB of scratch space at a time.
+        // The stencil is tiled so long paragraphs do not require a page-sized bitmap.
         let scale: CGFloat = 4
         let tileSize: CGFloat = 256
+        let halo = 2 / scale
         for y in stride(from: rect.minY, to: rect.maxY, by: tileSize) {
             for x in stride(from: rect.minX, to: rect.maxX, by: tileSize) {
                 let tile = CGRect(x: x, y: y, width: min(tileSize, rect.maxX - x), height: min(tileSize, rect.maxY - y))
-                let width = Int(ceil(tile.width * scale))
-                let height = Int(ceil(tile.height * scale))
-                guard
-                    let bitmap = CGContext(
-                        data: nil, width: width, height: height, bitsPerComponent: 8,
-                        bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(),
-                        bitmapInfo: CGImageAlphaInfo.none.rawValue)
-                else { continue }
+                // PDFKit antialiases a tile boundary at fractional zoom. Overlap complete coats there, and read
+                // extra stencil pixels around each coat so dilation sees the neighbouring glyph coverage.
+                let coat = tile.insetBy(dx: -halo, dy: -halo).intersection(rect)
+                let width = Int(ceil(coat.width * scale)) + 4
+                let height = Int(ceil(coat.height * scale)) + 4
+                let padded = CGRect(
+                    x: coat.minX - halo, y: coat.minY - halo, width: CGFloat(width) / scale,
+                    height: CGFloat(height) / scale)
+                guard let bitmap = grayBitmap(width: width, height: height) else { continue }
                 bitmap.setFillColor(gray: 1, alpha: 1)
                 bitmap.fill(CGRect(x: 0, y: 0, width: width, height: height))
-                bitmap.scaleBy(x: CGFloat(width) / tile.width, y: CGFloat(height) / tile.height)
-                bitmap.translateBy(x: -x, y: -y)
+                bitmap.scaleBy(x: scale, y: scale)
+                bitmap.translateBy(x: -padded.minX, y: -padded.minY)
                 bitmap.drawPDFPage(page)
-                guard let provider = bitmap.makeImage()?.dataProvider,
-                    let mask = CGImage(
-                        maskWidth: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8,
-                        bytesPerRow: width, provider: provider, decode: nil, shouldInterpolate: true)
+
+                guard let groundMask = undercoat(for: bitmap), let inkMask = mask(bitmap, interpolates: true)
                 else { continue }
-                context.saveGState()
-                context.clip(to: tile, mask: mask)
-                context.setFillColor(CGColor(srgbRed: ink.red, green: ink.green, blue: ink.blue, alpha: 1))
-                context.fill(tile)
-                context.restoreGState()
+                func fill(_ mask: CGImage, with color: CGColor) {
+                    context.saveGState()
+                    context.clip(to: coat)
+                    context.clip(to: padded, mask: mask)
+                    context.setFillColor(color)
+                    context.fill(coat)
+                    context.restoreGState()
+                }
+                fill(groundMask, with: CGColor(srgbRed: ground.red, green: ground.green, blue: ground.blue, alpha: 1))
+                fill(inkMask, with: CGColor(srgbRed: ink.red, green: ink.green, blue: ink.blue, alpha: 1))
             }
         }
+    }
+
+    private static let coverage = [UInt8](repeating: 0, count: 255) + [255]
+
+    // Even a partially covered edge needs an opaque ground: the vector glyph below can cover more of
+    // that pixel when PDFKit rasterizes it at a different zoom or subpixel origin.
+    private func undercoat(for bitmap: CGContext) -> CGImage? {
+        let width = UInt(bitmap.width)
+        let height = UInt(bitmap.height)
+        guard let expandedBitmap = grayBitmap(width: bitmap.width, height: bitmap.height) else { return nil }
+        var source = vImage_Buffer(data: bitmap.data, height: height, width: width, rowBytes: bitmap.bytesPerRow)
+        var expanded = vImage_Buffer(
+            data: expandedBitmap.data, height: height, width: width, rowBytes: expandedBitmap.bytesPerRow)
+        guard vImageMin_Planar8(&source, &expanded, nil, 0, 0, 5, 5, vImage_Flags(kvImageEdgeExtend)) == kvImageNoError,
+            vImageTableLookUp_Planar8(&expanded, &expanded, Self.coverage, vImage_Flags(kvImageNoFlags))
+                == kvImageNoError
+        else { return nil }
+        return mask(expandedBitmap, interpolates: false)
+    }
+
+    private func grayBitmap(width: Int, height: Int) -> CGContext? {
+        CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
+            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)
+    }
+
+    private func mask(_ bitmap: CGContext, interpolates: Bool) -> CGImage? {
+        guard let provider = bitmap.makeImage()?.dataProvider else { return nil }
+        return CGImage(
+            maskWidth: bitmap.width, height: bitmap.height, bitsPerComponent: 8, bitsPerPixel: 8,
+            bytesPerRow: bitmap.bytesPerRow, provider: provider, decode: nil, shouldInterpolate: interpolates)
     }
 }
 

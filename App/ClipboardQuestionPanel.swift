@@ -249,23 +249,27 @@ private enum ListMetrics {
 
 private struct ClipboardQuestionRow: View {
     let option: ClipboardQuestion.Option
+    @Environment(\.self) private var environment
     let isSelected: Bool
     let select: () -> Void
     let open: () -> Void
 
     var body: some View {
         let name = ClipboardFormatText.name(option.kind)
+        let ground = Color(nsColor: .selectedContentBackgroundColor)
+        let selectedInk = DisplayAccessibility.selectionInk(on: ground.resolve(in: environment))
         let evidence = ClipboardFormatText.evidence(of: option)
         Button(action: select) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: name)
+                    .emphasisForDisplayContrast(isSelected)
                     .font(.system(size: 13))
-                    .foregroundStyle(isSelected ? Color(nsColor: .alternateSelectedControlTextColor) : PrintPalette.ink)
+                    .foregroundStyle(isSelected ? selectedInk : PrintPalette.ink)
                 Text(verbatim: evidence)
                     .font(.system(size: 11))
                     .foregroundStyle(
                         isSelected
-                            ? Color(nsColor: .alternateSelectedControlTextColor).opacity(0.85) : PrintPalette.ink2)
+                            ? selectedInk : PrintPalette.ink2)
             }
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 8)
@@ -274,7 +278,7 @@ private struct ClipboardQuestionRow: View {
             .background {
                 if isSelected {
                     CornerRole.badge.shape
-                        .fill(Color(nsColor: .selectedContentBackgroundColor))
+                        .fill(ground)
                 }
             }
             .contentShape(Rectangle())

@@ -47,7 +47,7 @@ struct PrintPressBar: View {
                 Text("Print").font(.system(size: 16, weight: .semibold))
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Text(verbatim: ShortcutHints.keys([.documentPrint])).font(.system(size: 11)).opacity(0.85)
+                Text(verbatim: ShortcutHints.keys([.documentPrint])).font(.system(size: 11))
             }
             .padding(.top, 14)
             .padding(.bottom, 11)
@@ -228,7 +228,7 @@ private struct OrientationPicker: View {
                 HStack(spacing: 6) {
                     Image(systemName: "rectangle.portrait.rotate").foregroundStyle(PrintPalette.ink2)
                     Text(control.value)
-                    Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(PrintPalette.ink2)
                 }
                 .font(.system(size: 12))
@@ -289,7 +289,7 @@ private struct PrinterPicker: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold))
+                Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(PrintPalette.ink3)
             }
             .padding(.horizontal, 9)
@@ -342,7 +342,7 @@ private struct PaperSeriesMenu: View {
             HStack(spacing: 6) {
                 Image(systemName: "ruler").foregroundStyle(PrintPalette.ink2)
                 Text(model.trayPaperSeries.shortTitle)
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(PrintPalette.ink2)
             }
             .font(.system(size: 12))
@@ -424,7 +424,12 @@ private struct LayoutCard: View {
                     .fill(isSelected ? PrintPalette.aiTint : hovering ? PrintPalette.hover : .clear)
             }
             .overlay {
-                CornerRole.tile.shape.strokeBorder(isSelected ? PrintPalette.ai : .clear, lineWidth: 1)
+                CornerRole.tile.shape.strokeBorder(
+                    isSelected
+                        ? PrintPalette.ai
+                        : hovering && DisplayAccessibility.shared.options.increasedContrast
+                            ? PrintPalette.line3 : .clear,
+                    lineWidth: isSelected && DisplayAccessibility.shared.options.increasedContrast ? 2 : 1)
             }
             .contentShape(CornerRole.tile.shape)
         }
@@ -510,7 +515,7 @@ private struct VariantMenuLabel: View {
 
     var body: some View {
         Image(systemName: "chevron.down")
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(isSelected ? PrintPalette.ai : PrintPalette.ink2)
             .frame(width: 20, height: 20)
             .background(CornerRole.smallControl.shape.fill(hovering ? PrintPalette.press : .clear))

@@ -35,6 +35,7 @@ extension DocumentViewModel {
             var updated = mark
             updated.backgroundHex = preferences.changeBackgroundHex
             updated.textHex = preferences.changeTextHex
+            updated.emphasizesEdge = DisplayAccessibility.shared.options.increasedContrast
             return updated
         }
     }

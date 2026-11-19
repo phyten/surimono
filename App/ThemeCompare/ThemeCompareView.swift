@@ -17,7 +17,7 @@ struct ThemeCompareView: View {
             tray.zIndex(1)
         }
         .foregroundStyle(PrintPalette.ink)
-        .tint(PrintPalette.ai)
+        .tint(PrintPalette.aiControl)
         .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             model.followThemeSamples()
@@ -91,7 +91,7 @@ struct ThemeCompareView: View {
                         ForEach(filters, id: \.id) { filter in
                             ThemeGroupChip(
                                 title: filter.title, isSelected: filter.id == model.compareFilterID,
-                                selectedText: PrintPalette.raised, action: { model.compareFilterID = filter.id })
+                                action: { model.compareFilterID = filter.id })
                         }
                     }
                     .padding(2)
@@ -176,7 +176,7 @@ private struct CompareTopBar: View {
                         .foregroundStyle(PrintPalette.ink2)
                     Text("Back to View")
                     PrintTag(
-                        text: "esc", font: .system(size: 9.5), color: PrintPalette.ink3, border: PrintPalette.line2
+                        text: "esc", font: .system(size: 10), color: PrintPalette.ink3, border: PrintPalette.line2
                     )
                     .padding(.leading, 3)
                 }
@@ -243,7 +243,7 @@ private struct ComparePlacePicker: View {
                     .lineLimit(1)
                     .frame(maxWidth: 180)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(PrintPalette.ink2)
             }
             .padding(.leading, 10)
@@ -360,6 +360,7 @@ private struct ComparePlaceRow: View {
                 )
                 // The raised paper colour reads on the indigo in both appearances.
                 .foregroundStyle(isCurrent ? PrintPalette.raised : PrintPalette.ink)
+                .emphasisForDisplayContrast(isCurrent || isHovered)
                 .lineLimit(isCode ? 1 : 2)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -492,7 +493,8 @@ private struct CompareChooseButton: View {
                 CornerRole.control.shape
                     .strokeBorder(isFilled ? PrintPalette.ai : PrintPalette.line3, lineWidth: 1)
             }
-            .opacity(configuration.isPressed ? 0.85 : 1)
+            .emphasisForDisplayContrast(isFilled)
+            .offset(y: configuration.isPressed ? 1 : 0)
             .contentShape(CornerRole.control.shape)
             .onHover { hovering = $0 }
     }
@@ -595,7 +597,9 @@ private struct FadingScrollRow<Content: View>: View {
                 HStack(spacing: 0) {
                     Rectangle()
                     LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
-                        .frame(width: hasMore ? Self.fadeWidth : 0)
+                        .frame(
+                            width: hasMore && !DisplayAccessibility.shared.options.reduceTransparency
+                                && !DisplayAccessibility.shared.options.increasedContrast ? Self.fadeWidth : 0)
                 }
                 .animation(.easeOut(duration: 0.15), value: hasMore)
             }

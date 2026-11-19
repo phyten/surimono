@@ -6,9 +6,15 @@ extension View {
     func paperOverlayBackground(_ corner: CornerRole?, tintOpacity: Double = 0.84) -> some View {
         let shape = corner.map { AnyShape($0.shape) } ?? AnyShape(Rectangle())
         return background {
-            ZStack {
-                shape.fill(.regularMaterial)
-                shape.fill(PrintPalette.raised.opacity(tintOpacity))
+            if DisplayAccessibility.shared.options.reduceTransparency
+                || DisplayAccessibility.shared.options.increasedContrast
+            {
+                shape.fill(PrintPalette.raised)
+            } else {
+                ZStack {
+                    shape.fill(.regularMaterial)
+                    shape.fill(PrintPalette.raised.opacity(tintOpacity))
+                }
             }
         }
     }

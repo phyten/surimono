@@ -121,10 +121,14 @@ struct PanelIconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 10, weight: .semibold))
-                .frame(width: 22, height: 22)
-                .background(CornerRole.control.shape.fill(isHovered ? PrintPalette.hover : .clear))
-                .contentShape(Rectangle())
+            Image(systemName: symbol).font(
+                .system(
+                    size: 10,
+                    weight: isHovered && DisplayAccessibility.shared.options.increasedContrast ? .black : .semibold)
+            )
+            .frame(width: 22, height: 22)
+            .background(CornerRole.control.shape.fill(isHovered ? PrintPalette.hover : .clear))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }

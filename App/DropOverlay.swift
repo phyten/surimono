@@ -104,7 +104,7 @@ struct DropOverlay: View {
             ZStack {
                 switch plan.choice {
                 case .joinOrOpen(let joining):
-                    PrintPalette.stage.opacity(0.6)
+                    DisplayAccessibility.shared.options.fill(PrintPalette.stage, opacity: 0.6, over: PrintPalette.stage)
                     GeometryReader { geometry in
                         HStack(spacing: 12) {
                             place(copy(join: joining, plan: plan), isHovered: session.zone == .join)
@@ -114,10 +114,10 @@ struct DropOverlay: View {
                     }
                     .padding(12)
                 case .join(let joining):
-                    PrintPalette.stage.opacity(0.6)
+                    DisplayAccessibility.shared.options.fill(PrintPalette.stage, opacity: 0.6, over: PrintPalette.stage)
                     place(copy(join: joining, plan: plan), isHovered: true).padding(12)
                 case .open:
-                    PrintPalette.stage.opacity(0.6)
+                    DisplayAccessibility.shared.options.fill(PrintPalette.stage, opacity: 0.6, over: PrintPalette.stage)
                     place(copy(open: plan), isHovered: true).padding(12)
                 case .refuse(let refusal):
                     Text(verbatim: DropCopy.refusal(refusal))

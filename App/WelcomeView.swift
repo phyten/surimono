@@ -210,6 +210,7 @@ private struct WelcomeView: View {
                 Label("Getting Started with Surimono", systemImage: "book")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(PrintPalette.ai)
+                    .emphasisForDisplayContrast(isGuideHovered)
                     .padding(.horizontal, 8)
                     .frame(height: 26)
                     .background {
@@ -226,14 +227,20 @@ private struct WelcomeView: View {
         .background {
             ZStack {
                 CornerRole.panel.shape.fill(PrintPalette.stage)
-                if isTargeted { CornerRole.panel.shape.fill(PrintPalette.ai.opacity(0.12)) }
+                if isTargeted {
+                    CornerRole.panel.shape.fill(
+                        DisplayAccessibility.shared.options.fill(
+                            PrintPalette.ai, opacity: 0.12, over: PrintPalette.stage))
+                }
             }
         }
         .overlay {
             CornerRole.panel.shape
                 .strokeBorder(
                     isTargeted ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.line3),
-                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                    style: StrokeStyle(
+                        lineWidth: 1.5,
+                        dash: isTargeted && DisplayAccessibility.shared.options.increasedContrast ? [] : [6, 4]))
         }
     }
 
@@ -263,6 +270,7 @@ struct RecentFileRow: View {
             // The folder tells apart files of the same name and says where a file is before it opens.
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(verbatim: url.lastPathComponent)
+                    .emphasisForDisplayContrast(isHovered)
                     .font(.system(size: 13))
                     .foregroundStyle(PrintPalette.ink)
                     .lineLimit(1)
