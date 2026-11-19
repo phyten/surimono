@@ -696,6 +696,7 @@ struct TextSizeMenuItems: View {
         Button("Larger") { model.increaseTextSize() }
         Button("Smaller") { model.decreaseTextSize() }
         Button("Original Size") { model.resetTextSize() }
+        DocumentTypefacePicker(model: model)
     }
 }
 

@@ -500,6 +500,7 @@
                 model.reviewSmartRemoval()
             default: break
             }
+            if let value = argument("SurimonoTypeface").flatMap(Typeface.init(rawValue:)) { model.setTypeface(value) }
             if let value = argument("SurimonoCodePalette") { model.selectCodePalette(value) }
             if let value = argument("SurimonoCodeFrame"), let frame = CodeBlockOptions.Frame(rawValue: value) {
                 model.codeBlock.frame = frame

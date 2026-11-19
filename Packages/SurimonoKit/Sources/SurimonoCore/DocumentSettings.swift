@@ -36,6 +36,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     /// An axis of its own: it stays when the theme changes. `CodePalette.matchesStyleID` follows the theme.
     public var codePaletteID: String?
     public var codeBlock: CodeBlockOptions?
+    /// Older records use the style's own fonts, even if the app default has since changed.
+    public var typeface: Typeface?
     public var textScale: Double?
     public var presetID: String?
     public var smartRemoval: SmartRemoval?
@@ -60,7 +62,8 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
 
     public init(
         view: ViewOptions? = nil, zoom: Double? = nil, windowSize: CGSize? = nil, layoutID: String? = nil,
-        themeID: String? = nil, textScale: Double? = nil, presetID: String? = nil, smartRemoval: SmartRemoval? = nil,
+        themeID: String? = nil, textScale: Double? = nil, typeface: Typeface? = nil, presetID: String? = nil,
+        smartRemoval: SmartRemoval? = nil,
         printOptions: PrintOptions? = nil, imageOrder: [String]? = nil, paperOrientation: PaperOrientation? = nil,
         htmlPresentation: HTMLPresentation? = nil, ignoresSlides: Bool? = nil,
         binderOrder: [String]? = nil, binderStartsOnFront: Bool? = nil, printFinish: PrintFinish? = nil,
@@ -77,6 +80,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         self.themeID = themeID
         self.codePaletteID = codePaletteID
         self.codeBlock = codeBlock
+        self.typeface = typeface
         self.textScale = textScale
         self.presetID = presetID
         self.smartRemoval = smartRemoval
@@ -94,7 +98,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, presetID, smartRemoval,
+        case view, zoom, windowSize, paperOrientation, layoutID, themeID, textScale, typeface, presetID, smartRemoval,
             printOptions, printFinish, imageOrder
         case htmlPresentation, ignoresSlides, binderOrder, binderStartsOnFront, codePaletteID, codeBlock
         case bandVisibility, paperSeries, notes, bookletBinding, pageRange, bookmarks
@@ -127,6 +131,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         try values.encodeIfPresent(themeID, forKey: .themeID)
         try values.encodeIfPresent(codePaletteID, forKey: .codePaletteID)
         try values.encodeIfPresent(codeBlock, forKey: .codeBlock)
+        try values.encodeIfPresent(typeface, forKey: .typeface)
         try values.encodeIfPresent(textScale, forKey: .textScale)
         try values.encodeIfPresent(presetID, forKey: .presetID)
         try values.encodeIfPresent(smartRemoval, forKey: .smartRemoval)
@@ -161,6 +166,7 @@ public struct DocumentSettings: Codable, Equatable, Sendable {
         themeID = field(String.self, .themeID)
         codePaletteID = field(String.self, .codePaletteID)
         codeBlock = field(CodeBlockOptions.self, .codeBlock)
+        typeface = field(Typeface.self, .typeface)
         textScale = field(Double.self, .textScale)
         presetID = field(String.self, .presetID)
         smartRemoval = field(SmartRemoval.self, .smartRemoval)

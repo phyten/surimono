@@ -56,11 +56,13 @@ public enum PaperBackground {
     ///     out wider than its paper and shrinks it to fit; a capture at the screen's scale draws a pixel to a point.
     public static func document(
         theme: PrintTheme, format: DocumentFormat, baseURL: URL? = nil, language: String = "ja", textScale: Double = 1,
+        typeface: Typeface = .style,
         pageSize: CGSize, margins: PageMargins, pixelsPerPoint: Double
     ) -> String {
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let css = styleSheet(
-            theme: theme, textScale: textScale, pageSize: pageSize, margins: margins, pixelsPerPoint: pixelsPerPoint,
+            theme: theme, textScale: textScale, typeface: format.usesPrintTheme ? typeface : .style, pageSize: pageSize,
+            margins: margins, pixelsPerPoint: pixelsPerPoint,
             language: language)
         return """
             <!doctype html>
@@ -79,7 +81,8 @@ public enum PaperBackground {
     /// The paper page's one style element: the theme's style sheet, then the root's content box placed over the text
     /// area. The images start from that box: WebKit places a root's images that do not repeat without its margins.
     public static func styleSheet(
-        theme: PrintTheme, textScale: Double = 1, pageSize: CGSize, margins: PageMargins, pixelsPerPoint: Double,
+        theme: PrintTheme, textScale: Double = 1, typeface: Typeface = .style, pageSize: CGSize, margins: PageMargins,
+        pixelsPerPoint: Double,
         language: String = "ja"
     ) -> String {
         // The text pages scale the root with zoom, its own box included, so its place is given unscaled.
@@ -89,13 +92,14 @@ public enum PaperBackground {
         func pixels(_ millimeters: Double) -> String { "\(points(millimeters) * ratio / zoom)px" }
         let height = max(Double(pageSize.height) - points(margins.top) - points(margins.bottom), 0)
         let padding = [margins.top, margins.right, margins.bottom, margins.left].map(pixels).joined(separator: " ")
-        return HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, language: language) + """
+        return HTMLDocumentBuilder.styleSheet(
+            theme: theme, textScale: textScale, typeface: typeface, language: language) + """
 
-            html { margin: 0 !important; padding: \(padding) !important; border: 0 !important; \
-            height: \(height * ratio / zoom)px !important; min-height: 0 !important; \
-            box-sizing: content-box !important; background-origin: content-box !important; }
-            body { margin: 0 !important; padding: 0 !important; border: 0 !important; height: 0 !important; \
-            min-height: 0 !important; overflow: hidden !important; }
-            """
+                html { margin: 0 !important; padding: \(padding) !important; border: 0 !important; \
+                height: \(height * ratio / zoom)px !important; min-height: 0 !important; \
+                box-sizing: content-box !important; background-origin: content-box !important; }
+                body { margin: 0 !important; padding: 0 !important; border: 0 !important; height: 0 !important; \
+                min-height: 0 !important; overflow: hidden !important; }
+                """
     }
 }

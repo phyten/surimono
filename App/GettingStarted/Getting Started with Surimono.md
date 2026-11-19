@@ -70,7 +70,7 @@ Markdown, Org, text, CSV and LaTeX documents can take a style.
 2. Click the style button in the toolbar, which shows a palette and the current style's name, such as Standard, or choose Document > Choose Style…. Look through Recent, Favorites, Suggested and the categories.
 3. Hold the pointer over a sample to try it on the paper (on the print screen this only enlarges the sample). With the setting “Try a Style on the Paper When Pointing at It” off, or in a document that takes long to typeset, the paper does not change. Clicking a sample chooses it in every case.
 
-Compare Styles lays up to four side by side. Change the text size with Increase Text Size (⌥⌘+) and Decrease Text Size (⌥⌘−) in the View menu.
+Compare Styles lays up to four side by side. Change the text size with Increase Text Size (⌥⌘+) and Decrease Text Size (⌥⌘−) in the View menu. In the palette, choose Typeface → LaTeX Typeface to set Western text in Computer Modern while keeping the style’s fonts for other scripts.
 
 ### Markdown notation
 

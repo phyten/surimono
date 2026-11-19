@@ -21,6 +21,7 @@ struct SettingsMenuTests {
         #expect(preferences.loneCoverWidth == .onePage)
         #expect(!preferences.defaultShowsOnAllSpaces)
         #expect(!preferences.defaultAlwaysOnTop && preferences.defaultBandVisibility == .always)
+        #expect(preferences.defaultTypeface == .style)
         #expect(preferences.defaultTextScale == 1)
         #expect(preferences.defaultPaperOrientation == .auto)
         preferences.defaultReadingDirection = .rightToLeft
@@ -30,6 +31,7 @@ struct SettingsMenuTests {
         preferences.defaultAlwaysOnTop = true
         preferences.defaultShowsOnAllSpaces = true
         preferences.defaultBandVisibility = .always
+        preferences.defaultTypeface = .latex
         preferences.defaultTextScale = 1.25
         preferences.defaultPaperOrientation = .landscape
         let restored = AppPreferences(defaults: suite.defaults)
@@ -40,6 +42,7 @@ struct SettingsMenuTests {
         #expect(restored.loneCoverWidth == .twoPages)
         #expect(restored.defaultShowsOnAllSpaces)
         #expect(restored.defaultAlwaysOnTop && restored.defaultBandVisibility == .always)
+        #expect(restored.defaultTypeface == .latex)
         #expect(restored.defaultTextScale == 1.25)
         preferences.defaultTextScale = 1.13
         preferences.margin = 12.5

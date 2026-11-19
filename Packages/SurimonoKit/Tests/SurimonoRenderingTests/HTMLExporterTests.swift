@@ -6,6 +6,21 @@ import Testing
 
 @MainActor
 struct HTMLExporterTests {
+    @Test("HTML とリッチテキストには選んだ欧文書体を埋め込む", .timeLimit(.minutes(1)))
+    func typefaceForExportAndCopy() async throws {
+        let source = DocumentSource(data: Data("# Western 本文\n\n`code`".utf8), format: .markdown)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
+        let settings = RenderSettings(
+            layout: .a4Single, theme: theme, preset: .init(id: "none", name: "None"), typeface: .latex)
+        let html = try await HTMLExporter.html(source: source, settings: settings, title: "Example")
+        let rich = try await HTMLExporter.richText(source: source, settings: settings, title: "Example")
+        for output in [html, rich.html] {
+            #expect(output.contains("Surimono Computer Modern Typewriter"))
+            #expect(output.components(separatedBy: "data:font/ttf;base64,").count == 6)
+        }
+        #expect(rich.plain.contains("Western 本文"))
+    }
+
     @Test("LaTeX を書き出した HTML の本文にも、組版時と同じ形式・文字サイズ・章の指定が残る", .timeLimit(.minutes(1)))
     func latexBodyAttributes() async throws {
         let tex = #"\documentclass[11pt]{report}\begin{document}\chapter{One}Text.\end{document}"#

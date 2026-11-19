@@ -137,6 +137,7 @@ enum SettingsCatalogue {
             .init(.styles, "Default Style"),
             .init(.styles, "Default Code Colors"),
             .init(.styles, "Default Text Size"),
+            .init(.styles, "Default Typeface", words: ["LaTeX Typeface", "As the Style"]),
             .init(.styles, "Open Styles Folder"),
             .init(.styles, "Reload", anchor: "Open Styles Folder"),
             .init(.html, "Default HTML Preset"),

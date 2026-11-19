@@ -224,6 +224,25 @@ struct DocumentRendererTests {
         }
     }
 
+    @Test("書体を切り替えたときだけ組版し、オフに戻した HTML は最初と同じになる")
+    func typefaceCache() async throws {
+        var pages: [String] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            if case .html(let html, _) = request.source { pages.append(html) }
+            return try RenderingFixtures.pdf()
+        })
+        let source = DocumentSource(data: Data("# Title\n\n`code` 本文".utf8), format: .markdown)
+        var settings = settings
+        for face in [Typeface.style, .latex, .latex, .style] {
+            settings.typeface = face
+            _ = try await renderer.prepare(source, settings: settings)
+        }
+        try #require(pages.count == 3)
+        #expect(pages[0] == pages[2])
+        #expect(!pages[0].contains("data:font/ttf"))
+        #expect(pages[1].components(separatedBy: "data:font/ttf;base64,").count == 6)
+    }
+
     @Test("Markdownの見出しを含む論理ページPDFを作れる", .timeLimit(.minutes(1)))
     func markdown() async throws {
         _ = NSApplication.shared

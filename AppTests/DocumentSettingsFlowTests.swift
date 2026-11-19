@@ -678,6 +678,44 @@ struct DocumentSettingsFlowTests {
         #expect(environment.store.keys().isEmpty)
     }
 
+    @Test("書体を替えると組版と保存設定が変わり、最近使ったスタイルには加わらない", .timeLimit(.minutes(1)))
+    func typefaceChange() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let data = Data("Typeface 本文".utf8)
+        var embedded: [Bool] = []
+        let model = DocumentViewModel(
+            data: data, fileURL: nil, format: .markdown, preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(paginate: { request in
+                if case .html(let html, _) = request.source { embedded.append(html.contains("data:font/ttf;base64,")) }
+                return PDFDocument(data: self.pdf("Page"))!
+            }), settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(embedded.last == false)
+        #expect(model.typeface == .style && !model.hasSavedSettings)
+        model.setTypeface(.latex)
+        model.renderForChangedSettings()
+        model.rememberedSettingsDidChange()
+        try await waitUntil { !model.isRendering && model.hasSavedSettings && embedded.last == true }
+        try await waitUntil { fixture.store.record(for: ContentHash.of(data).hex)?.typeface == .latex }
+        #expect(fixture.preferences.recentThemeIDs.isEmpty)
+    }
+
+    @Test("既定の書体は新しい文書に使い、書体を含まない古い記録はスタイルのまま開く")
+    func legacyTypeface() throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        fixture.preferences.defaultTypeface = .latex
+        let model = DocumentViewModel(
+            data: Data(), fileURL: nil, format: .org, preferences: fixture.preferences,
+            library: fixture.library, settingsStore: fixture.store)
+        #expect(model.typeface == .latex)
+        model.restoreClosedDocument(DocumentSettings(textScale: 1.25))
+        #expect(model.typeface == .style)
+        #expect(model.textScale == 1.25)
+    }
+
     @Test("文字の大きさを内容ごとに保存して復元し、既定に戻すと消える", .timeLimit(.minutes(1)))
     func textScalePersistence() async throws {
         let environment = try environment()

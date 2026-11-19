@@ -21,7 +21,7 @@ struct RichTextFigure {
 @MainActor
 public struct RichTextExport {
     // A family in the document can come from an embedded web font or a user's private font library.
-    // Carry only families supplied by macOS, plus portable CSS fallbacks.
+    // The copy can also opt in to the two bundled faces, independently of this system list.
     static let systemFonts: [String] = {
         let fonts = CTFontCollectionCreateFromAvailableFonts(nil)
         let descriptors = CTFontCollectionCreateMatchingFontDescriptors(fonts) as? [CTFontDescriptor] ?? []

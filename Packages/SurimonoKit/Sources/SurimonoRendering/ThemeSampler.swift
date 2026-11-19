@@ -39,6 +39,7 @@ public final class ThemeSampler {
     private let documentLanguage: String
     private let format: DocumentFormat
     private let baseURL: URL?
+    private let typeface: Typeface
     private let textScale: Double
     private let code: CodeStyle
     private let timeout: Duration
@@ -57,7 +58,8 @@ public final class ThemeSampler {
     /// - Parameter html: A whole document as `HTMLDocumentBuilder` builds it, with exactly one style element.
     public init(
         html: String, format: DocumentFormat = .markdown, baseURL: URL?, pageSize: CGSize,
-        margins: WebPaginator.Margins, textScale: Double = 1, code: CodeStyle = CodeStyle(),
+        margins: WebPaginator.Margins, textScale: Double = 1, typeface: Typeface = .style,
+        code: CodeStyle = CodeStyle(),
         timeout: Duration = .seconds(15), resourceAccess: LocalResourceAccess? = nil
     ) {
         self.resourceAccess = resourceAccess
@@ -67,6 +69,7 @@ public final class ThemeSampler {
         self.baseURL = baseURL
         self.pageSize = pageSize
         self.margins = margins
+        self.typeface = format.usesPrintTheme ? typeface : .style
         self.textScale = textScale
         self.code = code
         self.timeout = timeout
@@ -85,7 +88,8 @@ public final class ThemeSampler {
     public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
         let fields = [
             "theme-sample-v2", theme.id, language, sourceHash, html, format.rawValue,
-            HTMLDocumentBuilder.styleSheet(theme: theme, textScale: textScale, code: code, language: documentLanguage),
+            HTMLDocumentBuilder.styleSheet(
+                theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage),
             theme.script ?? "",
             String(Double(pageSize.width)), String(Double(pageSize.height)),
             String(Double(margins.top)), String(Double(margins.left)),
@@ -326,7 +330,7 @@ public final class ThemeSampler {
             return document.documentElement.getBoundingClientRect().height;
             """
         let css = HTMLDocumentBuilder.styleSheet(
-            theme: theme, textScale: textScale, code: code, language: documentLanguage)
+            theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage)
         _ = try await webView.callAsyncJavaScript(swap, arguments: ["css": css], in: nil, contentWorld: world)
         // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
         // show the fallback font and be kept that way.
@@ -357,7 +361,8 @@ public final class ThemeSampler {
             top: millimeters(margins.top), left: millimeters(margins.left), bottom: millimeters(margins.bottom),
             right: millimeters(margins.right))
         let css = PaperBackground.styleSheet(
-            theme: theme, textScale: textScale, pageSize: pageSize, margins: paperMargins, pixelsPerPoint: 1,
+            theme: theme, textScale: textScale, typeface: typeface, pageSize: pageSize, margins: paperMargins,
+            pixelsPerPoint: 1,
             language: documentLanguage)
         let session: Session
         if let paperSession, paperSession.isReady {
@@ -366,6 +371,7 @@ public final class ThemeSampler {
             paperSession?.close()
             let html = PaperBackground.document(
                 theme: theme, format: format, baseURL: baseURL, language: documentLanguage, textScale: textScale,
+                typeface: typeface,
                 pageSize: pageSize,
                 margins: paperMargins, pixelsPerPoint: 1)
             session = Session(size: pageSize, resourceAccess: resourceAccess, html: html)
@@ -522,7 +528,7 @@ extension DocumentRenderer {
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
             language: settings.pageLanguage,
-            textScale: settings.textScale, removesPaper: removesPaper,
+            textScale: settings.textScale, typeface: settings.typeface, removesPaper: removesPaper,
             finish: settings.finish.styleSheet, code: settings.code)
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
         return {
@@ -530,7 +536,7 @@ extension DocumentRenderer {
                 html: html, format: source.format, baseURL: directory,
                 pageSize: layout.logicalPageSize(options: settings.options),
                 margins: WebPaginator.Margins(layout.logicalMargins(options: settings.options)),
-                textScale: settings.textScale, code: settings.code, resourceAccess: access)
+                textScale: settings.textScale, typeface: settings.typeface, code: settings.code, resourceAccess: access)
         }
     }
 

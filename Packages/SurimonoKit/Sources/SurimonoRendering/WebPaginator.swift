@@ -154,6 +154,7 @@ public final class WebPaginator: NSObject {
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
         collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
+        richTextTypeface: Typeface = .style,
         flow: PrintFlow = .horizontal, timeout: Duration? = nil
     ) async throws -> Result {
         let bytes: Int
@@ -261,13 +262,16 @@ public final class WebPaginator: NSObject {
                 }
                 images[address] = "data:" + mime + ";base64," + bytes.base64EncodedString()
             }
+            let copiesTypeface = richText && richTextTypeface == .latex
+            let bundledFonts = copiesTypeface ? ThemeFonts.textFamilies : []
             let serialized =
                 try await session.webView.callAsyncJavaScript(
                     HTMLExporter.serializationScript,
                     arguments: [
                         "title": exportHTMLTitle, "embeddedImages": images, "richText": richText,
-                        "systemFonts": richText ? RichTextExport.systemFonts : [],
-                        "pasteCSS": RichTextExport.styleSheet,
+                        "systemFonts": richText ? RichTextExport.systemFonts + bundledFonts : [],
+                        "copiesTypeface": copiesTypeface,
+                        "pasteCSS": RichTextExport.styleSheet + (copiesTypeface ? "\n" + ThemeFonts.textFaces : ""),
                     ],
                     in: nil,
                     contentWorld: Self.preparationWorld)

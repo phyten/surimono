@@ -47,7 +47,10 @@ public enum HTMLExporter {
         let result = try await WebPaginator().paginateWithResult(
             input, pageSize: size, margins: margins,
             allowsJavaScript: false, preparationScript: preparation, rendersMermaid: true, rendersDiagrams: true,
-            exportHTMLTitle: title, richText: richText)
+            exportHTMLTitle: title, richText: richText,
+            richTextTypeface: Typeface.isAvailable(
+                themeID: settings.theme.id, usesPrintTheme: source.format.usesPrintTheme)
+                ? settings.typeface : .style)
         guard let exported = result.exportedHTML else { throw WebPaginator.PaginationError.emptyDocument }
         return (exported, result.richTextFigures)
     }
@@ -68,6 +71,15 @@ public enum HTMLExporter {
     // sandbox handler as pagination; the exporter never grants access to a folder the reader did not authorize.
     static let serializationScript = #"""
         const copy = document.documentElement.cloneNode(true);
+        // Match the clone before pruning, while its elements still line up with the source.
+        const elementFonts = new Map();
+        if (richText) {
+          const keepFonts = el => getComputedStyle(el).fontFamily.split(',').map(f => f.trim())
+            .filter(f => systemFonts.includes(f.replace(/^['"]|['"]$/g,''))).join(', ');
+          const selector = copiesTypeface ? 'body, h1,h2,h3,h4,h5,h6,p,table,th,td,caption,figcaption,blockquote,li,div,span,code,pre,kbd,samp,strong' : 'body,h1,h2,h3,h4,h5,h6';
+          const originalElements = Array.from(document.querySelectorAll(selector));
+          Array.from(copy.querySelectorAll(selector)).forEach((el,i) => elementFonts.set(el,keepFonts(originalElements[i])));
+        }
         const originals = Array.from(document.images);
         const images = Array.from(copy.querySelectorAll('img'));
         for (let i = 0; i < images.length; i++) {
@@ -102,13 +114,6 @@ public enum HTMLExporter {
         const titleNode = document.createElement('title'); titleNode.textContent = title; head.append(titleNode);
         if (richText) {
           const body = copy.querySelector('body');
-          const keepFonts = el => getComputedStyle(el).fontFamily.split(',').map(f => f.trim())
-            .filter(f => systemFonts.includes(f.replace(/^['"]|['"]$/g,''))).join(', ');
-          const bodyFont = keepFonts(document.body);
-          const headings = 'h1,h2,h3,h4,h5,h6';
-          const originalsByHeading = Array.from(document.body.querySelectorAll(headings));
-          const headingFonts = new Map(Array.from(body.querySelectorAll(headings),
-            (el,i) => [el,keepFonts(originalsByHeading[i])]));
           head.replaceChildren(charset,titleNode);
           body.querySelectorAll('style,noscript,video,audio,canvas,source,meta,[hidden]').forEach(el => el.remove());
           const figures = [];
@@ -144,8 +149,7 @@ public enum HTMLExporter {
               el.setAttribute('border', '1'); el.setAttribute('cellpadding', '4');
             }
           }
-          if (bodyFont) body.style.fontFamily = bodyFont;
-          for (const [heading,font] of headingFonts) heading.style.fontFamily = font;
+          for (const [element,font] of elementFonts) element.style.fontFamily = font;
           const style = document.createElement('style'); style.textContent = pasteCSS; head.append(style);
           return {html:'<!DOCTYPE html>\n' + copy.outerHTML, figures};
         }
