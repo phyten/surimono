@@ -41,6 +41,10 @@ struct LaTeXFontSettings {
         // Check installed faces, including explicit bold and italic variants; a family-name list
         // alone misses aliases, user fonts, and changes to the system fonts after an OS update.
         var ideographFallback: String? {
+            // The families macOS ships are decided by name, so the same document converts the same way
+            // on a Mac that has not downloaded them. Only other faces are probed.
+            let requested = name.lowercased()
+            if let known = Self.knownFallbacks.first(where: { requested.hasPrefix($0.prefix) }) { return known.alias }
             for face in [name, bold, italic].compactMap({ $0 }) {
                 var font = CTFontCreateWithName(face as CFString, 12, nil)
                 // Core Text substitutes Helvetica for the Windows family spelling on macOS,
@@ -63,6 +67,11 @@ struct LaTeXFontSettings {
             }
             return nil
         }
+
+        private static let knownFallbacks: [(prefix: String, alias: String)] = [
+            ("yumincho", "Mincho"), ("yu mincho", "Mincho"), ("游明朝", "Mincho"),
+            ("songti tc", "Song TC"), ("songti sc", "Song SC"), ("stsong", "Song SC"),
+        ]
 
         var needsAlias: Bool { cjk || bold != nil || italic != nil || scale != nil }
 
