@@ -17,6 +17,11 @@ enum DiagramScript {
           }
         }
         """
+    static let tikzLabelLayout = library("tikz-label-layout")
+    static let tikz: String? = {
+        guard let layout = tikzLabelLayout, let painter = library("tikz") else { return nil }
+        return layout + "\n" + painter
+    }()
     static let viz = library("viz-global")
     static let plantuml = library("plantuml")
     private static let renderer = library("diagrams") ?? ""
@@ -53,6 +58,19 @@ enum DiagramScript {
     static func prepare(
         in webView: WKWebView, height: Double, evaluate: (String) async throws -> String?
     ) async throws {
+        if try await evaluate(
+            "return document.querySelector('body.format-latex .tikz-block[data-scene]') ? 'yes' : 'no';")
+            == "yes",
+            let tikz
+        {
+            do {
+                try await MermaidScript.preventResourceLoads(in: webView)
+                _ = try await evaluate("const pageHeight = \(max(1, height));\n" + tikz)
+            } catch {
+                // Each block already holds its printable fallback, including when resource blocking fails.
+                try Task.checkCancellation()
+            }
+        }
         guard try await evaluate(probe) == "yes" else { return }
         let deadline = ContinuousClock.now + .seconds(10)
         do {

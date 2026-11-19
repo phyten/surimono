@@ -10,7 +10,7 @@ struct LaTeXPageSettingsTests {
     }
 
     @Test(
-        "用紙寸法と左右余白・本文幅から組版幅だけを求める",
+        "用紙寸法と左右余白・本文幅から組版幅を求める",
         arguments: [
             (#"\usepackage[margin=25mm]{geometry}"#, "160mm"),
             (#"\usepackage[left=10mm,right=3cm,top=10mm,bottom=3mm]{geometry}"#, "170mm"),
@@ -36,8 +36,7 @@ struct LaTeXPageSettingsTests {
         let result = document(input.0)
         let info = try #require(result.latexClass)
         #expect(info.styleVariables.contains("--latex-text-width: \(input.1)"))
-        #expect(!info.styleVariables.contains("height"))
-        #expect(!info.styleVariables.contains("margin"))
+        #expect(info.styleVariables.contains("--latex-margin-left:"))
         #expect(result.readingIssues.isEmpty)
     }
 
@@ -51,7 +50,9 @@ struct LaTeXPageSettingsTests {
             \newfontfamily\displayface[BoldFont={* Bold}]{Example Display}
             """#, body: #"{\displayface Heading} rest"#)
         let info = try #require(result.latexClass)
-        #expect(info.styleVariables.contains("--latex-main-font: \"Surimono TeX Local 1\", \"YuMincho\""))
+        #expect(
+            info.styleVariables.contains(
+                "--latex-main-font: \"Surimono Mincho Ideographs\", \"Surimono TeX Local 1\", \"YuMincho\""))
         #expect(info.styleVariables.contains("--latex-mono-font:"))
         #expect(info.styleVariables.contains("--latex-sans-font: \"Example Sans\""))
         #expect(info.styleVariables.contains("--latex-cjk-main-font:"))
@@ -72,7 +73,7 @@ struct LaTeXPageSettingsTests {
     func ignoresUnsafeFontNames() throws {
         let result = document(#"\setmainfont{https://assets.test/font.ttf}\setsansfont{X";color:red}"#)
         let info = try #require(result.latexClass)
-        #expect(info.styleVariables.isEmpty)
+        #expect(!info.styleVariables.contains("-font:"))
         #expect(info.localFontFaces.isEmpty)
         #expect(!result.body.contains("assets"))
     }

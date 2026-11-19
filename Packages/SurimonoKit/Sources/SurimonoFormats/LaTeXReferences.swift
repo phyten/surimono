@@ -119,7 +119,7 @@ extension LaTeXDocument {
                     filled(text, below: citations.count, limit: 20_000)?.replacingOccurrences(
                         of: #"</?a\b[^>]*>"#, with: "", options: .regularExpression) ?? "…"
             }
-            // Pagination comes later. Show the object's number for \pageref and mark the link for a future page lookup.
+            // Pagination comes later. The initial text reserves space until the measured page label replaces it.
             let attribute: String
             if command == "pageref" {
                 attribute = " class=\"latex-pageref\""
@@ -206,11 +206,13 @@ extension LaTeXReader {
                 .init(
                     command: name, keys: keys.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) },
                     names: document.referenceNames, text: text))
-            appendHTML(document.placeholder("R", document.references.count - 1))
+            appendHTML(styledLinks(document.placeholder("R", document.references.count - 1)))
         case "hypertarget", "hyperlink":
             let id = HTML.escape(argument() ?? "")
             let text = inline(argument() ?? "")
-            appendHTML(name == "hypertarget" ? "<span id=\"\(id)\">\(text)</span>" : "<a href=\"#\(id)\">\(text)</a>")
+            appendHTML(
+                name == "hypertarget"
+                    ? "<span id=\"\(id)\">\(text)</span>" : styledLinks("<a href=\"#\(id)\">\(text)</a>"))
         default: return false
         }
         return true

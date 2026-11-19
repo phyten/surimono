@@ -16,6 +16,7 @@ extension DocumentRenderer {
         return LaTeXConverter.convert(
             try decodedText(source.data), documentURL: resources.file, textWidthPoints: textWidthPoints,
             imageExists: { resources.permits($0) && imageExists($0) },
+            canProbePictureFallback: { access?.permits($0) != false },
             imageSizeInPoints: { url in
                 if let cached = measuredImages[url] { return cached }
                 let result = resources.read(url).flatMap(Self.imageSizeInPoints) ?? .zero
@@ -72,10 +73,13 @@ extension DocumentRenderer {
     /// Find the default style without laying out pages or converting the body. Includes in the preamble
     /// must see exactly the same files as the subsequent conversion, including after a folder grant.
     public func latexClassInfo(for source: DocumentSource) -> LaTeXDocumentClassInfo {
+        if let cachedLaTeXInfo, cachedLaTeXInfo.source == source { return cachedLaTeXInfo.info }
         let resources = CompanionTextResources(source, access: resourceAccess(for: source), onDenied: {})
-        return LaTeXConverter.documentClassInfo(
+        let info = LaTeXConverter.documentClassInfo(
             TextDecoding.decode(source.data).text, documentURL: resources.file,
             readFile: resources.read, fileIdentity: resources.identity)
+        cachedLaTeXInfo = (source, info)
+        return info
     }
 }
 

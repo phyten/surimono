@@ -1,27 +1,62 @@
 import Foundation
 
 /// Class options that change the printed text block or the choice of a built-in style.
-/// Other options (paper stock, two columns, etc.) remain under Surimono's print settings.
+/// The app still chooses the output stock. The document's stock determines its intended margins.
 public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public let isJapanese: Bool
+    let hidesTitlePageNumber: Bool
     public let hasChapters: Bool
     public internal(set) var styleVariables = ""
     public internal(set) var localFontFaces = ""
+    public internal(set) var pageNumbers = LaTeXPageNumbers()
+    public internal(set) var mainFontName: String?
+    public internal(set) var columns: Int
+    public let hasSeparateTitlePage: Bool?
+    public let usesJSChapterSpacing: Bool
     public let pointSize: Int
     public internal(set) var mainLanguage: String
+    var resolvedPageBox: LaTeXPageBox?
+    public var pageBox: LaTeXPageBox { resolvedPageBox ?? LaTeXPageSettings().pageBox(for: self) }
+    public internal(set) var usesNativeCJKHeadings: Bool
+    package var isJSArticle: Bool { name == "jsarticle" || name == "ltjsarticle" || name == "bxjsarticle" }
     let name: String
     let usesTraditionalJapaneseNames: Bool
 
     init(name: String = "article", options: String? = nil) {
         self.name = name
         let options = (options ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        pageNumbers = LaTeXPageNumbers(name: name, options: options)
+        // These classes select their own first-page style at maketitle, independently of the running style.
+        hidesTitlePageNumber =
+            ["elsarticle", "llncs"].contains(name) || name == "IEEEtran" && options.contains("conference")
+        let jsClasses = [
+            "jsarticle", "ltjsarticle", "bxjsarticle", "jsreport", "ltjsreport", "bxjsreport", "jsbook", "ltjsbook",
+            "bxjsbook",
+        ]
+        usesJSChapterSpacing = jsClasses.contains(name) && !name.hasSuffix("article")
+        if ["article", "report", "book"].contains(name) || jsClasses.contains(name) {
+            hasSeparateTitlePage =
+                options.last(where: { $0 == "titlepage" || $0 == "notitlepage" }).map { $0 == "titlepage" }
+                ?? !name.hasSuffix("article")
+        } else {
+            hasSeparateTitlePage = nil
+        }
+        let usesTwoColumns =
+            name == "IEEEtran" || name == "acmart" && options.contains("sigconf")
+            || name.hasPrefix("revtex") && options.contains("reprint")
+            || name.lowercased().hasPrefix("icml")
+        columns =
+            (options.last { ["onecolumn", "twocolumn"].contains($0) }).map { $0 == "twocolumn" ? 2 : 1 }
+            ?? (usesTwoColumns ? 2 : 1)
         // English journal classes such as jmlr also start with j. Recognise the Japanese class
         // families and the traditional horizontal/vertical classes instead of the first letter.
         let japanese = [
-            "jlreq", "jarticle", "jreport", "jbook", "ujarticle", "ujreport", "ujbook",
+            "jlreq", "jarticle", "jreport", "jbook", "ltjarticle", "ltjreport", "ltjbook", "ujarticle", "ujreport",
+            "ujbook",
             "utarticle", "utreport", "utbook", "tarticle", "treport", "tbook",
         ]
         isJapanese = japanese.contains(name) || ["js", "ltjs", "bxjs"].contains { name.hasPrefix($0) }
+        usesNativeCJKHeadings = isJapanese || ["ctexart", "ctexrep", "ctexbook", "oblivoir"].contains(name)
         usesTraditionalJapaneseNames = japanese.contains(name) && name != "jlreq"
         if isJapanese {
             mainLanguage = options.contains("english") ? "en" : "ja"
@@ -33,7 +68,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
         let chapterClasses = [
             "report", "book", "jreport", "jbook", "jsreport", "jsbook", "ltjsbook", "ltjsreport", "bxjsbook",
             "bxjsreport", "memoir", "scrbook", "scrreprt", "ujreport", "ujbook", "amsbook", "ctexrep", "ctexbook",
-            "utreport", "utbook", "treport", "tbook",
+            "utreport", "utbook", "treport", "tbook", "ltjreport", "ltjbook",
         ]
         hasChapters =
             chapterClasses.contains(name)

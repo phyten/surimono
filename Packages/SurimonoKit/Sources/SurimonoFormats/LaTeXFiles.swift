@@ -157,15 +157,11 @@ extension LaTeXReader {
         return source
     }
 
-    func externalPicture() -> String {
-        // PGF numbers pictures, not successful lookups; even a named or missing figure consumes its slot.
-        let index = document.pictureIndex
-        document.pictureIndex += 1
-        let explicit = document.nextPictureName
-        document.nextPictureName = nil
+    func externalPicture(index: Int, explicit: String?, optional: Bool) -> (html: String, warning: String?)? {
         let job = document.mainURL?.deletingPathExtension().lastPathComponent
         let lookupCost = document.picturePrefix.utf8.count + (explicit?.utf8.count ?? 0) + (job?.utf8.count ?? 0)
-        guard document.reserveExpansion(characters: lookupCost) else { return missingPicture() }
+        // External lookup must still work after the picture exhausted the macro expansion budget.
+        guard lookupCost <= 4096 else { return nil }
         let automatic = job.map { "\($0)-figure\(index)" }
         var candidates: [String] = []
         func addVariants(_ stem: String) {
@@ -187,30 +183,21 @@ extension LaTeXReader {
             for candidate in candidates {
                 guard let name = Self.localName(candidate) else { continue }
                 let url = directory.appending(path: name)
+                // A drawable picture needs no folder grant. A ready-made image is only a reserve for a failed layout.
+                if optional, !document.canProbePictureFallback(url) { continue }
                 guard document.imageExists(url) else { continue }
+                var warning: String?
                 if let date = document.modificationDate(url),
                     [document.mainURL, document.inputChain.last].compactMap({ $0 }).contains(where: {
                         document.modificationDate($0).map { date < $0 } == true
                     })
                 {
-                    document.reportFileIssue(
-                        document.isJapanese ? "図 \(name) は古い可能性があります" : "Figure \(name) may be out of date")
+                    warning = document.isJapanese ? "図 \(name) は古い可能性があります" : "Figure \(name) may be out of date"
                 }
                 let src = document.resourceSource(url, relativeTo: directory)
-                return "<img class=\"latex-graphic\" src=\"\(HTML.escape(src))\" alt=\"\">\n"
+                return ("<img class=\"latex-graphic\" src=\"\(HTML.escape(src))\" alt=\"\">\n", warning)
             }
         }
-        return missingPicture()
-    }
-
-    private func missingPicture() -> String {
-        let hint = #"\usetikzlibrary{external}\tikzexternalize"#
-        document.reportFileIssue(
-            document.isJapanese
-                ? "外部化した図が見つかりません。\(hint) で図を保存できます。"
-                : "Externalized picture not found. Generate it with \(hint).")
-        return unsupported(
-            document.isJapanese ? "TikZ などの図（Surimono では描けません）" : "TikZ picture (Surimono cannot draw it)",
-            picture: true)
+        return nil
     }
 }

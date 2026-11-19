@@ -45,7 +45,7 @@ struct LaTeXTypesettingTests {
         #expect(html.contains("--tex-body: 10.95; --tex-baseline: 17px; --tex-width: 360; --tex-indent: 17"))
         #expect(html.contains("--tex-body: 12; --tex-baseline: 18px; --tex-width: 390; --tex-indent: 17.6"))
         #expect(theme.css.contains("max-width: var(--latex-class-width, calc(var(--tex-width) * var(--tex-pt)))"))
-        #expect(theme.css.contains("padding-block-start: min(16vh, 11.5em)"))
+        #expect(theme.css.contains("padding-block-start: 0;"))
         #expect(theme.css.contains("figure.latex-listing { margin-inline: 0; }"))
         #expect(theme.css.contains("--latex-heavy-rule: 0.08em; --latex-light-rule: 0.05em"))
         #expect(theme.css.contains(".math-inline, .math-display { font-size: calc(1em / 1.1)"))
@@ -163,7 +163,10 @@ struct LaTeXTypesettingTests {
     @Test("報告書の目次は大見出しと章間の空きを持ち、概要を独立したページの本文幅で組む")
     func reportFrontMatter() throws {
         let report = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
-        #expect(report.css.contains("padding-block-start: calc(50 * var(--tex-pt))"))
+        #expect(
+            report.css.contains(
+                "padding-block-start: var(--tex-chapter-top, calc((50 + var(--tex-body)) * var(--tex-pt) + var(--tex-baseline)))"
+            ))
         #expect(report.css.contains("--tex-toc-title: 20.74"))
         #expect(report.css.contains("--tex-toc-title: 24.88"))
         #expect(report.css.contains(".latex-toc-chapter { margin-block-start: 1em; }"))

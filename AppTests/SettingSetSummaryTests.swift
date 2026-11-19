@@ -21,6 +21,17 @@ struct SettingSetSummaryTests {
         #expect(summary.oneLine(set) == summary.lines(set).joined(separator: " · "))
     }
 
+    @Test("文書の余白と柱を使うセットは、数値の予備値の代わりに選んだ方法を表示する")
+    func latexModes() {
+        let summary = SettingSetSummary(themes: [], presets: [], language: "en", unit: .millimeters)
+        var options = PrintOptions()
+        options.latexMargins = .document
+        options.latexFurniture = .document
+        let set = PrintSettingSet(name: "Manuscript", settings: DocumentSettings(printOptions: options))
+        #expect(summary.line(.margins, in: set) == "Margins · As the Document")
+        #expect(summary.line(.furniture, in: set) == "Header & Footer · As the Document")
+    }
+
     @Test("インチを使う地域では、セットの余白と文字の大きさを端数のまま概要に出す")
     func fineValuesInInches() {
         let summary = SettingSetSummary(themes: [], presets: [], language: "en", unit: .inches)

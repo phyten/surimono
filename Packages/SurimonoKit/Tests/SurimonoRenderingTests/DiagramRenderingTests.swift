@@ -12,17 +12,20 @@ struct DiagramRenderingTests {
         let settings = RenderSettings(
             layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: ""),
             preset: HTMLCleanupPreset(id: "none", name: "None"))
-        for (format, source) in [
-            (DocumentFormat.graphviz, "digraph { a -> b }"),
-            (.plantuml, "@startuml\nA -> B\n@enduml"),
-            (.markdown, "```dot\ndigraph {a->b}\n```"),
-            (.org, "#+begin_src puml\nA -> B\n#+end_src"),
-            (.plainText, "graphviz-block"), (.markdown, "Ordinary prose."),
-            (.html, "<div class=\"graphviz-block\">digraph {}</div>"),
+        for (format, source, draws) in [
+            (DocumentFormat.graphviz, "digraph { a -> b }", true),
+            (.plantuml, "@startuml\nA -> B\n@enduml", true),
+            (.markdown, "```dot\ndigraph {a->b}\n```", true),
+            (.org, "#+begin_src puml\nA -> B\n#+end_src", true),
+            (.latex, #"\begin{tikzpicture}\draw (0,0)--(1,1);\end{tikzpicture}"#, true),
+            (.latex, #"\begin{tikzpicture}\matrix {A};\end{tikzpicture}"#, false),
+            (.latex, "Ordinary prose.", false),
+            (.plainText, "graphviz-block", false), (.markdown, "Ordinary prose.", false),
+            (.html, "<div class=\"graphviz-block\">digraph {}</div>", false),
+            (.markdown, "<span class=\"tikz-block\" data-scene=\"{}\"></span>", false),
         ] {
             let renderer = DocumentRenderer(paginate: { request in
-                #expect(
-                    request.rendersDiagrams == (format != .html && format != .plainText && source != "Ordinary prose."))
+                #expect(request.rendersDiagrams == draws)
                 if format != .html { #expect(!request.allowsJavaScript) }
                 return try RenderingFixtures.pdf()
             })

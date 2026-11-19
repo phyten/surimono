@@ -94,9 +94,12 @@ enum VerticalPaginator {
 /// Each capture goes into an open logical page. A different flow can place several slices in distinct columns.
 @MainActor
 enum FlowPageCapture {
-    static func draw(_ rect: CGRect, from webView: WKWebView, into target: CGRect, in context: CGContext) async throws {
+    static func draw(
+        _ rect: CGRect, from webView: WKWebView, into target: CGRect, in context: CGContext, transparent: Bool = false
+    ) async throws {
         let config = WKPDFConfiguration()
         config.rect = rect
+        config.allowTransparentBackground = transparent
         let data = try await webView.pdf(configuration: config)
         try Task.checkCancellation()
         try draw(data, into: target, in: context)

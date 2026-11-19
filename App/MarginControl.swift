@@ -82,7 +82,7 @@ struct MarginMenu: View {
             Text(
                 verbatim: choice(
                     String(localized: "Margins"),
-                    model.printOptions.margins.uniformValue.map { unit.label($0) } ?? String(localized: "Mixed")))
+                    model.marginLabel(in: unit)))
         }
     }
 }
@@ -92,15 +92,33 @@ struct MarginChoices: View {
     @Bindable var model: DocumentViewModel
     let unit: MarginUnit
 
+    enum Selection: Hashable {
+        case document
+        case uniform(Double)
+    }
+
+    var selection: Selection? {
+        model.usesDocumentMargins ? .document : model.printOptions.margins.uniformValue.map { .uniform($0) }
+    }
+
     var body: some View {
         Picker(
             "Margins",
             selection: Binding(
-                get: { model.printOptions.margins.uniformValue },
-                set: { if let millimeters = $0 { model.setMargins(millimeters) } })
+                get: { selection },
+                set: { choice in
+                    switch choice {
+                    case .document: model.printOptions.latexMargins = .document
+                    case .uniform(let value): model.setMargins(value)
+                    case nil: break
+                    }
+                })
         ) {
+            if model.themeFormat == .latex {
+                Text("As the Document").tag(Optional(Selection.document))
+            }
             ForEach(model.marginChoices(in: unit), id: \.self) { millimeters in
-                Text(verbatim: unit.label(millimeters)).tag(Optional(millimeters))
+                Text(verbatim: unit.label(millimeters)).tag(Optional(Selection.uniform(millimeters)))
             }
         }
         .pickerStyle(.inline).labelsHidden()

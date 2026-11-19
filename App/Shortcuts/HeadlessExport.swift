@@ -72,7 +72,7 @@ struct HeadlessExport {
         }
         var settings = RenderSettings(
             layout: theme.flow == .vertical ? layout.bound(.right) : layout, theme: theme, preset: preset,
-            options: preferences.printOptions,
+            options: preferences.printOptions.defaults(for: format),
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             textScale: format.usesPrintTheme ? preferences.defaultTextScale : 1,
             typeface: format.usesPrintTheme ? preferences.defaultTypeface : .style,

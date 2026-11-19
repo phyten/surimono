@@ -187,7 +187,8 @@ struct PrintFinishStrip: View {
     /// The value a menu shows beside its name; nil while the setting is the default.
     private func value(of item: Item) -> LocalizedStringKey? {
         switch item {
-        case .furniture: PrintFurnitureChoice.stripTitle(model.furnitureChoice)
+        case .furniture:
+            model.usesDocumentFurniture ? "As the Document" : PrintFurnitureChoice.stripTitle(model.furnitureChoice)
         case .breaks: PrintChapterBreakChoice.stripTitle(model.printFinish.breaks.h1)
         case .contents: PrintContentsChoice.stripTitle(model.printFinish.toc.mode)
         case .notes: PrintNoteChoice.stripTitle(model.notes.isEnabled)
@@ -329,12 +330,21 @@ struct PrintFurnitureChoice: View {
 
     var body: some View {
         // The names are long for one row of the sheet, and a gray box of five reads as a menu left open.
+        if model.themeFormat == .latex {
+            PrintRadioRow(title: "As the Document", isOn: model.usesDocumentFurniture) {
+                model.chooseDocumentFurniture()
+            }
+        }
         PrintRadioList(
-            label: "Header & Footer", options: Self.choices, selection: model.furnitureChoice,
-            choose: model.chooseFurniture)
+            label: "Header & Footer", options: Self.choices,
+            selection: model.usesDocumentFurniture ? nil : model.furnitureChoice,
+            choose: { model.chooseFurniture($0) })
     }
 
     @ViewBuilder var menuItems: some View {
+        if model.themeFormat == .latex {
+            Button("As the Document") { model.chooseDocumentFurniture() }
+        }
         ForEach(Self.choices, id: \.value) { choice in
             Button(choice.title) { model.chooseFurniture(choice.value) }
         }

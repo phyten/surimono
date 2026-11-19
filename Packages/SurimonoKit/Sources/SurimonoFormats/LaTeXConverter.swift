@@ -4,7 +4,7 @@ import Foundation
 ///
 /// Surimono is not a TeX engine. It reads the commonly used subset of LaTeX and the standard packages (amsmath and
 /// friends through SwaTex, hyperref, xcolor, enumitem, listings), so a document prints in Surimono's own paper,
-/// margins and theme. Commands it does not know keep their text; externalized TikZ pictures can be printed.
+/// margins and theme. Commands it does not know keep their text; supported TikZ pictures are drawn, with externalized figures as a fallback.
 public enum LaTeXConverter {
     package static let unreadCommandPrefix = "commands not read: "
     package static let japaneseUnreadCommandPrefix = "読み取れなかったコマンド："
@@ -13,6 +13,7 @@ public enum LaTeXConverter {
     public static func convert(
         _ text: String, directory: URL? = nil,
         documentURL: URL? = nil, textWidthPoints: Double? = nil, imageExists: @escaping (URL) -> Bool = { _ in false },
+        canProbePictureFallback: @escaping (URL) -> Bool = { _ in true },
         imageSizeInPoints: @escaping (URL) -> CGSize? = { _ in nil },
         readFile: @escaping (URL) -> Data? = { _ in nil },
         modificationDate: @escaping (URL) -> Date? = { _ in nil },
@@ -27,6 +28,7 @@ public enum LaTeXConverter {
             document.readFile = readFile
             document.modificationDate = modificationDate
             document.fileIdentity = fileIdentity
+            document.canProbePictureFallback = canProbePictureFallback
             document.imageExists = imageExists
             document.imageSizeInPoints = imageSizeInPoints
             return LaTeXReader(source, document: document, isBlock: true)
@@ -39,7 +41,9 @@ public enum LaTeXConverter {
             if !reader.document.startedDocument { reader = makeReader() }
         }
         let document = reader.document
-        var html = document.preambleFileNotes + reader.read()
+        document.initialHyperref = document.hyperref
+        let prefix = document.classInfo.columns > 1 ? document.columnMarker(document.classInfo.columns) : ""
+        var html = prefix + document.preambleFileNotes + reader.read()
         document.endedDocument = false
         if document.titleHTML == nil, let title = document.frontMatter.title {
             // Without \maketitle the title still names the window and the exported PDF.
@@ -50,6 +54,10 @@ public enum LaTeXConverter {
         // Notes and the table of contents may hold references too, so they are in place before references resolve.
         html += document.footnoteSection()
         html = document.resolvePlaceholders(in: html)
+        if document.pictureIndex > 0 { html += "<style>\n\(LaTeXReader.pictureCSS)\n</style>\n" }
+        if let css = document.initialHyperref.styleSheet(hasLocalColors: document.hasLocalLinkColors) {
+            html += "<style>\n\(css)\n</style>\n"
+        }
         let fonts = MathRenderer.fontFaces(for: html)
         if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
         return HTMLFragment(
@@ -62,6 +70,7 @@ public enum LaTeXConverter {
 
 /// What one document's conversion shares across nested groups: definitions, counters, labels and notes.
 final class LaTeXDocument {
+    var canProbePictureFallback: (URL) -> Bool = { _ in true }
     var imageExists: (URL) -> Bool = { _ in false }
     var imageSizeInPoints: (URL) -> CGSize? = { _ in nil }
     var textWidthPoints: Double?
@@ -74,6 +83,11 @@ final class LaTeXDocument {
     var fileIssues: [String] = []
     var seenFileIssues: Set<String> = []
     var preambleFileNotes = ""
+    var pictureCaptions: LaTeXPictureCaptions?
+    var pictureHeadings: [Int: String] = [:]
+    var pictureStyles = ""
+    var usesMetaArrows = false
+    var plotDefaults: String?
     var pictureIndex = 0
     var picturePrefix = ""
     var nextPictureName: String?
@@ -103,8 +117,15 @@ final class LaTeXDocument {
     var endedDocument = false
     var typesettingInfo: LaTeXDocumentClassInfo {
         var info = classInfo
-        info.styleVariables = pageSettings.styleVariables
-        info.localFontFaces = pageSettings.fonts.faceRules.joined(separator: "\n")
+        let box = pageSettings.pageBox(for: info)
+        info.resolvedPageBox = box
+        let labelMetrics = LaTeXLabelMetrics(info)
+        info.styleVariables =
+            pageSettings.styleVariables(for: box) + "; " + labelMetrics.variables
+            + "; --latex-array-baseline: " + LaTeXPageSettings.number(labelMetrics.baselines[4])
+        info.mainFontName = pageSettings.fonts.mainFontName
+        info.localFontFaces = (pageSettings.fonts.faceRules + [labelMetrics.localFace].compactMap { $0 }).joined(
+            separator: "\n")
         return info
     }
 
@@ -113,6 +134,7 @@ final class LaTeXDocument {
     var language = "en"
     var nativeCaptionLanguage: String?
     var classicBabelLanguages: Set<String> = []
+    var spanishSectionDots = true
     var classLanguageOptions: [String] = []
     var localizedCaptions: [String: [String: String]] = [:]
     var quoteDepth = 0
@@ -177,6 +199,9 @@ final class LaTeXDocument {
     var theoremCount = 0
     var bibliography: [String: (label: String, id: String)] = [:]
     let bibDatabase = LaTeXBibliography()
+    var hyperref = LaTeXHyperref()
+    var initialHyperref = LaTeXHyperref()
+    var hasLocalLinkColors = false
     var bibliographyCount = 0
     var citations: [Citation] = []
     /// How many readers are reading inside one another.
@@ -212,7 +237,7 @@ final class LaTeXDocument {
 
     /// The print check panel can explain omissions here without putting diagnostic text on the paper.
     var readingIssues: [String] {
-        var issues = fileIssues
+        var issues = pictureHeadings.isEmpty ? fileIssues : fileIssues.map { replacing("P", in: $0, rawText: true) }
         if !unknownNames.isEmpty {
             let prefix =
                 classInfo.mainLanguage == "ja"
@@ -250,7 +275,8 @@ final class LaTeXDocument {
     /// the document and may sit in the headings the table of contents repeats.
     func resolvePlaceholders(in html: String) -> String {
         let bibliography = bibDatabase.render(in: self)
-        let body = bibDatabase.printCount > 0 ? replacing("B", in: html, bibliography: bibliography) : html
+        let pictures = pictureHeadings.isEmpty ? html : replacing("P", in: html)
+        let body = bibDatabase.printCount > 0 ? replacing("B", in: pictures, bibliography: bibliography) : pictures
         resolveCitations()
         return replacing("M", in: replacing("C", in: replacing("R", in: replacing("T", in: body))))
     }
@@ -370,7 +396,8 @@ final class LaTeXDocument {
 
     /// Fills in one kind of placeholder. The table of contents and citations can be long and a placeholder can be
     /// repeated (in a theorem heading printed many times), so what they add in one pass has a budget.
-    private func replacing(_ kind: String, in html: String, bibliography: String = "") -> String {
+    private func replacing(_ kind: String, in html: String, bibliography: String = "", rawText: Bool = false) -> String
+    {
         guard html.contains("\u{E000}\(nonce)\(kind)"),
             let regex = try? NSRegularExpression(pattern: "\u{E000}\(nonce)\(kind)([0-9]+)\u{E001}")
         else { return html }
@@ -386,6 +413,10 @@ final class LaTeXDocument {
             cursor = match.range.location + match.range.length
             let index = Int(nsHTML.substring(with: match.range(at: 1))) ?? -1
             switch kind {
+            case "P":
+                if let heading = pictureHeadings[index] {
+                    output += rawText ? heading : HTML.escape(heading)
+                }
             case "B":
                 guard !bibliography.isEmpty, bibDatabase.printedHeadings.indices.contains(index) else { continue }
                 let header = bibDatabase.printedHeadings[index]
@@ -480,7 +511,13 @@ final class LaTeXDocument {
             if open.last == true { html += "</li>" }
             let number =
                 entry.number.flatMap { $0.isEmpty ? nil : "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
-            let kind = entry.level == 0 ? " class=\"latex-toc-chapter\"" : ""
+            let kind: String
+            switch (contentsLists[index], entry.level) {
+            case (.headings, -1): kind = " class=\"latex-toc-part\""
+            case (.headings, 0): kind = " class=\"latex-toc-chapter\""
+            case (.headings, 1): kind = " class=\"latex-toc-section\""
+            default: kind = ""
+            }
             html += "<li\(kind)><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"
             open[open.count - 1] = true
         }

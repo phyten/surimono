@@ -1,6 +1,58 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "As the Document": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As the Document"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文書のまま"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wie im Dokument"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Como en el documento"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comme dans le document"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "문서 설정 따르기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "遵循文档"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "依照文件"
+          }
+        }
+      }
+    },
     "%lld diagrams were not drawn in time.": {
       "localizations": {
         "en": {
@@ -101,6 +153,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "檔案太大，無法分頁排版（%lld MB）。"
+          }
+        }
+      }
+    },
+    "Some LaTeX page numbers could not be determined.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some LaTeX page numbers could not be determined."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige LaTeX-Seitenzahlen konnten nicht ermittelt werden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron determinar algunos números de página de LaTeX."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certains numéros de page du document LaTeX n’ont pas pu être déterminés."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX 文書の一部のページ番号を特定できませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LaTeX 문서의 일부 페이지 번호를 확인할 수 없습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法确定 LaTeX 文档中的部分页码。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法確定 LaTeX 文件中的部分頁碼。"
           }
         }
       }

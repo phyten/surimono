@@ -11,7 +11,7 @@ struct PrintThemePreview: View {
                 ScrollView([.horizontal, .vertical]) {
                     ThemeSampleView(
                         page: model.paletteSamples.page(for: theme), paperSize: model.paletteSamples.paperSize,
-                        margins: model.paletteSamples.margins
+                        margins: model.paletteSamples.margins(for: theme)
                     )
                     .frame(width: 420)
                     .padding(4)

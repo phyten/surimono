@@ -15,12 +15,17 @@ public enum HTMLDocumentBuilder {
         let latex =
             info.map { info in
                 let attributes = " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\""
-                return attributes
+                let title = info.hasSeparateTitlePage.map { $0 ? "separate" : "inline" }
+                return attributes + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")
+                    + (info.usesJSChapterSpacing ? " data-latex-js-chapters" : "")
+                    + (info.usesNativeCJKHeadings ? " data-latex-native-headings" : "")
+                    + (info.isJSArticle || info.usesJSChapterSpacing ? " data-latex-js-toc" : "")
                     + (info.styleVariables.isEmpty ? "" : " style=\"\(HTML.escape(info.styleVariables))\"")
             } ?? ""
         // Local font aliases live outside the replaceable theme sheet. Selecting a new
         // theme can then opt into the same document fonts without re-reading the source.
-        let localFaces = info?.localFontFaces ?? ""
+        let localFaces =
+            info.map { [$0.localFontFaces, ideographFaces].filter { !$0.isEmpty }.joined(separator: "\n") } ?? ""
         let fontStyle =
             localFaces.isEmpty
             ? ""
@@ -44,6 +49,11 @@ public enum HTMLDocumentBuilder {
             </html>
             """
     }
+
+    private static let ideographFaces =
+        Bundle.module.url(forResource: "latex-ideograph-faces", withExtension: "css")
+        .flatMap { try? String(contentsOf: $0, encoding: .utf8) }?
+        .replacingOccurrences(of: "KANGXI_UNIFIED_RANGE", with: LaTeXIdeographs.unifiedRange) ?? ""
 
     /// The document and its separate paper page both load theme CSS. Permit local resources and the bundled
     /// diagram engine's WebAssembly, while the renderer keeps document JavaScript disabled.

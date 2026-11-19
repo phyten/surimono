@@ -257,7 +257,9 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
     public var hasFacingPages: Bool { duplex != .none }
 
     /// Whether the even pages take the left and right margins the other way round.
-    public func mirrorsMargins(options: PrintOptions) -> Bool { options.mirrorsMargins && hasFacingPages }
+    public func mirrorsMargins(options: PrintOptions) -> Bool {
+        options.mirrorsDocumentPages || options.mirrorsMargins && hasFacingPages
+    }
 
     public var pagesPerSide: Int { kind == .fourUp ? 4 : kind == .handout3 ? 3 : kind == .normal ? 1 : 2 }
 
@@ -402,12 +404,33 @@ public struct PageMargins: Codable, Hashable, Sendable {
     public var mirrored: PageMargins { PageMargins(top: top, left: right, bottom: bottom, right: left) }
 }
 
+/// Missing modes in older records preserve the numeric margins and furniture the user saved.
+public enum LaTeXPageMode: String, Codable, Sendable {
+    case style, document
+
+    public func applies(to theme: PrintTheme?) -> Bool {
+        self == .document || theme?.formats == [.latex]
+    }
+}
+
 public struct PrintOptions: Codable, Equatable, Sendable {
     public var margins: PageMargins
     /// The tray changes the four margins together.
     public var linksMargins: Bool
     /// On duplex sheets and booklets, `margins.left` is the side of the binding and `margins.right` the outer side.
     public var mirrorsMargins: Bool
+    /// Resolved for a render only. A two-sided source alternates text boxes even when sent to a simplex printer.
+    package var mirrorsDocumentPages = false
+    public var latexMargins: LaTeXPageMode?
+    public var latexFurniture: LaTeXPageMode?
+
+    public func defaults(for format: DocumentFormat?) -> Self {
+        var options = self
+        options.latexMargins = format == .latex ? .style : nil
+        options.latexFurniture = format == .latex && furniture.isEmpty ? .style : nil
+        return options
+    }
+
     public var furniture: PageFurniture
     public var rotatesBackSides: Bool
 
@@ -429,13 +452,15 @@ public struct PrintOptions: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case margins, linksMargins, mirrorsMargins, furniture, rotatesBackSides
+        case margins, linksMargins, mirrorsMargins, furniture, rotatesBackSides, latexMargins, latexFurniture
         case marginsInMillimeters, showsPageNumbers
     }
 
     /// Reads records from before the four margins and the header and footer, which kept one margin and a switch.
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
+        latexMargins = try? values.decodeIfPresent(LaTeXPageMode.self, forKey: .latexMargins)
+        latexFurniture = try? values.decodeIfPresent(LaTeXPageMode.self, forKey: .latexFurniture)
         let margin = try? values.decodeIfPresent(Double.self, forKey: .marginsInMillimeters)
         margins = (try? values.decodeIfPresent(PageMargins.self, forKey: .margins)) ?? .uniform(margin ?? 15)
         linksMargins =
@@ -450,6 +475,8 @@ public struct PrintOptions: Codable, Equatable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encodeIfPresent(latexMargins, forKey: .latexMargins)
+        try values.encodeIfPresent(latexFurniture, forKey: .latexFurniture)
         try values.encode(margins, forKey: .margins)
         try values.encode(linksMargins, forKey: .linksMargins)
         try values.encode(mirrorsMargins, forKey: .mirrorsMargins)

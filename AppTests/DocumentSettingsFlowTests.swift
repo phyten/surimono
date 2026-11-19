@@ -160,6 +160,117 @@ struct DocumentSettingsFlowTests {
         #expect(fixture.preferences.recentThemeIDs.isEmpty)
     }
 
+    @Test("LaTeX の既定の余白と柱は保存せず、明示した同じ数値と「なし」は開き直しても優先する", .timeLimit(.minutes(1)))
+    func latexPageChoices() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        fixture.preferences.margin = 17
+        let bytes = Data(
+            #"\documentclass[a4paper]{article}\usepackage[margin=24mm]{geometry}\begin{document}Body\end{document}"#
+                .utf8)
+        let page = pdf("Body", pages: 1)
+        func makeModel() -> DocumentViewModel {
+            DocumentViewModel(
+                data: bytes, fileURL: nil, format: .latex, preferences: fixture.preferences, library: fixture.library,
+                renderer: DocumentRenderer(paginate: { _ in try #require(PDFDocument(data: page)) }),
+                settingsStore: fixture.store)
+        }
+
+        let first = makeModel()
+        try await open(first)
+        #expect(first.usesDocumentMargins)
+        #expect(first.usesDocumentFurniture)
+        #expect(abs((first.result?.options.margins.top ?? 0) - 24) < 0.001)
+        #expect(first.result?.furniture == .pageNumber)
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+
+        first.selectTheme("standard")
+        #expect(!first.usesDocumentMargins)
+        #expect(!first.usesDocumentFurniture)
+        first.selectTheme("latex-article")
+        first.setMargins(17)
+        first.chooseFurniture(.none)
+        first.rememberedSettingsDidChange()
+        first.flushPendingSettings()
+        first.stop()
+
+        let second = makeModel()
+        defer { second.stop() }
+        try await open(second)
+        #expect(second.hasSavedSettings)
+        #expect(!second.usesDocumentMargins)
+        #expect(!second.usesDocumentFurniture)
+        #expect(second.printOptions.margins == .uniform(17))
+        #expect(second.printOptions.furniture.isEmpty)
+        second.resetDocumentSettings()
+        #expect(second.usesDocumentMargins)
+        #expect(second.usesDocumentFurniture)
+        #expect(fixture.store.keys().isEmpty)
+        #expect(fixture.preferences.margin == 17)
+    }
+
+    @Test("前置きのフォルダーを許可すると余白とクラスが更新され、文書の設定は作られない", .timeLimit(.minutes(1)))
+    func latexPageAfterFolderGrant() async throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let bytes = Data(#"\input{layout}\begin{document}Body\end{document}"#.utf8)
+        let main = try fixture.file(bytes, named: "main.tex")
+        _ = try fixture.file(
+            // Same paper as the app prints on, so the document's margins apply exactly.
+            Data(#"\documentclass[a4paper]{report}\usepackage[top=19mm,bottom=25mm]{geometry}"#.utf8),
+            named: "layout.tex")
+        let page = pdf("Body", pages: 1)
+        let model = DocumentViewModel(
+            data: bytes, fileURL: main, format: .latex, preferences: fixture.preferences, library: fixture.library,
+            renderer: DocumentRenderer(isSandboxed: { true }, paginate: { _ in try #require(PDFDocument(data: page)) }),
+            settingsStore: fixture.store)
+        defer { model.stop() }
+        try await open(model)
+        #expect(model.themeID == "latex-article")
+        model.useDocumentFolder(FolderAccess.Lease(url: fixture.directory, release: {}))
+        model.render()
+        try await waitUntil { !model.isRendering && model.themeID == "latex-report" }
+        let margins = try #require(model.result?.options.margins)
+        #expect(abs(margins.top - 19) < 0.001)
+        #expect(abs(margins.bottom - 25) < 0.001)
+        model.rememberedSettingsDidChange()
+        model.flushPendingSettings()
+        #expect(fixture.store.keys().isEmpty)
+    }
+
+    @Test("設定セットは余白と柱を個別に切り替え、混合余白を文書指定と取り違えない")
+    func latexPageSettingSet() throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data(#"\documentclass{article}\begin{document}Body\end{document}"#.utf8), fileURL: nil,
+            format: .latex, preferences: fixture.preferences, library: fixture.library, settingsStore: fixture.store)
+        let documentSet = model.currentPrintSettingSet.keeping([.margins, .furniture])
+        let raw = model.printOptions.margins
+        model.setMargins(raw.top)
+        model.chooseFurniture(.none)
+        #expect(!model.matchesPrintSettingSet(documentSet))
+        model.applyPrintSettingSet(documentSet.keeping([.furniture]))
+        #expect(!model.usesDocumentMargins)
+        #expect(model.usesDocumentFurniture)
+        model.applyPrintSettingSet(documentSet)
+        #expect(model.matchesPrintSettingSet(documentSet))
+        #expect(MarginChoices(model: model, unit: .millimeters).selection == .document)
+
+        var numeric = PrintOptions()
+        numeric.margins = PageMargins(top: 10, left: 20, bottom: 30, right: 40)
+        numeric.furniture = .name
+        let set = PrintSettingSet(name: "Letterhead", settings: DocumentSettings(printOptions: numeric))
+        model.applyPrintSettingSet(set)
+        #expect(!model.usesDocumentMargins)
+        #expect(!model.usesDocumentFurniture)
+        #expect(model.printOptions.margins == numeric.margins)
+        #expect(model.furnitureChoice == .name)
+        #expect(MarginChoices(model: model, unit: .millimeters).selection == nil)
+    }
+
     @Test("文書の指示は既定値とセットに重なり保存や最近使った記録を作らない", .timeLimit(.minutes(1)))
     func documentDirectivesDefaults() async throws {
         let fixture = try environment()

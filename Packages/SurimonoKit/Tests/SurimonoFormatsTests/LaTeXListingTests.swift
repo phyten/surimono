@@ -18,7 +18,9 @@ struct LaTeXListingTests {
         ).body
         #expect(html.contains(#"class="code-line" data-no="1""#))
         #expect(html.contains("latex-styled-listing"))
-        #expect(!html.contains(#"class="hl-"#))
+        #expect(html.contains(#"<span class="hl-comment"># note</span>"#))
+        #expect(html.contains("--latex-comment-shape: italic"))
+        #expect(!html.contains("hl-keyword") && !html.contains("hl-string"))
         #expect(html.contains("return 12</code>"))
     }
 

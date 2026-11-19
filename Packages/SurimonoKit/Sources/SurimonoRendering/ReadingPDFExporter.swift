@@ -32,11 +32,26 @@ public enum ReadingPDFExporter {
 
     public static func document(
         from logical: PDFDocument, entries: [OutlineEntry], title: String, preservesOutline: Bool = false,
-        headings: [DocumentHeading] = [], sourceURL: URL? = nil
+        headings: [DocumentHeading] = [], sourceURL: URL? = nil, furniture: [Int: FurniturePlacement] = [:]
     ) throws -> PDFDocument {
         // Serializing the whole document preserves cross-page destinations and isolates the renderer's cache.
         // Drawing pages into a new context would discard the links and the source PDF's outline.
-        guard let data = logical.dataRepresentation(), let document = PDFDocument(data: data) else {
+        let pages: PDFDocument
+        if furniture.isEmpty {
+            pages = logical
+        } else {
+            // Keep the source page order and links while adding the same searchable footer as the printed sheet.
+            let options = ViewOptions(
+                layout: .single, scrollAxis: .vertical, transition: .instant, showsCoverAlone: false)
+            let plan = ViewPageLayout(
+                pageCount: logical.pageCount, options: options, hasLogicalMargins: false, showsNumbers: false)
+            guard
+                let decorated = ViewPageDocument.make(
+                    logical, plan: plan, margin: 0, furniture: furniture, furnitureAsText: true)
+            else { throw ExportError.cannotCopyDocument }
+            pages = decorated
+        }
+        guard let data = pages.dataRepresentation(), let document = PDFDocument(data: data) else {
             throw ExportError.cannotCopyDocument
         }
         // Do not inherit author names or arbitrary producer metadata from the source or the printing system.

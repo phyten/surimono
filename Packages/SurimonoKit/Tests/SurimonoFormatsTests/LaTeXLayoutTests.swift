@@ -50,10 +50,12 @@ struct LaTeXLayoutTests {
         }
     }
 
-    @Test("multicols は段数と高さを印刷せず、前置きと本文を元の順で一段に組む")
-    func oneColumn() {
+    @Test("multicols は段数と高さを印刷せず、前置きと本文を元の順で段組みに渡す")
+    func columnSegment() {
         let result = LaTeXConverter.convert(#"\begin{multicols}{2}[Heading][6cm]本文\end{multicols}"#)
-        #expect(result.body == "<p>Heading</p>\n<p>本文</p>\n")
+        #expect(result.body.contains("<div data-latex-wide><p>Heading</p>"))
+        #expect(result.body.contains("data-latex-balance=\"true\"><p>本文</p>"))
+        #expect(!result.body.contains("6cm"))
         #expect(result.readingIssues.isEmpty)
     }
 
@@ -164,6 +166,6 @@ struct LaTeXLayoutTests {
                 """#)
         #expect(result.readingIssues.isEmpty)
         #expect(result.body.contains("図 1"))
-        #expect(!result.body.contains("ignored"))
+        #expect(!DocumentOutline.plainText(ofHTML: result.body).contains("ignored"))
     }
 }

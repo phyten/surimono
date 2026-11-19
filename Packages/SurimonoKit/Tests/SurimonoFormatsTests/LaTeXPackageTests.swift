@@ -63,7 +63,7 @@ struct LaTeXPackageTests {
         #expect(html.contains("</div>\n<p class=\"qed-line\"><span class=\"qed\">□</span></p>\n</div>"))
         let japanese = body(
             "\\documentclass{jsarticle}\\begin{document}\\begin{proof}略。\\end{proof}\\end{document}")
-        #expect(japanese.contains("<span class=\"proof-head\">証明.</span> 略。"))
+        #expect(japanese.contains("<span class=\"proof-head\">Proof.</span> 略。"))
         let renamed = body(
             "\\documentclass{article}\\renewcommand{\\proofname}{Beweis}\\begin{document}\\begin{proof}q\\end{proof}\\end{document}"
         )

@@ -56,7 +56,7 @@ extension LaTeXReader {
             appendBlock(fileNote(path))
             return
         }
-        appendListing(code, settings: settings, environment: false)
+        appendListing(code, settings: settings, environment: false, minted: minted)
     }
 
     func readInlineListing(_ name: String) {
@@ -78,17 +78,17 @@ extension LaTeXReader {
         }
         let tokens = listingTokens(options)
         let html = listingInline(code, language: language, tokens: tokens)
-        let styles = listingStyles(options)
+        let styles = listingStyles(options, usesDefaultComment: html.contains("hl-comment"))
         guard !styles.isEmpty || tokens != nil else { return appendHTML(html) }
         let classes = tokens == nil ? "latex-inline-listing" : "latex-inline-listing latex-styled-listing"
         appendHTML("<span class=\"\(classes)\" style=\"\(styles)\">\(html)</span>")
     }
 
-    // Once listings specifies basicstyle or a token style the other tokens use basicstyle. Other code
+    // Once listings specifies basicstyle or a token style the remaining non-comment tokens use basicstyle. Other code
     // (including minted) continues to use the full palette provided by the print theme.
     private func listingTokens(_ settings: [String: String]) -> Set<String>? {
         let tokens = Set(["keyword", "comment", "string"].filter { settings[$0 + "style"] != nil })
-        return tokens.isEmpty && settings["basicstyle"] == nil ? nil : tokens
+        return tokens.isEmpty && settings["basicstyle"] == nil ? nil : tokens.union(["comment"])
     }
 
     func listingInline(_ code: String, language: String?, tokens: Set<String>? = nil) -> String {
@@ -101,7 +101,7 @@ extension LaTeXReader {
 
     /// A named listings style is local to each use. Resolve TeX color declarations to trusted
     /// values here so nested listings and an explicitly chosen app palette inherit the right ink.
-    private func listingStyles(_ settings: [String: String]) -> String {
+    private func listingStyles(_ settings: [String: String], usesDefaultComment: Bool) -> String {
         var styles: [String] = []
         for (key, prefix) in [
             ("basicstyle", "--latex-code"), ("numberstyle", "--latex-number"), ("keywordstyle", "--latex-keyword"),
@@ -141,10 +141,15 @@ extension LaTeXReader {
                 }
             }
         }
+        if usesDefaultComment, settings["commentstyle"] == nil {
+            styles.append("--latex-comment-shape: italic")
+        }
         return styles.joined(separator: "; ")
     }
 
-    func appendListing(_ source: String, settings: [String: String], environment: Bool, verbatim: Bool = false) {
+    func appendListing(
+        _ source: String, settings: [String: String], environment: Bool, verbatim: Bool = false, minted: Bool = false
+    ) {
         var code = source[...]
         // The first newline after \begin is syntax. A file listing's first line belongs to the file.
         if environment, code.first == "\n" { code = code.dropFirst() }
@@ -170,7 +175,7 @@ extension LaTeXReader {
         var body = highlighted ?? HTML.escape(text)
         let numbered = settings["numbers"] == "left" || settings["linenos"] == "true"
         var classes: [String] = verbatim ? ["latex-verbatim"] : []
-        var style = listingStyles(settings)
+        var style = listingStyles(settings, usesDefaultComment: !minted && highlighted?.contains("hl-comment") == true)
         if let source = settings["backgroundcolor"] {
             let reader = LaTeXReader(source, document: document, isBlock: false)
             reader.skipSpaces()
@@ -217,7 +222,7 @@ extension LaTeXReader {
             if let key = settings["label"], !key.isEmpty { document.labels[key] = target }
             let caption = settings["caption"].map(inline)
             document.describeTarget(id, kind: "listing", title: caption ?? "")
-            let name = document.isJapanese ? "リスト" : "Listing"
+            let name = captionName("lstlistingname")
             let separator = document.isJapanese ? "　" : ": "
             let title =
                 caption.map {

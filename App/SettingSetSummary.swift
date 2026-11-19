@@ -51,6 +51,13 @@ struct SettingSetSummary {
         return String(text.prefix(max(0, limit - 1))) + "…"
     }
 
+    private func pageMode(_ mode: LaTeXPageMode?, in set: PrintSettingSet) -> String? {
+        guard let mode else { return nil }
+        if mode == .document { return text("As the Document") }
+        guard let theme = themes.first(where: { $0.id == set.themeID }) else { return text("Match Style") }
+        return mode.applies(to: theme) ? text("As the Document") : nil
+    }
+
     func line(_ part: PrintSettingSet.Part, in set: PrintSettingSet) -> String? {
         guard set.parts.contains(part) else { return nil }
         var values: [String] = []
@@ -68,6 +75,7 @@ struct SettingSetSummary {
                 }
             }
         case .margins:
+            if let mode = pageMode(set.latexMargins, in: set) { return title(.margins) + " · " + mode }
             if let margins = set.margins {
                 let numbers =
                     margins.uniformValue.map { [$0] } ?? [margins.top, margins.left, margins.bottom, margins.right]
@@ -78,6 +86,7 @@ struct SettingSetSummary {
             // Only what changes the paper is worth a word; linking is how the fields are edited.
             if set.mirrorsMargins == true { values.append(text("Mirrored Margins")) }
         case .furniture:
+            if let mode = pageMode(set.latexFurniture, in: set) { return title(.furniture) + " · " + mode }
             if let furniture = set.furniture {
                 let key: String
                 switch furniture.preset {

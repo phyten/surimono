@@ -160,13 +160,15 @@ enum ChangeMarkAnchors {
             """
     }
 
-    static func javaScript(_ requests: [MarkdownMarkRequest], layoutWidth: CGFloat? = nil) -> String {
+    static func javaScript(_ requests: [MarkdownMarkRequest], layoutWidth: CGFloat? = nil, latexFlow: Bool = false)
+        -> String
+    {
         guard !requests.isEmpty,
             let data = try? JSONEncoder().encode(
                 Dictionary(requests.map { ($0.blockID, $0.isShort) }, uniquingKeysWith: { first, _ in first })),
             let json = String(data: data, encoding: .utf8)
         else { return "" }
-        return """
+        let script = """
             (() => {
               const wanted = new Map(Object.entries(\(json)));
               const style = document.createElement('style');
@@ -261,7 +263,7 @@ enum ChangeMarkAnchors {
                   }
                 }
                 if (wanted.get(id) && anchor.isConnected) {
-                  const body = document.body;
+                  const body = \(latexFlow ? "anchor.closest('[data-flow-strip]') || document.body" : "document.body");
                   const box = body.getBoundingClientRect();
                   const scale = body.offsetWidth ? box.width / body.offsetWidth : 1;
                   const css = getComputedStyle(body);
@@ -274,6 +276,12 @@ enum ChangeMarkAnchors {
               }
               if (printWidth > 0) root.style.width = priorWidth;
             })();
+            """
+        guard latexFlow else { return script }
+        return """
+            if (globalThis.surimonoDefersMarks) {
+                globalThis.surimonoFlowMarks = () => { \(script) };
+            } else { \(script) }
             """
     }
 

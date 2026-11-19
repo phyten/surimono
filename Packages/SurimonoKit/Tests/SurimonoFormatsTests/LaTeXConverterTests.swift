@@ -217,15 +217,13 @@ struct LaTeXConverterTests {
             ))
     }
 
-    @Test("図や入力ファイルが見つからない場所を枠で示す")
+    @Test("対応する図に描画データを付け、入力ファイルの欠落を知らせる")
     func unsupported() {
         let html = body(document("\\begin{tikzpicture}\\draw (0,0) -- (1,1);\\end{tikzpicture}\\input{chapter1}"))
-        #expect(
-            html.contains(
-                "<div class=\"latex-unsupported\" data-latex-picture>TikZ picture (Surimono cannot draw it)</div>"))
+        #expect(html.contains("<span class=\"tikz-block\""))
         #expect(html.contains("<div class=\"latex-unsupported\">chapter1.tex could not be read</div>"))
         #expect(
-            body(document("\\begin{tikzpicture}\\end{tikzpicture}", class: "jsarticle")).contains("Surimono では描けません"))
+            body(document("\\begin{tikzpicture}\\end{tikzpicture}", class: "jsarticle")).contains("図（TikZ）"))
     }
 
     @Test("知らないコマンドは文字を残し、設定だけのコマンドは引数ごと消す")

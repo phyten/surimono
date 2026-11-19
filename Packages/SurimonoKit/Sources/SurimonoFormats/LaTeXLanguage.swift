@@ -86,6 +86,12 @@ extension LaTeXDocument {
     }
 
     func defaultCaption(_ name: String) -> String? {
+        if name == "lstlistingname" { return "Listing" }
+        if name == "jsParagraphMark", classInfo.isJSArticle { return "■" }
+        // jsclasses do not translate amsthm. A language package or a document macro can do so.
+        if name == "proofname", classInfo.isJapanese, language == "ja", !classicBabelLanguages.contains("ja") {
+            return "Proof"
+        }
         if classicBabelLanguages.contains(language) {
             if language == "es", hasChapters, name == "contentsname" { return "Índice general" }
             if language == "pl" {
@@ -130,6 +136,9 @@ extension LaTeXReader {
             switch package {
             case "babel":
                 let all = document.classLanguageOptions + options
+                if !Set(all).isDisjoint(with: ["es-nosectiondot", "es-nolayout"]) {
+                    document.spanishSectionDots = false
+                }
                 let main = all.last(where: { $0.hasPrefix("main=") }).map { String($0.dropFirst(5)) }
                 document.classicBabelLanguages.formUnion(all.compactMap { LaTeXLanguage.tag($0) })
                 if let tag = main.flatMap({ LaTeXLanguage.tag($0) }) ?? all.compactMap({ LaTeXLanguage.tag($0) }).last {
@@ -137,6 +146,7 @@ extension LaTeXReader {
                     useMainLanguage(tag)
                 }
             case "ctex", "kotex":
+                document.classInfo.usesNativeCJKHeadings = true
                 let tag = package == "kotex" ? "ko" : options.contains("traditional") ? "zh-Hant" : "zh-Hans"
                 document.nativeCaptionLanguage = tag
                 useMainLanguage(tag)

@@ -103,7 +103,8 @@ enum PrintIssueAnchors {
             if (visible(el)) add(el, 'mermaid', detail, key);
           }
           for (const el of document.querySelectorAll('.latex-unsupported')) {
-            const detail = el.textContent || '';
+            const picture = el.matches('body.format-latex [data-latex-picture]');
+            const detail = (picture && el.dataset.issue) || el.textContent || '';
             const key = locationKey('latex', detail);
             if (visible(el)) add(el, 'latex', detail, key, el.hasAttribute('data-latex-picture') ? 'figure' : null);
           }

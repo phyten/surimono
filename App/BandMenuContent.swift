@@ -190,9 +190,7 @@ struct BandMenuContent {
             value = model.layout.series.name
         case .margins:
             title = String(localized: "Margins")
-            value =
-                model.printOptions.margins.uniformValue.map { MarginUnit.current.label($0) }
-                ?? String(localized: "Mixed")
+            value = model.marginLabel(in: .current)
         case .ignoreSlides:
             // Offered only for a page with detected slides, where this is whether they show as slides.
             title = String(localized: "Show as Slides")
