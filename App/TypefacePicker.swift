@@ -13,7 +13,9 @@ struct DocumentTypefacePicker: View {
 
     var body: some View {
         if model.offersTypeface {
-            Picker("Typeface", selection: Binding(get: { model.typeface }, set: model.setTypeface)) {
+            // A closure, not the method reference: Swift 6.3 crashes generating the isolation thunk for the latter.
+            let selection = Binding(get: { model.typeface }, set: { model.setTypeface($0) })
+            Picker("Typeface", selection: selection) {
                 TypefaceChoices()
             }
             .pickerStyle(.menu)
