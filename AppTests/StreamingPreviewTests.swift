@@ -38,6 +38,7 @@ struct StreamingPreviewTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = windows(suite, library: directory)
         let controller = windows.open(from: board)
+        controller.window?.orderOut(nil)
         defer { controller.window?.close() }
         let model = controller.model
         model.start()
@@ -71,6 +72,7 @@ struct StreamingPreviewTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = windows(suite, library: directory)
         let controller = windows.open(from: board)
+        controller.window?.orderOut(nil)
         defer { controller.window?.close() }
         let model = controller.model
         model.start()
@@ -94,6 +96,7 @@ struct StreamingPreviewTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = windows(suite, library: directory)
         let controller = windows.open(from: board)
+        controller.window?.orderOut(nil)
         defer { controller.window?.close() }
         let model = controller.model
         #expect(model.toast != nil)
@@ -121,6 +124,7 @@ struct StreamingPreviewTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = windows(suite, library: directory)
         let controller = windows.open(from: board)
+        controller.window?.orderOut(nil)
         defer { controller.window?.close() }
         let model = controller.model
         try await settle(model)
@@ -143,6 +147,8 @@ struct StreamingPreviewTests {
         let windows = windows(suite, library: directory)
         #expect(!windows.isWatching)
         let controller = windows.open(from: board)
+        controller.window?.orderOut(nil)
+        defer { controller.close() }
         #expect(windows.isWatching)
         #expect(windows.hasWindow)
         #expect(windows.open(from: board) === controller)
@@ -188,6 +194,7 @@ struct StreamingPreviewTests {
         windows.preferences = AppPreferences(defaults: suite.defaults)
         windows.library = UserLibrary(root: library)
         let controller = windows.open(from: board)
+        controller.window?.orderOut(nil)
         defer { controller.close() }
         // Writing after clearing does not change the count again.
         board.setString("# 後から書いた本文", forType: .string)

@@ -25,11 +25,20 @@ struct LaTeXPageReferencePrintingTests {
         let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
         let prepared = try await DocumentRenderer().prepare(source, settings: settings)
         let pdf = prepared.logicalDocument
-        #expect(pdf.pageCount == 3)
+        #expect(pdf.pageCount == 2)
         let first = try #require(pdf.page(at: 0)?.string)
+        let compact = first.filter { !$0.isWhitespace }
         #expect(first.components(separatedBy: "II").count == 5)
-        #expect(first.components(separatedBy: "III").count == 3)
-        #expect(pdf.page(at: 2)?.string?.contains("Figure specimen") == true)
+        #expect(!first.contains("III") && compact.contains("SeepageII."))
+        for entry in ["Destination", "Figurespecimen", "Tablespecimen"] {
+            #expect(compact.contains(entry))
+        }
+        let second = try #require(pdf.page(at: 1))
+        let figure = try #require(pdf.findString("Figure specimen").first { $0.pages.first === second })
+        let table = try #require(pdf.findString("Table specimen").first { $0.pages.first === second })
+        let heading = try #require(pdf.findString("Destination").first { $0.pages.first === second })
+        #expect(figure.bounds(for: second).minY > table.bounds(for: second).maxY)
+        #expect(table.bounds(for: second).minY > heading.bounds(for: second).maxY)
         #expect(prepared.viewFurniture[0]?.lines.bottom == ["", "I", ""])
         #expect(prepared.viewFurniture[1] == nil)
         for index in 0..<pdf.pageCount {

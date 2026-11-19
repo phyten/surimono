@@ -78,11 +78,21 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     package var header: [String] { row("H") }
     package var footer: [String] { row("F") }
 
+    private var activeFields: [String: String]? {
+        selectedFields(thisPageStyle ?? style)
+    }
+
+    // Store rule macros alongside the six fields so named and starred page styles
+    // inherit, override and snapshot them at the same time as their header text.
+    package func ruleWidth(_ name: String) -> Double {
+        guard let selected = activeFields else { return 0 }
+        let length = selected[name] ?? (name == "headrulewidth" ? "0.4pt" : "0pt")
+        return max(0, (LaTeXPageSettings.millimetres(length) ?? 0) * 72 / 25.4)
+    }
+
     private func row(_ location: String) -> [String] {
         let even = twoSided && counter.isMultiple(of: 2)
-        if let selected = thisPageStyle.flatMap(selectedFields)
-            ?? (thisPageStyle == nil && style == "fancy" ? fields : nil)
-        {
+        if let selected = activeFields {
             return ["L", "C", "R"].map { side in
                 let source = selected[(even ? "E" : "O") + side + location] ?? ""
                 return Self.text(source, page: label, left: leftMark, right: firstRightMark ?? rightMark)
@@ -131,6 +141,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
 
     package mutating func apply(_ action: String, value: String) {
         switch action {
+        case "headrulewidth", "footrulewidth": fields[action] = value
         case "fancyStyle":
             if let definition = try? JSONDecoder().decode(Definition.self, from: Data(value.utf8)) {
                 define(definition)

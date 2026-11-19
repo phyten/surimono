@@ -29,6 +29,12 @@ final class ClipboardWindows {
     }
     /// Brings the question that is open forward again, instead of asking a second time.
     var showQuestion: () -> Void = { ClipboardQuestionPanel.bringForward() }
+    /// Separate ordering the window from opening the model so a hosted test can exercise the same routing offscreen.
+    var presentWindow: (MemoryDocumentWindowController) -> Void = { controller in
+        controller.window?.deminiaturize(nil)
+        controller.showWindow(nil)
+        controller.window?.makeKeyAndOrderFront(nil)
+    }
     private var controllers: [ContentHash: MemoryDocumentWindowController] = [:]
     private var cascadePoint = NSPoint.zero
     private let openFiles: ([URL], NSWindow?, Bool) -> Void
@@ -193,9 +199,7 @@ final class ClipboardWindows {
     }
 
     private func show(_ controller: MemoryDocumentWindowController, printing: Bool) {
-        controller.window?.deminiaturize(nil)
-        controller.showWindow(nil)
-        controller.window?.makeKeyAndOrderFront(nil)
+        presentWindow(controller)
         closeWelcome()
         if printing { controller.model.requestPrintMode() }
     }

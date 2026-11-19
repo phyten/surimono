@@ -521,8 +521,8 @@ struct DocumentSettingsFlowTests {
         #expect(model.isAlwaysOnTop && model.isBandAlwaysVisible)
         #expect(model.loneCoverWidth == .onePage)
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try await waitUntil { window.level == .floating }
@@ -548,8 +548,8 @@ struct DocumentSettingsFlowTests {
         let model = environment.model(pdf("Cover", pages: 6))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         // A PDF of six portrait pages opens as a left-to-right book with its cover alone.
         #expect(model.viewOptions.layout == .spread && model.viewOptions.showsCoverAlone)

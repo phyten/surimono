@@ -35,6 +35,87 @@ struct LaTeXPageBoxTests {
         }
     }
 
+    @Test("学会誌のクラスと版型ごとの本文寸法と左上の原点が実 TeX のレジスターと一致する")
+    func journalClasses() throws {
+        // PDF points from the class registers at begin-document, including geometry's rounded height.
+        for (cls, options, width, height, left, top) in [
+            ("IEEEtran", "conference,letterpaper", 514.072, 669.489, 48.964, 46.955),
+            ("IEEEtran", "conference,a4paper", 514.072, 669.489, 40.602, 46.955),
+            ("IEEEtran", "journal,letterpaper", 514.072, 693.400, 48.964, 52.483),
+            ("IEEEtran", "journal,a4paper", 514.072, 693.400, 40.602, 52.483),
+            ("acmart", "sigconf", 504.403, 623.661, 53.798, 83.686),
+            ("acmart", "manuscript", 428.398, 557.908, 73.441, 95.041),
+            ("revtex4-2", "aps,preprint", 466.252, 663.014, 72.000, 72.000),
+            ("revtex4-2", "reprint", 508.095, 669.489, 54.000, 52.075),
+            ("revtex4-2", "twocolumn", 508.095, 669.489, 54.000, 52.075),
+            ("llncs", "", 345.827, 547.087, 134.765, 115.836),
+            ("elsarticle", "preprint", 343.711, 547.945, 133.768, 124.802),
+            ("elsarticle", "1p", 382.565, 559.900, 106.355, 140.995),
+            ("elsarticle", "3p", 466.252, 619.676, 64.512, 111.107),
+            ("elsarticle", "5p", 520.050, 679.452, 37.613, 81.219),
+            ("article", "twocolumn", 467.248, 547.945, 72.000, 124.802),
+        ] {
+            let page = try box(cls, options)
+            for (actual, expected) in zip(
+                [page.textWidth, page.textHeight, page.left, page.top], [width, height, left, top])
+            {
+                #expect(abs(actual - expected) < 0.02, "\(cls) \(options)")
+            }
+        }
+    }
+
+    @Test("二段の学会誌と標準 article は段間をクラスから取り表題と著者を段抜きにする")
+    func journalTitlesAndGaps() throws {
+        for (declaration, columns, gap) in [
+            ("[conference]{IEEEtran}", 2, "12"), ("[format=sigconf]{acmart}", 2, "24"),
+            ("[reprint]{revtex4-2}", 2, "18"), ("[twocolumn]{revtex4-2}", 2, "18"),
+            ("[twocolumn]{article}", 2, ""), ("[3p,twocolumn]{elsarticle}", 2, "24"),
+            ("[5p]{elsarticle}", 2, "18"), ("[1p,twocolumn]{elsarticle}", 1, ""),
+            ("[manuscript]{acmart}", 1, ""), ("[preprint]{revtex4-2}", 1, ""),
+        ] {
+            let source =
+                "\\documentclass\(declaration)\\title{Spacers}\\author{Desk}\\begin{document}\\maketitle Body.\\end{document}"
+            let fragment = LaTeXConverter.convert(source)
+            let info = try #require(fragment.latexClass)
+            #expect(info.columns == columns)
+            #expect(fragment.body.contains(#"<header class="latex-title-block" data-latex-wide"#) == (columns == 2))
+            if !gap.isEmpty { #expect(fragment.body.contains("data-latex-gap=\"\(gap)\"")) }
+        }
+        let override = LaTeXConverter.convert(
+            #"\documentclass[conference]{IEEEtran}\setlength{\columnsep}{15pt}\begin{document}Body\end{document}"#)
+        #expect(override.body.contains(#"data-latex-gap="15""#))
+        #expect(abs(try box("elsarticle", "5p,letterpaper").paperWidth - 595.276) < 0.02)
+        #expect(abs(try box("acmart", "sigconf,a4paper").paperWidth - 612) < 0.02)
+        check(try box("IEEEtran", "conference", #"\usepackage[margin=1in]{geometry}"#), margins: [72, 72, 72, 72])
+    }
+
+    @Test("学会誌の図表と本文やキャプションの間にはクラスが選ぶ自然長を渡す")
+    func journalFloatSkips() {
+        for (declaration, register, length) in [
+            ("[conference]{IEEEtran}", "abovecaptionskip", "6"),
+            ("[journal,12pt]{IEEEtran}", "floatsep", "11.832"),
+            ("[sigconf]{acmart}", "textfloatsep", "15"),
+            ("[manuscript]{acmart}", "abovecaptionskip", "12"),
+            ("[preprint]{revtex4-2}", "floatsep", "14"),
+            ("[reprint]{revtex4-2}", "belowcaptionskip", "2"),
+            ("{llncs}", "intextsep", "22.7622047"),
+            ("{llncs}", "table-caption-skip", "10"),
+            ("{memoir}", "abovecaptionskip", "6"),
+            ("{memoir}", "belowcaptionskip", "6"),
+            ("[11pt]{memoir}", "abovecaptionskip", "6.8"),
+            ("[12pt]{memoir}", "belowcaptionskip", "7.25"),
+        ] {
+            let info = LaTeXConverter.documentClassInfo("\\documentclass\(declaration)\\begin{document}")
+            #expect(info.styleVariables.contains("--latex-\(register): calc(\(length) * var(--tex-pt))"))
+        }
+        let fragment = LaTeXConverter.convert(
+            #"\documentclass[conference]{IEEEtran}\setlength{\intextsep}{17pt plus 2pt}\abovecaptionskip=5pt\begin{document}First.\intextsep=30pt Second.\end{document}"#
+        )
+        #expect(fragment.latexClass?.styleVariables.contains("--latex-intextsep: calc(17 * var(--tex-pt") == true)
+        #expect(fragment.latexClass?.styleVariables.contains("--latex-abovecaptionskip: calc(5 * var(--tex-pt") == true)
+        #expect(fragment.readingIssues.contains { $0.contains("intextsep") })
+    }
+
     @Test("和文クラスは全角の整数倍で行長と版面を求める")
     func japaneseClasses() throws {
         for (paper, size, js, jlreq) in [

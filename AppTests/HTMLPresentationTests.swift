@@ -244,11 +244,17 @@ struct WebCaptureTests {
             styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
         window.isReleasedWhenClosed = false
         model.window = window
-        model.start()
-        try await waitUntil { model.result != nil && !model.isRendering }
-        return Fixture(
+        let fixture = Fixture(
             model: model, snapshots: snapshots, window: window, directory: directory, suite: suite,
             laidOut: { log.html }, requests: { log.requests })
+        model.start()
+        do {
+            try await waitUntil { model.result != nil && !model.isRendering }
+        } catch {
+            fixture.close()
+            throw error
+        }
+        return fixture
     }
 
     private func waitUntil(seconds: Int = 5, _ condition: () -> Bool) async throws {

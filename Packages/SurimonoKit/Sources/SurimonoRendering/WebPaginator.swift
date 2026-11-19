@@ -78,6 +78,7 @@ public final class WebPaginator: NSObject {
 
     /// Upper bound for the print step, which normally finishes in well under a second.
     var printTimeout: Duration?
+    var flowEvaluator: LaTeXFlowPaginator.Evaluator?
     /// Sessions whose web view and temporary files have not been released yet (observed by tests).
     private(set) var openSessionCount = 0
     /// Number of print operations started (observed by tests).
@@ -189,79 +190,62 @@ public final class WebPaginator: NSObject {
             guard let rules else { throw PaginationError.loadFailed("Offline export is unavailable.") }
             session.webView.configuration.userContentController.add(rules)
         }
-        try session.load(source)
-        var stoppedResources = false
+        let stoppedResources: Bool
         do {
-            try await Self.waitUntil(timeout: timeout) { session.navigationState != .loading }
-        } catch PaginationError.timedOut {
-            // An image or a style sheet on a host that never answers holds the load back for good. The text is
-            // already there, so it prints the way it does with an image that fails; a document that itself never
-            // arrived or never finished parsing still fails.
-            guard session.hasCommitted,
-                let state = try await runPreparationScript(
-                    "return document.readyState", in: session.webView, timeout: min(timeout, .seconds(2))),
-                state == "interactive" || state == "complete"
-            else { throw PaginationError.timedOut }
-            session.stopLoadingResources()
-            stoppedResources = true
+            stoppedResources = try await session.loadForPrinting(source, timeout: timeout)
+        } catch {
+            return try await retrySingleColumn(after: error, usedFlow: latexFlow)
         }
-        if case .failed(let message) = session.navigationState { throw PaginationError.loadFailed(message) }
-
         didStartWaitingForResources?()
         // The stopped resources never report back, so the full wait would only be spent a second time.
         try await Self.waitForResources(
             in: session.webView, timeout: stoppedResources ? min(timeout, .seconds(1)) : timeout)
-        if collectsDiagrams {
-            // Keep the engine-created nodes in the isolated world without marking the printable DOM.
-            _ = try await runPreparationScript(
-                "globalThis.surimonoRenderedDiagrams = new Set();", in: session.webView, timeout: timeout)
-        }
-        if rendersMermaid,
-            let countText = try await runPreparationScript(MermaidScript.probe, in: session.webView, timeout: timeout),
-            let count = Int(countText), count > 0
-        {
-            try await prepareMermaid(in: session.webView, count: count, timeout: timeout)
-        }
-        if rendersDiagrams {
-            try await DiagramScript.prepare(
-                in: session.webView,
-                height: (pageSize.height - margins.top - margins.bottom) * Self.printPixelsPerPoint
-            ) { script in
-                try await self.runPreparationScript(script, in: session.webView, timeout: timeout)
-            }
-        }
-        // Before the preparation, whose presets may remove the document's style elements.
-        let pageRules =
-            readsPageRules
-            ? PageRule.rules(
-                fromJSON: try await runPreparationScript(PageRule.javaScript, in: session.webView, timeout: timeout)
-                    ?? "")
-            : []
+        let pageRules: [PageRule]
         let preparationResult: String?
-        if let preparationScript, !preparationScript.isEmpty {
-            if checksVerticalLaTeXInk || latexFlow {
+        do {
+            if collectsDiagrams {
+                // Keep the engine-created nodes in the isolated world without marking the printable DOM.
                 _ = try await runPreparationScript(
-                    "globalThis.surimonoDefersMarks = true", in: session.webView, timeout: timeout)
+                    "globalThis.surimonoRenderedDiagrams = new Set();", in: session.webView, timeout: timeout)
             }
-            preparationResult = try await runPreparationScript(preparationScript, in: session.webView, timeout: timeout)
-        } else {
-            preparationResult = nil
-        }
-        var capturesLaTeXFlow = latexFlow
-        if checksVerticalLaTeXInk || latexFlow {
-            let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
-            if try await LaTeXFlowPaginator.markVerticalInk(in: session.webView, width: width) {
-                capturesLaTeXFlow = true
+            if rendersMermaid,
+                let countText = try await runPreparationScript(
+                    MermaidScript.probe, in: session.webView, timeout: timeout),
+                let count = Int(countText), count > 0
+            {
+                try await prepareMermaid(in: session.webView, count: count, timeout: timeout)
             }
-        }
-        if checksVerticalLaTeXInk && !capturesLaTeXFlow && preparationScript != nil {
-            _ = try await runPreparationScript(
-                "globalThis.surimonoFlowMarks?.(); delete globalThis.surimonoFlowMarks; delete globalThis.surimonoDefersMarks;",
-                in: session.webView, timeout: timeout)
+            if rendersDiagrams {
+                try await DiagramScript.prepare(
+                    in: session.webView,
+                    height: (pageSize.height - margins.top - margins.bottom) * Self.printPixelsPerPoint
+                ) { script in
+                    try await self.runPreparationScript(script, in: session.webView, timeout: timeout)
+                }
+            }
+            // Before the preparation, whose presets may remove the document's style elements.
+            pageRules =
+                readsPageRules
+                ? PageRule.rules(
+                    fromJSON: try await runPreparationScript(PageRule.javaScript, in: session.webView, timeout: timeout)
+                        ?? "")
+                : []
+            if let preparationScript, !preparationScript.isEmpty {
+                if checksVerticalLaTeXInk || latexFlow {
+                    _ = try await runPreparationScript(
+                        "globalThis.surimonoDefersMarks = true", in: session.webView, timeout: timeout)
+                }
+                preparationResult = try await runPreparationScript(
+                    preparationScript, in: session.webView, timeout: timeout)
+            } else {
+                preparationResult = nil
+            }
+        } catch {
+            return try await retrySingleColumn(after: error, usedFlow: latexFlow)
         }
         try Task.checkCancellation()
         if let exportHTMLTitle {
-            let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView)
+            let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView, timeout: timeout)
             if richText { try await RichTextGraphics.replace(in: session.webView) }
             let imageURLs =
                 try await session.webView.callAsyncJavaScript(
@@ -329,19 +313,38 @@ public final class WebPaginator: NSObject {
             mayDrawBelowPaper = true
         }
         didCheckPageRules?(mayDrawBelowPaper)
-        let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView)
-        try Task.checkCancellation()
+        var capturesLaTeXFlow = latexFlow
+        // Page references, their reflow, and the final capture share one print budget.
+        let layoutDeadline = ContinuousClock.now + printTimeout
+        func remaining() -> Duration { ContinuousClock.now.duration(to: layoutDeadline) }
         func pageDataForPass() async throws -> Data {
             guard capturesLaTeXFlow else {
                 return try await session.printToPDF(
-                    checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk)
+                    checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk,
+                    deadline: latexPageNumbers == nil ? nil : layoutDeadline)
             }
             let pass = try await LaTeXFlowPaginator.paginate(
-                in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout)
+                in: session.webView, pageSize: pageSize, margins: margins, timeout: remaining(),
+                scriptTimeout: timeout, evaluator: flowEvaluator)
             guard let data = pass.document?.dataRepresentation() else { throw PaginationError.emptyDocument }
             return data
         }
         func printHorizontal() async throws -> Result {
+            if checksVerticalLaTeXInk || latexFlow {
+                let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
+                // Failure of the ink measurement also needs a fresh single-column DOM.
+                capturesLaTeXFlow = true
+                let protrudes = try await LaTeXFlowPaginator.markVerticalInk(
+                    in: session.webView, width: width, until: min(layoutDeadline, .now + timeout))
+                capturesLaTeXFlow = latexFlow || protrudes
+            }
+            if checksVerticalLaTeXInk && !capturesLaTeXFlow && preparationScript != nil {
+                _ = try await runPreparationScript(
+                    "globalThis.surimonoFlowMarks?.(); delete globalThis.surimonoFlowMarks; delete globalThis.surimonoDefersMarks;",
+                    in: session.webView, timeout: timeout)
+            }
+            let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView, timeout: timeout)
+            try Task.checkCancellation()
             var texPages: [LaTeXPageReferences.Page] = []
             var incompleteReferences = false
             if nativeLaTeXBreaks && !capturesLaTeXFlow {
@@ -352,6 +355,7 @@ public final class WebPaginator: NSObject {
                     LaTeXPageReferences.coalesceNativeBreaks, in: session.webView, timeout: timeout)
             }
             if let latexPageNumbers {
+                var measuringColumns = false
                 do {
                     let token = UUID().uuidString
                     let webView = session.webView
@@ -360,7 +364,7 @@ public final class WebPaginator: NSObject {
                             token: token, runningMarks: latexPageNumbers.needsRunningMarks,
                             classPlain: latexPageNumbers.usesClassPlain,
                             nativePrint: !capturesLaTeXFlow),
-                        in: webView, timeout: timeout)
+                        in: webView, timeout: min(timeout, remaining()))
                     let installation = json.flatMap {
                         try? JSONDecoder().decode(LaTeXPageReferences.Installation.self, from: Data($0.utf8))
                     }
@@ -374,9 +378,12 @@ public final class WebPaginator: NSObject {
                             let locations: [Int: Int]
                             let count: Int
                             if capturesLaTeXFlow {
+                                measuringColumns = true
                                 let pass = try await LaTeXFlowPaginator.paginate(
                                     in: webView, pageSize: pageSize,
-                                    margins: margins, timeout: printTimeout, referencesOnly: true)
+                                    margins: margins, timeout: remaining(), referencesOnly: true,
+                                    scriptTimeout: timeout, evaluator: flowEvaluator)
+                                measuringColumns = false
                                 locations = pass.locations
                                 count = pass.pageCount
                             } else {
@@ -397,18 +404,20 @@ public final class WebPaginator: NSObject {
                             if map.references == previous { break }
                             previous = map.references
                             let layout = try await runPreparationScript(
-                                try LaTeXPageReferences.fill(previous), in: webView, timeout: timeout)
+                                try LaTeXPageReferences.fill(previous), in: webView, timeout: min(timeout, remaining()))
                             guard layout != nil else { throw PaginationError.printFailed }
                             if layout == "stable" && !capturesLaTeXFlow { break }
                         }
                     }
                     guard
-                        try await runPreparationScript(LaTeXPageReferences.removeProbes, in: webView, timeout: timeout)
+                        try await runPreparationScript(
+                            LaTeXPageReferences.removeProbes, in: webView, timeout: min(timeout, remaining()))
                             == "clean"
                     else { throw PaginationError.printFailed }
                 } catch {
                     try Task.checkCancellation()
-                    if error is CancellationError { throw error }
+                    // Native pagination can still resolve the same anchors when only column measurement failed.
+                    if error is CancellationError || measuringColumns { throw error }
                     throw LaTeXPageReferences.MeasurementFailed()
                 }
             }
@@ -451,10 +460,14 @@ public final class WebPaginator: NSObject {
         do {
             return try await printHorizontal()
         } catch {
+            return try await retrySingleColumn(after: error, usedFlow: capturesLaTeXFlow)
+        }
+
+        func retrySingleColumn(after error: any Error, usedFlow: Bool) async throws -> Result {
             try Task.checkCancellation()
             if error is CancellationError { throw error }
             let lostReferences = error is LaTeXPageReferences.MeasurementFailed
-            guard capturesLaTeXFlow || lostReferences else { throw error }
+            guard usedFlow || lostReferences else { throw error }
             // Discard this DOM even after a timeout: a late WebKit callback may still hold its measurement tree.
             session.requestClose()
             let cleanPreparation =
@@ -469,7 +482,7 @@ public final class WebPaginator: NSObject {
                 latexPageNumbers: lostReferences ? nil : latexPageNumbers,
                 restartsAfterTitle: restartsAfterTitle, latexMarginInk: latexMarginInk, timeout: timeout)
             if lostReferences { fallback.issues.append(.unresolvedLaTeXPages) }
-            if capturesLaTeXFlow {
+            if usedFlow {
                 fallback.issues.append(
                     PrintIssue(
                         id: "latex-flow-fallback", kind: .latex,
@@ -481,18 +494,18 @@ public final class WebPaginator: NSObject {
 
     private static let verticalWritingIssue = PrintIssue(id: "vertical-writing", kind: .verticalWriting, detail: "")
 
-    private static func useHorizontalRootForOutput(in webView: WKWebView) async throws -> Bool {
-        let adjusted = try await useHorizontalRoot(in: webView)
+    private static func useHorizontalRootForOutput(in webView: WKWebView, timeout: Duration) async throws -> Bool {
+        let adjusted = try await useHorizontalRoot(in: webView, timeout: timeout)
         // A root can be horizontal on screen and vertical only when AppKit starts drawing.
         let media = webView.mediaType
         webView.mediaType = "print"
         defer { webView.mediaType = media }
-        let adjustedForPrint = try await useHorizontalRoot(in: webView)
+        let adjustedForPrint = try await useHorizontalRoot(in: webView, timeout: timeout)
         return adjusted || adjustedForPrint
     }
 
     /// WebKit's printing view crashes on a vertical root. Nested writing modes are safe.
-    static func useHorizontalRoot(in webView: WKWebView) async throws -> Bool {
+    static func useHorizontalRoot(in webView: WKWebView, timeout: Duration = .seconds(15)) async throws -> Bool {
         let script = """
             const roots = [document.documentElement, document.body].filter(Boolean);
             const horizontal = element => {
@@ -504,8 +517,7 @@ public final class WebPaginator: NSObject {
             if (roots.every(horizontal)) return true;
             """
         guard
-            let adjusted = try await webView.callAsyncJavaScript(
-                script, arguments: [:], in: nil, contentWorld: preparationWorld) as? Bool
+            let adjusted = try await webView.evaluateForPrinting(script, until: .now + timeout) as? Bool
         else { throw PaginationError.printFailed }
         return adjusted
     }
@@ -538,15 +550,11 @@ public final class WebPaginator: NSObject {
               })));
             return true;
             """
-        var finished = false
-        Task { @MainActor in
-            _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: .defaultClient)
-            finished = true
-        }
         do {
-            try await Self.waitUntil(timeout: timeout) { finished }
-        } catch PaginationError.timedOut {
-            // Missing images or fonts should not block printing; cancellation still propagates.
+            _ = try await webView.evaluateForPrinting(script, world: .defaultClient, until: .now + timeout)
+        } catch {
+            // Missing resources and WebKit evaluation errors have always allowed a best-effort print.
+            try Task.checkCancellation()
         }
     }
 
@@ -575,19 +583,15 @@ public final class WebPaginator: NSObject {
     private func runPreparationScript(_ script: String, in webView: WKWebView, timeout: Duration) async throws
         -> String?
     {
-        var finished = false
-        var result: String?
-        Task { @MainActor in
-            // Runs in an isolated world so it still works when the page's own JavaScript is disabled.
-            // A failing cleanup script must not block printing, so its error is deliberately ignored.
-            let value = try? await webView.callAsyncJavaScript(
-                script, arguments: [:], in: nil, contentWorld: Self.preparationWorld)
-            result = value as? String
-            finished = true
+        do {
+            return try await webView.evaluateForPrinting(script, until: .now + timeout) as? String
+        } catch PaginationError.timedOut {
+            throw PaginationError.timedOut
+        } catch {
+            // A failing cleanup script must not block printing.
+            try Task.checkCancellation()
+            return nil
         }
-        // Unlike a failing script, a script that never settles cannot be printed as requested.
-        try await Self.waitUntil(timeout: timeout) { finished }
-        return result
     }
 
     static func waitUntil(timeout: Duration, _ condition: () -> Bool) async throws {
@@ -822,9 +826,30 @@ private final class PaginationSession {
         }
     }
 
+    func loadForPrinting(_ source: WebPaginator.Source, timeout: Duration) async throws -> Bool {
+        try load(source)
+        do {
+            try await WebPaginator.waitUntil(timeout: timeout) { navigationState != .loading }
+        } catch WebPaginator.PaginationError.timedOut {
+            // A never-loading resource may hold up a complete, printable document.
+            guard hasCommitted else { throw WebPaginator.PaginationError.timedOut }
+            let state =
+                try await webView.evaluateForPrinting(
+                    "return document.readyState", until: .now + min(timeout, .seconds(2))) as? String
+            guard state == "complete" || state == "interactive" else { throw WebPaginator.PaginationError.timedOut }
+            stopLoadingResources()
+            return true
+        }
+        if case .failed(let message) = navigationState { throw WebPaginator.PaginationError.loadFailed(message) }
+        return false
+    }
+
     /// - Parameter checkingBelowPaper: Whether the document may draw below the paper, so that the pages are cut back
     ///   to the paper only after finding nothing there.
-    func printToPDF(checkingBelowPaper: Bool, latexMarginInk: Bool = false) async throws -> Data {
+    func printToPDF(
+        checkingBelowPaper: Bool, latexMarginInk: Bool = false, deadline: ContinuousClock.Instant? = nil
+    ) async throws -> Data {
+        let deadline = deadline ?? .now + printTimeout
         let outputURL = temporaryURL(extension: "pdf")
         let printInfo = NSPrintInfo()
         printInfo.paperSize = CGSize(width: pageSize.width, height: pageSize.height + Self.pageHeightAllowance)
@@ -837,7 +862,7 @@ private final class PaginationSession {
             // NSPrintOperation clips to the printable width before Quartz sees the page. Give the root
             // the horizontal white space instead, so a number outside its pre or a frame on the last
             // fractional pixel can still paint. The text keeps exactly the same physical measure.
-            _ = try await webView.callAsyncJavaScript(
+            _ = try await webView.evaluateForPrinting(
                 """
                 if (globalThis.surimonoMarginInk) globalThis.surimonoMarginInk.remove();
                 const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
@@ -851,7 +876,7 @@ private final class PaginationSession {
                     "left": margins.left * WebPaginator.printPixelsPerPoint,
                     "right": margins.right * WebPaginator.printPixelsPerPoint,
                 ],
-                in: nil, contentWorld: WebPaginator.preparationWorld)
+                until: deadline)
             printInfo.leftMargin = 0
             printInfo.rightMargin = 0
         }
@@ -880,7 +905,6 @@ private final class PaginationSession {
             for: window, delegate: completion,
             didRun: #selector(PrintCompletion.printOperationDidRun(_:success:contextInfo:)), contextInfo: nil)
 
-        let deadline = ContinuousClock.now + printTimeout
         while completion.result == nil {
             // Cancellation takes precedence over the deadline.
             try Task.checkCancellation()
@@ -895,9 +919,9 @@ private final class PaginationSession {
         try Task.checkCancellation()
         guard completion.result == true else { throw WebPaginator.PaginationError.printFailed }
         if latexMarginInk {
-            _ = try await webView.callAsyncJavaScript(
+            _ = try await webView.evaluateForPrinting(
                 "globalThis.surimonoMarginInk.remove(); delete globalThis.surimonoMarginInk;",
-                arguments: [:], in: nil, contentWorld: WebPaginator.preparationWorld)
+                arguments: [:], until: deadline)
         }
         return try await Self.cutToPaper(at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper)
     }
@@ -1009,6 +1033,7 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
     /// The main document has started to arrive; before that the web view still shows its initial empty page.
     private(set) var hasCommitted = false
     private var isStopped = false
+    private var activeNavigation: WKNavigation?
     /// Set for generated pages, which may read any local file so that references such as ../images/ work. Images and
     /// style sheets only draw what they are, but a document shows a file's content: `<iframe>`, `<object>`, `<embed>`
     /// or a `<meta http-equiv="refresh">` in the document's raw HTML could otherwise put an unopened file, such as a
@@ -1053,22 +1078,37 @@ final class NavigationTracker: NSObject, WKNavigationDelegate {
                 .localizedDescription)
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        guard !isStopped else { return }
+        activeNavigation = navigation
+        hasCommitted = false
+        state = .loading
+    }
+
+    // A cancelled older navigation can fail after the replacement has committed.
+    private func accepts(_ navigation: WKNavigation?) -> Bool {
+        !isStopped && (activeNavigation == nil || activeNavigation === navigation)
+    }
+
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard accepts(navigation) else { return }
         hasCommitted = true
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard accepts(navigation) else { return }
         state = .finished
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
-        guard !isStopped else { return }
+        guard accepts(navigation) else { return }
         state = .failed(error.localizedDescription)
     }
 
     func webView(
         _ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error
     ) {
+        guard accepts(navigation) else { return }
         state = .failed(error.localizedDescription)
     }
 }

@@ -25,6 +25,8 @@ struct ClipboardWindowsTests {
         let windows = ClipboardWindows(
             openFiles: { _, _, _ in Issue.record("ファイルは開かない") },
             warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
+        let presentation = ClipboardWindowFixture(windows)
+        defer { presentation.close() }
         windows.preferences = AppPreferences(defaults: suite.defaults)
         windows.library = UserLibrary(root: directory)
         let controller = try #require(windows.open(from: board, window: nil))
@@ -49,6 +51,8 @@ struct ClipboardWindowsTests {
             warn: { _ in
                 Issue.record("警告しない")
             }, closeWelcome: {})
+        let presentation = ClipboardWindowFixture(windows, ordered: true)
+        defer { presentation.close() }
         windows.preferences = AppPreferences(defaults: suite.defaults)
         windows.library = UserLibrary(root: directory)
         let recent = NSDocumentController.shared.recentDocumentURLs
@@ -199,6 +203,8 @@ struct ClipboardWindowsTests {
             warn: { _ in
                 Issue.record("警告しない")
             }, closeWelcome: {})
+        let presentation = ClipboardWindowFixture(windows)
+        defer { presentation.close() }
         windows.preferences = AppPreferences(defaults: suite.defaults)
         windows.library = UserLibrary(root: directory.appendingPathComponent("Library"))
         let first = try #require(windows.open(from: board))
@@ -233,6 +239,8 @@ struct ClipboardWindowsTests {
         defer { suite.remove() }
         let prefs = AppPreferences(defaults: suite.defaults)
         let windows = ClipboardWindows(openFiles: { _, _, _ in }, warn: { _ in }, closeWelcome: {})
+        let presentation = ClipboardWindowFixture(windows)
+        defer { presentation.close() }
         windows.preferences = prefs
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -297,6 +305,11 @@ struct ClipboardWindowsTests {
 
     @Test("ファイルメニューには URL と履歴の項目が一つずつあり、閉じた文書がないと履歴を隠す")
     func closedDocumentMenu() throws {
+        let visibleBefore = Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init))
+        defer {
+            let visibleAfter = Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init))
+            #expect(visibleAfter.isSubset(of: visibleBefore))
+        }
         let windows = ClipboardWindows.shared
         let prefs = try #require(windows.preferences)
         let original = prefs.closedClipboardDocuments
@@ -305,6 +318,8 @@ struct ClipboardWindowsTests {
             prefs.keepsClosedClipboardDocuments = wasKeeping
             prefs.closedClipboardDocuments = original
         }
+        let presentation = ClipboardWindowFixture(windows, ordered: true)
+        defer { presentation.close() }
         prefs.keepsClosedClipboardDocuments = true
         prefs.closedClipboardDocuments = ClosedClipboardDocuments()
         let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
@@ -332,7 +347,11 @@ struct ClipboardWindowsTests {
         submenu.performActionForItem(at: selected)
         let reopened = try #require(
             NSApp.windows.compactMap { $0.windowController as? MemoryDocumentWindowController }
-                .first { $0.model.displayName == "Menu sample" && $0.window?.isVisible == true })
+                .first { controller in
+                    guard let window = controller.window else { return false }
+                    return controller.model.displayName == "Menu sample" && window.isVisible
+                        && !visibleBefore.contains(ObjectIdentifier(window))
+                })
         defer { reopened.close() }
         let remaining = try #require(file.item(withTitle: historyTitle)?.submenu?.items)
         #expect(remaining.count == 1)

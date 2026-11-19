@@ -83,6 +83,7 @@ struct BandEditorGeometryTests {
             window.isReleasedWhenClosed = false
             window.contentViewController = hosting
             window.setContentSize(NSSize(width: contentWidth, height: 900))
+            window.alphaValue = 0
             window.orderFrontRegardless()
         }
 

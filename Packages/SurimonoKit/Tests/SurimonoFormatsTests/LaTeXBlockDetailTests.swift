@@ -3,6 +3,19 @@ import SurimonoFormats
 import Testing
 
 struct LaTeXBlockDetailTests {
+    @Test("行末の追加三ポイントと段落間の九ミリを印刷の単位で一度だけ挿入する")
+    func verticalLengths() {
+        let body = LaTeXConverter.convert(#"A\\[3pt]B\\C\par\vspace{9mm}D"#).body
+        #expect(
+            body.contains(
+                #"<br><span class="latex-vspace" style="display: block; height: calc(3 * var(--tex-pt, 0.996264pt))"></span>B<br>C</p>"#
+            ))
+        #expect(
+            body.contains(
+                #"<div class="latex-vspace" style="height: calc(25.6074803 * var(--tex-pt, 0.996264pt))"></div>"#))
+        #expect(body.components(separatedBy: "<p>").count - 1 == 2)
+    }
+
     @Test("枠と背景は中央揃えの段落箱と minipage の幅で内容を囲む")
     func framedBlocks() {
         let result = LaTeXConverter.convert(

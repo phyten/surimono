@@ -8,6 +8,7 @@ struct AuxiliaryWindowLevelTests {
     private func window() -> NSWindow {
         let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        window.alphaValue = 0
         return window
     }
 

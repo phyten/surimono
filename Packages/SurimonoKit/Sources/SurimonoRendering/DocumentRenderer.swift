@@ -1625,7 +1625,7 @@ public final class DocumentRenderer {
                     ? measured[bodyIndex]
                     : LaTeXPageReferences.Page(initial)
                 context.pageLabels[page] = number.label
-                if number.lines.top.allSatisfy(\.isEmpty) && number.lines.bottom.allSatisfy(\.isEmpty) {
+                if number.lines.isEmpty {
                     context.blankPages.insert(page)
                 } else {
                     context.documentLines[page] = number.lines

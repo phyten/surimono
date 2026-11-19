@@ -413,8 +413,9 @@ struct PrintModeTests {
             defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = host
-        window.orderFront(nil)
         defer { window.close() }
+        window.alphaValue = 0
+        window.orderFront(nil)
         host.layoutSubtreeIfNeeded()
         #expect(controller.sizeThatFits(in: CGSize(width: 600, height: 300)).width <= 603)
         #expect(controller.sizeThatFits(in: CGSize(width: 600, height: 300)).height < 300)

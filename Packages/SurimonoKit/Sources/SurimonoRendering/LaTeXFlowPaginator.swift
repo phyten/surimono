@@ -9,11 +9,13 @@ enum LaTeXFlowPaginator {
 
     /// Native pagination keeps its original page goal for ordinary prose. Switch only when paint
     /// protrudes from a box that controls page breaking (for example a positioned mark or a rotated image).
-    static func markVerticalInk(in view: WKWebView, width: CGFloat) async throws -> Bool {
+    static func markVerticalInk(in view: WKWebView, width: CGFloat, until deadline: ContinuousClock.Instant)
+        async throws -> Bool
+    {
         let media = view.mediaType
         view.mediaType = "print"
         defer { view.mediaType = media }
-        return try await view.callAsyncJavaScript(
+        return try await view.evaluateForPrinting(
             """
             const root = document.documentElement;
             const old = root.style.cssText;
@@ -47,7 +49,7 @@ enum LaTeXFlowPaginator {
             } finally { root.style.cssText = old; }
             for (const host of hosts) if (host !== document.body) host.dataset.flowInkBlock = '';
             return hosts.size > 0;
-            """, arguments: ["width": width], in: nil, contentWorld: WebPaginator.preparationWorld) as? Bool == true
+            """, arguments: ["width": width], until: deadline) as? Bool == true
     }
 
     nonisolated static func needed(in markup: String) -> Bool {
@@ -79,31 +81,16 @@ enum LaTeXFlowPaginator {
         var locations: [Int: Int]
     }
 
+    typealias Evaluator = @MainActor (WKWebView, String, [String: Any], @escaping WebKitReply<Any>.Completion) -> Void
+
     static func paginate(
         in view: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, timeout: Duration,
-        referencesOnly: Bool = false, sample: Bool = false
+        referencesOnly: Bool = false, sample: Bool = false, scriptTimeout: Duration? = nil, evaluator: Evaluator? = nil
     ) async throws -> Pass {
         guard PDFDrawing.validGeometry(pageSize: pageSize, margins: margins) else {
             throw WebPaginator.PaginationError.printFailed
         }
-        var output: Result<Pass, any Error>?
-        let capture = Task { @MainActor in
-            do {
-                output = .success(
-                    try await capturePages(
-                        in: view, pageSize: pageSize, margins: margins, referencesOnly: referencesOnly, sample: sample))
-            } catch { output = .failure(error) }
-        }
-        defer { capture.cancel() }
-        try await WebPaginator.waitUntil(timeout: timeout) { output != nil }
-        try Task.checkCancellation()
-        guard let output else { throw WebPaginator.PaginationError.printFailed }
-        return try output.get()
-    }
-
-    private static func capturePages(
-        in view: WKWebView, pageSize: CGSize, margins: WebPaginator.Margins, referencesOnly: Bool, sample: Bool
-    ) async throws -> Pass {
+        let deadline = ContinuousClock.now + timeout
         let ratio = WebPaginator.printPixelsPerPoint
         let width = (pageSize.width - margins.left - margins.right) * ratio
         let height = (pageSize.height - margins.top - margins.bottom) * ratio
@@ -112,8 +99,11 @@ enum LaTeXFlowPaginator {
         defer { view.mediaType = media }
         func run(_ js: String, _ arguments: [String: Any] = [:]) async throws -> Any? {
             try Task.checkCancellation()
-            return try await view.callAsyncJavaScript(
-                js, arguments: arguments, in: nil, contentWorld: WebPaginator.preparationWorld)
+            let end = min(deadline, ContinuousClock.now + (scriptTimeout ?? timeout))
+            if let evaluator {
+                return try await WebKitReply<Any>.wait(until: end) { reply in evaluator(view, js, arguments, reply) }
+            }
+            return try await view.evaluateForPrinting(js, arguments: arguments, until: end)
         }
         // Failed passes are discarded with their session. Successful passes restore the exact preparation DOM.
         guard
@@ -127,12 +117,16 @@ enum LaTeXFlowPaginator {
         else {
             throw WebPaginator.PaginationError.printFailed
         }
-        let (pages, locations) = try await plan(json, width: width, height: height)
+        let (pages, locations) = try await plan(json, width: width, height: height, until: deadline)
         if referencesOnly {
             _ = try await run("surimonoRestoreFlow()")
             return Pass(pageCount: pages.count, locations: locations)
         }
         let slices = pages.flatMap { $0.pieces.map(\.slice) }
+        // The first printable box can start below the strip origin after discarding its margin.
+        // An isolated overhanging box still owns its raised ink above that new start.
+        var firstStart: [Int: CGFloat] = [:]
+        for s in slices { firstStart[s.strip] = min(firstStart[s.strip] ?? s.start, s.start) }
         let arguments = try JSONSerialization.jsonObject(with: JSONEncoder().encode(slices))
         guard let positions = try await run(script("latex-flow-capture"), ["pieces": arguments]) as? String else {
             throw WebPaginator.PaginationError.printFailed
@@ -153,16 +147,17 @@ enum LaTeXFlowPaginator {
                     guard origins.indices.contains(s.strip) else { throw WebPaginator.PaginationError.printFailed }
                     _ = try await run("surimonoFlow.show(i)", ["i": index])
                     let origin = origins[s.strip]
+                    let startsStrip = s.start < 0.01 || origin.hasOverhang && firstStart[s.strip] == s.start
                     let capture = captureRects(
                         piece, origin: CGPoint(x: origin.x, y: origin.y), pageSize: pageSize, margins: margins,
-                        above: (edge.above || origin.hasOverhang) && s.start < 0.01,
+                        above: (edge.above || origin.hasOverhang) && startsStrip,
                         below: (edge.below || origin.hasOverhang) && s.end >= origin.height - 0.01)
                     context.saveGState()
                     defer { context.restoreGState() }
                     // A fragmented strip may contain a continuous border. Keep its internal cut exclusive;
                     // neighbouring text is hidden too, so it cannot reappear in the searchable PDF stream.
                     var clip = CGRect(origin: .zero, size: pageSize)
-                    if s.start >= 0.01 { clip.size.height = pageSize.height - margins.top - piece.y / ratio }
+                    if !startsStrip { clip.size.height = pageSize.height - margins.top - piece.y / ratio }
                     if s.end < origin.height - 0.01 {
                         let bottom = pageSize.height - margins.top - piece.end / ratio
                         clip = clip.intersection(
@@ -170,7 +165,8 @@ enum LaTeXFlowPaginator {
                     }
                     context.clip(to: clip)
                     try await FlowPageCapture.draw(
-                        capture.source, from: view, into: capture.target, in: context, transparent: true)
+                        capture.source, from: view, into: capture.target, in: context, transparent: true,
+                        deadline: deadline)
                     index += 1
                 }
                 context.setFillColor(gray: 0, alpha: 1)
@@ -238,11 +234,13 @@ enum LaTeXFlowPaginator {
         return (rect, target)
     }
 
-    @concurrent private static func plan(_ json: String, width: CGFloat, height: CGFloat) async throws -> (
+    @concurrent private static func plan(
+        _ json: String, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
+    ) async throws -> (
         [LaTeXFlowLayout.Page], [Int: Int]
     ) {
         let input = try JSONDecoder().decode(LaTeXFlowLayout.Measurement.self, from: Data(json.utf8))
-        let pages = try LaTeXFlowLayout.pages(input, width: width, height: height)
+        let pages = try LaTeXFlowLayout.pages(input, width: width, height: height, until: deadline)
         return (pages, locations(of: input.probes ?? [], in: pages))
     }
 

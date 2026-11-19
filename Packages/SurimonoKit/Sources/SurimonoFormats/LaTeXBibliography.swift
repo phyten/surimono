@@ -437,7 +437,8 @@ extension LaTeXReader {
         default:
             if name == "bibliography" { loadBibliography(argument() ?? "") } else { _ = optional() }
             let heading = captionName(document.hasChapters ? "bibname" : "refname")
-            document.bibDatabase.printedHeadings.append("<h2 class=\"latex-bibliography-heading\">\(heading)</h2>\n")
+            document.bibDatabase.printedHeadings.append(
+                document.classInfo.name == "beamer" ? "" : "<h2 class=\"latex-bibliography-heading\">\(heading)</h2>\n")
             appendBlock(styledLinks(document.placeholder("B", document.bibDatabase.printCount), block: true))
             document.bibDatabase.printCount += 1
         }

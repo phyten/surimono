@@ -79,11 +79,11 @@ struct LaTeXLayoutTests {
         #expect(result.body.contains("<thead>\n<tr><th"))
         #expect(result.body.contains("</thead><tbody>"))
         #expect(!result.body.contains("dropped"))
-        #expect(result.body.contains("text-align: right; vertical-align: top; width: 2cm; font-weight: bold"))
+        #expect(result.body.contains("text-align: end; vertical-align: top; width: 2cm; font-weight: bold"))
         #expect(result.body.contains("background-color: #ffff00\">A<br>B"))
         #expect(result.body.contains("text-align: center; background-color: #ff00cc\">Q"))
-        #expect(result.body.contains("text-align: left; vertical-align: middle; width: 1cm\" class=\"latex-top-light"))
-        #expect(result.body.contains("text-align: left; vertical-align: bottom; width: 1cm; border-top:"))
+        #expect(result.body.contains("text-align: start; vertical-align: middle; width: 1cm\" class=\"latex-top-light"))
+        #expect(result.body.contains("text-align: start; vertical-align: bottom; width: 1cm; border-top:"))
     }
 
     @Test("booktabs の太罫・細罫の上下に空きを付け、二重の横罫と段落列の揃えを区別する")

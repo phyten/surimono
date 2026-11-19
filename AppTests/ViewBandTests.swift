@@ -185,8 +185,8 @@ struct ViewBandTests {
         let model = environment.model(TestFixtures.pdf("Toolbar"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         let room: CGFloat = arrangement == .split ? Self.top + Self.bottom : Self.top
@@ -236,8 +236,8 @@ struct ViewBandTests {
         let model = environment.model(TestFixtures.pdf("Hover"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try place(window, band: 0, model: model)
@@ -268,8 +268,8 @@ struct ViewBandTests {
         let model = environment.model(Data("# Stage".utf8), format: .markdown)
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try place(window, band: 0, model: model)
@@ -294,8 +294,8 @@ struct ViewBandTests {
         let model = environment.model(TestFixtures.pdf("Always"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try place(window, band: Self.top + Self.bottom, model: model)
@@ -327,12 +327,19 @@ struct ViewBandTests {
         environment.preferences.defaultBandVisibility = .onHover
         let model = environment.model(TestFixtures.pdf("Hover"))
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        var handedOff = false
+        defer {
+            if !handedOff {
+                controller.close()
+            }
+        }
         let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try place(window, band: 0, model: model)
         let paperOnly = window.contentRect(forFrameRect: window.frame)
         try await waitUntil { abs((paperOnScreen(in: window)?.height ?? 0) - paperOnly.height) <= 3 }
+        handedOff = true
         return HoverWindow(model: model, controller: controller, window: window, paperOnly: paperOnly)
     }
 
@@ -461,8 +468,8 @@ struct ViewBandTests {
         let model = environment.model(TestFixtures.pdf("Edge"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try place(window, band: 0, model: model)
@@ -485,8 +492,8 @@ struct ViewBandTests {
         let model = environment.model(TestFixtures.pdf("EdgeTop"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try place(window, band: 0, model: model)
@@ -515,8 +522,8 @@ struct ViewBandTests {
         let model = environment.model(Data("# Stage".utf8), format: .markdown)
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         try place(window, band: model.isBandAlwaysVisible ? Self.top + Self.bottom : 0, model: model)
@@ -547,8 +554,8 @@ struct ViewBandTests {
         let model = environment.model(TestFixtures.pdf("Resized"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         let visible = try #require(window.screen?.visibleFrame)
@@ -578,8 +585,8 @@ struct ViewBandTests {
         let model = environment.model(TestFixtures.pdf("Room"))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.sizeWindowToPaper(initialOnly: true)
         let unit = try #require(model.paperUnitSize)
@@ -605,8 +612,8 @@ struct ViewBandTests {
         let model = environment.model(try wideDocument(page: page))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.updateViewOptions { $0.showsCoverAlone = false }
         model.sizeWindowToPaper(initialOnly: true)
@@ -632,8 +639,8 @@ struct ViewBandTests {
         let model = environment.model(try wideDocument(page: page))
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         try await open(model)
         model.updateViewOptions { $0.showsCoverAlone = false }
         model.sizeWindowToPaper(initialOnly: true)

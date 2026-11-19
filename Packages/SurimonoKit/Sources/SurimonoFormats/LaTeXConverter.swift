@@ -121,7 +121,7 @@ final class LaTeXDocument {
         info.resolvedPageBox = box
         let labelMetrics = LaTeXLabelMetrics(info)
         info.styleVariables =
-            pageSettings.styleVariables(for: box) + "; " + labelMetrics.variables
+            pageSettings.styleVariables(for: box, info: info) + "; " + labelMetrics.variables
             + "; --latex-array-baseline: " + LaTeXPageSettings.number(labelMetrics.baselines[4])
         info.mainFontName = pageSettings.fonts.mainFontName
         info.localFontFaces = (pageSettings.fonts.faceRules + [labelMetrics.localFace].compactMap { $0 }).joined(
@@ -170,6 +170,8 @@ final class LaTeXDocument {
     let counters = LaTeXCounters()
     var figureCaptions: LaTeXFigureCaptions?
     var insideSubfigure = false
+    var insideBeamerFrame = false
+    var numberedBeamerCaptions = false
     var subequationPrefix: String?
     var headings: [Heading] = []
     var labels: [String: (number: String, id: String)] = [:]
@@ -514,8 +516,9 @@ final class LaTeXDocument {
             let kind: String
             switch (contentsLists[index], entry.level) {
             case (.headings, -1): kind = " class=\"latex-toc-part\""
-            case (.headings, 0): kind = " class=\"latex-toc-chapter\""
-            case (.headings, 1): kind = " class=\"latex-toc-section\""
+            case (.headings, let index) where LaTeXCounters.levels.indices.contains(index):
+                kind = " class=\"latex-toc-\(LaTeXCounters.levels[index])\""
+            case (.figures, _), (.tables, _): kind = " class=\"latex-toc-float\""
             default: kind = ""
             }
             html += "<li\(kind)><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"

@@ -8,6 +8,10 @@ struct LaTeXFlowLayout {
         var end: CGFloat
         var width: CGFloat
         var height: CGFloat { end - start }
+
+        fileprivate var valid: Bool {
+            strip >= 0 && start.isFinite && end.isFinite && height.isFinite && height > 0 && width.isFinite && width > 0
+        }
     }
 
     struct Item: Decodable {
@@ -20,6 +24,7 @@ struct LaTeXFlowLayout {
         var forced: String?
         var paragraph: Int?
         var heading: Bool?
+        var discardable: Bool?
     }
 
     struct Segment: Decodable {
@@ -59,8 +64,9 @@ struct LaTeXFlowLayout {
         var pieces: [Piece] = []
         var rules: [CGRect] = []
         fileprivate var footers: [Lane: Footer] = [:]
+        fileprivate var columnEnds: [Lane: Int] = [:]
         fileprivate var depths: [Lane: CGFloat] = [:]
-        fileprivate var floatCount = 0
+        fileprivate var floats: [Lane: FloatUsage] = [:]
 
         fileprivate mutating func draw(_ slice: Slice, at y: CGFloat, lane: Lane, scale: CGFloat = 1) {
             // Joining adjacent line groups makes capture cost proportional to columns rather than line count.
@@ -81,14 +87,23 @@ struct LaTeXFlowLayout {
         }
 
         fileprivate mutating func finish(height: CGFloat, full: Lane, skip: CGFloat) {
-            for (lane, footer) in footers.sorted(by: {
-                $0.key.x < $1.key.x || ($0.key.x == $1.key.x && $0.key.width < $1.key.width)
-            }) {
+            // Reserve footers during layout, then splice them into the capture stream at their
+            // column ends. Work backwards so earlier offsets remain valid. Page-wide notes read last.
+            let bodyCount = pieces.count
+            func insertion(_ lane: Lane) -> Int { columnEnds[lane] ?? bodyCount }
+            let lanes = footers.keys.sorted { a, b in
+                if insertion(a) != insertion(b) { return insertion(a) > insertion(b) }
+                if a == full || b == full { return a == full && b != full }
+                return a.x > b.x
+            }
+            for lane in lanes {
+                guard let footer = footers[lane] else { continue }
+                var blocks: [Piece] = []
                 var y = height - reserved(lane, full: full)
                 if lane == full { y = height - footer.height }
                 for (slice, space) in footer.floats {
                     y += space
-                    pieces.append(Piece(slice: slice, x: lane.x, y: y, scale: 1))
+                    blocks.append(Piece(slice: slice, x: lane.x, y: y, scale: 1))
                     y += slice.height
                 }
                 if !footer.notes.isEmpty {
@@ -96,10 +111,12 @@ struct LaTeXFlowLayout {
                     rules.append(CGRect(x: lane.x, y: y - min(3, skip / 2), width: min(180, lane.width), height: 0.5))
                 }
                 for slice in footer.notes {
-                    pieces.append(Piece(slice: slice, x: lane.x, y: y, scale: 1))
+                    blocks.append(Piece(slice: slice, x: lane.x, y: y, scale: 1))
                     y += slice.height
                 }
+                pieces.insert(contentsOf: blocks, at: insertion(lane))
             }
+            columnEnds.removeAll()
             footers.removeAll()
         }
     }
@@ -110,6 +127,14 @@ struct LaTeXFlowLayout {
         func overlaps(_ other: Lane) -> Bool { min(x + width, other.x + other.width) - max(x, other.x) > 0.001 }
     }
 
+    fileprivate struct FloatUsage {
+        var top = 0
+        var bottom = 0
+        var total = 0
+        var topHeight: CGFloat = 0
+        var occupied: CGFloat = 0
+    }
+
     fileprivate struct Footer {
         var notes: [Slice] = []
         var floats: [(Slice, CGFloat)] = []
@@ -118,6 +143,14 @@ struct LaTeXFlowLayout {
     }
 
     struct CannotFit: Error {}
+
+    /// Text already accepted into this column can move down while its reference still fits.
+    /// Keep the insertion point in PDF reading order as well as its vertical position.
+    private struct ColumnTop {
+        var index: Int
+        var textStart: CGFloat
+        var hasFloats: Bool
+    }
 
     private struct Waiting {
         let item: Item
@@ -132,13 +165,24 @@ struct LaTeXFlowLayout {
     private let input: Measurement
     private let full: Lane
     private let height: CGFloat
+    private let deadline: ContinuousClock.Instant?
     private var pages: [Page] = []
     private var page = Page()
     private var top: CGFloat = 0
 
-    static func pages(_ input: Measurement, width: CGFloat, height: CGFloat) throws -> [Page] {
-        var layout = Self(input: input, full: Lane(x: 0, width: width), height: height)
+    static func pages(
+        _ input: Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant? = nil
+    ) throws -> [Page] {
+        let spacing = [input.noteSkip, input.textFloatSep, input.floatSep, input.inTextSep]
+        guard width.isFinite, width > 0, height.isFinite, height > 0,
+            spacing.allSatisfy({ $0.isFinite && $0 >= 0 }), input.notes.values.allSatisfy(\.valid)
+        else { throw CannotFit() }
+        var layout = Self(input: input, full: Lane(x: 0, width: width), height: height, deadline: deadline)
         for var segment in input.segments where !segment.items.isEmpty {
+            try layout.checkBudget()
+            guard segment.rule.isFinite, segment.gap.isFinite,
+                segment.items.allSatisfy({ $0.gap.isFinite && ($0.slice?.valid ?? ($0.forced != nil)) })
+            else { throw CannotFit() }
             segment.items = keptItems(segment.items, capacity: height)
             // A clear page drains the old queue before text after the command can enter the new one.
             var start = 0
@@ -195,6 +239,11 @@ struct LaTeXFlowLayout {
         return result
     }
 
+    private func checkBudget() throws {
+        try Task.checkCancellation()
+        if let deadline, ContinuousClock.now >= deadline { throw CannotFit() }
+    }
+
     private mutating func endPage() {
         page.finish(height: height, full: full, skip: input.noteSkip)
         pages.append(page)
@@ -208,7 +257,7 @@ struct LaTeXFlowLayout {
         else { throw CannotFit() }
         var cursor = Cursor()
         while cursor.item < segment.items.count || !cursor.waiting.isEmpty {
-            try Task.checkCancellation()
+            try checkBudget()
             let initial = cursor
             let initialPage = page
             let initialTop = top
@@ -220,7 +269,9 @@ struct LaTeXFlowLayout {
                 var high = depth
                 var best = page
                 while high - low > 1 {
-                    let mid = (low + high) / 2
+                    try checkBudget()
+                    let mid = low + (high - low) / 2
+                    guard mid > low && mid < high else { break }
                     page = initialPage
                     top = initialTop
                     var trial = initial
@@ -250,57 +301,35 @@ struct LaTeXFlowLayout {
     private mutating func fill(_ segment: Segment, cursor: inout Cursor, limit: CGFloat) throws -> CGFloat {
         let width = (full.width - CGFloat(segment.columns - 1) * segment.gap) / CGFloat(segment.columns)
         var base = top
-        // Starred floats wait for a fresh physical page, even if its second column is empty.
-        while let first = cursor.waiting.first, let s = first.item.slice,
-            first.item.wide || isFloatPage(first.item), page.pieces.isEmpty || base > 0,
-            first.page < pages.count || !first.item.wide, top == 0
+        if let first = cursor.waiting.first, isFloatPage(first.item), page.pieces.isEmpty, page.footers.isEmpty,
+            !first.item.wide || first.page < pages.count
         {
-            let dedicated = isFloatPage(first.item)
-            let scale = min(1, height / s.height)
-            let lane = first.item.wide ? full : Lane(x: 0, width: width)
-            guard !dedicated || page.pieces.isEmpty,
-                try reserve(
-                    first.item, in: lane, footLane: segment.pageNotes ? full : lane,
-                    end: base + s.height * scale, limit: limit)
-            else { break }
-            page.draw(s, at: base, lane: lane, scale: scale)
-            cursor.waiting.removeFirst()
-            page.floatCount += 1
-            base += s.height * scale + input.textFloatSep
-            if dedicated { return height }
-            if page.floatCount >= 2 { break }
+            return try placeFloatPage(segment, cursor: &cursor, width: width, limit: limit)
+        }
+        // Starred floats wait for a fresh physical page, even if its second column is empty.
+        if top == 0 && page.pieces.isEmpty && page.footers.isEmpty {
+            var band = ColumnTop(index: page.pieces.count, textStart: base, hasFloats: false)
+            try placeTops(segment, cursor: &cursor, lane: full, wide: true, band: &band, y: &base, limit: limit)
         }
         var deepest = base
         for index in 0..<segment.columns {
             let lane = Lane(x: CGFloat(index) * (width + segment.gap), width: width)
+            defer {
+                if lane != full && page.footers[lane] != nil { page.columnEnds[lane] = page.pieces.count }
+            }
             var y = base
+            var band = ColumnTop(index: page.pieces.count, textStart: base, hasFloats: base > top)
+            try placeTops(segment, cursor: &cursor, lane: lane, wide: false, band: &band, y: &y, limit: limit)
+            var atColumnTop = true
+            var inTextKinds = Set<String>()
             while let first = cursor.waiting.first, !first.item.wide, !isFloatPage(first.item),
-                let s = first.item.slice, page.floatCount < 2
+                let s = first.item.slice, let spec = first.item.placement, spec.contains("b"),
+                try placeBottom(first.item, slice: s, spec: spec, segment: segment, lane: lane, y: y, limit: limit)
             {
-                let spec = first.item.placement ?? ""
-                if spec.contains("b") && !spec.contains("t") && !spec.contains("h") && !spec.contains("H"),
-                    try reserve(
-                        first.item, in: lane, footLane: segment.pageNotes ? full : lane,
-                        end: y + s.height + input.textFloatSep, limit: limit)
-                {
-                    addBottomFloat(s, kind: first.item.floatKind, lane: lane)
-                    cursor.waiting.removeFirst()
-                    continue
-                }
-                if page.footers[lane]?.kinds.contains(first.item.floatKind ?? "") == true { break }
-                let bang = spec.contains("!")
-                let scale = min(1, height / s.height)
-                guard bang || y + s.height <= height * 0.8 || page.pieces.isEmpty,
-                    try reserve(
-                        first.item, in: lane, footLane: segment.pageNotes ? full : lane,
-                        end: y + s.height * scale, limit: limit)
-                else { break }
-                page.draw(s, at: y, lane: lane, scale: scale)
                 cursor.waiting.removeFirst()
-                page.floatCount += 1
-                y += s.height * scale + (cursor.waiting.isEmpty ? input.textFloatSep : input.floatSep)
             }
             while cursor.item < segment.items.count {
+                if cursor.item.isMultiple(of: 128) { try checkBudget() }
                 let item = segment.items[cursor.item]
                 if let forced = item.forced {
                     cursor.item += 1
@@ -313,34 +342,65 @@ struct LaTeXFlowLayout {
                 }
                 guard let s = item.slice, s.height > 0 else { throw CannotFit() }
                 if let spec = item.placement {
-                    let footLane = segment.pageNotes ? full : lane
-                    let earlierAtBottom = page.footers[lane]?.kinds.contains(item.floatKind ?? "") == true
-                    if !item.wide && !earlierAtBottom && cursor.waiting.isEmpty
-                        && (spec.contains("h") || spec.contains("H")),
+                    let pinned = spec.contains("H") && !item.wide
+                    // Two in-text floats each own their upper and lower intextsep.
+                    let above =
+                        atColumnTop && band.hasFloats
+                        ? input.floatSep - input.textFloatSep : (y == 0 ? 0 : input.inTextSep)
+                    let scale = pinned ? min(1, height / s.height) : 1
+                    let below = min(input.inTextSep, max(0, height - s.height * scale))
+                    let cost = above + s.height * scale + below
+                    let queueClear =
+                        cursor.waiting.isEmpty && page.footers[lane]?.kinds.contains(item.floatKind ?? "") != true
+                    if pinned
+                        || !item.wide && queueClear && spec.contains("h")
+                            && allowsFloat(item, cost: cost, lane: lane, footLane: segment.pageNotes ? full : lane),
                         try reserve(
-                            item, in: lane, footLane: footLane, end: y + s.height + input.inTextSep, limit: limit)
+                            item, in: lane, footLane: segment.pageNotes ? full : lane, end: y + cost, limit: limit)
                     {
-                        page.draw(s, at: y + input.inTextSep / 2, lane: lane)
-                        y += s.height + input.inTextSep
-                    } else if !item.wide && cursor.waiting.isEmpty && spec.contains("b") && !spec.contains("t"),
-                        page.floatCount < 2,
-                        try reserve(
-                            item, in: lane, footLane: footLane, end: y + s.height + input.textFloatSep, limit: limit)
+                        page.draw(s, at: y + above, lane: lane, scale: scale)
+                        y += cost
+                        atColumnTop = false
+                        inTextKinds.insert(item.floatKind ?? "")
+                        if !pinned {
+                            page.floats[lane, default: FloatUsage()].total += 1
+                            page.floats[lane, default: FloatUsage()].occupied += cost
+                        }
+                    } else if pinned {
+                        // A frame figure travels with the source sequence, including when it needs a fresh column.
+                        break
+                    } else if !item.wide && queueClear && spec.contains("t") && !spec.contains("h")
+                        && !inTextKinds.contains(item.floatKind ?? ""),
+                        try insertTop(
+                            item, slice: s, lane: lane, footLane: segment.pageNotes ? full : lane,
+                            band: &band, y: &y, limit: limit)
                     {
-                        addBottomFloat(s, kind: item.floatKind, lane: lane)
+                        cursor.item += 1
+                        continue
                     } else {
-                        cursor.waiting.append(Waiting(item: item, page: pages.count))
+                        let wantsBottom = !item.wide && cursor.waiting.isEmpty && spec.contains("b")
+                        let placed =
+                            wantsBottom
+                            ? try placeBottom(
+                                item, slice: s, spec: spec, segment: segment, lane: lane, y: y, limit: limit)
+                            : false
+                        if !placed { cursor.waiting.append(Waiting(item: item, page: pages.count)) }
                     }
                     cursor.item += 1
                     continue
                 }
-                let gap = y == base ? 0 : item.gap
+                if item.discardable == true && atColumnTop {
+                    cursor.item += 1
+                    continue
+                }
+                let gap = atColumnTop ? 0 : item.gap
                 let scale = min(1, height / s.height)
                 let end = y + gap + s.height * scale
                 guard try reserve(item, in: lane, footLane: segment.pageNotes ? full : lane, end: end, limit: limit)
                 else { break }
                 page.draw(s, at: y + gap, lane: lane, scale: scale)
                 y = end
+                atColumnTop = false
                 cursor.item += 1
             }
             deepest = max(deepest, y)
@@ -388,15 +448,112 @@ struct LaTeXFlowLayout {
         return true
     }
 
-    private mutating func addBottomFloat(_ slice: Slice, kind: String?, lane: Lane) {
+    private func allowsFloat(_ item: Item, cost: CGFloat, lane: Lane, footLane: Lane) -> Bool {
+        let usage = page.floats[lane] ?? FloatUsage()
+        let spanning = lane == full ? FloatUsage() : page.floats[full] ?? FloatUsage()
+        // Bottom floats are already in the footer reservation. Only add the height of their
+        // neighbouring notes here; each float (and its separation) is counted exactly once.
+        let notes = page.footers.filter { $0.key.overlaps(lane) }.values.map {
+            $0.notes.reduce(CGFloat.zero) { $0 + $1.height } + ($0.notes.isEmpty ? 0 : input.noteSkip)
+        }.reduce(0, +)
+        let newNotes = item.notes.reduce(CGFloat.zero) { $0 + (input.notes[$1]?.height ?? 0) }
+        let skip = !item.notes.isEmpty && page.footers[footLane]?.notes.isEmpty != false ? input.noteSkip : 0
+        return usage.total + spanning.total < 3
+            && (item.placement?.contains("!") == true
+                || usage.occupied + spanning.occupied + cost + notes + newNotes + skip <= height * 0.8)
+    }
+
+    private mutating func placeTops(
+        _ segment: Segment, cursor: inout Cursor, lane: Lane, wide: Bool, band: inout ColumnTop,
+        y: inout CGFloat, limit: CGFloat
+    ) throws {
+        while let first = cursor.waiting.first, first.item.wide == wide, !isFloatPage(first.item),
+            let s = first.item.slice, let spec = first.item.placement,
+            !wide || first.page < pages.count, wide || spec.contains("t") || spec.contains("h"),
+            try insertTop(
+                first.item, slice: s, lane: lane, footLane: segment.pageNotes ? full : lane,
+                band: &band, y: &y, limit: limit)
+        {
+            cursor.waiting.removeFirst()
+        }
+    }
+
+    private mutating func insertTop(
+        _ item: Item, slice: Slice, lane: Lane, footLane: Lane, band: inout ColumnTop, y: inout CGFloat, limit: CGFloat
+    ) throws -> Bool {
+        let use = page.floats[lane] ?? FloatUsage()
+        let spanning = lane == full ? FloatUsage() : page.floats[full] ?? FloatUsage()
+        let separation = band.hasFloats ? input.floatSep : 0
+        let cost = slice.height + (band.hasFloats ? separation : input.textFloatSep)
+        guard use.top + spanning.top < 2,
+            item.placement?.contains("!") == true
+                || use.topHeight + spanning.topHeight + separation + slice.height <= height * 0.7,
+            allowsFloat(item, cost: cost, lane: lane, footLane: footLane),
+            page.footers[lane]?.kinds.contains(item.floatKind ?? "") != true,
+            try reserve(item, in: lane, footLane: footLane, end: y + cost, limit: limit)
+        else { return false }
+        let floatY = band.textStart + (band.hasFloats ? separation - input.textFloatSep : 0)
+        for i in band.index..<page.pieces.count { page.pieces[i].y += cost }
+        page.pieces.insert(Piece(slice: slice, x: lane.x, y: floatY, scale: 1), at: band.index)
+        band.index += 1
+        band.textStart += cost
+        band.hasFloats = true
+        y += cost
+        page.depths[lane] = max(page.depths[lane] ?? 0, y)
+        page.floats[lane, default: FloatUsage()].top += 1
+        page.floats[lane, default: FloatUsage()].total += 1
+        page.floats[lane, default: FloatUsage()].topHeight += separation + slice.height
+        page.floats[lane, default: FloatUsage()].occupied += cost
+        return true
+    }
+
+    private mutating func placeBottom(
+        _ item: Item, slice: Slice, spec: String, segment: Segment, lane: Lane, y: CGFloat, limit: CGFloat
+    ) throws -> Bool {
+        let cost = slice.height + input.textFloatSep
+        guard page.floats[lane, default: FloatUsage()].bottom < 1,
+            spec.contains("!") || slice.height <= height * 0.3,
+            allowsFloat(item, cost: cost, lane: lane, footLane: segment.pageNotes ? full : lane),
+            try reserve(item, in: lane, footLane: segment.pageNotes ? full : lane, end: y + cost, limit: limit)
+        else { return false }
         page.footers[lane, default: Footer()].floats.append((slice, input.textFloatSep))
-        page.footers[lane, default: Footer()].height += slice.height + input.textFloatSep
-        page.footers[lane, default: Footer()].kinds.insert(kind ?? "")
-        page.floatCount += 1
+        page.footers[lane, default: Footer()].height += cost
+        page.footers[lane, default: Footer()].kinds.insert(item.floatKind ?? "")
+        page.floats[lane, default: FloatUsage()].bottom += 1
+        page.floats[lane, default: FloatUsage()].total += 1
+        page.floats[lane, default: FloatUsage()].occupied += cost
+        return true
+    }
+
+    private mutating func placeFloatPage(
+        _ segment: Segment, cursor: inout Cursor, width: CGFloat, limit: CGFloat
+    ) throws -> CGFloat {
+        var used: CGFloat = 0
+        while let first = cursor.waiting.first, isFloatPage(first.item), let s = first.item.slice,
+            !first.item.wide || first.page < pages.count
+        {
+            let lane = first.item.wide ? full : Lane(x: 0, width: width)
+            let scale = min(1, height / s.height)
+            let y = used + (page.pieces.isEmpty ? 0 : input.floatSep)
+            guard
+                try reserve(
+                    first.item, in: lane, footLane: segment.pageNotes ? full : lane,
+                    end: y + s.height * scale, limit: limit)
+            else { break }
+            page.draw(s, at: y, lane: lane, scale: scale)
+            used = y + s.height * scale
+            cursor.waiting.removeFirst()
+        }
+        // Equal stretch above and below the float group (LaTeX's fptop and fpbot glue).
+        let offset = max(0, height - page.reserved(full, full: full) - used) / 2
+        for i in page.pieces.indices { page.pieces[i].y += offset }
+        return height
     }
 
     private func isFloatPage(_ item: Item) -> Bool {
-        guard let spec = item.placement, spec.contains("p"), let slice = item.slice else { return false }
-        return !spec.contains(where: { "htbH".contains($0) }) || slice.height > height * 0.7
+        guard let spec = item.placement, let s = item.slice else { return false }
+        let bottomOnly = spec.contains("b") && !spec.contains("t") && !spec.contains("h") && !item.wide
+        return !spec.contains(where: { "htbH".contains($0) }) || s.height + input.textFloatSep > height
+            || !spec.contains("!") && (s.height > height * 0.5 || bottomOnly && s.height > height * 0.3)
     }
 }

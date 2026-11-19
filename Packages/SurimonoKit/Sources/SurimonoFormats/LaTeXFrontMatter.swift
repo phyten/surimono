@@ -113,6 +113,9 @@ extension LaTeXDocumentClassInfo {
             return [
                 "IEEEauthorblockN", "IEEEauthorblockA", "IEEEauthorrefmark", "IEEEkeywords", "IEEEcompsocitemizethanks",
             ].contains(command)
+        case "beamer":
+            return ["institute", "subtitle", "frame", "titlepage", "frametitle", "framesubtitle", "setbeamertemplate"]
+                .contains(command)
         case "llncs": return ["institute", "inst", "email", "orcidID", "keywords"].contains(command)
         case "acmart":
             return [
@@ -163,6 +166,7 @@ extension LaTeXReader {
             let source = argument() ?? ""
             front.addAffiliation(label: label, parts: affiliationParts(source), attach: label == nil)
         case "institute":
+            if document.classInfo.name == "beamer" { _ = optional() }
             let sources = LaTeXLexer.split(argument() ?? "", at: ["\\and"])
             let marked = front.authors.contains { !$0.affiliations.isEmpty }
             for (position, source) in sources.enumerated() {
@@ -357,14 +361,15 @@ extension LaTeXReader {
 
     func makeTitle() {
         let front = document.frontMatter
-        guard !front.printed, !document.makingTitle else { return }
+        guard !front.printed || document.insideBeamerFrame, !document.makingTitle else { return }
         front.printed = true
         document.makingTitle = true
         defer { document.makingTitle = false }
         let titleStyle =
             document.classInfo.hidesTitlePageNumber
             ? " data-latex-page-action=\"thispagestyle\" data-value=\"empty\"" : ""
-        var html = "<header class=\"latex-title-block\"\(titleStyle)>\n"
+        let span = document.classInfo.columns > 1 ? " data-latex-wide" : ""
+        var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)>\n"
         if let title = front.title {
             let titleHTML = inline(title)
             document.titleHTML = titleHTML

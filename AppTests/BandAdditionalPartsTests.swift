@@ -92,6 +92,7 @@ struct BandAdditionalPartsTests {
                 self?.saveDestinationRequests += 1
                 completion(nil)
             }
+            if measurementsOnly { window.alphaValue = 0 }
             window.orderFrontRegardless()
             window.contentView?.layoutSubtreeIfNeeded()
             window.displayIfNeeded()

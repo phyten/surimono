@@ -42,6 +42,14 @@ struct PrintTopBarHitTests {
         model.printSubmit = { _, _, _ in Issue.record("A print job was submitted") }
         model.outputOverride = { _, _ in Issue.record("An output was started") }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        var handedOff = false
+        defer {
+            if !handedOff {
+                controller.close()
+                try? FileManager.default.removeItem(at: directory)
+                suite.remove()
+            }
+        }
         let window = try #require(controller.window)
         controller.showWindow(nil)
         model.start()
@@ -51,6 +59,7 @@ struct PrintTopBarHitTests {
         try await Task.sleep(for: .milliseconds(800))
         // A refused entry would leave the view mode, where the click test's "back to the view" is already true.
         try #require(model.mode == (compare ? .compare : .print))
+        handedOff = true
         return Screen(model: model, controller: controller, window: window, directory: directory, suite: suite)
     }
 

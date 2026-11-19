@@ -93,6 +93,17 @@ struct LaTeXPageSettingsTests {
         #expect(info.styleVariables.contains("--latex-\(input.1)-font: \"\(input.2)\""))
     }
 
+    @Test("指定した等幅書体と Latin Modern の実在する太字をコードに渡す")
+    func monoFamilies() throws {
+        let scaled = try #require(document(#"\setmonofont[Scale=0.9]{Menlo}"#).latexClass)
+        #expect(scaled.localFontFaces.contains(#"local("Menlo-Bold"); font-weight: bold;"#))
+        let lm = try #require(document(#"\usepackage{lmodern}"#).latexClass)
+        #expect(lm.localFontFaces.contains(#"local("LMMonoLt10-Bold"); font-weight: bold;"#))
+        #expect(lm.styleVariables.contains(#"--latex-mono-font: "Surimono TeX Local 1""#))
+        let override = try #require(document(#"\usepackage{lmodern}\setmonofont{Menlo}"#).latexClass)
+        #expect(override.styleVariables.contains(#"--latex-mono-font: "Menlo""#))
+    }
+
     @Test("babel の本文書体と字形指定は fontspec と同じローカル書体として読む")
     func babelFont() throws {
         let result = document(
@@ -136,7 +147,7 @@ struct LaTeXPageSettingsTests {
         #expect(result.body.contains("<p>Preserved.</p>"))
         #expect(result.body.contains("--latex-list-margin: 3em"))
         #expect(result.body.contains("--latex-itemsep: 0pt"))
-        #expect(result.body.contains("text-align: right; font-weight: bold"))
+        #expect(result.body.contains("text-align: end; font-weight: bold"))
         #expect(result.latexClass?.mainLanguage == "ja")
     }
 

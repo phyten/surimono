@@ -95,12 +95,18 @@ enum VerticalPaginator {
 @MainActor
 enum FlowPageCapture {
     static func draw(
-        _ rect: CGRect, from webView: WKWebView, into target: CGRect, in context: CGContext, transparent: Bool = false
+        _ rect: CGRect, from webView: WKWebView, into target: CGRect, in context: CGContext, transparent: Bool = false,
+        deadline: ContinuousClock.Instant? = nil
     ) async throws {
         let config = WKPDFConfiguration()
         config.rect = rect
         config.allowTransparentBackground = transparent
-        let data = try await webView.pdf(configuration: config)
+        let data: Data
+        if let deadline {
+            data = try await webView.pdfForPrinting(configuration: config, until: deadline)
+        } else {
+            data = try await webView.pdf(configuration: config)
+        }
         try Task.checkCancellation()
         try draw(data, into: target, in: context)
     }

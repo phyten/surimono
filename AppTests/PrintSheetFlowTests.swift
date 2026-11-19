@@ -347,8 +347,9 @@ struct PrintSheetFlowTests {
             defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = host
-        window.orderFront(nil)
         defer { window.close() }
+        window.alphaValue = 0
+        window.orderFront(nil)
         func pdfView(in view: NSView) -> PDFView? {
             if let pdf = view as? PDFView { return pdf }
             return view.subviews.lazy.compactMap { pdfView(in: $0) }.first
