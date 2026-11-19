@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.024477626948215182,
+    "changedAreaRatio" : 0.024830568124685773,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 24.6,
-    "maxLuminance" : 161.734375,
-    "maxShiftPt" : 27.2,
+    "maxLuminance" : 167.109375,
+    "maxShiftPt" : 25.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -58,98 +58,98 @@
           "text" : "Spis treści",
           "width" : 63.1,
           "x" : 56.8,
-          "y" : 226.7
+          "y" : 233.9
         },
         {
           "height" : 11,
           "text" : "1 Znaki 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "2 Wysokość 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 15.9,
           "text" : "1 Znaki",
           "width" : 58.2,
           "x" : 56.8,
-          "y" : 301.1
+          "y" : 310.7
         },
         {
           "height" : 11,
           "text" : "„Najpierw odczytaj dolny znak”.",
           "width" : 133.6,
           "x" : 81.7,
-          "y" : 326.6
+          "y" : 336.2
         },
         {
           "height" : 11,
           "text" : "Rysunek 1: Położenie deski",
           "width" : 112.5,
           "x" : 241.4,
-          "y" : 395.3
+          "y" : 404.9
         },
         {
           "height" : 15.9,
           "text" : "2 Wysokość",
           "width" : 82.4,
           "x" : 56.8,
-          "y" : 435.4
+          "y" : 445
         },
         {
           "height" : 11,
           "text" : "Znak Wysokość (mm)",
           "width" : 97.8,
           "x" : 248.7,
-          "y" : 473.6
+          "y" : 480.8
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 90,
           "x" : 256.5,
-          "y" : 486.4
+          "y" : 493.6
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 90,
           "x" : 256.5,
-          "y" : 498.4
+          "y" : 505.6
         },
         {
           "height" : 11,
           "text" : "Tabela 1: Wysokość znaków",
           "width" : 116,
           "x" : 239.6,
-          "y" : 520
+          "y" : 528
         },
         {
           "height" : 15.9,
           "text" : "Literatura",
           "width" : 64.5,
           "x" : 56.8,
-          "y" : 560.1
+          "y" : 567.3
         },
         {
           "height" : 11,
           "text" : "[1]",
           "width" : 11.6,
           "x" : 56.8,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,
           "text" : "Zeszyt pomiarów, 2025, Rozdział 2.",
           "width" : 146.4,
           "x" : 76.7,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,

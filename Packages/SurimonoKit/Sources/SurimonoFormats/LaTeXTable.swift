@@ -9,7 +9,7 @@ struct LaTeXTable {
         var noTrailingSpace = false
         var ruleLeft = false
         var ruleRight = false
-        var vertical: String?
+        var paragraph: Character?
         var width: String?
         var bold = false
     }
@@ -64,13 +64,16 @@ struct LaTeXTable {
         /// Columns (1-based, inclusive) of `\cline` and `\cmidrule` above the row.
         var partialRules: [(columns: ClosedRange<Int>, rule: Rule)] = []
         var hasBooktabsAbove: Bool { ruleAbove?.isBooktabs == true || partialRules.contains { $0.rule.isBooktabs } }
+        var extraDepth: String?
         var isHeader = false
         var background: (spec: String, model: String?)?
     }
 
     let spec: String
     let body: String
+    var basicBidi = false
     var isLongtable = false
+    var targetWidth: String?
     var columnTypes: [Character: String] = [:]
 
     var arrayStretch: Double?
@@ -83,6 +86,8 @@ struct LaTeXTable {
         var budget = Self.maximumColumns
         var aliasBudget = 32_768
         let columns = Self.columns(Array(spec), budget: &budget, aliases: columnTypes, aliasBudget: &aliasBudget)
+        let flexible = columns.filter { $0.paragraph == "X" }.count
+        let tableWidth = flexible == 0 ? nil : targetWidth
         let rows = self.rows()
         var pendingRowspans: [Int: Int] = [:]
         var head = ""
@@ -106,12 +111,20 @@ struct LaTeXTable {
                 let cell = Self.cell(
                     source.trimmingCharacters(in: .whitespacesAndNewlines), aliases: columnTypes,
                     aliasBudget: &aliasBudget)
-                let format = column < columns.count ? columns[column] : Column()
-                var style = ["text-align: \(cell.alignment ?? format.alignment)"]
-                if let vertical = cell.vertical ?? format.vertical {
+                let format = cell.columnFormat ?? (column < columns.count ? columns[column] : Column())
+                var style = ["text-align: \(format.alignment)"]
+                if let vertical = cell.vertical {
                     style.append("vertical-align: \(vertical)")
+                } else if let column = format.paragraph, column != "X" {
+                    // General themes can use native cell alignment. The class sheet sets the baseline
+                    // shared by the paragraph boxes and supplies their internal reference lines.
+                    let fallback = column == "m" ? "middle" : column == "b" ? "bottom" : "top"
+                    style.append("vertical-align: var(--latex-cell-align, \(fallback))")
                 }
-                if let width = format.width { style.append("width: \(width)") }
+                if let width = format.width {
+                    style.append("width: \(width)")
+                    if tableWidth != nil { style.append("min-width: \(width)") }
+                }
                 if format.noLeadingSpace { style.append("padding-inline-start: 0") }
                 if format.bold { style.append("font-weight: bold") }
                 if let value = cell.background.flatMap({ color($0.spec, $0.model) }) ?? rowBackground {
@@ -138,15 +151,22 @@ struct LaTeXTable {
                     }
                 }
                 let tag = row.isHeader ? "th" : "td"
-                var attributes = " style=\"\(style.joined(separator: "; "))\""
+                let direction = basicBidi ? " dir=\"rtl\"" : ""
+                let columnType = format.paragraph.map { " data-latex-column=\"\($0)\"" } ?? ""
+                var attributes = "\(direction)\(columnType) style=\"\(style.joined(separator: "; "))\""
                 if !ruleClasses.isEmpty { attributes += " class=\"\(ruleClasses.joined(separator: " "))\"" }
                 if cell.columns > 1 { attributes += " colspan=\"\(cell.columns)\"" }
                 if cell.rows > 1 {
                     attributes += " rowspan=\"\(cell.rows)\""
                     pendingRowspans[column] = cell.rows - 1
                 }
-                cells +=
-                    "<\(tag)\(attributes)>\(cell.isPlainText ? HTML.escape(cell.content) : inline(cell.content))</\(tag)>"
+                var contents = cell.isPlainText ? HTML.escape(cell.content) : inline(cell.content)
+                if format.paragraph == "m", cell.vertical == nil {
+                    contents = "<span class=\"latex-middle-cell\"><span>\(contents)</span></span>"
+                } else if format.paragraph == "b", cell.vertical == nil {
+                    contents = "<span class=\"latex-bottom-cell\">\(contents)</span>"
+                }
+                cells += "<\(tag)\(attributes)>\(contents)</\(tag)>"
                 column += cell.columns
             }
             // The white space on either side of a booktabs rule belongs to the adjacent text rows.
@@ -159,7 +179,8 @@ struct LaTeXTable {
                 spacing += " latex-above-rule"
             }
             let attr = spacing.isEmpty ? "" : " class=\"\(spacing.dropFirst())\""
-            let rowHTML = "<tr\(attr)>\(cells)</tr>\n"
+            let depth = row.extraDepth.map { " style=\"--latex-row-skip: \($0)\"" } ?? ""
+            let rowHTML = "<tr\(attr)\(depth)>\(cells)</tr>\n"
             if isLongtable && row.isHeader { head += rowHTML } else { bodyHTML += rowHTML }
         }
         let thead = head.isEmpty ? "" : "<thead>\n\(head)</thead>"
@@ -169,8 +190,15 @@ struct LaTeXTable {
             strut.append("--latex-arraystretch: \(LaTeXPageSettings.number(arrayStretch))")
         }
         if let extraRowHeight { strut.append("--latex-extrarowheight: \(extraRowHeight)") }
+        if let tableWidth {
+            strut += ["width: \(tableWidth)", "--latex-x-share: \(LaTeXPageSettings.number(100 / Double(flexible)))%"]
+        }
+        let sized = tableWidth == nil ? "" : " data-latex-tabularx"
         let style = strut.isEmpty ? "" : " style=\"\(strut.joined(separator: "; "))\""
-        let html = "<table class=\"\(cssClass)\"\(style)>\(thead)<tbody>\n\(bodyHTML)</tbody></table>\n"
+        // babel's basic bidi mode leaves the TeX alignment grid LTR; each entry still reads RTL.
+        let direction = basicBidi ? " dir=\"ltr\"" : ""
+        let html =
+            "<table\(direction) class=\"\(cssClass)\"\(sized)\(style)>\(thead)<tbody>\n\(bodyHTML)</tbody></table>\n"
         return captions.isEmpty ? html : "<figure class=\"latex-table latex-longtable\">\n\(captions)\(html)</figure>\n"
     }
 
@@ -241,13 +269,11 @@ struct LaTeXTable {
                     switch character {
                     case "c", "C", "S": "center"
                     case "r", "R": "end"
-                    case "p": "justify"
+                    case "p", "m", "b", "X": "justify"
                     default: "start"
                     }
-                if "pmb".contains(character) {
-                    column.width = LaTeXSymbols.cssLength(group())
-                    column.vertical = character == "p" ? "top" : character == "m" ? "middle" : "bottom"
-                }
+                if "pmbX".contains(character) { column.paragraph = character }
+                if "pmb".contains(character) { column.width = LaTeXSymbols.printLength(group()) }
                 decoration.apply(to: &column)
                 decoration = Decoration()
                 column.noLeadingSpace = suppressLeadingSpace
@@ -335,8 +361,20 @@ struct LaTeXTable {
         var rows: [Row] = []
         var carriedRule: Rule?
         var sawMidrule = false
-        for source in LaTeXLexer.split(body, at: ["\\\\", "\\tabularnewline"], protectingEnvironments: true) {
+        let sources = LaTeXLexer.split(body, at: ["\\\\", "\\tabularnewline"], protectingEnvironments: true)
+        for (i, source) in sources.enumerated() {
             var text = Substring(source)
+            if i > 0 {
+                if text.first == "*" { text = text.dropFirst() }
+                let trimmed = text.drop(while: { $0.isWhitespace })
+                if trimmed.first == "[", let end = trimmed.firstIndex(of: "]"),
+                    let depth = LaTeXSymbols.printLength(
+                        String(trimmed[trimmed.index(after: trimmed.startIndex)..<end]))
+                {
+                    if !rows.isEmpty { rows[rows.count - 1].extraDepth = depth }
+                    text = trimmed[trimmed.index(after: end)...]
+                }
+            }
             var row = Row()
             // Rules written before a row's cells belong above it; a source row of rules alone goes under the last.
             while true {
@@ -418,7 +456,7 @@ struct LaTeXTable {
         var background: (spec: String, model: String?)?
         var columns = 1
         var rows = 1
-        var alignment: String?
+        var columnFormat: Column?
     }
 
     /// `\multicolumn{n}{spec}{text}` and `\multirow{n}{width}{text}` around a cell's text.
@@ -454,7 +492,7 @@ struct LaTeXTable {
             let spec = columns(Array(reader.group()), budget: &budget, aliases: aliases, aliasBudget: &aliasBudget)
             var inner = cell(reader.group(), aliases: aliases, aliasBudget: &aliasBudget, depth: depth + 1)
             inner.columns = min(max(count, 1), 100)
-            inner.alignment = spec.first?.alignment
+            inner.columnFormat = spec.first
             return inner
         }
         if reader.take("\\multirow") {

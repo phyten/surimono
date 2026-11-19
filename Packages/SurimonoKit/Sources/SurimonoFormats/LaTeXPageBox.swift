@@ -13,6 +13,13 @@ public struct LaTeXPageBox: Equatable, Sendable {
     public let mirrorsSides: Bool
     package var usesFixedClassOrigin = false
 
+    var turnedForLandscape: Self {
+        Self(
+            paperWidth: paperHeight, paperHeight: paperWidth, left: bottom, right: top,
+            top: left, bottom: right, headSep: headSep, footSkip: footSkip,
+            mirrorsSides: mirrorsSides, usesFixedClassOrigin: usesFixedClassOrigin)
+    }
+
     public var textWidth: Double { paperWidth - left - right }
     public var textHeight: Double { paperHeight - top - bottom }
 }
@@ -113,6 +120,15 @@ struct LaTeXClassBox {
     ) -> Self {
         let className = info.name
         let size = info.pointSize
+        if let box = LaTeXClassBox.bookBox(info, width: paperWidth, height: paperHeight, twoSided: twoSided) {
+            return box
+        }
+        if className == "exam" {
+            let inch = 72.27
+            return Self(
+                width: paperWidth - 2 * inch, height: paperHeight - 2.2 * inch, left: inch, top: inch,
+                headHeight: 15, headSep: 15, footSkip: 29)
+        }
         if className == "jlreq" {
             let zw = Double(size)
             let baseline = 1.7 * zw
@@ -148,6 +164,11 @@ struct LaTeXClassBox {
         let doubleMeasure = info.columns == 2 && ["article", "report", "book"].contains(className)
         let width = max(1, floor(min(paperWidth - 2 * inch, doubleMeasure ? 2 * classWidth : classWidth)))
         let height = max(0, floor((paperHeight - 3.5 * inch) / baseline)) * baseline + Double(size)
+        if className == "letter" {
+            return Self(
+                width: width, height: height, left: (paperWidth - width) / 2, top: inch + 27 + 12 + 45,
+                headHeight: 12, headSep: 45, footSkip: 25)
+        }
         let headSep = book ? (size == 10 ? 0.25 : 0.275) * inch : 25
         let footSkip = book && size != 12 ? (size == 10 ? 0.35 : 0.38) * inch : 30
         let oddSideMargin = ((paperWidth - width) * (twoSided ? 0.4 : 0.5) - inch).rounded(.towardZero)

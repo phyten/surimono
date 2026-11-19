@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.016066722475428643,
+    "changedAreaRatio" : 0.016011947209045155,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 155.296875,
-    "maxShiftPt" : 35.1,
+    "maxShiftPt" : 33.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 7
@@ -35,126 +35,126 @@
           "text" : "A stack gains one tile per row. Subtract two consecutive squares and sum:",
           "width" : 325.4,
           "x" : 125.4,
-          "y" : 177.5
+          "y" : 175.1
         },
         {
           "height" : 13.1,
           "text" : "(22",
           "width" : 12.3,
           "x" : 125.7,
-          "y" : 200.9
+          "y" : 198.5
         },
         {
           "height" : 13.1,
           "text" : "− 12) + (32",
           "width" : 47.3,
           "x" : 140.7,
-          "y" : 200.9
+          "y" : 198.5
         },
         {
           "height" : 13.1,
           "text" : "− 22) +⋯ + ((n + 1)2",
           "width" : 97,
           "x" : 190.7,
-          "y" : 200.9
+          "y" : 198.5
         },
         {
           "height" : 13.1,
           "text" : "− n2)",
           "width" : 23.8,
           "x" : 290.4,
-          "y" : 200.9
+          "y" : 198.5
         },
         {
           "height" : 13.1,
           "text" : "= (n + 1)2",
           "width" : 44.9,
           "x" : 380.9,
-          "y" : 217.7
+          "y" : 215.3
         },
         {
           "height" : 14.1,
           "text" : "− 1. (1)",
           "width" : 40.7,
           "x" : 428.4,
-          "y" : 219.1
+          "y" : 216.7
         },
         {
           "height" : 26.8,
           "text" : "2 ∑n",
           "width" : 16.4,
           "x" : 241.6,
-          "y" : 244.9
+          "y" : 242.5
         },
         {
           "height" : 8.2,
           "text" : "k=1",
           "width" : 12.8,
           "x" : 249.1,
-          "y" : 269.6
+          "y" : 267.2
         },
         {
           "height" : 13.1,
           "text" : "k + n = (n + 1)2",
           "width" : 71.3,
           "x" : 264.3,
-          "y" : 252.7
+          "y" : 250.3
         },
         {
           "height" : 11.7,
           "text" : "− 1",
           "width" : 14.9,
           "x" : 338.3,
-          "y" : 254.1
+          "y" : 251.7
         },
         {
           "height" : 13.1,
           "text" : "= n2 + 2n,",
           "width" : 46.4,
           "x" : 290.7,
-          "y" : 278.1
+          "y" : 275.7
         },
         {
           "height" : 11.7,
           "text" : "k=",
           "width" : 16,
           "x" : 282.5,
-          "y" : 303.3
+          "y" : 300.9
         },
         {
           "height" : 8.2,
           "text" : "1",
           "width" : 3.5,
           "x" : 302.5,
-          "y" : 302.1
+          "y" : 299.7
         },
         {
           "height" : 14.3,
           "text" : "2 n(n + 1).",
           "width" : 44.3,
           "x" : 302.5,
-          "y" : 303.3
+          "y" : 300.9
         },
         {
           "height" : 26.8,
           "text" : "∑n",
           "width" : 9.7,
           "x" : 266.4,
-          "y" : 294.1
+          "y" : 291.7
         },
         {
           "height" : 8.2,
           "text" : "k=1",
           "width" : 12.8,
           "x" : 267.2,
-          "y" : 318.8
+          "y" : 316.4
         },
         {
           "height" : 11.7,
           "text" : "For four rows the tray therefore holds ten tiles.",
           "width" : 207,
           "x" : 125.4,
-          "y" : 338.3
+          "y" : 335.9
         },
         {
           "height" : 11.7,

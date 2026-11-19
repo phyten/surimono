@@ -7,6 +7,28 @@ import Testing
 
 @MainActor
 struct LaTeXPageLayoutTests {
+    @Test("横置きの原稿は組版と柱を同じ横長用紙に置き、利用者の縦指定を優先する")
+    func landscapeDocument() async throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        for (options, body) in [
+            ("", #"\begin{landscape}Wide\end{landscape}"#),
+            (#"\usepackage[landscape]{geometry}"#, "Wide"),
+        ] {
+            let text = "\\documentclass{article}" + options + "\\begin{document}" + body + "\\end{document}"
+            let source = DocumentSource(data: Data(text.utf8), format: .latex)
+            let renderer = DocumentRenderer(paginate: { request in try RenderingFixtures.pdf(size: request.pageSize) })
+            var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+            let prepared = try await renderer.prepare(source, settings: settings)
+            #expect(prepared.resolvedOrientation == .landscape)
+            let page = try #require(prepared.viewDocument.page(at: 0))
+            #expect(page.bounds(for: .mediaBox).width > page.bounds(for: .mediaBox).height)
+            #expect(prepared.viewFurniture[0]?.lines.bottom == ["", "1", ""])
+            settings.paperOrientation = .portrait
+            let upright = try await renderer.prepare(source, settings: settings)
+            #expect(upright.resolvedOrientation == .portrait)
+        }
+    }
+
     @Test("用紙が異なるときは本文の寸法と余白比を保ち、読む PDF と用紙の柱はその本文に揃う")
     func readingPages() async throws {
         let source = DocumentSource(
@@ -43,6 +65,24 @@ struct LaTeXPageLayoutTests {
         #expect(prepared.viewDocument.findString("IV").isEmpty)
         let sheet = try await renderer.composeSheet(for: prepared)
         #expect(sheet.sheetDocument.page(at: 1)?.string?.contains("V") == true)
+    }
+
+    @Test("KOMA の柱本文とノンブルに別の書体を渡し、柱中の同じ数字には印を付けない")
+    func komaFurniture() throws {
+        let info = LaTeXConverter.documentClassInfo(
+            #"""
+            \documentclass{scrreprt}\usepackage{fancyhdr}\pagestyle{fancy}
+            \fancyhead[L]{Rail 1, page \thepage}\setkomafont{pagehead}{\small\itshape}
+            \setkomafont{pagenumber}{\sffamily\bfseries}\begin{document}
+            """#)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.applyLaTeXPage(info)
+        #expect(settings.latexFooter?.numberFont?.family == "sans")
+        #expect(settings.latexFooter?.headerFont?.pointSize(base: 11) == 10)
+        let page = LaTeXPageReferences.Page(info.pageNumbers)
+        #expect(page.lines.top.first == "Rail 1, page 1")
+        #expect(page.lines.headerNumberRanges.first == [NSRange(location: 13, length: 1)])
     }
 
     @Test("REVTeX と LNCS の固定原点はドライバーが A4 用紙を選んでも保つ")
@@ -99,4 +139,22 @@ struct LaTeXPageLayoutTests {
         #expect(map.pages.map(\.hasFooter) == [false, true, false, true])
         #expect(map.references == ["2": "i", "4": "viii"])
     }
+
+    @Test("採点表は設問と小問の配点を実際に載ったページへ集め、番号の再開を反映する")
+    func examPagePoints() {
+        let targets: [LaTeXPageReferences.Target] = [
+            .init(action: "examCredit", value: "2", referenced: false),
+            .init(action: "pagenumbering", value: "Roman", referenced: false),
+            .init(action: "examCredit", value: "1", referenced: false),
+            .init(action: "examCredit", value: "2.5", referenced: false),
+            .init(action: "examCredit", value: "0", referenced: false),
+        ]
+        let scores = LaTeXPageReferences.map(
+            .init(), targets: targets, locations: [0: 0, 1: 2, 2: 2, 3: 2, 4: 3], pageCount: 4,
+            restartsAfterTitle: false
+        ).examScores
+        #expect(
+            scores == [.init(label: "1", points: 2), .init(label: "I", points: 3.5)])
+    }
+
 }

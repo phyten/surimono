@@ -1,19 +1,18 @@
 A folded rail spacer
 Model Rail Desk
 Paper Model Workshop
-14 May 2026
+(Dated: 14 May 2026)
 Abstract
-A folded spacer fixes the height of a model rail. Two card thicknesses were
-tested in the same slot.
+A folded spacer fixes the height of a model rail. Two card thicknesses were tested in the same
+slot.
 Keywords: spacers, model rails
-1 Bench trial
+I. BENCH TRIAL
 The thin card entered freely. The folded card held the rail level at the second mark.
-Figure 1: Side view of the spacer
+FIG. 1. Side view of the spacer
 Card Height (mm)
 Thin 1
 Folded 2
-Table 1: Spacer heights
-References
+TABLE I. Spacer heights
 [1]
 Model Rail Desk, Spacer card register, trial note (2025).
 1

@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01153277731270476,
+    "changedAreaRatio" : 0.011610289482115359,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 129.28125,
-    "maxShiftPt" : 29,
+    "maxShiftPt" : 27.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,35 +35,35 @@
           "text" : "Separate the fields with |. The literal # introduces a comment.",
           "width" : 275,
           "x" : 125.4,
-          "y" : 177.5
+          "y" : 175.1
         },
         {
           "height" : 9.2,
           "text" : "# rack | shelf | slots",
           "width" : 115.1,
           "x" : 125.4,
-          "y" : 198
+          "y" : 196.4
         },
         {
           "height" : 9.2,
           "text" : "east | upper | 04",
           "width" : 99.4,
           "x" : 125.4,
-          "y" : 210
+          "y" : 208.4
         },
         {
           "height" : 9.2,
           "text" : "east | lower | 06",
           "width" : 99.4,
           "x" : 125.4,
-          "y" : 222
+          "y" : 220.4
         },
         {
           "height" : 11.7,
           "text" : "Leading zeros keep paper labels aligned.",
           "width" : 174.9,
           "x" : 125.4,
-          "y" : 239.9
+          "y" : 237.5
         },
         {
           "height" : 11.7,

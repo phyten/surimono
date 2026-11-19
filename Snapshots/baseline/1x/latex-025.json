@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01071321530813671,
+    "changedAreaRatio" : 0.010820698849719406,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 145.984375,
-    "maxShiftPt" : 28.2,
+    "maxShiftPt" : 26.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,28 +35,28 @@
           "text" : "The rectangle marks the clear open-",
           "width" : 158.1,
           "x" : 311,
-          "y" : 204.4
+          "y" : 202.8
         },
         {
           "height" : 11.7,
           "text" : "ing. Keep the lower clips below its",
           "width" : 158.1,
           "x" : 311,
-          "y" : 216.4
+          "y" : 214.8
         },
         {
           "height" : 11.7,
           "text" : "edge.",
           "width" : 22.1,
           "x" : 311,
-          "y" : 228.4
+          "y" : 226.8
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: Mount and clearance note",
           "width" : 156.3,
           "x" : 219.1,
-          "y" : 266
+          "y" : 263.6
         },
         {
           "height" : 11.7,

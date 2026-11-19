@@ -40,6 +40,9 @@ extension RenderSettings {
                 pointSize: (info.pointSize == 11 ? 10.95 : Double(info.pointSize))
                     * (72 / 72.27) * textScale,
                 footSkip: info.pageBox.footSkip, headSep: info.pageBox.headSep)
+            latexFooter?.classSize = info.pointSize
+            latexFooter?.headerFont = info.pageHeadFont
+            latexFooter?.numberFont = info.pageNumberFont
         }
     }
 }

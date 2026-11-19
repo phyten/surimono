@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.012149774181213118,
+    "changedAreaRatio" : 0.011193790758482414,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -35,21 +35,21 @@
           "text" : "Set the brass rule along the straight edge of the block.",
           "width" : 297.6,
           "x" : 148.8,
-          "y" : 164.7
+          "y" : 162.3
         },
         {
           "height" : 14,
           "text" : "Read the position of the far shoulder twice, lifting the",
           "width" : 297.6,
           "x" : 148.8,
-          "y" : 179.1
+          "y" : 176.7
         },
         {
           "height" : 14,
           "text" : "rule between readings.",
           "width" : 117,
           "x" : 148.8,
-          "y" : 193.5
+          "y" : 191.1
         },
         {
           "height" : 14,

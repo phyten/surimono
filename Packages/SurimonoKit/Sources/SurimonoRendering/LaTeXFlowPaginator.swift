@@ -57,7 +57,7 @@ enum LaTeXFlowPaginator {
             "<template data-latex-columns=", "<div data-latex-columns=", "<div data-latex-wide",
             "<figure class=\"latex-figure\" data-latex-float=", "<figure class=\"latex-table\" data-latex-float=",
             "<div data-latex-break=", "<div class=\"latex-pagebreak\" data-latex-break=", "<template data-latex-break=",
-            "<section class=\"footnotes\">",
+            "<section class=\"footnotes\">", "<span class=\"latex-vspace\"", "<div class=\"latex-vspace\"",
         ].contains { markup.contains($0) }
     }
 

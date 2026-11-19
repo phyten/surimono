@@ -8,6 +8,49 @@ import Testing
 
 @MainActor
 struct LaTeXFlowPrintingTests {
+    @Test(
+        "本文書体の x 高で節から引用と通常段落への基準線間隔が変わる", .timeLimit(.minutes(1)),
+        arguments: [("Times New Roman", 22.20, 33.53), ("Hiragino Mincho ProN", 24.28, 36.69)])
+    func sectionBaselines(_ fixture: (String, Double, Double)) async throws {
+        let (font, after, before) = fixture
+        let fragment = LaTeXConverter.convert(
+            #"""
+            \documentclass{article}\setmainfont{\#(font)}\begin{document}
+            \begin{abstract}ABSTRACTEND\end{abstract}\tableofcontents
+            \section{FIRSTMARK}\begin{quote}QUOTEBASE\end{quote}
+            \section{NEXTMARK}TEXTBASE
+            \end{document}
+            """#)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+        // PDFKit selections can share the entire line's bounds across runs of different sizes.
+        // An empty inline block exposes the actual baseline without changing the text metrics.
+        let measure = """
+            function baseline(selector) {
+              const marker = document.createElement('i');
+              marker.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+              document.querySelector(selector).prepend(marker);
+              const y = marker.getBoundingClientRect().top;
+              marker.remove();
+              return y / \(WebPaginator.printPixelsPerPoint);
+            }
+            return JSON.stringify([
+              baseline('blockquote p') - baseline('#sec-1'),
+              baseline('#sec-2 + p') - baseline('#sec-2'),
+              baseline('.latex-contents-title') - baseline('.abstract p:last-child')
+            ]);
+            """
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: PaperSize.a4.size, margins: .uniform(millimeters: 20),
+            allowsJavaScript: false, preparationScript: measure, latexPageNumbers: fragment.latexClass?.pageNumbers,
+            latexFlow: true)
+        #expect(result.issues.isEmpty)
+        let json = try #require(result.preparationResult)
+        let gaps = try JSONDecoder().decode([Double].self, from: Data(json.utf8))
+        try #require(gaps.count == 3)
+        for (gap, expected) in zip(gaps, [after, after, before]) { #expect(abs(gap - expected) < 1.2) }
+    }
+
     @Test("二段の幅・段頭の図・段下の注と選択できる本文の順序を実際の PDF で確かめる", .timeLimit(.minutes(1)))
     func columns() async throws {
         let source = DocumentSource(
@@ -56,14 +99,14 @@ struct LaTeXFlowPrintingTests {
 
     @Test(
         "表題が表の前でも後でも学会誌の本文との間隔を印刷 PDF に残す", .timeLimit(.minutes(1)),
-        arguments: ["[conference]{IEEEtran}", "[sigconf]{acmart}"])
+        arguments: ["[conference]{IEEEtran}", "{llncs}", "[sigconf]{acmart}"])
     func tableCaptionSpacing(declaration: String) async throws {
         let fragment = LaTeXConverter.convert(
             #"""
             \documentclass\#(declaration)
             \begin{document}
             \begin{table}[H]\centering\caption{UPPER}\label{t:u}\begin{tabular}{l}ALPHA\end{tabular}\end{table}
-            \begin{table}[H]\centering\begin{tabular}{l}BETA\end{tabular}\caption{LOWER}\end{table}
+            \begin{table}[H]\centering\begin{tabular}{l}ROWONE\\BETA\end{tabular}\caption{LOWER}\end{table}
             \end{document}
             """#)
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
@@ -80,11 +123,25 @@ struct LaTeXFlowPrintingTests {
             return match.bounds(for: page)
         }
         let upperGap = try bounds("UPPER").minY - bounds("ALPHA").maxY
-        let lowerGap = try bounds("BETA").minY - bounds("LOWER").maxY
-        // PDFKit measures glyph boxes; the line strut can add a few points to the CSS glue.
-        let skip: CGFloat = declaration.contains("IEEEtran") ? 6 : 12
-        for gap in [upperGap, lowerGap] {
-            #expect(gap > skip - 3 && gap < skip + 8)
+        let ieee = declaration.contains("IEEEtran")
+        // The IEEE caption number is its own line, immediately below the table.
+        let lowerCaption = try bounds(ieee ? "TABLE II" : "LOWER")
+        let lastRow = try bounds("BETA")
+        if ieee || declaration == "{llncs}" {
+            // Both classes put the skip below the caption even when the source places it below the table.
+            let rowPitch = try bounds("ROWONE").midY - lastRow.midY
+            #expect(abs(rowPitch - (ieee ? 8.97 : 10.96)) < 1)
+            #expect(abs(lastRow.midY - lowerCaption.midY - (ieee ? 8.01 : 10.51)) < 2)
+            #expect(upperGap > (ieee ? 3 : 7))
+            if ieee {
+                let labelPitch = try lowerCaption.midY - bounds("LOWER").midY
+                #expect((7.5...11.5).contains(labelPitch))
+            }
+        } else {
+            let lowerGap = lastRow.minY - lowerCaption.maxY
+            for gap in [upperGap, lowerGap] {
+                #expect((9...20).contains(gap))
+            }
         }
     }
 
@@ -122,7 +179,7 @@ struct LaTeXFlowPrintingTests {
         let y = try ["LineA", "LineB", "LineC", "LineD"].map {
             try #require(pdf.findString($0).first).bounds(for: page).maxY
         }
-        #expect(abs(y[0] - y[1] - 14.944) < 0.6)
+        #expect(abs((y[0] - y[1]) - (y[1] - y[2]) - 3 * 72 / 72.27) < 0.25)
         #expect(abs(y[1] - y[2] - 11.955) < 0.6)
         #expect(abs(y[2] - y[3] - 37.467) < 0.6)
     }

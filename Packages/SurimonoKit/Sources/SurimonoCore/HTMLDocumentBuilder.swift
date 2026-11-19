@@ -16,9 +16,13 @@ public enum HTMLDocumentBuilder {
             info.map { info in
                 let attributes = " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\""
                 let title = info.hasSeparateTitlePage.map { $0 ? "separate" : "inline" }
-                return attributes + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")
+                let localMain = info.mainFontName.map { $0 != "Surimono Computer Modern" } == true
+                return attributes + " data-latex-class=\"\(HTML.escape(info.name))\""
+                    + (localMain ? " data-latex-local-main-font" : "")
+                    + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")
                     + (info.usesJSChapterSpacing ? " data-latex-js-chapters" : "")
                     + (info.usesNativeCJKHeadings ? " data-latex-native-headings" : "")
+                    + (info.journalStyle.map { " data-latex-journal=\"\($0.rawValue)\"" } ?? "")
                     + (info.isJSArticle || info.usesJSChapterSpacing ? " data-latex-js-toc" : "")
                     + (info.styleVariables.isEmpty ? "" : " style=\"\(HTML.escape(info.styleVariables))\"")
             } ?? ""

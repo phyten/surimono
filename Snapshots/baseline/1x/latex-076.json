@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02453795877325289,
+    "changedAreaRatio" : 0.024395173453996985,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 145.984375,
-    "maxShiftPt" : 31.5,
+    "maxShiftPt" : 29.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,49 +35,49 @@
           "text" : "100",
           "width" : 13.5,
           "x" : 147.3,
-          "y" : 185.7
+          "y" : 183.3
         },
         {
           "height" : 11.7,
           "text" : "Fine bed",
           "width" : 37.2,
           "x" : 307.6,
-          "y" : 183.4
+          "y" : 181
         },
         {
           "height" : 11.7,
           "text" : "Coarse bed",
           "width" : 47.4,
           "x" : 302.5,
-          "y" : 195.8
+          "y" : 193.4
         },
         {
           "height" : 34,
           "text" : "Residue",
           "width" : 11.7,
           "x" : 126,
-          "y" : 241.8
+          "y" : 239.4
         },
         {
           "height" : 12.6,
           "text" : "10−1",
           "width" : 18.9,
           "x" : 141.9,
-          "y" : 263.1
+          "y" : 260.7
         },
         {
           "height" : 11.7,
           "text" : "0 1 2 3 4",
           "width" : 166.9,
           "x" : 178.4,
-          "y" : 340.4
+          "y" : 338
         },
         {
           "height" : 11.7,
           "text" : "Time",
           "width" : 22.7,
           "x" : 250.5,
-          "y" : 354
+          "y" : 351.6
         },
         {
           "height" : 11.7,

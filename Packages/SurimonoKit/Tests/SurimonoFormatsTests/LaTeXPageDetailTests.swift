@@ -3,12 +3,12 @@ import SurimonoFormats
 import Testing
 
 struct LaTeXPageDetailTests {
-    @Test("半ポイント未満の塗り罫だけに最小の高さを与え、支柱は塗らない")
+    @Test("細い塗り罫は実寸の箱に縮小描画し、ゼロ高の支柱は塗らない")
     func hairline() {
         let html = LaTeXConverter.convert(#"\rule{2mm}{.3pt}\rule{2mm}{0pt}\rule{2mm}{.5pt}"#).body
-        #expect(html.ranges(of: "min-height: 1px").count == 1)
+        #expect(html.ranges(of: "transform: scaleY(.1)").count == 1)
         #expect(
-            html.contains("height: calc(0.3 * var(--tex-pt, 0.996264pt)); min-height: 1px; background: currentColor"))
+            html.contains("height: calc(0.3 * var(--tex-pt, 0.996264pt)); position: relative"))
     }
 
     @Test("内側の表で空の列間指定があれば左右の字下げを重ねない")
@@ -17,7 +17,7 @@ struct LaTeXPageDetailTests {
             #"\begin{tabular}{p{2cm}}\begin{tabular}[t]{@{}l@{}}A\\B\end{tabular}\end{tabular}"#
         ).body
         #expect(html.ranges(of: "padding-inline-start: 0; padding-inline-end: 0").count == 2)
-        #expect(html.contains("width: 2cm\"><table"))
+        #expect(html.contains("width: calc(56.9055118 * var(--tex-pt, 0.996264pt))\"><table"))
     }
 
     @Test("上下に限界を置いた複合演算子でも本体の各字は正立し、添字は数式イタリックになる")

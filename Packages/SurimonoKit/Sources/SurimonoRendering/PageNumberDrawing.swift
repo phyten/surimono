@@ -42,6 +42,47 @@ enum PageFurnitureDrawing {
         return NSFont(name: "Times New Roman", size: size) ?? NSFont.systemFont(ofSize: size)
     }
 
+    // Cache the bytes across page drawings because a book uses the same furniture face on every sheet.
+    private static let elementFaces: [String: Data] = {
+        var result: [String: Data] = [:]
+        for family in ["KaTeX_Main", "KaTeX_SansSerif", "KaTeX_Typewriter"] {
+            for weight in ["normal", "bold"] {
+                for shape in ["normal", "italic"] {
+                    result[family + weight + shape] = MathRenderer.fontData(
+                        family: family, weight: weight, style: shape)
+                }
+            }
+        }
+        return result
+    }()
+
+    private static func elementFont(_ element: LaTeXElementFont?, style: PageFurniture.LaTeXFooter, scale: CGFloat)
+        -> NSFont
+    {
+        guard let element else { return footerFont(style, scale: scale) }
+        let base = style.classSize == 11 ? 10.95 : Double(style.classSize)
+        let size = style.pointSize * scale * ((element.pointSize(base: style.classSize) ?? base) / base)
+        if element.family != "sans", element.family != "mono", let installed = style.fontName,
+            let face = NSFont(name: installed, size: size)
+        {
+            var traits: CTFontSymbolicTraits = []
+            if element.weight == "bold" { traits.insert(.traitBold) }
+            if element.shape == "italic" { traits.insert(.traitItalic) }
+            return CTFontCreateCopyWithSymbolicTraits(face, size, nil, traits, [.traitBold, .traitItalic]) as NSFont?
+                ?? face
+        }
+        let family =
+            element.family == "mono" ? "KaTeX_Typewriter" : element.family == "sans" ? "KaTeX_SansSerif" : "KaTeX_Main"
+        let weight = element.weight ?? "normal"
+        let variant = family + weight + (element.shape ?? "normal")
+        let data =
+            elementFaces[variant] ?? elementFaces[family + weight + "normal"] ?? elementFaces[family + "normalnormal"]
+        if let data, let provider = CGDataProvider(data: data as CFData), let face = CGFont(provider) {
+            return CTFontCreateWithGraphicsFont(face, size, nil, nil) as NSFont
+        }
+        return footerFont(style, scale: scale)
+    }
+
     private struct Row {
         let lines: [CTLine?]
         let height: CGFloat
@@ -67,7 +108,14 @@ enum PageFurnitureDrawing {
             let rule = (above ? lines.headRule : lines.footRule) * scale
             guard rule > 0 || texts.contains(where: { !$0.isEmpty }) else { return }
             let row = row(
-                texts, width: right - left, scale: scale, font: latexFooter.map { footerFont($0, scale: scale) })
+                texts, width: right - left, scale: scale,
+                font: latexFooter.map {
+                    elementFont(above ? (lines.headerFont ?? $0.headerFont) : nil, style: $0, scale: scale)
+                },
+                numberFont: latexFooter.flatMap { style in
+                    (lines.numberFont ?? style.numberFont).map { elementFont($0, style: style, scale: scale) }
+                },
+                ranges: above ? lines.headerNumberRanges : lines.footerNumberRanges)
             let y =
                 latexFooter.map {
                     let baseline =
@@ -200,35 +248,43 @@ enum PageFurnitureDrawing {
     }
 
     /// The lines of a row, each kept to its share of `width` so that long names do not run into each other.
-    private static func row(_ texts: [String], width: CGFloat, scale: CGFloat, font: NSFont? = nil) -> Row {
+    private static func row(
+        _ texts: [String], width: CGFloat, scale: CGFloat, font: NSFont? = nil, numberFont: NSFont? = nil,
+        ranges: [[NSRange]] = []
+    ) -> Row {
         let font = font ?? NSFont.systemFont(ofSize: 8 * scale)
-        func line(_ text: String) -> CTLine {
-            CTLineCreateWithAttributedString(
-                NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: NSColor.black]))
+        func line(_ text: String, slot: Int? = nil) -> CTLine {
+            let contents = NSMutableAttributedString(
+                string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+            if let slot, let numberFont, ranges.indices.contains(slot) {
+                for range in ranges[slot] where NSMaxRange(range) <= contents.length {
+                    contents.addAttribute(.font, value: numberFont, range: range)
+                }
+            }
+            return CTLineCreateWithAttributedString(contents)
         }
-        // What does not fit its place stays out: drawn whole, it would run into the place beside it.
-        func fitted(_ text: String, to limit: CGFloat) -> CTLine? {
-            guard !text.isEmpty, limit > 0 else { return nil }
-            let whole = line(text)
-            guard CTLineGetTypographicBounds(whole, nil, nil, nil) > limit else { return whole }
-            return CTLineCreateTruncatedLine(whole, limit, .end, line("…"))
-        }
-        func natural(_ text: String) -> CGFloat {
-            text.isEmpty ? 0 : CGFloat(CTLineGetTypographicBounds(line(text), nil, nil, nil))
+        let lines = texts.enumerated().map { line($0.element, slot: $0.offset) }
+        let widths = lines.map { CGFloat(CTLineGetTypographicBounds($0, nil, nil, nil)) }
+        func fitted(_ index: Int, to limit: CGFloat) -> CTLine? {
+            guard !texts[index].isEmpty, limit > 0 else { return nil }
+            guard widths[index] > limit else { return lines[index] }
+            return CTLineCreateTruncatedLine(lines[index], limit, .end, line("…"))
         }
         let gap = 8 * scale
         let middle = fitted(
-            texts[1],
-            to: PageFurniture.centerLimit(left: natural(texts[0]), right: natural(texts[2]), available: width, gap: gap)
-        )
+            1, to: PageFurniture.centerLimit(left: widths[0], right: widths[2], available: width, gap: gap))
         let middleWidth = middle.map { CGFloat(CTLineGetTypographicBounds($0, nil, nil, nil)) } ?? 0
         let bothSides = !texts[0].isEmpty && !texts[2].isEmpty
         let side = middle != nil ? (width - middleWidth) / 2 - gap : bothSides ? (width - gap) / 2 : width
         var ascent: CGFloat = 0
         var descent: CGFloat = 0
         CTLineGetTypographicBounds(line("0"), &ascent, &descent, nil)
+        if let numberFont, ranges.contains(where: { !$0.isEmpty }) {
+            ascent = max(ascent, numberFont.ascender)
+            descent = max(descent, -numberFont.descender)
+        }
         return Row(
-            lines: [fitted(texts[0], to: side), middle, fitted(texts[2], to: side)], height: ascent + descent,
+            lines: [fitted(0, to: side), middle, fitted(2, to: side)], height: ascent + descent,
             ascent: ascent, descent: descent)
     }
 }

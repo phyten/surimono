@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.015219708396178984,
+    "changedAreaRatio" : 0.0154228255404726,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 129.3125,
-    "maxShiftPt" : 33.2,
+    "maxShiftPt" : 31.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,28 +35,28 @@
           "text" : "Collect Measure",
           "width" : 121.6,
           "x" : 235.4,
-          "y" : 194.7
+          "y" : 192.3
         },
         {
           "height" : 11.7,
           "text" : "signed",
           "width" : 27.2,
           "x" : 342.4,
-          "y" : 214.9
+          "y" : 212.5
         },
         {
           "height" : 11.7,
           "text" : "File card",
           "width" : 37.8,
           "x" : 320,
-          "y" : 237
+          "y" : 234.6
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: Cards are signed after measurement.",
           "width" : 202.5,
           "x" : 196,
-          "y" : 262.8
+          "y" : 261.2
         },
         {
           "height" : 11.7,

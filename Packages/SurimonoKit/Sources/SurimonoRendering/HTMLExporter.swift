@@ -47,7 +47,9 @@ public enum HTMLExporter {
             source.format == .latex
             ? LaTeXGraphicPreparation.script(
                 in: body.body,
-                layoutWidth: (size.width - margins.left - margins.right) * WebPaginator.printPixelsPerPoint)
+                layoutWidth: (size.width - margins.left - margins.right) * WebPaginator.printPixelsPerPoint,
+                layoutHeight: settings.theme.formats == [.latex]
+                    ? (size.height - margins.top - margins.bottom) * WebPaginator.printPixelsPerPoint : nil)
             : nil
         let preparation = [graphic, code, settings.theme.script].compactMap { $0 }.joined(separator: "\n")
         let result = try await WebPaginator().paginateWithResult(

@@ -122,7 +122,8 @@ final class LaTeXBibliography {
             let id = "bib-db-\(position + 1)"
             let entry = item.entry
             let label = authorYear ? labels[position] : HTML.escape(labels[position])
-            let marker = authorYear ? "" : "<span class=\"bib-label\">[\(label)]</span> "
+            let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
+            let marker = authorYear ? "" : "<span class=\"bib-label\">\(printed)</span> "
             let row = "<li id=\"\(id)\">\(marker)\(entry.html)</li>\n"
             guard document.reserveExpansion(characters: row.utf8.count) else { break }
             document.bibliography[item.key] = (label, printCount > 0 ? id : "")
@@ -416,6 +417,15 @@ extension LaTeXReader {
         }
     }
 
+    func bibliographyHeading(_ heading: String, id: String? = nil) -> String {
+        let anchor = id.map { " id=\"\($0)\"" } ?? ""
+        if document.classInfo.name == "beamer" { return "" }
+        if document.classInfo.journalStyle?.isAPS == true { return "<hr class=\"latex-bibliography-rule\"\(anchor)>\n" }
+        let book = bookHeadingAttributes(document.classInfo.hasChapters ? "chapter" : "section")
+        let opening = document.classInfo.hasChapters && !book.isEmpty ? " data-latex-chapter-opening" : ""
+        return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(heading)</h2>\n"
+    }
+
     func externalBibliography(_ name: String) {
         switch name {
         case "setcitestyle":
@@ -438,7 +448,7 @@ extension LaTeXReader {
             if name == "bibliography" { loadBibliography(argument() ?? "") } else { _ = optional() }
             let heading = captionName(document.hasChapters ? "bibname" : "refname")
             document.bibDatabase.printedHeadings.append(
-                document.classInfo.name == "beamer" ? "" : "<h2 class=\"latex-bibliography-heading\">\(heading)</h2>\n")
+                bibliographyHeading(heading))
             appendBlock(styledLinks(document.placeholder("B", document.bibDatabase.printCount), block: true))
             document.bibDatabase.printCount += 1
         }

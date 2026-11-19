@@ -19,13 +19,19 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public var pageBox: LaTeXPageBox { resolvedPageBox ?? LaTeXPageSettings().pageBox(for: self) }
     public internal(set) var usesNativeCJKHeadings: Bool
     package var isJSArticle: Bool { name == "jsarticle" || name == "ltjsarticle" || name == "bxjsarticle" }
-    let name: String
+    package let name: String
+    package let journalStyle: LaTeXJournalStyle?
     let publication: LaTeXPublicationLayout?
+    var bookStyle = LaTeXBookStyle()
+    let isKOMA: Bool
     let usesTraditionalJapaneseNames: Bool
 
     init(name: String = "article", options: String? = nil) {
         self.name = name
         let options = (options ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        isKOMA = ["scrartcl", "scrreprt", "scrbook"].contains(name)
+        if isKOMA { bookStyle.readOptions(options) }
+        journalStyle = LaTeXJournalStyle(name: name, options: options)
         publication = LaTeXPublicationLayout(name: name, options: options)
         pageNumbers = LaTeXPageNumbers(name: name, options: options)
         // These classes select their own first-page style at maketitle, independently of the running style.
@@ -40,6 +46,11 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
             hasSeparateTitlePage =
                 options.last(where: { $0 == "titlepage" || $0 == "notitlepage" }).map { $0 == "titlepage" }
                 ?? !name.hasSuffix("article")
+        } else if name == "scrartcl" {
+            let titlePages = ["titlepage", "titlepage=true", "titlepage=firstiscover"]
+            hasSeparateTitlePage =
+                options.last { titlePages.contains($0) || $0 == "notitlepage" || $0 == "titlepage=false" }
+                .map { titlePages.contains($0) } ?? false
         } else {
             hasSeparateTitlePage = nil
         }
@@ -78,9 +89,13 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
         hasChapters =
             chapterClasses.contains(name)
             || name == "jlreq" && !Set(options).isDisjoint(with: ["book", "report"])
+        let keyedSize = isKOMA
         pointSize =
-            options.last(where: { ["10pt", "11pt", "12pt"].contains($0) })
-            .flatMap { Int($0.dropLast(2)) } ?? (publication == .aps && options.contains("preprint") ? 12 : 10)
+            options.map { keyedSize && $0.hasPrefix("fontsize=") ? String($0.dropFirst(9)) : $0 }
+            .last(where: { ["10pt", "11pt", "12pt"].contains($0) })
+            .flatMap { Int($0.dropLast(2)) }
+            ?? (publication == .aps && options.contains("preprint")
+                ? 12 : isKOMA || name == "moderncv" ? 11 : 10)
     }
 }
 

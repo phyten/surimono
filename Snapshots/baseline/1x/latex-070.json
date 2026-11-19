@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009537456008044244,
+    "changedAreaRatio" : 0.00951734539969834,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 159.921875,
-    "maxShiftPt" : 29.6,
+    "maxShiftPt" : 27.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,42 +35,42 @@
           "text" : "Slip",
           "width" : 16.6,
           "x" : 287.5,
-          "y" : 191
+          "y" : 188.6
         },
         {
           "height" : 11.7,
           "text" : "Complete",
           "width" : 41.5,
           "x" : 232.5,
-          "y" : 225.1
+          "y" : 222.7
         },
         {
           "height" : 11.7,
           "text" : "Incomplete",
           "width" : 47.9,
           "x" : 314.4,
-          "y" : 225.1
+          "y" : 222.7
         },
         {
           "height" : 11.7,
           "text" : "Archive",
           "width" : 33.8,
           "x" : 236.4,
-          "y" : 260
+          "y" : 257.6
         },
         {
           "height" : 11.7,
           "text" : "Return",
           "width" : 30.6,
           "x" : 323,
-          "y" : 260
+          "y" : 257.6
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: Each slip follows one branch after inspection.",
           "width" : 240.5,
           "x" : 177,
-          "y" : 282
+          "y" : 280.4
         },
         {
           "height" : 11.7,

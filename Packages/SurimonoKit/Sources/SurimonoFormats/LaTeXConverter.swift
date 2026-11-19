@@ -54,6 +54,13 @@ public enum LaTeXConverter {
         // Notes and the table of contents may hold references too, so they are in place before references resolve.
         html += document.footnoteSection()
         html = document.resolvePlaceholders(in: html)
+        if document.classInfo.name == "exam" {
+            html = document.replacing("E", in: html)
+            document.classInfo.pageNumbers.examTotals = [
+                "numquestions": String(document.exam.questions.count),
+                "numpoints": LaTeXExam.number(document.exam.total),
+            ]
+        }
         if document.pictureIndex > 0 { html += "<style>\n\(LaTeXReader.pictureCSS)\n</style>\n" }
         if let css = document.initialHyperref.styleSheet(hasLocalColors: document.hasLocalLinkColors) {
             html += "<style>\n\(css)\n</style>\n"
@@ -117,22 +124,37 @@ final class LaTeXDocument {
     var endedDocument = false
     var typesettingInfo: LaTeXDocumentClassInfo {
         var info = classInfo
-        let box = pageSettings.pageBox(for: info)
+        let stock = pageSettings.pageBox(for: info)
+        let box = landscapeBody && stock.paperWidth < stock.paperHeight ? stock.turnedForLandscape : stock
         info.resolvedPageBox = box
         let labelMetrics = LaTeXLabelMetrics(info)
         info.styleVariables =
             pageSettings.styleVariables(for: box, info: info) + "; " + labelMetrics.variables
             + "; --latex-array-baseline: " + LaTeXPageSettings.number(labelMetrics.baselines[4])
+        if classInfo.name == "moderncv" {
+            let ink = LaTeXCorrespondence.palette[correspondence.color] ?? LaTeXCorrespondence.defaultInk
+            info.styleVariables += "; --latex-cv-ink: " + ink
+            if classLanguageOptions.last(where: { ["sans", "roman"].contains($0) }) == "sans" {
+                info.styleVariables += "; --latex-cv-font: var(--tex-sans-fonts)"
+            }
+        }
         info.mainFontName = pageSettings.fonts.mainFontName
-        info.localFontFaces = (pageSettings.fonts.faceRules + [labelMetrics.localFace].compactMap { $0 }).joined(
-            separator: "\n")
+        info.localFontFaces =
+            (pageSettings.fonts.faceRules
+            + [labelMetrics.localFace, info.isKOMA ? LaTeXBookStyle.sansFaces : nil].compactMap { $0 }).joined(
+                separator: "\n")
         return info
     }
 
+    var correspondence = LaTeXCorrespondence()
+    var landscapeBody = false
+    var startedLandscape = false
+    var exam = LaTeXExam()
     var pageSettings = LaTeXPageSettings()
     var classInfo = LaTeXDocumentClassInfo()
     var language = "en"
     var nativeCaptionLanguage: String?
+    var basicBidiTables = false
     var classicBabelLanguages: Set<String> = []
     var spanishSectionDots = true
     var classLanguageOptions: [String] = []
@@ -398,7 +420,8 @@ final class LaTeXDocument {
 
     /// Fills in one kind of placeholder. The table of contents and citations can be long and a placeholder can be
     /// repeated (in a theorem heading printed many times), so what they add in one pass has a budget.
-    private func replacing(_ kind: String, in html: String, bibliography: String = "", rawText: Bool = false) -> String
+    fileprivate func replacing(_ kind: String, in html: String, bibliography: String = "", rawText: Bool = false)
+        -> String
     {
         guard html.contains("\u{E000}\(nonce)\(kind)"),
             let regex = try? NSRegularExpression(pattern: "\u{E000}\(nonce)\(kind)([0-9]+)\u{E001}")
@@ -415,6 +438,21 @@ final class LaTeXDocument {
             cursor = match.range.location + match.range.length
             let index = Int(nsHTML.substring(with: match.range(at: 1))) ?? -1
             switch kind {
+            case "E":
+                if index == 0 {
+                    output += String(exam.questions.count)
+                } else if index == 1 {
+                    output += LaTeXExam.number(exam.total)
+                } else {
+                    let table = contents[index] ?? exam.tableHTML(index - 2)
+                    contents[index] = table
+                    if table.utf8.count <= budget {
+                        output += table
+                        budget -= table.utf8.count
+                    } else {
+                        output += "…"
+                    }
+                }
             case "P":
                 if let heading = pictureHeadings[index] {
                     output += rawText ? heading : HTML.escape(heading)

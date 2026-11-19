@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014358354261619074,
+    "changedAreaRatio" : 0.01377546274765138,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 177.34375,
-    "maxShiftPt" : 29.7,
+    "maxLuminance" : 152.515625,
+    "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 2
@@ -35,49 +35,49 @@
           "text" : "1 Averaging",
           "width" : 96.4,
           "x" : 125.4,
-          "y" : 176.8
+          "y" : 174.4
         },
         {
           "height" : 12,
           "text" : "For the pair S= (2, 6) the mean level and spread are",
           "width" : 232.8,
           "x" : 125.4,
-          "y" : 203.1
+          "y" : 199.1
         },
         {
           "height" : 11.7,
           "text" : "mean(S) = (2 + 6)/2 = 4,",
           "width" : 111.8,
           "x" : 223.3,
-          "y" : 224.9
+          "y" : 220.9
         },
         {
           "height" : 11.7,
           "text" : "d(S) = max(S)− min(S) = 4.",
           "width" : 130.1,
           "x" : 241.3,
-          "y" : 239.8
+          "y" : 235.8
         },
         {
           "height" : 11.7,
           "text" : "Equation (1.1) places the mark halfway between the gauges.",
           "width" : 263.8,
           "x" : 125.4,
-          "y" : 264.7
+          "y" : 260.7
         },
         {
           "height" : 10.6,
           "text" : "(1.1)",
           "width" : 18.6,
           "x" : 450.5,
-          "y" : 225.4
+          "y" : 221.4
         },
         {
           "height" : 10.6,
           "text" : "(R)",
           "width" : 13.7,
           "x" : 455.4,
-          "y" : 240.6
+          "y" : 236.6
         },
         {
           "height" : 11.7,

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.028827551533433887,
+    "changedAreaRatio" : 0.028241327300150828,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -35,7 +35,7 @@
           "text" : "Figure 1: Hatching marks the granular bed below the water.",
           "width" : 263.5,
           "x" : 165.5,
-          "y" : 273.2
+          "y" : 271.6
         },
         {
           "height" : 11.7,

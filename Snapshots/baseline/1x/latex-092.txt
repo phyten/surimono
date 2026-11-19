@@ -1,4 +1,9 @@
 Model rail practical
-The strip is one millimetre thick. What height does a single fold produce?
-18mm Explain how to check for a tilted rail.25mm
-1
+1. (2 points) The strip is one millimetre thick. What height does a single fold produce?
+2. (3 points) Explain how to check for a tilted rail.
+Question:
+1 2
+Total
+Points:
+2 3 5
+Score:

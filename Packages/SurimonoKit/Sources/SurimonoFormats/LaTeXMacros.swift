@@ -479,7 +479,8 @@ extension LaTeXReader {
             || LaTeXSymbols.wrappers[name] != nil
             || LaTeXSymbols.declarations[name] != nil
             || LaTeXSymbols.text[name] != nil || LaTeXSymbols.sizes[name] != nil || LaTeXSymbols.ignored[name] != nil
-            || Self.builtinNames.contains(name) || document.classInfo.definesFrontCommand(name)
+            || Self.builtinNames.contains(name) || document.classInfo.definesClassCommand(name)
+            || document.exam.listCommands.contains(name)
             || isControlCommand(name)
             || Self.registerCommands.contains(name) || document.countRegisters[name] != nil
             || (name.hasPrefix("the") && document.counters.contains(String(name.dropFirst(3))))

@@ -25,6 +25,14 @@ struct LaTeXFlowLayout {
         var paragraph: Int?
         var heading: Bool?
         var discardable: Bool?
+        var leadingBeforeHere: CGFloat?
+        var extraAfter: CGFloat?
+        var corrections: [Correction]?
+    }
+
+    struct Correction: Decodable {
+        var position: CGFloat
+        var extra: CGFloat
     }
 
     struct Segment: Decodable {
@@ -181,7 +189,11 @@ struct LaTeXFlowLayout {
         for var segment in input.segments where !segment.items.isEmpty {
             try layout.checkBudget()
             guard segment.rule.isFinite, segment.gap.isFinite,
-                segment.items.allSatisfy({ $0.gap.isFinite && ($0.slice?.valid ?? ($0.forced != nil)) })
+                segment.items.allSatisfy({
+                    $0.gap.isFinite && ($0.leadingBeforeHere ?? 0).isFinite && ($0.extraAfter ?? 0).isFinite
+                        && ($0.extraAfter ?? 0) > -1
+                        && ($0.slice?.valid ?? ($0.forced != nil))
+                })
             else { throw CannotFit() }
             segment.items = keptItems(segment.items, capacity: height)
             // A clear page drains the old queue before text after the command can enter the new one.
@@ -227,11 +239,15 @@ struct LaTeXFlowLayout {
                 var item = items[i]
                 item.slice?.start = band.start
                 item.slice?.end = band.end
-                i += 1
-                while i < end, let s = items[i].slice, s.end <= band.end {
-                    item.notes.append(contentsOf: items[i].notes)
+                let start = i
+                repeat {
+                    if i != start { item.notes.append(contentsOf: items[i].notes) }
+                    if let extra = items[i].extraAfter, extra != 0, let slice = items[i].slice {
+                        if item.corrections == nil { item.corrections = [] }
+                        item.corrections?.append(Correction(position: slice.end, extra: extra))
+                    }
                     i += 1
-                }
+                } while i < end && (items[i].slice?.end ?? .infinity) <= band.end
                 result.append(item)
             }
             first = end
@@ -344,9 +360,10 @@ struct LaTeXFlowLayout {
                 if let spec = item.placement {
                     let pinned = spec.contains("H") && !item.wide
                     // Two in-text floats each own their upper and lower intextsep.
+                    let hereSkip = max(0, input.inTextSep - (atColumnTop ? 0 : item.leadingBeforeHere ?? 0))
                     let above =
                         atColumnTop && band.hasFloats
-                        ? input.floatSep - input.textFloatSep : (y == 0 ? 0 : input.inTextSep)
+                        ? input.floatSep - input.textFloatSep : (y == 0 ? 0 : hereSkip)
                     let scale = pinned ? min(1, height / s.height) : 1
                     let below = min(input.inTextSep, max(0, height - s.height * scale))
                     let cost = above + s.height * scale + below
@@ -394,11 +411,22 @@ struct LaTeXFlowLayout {
                     continue
                 }
                 let gap = atColumnTop ? 0 : item.gap
-                let scale = min(1, height / s.height)
-                let end = y + gap + s.height * scale
+                let groupHeight = s.height + (item.corrections?.reduce(0) { $0 + $1.extra } ?? 0)
+                guard groupHeight.isFinite, groupHeight > 0 else { throw CannotFit() }
+                let scale = min(1, height / groupHeight)
+                let end = y + gap + groupHeight * scale
                 guard try reserve(item, in: lane, footLane: segment.pageNotes ? full : lane, end: end, limit: limit)
                 else { break }
-                page.draw(s, at: y + gap, lane: lane, scale: scale)
+                var part = s
+                var target = y + gap
+                for correction in item.corrections ?? [] {
+                    part.end = correction.position
+                    page.draw(part, at: target, lane: lane, scale: scale)
+                    target += (part.height + correction.extra) * scale
+                    part.start = part.end
+                }
+                part.end = s.end
+                if part.height > 0 { page.draw(part, at: target, lane: lane, scale: scale) }
                 y = end
                 atColumnTop = false
                 cursor.item += 1

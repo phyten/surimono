@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.040587438894573113,
+    "changedAreaRatio" : 0.03704461600471274,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 34.4,
+    "maxBoxDeltaPt" : 6.6,
     "maxLuminance" : 181.625,
-    "maxShiftPt" : 26,
+    "maxShiftPt" : 23.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 16
+    "textEdits" : 3
   },
   "fonts" : [
     "Helvetica"
@@ -18,136 +18,129 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 71.5,
+      "firstY" : 70.9,
       "height" : 841.9,
       "lastY" : 754.1,
-      "lineCount" : 19,
+      "lineCount" : 18,
       "lines" : [
         {
-          "height" : 24.3,
+          "height" : 17.5,
           "text" : "A folded rail spacer",
-          "width" : 167,
-          "x" : 221.8,
-          "y" : 71.5
+          "width" : 136.3,
+          "x" : 237,
+          "y" : 70.9
         },
         {
-          "height" : 16.9,
+          "height" : 14,
           "text" : "Model Rail Desk",
-          "width" : 104.1,
-          "x" : 253.1,
-          "y" : 114
+          "width" : 85.1,
+          "x" : 262.6,
+          "y" : 103.3
         },
         {
-          "height" : 12.6,
+          "height" : 12,
           "text" : "Paper Model Workshop",
-          "width" : 112,
-          "x" : 249.1,
-          "y" : 140.4
+          "width" : 120.2,
+          "x" : 245,
+          "y" : 130.7
+        },
+        {
+          "height" : 12.8,
+          "text" : "(Dated: 14 May 2026)",
+          "width" : 102.6,
+          "x" : 253.8,
+          "y" : 157.1
         },
         {
           "height" : 16.9,
-          "text" : "14 May 2026",
-          "width" : 80.1,
-          "x" : 265.1,
-          "y" : 166.8
+          "text" : "Abstract",
+          "width" : 54.7,
+          "x" : 277.8,
+          "y" : 190.8
+        },
+        {
+          "height" : 12.8,
+          "text" : "A folded spacer fixes the height of a model rail. Two card thicknesses were tested in the same",
+          "width" : 455.3,
+          "x" : 82.9,
+          "y" : 221.1
+        },
+        {
+          "height" : 12.8,
+          "text" : "slot.",
+          "width" : 20.1,
+          "x" : 72,
+          "y" : 242.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Keywords: spacers, model rails",
+          "width" : 131.5,
+          "x" : 72,
+          "y" : 269.1
         },
         {
           "height" : 13.3,
-          "text" : "Abstract",
-          "width" : 48,
-          "x" : 281.1,
-          "y" : 201.3
-        },
-        {
-          "height" : 12.8,
-          "text" : "A folded spacer fixes the height of a model rail. Two card thicknesses were",
-          "width" : 384.4,
-          "x" : 121.1,
-          "y" : 220.3
-        },
-        {
-          "height" : 12.8,
-          "text" : "tested in the same slot.",
-          "width" : 111.4,
-          "x" : 104.7,
-          "y" : 233.1
-        },
-        {
-          "height" : 14.6,
-          "text" : "Keywords: spacers, model rails",
-          "width" : 169.5,
+          "text" : "I. BENCH TRIAL",
+          "width" : 107.7,
           "x" : 72,
-          "y" : 261.9
-        },
-        {
-          "height" : 21,
-          "text" : "1 Bench trial",
-          "width" : 122.8,
-          "x" : 72,
-          "y" : 295.3
+          "y" : 307.7
         },
         {
           "height" : 14,
           "text" : "The thin card entered freely. The folded card held the rail level at the second mark.",
-          "width" : 440.9,
-          "x" : 72,
-          "y" : 327.3
+          "width" : 426.1,
+          "x" : 86.9,
+          "y" : 339.3
         },
         {
-          "height" : 14,
-          "text" : "Figure 1: Side view of the spacer",
-          "width" : 171.3,
-          "x" : 219.5,
-          "y" : 380.5
+          "height" : 12.8,
+          "text" : "FIG. 1. Side view of the spacer",
+          "width" : 142.8,
+          "x" : 233.7,
+          "y" : 392.6
         },
         {
-          "height" : 14,
+          "height" : 12.8,
           "text" : "Card Height (mm)",
-          "width" : 116.9,
-          "x" : 246.7,
-          "y" : 424.3
+          "width" : 97.8,
+          "x" : 256.2,
+          "y" : 444.5
         },
         {
-          "height" : 14,
+          "height" : 12.8,
           "text" : "Thin 1",
-          "width" : 116.9,
-          "x" : 246.7,
-          "y" : 438.7
+          "width" : 97.8,
+          "x" : 256.2,
+          "y" : 466.1
         },
         {
-          "height" : 14,
+          "height" : 12.8,
           "text" : "Folded 2",
-          "width" : 116.9,
-          "x" : 246.7,
-          "y" : 453.1
+          "width" : 97.8,
+          "x" : 256.2,
+          "y" : 487.7
         },
         {
-          "height" : 14,
-          "text" : "Table 1: Spacer heights",
-          "width" : 123,
-          "x" : 243.6,
-          "y" : 477.9
+          "height" : 12.8,
+          "text" : "TABLE I. Spacer heights",
+          "width" : 118.7,
+          "x" : 245.8,
+          "y" : 518.9
         },
         {
-          "height" : 21,
-          "text" : "References",
-          "width" : 92.9,
-          "x" : 72,
-          "y" : 526.3
-        },
-        {
-          "height" : 14,
+          "height" : 12.8,
           "text" : "[1]",
-          "width" : 12.6,
+          "width" : 11.5,
           "x" : 72,
-          "y" : 558.3
+          "y" : 581.6
         },
         {
-          "height" : 14,
+          "height" : 12.8,
           "text" : "Model Rail Desk, Spacer card register, trial note (2025).",
-          "width" : 295.5,
-          "x" : 95.9,
-          "y" : 558.3
+          "width" : 262.4,
+          "x" : 93.8,
+          "y" : 581.6
         },
         {
           "height" : 14,
@@ -157,12 +150,12 @@
           "y" : 754.1
         }
       ],
-      "textHeight" : 696.7,
+      "textHeight" : 697.3,
       "textLeft" : 72,
-      "textTop" : 71.5,
-      "textWidth" : 440.9,
+      "textTop" : 70.9,
+      "textWidth" : 466.3,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "c030e3da7a154192d802487e406a4d56ee2cc8d54c576e4b8e72b5b8e38b3f48"
+  "textSHA256" : "2ec1bfe320846b754441a84e24c9de7a2d75f2d428e148a1bfa62f262961c4dc"
 }

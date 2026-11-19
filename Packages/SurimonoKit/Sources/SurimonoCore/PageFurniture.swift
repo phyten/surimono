@@ -1,4 +1,5 @@
 import Foundation
+import SurimonoFormats
 
 /// The header and footer added to each page when it is printed: three places above and three below the text, written
 /// with the variables of `Variable`.
@@ -104,6 +105,9 @@ public struct PageFurniture: Codable, Hashable, Sendable {
     public struct LaTeXFooter: Equatable, Sendable {
         public var fontName: String?
         public var pointSize: Double
+        package var headerFont: LaTeXElementFont?
+        package var numberFont: LaTeXElementFont?
+        package var classSize = 10
         public var headSep: Double
         public var footSkip: Double
 
@@ -144,6 +148,10 @@ public struct PageFurniture: Codable, Hashable, Sendable {
     public struct Lines: Equatable, Sendable {
         public var top: [String]
         public var bottom: [String]
+        package var headerFont: LaTeXElementFont?
+        package var numberFont: LaTeXElementFont?
+        package var headerNumberRanges: [[NSRange]] = []
+        package var footerNumberRanges: [[NSRange]] = []
         public var headRule: Double = 0
         public var footRule: Double = 0
 

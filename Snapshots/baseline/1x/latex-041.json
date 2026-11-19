@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0269069884364002,
+    "changedAreaRatio" : 0.026725992961287078,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -58,98 +58,98 @@
           "text" : "Table des matières",
           "width" : 114.8,
           "x" : 56.8,
-          "y" : 226.7
+          "y" : 233.9
         },
         {
           "height" : 11,
           "text" : "1 Les repères 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "2 Hauteur 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 15.9,
           "text" : "1 Les repères",
           "width" : 92.3,
           "x" : 56.8,
-          "y" : 301.1
+          "y" : 310.7
         },
         {
           "height" : 11,
           "text" : "« Lire d’abord le repère inférieur. »",
           "width" : 145.8,
           "x" : 81.7,
-          "y" : 326.6
+          "y" : 336.2
         },
         {
           "height" : 11,
           "text" : "Figure 1 – Position de la planche",
           "width" : 136.1,
           "x" : 229.6,
-          "y" : 395.3
+          "y" : 404.9
         },
         {
           "height" : 15.9,
           "text" : "2 Hauteur",
           "width" : 73.3,
           "x" : 56.8,
-          "y" : 435.4
+          "y" : 445
         },
         {
           "height" : 11,
           "text" : "Repère Hauteur (mm)",
           "width" : 96.7,
           "x" : 249.3,
-          "y" : 473.6
+          "y" : 480.8
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 85.1,
           "x" : 260.9,
-          "y" : 486.4
+          "y" : 493.6
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 85.1,
           "x" : 260.9,
-          "y" : 498.4
+          "y" : 505.6
         },
         {
           "height" : 11,
           "text" : "Table 1 – Hauteur des repères",
           "width" : 122.7,
           "x" : 236.3,
-          "y" : 520
+          "y" : 528
         },
         {
           "height" : 15.9,
           "text" : "Références",
           "width" : 66.6,
           "x" : 56.8,
-          "y" : 560.1
+          "y" : 567.3
         },
         {
           "height" : 11,
           "text" : "[1]",
           "width" : 11.6,
           "x" : 56.8,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,
           "text" : "Carnet de mesure, 2025, Chapitre 2.",
           "width" : 148.8,
           "x" : 76.7,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,

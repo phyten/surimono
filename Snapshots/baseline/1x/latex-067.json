@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01648667672197084,
+    "changedAreaRatio" : 0.0163499245852187,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -35,7 +35,7 @@
           "text" : "Figure 1: The dot identifies the same corner after rotation.",
           "width" : 256.9,
           "x" : 168.8,
-          "y" : 242
+          "y" : 239.6
         },
         {
           "height" : 11.7,

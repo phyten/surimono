@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.015520003307185894,
+    "changedAreaRatio" : 0.015281265825401255,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 317,
-    "maxLuminance" : 121.640625,
-    "maxShiftPt" : 226.1,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 2.9,
+    "maxLuminance" : 94.921875,
+    "maxShiftPt" : 2.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 13
+    "textEdits" : 4
   },
   "fonts" : [
     "Helvetica"
@@ -18,67 +18,116 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 151.1,
+      "firstY" : 249.2,
       "height" : 841.9,
-      "lastY" : 223.1,
-      "lineCount" : 7,
+      "lastY" : 538.1,
+      "lineCount" : 14,
       "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "Model workshop",
+          "width" : 71.5,
+          "x" : 406.3,
+          "y" : 249.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "East bench",
+          "width" : 48.4,
+          "x" : 406.3,
+          "y" : 261.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "14 May 2026",
+          "width" : 55.9,
+          "x" : 406.3,
+          "y" : 286.9
+        },
         {
           "height" : 11.7,
           "text" : "Stores desk",
           "width" : 49.1,
-          "x" : 140.4,
-          "y" : 151.1
+          "x" : 134.2,
+          "y" : 319.7
         },
         {
           "height" : 11.7,
-          "text" : "Paper Model WorkshopDear stores team, Please reserve two card thicknesses",
+          "text" : "Paper Model Workshop",
+          "width" : 103.5,
+          "x" : 134.2,
+          "y" : 331.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Dear stores team,",
+          "width" : 77,
+          "x" : 134.2,
+          "y" : 364.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Please reserve two card thicknesses for the next rail trial. The folded strip",
           "width" : 343.7,
-          "x" : 125.4,
-          "y" : 163.1
+          "x" : 134.2,
+          "y" : 383.7
         },
         {
           "height" : 11.7,
-          "text" : "for the next rail trial. The folded strip held the rail level at the second mark.",
-          "width" : 336.6,
-          "x" : 125.4,
-          "y" : 175.1
+          "text" : "held the rail level at the second mark.",
+          "width" : 166.2,
+          "x" : 134.2,
+          "y" : 395.7
         },
         {
           "height" : 11.7,
           "text" : "Stock Sheets",
           "width" : 66.1,
-          "x" : 264.2,
-          "y" : 187.1
+          "x" : 272.9,
+          "y" : 415.7
         },
         {
           "height" : 11.7,
           "text" : "Thin 3",
           "width" : 66.1,
-          "x" : 264.2,
-          "y" : 199.1
+          "x" : 272.9,
+          "y" : 427.7
         },
         {
           "height" : 11.7,
           "text" : "Heavy 2",
           "width" : 66.1,
-          "x" : 264.2,
-          "y" : 211.1
+          "x" : 272.9,
+          "y" : 439.7
         },
         {
           "height" : 11.7,
-          "text" : "With thanks,Trial stock list",
-          "width" : 121.7,
-          "x" : 125.4,
-          "y" : 223.1
+          "text" : "With thanks,",
+          "width" : 57.6,
+          "x" : 306,
+          "y" : 465.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Rail fixture desk",
+          "width" : 72.5,
+          "x" : 306,
+          "y" : 519.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "encl: Trial stock list",
+          "width" : 87.3,
+          "x" : 134.2,
+          "y" : 538.1
         }
       ],
-      "textHeight" : 83.7,
-      "textLeft" : 125.4,
-      "textTop" : 151.1,
+      "textHeight" : 300.5,
+      "textLeft" : 134.2,
+      "textTop" : 249.2,
       "textWidth" : 343.7,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "27968380dabfc619d85b515410f459e4d357e33eaa3d4f2e08cc5f656a81dd6e"
+  "textSHA256" : "290860468cbf9bc9fda7768f071750827f6496c91dc70cfba9ec6de0c8b05fb8"
 }

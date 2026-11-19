@@ -52,13 +52,16 @@ struct LaTeXPageSettings {
 
     func pageBox(for info: LaTeXDocumentClassInfo) -> LaTeXPageBox {
         let stock =
-            self.stock ?? (info.isJapanese || info.publication?.usesA4 == true ? (210.0, 297.0) : (215.9, 279.4))
+            self.stock
+            ?? (info.isJapanese || info.isKOMA || info.name == "moderncv" || info.publication?.usesA4 == true
+                ? (210.0, 297.0) : (215.9, 279.4))
         let texPointsPerMM = 72.27 / 25.4
         let paperW = (paperWidth ?? (landscape ? stock.1 : stock.0)) * texPointsPerMM
         let paperH = (paperHeight ?? (landscape ? stock.0 : stock.1)) * texPointsPerMM
         let twoSided =
             self.twoSided
-            ?? (["book", "jsbook", "ltjsbook"].contains(info.name) || info.publication == .manuscript
+            ?? (["book", "jsbook", "ltjsbook", "scrbook", "memoir"].contains(info.name)
+                || info.publication == .manuscript
                 || info.publication == .sigconf)
         var box = LaTeXClassBox.defaults(
             info: info, paperWidth: paperW, paperHeight: paperH, twoSided: twoSided)
@@ -87,7 +90,7 @@ struct LaTeXPageSettings {
             bottom: (paperH - top - (assigned["textheight"] ?? box.height)) * bp,
             headSep: headSep * bp, footSkip: (assigned["footskip"] ?? box.footSkip) * bp, mirrorsSides: twoSided,
             usesFixedClassOrigin: !usesGeometry && assigned.isEmpty
-                && (info.publication == .lncs || info.publication == .aps))
+                && (info.publication == .lncs || info.publication == .aps || ["exam", "letter"].contains(info.name)))
     }
 
     func styleVariables(for box: LaTeXPageBox, info: LaTeXDocumentClassInfo) -> String {
@@ -102,6 +105,7 @@ struct LaTeXPageSettings {
         var values = classSkips.merging(variables) { _, assignment in assignment }.merging(fonts.roleVariables) {
             _, font in font
         }
+        values.merge(info.bookStyle.variables(size: info.pointSize)) { _, font in font }
         let measure = box.textWidth
         if measure > 0 {
             values["text-width"] = Self.number(measure * 25.4 / 72) + "mm"
@@ -145,13 +149,13 @@ struct LaTeXPageSettings {
     ]
 
     mutating func readClassOptions(_ raw: String, info: LaTeXDocumentClassInfo) {
-        readOptions(raw, geometry: false, japaneseStock: info.isJapanese)
+        readOptions(raw, geometry: false, japaneseStock: info.isJapanese, keyedPaper: info.isKOMA)
         // The production classes set their own stock with geometry after processing class options.
         if info.publication?.usesA4 == true { stock = Self.paperSizes["a4paper"] }
         if info.publication == .sigconf || info.publication == .manuscript { stock = Self.paperSizes["letterpaper"] }
     }
 
-    mutating func readOptions(_ raw: String, geometry: Bool, japaneseStock: Bool = false) {
+    mutating func readOptions(_ raw: String, geometry: Bool, japaneseStock: Bool = false, keyedPaper: Bool = false) {
         if geometry {
             usesGeometry = true
             geometryHeadHeight = assigned["headheight"] ?? geometryHeadHeight
@@ -161,7 +165,8 @@ struct LaTeXPageSettings {
         }
         for (key, value) in Self.options(raw) {
             let stockKey =
-                key == "paper" && japaneseStock ? value.replacingOccurrences(of: "paper", with: "") + "paper" : key
+                key == "paper" && (japaneseStock || keyedPaper)
+                ? value.replacingOccurrences(of: "paper", with: "") + "paper" : key
             if let size = Self.paperSizes[stockKey] {
                 let jis: [String: (Double, Double)] = [
                     "b4paper": (257, 364), "b5paper": (182, 257), "b6paper": (128, 182),
@@ -261,15 +266,13 @@ struct LaTeXPageSettings {
 
     static func millimetres(_ source: String) -> Double? {
         let raw = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard raw.utf8.count < 64, raw.count > 2,
-            let factor = [
-                "mm": 1, "cm": 10, "in": 25.4, "pt": 25.4 / 72.27,
-                "pc": 12 * 25.4 / 72.27, "bp": 25.4 / 72,
-            ][String(raw.suffix(2))],
-            let value = Double(raw.dropLast(2).trimmingCharacters(in: .whitespaces)), value.isFinite,
-            abs(value * factor) < 100_000
+        let unit = String(raw.suffix(2))
+        guard raw.utf8.count < 64, raw.count > 2, unit != "ex", unit != "em",
+            let ratio = LaTeXReader.dimensionUnits[unit],
+            let value = Double(raw.dropLast(2).trimmingCharacters(in: .whitespaces)), value.isFinite
         else { return nil }
-        return value * factor
+        let mm = value * ratio.numerator / ratio.denominator * 25.4 / 72.27
+        return abs(mm) < 100_000 ? mm : nil
     }
 
     static let floatRegisters: Set<String> = [
@@ -300,8 +303,8 @@ struct LaTeXPageSettings {
             if let length = Self.millimetres(value), length > 0 { paperWidth = length }
         case "paperheight":
             if let length = Self.millimetres(value), length > 0 { paperHeight = length }
-        case "parskip", "parindent":
-            if let length = Self.paragraphLength(value) { variables[name] = length }
+        case "parskip", "parindent", "itemsep", "topsep":
+            if let length = Self.paragraphLength(value) { variables[name == "topsep" ? "list-topsep" : name] = length }
         default: break
         }
     }
@@ -315,7 +318,7 @@ struct LaTeXPageSettings {
                 return Self.number(factor) + "lh"
             }
         }
-        return LaTeXSymbols.cssLength(base)
+        return LaTeXSymbols.printLength(base)
     }
 
     mutating func setStretch(_ raw: String) {
@@ -376,7 +379,7 @@ struct LaTeXPageSettings {
                 values["itemsep"] = "0pt"
                 values["list-topsep"] = "0pt"
             case "itemsep": if let length = paragraphLength(value) { values["itemsep"] = length }
-            case "leftmargin": if let length = LaTeXSymbols.cssLength(value) { values["list-margin"] = length }
+            case "leftmargin": if let length = LaTeXSymbols.printLength(value) { values["list-margin"] = length }
             default: break
             }
         }
@@ -396,6 +399,20 @@ extension LaTeXReader {
 
     func readPageSetting(_ name: String) -> Bool {
         func assignLength(_ name: String, _ value: String) {
+            if document.classInfo.name == "exam", let length = LaTeXSymbols.printLength(value) {
+                switch name {
+                case "linefillheight":
+                    document.exam.linePitch = length
+                    return
+                case "dottedlinefillheight":
+                    document.exam.dottedPitch = length
+                    return
+                case "linefillthickness":
+                    document.exam.lineThickness = length
+                    return
+                default: break
+                }
+            }
             // These skips are measured once for each loaded document. A later declaration
             // must never change the space surrounding floats on pages already read.
             if !inPreamble && LaTeXPageSettings.floatRegisters.contains(name) {
@@ -421,8 +438,11 @@ extension LaTeXReader {
             if register.hasPrefix("\\") {
                 assignLength(String(register.dropFirst()), value)
             }
-        case "intextsep", "textfloatsep", "floatsep", "abovecaptionskip", "belowcaptionskip", "extrarowheight",
-            "columnsep", "columnseprule", "parindent", "parskip", "textwidth", "oddsidemargin",
+        case "linefillheight" where document.classInfo.name == "exam",
+            "dottedlinefillheight" where document.classInfo.name == "exam",
+            "linefillthickness" where document.classInfo.name == "exam",
+            "intextsep", "textfloatsep", "floatsep", "abovecaptionskip", "belowcaptionskip", "extrarowheight",
+            "columnsep", "columnseprule", "parindent", "parskip", "itemsep", "topsep", "textwidth", "oddsidemargin",
             "evensidemargin",
             "topmargin", "textheight",
             "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip", "emergencystretch":

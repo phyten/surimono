@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02680844645550528,
+    "changedAreaRatio" : 0.026268476621417798,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 144.0472412109375,
-    "maxShiftPt" : 29.3,
+    "maxShiftPt" : 27.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,42 +35,42 @@
           "text" : "Dry stock",
           "width" : 48.7,
           "x" : 127.4,
-          "y" : 178.6
+          "y" : 176.2
         },
         {
           "height" : 11.7,
           "text" : "Keep this strip inside the enve-",
           "width" : 140.4,
           "x" : 127.4,
-          "y" : 191.1
+          "y" : 188.7
         },
         {
           "height" : 11.7,
           "text" : "lope.",
           "width" : 20.5,
           "x" : 127.4,
-          "y" : 203.1
+          "y" : 200.7
         },
         {
           "height" : 12.1,
           "text" : "Trial stock",
           "width" : 53.8,
           "x" : 327.6,
-          "y" : 178.6
+          "y" : 176.2
         },
         {
           "height" : 11.7,
           "text" : "Return this strip after the fold",
           "width" : 138.8,
           "x" : 327.6,
-          "y" : 191.1
+          "y" : 188.7
         },
         {
           "height" : 11.7,
           "text" : "test.",
           "width" : 18.9,
           "x" : 327.6,
-          "y" : 203.1
+          "y" : 200.7
         },
         {
           "height" : 11.7,

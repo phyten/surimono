@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.013441643671389742,
+    "changedAreaRatio" : 0.013251480482435742,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -35,28 +35,28 @@
           "text" : "The morning reading follows a night of cooling.",
           "width" : 272.1,
           "x" : 105.4,
-          "y" : 183.6
+          "y" : 181.2
         },
         {
           "height" : 14,
           "text" : "Place the second reading on the next line.",
           "width" : 219.8,
           "x" : 105.4,
-          "y" : 198
+          "y" : 195.6
         },
         {
           "height" : 14,
           "text" : "The afternoon reading includes the expansion of",
           "width" : 272.1,
           "x" : 105.4,
-          "y" : 212.4
+          "y" : 210
         },
         {
           "height" : 14,
           "text" : "the rim.",
           "width" : 41.9,
           "x" : 105.4,
-          "y" : 226.8
+          "y" : 224.4
         },
         {
           "height" : 14,

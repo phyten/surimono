@@ -3,22 +3,61 @@ import Foundation
 /// Only layout knows a tabular's natural width and the decoded image dimensions.
 /// Measure after resources and fonts settle and keep the scaled box in the page flow.
 enum LaTeXGraphicPreparation {
-    static func script(in html: String, layoutWidth: Double) -> String? {
+    static func script(in html: String, layoutWidth: Double, layoutHeight: Double? = nil) -> String? {
         let graphics = html.contains(#"class="latex-graphic-box""#)
         let displays = html.contains(#"class="math math-display""#)
-        guard graphics || displays else { return nil }
+        let exam = html.contains("<svg data-exam-rules ")
+        let letters = html.contains(#"class="latex-letter""#) ? layoutHeight : nil
+        guard graphics || displays || exam || letters != nil else { return nil }
         return """
             {
               const root = document.documentElement;
               const oldWidth = root.style.width;
-              root.style.width = (\(layoutWidth) / (parseFloat(getComputedStyle(root).zoom) || 1)) + 'px';
+              const zoom = parseFloat(getComputedStyle(root).zoom) || 1;
+              root.style.width = (\(layoutWidth) / zoom) + 'px';
               try {
                 \(displays ? measureDisplays : "")
                 \(graphics ? measure : "")
+                \(exam ? examRules : "")
+                \(letters.map { "const availableHeight = \($0) / zoom;\n" + letterGlue } ?? "")
               } finally { root.style.width = oldWidth; }
             }
             """
     }
+
+    // letter.cls distributes spare space 3:5. In a PDF only the leading glue has to
+    // participate in pagination. A full-height flex box can push its empty tail onto another sheet.
+    private static let letterGlue = """
+        const letters = [...document.querySelectorAll('.latex-letter')];
+        for (const letter of letters) letter.style.removeProperty('--latex-letter-top-glue');
+        const heights = letters.map(letter => parseFloat(getComputedStyle(letter).height));
+        letters.forEach((letter, i) => {
+          const glue = (availableHeight - heights[i]) * 3 / 8;
+          if (glue > 0) letter.style.setProperty('--latex-letter-top-glue', glue + 'px');
+        });
+        """
+
+    // A cleaders box centers an integral number of pitches. Non-scaling PDF strokes keep
+    // their thickness even when a question is printed at a different column width.
+    private static let examRules = """
+        for (const svg of document.querySelectorAll('svg[data-exam-rules]')) {
+          const path = svg.querySelector('path');
+          if (!path) continue;
+          const h = parseFloat(getComputedStyle(svg).height);
+          const pitch = parseFloat(getComputedStyle(path).fontSize);
+          const count = Math.floor(h / pitch + 1e-7);
+          if (!(h > 0 && pitch > 0 && Number.isFinite(count))) continue;
+          // Subpixel pitches can request more strokes than a page can resolve.
+          const step = Math.max(1, Math.ceil(count / 4096));
+          const inset = (h - count * pitch) / 2;
+          const lines = [];
+          for (let i = 1; i <= count; i += step) {
+            lines.push('M0 ' + (inset + i * pitch) + ' H1');
+          }
+          svg.setAttribute('viewBox', '0 0 1 ' + h);
+          path.setAttribute('d', lines.join(' '));
+        }
+        """
 
     /// SwaTex reports TeX advance, ascent and depth. SVG text runs use the actual embedded
     /// fonts' metrics, which can extend past all three. Include those runs in the page flow

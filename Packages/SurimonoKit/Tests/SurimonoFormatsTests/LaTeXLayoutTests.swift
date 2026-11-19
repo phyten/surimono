@@ -12,7 +12,7 @@ struct LaTeXLayoutTests {
         #expect(html.contains("width: 45%; vertical-align: top\"><p>左</p>\n</div> <div"))
         #expect(
             html.contains(
-                "width: var(--latex-measured-width, 2cm); vertical-align: bottom\"><p>右</p>\n</div></div>\n<p class=\"latex-noindent\">後</p>"
+                "width: var(--latex-measured-width, calc(56.9055118 * var(--tex-pt, 0.996264pt))); vertical-align: bottom\"><p>右</p>\n</div></div>\n<p class=\"latex-noindent\">後</p>"
             ))
     }
 
@@ -79,11 +79,43 @@ struct LaTeXLayoutTests {
         #expect(result.body.contains("<thead>\n<tr><th"))
         #expect(result.body.contains("</thead><tbody>"))
         #expect(!result.body.contains("dropped"))
-        #expect(result.body.contains("text-align: end; vertical-align: top; width: 2cm; font-weight: bold"))
-        #expect(result.body.contains("background-color: #ffff00\">A<br>B"))
+        #expect(
+            result.body.contains(
+                #"data-latex-column="p" style="text-align: end; vertical-align: var(--latex-cell-align, top); width: calc(56.9055118 * var(--tex-pt, 0.996264pt))"#
+            ))
+        #expect(result.body.contains("font-weight: bold; background-color: #ffff00\">A<br>B"))
         #expect(result.body.contains("text-align: center; background-color: #ff00cc\">Q"))
-        #expect(result.body.contains("text-align: start; vertical-align: middle; width: 1cm\" class=\"latex-top-light"))
-        #expect(result.body.contains("text-align: start; vertical-align: bottom; width: 1cm; border-top:"))
+        #expect(
+            result.body.contains(
+                #"data-latex-column="m" style="text-align: justify; vertical-align: var(--latex-cell-align, middle); width: calc(28.4527559 * var(--tex-pt, 0.996264pt))"#
+            ))
+        #expect(result.body.contains(#"class="latex-top-light"><span class="latex-middle-cell"><span>C"#))
+        #expect(
+            result.body.contains(
+                #"data-latex-column="b" style="text-align: justify; vertical-align: var(--latex-cell-align, bottom); width: calc(28.4527559 * var(--tex-pt, 0.996264pt))"#
+            ))
+        #expect(result.body.contains(#"border-top: 0.5pt solid currentColor"><span class="latex-bottom-cell">D"#))
+    }
+
+    @Test("段落列だけを折り返し、表幅の残りを伸縮列で等分する")
+    func flexibleColumns() {
+        let result = LaTeXConverter.convert(
+            #"""
+            \newcolumntype{L}{>{\bfseries}l}
+            \begin{tabularx}{.8\linewidth}{@{}Lm{16mm}b{16mm}XX@{}}
+            Mark&Before&After&Observation&Trial\\
+            \multicolumn{2}{r}{Pair}&One&Two&Three
+            \end{tabularx}
+            """#)
+        #expect(result.readingIssues.isEmpty)
+        #expect(result.body.contains(#"data-latex-tabularx style="width: 80%; --latex-x-share: 50%""#))
+        #expect(
+            result.body.contains(
+                #"<td style="text-align: start; padding-inline-start: 0; font-weight: bold">Mark</td>"#))
+        #expect(result.body.contains(#"class="latex-middle-cell"><span>Before</span></span>"#))
+        #expect(result.body.contains(#"class="latex-bottom-cell">After</span>"#))
+        #expect(result.body.contains(#"data-latex-column="X" style="text-align: justify">Observation"#))
+        #expect(result.body.contains(#"<td style="text-align: end" colspan="2">Pair</td>"#))
     }
 
     @Test("booktabs の太罫・細罫の上下に空きを付け、二重の横罫と段落列の揃えを区別する")
@@ -93,15 +125,15 @@ struct LaTeXLayoutTests {
         ).body
         #expect(
             html.contains(
-                #"<tr class="latex-below-rule latex-above-rule"><th style="text-align: justify; vertical-align: top; width: 4cm" class="latex-top-heavy">Head"#
+                #"<tr class="latex-below-rule latex-above-rule"><th data-latex-column="p" style="text-align: justify; vertical-align: var(--latex-cell-align, top); width: calc(113.811024 * var(--tex-pt, 0.996264pt))" class="latex-top-heavy">Head"#
             ))
         #expect(
             html.contains(
-                #"<tr class="latex-below-rule"><td style="text-align: justify; vertical-align: top; width: 4cm" class="latex-top-light">Text"#
+                #"<tr class="latex-below-rule"><td data-latex-column="p" style="text-align: justify; vertical-align: var(--latex-cell-align, top); width: calc(113.811024 * var(--tex-pt, 0.996264pt))" class="latex-top-light">Text"#
             ))
         #expect(
             html.contains(
-                #"<tr class="latex-above-rule"><td style="text-align: justify; vertical-align: top; width: 4cm" class="latex-top-double latex-bottom-heavy">More"#
+                #"<tr class="latex-above-rule"><td data-latex-column="p" style="text-align: justify; vertical-align: var(--latex-cell-align, top); width: calc(113.811024 * var(--tex-pt, 0.996264pt))" class="latex-top-double latex-bottom-heavy">More"#
             ))
     }
 

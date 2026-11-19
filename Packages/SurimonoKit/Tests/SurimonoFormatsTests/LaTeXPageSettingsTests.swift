@@ -119,14 +119,14 @@ struct LaTeXPageSettingsTests {
         let source = #"\newcommand{\topic}[1]{\section*{#1}}"#
         let result = document(source, body: #"\parindent=0pt\parskip=4pt plus 1pt\topic{Ink}\noindent\textbf{語：} 紙"#)
         let info = try #require(result.latexClass)
-        #expect(info.styleVariables.contains("--latex-parindent: 0pt"))
-        #expect(info.styleVariables.contains("--latex-parskip: 4pt"))
+        #expect(info.styleVariables.contains("--latex-parindent: calc(0 * var(--tex-pt, 0.996264pt))"))
+        #expect(info.styleVariables.contains("--latex-parskip: calc(4 * var(--tex-pt, 0.996264pt))"))
         #expect(result.body.contains("<p class=\"latex-noindent\"><strong>語：</strong>"))
         let defaults = try #require(document(#"\usepackage{parskip}"#).latexClass)
         #expect(defaults.styleVariables.contains("--latex-parskip: 0.5lh"))
         let changed = try #require(document(#"\usepackage[skip=8pt,indent=1em]{parskip}"#).latexClass)
         #expect(changed.styleVariables.contains("--latex-parindent: 1em"))
-        #expect(changed.styleVariables.contains("--latex-parskip: 8pt"))
+        #expect(changed.styleVariables.contains("--latex-parskip: calc(8 * var(--tex-pt, 0.996264pt))"))
         let classOption = try #require(document("", options: "parskip=full").latexClass)
         #expect(classOption.styleVariables.contains("--latex-parskip: 1lh"))
     }

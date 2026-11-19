@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.06577073906485671,
+    "changedAreaRatio" : 0.06395374560080443,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
-    "maxLuminance" : 177.87890625,
-    "maxShiftPt" : 31.2,
+    "maxLuminance" : 173.30670166015625,
+    "maxShiftPt" : 28.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 4
@@ -35,21 +35,21 @@
           "text" : "The overview follows the crest from left to right. The detail isolates the cen-",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 177.3
+          "y" : 174.9
         },
         {
           "height" : 11.7,
           "text" : "tral notch.",
           "width" : 46,
           "x" : 125.4,
-          "y" : 189.3
+          "y" : 186.9
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: Full ridge and cropped detail",
           "width" : 169.8,
           "x" : 212.4,
-          "y" : 378.8
+          "y" : 376.4
         },
         {
           "height" : 11.7,

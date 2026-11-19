@@ -8,6 +8,16 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     private var style = "plain"
     private var thisPageStyle: String?
     private var twoSided = false
+    private var examFirst: [String: String]?
+    private var examRunning = [String: String]()
+    private var firstSheet = true
+    var examTotals: [String: String] = [:]
+    package var needsExamTotals: Bool {
+        guard let examFirst else { return false }
+        return [examFirst, examRunning].contains { fields in
+            fields.values.contains { $0.contains(#"\numquestions"#) || $0.contains(#"\numpoints"#) }
+        }
+    }
     private var fields: [String: String] = [:]
     struct Definition: Codable, Equatable, Sendable {
         var name: String
@@ -33,10 +43,15 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
         self.init()
         twoSided =
             (options.last { $0 == "twoside" || $0 == "oneside" }).map { $0 == "twoside" }
-            ?? ["book", "jsbook", "ltjsbook", "llncs"].contains(name)
+            ?? ["book", "jsbook", "ltjsbook", "llncs", "scrbook", "memoir"].contains(name)
         if twoSided {
             fields["OLH"] = #"\leftmark"#
             fields["ORH"] = #"\rightmark"#
+        }
+        if name == "exam" {
+            style = "headandfoot"
+            examFirst = [:]
+            examRunning["CF"] = #"Page \thepage"#
         }
         if name == "IEEEtran" && options.contains("conference") || name == "llncs" {
             style = name == "llncs" && options.contains("runningheads") ? "runningheads" : "empty"
@@ -90,7 +105,27 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
         return max(0, (LaTeXPageSettings.millimetres(length) ?? 0) * 72 / 25.4)
     }
 
-    private func row(_ location: String) -> [String] {
+    package private(set) var headerFont: LaTeXElementFont?
+    package private(set) var numberFont: LaTeXElementFont?
+
+    package func numberRanges(header: Bool) -> [[NSRange]] {
+        guard numberFont != nil else { return [] }
+        // Resolve the same field with a marker so a chapter number equal to the page is left alone.
+        let marker = "\u{0}"
+        return row(header ? "H" : "F", page: marker).map { field in
+            let parts = field.components(separatedBy: marker)
+            var offset = 0
+            return parts.dropLast().map { prefix in
+                offset += prefix.utf16.count
+                let range = NSRange(location: offset, length: label.utf16.count)
+                offset += range.length
+                return range
+            }
+        }
+    }
+
+    private func row(_ location: String, page: String? = nil) -> [String] {
+        let label = page ?? self.label
         let even = twoSided && counter.isMultiple(of: 2)
         if let selected = activeFields {
             return ["L", "C", "R"].map { side in
@@ -98,7 +133,15 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 return Self.text(source, page: label, left: leftMark, right: firstRightMark ?? rightMark)
             }
         }
-        switch thisPageStyle ?? style {
+        let currentStyle = thisPageStyle ?? style
+        if let examFirst, ["head", "foot", "headandfoot"].contains(currentStyle) {
+            let source = firstSheet ? examFirst : examRunning
+            if currentStyle == "head" && location == "F" || currentStyle == "foot" && location == "H" {
+                return ["", "", ""]
+            }
+            return ["L", "C", "R"].map { Self.text(source[$0 + location] ?? "", page: label, totals: examTotals) }
+        }
+        switch currentStyle {
         case "empty": return ["", "", ""]
         case "runningheads":
             return location == "F" ? ["", "", ""] : even ? [label, "", ""] : ["", "", label]
@@ -108,7 +151,9 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
 
     /// Furniture is plain PDF text. Read literal characters, escaped symbols and the three
     /// page-dependent commands without evaluating arbitrary macros at every shipout.
-    static func text(_ source: String, page: String = "", left: String = "", right: String = "") -> String {
+    static func text(
+        _ source: String, page: String = "", left: String = "", right: String = "", totals: [String: String] = [:]
+    ) -> String {
         var rest = source[...]
         var output = ""
         while let ch = rest.popFirst() {
@@ -123,6 +168,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 rest = rest.dropFirst(word.count).drop(while: { $0.isWhitespace })
                 switch word {
                 case "thepage": output += page
+                case "numquestions", "numpoints": output += totals[String(word)] ?? "?"
                 case "leftmark": output += left
                 case "rightmark": output += right
                 case "quad", "qquad", "enspace": output += " "
@@ -141,6 +187,10 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
 
     package mutating func apply(_ action: String, value: String) {
         switch action {
+        case "koma:pagehead", "koma:pagenumber":
+            if let font = try? JSONDecoder().decode(LaTeXElementFont.self, from: Data(value.utf8)) {
+                if action == "koma:pagehead" { headerFont = font } else { numberFont = font }
+            }
         case "headrulewidth", "footrulewidth": fields[action] = value
         case "fancyStyle":
             if let definition = try? JSONDecoder().decode(Definition.self, from: Data(value.utf8)) {
@@ -167,6 +217,8 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             rightMark = value
             if firstRightMark == nil { firstRightMark = value }
         default:
+            if action.hasPrefix("exam:first:") { examFirst?[String(action.dropFirst(11))] = value }
+            if action.hasPrefix("exam:running:") { examRunning[String(action.dropFirst(13))] = value }
             if action.hasPrefix("fancy:") { Self.setFields(action.dropFirst(6), value: value, in: &fields) }
         }
     }
@@ -188,6 +240,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     }
 
     package mutating func advance() {
+        firstSheet = false
         if counter < Int.max { counter += 1 }
         thisPageStyle = nil
         firstRightMark = nil

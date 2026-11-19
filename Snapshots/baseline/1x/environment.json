@@ -611,7 +611,10 @@
   },
   "latex-088" : {
     "fonts" : [
-      "Helvetica"
+      "TimesNewRomanPS-BoldItalicMT",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },

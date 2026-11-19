@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.008983408748114631,
+    "changedAreaRatio" : 0.009027652086475615,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 145.984375,
-    "maxShiftPt" : 31.2,
+    "maxShiftPt" : 28.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,28 +35,28 @@
           "text" : "C",
           "width" : 7.2,
           "x" : 322.5,
-          "y" : 190.9
+          "y" : 188.5
         },
         {
           "height" : 9.3,
           "text" : "α",
           "width" : 6.4,
           "x" : 252.5,
-          "y" : 250.7
+          "y" : 248.3
         },
         {
           "height" : 11.7,
           "text" : "A B",
           "width" : 120.6,
           "x" : 237.3,
-          "y" : 261.5
+          "y" : 259.1
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: The dashed circle marks clearance around the upper pin.",
           "width" : 291,
           "x" : 151.8,
-          "y" : 283.6
+          "y" : 281.2
         },
         {
           "height" : 11.7,
