@@ -201,6 +201,7 @@ struct FileWatcherTests {
             }), settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
         let entered = DispatchSemaphore(value: 0)
         let release = DispatchSemaphore(value: 0)
+        model.enterPrintMode()
         model.beforeWatcherCheck = {
             entered.signal()
             release.wait()

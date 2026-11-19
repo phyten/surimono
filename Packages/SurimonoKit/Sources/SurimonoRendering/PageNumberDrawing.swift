@@ -27,7 +27,6 @@ public enum PageNumberDrawing {
 }
 
 /// The header and footer of a page, in the same type as the plain page number.
-@MainActor
 enum PageFurnitureDrawing {
     private struct Row {
         let lines: [CTLine?]

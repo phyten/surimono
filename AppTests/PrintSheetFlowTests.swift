@@ -68,6 +68,73 @@ struct PrintSheetFlowTests {
         FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     }
 
+    @Test("大きすぎるCSVは再読み込みを勧めずテキストとして開き直せる", .timeLimit(.minutes(1)))
+    func oversizedTableRecovery() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let renderer = DocumentRenderer(paginate: { _ in
+            try #require(PDFDocument(data: TestFixtures.pdf("Text")))
+        })
+        let model = DocumentViewModel(
+            data: Data(String(repeating: "x,y\n", count: 60_001).utf8), fileURL: nil, format: .csv,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer { model.stop() }
+        model.render()
+        try await waitUntil { !model.isRendering }
+        #expect(model.layoutTooLarge && model.offersPlainTextRecovery)
+        #expect(!model.canOutput)
+        #expect(
+            model.error
+                == DocumentViewModel.message(for: DocumentRenderer.RenderingError.tooLarge(bytes: model.data.count)))
+        model.reopenAsText()
+        try await waitUntil { model.isUpToDate }
+        #expect(!model.layoutTooLarge && !model.offersPlainTextRecovery)
+    }
+
+    @Test("表示では用紙を作らず刷り台に入ると同じ論理ページを順に面付けする", .timeLimit(.minutes(1)))
+    func firstTrayVisit() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = TestDefaultsSuite()
+        defer { suite.remove() }
+        let gate = CompositionGate()
+        let renderer = DocumentRenderer()
+        renderer.willComposeSheet = { try await gate.pass() }
+        let model = DocumentViewModel(
+            data: TestFixtures.textPDF(["Page One", "Page Two"]), fileURL: nil, format: .pdf,
+            preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory),
+            renderer: renderer)
+        defer {
+            model.stop()
+            gate.release()
+        }
+        model.layoutID = PrintLayout.a4Single.id
+        model.render()
+        try await waitUntil { model.isUpToDate }
+        let logical = try #require(model.result?.logicalDocument)
+        #expect(model.printResult == nil)
+        #expect(!model.canOutput)
+        #expect(renderer.sheetCompositionCount == 0)
+        gate.isHeld = true
+        model.enterPrintMode()
+        try await waitUntil { gate.waiting == 1 }
+        #expect(model.isRendering && !model.hasCurrentPrintPreview && !model.canOutput)
+        gate.release()
+        try await waitUntil { model.canOutput }
+        let output = try #require(model.printResult)
+        #expect(output.logicalDocument === logical)
+        #expect(output.sheetDocument.pageCount == 2)
+        for (index, label) in ["Page One", "Page Two"].enumerated() {
+            let page = try #require(output.sheetDocument.page(at: index))
+            #expect(page.string == label)
+            #expect(abs(page.bounds(for: .mediaBox).width - 595.28) < 0.5)
+        }
+        #expect(renderer.sheetCompositionCount == 1)
+    }
+
     @Test(
         "表示からの書き出しと印刷は刷り台に入り、選んだレイアウトの用紙ができるまで保留する",
         .timeLimit(.minutes(1)),
@@ -89,6 +156,7 @@ struct PrintSheetFlowTests {
 
         var outputs: [(DocumentViewModel.Output, RenderResult)] = []
         model.outputOverride = { outputs.append(($0, $1)) }
+        gate.isHeld = true
         switch output {
         case .exportPDF: model.exportPDF()
         case .exportReadingPDF: model.exportReadingPDF()
@@ -102,8 +170,6 @@ struct PrintSheetFlowTests {
         #expect(!model.isExporting && !model.isPrinting)
         #expect(outputs.isEmpty)
 
-        gate.isHeld = true
-        model.render()
         try await waitUntil { gate.waiting == 1 }
         #expect(model.renderedSettings?.layout == .a4BookletA5)
         #expect(model.outputAfterReview == output)
@@ -369,6 +435,7 @@ struct PrintSheetImageOrderTests {
             data: Data(), fileURL: nil, format: .image, preferences: AppPreferences(defaults: suite.defaults),
             library: UserLibrary(root: directory), imageBundle: bundle)
         defer { model.stop() }
+        model.enterPrintMode()
         model.render()
         for _ in 0..<500 where model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
         #expect(model.hasCurrentPrintPreview)

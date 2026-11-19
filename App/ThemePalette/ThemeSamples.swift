@@ -21,6 +21,8 @@ final class ThemeSamples {
     @ObservationIgnored var inputs: () -> (source: DocumentSource?, settings: RenderSettings?) = { (nil, nil) }
     /// The samples drawn so far, with the theme as drawn.
     private var samples: [SampleID: (theme: PrintTheme, page: PDFPage)] = [:]
+    @ObservationIgnored private var codeSource: DocumentSource?
+    @ObservationIgnored private var preparation: Task<Void, Never>?
     @ObservationIgnored private var sampler: ThemeSampler?
     @ObservationIgnored private var key: Key?
     @ObservationIgnored var diskCache: ThemeSampleCache?
@@ -67,23 +69,43 @@ final class ThemeSamples {
         settings.theme = PrintTheme(id: "", name: "", css: "")
         let key = Key(source: source, settings: settings)
         guard key != self.key else { return }
-        if source != self.key?.source { containsCode = DocumentRenderer.containsCode(source) }
+
         // After `invalidate()` the views are already drawing again; a first start needs no new round either.
         let replacesSamples = self.key != nil
         sampler?.close()
         samples = [:]
         self.key = key
-        sampler = try? DocumentRenderer.themeSampler(for: source, settings: settings)
-        if let sampler {
-            paperSize = sampler.pageSize
-            margins = sampler.margins
+        preparation?.cancel()
+        sampler = nil
+        let removesPaper = WebPaginator.drawsClearPages
+        preparation = Task {
+            let ready = try? await DocumentRenderer.prepareThemeSampler(
+                for: source, settings: settings, removesPaper: removesPaper)
+            guard !Task.isCancelled else { return }
+            if codeSource != source {
+                let hasCode = ready == nil ? false : await Self.hasCode(source)
+                guard !Task.isCancelled else { return }
+                containsCode = hasCode
+                codeSource = source
+            }
+            sampler = ready
+            if let ready {
+                paperSize = ready.pageSize
+                margins = ready.margins
+            }
         }
         if replacesSamples { generation += 1 }
+    }
+
+    @concurrent private static func hasCode(_ source: DocumentSource) async -> Bool {
+        DocumentRenderer.containsCode(source)
     }
 
     /// A transient WebKit failure gets one fresh attempt while the requesting view is still present.
     func load(_ theme: PrintTheme, at place: SamplePlace? = nil) async {
         refresh()
+        await preparation?.value
+        guard !Task.isCancelled else { return }
         guard page(for: theme, at: place) == nil, let sampler, let key else { return }
         let diskKey =
             place == nil
@@ -115,6 +137,8 @@ final class ThemeSamples {
     @discardableResult
     func loadPlaces() async -> Bool {
         refresh()
+        await preparation?.value
+        guard !Task.isCancelled else { return false }
         guard let sampler else {
             places = []
             return true
@@ -127,6 +151,9 @@ final class ThemeSamples {
     /// Forgets every sample, for example after the file or a user style changed outside the app; the samples on
     /// screen are drawn again from the new state.
     func invalidate() {
+        preparation?.cancel()
+        preparation = nil
+        codeSource = nil
         sampler?.close()
         sampler = nil
         key = nil

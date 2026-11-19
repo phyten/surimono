@@ -33,10 +33,7 @@ public enum HTMLExporter {
             body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
             title: fragment.title, language: fragment.language, latexClass: fragment.latexClass)
         let directory = source.fileURL?.deletingLastPathComponent()
-        let html = HTMLDocumentBuilder.build(
-            fragment: body, format: source.format, theme: settings.theme,
-            baseURL: directory, language: settings.pageLanguage, textScale: settings.textScale,
-            finish: settings.finish.styleSheet, code: settings.code)
+        let html = try await DocumentRenderer.builtHTML(body, source: source, settings: settings, separatesPaper: false)
         let input = DocumentRenderer().exportSource(
             .html(html, baseURL: directory ?? FileManager.default.temporaryDirectory),
             for: source)

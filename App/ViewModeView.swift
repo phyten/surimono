@@ -250,9 +250,10 @@ private struct ErrorPanel: View {
             Image(systemName: "exclamationmark.triangle").font(.system(size: 28)).foregroundStyle(.secondary)
             Text(verbatim: message).multilineTextAlignment(.center).textSelection(.enabled)
             HStack {
-                Button("Reload") { model.reload() }
-                // A Word document is a ZIP: as text it would be a page of noise.
-                if model.format.isWebRendered && model.format != .plainText && model.format != .docx {
+                if !model.layoutTooLarge {
+                    Button("Reload") { model.reload() }
+                }
+                if model.offersPlainTextRecovery {
                     Button("Open as Plain Text") { model.reopenAsText() }
                 }
             }

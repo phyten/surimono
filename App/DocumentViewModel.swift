@@ -127,7 +127,12 @@ final class DocumentViewModel {
     private(set) var isPageRangeUnreadable = false
     /// The setting set last applied or saved in this window, which the tray compares the settings with.
     var selectedSettingSetID: UUID?
-    var mode: ViewerMode = .view
+    var mode: ViewerMode = .view {
+        didSet {
+            // Leaving the tray cancels its outstanding sheets even when both modes use identical settings.
+            if oldValue == .print, mode == .view, isRendering, composingSheets { render() }
+        }
+    }
     private var openingViewDefaults: ViewDefaultPreferences
     // Keep the baseline stable if Settings changes while the document is still opening.
     private var defaultTextScale: Double
@@ -277,8 +282,16 @@ final class DocumentViewModel {
     var smartRemovalKeptIDs: [String] = []
     /// While reviewing, the paper outlines the detected parts instead of removing them.
     private(set) var isReviewingSmartRemoval = false
-    /// An output waiting for the print layout, a web capture, or the end of a review; it runs when sheets are ready.
-    @ObservationIgnored var outputAfterReview: Output?
+    /// A review must replace the outlined preview before releasing its output, even if the reader stays open.
+    @ObservationIgnored private var waitingOutput: (action: Output, replacesReview: Bool)?
+    var outputAfterReview: Output? {
+        get { waitingOutput?.action }
+        set {
+            if newValue != waitingOutput?.action {
+                waitingOutput = newValue.map { ($0, false) }
+            }
+        }
+    }
     /// Replaces the system output UI in tests, after readiness checks, with the exact sheets being output.
     @ObservationIgnored var outputOverride: ((Output, RenderResult) -> Void)?
     /// Replaces submission after resolving the destination and matching its settings to the composed sheets.
@@ -350,6 +363,11 @@ final class DocumentViewModel {
         await PrinterCapabilityCache.shared.capabilities(for: $0)
     }
     private(set) var isExporting = false
+    private(set) var layoutTooLarge = false
+    var offersPlainTextRecovery: Bool {
+        format.isWebRendered && format != .plainText && format != .docx
+            && (!layoutTooLarge || data.count <= PageLayoutLimits.plainTextBytes)
+    }
     var error: String?
     var outputError: String?
     @ObservationIgnored weak var window: NSWindow?
@@ -410,6 +428,7 @@ final class DocumentViewModel {
     /// The guess shown before the pages are known; a different value then can only come from the user.
     @ObservationIgnored private let initialViewOptions: ViewOptions
     let renderer: DocumentRenderer
+    @ObservationIgnored private var composingSheets = false
     private var renderTask: Task<Void, Never>?
     @ObservationIgnored private var hasShownVerticalWritingNote = false
     private var toastTask: Task<Void, Never>?
@@ -1353,11 +1372,16 @@ final class DocumentViewModel {
     /// which way the sheets lie, which changes the settings to what that render is already making; starting over for
     /// that would cancel it for nothing.
     func renderForChangedSettings() {
+        if isUpToDate, mode != .print || hasCurrentPrintPreview { return }
         if isRendering, let renderingSettings, renderingSettings == renderSettings { return }
         render()
     }
 
-    func render() {
+    func render() { render(reusing: nil) }
+
+    private func render(reusing currentPages: PreparedRender?) {
+        layoutTooLarge = false
+        composingSheets = false
         renderStartCount += 1
         renderingSettings = nil
         reloadOwnsProgress = false
@@ -1393,68 +1417,79 @@ final class DocumentViewModel {
             guard let self else { return }
             var settings = settings
             do {
-                let source: DocumentSource
-                if let binder {
-                    source = try await binder.source()
-                    if let hash = binder.setHash { didComputeHash(hash) }
-                    if sourceURLs != self.sourceURLs || settings != renderSettings {
-                        render()
-                        return
-                    }
-                } else if let imageBundle {
-                    source = try await imageBundle.source()
-                    // The digests and the key of their set change together, so nothing is saved under a mixed state.
-                    if imageBundle.archiveURL == nil, let hash = imageBundle.setHash { didComputeHash(hash) }
+                let prepared: PreparedRender
+                if let currentPages {
+                    prepared = currentPages
                 } else {
-                    source = withFolderAccess(singleSource)
-                }
-                let prepared = try await renderer.prepare(source, settings: settings)
-                try Task.checkCancellation()
-                if renderer.logicalRenderCount != layoutsBefore { lastLayoutDuration = ContinuousClock.now - started }
-                // The paper shows the logical pages right away; the sheets for the tray and the outputs follow.
-                settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
-                renderingSettings = settings
-                result = prepared
-                if source.format.supportsChangeMarks { displayedChangeSource = source }
-                chosenTrial = nil
-                // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline
-                // and the place read follow them there too and stay right on the way back, where nothing renders.
-                let forReading = mode == .view || showsReadingPages(settings, fromSnapshot: fromSnapshot)
-                refreshStructure(of: source, in: prepared, forReading: forReading)
-                announceChanges(in: prepared)
-                renderedSettings = settings
-                renderedSourceURLs = sourceURLs
-                renderedFromSnapshot = fromSnapshot
-                unreadableImageURLs = prepared.unreadableImageURLs
-                binder?.didRender(prepared, forReading: forReading)
-                if forReading, let page = binder?.settleReadingPage() ?? selectedImagePage {
-                    currentPageIndex = page
-                }
-                resolveViewOptionsIfNeeded(for: prepared.viewDocument)
-                validateMigratedContentIfReady()
-                if let imageBundle {
-                    // The digests of the images are known now, so a remembered order can be restored.
-                    if let order = pendingImageOrder {
-                        pendingImageOrder = nil
-                        // Restoring the remembered order is part of opening the document, not a change to save.
-                        if imageBundle.applyOrder(order) { settingsBaseline = rememberedSettings }
+                    let source: DocumentSource
+                    if let binder {
+                        source = try await binder.source()
+                        if let hash = binder.setHash { didComputeHash(hash) }
+                        if sourceURLs != self.sourceURLs || settings != renderSettings {
+                            render()
+                            return
+                        }
+                    } else if let imageBundle {
+                        source = try await imageBundle.source()
+                        // The digests and the key of their set change together, so nothing is saved under a mixed state.
+                        if imageBundle.archiveURL == nil, let hash = imageBundle.setHash { didComputeHash(hash) }
+                    } else {
+                        source = withFolderAccess(singleSource)
+                    }
+                    prepared = try await renderer.prepare(source, settings: settings)
+                    try Task.checkCancellation()
+                    if renderer.logicalRenderCount != layoutsBefore {
+                        lastLayoutDuration = ContinuousClock.now - started
+                    }
+                    // The paper can show the logical pages before any sheets are needed.
+                    settings.options.rotatesBackSides = mode == .print && printerRotation(for: prepared.layout)
+                    renderingSettings = settings
+                    result = prepared
+                    if source.format.supportsChangeMarks { displayedChangeSource = source }
+                    chosenTrial = nil
+                    // Pages laid out on the tray are the ones read unless the tray added or changed some, so the outline
+                    // and the place read follow them there too and stay right on the way back, where nothing renders.
+                    let forReading = mode == .view || showsReadingPages(settings, fromSnapshot: fromSnapshot)
+                    refreshStructure(of: source, in: prepared, forReading: forReading)
+                    announceChanges(in: prepared)
+                    renderedSettings = settings
+                    renderedSourceURLs = sourceURLs
+                    renderedFromSnapshot = fromSnapshot
+                    unreadableImageURLs = prepared.unreadableImageURLs
+                    binder?.didRender(prepared, forReading: forReading)
+                    if forReading, let page = binder?.settleReadingPage() ?? selectedImagePage {
+                        currentPageIndex = page
+                    }
+                    resolveViewOptionsIfNeeded(for: prepared.viewDocument)
+                    validateMigratedContentIfReady()
+                    if let imageBundle {
+                        // The digests of the images are known now, so a remembered order can be restored.
+                        if let order = pendingImageOrder {
+                            pendingImageOrder = nil
+                            // Restoring the remembered order is part of opening the document, not a change to save.
+                            if imageBundle.applyOrder(order) { settingsBaseline = rememberedSettings }
+                        }
                     }
                 }
-                let output = try await renderer.composeSheet(
-                    for: prepared, rotatesBackSides: settings.options.rotatesBackSides)
-                try Task.checkCancellation()
-                printResult = output
-                if mode == .print, settings == renderSettings {
-                    trayFigures = TrayFigures(
-                        settings: settings, data: data, sourceURLs: sourceURLs, sheetCount: output.plan.sheetCount,
-                        paper: output.plan.paper.shortName)
+                if mode == .print || waitingOutput?.replacesReview == true {
+                    composingSheets = true
+                    let output = try await renderer.composeSheet(
+                        for: prepared, rotatesBackSides: settings.options.rotatesBackSides)
+                    try Task.checkCancellation()
+                    composingSheets = false
+                    printResult = output
+                    if mode == .print, settings == renderSettings {
+                        trayFigures = TrayFigures(
+                            settings: settings, data: data, sourceURLs: sourceURLs, sheetCount: output.plan.sheetCount,
+                            paper: output.plan.paper.shortName)
+                    }
+                    printTraySourceURLs = sourceURLs
+                    printTraySettings = settings
+                    printTray = PrintTray(
+                        plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
+                        sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
+                        notePages: output.notePages)
                 }
-                printTraySourceURLs = sourceURLs
-                printTraySettings = settings
-                printTray = PrintTray(
-                    plan: output.plan, layout: output.layout, rotatesBackSides: settings.options.rotatesBackSides,
-                    sheetOrientations: output.sheetOrientations, blankPages: output.blankPages,
-                    notePages: output.notePages)
                 isRendering = false
                 resolveTrayRequest()
                 if mode == .print, let page = binderExitTrayPage, let printTray {
@@ -1464,7 +1499,7 @@ final class DocumentViewModel {
                 finishFirstRender(succeeded: true)
                 resolvePrintIssueNavigation()
                 retriedChangedImages = false
-                if prepared.requiredFolderAccess != nil { requestFolderAccess() }
+                if currentPages == nil, prepared.requiredFolderAccess != nil { requestFolderAccess() }
                 showVerticalWritingNoteIfNeeded()
                 // A render that a later change made stale leaves the output to the render that follows it.
                 if pendingPrint != nil, settings == renderSettings { resumePendingPrint() }
@@ -1489,6 +1524,8 @@ final class DocumentViewModel {
                     unreadableImageURLs = urls
                 }
                 if case DocumentRenderer.RenderingError.noReadableDocuments(let urls) = error { binder?.didFail(urls) }
+                if case DocumentRenderer.RenderingError.tooLarge = error { layoutTooLarge = true }
+                composingSheets = false
                 self.error = Self.message(for: error)
                 pendingPrint = nil
                 pendingPrintIssue = nil
@@ -1727,6 +1764,11 @@ final class DocumentViewModel {
         viewPaperSizeBeforePrinting = currentPaperSize ?? viewPaperSizeBeforePrinting
         rememberStageBandRoom()
         mode = .print
+        if isUpToDate {
+            if !hasCurrentPrintPreview { render(reusing: result) }
+        } else if error == nil {
+            renderForChangedSettings()
+        }
         // The pages read are often the tray's already, and then no render follows to count their sheets.
         if isUpToDate, hasCurrentPrintPreview, let settings = renderedSettings, let output = printResult {
             trayFigures = TrayFigures(
@@ -2176,7 +2218,7 @@ final class DocumentViewModel {
             isCapturingWeb = false
             let completions = captureCompletions
             captureCompletions = []
-            let settingsBeforeCompletions = renderSettings
+            let taskBeforeCompletions = renderTask
             webCaptureFailed = snapshot == .failed
             var needsRender = false
             if case .captured(let copy) = snapshot, copy != liveSnapshot {
@@ -2192,9 +2234,8 @@ final class DocumentViewModel {
             }
             let outcome: CaptureOutcome = snapshot == .failed ? .failed : isRendering ? .rendering : .ready
             for completion in completions { completion(outcome) }
-            // A changed layout is rendered by DocumentContent's settings observer. Otherwise the new copy still
-            // needs a render here. Never paginate once for reading and again for the tray, or start both paths.
-            if needsRender, settingsBeforeCompletions == renderSettings { render() }
+            // Entering the tray may already have started rendering this copy with its final settings.
+            if needsRender, renderTask == taskBeforeCompletions { render() }
         }
     }
 
@@ -3345,9 +3386,7 @@ final class DocumentViewModel {
         }
     }
 
-    /// Outputs go through the tray even when requested from reading or comparison: its own choices (note pages, the
-    /// page range, the back sides' rotation) may need other sheets. When they do, the view observes the changed render
-    /// settings and draws once; do not start a second render here or output the earlier sheets in the meantime.
+    /// Sheet outputs use the tray's settings even when requested from the reader.
     private func deferUntilPrintMode(_ output: Output) -> Bool {
         guard mode != .print else { return false }
         outputAfterReview = output
@@ -3362,7 +3401,8 @@ final class DocumentViewModel {
     func deferUntilReviewEnds(_ output: Output) -> Bool {
         guard isReviewingSmartRemoval else { return false }
         isReviewingSmartRemoval = false
-        outputAfterReview = output
+        waitingOutput = (output, true)
+        renderForChangedSettings()
         return true
     }
 
@@ -3902,6 +3942,10 @@ final class DocumentViewModel {
         case .noReadableDocuments: return String(localized: "None of the documents could be opened.")
         case .noReadableImages: return String(localized: "None of the images could be opened.")
         case .imageChanged: return String(localized: "The images keep changing. Try reloading the document.")
+        case .tooLarge(let bytes):
+            return String.localizedStringWithFormat(
+                String(localized: "This file is too large to lay out as pages (%lld MB)."),
+                Int64(ceil(Double(bytes) / 1_000_000)))
         case .invalidPDF: return String(localized: "This PDF could not be opened.")
         case .encryptedPDF: return String(localized: "Encrypted PDFs cannot be printed. Open an unlocked copy.")
         case .textDecodingFailed: return String(localized: "The text encoding could not be read without data loss.")

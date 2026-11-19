@@ -209,12 +209,12 @@ struct CodePaletteModelTests {
     }
 
     @Test("見本の組み立ては、文書にコードがあるかを知っている")
-    func samplesKnowAboutCode() {
+    func samplesKnowAboutCode() async throws {
         let suite = TestDefaultsSuite()
         defer { suite.remove() }
         let model = model(suite)
         model.followThemeSamples()
-        #expect(model.themeSamples.containsCode)
+        try await waitUntil { model.themeSamples.containsCode }
     }
 
     @Test("配色の既定はアプリの設定に残る")

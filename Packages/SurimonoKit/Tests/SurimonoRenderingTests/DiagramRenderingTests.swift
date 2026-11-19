@@ -17,10 +17,12 @@ struct DiagramRenderingTests {
             (.plantuml, "@startuml\nA -> B\n@enduml"),
             (.markdown, "```dot\ndigraph {a->b}\n```"),
             (.org, "#+begin_src puml\nA -> B\n#+end_src"),
+            (.plainText, "graphviz-block"), (.markdown, "Ordinary prose."),
             (.html, "<div class=\"graphviz-block\">digraph {}</div>"),
         ] {
             let renderer = DocumentRenderer(paginate: { request in
-                #expect(request.rendersDiagrams == (format != .html))
+                #expect(
+                    request.rendersDiagrams == (format != .html && format != .plainText && source != "Ordinary prose."))
                 if format != .html { #expect(!request.allowsJavaScript) }
                 return try RenderingFixtures.pdf()
             })

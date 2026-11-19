@@ -51,6 +51,14 @@
 				<string>com.microsoft.word.dot</string>
 				<string>net.sourceforge.plantuml</string>
 				<string>public.plain-text</string>
+				<string>public.json</string>
+				<string>public.yaml</string>
+				<string>public.xml</string>
+				<string>com.apple.log</string>
+				<string>public.ndjson</string>
+				<string>io.github.phyten.surimono.jsonl</string>
+				<string>public.toml</string>
+				<string>org.toml-lang.toml</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
 				<string>public.image</string>
@@ -94,6 +102,14 @@
 				<string>com.microsoft.word.dot</string>
 				<string>net.sourceforge.plantuml</string>
 				<string>public.plain-text</string>
+				<string>public.json</string>
+				<string>public.yaml</string>
+				<string>public.xml</string>
+				<string>com.apple.log</string>
+				<string>public.ndjson</string>
+				<string>io.github.phyten.surimono.jsonl</string>
+				<string>public.toml</string>
+				<string>org.toml-lang.toml</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
 				<string>public.image</string>
@@ -129,6 +145,14 @@
 				<string>com.microsoft.word.dot</string>
 				<string>net.sourceforge.plantuml</string>
 				<string>public.plain-text</string>
+				<string>public.json</string>
+				<string>public.yaml</string>
+				<string>public.xml</string>
+				<string>com.apple.log</string>
+				<string>public.ndjson</string>
+				<string>io.github.phyten.surimono.jsonl</string>
+				<string>public.toml</string>
+				<string>org.toml-lang.toml</string>
 				<string>public.html</string>
 				<string>com.adobe.pdf</string>
 				<string>public.image</string>
@@ -140,6 +164,22 @@
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+        <dict>
+            <key>UTTypeIdentifier</key><string>org.toml-lang.toml</string>
+            <key>UTTypeDescription</key><string>TOML</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>toml</string></array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>io.github.phyten.surimono.jsonl</string>
+            <key>UTTypeDescription</key><string>JSON Lines</string>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeTagSpecification</key><dict>
+                <key>public.filename-extension</key><array><string>jsonl</string></array>
+            </dict>
+        </dict>
         <dict>
             <key>UTTypeIdentifier</key><string>org.graphviz.dot</string>
             <key>UTTypeDescription</key><string>Graphviz</string>

@@ -464,9 +464,27 @@ extension DocumentRenderer {
     /// A sampler of this document's first page, laid out like its logical pages under `settings`; nil for the
     /// formats that print without a theme.
     public static func themeSampler(for source: DocumentSource, settings: RenderSettings) throws -> ThemeSampler? {
+        try samplerFactory(for: source, settings: settings, removesPaper: WebPaginator.drawsClearPages)?()
+    }
+
+    @concurrent public static func prepareThemeSampler(
+        for source: DocumentSource, settings: RenderSettings, removesPaper: Bool
+    )
+        async throws -> ThemeSampler?
+    {
+        let make = try samplerFactory(for: source, settings: settings, removesPaper: removesPaper)
+        try Task.checkCancellation()
+        return await make?()
+    }
+
+    private nonisolated static func samplerFactory(
+        for source: DocumentSource, settings: RenderSettings, removesPaper: Bool
+    )
+        throws -> (@Sendable @MainActor () -> ThemeSampler)?
+    {
         if let children = source.children {
             guard let first = children.first(where: { $0.format.usesPrintTheme }) else { return nil }
-            return try themeSampler(for: first, settings: settings)
+            return try samplerFactory(for: first, settings: settings, removesPaper: removesPaper)
         }
         let access =
             SandboxEnvironment.isSandboxed
@@ -486,17 +504,20 @@ extension DocumentRenderer {
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
             language: settings.pageLanguage,
-            textScale: settings.textScale, removesPaper: WebPaginator.drawsClearPages,
+            textScale: settings.textScale, removesPaper: removesPaper,
             finish: settings.finish.styleSheet, code: settings.code)
-        return ThemeSampler(
-            html: html, format: source.format, baseURL: directory,
-            pageSize: layout.logicalPageSize(options: settings.options),
-            margins: WebPaginator.Margins(layout.logicalMargins(options: settings.options)),
-            textScale: settings.textScale, code: settings.code, resourceAccess: access)
+        try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
+        return {
+            ThemeSampler(
+                html: html, format: source.format, baseURL: directory,
+                pageSize: layout.logicalPageSize(options: settings.options),
+                margins: WebPaginator.Margins(layout.logicalMargins(options: settings.options)),
+                textScale: settings.textScale, code: settings.code, resourceAccess: access)
+        }
     }
 
     /// Whether the document has code that the code palette and the block's options would change.
-    public static func containsCode(_ source: DocumentSource) -> Bool {
+    nonisolated public static func containsCode(_ source: DocumentSource) -> Bool {
         if let children = source.children { return children.contains(where: containsCode) }
         guard source.format.usesPrintTheme, let fragment = try? themedFragment(source) else { return false }
         return CodeBlockMarkup.containsCode(fragment.body)

@@ -262,6 +262,7 @@ public struct PreparedRender {
     public var furniture: PageFurniture { options.furniture }
     /// The day their header and footer show, as written on them; empty without one.
     public var furnitureDate: String { sheetKey.furniture.date }
+    var sourceBytes: Data?
     let sheetKey: SheetKey
     let options: PrintOptions
 }
@@ -345,6 +346,7 @@ public final class DocumentRenderer {
         /// An image's content no longer matches the hash it was identified by; hash the images again and retry.
         case imageChanged(URL)
         case unsupportedFormat
+        case tooLarge(bytes: Int)
         case textDecodingFailed
         case invalidPDF
         case encryptedPDF
@@ -399,8 +401,8 @@ public final class DocumentRenderer {
         var markRequests: [MarkdownMarkRequest] = []
         var hasInkStencil = false
         var finishing = FinishedPages()
-        /// The serialized pages the sheets are drawn from, made once for all compositions.
-        var composingSource: CGPDFDocument?
+        /// Immutable drawing bytes when the pages already have a serialized representation.
+        var composingSource: Data?
         /// These pages with note pages among them. Note pages are drawn without WebKit, so changing their lines does
         /// not lay the document out again.
         var noted: (key: NotedKey, logical: Logical)?
@@ -533,41 +535,20 @@ public final class DocumentRenderer {
         }
         do {
             try await willComposeSheet?()
-            let composer = PDFComposer()
-            let sheet: PDFDocument
-            if let logical = cachedLogical(id: prepared.sheetKey.logicalID) {
-                if logical.composingSource == nil {
-                    logical.composingSource = try? PDFComposer.composingSource(of: logical.document)
-                }
-                guard let source = logical.composingSource else { throw RenderingError.invalidPDF }
-                sheet = try await composer.compose(
-                    source, pageCount: logical.document.pageCount, layout: prepared.layout,
-                    options: options, orientsEachPage: prepared.sheetKey.orientsEachPage,
-                    furniture: prepared.sheetKey.furniture, pages: key.pages, sides: key.sides)
-            } else {
-                // The cache has moved on to other pages; compose from the document itself.
-                sheet = try await composer.compose(
-                    prepared.logicalDocument, layout: prepared.layout, options: options,
-                    orientsEachPage: prepared.sheetKey.orientsEachPage, furniture: prepared.sheetKey.furniture,
-                    pages: key.pages, sides: key.sides)
-            }
+            let source = PDFComposer.Source(prepared.logicalDocument, bytes: prepared.sourceBytes)
+            let drawn = try await PDFComposer().compose(
+                source, layout: prepared.layout, options: options,
+                orientsEachPage: key.orientsEachPage, furniture: key.furniture, pages: key.pages, sides: key.sides)
             try Task.checkCancellation()
+            guard let sheet = PDFDocument(data: drawn.data) else { throw RenderingError.invalidPDF }
+            let orientations = drawn.orientations
             sheetCompositionCount += 1
-            let orientations = (0..<sheet.pageCount).compactMap { index -> PaperOrientation? in
-                guard let page = sheet.page(at: index) else { return nil }
-                let size = page.bounds(for: .mediaBox).size
-                return size.width > size.height ? .landscape : .portrait
-            }
             sheets.append((key, sheet, orientations))
             if sheets.count > Self.sheetCacheLimit { sheets.removeFirst(sheets.count - Self.sheetCacheLimit) }
             return RenderResult(prepared, sheet: sheet, sheetOrientations: orientations)
         } catch {
             throw Self.renderingError(error)
         }
-    }
-
-    private func cachedLogical(id: Int) -> Logical? {
-        [cache?.logical, cache?.logical.noted?.logical].compactMap { $0 }.first { $0.id == id }
     }
 
     private static func renderingError(_ error: any Error) -> any Error {
@@ -654,6 +635,7 @@ public final class DocumentRenderer {
                 var requiredFolderAccess: URL?
                 var issues: [PrintIssue] = []
                 var diagrams: [RenderedDiagram] = []
+                var composingSource: Data?
                 var binderOutput: BinderOutput?
                 var finishing = FinishedPages()
                 let document: PDFDocument
@@ -682,6 +664,7 @@ public final class DocumentRenderer {
                     requiredFolderAccess = result.requiredFolderAccess
                     issues = result.issues
                     diagrams = result.diagrams
+                    composingSource = result.drawingBytes
                     document = result.document
                     finishing = result.finishing
                     candidates =
@@ -696,6 +679,7 @@ public final class DocumentRenderer {
                     id: logicalSerial, document: document,
                     viewDocument: source.format == .image ? ImagePageRenderer.viewDocument(of: document) : document,
                     unreadable: unreadable, candidates: candidates)
+                logical.composingSource = composingSource
                 logical.requiredFolderAccess = requiredFolderAccess
                 logical.issues = issues
                 logical.diagrams = diagrams
@@ -738,6 +722,7 @@ public final class DocumentRenderer {
                     ? Self.viewFurniture(
                         of: pages.document, layout: settings.layout, options: settings.options,
                         orientsEachPage: orientsEachPage, context: furniture) : [:],
+                sourceBytes: pages.composingSource,
                 sheetKey: SheetKey(
                     logicalID: pages.id, layout: settings.layout, options: settings.options,
                     orientsEachPage: orientsEachPage, furniture: furniture, pages: selection.pages,
@@ -1111,7 +1096,9 @@ public final class DocumentRenderer {
             guard let document = PDFDocument(data: source.data) else { throw RenderingError.invalidPDF }
             guard !document.isEncrypted && !document.isLocked else { throw RenderingError.encryptedPDF }
             guard document.pageCount > 0 else { throw RenderingError.invalidPDF }
-            return WebPaginator.Result(document: document)
+            var result = WebPaginator.Result(document: document)
+            result.drawingBytes = source.data
+            return result
         case .image:
             return WebPaginator.Result(
                 document: try await ImagePageRenderer().render(
@@ -1171,64 +1158,11 @@ public final class DocumentRenderer {
             .docx,
             .notebook,
             .graphviz, .plantuml:
-            var needsFolderAccess = false
-            let access = resourceAccess(for: source)
-            var fragment: HTMLFragment
-            if source.format == .docx {
-                let conversion = Task.detached(priority: Task.currentPriority) {
-                    try DocxConverter.convert(source.data)
-                }
-                fragment = try await withTaskCancellationHandler {
-                    try await conversion.value
-                } onCancel: {
-                    conversion.cancel()
-                }
-            } else {
-                guard
-                    let themed = try Self.themedFragment(
-                        source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
-                        textWidthPoints: settings.textWidthPoints(in: settings.layout),
-                        mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
-                        onDenied: { needsFolderAccess = true },
-                        imageExists: { url in
-                            if let access, !access.permits(url) {
-                                needsFolderAccess = true
-                                return false
-                            }
-                            guard access != nil else { return FileManager.default.fileExists(atPath: url.path) }
-                            do {
-                                return try url.checkResourceIsReachable()
-                            } catch {
-                                let failure = error as NSError
-                                // Missing extension candidates are normal during graphicx's search.
-                                if failure.domain != NSCocoaErrorDomain
-                                    || ![CocoaError.fileNoSuchFile.rawValue, CocoaError.fileReadNoSuchFile.rawValue]
-                                        .contains(failure.code)
-                                {
-                                    needsFolderAccess = true
-                                }
-                                return false
-                            }
-                        })
-                else { throw RenderingError.unsupportedFormat }
-                fragment = themed
-            }
-            if source.format != .markdown, !settings.markdownChanges.isEmpty {
-                fragment.body = FragmentChanges.identifyingBlocks(in: fragment.body, for: settings.markdownChanges)
-            }
-            let directory = source.fileURL?.deletingLastPathComponent()
-            // Without clear pages the paper stays on the text pages, which WebKit draws inside the margins only.
             let separatesPaper = WebPaginator.drawsClearPages
-            let paperFragment = HTMLFragment(
-                body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
-                title: fragment.title,
-                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code,
-                latexClass: fragment.latexClass)
-            let html = HTMLDocumentBuilder.build(
-                fragment: paperFragment, format: source.format, theme: settings.theme, baseURL: directory,
-                language: settings.pageLanguage,
-                textScale: settings.textScale, removesPaper: separatesPaper, finish: settings.finish.styleSheet,
-                code: settings.code)
+            let page = try await Self.themedPage(
+                source: source, settings: settings, access: resourceAccess(for: source), separatesPaper: separatesPaper)
+            let fragment = page.fragment
+            let directory = source.fileURL?.deletingLastPathComponent()
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margins = settings.layout.logicalMargins(options: settings.options)
             let themeScript = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script ?? ""
@@ -1255,26 +1189,21 @@ public final class DocumentRenderer {
             }
             var text: WebPaginator.Result
             if settings.finish.footnotes == .pageBottom,
-                let plan = PageFootnotes.plan(for: paperFragment.body),
+                let plan = PageFootnotes.plan(for: page.paper.body),
                 let placed = try await paginateFootnotes(
-                    plan, fragment: paperFragment, source: source, settings: settings, preparation: preparation)
+                    plan, page: page, source: source, settings: settings, preparation: preparation)
             {
                 text = placed
             } else {
                 text = try await paginateCheckingIssues(
                     PaginationRequest(
-                        source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
+                        source: sandboxSource(.html(page.html, baseURL: directory), for: source), pageSize: pageSize,
                         margins: WebPaginator.Margins(margins),
                         allowsJavaScript: false,
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
-                        rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki]
-                            .contains(
-                                source.format)
-                            && fragment.body.contains("class=\"mermaid-block\""), rendersDiagrams: true,
-                        collectsDiagrams: settings.markdownChanges.isEmpty
-                            && DiagramGeometry.hasBlocks(in: fragment.body)),
-                    source: source
+                        rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
+                        collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty), source: source
                 )
             }
             // Reader diagnostics describe the source as a whole and have no rectangle on a printed page.
@@ -1282,14 +1211,15 @@ public final class DocumentRenderer {
                 let kind: PrintIssue.Kind = source.format == .markdown ? .bibliography : .latex
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
-            if needsFolderAccess { text.requiredFolderAccess = directory }
-            text = try await finished(text, fragment: fragment, source: source, settings: settings)
+            if page.needsFolderAccess { text.requiredFolderAccess = directory }
+            text = try await finished(text, fragment: fragment, facts: page.facts, source: source, settings: settings)
             guard separatesPaper, text.preparationResult == "paper" else { return text }
             let paperHTML = PaperBackground.document(
                 theme: settings.theme, format: source.format, baseURL: directory,
-                language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code,
+                language: fragment.language ?? settings.pageLanguage,
                 textScale: settings.textScale,
                 pageSize: pageSize, margins: margins, pixelsPerPoint: WebPaginator.printPixelsPerPoint)
+            try PageLayoutLimits.checkHTML(bytes: paperHTML.utf8.count, sourceBytes: source.data.count)
             // A paper that cannot be drawn leaves the text on white, as a theme without one; a cancelled render stops.
             let paper: WebPaginator.Result
             do {
@@ -1320,13 +1250,94 @@ public final class DocumentRenderer {
         }
     }
 
+    private struct ThemedPage {
+        let fragment: HTMLFragment
+        let paper: HTMLFragment
+        let html: String
+        let facts: DocumentFacts
+        let mermaid: Bool
+        let diagrams: Bool
+        var collectsDiagrams: Bool { mermaid || diagrams }
+        let needsFolderAccess: Bool
+    }
+
+    @concurrent private static func themedPage(
+        source: DocumentSource, settings: RenderSettings, access: LocalResourceAccess?, separatesPaper: Bool
+    ) async throws -> ThemedPage {
+        try Task.checkCancellation()
+        var needsFolderAccess = false
+        guard
+            var fragment = try Self.themedFragment(
+                source, pageBreakLine: settings.finish.breaks.customLine, proof: settings.finish.proof,
+                textWidthPoints: settings.textWidthPoints(in: settings.layout),
+                mapsMarkdownSource: !settings.markdownChanges.isEmpty, access: access,
+                onDenied: { needsFolderAccess = true },
+                imageExists: { url in
+                    if let access, !access.permits(url) {
+                        needsFolderAccess = true
+                        return false
+                    }
+                    guard access != nil else { return FileManager.default.fileExists(atPath: url.path) }
+                    do {
+                        return try url.checkResourceIsReachable()
+                    } catch {
+                        let failure = error as NSError
+                        // Missing extension candidates are normal during graphicx's search.
+                        if failure.domain != NSCocoaErrorDomain
+                            || ![CocoaError.fileNoSuchFile.rawValue, CocoaError.fileReadNoSuchFile.rawValue]
+                                .contains(failure.code)
+                        {
+                            needsFolderAccess = true
+                        }
+                        return false
+                    }
+                })
+        else { throw RenderingError.unsupportedFormat }
+        if source.format != .markdown, !settings.markdownChanges.isEmpty {
+            fragment.body = FragmentChanges.identifyingBlocks(in: fragment.body, for: settings.markdownChanges)
+        }
+
+        try Task.checkCancellation()
+        let language = HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code
+        fragment.language = language
+        let paper = HTMLFragment(
+            body: settings.finish.links.apply(to: fragment.body, language: settings.pageLanguage),
+            title: fragment.title, language: language, latexClass: fragment.latexClass)
+        let html = try await builtHTML(paper, source: source, settings: settings, separatesPaper: separatesPaper)
+        // Text and tables cannot emit diagram elements. Check markup before adding styles or duplicating it for notes.
+        let markup = source.format != .plainText && source.format != .csv
+        let mermaid =
+            [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki].contains(source.format)
+            && fragment.body.contains("class=\"mermaid-block\"")
+        let diagrams = markup && (fragment.body.contains("graphviz-block") || fragment.body.contains("plantuml-block"))
+        try Task.checkCancellation()
+        return ThemedPage(
+            fragment: fragment, paper: paper, html: html, facts: DocumentFacts(fragment: fragment),
+            mermaid: mermaid, diagrams: diagrams, needsFolderAccess: needsFolderAccess)
+    }
+
+    @concurrent static func builtHTML(
+        _ fragment: HTMLFragment, source: DocumentSource, settings: RenderSettings, separatesPaper: Bool,
+        isContents: Bool = false
+    ) async throws -> String {
+        try Task.checkCancellation()
+        let html = HTMLDocumentBuilder.build(
+            fragment: fragment, format: source.format, theme: settings.theme,
+            baseURL: source.fileURL?.deletingLastPathComponent(),
+            language: settings.pageLanguage, textScale: settings.textScale, removesPaper: separatesPaper,
+            finish: isContents ? "" : settings.finish.styleSheet, code: isContents ? CodeStyle() : settings.code)
+        try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
+        try Task.checkCancellation()
+        return html
+    }
+
     /// The pages of a text with what the print finish adds to them: the contents in front, a blank before a chapter
     /// that would fall on a left-hand page, and the margins of the left-hand pages turned the other way round.
     private func finished(
-        _ text: WebPaginator.Result, fragment: HTMLFragment, source: DocumentSource, settings: RenderSettings
+        _ text: WebPaginator.Result, fragment: HTMLFragment, facts: DocumentFacts, source: DocumentSource,
+        settings: RenderSettings
     ) async throws -> WebPaginator.Result {
         var result = text
-        let facts = DocumentFacts(fragment: fragment)
         result.finishing.facts = facts
         let finish = settings.finish
         let usesRightPages = settings.layout.hasFacingPages && finish.breaks.usesRightPages
@@ -1437,10 +1448,8 @@ public final class DocumentRenderer {
         let fragment = PaperContents.fragment(
             entries: entries, look: settings.finish.toc.look,
             title: PaperContents.title(language: settings.pageLanguage))
-        let html = HTMLDocumentBuilder.build(
-            fragment: fragment, format: source.format, theme: settings.theme, baseURL: directory,
-            language: settings.pageLanguage,
-            textScale: settings.textScale, removesPaper: separatesPaper)
+        let html = try await Self.builtHTML(
+            fragment, source: source, settings: settings, separatesPaper: separatesPaper, isContents: true)
         let script = separatesPaper ? Self.themedPreparation(settings.theme) : settings.theme.script
         return try await paginate(
             PaginationRequest(
@@ -1575,33 +1584,24 @@ public final class DocumentRenderer {
 
     /// A failed measurement leaves the original single-pagination path in charge, with no partially moved notes.
     private func paginateFootnotes(
-        _ plan: PageFootnotes.Plan, fragment: HTMLFragment, source: DocumentSource,
+        _ plan: PageFootnotes.Plan, page: ThemedPage, source: DocumentSource,
         settings: RenderSettings, preparation: String?
     ) async throws -> WebPaginator.Result? {
         do {
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
             let directory = source.fileURL?.deletingLastPathComponent()
-            func request(_ body: String, collectsDiagrams: Bool = false) -> PaginationRequest {
-                let html = HTMLDocumentBuilder.build(
-                    fragment: HTMLFragment(
-                        body: body, title: fragment.title,
-                        language: HTMLDocumentBuilder.language(for: fragment, fallback: settings.pageLanguage).code,
-                        latexClass: fragment.latexClass),
-                    format: source.format,
-                    theme: settings.theme, baseURL: directory, language: settings.pageLanguage,
-                    textScale: settings.textScale,
-                    removesPaper: WebPaginator.drawsClearPages, finish: settings.finish.styleSheet, code: settings.code)
+            func request(_ body: String, collectsDiagrams: Bool = false) async throws -> PaginationRequest {
+                var fragment = page.paper
+                fragment.body = body
+                let html = try await Self.builtHTML(
+                    fragment, source: source, settings: settings, separatesPaper: WebPaginator.drawsClearPages)
                 return PaginationRequest(
                     source: sandboxSource(.html(html, baseURL: directory), for: source), pageSize: pageSize,
                     margins: margins, allowsJavaScript: false, preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
-                    rendersMermaid: [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki]
-                        .contains(
-                            source.format)
-                        && body.contains("class=\"mermaid-block\""), rendersDiagrams: true,
-                    collectsDiagrams: collectsDiagrams && settings.markdownChanges.isEmpty
-                        && DiagramGeometry.hasBlocks(in: body))
+                    rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
+                    collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty)
             }
             try Task.checkCancellation()
             let measured = try await paginateCheckingIssues(
@@ -1630,6 +1630,10 @@ public final class DocumentRenderer {
                     remaining.removeAll { $0.firstReference == first }
                 }
             }
+            return nil
+        } catch let error as RenderingError {
+            if case .tooLarge = error { throw error }
+            try Task.checkCancellation()
             return nil
         } catch {
             if error is CancellationError { throw error }
@@ -1681,6 +1685,8 @@ public final class DocumentRenderer {
             result.diagrams = (try? pass.diagrams(transform: transform)) ?? []
             try Task.checkCancellation()
         }
+        // Only the page contents are drawn by Quartz; restoring or removing link annotations does not alter them.
+        if transform == nil { result.drawingBytes = output.drawingBytes }
         result.issues = PrintIssueAnchors.extract(from: document, issues: issues) + output.issues
         return result
     }
@@ -1788,11 +1794,19 @@ public final class DocumentRenderer {
             try latexFragment(
                 source, textWidthPoints: textWidthPoints, access: access, onDenied: onDenied, imageExists: imageExists)
         case .org: OrgConverter.convert(try decodedText(source.data))
-        case .plainText: PlainTextConverter.convert(try decodedText(source.data))
+        case .plainText:
+            try plainFragment(source)
         case .csv:
             try csvFragment(source)
         default: nil
         }
+    }
+
+    private nonisolated static func plainFragment(_ source: DocumentSource) throws -> HTMLFragment {
+        guard source.data.count <= PageLayoutLimits.plainTextBytes else {
+            throw RenderingError.tooLarge(bytes: source.data.count)
+        }
+        return PlainTextConverter.convert(try decodedText(source.data), fileExtension: source.fileURL?.pathExtension)
     }
 
     /// A file's extension names its delimiter. A table from memory, such as one copied from a spreadsheet, has no
@@ -1805,7 +1819,10 @@ public final class DocumentRenderer {
             } else {
                 CSVConverter.guessedDelimiter(of: text)
             }
-        return CSVConverter.convert(text, delimiter: delimiter)
+        return try CSVConverter.convert(text, delimiter: delimiter) { count in
+            guard count <= PageLayoutLimits.csvRows else { throw RenderingError.tooLarge(bytes: source.data.count) }
+            if count.isMultiple(of: 1024) { try Task.checkCancellation() }
+        }
     }
 
     nonisolated static func decodedText(_ data: Data) throws -> String {

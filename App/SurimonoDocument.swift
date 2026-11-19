@@ -10,10 +10,11 @@ struct SurimonoDocument: FileDocument {
             .surimonoTextile, .surimonoMediaWiki, .surimonoLaTeX,
             .surimonoNotebook, .surimonoGraphviz,
             .surimonoPlantUML,
-            .plainText, .html, .pdf, .image,
+            .plainText, .json, .yaml, .xml, .surimonoJSONLines, .surimonoTOML, .html, .pdf, .image,
             .commaSeparatedText,
             .tabSeparatedText, .zip,
-        ] + wordTemplate + [UTType("org.openxmlformats.wordprocessingml.document")].compactMap { $0 }
+        ] + ["com.apple.log", "public.ndjson", "public.toml"].compactMap { UTType($0) } + wordTemplate
+            + [UTType("org.openxmlformats.wordprocessingml.document")].compactMap { $0 }
     }
 
     /// macOS gives the `.dot` extension to Word templates, so a Graphviz file arrives with that type. The initializer
@@ -41,7 +42,7 @@ struct SurimonoDocument: FileDocument {
             throw CocoaError(.fileReadCorruptFile)
         }
         self.data = data
-        // Some systems have only the JSON association installed; use the file name without claiming all JSON.
+        // Some systems have only the JSON association installed; the file name distinguishes notebooks from ordinary JSON.
         let suffix = ((file.preferredFilename ?? file.filename ?? "") as NSString).pathExtension
         self.contentType =
             switch DocumentFormat(fileExtension: suffix) {
@@ -53,6 +54,7 @@ struct SurimonoDocument: FileDocument {
             case .mediawiki: .surimonoMediaWiki
             case .asciidoc: .surimonoAsciiDoc
             case .notebook: .surimonoNotebook
+            case .plainText where DocumentFormat(contentType: contentType) == nil: .plainText
             case .graphviz: .surimonoGraphviz
             case .plantuml: .surimonoPlantUML
             default: contentType

@@ -2,8 +2,7 @@ import AppKit
 import PDFKit
 import SurimonoCore
 
-@MainActor
-public struct PDFComposer {
+public struct PDFComposer: Sendable {
     public enum CompositionError: Error, Equatable {
         case emptyDocument
         case invalidPage(Int)
@@ -54,23 +53,25 @@ public struct PDFComposer {
         return corrections
     }
 
-    public func compose(
+    @MainActor public func compose(
         _ document: PDFDocument, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool = false,
         furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil,
         sides: LaidOutSides = LaidOutSides()
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
         guard document.pageCount > 0 else { throw CompositionError.emptyDocument }
-        return try await compose(
-            try Self.composingSource(of: document), pageCount: document.pageCount, layout: layout, options: options,
-            orientsEachPage: orientsEachPage, furniture: furniture, pages: pages, sides: sides)
+        let sheets = try await compose(
+            Source(document, bytes: nil), layout: layout, options: options, orientsEachPage: orientsEachPage,
+            furniture: furniture, pages: pages, sides: sides)
+        guard let output = PDFDocument(data: sheets.data) else { throw CompositionError.pdfCreationFailed }
+        return output
     }
 
     /// The logical pages as they stand on the sheets: a page of `pageSize` each, fitted the way `compose` fits them
     /// into a slot. A PDF's pages keep their own size until then. Pages already at that size are copied as they are.
     /// - Parameter corrections: How far the content of some pages moves to the right (`sideCorrections`), so that a
     ///   booklet of a range reads here as it does on its sheets.
-    public func fitted(
+    @MainActor public func fitted(
         _ document: PDFDocument, pageSize: CGSize, corrections: [Int: CGFloat] = [:]
     ) async throws -> PDFDocument {
         try Task.checkCancellation()
@@ -101,21 +102,51 @@ public struct PDFComposer {
         }
     }
 
-    /// The pages of `document` as drawn into the sheets. A caller composing the same document again may keep it.
-    static func composingSource(of document: PDFDocument) throws -> CGPDFDocument {
-        // PDFPage edits (including rotation) are not necessarily reflected in pageRef until serialized.
-        guard let data = document.dataRepresentation(), let provider = CGDataProvider(data: data as CFData),
-            let source = CGPDFDocument(provider)
-        else { throw CompositionError.pdfCreationFailed }
-        return source
+    enum Source: Sendable {
+        case bytes(Data)
+        case edited(count: Int, page: @MainActor @Sendable (Int) throws -> Data)
+
+        @MainActor init(_ document: PDFDocument, bytes: Data?) {
+            if let bytes {
+                self = .bytes(bytes)
+            } else {
+                // PDFKit edits are visible after serialization. Snapshot only the requested page on its owner.
+                self = .edited(count: document.pageCount) { index in
+                    try Task.checkCancellation()
+                    guard let bytes = document.page(at: index)?.dataRepresentation else {
+                        throw CompositionError.invalidPage(index + 1)
+                    }
+                    return bytes
+                }
+            }
+        }
     }
 
-    func compose(
-        _ source: CGPDFDocument, pageCount: Int, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool,
+    private func quartzDocument(_ bytes: Data) throws -> CGPDFDocument {
+        guard let provider = CGDataProvider(data: bytes as CFData), let pdf = CGPDFDocument(provider) else {
+            throw CompositionError.pdfCreationFailed
+        }
+        return pdf
+    }
+
+    /// Each job opens its own Quartz document and draws into a context owned by that job alone.
+    @concurrent func compose(
+        _ input: Source, layout: PrintLayout, options: PrintOptions, orientsEachPage: Bool,
         furniture: PageFurniture.Context = PageFurniture.Context(), pages: [Int]? = nil,
         sides: LaidOutSides = LaidOutSides()
-    ) async throws -> PDFDocument {
+    ) async throws -> (data: Data, orientations: [PaperOrientation]) {
         try Task.checkCancellation()
+        let source: CGPDFDocument?
+        let pageCount: Int
+        switch input {
+        case .bytes(let data):
+            let pdf = try quartzDocument(data)
+            source = pdf
+            pageCount = pdf.numberOfPages
+        case .edited(let count, _):
+            source = nil
+            pageCount = count
+        }
         guard pageCount > 0 else { throw CompositionError.emptyDocument }
         let logicalSize = layout.logicalPageSize(options: options)
         let margins = WebPaginator.Margins(layout.logicalMargins(options: options))
@@ -130,72 +161,87 @@ public struct PDFComposer {
         let positions = Dictionary((pages ?? []).enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
         let corrections = Self.sideCorrections(pages: pages, layout: layout, options: options, sides: sides)
         let size = layout.sheetSize
+        let bytes = NSMutableData()
+        var mediaBox = CGRect(origin: .zero, size: size)
+        guard let consumer = CGDataConsumer(data: bytes),
+            let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
+        else {
+            throw CompositionError.pdfCreationFailed
+        }
+        var orientations: [PaperOrientation] = []
         do {
-            return try await PDFDrawing.document(pageSize: size) { context in
-                for side in plan.sides {
-                    await Task.yield()
-                    try Task.checkCancellation()
-                    var layout = layout
-                    if orientsEachPage && layout.kind == .normal && layout.duplex == .none,
-                        let index = side.slots.first ?? nil, let page = source.page(at: index + 1)
-                    {
-                        let box = page.getBoxRect(.cropBox).intersection(page.getBoxRect(.mediaBox))
-                        let size =
-                            page.rotationAngle % 180 == 0
-                            ? box.size : CGSize(width: box.height, height: box.width)
-                        layout = layout.oriented(size.width > size.height)
+            for side in plan.sides {
+                try Task.checkCancellation()
+                var snapshots: [Int: CGPDFDocument] = [:]
+                if case .edited(_, let readPage) = input {
+                    for index in side.slots.compactMap({ $0 }) {
+                        snapshots[index] = try quartzDocument(await readPage(index))
                     }
-                    let size = layout.sheetSize
-                    var box = CGRect(origin: .zero, size: size)
-                    let boxData = Data(bytes: &box, count: MemoryLayout<CGRect>.size)
-                    context.beginPDFPage([kCGPDFContextMediaBox: boxData] as CFDictionary)
-                    context.saveGState()
-                    if options.rotatesBackSides && side.isBack {
-                        context.translateBy(x: size.width, y: size.height)
-                        context.rotate(by: .pi)
+                }
+                func page(_ index: Int) -> CGPDFPage? {
+                    source?.page(at: index + 1) ?? snapshots[index]?.page(at: 1)
+                }
+                var layout = layout
+                if orientsEachPage && layout.kind == .normal && layout.duplex == .none,
+                    let index = side.slots.first ?? nil, let page = page(index)
+                {
+                    let box = page.getBoxRect(.cropBox).intersection(page.getBoxRect(.mediaBox))
+                    let size =
+                        page.rotationAngle % 180 == 0
+                        ? box.size : CGSize(width: box.height, height: box.width)
+                    layout = layout.oriented(size.width > size.height)
+                }
+                let size = layout.sheetSize
+                orientations.append(size.width > size.height ? .landscape : .portrait)
+                var box = CGRect(origin: .zero, size: size)
+                let boxData = Data(bytes: &box, count: MemoryLayout<CGRect>.size)
+                context.beginPDFPage([kCGPDFContextMediaBox: boxData] as CFDictionary)
+                context.saveGState()
+                if options.rotatesBackSides && side.isBack {
+                    context.translateBy(x: size.width, y: size.height)
+                    context.rotate(by: .pi)
+                }
+                for (slot, index) in side.slots.enumerated() {
+                    guard let index else { continue }
+                    guard let page = page(index) else {
+                        throw CompositionError.invalidPage(index + 1)
                     }
-                    for (slot, index) in side.slots.enumerated() {
-                        guard let index else { continue }
-                        guard let page = source.page(at: index + 1) else {
-                            throw CompositionError.invalidPage(index + 1)
-                        }
-                        let slotRect = layout.slotRect(at: slot, options: options)
-                        let rect = CGRect(
-                            x: slotRect.minX * size.width, y: (1 - slotRect.maxY) * size.height,
-                            width: slotRect.width * size.width, height: slotRect.height * size.height)
-                        let position = positions[index] ?? index
-                        try draw(page, in: rect, context: context, index: index, shift: corrections[index] ?? 0)
-                        if layout.kind == .handout3 {
-                            if let lines = Self.furnitureLines(
-                                onPage: index, at: position, pageCount: pageCount, layout: layout, options: options,
-                                context: furniture)
-                            {
-                                drawHandout(lines, slot: slot, in: rect, options: options, context: context)
-                            }
-                        } else if let placement = Self.furniture(
+                    let slotRect = layout.slotRect(at: slot, options: options)
+                    let rect = CGRect(
+                        x: slotRect.minX * size.width, y: (1 - slotRect.maxY) * size.height,
+                        width: slotRect.width * size.width, height: slotRect.height * size.height)
+                    let position = positions[index] ?? index
+                    try draw(page, in: rect, context: context, index: index, shift: corrections[index] ?? 0)
+                    if layout.kind == .handout3 {
+                        if let lines = Self.furnitureLines(
                             onPage: index, at: position, pageCount: pageCount, layout: layout, options: options,
                             context: furniture)
                         {
-                            Self.draw(placement, in: rect, context: context)
+                            drawHandout(lines, slot: slot, in: rect, options: options, context: context)
                         }
+                    } else if let placement = Self.furniture(
+                        onPage: index, at: position, pageCount: pageCount, layout: layout, options: options,
+                        context: furniture)
+                    {
+                        Self.draw(placement, in: rect, context: context)
                     }
-                    if let memo = layout.memoRect(options: options) {
-                        let rect = CGRect(
-                            x: memo.minX * size.width, y: (1 - memo.maxY) * size.height,
-                            width: memo.width * size.width, height: memo.height * size.height)
-                        drawMemo(in: rect, context: context)
-                    }
-                    context.restoreGState()
-                    context.endPDFPage()
                 }
+                if let memo = layout.memoRect(options: options) {
+                    let rect = CGRect(
+                        x: memo.minX * size.width, y: (1 - memo.maxY) * size.height,
+                        width: memo.width * size.width, height: memo.height * size.height)
+                    drawMemo(in: rect, context: context)
+                }
+                context.restoreGState()
+                context.endPDFPage()
             }
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch let error as CompositionError {
-            throw error
         } catch {
-            throw CompositionError.pdfCreationFailed
+            context.closePDF()
+            throw error
         }
+        context.closePDF()
+        try Task.checkCancellation()
+        return (bytes as Data, orientations)
     }
 
     private func drawMemo(in rect: CGRect, context: CGContext) {

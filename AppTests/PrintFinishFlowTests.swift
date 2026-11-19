@@ -347,17 +347,17 @@ struct PrintFinishFlowTests {
         #expect(!model.isPrintFinishPresented)
     }
 
-    @Test("表示で組んだページが刷り台と同じなら、刷り台に入ったときから文書の情報に今の設定の枚数を出す")
+    @Test("表示で組んだページが刷り台と同じなら、初めて面付けしたときに文書の情報に今の設定の枚数を出す")
     func trayFiguresWithoutRender() async throws {
         let environment = Environment()
         defer { environment.cleanUp() }
         let model = environment.model()
         model.layoutID = PrintLayout.a4BookletA5.id
         model.start()
-        try await waitUntil { model.printResult != nil && !model.isRendering }
+        try await waitUntil { model.isUpToDate }
         #expect(model.currentTrayFigures == nil)
         model.enterPrintMode()
-        #expect(model.isUpToDate)
+        try await waitUntil { model.canOutput }
         #expect(model.currentTrayFigures?.sheetCount == 1)
         #expect(model.currentTrayFigures?.paper == "A4")
     }
@@ -368,7 +368,7 @@ struct PrintFinishFlowTests {
         defer { environment.cleanUp() }
         let model = environment.model()
         model.start()
-        try await waitUntil { model.printResult != nil && !model.isRendering }
+        try await waitUntil { model.isUpToDate }
         #expect(model.currentTrayFigures == nil)
         model.chooseLayout("a4BookletA5")
         model.render()

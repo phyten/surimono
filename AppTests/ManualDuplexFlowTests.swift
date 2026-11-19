@@ -254,7 +254,6 @@ struct ManualDuplexFlowTests {
         model.layoutID = "a4BookletA5"
         model.printDocument(intent: .manualDuplex)
         #expect(model.outputAfterReview == .manualDuplex)
-        model.render()
         try await wait { fixture.sent.count == 1 }
         #expect(fixture.ordinary.isEmpty)
         #expect(model.manualDuplexSession?.binding == .shortEdge)

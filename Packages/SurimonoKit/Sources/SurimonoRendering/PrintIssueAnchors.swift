@@ -95,7 +95,9 @@ enum PrintIssueAnchors {
             const key = locationKey('math', detail);
             if (visible(el)) add(el, 'math', detail, key);
           }
-          for (const el of document.querySelectorAll('.mermaid-error')) {
+          const timedOut = document.querySelectorAll('.mermaid-error.mermaid-timeout > .mermaid-source').length;
+          if (timedOut) issues.push({id: 'mermaid-timeout', kind: 'mermaidTimeout', detail: String(timedOut)});
+          for (const el of document.querySelectorAll('.mermaid-error:not(.mermaid-timeout)')) {
             const detail = el.textContent || '';
             const key = locationKey('mermaid', detail);
             if (visible(el)) add(el, 'mermaid', detail, key);

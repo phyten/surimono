@@ -580,10 +580,10 @@ struct DocumentSettingsFlowTests {
         reopened.renderForChangedSettings()
         try await waitUntil { !reopened.isRendering }
         #expect(reopened.renderedSettings?.layout == .a4BookletA5)
-        // The tray composes the same pages, so it can print without another render.
+        // The tray composes the same pages on first entry.
         reopened.enterPrintMode()
         #expect(reopened.renderSettings?.layout == .a4BookletA5)
-        #expect(reopened.canOutput)
+        try await waitUntil { reopened.canOutput }
         #expect(reopened.printResult?.layout == .a4BookletA5)
     }
 
@@ -635,6 +635,7 @@ struct DocumentSettingsFlowTests {
         first.rememberedSettingsDidChange()
         #expect(environment.store.keys().isEmpty)
         first.paperOrientation = .landscape
+        first.enterPrintMode()
         first.render()
         try await waitUntil { !first.isRendering }
         #expect(first.canOutput)
