@@ -52,7 +52,7 @@ struct MarginField: View {
                 onChange(unit.stepped(stepBase, by: -1))
             }
             .labelsHidden()
-            if showsUnit { Text(verbatim: unit.symbol).foregroundStyle(.secondary) }
+            if showsUnit { Text(verbatim: unit.symbol).foregroundStyle(PrintPalette.ink2) }
         }
     }
 

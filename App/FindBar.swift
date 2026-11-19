@@ -10,7 +10,7 @@ struct FindBar: View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
                 .accessibilityHidden(true)
             FindField(
                 text: Bindable(model.find).text, focusRequests: model.find.focusRequests,
@@ -20,7 +20,7 @@ struct FindBar: View {
             .frame(width: 150)
             Text(verbatim: model.find.state.countText)
                 .font(.system(size: 11).monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
                 .fixedSize()
                 .accessibilityLabel("Matches")
                 .accessibilityValue(Text(verbatim: model.find.state.countText))
@@ -32,7 +32,7 @@ struct FindBar: View {
         .padding(.trailing, 6)
         .padding(.vertical, 6)
         .paperOverlayBackground(.toast)
-        .overlay { CornerRole.toast.shape.strokeBorder(.primary.opacity(0.12)) }
+        .overlay { CornerRole.toast.shape.strokeBorder(PrintPalette.line2) }
         .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
     }
 }
@@ -131,7 +131,7 @@ struct GoToPageSheet: View {
                     .frame(width: 80)
                     .focused($isFocused)
                     .accessibilityLabel("Page number")
-                Text(verbatim: "1 – \(model.pageCount)").foregroundStyle(.secondary).monospacedDigit()
+                Text(verbatim: "1 – \(model.pageCount)").foregroundStyle(PrintPalette.ink2).monospacedDigit()
             }
             HStack {
                 Spacer()

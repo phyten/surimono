@@ -13,10 +13,10 @@ struct SmartRemovalPanel: View {
                 Text(verbatim: "β")
                     .font(.system(size: 10, weight: .bold))
                     .padding(.horizontal, 5).padding(.vertical, 1)
-                    .background(AppCornerShape.capsule.fill(PrintPalette.ai.opacity(0.18)))
+                    .background(AppCornerShape.capsule.fill(PrintPalette.aiTint2))
                 Spacer()
                 PanelIconButton("xmark", label: "Close") { model.endSmartRemovalReview() }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PrintPalette.ink2)
             }
             Text(String(format: String(localized: "%lld parts removed"), removedCount))
                 .font(.subheadline.weight(.semibold)).padding(.top, 4)
@@ -26,13 +26,13 @@ struct SmartRemovalPanel: View {
                         CandidateRow(
                             candidate: candidate, isKept: model.smartRemovalKeptIDs.contains(candidate.id),
                             toggle: { model.toggleKeep(candidate.id) })
-                        Divider()
+                        Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline)
                     }
                 }
             }
             .padding(.vertical, 8)
             Text("The dashed frames show what was removed. Detection runs only on this Mac.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.caption).foregroundStyle(PrintPalette.ink2).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Turn Off") { model.setSmartRemoval(enabled: false) }
                 Spacer()
@@ -62,7 +62,7 @@ private struct CandidateRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(candidate.category.title).font(.callout.weight(.semibold))
                 if !candidate.excerpt.isEmpty {
-                    Text(verbatim: candidate.excerpt).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    Text(verbatim: candidate.excerpt).font(.caption).foregroundStyle(PrintPalette.ink2).lineLimit(2)
                 }
             }
             // What matched is for the curious; on the row it read as markup.
@@ -72,7 +72,6 @@ private struct CandidateRow: View {
                 .fixedSize()
         }
         .padding(.vertical, 8)
-        .opacity(isKept ? 0.6 : 1)
     }
 }
 

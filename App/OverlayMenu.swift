@@ -196,7 +196,7 @@ struct BandZone<Content: View>: View {
             if isShown { PrintPalette.raised }
         }
         .overlay(alignment: edge == .top ? .bottom : .top) {
-            if isShown { Divider() }
+            if isShown { Rectangle().fill(PrintPalette.line).frame(height: DisplayAccessibility.hairline) }
         }
     }
 }
@@ -333,7 +333,7 @@ struct BandPart: View {
 /// (`BandRowGeometry.separatorWidth`), so the band and anything that shows a band's arrangement can share it.
 struct BandSeparator: View {
     var body: some View {
-        Divider().frame(height: 16)
+        Rectangle().fill(PrintPalette.line2).frame(width: 1, height: 16)
     }
 }
 
@@ -483,13 +483,13 @@ struct FormatBadge: View {
 
     var body: some View {
         Text(verbatim: text)
-            .font(.system(size: 9.5, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(PrintPalette.ink2)
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
-            .background(CornerRole.badge.shape.fill(.quaternary))
+            .background(CornerRole.badge.shape.fill(PrintPalette.press))
     }
 }
 
@@ -538,7 +538,9 @@ struct StyleMenu: View {
                     BandMenuChevron()
                 }
                 .foregroundStyle(
-                    model.isThemePalettePresented ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
+                    model.isThemePalettePresented ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink)
+                )
+                .selectionRule(model.isThemePalettePresented)
             }
             .fixedSize()
             .help("Style")

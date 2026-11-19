@@ -171,13 +171,13 @@ private struct StatusRow: View {
     var body: some View {
         Group {
             if session.isDirty {
-                (Text(Image(systemName: "circle.fill")).font(.system(size: 6)).baselineOffset(1.5)
+                (Text(Image(systemName: "circle.fill")).font(.system(size: 10)).baselineOffset(1.5)
                     + Text(verbatim: " ") + Text("Unsaved Changes").fontWeight(.semibold)
                     + Text(verbatim: "  ")
-                    + Text("Save to apply to all view windows.").foregroundStyle(.secondary))
+                    + Text("Save to apply to all view windows.").foregroundStyle(PrintPalette.ink2))
                     .foregroundStyle(PrintPalette.warn)
             } else {
-                Text("All view windows use this arrangement.").foregroundStyle(.secondary)
+                Text("All view windows use this arrangement.").foregroundStyle(PrintPalette.ink2)
             }
         }
         .font(.system(size: 11))
@@ -274,7 +274,7 @@ private struct ModeRow: View {
                 ? String(localized: "Top Only") : String(localized: "Split Top and Bottom")
             Text(verbatim: String(format: String(localized: "In use: %@"), inUse))
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
                 .fixedSize()
                 .help("Change it under View and Page Turn > Toolbar Layout.")
         }
@@ -299,14 +299,16 @@ private struct RepairNotice: View {
                         Text(verbatim: "• " + line)
                     }
                     Text("The data as it was read is kept aside the first time you save.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(PrintPalette.ink2)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .font(.system(size: 12))
             .padding(12)
-            .background(CornerRole.tile.shape.fill(Color.accentColor.opacity(0.1)))
+            .background(
+                CornerRole.tile.shape.fill(
+                    DisplayAccessibility.shared.options.fill(.accentColor, opacity: 0.1, over: PrintPalette.raised)))
         }
     }
 }
@@ -344,7 +346,7 @@ private struct RecoveryNotice: View {
                 Text(
                     "The toolbar uses Standard for now, and nothing is saved. Starting over keeps the unreadable data aside instead of deleting it."
                 )
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
                 .fixedSize(horizontal: false, vertical: true)
                 Button("Start Over") { session.startOver() }
             }
@@ -423,7 +425,7 @@ private struct TrafficLightDots: View {
                             .sRGB, red: Double(hex >> 16) / 255, green: Double((hex >> 8) & 0xFF) / 255,
                             blue: Double(hex & 0xFF) / 255)
                     )
-                    .overlay(Circle().strokeBorder(.black.opacity(0.12), lineWidth: 0.5))
+                    .overlay(Circle().strokeBorder(PrintPalette.line2, lineWidth: DisplayAccessibility.hairline))
                     .frame(width: 10, height: 10)
             }
         }
@@ -438,7 +440,7 @@ private struct MoreLock: View {
             .font(.system(size: 13))
             .foregroundStyle(PrintPalette.ink2)
             .overlay(alignment: .bottomTrailing) {
-                Image(systemName: "lock.fill").font(.system(size: 6.5, weight: .bold))
+                Image(systemName: "lock.fill").font(.system(size: 10, weight: .bold))
                     .foregroundStyle(PrintPalette.ink3)
                     .padding(1)
                     .background(Circle().fill(PrintPalette.raised))
@@ -505,10 +507,15 @@ private struct ZoneEditor: View {
         }
         .background {
             CornerRole.largeControl.shape
-                .fill(targeted ? Color.accentColor.opacity(0.12) : .clear)
+                .fill(
+                    targeted
+                        ? DisplayAccessibility.shared.options.fill(
+                            .accentColor, opacity: 0.12, over: PrintPalette.raised) : .clear)
             CornerRole.largeControl.shape
                 .strokeBorder(
-                    targeted ? Color.accentColor : PrintPalette.line3,
+                    targeted
+                        ? (DisplayAccessibility.shared.options.increasedContrast
+                            ? PrintPalette.ink2 : Color.accentColor) : PrintPalette.line3,
                     style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: targeted ? [] : [3, 3])
                 )
                 .opacity(entries.isEmpty || session.dropTarget != nil ? 1 : 0)
@@ -566,10 +573,10 @@ private struct MiniatureNotes: View {
         VStack(alignment: .leading, spacing: 3) {
             // How to edit, which the miniature itself does not show: the inspector below explains a selected part.
             Text("Drag parts to arrange them. Select one to see what it does.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
             if session.message == nil, !session.hasIdleSeparators {
                 Text("Narrow windows hide parts of the toolbar.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PrintPalette.ink2)
             }
             if let message = session.message {
                 Label {
@@ -577,7 +584,8 @@ private struct MiniatureNotes: View {
                 } icon: {
                     Image(systemName: message.isWarning ? "exclamationmark.circle" : "checkmark.circle")
                 }
-                .foregroundStyle(message.isWarning ? AnyShapeStyle(PrintPalette.warn) : AnyShapeStyle(.secondary))
+                .foregroundStyle(
+                    message.isWarning ? AnyShapeStyle(PrintPalette.warn) : AnyShapeStyle(PrintPalette.ink2))
             }
             if session.hasIdleSeparators {
                 Label {
@@ -585,7 +593,7 @@ private struct MiniatureNotes: View {
                 } icon: {
                     Image(systemName: "info.circle")
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
             }
         }
         .font(.system(size: 11))
@@ -622,10 +630,16 @@ private struct EntryChip: View {
             .padding(.horizontal, entry == .separator ? 1 : (entry == .part(.print) && !showsName ? 1 : 4))
             .background {
                 CornerRole.control.shape
-                    .fill(isSelected ? Color.accentColor.opacity(0.18) : (plain ? .clear : PrintPalette.raised))
+                    .fill(
+                        isSelected
+                            ? DisplayAccessibility.shared.options.fill(
+                                .accentColor, opacity: 0.18, over: PrintPalette.raised)
+                            : (plain ? .clear : PrintPalette.raised))
                 CornerRole.control.shape
                     .strokeBorder(
-                        isSelected ? Color.accentColor : (plain ? .clear : PrintPalette.line2),
+                        isSelected
+                            ? (DisplayAccessibility.shared.options.increasedContrast
+                                ? PrintPalette.ink2 : Color.accentColor) : (plain ? .clear : PrintPalette.line2),
                         lineWidth: isSelected ? 1.5 : 1)
             }
             .settingSearchRow(
@@ -738,7 +752,6 @@ private struct SeparatorMark: View {
         Rectangle()
             .fill(isIdle ? PrintPalette.line3 : PrintPalette.ink3)
             .frame(width: 1.5, height: 16)
-            .opacity(isIdle ? 0.7 : 1)
             .frame(width: 7)
     }
 }
@@ -753,7 +766,7 @@ private struct UnusedPalette: View {
             Text("Parts to Add").font(.headline)
             Text("All operations are also available in “…”.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -775,13 +788,13 @@ private struct UnusedPalette: View {
                 }
             }
             if unused.isEmpty {
-                Text("Every part is on the toolbar.").font(.caption).foregroundStyle(.secondary)
+                Text("Every part is on the toolbar.").font(.caption).foregroundStyle(PrintPalette.ink2)
             } else {
                 ForEach(BandPaletteGroup.project(unused)) { group in
                     VStack(alignment: .leading, spacing: 5) {
                         Text(verbatim: group.id.title)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(PrintPalette.ink2)
                             .accessibilityAddTraits(.isHeader)
                         FlowLayout(spacing: 6, constrainsChips: true) {
                             ForEach(group.parts) { part in
@@ -811,8 +824,15 @@ private struct UnusedPalette: View {
         .background {
             // The grouped forms' box, so the editor sits on the same ground as the other sections.
             CornerRole.tile.shape.fill(
-                targeted ? AnyShapeStyle(Color.accentColor.opacity(0.12)) : AnyShapeStyle(.quinary))
-            if targeted { CornerRole.tile.shape.strokeBorder(Color.accentColor, lineWidth: 1.5) }
+                targeted
+                    ? AnyShapeStyle(
+                        DisplayAccessibility.shared.options.fill(.accentColor, opacity: 0.12, over: PrintPalette.raised)
+                    ) : AnyShapeStyle(PrintPalette.hover))
+            if targeted {
+                CornerRole.tile.shape.strokeBorder(
+                    DisplayAccessibility.shared.options.increasedContrast ? PrintPalette.ink2 : Color.accentColor,
+                    lineWidth: 1.5)
+            }
         }
         .onDrop(
             of: [.utf8PlainText], delegate: BandEditorDropDelegate(session: session, target: { _ in .unused })
@@ -834,7 +854,7 @@ private struct SeparatorSource: View {
             HStack(spacing: 6) {
                 SeparatorMark(isIdle: false)
                 Text("Separator").font(.system(size: 12))
-                Image(systemName: "plus").font(.system(size: 9, weight: .bold)).foregroundStyle(PrintPalette.ink2)
+                Image(systemName: "plus").font(.system(size: 10, weight: .bold)).foregroundStyle(PrintPalette.ink2)
             }
             .padding(.horizontal, 7)
             .frame(height: MiniatureMetrics.chipHeight)
@@ -865,14 +885,14 @@ private struct Inspector: View {
             } else {
                 Text("Select a part to see what it does and where it can go.")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PrintPalette.ink2)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(CornerRole.tile.shape.fill(.quinary))
+        .background(CornerRole.tile.shape.fill(PrintPalette.hover))
     }
 
     @ViewBuilder
@@ -891,7 +911,7 @@ private struct Inspector: View {
                         format: String(localized: "%1$@, position %2$lld of %3$lld"),
                         location.destination.editorName, location.index + 1, count)
                 )
-                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
             }
             Spacer(minLength: 0)
         }
@@ -899,13 +919,13 @@ private struct Inspector: View {
             if let item = entry.item {
                 Text(verbatim: item.editorDescription)
                 if let availability = item.editorAvailability {
-                    Text(verbatim: availability).foregroundStyle(.secondary)
+                    Text(verbatim: availability).foregroundStyle(PrintPalette.ink2)
                 }
             } else {
                 Text("Draws a thin line between the parts on either side.")
                 if case .zone(let zone) = location.destination, session.separatorIsIdle(at: location.index, in: zone) {
                     Text("Not shown in this position.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(PrintPalette.ink2)
                 }
             }
         }
@@ -913,7 +933,7 @@ private struct Inspector: View {
         .fixedSize(horizontal: false, vertical: true)
         let destination = Binding(get: { location.destination }, set: { session.moveSelection(to: $0) })
         HStack(spacing: 8) {
-            Text("Move To").font(.system(size: 12)).foregroundStyle(.secondary).fixedSize()
+            Text("Move To").font(.system(size: 12)).foregroundStyle(PrintPalette.ink2).fixedSize()
             // Segments show every place at once; a pop-up menu takes their place when they do not fit.
             ViewThatFits(in: .horizontal) {
                 destinationPicker(destination, entry).pickerStyle(.segmented).controlSize(.small).fixedSize()
@@ -1027,10 +1047,10 @@ private struct BandArrangementDialog: View {
             Text(
                 "The arrangement on screen, unsaved changes included, is saved under this name and used in all view windows."
             )
-            .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2).fixedSize(horizontal: false, vertical: true)
         case .new:
             Text("A new arrangement starts as Standard and is used in all view windows.")
-                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2).fixedSize(horizontal: false, vertical: true)
         default:
             EmptyView()
         }
@@ -1039,22 +1059,23 @@ private struct BandArrangementDialog: View {
             .onChange(of: name) { problem = nil }
             .onSubmit { confirm() }
         if let problem {
-            Text(verbatim: problem).font(.system(size: 11)).foregroundStyle(.red)
+            Text(verbatim: problem).font(.system(size: 11)).foregroundStyle(PrintPalette.warn)
         }
     }
 
     @ViewBuilder private var deleteContent: some View {
         Text("This arrangement is in use. Choose the one all view windows use instead.")
-            .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            .font(.system(size: 12)).foregroundStyle(PrintPalette.ink2).fixedSize(horizontal: false, vertical: true)
         Picker("Use Instead", selection: $replacement) {
             ForEach(session.replacements, id: \.self) { selection in
                 Text(verbatim: session.name(of: selection)).tag(selection)
             }
         }
         if session.isDirty {
-            Text("The unsaved changes are discarded with it.").font(.system(size: 11)).foregroundStyle(.secondary)
+            Text("The unsaved changes are discarded with it.").font(.system(size: 11)).foregroundStyle(
+                PrintPalette.ink2)
         }
-        Text("You can undo this.").font(.system(size: 11)).foregroundStyle(.secondary)
+        Text("You can undo this.").font(.system(size: 11)).foregroundStyle(PrintPalette.ink2)
     }
 
     private func confirm() {

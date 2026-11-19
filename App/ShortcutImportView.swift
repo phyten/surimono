@@ -77,7 +77,7 @@ struct ShortcutImportView: View {
                 )
                 .fixedSize(horizontal: false, vertical: true)
             }
-            if let error { Text(error).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true) }
+            if let error { Text(error).foregroundStyle(PrintPalette.warn).fixedSize(horizontal: false, vertical: true) }
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
@@ -143,7 +143,7 @@ struct ShortcutImportView: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(validation.issues.enumerated()), id: \.offset) { _, issue in
                 Text(ShortcutText.name(issue.operation) + ": " + ShortcutText.reason(issue.code))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(PrintPalette.warn)
                 skip(issue.operation)
             }
             ForEach(validation.blocked, id: \.self) { id in
@@ -151,7 +151,7 @@ struct ShortcutImportView: View {
                     ShortcutText.name(id) + ": "
                         + String(localized: "This operation cannot be changed in this build or is managed by macOS.")
                 )
-                .foregroundStyle(.red)
+                .foregroundStyle(PrintPalette.warn)
                 skip(id)
             }
         }

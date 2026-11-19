@@ -105,6 +105,7 @@ struct BandItemView: View {
             Toggle(isOn: $model.showsOnAllSpaces) {
                 Label("Show on All Spaces", systemImage: "rectangle.on.rectangle")
                     .labelStyle(.iconOnly)
+                    .selectionRule(model.showsOnAllSpaces)
                     .foregroundStyle(model.showsOnAllSpaces ? PrintPalette.ai : PrintPalette.ink)
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
@@ -132,7 +133,7 @@ struct PresentationPicker: View {
             }
         }
         .padding(1)
-        .background(CornerRole.control.shape.fill(.quaternary))
+        .background(CornerRole.control.shape.fill(PrintPalette.press))
         .fixedSize()
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Web or Paper"))
@@ -150,6 +151,7 @@ struct PresentationPicker: View {
             .padding(.horizontal, showsNames ? 8 : 7)
             .padding(.vertical, 3)
             .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .selectionRule(selected, color: .white)
             .background {
                 CornerRole.smallControl.shape.fill(selected ? AnyShapeStyle(.tint) : AnyShapeStyle(.clear))
             }
@@ -194,7 +196,7 @@ struct PageIndicatorText: View {
             HStack(spacing: 4) {
                 if !model.bookmarks.isEmpty, !model.showsWeb {
                     Image(systemName: "bookmark.fill")
-                        .font(.system(size: 9)).foregroundStyle(PrintPalette.ink2)
+                        .font(.system(size: 10)).foregroundStyle(PrintPalette.ink2)
                         .opacity(model.isVisiblePageBookmarked ? 1 : 0)
                         .accessibilityHidden(true)
                 }
@@ -230,6 +232,7 @@ struct PageIndicatorButton: View {
                     .background {
                         CornerRole.control.shape.fill(model.isFiguresPresented ? PrintPalette.hover : .clear)
                     }
+                    .selectionRule(model.isFiguresPresented)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -251,6 +254,7 @@ struct OutlineButton: View {
                 if showsName { label.labelStyle(.titleAndIcon) } else { label.labelStyle(.iconOnly) }
             }
             // Open is shown in indigo, as the style button does.
+            .selectionRule(model.isOutlineShown)
             .foregroundStyle(model.isOutlineShown ? AnyShapeStyle(PrintPalette.ai) : AnyShapeStyle(PrintPalette.ink))
         }
         .fixedSize()
@@ -293,7 +297,7 @@ struct PageTurnButtons: View {
 struct BandMenuChevron: View {
     var body: some View {
         Image(systemName: "chevron.down")
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(PrintPalette.ink2)
             .accessibilityHidden(true)
     }

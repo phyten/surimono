@@ -279,7 +279,7 @@ private struct TraySideView: View {
                             ZStack {
                                 PrintPalette.blankPaper
                                 Text("Blank")
-                                    .font(.custom("Hiragino Mincho ProN", size: max(7, 30 * scale)).weight(.semibold))
+                                    .font(.custom("Hiragino Mincho ProN", size: max(10, 30 * scale)).weight(.semibold))
                                     .tracking(max(2, 9 * scale))
                                     .foregroundStyle(PrintPalette.blankInk)
                             }
@@ -299,7 +299,7 @@ private struct TraySideView: View {
                     .shadow(color: PrintPalette.paperShadow.opacity(0.5), radius: 1, y: 1)
                     .shadow(color: PrintPalette.paperShadow, radius: 12, y: 10)
             }
-            .overlay { Rectangle().strokeBorder(PrintPalette.paperRing, lineWidth: 0.5) }
+            .overlay { Rectangle().strokeBorder(PrintPalette.paperRing, lineWidth: DisplayAccessibility.hairline) }
             .overlay {
                 if layout.kind == .booklet { FoldTicks().frame(width: 9, height: size.height + 14) }
             }
@@ -466,9 +466,9 @@ private struct TrayNavigator: View {
                 .font(.system(size: 10.5))
                 .monospacedDigit()
                 .foregroundStyle(PrintPalette.ink2)
-                // Hundreds of sheets would wrap in the narrow navigator; shrink instead.
+                // Let long sheet counts widen the navigator once the type reaches its readable minimum.
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                .fixedSize(horizontal: true, vertical: false)
                 .padding(.vertical, 2)
                 .accessibilityLabel(Text("Sheet \(sheetNumber) of \(sheetCount)"))
             Button {
@@ -501,7 +501,7 @@ private struct TrayNavigator: View {
         }
         .buttonStyle(PrintIconButtonStyle())
         .padding(3)
-        .frame(width: 44)
+        .frame(minWidth: 44)
         .background(CornerRole.tile.shape.fill(PrintPalette.raised))
         .overlay(CornerRole.tile.shape.strokeBorder(PrintPalette.line2, lineWidth: 1))
         .shadow(color: PrintPalette.popShadow, radius: 9, y: 6)

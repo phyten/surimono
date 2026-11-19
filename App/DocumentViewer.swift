@@ -62,11 +62,12 @@ struct DocumentViewer: View {
 /// One window's content, shared by document windows and image bundle windows.
 struct DocumentContent: View {
     @Bindable var model: DocumentViewModel
+    var bandMenu: OverlayMenuState? = nil
 
     var body: some View {
         Group {
             switch model.mode {
-            case .view: ViewModeView(model: model)
+            case .view: ViewModeView(model: model, menu: bandMenu)
             case .print: PrintModeView(model: model)
             case .compare: ThemeCompareView(model: model)
             }

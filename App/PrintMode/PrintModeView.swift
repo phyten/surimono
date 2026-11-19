@@ -24,7 +24,9 @@ struct PrintModeView: View {
         }
         .overlay { ThemePaletteAnchor(model: model) }
         .foregroundStyle(PrintPalette.ink)
-        .tint(PrintPalette.ai)
+        .tint(PrintPalette.aiControl)
+        .environment(\.printAccent, PrintPalette.ai)
+        .environment(\.printAccentInk, PrintPalette.raised)
         .ignoresSafeArea(.container, edges: .top)
         .onChange(of: model.layout.kind) { _, kind in
             if kind != .booklet { model.showsFold = false }
@@ -263,7 +265,7 @@ struct PrintTopBar: View {
                 if form != .arrow { Text("Back to View") }
                 if form == .full {
                     PrintTag(
-                        text: "esc", font: .system(size: 9.5), color: PrintPalette.ink3, border: PrintPalette.line2
+                        text: "esc", font: .system(size: 10), color: PrintPalette.ink3, border: PrintPalette.line2
                     )
                     .padding(.leading, 3)
                 }
@@ -279,7 +281,7 @@ struct PrintTopBar: View {
 
     private var badge: some View {
         PrintTag(
-            text: model.formatBadge, font: .system(size: 9, weight: .semibold, design: .monospaced),
+            text: model.formatBadge, font: .system(size: 10, weight: .semibold, design: .monospaced),
             color: PrintPalette.ink2, border: PrintPalette.line3
         )
         .frame(minWidth: 28)
@@ -327,7 +329,7 @@ struct PrintTopBar: View {
                     Text(verbatim: set.name).fontWeight(.semibold).lineLimit(1)
                 }
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(PrintPalette.ink2)
             }
             .font(.system(size: 12.5))
@@ -366,7 +368,7 @@ struct PrintTopBar: View {
             HStack(spacing: 5) {
                 Text("Modified")
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
             }
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(PrintPalette.ai)
@@ -466,23 +468,22 @@ struct PrintStyleMenu: View {
 
     private func label(_ title: LocalizedStringKey, value: String, isEnabled: Bool = true) -> some View {
         HStack(spacing: 7) {
-            if showsTitle { Text(title).foregroundStyle(PrintPalette.ink2) }
+            if showsTitle { Text(title).foregroundStyle(isEnabled ? PrintPalette.ink2 : PrintPalette.disabledInk) }
             Text(verbatim: value).fontWeight(isEnabled ? .semibold : .regular).lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: nameLimit, alignment: .leading)
             Image(systemName: "chevron.down")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(PrintPalette.ink2)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(isEnabled ? PrintPalette.ink2 : PrintPalette.disabledInk)
         }
         .font(.system(size: 12.5))
-        .foregroundStyle(PrintPalette.ink)
+        .foregroundStyle(isEnabled ? PrintPalette.ink : PrintPalette.disabledInk)
         .padding(.leading, 10)
         .padding(.trailing, 8)
         .frame(height: 28)
         .background(CornerRole.control.shape.fill(PrintPalette.raised))
         .overlay(CornerRole.control.shape.strokeBorder(PrintPalette.line2, lineWidth: 1))
         .contentShape(CornerRole.control.shape)
-        .opacity(isEnabled ? 1 : 0.6)
     }
 
     /// The hint, with the whole name before it while the name is cut.

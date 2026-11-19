@@ -28,18 +28,18 @@ struct ManualDuplexSheet: View {
                     correctionLabel("Rotate the Backs 180°", when: "If the backs printed upside down")
                 }
                 Text("These adjustments are remembered for this printer and binding.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(PrintPalette.ink2)
             }
             .disabled(session.phase != .awaitingReload)
             if let error = session.error {
-                Text(verbatim: error).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                Text(verbatim: error).foregroundStyle(PrintPalette.warn).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("manualDuplexError")
             }
             HStack(alignment: .bottom, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Button("Cancel") { model.cancelManualDuplex() }.keyboardShortcut(.cancelAction)
                     Text("Cancelling does not cancel print jobs already sent.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(PrintPalette.ink2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -65,7 +65,7 @@ struct ManualDuplexSheet: View {
     private func correctionLabel(_ title: LocalizedStringKey, when hint: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-            Text(hint).font(.caption).foregroundStyle(.secondary)
+            Text(hint).font(.caption).foregroundStyle(PrintPalette.ink2)
         }
     }
 }

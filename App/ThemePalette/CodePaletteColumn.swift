@@ -41,7 +41,7 @@ struct CodePaletteColumn: View {
             Spacer(minLength: 4)
             Text("Chosen apart from the style")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
                 .lineLimit(1)
         }
     }
@@ -53,7 +53,7 @@ struct CodePaletteColumn: View {
     private func groupTitle(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .font(.system(size: 11.5, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(PrintPalette.ink2)
             // In line with the names, past the rows' place for the check.
             .padding(.leading, 20)
             .padding(.top, 10)
@@ -100,6 +100,7 @@ private struct CodePaletteRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(verbatim: model.codePaletteName(id))
+                            .emphasisForDisplayContrast(isHovering)
                             .font(.system(size: 12.5, weight: .medium))
                             .lineLimit(1)
                             .fixedSize()
@@ -118,7 +119,7 @@ private struct CodePaletteRow: View {
                             }
                         }
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(PrintPalette.ink2)
                         Spacer(minLength: 0)
                     }
                     sample
@@ -128,7 +129,7 @@ private struct CodePaletteRow: View {
             .padding(.trailing, 8)
             .padding(.vertical, 9)
             .background(
-                CornerRole.control.shape.fill(isHovering ? Color.primary.opacity(0.06) : .clear)
+                CornerRole.control.shape.fill(isHovering ? PrintPalette.hover : .clear)
             )
             .contentShape(Rectangle())
         }
@@ -255,7 +256,7 @@ private struct CodeBlockControls: View {
         _ title: LocalizedStringKey, selection: Binding<Value>, options: [PrintChoice<Value>]
     ) -> some View {
         GridRow {
-            Text(title).font(.system(size: 11.5)).foregroundStyle(.secondary)
+            Text(title).font(.system(size: 11.5)).foregroundStyle(PrintPalette.ink2)
             CornerMenuPicker(title: title, selection: selection, options: options, preset: model.preferences.corners)
                 .labelsHidden()
                 .frame(maxWidth: .infinity, alignment: .leading)

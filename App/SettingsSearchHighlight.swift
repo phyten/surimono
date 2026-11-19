@@ -93,8 +93,19 @@ private struct SettingsSearchHighlight: ViewModifier {
         content
             .frame(maxWidth: fillsRow ? .infinity : nil, alignment: .leading)
             .background {
-                CornerRole.control.shape.fill(Color.accentColor.opacity(highlighted.contains(anchor) ? 0.12 : 0))
-                    .padding(.vertical, -verticalInset)
+                if highlighted.contains(anchor) {
+                    CornerRole.control.shape
+                        .fill(
+                            DisplayAccessibility.shared.options.fill(
+                                .accentColor, opacity: 0.12, over: PrintPalette.raised)
+                        )
+                        .overlay(alignment: .leading) {
+                            if DisplayAccessibility.shared.options.increasedContrast {
+                                Rectangle().fill(PrintPalette.ink2).frame(width: 2)
+                            }
+                        }
+                        .padding(.vertical, -verticalInset)
+                }
             }
             .onGeometryChange(for: CGRect.self) {
                 $0.frame(in: .global)

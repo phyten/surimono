@@ -264,7 +264,18 @@ public enum ViewPageDocument {
             context.fillPath()
         }
         context.setBlendMode(.normal)
-        for mark in marks { mark.textDrawing?.paint(mark, clippedTo: visibleBox, in: context) }
+        for mark in marks {
+            mark.textDrawing?.paint(mark, clippedTo: visibleBox, in: context)
+            if mark.emphasizesEdge {
+                let rect = mark.highlight(in: visibleBox)
+                guard !rect.isNull, !rect.isEmpty else { continue }
+                // A rule outside the changed block is visible even on a very pale tint and leaves its glyphs intact.
+                let edge = CGRect(x: rect.minX - 2, y: rect.minY, width: 2, height: rect.height)
+                context.setFillColor(CGColor(gray: 0.2, alpha: 1))
+                let visibleEdge = edge.intersection(visibleBox)
+                if !visibleEdge.isEmpty { context.fill(visibleEdge) }
+            }
+        }
         context.endPage()
         return true
     }

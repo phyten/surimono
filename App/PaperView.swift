@@ -17,6 +17,23 @@ final class PaperController {
     /// Whether a paper view is on screen to receive turns (observed by tests).
     var isConnected: Bool { view != nil }
     func goToPage(index: Int, in document: PDFDocument? = nil) { view?.goToPage(index: index, in: document) }
+    private var pendingChange: (source: PDFDocument, pageIndex: Int, pinnedBandHeight: CGFloat)?
+
+    func followChange(on pageIndex: Int, in source: PDFDocument, pinnedBandHeight: CGFloat) {
+        // A save announces its changes before SwiftUI installs the new PDF. Never scroll the outgoing pages.
+        pendingChange = (source, pageIndex, pinnedBandHeight)
+        revealPendingChange()
+    }
+
+    fileprivate func revealPendingChange() {
+        guard let request = pendingChange, let view, view.isMade(of: request.source),
+            view.bounds.width > 1, view.bounds.height > 1, view.documentView?.enclosingScrollView != nil
+        else { return }
+        // Going to the page can lay the paper out again before the scroll completes.
+        pendingChange = nil
+        view.revealChange(on: request.pageIndex, pinnedBandHeight: request.pinnedBandHeight)
+    }
+
     func focus() {
         guard let view else { return }
         view.window?.makeFirstResponder(view)
@@ -39,6 +56,7 @@ struct PaperView: NSViewRepresentable {
     var logicalMargin: CGFloat? = nil
     var showsPageNumbers = false
     var changeMarks: [ChangeMark] = []
+    var displayOptions = DisplayAccessibility.shared.options
     var diagrams: [RenderedDiagram] = []
     var onDiagram: (RenderedDiagram, PaperDiagramAction) -> Void = { _, _ in }
     /// The header and footer the sheets draw on a logical page, by its index.
@@ -69,8 +87,15 @@ struct PaperView: NSViewRepresentable {
 
     func updateNSView(_ view: PaperPDFView, context: Context) {
         controller.view = view
+        view.changeController = nil
+        defer {
+            // Fit and restored zoom must be applied before measuring a newly attached page.
+            view.changeController = controller
+            controller.revealPendingChange()
+        }
         view.onToast = controller.onToast
         view.onReadingJump = controller.onReadingJump
+        view.displayOptions = displayOptions
         let spotRadius = AppPreferences.shared.corners.radius(for: .badge, shortestSide: .infinity)
         view.subviews.first { $0 is PaperSpotFrameView }?.layer?.cornerRadius = spotRadius
         view.onZoomChange = onZoomChange
@@ -201,6 +226,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     private var shownDocuments: [ShownDocument] = []
     private var logicalMargin: CGFloat?
     private var showsPageNumbers = false
+    fileprivate weak var changeController: PaperController?
     private var changeMarks: [ChangeMark] = []
     private var drawnChangeMarks: [ChangeMark] = []
     private var furniture: [Int: FurniturePlacement] = [:]
@@ -210,6 +236,14 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
     var onFindHits: (([Int], String) -> Void)?
     private var findQuery = ""
     private var findSearch: PaperFindSearch?
+    fileprivate var displayOptions = DisplayAccessibility.shared.options {
+        didSet {
+            guard oldValue != displayOptions else { return }
+            subviews.compactMap { $0 as? PaperSpotFrameView }.first?.apply(displayOptions)
+            if !findHits.isEmpty { markFindHit(currentFindIndex, reveals: false) }
+        }
+    }
+    private var currentFindIndex: Int?
     private(set) var findHits: [PDFSelection] = []
     var narrowsLoneCover = false {
         didSet {
@@ -517,6 +551,7 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         hideScrollersAndInsets()
         // Fit again when the window changes size; the zoom the user chose is relative to the fit.
         if bounds.size != fittedSize { refit() }
+        changeController?.revealPendingChange()
     }
 
     /// The paper is the window: scroll bars would narrow it, and scrolling still works without them. PDFKit turns them
@@ -774,6 +809,41 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         applySpreadMode(narrow: isNarrowCover(at: viewIndex))
         go(to: page)
         if options?.isContinuous != true { refit() }
+    }
+
+    fileprivate func revealChange(on index: Int, pinnedBandHeight: CGFloat) {
+        goToPage(index: index)
+        guard isZoomed || pinnedBandHeight > 0, let pagePlan, let slot = pagePlan.viewIndex(for: index),
+            let page = document?.page(at: slot), let original = sourceDocument?.page(at: index),
+            let scroll = documentView?.enclosingScrollView
+        else { return }
+        layoutDocumentView()
+        let scale = pagePlan.scale(at: slot)
+        let transform = CGAffineTransform(scaleX: scale, y: scale)
+        let crop = original.bounds(for: .cropBox)
+        // Deletion marks can be appended after later paragraphs. Follow the first visible mark in reading order.
+        let visibleBox = page.bounds(for: .cropBox)
+        let frames = changeMarks.lazy.filter { $0.pageIndex == index }.map {
+            $0.highlight(in: crop).applying(transform).intersection(visibleBox)
+        }
+        guard
+            let first = frames.filter({ !$0.isEmpty }).min(by: {
+                $0.maxY == $1.maxY ? $0.minX < $1.minX : $0.maxY > $1.maxY
+            })
+        else { return }
+
+        let clip = scroll.contentView
+        let viewport = convert(clip.bounds, from: clip)
+        let frame = convert(first, from: page)
+        let mark = CGRect(
+            x: frame.minX - viewport.minX, y: isFlipped ? frame.minY - viewport.minY : viewport.maxY - frame.maxY,
+            width: frame.width, height: frame.height)
+        let target = ChangeNavigation.targetViewport(
+            for: mark, size: viewport.size, zoomed: isZoomed, pinnedBandHeight: pinnedBandHeight)
+        guard target.origin != .zero else { return }
+        let moved = viewport.offsetBy(dx: target.minX, dy: isFlipped ? target.minY : -target.minY)
+        clip.scroll(to: clip.constrainBoundsRect(clip.convert(moved, from: self)).origin)
+        scroll.reflectScrolledClipView(clip)
     }
 
     override func go(to page: PDFPage) {
@@ -1347,8 +1417,12 @@ extension PaperPDFView {
     /// Colours the current hit apart from the others and, with `reveals`, turns to its page the way the outline does
     /// and scrolls a paper that does not fit until the hit is in sight.
     func markFindHit(_ index: Int?, reveals: Bool) {
+        currentFindIndex = index
+        let other =
+            displayOptions.reduceTransparency || displayOptions.increasedContrast
+            ? NSColor(srgbRed: 1, green: 0.93, blue: 0.55, alpha: 1) : Self.findHitColor
         for (offset, hit) in findHits.enumerated() {
-            hit.color = offset == index ? Self.findCurrentHitColor : Self.findHitColor
+            hit.color = offset == index ? Self.findCurrentHitColor : other
         }
         // PDFKit draws the highlights again only when it is given others than it has, so the same selections in new
         // colours go in after none.
@@ -1479,13 +1553,20 @@ final class PaperSpotFrameView: NSView {
         layer?.borderColor = indigo.cgColor
         layer?.borderWidth = 2
         layer?.cornerRadius = AppPreferences.shared.corners.radius(for: .badge, shortestSide: .infinity)
-        layer?.backgroundColor = indigo.withAlphaComponent(0.08).cgColor
+        apply(DisplayAccessibility.shared.options)
         setAccessibilityElement(false)
     }
 
     required init?(coder: NSCoder) { nil }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    fileprivate func apply(_ options: DisplayAccessibility.Options) {
+        // An opaque wash would cover the very text the spot locates. Keep only its perimeter.
+        layer?.borderWidth = options.increasedContrast ? 3 : 2
+        layer?.backgroundColor =
+            options.reduceTransparency ? nil : NSColor(PrintPalette.paperAi).withAlphaComponent(0.08).cgColor
+    }
 
     func show(_ spot: PaperSpot, lifetime: Duration) {
         task?.cancel()

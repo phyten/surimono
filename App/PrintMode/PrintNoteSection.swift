@@ -205,7 +205,12 @@ struct PrintNoteSection: View {
                     }
                     .padding(3)
                     .frame(maxWidth: .infinity)
-                    .background(CornerRole.largeControl.shape.fill(isOn ? accent.opacity(0.17) : .clear))
+                    .background(
+                        CornerRole.largeControl.shape.fill(
+                            isOn
+                                ? DisplayAccessibility.shared.options.fill(
+                                    accent, opacity: 0.17, over: PrintPalette.chrome) : .clear)
+                    )
                     .overlay(
                         CornerRole.largeControl.shape.strokeBorder(isOn ? accent : .clear, lineWidth: 1)
                     )
@@ -239,7 +244,7 @@ struct PrintNoteSection: View {
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .rotationEffect(.degrees(model.showsNoteAdjustments ? 90 : 0))
                     Text("Adjust the Lines").font(.system(size: 11.5, weight: .semibold))
                 }
@@ -295,12 +300,17 @@ struct PrintNoteSection: View {
                             .font(.system(size: 10.5, weight: isOn ? .semibold : .regular))
                             .foregroundStyle(isOn ? PrintPalette.ink : PrintPalette.ink2)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.85)
+                            .minimumScaleFactor(10 / 10.5)
                     }
                     .padding(.horizontal, 2)
                     .padding(.vertical, 4)
                     .frame(maxWidth: .infinity)
-                    .background(CornerRole.control.shape.fill(isOn ? accent.opacity(0.17) : .clear))
+                    .background(
+                        CornerRole.control.shape.fill(
+                            isOn
+                                ? DisplayAccessibility.shared.options.fill(
+                                    accent, opacity: 0.17, over: PrintPalette.chrome) : .clear)
+                    )
                     .overlay(
                         CornerRole.control.shape.strokeBorder(isOn ? accent : .clear, lineWidth: 1)
                     )
@@ -410,7 +420,12 @@ struct PrintNoteSection: View {
                 .fixedSize()
                 .padding(.horizontal, 9)
                 .frame(height: 26)
-                .background(AppCornerShape.capsule.fill(isOn.wrappedValue ? accent.opacity(0.17) : .clear))
+                .background(
+                    AppCornerShape.capsule.fill(
+                        isOn.wrappedValue
+                            ? DisplayAccessibility.shared.options.fill(accent, opacity: 0.17, over: PrintPalette.chrome)
+                            : .clear)
+                )
                 .overlay(
                     AppCornerShape.capsule.strokeBorder(isOn.wrappedValue ? accent : PrintPalette.line2, lineWidth: 1)
                 )

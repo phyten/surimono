@@ -142,12 +142,15 @@ private struct BinderRow: View {
         HStack(spacing: 6) {
             HStack(spacing: 6) {
                 Text(verbatim: "\(index + 1)").font(.system(size: 11)).monospacedDigit()
-                    .foregroundStyle(PrintPalette.ink3).frame(width: 16, alignment: .trailing)
+                    .foregroundStyle(
+                        binder.selection == item.url ? AnyShapeStyle(.primary) : AnyShapeStyle(PrintPalette.ink3)
+                    ).frame(width: 16, alignment: .trailing)
                 Group {
                     if let image = binder.thumbnails[item.url] {
                         Image(nsImage: image).resizable().scaledToFit()
                     } else {
-                        Image(systemName: "doc").foregroundStyle(PrintPalette.ink3)
+                        Image(systemName: "doc").foregroundStyle(
+                            binder.selection == item.url ? AnyShapeStyle(.primary) : AnyShapeStyle(PrintPalette.ink3))
                     }
                 }
                 .frame(width: 30, height: 40)
@@ -161,7 +164,8 @@ private struct BinderRow: View {
                         }
                         if binder.unreadableURLs.contains(item.url) { Image(systemName: "exclamationmark.triangle") }
                     }
-                    .font(.system(size: 11)).foregroundStyle(PrintPalette.ink3)
+                    .font(.system(size: 11)).foregroundStyle(
+                        binder.selection == item.url ? AnyShapeStyle(.primary) : AnyShapeStyle(PrintPalette.ink3))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

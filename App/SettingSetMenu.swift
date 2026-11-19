@@ -198,7 +198,7 @@ struct SettingSetsSettings: View {
     private func description(_ set: PrintSettingSet) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: set.name).lineLimit(2)
-            Text(verbatim: summary.oneLine(set)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            Text(verbatim: summary.oneLine(set)).font(.caption).foregroundStyle(PrintPalette.ink2).lineLimit(2)
         }
     }
 
@@ -219,11 +219,11 @@ struct SettingSetsSettings: View {
                 Text(
                     "None yet. Save one from Document › Setting Sets › Save Current Settings… or from Setting Sets on the print screen."
                 )
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PrintPalette.ink2)
             } else {
                 ForEach(preferences.printSettingSets) { set in
                     HStack {
-                        Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
+                        Image(systemName: "line.3.horizontal").foregroundStyle(PrintPalette.ink3)
                         description(set)
                         Spacer()
                         Button("Export…") { export([set], named: set.name) }
@@ -325,7 +325,7 @@ private final class SettingSetSaveAccessory: NSObject, NSTextFieldDelegate {
             group.spacing = 2
             if let line = summary.line(part, in: set) {
                 let label = NSTextField(wrappingLabelWithString: line)
-                label.textColor = .secondaryLabelColor
+                label.textColor = .labelColor
                 label.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
                 label.widthAnchor.constraint(equalToConstant: Self.width - Self.checkboxIndent).isActive = true
                 let indented = NSStackView(views: [label])

@@ -43,7 +43,9 @@ final class AppearanceKeeper {
 
     init(
         preferences: AppPreferences, override: AppAppearance? = AppearanceKeeper.launchOverride,
-        setAppearance: @escaping (NSAppearance?) -> Void = { NSApp.appearance = $0 }
+        setAppearance: @escaping (NSAppearance?) -> Void = {
+            DisplayAccessibility.shared.applyAppearance($0, to: NSApp)
+        }
     ) {
         self.preferences = preferences
         self.override = override
@@ -61,6 +63,7 @@ final class AppearanceKeeper {
     private func observe() {
         withObservationTracking {
             _ = preferences.appearance
+            _ = DisplayAccessibility.shared.options.increasedContrast
         } onChange: { [weak self] in
             // Called before the new value is stored; apply it once it is.
             Task { @MainActor [weak self] in

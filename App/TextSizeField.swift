@@ -25,7 +25,7 @@ struct TextSizeField: View {
                         .background(shape.fill(Color(nsColor: .textBackgroundColor)))
                         .overlay {
                             shape.strokeBorder(
-                                focused ? Color(nsColor: .keyboardFocusIndicatorColor) : PrintPalette.line2,
+                                focused ? DisplayAccessibility.focusColor() : PrintPalette.line2,
                                 lineWidth: focused ? 2 : 1
                             )
                             .allowsHitTesting(false)
@@ -48,10 +48,10 @@ struct TextSizeField: View {
                                 Image(systemName: "chevron.up")
                                 Image(systemName: "chevron.down")
                             }
-                            .font(.system(size: 7, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                         }
                 })
-            Text(verbatim: "%").foregroundStyle(.secondary)
+            Text(verbatim: "%").foregroundStyle(PrintPalette.ink2)
         }
         .fixedSize()
     }

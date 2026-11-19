@@ -60,7 +60,9 @@ struct PrintFinishSheet: View {
         }
         .foregroundStyle(PrintPalette.ink)
         // The view mode's standard controls draw white text on their fill, which needs the darker night indigo.
-        .tint(isInPopover ? PrintPalette.aiControl : PrintPalette.ai)
+        .tint(PrintPalette.aiControl)
+        .environment(\.printAccent, PrintPalette.ai)
+        .environment(\.printAccentInk, PrintPalette.raised)
         .clearsInitialFocus()
         .onAppear { customLine = model.printFinish.breaks.customLine }
     }
@@ -506,7 +508,7 @@ struct PrintSwitchRow<Name: View>: View {
                 .accessibilityHidden(true)
             Spacer(minLength: 0)
         }
-        .opacity(isEnabled ? 1 : 0.45)
+        .foregroundStyle(isEnabled ? PrintPalette.ink : PrintPalette.disabledInk)
         .frame(minHeight: 28)
     }
 }
@@ -632,7 +634,9 @@ struct PrintMarginEditor: View {
             Rectangle().fill(PrintPalette.paper)
             Rectangle()
                 .strokeBorder(PrintPalette.foldLine, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-                .background(PrintPalette.foldLine.opacity(0.12))
+                .background(
+                    DisplayAccessibility.shared.options.fill(PrintPalette.paperAi, opacity: 0.066, over: .white)
+                )
                 .padding(.top, margins.top * scale)
                 .padding(.leading, margins.left * scale)
                 .padding(.bottom, margins.bottom * scale)

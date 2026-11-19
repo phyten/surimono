@@ -28,38 +28,44 @@ private struct PrintBorderedButton: View {
             switch size {
             case .tray(let height):
                 let shape = CornerRole.control.shape
-                configuration.label.font(.system(size: 12.5)).foregroundStyle(PrintPalette.ink)
-                    .frame(height: height)
-                    .background {
-                        shape.fill(PrintPalette.raised)
-                        if configuration.isPressed { shape.fill(PrintPalette.press) }
-                    }
-                    .overlay {
-                        shape.strokeBorder(
-                            hovering && isEnabled ? PrintPalette.line3 : PrintPalette.line2, lineWidth: 1)
-                    }
-                    .contentShape(shape)
+                configuration.label.font(.system(size: 12.5)).foregroundStyle(
+                    isEnabled ? PrintPalette.ink : PrintPalette.disabledInk
+                )
+                .emphasisForDisplayContrast(hovering && isEnabled)
+                .frame(height: height)
+                .background {
+                    shape.fill(PrintPalette.raised)
+                    if configuration.isPressed { shape.fill(PrintPalette.press) }
+                }
+                .overlay {
+                    shape.strokeBorder(
+                        hovering && isEnabled ? PrintPalette.line3 : PrintPalette.line2, lineWidth: 1)
+                }
+                .contentShape(shape)
             case .system(let preset, let appearance):
                 let shape = AppCornerShape(role: .control, preset: preset)
                 measuredLabel(appearance)
                     .background {
                         shape.fill(fill(for: appearance))
-                        if appearance != .print, isEnabled, configuration.isPressed || hovering {
+                        if appearance != .print, appearance != .selected, isEnabled, configuration.isPressed || hovering
+                        {
                             shape.fill(configuration.isPressed ? PrintPalette.press : PrintPalette.hover)
                         }
                     }
                     .overlay {
-                        if appearance == .print || appearance == .selected {
+                        if !isEnabled {
+                            configuration.label.foregroundStyle(PrintPalette.disabledInk)
+                        } else if appearance == .print || appearance == .selected {
                             configuration.label.foregroundStyle(.white)
                         } else {
                             configuration.label
                         }
                     }
+                    .emphasisForDisplayContrast(isEnabled && (hovering || appearance == .selected))
                     .contentShape(Rectangle())
                     .contentShape(.focusEffect, shape)
             }
         }
-        .opacity(isEnabled ? 1 : 0.45)
         .onHover { hovering = $0 }
     }
 
@@ -78,7 +84,8 @@ private struct PrintBorderedButton: View {
     }
 
     private func fill(for appearance: CornerButtonAppearance) -> Color {
-        switch appearance {
+        if !isEnabled { return PrintPalette.raised }
+        return switch appearance {
         case .print:
             configuration.isPressed
                 ? PrintPalette.shuPress : hovering && isEnabled ? PrintPalette.shuHover : PrintPalette.shu
@@ -106,7 +113,7 @@ private struct PrintIconButton: View {
 
     var body: some View {
         configuration.label
-            .foregroundStyle(hovering && isEnabled ? PrintPalette.ink : PrintPalette.ink2)
+            .foregroundStyle(isEnabled ? hovering ? PrintPalette.ink : PrintPalette.ink2 : PrintPalette.disabledInk)
             .frame(width: size.width, height: size.height)
             .background {
                 CornerRole.smallControl.shape
@@ -115,7 +122,11 @@ private struct PrintIconButton: View {
                             ? PrintPalette.press : hovering && isEnabled ? PrintPalette.hover : .clear)
             }
             .contentShape(CornerRole.smallControl.shape)
-            .opacity(isEnabled ? 1 : 0.35)
+            .overlay {
+                if hovering && isEnabled && DisplayAccessibility.shared.options.increasedContrast {
+                    CornerRole.smallControl.shape.strokeBorder(PrintPalette.line2, lineWidth: 1)
+                }
+            }
             .onHover { hovering = $0 }
     }
 }
@@ -135,7 +146,8 @@ private struct SealButton: View {
 
     var body: some View {
         configuration.label
-            .foregroundStyle(.white)
+            .foregroundStyle(isEnabled ? .white : PrintPalette.disabledInk)
+            .emphasisForDisplayContrast(isEnabled && hovering)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 14)
             .frame(minWidth: 62)
@@ -143,19 +155,20 @@ private struct SealButton: View {
             .background {
                 CornerRole.largeControl.shape
                     .fill(
-                        configuration.isPressed
-                            ? PrintPalette.shuPress : hovering && isEnabled ? PrintPalette.shuHover : PrintPalette.shu
+                        !isEnabled
+                            ? PrintPalette.raised
+                            : configuration.isPressed
+                                ? PrintPalette.shuPress : hovering ? PrintPalette.shuHover : PrintPalette.shu
                     )
                     // A step weaker than before, so the seal sits with the washi buttons beside it. The colors stay.
                     .shadow(color: PrintPalette.shuShadow.opacity(0.75), radius: 1, y: 1)
                     .shadow(color: PrintPalette.shuShadow.opacity(0.4), radius: 4, y: 3)
             }
             .overlay {
-                CornerRole.tag.shape.strokeBorder(.white.opacity(0.62), lineWidth: 1.25).padding(5)
+                CornerRole.tag.shape.strokeBorder(isEnabled ? .white : PrintPalette.line2, lineWidth: 1.25).padding(5)
             }
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
             .offset(y: configuration.isPressed && !reduceMotion ? 1 : 0)
-            .opacity(isEnabled ? 1 : 0.5)
             .contentShape(CornerRole.largeControl.shape)
             .onHover { hovering = $0 }
     }
@@ -246,8 +259,7 @@ private struct PrintLinkButton: View {
         configuration.label
             .font(.system(size: 13))
             .foregroundStyle(accent)
-            .underline(hovering)
-            .opacity(configuration.isPressed ? 0.6 : 1)
+            .underline(hovering || configuration.isPressed)
             .frame(minHeight: 28)
             .contentShape(Rectangle())
             .onHover { hovering = $0 }

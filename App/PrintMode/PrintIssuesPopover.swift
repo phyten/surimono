@@ -25,7 +25,7 @@ struct PrintIssuesPopover: View {
         .padding(16)
         .frame(width: 440)
         .foregroundStyle(PrintPalette.ink)
-        .tint(PrintPalette.ai)
+        .tint(PrintPalette.aiControl)
     }
 
     private func group(_ group: PrintIssue.Group, issues: [PrintIssue]) -> some View {

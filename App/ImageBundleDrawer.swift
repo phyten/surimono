@@ -39,7 +39,10 @@ private struct ImageBundleList: View {
                 ForEach(Array(bundle.items.enumerated()), id: \.element.id) { index, item in
                     HStack(spacing: 6) {
                         Text(verbatim: "\(index + 1)").font(.system(size: 11)).monospacedDigit()
-                            .foregroundStyle(PrintPalette.ink3).frame(width: 16, alignment: .trailing)
+                            .foregroundStyle(
+                                bundle.selection == item.url
+                                    ? AnyShapeStyle(.primary) : AnyShapeStyle(PrintPalette.ink3)
+                            ).frame(width: 16, alignment: .trailing)
                         ImageThumbnail(model: bundle, item: item)
                         Text(verbatim: item.name).font(.system(size: 13)).lineLimit(1).truncationMode(.middle)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -101,7 +104,7 @@ private struct ImageThumbnail: View {
             if let image {
                 Image(decorative: image, scale: 1).resizable().scaledToFit()
             } else {
-                Image(systemName: "photo").foregroundStyle(.secondary)
+                Image(systemName: "photo").foregroundStyle(PrintPalette.ink2)
             }
         }
         .frame(width: 30, height: 40)

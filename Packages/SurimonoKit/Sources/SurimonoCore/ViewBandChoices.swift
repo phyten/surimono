@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// How the view mode's menu is arranged around the paper.
@@ -28,5 +29,25 @@ public enum ChangeNavigation {
     public static func next(after page: Int, in pages: [Int]) -> Int? {
         let sorted = pages.sorted()
         return sorted.first { $0 > page } ?? sorted.first
+    }
+
+    /// The target viewport in screen points, with the current viewport starting at (0, 0) and y increasing downward.
+    /// At fit the usual page turn is sufficient unless the mark touches the pinned band.
+    public static func targetViewport(
+        for mark: CGRect, size: CGSize, zoomed: Bool, pinnedBandHeight: CGFloat
+    ) -> CGRect {
+        var target = CGRect(origin: .zero, size: size)
+        guard !mark.isEmpty, !target.isEmpty else { return target }
+        if zoomed {
+            target.origin.y = mark.height <= size.height ? mark.midY - size.height / 2 : mark.minY - 12
+            if mark.width > size.width {
+                target.origin.x = mark.minX
+            } else {
+                target.origin.x = max(mark.maxX - size.width, min(0, mark.minX))
+            }
+        } else if pinnedBandHeight > 0 {
+            target.origin.y = min(0, mark.minY - pinnedBandHeight)
+        }
+        return target
     }
 }

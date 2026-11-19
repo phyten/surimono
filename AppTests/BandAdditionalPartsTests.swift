@@ -64,9 +64,11 @@ struct BandAdditionalPartsTests {
                 preferences: preferences, library: UserLibrary(root: directory.appendingPathComponent("Library")),
                 settingsStore: DocumentSettingsStore(directory: directory.appendingPathComponent("Settings")))
             model.isolateBandTestOutput()
-            menu.hasReadTrafficLights = true
-            // A deterministic width selects the same forms independently of the host's language.
-            menu.bandWidth = compact ? 440 : width
+            if !documentContent {
+                // Isolated chips use a fixed width. A real document must report its own traffic lights and width.
+                menu.hasReadTrafficLights = true
+                menu.bandWidth = compact ? 440 : width
+            }
             model.isBandAlwaysVisible = true
             if parts.contains(.cover) { model.updateViewOptions { $0.layout = .spread } }
             if html {
@@ -82,7 +84,7 @@ struct BandAdditionalPartsTests {
                 window.contentView = NSHostingView(
                     rootView: BandMeasurements(model: model, items: BandTestCatalog.addedItems, menu: menu))
             } else if documentContent {
-                window.contentView = NSHostingView(rootView: DocumentContent(model: model))
+                window.contentView = NSHostingView(rootView: DocumentContent(model: model, bandMenu: menu))
             } else {
                 window.contentView = NSHostingView(rootView: TestBands(model: model, menu: menu))
             }
@@ -333,7 +335,27 @@ struct BandAdditionalPartsTests {
         try await waitUntil("\(parts): 実文書の組版完了と帯の計画", fixture: fixture) {
             fixture.model.isUpToDate && fixture.model.bandAnchors.plan != nil
         }
+        let settings = fixture.model.renderSettings
+        let options = fixture.model.viewOptions
+        let renders = fixture.model.renderStartCount
+        try await waitUntil("章のページ照合と最初のウインドウ調整が完了する", fixture: fixture) {
+            // The outline task publishes the chapter and contents chips after pagination finishes.
+            fixture.model.isUpToDate && fixture.model.chapterEntries.first?.pageIndex == 0
+                && fixture.model.hasSizedWindow && !ViewerWindow.isResizingProgrammatically(fixture.window)
+        }
         fixture.window.setContentSize(CGSize(width: width, height: 500))
+        try await waitUntil("表示幅、信号機と全チップの実測が描画済みの計画に反映される", fixture: fixture) {
+            let menu = fixture.menu
+            let items = BandLayout.Item.applicable(for: fixture.model)
+            guard menu.hasReadTrafficLights, menu.bandWidth == width,
+                menu.bandWidths[.name] != nil, menu.bandWidths[.more] != nil,
+                items.allSatisfy({ item in
+                    menu.bandWidths[.item(item, .full)] != nil
+                        && (!item.hasCompactForm || menu.bandWidths[.item(item, .compact)] != nil)
+                })
+            else { return false }
+            return BandPlans(model: fixture.model, menu: menu).resolved == fixture.model.bandAnchors.plan
+        }
         var previous: BandResolvedPlan?
         var unchangedPasses = 0
         try await waitUntil("組版完了後に4回のレイアウトで同じ帯の計画", fixture: fixture) {
@@ -347,9 +369,6 @@ struct BandAdditionalPartsTests {
             return unchangedPasses >= 4
         }
         var plan = try #require(fixture.model.bandAnchors.plan)
-        let settings = fixture.model.renderSettings
-        let options = fixture.model.viewOptions
-        let renders = fixture.model.renderStartCount
         #expect(fixture.model.isBandAlwaysVisible)
         #expect(
             fixture.preferences.activeBandArrangement.topRight.compactMap(\.item)
