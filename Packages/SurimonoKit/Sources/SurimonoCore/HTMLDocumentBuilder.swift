@@ -11,11 +11,20 @@ public enum HTMLDocumentBuilder {
         code: CodeStyle = CodeStyle()
     ) -> String {
         let language = Self.language(for: fragment, fallback: language)
+        let info = format == .latex ? fragment.latexClass : nil
         let latex =
-            fragment.latexClass.flatMap { info in
-                format == .latex
-                    ? " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\"" : nil
+            info.map { info in
+                let attributes = " data-latex-size=\"\(info.pointSize)\" data-latex-chapters=\"\(info.hasChapters)\""
+                return attributes
+                    + (info.styleVariables.isEmpty ? "" : " style=\"\(HTML.escape(info.styleVariables))\"")
             } ?? ""
+        // Local font aliases live outside the replaceable theme sheet. Selecting a new
+        // theme can then opt into the same document fonts without re-reading the source.
+        let localFaces = info?.localFontFaces ?? ""
+        let fontStyle =
+            localFaces.isEmpty
+            ? ""
+            : "<style>\(localFaces.replacingOccurrences(of: "</style", with: "\\3C /style", options: .caseInsensitive))</style>"
         let direction = language.isRightToLeft ? " dir=\"rtl\"" : ""
         let base = baseURL.map { "<base href=\"\(HTML.escape($0.absoluteString))\">\n" } ?? ""
         let finishStyle = finish.isEmpty ? "" : "\n<style id=\"surimono-finish\">\n\(finish)\n</style>"
@@ -27,7 +36,7 @@ public enum HTMLDocumentBuilder {
             <title>\(HTML.escape(fragment.title ?? ""))</title>
             \(base)<style>
             \(styleSheet(theme: theme, textScale: textScale, typeface: format.usesPrintTheme ? typeface : .style, code: code, language: language.code))
-            </style>\(finishStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
+            </style>\(fontStyle)\(finishStyle)\(removesPaper ? "\n" + PaperBackground.removalStyle : "")
             </head>
             <body class="surimono format-\(format.rawValue)"\(latex)>
             \(LongTokenMarks.marked(CodeBlockMarkup.apply(code, to: fragment.body)))

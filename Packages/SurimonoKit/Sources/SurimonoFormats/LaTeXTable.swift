@@ -69,13 +69,15 @@ struct LaTeXTable {
     let spec: String
     let body: String
     var isLongtable = false
+    var columnTypes: [Character: String] = [:]
 
     func html(
         color: (String, String?) -> String? = { LaTeXSymbols.cssColor($0, model: $1, defined: [:]) },
         inline: (String) -> String
     ) -> String {
         var budget = Self.maximumColumns
-        let columns = Self.columns(Array(spec), budget: &budget)
+        var aliasBudget = 32_768
+        let columns = Self.columns(Array(spec), budget: &budget, aliases: columnTypes, aliasBudget: &aliasBudget)
         let rows = self.rows()
         var pendingRowspans: [Int: Int] = [:]
         var head = ""
@@ -96,10 +98,14 @@ struct LaTeXTable {
                     column += 1
                     continue
                 }
-                let cell = Self.cell(source.trimmingCharacters(in: .whitespacesAndNewlines))
+                let cell = Self.cell(
+                    source.trimmingCharacters(in: .whitespacesAndNewlines), aliases: columnTypes,
+                    aliasBudget: &aliasBudget)
                 let format = column < columns.count ? columns[column] : Column()
                 var style = ["text-align: \(cell.alignment ?? format.alignment)"]
-                if let vertical = format.vertical { style.append("vertical-align: \(vertical)") }
+                if let vertical = cell.vertical ?? format.vertical {
+                    style.append("vertical-align: \(vertical)")
+                }
                 if let width = format.width { style.append("width: \(width)") }
                 if format.bold { style.append("font-weight: bold") }
                 if let value = cell.background.flatMap({ color($0.spec, $0.model) }) ?? rowBackground {
@@ -161,7 +167,9 @@ struct LaTeXTable {
     /// Real specifications nest `*{…}{…}` once or twice; deeper groups are skipped rather than copied again.
     private static let maximumDepth = 8
 
-    private static func columns(_ spec: [Character], budget: inout Int, depth: Int = 0) -> [Column] {
+    private static func columns(
+        _ spec: [Character], budget: inout Int, aliases: [Character: String], aliasBudget: inout Int, depth: Int = 0
+    ) -> [Column] {
         var columns: [Column] = []
         var ruleBefore = false
         var decoration = Decoration()
@@ -188,6 +196,22 @@ struct LaTeXTable {
         while index < spec.count {
             let character = spec[index]
             index += 1
+            if let alias = aliases[character] {
+                // Bound both deep aliases and wide trees of aliases which produce no columns.
+                let cost = alias.utf8.count + 1
+                guard budget > 0, depth < maximumDepth, cost <= aliasBudget else { continue }
+                aliasBudget -= cost
+                var added = Self.columns(
+                    Array(alias), budget: &budget, aliases: aliases, aliasBudget: &aliasBudget, depth: depth + 1)
+                if !added.isEmpty {
+                    decoration.apply(to: &added[0])
+                    if ruleBefore { added[0].ruleLeft = true }
+                    ruleBefore = false
+                    decoration = Decoration()
+                    columns += added
+                }
+                continue
+            }
             switch character {
             case "|":
                 if columns.isEmpty || ruleBefore {
@@ -228,7 +252,8 @@ struct LaTeXTable {
                 let inner = group()
                 guard depth < maximumDepth else { break }
                 // Read once, then copied while the budget lasts.
-                let repeated = Self.columns(Array(inner), budget: &budget, depth: depth + 1)
+                let repeated = Self.columns(
+                    Array(inner), budget: &budget, aliases: aliases, aliasBudget: &aliasBudget, depth: depth + 1)
                 for _ in 1..<max(min(count, maximumColumns), 1) where budget >= repeated.count && !repeated.isEmpty {
                     budget -= repeated.count
                     columns += repeated
@@ -245,7 +270,7 @@ struct LaTeXTable {
     private func rows() -> [Row] {
         guard isLongtable else { return rows(in: body).rows }
         let boundaries = ["\\endfirsthead", "\\endhead", "\\endfoot", "\\endlastfoot"]
-        let parts = Self.split(body, at: boundaries, keepingSeparators: true)
+        let parts = LaTeXLexer.split(body, at: boundaries, keepingSeparators: true, protectingEnvironments: true)
         var sections: [String: String] = [:]
         var content = ""
         for part in parts {
@@ -256,19 +281,10 @@ struct LaTeXTable {
                 content += part
             }
         }
-        // The table has one thead. Prefer the continuation heading, but retain the first-page
-        // caption and its label because they belong to the whole table.
-        let firstHead = sections["\\endfirsthead"]
-        let repeatedHead = sections["\\endhead"]
-        let header = repeatedHead ?? firstHead
+        // WebKit prints the thead only once. Prefer the actual first-page heading (even an
+        // explicitly empty one), so a "continued" caption cannot displace the original.
+        let header = sections["\\endfirsthead"] ?? sections["\\endhead"]
         var headRows = rows(in: header ?? "", detectHeader: false).rows
-        if repeatedHead != nil, let firstHead {
-            let captions = rows(in: firstHead, detectHeader: false).rows.filter(Self.isCaption)
-            if !captions.isEmpty {
-                headRows.removeAll(where: Self.isCaption)
-                headRows.insert(contentsOf: captions, at: 0)
-            }
-        }
         for index in headRows.indices { headRows[index].isHeader = true }
         var bodyRows = rows(in: content, detectHeader: header == nil).rows
         if let foot = sections["\\endlastfoot"] ?? sections["\\endfoot"], !bodyRows.isEmpty {
@@ -291,7 +307,7 @@ struct LaTeXTable {
         var rows: [Row] = []
         var carriedRule: Rule?
         var sawMidrule = false
-        for source in Self.split(body, at: ["\\\\", "\\tabularnewline"]) {
+        for source in LaTeXLexer.split(body, at: ["\\\\", "\\tabularnewline"], protectingEnvironments: true) {
             var text = Substring(source)
             var row = Row()
             // Rules written before a row's cells belong above it; a source row of rules alone goes under the last.
@@ -348,7 +364,7 @@ struct LaTeXTable {
             }
             if row.ruleAbove == nil { row.ruleAbove = carriedRule }
             carriedRule = nil
-            row.cells = Self.split(content, at: ["&"])
+            row.cells = LaTeXLexer.split(content, at: ["&"], protectingEnvironments: true)
             rows.append(row)
         }
         return (rows, rows.last?.ruleBelow ?? carriedRule)
@@ -367,59 +383,8 @@ struct LaTeXTable {
         return trimmed[trimmed.index(after: close)...]
     }
 
-    /// The source split at separators outside braces; escaped characters do not separate.
-    private static func split(_ text: String, at separators: [String], keepingSeparators: Bool = false) -> [String] {
-        let characters = Array(text)
-        let separators = separators.map(Array.init)
-        var parts: [String] = []
-        var current: [Character] = []
-        var depth = 0
-        var index = 0
-        outer: while index < characters.count {
-            let character = characters[index]
-            if character == "%" {
-                while index < characters.count, characters[index] != "\n" { index += 1 }
-                continue
-            }
-            if character == "\\", let opaque = LaTeXLexer.opaqueEnd(characters, at: index) {
-                // `\verb|a&b|` in a cell is code, not a column separator.
-                let end = max(opaque, index + 1)
-                current.append(contentsOf: characters[index..<end])
-                index = end
-                continue
-            }
-            if depth == 0 {
-                for separator in separators
-                where index + separator.count <= characters.count
-                    && Array(characters[index..<(index + separator.count)]) == separator
-                {
-                    // `\tabularnewline` must not split inside a longer command name.
-                    let end = index + separator.count
-                    if separator.count > 2, end < characters.count, characters[end].isASCII, characters[end].isLetter {
-                        continue
-                    }
-                    parts.append(String(current))
-                    if keepingSeparators { parts.append(String(separator)) }
-                    current = []
-                    index = end
-                    continue outer
-                }
-            }
-            if character == "\\", index + 1 < characters.count {
-                current += [character, characters[index + 1]]
-                index += 2
-                continue
-            }
-            if character == "{" { depth += 1 }
-            if character == "}" { depth -= 1 }
-            current.append(character)
-            index += 1
-        }
-        parts.append(String(current))
-        return parts
-    }
-
     private struct Cell {
+        var vertical: String?
         var content: String
         var isPlainText = false
         var background: (spec: String, model: String?)?
@@ -429,13 +394,16 @@ struct LaTeXTable {
     }
 
     /// `\multicolumn{n}{spec}{text}` and `\multirow{n}{width}{text}` around a cell's text.
-    private static func cell(_ source: String, depth: Int = 0) -> Cell {
+    private static func cell(_ source: String, aliases: [Character: String], aliasBudget: inout Int, depth: Int = 0)
+        -> Cell
+    {
         // Preserve excessive nesting as text without sending it into another recursive parser.
         guard depth < 32 else { return Cell(content: source, isPlainText: true) }
         if source.contains("\\cellcolor") {
             // colortbl accepts the declaration after the cell text too. Keep verbatim examples and
             // nested groups opaque; multicolumn and multirow will inspect their own inner cells.
-            let parts = split(source, at: ["\\cellcolor"], keepingSeparators: true)
+            let parts = LaTeXLexer.split(
+                source, at: ["\\cellcolor"], keepingSeparators: true, protectingEnvironments: true)
             if parts.count > 1 {
                 var content = parts[0]
                 var color: (String, String?)?
@@ -444,7 +412,9 @@ struct LaTeXTable {
                     color = parsed.color ?? color
                     content += parsed.rest
                 }
-                var inner = cell(content.trimmingCharacters(in: .whitespacesAndNewlines), depth: depth + 1)
+                var inner = cell(
+                    content.trimmingCharacters(in: .whitespacesAndNewlines), aliases: aliases,
+                    aliasBudget: &aliasBudget, depth: depth + 1)
                 inner.background = color ?? inner.background
                 return inner
             }
@@ -453,20 +423,21 @@ struct LaTeXTable {
         if reader.take("\\multicolumn") {
             let count = Int(reader.group().trimmingCharacters(in: .whitespaces)) ?? 1
             var budget = 1
-            let spec = columns(Array(reader.group()), budget: &budget)
-            var inner = cell(reader.group(), depth: depth + 1)
+            let spec = columns(Array(reader.group()), budget: &budget, aliases: aliases, aliasBudget: &aliasBudget)
+            var inner = cell(reader.group(), aliases: aliases, aliasBudget: &aliasBudget, depth: depth + 1)
             inner.columns = min(max(count, 1), 100)
             inner.alignment = spec.first?.alignment
             return inner
         }
         if reader.take("\\multirow") {
-            reader.optional()
+            let position = reader.optional()
             let count = Int(reader.group().trimmingCharacters(in: .whitespaces)) ?? 1
             reader.optional()
             _ = reader.group()
             reader.optional()
-            var inner = cell(reader.group(), depth: depth + 1)
+            var inner = cell(reader.group(), aliases: aliases, aliasBudget: &aliasBudget, depth: depth + 1)
             inner.rows = min(max(count, 1), 1000)
+            inner.vertical = position == "t" ? "top" : position == "b" ? "bottom" : "middle"
             return inner
         }
         return Cell(content: source)
@@ -505,11 +476,17 @@ struct LaTeXTable {
             return true
         }
 
-        func optional() {
+        @discardableResult
+        func optional() -> String? {
             skipSpaces()
-            guard index < characters.count, characters[index] == "[" else { return }
-            while index < characters.count, characters[index] != "]" { index += 1 }
+            guard index < characters.count, characters[index] == "[" else { return nil }
             index += 1
+            let start = index
+            while index < characters.count, characters[index] != "]" { index += 1 }
+            let option = String(characters[start..<index])
+            guard index < characters.count else { return nil }
+            index += 1
+            return option
         }
 
         func group() -> String {

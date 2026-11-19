@@ -53,6 +53,15 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
     /// unreadable image is not mistaken for a table that merely runs past the margin.
     public enum Group: Sendable { case content, layout }
 
+    public var unreadLaTeXCommands: String? {
+        guard kind == .latex else { return nil }
+        for prefix in [LaTeXConverter.unreadCommandPrefix, LaTeXConverter.japaneseUnreadCommandPrefix]
+        where detail.hasPrefix(prefix) {
+            return String(detail.dropFirst(prefix.count))
+        }
+        return nil
+    }
+
     public var group: Group { kind == .overflow || kind == .verticalWriting ? .layout : .content }
 
     /// The issues by group, those that cost content first. A group without issues is left out, and each group keeps

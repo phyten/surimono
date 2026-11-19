@@ -2,13 +2,6 @@
    Padding rather than a collapsing margin keeps the chapter head away from the page edge. */
 body { word-spacing: 0.083em; }
 .latex-title-block { padding-block-start: min(37vh, 28em); break-after: page; page-break-after: always; }
-body[data-latex-chapters="true"] h2[id^="sec-"] {
-    break-before: page; page-break-before: always;
-    padding-block-start: 2.2em; margin-block: 0 1.3em; font-size: calc(var(--tex-Huge) * var(--tex-pt));
-}
-body[data-latex-chapters="true"] h2 > .secnum { display: block; font-size: 0.84em; margin: 0 0 0.7em; }
-body[data-latex-chapters="true"] h3 { font-size: calc(var(--tex-Large) * var(--tex-pt)); }
-body[data-latex-chapters="true"] h4 { font-size: calc(var(--tex-large) * var(--tex-pt)); }
 body[data-latex-chapters="true"] nav.toc, body[data-latex-chapters="true"] .abstract {
     break-before: page; page-break-before: always; break-after: page; page-break-after: always;
     margin: 0;

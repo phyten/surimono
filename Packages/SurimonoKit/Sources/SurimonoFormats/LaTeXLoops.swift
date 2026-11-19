@@ -1,11 +1,12 @@
 import Foundation
 
 extension LaTeXReader {
-    static let loopNames: Set<String> = ["foreach", "loop", "whiledo", "multido", "forloop"]
+    static let loopNames: Set<String> = ["foreach", "loop", "whiledo", "multido", "forloop", "@for", "@whilenum"]
 
     /// Reevaluate conditions in the current document so assignments in one iteration are visible to the next.
     func readLoop(_ name: String) {
         switch name {
+        case "@for", "@whilenum": kernelLoop(name)
         case "foreach": foreachLoop()
         case "loop": primitiveLoop()
         case "whiledo":
@@ -19,6 +20,71 @@ extension LaTeXReader {
         case "forloop": counterLoop()
         default: break
         }
+    }
+
+    /// Kernel macros often keep @ tokens captured under \makeatletter after the preamble restores its catcode.
+    func kernelLoopName() -> String? {
+        guard peek() == "@" else { return nil }
+        for name in ["@for", "@whilenum"] {
+            let end = index + name.count
+            guard end <= characters.count, characters[index..<end].elementsEqual(name),
+                !(peek(name.count).map { $0.isASCII && $0.isLetter } ?? false)
+            else { continue }
+            index = end
+            return name
+        }
+        return nil
+    }
+
+    private func kernelLoop(_ name: String) {
+        var variable: String?
+        if name == "@for" {
+            skipSpaces()
+            let token = controlToken()
+            skipSpaces()
+            guard token.count > 1, peek() == ":", peek(1) == "=" else { return }
+            variable = String(token.dropFirst())
+            index += 2
+        }
+        guard let input = delimitedArgument("\\do") else { return }
+        let body = argument() ?? ""
+        if let variable {
+            kernelList(Self.withoutComments(input), variable: variable, body: body)
+        } else {
+            var quota = LoopQuota(input, body)
+            while !document.stopsExpanding {
+                let reader = LaTeXReader(input, document: document, isBlock: false)
+                guard reader.primitiveTest("ifnum"), quota.next(document) else { break }
+                readExpansionBody(body)
+            }
+        }
+    }
+
+    private func kernelList(_ source: String, variable: String, body: String) {
+        guard document.reserveExpansion(characters: source.count) else { return }
+        let reader = LaTeXReader(source, document: document, isBlock: false)
+        reader.skipSpaces()
+        let token = reader.controlToken()
+        var list = source
+        if token.count > 1, let macro = document.macros[String(token.dropFirst())], macro.primitive == nil {
+            reader.skipSpacesAfterControlWord()
+            guard let expanded = reader.replacement(macro), document.reserveExpansion(characters: expanded.count) else {
+                return
+            }
+            list = expanded + reader.rest
+        }
+        guard !list.isEmpty else { return }
+        var quota = LoopQuota(body, variable)
+        let previous = document.loopMathNames
+        document.loopMathNames.insert(variable)
+        defer { document.loopMathNames = previous }
+        for entry in Self.splitList(list, separator: ",") {
+            guard quota.next(document) else { return }
+            document.macros[variable] = .init(parameters: 0, defaultArgument: nil, body: entry)
+            readExpansionBody(body)
+        }
+        // The kernel ends on its internal sentinel, whose name has no printable representation.
+        document.macros[variable] = .init(parameters: 0, defaultArgument: nil, body: "")
     }
 
     /// Empty bodies and false-only nested branches still cost an iteration. Charge the condition too:
@@ -44,9 +110,9 @@ extension LaTeXReader {
 
     /// \forloop steps the document counter itself, so changes made by the body carry into the next test.
     private func counterLoop() {
-        let step = Int(optional() ?? "1") ?? 1
+        let step = integerArgument(optional() ?? "1") ?? 1
         let counter = argument() ?? ""
-        let initial = Int(inline(argument() ?? ""))
+        let initial = integerArgument(argument() ?? "")
         let test = argument() ?? ""
         let body = argument() ?? ""
         guard let initial else { return }
@@ -209,7 +275,7 @@ extension LaTeXReader {
     /// Bind all variables before reading the body so each has its value for the same iteration.
     private func multidoLoop() {
         let specification = argument() ?? ""
-        let count = Int(inline(argument() ?? "")) ?? 0
+        let count = integerArgument(argument() ?? "") ?? 0
         let body = argument() ?? ""
         var variables: [(name: String, value: Int, step: Int)] = []
         for assignment in Self.splitList(specification, separator: ",") {

@@ -102,6 +102,14 @@ public enum PrintThemeLibrary {
         let themes: [Theme]
     }
 
+    /// Japanese prose in a Western class uses that class's measure and its mincho fallback.
+    public static func defaultLaTeXStyle(for info: LaTeXDocumentClassInfo) -> String {
+        if info.mainLanguage.hasPrefix("zh") { return "latex-plain-zh" }
+        if info.mainLanguage == "ko" { return "latex-plain-ko" }
+        if info.isJapanese { return "latex-plain-ja" }
+        return info.hasChapters ? "latex-report" : "latex-article"
+    }
+
     /// The built-in categories in menu order.
     public static func categories() throws -> [PrintThemeCategory] {
         try catalog().categories.map {

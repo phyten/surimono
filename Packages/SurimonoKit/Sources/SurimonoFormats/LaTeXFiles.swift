@@ -210,6 +210,7 @@ extension LaTeXReader {
                 ? "外部化した図が見つかりません。\(hint) で図を保存できます。"
                 : "Externalized picture not found. Generate it with \(hint).")
         return unsupported(
-            document.isJapanese ? "TikZ などの図（Surimono では描けません）" : "TikZ picture (Surimono cannot draw it)")
+            document.isJapanese ? "TikZ などの図（Surimono では描けません）" : "TikZ picture (Surimono cannot draw it)",
+            picture: true)
     }
 }

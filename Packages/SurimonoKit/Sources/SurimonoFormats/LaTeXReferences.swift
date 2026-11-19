@@ -37,7 +37,10 @@ extension LaTeXDocument {
     }
 
     /// Save a redefined \<kind>autorefname with the other names a forward reference will need.
-    func saveAutoName(_ name: String) {
+    func didDefineMacro(_ name: String) {
+        if LaTeXLanguage.captions["en"]?[name] != nil || name == "today" {
+            macros[name]?.captionLanguage = language
+        }
         guard name.hasSuffix("autorefname") else { return }
         let kind = String(name.dropLast("autorefname".count))
         let text = macros[name].map { String($0.body.prefix(300)) }

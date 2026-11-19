@@ -335,6 +335,9 @@ public final class ThemeSampler {
         // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
         // show the fallback font and be kept that way.
         if css.contains("@font-face") { try await WebPaginator.waitForResources(in: webView, timeout: timeout) }
+        if format == .latex, let script = LaTeXGraphicPreparation.script(in: html, layoutWidth: printableSize.width) {
+            _ = try await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
+        }
         // Each theme has its own fonts and paddings, so its lines are fitted anew, as the samples are drawn a pixel to
         // a point.
         if let script = CodeFitScript.javaScript(for: code, layoutWidth: printableSize.width) {

@@ -137,7 +137,7 @@ struct LaTeXReviewRegressionTests {
         #expect(!html.contains("1em"))
     }
 
-    @Test("longtable の題は表として数え endhead の見出しと本文を残し継続ページの脚注を落とす")
+    @Test("longtable の題と最初の見出しを一度だけ出し継続ページの見出しと脚注を落とす")
     func longtableCaptionAndSections() {
         let html = body(
             #"""
@@ -156,10 +156,10 @@ struct LaTeXReviewRegressionTests {
             """#)
         #expect(
             html.contains("<figcaption id=\"tab-2\"><span class=\"latex-caption-label\">表 2</span>　長い表</figcaption>"))
-        #expect(html.contains("<th style=\"text-align: left\">繰り返す見出し</th><th style=\"text-align: right\">数</th>"))
+        #expect(html.contains("<th style=\"text-align: left\">名前</th><th style=\"text-align: right\">数</th>"))
         #expect(html.contains("<td style=\"text-align: left\">甲</td><td style=\"text-align: right\">1</td>"))
         #expect(!html.contains("最後の脚注"))
-        #expect(!html.contains(">名前</th>"))
+        #expect(!html.contains("繰り返す見出し"))
         #expect(!html.contains("途中の脚注"))
         #expect(html.components(separatedBy: "<tr>").count == 4)
         #expect(html.contains("<a class=\"latex-number-ref\" href=\"#tab-2\">2</a>"))

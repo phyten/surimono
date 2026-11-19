@@ -2,6 +2,14 @@ import SurimonoFormats
 import Testing
 
 struct LaTeXParagraphStyleTests {
+    @Test("連続する追い込み見出しでは直後の本文だけが同じ段落に入る")
+    func consecutiveRunInHeadings() {
+        let html = LaTeXConverter.convert(#"\paragraph{First} Few words.\subparagraph{Second} Two more.\section{Next}"#)
+            .body
+        #expect(html.contains("First</h5><p>Few words.</p>\n</div>\n<div class=\"latex-runin\">"))
+        #expect(html.contains("Second</h6><p>Two more.</p>\n</div>\n<h2"))
+    }
+
     @Test("文中の数式と直後の句読点は一緒に改行し、空白で離れた記号や別行数式はまとめない")
     func mathPunctuation() {
         for formula in ["$x$", #"\(x\)"#, #"\ensuremath{x}"#, #"\begin{math}x\end{math}"#] {

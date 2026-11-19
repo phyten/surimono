@@ -121,7 +121,11 @@ enum PrintIssueText {
                 return PrintModeText.string("The bibliography is too large to read in full.", language: language)
             }
             return PrintModeText.string("Citations use the numeric style.", language: language)
-        case .latex: key = "Unsupported LaTeX: %@"
+        case .latex:
+            if let names = issue.unreadLaTeXCommands {
+                return PrintModeText.format("Unread LaTeX commands: %@", language: language, names)
+            }
+            key = "Unsupported LaTeX: %@"
         case .overflow:
             switch issue.element {
             case .table: key = "Table Exceeds the Text Width"
@@ -149,7 +153,14 @@ enum PrintIssueText {
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."
-        case .latex: key = "Replace this part with an image or supported LaTeX in the source document."
+        case .latex:
+            if issue.unreadLaTeXCommands != nil {
+                key = "Check the command spelling and its definition in the source document."
+            } else if issue.element == .figure {
+                key = "Replace this part with an image or supported LaTeX in the source document."
+            } else {
+                return ""
+            }
         }
         return PrintModeText.string(key, language: language)
     }

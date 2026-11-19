@@ -75,6 +75,74 @@ package enum LaTeXLexer {
         return nil
     }
 
+    /// The source split at separators outside braces; escaped characters do not separate.
+    /// Cell and row separators inside a nested alignment belong to that alignment.
+    static func split(
+        _ text: String, at separators: [String], keepingSeparators: Bool = false, protectingEnvironments: Bool = false
+    ) -> [String] {
+        let characters = Array(text)
+        let separators = separators.map(Array.init)
+        var parts: [String] = []
+        var current: [Character] = []
+        var depth = 0
+        var environmentDepth = 0
+        var index = 0
+        outer: while index < characters.count {
+            let character = characters[index]
+            if character == "%" {
+                while index < characters.count, characters[index] != "\n" { index += 1 }
+                continue
+            }
+            if character == "\\", let opaque = LaTeXLexer.opaqueEnd(characters, at: index) {
+                // `\verb|a&b|` in a cell is code, not a column separator.
+                let end = max(opaque, index + 1)
+                current.append(contentsOf: characters[index..<end])
+                index = end
+                continue
+            }
+            if protectingEnvironments, depth == 0, character == "\\",
+                let command = word(characters, at: index + 1), command == "begin" || command == "end"
+            {
+                let opening = skippingSpaces(characters, from: index + 1 + command.count)
+                if opening < characters.count, characters[opening] == "{" {
+                    let end = skipping(characters, groupFrom: opening)
+                    environmentDepth = command == "begin" ? environmentDepth + 1 : max(0, environmentDepth - 1)
+                    current.append(contentsOf: characters[index..<end])
+                    index = end
+                    continue
+                }
+            }
+            if depth == 0, environmentDepth == 0 {
+                for separator in separators
+                where index + separator.count <= characters.count
+                    && Array(characters[index..<(index + separator.count)]) == separator
+                {
+                    // `\tabularnewline` must not split inside a longer command name.
+                    let end = index + separator.count
+                    if separator.count > 2, end < characters.count, characters[end].isASCII, characters[end].isLetter {
+                        continue
+                    }
+                    parts.append(String(current))
+                    if keepingSeparators { parts.append(String(separator)) }
+                    current = []
+                    index = end
+                    continue outer
+                }
+            }
+            if character == "\\", index + 1 < characters.count {
+                current += [character, characters[index + 1]]
+                index += 2
+                continue
+            }
+            if character == "{" { depth += 1 }
+            if character == "}" { depth -= 1 }
+            current.append(character)
+            index += 1
+        }
+        parts.append(String(current))
+        return parts
+    }
+
     static func word(_ characters: [Character], at index: Int) -> String? {
         var end = index
         while end < characters.count, characters[end].isASCII, characters[end].isLetter { end += 1 }

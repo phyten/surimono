@@ -1,0 +1,6 @@
+body {
+    --tex-serif: "Songti SC", "STSong", serif;
+    --tex-sans: "PingFang SC", sans-serif;
+}
+body:lang(zh-Hant) { --tex-serif: "Songti TC", "LiSong Pro", serif; --tex-sans: "PingFang TC", sans-serif; }
+:is(h1, h2, h3, h4, h5, h6), .latex-contents-title { font-family: var(--tex-sans-fonts); }

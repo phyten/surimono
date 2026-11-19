@@ -14,6 +14,27 @@ struct LaTeXBibliographyTests {
         return LaTeXConverter.convert(tex, directory: folder, readFile: { try? Data(contentsOf: $0) })
     }
 
+    @Test("alpha は著者数と年からラベルを作り、衝突した文献の本文と一覧に同じ小文字を付ける")
+    func alphaLabels() throws {
+        let records = #"""
+            @book{one,author={Smith, J},title={Zinc},year={1981}}
+            @book{two,author={Smith, J},title={Ash},year={1981}}
+            @book{pair,author={Elm, A and Ash, B},year={2005}}
+            @book{four,author={Elm, A and Ash, B and Oak, C and Pine, D},year={2006}}
+            @book{many,author={Elm, A and Ash, B and Oak, C and Pine, D and Yew, E},year={2007}}
+            @book{corp,author={{Autumn Press}},year={2008}}
+            """#
+        let html = try fragment(
+            #"\cite{one,two,pair,four,many,corp}\bibliographystyle{alpha}\bibliography{refs}"#,
+            files: ["refs.bib": records]
+        ).body
+        for label in ["Smi81a", "Smi81b", "EA05", "EAOP06", "EAO+07", "Aut08"] {
+            #expect(html.contains(">\(label)</a>"))
+            #expect(html.contains(">[\(label)]</span>"))
+        }
+        #expect(html.contains("[Smi81a]</span> J Smith. <em>Ash</em>"))
+    }
+
     @Test("unsrt は複数ファイルの引用だけを引用順に並べ、連結した文字列・保護した表記・欧文アクセントを読む")
     func citationOrder() throws {
         let tex = #"\cite{second,first,missing}\bibliographystyle{unsrt}\bibliography{one,two.bib}"#
@@ -37,9 +58,9 @@ struct LaTeXBibliographyTests {
         #expect(!html.contains("Hidden"))
     }
 
-    @Test("plain と alpha は著者順に番号を振り、nocite の星は引用しなかった文献も加える", arguments: ["plain", "alpha"])
-    func authorSorting(style: String) throws {
-        let tex = "\\bibliographystyle{\(style)}\\cite{z}\\nocite{*}\\bibliography{refs}"
+    @Test("plain は著者順に番号を振り、nocite の星は引用しなかった文献も加える")
+    func authorSorting() throws {
+        let tex = #"\bibliographystyle{plain}\cite{z}\nocite{*}\bibliography{refs}"#
         let result = try fragment(tex, files: ["refs.bib": "@misc{z,author={Zulu, Zoe}} @misc{a,author={Able, Ann}}"])
         #expect(result.body.contains(##"<span class="latex-cite">[<a href="#bib-db-2">2</a>]"##))
         #expect(result.body.contains(#"<li id="bib-db-1"><span class="bib-label">[1]</span> Ann Able"#))
@@ -73,11 +94,12 @@ struct LaTeXBibliographyTests {
         #expect(html.contains(##"Zulu et al. (<a href="#bib-db-2">2011</a>)"##))
         #expect(
             html.contains(
-                ##"(see <a href="#bib-db-1">Alpha and Co., 2010</a>; <a href="#bib-db-2">Zulu et al., 2011</a>, p. 2)"##
+                ##"(see <a href="#bib-db-1">Alpha and Co. 2010</a>; <a href="#bib-db-2">Zulu et al. 2011</a>, p. 2)"##
             ))
         #expect(html.contains(##"<span class="latex-cite"><a href="#bib-db-1">Alpha and Co.</a></span>"##))
         #expect(html.contains(##"<span class="latex-cite"><a href="#bib-db-2">2011</a></span>"##))
-        #expect(html.contains(##"(<a href="#bib-db-1">Alpha and Co., 2010</a>)"##))
+        #expect(html.contains(##"(<a href="#bib-db-1">Alpha and Co. 2010</a>)"##))
+        #expect(!html.contains(#"class="bib-label""#))
     }
 
     @Test("natbib の著者年式と numbers を区別し、親の書名と年を引き継ぐ")
@@ -87,9 +109,24 @@ struct LaTeXBibliographyTests {
         let body = #"\begin{document}\citet{k}\citep{k}\bibliographystyle{plainnat}\bibliography{refs}\end{document}"#
         let authorYear = try fragment(#"\usepackage{natbib}"# + body, files: ["refs.bib": database]).body
         #expect(authorYear.contains("Doe, 2021"))
+        #expect(authorYear.contains(##"Doe [<a href="#bib-db-1">2021</a>]"##))
+        #expect(!authorYear.contains(#"class="bib-label""#))
         #expect(authorYear.contains("<em>Collected</em>"))
         let numeric = try fragment(#"\usepackage[numbers]{natbib}"# + body, files: ["refs.bib": database]).body
         #expect(numeric.contains(##"[<a href="#bib-db-1">1</a>]"##))
+    }
+
+    @Test("著者年の区切りは指定した方式に従い、natbib の明示した括弧を優先する")
+    func punctuationByStyle() throws {
+        let files = ["refs.bib": "@book{m,author={Moss, Ada},year={2024},title={Fold}}"]
+        let agsm = try fragment(
+            #"\usepackage{natbib}\begin{document}\citep{m}\bibliographystyle{agsm}\bibliography{refs}\end{document}"#,
+            files: files)
+        #expect(agsm.body.contains(##"(<a href="#bib-db-1">Moss 2024</a>)"##))
+        let round = try fragment(
+            #"\usepackage[round]{natbib}\begin{document}\citep{m}\bibliographystyle{plainnat}\bibliography{refs}\end{document}"#,
+            files: files)
+        #expect(round.body.contains(##"(<a href="#bib-db-1">Moss, 2024</a>)"##))
     }
 
     @Test("文献表を再掲しても引用の飛び先を一つにし、後からの natbib 設定を反映する")

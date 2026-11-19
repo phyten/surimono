@@ -4,6 +4,24 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXListingTests {
+    @Test("基本書体だけを名前付きの listings スタイルで指定したら本文も行内コードもトークンを色付けしない")
+    func basicStyleWithoutTokenStyles() {
+        let html = LaTeXConverter.convert(
+            #"""
+            \lstdefinestyle{mono}{basicstyle=\small\ttfamily,numbers=left}
+            \lstset{style=mono,language=Python}
+            \begin{lstlisting}
+            if True: print("red") # note
+            \end{lstlisting}
+            \lstinline|return 12|
+            """#
+        ).body
+        #expect(html.contains(#"class="code-line" data-no="1""#))
+        #expect(html.contains("latex-styled-listing"))
+        #expect(!html.contains(#"class="hl-"#))
+        #expect(html.contains("return 12</code>"))
+    }
+
     @Test("前置きのスタイルを次のリストへ適用しその場の言語指定は次へ持ち越さない")
     func defaultsAndLocalOverrides() {
         let fragment = LaTeXConverter.convert(

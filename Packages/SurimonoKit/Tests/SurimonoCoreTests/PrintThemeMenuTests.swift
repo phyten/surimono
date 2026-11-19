@@ -94,7 +94,7 @@ struct PrintThemeMenuTests {
         let all = try PrintThemeLibrary.load()
         let groups = try PrintThemeLibrary.categories()
         let category = try #require(groups.first { $0.id == "latex" })
-        let specific = ["latex-article", "latex-report", "latex-plain-ja"]
+        let specific = ["latex-article", "latex-report", "latex-plain-ja", "latex-plain-zh", "latex-plain-ko"]
         func menu(_ format: DocumentFormat) -> PrintThemeMenu {
             PrintThemeMenu(
                 themes: all, categories: groups, recentIDs: ["latex-report", "standard"],
@@ -114,7 +114,7 @@ struct PrintThemeMenuTests {
             PrintThemeMenu.search("LaTeX", in: all, categories: groups, language: "ja", format: .markdown).map(\.id)
                 == ["latex"])
         #expect(all.filter { $0.supports(.markdown) }.count == 109)
-        #expect(all.filter { $0.supports(.latex) }.count == 111)
+        #expect(all.filter { $0.supports(.latex) }.count == 113)
     }
 
     @Test("行間広めの横書き HTML は縦書き追加前とバイト単位で一致する")

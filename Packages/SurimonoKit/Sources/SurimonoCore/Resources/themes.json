@@ -18,7 +18,9 @@
   "themes": [
     {"id": "latex-article", "name": "article", "category": "latex", "localizedNames": {"en": "article", "ja": "article", "zh-Hans": "article", "zh-Hant": "article", "ko": "article", "fr": "article", "de": "article", "es": "article"}},
     {"id": "latex-report", "name": "report / book", "category": "latex", "localizedNames": {"en": "report / book", "ja": "report / book", "zh-Hans": "report / book", "zh-Hant": "report / book", "ko": "report / book", "fr": "report / book", "de": "report / book", "es": "report / book"}},
-    {"id": "latex-plain-ja", "name": "Japanese (jsarticle)", "category": "latex", "localizedNames": {"en": "Japanese (jsarticle)", "ja": "和文 (jsarticle)", "zh-Hans": "日文 (jsarticle)", "zh-Hant": "日文 (jsarticle)", "ko": "일본어 (jsarticle)", "fr": "Japonais (jsarticle)", "de": "Japanisch (jsarticle)", "es": "Japonés (jsarticle)"}},
+    {"id": "latex-plain-ja", "name": "Japanese", "category": "latex", "localizedNames": {"en": "Japanese", "ja": "和文", "zh-Hans": "日文", "zh-Hant": "日文", "ko": "일본어", "fr": "Japonais", "de": "Japanisch", "es": "Japonés"}},
+    {"id": "latex-plain-zh", "name": "Chinese", "category": "latex", "localizedNames": {"en": "Chinese", "ja": "中国語", "zh-Hans": "中文", "zh-Hant": "中文", "ko": "중국어", "fr": "Chinois", "de": "Chinesisch", "es": "Chino"}},
+    {"id": "latex-plain-ko", "name": "Korean", "category": "latex", "localizedNames": {"en": "Korean", "ja": "韓国語", "zh-Hans": "韩文", "zh-Hant": "韓文", "ko": "한국어", "fr": "Coréen", "de": "Koreanisch", "es": "Coreano"}},
     {"id": "standard", "name": "Standard", "category": "everyday", "localizedNames": {"en": "Standard", "ja": "標準", "zh-Hans": "标准", "zh-Hant": "標準", "ko": "표준", "fr": "Standard", "de": "Standard", "es": "Estándar"}},
     {"id": "compact", "name": "Compact", "category": "everyday", "localizedNames": {"en": "Compact", "ja": "コンパクト", "zh-Hans": "紧凑", "zh-Hant": "緊湊", "ko": "촘촘하게", "fr": "Compact", "de": "Kompakt", "es": "Compacto"}},
     {"id": "modern", "name": "Modern", "category": "everyday", "localizedNames": {"en": "Modern", "ja": "モダン", "zh-Hans": "现代", "zh-Hant": "現代", "ko": "모던", "fr": "Moderne", "de": "Modern", "es": "Moderno"}},

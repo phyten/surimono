@@ -137,7 +137,10 @@ struct ThemeMenuTests {
         tex.toggleFavoriteTheme()
         let latexSections = tex.themeMenu.sections
         try #require(latexSections.count >= 4)
-        #expect(latexSections[0].themes.map(\.id) == ["latex-article", "latex-report", "latex-plain-ja"])
+        #expect(
+            latexSections[0].themes.map(\.id) == [
+                "latex-article", "latex-report", "latex-plain-ja", "latex-plain-zh", "latex-plain-ko",
+            ])
         #expect(latexSections[1].kind == .recent)
         #expect(latexSections[1].themes.first?.id == "latex-report")
         #expect(latexSections[2].kind == .favorites)

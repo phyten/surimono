@@ -2,7 +2,11 @@ public enum Typeface: String, Codable, CaseIterable, Sendable {
     case style, latex
 
     public static func isAvailable(themeID: String, usesPrintTheme: Bool) -> Bool {
-        usesPrintTheme && !["latex", "latex-article", "latex-report", "latex-plain-ja", "tategaki"].contains(themeID)
+        usesPrintTheme
+            && ![
+                "latex", "latex-article", "latex-report", "latex-plain-ja", "latex-plain-zh", "latex-plain-ko",
+                "tategaki",
+            ].contains(themeID)
     }
 
     // Zero specificity supplies the browser defaults only where the style has no family of its own.

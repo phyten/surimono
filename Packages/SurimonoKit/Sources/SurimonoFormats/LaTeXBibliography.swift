@@ -14,25 +14,46 @@ final class LaTeXBibliography {
         "jul": "July", "aug": "August", "sep": "September", "oct": "October", "nov": "November", "dec": "December",
     ]
     var printCount = 0
+    var printedHeadings: [String] = []
     var wantsAll = false
     var citationOrder: [String] = []
     private var seen: Set<String> = []
     var style = ""
     var authorYearOption: Bool?
     var natbib = false
+    private var squareBrackets: Bool?
+    private var nameYearSeparator: String?
     var citationOrderOverride: Bool?
     var citationLabels: [String: (author: String, year: String)] = [:]
 
     var authorYear: Bool {
         authorYearOption
-            ?? (style.hasPrefix("authoryear") || ["apalike", "chicago", "harvard", "agsm", "dcu"].contains(style)
+            ?? (style.hasPrefix("authoryear")
+                || ["apalike", "chicago", "harvard", "agsm", "dcu", "kluwer", "aa"].contains(style)
                 || style.hasSuffix("nat") || natbib && style.isEmpty)
+    }
+
+    private var natbibStyle: Bool { natbib && ["plainnat", "unsrtnat", "abbrvnat"].contains(style) }
+    var usesSquareBrackets: Bool { squareBrackets ?? (!authorYear || natbibStyle) }
+    var multipleCitationSeparator: String { natbibStyle || ["agsm", "kluwer"].contains(style) ? ", " : "; " }
+
+    private var authorYearSeparator: String {
+        if let nameYearSeparator { return nameYearSeparator }
+        // natbib.sty's named punctuation and biblatex's nameyeardelim differ even for the same authors.
+        if ["agsm", "kluwer", "aa"].contains(style) || style.hasPrefix("authoryear") && !natbib { return " " }
+        return style == "dcu" ? "; " : ", "
     }
 
     func applyNatbibOptions(_ options: [String]) {
         for option in options {
             if option == "authoryear" { authorYearOption = true }
             if option == "numbers" || option == "super" { authorYearOption = false }
+            if option == "square" || option == "round" { squareBrackets = option == "square" }
+            if option.hasPrefix("aysep=") {
+                nameYearSeparator =
+                    HTML.escape(String(option.dropFirst(6)).trimmingCharacters(in: CharacterSet(charactersIn: "{}")))
+                    + " "
+            }
         }
     }
 
@@ -62,7 +83,7 @@ final class LaTeXBibliography {
                 }
             }
             guard document.reserveExpansion() else { break }
-            selected.append((key, Entry(fields, key: key, type: record.type)))
+            selected.append((key, Entry(fields, key: key, type: record.type, alpha: style == "alpha")))
         }
         let citationOrdered =
             citationOrderOverride ?? (style.hasPrefix("unsrt") || style == "none" || style.isEmpty && !authorYear)
@@ -70,21 +91,39 @@ final class LaTeXBibliography {
             selected = selected.sorted { $0.entry.sortKey < $1.entry.sortKey }
         }
         guard !selected.isEmpty else { return "" }
-        let heading =
-            customHeading.map(HTML.escape)
-            ?? (document.isJapanese ? "参考文献" : document.hasChapters ? "Bibliography" : "References")
-        var html = "<h2 class=\"latex-bibliography-heading\">\(heading)</h2>\n"
+        // Markdown supplies its title here. LaTeX captures each title at the print command,
+        // before a later language switch or macro redefinition can change it.
+        var html = customHeading.map { "<h2 class=\"latex-bibliography-heading\">\(HTML.escape($0))</h2>\n" } ?? ""
+        var labels: [String]
         if authorYear {
-            html += "<ol class=\"latex-bibliography\">\n"
+            let separator = authorYearSeparator
+            labels = selected.map {
+                [$0.entry.shortAuthor, $0.entry.year].filter { !$0.isEmpty }.joined(separator: separator)
+            }
+            html += "<ol class=\"latex-bibliography latex-author-year\">\n"
         } else {
-            let digits = String(selected.count).count
-            html += "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(digits)ch\">\n"
+            if style == "alpha" {
+                let bases = selected.map(\.entry.alphaLabel)
+                let totals = bases.reduce(into: [:]) { counts, label in counts[label, default: 0] += 1 }
+                var used: [String: Int] = [:]
+                labels = bases.map { base in
+                    guard totals[base, default: 0] > 1 else { return base }
+                    let index = used[base, default: 0]
+                    used[base] = index + 1
+                    return base + Self.letterSuffix(index)
+                }
+            } else {
+                labels = selected.indices.map { String($0 + 1) }
+            }
+            let width = labels.map(\.count).max() ?? 1
+            html += "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(width)ch\">\n"
         }
         for (position, item) in selected.enumerated() {
             let id = "bib-db-\(position + 1)"
             let entry = item.entry
-            let label = authorYear ? entry.authorYear : String(position + 1)
-            let row = "<li id=\"\(id)\"><span class=\"bib-label\">[\(label)]</span> \(entry.html)</li>\n"
+            let label = authorYear ? labels[position] : HTML.escape(labels[position])
+            let marker = authorYear ? "" : "<span class=\"bib-label\">[\(label)]</span> "
+            let row = "<li id=\"\(id)\">\(marker)\(entry.html)</li>\n"
             guard document.reserveExpansion(characters: row.utf8.count) else { break }
             document.bibliography[item.key] = (label, printCount > 0 ? id : "")
             citationLabels[item.key] = (entry.shortAuthor, entry.year)
@@ -93,22 +132,30 @@ final class LaTeXBibliography {
         return html + "</ol>\n"
     }
 
+    private static func letterSuffix(_ index: Int) -> String {
+        var n = index
+        var suffix = ""
+        repeat {
+            suffix = String(UnicodeScalar(UInt8(97 + n % 26))) + suffix
+            n = n / 26 - 1
+        } while n >= 0
+        return suffix
+    }
+
     private struct Entry {
         let html: String
         let shortAuthor: String
         let year: String
         let sortKey: String
-        var authorYear: String { [shortAuthor, year].filter { !$0.isEmpty }.joined(separator: ", ") }
+        let alphaLabel: String
 
-        init(_ fields: [String: String], key: String, type: String) {
+        init(_ fields: [String: String], key: String, type: String, alpha: Bool) {
             let authors = LaTeXBibText.names(fields["author"] ?? "")
             let editors = LaTeXBibText.names(fields["editor"] ?? "")
             let citedNames = authors.isEmpty ? editors : authors
             let organization =
                 ["manual", "proceedings"].contains(type) ? LaTeXBibText.decode(fields["organization"] ?? "") : ""
             let first = citedNames.first?.family ?? (organization.isEmpty ? key : organization)
-            sortKey = first.folding(
-                options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             let short =
                 citedNames.count >= 3 || citedNames.last?.family == "et al."
                 ? first + " et al." : citedNames.map(\.family).joined(separator: " and ")
@@ -125,6 +172,41 @@ final class LaTeXBibliography {
             }
 
             year = field("year").isEmpty ? String(field("date").prefix(4)) : field("year")
+            var order = first
+            if alpha {
+                // alpha.bst uses at most three authors plus a plus sign when there are more than four.
+                let labelNames =
+                    type == "proceedings"
+                    ? editors
+                    : authors.isEmpty && ["book", "inbook"].contains(type) ? editors : authors
+                let families = labelNames.map(\.family)
+                let prefix: String
+                if families.count <= 1 {
+                    let organizationKey =
+                        organization.hasPrefix("The ") ? String(organization.dropFirst(4)) : organization
+                    let fallback =
+                        fields["key"].map { LaTeXBibText.decode($0) }
+                        ?? (organizationKey.isEmpty ? key : organizationKey)
+                    prefix = String((families.first ?? fallback).prefix(3))
+                } else {
+                    let included = families.prefix(families.count > 4 ? 3 : families.count)
+                    prefix =
+                        included.map { $0 == "et al." ? "+" : String($0.prefix(1)) }.joined()
+                        + (families.count > 4 ? "+" : "")
+                }
+                let rawYear = LaTeXBibText.decode(fields["year"] ?? "")
+                alphaLabel = prefix + rawYear.suffix(2)
+                var sortTitle = LaTeXBibText.decode(fields["title"] ?? "")
+                if let article = ["The ", "An ", "A "].first(where: { sortTitle.hasPrefix($0) }) {
+                    sortTitle.removeFirst(article.count)
+                }
+                let authorOrder = labelNames.map { $0.family + " " + $0.printedHTML }.joined(separator: " ")
+                order = [prefix, rawYear, authorOrder, sortTitle].joined(separator: "\u{1F}")
+            } else {
+                alphaLabel = ""
+            }
+            sortKey = order.folding(
+                options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             let publication = LaTeXBibPublication(type: type, fields: fields)
             let editorCredit =
                 editors.isEmpty ? "" : nameList(editors) + (editors.count == 1 ? ", editor" : ", editors")
@@ -304,14 +386,17 @@ extension LaTeXReader {
     }
 
     func readPackage() {
-        let options = (optional() ?? "").split(separator: ",").map {
-            $0.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        let packageOptions = optional() ?? ""
+        let options = packageOptions.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         let packages = (argument() ?? "").split(separator: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        readLanguagePackages(packages, options: options)
         if packages.contains(where: { ["amsthm", "ntheorem", "thmtools"].contains($0) }) {
             document.usesAMSTheorem = true
+        }
+        for package in packages {
+            document.pageSettings.readPackage(package, options: packageOptions, pointSize: document.classInfo.pointSize)
         }
         if packages.contains("natbib") {
             document.bibDatabase.natbib = true
@@ -347,6 +432,8 @@ extension LaTeXReader {
             loadBibliography(argument() ?? "")
         default:
             if name == "bibliography" { loadBibliography(argument() ?? "") } else { _ = optional() }
+            let heading = captionName(document.hasChapters ? "bibname" : "refname")
+            document.bibDatabase.printedHeadings.append("<h2 class=\"latex-bibliography-heading\">\(heading)</h2>\n")
             appendBlock(document.placeholder("B", document.bibDatabase.printCount))
             document.bibDatabase.printCount += 1
         }

@@ -7,10 +7,15 @@ body {
     --tex-item-sep: 6; --tex-top-sep: 8;
     --tex-small: 9; --tex-footnote: 8; --tex-large: 12; --tex-Large: 14.4; --tex-LARGE: 17.28; --tex-Huge: 24.88;
     --latex-heavy-rule: 0.08em; --latex-light-rule: 0.05em;
-    font-family: "Surimono Computer Modern", "Hiragino Mincho ProN", "YuMincho", serif;
+    --tex-serif: "Times New Roman", "Hiragino Mincho ProN", "YuMincho", "Geeza Pro", "Arial Hebrew", serif;
+    --tex-sans: "Helvetica Neue", "Hiragino Kaku Gothic ProN", sans-serif;
+    --tex-body-fonts: var(--latex-cjk-main-font, var(--latex-main-font, "Surimono Computer Modern")), var(--latex-main-font, "Surimono Computer Modern"), "Surimono Computer Modern", var(--tex-serif);
+    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-sans-font, "Helvetica Neue")), var(--latex-sans-font, "Helvetica Neue"), var(--tex-sans);
+    font-family: var(--tex-body-fonts);
     font-size: calc(var(--tex-body) * var(--tex-pt));
-    line-height: var(--tex-baseline);
-    max-width: calc(var(--tex-width) * var(--tex-pt));
+    line-height: calc(var(--tex-baseline) * var(--latex-stretch, 1));
+    --latex-class-width: calc(var(--latex-text-width-tex-pt) * var(--tex-pt));
+    max-width: var(--latex-class-width, calc(var(--tex-width) * var(--tex-pt)));
     margin: 0 auto; color: #000; background: transparent;
     text-align: justify; hyphens: auto; -webkit-hyphens: auto;
     -webkit-hyphenate-limit-before: 2; -webkit-hyphenate-limit-after: 3;
@@ -25,7 +30,7 @@ body[data-latex-size="12"] {
     --tex-item-sep: 7.5; --tex-top-sep: 10;
     --tex-small: 10.95; --tex-footnote: 10; --tex-large: 14.4; --tex-Large: 17.28; --tex-LARGE: 20.74;
 }
-p { margin-block: 0; text-indent: calc(var(--tex-indent) * var(--tex-pt)); }
+p { margin-block: var(--latex-parskip, 0) 0; text-indent: var(--latex-parindent, calc(var(--tex-indent) * var(--tex-pt))); }
 :is(h1, h2, h3, h4, h5, h6) + p, p.latex-noindent, li p, dd p, th p, td p, figcaption p,
 .abstract-title, .latex-title-block p, .latex-theorem > p:first-child, .latex-proof > p:first-child { text-indent: 0; }
 h1, h2, h3, h4, h5, h6 {
@@ -47,19 +52,17 @@ h4, h5, h6 { font-size: 1em; margin-block: 1.2em 0.65em; }
 .abstract-title { font-weight: bold; text-align: center; margin-block-end: 0.5em; }
 .abstract-title + p { text-indent: 1.5em; }
 
-/* The heading remains a real heading for navigation. Only its first text paragraph
-   runs onto this line; an empty generated block ends that line before the next item. */
+/* A real block ends the run-in paragraph. A generated break inside a justified
+   anonymous line can stretch the last few words across the whole page. */
+.latex-runin { margin-block-start: 1.4em; text-align-last: start; }
+body > p:not([class], [style]), body > p.latex-noindent:not([style]) { text-align-last: start; }
 :is(.latex-runin-paragraph, .latex-runin-subparagraph) { display: inline; font-size: 1em; margin: 0; }
-:is(.latex-runin-paragraph, .latex-runin-subparagraph)::before {
-    content: ""; display: block; margin-block-start: 1.4em;
-}
 .latex-runin-subparagraph { margin-inline-start: calc(var(--tex-indent) * var(--tex-pt)); }
 :is(.latex-runin-paragraph, .latex-runin-subparagraph) + p { display: inline; margin-inline-start: 1em; }
-:is(.latex-runin-paragraph, .latex-runin-subparagraph) + p::after { content: ""; display: block; }
 
-ul, ol, dl { padding-inline-start: 2.5em; margin-block: calc(var(--tex-top-sep) * var(--tex-pt)); }
-li + li { margin-block-start: calc(var(--tex-item-sep) * var(--tex-pt)); }
-li ul, li ol { margin-block: 0.35em; padding-inline-start: 2.2em; }
+ul, ol, dl { padding-inline-start: var(--latex-list-margin, 2.5em); margin-block: var(--latex-list-topsep, calc(var(--tex-top-sep) * var(--tex-pt))); }
+li + li { margin-block-start: var(--latex-itemsep, calc(var(--tex-item-sep) * var(--tex-pt))); }
+li ul, li ol { margin-block: var(--latex-list-topsep, 0.35em); padding-inline-start: var(--latex-list-margin, 2.2em); }
 li > p { margin-block: 0; }
 /* WebKit's printed ::marker ignores content. Hang a real box in the list gutter;
    explicit item labels and the table of contents already supply their own markers. */
@@ -71,16 +74,16 @@ ul ul:not(.toc ul) > li:not(.latex-custom-label)::before { content: "–"; }
 ul ul ul:not(.toc ul) > li:not(.latex-custom-label)::before { content: "∗"; }
 ul ul ul ul:not(.toc ul) > li:not(.latex-custom-label)::before { content: "·"; }
 .item-label { min-width: 1.9em; margin-inline-start: -2.4em; margin-inline-end: 0.5em; }
-.latex-description { padding-inline-start: 0; }
+.latex-description { padding-inline-start: var(--latex-list-margin, 0); }
 .latex-description > div { padding-inline-start: 2.5em; text-indent: -2.5em; }
-.latex-description > div + div { margin-block-start: calc(var(--tex-item-sep) * var(--tex-pt)); }
+.latex-description > div + div { margin-block-start: var(--latex-itemsep, calc(var(--tex-item-sep) * var(--tex-pt))); }
 .latex-description dt { display: inline; font-weight: bold; margin: 0; }
 .latex-description dd { display: inline; margin: 0; margin-inline-start: 1em; }
 .latex-description dd > p:first-child { display: inline; }
 blockquote { margin: 0.75em 2.5em; padding: 0; border: none; }
 blockquote:not([class]) > p { text-indent: 0; }
 a { color: inherit; text-decoration: none; }
-code, pre { font-family: "Surimono Computer Modern Typewriter", Menlo, "Hiragino Kaku Gothic ProN", monospace; }
+code, pre { font-family: var(--latex-cjk-mono-font, var(--latex-mono-font, "Surimono Computer Modern Typewriter")), var(--latex-mono-font, "Surimono Computer Modern Typewriter"), "Surimono Computer Modern Typewriter", Menlo, "Hiragino Kaku Gothic ProN", monospace; }
 code, pre, pre code { font-size: 1em; }
 .latex-verbatim pre { font-size: 1em; line-height: inherit; margin: 0.7em 0; padding: 0; border: none; background: none; }
 figure.latex-listing { margin-inline: 0; }
@@ -137,6 +140,10 @@ code, pre, .math { word-spacing: normal; }
 .latex-theorem-remark .theorem-head { font-style: italic; font-weight: normal; }
 ol.latex-bibliography { padding-inline-start: 2em; }
 .latex-bibliography li { margin-block: 0.25em; }
+ol.latex-bibliography.latex-author-year { padding-inline-start: 1em; }
+.latex-author-year > li { text-indent: -1em; }
+.latex-multline-row > .math-display { min-width: 0; margin-block: 0.2em; }
+.latex-multline-row:only-child > .eqno { position: absolute; inset-inline-end: 0; }
 .latex-bibliography .bib-label { margin-inline-start: -2em; margin-inline-end: 0.4em; min-width: 1.6em; }
 /* Position the number outside the text block so justification cannot stretch the gap after it.
    Digits are tabular in Computer Modern, and the two brackets together occupy about 0.56em. */
@@ -170,3 +177,68 @@ nav.toc > ul { padding-inline-start: 0; }
 nav.toc > ul > li > a { font-weight: bold; }
 nav.toc li { margin-block: 0.15em; }
 .latex-contents-title { font-size: calc(var(--tex-Large) * var(--tex-pt)); text-indent: 0; font-weight: bold; margin-block-end: 0.65em; }
+
+/* Declarations in a title select an absolute class size, including inside another declaration. */
+body {
+    --latex-size-tiny: calc(5 * var(--tex-pt)); --latex-size-scriptsize: calc(7 * var(--tex-pt));
+    --latex-size-footnotesize: calc(var(--tex-footnote) * var(--tex-pt));
+    --latex-size-small: calc(var(--tex-small) * var(--tex-pt));
+    --latex-size-normalsize: calc(var(--tex-body) * var(--tex-pt));
+    --latex-size-large: calc(var(--tex-large) * var(--tex-pt));
+    --latex-size-Large: calc(var(--tex-Large) * var(--tex-pt));
+    --latex-size-LARGE: calc(var(--tex-LARGE) * var(--tex-pt));
+    --latex-size-huge: calc(20.74 * var(--tex-pt)); --latex-size-Huge: calc(var(--tex-Huge) * var(--tex-pt));
+}
+body:is([data-latex-size="11"], [data-latex-size="12"]) {
+    --latex-size-tiny: calc(6 * var(--tex-pt)); --latex-size-scriptsize: calc(8 * var(--tex-pt));
+}
+body[data-latex-size="12"] { --latex-size-huge: var(--latex-size-Huge); }
+.latex-author-name { display: inline-block; vertical-align: top; text-align: center; max-width: 100%; }
+.latex-sf { font-family: var(--tex-sans-fonts); }
+.latex-font-family { font-family: var(--latex-local-font), var(--tex-body-fonts); }
+:is(body, [lang]):lang(ja) { --tex-serif: "Hiragino Mincho ProN", "YuMincho", serif; }
+:is(body, [lang]):is(:lang(ru), :lang(uk), :lang(el)) { --tex-serif: "Times New Roman", "PT Serif", serif; }
+:is(body, [lang]):lang(ar) { --tex-serif: "Geeza Pro", serif; }
+:is(body, [lang]):lang(he) { --tex-serif: "Arial Hebrew", serif; }
+/* A secondary language can require a different fallback inside one paragraph. */
+[lang] [lang]:lang(zh-Hans) { --tex-serif: "Songti SC", "STSong", serif; }
+[lang] [lang]:lang(zh-Hant) { --tex-serif: "Songti TC", "LiSong Pro", serif; }
+[lang] [lang]:lang(ko) { --tex-serif: "AppleMyungjo", serif; }
+[lang] [lang] {
+    font-family: var(--latex-cjk-main-font, var(--latex-main-font, "Surimono Computer Modern")), var(--latex-main-font, "Surimono Computer Modern"), "Surimono Computer Modern", var(--tex-serif);
+}
+p:lang(zh), :is(h1, h2, h3, h4, h5, h6) + p:lang(zh) { text-indent: var(--latex-parindent, 2em); }
+.format-latex p.latex-noindent:lang(zh), .latex-title-block p:lang(zh), p.abstract-title:lang(zh), p.latex-contents-title:lang(zh) { text-indent: 0; }
+.latex-titlepage { break-before: page; break-after: page; }
+.latex-titlepage .latex-title-block { break-after: auto; }
+.latex-description.latex-nextline dd { display: block; margin-inline-start: 0; text-indent: 0; }
+.format-latex .latex-verse p { text-indent: 0; }
+.latex-listing > figcaption { break-after: avoid; page-break-after: avoid; }
+.latex-filled-listing pre { background-color: var(--latex-listing-background); print-color-adjust: exact; }
+.latex-url span { white-space: nowrap; word-break: normal; hyphens: none; }
+div.latex-fbox, div.latex-colorbox { box-sizing: border-box; width: fit-content; max-width: 100%; }
+
+body[data-latex-chapters="true"] h2[id^="sec-"] {
+    break-before: page; page-break-before: always;
+    padding-block-start: 2.2em; margin-block: 0 1.3em; font-size: calc(var(--tex-Huge) * var(--tex-pt));
+}
+body[data-latex-chapters="true"] h2 > .secnum { display: block; font-size: 0.84em; margin: 0 0 0.7em; }
+body[data-latex-chapters="true"] h3 { font-size: calc(var(--tex-Large) * var(--tex-pt)); }
+body[data-latex-chapters="true"] h4 { font-size: calc(var(--tex-large) * var(--tex-pt)); }
+
+.latex-title-block .latex-front-subtitle { text-align: center; margin-block: 0.4em; font-size: 1.2em; }
+.latex-front-affiliations, .latex-front-publishers { margin-block-start: 0.65em; }
+.latex-front-affiliations .latex-front-affiliation { text-align: center; text-indent: 0; margin-block: 0.2em; }
+.latex-front-affiliation, .latex-front-email, .latex-front-orcid, .latex-front-classifications { font-size: 0.9em; }
+.latex-front-email, .latex-front-orcid { display: block; }
+.latex-front-mark { font-size: 0.7em; vertical-align: super; }
+.format-latex :is(p.latex-front-keywords, p.latex-front-classifications) { text-indent: 0; margin-block: 0.5em; }
+.latex-epigraph { font-size: 0.9em; max-width: 55%; margin-inline: auto 0; break-inside: avoid; }
+.latex-epigraph p, .latex-epigraph footer { text-align: end; text-indent: 0; }
+.latex-epigraph footer { border-block-start: 0.5pt solid currentColor; margin-block-start: 0.3em; padding-block-start: 0.3em; }
+
+/* The border of a regular inline span follows the font's ascent, even when a strut
+   inside it is taller. An inline block encloses the actual row of rules and text. */
+span.latex-fbox, span.latex-colorbox { display: inline-block; vertical-align: baseline; text-indent: 0; }
+.latex-box-row.latex-box-fill { text-align: justify; text-align-last: justify; text-indent: 0; }
+.latex-box-fill > :is(.latex-fbox, .latex-colorbox, .latex-minipage) { text-align-last: auto; }
