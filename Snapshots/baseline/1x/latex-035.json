@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.007041205469258674,
+    "changedAreaRatio" : 0.007161090957947065,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 133.609375,
-    "maxShiftPt" : 29.3,
+    "maxShiftPt" : 27,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 4
@@ -36,28 +36,28 @@
           "text" : "Blue tray",
           "width" : 47.1,
           "x" : 150.3,
-          "y" : 177.8
+          "y" : 175.4
         },
         {
           "height" : 11.7,
           "text" : "WORKING: Quartz",
           "width" : 72.9,
           "x" : 150.3,
-          "y" : 190.3
+          "y" : 187.9
         },
         {
           "height" : 11.7,
           "text" : "RESERVE: Slate",
           "width" : 61.3,
           "x" : 150.3,
-          "y" : 202.3
+          "y" : 199.9
         },
         {
           "height" : 11.7,
           "text" : "Length: 12 mm",
           "width" : 65.2,
           "x" : 150.3,
-          "y" : 214.3
+          "y" : 211.9
         },
         {
           "height" : 11.7,

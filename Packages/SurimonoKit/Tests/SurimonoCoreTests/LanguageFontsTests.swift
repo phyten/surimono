@@ -61,7 +61,7 @@ extension LanguageFontsTests {
             "Chalkboard", "Chalkduster", "Bradley Hand", "Comic Sans MS", "Snell Roundhand", "Apple Chancery",
             "Papyrus", "Copperplate", "Impact", "DIN Alternate", "DIN Condensed", "Rockwell", "Charter",
             "Iowan Old Style", "Savoye LET", "Academy Engraved LET", "Surimono Computer Modern",
-            "Surimono Computer Modern Typewriter", "PT Serif", "Geeza Pro", "Arial Hebrew",
+            "Surimono Computer Modern Typewriter", "Surimono KOMA Sans", "PT Serif", "Geeza Pro", "Arial Hebrew",
             "Surimono Song SC Ideographs", "Surimono Song TC Ideographs", "Surimono Hei Ideographs",
             "Songti TC", "STSong", "LiSong Pro", "PingFang TC", "AppleMyungjo", "Apple SD Gothic Neo",
         ]

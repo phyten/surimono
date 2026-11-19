@@ -87,7 +87,6 @@ package enum LaTeXSymbols {
     /// Commands that only set something up for TeX; their arguments are read and dropped. The value is the number of
     /// mandatory arguments; an optional argument in front is dropped too.
     package static let ignored: [String: Int] = [
-        "setkomafont": 2, "addtokomafont": 2, "chapterstyle": 1,
         "settowidth": 2, "allowdisplaybreaks": 0, "settoheight": 2, "settodepth": 2,
         "setlength": 2, "addtolength": 2, "setcounter": 2, "addtocounter": 2, "stepcounter": 1, "pagestyle": 1,
         "thispagestyle": 1, "pagenumbering": 1, "vspace": 1, "hspace": 1, "geometry": 1, "hypersetup": 1,
@@ -244,8 +243,8 @@ package enum LaTeXSymbols {
         return color
     }
 
-    /// A TeX length as CSS: `0.5\textwidth` is 50%, `3cm` stays 3cm, `1em` stays 1em.
-    static func cssLength(_ length: String) -> String? {
+    /// Relative measures follow the current column or font when the class changes its layout.
+    private static func relativeLength(_ length: String) -> String? {
         let text = length.trimmingCharacters(in: .whitespaces)
         guard text.utf8.count <= 64 else { return nil }
         for relative in ["\\textwidth", "\\linewidth", "\\columnwidth", "\\hsize"] where text.hasSuffix(relative) {
@@ -254,12 +253,8 @@ package enum LaTeXSymbols {
             guard let value, (value * 100).isFinite else { return nil }
             return String(format: "%g%%", value * 100)
         }
-        guard
-            let match = text.range(
-                of: #"^-?[0-9]*\.?[0-9]+\s*(pt|mm|cm|in|em|ex|pc|bp)$"#, options: .regularExpression)
-        else { return nil }
-        let value = text[match].replacingOccurrences(of: " ", with: "")
-        return value.hasSuffix("bp") ? value.replacingOccurrences(of: "bp", with: "pt") : value
+        guard text.range(of: #"^-?[0-9]*\.?[0-9]+\s*(em|ex)$"#, options: .regularExpression) != nil else { return nil }
+        return text.filter { !$0.isWhitespace }
     }
 
     /// The class styles calibrate physical units for WebKit printing; relative widths
@@ -270,6 +265,6 @@ package enum LaTeXSymbols {
             return "calc(\(points) * var(--tex-pt, 0.996264pt))"
         }
         if source.trimmingCharacters(in: .whitespacesAndNewlines) == "0" { return "0px" }
-        return cssLength(source)
+        return relativeLength(source)
     }
 }

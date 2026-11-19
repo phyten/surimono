@@ -5,46 +5,81 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 148.7,
+      "firstY" : 71,
       "height" : 841.9,
-      "lastY" : 719.2,
-      "lineCount" : 4,
+      "lastY" : 295.8,
+      "lineCount" : 9,
       "lines" : [
         {
           "height" : 16.9,
           "text" : "Model rail practical",
           "width" : 122.5,
-          "x" : 243.5,
-          "y" : 148.7
+          "x" : 252.2,
+          "y" : 71
         },
         {
           "height" : 11.7,
-          "text" : "The strip is one millimetre thick. What height does a single fold produce?",
-          "width" : 328.7,
-          "x" : 140.4,
-          "y" : 164.7
+          "text" : "1. (2 points) The strip is one millimetre thick. What height does a single fold produce?",
+          "width" : 381.6,
+          "x" : 77.2,
+          "y" : 95
         },
         {
           "height" : 11.7,
-          "text" : "18mm Explain how to check for a tilted rail.25mm",
-          "width" : 221.3,
-          "x" : 125.4,
-          "y" : 176.7
+          "text" : "2. (3 points) Explain how to check for a tilted rail.",
+          "width" : 223.5,
+          "x" : 77.2,
+          "y" : 163.8
         },
         {
           "height" : 11.7,
-          "text" : "1",
-          "width" : 5,
-          "x" : 294.8,
-          "y" : 719.2
+          "text" : "Question:",
+          "width" : 41.6,
+          "x" : 78.8,
+          "y" : 258.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1 2",
+          "width" : 37.7,
+          "x" : 140.6,
+          "y" : 258.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "Total",
+          "width" : 23.8,
+          "x" : 198.5,
+          "y" : 258.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "Points:",
+          "width" : 30.6,
+          "x" : 78.8,
+          "y" : 277.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "2 3 5",
+          "width" : 72.3,
+          "x" : 140.6,
+          "y" : 277.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "Score:",
+          "width" : 26,
+          "x" : 78.8,
+          "y" : 295.8
         }
       ],
-      "textHeight" : 582.2,
-      "textLeft" : 125.4,
-      "textTop" : 148.7,
-      "textWidth" : 343.7,
+      "textHeight" : 236.5,
+      "textLeft" : 77.2,
+      "textTop" : 71,
+      "textWidth" : 381.6,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "02ae8336969911d0edf5199c60715abc4bdcbd7094bfdaf78cd580240caaf61c"
+  "textSHA256" : "6185e15a5171bad7fe3b3a3d50c57c1f8d88d88c8d1ea374dfd57d7d17a3457d"
 }

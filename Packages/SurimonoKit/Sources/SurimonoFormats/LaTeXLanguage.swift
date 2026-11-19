@@ -86,6 +86,9 @@ extension LaTeXDocument {
     }
 
     func defaultCaption(_ name: String) -> String? {
+        if language == "en" || language.hasPrefix("en-"), let label = classInfo.journalStyle?.englishLabel(name) {
+            return label
+        }
         if name == "lstlistingname" { return "Listing" }
         if name == "jsParagraphMark", classInfo.isJSArticle { return "■" }
         // jsclasses do not translate amsthm. A language package or a document macro can do so.
@@ -136,6 +139,7 @@ extension LaTeXReader {
             switch package {
             case "babel":
                 let all = document.classLanguageOptions + options
+                if all.contains("bidi=basic") { document.basicBidiTables = true }
                 if !Set(all).isDisjoint(with: ["es-nosectiondot", "es-nolayout"]) {
                     document.spanishSectionDots = false
                 }

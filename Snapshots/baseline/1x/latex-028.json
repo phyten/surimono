@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.042263768745026305,
+    "changedAreaRatio" : 0.042525243129838054,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 161.875,
-    "maxShiftPt" : 28.1,
+    "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 24
@@ -35,133 +35,133 @@
           "text" : "Fit the hinge before adjusting the sill. The fixture follows the bench draw-",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 177.5
+          "y" : 175.1
         },
         {
           "height" : 11.7,
           "text" : "ing [1] and the scale study [2]. The hinge has its own assembly card [3].",
           "width" : 312.5,
           "x" : 125.4,
-          "y" : 189.5
+          "y" : 187.1
         },
         {
           "height" : 17.5,
           "text" : "References",
           "width" : 77.5,
           "x" : 125.4,
-          "y" : 216
+          "y" : 214.4
         },
         {
           "height" : 11.7,
           "text" : "[1]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 243.1
+          "y" : 240.7
         },
         {
           "height" : 11.7,
           "text" : "[2]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 269.5
+          "y" : 267.1
         },
         {
           "height" : 11.7,
           "text" : "[3]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 296.7
+          "y" : 295.1
         },
         {
           "height" : 11.7,
           "text" : "[4]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 324.7
+          "y" : 323.1
         },
         {
           "height" : 11.7,
           "text" : "[5]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 339.9
+          "y" : 338.3
         },
         {
           "height" : 11.7,
           "text" : "[6]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 355.9
+          "y" : 353.5
         },
         {
           "height" : 11.7,
           "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
           "width" : 328.2,
           "x" : 141,
-          "y" : 243.1
+          "y" : 240.7
         },
         {
           "height" : 11.7,
           "text" : "Quay Laboratory, 2020.",
           "width" : 104.3,
           "x" : 141,
-          "y" : 255.1
+          "y" : 252.7
         },
         {
           "height" : 11.7,
           "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
           "width" : 328.2,
           "x" : 141,
-          "y" : 269.5
+          "y" : 267.1
         },
         {
           "height" : 11.7,
           "text" : "tember 2019.",
           "width" : 56.5,
           "x" : 141,
-          "y" : 282.3
+          "y" : 279.9
         },
         {
           "height" : 11.7,
           "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
           "width" : 328.2,
           "x" : 141,
-          "y" : 296.7
+          "y" : 295.1
         },
         {
           "height" : 11.7,
           "text" : "Forum, pages 21–24, 2018.",
           "width" : 116.3,
           "x" : 141,
-          "y" : 309.5
+          "y" : 307.9
         },
         {
           "height" : 11.7,
           "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
           "width" : 303.5,
           "x" : 141,
-          "y" : 324.7
+          "y" : 323.1
         },
         {
           "height" : 11.7,
           "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
           "width" : 185.2,
           "x" : 141,
-          "y" : 339.9
+          "y" : 338.3
         },
         {
           "height" : 11.7,
           "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
           "width" : 328.2,
           "x" : 141,
-          "y" : 355.9
+          "y" : 353.5
         },
         {
           "height" : 11.7,
           "text" : "pages 8–12. Model Quay Press, 2017.",
           "width" : 162,
           "x" : 141,
-          "y" : 368.7
+          "y" : 366.3
         },
         {
           "height" : 11.7,

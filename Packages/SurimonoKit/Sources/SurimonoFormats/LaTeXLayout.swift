@@ -19,7 +19,7 @@ extension LaTeXReader {
         let position = reader.optional()
         _ = reader.optional()  // Explicit height and inner position need not crop overflowing content on paper.
         _ = reader.optional()
-        let width = reader.argument().flatMap(LaTeXSymbols.cssLength)
+        let width = reader.argument()
         let body = environment ? reader.rest : reader.argument() ?? ""
         guard document.reserveExpansion(characters: body.count) else { return "" }
         return boxHTML(width: width, position: position, cssClass: cssClass, style: style) { blocks(body) }
@@ -63,24 +63,20 @@ extension LaTeXReader {
         // minipage, and the same source adapts to a different paper size or margin when the renderer lays it out.
         let outer = document.textWidthPoints
         defer { document.textWidthPoints = outer }
-        var cssWidth = width
+        var cssWidth = width.flatMap(LaTeXSymbols.printLength)
         var physicalWidth = ""
-        if let width {
-            let unit = String(width.reversed().prefix(while: { $0.isLetter || $0 == "%" }).reversed())
-            let number = Double(width.dropLast(unit.count))
-            let pointsPerUnit: [String: Double] = ["pt": 1, "pc": 12, "in": 72, "cm": 72 / 2.54, "mm": 72 / 25.4]
-            if let number, let factor = pointsPerUnit[unit], (number * factor).isFinite {
-                let points = number * factor
-                var fallback = width
+        if let width, let rendered = cssWidth {
+            if let mm = LaTeXPageSettings.millimetres(width) {
+                let points = mm * 72 / 25.4
+                var fallback = rendered
                 if let outer, outer.isFinite, outer > 0, (points / outer * 100).isFinite {
-                    document.textWidthPoints = points
                     fallback = String(format: "%g%%", points / outer * 100)
                 }
-                // The renderer reuses one fragment across styles. Traditional styles use the paper-relative
-                // fallback; class styles with a narrower measure select the absolute length at layout time.
+                document.textWidthPoints = points
+                // The fragment also serves themes whose text block is set by the selected paper.
                 physicalWidth = String(format: "--latex-box-points: %g; ", points)
                 cssWidth = "var(--latex-measured-width, \(fallback))"
-            } else if let number, unit == "%", let outer {
+            } else if rendered.hasSuffix("%"), let number = Double(rendered.dropLast()), let outer {
                 document.textWidthPoints = outer * number / 100
             } else {
                 document.textWidthPoints = nil
@@ -120,7 +116,7 @@ extension LaTeXReader {
         } else {
             _ = optional()
             source = argument() ?? ""
-            width = optional().flatMap(LaTeXSymbols.cssLength)
+            width = optional()
             _ = optional()
         }
         let body = argument() ?? ""

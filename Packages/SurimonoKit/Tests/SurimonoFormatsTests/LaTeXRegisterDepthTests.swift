@@ -59,7 +59,7 @@ struct LaTeXRegisterDepthTests {
             """#)
         #expect(result.body.contains(#"aria-label="x=3""#))
         #expect(result.body.contains(#"aria-label="x=4""#))
-        #expect(result.latexClass?.styleVariables.contains("--latex-parindent: 6") == true)
+        #expect(result.latexClass?.styleVariables.contains("--latex-parindent: calc(6") == true)
         #expect(result.readingIssues.isEmpty)
     }
 

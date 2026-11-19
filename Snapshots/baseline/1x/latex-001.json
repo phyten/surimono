@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.030274186380595088,
+    "changedAreaRatio" : 0.029955869738215568,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 25,
-    "maxLuminance" : 144.734375,
-    "maxShiftPt" : 168.2,
+    "maxLuminance" : 143.9375,
+    "maxShiftPt" : 168.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 12
@@ -77,56 +77,56 @@
           "text" : "A narrow screen stood beside each gate. The observer moved one tile at a",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 354.6
+          "y" : 353
         },
         {
           "height" : 14.2,
           "text" : "time.1",
           "width" : 26.3,
           "x" : 125.4,
-          "y" : 364.1
+          "y" : 362.5
         },
         {
           "height" : 17.5,
           "text" : "2 Result",
           "width" : 69.2,
           "x" : 125.4,
-          "y" : 394
+          "y" : 391.6
         },
         {
           "height" : 11.7,
           "text" : "The middle gate concealed the lantern first. Its screen crossed the sight line at",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 421
+          "y" : 416.2
         },
         {
           "height" : 11.7,
           "text" : "tile four.",
           "width" : 37.4,
           "x" : 125.4,
-          "y" : 433
+          "y" : 428.2
         },
         {
           "height" : 10.8,
           "text" : "* Drawings use a common scale.",
           "width" : 112.8,
           "x" : 136,
-          "y" : 673.8
+          "y" : 673.4
         },
         {
           "height" : 7,
           "text" : "1",
           "width" : 3,
           "x" : 135.1,
-          "y" : 686.6
+          "y" : 686.2
         },
         {
           "height" : 9.4,
           "text" : "A tile measures one model unit.",
           "width" : 111.8,
           "x" : 139,
-          "y" : 687.2
+          "y" : 686.8
         },
         {
           "height" : 11.7,

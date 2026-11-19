@@ -1,0 +1,65 @@
+import AppKit
+import PDFKit
+import SurimonoCore
+import SurimonoFormats
+import Testing
+
+@testable import SurimonoRendering
+
+@MainActor
+struct LaTeXKOMAPrintingTests {
+    @Test("KOMA 論文は題名・副題・要旨を参照 PDF の高さに置き、参考文献を節と同じ書体で刷る", .timeLimit(.minutes(1)))
+    func articleFrontMatter() async throws {
+        let source = DocumentSource(
+            data: Data(
+                #"""
+                \documentclass[abstract=true]{scrartcl}
+                \begin{document}
+                \title{Spacer trial}\subtitle{A bench memorandum}\author{Model Rail Desk}
+                \publishers{Paper Model Workshop}\date{}\maketitle
+                \begin{abstract}A folded spacer fixes the height of a model rail.
+                Two card thicknesses were tested in the same slot.\end{abstract}
+                \section{Bench trial}
+                The thin card entered freely. The folded card held the rail level at the second mark.
+                \begin{figure}[ht]\centering\rule{28mm}{2mm}\caption{Side view of the spacer}\end{figure}
+                \begin{thebibliography}{1}\bibitem{a}Stock\end{thebibliography}
+                \end{document}
+                """#.utf8), format: .latex)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.options.latexMargins = .style
+        let rendered = try await DocumentRenderer().prepare(source, settings: settings)
+        let pdf = rendered.logicalDocument
+        #expect(pdf.pageCount == 1)
+        let page = try #require(pdf.page(at: 0))
+        func match(_ text: String) throws -> PDFSelection {
+            let selection = try #require(pdf.findString(text).first)
+            try #require(selection.pages.first == page)
+            return selection
+        }
+        func font(_ text: String) throws -> NSFont {
+            let selection = try match(text)
+            let string = try #require(selection.attributedString)
+            return try #require(string.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)
+        }
+        // PDFKit and Poppler use slightly different font bounds for the same TeX baseline.
+        for (text, expectedTop): (String, CGFloat) in [
+            ("Spacer trial", 127.5), ("A bench memorandum", 153), ("Model Rail Desk", 180.2),
+            ("Paper Model Workshop", 209), ("Abstract", 257.8), ("Bench trial", 319.5),
+        ] {
+            let top = try page.bounds(for: .mediaBox).maxY - match(text).bounds(for: page).maxY
+            #expect(abs(top - expectedTop) < 6)
+        }
+        let section = try font("Bench trial")
+        // PDFKit substitutes a system font in attributedString for embedded subset faces;
+        // glyph advances in the PDF itself retain the original Computer Modern sans metrics.
+        for (text, width): (String, CGFloat) in [
+            ("Spacer trial", 108.5), ("A bench memorandum", 124.2), ("Abstract", 39.0), ("References", 70.7),
+        ] {
+            let bounds = try match(text).bounds(for: page)
+            #expect(abs(bounds.width - width) < 3)
+        }
+        let references = try font("References")
+        #expect(abs(section.pointSize - references.pointSize) < 0.2)
+    }
+}

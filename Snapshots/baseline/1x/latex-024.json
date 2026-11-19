@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014603292716956562,
+    "changedAreaRatio" : 0.014739714135119214,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 255,
-    "maxShiftPt" : 40.4,
+    "maxShiftPt" : 38.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,28 +35,28 @@
           "text" : "(a) Narrow slot",
           "width" : 67.4,
           "x" : 189.7,
-          "y" : 210.8
+          "y" : 208.4
         },
         {
           "height" : 14.1,
           "text" : "(b) Wide slot",
           "width" : 58.5,
           "x" : 341.9,
-          "y" : 210.8
+          "y" : 208.4
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: Gauge openings at equal scale",
           "width" : 173.6,
           "x" : 210.5,
-          "y" : 235.6
+          "y" : 233.2
         },
         {
           "height" : 11.7,
           "text" : "Gauge a accepts only the thin tongue.",
           "width" : 166.4,
           "x" : 125.4,
-          "y" : 259.6
+          "y" : 257.2
         },
         {
           "height" : 11.7,

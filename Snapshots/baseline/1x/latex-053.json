@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.014993464052287582,
+    "changedAreaRatio" : 0.015106083459024635,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 189.7,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 182.5,
     "maxLuminance" : 155.609375,
-    "maxShiftPt" : 556.8,
+    "maxShiftPt" : 547.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 41
+    "textEdits" : 34
   },
   "fonts" : [
     "GeezaPro",
@@ -21,24 +21,24 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 250.6,
+      "firstY" : 261,
       "height" : 841.9,
-      "lastY" : 560.1,
-      "lineCount" : 23,
+      "lastY" : 567.3,
+      "lineCount" : 20,
       "lines" : [
         {
           "height" : 11,
           "text" : "1",
           "width" : 5,
           "x" : 56.8,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "1",
           "width" : 5,
           "x" : 56.8,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 19.1,
@@ -66,56 +66,35 @@
           "text" : "ﺷﻜﻞ 1: ﻣﻮﺿﻊ اﻟﻠﻮح",
           "width" : 69.2,
           "x" : 263,
-          "y" : 395.3
+          "y" : 404.9
         },
         {
           "height" : 11,
-          "text" : "اﻻرﺗﻔﺎع )mm(",
-          "width" : 50.6,
+          "text" : "اﻻرﺗﻔﺎع )mm( اﻟﻌﻼﻣﺔ",
+          "width" : 83.2,
           "x" : 256,
-          "y" : 473.6
+          "y" : 480.8
         },
         {
           "height" : 11,
-          "text" : "اﻟﻌﻼﻣﺔ",
-          "width" : 21.7,
-          "x" : 317.5,
-          "y" : 473.6
+          "text" : "12 1",
+          "width" : 34.3,
+          "x" : 264.4,
+          "y" : 493.6
         },
         {
           "height" : 11,
-          "text" : "12",
-          "width" : 10,
-          "x" : 256,
-          "y" : 486.4
-        },
-        {
-          "height" : 11,
-          "text" : "18",
-          "width" : 10,
-          "x" : 256,
-          "y" : 498.4
-        },
-        {
-          "height" : 11,
-          "text" : "1",
-          "width" : 5,
-          "x" : 325.9,
-          "y" : 486.4
-        },
-        {
-          "height" : 11,
-          "text" : "2",
-          "width" : 5,
-          "x" : 325.9,
-          "y" : 498.4
+          "text" : "18 2",
+          "width" : 34.3,
+          "x" : 264.4,
+          "y" : 505.6
         },
         {
           "height" : 11,
           "text" : "ﺟﺪول 1: ارﺗﻔﺎع اﻟﻌﻼﻣﺎت",
           "width" : 82.7,
           "x" : 256.3,
-          "y" : 520
+          "y" : 528
         },
         {
           "height" : 11,
@@ -136,56 +115,56 @@
           "text" : "اﻟﻤﺤﺘﻮﯾﺎت",
           "width" : 46.9,
           "x" : 491.6,
-          "y" : 226.7
+          "y" : 233.9
         },
         {
           "height" : 11,
           "text" : "1 اﻟﻌﻼﻣﺎت",
           "width" : 41.3,
           "x" : 497.1,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "2 اﻻرﺗﻔﺎع",
           "width" : 39.9,
           "x" : 498.5,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 15.9,
           "text" : "1 اﻟﻌﻼﻣﺎت",
           "width" : 59.5,
           "x" : 478.9,
-          "y" : 301.1
+          "y" : 310.7
         },
         {
           "height" : 12.3,
           "text" : "»اﻗﺮأ اﻟﻌﻼﻣﺔ اﻟﺴﻔﻠﻰ أوﻻً«.",
           "width" : 87.5,
           "x" : 426,
-          "y" : 325.3
+          "y" : 334.9
         },
         {
           "height" : 15.9,
           "text" : "2 اﻻرﺗﻔﺎع",
           "width" : 57.5,
           "x" : 481,
-          "y" : 435.4
+          "y" : 445
         },
         {
           "height" : 12.2,
           "text" : "دفتر القياس, 2025, ﺑﺎب",
           "width" : 86.3,
           "x" : 433.4,
-          "y" : 586.3
+          "y" : 593.5
         },
         {
           "height" : 15.9,
           "text" : "]1[اﻟﻤﺮ",
           "width" : 36,
           "x" : 502.5,
-          "y" : 560.1
+          "y" : 567.3
         }
       ],
       "textHeight" : 654.1,
@@ -195,5 +174,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "68e6f834049fdccd23a58078195cacc15f28cad07fcc76cbe00a0e4a908dd2f0"
+  "textSHA256" : "b2df2e03267d06c2786c4223e2f3702aacd43e36c197bfb7957443eddb90c173"
 }

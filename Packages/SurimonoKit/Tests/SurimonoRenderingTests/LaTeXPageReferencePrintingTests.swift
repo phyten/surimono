@@ -7,6 +7,30 @@ import Testing
 
 @MainActor
 struct LaTeXPageReferencePrintingTests {
+    @Test(
+        "短い手紙は無ノンブルの一枚で終わり、続きのある手紙だけに二頁目の柱を刷る",
+        .timeLimit(.minutes(1)), arguments: [false, true])
+    func letterPages(continued: Bool) async throws {
+        let tail = continued ? #"\newpage Second sheet."# : ""
+        let text = #"""
+            \documentclass{letter}\address{Model workshop\\East bench}\signature{Fixture desk}\date{14 May 2026}
+            \begin{document}\begin{letter}{Stores desk\\Paper Model Workshop}\opening{Dear team,}
+            Please reserve the card stock.\begin{center}\begin{tabular}{lr}Stock&Sheets\\Thin&3\\Heavy&2\end{tabular}\end{center}
+            \closing{With thanks,}\encl{Stock list}\#(tail)\end{letter}\end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let prepared = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(text.utf8), format: .latex),
+            settings: .init(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
+        #expect(prepared.logicalDocument.pageCount == (continued ? 2 : 1))
+        #expect(prepared.logicalDocument.page(at: 0)?.string?.contains("Stock list") == true)
+        #expect(prepared.viewFurniture[0] == nil)
+        if continued {
+            #expect(prepared.logicalDocument.page(at: 1)?.string?.contains("Second sheet") == true)
+            #expect(prepared.viewFurniture[1]?.lines.bottom == ["", "2", ""])
+        }
+    }
+
     @Test("本文目次・図表一覧・ページ参照は目標のローマ数字を刷り、測定リンクを PDF に残さない", .timeLimit(.minutes(1)))
     func crossReferences() async throws {
         let source = DocumentSource(

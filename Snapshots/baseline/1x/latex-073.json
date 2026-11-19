@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.017492207139265963,
+    "changedAreaRatio" : 0.01780191050779286,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 134.109375,
-    "maxShiftPt" : 32,
+    "maxShiftPt" : 29.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,56 +35,56 @@
           "text" : "8",
           "width" : 5,
           "x" : 144.3,
-          "y" : 185.7
+          "y" : 183.3
         },
         {
           "height" : 11.7,
           "text" : "7",
           "width" : 5,
           "x" : 144.3,
-          "y" : 219.4
+          "y" : 217
         },
         {
           "height" : 49.3,
           "text" : "Head (mm)",
           "width" : 11.7,
           "x" : 126,
-          "y" : 234.1
+          "y" : 231.7
         },
         {
           "height" : 11.7,
           "text" : "6",
           "width" : 5,
           "x" : 144.3,
-          "y" : 253
+          "y" : 250.6
         },
         {
           "height" : 11.7,
           "text" : "5",
           "width" : 5,
           "x" : 144.3,
-          "y" : 286.6
+          "y" : 284.2
         },
         {
           "height" : 11.7,
           "text" : "4",
           "width" : 5,
           "x" : 144.3,
-          "y" : 320.2
+          "y" : 317.8
         },
         {
           "height" : 11.7,
           "text" : "0 0.5 1 1.5 2 2.5 3",
           "width" : 166.9,
           "x" : 166.5,
-          "y" : 340.4
+          "y" : 338
         },
         {
           "height" : 11.7,
           "text" : "Station",
           "width" : 31.6,
           "x" : 234.2,
-          "y" : 354
+          "y" : 351.6
         },
         {
           "height" : 11.7,

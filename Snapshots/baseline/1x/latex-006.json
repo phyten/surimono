@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.010677042962411766,
+    "changedAreaRatio" : 0.010315319505162311,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -35,28 +35,28 @@
           "text" : "The upper shelf receives the first batch. A gap be-",
           "width" : 241.6,
           "x" : 51,
-          "y" : 78
+          "y" : 75.6
         },
         {
           "height" : 11.7,
           "text" : "tween tiles lets air reach the edges.",
           "width" : 152.9,
           "x" : 51,
-          "y" : 90
+          "y" : 87.6
         },
         {
           "height" : 11.7,
           "text" : "The lower shelf receives the second batch. Record",
           "width" : 226.7,
           "x" : 317.6,
-          "y" : 51
+          "y" : 50.8
         },
         {
           "height" : 11.7,
           "text" : "the time when the last tile lifts cleanly.",
           "width" : 171.7,
           "x" : 302.6,
-          "y" : 63
+          "y" : 62.8
         },
         {
           "height" : 11.7,
@@ -66,9 +66,9 @@
           "y" : 811.8
         }
       ],
-      "textHeight" : 772.5,
+      "textHeight" : 772.7,
       "textLeft" : 51,
-      "textTop" : 50.9,
+      "textTop" : 50.8,
       "textWidth" : 493.2,
       "width" : 595.3
     }

@@ -24,7 +24,8 @@ struct LaTeXFrontMatterTests {
         let paper = #"\title{仕口の寸法}\maketitle"#
         #expect(!convert(name, paper).body.contains("latex-date"))
         #expect(!convert(name, paper, preamble: #"\date{}"#).body.contains("latex-date"))
-        #expect(convert(name, paper, preamble: #"\date{冬学期}"#).body.contains("冬学期</p>"))
+        let printed = name == "revtex4-2" ? "(Dated: 冬学期)" : "冬学期"
+        #expect(convert(name, paper, preamble: #"\date{冬学期}"#).body.contains("\(printed)</p>"))
     }
 
     @Test("表題に日付欄のないクラスは指定した日付も組まない", arguments: ["amsbook", "IEEEtran", "llncs", "acmart", "elsarticle"])
@@ -234,7 +235,7 @@ struct LaTeXFrontMatterTests {
         #expect(toc.contains("前置き</a>"))
         #expect(toc.contains("凡例</a>"))
         #expect(!toc.contains("控え"))
-        #expect(paper.body.contains("Chapter 1</span>採寸"))
+        #expect(paper.body.contains(#"<span class="secnum">1</span>採寸"#))
     }
 
     @Test("memoir の章頭の題辞を出典とともに出し、章の書式名は紙に残さない")

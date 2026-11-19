@@ -156,7 +156,7 @@ extension LaTeXReader {
         return arithmetic(0, "-", value)
     }
 
-    private static let dimensionUnits: [String: (numerator: Double, denominator: Double)] = [
+    static let dimensionUnits: [String: (numerator: Double, denominator: Double)] = [
         "pt": (1, 1), "mm": (7227, 2540), "cm": (7227, 254), "in": (7227, 100), "em": (10, 1), "ex": (43, 10),
         "pc": (12, 1), "bp": (7227, 7200), "sp": (1, 65_536), "dd": (1238, 1157), "cc": (12 * 1238, 1157),
     ]

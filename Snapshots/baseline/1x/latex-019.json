@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01400489876910675,
+    "changedAreaRatio" : 0.014342851827736954,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 130.484375,
-    "maxShiftPt" : 31.5,
+    "maxShiftPt" : 29.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,42 +35,42 @@
           "text" : "Location Depth Description",
           "width" : 142.9,
           "x" : 137.3,
-          "y" : 178.3
+          "y" : 175.9
         },
         {
-          "height" : 12.5,
+          "height" : 11.7,
           "text" : "Bay Slot mm Surface",
           "width" : 131.4,
           "x" : 130.9,
-          "y" : 190.3
+          "y" : 188.7
         },
         {
           "height" : 11.7,
           "text" : "East A 12 Fine ridges along the cut",
-          "width" : 226.5,
+          "width" : 218.6,
           "x" : 130.9,
-          "y" : 203.9
+          "y" : 201.5
         },
         {
           "height" : 11.7,
           "text" : "face.",
           "width" : 19.6,
           "x" : 230.4,
-          "y" : 215.9
+          "y" : 213.5
         },
         {
           "height" : 11.7,
           "text" : "West B 9 Pale band above",
           "width" : 171.9,
           "x" : 130.9,
-          "y" : 227.9
+          "y" : 225.5
         },
         {
           "height" : 11.7,
           "text" : "dark seam",
           "width" : 44.6,
           "x" : 230.4,
-          "y" : 239.9
+          "y" : 237.5
         },
         {
           "height" : 11.7,
@@ -83,7 +83,7 @@
       "textHeight" : 580.4,
       "textLeft" : 125.4,
       "textTop" : 150.4,
-      "textWidth" : 232,
+      "textWidth" : 224.1,
       "width" : 595.3
     }
   ],

@@ -1,0 +1,122 @@
+/* Journal front matter begins at the top of its class text block. */
+body[data-latex-journal] .latex-title-block { padding-block-start: 0; }
+body[data-latex-journal] .latex-title-block h1 { letter-spacing: normal; }
+body[data-latex-journal] { word-spacing: normal; }
+
+body[data-latex-journal="aps-preprint"] { --tex-baseline: 27px; }
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) .latex-title-block h1 {
+    font-size: calc(var(--tex-large) * var(--tex-pt)); font-weight: bold;
+}
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) .latex-author { font-size: 1em; }
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) .latex-front-affiliation { font-size: 1em; font-style: italic; }
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) .latex-front-date { font-size: calc(var(--tex-small) * var(--tex-pt)); }
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) .abstract { margin-inline: auto; }
+body[data-latex-journal="aps"] .abstract { max-width: calc(400 * var(--tex-pt)); }
+body[data-latex-journal="aps-preprint"] .abstract-title { font-size: calc(14.4 * var(--tex-pt)); font-weight: normal; }
+/* APS ends the abstract box before typesetting the keys in the same front-matter group. */
+body[data-latex-journal="aps-preprint"] .abstract { line-height: inherit; }
+body[data-latex-journal="aps-preprint"] .abstract:has(+ .latex-front-keywords) { margin-block-end: 0; }
+body[data-latex-journal="aps-preprint"] .abstract + .latex-front-keywords { margin-block-start: 0.4em; }
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) :is(figure table, .latex-bibliography) {
+    font-size: var(--latex-size-small);
+}
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) table.latex-tabular :is(td, th) {
+    padding-inline: calc(2 * var(--tex-pt));
+}
+body[data-latex-journal="aps-preprint"] .latex-front-keywords { font-size: calc(var(--tex-footnote) * var(--tex-pt)); }
+body[data-latex-journal="aps-preprint"] .latex-front-keywords strong { font-weight: normal; }
+body[data-latex-journal="aps-preprint"] .abstract-title + p { text-indent: 1em; }
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) :is(h2,h3) {
+    font-size: calc(var(--tex-small) * var(--tex-pt)); text-align: center;
+    margin-block: calc(22.76 * var(--tex-pt)) calc(14.23 * var(--tex-pt));
+}
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) h2 { text-transform: uppercase; }
+body[data-latex-journal="aps-preprint"] :is(h2,h3) { text-align: start; }
+body[data-latex-journal="aps-preprint"] :is(h2,h3) + p { text-indent: var(--latex-parindent, calc(15 * var(--tex-pt))); }
+body:is([data-latex-journal="aps"], [data-latex-journal="aps-preprint"]) figcaption {
+    font-size: calc(var(--tex-small) * var(--tex-pt));
+}
+hr.latex-bibliography-rule {
+    width: min(100%, calc(245.5 * var(--tex-pt))); margin: 1em auto;
+    border: 0; border-block-start: calc(0.8 * var(--tex-pt)) solid currentColor;
+}
+
+body[data-latex-journal="ieee"] {
+    --tex-indent: 10;
+    --latex-ieee-footnote: 8; --latex-ieee-footnote-baseline: 9;
+    --tex-body-fonts: var(--latex-cjk-main-font, var(--latex-main-font, "Times New Roman")), var(--latex-main-font, "Times New Roman"), var(--tex-serif);
+}
+body[data-latex-journal="ieee"]:is([data-latex-size="11"], [data-latex-size="12"]) {
+    --latex-ieee-footnote: 9; --latex-ieee-footnote-baseline: 10.5;
+}
+body[data-latex-journal="ieee"] .latex-title-block h1 { font-size: calc(24 * var(--tex-pt)); }
+body[data-latex-journal="ieee"] .latex-author { font-size: calc(11 * var(--tex-pt)); }
+body[data-latex-journal="ieee"] .latex-front-affiliation { font-size: 1em; }
+body[data-latex-journal="ieee"] .latex-front-affiliations { margin-block-start: 0; }
+body[data-latex-journal="ieee"] :is(.abstract,p.latex-front-keywords) {
+    margin: 0; font-size: calc(9 * var(--tex-pt)); line-height: calc(10 * var(--tex-pt)); font-weight: bold;
+}
+body[data-latex-journal="ieee"] :is(.abstract p,p.latex-front-keywords) { text-indent: calc(10 * var(--tex-pt)); }
+body[data-latex-journal="ieee"] :is(.latex-abstract-label,.latex-front-keywords strong) { font-style: italic; }
+body[data-latex-journal="ieee"] h2 {
+    font-size: 1em; text-align: center; font-weight: normal; font-variant-caps: small-caps;
+}
+body[data-latex-journal="ieee"] :is(h2,h3) > .secnum { margin-inline-end: 0.5em; }
+body[data-latex-journal="ieee"] h3 { font-size: 1em; font-weight: normal; font-style: italic; }
+body[data-latex-journal="ieee"] :is(h2,h3) + p { text-indent: var(--latex-parindent, 1em); }
+body[data-latex-journal="ieee"] :is(h2,h3) { margin-block-end: 0.7ex; }
+body[data-latex-journal="ieee"] :is(.latex-table table, figcaption) {
+    --latex-array-baseline: var(--latex-ieee-footnote-baseline);
+    font-size: calc(var(--latex-ieee-footnote) * var(--tex-pt));
+    line-height: calc(var(--latex-ieee-footnote-baseline) * var(--tex-pt));
+}
+body[data-latex-journal="ieee"] .latex-table figcaption { text-align: center; font-variant-caps: small-caps; }
+body[data-latex-journal="ieee"] .latex-bibliography { font-size: calc(8 * var(--tex-pt)); line-height: 1.2; }
+
+body[data-latex-journal="lncs"] .latex-title-block h1 { font-size: calc(14.4 * var(--tex-pt)); font-weight: bold; }
+body[data-latex-journal="lncs"] .latex-author { margin-block-start: calc(22.76 * var(--tex-pt)); font-size: 1em; }
+body[data-latex-journal="lncs"] .latex-front-affiliations { margin-block-start: calc(9.96 * var(--tex-pt)); }
+body[data-latex-journal="lncs"] :is(.abstract,p.latex-front-keywords) {
+    margin-inline: calc(28.453 * var(--tex-pt)); font-size: calc(9 * var(--tex-pt));
+}
+/* LNCS opens its abstract list after the title's center list and adds 0.35cm to topsep. */
+body[data-latex-journal="lncs"] .latex-title-block + .abstract {
+    margin-block-start: calc((2 * (var(--tex-top-sep) + var(--tex-partop-sep, 2)) + 9.96) * var(--tex-pt));
+}
+body[data-latex-journal="lncs"] .abstract { line-height: calc(11 * var(--tex-pt)); hyphens: manual; -webkit-hyphens: manual; }
+body[data-latex-journal="lncs"] .abstract p:first-child { text-indent: 0; }
+body[data-latex-journal="lncs"] h2 { font-size: calc(12 * var(--tex-pt)); margin-block: calc(18 * var(--tex-pt)) calc(12 * var(--tex-pt)); }
+body[data-latex-journal="lncs"] h3 { font-size: 1em; margin-block: calc(18 * var(--tex-pt)) calc(8 * var(--tex-pt)); }
+body[data-latex-journal="lncs"] :is(figure table,figcaption,.latex-bibliography) { font-size: calc(9 * var(--tex-pt)); line-height: 1.2; }
+body[data-latex-journal="lncs"] figure table { --latex-array-baseline: 11; line-height: calc(11 * var(--tex-pt)); }
+/* Both classes put their table-caption skip below the caption even if it follows the tabular. */
+body:is([data-latex-journal="lncs"], [data-latex-journal="ieee"]) figure.latex-table figcaption {
+    margin-block: 0 var(--latex-caption-table-gap);
+}
+body[data-latex-journal="lncs"] .latex-caption-label { font-weight: bold; }
+
+body[data-latex-journal="elsevier"] .latex-title-block { margin-block-end: calc(36 * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] .latex-title-block h1 { font-size: calc(var(--tex-Large) * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] .latex-author { font-size: 1em; margin-block-start: calc(18 * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] .latex-front-affiliations { margin-block-start: calc(10 * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] .latex-front-affiliation { font-style: italic; font-size: calc(var(--tex-footnote) * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] .abstract { margin: 0; font-size: 1em; }
+body[data-latex-journal="elsevier"] .abstract-title { text-align: start; }
+body[data-latex-journal="elsevier"] .abstract-title + p { text-indent: 0; }
+body[data-latex-journal="elsevier"] .latex-front-keywords strong { font-weight: normal; font-style: italic; }
+body[data-latex-journal="elsevier"] .latex-front-abstract {
+    border-block-start: calc(0.4 * var(--tex-pt)) solid currentColor; padding-block-start: calc(12 * var(--tex-pt));
+}
+body[data-latex-journal="elsevier"] :is(.latex-front-keywords,.latex-front-abstract:not(:has(+ .latex-front-keywords))) {
+    border-block-end: calc(0.4 * var(--tex-pt)) solid currentColor; padding-block-end: calc(10 * var(--tex-pt));
+}
+body[data-latex-journal="elsevier"] figcaption { font-size: calc(var(--tex-footnote) * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] h2 { font-size: 1em; margin-block: calc(18 * var(--tex-pt)) calc(9 * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] h3 { font-size: 1em; font-weight: normal; font-style: italic; margin-block: calc(12 * var(--tex-pt)) calc(3 * var(--tex-pt)); }
+body[data-latex-journal="elsevier"] :is(h2,h3) + p { text-indent: var(--latex-parindent, 1.5em); }
+
+/* A rule's bottom is its TeX baseline. The caption's next baseline gets a full
+   baselineskip in addition to the caption skip; CSS already supplies half the leading. */
+body:is([data-latex-journal="aps-preprint"], [data-latex-journal="elsevier"]) figure > p[data-latex-rule-line] + figcaption {
+    padding-block-start: max(0px, calc((1lh - 1cap) / 2));
+}

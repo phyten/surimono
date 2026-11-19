@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.026318753142282554,
+    "changedAreaRatio" : 0.026876822523881346,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 24.6,
     "maxLuminance" : 180.453125,
-    "maxShiftPt" : 27.2,
+    "maxShiftPt" : 25.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -58,91 +58,91 @@
           "text" : "Inhoudsopgave",
           "width" : 93.3,
           "x" : 56.8,
-          "y" : 226.7
+          "y" : 233.9
         },
         {
           "height" : 11,
           "text" : "1 De merktekens 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "2 Hoogte 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 15.9,
           "text" : "1 De merktekens",
           "width" : 114.4,
           "x" : 56.8,
-          "y" : 301.1
+          "y" : 310.7
         },
         {
           "height" : 11,
           "text" : "‘Lees eerst het onderste teken af.’",
           "width" : 138.6,
           "x" : 81.7,
-          "y" : 326.6
+          "y" : 336.2
         },
         {
           "height" : 11,
           "text" : "Figuur 1: Stand van de plank",
           "width" : 119.5,
           "x" : 237.9,
-          "y" : 395.3
+          "y" : 404.9
         },
         {
           "height" : 15.9,
           "text" : "2 Hoogte",
           "width" : 65.3,
           "x" : 56.8,
-          "y" : 435.4
+          "y" : 445
         },
         {
           "height" : 11,
           "text" : "Teken Hoogte (mm)",
           "width" : 89.9,
           "x" : 252.7,
-          "y" : 473.6
+          "y" : 480.8
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 80.3,
           "x" : 262.3,
-          "y" : 486.4
+          "y" : 493.6
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 80.3,
           "x" : 262.3,
-          "y" : 498.4
+          "y" : 505.6
         },
         {
           "height" : 11,
           "text" : "Tabel 1: Hoogte van de tekens",
           "width" : 124.9,
           "x" : 235.2,
-          "y" : 520
+          "y" : 528
         },
         {
           "height" : 15.9,
           "text" : "Referenties",
           "width" : 69,
           "x" : 56.8,
-          "y" : 560.1
+          "y" : 567.3
         },
         {
           "height" : 11,
           "text" : "[1] Meetboekje, 2025, Hoofdstuk 2.",
           "width" : 150.2,
           "x" : 56.8,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,

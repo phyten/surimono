@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009516427412437085,
+    "changedAreaRatio" : 0.009081325768145599,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 142.140625,
-    "maxShiftPt" : 32,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 142.078125,
+    "maxShiftPt" : 29.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -18,7 +18,7 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 150.2,
       "height" : 841.9,
       "lastY" : 719.2,
       "lineCount" : 9,
@@ -28,56 +28,56 @@
           "text" : "A register of drying positions",
           "width" : 208,
           "x" : 125.4,
-          "y" : 150.4
+          "y" : 150.2
         },
         {
           "height" : 12.1,
           "text" : "Slot 1",
           "width" : 28.8,
           "x" : 125.4,
-          "y" : 177.8
+          "y" : 175.2
         },
         {
           "height" : 12.1,
           "text" : "Slot 2",
           "width" : 28.8,
           "x" : 140.4,
-          "y" : 190.6
+          "y" : 188
         },
         {
           "height" : 12.1,
           "text" : "Slot 3",
           "width" : 28.8,
           "x" : 140.4,
-          "y" : 203.4
+          "y" : 200.8
         },
         {
           "height" : 12.1,
           "text" : "Slot 4",
           "width" : 28.8,
           "x" : 140.4,
-          "y" : 216.2
+          "y" : 213.6
         },
         {
           "height" : 11.7,
           "text" : "North shelf",
           "width" : 48.8,
           "x" : 140.4,
-          "y" : 234.3
+          "y" : 232
         },
         {
           "height" : 11.7,
           "text" : "Middle shelf",
           "width" : 53.2,
           "x" : 140.4,
-          "y" : 246.3
+          "y" : 244
         },
         {
           "height" : 11.7,
           "text" : "South shelf",
           "width" : 48.5,
           "x" : 140.4,
-          "y" : 258.3
+          "y" : 256
         },
         {
           "height" : 11.7,
@@ -87,9 +87,9 @@
           "y" : 719.2
         }
       ],
-      "textHeight" : 580.4,
+      "textHeight" : 580.6,
       "textLeft" : 125.4,
-      "textTop" : 150.4,
+      "textTop" : 150.2,
       "textWidth" : 208,
       "width" : 595.3
     }

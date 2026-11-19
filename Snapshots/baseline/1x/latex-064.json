@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009758672699849171,
+    "changedAreaRatio" : 0.00964504776269482,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 126.40625,
-    "maxShiftPt" : 32.8,
+    "maxShiftPt" : 30.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,21 +35,21 @@
           "text" : "h",
           "width" : 5.7,
           "x" : 286.5,
-          "y" : 194.3
+          "y" : 191.9
         },
         {
           "height" : 9.3,
           "text" : "x",
           "width" : 5.7,
           "x" : 360.9,
-          "y" : 270.8
+          "y" : 268.4
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: The two ends of the parabolic channel reach the same height.",
           "width" : 311.9,
           "x" : 141.3,
-          "y" : 292.4
+          "y" : 290.8
         },
         {
           "height" : 11.7,

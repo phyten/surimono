@@ -49,6 +49,8 @@ final class LaTeXReader {
     private var scopedLanguage = false
     private var inlineLanguage: String?
     var pictureExpansion: PictureExpansion?
+    var examList: LaTeXExam.List?
+    var examItemIndex = 0
     var inPreamble = false
 
     func switchTextLanguage(_ tag: String) {
@@ -411,8 +413,10 @@ final class LaTeXReader {
         let text = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
             var attribute = noParagraphIndent ? " class=\"latex-noindent\"" : ""
-            // memoir's figure box starts at the rule itself, even when it is shorter than a text line.
-            if floatKind == "figure", document.classInfo.name == "memoir",
+            // A solitary rule starts the float at its natural height, even when shorter than a text line.
+            if floatKind == "figure",
+                document.classInfo.name == "memoir" || document.classInfo.isKOMA
+                    || document.classInfo.journalStyle == .apsPreprint || document.classInfo.journalStyle == .elsevier,
                 text.hasPrefix("<span class=\"latex-rule\" "), text.range(of: "</span>")?.upperBound == text.endIndex,
                 !text.contains("vertical-align:")
             {
@@ -683,6 +687,7 @@ final class LaTeXReader {
     }
 
     func dispatchBuiltin(_ name: String) {
+        if handleCorrespondence(name) || handleExamCommand(name) { return }
         if handleFileCommand(name) || handleLanguage(name) || handleFrontMatter(name) || handleBeamerCommand(name) {
             return
         }
@@ -803,7 +808,7 @@ final class LaTeXReader {
             if let value = argument() { verticalSpace(value, keep: keep) }
         case "hspace":
             _ = star()
-            if let length = argument().flatMap(LaTeXSymbols.cssLength) {
+            if let length = argument().flatMap(LaTeXSymbols.printLength) {
                 appendHTML("<span class=\"latex-hspace\" style=\"width: \(length)\"></span>")
             }
         case "item": appendText("• ")
@@ -835,15 +840,19 @@ final class LaTeXReader {
             let height = LaTeXSymbols.printLength(rawHeight)
             if let width, let height {
                 let lift = raise.map { "; vertical-align: \($0)" } ?? ""
-                // A subpixel fill can disappear or rasterize entirely as grey. Keep a one-layout-pixel
-                // minimum for positive hairlines only; zero-height struts must remain invisible.
+                // A subpixel fill can disappear when WebKit snaps its paint bounds. Paint a taller rectangle
+                // and scale its ink back into the actual TeX box.
                 let hairline =
                     LaTeXPageSettings.millimetres(rawHeight).map { $0 > 0 && $0 < 0.5 * 25.4 / 72.27 } ?? false
                 let style =
                     "display: inline-block; width: \(width); height: \(height)\(lift)"
-                    + (hairline ? "; min-height: 1px" : "")
-                    + "; background: currentColor; -webkit-print-color-adjust: exact"
-                appendHTML("<span class=\"latex-rule\" style=\"\(style)\"></span>")
+                    + (hairline ? "; position: relative" : "; background: currentColor")
+                    + "; -webkit-print-color-adjust: exact"
+                let ink =
+                    hairline
+                    ? #"<i aria-hidden="true" style="position: absolute; inset-inline: 0; top: 0; height: 1000%; background: currentColor; transform-origin: top; transform: scaleY(.1)"></i>"#
+                    : ""
+                appendHTML("<span class=\"latex-rule\" style=\"\(style)\">\(ink)</span>")
             }
         case "caption": caption()
         case "c", "k", "d", "b", "r", "t", "u", "v", "H":
@@ -952,14 +961,10 @@ final class LaTeXReader {
             if name == "markboth" { pageAction("leftmark", LaTeXPageNumbers.text(argument() ?? "")) }
             pageAction("rightmark", LaTeXPageNumbers.text(argument() ?? ""))
             return
-        case "opening" where document.classInfo.name == "letter":
-            pageAction("thispagestyle", "empty")
-            appendHTML(inline(argument() ?? ""))
-            return
         default: break
         }
 
-        if readPageSetting(name) || handleLayoutSetting(name) { return }
+        if readBookClassSetting(name) || readPageSetting(name) || handleLayoutSetting(name) { return }
         if let family = document.pageSettings.fonts.selectors[name] {
             openDeclaration(
                 "<span class=\"latex-font-family\" style=\"--latex-local-font: \(HTML.escape(family))\">", "</span>")
@@ -1021,7 +1026,8 @@ final class LaTeXReader {
             index += 1
             let name = String(controlTokenName())
             skipSpacesAfterControlWord()
-            if handleMacro(name) || handleFileCommand(name) || handleLanguage(name) || handleFrontMatter(name)
+            if handleMacro(name) || handleCorrespondence(name) || handleExamCommand(name) || handleFileCommand(name)
+                || handleLanguage(name) || handleFrontMatter(name)
                 || (name == "setbeamertemplate" && handleBeamerCommand(name))
             {
                 continue
@@ -1038,6 +1044,7 @@ final class LaTeXReader {
                     readFrontEnvironment(environment, body: environmentBody(environment))
                 } else if environment == "document" {
                     document.startedDocument = true
+                    document.landscapeBody = onlyLandscapeBody()
                     flush()
                     output = ""
                 }
@@ -1057,14 +1064,41 @@ final class LaTeXReader {
         }
     }
 
+    // The renderer can orient a whole job before it measures the first strip. Only a
+    // complete landscape body establishes that orientation for every logical page.
+    private func onlyLandscapeBody() -> Bool {
+        let saved = index
+        defer { index = saved }
+        skipSpaces()
+        var found = false
+        while peek() == "\\" {
+            let token = controlToken()
+            if token == "\\end" { return found && argument() == "document" }
+            if ["\\pagestyle", "\\thispagestyle", "\\pagenumbering"].contains(token) {
+                guard argument() != nil else { return false }
+                skipSpaces()
+                continue
+            }
+            guard token == "\\begin", argument() == "landscape" else { return false }
+            var closed = false
+            _ = environmentBody("landscape", closed: &closed)
+            guard closed else { return false }
+            found = true
+            skipSpaces()
+        }
+        return false
+    }
+
     private func readDocumentClass() {
         let options = optional()
         let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "article"
         document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
+        document.classInfo.journalStyle?.defineCounters(in: document)
         document.pageSettings.readClassOptions(options ?? "", info: document.classInfo)
         document.classLanguageOptions = (options ?? "").components(separatedBy: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        if name == "exam" { document.booleans["printanswers"] = document.classLanguageOptions.contains("answers") }
         document.language = document.classInfo.mainLanguage
         document.nativeCaptionLanguage = document.language == "en" ? nil : document.language
         if document.classInfo.hasChapters { document.hasChapters = true }
@@ -1137,9 +1171,16 @@ final class LaTeXReader {
         if numbered, !starred, level <= deepestNumbered, level >= first {
             number = stepCounter(name)
             if level == 0, let chapter = number {
-                display = numberedHeading(document.isAppendix ? "appendix" : "chapter", number: chapter)
+                display =
+                    document.classInfo.isKOMA || document.classInfo.bookStyle.chapterStyle != "default"
+                    ? HTML.escape(chapter)
+                    : numberedHeading(document.isAppendix ? "appendix" : "chapter", number: chapter)
             } else {
-                display = number.map(HTML.escape)
+                display = number.map {
+                    HTML.escape(
+                        document.classInfo.journalStyle?.headingNumber(
+                            $0, command: name, counter: document.counters[name]) ?? $0)
+                }
             }
         }
         let suffix = number?.replacingOccurrences(of: ".", with: "-") ?? "u\(document.headings.count + 1)"
@@ -1151,7 +1192,7 @@ final class LaTeXReader {
         // Spanish babel punctuates section headings and their contents entries, but not references.
         let dot =
             document.language == "es" && document.classicBabelLanguages.contains("es") && document.spanishSectionDots
-        if dot, level > 0 { display = display.map { $0 + "." } }
+        if dot, level > 0 { display = display.map { $0.hasSuffix(".") ? $0 : $0 + "." } }
         let tocNumber = listed && !starred ? (number.map { $0 + (dot ? "." : "") } ?? "") : nil
         document.headings.append(.init(level: level, number: tocNumber, id: id, title: short.map(inline) ?? title))
         if document.classInfo.name == "beamer", name == "section" || name == "subsection" || name == "subsubsection" {
@@ -1166,7 +1207,8 @@ final class LaTeXReader {
         // An HTML newline becomes an extra word space when the theme puts the heading and paragraph on one line.
         let mark = name == "paragraph" && document.classInfo.isJSArticle ? captionName("jsParagraphMark") : ""
         if name == "chapter" { appendBlock("<template data-latex-break=\"page\"></template>") }
-        let heading = "<h\(tag)\(kind) id=\"\(id)\">\(numberHTML)\(mark)\(title)</h\(tag)>"
+        let heading =
+            "<h\(tag)\(kind)\(bookHeadingAttributes(name)) id=\"\(id)\">\(numberHTML)\(mark)\(title)</h\(tag)>"
         if runIn && isBlock {
             appendBlock("<div class=\"latex-runin\">" + heading)
             closesRunInParagraph = true
@@ -1779,6 +1821,7 @@ final class LaTeXReader {
     ]
 
     private func environment(_ name: String, body: String) {
+        if handleExamEnvironment(name, body: body) { return }
         let base = name.hasSuffix("*") ? String(name.dropLast()) : name
         if Self.mathEnvironments.keys.contains(base) || base == "alignat" {
             mathEnvironment(name, body: body)
@@ -1805,9 +1848,13 @@ final class LaTeXReader {
             appendBlock("<blockquote class=\"latex-verse\">\n\(blocks(body))</blockquote>\n")
         case "titlepage":
             appendBlock("<div class=\"latex-titlepage\">\n\(blocks(body))</div>\n")
+        case "letter" where document.classInfo.name == "letter":
+            readLetter(body)
         case "landscape":
-            // A print job has one paper orientation. Preserve the full reading order on that stock.
-            appendBlock(blocks(body))
+            let boundary = "<template data-latex-break=\"clear\"></template>"
+            let before = !document.landscapeBody || document.startedLandscape ? boundary : ""
+            document.startedLandscape = true
+            appendBlock(before + blocks(body) + (document.landscapeBody ? "" : boundary))
         case "center", "flushleft", "flushright":
             appendBlock("<div class=\"latex-\(base)\">\n\(blocks(body))</div>\n")
         case "otherlanguage":
@@ -2110,7 +2157,7 @@ final class LaTeXReader {
         if document.classInfo.name != "beamer" {
             document.headings.append(
                 .init(level: document.hasChapters ? 0 : 1, number: nil, id: headingID, title: heading))
-            headingHTML = "<h2 class=\"latex-bibliography-heading\" id=\"\(headingID)\">\(heading)</h2>\n"
+            headingHTML = bibliographyHeading(heading, id: headingID)
         }
         var entries = ""
         var number = 0
@@ -2128,7 +2175,8 @@ final class LaTeXReader {
             let id = "bib-\(document.bibliographyCount)-\(position + 1)"
             if !key.isEmpty { document.bibliography[key] = (label, id) }
             let text = compact(blocks(itemReader.rest))
-            let marker = "<span class=\"bib-label\">[\(label)]</span>"
+            let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
+            let marker = "<span class=\"bib-label\">\(printed)</span>"
             entries +=
                 "<li id=\"\(id)\">\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
         }
@@ -2175,9 +2223,11 @@ final class LaTeXReader {
         let unnumbered = star()
         let short = optional()
         let source = argument() ?? ""
+        let info = document.classInfo
+        let font = info.bookStyle.fontAttribute(elements: ["caption", "captionlabel"], size: info.pointSize)
         if unnumbered {
             document.pictureCaptions?.assign(nil, in: document)
-            appendBlock("<figcaption>\(inline(source))</figcaption>\n")
+            appendBlock("<figcaption\(font)>\(inline(source))</figcaption>\n")
             return
         }
         if sub || document.insideSubfigure {
@@ -2215,9 +2265,11 @@ final class LaTeXReader {
         }
         let numbered = document.classInfo.name != "beamer" || document.numberedBeamerCaptions
         let label = numbered ? name + " " + HTML.escape(number) : name
-        let separator = document.isJapanese ? "　" : document.language == "fr" ? " – " : ": "
+        let separator =
+            document.classInfo.journalStyle?.captionSeparator(for: kind)
+            ?? (document.isJapanese ? "　" : document.language == "fr" ? " – " : ": ")
         appendBlock(
-            "<figcaption id=\"\(id)\"><span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)</figcaption>\n"
+            "<figcaption id=\"\(id)\"\(font)><span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)</figcaption>\n"
         )
     }
 
@@ -2249,8 +2301,10 @@ final class LaTeXReader {
                 angle: -angle, attributes: attributes)
         }
         var style: [String] = []
-        if let width = option("width", in: options).flatMap(LaTeXSymbols.cssLength) { style.append("width: \(width)") }
-        if let height = option("height", in: options).flatMap(LaTeXSymbols.cssLength) {
+        if let width = option("width", in: options).flatMap(LaTeXSymbols.printLength) {
+            style.append("width: \(width)")
+        }
+        if let height = option("height", in: options).flatMap(LaTeXSymbols.printLength) {
             style.append("height: \(height)")
         }
         if let scale = option("scale", in: options).flatMap(Double.init), scale.isFinite, scale > 0, scale <= 100 {
@@ -2321,8 +2375,10 @@ final class LaTeXReader {
     private func tabular(_ name: String, body: String) -> String {
         let reader = LaTeXReader(body, document: document, isBlock: false)
         if name == "xltabular" { _ = reader.optional() }
+        var targetWidth: String?
         if ["tabular*", "tabularx", "tabulary", "xltabular", "supertabular*", "tabu"].contains(name) {
-            _ = reader.argument()
+            let width = reader.argument()
+            if name == "tabularx" || name == "xltabular" { targetWidth = width.flatMap(LaTeXSymbols.printLength) }
         }
         _ = reader.optional()
         let spec = reader.argument() ?? ""
@@ -2334,7 +2390,9 @@ final class LaTeXReader {
             $0.specification.isEmpty ? Double($0.body.trimmingCharacters(in: .whitespacesAndNewlines)) : nil
         }
         return LaTeXTable(
-            spec: spec, body: rest, isLongtable: isLong, columnTypes: document.pageSettings.columnTypes,
+            spec: spec, body: rest,
+            basicBidi: document.basicBidiTables && DocumentLanguage(code: document.language).isRightToLeft,
+            isLongtable: isLong, targetWidth: targetWidth, columnTypes: document.pageSettings.columnTypes,
             arrayStretch: stretch, extraRowHeight: document.pageSettings.extraRowHeight
         ).html(
             color: { LaTeXSymbols.cssColor($0, model: $1, defined: document.colors) },

@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.010821518350930115,
+    "changedAreaRatio" : 0.010958270487682253,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -35,14 +35,14 @@
           "text" : "Figure (TikZ)",
           "width" : 54.5,
           "x" : 270,
-          "y" : 203.7
+          "y" : 201.3
         },
         {
           "height" : 11.7,
           "text" : "Figure 1: The route name follows the bend above the bank.",
           "width" : 259.8,
           "x" : 167.4,
-          "y" : 238.8
+          "y" : 236.4
         },
         {
           "height" : 11.7,

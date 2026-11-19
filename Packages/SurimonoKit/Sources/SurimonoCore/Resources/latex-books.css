@@ -1,0 +1,155 @@
+/* typearea supplies the page rectangle. The chapter's own skip is measured in body baselines
+   even when the author selects a smaller chapter font. */
+body[data-latex-class^="scr"] {
+    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-sans-font, "Surimono KOMA Sans")), var(--latex-sans-font, "Surimono KOMA Sans"), var(--tex-sans);
+}
+body[data-latex-class^="scr"] [data-latex-koma-heading] {
+    font-family: var(--koma-family, var(--latex-koma-disposition-family, var(--tex-sans-fonts)));
+    font-weight: var(--koma-weight, var(--latex-koma-disposition-weight, bold));
+    font-style: var(--koma-style, var(--latex-koma-disposition-style, normal));
+    font-variant: var(--koma-variant, var(--latex-koma-disposition-variant, normal));
+}
+body[data-latex-chapters="true"] h2[data-latex-koma-heading="chapter"] {
+    --koma-family: var(--latex-koma-chapter-family);
+    --koma-weight: var(--latex-koma-chapter-weight);
+    --koma-style: var(--latex-koma-chapter-style);
+    --koma-variant: var(--latex-koma-chapter-variant);
+    font-size: var(--latex-koma-chapter-size, var(--latex-size-huge));
+    padding-block-start: calc(3.3 * var(--tex-baseline));
+    margin-block: 0 calc(1.725 * var(--tex-baseline));
+}
+body[data-latex-class^="scr"] [data-latex-koma-heading="section"] {
+    --koma-family: var(--latex-koma-section-family);
+    --koma-weight: var(--latex-koma-section-weight);
+    --koma-style: var(--latex-koma-section-style);
+    --koma-variant: var(--latex-koma-section-variant);
+    font-size: var(--latex-koma-section-size, calc(var(--tex-Large) * var(--tex-pt)));
+    /* KOMA measures the section afterskip in body ex, also in chapter classes where a section is h3. */
+    margin-block-end: calc(2.3 * 0.43055 * var(--tex-body) * var(--tex-pt) + 0.1 * var(--tex-baseline));
+}
+body[data-latex-chapters="true"] h2[data-latex-koma-heading] > .secnum {
+    display: inline; margin: 0 0.5em 0 0; font-size: inherit;
+}
+body[data-latex-class^="scr"] figcaption {
+    font-family: var(--latex-koma-caption-family, inherit);
+    font-size: var(--latex-koma-caption-size, 1em);
+    font-weight: var(--latex-koma-caption-weight, inherit);
+    font-style: var(--latex-koma-caption-style, inherit);
+    font-variant: var(--latex-koma-caption-variant, inherit);
+}
+body[data-latex-class^="scr"] .latex-caption-label {
+    font-family: var(--latex-koma-captionlabel-family, inherit);
+    font-size: var(--latex-koma-captionlabel-size, 1em);
+    font-weight: var(--latex-koma-captionlabel-weight, inherit);
+    font-style: var(--latex-koma-captionlabel-style, inherit);
+    font-variant: var(--latex-koma-captionlabel-variant, inherit);
+}
+body[data-latex-class="memoir"][data-latex-size="10"] { --tex-large: 10.95; --tex-Large: 12; --tex-LARGE: 14.4; --tex-Huge: 20.74; }
+/* The starred 50pt chapter skip survives the page break, including TeX's initial topskip. */
+body[data-latex-class="memoir"] h2[data-latex-memoir-style] {
+    padding-block-start: calc((50 + var(--tex-body)) * var(--tex-pt));
+    margin-block: 0 calc(40 * var(--tex-pt));
+    font-size: calc(var(--tex-Huge) * var(--tex-pt));
+}
+body[data-latex-class="memoir"] h2[data-latex-memoir-style="default"] > .secnum {
+    margin: 0 0 calc(20 * var(--tex-pt));
+}
+body[data-latex-class="memoir"] h2:is([data-latex-memoir-style="section"],[data-latex-memoir-style="article"]) > .secnum {
+    display: inline; font-size: inherit; margin: 0 0.5em 0 0;
+}
+body[data-latex-class="memoir"] h2[data-latex-memoir-style="hangnum"] > .secnum {
+    /* memoir measures three digits in its optical chapter face; each has an advance of 0.5625em. */
+    display: inline-block; font-size: inherit; width: 1.6875em; margin: 0; margin-inline-start: -1.6875em;
+}
+body[data-latex-class="memoir"] h2[data-latex-memoir-style="article"] {
+    font-size: calc(var(--tex-Large) * var(--tex-pt));
+    padding-block-start: 0; margin-block: 0 calc(2.3 * 0.43 * var(--tex-body) * var(--tex-pt));
+}
+body[data-latex-class="memoir"] h2[data-latex-memoir-style="article"] > .secnum { margin-inline-end: 1em; }
+body[data-latex-class="memoir"] .latex-epigraph {
+    width: 40%; box-sizing: border-box; margin: calc(0.5 * var(--tex-baseline)) 0 0 auto;
+    font-size: var(--latex-size-small); line-height: 1.22; padding: 0; border: 0;
+    /* The closing flushright list glue and afterepigraphskip both precede the next section's own skip. */
+    padding-block-end: calc((var(--tex-top-sep) + var(--tex-partop-sep, 2)) * var(--tex-pt) + 0.5 * var(--tex-baseline));
+}
+body[data-latex-class="memoir"] .latex-epigraph p { text-align: start; }
+body[data-latex-class="memoir"] .latex-epigraph footer {
+    border-block-start: calc(0.4 * var(--tex-pt)) solid currentColor; margin-block-start: 0.5em; padding-block-start: 0.3em;
+}
+/* After a rule TeX advances to the caption baseline by baselineskip plus abovecaptionskip.
+   memoir ends a one-line figure caption at the descender of the g in Figure. KOMA inserts
+   a strut with depth 0.3 baselines. The two here-float skips remain in the placement model. */
+@supports (text-box-trim: trim-both) {
+    body:is([data-latex-class="memoir"], [data-latex-class^="scr"]) figure > p[data-latex-rule-line] + figcaption {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block-start: calc(var(--tex-baseline) - 1cap);
+    }
+    body[data-latex-class="memoir"] figure > p[data-latex-rule-line] + figcaption { padding-block-end: 0.1944em; }
+    body[data-latex-class^="scr"] figure > p[data-latex-rule-line] + figcaption { padding-block-end: calc(0.3 * var(--tex-baseline)); }
+}
+/* At a chapter opening the baseline is fixed by topskip and the forced glue preceding the
+   first line. CSS normally distributes its line leading above and below that line instead. */
+@supports (text-box-trim: trim-start) {
+    body[data-latex-class^="scr"] { --koma-topskip: 10; }
+    body[data-latex-class^="scr"][data-latex-size="11"] { --koma-topskip: 11; }
+    body[data-latex-class^="scr"][data-latex-size="12"] { --koma-topskip: 12; }
+    body[data-latex-chapters="true"] h2[data-latex-koma-heading="chapter"] {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic;
+        padding-block-start: calc(2.3 * var(--tex-baseline) + var(--koma-topskip) * var(--tex-pt) + 1.25em - 1cap);
+    }
+    body[data-latex-class="memoir"] h2:is([data-latex-memoir-style="hangnum"], [data-latex-memoir-style="section"], .latex-bibliography-heading[data-latex-memoir-style="default"]) {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic;
+        padding-block-start: calc((50 + var(--tex-body)) * var(--tex-pt) + 1.2054em - 1cap);
+    }
+}
+
+body[data-latex-class="scrartcl"] :is(.latex-front-title, .latex-front-subtitle, .abstract-title) {
+    font-family: var(--latex-koma-disposition-family, var(--tex-sans-fonts));
+    font-weight: var(--latex-koma-disposition-weight, bold);
+    font-style: var(--latex-koma-disposition-style, normal);
+    font-variant: var(--latex-koma-disposition-variant, normal);
+    letter-spacing: normal;
+}
+body[data-latex-class="scrartcl"] .latex-front-title { font-size: var(--latex-size-huge); line-height: 1.2054; }
+body[data-latex-class="scrartcl"] .latex-front-subtitle {
+    font-size: var(--latex-size-large); line-height: 1.16667; text-align: center;
+}
+body[data-latex-class="scrartcl"] .latex-title-block :is(.latex-author, .latex-date, .latex-front-publishers) {
+    font-size: var(--latex-size-Large); line-height: 1.25; text-align: center;
+}
+body[data-latex-class="scrartcl"] .abstract { margin-inline: calc(2.5 * var(--tex-body) * var(--tex-pt)); }
+body[data-latex-class="scrartcl"] .abstract-title { margin-block-end: 1em; }
+body[data-latex-class="scrartcl"] .abstract-title + p { text-indent: 1em; }
+@supports (text-box-trim: trim-both) {
+    /* KOMA's inline title starts with a null line and 2em of vertical glue. Its remaining skips
+       join baselines at different type sizes, so preserve those baselines when a field wraps. */
+    body[data-latex-class="scrartcl"][data-latex-title-layout="inline"] .latex-title-block {
+        padding-block-start: 0;
+        margin-block-end: calc(2em + var(--tex-top-sep) * var(--tex-pt));
+    }
+    body[data-latex-class="scrartcl"][data-latex-title-layout="inline"] .latex-title-block > :is(h1, p) {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic; margin-block: 0;
+    }
+    body[data-latex-class="scrartcl"][data-latex-title-layout="inline"] .latex-front-title {
+        padding-block-start: calc((var(--koma-topskip) + 2 * var(--tex-body)) * var(--tex-pt) + 1lh - 1cap);
+    }
+    body[data-latex-class="scrartcl"][data-latex-title-layout="inline"] .latex-front-subtitle {
+        padding-block-start: calc(0.5 * var(--tex-body) * var(--tex-pt) + 1lh - 1cap);
+    }
+    body[data-latex-class="scrartcl"][data-latex-title-layout="inline"] :is(.latex-author, .latex-date, .latex-front-publishers) {
+        padding-block-start: calc(var(--tex-body) * var(--tex-pt) + 1lh - 1cap);
+    }
+    /* The author tabular starts with a strut whose height is 0.7 baselines. */
+    body[data-latex-class="scrartcl"][data-latex-title-layout="inline"] .latex-author {
+        padding-block-start: calc(var(--tex-body) * var(--tex-pt) + 1.7lh - 0.6944em - 1cap);
+    }
+    body[data-latex-class="scrartcl"] .latex-author-name:only-child { display: inline; vertical-align: baseline; }
+    body[data-latex-class="scrartcl"][data-latex-title-layout="inline"] .latex-front-date + .latex-front-publishers {
+        padding-block-start: calc(1lh - 1cap);
+    }
+    body[data-latex-class="scrartcl"] .abstract-title, body[data-latex-class="scrartcl"] .abstract-title + p {
+        text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+    body[data-latex-class="scrartcl"] .abstract-title { text-box-trim: trim-both; }
+    body[data-latex-class="scrartcl"] .abstract-title + p { text-box-trim: trim-start; }
+}

@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02641025641025641,
+    "changedAreaRatio" : 0.02638511814982403,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 22.8,
-    "maxLuminance" : 174.546875,
-    "maxShiftPt" : 45.4,
+    "maxLuminance" : 173.921875,
+    "maxShiftPt" : 32.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 8
@@ -57,91 +57,91 @@
           "text" : "目次",
           "width" : 28.7,
           "x" : 56.8,
-          "y" : 222.2
+          "y" : 231.8
         },
         {
           "height" : 16.1,
           "text" : "1 目盛の読み方 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 246.9
+          "y" : 260.5
         },
         {
           "height" : 16.1,
           "text" : "2 高さ 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 269.3
+          "y" : 282.1
         },
         {
           "height" : 23.2,
           "text" : "1 目盛の読み方",
           "width" : 109.2,
           "x" : 58.6,
-          "y" : 296.6
+          "y" : 309.4
         },
         {
           "height" : 15.2,
           "text" : "「下の線から順に読む。」",
           "width" : 119.6,
           "x" : 81.7,
-          "y" : 323.2
+          "y" : 339.2
         },
         {
           "height" : 15.2,
           "text" : "図 1: 板の取り付け位置",
           "width" : 106.9,
           "x" : 244.2,
-          "y" : 392
+          "y" : 408
         },
         {
           "height" : 23.2,
           "text" : "2 高さ",
           "width" : 51.8,
           "x" : 58.6,
-          "y" : 430.9
+          "y" : 446.9
         },
         {
           "height" : 15.2,
           "text" : "目盛 高さ (mm)",
           "width" : 79.1,
           "x" : 258.1,
-          "y" : 470.3
+          "y" : 483.9
         },
         {
           "height" : 15.2,
           "text" : "1 12",
           "width" : 72.1,
           "x" : 265.1,
-          "y" : 483.1
+          "y" : 496.7
         },
         {
           "height" : 15.2,
           "text" : "2 18",
           "width" : 72.1,
           "x" : 265.1,
-          "y" : 495.1
+          "y" : 508.7
         },
         {
           "height" : 15.2,
           "text" : "表 1: 目盛の高さ",
           "width" : 77.1,
           "x" : 259.1,
-          "y" : 516.7
+          "y" : 530.3
         },
         {
           "height" : 23.2,
           "text" : "参考文献",
           "width" : 57.4,
           "x" : 56.8,
-          "y" : 555.6
+          "y" : 569.2
         },
         {
           "height" : 15.2,
           "text" : "[1] 測定台帳, 2025, 第2章.",
           "width" : 129.1,
           "x" : 56.8,
-          "y" : 583
+          "y" : 596.6
         },
         {
           "height" : 15.2,

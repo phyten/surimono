@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.023893413775766717,
+    "changedAreaRatio" : 0.024122674710910005,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 24.6,
-    "maxLuminance" : 160.4375,
-    "maxShiftPt" : 27.2,
+    "maxLuminance" : 173.828125,
+    "maxShiftPt" : 25.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 3
@@ -58,98 +58,98 @@
           "text" : "Índice",
           "width" : 38.3,
           "x" : 56.8,
-          "y" : 226.7
+          "y" : 233.9
         },
         {
           "height" : 11,
           "text" : "1 As marcas 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "2 Altura 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 15.9,
           "text" : "1 As marcas",
           "width" : 86.2,
           "x" : 56.8,
-          "y" : 301.1
+          "y" : 310.7
         },
         {
           "height" : 11,
           "text" : "«Ler primeiro a marca inferior.»",
           "width" : 131.9,
           "x" : 81.7,
-          "y" : 326.6
+          "y" : 336.2
         },
         {
           "height" : 11,
           "text" : "Figura 1: Posição da tábua",
           "width" : 109,
           "x" : 243.1,
-          "y" : 395.3
+          "y" : 404.9
         },
         {
           "height" : 15.9,
           "text" : "2 Altura",
           "width" : 62.2,
           "x" : 56.8,
-          "y" : 435.4
+          "y" : 445
         },
         {
           "height" : 11,
           "text" : "Marca Altura (mm)",
           "width" : 87.3,
           "x" : 254,
-          "y" : 473.6
+          "y" : 480.8
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 77.1,
           "x" : 264.2,
-          "y" : 486.4
+          "y" : 493.6
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 77.1,
           "x" : 264.2,
-          "y" : 498.4
+          "y" : 505.6
         },
         {
           "height" : 11,
           "text" : "Tabela 1: Altura das marcas",
           "width" : 114.4,
           "x" : 240.4,
-          "y" : 520
+          "y" : 528
         },
         {
           "height" : 15.9,
           "text" : "Referências",
           "width" : 71.7,
           "x" : 56.8,
-          "y" : 560.1
+          "y" : 567.3
         },
         {
           "height" : 11,
           "text" : "[1]",
           "width" : 11.6,
           "x" : 56.8,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,
           "text" : "Caderno de medições, 2025, Capítulo 2.",
           "width" : 164.6,
           "x" : 76.7,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,

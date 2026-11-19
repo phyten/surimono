@@ -26,12 +26,22 @@ enum LaTeXPageReferences {
         init(_ state: LaTeXPageNumbers) {
             label = state.label
             lines = .init(top: state.header, bottom: state.footer)
+            lines.headerFont = state.headerFont
+            lines.numberFont = state.numberFont
+            lines.headerNumberRanges = state.numberRanges(header: true)
+            lines.footerNumberRanges = state.numberRanges(header: false)
             lines.headRule = state.ruleWidth("headrulewidth")
             lines.footRule = state.ruleWidth("footrulewidth")
         }
     }
 
+    struct ExamScore: Codable, Equatable {
+        var label: String
+        var points: Double
+    }
+
     struct Map {
+        var examScores: [ExamScore] = []
         var pages: [Page]
         var references: [String: String]
     }
@@ -101,11 +111,15 @@ enum LaTeXPageReferences {
         const plain = \(classPlain) || declarations.some(el => ['pagestyle','thispagestyle','fancyStyle'].includes(el.dataset.latexPageAction));
         const marks = \(runningMarks) || declarations.some(el =>
           el.dataset.value === 'fancy' || /leftmark|rightmark/.test(el.dataset.value || ''));
+        const examPages = !!document.querySelector('table[data-exam-pages]');
         const chapters = document.body.dataset.latexChapters === 'true';
-        for (const el of document.querySelectorAll('[data-latex-page-action],[id],[data-latex-chapter-opening],.latex-title-block,.latex-titlepage')) {
+        for (const el of document.querySelectorAll('[data-latex-page-action],[data-exam-credit],[id],[data-latex-chapter-opening],.latex-title-block,.latex-titlepage')) {
           let action = el.dataset.latexPageAction || '';
           if (el.matches('.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,body[data-latex-chapters="true"]:not([data-latex-title-layout]) .latex-title-block')) action = 'title';
           let value = el.dataset.value || '';
+          if (examPages && el.hasAttribute('data-exam-credit')) {
+            action = 'examCredit'; value = el.dataset.examCredit;
+          }
           if (marks && !action && el.matches('h2[id^="sec-"],h3[id^="sec-"]') && el.querySelector(':scope > .secnum')) {
             const num = el.querySelector(':scope > .secnum');
             const number = num.textContent;
@@ -182,10 +196,12 @@ enum LaTeXPageReferences {
     ) -> Map {
         var state = initial
         let byPage = Dictionary(grouping: targets.indices.filter { locations[$0] != nil }) { locations[$0] }
+        let hasAllCredits = targets.indices.allSatisfy { targets[$0].action != "examCredit" || locations[$0] != nil }
         var result = Map(pages: [], references: [:])
         for page in 0..<pageCount {
             let indices = byPage[page] ?? []
             var title = false
+            var score = 0.0
             for index in indices {
                 let target = targets[index]
                 if target.classPlain == true { state.apply("classPlain", value: "") }
@@ -195,9 +211,14 @@ enum LaTeXPageReferences {
                 } else if target.action == "majorMark" {
                     state.apply("leftmark", value: target.value)
                     state.apply("rightmark", value: "")
+                } else if target.action == "examCredit", let points = Double(target.value), points.isFinite {
+                    score += points
                 } else {
                     state.apply(target.action, value: target.value)
                 }
+            }
+            if hasAllCredits && score > 0 {
+                result.examScores.append(ExamScore(label: state.label, points: score))
             }
             result.pages.append(Page(state))
             for index in indices where targets[index].referenced {
@@ -210,10 +231,32 @@ enum LaTeXPageReferences {
     }
 
     /// Labels contain only digits, alphabetic characters or roman numerals produced by the counter.
-    static func fill(_ values: [String: String]) throws -> String {
+    static func fill(_ values: [String: String], examScores: [ExamScore] = []) throws -> String {
+        let scores = String(decoding: try JSONEncoder().encode(examScores), as: UTF8.self)
         let labels = String(decoding: try JSONEncoder().encode(values), as: UTF8.self)
         return """
             const labels = \(labels);
+            const scores = \(scores);
+            // Question and part labels own their points on their physical page, even when a question spans pages.
+            for (const table of document.querySelectorAll('table[data-exam-pages]')) {
+              if (!scores.length) continue;
+              const total = scores.reduce((sum, entry) => sum + entry.points, 0);
+              const grade = table.dataset.examGrade === 'true';
+              let rows;
+              if (table.dataset.examPages === 'h') {
+                rows = [['Page:', ...scores.map(s => s.label), 'Total'], ['Points:', ...scores.map(s => s.points), total]];
+                if (grade) rows.push(['Score:', ...Array(scores.length + 1).fill('')]);
+              } else {
+                rows = [['Page', 'Points'], ...scores.map(s => [s.label, s.points]), ['Total:', total]];
+                if (grade) rows.forEach((row, i) => row.push(i === 0 ? 'Score' : ''));
+              }
+              const body = document.createElement('tbody');
+              for (const values of rows) {
+                const row = body.insertRow();
+                for (const value of values) row.insertCell().textContent = value;
+              }
+              table.tBodies[0].replaceWith(body);
+            }
             const updates = surimonoTeXPages.fields.flatMap((fields, index) =>
               fields.map(field => ({field, label: labels[index] ?? '?'})));
             const metric = field => {
@@ -224,7 +267,7 @@ enum LaTeXPageReferences {
             const before = updates.map(({field}) => metric(field));
             for (const {field, label} of updates) field.textContent = label;
             // Inline references can wrap differently on paper. TOC columns reserve space for two digits.
-            return updates.every(({field}, i) => field.classList.contains('latex-page-label') &&
+            return !scores.length && updates.every(({field}, i) => field.classList.contains('latex-page-label') &&
               metric(field) === before[i]) ? 'stable' : 'remeasure';
             """
     }

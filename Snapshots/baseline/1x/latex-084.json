@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02935042735042735,
+    "changedAreaRatio" : 0.027116138763197586,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 2,
-    "maxBoxDeltaPt" : 76.5,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 23.2,
     "maxLuminance" : 196.375,
-    "maxShiftPt" : 80,
+    "maxShiftPt" : 24.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 6
+    "textEdits" : 3
   },
   "fonts" : [
     "Helvetica"
@@ -18,171 +18,164 @@
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 219.8,
+      "firstY" : 214.1,
       "height" : 841.9,
-      "lastY" : 719.2,
-      "lineCount" : 16,
+      "lastY" : 713.3,
+      "lineCount" : 15,
       "lines" : [
         {
-          "height" : 25.4,
-          "text" : "Chapter 1",
-          "width" : 103.7,
-          "x" : 125.4,
-          "y" : 219.8
-        },
-        {
-          "height" : 30.2,
-          "text" : "A folded rail spacer",
-          "width" : 238.1,
-          "x" : 125.4,
-          "y" : 259.3
+          "height" : 25.2,
+          "text" : "1 A folded rail spacer",
+          "width" : 233.7,
+          "x" : 92.6,
+          "y" : 214.1
         },
         {
           "height" : 10.5,
           "text" : "Measure at the fold.",
           "width" : 79.5,
-          "x" : 389.6,
-          "y" : 321.9
+          "x" : 331.3,
+          "y" : 278.4
         },
         {
           "height" : 10.5,
           "text" : "Bench card",
           "width" : 44.3,
-          "x" : 424.8,
-          "y" : 340.3
+          "x" : 422.8,
+          "y" : 296.8
         },
         {
-          "height" : 17.5,
+          "height" : 14.6,
           "text" : "Scope",
-          "width" : 41.5,
-          "x" : 125.4,
-          "y" : 366
+          "width" : 34.6,
+          "x" : 127.4,
+          "y" : 335.9
         },
         {
           "height" : 11.7,
           "text" : "A folded spacer fixes the height of a model rail. Two card thicknesses were",
-          "width" : 343.7,
-          "x" : 125.4,
-          "y" : 391.4
+          "width" : 339.7,
+          "x" : 127.4,
+          "y" : 356.7
         },
         {
           "height" : 11.7,
           "text" : "tested in the same slot.",
           "width" : 101.4,
-          "x" : 125.4,
-          "y" : 403.4
+          "x" : 127.4,
+          "y" : 368.7
         },
         {
-          "height" : 17.5,
+          "height" : 14.6,
           "text" : "1.1 Bench trial",
-          "width" : 115.2,
-          "x" : 125.4,
-          "y" : 430.8
+          "width" : 96.1,
+          "x" : 127.4,
+          "y" : 392.7
         },
         {
           "height" : 11.7,
           "text" : "The thin card entered freely. The folded card held the rail level at the second",
-          "width" : 343.7,
-          "x" : 125.4,
-          "y" : 456.2
+          "width" : 339.7,
+          "x" : 127.4,
+          "y" : 414.3
         },
         {
           "height" : 11.7,
           "text" : "mark.",
           "width" : 25.2,
-          "x" : 125.4,
-          "y" : 468.2
+          "x" : 127.4,
+          "y" : 426.3
         },
         {
           "height" : 11.7,
           "text" : "Figure 1.1: Side view of the spacer",
           "width" : 150.5,
           "x" : 222,
-          "y" : 503.4
+          "y" : 462.4
         },
         {
           "height" : 11.7,
           "text" : "Card Height (mm)",
-          "width" : 97.5,
+          "width" : 97.4,
           "x" : 248.6,
-          "y" : 545.7
+          "y" : 502.3
         },
         {
           "height" : 11.7,
           "text" : "Thin 1",
-          "width" : 97.5,
+          "width" : 97.4,
           "x" : 248.6,
-          "y" : 557.7
+          "y" : 514.3
         },
         {
           "height" : 11.7,
           "text" : "Folded 2",
-          "width" : 97.5,
+          "width" : 97.4,
           "x" : 248.6,
-          "y" : 569.7
+          "y" : 526.3
         },
         {
           "height" : 11.7,
           "text" : "Table 1.1: Spacer heights",
           "width" : 110.2,
           "x" : 242.2,
-          "y" : 587.3
+          "y" : 544.7
         },
         {
           "height" : 11.7,
           "text" : "1",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 713.3
         }
       ],
       "textHeight" : 511,
-      "textLeft" : 125.4,
-      "textTop" : 219.8,
-      "textWidth" : 343.7,
+      "textLeft" : 92.6,
+      "textTop" : 214.1,
+      "textWidth" : 374.6,
       "width" : 595.3
     },
     {
-      "firstY" : 149.6,
+      "firstY" : 214.1,
       "height" : 841.9,
-      "lastY" : 719.2,
+      "lastY" : 713.3,
       "lineCount" : 4,
       "lines" : [
         {
-          "height" : 17.5,
+          "height" : 25.2,
           "text" : "Bibliography",
-          "width" : 93,
-          "x" : 125.4,
-          "y" : 149.6
+          "width" : 133.9,
+          "x" : 127.4,
+          "y" : 214.1
         },
         {
           "height" : 11.7,
           "text" : "[1]",
           "width" : 10.5,
-          "x" : 125.4,
-          "y" : 175.9
+          "x" : 127.4,
+          "y" : 278.3
         },
         {
           "height" : 11.7,
           "text" : "Model Rail Desk, Spacer card register, trial note (2025).",
           "width" : 246.3,
-          "x" : 145.3,
-          "y" : 175.9
+          "x" : 147.3,
+          "y" : 278.3
         },
         {
           "height" : 11.7,
           "text" : "2",
           "width" : 5,
           "x" : 294.8,
-          "y" : 719.2
+          "y" : 713.3
         }
       ],
-      "textHeight" : 581.2,
-      "textLeft" : 125.4,
-      "textTop" : 149.6,
+      "textHeight" : 511,
+      "textLeft" : 127.4,
+      "textTop" : 214.1,
       "textWidth" : 266.2,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "45ea622ee293b8ae2321ebdda84bbc754da155a21cb557418b5d46a317eb4d61"
+  "textSHA256" : "0c41ff893cdae52af2f9a5de06dc1f2e50703e3708a228df34ae4211ba1d6753"
 }

@@ -7,7 +7,7 @@
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.1,
     "maxLuminance" : 122.78125,
-    "maxShiftPt" : 27.9,
+    "maxShiftPt" : 25.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,14 +35,14 @@
           "text" : "Leave the outer band free for pencil corrections. Circle a broken stroke and enter its row number",
           "width" : 436.2,
           "x" : 56.4,
-          "y" : 137.1
+          "y" : 134.7
         },
         {
           "height" : 11.7,
           "text" : "beside the proof.",
           "width" : 72.3,
           "x" : 56.4,
-          "y" : 149.1
+          "y" : 146.7
         },
         {
           "height" : 11.7,

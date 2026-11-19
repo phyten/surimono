@@ -46,6 +46,24 @@ h1, h2, h3, h4, h5, h6 {
     hyphens: none; -webkit-hyphens: none; padding: 0; border: none;
 }
 h2 { font-size: calc(var(--tex-Large) * var(--tex-pt)); margin-block: 1.1em 0.65em; }
+/* The heading line box already supplies part of the standard section afterskip. */
+body[data-latex-class="article"] h2[id^="sec-"] { margin-block-end: 0.5em; }
+@supports (text-box-trim: trim-end) {
+    /* A document font can have very different ascenders and descenders from the bundled CM.
+       article.cls separates these baselines by a body baselineskip plus 2.3 body ex.
+       Resolve ex on the following text, including the first paragraph of a quote list. */
+    body[data-latex-class="article"][data-latex-local-main-font] {
+        & h2[id^="sec-"]:has(+ p, + blockquote:not([class]) > p:first-child) {
+            text-box-trim: trim-end; text-box-edge: cap alphabetic; margin-block-end: 0;
+        }
+        & h2[id^="sec-"] + p, & h2[id^="sec-"] + blockquote:not([class]):has(> p:first-child) {
+            margin-block-start: max(2.3ex, var(--latex-parskip, 0px));
+        }
+        & h2[id^="sec-"] + p, & h2[id^="sec-"] + blockquote:not([class]) > p:first-child {
+            text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+        }
+    }
+}
 h3 { font-size: calc(var(--tex-large) * var(--tex-pt)); margin-block: 1.1em 0.55em; }
 h4, h5, h6 { font-size: 1em; margin-block: 1.2em 0.65em; }
 .secnum { margin-inline-end: 1em; }
@@ -124,11 +142,22 @@ figure.latex-table, figure.latex-figure { margin-block: 1.1em; }
    stroke even though its path fits the viewBox. Explicit clipping paths inside the figure still apply. */
 .tikz-block > svg { overflow: visible; }
 figure table, table.latex-tabular { margin-inline: auto; }
-table.latex-tabular :is(th, td) { padding: 0 0.55em; vertical-align: top; line-height: inherit; }
+/* TeX builds l/c/r cells in restricted horizontal mode. Only paragraph columns wrap. */
+table.latex-tabular :is(th, td) { padding: 0 0.55em; vertical-align: baseline; line-height: inherit; white-space: nowrap; }
+table.latex-tabular :is(th, td)[data-latex-column] { --latex-cell-align: baseline; white-space: normal; }
+table[data-latex-tabularx] > :is(thead,tbody) > tr > :is(th,td) { padding-inline: calc(6 * var(--tex-pt)); }
+table[data-latex-tabularx] > :is(thead,tbody) > tr > :not([data-latex-column]) { width: 0; }
+table[data-latex-tabularx] > :is(thead,tbody) > tr > [data-latex-column="X"] { width: var(--latex-x-share); }
+/* array aligns each box to the row baseline. The last line supplies b's baseline.
+   In an m cell a one-line strut supplies the baseline halfway down the cell's own contents. */
+.latex-bottom-cell { display: inline-block; width: 100%; }
+.latex-middle-cell { display: inline-flex; width: 100%; align-items: center; }
+.latex-middle-cell::before { content: "\00a0"; visibility: hidden; width: 0; flex: none; }
+.latex-middle-cell > span { flex: 1; min-width: 0; }
 /* A row's strut sets a minimum independent of its contents. Rule padding is outside the strut. */
 table.latex-tabular :is(th, td) {
     box-sizing: content-box;
-    height: calc((var(--latex-array-baseline, 12) * var(--tex-pt) * var(--latex-stretch, 1) + var(--latex-extrarowheight, 0px)) * var(--latex-arraystretch, 1));
+    height: calc((var(--latex-array-baseline, 12) * var(--tex-pt) * var(--latex-stretch, 1) + var(--latex-extrarowheight, 0px)) * var(--latex-arraystretch, 1) + var(--latex-row-skip, 0px));
 }
 table.latex-tabular th { font-weight: normal; }
 table.latex-tabular .latex-above-rule > :is(th, td) { padding-block-end: 0.4ex; }
@@ -254,6 +283,23 @@ body[data-latex-chapters="false"][data-latex-js-toc] nav.toc .latex-toc-section 
 }
 nav.toc li > a .secnum { display: inline-block; min-width: var(--latex-toc-number-width, 2.3em); box-sizing: border-box; padding-inline-end: 0.2em; margin-inline-end: 0; }
 .latex-contents-title { font-size: calc(var(--tex-Large) * var(--tex-pt)); text-indent: 0; font-weight: bold; margin-block-end: 0.65em; }
+/* The article contents and lists open with a section*. Its before-skip is in body ex,
+   and the heading has a Large baseline even though it lives in a navigation paragraph. */
+body[data-latex-class="article"] nav.toc:has(> .latex-contents-title) { margin-block-start: 3.5ex; }
+body[data-latex-class="article"] nav.toc > .latex-contents-title {
+    line-height: calc(var(--tex-Large-baseline, 18) * var(--tex-pt) * var(--latex-stretch, 1));
+}
+body[data-latex-class="article"][data-latex-size="12"] { --tex-Large-baseline: 22; }
+@supports (text-box-trim: trim-end) {
+    /* TeX joins the last abstract baseline to the contents baseline across that skip.
+       Keep the last line's ink, including descenders, without adding two CSS line-box edges. */
+    body[data-latex-class="article"] .abstract:has(+ nav.toc > .latex-contents-title) > p:last-child {
+        text-box-trim: trim-end; text-box-edge: cap alphabetic;
+    }
+    body[data-latex-class="article"] .abstract + nav.toc > .latex-contents-title {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+}
 
 /* Declarations in a title select an absolute class size, including inside another declaration. */
 body {
@@ -365,3 +411,50 @@ nav.toc a.latex-page-entry { display: flex; align-items: baseline; gap: 0.25em; 
 nav.toc :is(.latex-toc-part, .latex-toc-chapter) > a > .latex-page-leader,
 body[data-latex-chapters="false"] nav.toc .latex-toc-section > a > .latex-page-leader { background: none; }
 .latex-page-label { align-self: flex-end; min-width: 2ch; text-align: end; }
+
+ol.latex-exam-list { list-style: none; padding-inline-start: 1.78em; }
+.latex-exam-list > li > p:first-child { text-indent: 0; }
+.latex-exam-marker { display: inline-block; width: 1.3em; text-align: end; margin-inline: -1.78em 0.15em; }
+ol.latex-exam-oneparchoices { padding-inline-start: 0; }
+.latex-exam-oneparchoices > li, .latex-exam-oneparchoices > li > p { display: inline; }
+.latex-exam-oneparchoices .latex-exam-marker { margin-inline: 0.5em 0; width: auto; }
+.latex-exam-correct, .latex-exam-fillin { font-weight: bold; }
+.latex-exam-fillin { display: inline-block; text-align: center; border-bottom: 1px solid; min-height: 1em; }
+.latex-exam-space { box-sizing: border-box; break-inside: avoid; }
+.latex-exam-box, .latex-exam-solution { border: 1px solid; }
+.latex-exam-solution { padding: 0.5em; }
+table.latex-exam-table { width: auto; border-collapse: collapse; margin-inline: 0 auto; }
+.latex-exam-table td {
+    min-width: 2em; box-sizing: content-box; border: calc(0.4 * var(--tex-pt)) solid;
+    text-align: center; padding: 0 0.6em; height: calc(1.5 * var(--latex-array-baseline, 12) * var(--tex-pt));
+}
+.latex-exam-table td:first-child { text-align: start; }
+
+.latex-letter { --latex-parindent: 0px; --latex-parskip: .7em; }
+.latex-letter-sender { padding-block-start: var(--latex-letter-top-glue, 0); margin-inline-start: auto; width: fit-content; text-align: start; }
+.latex-letter-sender p { margin-block-start: 1.4em; }
+/* The recipient and salutation start paragraphs after the explicit two-parskip glue. */
+.latex-letter-opening, .latex-letter-recipient { margin-block-start: 2.1em; }
+.latex-letter > .latex-center { margin-block-start: calc(var(--tex-top-sep) * var(--tex-pt)); }
+.latex-letter-closing { margin-block-start: 1.4em; break-inside: avoid; }
+.latex-letter-indented { margin-inline-start: 50%; }
+.latex-letter-closing p { margin-block-start: 4.2em; }
+body[data-latex-class="moderncv"] { font-family: var(--latex-cv-font, var(--tex-body-fonts)); --latex-parindent: 0px; text-align: start; }
+.latex-cv-title { display: flex; justify-content: space-between; align-items: end; gap: 1em; margin-block-end: 2em; }
+.latex-cv-title h1 { margin: 0; font-size: calc(34 * var(--tex-pt)); line-height: calc(36 * var(--tex-pt)); font-weight: normal; color: #737373; }
+.latex-cv-title p { color: #737373; font-style: italic; font-size: var(--latex-size-LARGE); }
+body[data-latex-class="moderncv"] h2 { font-weight: normal; color: var(--latex-cv-ink); }
+body[data-latex-class="moderncv"] h2::before {
+    content: ""; display: inline-block; width: 17.5%; margin-inline-end: 2.5%; height: .95ex; background: currentColor;
+}
+.latex-cv-item { display: grid; grid-template-columns: 17.5% 1fr; column-gap: 2.5%; margin-block-end: var(--cv-item-skip, .25em); }
+.latex-cv-label { text-align: end; overflow-wrap: normal; word-break: normal; hyphens: none; -webkit-hyphens: none; }
+.latex-cv-detail, .latex-cv-comment em { font-size: var(--latex-size-small); }
+.latex-cv-comment { display: flex; justify-content: space-between; gap: 1em; }
+.latex-cv-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5%; }
+.latex-cv-pair > .latex-cv-item { grid-template-columns: 35.9% 1fr; gap: 5.13%; }
+.latex-cv-double { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5%; }
+/* Keep paragraph margins independent as in letter.cls, including in short letters.
+   Only the space above a short letter is needed in the printable flow. */
+.latex-letter { display: flex; flex-direction: column; }
+.latex-letter > * { flex: none; }

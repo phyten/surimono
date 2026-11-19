@@ -600,6 +600,9 @@ public final class DocumentRenderer {
             } else if settings.paperOrientation == .auto, source.format == .html, let slides = settings.slides {
                 // A slide prints best on paper of its own shape, whatever the deck's `@page` says.
                 landscape = slides.slideSize.width > slides.slideSize.height
+            } else if settings.paperOrientation == .auto, source.format == .latex, settings.theme.formats == [.latex] {
+                let box = latexClassInfo(for: source).pageBox
+                landscape = box.paperWidth > box.paperHeight
             } else if settings.paperOrientation == .auto {
                 landscape = try await automaticLandscape(source)
             } else {
@@ -1208,7 +1211,12 @@ public final class DocumentRenderer {
             let codeScript = CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
             let graphicScript =
                 source.format == .latex
-                ? LaTeXGraphicPreparation.script(in: fragment.body, layoutWidth: layoutWidth) ?? "" : ""
+                ? LaTeXGraphicPreparation.script(
+                    in: fragment.body, layoutWidth: layoutWidth,
+                    layoutHeight: settings.theme.formats == [.latex]
+                        ? (pageSize.height - paperMargins.top - paperMargins.bottom) * WebPaginator.printPixelsPerPoint
+                        : nil
+                ) ?? "" : ""
             let preparation: String?
             if settings.markdownChanges.isEmpty {
                 // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
@@ -1308,11 +1316,11 @@ public final class DocumentRenderer {
     private struct ThemedPage {
         var numbering: LaTeXPageNumbers? {
             guard let info = fragment.latexClass,
-                info.pageNumbers.needsRunningMarks
+                info.pageNumbers.needsRunningMarks || info.pageNumbers.needsExamTotals
                     || info.pageNumbers.usesClassPlain
                         && (info.hasChapters || fragment.body.contains("latex-title-block"))
                     || fragment.body.contains("class=\"toc\"")
-                    || fragment.body.contains("latex-pageref")
+                    || fragment.body.contains("latex-pageref") || fragment.body.contains("data-exam-pages")
                     || fragment.body.contains("data-latex-page-action") || fragment.body.contains("latex-titlepage")
                     || (info.hasSeparateTitlePage ?? info.hasChapters) && fragment.body.contains("latex-title-block")
             else { return nil }

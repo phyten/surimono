@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.00702260254860013,
+    "changedAreaRatio" : 0.006939922901228826,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 135.359375,
-    "maxShiftPt" : 28.8,
+    "maxShiftPt" : 26.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -34,30 +34,30 @@
         {
           "height" : 11.7,
           "text" : "Gaugeguard left right",
-          "width" : 134.1,
+          "width" : 131.9,
           "x" : 125.4,
-          "y" : 177.3
+          "y" : 174.9
         },
         {
           "height" : 11.7,
           "text" : "first mark",
           "width" : 43.3,
           "x" : 125.4,
-          "y" : 191.7
+          "y" : 189.8
         },
         {
           "height" : 11.7,
           "text" : "second mark",
           "width" : 54.6,
           "x" : 125.4,
-          "y" : 203.7
+          "y" : 201.8
         },
         {
           "height" : 11.7,
           "text" : "The mark below the slot is faint.",
           "width" : 143.5,
           "x" : 140.4,
-          "y" : 241.3
+          "y" : 239.3
         },
         {
           "height" : 11.7,
@@ -74,7 +74,7 @@
       "width" : 595.3
     },
     {
-      "firstY" : 149.2,
+      "firstY" : 149.4,
       "height" : 841.9,
       "lastY" : 719.2,
       "lineCount" : 3,
@@ -84,14 +84,14 @@
           "text" : "Loose insert",
           "width" : 85.9,
           "x" : 125.4,
-          "y" : 149.2
+          "y" : 149.4
         },
         {
           "height" : 11.7,
           "text" : "Put the insert behind the reading sheet.",
           "width" : 174.7,
           "x" : 125.4,
-          "y" : 176.2
+          "y" : 174.1
         },
         {
           "height" : 11.7,
@@ -101,9 +101,9 @@
           "y" : 719.2
         }
       ],
-      "textHeight" : 581.7,
+      "textHeight" : 581.4,
       "textLeft" : 125.4,
-      "textTop" : 149.2,
+      "textTop" : 149.4,
       "textWidth" : 174.7,
       "width" : 595.3
     },

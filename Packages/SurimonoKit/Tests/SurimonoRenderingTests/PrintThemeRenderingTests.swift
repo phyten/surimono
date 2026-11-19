@@ -44,6 +44,51 @@ struct PrintThemeRenderingTests {
         return (width, height, data)
     }
 
+    @Test("試験の解答欄は白黒印刷でも四分の一インチ間隔の実線と点線を刷る", .timeLimit(.minutes(1)))
+    func printedAnswerLines() async throws {
+        let source =
+            #"\documentclass{exam}\begin{document}\begin{questions}\question First\fillwithlines{18mm}\question Next\fillwithdottedlines{25mm}\end{questions}\end{document}"#
+        let pdf = try await render(source, theme: "latex-article", format: .latex)
+        try #require(pdf.pageCount == 1)
+        let page = try #require(pdf.page(at: 0))
+        // At screen resolution a 0.1 pt stroke can fall entirely between two pixel centers.
+        // A narrow strip away from the prompts and footer resolves the stroke without a full-page bitmap.
+        let bounds = page.bounds(for: .mediaBox)
+        let scale = 16
+        let width = 32 * scale
+        let height = Int(bounds.height) * scale
+        var pixels = [UInt8](repeating: 255, count: width * height)
+        try pixels.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+            let context = try #require(
+                CGContext(
+                    data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
+                    space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue))
+            context.setShouldAntialias(false)
+            context.scaleBy(x: CGFloat(scale), y: CGFloat(scale))
+            context.translateBy(x: -bounds.midX - 16, y: 0)
+            page.draw(with: .mediaBox, to: context)
+        }
+        var solid: [Int] = []
+        var dotted: [Int] = []
+        var previousSolid = -2
+        var previousDotted = -2
+        for y in 0..<height {
+            var dark = 0
+            for i in (y * width)..<((y + 1) * width) where pixels[i] < 128 { dark += 1 }
+            if dark > width * 9 / 10 {
+                if y > previousSolid + 1 { solid.append(y) }
+                previousSolid = y
+            } else if dark > width / 18, dark < width / 2 {
+                if y > previousDotted + 1 { dotted.append(y) }
+                previousDotted = y
+            }
+        }
+        try #require(solid.count == 2)
+        try #require(dotted.count == 3)
+        #expect(abs(solid[1] - solid[0] - 18 * scale) <= 2)
+        #expect(abs(dotted[2] - dotted[1] - 18 * scale) <= 2)
+    }
+
     @Test("改ページ直後の整列数式の上付き文字が前の用紙に残らない", .timeLimit(.minutes(1)))
     func displayInkAtPageBoundary() async throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex" })

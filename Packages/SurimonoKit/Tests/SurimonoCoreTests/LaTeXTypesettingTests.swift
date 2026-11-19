@@ -2,6 +2,25 @@ import SurimonoCore
 import Testing
 
 struct LaTeXTypesettingTests {
+    @Test("欧文記事の節間隔は言語の指定と独立に本文のローカル書体を識別する")
+    func sectionFontMetrics() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        for (preamble, local) in [
+            (#"\usepackage[dutch]{babel}"#, false),
+            (#"\usepackage{lmodern}"#, false),
+            (#"\setsansfont{Helvetica Neue}"#, false),
+            (#"\setmainfont{Times New Roman}"#, true),
+            (#"\usepackage{babel}\babelprovide[import,main]{greek}\babelfont{rm}{Times New Roman}"#, true),
+            (#"\setmainfont{Hiragino Mincho ProN}"#, true),
+        ] {
+            let fragment = LaTeXConverter.convert(
+                #"\documentclass{article}\#(preamble)\begin{document}\section{One}Two\end{document}"#)
+            let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+            let body = try #require(html.components(separatedBy: "<body ").last?.prefix { $0 != ">" })
+            #expect(body.contains(" data-latex-local-main-font") == local)
+        }
+    }
+
     @Test("五つの LaTeX スタイルは追い込み見出しの短い最終行を行頭に寄せる")
     func runInLastLine() throws {
         let themes = try PrintThemeLibrary.load().filter { $0.id.hasPrefix("latex-") }

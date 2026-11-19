@@ -126,6 +126,8 @@ public enum PrintThemeLibrary {
         let catalog = try catalog()
         var scripts: [String: String] = [:]
         let tex = try String(contentsOf: CoreResources.url("latex-typesetting", extension: "css"), encoding: .utf8)
+        let books = try String(contentsOf: CoreResources.url("latex-books", extension: "css"), encoding: .utf8)
+        let journals = try String(contentsOf: CoreResources.url("latex-journals", extension: "css"), encoding: .utf8)
         let builtIns = try catalog.themes.map { entry in
             let groupFormats = catalog.categories.first { $0.id == entry.category }?.formats
             // A theme may narrow its category's formats but cannot widen them.
@@ -141,7 +143,8 @@ public enum PrintThemeLibrary {
                 id: entry.id, name: entry.name,
                 localizedNames: UILanguage.names(
                     english: entry.name, japanese: entry.ja, localized: entry.localizedNames),
-                css: common + "\n" + (entry.category == "latex" ? tex + "\n" : "") + css, isBuiltIn: true,
+                css: common + "\n" + (entry.category == "latex" ? tex + "\n" + books + "\n" + journals + "\n" : "")
+                    + css, isBuiltIn: true,
                 category: entry.category, formats: formats,
                 featuredRank: catalog.featured.firstIndex(of: entry.id), script: script, flow: entry.flow ?? .horizontal
             )

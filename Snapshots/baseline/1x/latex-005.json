@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.021359253402784238,
+    "changedAreaRatio" : 0.02113085087692101,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 146.578125,
-    "maxShiftPt" : 36.9,
+    "maxShiftPt" : 35.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,63 +35,63 @@
           "text" : "At the low gate, count the hinges before measuring the leaf.",
           "width" : 262.3,
           "x" : 150.3,
-          "y" : 177.5
+          "y" : 175.1
         },
         {
           "height" : 11.7,
           "text" : "The ledger gives a second instruction.",
           "width" : 164.9,
           "x" : 125.4,
-          "y" : 196.7
+          "y" : 195.1
         },
         {
           "height" : 11.7,
           "text" : "Measure at the upper pin. A reading taken at the foot includes",
           "width" : 278.9,
           "x" : 165.3,
-          "y" : 215.9
+          "y" : 214.3
         },
         {
           "height" : 11.7,
           "text" : "the slope of the path.",
           "width" : 93.3,
           "x" : 150.3,
-          "y" : 227.9
+          "y" : 226.3
         },
         {
           "height" : 11.7,
           "text" : "A four-line mnemonic appears inside the cover.",
           "width" : 205.8,
           "x" : 125.4,
-          "y" : 247.9
+          "y" : 245.5
         },
         {
           "height" : 11.7,
           "text" : "One mark at the hinge,",
           "width" : 102.2,
           "x" : 150.3,
-          "y" : 279.1
+          "y" : 277.5
         },
         {
           "height" : 11.7,
           "text" : "one mark at the sill,",
           "width" : 88.4,
           "x" : 150.3,
-          "y" : 291.1
+          "y" : 289.5
         },
         {
           "height" : 11.7,
           "text" : "a thread across water,",
           "width" : 96.5,
           "x" : 150.3,
-          "y" : 303.1
+          "y" : 301.5
         },
         {
           "height" : 11.7,
           "text" : "a wheel standing still.",
           "width" : 95.3,
           "x" : 150.3,
-          "y" : 315.1
+          "y" : 313.5
         },
         {
           "height" : 11.7,

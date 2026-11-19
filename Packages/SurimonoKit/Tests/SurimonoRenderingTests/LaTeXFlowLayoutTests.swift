@@ -50,6 +50,30 @@ struct LaTeXFlowLayoutTests {
         }
     }
 
+    @Test("行間が一画素に満たないときも端数をベクトル断片の配置で保つ", arguments: [CGFloat(3), 0.3])
+    func fractionalSkip(points: CGFloat) throws {
+        let exact = points * 72 / 72.27 * 1.25
+        let measured = max(1, floor(exact))
+        let extra = exact - measured
+        let rows = [
+            Flow.Item(
+                slice: .init(strip: 0, start: 0, end: 15 + measured, width: 100), paragraph: 1, extraAfter: extra),
+            Flow.Item(slice: .init(strip: 0, start: 15 + measured, end: 30 + measured, width: 100), paragraph: 1),
+        ]
+        let page = try #require(pages([segment(rows)]).first)
+        #expect(page.pieces.count == 2)
+        let second = try #require(page.pieces.last)
+        #expect(abs((second.y - 15) / 1.25 - points * 72 / 72.27) < 0.0001)
+    }
+
+    @Test("本文行の字面より下の余白だけをその場の図の上空きに数え、次の図の空きは足す")
+    func leadingBeforeHere() throws {
+        var figure = item(1, 5, placement: "h")
+        figure.leadingBeforeHere = 2
+        let page = try #require(pages([segment([item(0, 10), figure, item(2, 5, placement: "h")])]).first)
+        #expect(page.pieces.map(\.y) == [0, 12, 25])
+    }
+
     @Test("収まらない参照行を注と一緒に送り、段下の罫と本文の間隔を予約する")
     func notes() throws {
         let result = try pages([segment([item(0, 70), item(1, 10, notes: ["a"])])])

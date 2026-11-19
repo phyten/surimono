@@ -434,7 +434,11 @@ public final class ThemeSampler {
         // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
         // show the fallback font and be kept that way.
         if css.contains("@font-face") { try await WebPaginator.waitForResources(in: webView, timeout: timeout) }
-        if format == .latex, let script = LaTeXGraphicPreparation.script(in: html, layoutWidth: printableSize.width) {
+        if format == .latex,
+            let script = LaTeXGraphicPreparation.script(
+                in: html, layoutWidth: printableSize.width,
+                layoutHeight: theme.formats == [.latex] ? printableSize.height : nil)
+        {
             _ = try await webView.evaluateForPrinting(script, arguments: [:], world: world, until: .now + timeout)
         }
         // Optional decorations can fail normally. A timed-out script might still change the DOM after

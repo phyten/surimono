@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02195274007038713,
+    "changedAreaRatio" : 0.022464555052790346,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 24.6,
     "maxLuminance" : 170.390625,
-    "maxShiftPt" : 27.2,
+    "maxShiftPt" : 25.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -58,91 +58,91 @@
           "text" : "Innehåll",
           "width" : 51,
           "x" : 56.8,
-          "y" : 226.7
+          "y" : 233.9
         },
         {
           "height" : 11,
           "text" : "1 Märkena 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "2 Höjd 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 15.9,
           "text" : "1 Märkena",
           "width" : 78.1,
           "x" : 56.8,
-          "y" : 301.1
+          "y" : 310.7
         },
         {
           "height" : 11,
           "text" : "”Läs av det nedre märket först.”",
           "width" : 131.9,
           "x" : 81.7,
-          "y" : 326.6
+          "y" : 336.2
         },
         {
           "height" : 11,
           "text" : "Figur 1: Brädans läge",
           "width" : 88.5,
           "x" : 253.4,
-          "y" : 395.3
+          "y" : 404.9
         },
         {
           "height" : 15.9,
           "text" : "2 Höjd",
           "width" : 52.6,
           "x" : 56.8,
-          "y" : 435.4
+          "y" : 445
         },
         {
           "height" : 11,
           "text" : "Märke Höjd (mm)",
           "width" : 82.3,
           "x" : 256.5,
-          "y" : 473.6
+          "y" : 480.8
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 71.8,
           "x" : 267,
-          "y" : 486.4
+          "y" : 493.6
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 71.8,
           "x" : 267,
-          "y" : 498.4
+          "y" : 505.6
         },
         {
           "height" : 11,
           "text" : "Tabell 1: Märkenas höjd",
           "width" : 99.4,
           "x" : 247.9,
-          "y" : 520
+          "y" : 528
         },
         {
           "height" : 15.9,
           "text" : "Referenser",
           "width" : 66.6,
           "x" : 56.8,
-          "y" : 560.1
+          "y" : 567.3
         },
         {
           "height" : 11,
           "text" : "[1] Mätbok, 2025, Kapitel 2.",
           "width" : 122,
           "x" : 56.8,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,

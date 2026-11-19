@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.017540487189822134,
+    "changedAreaRatio" : 0.017491912896991493,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 27,
     "maxLuminance" : 138.1875,
-    "maxShiftPt" : 27.8,
+    "maxShiftPt" : 26.8,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 12
@@ -49,49 +49,49 @@
           "text" : "At the bench",
           "width" : 78,
           "x" : 125.4,
-          "y" : 176.9
+          "y" : 174.5
         },
         {
           "height" : 11.7,
           "text" : "Set the stop before trimming the",
           "width" : 166.9,
           "x" : 125.4,
-          "y" : 197.7
+          "y" : 196.1
         },
         {
           "height" : 11.7,
           "text" : "strips. Stack the short pieces beside",
           "width" : 166.9,
           "x" : 125.4,
-          "y" : 209.7
+          "y" : 208.1
         },
         {
           "height" : 11.7,
           "text" : "the rule.",
           "width" : 36.6,
           "x" : 125.4,
-          "y" : 221.7
+          "y" : 220.1
         },
         {
           "height" : 14.6,
           "text" : "At the rack",
           "width" : 68.4,
           "x" : 302.3,
-          "y" : 176
+          "y" : 174.4
         },
         {
           "height" : 11.7,
           "text" : "Place one strip on each shelf. Mark",
           "width" : 166.9,
           "x" : 302.3,
-          "y" : 197.5
+          "y" : 195.1
         },
         {
           "height" : 11.7,
           "text" : "its orientation before the paste dries.",
           "width" : 161,
           "x" : 302.3,
-          "y" : 209.5
+          "y" : 207.1
         },
         {
           "height" : 11.7,

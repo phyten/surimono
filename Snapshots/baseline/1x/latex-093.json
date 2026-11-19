@@ -5,53 +5,81 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
+      "firstY" : 125.8,
       "height" : 841.9,
-      "lastY" : 719.2,
-      "lineCount" : 5,
+      "lastY" : 740.4,
+      "lineCount" : 9,
       "lines" : [
         {
-          "height" : 17.5,
-          "text" : "1 Projects",
-          "width" : 81.8,
-          "x" : 125.4,
-          "y" : 150.4
+          "height" : 39.8,
+          "text" : "Model Workshop",
+          "width" : 251.6,
+          "x" : 117.8,
+          "y" : 125.8
+        },
+        {
+          "height" : 17.2,
+          "text" : "Fictional project profile",
+          "width" : 177,
+          "x" : 117.8,
+          "y" : 161.9
+        },
+        {
+          "height" : 12.8,
+          "text" : "Measurement",
+          "width" : 64,
+          "x" : 117.8,
+          "y" : 294.5
+        },
+        {
+          "height" : 16.9,
+          "text" : "Projects",
+          "width" : 50.9,
+          "x" : 189.6,
+          "y" : 198.6
+        },
+        {
+          "height" : 13.6,
+          "text" : "2025 Rail spacer, Fixture desk",
+          "width" : 156.4,
+          "x" : 158.8,
+          "y" : 224.9
         },
         {
           "height" : 11.7,
-          "text" : "2025Rail spacerFixture deskDesigned a reversible two-height rail stop.",
-          "width" : 307.2,
-          "x" : 125.4,
-          "y" : 177.5
+          "text" : "Designed a reversible two-height rail stop.",
+          "width" : 184.6,
+          "x" : 189.6,
+          "y" : 240.2
         },
         {
-          "height" : 17.5,
-          "text" : "2 Methods",
-          "width" : 85.3,
-          "x" : 125.4,
-          "y" : 204
+          "height" : 16.9,
+          "text" : "Methods",
+          "width" : 53.9,
+          "x" : 189.6,
+          "y" : 269
         },
         {
-          "height" : 11.7,
-          "text" : "MeasurementRule, straightedge and repeat readings.",
-          "width" : 229.9,
-          "x" : 125.4,
-          "y" : 231.1
+          "height" : 12.8,
+          "text" : "Rule, straightedge and repeat readings.",
+          "width" : 187.7,
+          "x" : 189.6,
+          "y" : 294.5
         },
         {
-          "height" : 11.7,
+          "height" : 12.8,
           "text" : "1",
-          "width" : 5,
-          "x" : 294.8,
-          "y" : 719.2
+          "width" : 5.5,
+          "x" : 294.4,
+          "y" : 740.4
         }
       ],
-      "textHeight" : 580.4,
-      "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 307.2,
+      "textHeight" : 627.4,
+      "textLeft" : 117.8,
+      "textTop" : 125.8,
+      "textWidth" : 259.4,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "2b0c75c8da7b06d8f7771f85aed8c9a37e5b9e03cafca372b71b254f5c561701"
+  "textSHA256" : "0449c861493c1f440496d17aa53501f1b7bb214d1e82051d8a041e33eae8266d"
 }

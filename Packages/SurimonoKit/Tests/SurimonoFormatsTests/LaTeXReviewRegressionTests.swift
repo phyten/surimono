@@ -110,7 +110,7 @@ struct LaTeXReviewRegressionTests {
         #expect(!html.contains("コメント"))
     }
 
-    @Test("幅を持つ表環境は幅と位置を捨てて列の揃えを読む", arguments: ["tabular*", "tabularx", "tabulary"])
+    @Test("伸縮列のない表は位置指定を本文に出さず自然幅の列を揃える", arguments: ["tabular*", "tabularx", "tabulary"])
     func tablesWithWidth(environment: String) {
         let html = body("\\begin{\(environment)}{\\textwidth}[t]{lcr}左 & 中 & 右\\end{\(environment)}")
         #expect(

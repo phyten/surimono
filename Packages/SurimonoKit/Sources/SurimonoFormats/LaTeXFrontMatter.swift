@@ -64,18 +64,23 @@ final class LaTeXFrontMatter {
             classifications.isEmpty
             ? "" : "<p class=\"latex-front-classifications\">\(classifications.joined(separator: "; "))</p>\n"
         let separator = document.classInfo.name == "llncs" ? " · " : ", "
+        let keywordGap = keywordLabel(document).hasSuffix("—") ? "" : " "
         let keywordLine =
             keywords.isEmpty
             ? ""
-            : "<p class=\"latex-front-keywords\"><strong>\(keywordLabel(document))</strong> \(keywords.joined(separator: separator))</p>\n"
+            : "<p class=\"latex-front-keywords\"><strong>\(keywordLabel(document))</strong>\(keywordGap)\(keywords.joined(separator: separator))</p>\n"
         let details = classification + keywordLine
         // amsbook prints the classification and keywords on the verso with the abstract.
         let verso = document.classInfo.name == "amsbook" && !details.isEmpty && !abstract.isEmpty
         let abstractPage =
             verso ? "<div class=\"latex-amsbook-verso\">\n" + details + abstract + "</div>\n" : abstract
+        let endOfTitle = abstractPage + (verso ? "" : details)
+        let spansColumns = document.classInfo.columns > 1 && document.classInfo.journalStyle?.hasWideAbstract == true
+        let printedDetails =
+            spansColumns && !endOfTitle.isEmpty ? "<div data-latex-wide>\n" + endOfTitle + "</div>\n" : endOfTitle
         return html.replacingOccurrences(of: document.placeholder("F", 0), with: printed ? "" : abstractPage)
             .replacingOccurrences(of: document.placeholder("F", 1), with: printed || verso ? "" : details)
-            .replacingOccurrences(of: document.placeholder("F", 2), with: abstractPage + (verso ? "" : details))
+            .replacingOccurrences(of: document.placeholder("F", 2), with: printedDetails)
     }
 
     private func keywordLabel(_ document: LaTeXDocument) -> String {
@@ -105,8 +110,8 @@ final class LaTeXFrontMatter {
 }
 
 extension LaTeXDocumentClassInfo {
-    /// Journal templates often provide fallbacks for classes without their metadata commands.
-    func definesFrontCommand(_ command: String) -> Bool {
+    /// Shared templates often supply a fallback only when the document class lacks its own command.
+    func definesClassCommand(_ command: String) -> Bool {
         switch name {
         case "amsart", "amsbook": return ["address", "email", "keywords", "subjclass"].contains(command)
         case "IEEEtran":
@@ -127,8 +132,26 @@ extension LaTeXDocumentClassInfo {
                 "affiliation", "address", "ead", "corref", "cortext", "fnref", "fntext", "tnoteref", "tnotetext", "sep",
             ].contains(command)
         case "scrartcl", "scrreprt", "scrbook":
-            return ["subtitle", "publishers", "addsec", "addchap"].contains(command)
-        case "memoir": return command == "epigraph"
+            return ["subtitle", "publishers", "addsec", "addchap", "setkomafont", "addtokomafont"].contains(command)
+        case "memoir": return ["epigraph", "chapterstyle"].contains(command)
+        case "exam":
+            return [
+                "questions", "parts", "subparts", "choices", "oneparchoices", "checkboxes",
+                "solution", "solutionorbox", "solutionorlines", "solutionordottedlines",
+                "addpoints", "printanswers", "noprintanswers", "numquestions", "numpoints", "gradetable",
+                "pointtable", "fillin", "makeemptybox", "fillwithlines", "fillwithdottedlines",
+                "linefillheight", "dottedlinefillheight", "linefillthickness",
+                "header", "footer", "firstpageheader", "firstpagefooter", "runningheader", "runningfooter",
+            ].contains(command)
+        case "letter":
+            return ["letter", "name", "address", "signature", "opening", "closing", "ps", "cc", "encl"]
+                .contains(command)
+        case "moderncv":
+            return [
+                "moderncvstyle", "moderncvcolor", "name", "address", "phone", "social", "email", "homepage",
+                "extrainfo", "photo", "makecvtitle", "cventry", "cvitem", "cvitemwithcomment", "cvdoubleitem",
+                "cvlistitem", "cvlistdoubleitem",
+            ].contains(command)
         default:
             return name.hasPrefix("revtex") && ["affiliation", "altaffiliation", "email", "keywords"].contains(command)
         }
@@ -328,8 +351,11 @@ extension LaTeXReader {
             let previous = front.readingAbstract
             front.readingAbstract = true
             let heading = captionName("abstractname")
+            let disposition = frontDispositionAttribute
+            let content = blocks(body)
             let html =
-                "<div class=\"abstract latex-front-abstract\">\n<p class=\"abstract-title\">\(heading)</p>\n\(blocks(body))</div>\n"
+                document.classInfo.journalStyle?.abstract(heading: heading, body: content)
+                ?? "<div class=\"abstract latex-front-abstract\"\(disposition)>\n<p class=\"abstract-title\">\(heading)</p>\n\(content)</div>\n"
             front.readingAbstract = previous
             if front.abstractHTML == nil
                 && (inPreamble || front.insideEnvironment || document.classInfo.journalFrontMatter
@@ -359,6 +385,11 @@ extension LaTeXReader {
         }
     }
 
+    private var frontDispositionAttribute: String {
+        let info = document.classInfo
+        return info.isKOMA ? info.bookStyle.fontAttribute(elements: ["disposition"], size: info.pointSize) : ""
+    }
+
     func makeTitle() {
         let front = document.frontMatter
         guard !front.printed || document.insideBeamerFrame, !document.makingTitle else { return }
@@ -369,7 +400,7 @@ extension LaTeXReader {
             document.classInfo.hidesTitlePageNumber
             ? " data-latex-page-action=\"thispagestyle\" data-value=\"empty\"" : ""
         let span = document.classInfo.columns > 1 ? " data-latex-wide" : ""
-        var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)>\n"
+        var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)\(frontDispositionAttribute)>\n"
         if let title = front.title {
             let titleHTML = inline(title)
             document.titleHTML = titleHTML
@@ -416,7 +447,10 @@ extension LaTeXReader {
         if !["amsbook", "IEEEtran", "llncs", "acmart", "elsarticle"].contains(document.classInfo.name) {
             let date = front.date ?? (document.classInfo.journalFrontMatter ? "" : "\\today")
             let dateHTML = inline(date)
-            if !dateHTML.isEmpty { html += "<p class=\"latex-date latex-front-date\">\(dateHTML)</p>\n" }
+            if !dateHTML.isEmpty {
+                let printed = document.classInfo.journalStyle?.isAPS == true ? "(Dated: \(dateHTML))" : dateHTML
+                html += "<p class=\"latex-date latex-front-date\">\(printed)</p>\n"
+            }
         }
         if let publishers = front.publishers {
             html += "<p class=\"latex-front-publishers\">\(inline(publishers))</p>\n"

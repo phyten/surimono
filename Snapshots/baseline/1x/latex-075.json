@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.018386123680241326,
+    "changedAreaRatio" : 0.01885570638511815,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 115.515625,
-    "maxShiftPt" : 27.5,
+    "maxShiftPt" : 26.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -35,56 +35,56 @@
           "text" : "8",
           "width" : 5,
           "x" : 141.9,
-          "y" : 203.3
+          "y" : 200.9
         },
         {
           "height" : 11.7,
           "text" : "6",
           "width" : 5,
           "x" : 141.9,
-          "y" : 235.9
+          "y" : 233.5
         },
         {
           "height" : 27.1,
           "text" : "Count",
           "width" : 11.7,
           "x" : 126,
-          "y" : 245.2
+          "y" : 242.8
         },
         {
           "height" : 11.7,
           "text" : "4",
           "width" : 5,
           "x" : 141.9,
-          "y" : 268.5
+          "y" : 266.1
         },
         {
           "height" : 11.7,
           "text" : "2",
           "width" : 5,
           "x" : 141.9,
-          "y" : 301.1
+          "y" : 298.7
         },
         {
           "height" : 11.7,
           "text" : "0",
           "width" : 5,
           "x" : 141.9,
-          "y" : 333.7
+          "y" : 331.3
         },
         {
           "height" : 11.7,
           "text" : "1 2 3",
           "width" : 166.9,
           "x" : 164,
-          "y" : 340.4
+          "y" : 338
         },
         {
           "height" : 11.7,
           "text" : "Sieve",
           "width" : 22.4,
           "x" : 236.3,
-          "y" : 354
+          "y" : 351.6
         },
         {
           "height" : 11.7,

@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02608044243338361,
+    "changedAreaRatio" : 0.02628456510809452,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 24.6,
-    "maxLuminance" : 160.859375,
-    "maxShiftPt" : 27.2,
+    "maxLuminance" : 185.59375,
+    "maxShiftPt" : 25.4,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -58,91 +58,91 @@
           "text" : "Inhaltsverzeichnis",
           "width" : 111.6,
           "x" : 56.8,
-          "y" : 226.7
+          "y" : 233.9
         },
         {
           "height" : 11,
           "text" : "1 Die Marken 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 250.6
+          "y" : 261
         },
         {
           "height" : 11,
           "text" : "2 Höhe 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 273
+          "y" : 282.6
         },
         {
           "height" : 15.9,
           "text" : "1 Die Marken",
           "width" : 96,
           "x" : 56.8,
-          "y" : 301.1
+          "y" : 310.7
         },
         {
           "height" : 11,
           "text" : "„Zuerst die untere Marke ablesen.“",
           "width" : 143,
           "x" : 81.7,
-          "y" : 326.6
+          "y" : 336.2
         },
         {
           "height" : 11,
           "text" : "Abbildung 1: Lage des Brettes",
           "width" : 125,
           "x" : 235.1,
-          "y" : 395.3
+          "y" : 404.9
         },
         {
           "height" : 15.9,
           "text" : "2 Höhe",
           "width" : 54.2,
           "x" : 56.8,
-          "y" : 435.4
+          "y" : 445
         },
         {
           "height" : 11,
           "text" : "Marke Höhe (mm)",
           "width" : 84,
           "x" : 255.6,
-          "y" : 473.6
+          "y" : 480.8
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 73.5,
           "x" : 266.2,
-          "y" : 486.4
+          "y" : 493.6
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 73.5,
           "x" : 266.2,
-          "y" : 498.4
+          "y" : 505.6
         },
         {
           "height" : 11,
           "text" : "Tabelle 1: Höhe der Marken",
           "width" : 115.5,
           "x" : 239.9,
-          "y" : 520
+          "y" : 528
         },
         {
           "height" : 15.9,
           "text" : "Literatur",
           "width" : 57.4,
           "x" : 56.8,
-          "y" : 560.1
+          "y" : 567.3
         },
         {
           "height" : 11,
           "text" : "[1] Werkstattheft, 2025, Kapitel 2.",
           "width" : 143.8,
           "x" : 56.8,
-          "y" : 586.4
+          "y" : 593.6
         },
         {
           "height" : 11,

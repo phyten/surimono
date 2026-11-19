@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02277526395173454,
+    "changedAreaRatio" : 0.022753142282554047,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.3,
-    "maxLuminance" : 153.921875,
-    "maxShiftPt" : 27.1,
+    "maxLuminance" : 179.453125,
+    "maxShiftPt" : 26.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 2
@@ -59,91 +59,91 @@
           "text" : "目录",
           "width" : 28.7,
           "x" : 56.8,
-          "y" : 224.2
+          "y" : 232.2
         },
         {
           "height" : 13.9,
           "text" : "1 刻线 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 249.7
+          "y" : 260.9
         },
         {
           "height" : 13.9,
           "text" : "2 高度 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 272.1
+          "y" : 282.5
         },
         {
           "height" : 20.1,
           "text" : "1 刻线",
           "width" : 49.8,
           "x" : 56.8,
-          "y" : 298.6
+          "y" : 309
         },
         {
           "height" : 13.9,
           "text" : "“先读下面的刻线。”",
           "width" : 87.7,
           "x" : 81.7,
-          "y" : 325.7
+          "y" : 336.9
         },
         {
           "height" : 13.9,
           "text" : "图 1: 木板位置",
           "width" : 61.6,
           "x" : 266.8,
-          "y" : 393.6
+          "y" : 404.8
         },
         {
           "height" : 20.1,
           "text" : "2 高度",
           "width" : 49.8,
           "x" : 56.8,
-          "y" : 432.1
+          "y" : 443.3
         },
         {
           "height" : 13.9,
           "text" : "刻线 高度 (mm)",
           "width" : 74.8,
           "x" : 260.3,
-          "y" : 471.9
+          "y" : 480.7
         },
         {
           "height" : 13.9,
           "text" : "1 12",
           "width" : 67.1,
           "x" : 267.9,
-          "y" : 484.7
+          "y" : 493.5
         },
         {
           "height" : 13.9,
           "text" : "2 18",
           "width" : 67.1,
           "x" : 267.9,
-          "y" : 496.7
+          "y" : 505.5
         },
         {
           "height" : 13.9,
           "text" : "表 1: 刻线高度",
           "width" : 61.6,
           "x" : 266.8,
-          "y" : 518.3
+          "y" : 527.1
         },
         {
           "height" : 20.1,
           "text" : "参考文献",
           "width" : 57.4,
           "x" : 56.8,
-          "y" : 556.8
+          "y" : 565.6
         },
         {
           "height" : 13.9,
           "text" : "[1] 测量 手 册 , 2025, 第2章.",
           "width" : 114.6,
           "x" : 56.8,
-          "y" : 584.7
+          "y" : 593.5
         },
         {
           "height" : 13.9,

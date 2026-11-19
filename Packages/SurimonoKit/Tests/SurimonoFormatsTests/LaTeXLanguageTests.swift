@@ -176,7 +176,8 @@ struct LaTeXLanguageTests {
             """#)
         #expect(fragment.language == "ar")
         #expect(
-            fragment.body.contains(#"<td style="text-align: start">العلامة</td><td style="text-align: end">12</td>"#))
+            fragment.body.contains(
+                #"<td dir="rtl" style="text-align: start">العلامة</td><td dir="rtl" style="text-align: end">12</td>"#))
         #expect(fragment.body.contains(#"style="text-align: end" colspan="2">18</td>"#))
     }
 

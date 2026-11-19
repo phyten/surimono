@@ -21,7 +21,7 @@ const noteBodies = new Map([...body.querySelectorAll('section.footnotes > ol > l
 const seenNotes = new Set();
 const strips = [], segments = [], pendingMeasurements = [];
 const excluded = 'style,script,template,noscript';
-const atomic = '[data-flow-ink-block],figure:not(.latex-longtable):not(.latex-listing),table:not(.latex-longtable),tr,.math-block,.tikz-block,.latex-graphic-box,img,svg,canvas,hr,input,.latex-vspace,.latex-rule,.latex-title-block';
+const atomic = '[data-flow-ink-block],figure:not(.latex-longtable):not(.latex-listing),table:not(.latex-longtable),tr,.math-block,.tikz-block,.latex-graphic-box,img,svg,canvas,hr,input,.latex-vspace,.latex-exam-space,.latex-rule,.latex-title-block';
 const heading = 'h1,h2,h3,h4,h5,h6';
 const boundary = '[data-latex-chapter-opening],[data-flow-ink-block],[data-latex-columns],[data-latex-spacing],[data-latex-wide],[data-latex-break],[data-latex-float],.latex-title-block,.latex-titlepage';
 body.style.cssText += ';margin:0!important;padding:0!important;max-width:none!important;width:auto!important';
@@ -195,6 +195,24 @@ for (const el of body.querySelectorAll('img,svg,table,.latex-graphic-box')) {
     if (natural > available + 0.5) fits.push([el, available / natural * (parseFloat(getComputedStyle(el).zoom) || 1)]);
 }
 for (const [el, scale] of fits) el.style.zoom = scale;
+// WebKit positions the next baseline on a layout pixel even when the skip is fractional.
+// Keep integral glue in the strip and place the remainder between vector captures.
+const glueRemainders = new WeakMap(), spacers = [];
+for (const segment of segments) for (const item of segment.items) {
+    if (!item.run) continue;
+    for (const el of item.run.querySelectorAll('.latex-vspace')) {
+        if (el.parentElement.closest(atomic)) continue;
+        const height = parseFloat(getComputedStyle(el).height);
+        // A visible measurement band needs at least one pixel, including for a subpixel skip.
+        const whole = Math.max(1, Math.floor(height * zoom));
+        const remainder = height * zoom - whole;
+        if (height > 0 && Math.abs(remainder) > 0.001) spacers.push([el, whole, remainder]);
+    }
+}
+for (const [el, whole, remainder] of spacers) {
+    el.style.height = whole / zoom + 'px';
+    glueRemainders.set(el, remainder);
+}
 // Diagram links were installed before the reader knew each float's final measure.
 for (const anchor of body.querySelectorAll('.surimono-diagram-anchor')) {
     const svg = anchor.parentElement.querySelector('svg');
@@ -230,7 +248,7 @@ function lines(box) {
         if (para && !paragraphs.has(para)) paragraphs.set(para, paragraphs.size + 1);
         bands.push({start:Math.max(0,(rect.top + scrollY)*unit-origin),
             end:(rect.bottom + scrollY)*unit-origin, para:paragraphs.get(para) || 0,
-            element:el, discard:el.matches('.latex-vspace:not([data-latex-keep-space])'), heading:!!el.closest(heading), ids});
+            element:el, extra:glueRemainders.get(el) || 0, discard:el.matches('.latex-vspace:not([data-latex-keep-space])'), heading:!!el.closest(heading), ids});
     }
     const walker = document.createTreeWalker(box, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(n) {
@@ -254,7 +272,7 @@ function lines(box) {
     for (const b of bands.sort((a,b) => a.start - b.start)) {
         const last = rows.at(-1);
         if (last && b.start < last.end - 0.1) {
-            last.end = Math.max(last.end,b.end); last.heading ||= b.heading; last.discard &&= b.discard;
+            last.end = Math.max(last.end,b.end); last.extra += b.extra; last.heading ||= b.heading; last.discard &&= b.discard;
             if (!last.para) last.para = b.para;
             for (const id of b.ids) last.ids.add(id);
         } else rows.push({...b, ids:new Set(b.ids)});
@@ -275,11 +293,51 @@ function lines(box) {
     rows[0].start = Math.max(0, Math.min(rows[0].start, (first.getBoundingClientRect().top + scrollY)*unit-origin));
     rows.at(-1).end = Math.max(rows.at(-1).end, whole(box).end);
     return rows.map((r,i) => ({slice:slice(box,r.start,r.end), notes:[...r.ids], wide:false,
-        gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, discardable:r.discard, paragraph:r.para, heading:r.heading}));
+        gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, discardable:r.discard, extraAfter:r.extra, paragraph:r.para, heading:r.heading}));
 }
+// A TeX paragraph ends at the deepest glyph on its final line. Its HTML line box includes
+// extra leading beneath that ink. Count that existing space towards intextsep when a figure
+// actually lands here; deferred floats and consecutive floats retain their own full skips.
+let inkContext;
+function trailingLeading(box, last) {
+    const p = box.lastElementChild, text = p?.firstChild;
+    if (!last || !p?.matches('p') || p.childNodes.length !== 1 || text?.nodeType !== Node.TEXT_NODE
+        || !text.length || text.length > 32768) return 0;
+    const css = getComputedStyle(p);
+    if (css.writingMode !== 'horizontal-tb' || css.direction !== 'ltr' || css.textTransform !== 'none') return 0;
+    inkContext ??= document.createElement('canvas').getContext('2d');
+    if (!inkContext) return 0;
+    const end = text.data.trimEnd().length;
+    if (!end) return 0;
+    range.setStart(text,end-1); range.setEnd(text,end);
+    const finalY = range.getBoundingClientRect().top;
+    let lo = 0, hi = end-1;
+    while (lo < hi) {
+        const mid = (lo+hi) >>> 1;
+        range.setStart(text,mid); range.setEnd(text,mid+1);
+        if (range.getBoundingClientRect().top < finalY-0.25) lo = mid+1; else hi = mid;
+    }
+    inkContext.font = css.fontStyle+' '+css.fontWeight+' '+css.fontSize+' '+css.fontFamily;
+    const depth = inkContext.measureText(text.data.slice(lo,end)).actualBoundingBoxDescent * zoom;
+    if (!Number.isFinite(depth)) return 0;
+    const baseline = document.createElement('i');
+    baseline.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;margin:0;padding:0;border:0';
+    p.append(baseline);
+    const y = (baseline.getBoundingClientRect().bottom+scrollY)*unit - origins[last.strip].y;
+    baseline.remove();
+    return Math.max(0, Math.min(inTextSep, last.end-y-Math.max(0,depth)));
+}
+const bookFloats = ['memoir','scrartcl','scrreprt','scrbook'].includes(body.dataset.latexClass);
 for (const seg of segments) {
-    seg.items = seg.items.flatMap(item => {
-        if (item.run) return lines(item.run);
+    seg.items = seg.items.flatMap((item, i) => {
+        if (item.run) {
+            const rows = lines(item.run), next = seg.items[i+1];
+            if (next?.floatKind === 'figure' && /[hH]/.test(next.placement)
+                && (bookFloats || next.box.querySelector('figure > p:first-child[data-latex-rule-line]'))) {
+                next.leadingBeforeHere = trailingLeading(item.run, rows.at(-1)?.slice);
+            }
+            return rows;
+        }
         if (item.box) { item.slice = whole(item.box); delete item.box; }
         return [item];
     });

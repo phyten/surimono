@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.04333136969170826,
+    "changedAreaRatio" : 0.0435649396955322,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 25.6,
-    "maxLuminance" : 145.765625,
-    "maxShiftPt" : 37.5,
+    "maxLuminance" : 153.640625,
+    "maxShiftPt" : 35.9,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 25
@@ -35,140 +35,140 @@
           "text" : "A packing strip lifts the outer rail by one division. The fixture follows the",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 177.5
+          "y" : 175.1
         },
         {
           "height" : 11.7,
           "text" : "bench drawing [6] and the scale study [5]. The hinge has its own assembly",
           "width" : 343.7,
           "x" : 125.4,
-          "y" : 189.5
+          "y" : 187.1
         },
         {
           "height" : 11.7,
           "text" : "card [4].",
           "width" : 35.5,
           "x" : 125.4,
-          "y" : 201.5
+          "y" : 199.1
         },
         {
           "height" : 17.5,
           "text" : "References",
           "width" : 77.5,
           "x" : 125.4,
-          "y" : 228
+          "y" : 226.4
         },
         {
           "height" : 11.7,
           "text" : "[1]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 255.1
+          "y" : 252.7
         },
         {
           "height" : 11.7,
           "text" : "[2]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 270.3
+          "y" : 267.9
         },
         {
           "height" : 11.7,
           "text" : "[3]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 297.5
+          "y" : 295.9
         },
         {
           "height" : 11.7,
           "text" : "[4]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 312.7
+          "y" : 311.1
         },
         {
           "height" : 11.7,
           "text" : "[5]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 340.7
+          "y" : 339.1
         },
         {
           "height" : 11.7,
           "text" : "[6]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 368.7
+          "y" : 366.3
         },
         {
           "height" : 11.7,
           "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
           "width" : 303.5,
           "x" : 141,
-          "y" : 255.1
+          "y" : 252.7
         },
         {
           "height" : 11.7,
           "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
           "width" : 328.2,
           "x" : 141,
-          "y" : 270.3
+          "y" : 267.9
         },
         {
           "height" : 11.7,
           "text" : "pages 8–12. Model Quay Press, 2017.",
           "width" : 162,
           "x" : 141,
-          "y" : 283.1
+          "y" : 280.7
         },
         {
           "height" : 11.7,
           "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
           "width" : 185.2,
           "x" : 141,
-          "y" : 297.5
+          "y" : 295.9
         },
         {
           "height" : 11.7,
           "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
           "width" : 328.2,
           "x" : 141,
-          "y" : 312.7
+          "y" : 311.1
         },
         {
           "height" : 11.7,
           "text" : "Forum, pages 21–24, 2018.",
           "width" : 116.3,
           "x" : 141,
-          "y" : 325.5
+          "y" : 323.9
         },
         {
           "height" : 11.7,
           "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
           "width" : 328.2,
           "x" : 141,
-          "y" : 340.7
+          "y" : 339.1
         },
         {
           "height" : 11.7,
           "text" : "tember 2019.",
           "width" : 56.5,
           "x" : 141,
-          "y" : 353.5
+          "y" : 351.9
         },
         {
           "height" : 11.7,
           "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
           "width" : 328.2,
           "x" : 141,
-          "y" : 368.7
+          "y" : 366.3
         },
         {
           "height" : 11.7,
           "text" : "Quay Laboratory, 2020.",
           "width" : 104.3,
           "x" : 141,
-          "y" : 380.7
+          "y" : 378.3
         },
         {
           "height" : 11.7,

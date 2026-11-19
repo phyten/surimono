@@ -1,16 +1,16 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.011603821015585722,
+    "changedAreaRatio" : 0.009857031857031857,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
-    "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 339.1,
-    "maxLuminance" : 141,
-    "maxShiftPt" : 339.2,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 364,
+    "maxLuminance" : 152.875,
+    "maxShiftPt" : 364.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 3
+    "textEdits" : 0
   },
   "fonts" : [
     "Helvetica"
@@ -18,46 +18,39 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 150.4,
-      "height" : 841.9,
-      "lastY" : 719.2,
-      "lineCount" : 4,
+      "firstY" : 125.5,
+      "height" : 595.3,
+      "lastY" : 490,
+      "lineCount" : 3,
       "lines" : [
         {
           "height" : 17.5,
           "text" : "Panoramic clearance strip",
-          "width" : 185.9,
-          "x" : 125.4,
-          "y" : 150.4
+          "width" : 185.8,
+          "x" : 143.6,
+          "y" : 125.5
         },
         {
           "height" : 11.7,
-          "text" : "Align the following edge with the shelf lip. The end marks identify the usable",
-          "width" : 343.7,
-          "x" : 125.4,
-          "y" : 177.5
-        },
-        {
-          "height" : 11.7,
-          "text" : "span.",
-          "width" : 22.8,
-          "x" : 125.4,
-          "y" : 189.5
+          "text" : "Align the following edge with the shelf lip. The end marks identify the usable span.",
+          "width" : 365,
+          "x" : 143.6,
+          "y" : 150.2
         },
         {
           "height" : 11.7,
           "text" : "1",
           "width" : 5,
-          "x" : 294.8,
-          "y" : 719.2
+          "x" : 415.1,
+          "y" : 490
         }
       ],
-      "textHeight" : 580.4,
-      "textLeft" : 125.4,
-      "textTop" : 150.4,
-      "textWidth" : 343.7,
-      "width" : 595.3
+      "textHeight" : 376.2,
+      "textLeft" : 143.6,
+      "textTop" : 125.5,
+      "textWidth" : 365,
+      "width" : 841.9
     }
   ],
-  "textSHA256" : "1df12db88f819067fe6793bcc6d39e6023e55f848a38ac1646c1c31969b542ea"
+  "textSHA256" : "3ab75c033ebc7b6e2d32ab75f55b46967b311d463243f586dda8eaf388359741"
 }
