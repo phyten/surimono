@@ -1,0 +1,98 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.009516427412437085,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 142.140625,
+    "maxShiftPt" : 32,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "A register of drying positions",
+          "width" : 208,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 12.1,
+          "text" : "Slot 1",
+          "width" : 28.8,
+          "x" : 125.4,
+          "y" : 177.8
+        },
+        {
+          "height" : 12.1,
+          "text" : "Slot 2",
+          "width" : 28.8,
+          "x" : 140.4,
+          "y" : 190.6
+        },
+        {
+          "height" : 12.1,
+          "text" : "Slot 3",
+          "width" : 28.8,
+          "x" : 140.4,
+          "y" : 203.4
+        },
+        {
+          "height" : 12.1,
+          "text" : "Slot 4",
+          "width" : 28.8,
+          "x" : 140.4,
+          "y" : 216.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "North shelf",
+          "width" : 48.8,
+          "x" : 140.4,
+          "y" : 234.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Middle shelf",
+          "width" : 53.2,
+          "x" : 140.4,
+          "y" : 246.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "South shelf",
+          "width" : 48.5,
+          "x" : 140.4,
+          "y" : 258.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 208,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "a3f4a30df8e36776a261a209466a2b4d6b3fb02b7f98a6f5d2eb0f087190818a"
+}

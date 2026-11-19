@@ -46,7 +46,11 @@ struct SurimonoApp: App {
         DocumentGroup(viewing: SurimonoDocument.self) { configuration in
             DocumentViewer(
                 document: configuration.document, fileURL: configuration.fileURL,
-                preferences: preferences, library: library, settingsStore: settingsStore)
+                preferences: preferences, library: library, settingsStore: settingsStore
+            )
+            #if DEBUG
+                .snapshotControlAppearance()
+            #endif
         }
         // The paper fills the window; the traffic lights appear with the overlay menu.
         .windowStyle(.hiddenTitleBar)
@@ -56,6 +60,9 @@ struct SurimonoApp: App {
         }
         Settings {
             SettingsView(preferences: preferences, library: library, arrangementEditor: arrangementEditor)
+                #if DEBUG
+                    .snapshotControlAppearance()
+                #endif
         }
     }
 }

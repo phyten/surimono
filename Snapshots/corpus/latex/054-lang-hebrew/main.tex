@@ -1,0 +1,15 @@
+% !TEX program = lualatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage[bidi=basic]{babel}\babelprovide[import,main]{hebrew}
+\babelfont{rm}{Times New Roman}
+\begin{document}
+\title{לוח המדידה}\author{}\date{14 במאי 2026}\maketitle
+\begin{abstract}שני סימנים מציינים את מקומו הראשון של הלוח.\end{abstract}
+\tableofcontents
+\section{הסימנים}\begin{quote}״קראו תחילה את הסימן התחתון.״\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{מיקום הלוח}\end{figure}
+\section{גובה}
+\begin{table}[ht]\centering\begin{tabular}{cr}סימן&גובה (mm)\\\hline 1&12\\2&18\end{tabular}\caption{גובה הסימנים}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{מחברת המדידות}, 2025, \chaptername~2.\end{thebibliography}
+\end{document}

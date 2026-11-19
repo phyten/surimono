@@ -1,0 +1,98 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.014358354261619074,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 177.34375,
+    "maxShiftPt" : 29.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 2
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Two reservoir readings",
+          "width" : 164.1,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 17.5,
+          "text" : "1 Averaging",
+          "width" : 96.4,
+          "x" : 125.4,
+          "y" : 176.8
+        },
+        {
+          "height" : 12,
+          "text" : "For the pair S= (2, 6) the mean level and spread are",
+          "width" : 232.8,
+          "x" : 125.4,
+          "y" : 203.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "mean(S) = (2 + 6)/2 = 4,",
+          "width" : 111.8,
+          "x" : 223.3,
+          "y" : 224.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "d(S) = max(S)− min(S) = 4.",
+          "width" : 130.1,
+          "x" : 241.3,
+          "y" : 239.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "Equation (1.1) places the mark halfway between the gauges.",
+          "width" : 263.8,
+          "x" : 125.4,
+          "y" : 264.7
+        },
+        {
+          "height" : 10.6,
+          "text" : "(1.1)",
+          "width" : 18.6,
+          "x" : 450.5,
+          "y" : 225.4
+        },
+        {
+          "height" : 10.6,
+          "text" : "(R)",
+          "width" : 13.7,
+          "x" : 455.4,
+          "y" : 240.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "2367ff922e31df2711c161202b60b9921b39a7743609ada45a09ae132b85cd2c"
+}

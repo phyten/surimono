@@ -1,0 +1,77 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.008983408748114631,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 145.984375,
+    "maxShiftPt" : 31.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Survey of a corner brace",
+          "width" : 173.9,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "C",
+          "width" : 7.2,
+          "x" : 322.5,
+          "y" : 190.9
+        },
+        {
+          "height" : 9.3,
+          "text" : "α",
+          "width" : 6.4,
+          "x" : 252.5,
+          "y" : 250.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "A B",
+          "width" : 120.6,
+          "x" : 237.3,
+          "y" : 261.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: The dashed circle marks clearance around the upper pin.",
+          "width" : 291,
+          "x" : 151.8,
+          "y" : 283.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 317.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "1c986c5be1dbc44609eb025d56c6637fa2a72344bb519a99c2492b29fcaa25fb"
+}

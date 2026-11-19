@@ -1,0 +1,70 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.011382604323780795,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 140.3125,
+    "maxShiftPt" : 31.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 8
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Neighbouring rack cells",
+          "width" : 168.1,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "A1 A2 A3",
+          "width" : 132.3,
+          "x" : 231.2,
+          "y" : 197.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "B1 B2 B3",
+          "width" : 131.9,
+          "x" : 231.4,
+          "y" : 225.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: Move down one row while keeping the column fixed.",
+          "width" : 272,
+          "x" : 161.3,
+          "y" : 253.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 307.8,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e8b07854992572bca6f22944e27cf3607aa605c3d65ceac0c629cf5b055b5c4a"
+}

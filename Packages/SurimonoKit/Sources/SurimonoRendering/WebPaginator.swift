@@ -900,6 +900,19 @@ private final class PaginationSession {
         let completion = PrintCompletion { [self] in printDidFinish() }
         printCompletion = completion
         isPrinting = true
+        #if DEBUG
+            // Observe the hidden print window itself; the visible document can be on another display.
+            if let state = ProcessInfo.processInfo.environment["SURIMONO_SNAPSHOT_STATE"],
+                ProcessInfo.processInfo.arguments.contains("-SurimonoExportPath"), let screen = window.screen,
+                let display = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+            {
+                let url = URL(fileURLWithPath: state).deletingLastPathComponent().appendingPathComponent(
+                    "layout-screen.json")
+                let metadata: [String: Any] = ["displayID": display, "backingScale": screen.backingScaleFactor]
+                try? JSONSerialization.data(withJSONObject: metadata, options: .sortedKeys).write(
+                    to: url, options: .atomic)
+            }
+        #endif
         onPrintStart()
         operation.runModal(
             for: window, delegate: completion,

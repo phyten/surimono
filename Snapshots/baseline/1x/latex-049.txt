@@ -1,0 +1,19 @@
+Měřicí deska
+14. května 2026
+Abstrakt
+Dvě značky ukazují počáteční polohu desky.
+Obsah
+1 Značky 1
+2 Výška 1
+1 Značky
+„Nejprve odečtěte dolní značku.“
+Obrázek 1: Poloha desky
+2 Výška
+Značka Výška (mm)
+1 12
+2 18
+Tabulka 1: Výška značek
+Reference
+[1]
+Zápisník měření, 2025, Kapitola 2.
+1

@@ -1,0 +1,9 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{pgfplots}\pgfplotsset{compat=1.18}
+\begin{document}
+\section*{Wear on paired strips}
+\begin{tikzpicture}\begin{axis}[xlabel={Pass},ylabel={Wear},legend pos=north west]
+\addplot[only marks] coordinates {(1,.4)(2,.9)(3,1.4)(4,2.1)};\addlegendentry{Readings}\addplot[domain=1:4] {.5*x};\addlegendentry{Guide}
+\end{axis}\end{tikzpicture}
+\end{document}

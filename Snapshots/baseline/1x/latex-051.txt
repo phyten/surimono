@@ -1,0 +1,19 @@
+Ölçüm tahtası
+14 Mayıs 2026
+Özet
+İki işaret tahtanın ilk konumunu gösterir.
+İçindekiler
+1 İşaretler 1
+2 Yükseklik 1
+1 İşaretler
+“Önce alt işareti okuyun.”
+Şekil 1: Tahtanın konumu
+2 Yükseklik
+İşaret Yükseklik (mm)
+1 12
+2 18
+Tablo 1: İşaretlerin yüksekliği
+Kaynaklar
+[1]
+Ölçüm defteri, 2025, Bölüm 2.
+1

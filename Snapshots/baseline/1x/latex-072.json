@@ -1,0 +1,63 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.010821518350930115,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 162.421875,
+    "maxShiftPt" : 26.8,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 13
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Lettering the curved towpath",
+          "width" : 211.1,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 10.5,
+          "text" : "Figure (TikZ)",
+          "width" : 54.5,
+          "x" : 270,
+          "y" : 203.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: The route name follows the bend above the bank.",
+          "width" : 259.8,
+          "x" : 167.4,
+          "y" : 238.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 301.8,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "ebada34c698b35a1c27b6174b868203f5284edff4a71c25d3796ab4d01e0250d"
+}

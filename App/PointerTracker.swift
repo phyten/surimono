@@ -110,6 +110,14 @@ struct PointerTracker: NSViewRepresentable {
                 if let location = debugMouseLocation {
                     mouse = location
                     simulated = true
+                } else if DebugWindowCapture.ignoresRealPointer {
+                    let report = Report(
+                        point: nil, contentHeight: window.contentRect(forFrameRect: window.frame).height)
+                    if reported != report {
+                        reported = report
+                        onChange?(nil, report.contentHeight)
+                    }
+                    return
                 }
             #endif
             // A window being resized by the reader keeps its bands as they are until the resize ends; a covered or

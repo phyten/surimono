@@ -3,7 +3,6 @@
     import CoreText
     import PDFKit
     import OSLog
-    import ScreenCaptureKit
     import SurimonoCore
 
     /// Launch arguments for screenshots in development builds. They never apply to Release builds.
@@ -314,7 +313,7 @@
                     captured = true
                     if flag("SurimonoSnapshotQuit") { quitAfterCapture() }
                 } catch {
-                    logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
+                    DebugSnapshotProgress.failed(error)
                 }
             }
         }
@@ -350,12 +349,18 @@
                     captured = true
                     if flag("SurimonoSnapshotQuit") { quitAfterCapture() }
                 } catch {
-                    logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
+                    DebugSnapshotProgress.failed(error)
                 }
             }
         }
 
         static func configure(_ model: DocumentViewModel) {
+            // snapshot-capability: reading-typeface. Export finishes before the post-layout window overrides.
+            if argument("SurimonoExport") == "reading",
+                let face = argument("SurimonoTypeface").flatMap(Typeface.init(rawValue:))
+            {
+                model.setTypeface(face)
+            }
             if let value = argument("SurimonoLayout"), PrintLayout.presets.contains(where: { $0.id == value }) {
                 model.layoutID = value
             }
@@ -764,10 +769,8 @@
                         model.window?.setContentSize(NSSize(width: size[0], height: size[1]))
                         try? await Task.sleep(for: .milliseconds(800))
                     }
-                    // Wait for the four pages and the row to finish sampling.
-                    try? await Task.sleep(for: .milliseconds(2500))
+                    await model.followComparePlaces()
                     if let index = argument("SurimonoComparePlace").flatMap(Int.init) {
-                        await model.followComparePlaces()
                         let places = model.themeSamples.places
                         if places.indices.contains(index) { model.comparePlace = places[index] }
                         try? await Task.sleep(for: .milliseconds(1500))
@@ -853,14 +856,24 @@
                     model.preferences.settingsSection =
                         SettingsSection.allCases.first { String(describing: $0) == name } ?? .general
                     configureArrangementEditor()
+                    DebugSnapshotProgress.report("Opening Settings scene: " + name)
                     if let menu = NSApp.mainMenu?.items.first?.submenu,
                         let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," })
                     {
                         menu.performActionForItem(at: index)
                     }
-                    try? await Task.sleep(for: .milliseconds(1200))
-                    settingsWindow = NSApp.windows.first {
-                        $0.isVisible && $0.identifier?.rawValue.contains("Settings") == true
+                    let deadline = ContinuousClock.now + .seconds(8)
+                    DebugSnapshotProgress.report("Waiting for visible Settings window: " + name)
+                    repeat {
+                        settingsWindow = NSApp.windows.first {
+                            $0.isVisible && $0.identifier?.rawValue.contains("Settings") == true
+                        }
+                        if settingsWindow != nil { break }
+                        try? await Task.sleep(for: .milliseconds(50))
+                    } while ContinuousClock.now < deadline
+                    guard settingsWindow != nil else {
+                        DebugSnapshotProgress.failed(SnapshotDeadline(stage: "Settings window: " + name))
+                        return
                     }
                     // `-SurimonoSettingsSize 820x540`: the content size, such as the smallest the window allows.
                     if let size = argument("SurimonoSettingsSize")?.split(separator: "x").compactMap({ Double($0) }),
@@ -869,8 +882,6 @@
                         settingsWindow?.setContentSize(NSSize(width: size[0], height: size[1]))
                         try? await Task.sleep(for: .milliseconds(500))
                     }
-                    // Out of the picture, which takes in the windows next to the one captured.
-                    if settingsWindow != nil { model.window?.orderOut(nil) }
                     if let settingsWindow { probeArrangementUndo(in: settingsWindow) }
                     if quitsArrangementEditor {
                         // From a run loop timer, as ⌘Q would: AppKit waits for the editor's answer in a nested run
@@ -884,14 +895,58 @@
                     try? await Task.sleep(for: .milliseconds(300))
                 }
                 do {
-                    guard let window = settingsWindow ?? model.window else { return }
-                    let data = try await capturePNG(around: window, includeNearbyWindows: openURLArgument == nil)
+                    let target = argument("SurimonoSettings") == nil ? model.window : settingsWindow
+                    guard let window = target else { throw CocoaError(.fileNoSuchFile) }
+                    let doc = window === model.window
+                    let folded = flag("SurimonoFold")
+                    let requestedMode = argument("SurimonoMode")
+                    let surface: SnapshotSurface
+                    if !doc || requestedMode == "compare" {
+                        surface = .window
+                    } else if folded {
+                        surface = .paper
+                    } else if requestedMode == "print" {
+                        surface = .tray
+                    } else {
+                        surface = model.mode == .view && !model.showsWeb ? .paper : .window
+                    }
+                    let data = try await capturePNG(
+                        around: window, includeChildren: openURLArgument == nil, surface: surface
+                    ) {
+                        guard doc else { return nil }
+                        if requestedMode == "print" && model.mode != .print { return "Waiting for the print tray" }
+                        if requestedMode == "compare" && model.mode != .compare {
+                            return "Waiting for the compare stage"
+                        }
+                        if folded && !model.showsFold { return "Waiting for the folded book" }
+                        if !model.isUpToDate { return "Waiting for the current document render" }
+                        if ViewerWindow.isResizingProgrammatically(window) { return "Waiting for window resize" }
+                        if model.mode == .print
+                            && (!model.hasCurrentPrintPreview || (!model.showsFold && model.trayZoomer?.context == nil))
+                        {
+                            return "Waiting for imposed sheets and tray layout"
+                        }
+                        if model.mode == .compare {
+                            guard let comparison = model.themeComparison else { return "Waiting for comparison" }
+                            let cards = comparison.candidates.compactMap { model.theme($0) }
+                            let tray = model.themeMenu.sections.first { $0.id == model.compareFilterID }?.themes ?? []
+                            if let missing = cards.first(where: {
+                                model.themeSamples.page(for: $0, at: model.comparePlace) == nil
+                            })
+                                ?? tray.first(where: { model.themeSamples.page(for: $0) == nil })
+                            {
+                                return "Waiting for theme sample " + missing.id
+                            }
+                        }
+                        return nil
+                    }
                     let destination = URL(fileURLWithPath: path)
                     let sources = model.protectedSourceURLs
                     guard DocumentViewModel.canExport(to: destination, sourceURLs: sources) else {
                         logger.error("Snapshot destination matches an open document; nothing was written")
                         return
                     }
+                    DebugSnapshotProgress.report("Writing capture")
                     try data.write(to: destination, options: .atomic)
                     captured = true
                     trackedMenu?.cancelTrackingWithoutAnimation()
@@ -914,7 +969,7 @@
                         quitAfterCapture()
                     }
                 } catch {
-                    logger.error("Snapshot failed: \(error.localizedDescription, privacy: .public)")
+                    DebugSnapshotProgress.failed(error)
                 }
             }
         }
@@ -928,6 +983,8 @@
                 logger.error("Export destination matches an open document")
                 return false
             }
+            DebugSnapshotProgress.report("Exporting document")
+            DebugSnapshotProgress.recordAppearance(model.window?.effectiveAppearance ?? NSApp.effectiveAppearance)
             switch kind {
             case "reading":
                 guard await model.beginReadingPDFExport() else { return false }
@@ -948,6 +1005,7 @@
         }
 
         private static func quitAfterCapture() {
+            DebugSnapshotProgress.report("Output written; terminating app")
             // Review sheets can veto NSApplication's normal termination. This is a DEBUG-only
             // capture process; its saved snapshot is complete and no review should be applied.
             if NSApp.windows.contains(where: { !$0.sheets.isEmpty }) { exit(EXIT_SUCCESS) }
@@ -1027,8 +1085,6 @@
             if let path { try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8) }
         }
 
-        /// Captures the document window together with the popovers and other small windows of this process next to
-        /// it, as composited by the window server. Capturing the app's own windows needs no screen recording permission.
         /// Which view takes a click across the window's top 52pt, every 4pt: `L` a traffic light, `T` the title bar
         /// (a toolbar item viewer over the content), `.` the content. Toolbar item viewers' frames come first.
         private static func hitMap(of window: NSWindow) -> String {
@@ -1063,42 +1119,13 @@
             return lines.joined(separator: "\n") + "\n"
         }
 
-        private static func capturePNG(around window: NSWindow, includeNearbyWindows: Bool = true) async throws -> Data
-        {
-            let content = try await SCShareableContent.currentProcess
-            guard let main = content.windows.first(where: { $0.windowID == CGWindowID(window.windowNumber) }) else {
-                throw CocoaError(.fileNoSuchFile)
-            }
-            let nearby = main.frame.insetBy(dx: -700, dy: -400)
-            // Leave out the menu bar and status layers and anything as large as a screen.
-            let windows = content.windows.filter { other in
-                other.windowID == main.windowID
-                    || (includeNearbyWindows && other.isOnScreen && !(24...25).contains(other.windowLayer)
-                        && nearby.contains(other.frame) && other.frame.width > 1 && other.frame.height > 1)
-            }
-            guard
-                let display = content.displays.first(where: { $0.frame.intersects(main.frame) })
-                    ?? content.displays.first
-            else { throw CocoaError(.fileNoSuchFile) }
-            let union = windows.filter { other in
-                other.windowID == main.windowID
-                    || other.frame.width < display.frame.width * 0.9 || other.frame.height < display.frame.height * 0.9
-            }
-            .map(\.frame).reduce(CGRect.null) { $0.union($1) }
-            guard !union.isNull else { throw CocoaError(.fileNoSuchFile) }
-            let filter = SCContentFilter(display: display, including: windows)
-            let configuration = SCStreamConfiguration()
-            let scale = CGFloat(filter.pointPixelScale)
-            configuration.sourceRect = union.offsetBy(dx: -display.frame.minX, dy: -display.frame.minY)
-            configuration.width = Int(union.width * scale)
-            configuration.height = Int(union.height * scale)
-            configuration.showsCursor = false
-            configuration.backgroundColor = .clear
-            let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
-            guard let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
-                throw CocoaError(.fileWriteUnknown)
-            }
-            return data
+        private static func capturePNG(
+            around window: NSWindow, includeChildren: Bool = true,
+            surface: SnapshotSurface = .window, ready: () -> String? = { nil }
+        ) async throws -> Data {
+            try await DebugWindowCapture.png(
+                around: window, children: includeChildren, requiresChild: argument("SurimonoPopover") == "view",
+                trackingMenu: trackedMenu != nil, surface: surface, ready: ready)
         }
     }
 #endif

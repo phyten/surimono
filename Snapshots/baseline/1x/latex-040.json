@@ -1,0 +1,163 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02608044243338361,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 24.6,
+    "maxLuminance" : 160.859375,
+    "maxShiftPt" : 27.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 129.7,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 18,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "Das Messbrett",
+          "width" : 95.7,
+          "x" : 250,
+          "y" : 129.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "14. Mai 2026",
+          "width" : 65.7,
+          "x" : 264.8,
+          "y" : 160.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "Zusammenfassung",
+          "width" : 71.8,
+          "x" : 261.8,
+          "y" : 190.7
+        },
+        {
+          "height" : 9.9,
+          "text" : "Zwei Marken zeigen die ursprüngliche Lage des Brettes.",
+          "width" : 208.9,
+          "x" : 97.2,
+          "y" : 205.1
+        },
+        {
+          "height" : 15.9,
+          "text" : "Inhaltsverzeichnis",
+          "width" : 111.6,
+          "x" : 56.8,
+          "y" : 226.7
+        },
+        {
+          "height" : 11,
+          "text" : "1 Die Marken 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 250.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 Höhe 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 273
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Die Marken",
+          "width" : 96,
+          "x" : 56.8,
+          "y" : 301.1
+        },
+        {
+          "height" : 11,
+          "text" : "„Zuerst die untere Marke ablesen.“",
+          "width" : 143,
+          "x" : 81.7,
+          "y" : 326.6
+        },
+        {
+          "height" : 11,
+          "text" : "Abbildung 1: Lage des Brettes",
+          "width" : 125,
+          "x" : 235.1,
+          "y" : 395.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Höhe",
+          "width" : 54.2,
+          "x" : 56.8,
+          "y" : 435.4
+        },
+        {
+          "height" : 11,
+          "text" : "Marke Höhe (mm)",
+          "width" : 84,
+          "x" : 255.6,
+          "y" : 473.6
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 73.5,
+          "x" : 266.2,
+          "y" : 486.4
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 73.5,
+          "x" : 266.2,
+          "y" : 498.4
+        },
+        {
+          "height" : 11,
+          "text" : "Tabelle 1: Höhe der Marken",
+          "width" : 115.5,
+          "x" : 239.9,
+          "y" : 520
+        },
+        {
+          "height" : 15.9,
+          "text" : "Literatur",
+          "width" : 57.4,
+          "x" : 56.8,
+          "y" : 560.1
+        },
+        {
+          "height" : 11,
+          "text" : "[1] Werkstattheft, 2025, Kapitel 2.",
+          "width" : 143.8,
+          "x" : 56.8,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 654.1,
+      "textLeft" : 56.8,
+      "textTop" : 129.7,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "22cdc7304feec0caab88745f7304caee09c4b7ac7b82c995ba1f178959ef0da4"
+}

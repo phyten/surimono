@@ -1,0 +1,174 @@
+{
+  "fonts" : [
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "HiraginoSans-W3",
+    "HiraginoSans-W4",
+    "Menlo-Bold",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 716,
+      "lineCount" : 21,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "Surimono サンプル",
+          "width" : 190.9,
+          "x" : 42.5,
+          "y" : 39.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "気軽に開いて読むための架空の文書です。",
+          "width" : 211.5,
+          "x" : 42.5,
+          "y" : 78
+        },
+        {
+          "height" : 27.1,
+          "text" : "買い物メモ",
+          "width" : 78,
+          "x" : 42.5,
+          "y" : 113.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "ノート",
+          "width" : 33.6,
+          "x" : 74.6,
+          "y" : 144.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "鉛筆",
+          "width" : 22.4,
+          "x" : 74.6,
+          "y" : 163.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "消しゴム",
+          "width" : 44.4,
+          "x" : 74.6,
+          "y" : 183
+        },
+        {
+          "height" : 19.4,
+          "text" : "品物",
+          "width" : 22.4,
+          "x" : 48.9,
+          "y" : 214
+        },
+        {
+          "height" : 19.4,
+          "text" : "個数",
+          "width" : 22.4,
+          "x" : 94.6,
+          "y" : 214
+        },
+        {
+          "height" : 18.4,
+          "text" : "ノート 2",
+          "width" : 68.1,
+          "x" : 48.9,
+          "y" : 239.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "鉛筆 3",
+          "width" : 68.1,
+          "x" : 48.9,
+          "y" : 265.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "let message = \"こんにちは、摺物\"",
+          "width" : 197.7,
+          "x" : 42.5,
+          "y" : 296.7
+        },
+        {
+          "height" : 13.1,
+          "text" : "print(message)",
+          "width" : 94.5,
+          "x" : 42.5,
+          "y" : 319.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "まずは一枚、試しに刷ってみましょう。",
+          "width" : 201.5,
+          "x" : 64.3,
+          "y" : 345.6
+        },
+        {
+          "height" : 27.1,
+          "text" : "Graphviz と PlantUML",
+          "width" : 181.8,
+          "x" : 42.5,
+          "y" : 381.3
+        },
+        {
+          "height" : 24.7,
+          "text" : "開始",
+          "width" : 29.9,
+          "x" : 282.6,
+          "y" : 425.6
+        },
+        {
+          "height" : 24.7,
+          "text" : "確認",
+          "width" : 29.9,
+          "x" : 282.6,
+          "y" : 502.5
+        },
+        {
+          "height" : 24.7,
+          "text" : "印刷",
+          "width" : 29.9,
+          "x" : 282.6,
+          "y" : 579.4
+        },
+        {
+          "height" : 18.5,
+          "text" : "利用者 摺物",
+          "width" : 99.3,
+          "x" : 248.4,
+          "y" : 631.7
+        },
+        {
+          "height" : 17.2,
+          "text" : "印刷依頼",
+          "width" : 41.7,
+          "x" : 270.8,
+          "y" : 660.4
+        },
+        {
+          "height" : 17.2,
+          "text" : "プレビュー",
+          "width" : 51.8,
+          "x" : 278.8,
+          "y" : 683.1
+        },
+        {
+          "height" : 18.5,
+          "text" : "利用者 摺物",
+          "width" : 99.3,
+          "x" : 248.4,
+          "y" : 716
+        }
+      ],
+      "textHeight" : 695.4,
+      "textLeft" : 42.5,
+      "textTop" : 39.1,
+      "textWidth" : 305.2,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "1cf238049bd0c1d8ab5d75b8251f02a214cc57d41849a36f654863c0a764377f"
+}

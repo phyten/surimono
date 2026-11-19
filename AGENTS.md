@@ -51,7 +51,7 @@ make check-appstore             # Mac App Store 版（ターゲット Surimono A
 make clean
 ```
 
-- 変更したら最低限 `make lint` と、変更範囲のテスト（Kit なら `make test-kit`、アプリなら `make build` と `make test-app`）を通す。
+- 変更したら最低限 `make lint` と、変更範囲のテスト（Kit なら `make test-kit`、アプリなら `make build` と `make test-app`）を通す。描画・テーマ・LaTeX の読み取り・UI の変更では、下記の `make snapshots && make snapshots-report` も実行する。
 - Debug ビルド（`make build`・`make run`・`make test-app` のホスト）は公開版と別のアプリ「Surimono Dev」になる。バンドル ID `io.github.phyten.Surimono.debug`、アイコン `AppIcon-Dev`（暗い地に黄色の DEV の帯）、保存先 `~/Library/Application Support/Surimono Dev/` で、設定（UserDefaults）も公開版と共有せず、入れてある公開版と同時に起動できる。
   - 分け方: `Configs/Surimono.xcconfig` の `[config=Debug]` と `UserLibrary.defaultRoot` の `#if DEBUG`。`DevelopmentBuildTests` で固定している。
   - `PRODUCT_NAME` は Makefile と `TEST_HOST` が `Surimono.app` を参照するので変えない。
@@ -60,6 +60,34 @@ make clean
   - PNG は `rsvg-convert -w <px> -h <px> <SVG> -o <名前>.png` で書き出す。公開版も開発版も、`icon_16x16`・`icon_16x16@2x`・`icon_32x32` は small の SVG から、残りの 7 枚は大きい方の SVG から。`AppIcon.svg` か `AppIcon-small.svg` を変えたら、対応する開発版の SVG にも同じ変更を入れて、両方を書き出し直す。
 - CI（`.github/workflows/ci.yml`）は Xcode 26.6 / macOS 26、ローカルは Xcode 27 系を想定。**両方でビルドできるコードにする**。`if #available` は実行時の OS の分岐で、古い SDK でのコンパイルは助けない。CI の SDK（Xcode 26.6）に無い API は使わず、どうしても使う場合は `#if compiler(>=…)` などの条件付きコンパイルと代替の実装を用意する。
 - CI は 5 つの macOS のジョブを同時に走らせる: `lint-and-core`（`make lint`・`make test-formats`・`make test-core`）、`rendering`（`make test-rendering`）、`app-tests`（`make test-app`）、`appstore`（`make check-appstore`）、`package`（`make package` と成果物の保存）。それぞれ自分の runner で組み立てる。必須チェックの `build-and-test` は Linux の門番のジョブで、5 つすべてが成功したときだけ通る（失敗・取り消し・スキップがあれば落ちる）。決まりは `.claude/rules/github-actions.md`。macOS のジョブは同時に 5 つまでなので増やさない。
+
+## スナップショット（見た目の回帰）
+
+描画・テーマ・LaTeX の読み取り・UI を変更したら、ログイン中の Mac で `make snapshots && make snapshots-report` を実行する。最新の run にある `report.html` と `report.json` を読み、変更のあったケース ID、ページ数の増減、最大移動量（pt）、変更面積（ページごとの最大 %）、本文の追加・削除を報告する。意図した差だけを承認し、数値・本文の更新を原因の変更と同じコミットに含める。レポートを読む前に承認しない。
+
+| コマンド | 用途 |
+| --- | --- |
+| `make snapshots` | Debug アプリを組み立て、全ケースを順番に描画する。`ONLY="tag:latex"` や `ONLY="id id"` で絞れる |
+| `make snapshots-selfcheck` | UI を2巡し、巡間と各巡対同倍率の承認画像を比較する。`ONLY="id id"` で絞れる。巡間の差は許容内も含め、画素数と外接矩形（左上原点の x, y, 幅, 高さ）を出す |
+| `make snapshots-report` | 最新 run と同じメインディスプレイ倍率の数値・本文・画像を比較する。見出しに run と基準の倍率を表示する |
+| `make snapshots-approve ONLY="id id"` | 確認したケースを run の倍率の基準へ反映する。ONLY を省くと最新 run の全件 |
+| `make snapshots-baseline REF=v0.47.0` | build/ の一時 worktree で指定 ref の Debug アプリを組み立て、現在の倍率の画像基準を再作成する。ビルドにはローカルの依存キャッシュが必要。古い ref が読めない引数は「利用不可」 |
+| `make snapshots-reference` | 任意。ローカルの実 TeX でコーパスの参照 PDF を更新する。エンジン・必要なクラスなどがなければ理由を表示してスキップする |
+| `make test-tools` | GUI を開かず SwiftPM ツールを検証する |
+
+ケースは `Snapshots/cases.json` に1件ずつ記載する。PDF は全ページを100 dpiで原寸比較し、紙面寸法、本文の矩形、先頭・末尾の行の高さ、行数、同じ本文の行の移動量と本文差分を測る。許容値は `Snapshots/tolerances.json`。LaTeX は実 TeX との差と前回承認時からの推移も表示する。忠実度は回帰の終了コードに影響しない。
+
+UI はアプリを前面に出さず、実ポインタと入力カーソルを除いて、対象窓と子窓を固定背景に合成する。撮影時は不透明な表示を使い、SwiftUI のコントロールをアクティブな外観にする。ネイティブのタイトルバーなどには macOS の非アクティブ色が残る。組版・面付け・見本・窓のアニメーションの完了と、PDFView にページが見えていることを確認してから、300 ms 間隔で最大5回撮る。連続2枚の画素が一致すれば安定。`run.json` の `capture.isKeyWindow` と `appActive` は観測値で、両方が false でも合格できる。`unstable` は画素が揃わなかったケース、`readinessIssue` は描画待ちが完了しなかった理由。どちらも承認前に調べる。
+
+UI は1回60秒、文書は180秒を上限とする。タイムアウト時は起動トークン・バンドルID・パスで特定した開発版を終了前に2秒間 sample し、新しいプロセスで1回再試行する。`run.json` のケースの `timeouts`・`retrySucceeded`・`timeoutDetails` に結果、最後の待ち状態、sample のファイル名または取得できなかった理由が残る。ケースフォルダーの `timeout-sample.txt` が初回、`timeout-sample-2.txt` が2回目。1回で回復して安定したケースは比較を続ける。
+
+WebKit の文書組版もメインディスプレイの倍率に影響される。Git に含める数値・本文・環境は `Snapshots/baseline/<倍率>x/`、ローカルの文書PDF・UI画像は `Snapshots/.baseline-visual/<倍率>x/` に保存する。実行時のメイン倍率・macOS・システム外観は `run.json`、取得できたケースのアプリ外観は `cases[].appearance`、WebKit の非表示の組版窓の画面IDと倍率は `cases[].layoutScreen` にある。コーパス原稿と `Snapshots/reference/` の実TeX参照は全倍率で共有する。
+
+メインディスプレイを替えたら `make snapshots`、次に `make snapshots-report` を実行する。その倍率の基準がなければツールは終了コード3を返す（make はレシピの失敗を終了コード2で返し、出力に Error 3 と表示する）。この場合も HTML に現在の全ページと実TeXとの比較がある。撮影エラー・不安定なケース・意図しない出力がないことを確認してから `make snapshots-approve` でその倍率を初期化し、再度レポートを生成する。比較だけ元の倍率で行いたい場合は、そのディスプレイをメインに戻して撮り直す。
+
+撮影方式やタイミングを変えたら `make snapshots-selfcheck` を実行する。結果は `Snapshots/.runs/selfcheck-<run>/` の `first/`・`second/`・`selfcheck.json` に残る。巡間の `within tolerance`（JSON の `pixelStatus: "noise"`）は画素差のある合格。表示倍率に対応する画像基準がないときは巡間の結果を残して終了コード3。許容超過、描画エラー、未安定は要確認。保存済みの2巡は `make snapshots-selfcheck FIRST=selfcheck-<run>/first SECOND=selfcheck-<run>/second` で、通常 run 同士は両方に run ID を渡して比較する。倍率違いは比較を拒む。調査時だけ `FORCE_SCALE=1` で異なる倍率の巡間を原寸比較できる。
+
+実行結果・画像・HTML は `Snapshots/.runs/<run>/` にローカルで保管する。画像付きの結果を共有するときは run フォルダー全体を使う。CI は GUI を開かず、ツールのテストを実行する。
 
 ## アーキテクチャ（印刷パイプライン）
 
@@ -474,13 +502,15 @@ make clean
 
 ## 横組み LaTeX のページ割り
 
-- LaTeX 専用スタイルで、段の切り替え、強制改段・改ページ、脚注、浮動図表を含む本文を対象とする。入力は組版準備を終えた DOM と、論理用紙の寸法・四辺の余白。用紙への面付け、左右の余白の反転、柱とページ番号は後段が担当する。単純な一段の文書は従来の印刷を使う。IEEEtran、acmart の sigconf、REVTeX の reprint、ICML のスタイルは二段で始める。REVTeX の preprint は一段。学会ごとの書体や寸法は現在の専用スタイルに従う。
+- LaTeX 専用スタイルで、段の切り替え、強制改段・改ページ、脚注、浮動図表を含む本文を対象とする。入力は組版準備を終えた DOM と、論理用紙の寸法・四辺の余白。用紙への面付け、左右の余白の反転、柱とページ番号は後段が担当する。単純な一段の文書は従来の印刷を使う。IEEEtran、acmart の sigconf、REVTeX の reprint、ICML のスタイルは二段で始める。REVTeX の preprint と acmart の manuscript は一段。IEEEtran・acmart・REVTeX・llncs・elsarticle の本文寸法と段間は、文書クラス・オプション・用紙から LaTeXPageBox で決める。二段組みの表題が両段にまたがるクラスでは、表題を全幅で出してから本文を段に流す。
 - Formats は本文順に段の境界を出す。`data-latex-columns` は段数、`data-latex-balance` は末尾を均等にする指定、`data-latex-wide` は段抜き。段数は 1・2 を扱う。template は後続に、div はその中だけに効く。段間と罫の太さは TeX pt の `data-latex-gap`・`data-latex-rule`。本文中の寸法変更は `data-latex-spacing` の template で渡す。段間の既定は 10 TeX pt。`data-latex-break` は改段・改ページ・浮動図表の排出を区別する。図表は `data-latex-float` に種類、`data-latex-placement` に配置指定を持つ。脚注は既存の `.footnote-ref a[href]` と `section.footnotes li[id]` を対応させる。章ごとの同番号や表題の記号も ID で区別する。
 - Rendering は隔離世界で各区間を段幅に、段抜きとページ脚注を本文幅に組む。Range の行矩形、分割できない箱、長い表の行、コードの行、参照と注の高さを一括で測る。測定値は CSS px、配置は左上原点。印刷スタイルの寸法に合わせて論理ページの pt に換算する。見出しを次の本文に、段落の最初と最後の 2 行を一緒に保つ。
 - 配置器は DOM に触れず、参照行と脚注・脚注罫の空きを一緒に段へ入れる。単段ではページ下、二段では各段下が既定。一段クラスの multicols は `data-latex-footnotes="page"` を出す。この指定があれば、二段でも注を本文幅で測り、両段の空きに収まるか調べる。罫は 0.4 PDF pt、幅は 2 インチ（段幅が狭い場合は段幅まで）。脚注を途中で割らない。図表は指定に応じて本文位置・段頭・段末・図表ページに置き、同種内の順序を保つ。段抜きの浮動図表は次ページ以降の頭に置く。TeX の伸縮糊と badness による全体最適化は扱わない。均等割りは最終ページだけ、同じ切断条件で段高を試す。段数の違う区間は前の区間の最も低い段の下から始める。
+- 段頭のブロックの外余白と通常の縦空きは捨てる。表題・章見出しの内側の空き、`\vspace*`（`data-latex-keep-space`）は切片に含める。章のあるクラスの目次・図目次・表目次は `data-latex-chapter-opening` で新ページから始まる。
+- 本文中の図表は上下の intextsep を含めて収まるときに置く。連続する本文位置の図表の間には双方の intextsep を足す。段頭・段末から本文までは textfloatsep、段頭の図表間は floatsep。既定の `[tbp]` は呼び出し位置までの本文と注が収まれば同じ段の先頭へ置き、図表・本文の順で PDF を取得する。段の最低本文比は 0.2、段頭・段末の最大比は 0.7・0.3、個数は上 2・下 1・合計 3 を使い、`!` は面積比を緩める。`H` と beamer の frame 内の図表はその位置に固定し、収まらなければ後続本文と一緒に送る。図表ページでは図表群の上下に空きを均等に配る。
 - 出力には縦書きと共通の `FlowPageCapture` を使い、切片内の要素だけを描く。参照ページの測定と図の位置測定も最終出力と同じ配置で行い、測定用リンクを最終 PDF に残さない。計測・取得の失敗や時間切れは元の HTML から一段の印刷をやり直して「確認」に知らせる。取り消しはそのまま返す。
 - `LaTeXFlowLayout` は本文・図表・脚注の切片の配置を CSS px で返す。LaTeX スタイルの既存の寸法に合わせて 1 PDF pt = 1.25 px。同じ段の連続した行は一度に取得する。高さ超過の単独の箱は比例縮小する。脚注や参照行が一緒に入らない場合は次段で試し、空の段でも収まらない注や本文に対応する印がない注があれば、一段・文末脚注へ戻す。
-- 浮動図表の待ち行列は区間ごとに一つ。先着順に置き、段頭・段末は合わせて原則 1 ページに 2 個、段頭には本文を約 2 割残す。空ページは大きな箱も受け入れる。`!` は段頭の本文割合を緩める。`p` だけの図表、または `p` を許し本文高の 7 割を超える図表は専用ページの候補。`clearpage` と章境界では待ち行列を排出する。段数変更時は同じ紙の残りから組み、長い表の見出しの再掲と脚注の途中分割は行わない。均等割りの対象は `multicols` の最終ページで、`multicols*` と通常の二段組みは左段から詰める。[multicol の仕様](https://ctan.org/pkg/multicol)
+- 浮動図表の待ち行列は区間ごとに一つ。先着順を保つ。`p` だけの図表や、本文中に収まらず標準の本文高の 5 割を超える図表は専用ページの候補。`clearpage` と章境界では待ち行列を排出する。段数変更時は同じ紙の残りから組み、長い表の見出しの再掲と脚注の途中分割は行わない。均等割りの対象は `multicols` の最終ページで、`multicols*` と通常の二段組みは左段から詰める。[multicol の仕様](https://ctan.org/pkg/multicol)
 - ページ参照は測定用の印の区間・縦位置を切片の配置表に照合する。目次・参照を書き込んだ後の再測定は最大 1 回。図の保存用リンクと変更の印は段幅が決まった後の位置で取得する。表示用の PDF、面付け、スタイルを試す紙が同じ段割りを使う。実寸と処理時間は `LaTeXFlowPrintingTests`、切断と脚注の予約は `LaTeXFlowLayoutTests` で確認する。
 
 ## 地雷（ハマりどころ）

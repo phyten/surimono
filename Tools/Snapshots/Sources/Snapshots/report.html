@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Surimono · Snapshot report</title>
+<style>
+:root{font:15px/1.55 system-ui;color:#172d33;background:#f6f5f1}body{max-width:1280px;margin:2rem auto;padding:0 1rem}h1,h2,h3{line-height:1.2}main>details{margin:8px 0;background:white;border:1px solid #bac5c4;padding:.7rem 1rem;border-radius:6px}summary{cursor:pointer;font-weight:600}nav{display:flex;gap:1em;flex-wrap:wrap;margin:1rem 0}select,button{font:inherit}label{display:inline-flex;gap:.35rem;align-items:center}.images{display:flex;align-items:flex-start;gap:1%}.images figure{margin:4px 0;flex:1;min-width:0}.images img{width:100%;height:auto;display:block;border:1px solid #ddd}figcaption{font-weight:600}table{border-collapse:collapse}th,td{border:1px solid #ccd6d5;padding:.25em .55em;text-align:right}th:first-child,td:first-child{text-align:left}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:20rem;overflow:auto}.scroll{overflow:auto}.changed,.unstable,.error{border-left:5px solid #ab4030}small{font-weight:400;color:#335459}a{color:#135d74}
+</style>
+<h1>Surimono · Snapshot report</h1><p id="scale"></p><p id="counts"></p><nav></nav><main></main>
+<script type="application/json" id="data">__REPORT_DATA__</script>
+<script>
+const report=JSON.parse(document.querySelector('#data').textContent), cases=report.cases;
+function add(parent,tag,text){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;parent.append(e);return e}
+function fmt(m){return m?'Δ pages '+m.pageDelta+' · '+m.maxShiftPt.toFixed(1)+' pt shift · '+m.maxBoxDeltaPt.toFixed(1)+' pt box Δ · '+(100*m.changedAreaRatio).toFixed(3)+'% area · '+m.textEdits+' text edits':''}
+document.querySelector('#scale').textContent='Run: '+report.runScale+'× · baseline: '+(report.baselineScale?report.baselineScale+'×':'none for this scale — review the current images before approval');
+const statusCounts={};for(const c of cases)statusCounts[c.status]=(statusCounts[c.status]||0)+1;
+document.querySelector('#counts').textContent=Object.entries(statusCounts).map(e=>e.join(' ')).join(' · ');
+const nav=document.querySelector('nav'), main=document.querySelector('main');
+function choice(parent,label,values){
+ const l=add(parent,'label',label),s=add(l,'select');
+ for(const v of values){const o=add(s,'option',v);o.value=v}
+ return s;
+}
+const filters=['kind','tags','status'].map(k=>choice(nav,k,['All',...new Set(cases.flatMap(c=>c[k]).sort())]));
+function picture(parent,name,path){if(!path)return;const f=add(parent,'figure');add(f,'figcaption',name);const link=add(f,'a');link.href=path;const img=add(link,'img');img.loading='lazy';img.alt=name;img.src=path}
+function table(parent,heads,rows){const wrap=add(parent,'div');wrap.className='scroll';const t=add(wrap,'table'),h=add(t,'tr');for(const k of heads)add(h,'th',k);for(const row of rows){const r=add(t,'tr');for(const x of row)add(r,'td',x??'—')}}
+function comparison(parent,title,comp,reference){
+ if(!comp)return;
+ add(parent,'h3',title);if(title!=='Current capture')add(parent,'p',fmt(comp.metrics));
+ const controls=add(parent,'div'),page=choice(controls,'Page',comp.pages.map(p=>String(p.number))),mode=choice(controls,'Image',['Side by side','Before','Current','Overlay']);
+ const images=add(parent,'div');images.className='images';const numbers=add(parent,'div');
+ function show(){images.replaceChildren();numbers.replaceChildren();const p=comp.pages[page.selectedIndex];if(!p)return;
+ if(['Side by side','Before'].includes(mode.value))picture(images,title==='TeX fidelity'?'Real TeX':'Baseline',p.before);
+ if(['Side by side','Current'].includes(mode.value))picture(images,'Current',p.current);
+ if(['Side by side','Overlay'].includes(mode.value))picture(images,'Difference',p.overlay);
+ if(mode.value==='Side by side')picture(images,'Real TeX',reference?.pages[page.selectedIndex]?.before);
+ if(p.pixels)add(numbers,'p',(100*p.pixels.ratio).toFixed(3)+'% changed · peak tile luminance Δ '+p.pixels.maxLuminance.toFixed(2)+' · '+p.pixels.regions.length+' regions');
+ const keys=['width','height','textLeft','textTop','textWidth','textHeight','firstY','lastY','lineCount'];
+ if(p.beforeLayout||p.currentLayout)table(numbers,['Layout (pt)','Before','Current'],keys.map(k=>[k,p.beforeLayout?.[k],p.currentLayout?.[k]]))}
+ page.onchange=mode.onchange=show;show();
+ if(comp.moves.length){const d=add(parent,'details');add(d,'summary','Moved lines ('+comp.moves.length+')');table(d,['Text','From page','To page','dx (pt)','dy (pt)'],comp.moves.map(l=>[l.text,l.fromPage,l.toPage,l.dx,l.dy]))}
+ if(comp.edits.length){const d=add(parent,'details');add(d,'summary','Text diff ('+comp.edits.length+')');add(d,'pre',comp.edits.map(e=>e.operation+' '+e.line+' '+e.text).join('\n'))}
+}
+for(const c of cases){const d=add(main,'details');d.className=c.status;const s=add(d,'summary',c.id+' · '+c.status+'  ');add(s,'small',report.baselineScale?fmt(c.regression?.metrics):'');
+ d.ontoggle=()=>{if(!d.open||d.dataset.loaded)return;d.dataset.loaded='yes';add(d,'p',[c.kind,...c.tags].join(' · '));for(const note of c.notes)add(d,'p',note);if(c.visualSource)add(d,'p','Visual baseline: '+c.visualSource);
+ comparison(d,report.baselineScale?'Regression':'Current capture',c.regression,c.fidelity);
+ if(c.referenceError)add(d,'p','Reference error: '+c.referenceError);
+ if(c.fidelity){comparison(d,'TeX fidelity',c.fidelity);if(c.trend)add(d,'p','Trend: '+c.trend+' · approved fidelity: '+fmt(c.previousFidelity))}}
+}
+function filter(){cases.forEach((c,i)=>{main.children[i].hidden=![c.kind,c.tags,c.status].every((v,j)=>filters[j].value==='All'||[].concat(v).includes(filters[j].value))})}
+for(const f of filters)f.onchange=filter;
+</script></html>

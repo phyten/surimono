@@ -73,7 +73,16 @@ final class RecentFileHistory {
         }
     }
 
-    static var welcomeURLs: [URL] { shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs }
+    static var welcomeURLs: [URL] {
+        #if DEBUG
+            // snapshot-capability: empty-welcome. A regression artifact must never include filenames from the developer's system history.
+            let snapshotWelcomeIsEmpty =
+                DebugSnapshot.flag("SurimonoSnapshotWelcome")
+                && DebugSnapshot.argument("SurimonoRunToken") != nil
+            if snapshotWelcomeIsEmpty { return [] }
+        #endif
+        return shared?.visibleURLs ?? NSDocumentController.shared.recentDocumentURLs
+    }
 
     var visibleURLs: [URL] {
         let system = systemURLs()

@@ -1,0 +1,10 @@
+Counts by sieve
+8
+6
+Count
+4
+2
+0
+1 2 3
+Sieve
+1

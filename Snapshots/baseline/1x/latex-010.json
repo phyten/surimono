@@ -1,0 +1,63 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.007697335344394168,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.1,
+    "maxLuminance" : 122.78125,
+    "maxShiftPt" : 27.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 110.1,
+      "height" : 841.9,
+      "lastY" : 752.8,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Proof slip",
+          "width" : 68.9,
+          "x" : 56.4,
+          "y" : 110.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Leave the outer band free for pencil corrections. Circle a broken stroke and enter its row number",
+          "width" : 436.2,
+          "x" : 56.4,
+          "y" : 137.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "beside the proof.",
+          "width" : 72.3,
+          "x" : 56.4,
+          "y" : 149.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 272.1,
+          "y" : 752.8
+        }
+      ],
+      "textHeight" : 654.4,
+      "textLeft" : 56.4,
+      "textTop" : 110.1,
+      "textWidth" : 436.2,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "967f214f368c246e6ccc569db7a63a65dd2e9816ef64ff419adfd660972a98bb"
+}

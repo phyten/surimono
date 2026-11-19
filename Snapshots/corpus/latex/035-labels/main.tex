@@ -1,0 +1,13 @@
+% !TEX program = pdflatex
+\documentclass{article}
+
+\newcommand{\sample}[2][working]{\textsc{#1}: #2}
+\def\unitmark#1{Length: #1\,mm}
+\newenvironment{drawer}[1]{\begin{quote}\textbf{#1}\par}{\end{quote}}
+\begin{document}
+\section*{Labels for a sample drawer}
+
+\begin{drawer}{Blue tray}
+\sample{Quartz}\par\sample[reserve]{Slate}\par\unitmark{12}
+\end{drawer}
+\end{document}

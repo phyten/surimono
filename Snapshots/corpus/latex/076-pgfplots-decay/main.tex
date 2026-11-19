@@ -1,0 +1,9 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{pgfplots}\pgfplotsset{compat=1.18}
+\begin{document}
+\section*{Settling on two beds}
+\begin{tikzpicture}\begin{axis}[ymode=log,xlabel={Time},ylabel={Residue},grid=both]
+\addplot[domain=0:4] {exp(-x)};\addlegendentry{Fine bed}\addplot[dashed,domain=0:4] {exp(-.5*x)};\addlegendentry{Coarse bed}
+\end{axis}\end{tikzpicture}
+\end{document}

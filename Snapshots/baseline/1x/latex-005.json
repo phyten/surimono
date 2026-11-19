@@ -1,0 +1,112 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.021359253402784238,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 146.578125,
+    "maxShiftPt" : 36.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 11,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Notes beside the gate",
+          "width" : 152.8,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "At the low gate, count the hinges before measuring the leaf.",
+          "width" : 262.3,
+          "x" : 150.3,
+          "y" : 177.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "The ledger gives a second instruction.",
+          "width" : 164.9,
+          "x" : 125.4,
+          "y" : 196.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Measure at the upper pin. A reading taken at the foot includes",
+          "width" : 278.9,
+          "x" : 165.3,
+          "y" : 215.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "the slope of the path.",
+          "width" : 93.3,
+          "x" : 150.3,
+          "y" : 227.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "A four-line mnemonic appears inside the cover.",
+          "width" : 205.8,
+          "x" : 125.4,
+          "y" : 247.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "One mark at the hinge,",
+          "width" : 102.2,
+          "x" : 150.3,
+          "y" : 279.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "one mark at the sill,",
+          "width" : 88.4,
+          "x" : 150.3,
+          "y" : 291.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "a thread across water,",
+          "width" : 96.5,
+          "x" : 150.3,
+          "y" : 303.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "a wheel standing still.",
+          "width" : 95.3,
+          "x" : 150.3,
+          "y" : 315.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 318.8,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "418a41567ad4c3790cd5590ce0a44d0f467e004f2800fef4452770207da6bbaa"
+}

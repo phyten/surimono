@@ -1,0 +1,170 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.024403217697335344,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 24.6,
+    "maxLuminance" : 160.4375,
+    "maxShiftPt" : 27.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 129.7,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "The measuring shelf",
+          "width" : 136,
+          "x" : 229.8,
+          "y" : 129.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 May 2026",
+          "width" : 65.4,
+          "x" : 264.9,
+          "y" : 160.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "Abstract",
+          "width" : 33.4,
+          "x" : 281,
+          "y" : 190.7
+        },
+        {
+          "height" : 9.9,
+          "text" : "Two marks identify the original position of the tray.",
+          "width" : 191.9,
+          "x" : 97.2,
+          "y" : 205.1
+        },
+        {
+          "height" : 15.9,
+          "text" : "Contents",
+          "width" : 55,
+          "x" : 56.8,
+          "y" : 226.7
+        },
+        {
+          "height" : 11,
+          "text" : "1 Shelf marks 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 250.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 Height 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 273
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Shelf marks",
+          "width" : 96.1,
+          "x" : 56.8,
+          "y" : 301.1
+        },
+        {
+          "height" : 11,
+          "text" : "‘Read the lower mark first.’",
+          "width" : 114.2,
+          "x" : 81.7,
+          "y" : 326.6
+        },
+        {
+          "height" : 11,
+          "text" : "Figure 1: Position of the shelf",
+          "width" : 122.8,
+          "x" : 236.2,
+          "y" : 395.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Height",
+          "width" : 63,
+          "x" : 56.8,
+          "y" : 435.4
+        },
+        {
+          "height" : 11,
+          "text" : "Mark Height (mm)",
+          "width" : 85.1,
+          "x" : 255.1,
+          "y" : 473.6
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 76.8,
+          "x" : 263.4,
+          "y" : 486.4
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 76.8,
+          "x" : 263.4,
+          "y" : 498.4
+        },
+        {
+          "height" : 11,
+          "text" : "Table 1: Heights of the marks",
+          "width" : 122.1,
+          "x" : 236.6,
+          "y" : 520
+        },
+        {
+          "height" : 15.9,
+          "text" : "References",
+          "width" : 66.6,
+          "x" : 56.8,
+          "y" : 560.1
+        },
+        {
+          "height" : 11,
+          "text" : "[1]",
+          "width" : 11.6,
+          "x" : 56.8,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "Shelf notebook, 2025, Chapter 2.",
+          "width" : 133.6,
+          "x" : 76.7,
+          "y" : 586.4
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 654.1,
+      "textLeft" : 56.8,
+      "textTop" : 129.7,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "8982bdecee4ba175590a081f588e817eb8b8cc156c0dbc0051537881ecda9576"
+}

@@ -1,0 +1,14 @@
+% !TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage{babel}\babelprovide[import,main]{russian}\babelfont{rm}{Times New Roman}
+\begin{document}
+\title{Мерная доска}\author{}\date{14 мая 2026 года}\maketitle
+\begin{abstract}Две метки показывают исходное положение доски.\end{abstract}
+\tableofcontents
+\section{Метки}\begin{quote}«Сначала прочтите нижнюю метку».\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{Положение доски}\end{figure}
+\section{Высота}
+\begin{table}[ht]\centering\begin{tabular}{cr}Метка&Высота (mm)\\\hline 1&12\\2&18\end{tabular}\caption{Высота меток}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{Журнал измерений}, 2025, \chaptername~2.\end{thebibliography}
+\end{document}

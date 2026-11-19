@@ -1,0 +1,132 @@
+{
+  "fonts" : [
+    "AppleColorEmoji",
+    "AvenirNext-Bold",
+    "AvenirNext-Italic",
+    "AvenirNext-Regular",
+    "HiraMaruProN-W4",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : -0.1,
+      "height" : 841.9,
+      "lastY" : 459.1,
+      "lineCount" : 15,
+      "lines" : [
+        {
+          "height" : 28.7,
+          "text" : "!",
+          "width" : 21.9,
+          "x" : 166.7,
+          "y" : -0.1
+        },
+        {
+          "height" : 35.2,
+          "text" : "紙見本 紙見本 · Field notes",
+          "width" : 201.8,
+          "x" : 196.7,
+          "y" : 37.8
+        },
+        {
+          "height" : 35.2,
+          "text" : "紙見本 紙見本",
+          "width" : 67.4,
+          "x" : 197.8,
+          "y" : 38.9
+        },
+        {
+          "height" : 35.2,
+          "text" : "紙見本 紙見本",
+          "width" : 67.4,
+          "x" : 198.4,
+          "y" : 38.9
+        },
+        {
+          "height" : 29.9,
+          "text" : "· Field notes",
+          "width" : 128.9,
+          "x" : 270.7,
+          "y" : 44.2
+        },
+        {
+          "height" : 18.1,
+          "text" : "薄い紙に 太字 太字 太字 太字、italic、code を並べる。",
+          "width" : 199.8,
+          "x" : 42.5,
+          "y" : 83.1
+        },
+        {
+          "height" : 28.7,
+          "text" : "!",
+          "width" : 21.9,
+          "x" : 406.2,
+          "y" : -0.1
+        },
+        {
+          "height" : 15.3,
+          "text" : "Fold the sheet along the dotted line.",
+          "width" : 185.6,
+          "x" : 67,
+          "y" : 128.3
+        },
+        {
+          "height" : 18.1,
+          "text" : "紙 紙 紙 紙",
+          "width" : 11.8,
+          "x" : 48.9,
+          "y" : 172
+        },
+        {
+          "height" : 18.1,
+          "text" : "mm",
+          "width" : 20.7,
+          "x" : 75.3,
+          "y" : 172
+        },
+        {
+          "height" : 15.3,
+          "text" : "A5",
+          "width" : 14.4,
+          "x" : 48.9,
+          "y" : 201.2
+        },
+        {
+          "height" : 15.3,
+          "text" : "148",
+          "width" : 19.5,
+          "x" : 76.5,
+          "y" : 201.2
+        },
+        {
+          "height" : 35.2,
+          "text" : "紙見本 紙見本",
+          "width" : 67.4,
+          "x" : 196.7,
+          "y" : 453.8
+        },
+        {
+          "height" : 35.2,
+          "text" : "紙見本 紙見本",
+          "width" : 67.4,
+          "x" : 197.4,
+          "y" : 453.8
+        },
+        {
+          "height" : 29.9,
+          "text" : "· Field notes",
+          "width" : 128.9,
+          "x" : 269.6,
+          "y" : 459.1
+        }
+      ],
+      "textHeight" : 489.2,
+      "textLeft" : 42.5,
+      "textTop" : -0.1,
+      "textWidth" : 385.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "6feb521020cdf98cdb6c22b23bd141c09debda704e426bfbfe919f3ed8eab210"
+}

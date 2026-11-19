@@ -522,6 +522,11 @@ struct SheetPageView: NSViewRepresentable {
 }
 
 final class SheetPageNSView: NSView {
+    #if DEBUG
+        private weak var drawnPage: PDFPage?
+        private var drawnBounds = CGRect.null
+        var snapshotDrawn: Bool { page != nil && drawnPage === page && drawnBounds == bounds && !needsDisplay }
+    #endif
     var page: PDFPage? {
         didSet { if page !== oldValue { needsDisplay = true } }
     }
@@ -559,5 +564,11 @@ final class SheetPageNSView: NSView {
         context.interpolationQuality = .high
         page.draw(with: .cropBox, to: context)
         context.restoreGState()
+        #if DEBUG
+            if DebugWindowCapture.requested {
+                drawnPage = page
+                drawnBounds = bounds
+            }
+        #endif
     }
 }

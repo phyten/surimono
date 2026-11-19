@@ -571,6 +571,32 @@ final class PaperPDFView: PageTextPDFView, ShortcutSurface {
         }
     }
 
+    #if DEBUG
+        func alignSnapshotPaper() {
+            // Intermediate resize fits can fall inside refit's dead band. Apply the final geometry exactly once.
+            let unit = fittedUnitSize
+            guard bounds.width > 1, bounds.height > 1, unit.width > 0, unit.height > 0,
+                document != nil, let backing = window?.backingScaleFactor, backing > 0
+            else { return }
+            let fit = min(
+                (bounds.width * backing).rounded() / (unit.width * backing),
+                (bounds.height * backing).rounded() / (unit.height * backing))
+            let target = max(fit * displayedZoom, 0.01)
+            if scaleFactor != target {
+                isSettingScale = true
+                scaleFactor = target
+                isSettingScale = false
+            }
+            layoutDocumentView()
+            guard let clip = documentView?.enclosingScrollView?.contentView else { return }
+            let offset = clip.bounds.origin
+            let aligned = CGPoint(
+                x: (offset.x * backing).rounded() / backing, y: (offset.y * backing).rounded() / backing)
+            let origin = clip.constrainBoundsRect(CGRect(origin: aligned, size: clip.bounds.size)).origin
+            if clip.bounds.origin != origin { clip.scroll(to: origin) }
+        }
+    #endif
+
     private func refit() {
         guard !isSettingScale, bounds.width > 1, bounds.height > 1 else { return }
         fittedSize = bounds.size

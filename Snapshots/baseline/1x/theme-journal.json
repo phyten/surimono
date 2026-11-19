@@ -1,0 +1,64 @@
+{
+  "fonts" : [
+    "Baskerville",
+    "Baskerville-Bold",
+    "Baskerville-Italic",
+    "Baskerville-SemiBold",
+    "Menlo-Regular",
+    "YuMin-Demibold",
+    "YuMin-Extrabold",
+    "YuMin-Medium"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 37.3,
+      "height" : 841.9,
+      "lastY" : 154,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 28,
+          "text" : "紙⾒本 · Field notes",
+          "width" : 145,
+          "x" : 225.1,
+          "y" : 37.3
+        },
+        {
+          "height" : 16.5,
+          "text" : "薄い紙に 太字、italic、code を並べる。",
+          "width" : 166.5,
+          "x" : 42.5,
+          "y" : 84.6
+        },
+        {
+          "height" : 10.4,
+          "text" : "Fold the sheet along the dotted line.",
+          "width" : 129.9,
+          "x" : 56.2,
+          "y" : 112.1
+        },
+        {
+          "height" : 13.8,
+          "text" : "紙 mm",
+          "width" : 38,
+          "x" : 278.7,
+          "y" : 135.8
+        },
+        {
+          "height" : 10.1,
+          "text" : "A5 148",
+          "width" : 38,
+          "x" : 278.7,
+          "y" : 154
+        }
+      ],
+      "textHeight" : 126.8,
+      "textLeft" : 42.5,
+      "textTop" : 37.3,
+      "textWidth" : 327.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "d3b0ab0f7e9d10754a00926d63364b30373c32c93bcf3f3a8b36162bf25c44af"
+}

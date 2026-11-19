@@ -1,0 +1,84 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.015520003307185894,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 317,
+    "maxLuminance" : 121.640625,
+    "maxShiftPt" : 226.1,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 13
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 151.1,
+      "height" : 841.9,
+      "lastY" : 223.1,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "Stores desk",
+          "width" : 49.1,
+          "x" : 140.4,
+          "y" : 151.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Paper Model WorkshopDear stores team, Please reserve two card thicknesses",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 163.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "for the next rail trial. The folded strip held the rail level at the second mark.",
+          "width" : 336.6,
+          "x" : 125.4,
+          "y" : 175.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Stock Sheets",
+          "width" : 66.1,
+          "x" : 264.2,
+          "y" : 187.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Thin 3",
+          "width" : 66.1,
+          "x" : 264.2,
+          "y" : 199.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Heavy 2",
+          "width" : 66.1,
+          "x" : 264.2,
+          "y" : 211.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "With thanks,Trial stock list",
+          "width" : 121.7,
+          "x" : 125.4,
+          "y" : 223.1
+        }
+      ],
+      "textHeight" : 83.7,
+      "textLeft" : 125.4,
+      "textTop" : 151.1,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "27968380dabfc619d85b515410f459e4d357e33eaa3d4f2e08cc5f656a81dd6e"
+}

@@ -1,0 +1,1392 @@
+[
+ {
+  "id": "001",
+  "dir": "001-survey",
+  "title": "A survey of the lantern court",
+  "category": "Structure",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "title:thanks",
+   "title:and",
+   "title:subtitle",
+   "abstract",
+   "footnote"
+  ]
+ },
+ {
+  "id": "002",
+  "dir": "002-chapter-map",
+  "title": "A guide to the model quay",
+  "category": "Structure",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 3,
+  "features": [
+   "report",
+   "toc",
+   "section:subparagraph",
+   "appendix",
+   "ref"
+  ]
+ },
+ {
+  "id": "003",
+  "dir": "003-parts",
+  "title": "The folded atlas",
+  "category": "Structure",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "book",
+   "part",
+   "chapter",
+   "twoside"
+  ]
+ },
+ {
+  "id": "004",
+  "dir": "004-field-list",
+  "title": "Packing the field tray",
+  "category": "Structure",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "list:itemize",
+   "list:enumerate",
+   "list:description",
+   "nested"
+  ]
+ },
+ {
+  "id": "005",
+  "dir": "005-verse",
+  "title": "Notes beside the gate",
+  "category": "Structure",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "quote",
+   "quotation",
+   "verse"
+  ]
+ },
+ {
+  "id": "006",
+  "dir": "006-paired-columns",
+  "title": "The two drying racks",
+  "category": "Page setup",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "geometry:margin",
+   "twocolumn"
+  ]
+ },
+ {
+  "id": "007",
+  "dir": "007-binder",
+  "title": "Binding allowance",
+  "category": "Page setup",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "geometry:left/right",
+   "twoside"
+  ]
+ },
+ {
+  "id": "008",
+  "dir": "008-measure",
+  "title": "Working measure",
+  "category": "Page setup",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "geometry:textwidth"
+  ]
+ },
+ {
+  "id": "009",
+  "dir": "009-envelope",
+  "title": "Envelope insert",
+  "category": "Page setup",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "geometry:total"
+  ]
+ },
+ {
+  "id": "010",
+  "dir": "010-proof-slip",
+  "title": "Proof slip",
+  "category": "Page setup",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "geometry:hmargin"
+  ]
+ },
+ {
+  "id": "011",
+  "dir": "011-ledger-width",
+  "title": "A narrow ledger",
+  "category": "Page setup",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "setlength:textwidth"
+  ]
+ },
+ {
+  "id": "012",
+  "dir": "012-plates",
+  "title": "Plates from the casting bench",
+  "category": "Names and counters",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "caption:renamed",
+   "counter:figure",
+   "abstractname",
+   "refname"
+  ]
+ },
+ {
+  "id": "013",
+  "dir": "013-stations",
+  "title": "Station register",
+  "category": "Names and counters",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "chaptername",
+   "contentsname",
+   "counter:custom",
+   "ref"
+  ]
+ },
+ {
+  "id": "014",
+  "dir": "014-theorem-family",
+  "title": "Bounds on a tray count",
+  "category": "Names and counters",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "newtheorem:shared",
+   "theoremstyle",
+   "proofname"
+  ]
+ },
+ {
+  "id": "015",
+  "dir": "015-reservoir",
+  "title": "Two reservoir readings",
+  "category": "Mathematics",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "align",
+   "numberwithin",
+   "eqref",
+   "operator",
+   "tag"
+  ]
+ },
+ {
+  "id": "016",
+  "dir": "016-switching",
+  "title": "A gate with a stop",
+  "category": "Mathematics",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "cases",
+   "gather",
+   "gather*",
+   "inline",
+   "display"
+  ]
+ },
+ {
+  "id": "017",
+  "dir": "017-matrix",
+  "title": "Turning the sample grid",
+  "category": "Mathematics",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "matrix",
+   "pmatrix",
+   "bmatrix",
+   "vmatrix",
+   "Bmatrix",
+   "Vmatrix"
+  ]
+ },
+ {
+  "id": "018",
+  "dir": "018-sum",
+  "title": "Counting triangular stacks",
+  "category": "Mathematics",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "multline",
+   "align*",
+   "derivation"
+  ]
+ },
+ {
+  "id": "019",
+  "dir": "019-core-samples",
+  "title": "Core sample inventory",
+  "category": "Tables",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tabular:lcrp",
+   "cline",
+   "multicolumn",
+   "nested-tabular"
+  ]
+ },
+ {
+  "id": "020",
+  "dir": "020-inspection",
+  "title": "Inspection cards",
+  "category": "Tables",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tabularx",
+   "array:m",
+   "array:b",
+   "array:custom",
+   "booktabs"
+  ]
+ },
+ {
+  "id": "021",
+  "dir": "021-shift-log",
+  "title": "Shift log for the settling tank",
+  "category": "Tables",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "longtable",
+   "repeat-header",
+   "multipage"
+  ]
+ },
+ {
+  "id": "022",
+  "dir": "022-batch-grid",
+  "title": "Batch comparison grid",
+  "category": "Tables",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "colortbl",
+   "resizebox",
+   "small",
+   "table:math"
+  ]
+ },
+ {
+  "id": "023",
+  "dir": "023-ridge-profile",
+  "title": "The ridge profile",
+  "category": "Figures",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "includegraphics:width",
+   "includegraphics:trim",
+   "includegraphics:clip",
+   "includegraphics:angle"
+  ]
+ },
+ {
+  "id": "024",
+  "dir": "024-paired-slots",
+  "title": "Two slot gauges",
+  "category": "Figures",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "subcaption",
+   "subref",
+   "minipage"
+  ]
+ },
+ {
+  "id": "025",
+  "dir": "025-easel",
+  "title": "Setting the easel",
+  "category": "Figures",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "figure:minipages",
+   "fbox",
+   "caption"
+  ]
+ },
+ {
+  "id": "026",
+  "dir": "026-reading-cards",
+  "title": "Reading cards for the sluice model",
+  "category": "Bibliography",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "thebibliography",
+   "cite:multiple"
+  ]
+ },
+ {
+  "id": "027",
+  "dir": "027-plain",
+  "title": "Channel lining",
+  "category": "Bibliography",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "bibtex:plain"
+  ]
+ },
+ {
+  "id": "028",
+  "dir": "028-unsrt",
+  "title": "Flap assembly",
+  "category": "Bibliography",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "bibtex:unsrt"
+  ]
+ },
+ {
+  "id": "029",
+  "dir": "029-alpha",
+  "title": "Scale marks",
+  "category": "Bibliography",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "bibtex:alpha"
+  ]
+ },
+ {
+  "id": "030",
+  "dir": "030-abbrv",
+  "title": "Bench adjustment",
+  "category": "Bibliography",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "bibtex:abbrv"
+  ]
+ },
+ {
+  "id": "031",
+  "dir": "031-plainnat",
+  "title": "Gauge calibration",
+  "category": "Bibliography",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "bibtex:plainnat",
+   "natbib:author-year"
+  ]
+ },
+ {
+  "id": "032",
+  "dir": "032-biblatex-cards",
+  "title": "An annotated gauge shelf",
+  "category": "Bibliography",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "biblatex",
+   "biber"
+  ]
+ },
+ {
+  "id": "033",
+  "dir": "033-rack-format",
+  "title": "Rack card format",
+  "category": "Code",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "verbatim",
+   "verb",
+   "inline-code"
+  ]
+ },
+ {
+  "id": "034",
+  "dir": "034-index-code",
+  "title": "Indexing a sample rack",
+  "category": "Code",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "listings:style",
+   "listings:language",
+   "lstinline"
+  ]
+ },
+ {
+  "id": "035",
+  "dir": "035-labels",
+  "title": "Labels for a sample drawer",
+  "category": "Macros and files",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "newcommand:optional",
+   "def",
+   "newenvironment"
+  ]
+ },
+ {
+  "id": "036",
+  "dir": "036-status",
+  "title": "Condition flags on the bench",
+  "category": "Macros and files",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "newif",
+   "ifthenelse",
+   "ifx",
+   "makeatletter"
+  ]
+ },
+ {
+  "id": "037",
+  "dir": "037-loop-register",
+  "title": "A register of drying positions",
+  "category": "Macros and files",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "loop",
+   "@for",
+   "makeatletter"
+  ]
+ },
+ {
+  "id": "038",
+  "dir": "038-bound-ledger",
+  "title": "The bound ledger",
+  "category": "Macros and files",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "input",
+   "include",
+   "include:label"
+  ]
+ },
+ {
+  "id": "039",
+  "dir": "039-lang-british",
+  "title": "The measuring shelf",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:british"
+  ]
+ },
+ {
+  "id": "040",
+  "dir": "040-lang-ngerman",
+  "title": "Das Messbrett",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:ngerman"
+  ]
+ },
+ {
+  "id": "041",
+  "dir": "041-lang-french",
+  "title": "La planche de mesure",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:french"
+  ]
+ },
+ {
+  "id": "042",
+  "dir": "042-lang-spanish",
+  "title": "La tabla de medida",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:spanish"
+  ]
+ },
+ {
+  "id": "043",
+  "dir": "043-lang-italian",
+  "title": "La tavola di misura",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:italian"
+  ]
+ },
+ {
+  "id": "044",
+  "dir": "044-lang-portuguese",
+  "title": "A tábua de medição",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:portuguese"
+  ]
+ },
+ {
+  "id": "045",
+  "dir": "045-lang-dutch",
+  "title": "De meetplank",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:dutch"
+  ]
+ },
+ {
+  "id": "046",
+  "dir": "046-lang-russian",
+  "title": "Мерная доска",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:russian",
+   "babelprovide"
+  ]
+ },
+ {
+  "id": "047",
+  "dir": "047-lang-ukrainian",
+  "title": "Мірна дошка",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:ukrainian",
+   "babelprovide"
+  ]
+ },
+ {
+  "id": "048",
+  "dir": "048-lang-polish",
+  "title": "Deska pomiarowa",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:polish"
+  ]
+ },
+ {
+  "id": "049",
+  "dir": "049-lang-czech",
+  "title": "Měřicí deska",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:czech"
+  ]
+ },
+ {
+  "id": "050",
+  "dir": "050-lang-swedish",
+  "title": "Mätbrädan",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:swedish"
+  ]
+ },
+ {
+  "id": "051",
+  "dir": "051-lang-turkish",
+  "title": "Ölçüm tahtası",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:turkish",
+   "babelprovide"
+  ]
+ },
+ {
+  "id": "052",
+  "dir": "052-lang-greek",
+  "title": "Η σανίδα μέτρησης",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:greek",
+   "babelprovide"
+  ]
+ },
+ {
+  "id": "053",
+  "dir": "053-lang-arabic",
+  "title": "لوح القياس",
+  "category": "Languages",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:arabic",
+   "bidi:rtl"
+  ]
+ },
+ {
+  "id": "054",
+  "dir": "054-lang-hebrew",
+  "title": "לוח המדידה",
+  "category": "Languages",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "babel:hebrew",
+   "bidi:rtl"
+  ]
+ },
+ {
+  "id": "055",
+  "dir": "055-lang-zh-hans",
+  "title": "测量板的位置",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "fontspec",
+   "caption:renamed",
+   "xetex:linebreaklocale"
+  ]
+ },
+ {
+  "id": "056",
+  "dir": "056-native-zh-hans",
+  "title": "测量板的位置",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": false,
+  "reason_if_not": "Missing ctexart.cls",
+  "pages": null,
+  "features": [
+   "class:ctexart",
+   "locale:zh-hans"
+  ],
+  "expected": "no reference"
+ },
+ {
+  "id": "057",
+  "dir": "057-lang-zh-hant",
+  "title": "測量板的位置",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "fontspec",
+   "caption:renamed",
+   "xetex:linebreaklocale"
+  ]
+ },
+ {
+  "id": "058",
+  "dir": "058-native-zh-hant",
+  "title": "測量板的位置",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": false,
+  "reason_if_not": "Missing ctexart.cls",
+  "pages": null,
+  "features": [
+   "class:ctexart",
+   "locale:zh-hant"
+  ],
+  "expected": "no reference"
+ },
+ {
+  "id": "059",
+  "dir": "059-lang-korean",
+  "title": "측정판의 위치",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "fontspec",
+   "caption:renamed",
+   "xetex:linebreaklocale"
+  ]
+ },
+ {
+  "id": "060",
+  "dir": "060-native-korean",
+  "title": "측정판의 위치",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": false,
+  "reason_if_not": "Missing oblivoir.cls",
+  "pages": null,
+  "features": [
+   "class:oblivoir",
+   "locale:korean"
+  ],
+  "expected": "no reference"
+ },
+ {
+  "id": "061",
+  "dir": "061-lang-japanese",
+  "title": "測定板の位置",
+  "category": "Languages",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "fontspec",
+   "caption:renamed",
+   "xetex:linebreaklocale"
+  ]
+ },
+ {
+  "id": "062",
+  "dir": "062-native-japanese",
+  "title": "測定板の位置",
+  "category": "Languages",
+  "engine": "lualatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "class:ltjsarticle",
+   "locale:japanese"
+  ]
+ },
+ {
+  "id": "063",
+  "dir": "063-tikz-ruler",
+  "title": "Reading a travelling sled",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:foreach",
+   "axes",
+   "ticks"
+  ],
+  "grade": "basic"
+ },
+ {
+  "id": "064",
+  "dir": "064-tikz-curve",
+  "title": "Profile of a curved ramp",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:plot",
+   "domain"
+  ],
+  "grade": "intermediate"
+ },
+ {
+  "id": "065",
+  "dir": "065-tikz-triangle",
+  "title": "Survey of a corner brace",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:angles",
+   "circle",
+   "coordinates"
+  ],
+  "grade": "intermediate"
+ },
+ {
+  "id": "066",
+  "dir": "066-tikz-route",
+  "title": "Routing a sample card",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:positioning",
+   "tikz:tikzset",
+   "tikz:arrows.meta"
+  ],
+  "grade": "intermediate"
+ },
+ {
+  "id": "067",
+  "dir": "067-tikz-stamps",
+  "title": "Two impressions of one stamp",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:scope",
+   "transforms",
+   "fills"
+  ],
+  "grade": "basic"
+ },
+ {
+  "id": "068",
+  "dir": "068-tikz-section",
+  "title": "A section through the filter",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:patterns",
+   "clipping"
+  ],
+  "grade": "intermediate"
+ },
+ {
+  "id": "069",
+  "dir": "069-tikz-midpoint",
+  "title": "Setting the centre punch",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:calc",
+   "interpolation"
+  ],
+  "grade": "intermediate"
+ },
+ {
+  "id": "070",
+  "dir": "070-tikz-tree",
+  "title": "Sorting the casting slips",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:tree",
+   "child"
+  ],
+  "grade": "basic"
+ },
+ {
+  "id": "071",
+  "dir": "071-tikz-matrix",
+  "title": "Neighbouring rack cells",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:matrix",
+   "nodes",
+   "arrows.meta"
+  ],
+  "grade": "advanced"
+ },
+ {
+  "id": "072",
+  "dir": "072-tikz-towpath",
+  "title": "Lettering the curved towpath",
+  "category": "TikZ",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "tikz:decorations.text",
+   "text-along-path"
+  ],
+  "grade": "advanced"
+ },
+ {
+  "id": "073",
+  "dir": "073-pgfplots-head",
+  "title": "Head along the flume",
+  "category": "PGFPlots",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "pgfplots:line",
+   "coordinates"
+  ],
+  "grade": "basic"
+ },
+ {
+  "id": "074",
+  "dir": "074-pgfplots-wear",
+  "title": "Wear on paired strips",
+  "category": "PGFPlots",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "pgfplots:scatter",
+   "expression",
+   "legend"
+  ],
+  "grade": "intermediate"
+ },
+ {
+  "id": "075",
+  "dir": "075-pgfplots-bins",
+  "title": "Counts by sieve",
+  "category": "PGFPlots",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "pgfplots:bar",
+   "table:inline"
+  ],
+  "grade": "intermediate"
+ },
+ {
+  "id": "076",
+  "dir": "076-pgfplots-decay",
+  "title": "Settling on two beds",
+  "category": "PGFPlots",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "pgfplots:log-axis",
+   "multiple-plots"
+  ],
+  "grade": "advanced"
+ },
+ {
+  "id": "077",
+  "dir": "077-swatches",
+  "title": "Marking the sample envelope",
+  "category": "Boxes and layout",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "colorbox",
+   "parbox",
+   "fbox",
+   "minipage"
+  ]
+ },
+ {
+  "id": "078",
+  "dir": "078-crew-sheet",
+  "title": "Reading the crew sheet",
+  "category": "Boxes and layout",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "multicol",
+   "fancyhdr",
+   "columnbreak"
+  ]
+ },
+ {
+  "id": "079",
+  "dir": "079-landscape",
+  "title": "Panoramic clearance strip",
+  "category": "Boxes and layout",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "landscape",
+   "rule"
+  ]
+ },
+ {
+  "id": "080",
+  "dir": "080-class-revtex4-2",
+  "title": "Spacer trial — revtex4-2",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "class:revtex4-2"
+  ]
+ },
+ {
+  "id": "081",
+  "dir": "081-class-amsart",
+  "title": "Spacer trial — amsart",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "class:amsart"
+  ]
+ },
+ {
+  "id": "082",
+  "dir": "082-class-amsbook",
+  "title": "Spacer trial — amsbook",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 3,
+  "features": [
+   "class:amsbook"
+  ]
+ },
+ {
+  "id": "083",
+  "dir": "083-class-beamer",
+  "title": "Spacer trial — beamer",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 3,
+  "features": [
+   "class:beamer"
+  ]
+ },
+ {
+  "id": "084",
+  "dir": "084-class-memoir",
+  "title": "Spacer trial — memoir",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "class:memoir"
+  ]
+ },
+ {
+  "id": "085",
+  "dir": "085-class-scrartcl",
+  "title": "Spacer trial — scrartcl",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "class:scrartcl"
+  ]
+ },
+ {
+  "id": "086",
+  "dir": "086-class-scrreprt",
+  "title": "Spacer trial — scrreprt",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 3,
+  "features": [
+   "class:scrreprt"
+  ]
+ },
+ {
+  "id": "087",
+  "dir": "087-class-letter",
+  "title": "Spacer trial — letter",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "class:letter"
+  ]
+ },
+ {
+  "id": "088",
+  "dir": "088-class-IEEEtran",
+  "title": "Spacer trial — IEEEtran",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "class:IEEEtran"
+  ]
+ },
+ {
+  "id": "089",
+  "dir": "089-class-acmart",
+  "title": "Spacer trial — acmart",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Missing acmart.cls",
+  "pages": null,
+  "features": [
+   "class:acmart"
+  ],
+  "expected": "no reference"
+ },
+ {
+  "id": "090",
+  "dir": "090-class-llncs",
+  "title": "Spacer trial — llncs",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "class:llncs"
+  ]
+ },
+ {
+  "id": "091",
+  "dir": "091-class-elsarticle",
+  "title": "Spacer trial — elsarticle",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "pages": 1,
+  "features": [
+   "class:elsarticle"
+  ]
+ },
+ {
+  "id": "092",
+  "dir": "092-class-exam",
+  "title": "Spacer trial — exam",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Missing exam.cls",
+  "pages": null,
+  "features": [
+   "class:exam"
+  ],
+  "expected": "no reference"
+ },
+ {
+  "id": "093",
+  "dir": "093-class-moderncv",
+  "title": "Spacer trial — moderncv",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Missing moderncv.cls",
+  "pages": null,
+  "features": [
+   "class:moderncv"
+  ],
+  "expected": "no reference"
+ },
+ {
+  "id": "094",
+  "dir": "094-edge-comments",
+  "title": "Alignment notes",
+  "category": "Stress and odd cases",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 3,
+  "features": [
+   "comments",
+   "percent",
+   "linebreak",
+   "hspace",
+   "vspace",
+   "clearpage",
+   "newpage"
+  ]
+ },
+ {
+  "id": "095",
+  "dir": "095-mixed-card",
+  "title": "A multilingual shelf card",
+  "category": "Stress and odd cases",
+  "engine": "xelatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "fontspec",
+   "mixed-script",
+   "nested:four",
+   "sloppy"
+  ]
+ },
+ {
+  "id": "096",
+  "dir": "096-continuous",
+  "title": "Following the continuous rail",
+  "category": "Stress and odd cases",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "long-paragraph",
+   "tolerance",
+   "emergency-stretch"
+  ]
+ }
+]

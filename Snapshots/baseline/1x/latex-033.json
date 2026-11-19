@@ -1,0 +1,84 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.01153277731270476,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 129.28125,
+    "maxShiftPt" : 29,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Rack card format",
+          "width" : 124.8,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "Separate the fields with |. The literal # introduces a comment.",
+          "width" : 275,
+          "x" : 125.4,
+          "y" : 177.5
+        },
+        {
+          "height" : 9.2,
+          "text" : "# rack | shelf | slots",
+          "width" : 115.1,
+          "x" : 125.4,
+          "y" : 198
+        },
+        {
+          "height" : 9.2,
+          "text" : "east | upper | 04",
+          "width" : 99.4,
+          "x" : 125.4,
+          "y" : 210
+        },
+        {
+          "height" : 9.2,
+          "text" : "east | lower | 06",
+          "width" : 99.4,
+          "x" : 125.4,
+          "y" : 222
+        },
+        {
+          "height" : 11.7,
+          "text" : "Leading zeros keep paper labels aligned.",
+          "width" : 174.9,
+          "x" : 125.4,
+          "y" : 239.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 275,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "d5092bcc86c4769e1b7bb9dd6f5f800b3ac062d650b5e834ae15000fa666fba9"
+}

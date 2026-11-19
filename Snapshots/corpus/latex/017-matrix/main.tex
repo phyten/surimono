@@ -1,0 +1,19 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\section*{Turning the sample grid}
+
+One quarter-turn maps the east vector to the north vector:
+\[
+ \begin{pmatrix}0&-1\\1&0\end{pmatrix}\begin{bmatrix}1\\0\end{bmatrix}
+ =\begin{bmatrix}0\\1\end{bmatrix}.
+\]
+The worksheet prints the determinant, a bare grid and two delimiter samples:
+\[
+ \begin{vmatrix}0&-1\\1&0\end{vmatrix}=1,\quad
+ \begin{matrix}a&b\\c&d\end{matrix}\quad
+ \begin{Bmatrix}a\\b\end{Bmatrix}\quad
+ \begin{Vmatrix}a\\b\end{Vmatrix}.
+\]
+\end{document}

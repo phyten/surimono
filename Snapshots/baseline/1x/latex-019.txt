@@ -1,0 +1,8 @@
+Core sample inventory
+Location Depth Description
+Bay Slot mm Surface
+East A 12 Fine ridges along the cut
+face.
+West B 9 Pale band above
+dark seam
+1

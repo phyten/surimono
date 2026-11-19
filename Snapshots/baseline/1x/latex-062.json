@@ -1,0 +1,167 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02473465000671772,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 10.4,
+    "maxLuminance" : 194.84375,
+    "maxShiftPt" : 56.1,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 4
+  },
+  "fonts" : [
+    "Helvetica",
+    "HelveticaNeue-Bold",
+    "HelveticaNeue-Medium",
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "HiraMinProN-W3",
+    "HiraMinProN-W6"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 147.2,
+      "height" : 841.9,
+      "lastY" : 766.1,
+      "lineCount" : 18,
+      "lines" : [
+        {
+          "height" : 25.8,
+          "text" : "測定板の位置",
+          "width" : 95.5,
+          "x" : 249.9,
+          "y" : 147.2
+        },
+        {
+          "height" : 16.9,
+          "text" : "2026 年5 月14 日",
+          "width" : 82.1,
+          "x" : 256.6,
+          "y" : 180
+        },
+        {
+          "height" : 13.4,
+          "text" : "概要",
+          "width" : 16.6,
+          "x" : 289.3,
+          "y" : 210.4
+        },
+        {
+          "height" : 12.7,
+          "text" : "板に刻んだ二本の線から、取り付け時の位置を読み取る。",
+          "width" : 215.6,
+          "x" : 112.3,
+          "y" : 225
+        },
+        {
+          "height" : 24.8,
+          "text" : "目次",
+          "width" : 28.7,
+          "x" : 71.9,
+          "y" : 246.4
+        },
+        {
+          "height" : 16.3,
+          "text" : "1 目盛の読み方 1",
+          "width" : 451.4,
+          "x" : 71.9,
+          "y" : 277
+        },
+        {
+          "height" : 16.3,
+          "text" : "2 高さ 1",
+          "width" : 451.4,
+          "x" : 71.9,
+          "y" : 304.2
+        },
+        {
+          "height" : 24.8,
+          "text" : "1 目盛の読み方",
+          "width" : 108.4,
+          "x" : 73.7,
+          "y" : 332.8
+        },
+        {
+          "height" : 14.1,
+          "text" : "「下の線から順に読む。」",
+          "width" : 110.6,
+          "x" : 96.8,
+          "y" : 363.1
+        },
+        {
+          "height" : 14.1,
+          "text" : "図 1 板の取り付け位置",
+          "width" : 99.6,
+          "x" : 247.8,
+          "y" : 439
+        },
+        {
+          "height" : 24.8,
+          "text" : "2 高さ",
+          "width" : 51,
+          "x" : 73.7,
+          "y" : 479.1
+        },
+        {
+          "height" : 14.1,
+          "text" : "目盛 高さ (mm)",
+          "width" : 74.7,
+          "x" : 260.3,
+          "y" : 519.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "1 12",
+          "width" : 67.9,
+          "x" : 267,
+          "y" : 538.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "2 18",
+          "width" : 67.9,
+          "x" : 267,
+          "y" : 554.9
+        },
+        {
+          "height" : 14.1,
+          "text" : "表 1 目盛の高さ",
+          "width" : 72,
+          "x" : 261.7,
+          "y" : 580.5
+        },
+        {
+          "height" : 24.8,
+          "text" : "参考文献",
+          "width" : 57.4,
+          "x" : 71.9,
+          "y" : 620.6
+        },
+        {
+          "height" : 16.3,
+          "text" : "[1] 測定台帳, 2025, 第2章.",
+          "width" : 118.8,
+          "x" : 71.9,
+          "y" : 649.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 766.1
+        }
+      ],
+      "textHeight" : 630.7,
+      "textLeft" : 71.9,
+      "textTop" : 147.2,
+      "textWidth" : 451.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "b23f51609fac214858dcaf30f257196ad50ee8f76f61d6fd52f978397cbe4a6c"
+}

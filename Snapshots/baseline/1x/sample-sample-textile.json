@@ -1,0 +1,250 @@
+{
+  "fonts" : [
+    "Helvetica",
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "HiraginoSans-W4",
+    "Menlo-Bold",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 771.7,
+      "lineCount" : 25,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "紙の実験 / Paper workshop",
+          "width" : 282.8,
+          "x" : 42.5,
+          "y" : 39.1
+        },
+        {
+          "height" : 27.1,
+          "text" : "準備 / Setup",
+          "width" : 99.7,
+          "x" : 42.5,
+          "y" : 75.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "Paper remembers the fold.",
+          "width" : 149.4,
+          "x" : 64.3,
+          "y" : 111.7
+        },
+        {
+          "height" : 20.8,
+          "text" : "余白を確認1",
+          "width" : 62.2,
+          "x" : 42.5,
+          "y" : 139.7
+        },
+        {
+          "height" : 20.8,
+          "text" : "次の行2",
+          "width" : 39.8,
+          "x" : 42.5,
+          "y" : 158.9
+        },
+        {
+          "height" : 18.4,
+          "text" : "。",
+          "width" : 11.2,
+          "x" : 82.3,
+          "y" : 161.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "。",
+          "width" : 11.2,
+          "x" : 104.7,
+          "y" : 142.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "Sheet",
+          "width" : 32,
+          "x" : 74.6,
+          "y" : 188.6
+        },
+        {
+          "height" : 18.4,
+          "text" : "A4",
+          "width" : 15.8,
+          "x" : 106.6,
+          "y" : 207.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "Fold",
+          "width" : 23.6,
+          "x" : 74.5,
+          "y" : 227
+        },
+        {
+          "height" : 18.4,
+          "text" : "1. Prepare",
+          "width" : 60.8,
+          "x" : 57.7,
+          "y" : 251.9
+        },
+        {
+          "height" : 18.4,
+          "text" : "1. Print",
+          "width" : 43.1,
+          "x" : 89.8,
+          "y" : 271.1
+        },
+        {
+          "height" : 19.4,
+          "text" : "紙 Sheets",
+          "width" : 69.2,
+          "x" : 48.9,
+          "y" : 301.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "A4 2",
+          "width" : 69.2,
+          "x" : 48.9,
+          "y" : 327.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "Total",
+          "width" : 26.7,
+          "x" : 48.9,
+          "y" : 352.8
+        },
+        {
+          "height" : 13.1,
+          "text" : "let sheets = 2",
+          "width" : 94.5,
+          "x" : 42.5,
+          "y" : 387.8
+        },
+        {
+          "height" : 21,
+          "text" : "Paper",
+          "width" : 37.2,
+          "x" : 202.5,
+          "y" : 426
+        },
+        {
+          "height" : 21,
+          "text" : "Print",
+          "width" : 30,
+          "x" : 359.9,
+          "y" : 426
+        },
+        {
+          "height" : 15,
+          "text" : "paper",
+          "width" : 38.2,
+          "x" : 278.6,
+          "y" : 484.4
+        },
+        {
+          "height" : 15,
+          "text" : "print",
+          "width" : 29.1,
+          "x" : 283.2,
+          "y" : 561.3
+        },
+        {
+          "height" : 18.5,
+          "text" : "Paper Printer",
+          "width" : 87.9,
+          "x" : 256.4,
+          "y" : 606.1
+        },
+        {
+          "height" : 18.5,
+          "text" : "Paper Printer",
+          "width" : 87.9,
+          "x" : 256.4,
+          "y" : 656
+        },
+        {
+          "height" : 13.1,
+          "text" : "fold & print",
+          "width" : 81,
+          "x" : 42.5,
+          "y" : 695.4
+        },
+        {
+          "height" : 18.4,
+          "text" : "準備 / PDF",
+          "width" : 57.9,
+          "x" : 42.5,
+          "y" : 718
+        },
+        {
+          "height" : 18.4,
+          "text" : "*Paper* stays as written.",
+          "width" : 134.2,
+          "x" : 42.5,
+          "y" : 771.7
+        }
+      ],
+      "textHeight" : 750.9,
+      "textLeft" : 42.5,
+      "textTop" : 39.1,
+      "textWidth" : 347.4,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 42,
+      "height" : 841.9,
+      "lastY" : 159.6,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 18.4,
+          "text" : "*Fold* / 校正",
+          "width" : 68.8,
+          "x" : 42.5,
+          "y" : 42
+        },
+        {
+          "height" : 19.4,
+          "text" : "Sheet",
+          "width" : 34.7,
+          "x" : 42.5,
+          "y" : 69.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "One piece of paper.",
+          "width" : 109.1,
+          "x" : 59.3,
+          "y" : 90
+        },
+        {
+          "height" : 16.5,
+          "text" : "1. Leave room for notes.",
+          "width" : 125.3,
+          "x" : 44.1,
+          "y" : 141.1
+        },
+        {
+          "height" : 16.5,
+          "text" : "2. Check alignment.",
+          "width" : 100.5,
+          "x" : 44.1,
+          "y" : 159.6
+        }
+      ],
+      "textHeight" : 134.1,
+      "textLeft" : 42.5,
+      "textTop" : 42,
+      "textWidth" : 127,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "a8c17aaf78351e553a0ee9eff168f963e68785830792b9154bd015e3a4db919a"
+}

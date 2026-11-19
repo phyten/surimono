@@ -1,0 +1,15 @@
+% !TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage{fontspec}\setmainfont{Times New Roman}
+\usepackage[polish]{babel}
+\begin{document}
+\title{Deska pomiarowa}\author{}\date{14 maja 2026}\maketitle
+\begin{abstract}Dwa znaki wskazują początkowe położenie deski.\end{abstract}
+\tableofcontents
+\section{Znaki}\begin{quote}„Najpierw odczytaj dolny znak”.\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{Położenie deski}\end{figure}
+\section{Wysokość}
+\begin{table}[ht]\centering\begin{tabular}{cr}Znak&Wysokość (mm)\\\hline 1&12\\2&18\end{tabular}\caption{Wysokość znaków}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{Zeszyt pomiarów}, 2025, \chaptername~2.\end{thebibliography}
+\end{document}

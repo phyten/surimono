@@ -1,0 +1,14 @@
+% !TEX program = pdflatex
+\documentclass{report}
+
+\renewcommand{\chaptername}{Circuit}\renewcommand{\contentsname}{Route index}
+\newcounter{station}[chapter]\renewcommand{\thestation}{\thechapter.\arabic{station}}
+\newcommand{\station}[1]{\refstepcounter{station}\par\textbf{Station \thestation: #1.} }
+
+\begin{document}
+
+\tableofcontents\chapter{Channel inspection}
+\station{North inlet}\label{inlet}The slot cleared at the first turn.
+\station{South inlet}The handle stopped earlier than at station~\ref{inlet}.
+
+\end{document}

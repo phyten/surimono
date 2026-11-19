@@ -1,0 +1,77 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.013441643671389742,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.8,
+    "maxLuminance" : 148.640625,
+    "maxShiftPt" : 26.4,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 8
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 151.6,
+      "height" : 841.9,
+      "lastY" : 716.9,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 21,
+          "text" : "A narrow ledger",
+          "width" : 139.4,
+          "x" : 105.4,
+          "y" : 151.6
+        },
+        {
+          "height" : 14,
+          "text" : "The morning reading follows a night of cooling.",
+          "width" : 272.1,
+          "x" : 105.4,
+          "y" : 183.6
+        },
+        {
+          "height" : 14,
+          "text" : "Place the second reading on the next line.",
+          "width" : 219.8,
+          "x" : 105.4,
+          "y" : 198
+        },
+        {
+          "height" : 14,
+          "text" : "The afternoon reading includes the expansion of",
+          "width" : 272.1,
+          "x" : 105.4,
+          "y" : 212.4
+        },
+        {
+          "height" : 14,
+          "text" : "the rim.",
+          "width" : 41.9,
+          "x" : 105.4,
+          "y" : 226.8
+        },
+        {
+          "height" : 14,
+          "text" : "1",
+          "width" : 6,
+          "x" : 238.5,
+          "y" : 716.9
+        }
+      ],
+      "textHeight" : 579.3,
+      "textLeft" : 105.4,
+      "textTop" : 151.6,
+      "textWidth" : 272.1,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "5ece68e089f1b93f034d47f6b773cc1a78deded0d063fd5acaee71d564655571"
+}

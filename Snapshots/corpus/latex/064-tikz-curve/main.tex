@@ -1,0 +1,15 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{tikz}
+
+\begin{document}
+\section*{Profile of a curved ramp}
+\begin{figure}[ht]\centering
+\begin{tikzpicture}
+
+\draw[->] (-2.3,0)--(2.4,0) node[right] {$x$};
+\draw[->] (0,-.2)--(0,2.5) node[above] {$h$};
+\draw[blue,thick] plot[domain=-2:2,samples=65] (\x,{0.5*\x*\x});
+\draw[dashed] (-2,2)--(2,2);
+\end{tikzpicture}\caption{The two ends of the parabolic channel reach the same height.}\end{figure}
+\end{document}

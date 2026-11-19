@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+            if DebugWindowCapture.requested { DebugWindowCapture.begin() }
+        #endif
         // Before any window exists, so that none shows in the system's appearance first.
         if let preferences = WelcomeController.shared.preferences {
             appearanceKeeper = AppearanceKeeper(preferences: preferences)
@@ -135,8 +138,12 @@ final class WelcomeController {
         // The washi color runs up under the title bar, as it does on the print screen.
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(
-            rootView: WelcomeView(preferences: preferences ?? AppPreferences()))
+        let welcome = WelcomeView(preferences: preferences ?? AppPreferences())
+        #if DEBUG
+            window.contentView = NSHostingView(rootView: welcome.snapshotControlAppearance())
+        #else
+            window.contentView = NSHostingView(rootView: welcome)
+        #endif
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window

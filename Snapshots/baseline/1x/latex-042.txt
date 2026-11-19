@@ -1,0 +1,19 @@
+La tabla de medida
+14 de mayo de 2026
+Resumen
+Dos marcas indican la posición inicial de la tabla.
+Índice
+1. Las marcas 1
+2. Altura 1
+1. Las marcas
+«Primero se lee la marca inferior».
+Figura 1: Posición de la tabla
+2. Altura
+Marca Altura (mm)
+1 12
+2 18
+Cuadro 1: Altura de las marcas
+Referencias
+[1]
+Cuaderno de medidas, 2025, Capítulo 2.
+1

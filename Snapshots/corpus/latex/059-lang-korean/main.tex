@@ -1,0 +1,20 @@
+% !TEX program = xelatex
+\documentclass{article}
+\usepackage{geometry}\geometry{margin=23mm}
+\usepackage{fontspec}\setmainfont[AutoFakeBold=2,AutoFakeSlant=.18]{AppleMyungjo}
+\XeTeXlinebreaklocale "ko"
+\renewcommand{\abstractname}{초록}
+\renewcommand{\contentsname}{차례}
+\renewcommand{\figurename}{그림}
+\renewcommand{\tablename}{표}
+\renewcommand{\refname}{참고문헌}
+\begin{document}
+\title{측정판의 위치}\author{}\date{2026년 5월 14일}\maketitle
+\begin{abstract}두 눈금은 판의 처음 위치를 나타낸다.\end{abstract}
+\tableofcontents
+\section{눈금}\begin{quote}“아래 눈금을 먼저 읽는다.”\end{quote}
+\begin{figure}[ht]\centering\fbox{\rule{0pt}{8mm}\rule{33mm}{0pt}}\caption{판의 위치}\end{figure}
+\section{높이}
+\begin{table}[ht]\centering\begin{tabular}{cr}눈금&높이 (mm)\\\hline 1&12\\2&18\end{tabular}\caption{눈금의 높이}\end{table}
+\begin{thebibliography}{1}\bibitem{record}\emph{측정 기록장}, 2025, 제2장.\end{thebibliography}
+\end{document}

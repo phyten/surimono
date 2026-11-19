@@ -1,0 +1,91 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.010314731020613373,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 138.1875,
+    "maxShiftPt" : 31,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 8,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Reading a travelling sled",
+          "width" : 176.8,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "lift",
+          "width" : 12.5,
+          "x" : 202.4,
+          "y" : 192.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 197.9,
+          "y" : 216.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 197.9,
+          "y" : 244.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "travel",
+          "width" : 25.2,
+          "x" : 370.9,
+          "y" : 273.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "1 2 3 4 5",
+          "width" : 118.4,
+          "x" : 234.5,
+          "y" : 281.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: The sled rises for three divisions before levelling off.",
+          "width" : 269.3,
+          "x" : 162.6,
+          "y" : 305.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 306.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "1be25577590d71b8c6db807e18ab372babe67721d763b89a4bca0adda1feb00b"
+}

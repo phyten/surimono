@@ -1,0 +1,70 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.009230149133413947,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 135.703125,
+    "maxShiftPt" : 29.1,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Condition flags on the bench",
+          "width" : 204.5,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "West rail: provisional; collect the strip.",
+          "width" : 170.8,
+          "x" : 125.4,
+          "y" : 177.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "West rail: checked; file the strip.",
+          "width" : 142.7,
+          "x" : 140.4,
+          "y" : 189.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Matching stencil.",
+          "width" : 75.1,
+          "x" : 140.4,
+          "y" : 201.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 204.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "4ab20bfa0f93b187cb42898816e8b31cb20f3e2010a05832399f89dfc2d2f270"
+}

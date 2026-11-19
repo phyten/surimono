@@ -1,0 +1,18 @@
+Das Messbrett
+14. Mai 2026
+Zusammenfassung
+Zwei Marken zeigen die ursprüngliche Lage des Brettes.
+Inhaltsverzeichnis
+1 Die Marken 1
+2 Höhe 1
+1 Die Marken
+„Zuerst die untere Marke ablesen.“
+Abbildung 1: Lage des Brettes
+2 Höhe
+Marke Höhe (mm)
+1 12
+2 18
+Tabelle 1: Höhe der Marken
+Literatur
+[1] Werkstattheft, 2025, Kapitel 2.
+1

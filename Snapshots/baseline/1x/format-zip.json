@@ -1,0 +1,25 @@
+{
+  "fonts" : [
+
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "height" : 463.5,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 841.9
+    },
+    {
+      "height" : 368.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 841.9
+    }
+  ],
+  "textSHA256" : "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+}

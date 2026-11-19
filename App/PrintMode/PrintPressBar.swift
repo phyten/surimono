@@ -434,7 +434,12 @@ private struct LayoutCard: View {
             .contentShape(CornerRole.tile.shape)
         }
         .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        .onHover { inside in
+            #if DEBUG
+                if DebugWindowCapture.requested { return }
+            #endif
+            hovering = inside
+        }
         .help(Text(verbatim: help))
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -520,7 +525,12 @@ private struct VariantMenuLabel: View {
             .frame(width: 20, height: 20)
             .background(CornerRole.smallControl.shape.fill(hovering ? PrintPalette.press : .clear))
             .contentShape(CornerRole.smallControl.shape)
-            .onHover { hovering = $0 }
+            .onHover { inside in
+                #if DEBUG
+                    if DebugWindowCapture.requested { return }
+                #endif
+                hovering = inside
+            }
     }
 }
 

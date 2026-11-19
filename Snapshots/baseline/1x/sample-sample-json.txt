@@ -1,0 +1,8 @@
+{
+}
+"title": "印刷見本",
+"copies": 2,
+"duplex": true,
+"pages": [1, 3, 5],
+"note": "A < B & C",
+"printer": null

@@ -1,0 +1,530 @@
+{
+  "fonts" : [
+    "Helvetica",
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "HiraginoSans-W3",
+    "HiraginoSans-W4",
+    "Menlo-Bold",
+    "Menlo-Italic",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 4,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 773.3,
+      "lineCount" : 28,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "紙の実験 / Paper workshop",
+          "width" : 282.8,
+          "x" : 156.3,
+          "y" : 39.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "Print Team, Sample Editor",
+          "width" : 144.1,
+          "x" : 225.6,
+          "y" : 78.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "1.0, 2026-10-01, 校正",
+          "width" : 119.7,
+          "x" : 237.8,
+          "y" : 100.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "Table of Contents",
+          "width" : 99,
+          "x" : 42.5,
+          "y" : 139.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "1. 準備 / Setup",
+          "width" : 81.7,
+          "x" : 42.5,
+          "y" : 160.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "2. 図と数式 / Figures",
+          "width" : 112.4,
+          "x" : 42.5,
+          "y" : 179.8
+        },
+        {
+          "height" : 27.1,
+          "text" : "1. 準備 / Setup",
+          "width" : 120.4,
+          "x" : 42.5,
+          "y" : 215.5
+        },
+        {
+          "height" : 19.4,
+          "text" : "Note",
+          "width" : 28.7,
+          "x" : 75,
+          "y" : 251.7
+        },
+        {
+          "height" : 20,
+          "text" : "余白を確かめます。1",
+          "width" : 105.9,
+          "x" : 52,
+          "y" : 271.8
+        },
+        {
+          "height" : 19.4,
+          "text" : "Tip",
+          "width" : 18.9,
+          "x" : 75,
+          "y" : 311
+        },
+        {
+          "height" : 19.4,
+          "text" : "Ctrl+P、Print、File › Print。",
+          "width" : 164.6,
+          "x" : 52,
+          "y" : 333.4
+        },
+        {
+          "height" : 19.4,
+          "text" : "Important",
+          "width" : 60,
+          "x" : 75,
+          "y" : 371
+        },
+        {
+          "height" : 18.4,
+          "text" : "原文を保存します。",
+          "width" : 99.8,
+          "x" : 52,
+          "y" : 389.6
+        },
+        {
+          "height" : 19.4,
+          "text" : "Warning",
+          "width" : 50.4,
+          "x" : 75,
+          "y" : 426.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "用紙の向きに注意。",
+          "width" : 100.9,
+          "x" : 52,
+          "y" : 444.9
+        },
+        {
+          "height" : 19.4,
+          "text" : "Caution",
+          "width" : 46.5,
+          "x" : 75,
+          "y" : 482.4
+        },
+        {
+          "height" : 18.4,
+          "text" : "裏面も確認してください。",
+          "width" : 133.6,
+          "x" : 52,
+          "y" : 501
+        },
+        {
+          "height" : 13.1,
+          "text" : "let sheets = 2 // (1)",
+          "width" : 141.8,
+          "x" : 42.5,
+          "y" : 542.4
+        },
+        {
+          "height" : 16.5,
+          "text" : "計算",
+          "width" : 20.2,
+          "x" : 42.5,
+          "y" : 565.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "1. 両面に刷る枚数。",
+          "width" : 106.5,
+          "x" : 57.7,
+          "y" : 593.9
+        },
+        {
+          "height" : 18.4,
+          "text" : "Table 1. 仕上がり",
+          "width" : 91.4,
+          "x" : 42.5,
+          "y" : 621.1
+        },
+        {
+          "height" : 19.4,
+          "text" : "用紙",
+          "width" : 22.4,
+          "x" : 48.9,
+          "y" : 643.4
+        },
+        {
+          "height" : 19.4,
+          "text" : "ページ",
+          "width" : 33.3,
+          "x" : 94.6,
+          "y" : 643.4
+        },
+        {
+          "height" : 18.4,
+          "text" : "A4 4",
+          "width" : 79.3,
+          "x" : 48.9,
+          "y" : 669.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "合計 4",
+          "width" : 33.6,
+          "x" : 48.9,
+          "y" : 694.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "見本を開く",
+          "width" : 56.1,
+          "x" : 74.5,
+          "y" : 726
+        },
+        {
+          "height" : 18.4,
+          "text" : "本文を確認",
+          "width" : 56.1,
+          "x" : 106.6,
+          "y" : 750.9
+        },
+        {
+          "height" : 18.4,
+          "text" : "用紙を選びます。",
+          "width" : 88.6,
+          "x" : 106.6,
+          "y" : 773.3
+        }
+      ],
+      "textHeight" : 752.5,
+      "textLeft" : 42.5,
+      "textTop" : 39.1,
+      "textWidth" : 396.5,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 42,
+      "height" : 841.9,
+      "lastY" : 361.4,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 18.4,
+          "text" : "印刷する",
+          "width" : 44.9,
+          "x" : 74.5,
+          "y" : 42
+        },
+        {
+          "height" : 19.4,
+          "text" : "用紙",
+          "width" : 22.4,
+          "x" : 74.6,
+          "y" : 69.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "Paper",
+          "width" : 32.5,
+          "x" : 91.4,
+          "y" : 96.5
+        },
+        {
+          "height" : 19.4,
+          "text" : "余白",
+          "width" : 22.4,
+          "x" : 74.6,
+          "y" : 122.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "Margin",
+          "width" : 38.7,
+          "x" : 91.4,
+          "y" : 150.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "表 Front",
+          "width" : 53.1,
+          "x" : 48.9,
+          "y" : 180.6
+        },
+        {
+          "height" : 18.4,
+          "text" : "裏 Back",
+          "width" : 50.6,
+          "x" : 48.9,
+          "y" : 206.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "紙にして確かめる。",
+          "width" : 100.3,
+          "x" : 64.3,
+          "y" : 240.6
+        },
+        {
+          "height" : 18.4,
+          "text" : "表と裏",
+          "width" : 33.6,
+          "x" : 42.5,
+          "y" : 315.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "折って一冊",
+          "width" : 55.7,
+          "x" : 42.5,
+          "y" : 334.4
+        },
+        {
+          "height" : 19.4,
+          "text" : "補足",
+          "width" : 22.4,
+          "x" : 54.5,
+          "y" : 396.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "小さなサイドバー。",
+          "width" : 99.6,
+          "x" : 54.5,
+          "y" : 424.1
+        },
+        {
+          "height" : 19.4,
+          "text" : "Example 1. 用例",
+          "width" : 92.1,
+          "x" : 54.5,
+          "y" : 476.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "本文の例。",
+          "width" : 56.1,
+          "x" : 54.5,
+          "y" : 504.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "Open block.",
+          "width" : 65.9,
+          "x" : 42.5,
+          "y" : 549.8
+        },
+        {
+          "height" : 13.1,
+          "text" : "Literal <text>",
+          "width" : 94.5,
+          "x" : 42.5,
+          "y" : 581.6
+        },
+        {
+          "height" : 16.5,
+          "text" : "̶ 編集部",
+          "width" : 43.7,
+          "x" : 509,
+          "y" : 271.7
+        },
+        {
+          "height" : 16.5,
+          "text" : "印刷ノート",
+          "width" : 52.6,
+          "x" : 502.1,
+          "y" : 289.3
+        },
+        {
+          "height" : 16.5,
+          "text" : "̶ Paper Team",
+          "width" : 72.9,
+          "x" : 479.9,
+          "y" : 361.4
+        }
+      ],
+      "textHeight" : 552.7,
+      "textLeft" : 42.5,
+      "textTop" : 42,
+      "textWidth" : 512.2,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 58.5,
+      "height" : 841.9,
+      "lastY" : 754.1,
+      "lineCount" : 18,
+      "lines" : [
+        {
+          "height" : 27.1,
+          "text" : "2. 図と数式 / Figures",
+          "width" : 164.9,
+          "x" : 42.5,
+          "y" : 58.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "準備 / Setup と 準備。 Reference.",
+          "width" : 184.1,
+          "x" : 42.5,
+          "y" : 90.9
+        },
+        {
+          "height" : 21,
+          "text" : "A B",
+          "width" : 163.2,
+          "x" : 216.3,
+          "y" : 135.3
+        },
+        {
+          "height" : 16.5,
+          "text" : "図",
+          "width" : 10.1,
+          "x" : 42.5,
+          "y" : 177.2
+        },
+        {
+          "height" : 18.5,
+          "text" : "A B",
+          "width" : 34.8,
+          "x" : 280.4,
+          "y" : 212
+        },
+        {
+          "height" : 18.5,
+          "text" : "A B",
+          "width" : 34.8,
+          "x" : 280.4,
+          "y" : 261.9
+        },
+        {
+          "height" : 14.9,
+          "text" : "A",
+          "width" : 10,
+          "x" : 292.5,
+          "y" : 314.6
+        },
+        {
+          "height" : 14.9,
+          "text" : "B",
+          "width" : 10,
+          "x" : 292.5,
+          "y" : 391.4
+        },
+        {
+          "height" : 14.9,
+          "text" : "C",
+          "width" : 10.8,
+          "x" : 292.1,
+          "y" : 447.5
+        },
+        {
+          "height" : 14.9,
+          "text" : "D",
+          "width" : 10.8,
+          "x" : 292.1,
+          "y" : 524.4
+        },
+        {
+          "height" : 16.5,
+          "text" : "Figure 1. 小さな画像",
+          "width" : 97.7,
+          "x" : 42.5,
+          "y" : 588.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "Inline .",
+          "width" : 44.6,
+          "x" : 42.5,
+          "y" : 616.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "式 x2",
+          "width" : 26.6,
+          "x" : 42.5,
+          "y" : 643.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "、y、未対応の a/b。",
+          "width" : 112.6,
+          "x" : 69.4,
+          "y" : 643.5
+        },
+        {
+          "height" : 16.2,
+          "text" : "x2 + y2",
+          "width" : 37.9,
+          "x" : 264.4,
+          "y" : 673.1
+        },
+        {
+          "height" : 16.2,
+          "text" : "= z2",
+          "width" : 23.6,
+          "x" : 306.3,
+          "y" : 673.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "Sample HTML",
+          "width" : 80.1,
+          "x" : 42.5,
+          "y" : 709.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "include:appendix.adoc[]",
+          "width" : 132.9,
+          "x" : 52,
+          "y" : 754.1
+        }
+      ],
+      "textHeight" : 714,
+      "textLeft" : 42.5,
+      "textTop" : 58.5,
+      "textWidth" : 337,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 53.8,
+      "height" : 841.9,
+      "lastY" : 53.8,
+      "lineCount" : 1,
+      "lines" : [
+        {
+          "height" : 16.5,
+          "text" : "1. 紙の端から本文まで。",
+          "width" : 115.1,
+          "x" : 44.1,
+          "y" : 53.8
+        }
+      ],
+      "textHeight" : 16.5,
+      "textLeft" : 44.1,
+      "textTop" : 53.8,
+      "textWidth" : 115.1,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "3f28bb902ba511400734f0304f0820817874b5a5aa673362730639d59a7af952"
+}

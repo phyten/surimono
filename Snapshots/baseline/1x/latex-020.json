@@ -1,0 +1,98 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.01542905569507746,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 154.90625,
+    "maxShiftPt" : 40.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 7
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Inspection cards",
+          "width" : 116.7,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 12.1,
+          "text" : "Mar",
+          "width" : 21.2,
+          "x" : 125.4,
+          "y" : 181
+        },
+        {
+          "height" : 18.1,
+          "text" : "k Before After",
+          "width" : 117.3,
+          "x" : 125.4,
+          "y" : 187.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Observation",
+          "width" : 53,
+          "x" : 279.4,
+          "y" : 180.7
+        },
+        {
+          "height" : 23.4,
+          "text" : "Rim rough smooth",
+          "width" : 126.2,
+          "x" : 125.4,
+          "y" : 210.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "The second pass removed the ridge at the",
+          "width" : 182.6,
+          "x" : 279.4,
+          "y" : 210.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "joint.",
+          "width" : 23,
+          "x" : 279.4,
+          "y" : 222.3
+        },
+        {
+          "height" : 12.5,
+          "text" : "Pin level level Rotation left the reference line in place.",
+          "width" : 327.4,
+          "x" : 125.4,
+          "y" : 234.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 336.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e399fdfa36b01462f715ee2b86977e85b41b64d10fff58c1f47b479dff86031a"
+}

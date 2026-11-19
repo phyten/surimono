@@ -1,0 +1,18 @@
+% !TEX program = pdflatex
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\section*{Counting triangular stacks}
+
+A stack gains one tile per row. Subtract two consecutive squares and sum:
+\begin{multline}
+ (2^2-1^2)+(3^2-2^2)+\dots+((n+1)^2-n^2)\\
+ = (n+1)^2-1.
+\end{multline}
+\begin{align*}
+ 2\sum_{k=1}^n k+n &= (n+1)^2-1\\
+ &= n^2+2n,\\
+ \sum_{k=1}^n k &= \tfrac12 n(n+1).
+\end{align*}
+For four rows the tray therefore holds ten tiles.
+\end{document}

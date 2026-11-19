@@ -1,0 +1,20 @@
+Counting triangular stacks
+A stack gains one tile per row. Subtract two consecutive squares and sum:
+(22
+− 12) + (32
+− 22) +⋯ + ((n + 1)2
+− n2)
+= (n + 1)2
+− 1. (1)
+2 ∑n
+k=1
+k + n = (n + 1)2
+− 1
+= n2 + 2n,
+k=
+1
+2 n(n + 1).
+∑n
+k=1
+For four rows the tray therefore holds ten tiles.
+1

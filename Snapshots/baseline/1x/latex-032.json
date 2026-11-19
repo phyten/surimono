@@ -1,0 +1,98 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.015243026488492026,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 61.1,
+    "maxLuminance" : 146.578125,
+    "maxShiftPt" : 26.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 8
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "An annotated gauge shelf",
+          "width" : 181.2,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "The bench drawing (Tray Workshop 2020) accompanies the scale card (River",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 177.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Model Circle 2019).",
+          "width" : 85.6,
+          "x" : 125.4,
+          "y" : 189.5
+        },
+        {
+          "height" : 17.5,
+          "text" : "References",
+          "width" : 77.5,
+          "x" : 125.4,
+          "y" : 216
+        },
+        {
+          "height" : 11.7,
+          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 243.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "tember 2019.",
+          "width" : 56.5,
+          "x" : 135.4,
+          "y" : 255.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model Quay",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 270.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Laboratory, 2020.",
+          "width" : 77.4,
+          "x" : 135.4,
+          "y" : 282.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "689a242f8142914f563eec4a79a22b4ec0690f950fe3f1fc74a6713c8380a824"
+}
