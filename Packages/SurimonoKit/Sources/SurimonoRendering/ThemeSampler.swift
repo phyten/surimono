@@ -130,6 +130,24 @@ public final class ThemeSampler {
         let session = try await openSession()
         try Task.checkCancellation()
         let hasPaper = try await apply(theme, in: session.webView)
+        if theme.flow == .vertical {
+            // Measuring moves the body into a strip. A new session gives the next theme its original DOM.
+            defer { resetSessions() }
+            let sample = try await VerticalPaginator.pages(
+                in: session.webView, pageSize: pageSize, margins: margins, timeout: timeout
+            ) {
+                guard let place else { return nil }
+                let x = try await session.webView.callAsyncJavaScript(
+                    Self.placeElements + "const el = elements[kind][index]; return el ? surimonoVerticalX(el) : null;",
+                    arguments: ["kind": place.kind.rawValue, "index": place.index], in: nil, contentWorld: self.world)
+                return (x as? NSNumber).map { CGFloat(truncating: $0) }
+            }
+            try session.checkReady()
+            guard !isClosed, let page = StandalonePage.first(of: sample) else { throw SamplingError.emptyPage }
+            drawCount += 1
+            samples[key] = (theme, page)
+            return page
+        }
         let adjusted = try await WebPaginator.useHorizontalRoot(in: session.webView)
         // An inline override for this sample must not hide the next theme’s own root styles.
         defer { if adjusted { resetSessions() } }

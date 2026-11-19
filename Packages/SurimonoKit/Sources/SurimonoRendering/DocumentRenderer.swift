@@ -202,6 +202,7 @@ public struct PaginationRequest: Sendable {
     public var rendersMermaid = false
     public var rendersDiagrams = false
     public var collectsDiagrams = false
+    public var flow = PrintFlow.horizontal
 }
 
 /// What the renderer adds to the pages of a text and what it reads from the text on the way.
@@ -464,7 +465,7 @@ public final class DocumentRenderer {
                     allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
                     readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
                     rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
-                    collectsDiagrams: request.collectsDiagrams)
+                    collectsDiagrams: request.collectsDiagrams, flow: request.flow)
             }
         }
     }
@@ -1158,7 +1159,8 @@ public final class DocumentRenderer {
             .docx,
             .notebook,
             .graphviz, .plantuml:
-            let separatesPaper = WebPaginator.drawsClearPages
+            let flow = settings.theme.supports(source.format) ? settings.theme.flow : .horizontal
+            let separatesPaper = WebPaginator.drawsClearPages && flow == .horizontal
             let page = try await Self.themedPage(
                 source: source, settings: settings, access: resourceAccess(for: source), separatesPaper: separatesPaper)
             let fragment = page.fragment
@@ -1188,7 +1190,7 @@ public final class DocumentRenderer {
                     """
             }
             var text: WebPaginator.Result
-            if settings.finish.footnotes == .pageBottom,
+            if flow == .horizontal, settings.finish.footnotes == .pageBottom,
                 let plan = PageFootnotes.plan(for: page.paper.body),
                 let placed = try await paginateFootnotes(
                     plan, page: page, source: source, settings: settings, preparation: preparation)
@@ -1203,7 +1205,8 @@ public final class DocumentRenderer {
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
                         rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
-                        collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty), source: source
+                        collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty, flow: flow),
+                    source: source
                 )
             }
             // Reader diagnostics describe the source as a whole and have no rectangle on a printed page.
@@ -1444,7 +1447,8 @@ public final class DocumentRenderer {
         _ entries: [PaperContents.Entry], source: DocumentSource, settings: RenderSettings
     ) async throws -> PDFDocument {
         let directory = source.fileURL?.deletingLastPathComponent()
-        let separatesPaper = WebPaginator.drawsClearPages
+        let flow = settings.theme.supports(source.format) ? settings.theme.flow : .horizontal
+        let separatesPaper = WebPaginator.drawsClearPages && flow == .horizontal
         let fragment = PaperContents.fragment(
             entries: entries, look: settings.finish.toc.look,
             title: PaperContents.title(language: settings.pageLanguage))
@@ -1457,7 +1461,7 @@ public final class DocumentRenderer {
                 pageSize: settings.layout.logicalPageSize(options: settings.options),
                 margins: WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options)),
                 allowsJavaScript: false, preparationScript: script?.isEmpty == false ? script : nil,
-                readsPageRules: false, drawsBackground: !separatesPaper)
+                readsPageRules: false, drawsBackground: !separatesPaper, flow: flow)
         ).document
     }
 
@@ -1655,7 +1659,7 @@ public final class DocumentRenderer {
                 request.preparationScript, themed: source.format.usesPrintTheme),
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
             rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
-            collectsDiagrams: request.collectsDiagrams)
+            collectsDiagrams: request.collectsDiagrams, flow: request.flow)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))

@@ -154,7 +154,7 @@ public final class WebPaginator: NSObject {
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
         collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
-        timeout: Duration? = nil
+        flow: PrintFlow = .horizontal, timeout: Duration? = nil
     ) async throws -> Result {
         let bytes: Int
         switch source {
@@ -284,6 +284,14 @@ public final class WebPaginator: NSObject {
                 throw PaginationError.emptyDocument
             }
             return result
+        }
+        if flow == .vertical {
+            let document = try await VerticalPaginator.pages(
+                in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout)
+            if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
+            return Result(
+                document: document, preparationResult: preparationResult, pageRules: pageRules,
+                requiredFolderAccess: session.localHandler?.requiredFolderAccess)
         }
         // Only a document with `@page` rules can set margins of its own and so draw below the paper; an unknown
         // answer counts as yes.

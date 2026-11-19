@@ -40,6 +40,29 @@ struct PageFootnotesPipelineTests {
         #expect(inputs.count == 4)
     }
 
+    @Test("縦書きでは脚注を文末に残して一度だけ組み、元の HTML は通常の組版に渡す")
+    func verticalEndnotes() async throws {
+        var requests: [PaginationRequest] = []
+        let renderer = DocumentRenderer(paginate: { request in
+            requests.append(request)
+            return try RenderingFixtures.pdf(size: request.pageSize)
+        })
+        var options = try settings()
+        options.theme = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        options.finish.footnotes = .pageBottom
+        _ = try await renderer.prepare(DocumentSource(data: Data(markdown.utf8), format: .markdown), settings: options)
+        try #require(requests.count == 1)
+        #expect(requests[0].flow == .vertical)
+        if case .html(let html, _) = requests[0].source {
+            #expect(html.contains("<section class=\"footnotes\">"))
+        } else {
+            Issue.record("脚注を含む HTML が必要")
+        }
+        let html = "<html style='writing-mode:vertical-rl'><body>本文</body></html>"
+        _ = try await renderer.prepare(DocumentSource(data: Data(html.utf8), format: .html), settings: options)
+        #expect(requests.last?.flow == .horizontal)
+    }
+
     @Test("測定中のキャンセルは文末へのフォールバックで握りつぶさない")
     func cancellation() async throws {
         var calls = 0

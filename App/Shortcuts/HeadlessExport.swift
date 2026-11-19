@@ -71,7 +71,8 @@ struct HeadlessExport {
             throw Failure(message: String(localized: "Print styles could not be loaded. Reload them in Settings."))
         }
         var settings = RenderSettings(
-            layout: layout, theme: theme, preset: preset, options: preferences.printOptions,
+            layout: theme.flow == .vertical ? layout.bound(.right) : layout, theme: theme, preset: preset,
+            options: preferences.printOptions,
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             textScale: format.usesPrintTheme ? preferences.defaultTextScale : 1,
             paperOrientation: preferences.defaultPaperOrientation)

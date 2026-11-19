@@ -4,6 +4,15 @@ import SurimonoCore
 import Testing
 
 struct ViewOptionsTests {
+    @Test("縦書きのページ送りは右から左で、指定したスクロール方向を優先する")
+    func verticalReadingDirection() {
+        let view = ViewOptions(layout: .spread, scrollAxis: .vertical, transition: .slide, showsCoverAlone: false)
+        #expect(view.following(.vertical).direction == .rightToLeft)
+        #expect(view.following(.vertical).scrollAxis == .horizontal)
+        #expect(view.following(.vertical, preferredScrollAxis: .vertical).scrollAxis == .vertical)
+        #expect(view.following(.horizontal) == view)
+    }
+
     private let portrait = CGSize(width: 595, height: 842)
 
     private func pdf(_ pages: Int = 12, size: CGSize? = nil, layout: String? = nil, direction: String? = nil)
