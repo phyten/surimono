@@ -15,12 +15,14 @@ struct LaTeXConverterTests {
                 + "\\begin{document}\n\\maketitle\n本文\n\\end{document}")
         #expect(fragment.title == "星見 & 図書室")
         #expect(
-            fragment.body.hasPrefix("<header class=\"latex-title-block\">\n<h1 class=\"latex-title\">星見 &amp; 図書室</h1>")
+            fragment.body.hasPrefix(
+                "<header class=\"latex-title-block\">\n<h1 class=\"latex-title latex-front-title\">星見 &amp; 図書室</h1>")
         )
         #expect(
             fragment.body.contains(
-                "<span class=\"latex-author-name\">甲</span><span class=\"latex-author-name\">乙</span>"))
-        #expect(fragment.body.contains("<p class=\"latex-date\">2026年</p>"))
+                "<span class=\"latex-author-name latex-front-author\">甲</span><span class=\"latex-author-name latex-front-author\">乙</span>"
+            ))
+        #expect(fragment.body.contains("<p class=\"latex-date latex-front-date\">2026年</p>"))
         #expect(fragment.body.contains("<p>本文</p>"))
         #expect(!body("\\date{}\\title{T}\\maketitle").contains("latex-date"))
     }
@@ -140,7 +142,10 @@ struct LaTeXConverterTests {
     func links() {
         let html = body("\\href{https://e.com/a\\#b}{リンク} \\url{https://e.com/%20x}")
         #expect(html.contains("<a href=\"https://e.com/a#b\">リンク</a>"))
-        #expect(html.contains("<a class=\"latex-url\" href=\"https://e.com/%20x\">https://e.com/%20x</a>"))
+        #expect(
+            html.contains(
+                "<a class=\"latex-url\" href=\"https://e.com/%20x\"><span>https://e.</span><wbr><span>com/</span><wbr><span>%20x</span></a>"
+            ))
     }
 
     @Test("xcolor の色名・定義した色・混ぜた色・HTML の色で文字に色を付ける")
@@ -215,7 +220,9 @@ struct LaTeXConverterTests {
     @Test("図や入力ファイルが見つからない場所を枠で示す")
     func unsupported() {
         let html = body(document("\\begin{tikzpicture}\\draw (0,0) -- (1,1);\\end{tikzpicture}\\input{chapter1}"))
-        #expect(html.contains("<div class=\"latex-unsupported\">TikZ picture (Surimono cannot draw it)</div>"))
+        #expect(
+            html.contains(
+                "<div class=\"latex-unsupported\" data-latex-picture>TikZ picture (Surimono cannot draw it)</div>"))
         #expect(html.contains("<div class=\"latex-unsupported\">chapter1.tex could not be read</div>"))
         #expect(
             body(document("\\begin{tikzpicture}\\end{tikzpicture}", class: "jsarticle")).contains("Surimono では描けません"))

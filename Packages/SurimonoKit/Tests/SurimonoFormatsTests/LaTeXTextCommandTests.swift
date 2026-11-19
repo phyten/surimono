@@ -12,10 +12,9 @@ struct LaTeXTextCommandTests {
     }
 
     @Test(
-        "箱と変形は寸法と位置を消して内容だけを出す",
+        "未対応の持ち上げと回転は寸法と位置を消して内容だけを出す",
         arguments: [
-            #"\resizebox*{5cm}{!}{word}"#, #"\raisebox{1em}[2em][3em]{word}"#,
-            #"\scalebox{2}[4]{word}"#, #"\rotatebox[origin=c]{45}{word}"#,
+            #"\raisebox{1em}[2em][3em]{word}"#, #"\rotatebox[origin=c]{45}{word}"#,
         ])
     func boxes(_ source: String) {
         let result = LaTeXConverter.convert(source)
@@ -26,7 +25,7 @@ struct LaTeXTextCommandTests {
     @Test("紙に出ない設定を引数ごと読み飛ばす")
     func setup() {
         let result = LaTeXConverter.convert(
-            #"\settowidth{\test}{nil}\rule[2cm]{5cm}{6cm}\allowdisplaybreaks[4]\phantomsection\frenchspacing\phantom{invisible}X"#
+            #"\settowidth{\test}{nil}\allowdisplaybreaks[4]\phantomsection\frenchspacing\phantom{invisible}X"#
         )
         #expect(result.body == "<p>X</p>\n")
         #expect(result.readingIssues.isEmpty)
@@ -35,7 +34,8 @@ struct LaTeXTextCommandTests {
     @Test("PDF 用の代替文字と言語名は本文に出ない")
     func alternativeText() {
         #expect(
-            LaTeXConverter.convert(#"\texorpdfstring{\foreignlanguage{english}{Text}}{hidden}"#).body == "<p>Text</p>\n"
+            LaTeXConverter.convert(#"\texorpdfstring{\foreignlanguage{english}{Text}}{hidden}"#).body
+                == "<p><span lang=\"en\" dir=\"ltr\">Text</span></p>\n"
         )
     }
 

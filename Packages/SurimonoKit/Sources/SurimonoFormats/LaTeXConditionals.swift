@@ -90,7 +90,7 @@ extension LaTeXReader {
         if inPreamble {
             readPreamble()
         } else {
-            while !document.endedDocument, let next = peek() { step(next) }
+            readSteps()
         }
     }
 
@@ -252,51 +252,6 @@ extension LaTeXReader {
         }
     }
 
-    /// Read just the signed integer or counter value so the comparison operator and following branch remain intact.
-    func integerOperand() -> Int? {
-        skipSpaces()
-        var negative = false
-        while peek() == "-" || peek() == "+" {
-            if peek() == "-" { negative.toggle() }
-            index += 1
-            skipSpaces()
-        }
-        let raw: String
-        if peek() == "\\" {
-            let token = controlToken()
-            if token == "\\value" || token == "\\arabic" {
-                raw = String(document.counters[argument() ?? ""])
-            } else {
-                raw = inline(token)
-            }
-        } else {
-            let start = index
-            while let ch = peek(), ch.isASCII && ch.isNumber { index += 1 }
-            raw = String(characters[start..<index])
-        }
-        if peek()?.isWhitespace == true { skipSpacesAfterControlWord() }
-        return Int((negative ? "-" : "") + raw)
-    }
-
-    /// Normalize both operands to the same unit before comparison, including lengths written in different units.
-    private func dimensionOperand() -> Double? {
-        skipSpaces()
-        let start = index
-        if peek() == "-" || peek() == "+" { index += 1 }
-        while let ch = peek(), ch.isNumber || ch == "." { index += 1 }
-        let number = Double(String(characters[start..<index]))
-        skipSpaces()
-        let units = [
-            "pt": 1.0, "mm": 72.27 / 25.4, "cm": 72.27 / 2.54, "in": 72.27,
-            "em": 10.0, "ex": 4.3, "pc": 12.0, "bp": 72.27 / 72, "sp": 1.0 / 65_536,
-        ]
-        guard let a = peek(), let b = peek(1), let points = units[String([a, b]).lowercased()] else { return nil }
-        index += 2
-        skipSpacesAfterControlWord()
-        // TeX compares dimensions in integer scaled points; rounding avoids a false inequality across units.
-        return number.map { ($0 * points * 65_536).rounded() }
-    }
-
     /// Package predicates consume braced operands, leaving both branch arguments for their caller.
     private func packageTest(_ name: String) -> Bool {
         switch name {
@@ -312,8 +267,8 @@ extension LaTeXReader {
         case "ifstrempty": return argument()?.isEmpty == true
         case "ifblank": return argument()?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true
         default:
-            let lhs = Int(inline(argument() ?? ""))
-            let rhs = Int(inline(argument() ?? ""))
+            let lhs = integerArgument(argument() ?? "")
+            let rhs = integerArgument(argument() ?? "")
             guard let lhs, let rhs else { return false }
             switch name {
             case "ifnumequal": return lhs == rhs
@@ -373,7 +328,7 @@ extension LaTeXReader {
             let lhs = inline(argument() ?? "")
             result = inline(argument() ?? "") == lhs
         case "\\isodd":
-            result = Int(inline(argument() ?? "")).map { !$0.isMultiple(of: 2) } ?? false
+            result = integerArgument(argument() ?? "").map { !$0.isMultiple(of: 2) } ?? false
         case "\\boolean":
             result = document.booleans[argument() ?? ""] ?? false
         default:

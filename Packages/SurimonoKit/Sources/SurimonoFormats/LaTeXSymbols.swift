@@ -70,7 +70,7 @@ package enum LaTeXSymbols {
 
     /// Commands with one text argument and the markup around it. Box wrappers can also discard options and leading dimensions.
     static let wrappers: [String: (open: String, close: String, setup: Int?)] = [
-        "raisebox": ("", "", 1), "resizebox": ("", "", 2), "scalebox": ("", "", 1),
+        "raisebox": ("", "", 1),
         "rotatebox": ("", "", 1), "foreignlanguage": ("", "", 1),
         "textbf": ("<strong>", "</strong>", nil), "textit": ("<em>", "</em>", nil), "emph": ("<em>", "</em>", nil),
         "textsl": ("<em>", "</em>", nil), "texttt": ("<code>", "</code>", nil), "underline": ("<u>", "</u>", nil),
@@ -87,7 +87,8 @@ package enum LaTeXSymbols {
     /// Commands that only set something up for TeX; their arguments are read and dropped. The value is the number of
     /// mandatory arguments; an optional argument in front is dropped too.
     package static let ignored: [String: Int] = [
-        "rule": 2, "settowidth": 2, "allowdisplaybreaks": 0, "settoheight": 2, "settodepth": 2,
+        "setkomafont": 2, "addtokomafont": 2, "chapterstyle": 1,
+        "settowidth": 2, "allowdisplaybreaks": 0, "settoheight": 2, "settodepth": 2,
         "setlength": 2, "addtolength": 2, "setcounter": 2, "addtocounter": 2, "stepcounter": 1, "pagestyle": 1,
         "thispagestyle": 1, "pagenumbering": 1, "vspace": 1, "hspace": 1, "geometry": 1, "hypersetup": 1,
         "graphicspath": 1, "bibliographystyle": 1, "usetikzlibrary": 1, "numberwithin": 2,
@@ -259,5 +260,16 @@ package enum LaTeXSymbols {
         else { return nil }
         let value = text[match].replacingOccurrences(of: " ", with: "")
         return value.hasSuffix("bp") ? value.replacingOccurrences(of: "bp", with: "pt") : value
+    }
+
+    /// The class styles calibrate physical units for WebKit printing; relative widths
+    /// and font-relative dimensions keep their containing block or typeface as their basis.
+    static func printLength(_ source: String) -> String? {
+        if let mm = LaTeXPageSettings.millimetres(source) {
+            let points = LaTeXPageSettings.number(mm * 72.27 / 25.4)
+            return "calc(\(points) * var(--tex-pt, 0.996264pt))"
+        }
+        if source.trimmingCharacters(in: .whitespacesAndNewlines) == "0" { return "0px" }
+        return cssLength(source)
     }
 }

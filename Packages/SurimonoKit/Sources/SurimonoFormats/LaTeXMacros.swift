@@ -29,6 +29,8 @@ extension LaTeXDocument {
         var specification: [Parameter]
         let body: String
         var primitive: String?
+        // Babel replaces the caption control words when it activates another language.
+        var captionLanguage: String?
         var extendedMath = false
 
         init(parameters: Int, defaultArgument: String?, body: String) {
@@ -50,7 +52,8 @@ extension LaTeXReader {
 
     /// Definitions, including a saved meaning from \let, take precedence over the reader's own commands.
     func handleMacro(_ name: String) -> Bool {
-        if let macro = document.macros[name] {
+        if let macro = document.macros[name], macro.captionLanguage == nil || macro.captionLanguage == document.language
+        {
             if let primitive = macro.primitive {
                 guard document.reserveExpansion() else { return true }
                 if let symbol = primitive.first, primitive.count == 1, !(symbol.isASCII && symbol.isLetter) {
@@ -125,7 +128,7 @@ extension LaTeXReader {
     /// Copy the current meaning so a later redefinition of the source leaves the \let target intact.
     private func letCommand() {
         guard let name = definitionName() else { return }
-        defer { document.saveAutoName(name) }
+        defer { document.didDefineMacro(name) }
         skipSpaces()
         if peek() == "=" { index += 1 }
         skipSpaces()
@@ -194,7 +197,7 @@ extension LaTeXReader {
         } else {
             if command == "providecommand", isDefinedCommand(name) { return }
             document.macros[name] = macro
-            document.saveAutoName(name)
+            document.didDefineMacro(name)
             if !macro.extendedMath {
                 let signature = parameters.indices.map { "#\($0 + 1)" }.joined()
                 addMathDefinition("\\def\\\(name)\(signature){\(body)}")
@@ -244,7 +247,7 @@ extension LaTeXReader {
     /// Text before #1 must match at the call site. Text after each parameter specifies where that argument ends.
     private func defineTeXMacro() {
         guard let name = definitionName() else { return }
-        defer { document.saveAutoName(name) }
+        defer { document.didDefineMacro(name) }
         skipSpacesAfterControlWord()
         var delimiters = [""]
         var valid = true
@@ -276,7 +279,7 @@ extension LaTeXReader {
     }
 
     /// Match only at token boundaries outside brace groups so an inner comma, for example, stays in the argument.
-    private func delimitedArgument(_ delimiter: String) -> String? {
+    func delimitedArgument(_ delimiter: String) -> String? {
         let marker = Array(delimiter)
         let start = index
         let endsInWord = Self.endsInControlWord(delimiter[...])
@@ -470,10 +473,13 @@ extension LaTeXReader {
             return true
         }
         if document.environments[name] != nil || document.theorems[name] != nil { return true }
-        return document.macros[name] != nil || LaTeXSymbols.wrappers[name] != nil
+        return document.defaultCaption(name) != nil || document.macros[name] != nil
+            || LaTeXSymbols.wrappers[name] != nil
             || LaTeXSymbols.declarations[name] != nil
             || LaTeXSymbols.text[name] != nil || LaTeXSymbols.sizes[name] != nil || LaTeXSymbols.ignored[name] != nil
-            || Self.builtinNames.contains(name) || isControlCommand(name)
+            || Self.builtinNames.contains(name) || document.classInfo.definesFrontCommand(name)
+            || isControlCommand(name)
+            || Self.registerCommands.contains(name) || document.countRegisters[name] != nil
             || (name.hasPrefix("the") && document.counters.contains(String(name.dropFirst(3))))
     }
 
@@ -495,7 +501,7 @@ extension LaTeXReader {
         "endcsname", "includegraphics", "caption", "c", "k", "d", "b", "r", "t", "u", "v", "H", "sethlcolor",
         "MakeUppercase", "MakeLowercase", "uppercase", "lowercase", "value", "arabic", "alph", "Alph", "roman",
         "Roman", "fnsymbol", "counterwithin", "counterwithout", "refstepcounter", "ensuremath", "endgraf",
-        "texorpdfstring", "foreignlanguage", "parbox", "raisebox", "resizebox", "scalebox", "rotatebox",
+        "texorpdfstring", "foreignlanguage", "parbox", "rule", "raisebox", "resizebox", "scalebox", "rotatebox",
         "subfloat", "subfigure", "subcaption", "subcaptionbox", "tcbox", "newtcolorbox", "newtcbtheorem", "makecell",
         "BooleanTrue", "BooleanFalse", "lstset", "lstdefinestyle",
     ]

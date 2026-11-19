@@ -1,21 +1,24 @@
 /* Computer Modern supplies Latin glyphs only; Japanese body text falls through to mincho. */
 body[data-latex-size], body {
-    font-family: "Surimono Computer Modern", "Hiragino Mincho ProN", "YuMincho", serif;
+    --tex-serif: "Hiragino Mincho ProN", "YuMincho", serif;
+    font-family: var(--tex-body-fonts);
     /* The Japanese baseline is 1.7 full-width characters, rounded before WebKit truncates it. */
-    line-height: 21px; --tex-indent: var(--tex-body);
-    max-width: 49em;
+    line-height: calc(21px * var(--latex-stretch, 1)); --tex-indent: var(--tex-body);
+    max-width: var(--latex-class-width, 49em);
 }
-body[data-latex-size="11"] { line-height: 23px; }
-body[data-latex-size="12"] { line-height: 25px; }
-:is(h1, h2, h3, h4, h5, h6) + p { text-indent: 1em; }
+body[data-latex-size="11"] { line-height: calc(23px * var(--latex-stretch, 1)); }
+body[data-latex-size="12"] { line-height: calc(25px * var(--latex-stretch, 1)); }
+:is(h1, h2, h3, h4, h5, h6) + p { text-indent: var(--latex-parindent, 1em); }
 :is(h1, h2, h3, h4, h5, h6), .latex-contents-title {
-    font-family: "Surimono Computer Modern", "Hiragino Kaku Gothic ProN", "YuGothic", sans-serif;
+    font-family: var(--latex-cjk-sans-font, var(--latex-sans-font, "Surimono Computer Modern")), var(--latex-sans-font, "Surimono Computer Modern"), "Hiragino Kaku Gothic ProN", "YuGothic", sans-serif;
     font-weight: bold;
 }
 .latex-title-block h1 { font-family: inherit; }
 /* The bundled italic face covers Latin. Gothic supplies the Japanese glyphs upright. */
 em {
-    font-family: "Surimono Computer Modern", "Hiragino Kaku Gothic ProN", "YuGothic", sans-serif;
+    font-family: var(--latex-cjk-sans-font, var(--latex-sans-font, "Surimono Computer Modern")), var(--latex-sans-font, "Surimono Computer Modern"), "Hiragino Kaku Gothic ProN", "YuGothic", sans-serif;
     font-style: italic; font-synthesis: none;
 }
 table.latex-tabular :is(th, td) { line-height: var(--tex-baseline); }
+
+.format-latex p.latex-noindent { text-indent: 0; }

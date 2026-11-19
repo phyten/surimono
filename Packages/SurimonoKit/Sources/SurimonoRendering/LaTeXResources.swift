@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import SurimonoCore
 import SurimonoFormats
 
@@ -11,14 +12,39 @@ extension DocumentRenderer {
         imageExists: @escaping (URL) -> Bool
     ) throws -> HTMLFragment {
         let resources = CompanionTextResources(source, access: access, onDenied: onDenied)
+        var measuredImages: [URL: CGSize] = [:]
         return LaTeXConverter.convert(
             try decodedText(source.data), documentURL: resources.file, textWidthPoints: textWidthPoints,
-            imageExists: { resources.permits($0) && imageExists($0) }, readFile: resources.read,
+            imageExists: { resources.permits($0) && imageExists($0) },
+            imageSizeInPoints: { url in
+                if let cached = measuredImages[url] { return cached }
+                let result = resources.read(url).flatMap(Self.imageSizeInPoints) ?? .zero
+                measuredImages[url] = result
+                return result
+            }, readFile: resources.read,
             modificationDate: { url in
                 guard resources.permits(url) else { return nil }
                 return try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
             },
             fileIdentity: resources.identity)
+    }
+
+    /// graphicx trims in big points before scaling to the requested output width.
+    /// Inspect metadata through the same confined read as other companion files, without decoding pixels.
+    nonisolated static func imageSizeInPoints(_ bytes: Data) -> CGSize? {
+        guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? Double,
+            let height = properties[kCGImagePropertyPixelHeight] as? Double
+        else { return nil }
+        func dpi(_ key: CFString) -> Double {
+            guard let value = properties[key] as? Double, value.isFinite, value > 0 else { return 72 }
+            return value
+        }
+        let size = CGSize(
+            width: width * 72 / dpi(kCGImagePropertyDPIWidth), height: height * 72 / dpi(kCGImagePropertyDPIHeight))
+        let orientation = properties[kCGImagePropertyOrientation] as? Int ?? 1
+        return (5...8).contains(orientation) ? CGSize(width: size.height, height: size.width) : size
     }
 
     nonisolated static func markdownFragment(

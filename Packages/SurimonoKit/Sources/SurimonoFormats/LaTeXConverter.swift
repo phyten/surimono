@@ -6,10 +6,14 @@ import Foundation
 /// friends through SwaTex, hyperref, xcolor, enumitem, listings), so a document prints in Surimono's own paper,
 /// margins and theme. Commands it does not know keep their text; externalized TikZ pictures can be printed.
 public enum LaTeXConverter {
+    package static let unreadCommandPrefix = "commands not read: "
+    package static let japaneseUnreadCommandPrefix = "読み取れなかったコマンド："
+
     /// Companion files are supplied by the caller so parsing never implicitly opens a path from the document.
     public static func convert(
         _ text: String, directory: URL? = nil,
         documentURL: URL? = nil, textWidthPoints: Double? = nil, imageExists: @escaping (URL) -> Bool = { _ in false },
+        imageSizeInPoints: @escaping (URL) -> CGSize? = { _ in nil },
         readFile: @escaping (URL) -> Data? = { _ in nil },
         modificationDate: @escaping (URL) -> Date? = { _ in nil },
         fileIdentity: @escaping (URL) -> URL = { $0.standardizedFileURL }
@@ -24,6 +28,7 @@ public enum LaTeXConverter {
             document.modificationDate = modificationDate
             document.fileIdentity = fileIdentity
             document.imageExists = imageExists
+            document.imageSizeInPoints = imageSizeInPoints
             return LaTeXReader(source, document: document, isBlock: true)
         }
         var reader = makeReader()
@@ -36,19 +41,21 @@ public enum LaTeXConverter {
         let document = reader.document
         var html = document.preambleFileNotes + reader.read()
         document.endedDocument = false
-        if document.titleHTML == nil, let title = document.title {
+        if document.titleHTML == nil, let title = document.frontMatter.title {
             // Without \maketitle the title still names the window and the exported PDF.
             let plain = title.replacingOccurrences(of: #"\\thanks\s*\{[^}]*\}"#, with: "", options: .regularExpression)
             document.titleHTML = LaTeXReader(plain, document: document, isBlock: false).read()
         }
+        html = document.frontMatter.resolve(in: html, document: document)
         // Notes and the table of contents may hold references too, so they are in place before references resolve.
         html += document.footnoteSection()
         html = document.resolvePlaceholders(in: html)
         let fonts = MathRenderer.fontFaces(for: html)
         if !fonts.isEmpty { html += "<style>\n\(fonts)\n</style>\n" }
         return HTMLFragment(
-            body: html, title: document.plainTitle, readingIssues: document.readingIssues,
-            latexClass: document.classInfo)
+            body: html, title: document.plainTitle, language: document.classInfo.mainLanguage,
+            readingIssues: document.readingIssues,
+            latexClass: document.typesettingInfo)
     }
 
 }
@@ -56,6 +63,7 @@ public enum LaTeXConverter {
 /// What one document's conversion shares across nested groups: definitions, counters, labels and notes.
 final class LaTeXDocument {
     var imageExists: (URL) -> Bool = { _ in false }
+    var imageSizeInPoints: (URL) -> CGSize? = { _ in nil }
     var textWidthPoints: Double?
     var mainURL: URL?
     var readFile: (URL) -> Data? = { _ in nil }
@@ -93,12 +101,24 @@ final class LaTeXDocument {
 
     var startedDocument = false
     var endedDocument = false
+    var typesettingInfo: LaTeXDocumentClassInfo {
+        var info = classInfo
+        info.styleVariables = pageSettings.styleVariables
+        info.localFontFaces = pageSettings.fonts.faceRules.joined(separator: "\n")
+        return info
+    }
+
+    var pageSettings = LaTeXPageSettings()
     var classInfo = LaTeXDocumentClassInfo()
-    var title: String?
+    var language = "en"
+    var nativeCaptionLanguage: String?
+    var classicBabelLanguages: Set<String> = []
+    var classLanguageOptions: [String] = []
+    var localizedCaptions: [String: [String: String]] = [:]
+    var quoteDepth = 0
+    var lists: [String: [Heading]] = [:]
+    let frontMatter = LaTeXFrontMatter()
     var titleHTML: String?
-    var authors: String?
-    /// nil prints today's date, as LaTeX does; an empty date prints none.
-    var date: String?
     var macros: [String: Macro] = [:]
     var hasExtendedMathDefinitions = false
     var environments: [String: (begin: Macro, end: String)] = [:]
@@ -110,9 +130,11 @@ final class LaTeXDocument {
     var toggles: [String: Bool] = [:]
     var loopMathNames: Set<String> = []
     var colors: [String: (Double, Double, Double)] = [:]
+    var countRegisters: [String: Int] = [:]
     var hasChapters = false {
         didSet {
             if hasChapters && !oldValue {
+                counters.defaultSectionDepth = 2
                 counters.within("section", parent: "chapter", prefix: true)
                 // The standard book/report classes omit chapter zero on floats and equations in front matter.
                 for name in ["equation", "figure", "table"] {
@@ -191,7 +213,12 @@ final class LaTeXDocument {
     /// The print check panel can explain omissions here without putting diagnostic text on the paper.
     var readingIssues: [String] {
         var issues = fileIssues
-        if !unknownNames.isEmpty { issues.append("commands not read: " + unknownNames.joined(separator: ", ")) }
+        if !unknownNames.isEmpty {
+            let prefix =
+                classInfo.mainLanguage == "ja"
+                ? LaTeXConverter.japaneseUnreadCommandPrefix : LaTeXConverter.unreadCommandPrefix
+            issues.append(prefix + unknownNames.joined(separator: ", "))
+        }
         issues.append(contentsOf: failedFormulas)
         if stopsExpanding { issues.append("LaTeX expansion limit reached") }
         return issues
@@ -202,7 +229,7 @@ final class LaTeXDocument {
         if seenUnknown.insert(name).inserted { unknownNames.append(name) }
     }
 
-    var isJapanese: Bool { classInfo.isJapanese }
+    var isJapanese: Bool { language == "ja" }
 
     var plainTitle: String? {
         titleHTML.map { replacing("M", in: replacing("C", in: replacing("R", in: $0))) }
@@ -260,8 +287,10 @@ final class LaTeXDocument {
         let authorYear = hasDatabaseLabel && bibDatabase.authorYear
         let textual = hasDatabaseLabel && ["citet", "textcite"].contains(citation.command)
         let bare = (hasDatabaseLabel && (authorOnly || yearOnly)) || textual
-        let close = bare ? "" : authorYear ? ")" : "]"
-        var html = "<span class=\"latex-cite\">" + (bare ? "" : authorYear ? "(" : "[")
+        let square = !hasDatabaseLabel || bibDatabase.usesSquareBrackets
+        let delimiters = square ? ("[", "]") : ("(", ")")
+        let close = bare ? "" : delimiters.1
+        var html = "<span class=\"latex-cite\">" + (bare ? "" : delimiters.0)
         func add(_ piece: String) -> Bool {
             guard let filled = filled(piece, below: index, limit: limit - html.utf8.count) else { return false }
             html += filled
@@ -269,7 +298,7 @@ final class LaTeXDocument {
         }
         if let before = citation.before, !before.isEmpty, !add(before + " ") { return nil }
         for (position, key) in citation.keys.enumerated() {
-            if position > 0, !add(authorYear && !bare ? "; " : ", ") { return nil }
+            if position > 0, !add(authorYear && !bare ? bibDatabase.multipleCitationSeparator : ", ") { return nil }
             if let entry = bibliography[key] {
                 // The label goes in on its own, so a label too long is turned down before it is copied anywhere.
                 func addLinked(_ text: String) -> Bool {
@@ -283,13 +312,13 @@ final class LaTeXDocument {
                     } else if yearOnly {
                         guard addLinked(label.year) else { return nil }
                     } else {
-                        guard add(label.author), add(authorYear ? " (" : " ["),
+                        guard add(label.author), add(" " + delimiters.0),
                             addLinked(authorYear ? label.year : entry.label)
                         else { return nil }
                         if position == citation.keys.count - 1, let after = citation.after, !after.isEmpty {
                             guard add(", "), add(after) else { return nil }
                         }
-                        guard add(authorYear ? ")" : "]") else { return nil }
+                        guard add(delimiters.1) else { return nil }
                     }
                 } else if !addLinked(entry.label) {
                     return nil
@@ -350,7 +379,7 @@ final class LaTeXDocument {
         var cursor = 0
         // Four MB allows rendered math and a long contents list. Omit excess contents or abbreviate other output.
         var budget = 4_000_000
-        var contents: String?
+        var contents: [Int: String] = [:]
         var repeatedBibliography: String?
         for match in regex.matches(in: html, range: NSRange(location: 0, length: nsHTML.length)) {
             output += nsHTML.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
@@ -358,7 +387,11 @@ final class LaTeXDocument {
             let index = Int(nsHTML.substring(with: match.range(at: 1))) ?? -1
             switch kind {
             case "B":
-                if bibliography.utf8.count <= budget {
+                guard !bibliography.isEmpty, bibDatabase.printedHeadings.indices.contains(index) else { continue }
+                let header = bibDatabase.printedHeadings[index]
+                if header.utf8.count + bibliography.utf8.count <= budget {
+                    output += header
+                    budget -= header.utf8.count
                     if index == 0 {
                         output += bibliography
                     } else {
@@ -373,8 +406,8 @@ final class LaTeXDocument {
                     budget -= bibliography.utf8.count
                 }
             case "T":
-                let toc = contents ?? tableOfContents()
-                contents = toc
+                let toc = contents[index] ?? tableOfContents(index)
+                contents[index] = toc
                 if toc.utf8.count <= budget {
                     output += toc
                     budget -= toc.utf8.count
@@ -406,11 +439,30 @@ final class LaTeXDocument {
         return output + nsHTML.substring(from: cursor)
     }
 
-    private func tableOfContents() -> String {
-        let entries = headings.filter { $0.number != nil }
+    enum ContentsList: Equatable {
+        case headings(depth: Int)
+        case figures
+        case tables
+    }
+
+    private var contentsLists: [ContentsList] = []
+
+    func contentsPlaceholder(_ list: ContentsList) -> String {
+        if let index = contentsLists.firstIndex(of: list) { return placeholder("T", index) }
+        contentsLists.append(list)
+        return placeholder("T", contentsLists.count - 1)
+    }
+
+    private func tableOfContents(_ index: Int) -> String {
+        guard contentsLists.indices.contains(index) else { return "" }
+        let entries: [Heading]
+        switch contentsLists[index] {
+        case .headings(let depth): entries = headings.filter { $0.number != nil && $0.level <= depth }
+        case .figures: entries = lists["figure"] ?? []
+        case .tables: entries = lists["table"] ?? []
+        }
         guard let top = entries.map(\.level).min() else { return "" }
-        let title = isJapanese ? "目次" : "Contents"
-        var html = "<nav class=\"toc\"><p class=\"latex-contents-title\">\(title)</p>"
+        var html = ""
         var depth = 0
         var open: [Bool] = []
         for entry in entries {
@@ -426,7 +478,8 @@ final class LaTeXDocument {
                 depth -= 1
             }
             if open.last == true { html += "</li>" }
-            let number = entry.number.map { "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
+            let number =
+                entry.number.flatMap { $0.isEmpty ? nil : "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
             let kind = entry.level == 0 ? " class=\"latex-toc-chapter\"" : ""
             html += "<li\(kind)><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"
             open[open.count - 1] = true
@@ -436,13 +489,13 @@ final class LaTeXDocument {
             html += "</ul>"
             depth -= 1
         }
-        return html + "</nav>\n"
+        return html
     }
 
     /// An image's path as written, or with the extension LaTeX would find: graphicx tries several when a file is
     /// named without one, in the document's folder and in `\graphicspath`.
-    func imageSource(_ file: String) -> String {
-        guard let directory else { return file }
+    func imageSource(_ file: String) -> (source: String, url: URL?) {
+        guard let directory else { return (file, nil) }
         let names =
             (file as NSString).pathExtension.isEmpty
             ? ["pdf", "png", "jpg", "jpeg", "svg", "gif"].map { file + "." + $0 } : [file]
@@ -450,21 +503,18 @@ final class LaTeXDocument {
             for folder in [""] + graphicsPaths {
                 for name in names {
                     let url = base.appending(path: folder + name)
-                    if imageExists(url) { return resourceSource(url, relativeTo: directory) }
+                    if imageExists(url) { return (resourceSource(url, relativeTo: directory), url) }
                 }
             }
         }
         if let base = inputChain.last?.deletingLastPathComponent() {
-            return resourceSource(base.appending(path: file), relativeTo: directory)
+            return (resourceSource(base.appending(path: file), relativeTo: directory), nil)
         }
-        return file
+        return (file, nil)
     }
 
     /// Today's date, as `\today` prints it.
     func today() -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: isJapanese ? "ja_JP" : "en_US")
-        formatter.dateFormat = isJapanese ? "y年M月d日" : "MMMM d, y"
-        return formatter.string(from: Date())
+        LaTeXLanguage.today(language, classicBabel: classicBabelLanguages.contains(language))
     }
 }

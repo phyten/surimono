@@ -1177,16 +1177,20 @@ public final class DocumentRenderer {
             let layoutWidth =
                 (pageSize.width - paperMargins.left - paperMargins.right) * WebPaginator.printPixelsPerPoint
             let codeScript = CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
+            let graphicScript =
+                source.format == .latex
+                ? LaTeXGraphicPreparation.script(in: fragment.body, layoutWidth: layoutWidth) ?? "" : ""
             let preparation: String?
             if settings.markdownChanges.isEmpty {
                 // The theme's part goes last: its answer whether the theme has paper is the result of the whole.
-                let parts = [codeScript, themeScript].filter { !$0.isEmpty }
+                let parts = [graphicScript, codeScript, themeScript].filter { !$0.isEmpty }
                 preparation = parts.isEmpty ? nil : parts.joined(separator: "\n")
             } else {
                 // Cleanup catches script errors. Only an explicit success may replace the background-only drawing.
                 // Emit the same anchors after decorations in both passes. In the stencil they attest that paint was ready.
                 let needsInk = settings.changeTextHex != nil
                 preparation = """
+                    \(graphicScript)
                     \(codeScript)
                     const paper = await (async () => { \(themeScript) })();
                     \(needsInk ? ChangeMarkAnchors.textScript(settings.markdownChanges) : "")

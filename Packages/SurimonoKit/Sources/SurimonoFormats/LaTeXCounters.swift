@@ -7,6 +7,7 @@ final class LaTeXCounters {
     static let listLevels = ["enumi", "enumii", "enumiii", "enumiv"]
 
     // Built-in and user counters share values so \setcounter affects the next heading, caption or item too.
+    var defaultSectionDepth = 3
     private var values: [String: Int] = [:]
     private var children: [String: Set<String>] = [:]
     private var prefixes: [String: (parent: String, omitNonpositiveParent: Bool)] = [:]
@@ -26,11 +27,11 @@ final class LaTeXCounters {
     }
 
     subscript(_ name: String) -> Int {
-        get { values[name] ?? 0 }
+        get { values[name] ?? (name == "secnumdepth" || name == "tocdepth" ? defaultSectionDepth : 0) }
         set { values[name] = newValue }
     }
 
-    func contains(_ name: String) -> Bool { values[name] != nil }
+    func contains(_ name: String) -> Bool { values[name] != nil || name == "secnumdepth" || name == "tocdepth" }
 
     /// Saturate on overflow so adding to an extreme counter value cannot abort conversion.
     func add(_ amount: Int, to name: String) {
@@ -89,6 +90,7 @@ final class LaTeXCounters {
 extension LaTeXReader {
     /// Counter commands in prose use the same state that supplies printed numbers and references.
     func handleCounter(_ name: String) -> Bool {
+        if handleRegister(name) { return true }
         func key() -> String { (argument() ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
 
         switch name {
@@ -99,7 +101,7 @@ extension LaTeXReader {
         case "setcounter", "addtocounter":
             let counter = key()
             let operand = key()
-            guard let value = Int(operand) ?? Int(inline(operand)) else { return true }
+            guard let value = integerArgument(operand) else { return true }
             if name == "setcounter" {
                 document.counters[counter] = value
             } else {
@@ -249,7 +251,10 @@ extension LaTeXReader {
     func conventionalTheorem(_ name: String) -> LaTeXDocument.Theorem? {
         let title: String
         if let translation = Self.theoremNames[name] {
-            title = document.isJapanese ? translation : name.capitalized
+            let nameMacro = name + "name"
+            title =
+                document.macros[nameMacro] != nil
+                ? "\\" + nameMacro : document.isJapanese ? translation : name.capitalized
         } else if document.isJapanese && Self.theoremNames.values.contains(name) {
             title = name
         } else {

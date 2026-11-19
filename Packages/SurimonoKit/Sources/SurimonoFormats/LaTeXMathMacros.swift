@@ -7,14 +7,17 @@ extension LaTeXReader {
         "arabic", "roman", "Roman", "alph", "Alph", "fnsymbol", "value",
     ]
 
+    private static let mathRegisters: Set<String> = ["number", "the", "numexpr", "dimexpr"]
+
     /// A cheap source check lets ordinary formulas bypass the reader's counter pass.
     static func mayUseMathCounter(_ source: String) -> Bool {
-        source.contains("\\the") || mathCounterFormats.contains { source.contains("\\" + $0) }
+        mathRegisters.contains { source.contains("\\" + $0) }
+            || mathCounterFormats.contains { source.contains("\\" + $0) }
     }
 
     /// A prefix match alone would misread \theta as a reference to a counter named ta.
     private func isMathCounter(_ name: String) -> Bool {
-        if Self.mathCounterFormats.contains(name) { return true }
+        if Self.mathCounterFormats.contains(name) || Self.mathRegisters.contains(name) { return true }
         guard name.hasPrefix("the") else { return false }
         let counter = String(name.dropFirst(3))
         return document.counters.contains(counter) || document.theorems[counter]?.counter != nil
@@ -130,6 +133,14 @@ extension LaTeXReader {
             skipSpacesAfterControlWord()
             if let macro = document.macros[name] {
                 if let source = replacement(macro) { insertExpansion(source) }
+            } else if Self.mathRegisters.contains(name) {
+                let operand = index
+                if let value = printedRegister(name) {
+                    append(value)
+                } else {
+                    index = operand
+                    append(token)
+                }
             } else if Self.mathCounterFormats.contains(name) {
                 let key = (argument() ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 insertExpansion(LaTeXSymbols.format(document.counters[key], as: name))

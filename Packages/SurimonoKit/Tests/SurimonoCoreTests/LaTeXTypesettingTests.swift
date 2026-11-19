@@ -2,6 +2,25 @@ import SurimonoCore
 import Testing
 
 struct LaTeXTypesettingTests {
+    @Test("五つの LaTeX スタイルは追い込み見出しの短い最終行を行頭に寄せる")
+    func runInLastLine() throws {
+        let themes = try PrintThemeLibrary.load().filter { $0.id.hasPrefix("latex-") }
+        #expect(themes.count == 5)
+        for theme in themes {
+            #expect(theme.css.contains(".latex-runin { margin-block-start: 1.4em; text-align-last: start; }"))
+        }
+    }
+
+    @Test("どの専用スタイルでも、所属は中央、章頭の題辞と出典は行末に置く")
+    func affiliationsAndEpigraph() throws {
+        let themes = try PrintThemeLibrary.load().filter { $0.id.hasPrefix("latex-") }
+        for theme in themes {
+            #expect(theme.css.contains(".latex-front-affiliations .latex-front-affiliation { text-align: center;"))
+            #expect(theme.css.contains(".latex-epigraph p, .latex-epigraph footer { text-align: end;"))
+            #expect(theme.css.contains(".latex-epigraph footer { border-block-start: 0.5pt solid currentColor;"))
+        }
+    }
+
     @Test("リストの枠を番号の基準にし、文書の字級に合わせて枠の外に小さく刷る")
     func listingNumberGutter() throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
@@ -25,7 +44,7 @@ struct LaTeXTypesettingTests {
         #expect(html.contains("--tex-body: 10; --tex-baseline: 15px; --tex-width: 345; --tex-indent: 15"))
         #expect(html.contains("--tex-body: 10.95; --tex-baseline: 17px; --tex-width: 360; --tex-indent: 17"))
         #expect(html.contains("--tex-body: 12; --tex-baseline: 18px; --tex-width: 390; --tex-indent: 17.6"))
-        #expect(theme.css.contains("max-width: calc(var(--tex-width) * var(--tex-pt))"))
+        #expect(theme.css.contains("max-width: var(--latex-class-width, calc(var(--tex-width) * var(--tex-pt)))"))
         #expect(theme.css.contains("padding-block-start: min(16vh, 11.5em)"))
         #expect(theme.css.contains("figure.latex-listing { margin-inline: 0; }"))
         #expect(theme.css.contains("--latex-heavy-rule: 0.08em; --latex-light-rule: 0.05em"))
@@ -122,11 +141,16 @@ struct LaTeXTypesettingTests {
         #expect(report.css.contains("break-before: page"))
         #expect(report.css.contains("break-after: page"))
         #expect(japanese.css.contains("body[data-latex-size], body"))
-        #expect(japanese.css.contains("line-height: 21px; --tex-indent: var(--tex-body)"))
-        #expect(japanese.css.contains(#"body[data-latex-size="11"] { line-height: 23px; }"#))
-        #expect(japanese.css.contains(#"body[data-latex-size="12"] { line-height: 25px; }"#))
-        #expect(japanese.css.contains("max-width: 49em"))
-        #expect(japanese.css.contains(":is(h1, h2, h3, h4, h5, h6) + p { text-indent: 1em; }"))
+        #expect(
+            japanese.css.contains("line-height: calc(21px * var(--latex-stretch, 1)); --tex-indent: var(--tex-body)"))
+        #expect(
+            japanese.css.contains(#"body[data-latex-size="11"] { line-height: calc(23px * var(--latex-stretch, 1)); }"#)
+        )
+        #expect(
+            japanese.css.contains(#"body[data-latex-size="12"] { line-height: calc(25px * var(--latex-stretch, 1)); }"#)
+        )
+        #expect(japanese.css.contains("max-width: var(--latex-class-width, 49em)"))
+        #expect(japanese.css.contains(":is(h1, h2, h3, h4, h5, h6) + p { text-indent: var(--latex-parindent, 1em); }"))
         #expect(japanese.css.contains(".latex-title-block h1 { font-family: inherit; }"))
         #expect(japanese.css.contains("font-style: italic; font-synthesis: none"))
         #expect(japanese.css.contains("table.latex-tabular :is(th, td) { line-height: var(--tex-baseline); }"))
@@ -156,5 +180,60 @@ struct LaTeXTypesettingTests {
         #expect(article.css.contains(".footnotes > ol > li {"))
         #expect(article.css.contains("margin-block: 0.15em;\n    break-inside: avoid; page-break-inside: avoid;"))
         #expect(article.css.contains(".footnotes .latex-symbolic-note {\n    display: inline-block;"))
+    }
+}
+
+extension LaTeXTypesettingTests {
+    @Test("専用スタイルは指定幅を実寸で組み、本文の書体と独立した絶対字級で副題を小さくする")
+    func documentTypography() throws {
+        let fragment = LaTeXConverter.convert(
+            #"\documentclass[a4paper]{article}\usepackage[margin=25mm]{geometry}\setmainfont[BoldFont=Face B]{Face A}\title{Title\\\large Subtitle}\begin{document}\maketitle\end{document}"#
+        )
+        for theme in try PrintThemeLibrary.load() where theme.category == "latex" {
+            let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+            #expect(html.contains("--latex-text-width: 160mm"))
+            #expect(html.contains("--tex-pt: 1.24533px"))
+            #expect(html.contains("--tex-large: 12; --tex-Large: 14.4; --tex-LARGE: 17.28"))
+            #expect(html.contains("font-size: calc(var(--tex-LARGE) * var(--tex-pt))"))
+            #expect(html.contains("--latex-size-large: calc(var(--tex-large) * var(--tex-pt))"))
+            #expect(html.contains(#"src: local("Face B")"#))
+            #expect(html.contains("display: inline-block; vertical-align: top; text-align: center"))
+            #expect(html.contains(#"body[data-latex-chapters="true"] h2[id^="sec-"]"#))
+            let sheet = try #require(html.range(of: "--tex-pt:"))
+            let local = try #require(html.range(of: #"src: local("Face B")"#))
+            #expect(sheet.lowerBound < local.lowerBound)
+        }
+    }
+
+    @Test("前置きの言語で中韓のスタイルを選び、欧文クラスの和文は元の版面を保つ")
+    func defaultClassStyle() {
+        for (preamble, expected) in [
+            (#"\documentclass{article}\usepackage{kotex}"#, "latex-plain-ko"),
+            (#"\documentclass{report}\setmainlanguage{chinese}"#, "latex-plain-zh"),
+            (#"\documentclass{article}\XeTeXlinebreaklocale "ja""#, "latex-article"),
+            (#"\documentclass{report}\usepackage[japanese]{babel}"#, "latex-report"),
+            (#"\documentclass{ltjsreport}"#, "latex-plain-ja"),
+        ] {
+            let info = LaTeXConverter.documentClassInfo(preamble + #"\begin{document}文\end{document}"#)
+            #expect(PrintThemeLibrary.defaultLaTeXStyle(for: info) == expected)
+        }
+    }
+
+    @Test("中韓の専用スタイルと欧文の多言語フォールバックを紙に渡す")
+    func scriptsAndDirection() throws {
+        let themes = try PrintThemeLibrary.load()
+        for (id, language, family) in [
+            ("latex-plain-zh", "zh-Hans", "Songti SC"), ("latex-plain-zh", "zh-Hant", "Songti TC"),
+            ("latex-plain-ko", "ko", "AppleMyungjo"), ("latex-article", "ru", "Times New Roman"),
+            ("latex-report", "el", "Times New Roman"), ("latex-article", "ar", "Geeza Pro"),
+            ("latex-report", "he", "Arial Hebrew"),
+        ] {
+            let theme = try #require(themes.first { $0.id == id })
+            let html = HTMLDocumentBuilder.build(
+                fragment: HTMLFragment(body: "<p>x</p>", language: language), format: .latex, theme: theme)
+            #expect(html.contains("<html lang=\"\(language)\""))
+            #expect(html.contains(family))
+            #expect(html.contains("<html lang=\"\(language)\" dir=\"rtl\">") == ["ar", "he"].contains(language))
+        }
     }
 }

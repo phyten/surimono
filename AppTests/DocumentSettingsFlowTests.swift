@@ -94,7 +94,8 @@ struct DocumentSettingsFlowTests {
     @Test(
         "LaTeXは文書クラスに合う既定スタイルで開き、明示的に選んだスタイルだけを記憶する", .timeLimit(.minutes(1)),
         arguments: [
-            ("article", "latex-article"), ("book", "latex-report"), ("report", "latex-report"),
+            ("ctexart", "latex-plain-zh"), ("oblivoir", "latex-plain-ko"), ("article", "latex-article"),
+            ("book", "latex-report"), ("report", "latex-report"),
             ("jsarticle", "latex-plain-ja"), ("ltjsreport", "latex-plain-ja"), ("ltjsbook", "latex-plain-ja"),
         ])
     func latexClassStyle(documentClass: String, expected: String) async throws {

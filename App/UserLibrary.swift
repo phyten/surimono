@@ -80,9 +80,7 @@ final class UserLibrary {
     /// Only the main document selects its class style. Mixed binders have a common theme for all their children.
     static func classStyle(for source: DocumentSource?, renderer: DocumentRenderer) -> String? {
         guard let source, source.format == .latex, source.children == nil else { return nil }
-        let info = renderer.latexClassInfo(for: source)
-        if info.isJapanese { return "latex-plain-ja" }
-        return info.hasChapters ? "latex-report" : "latex-article"
+        return PrintThemeLibrary.defaultLaTeXStyle(for: renderer.latexClassInfo(for: source))
     }
 
     /// nil for "Match Style" and for an id this version does not know.

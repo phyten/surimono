@@ -43,7 +43,13 @@ public enum HTMLExporter {
             CodeFitScript.javaScript(
                 for: settings.code,
                 layoutWidth: (size.width - margins.left - margins.right) * WebPaginator.printPixelsPerPoint) ?? ""
-        let preparation = code + "\n" + (settings.theme.script ?? "")
+        let graphic =
+            source.format == .latex
+            ? LaTeXGraphicPreparation.script(
+                in: body.body,
+                layoutWidth: (size.width - margins.left - margins.right) * WebPaginator.printPixelsPerPoint)
+            : nil
+        let preparation = [graphic, code, settings.theme.script].compactMap { $0 }.joined(separator: "\n")
         let result = try await WebPaginator().paginateWithResult(
             input, pageSize: size, margins: margins,
             allowsJavaScript: false, preparationScript: preparation, rendersMermaid: true, rendersDiagrams: true,

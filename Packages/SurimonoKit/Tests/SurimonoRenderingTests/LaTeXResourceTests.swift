@@ -49,6 +49,15 @@ struct LaTeXResourceTests {
         #expect(try Data(contentsOf: main) == text)
     }
 
+    @Test("切り抜きに使う元画像の寸法は画像の向きに従う")
+    func graphicDimensions() throws {
+        let regular = try #require(DocumentRenderer.imageSizeInPoints(RenderingFixtures.image()))
+        let rotated = try #require(DocumentRenderer.imageSizeInPoints(RenderingFixtures.image(orientation: 6)))
+        #expect(regular.width == 2 * regular.height)
+        #expect(rotated.width == regular.height)
+        #expect(rotated.height == regular.width)
+    }
+
     @Test("許可フォルダー外への相対パスとシンボリックリンクから本文を読めない")
     func outsideFolder() throws {
         let manager = FileManager.default

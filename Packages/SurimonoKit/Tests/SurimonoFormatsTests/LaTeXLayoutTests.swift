@@ -103,15 +103,15 @@ struct LaTeXLayoutTests {
             ))
     }
 
-    @Test("画像の角度と倍率を反映し、縦横指定でも縦横比を保ち、切り抜き指定は印刷しない")
+    @Test("画像を切り抜いてから指定の幅と高さに収め、倍率と角度を適用する")
     func graphicsOptions() {
         let result = LaTeXConverter.convert(
             #"\includegraphics*[width=.5\linewidth,height=2cm,angle=90,scale=.75,keepaspectratio,trim=0 1 2 3,clip,page=2]{x.png}"#
         )
         #expect(result.readingIssues.isEmpty)
-        #expect(
-            result.body.contains("width: 50%; height: 2cm; zoom: 0.75; transform: rotate(-90deg); object-fit: contain"))
-        #expect(!result.body.contains("trim"))
+        #expect(result.body.contains(#"data-latex-transform="0.75 0.75 -90""#))
+        #expect(result.body.contains(#"data-latex-crop="0 1 2 3" data-keep-ratio="true""#))
+        #expect(result.body.contains("--latex-target-width: 50%; --latex-target-height: calc(56.9055118"))
         #expect(!result.body.contains("page=2"))
     }
 

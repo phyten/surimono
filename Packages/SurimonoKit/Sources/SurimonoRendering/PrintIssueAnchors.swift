@@ -105,7 +105,7 @@ enum PrintIssueAnchors {
           for (const el of document.querySelectorAll('.latex-unsupported')) {
             const detail = el.textContent || '';
             const key = locationKey('latex', detail);
-            if (visible(el)) add(el, 'latex', detail, key);
+            if (visible(el)) add(el, 'latex', detail, key, el.hasAttribute('data-latex-picture') ? 'figure' : null);
           }
         }
         if (!targets.length) return issues;

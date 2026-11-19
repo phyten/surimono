@@ -4,6 +4,17 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXTypesettingTests {
+    @Test("multline は左・中央・右に組み、星付きでも行揃えを保つ", arguments: ["multline", "multline*"])
+    func multlineAlignment(environment: String) {
+        let html = LaTeXConverter.convert("\\begin{\(environment)}a+b\\\\=c\\\\=d\\end{\(environment)}").body
+        let alignments = html.components(separatedBy: "justify-content: ").dropFirst().map {
+            $0.prefix(while: { $0 != ";" })
+        }
+        #expect(alignments.map(String.init) == ["left", "center", "right"])
+        #expect(html.contains(#"class="latex-multline-number">(1)</span>"#) == (environment == "multline"))
+        #expect(!html.contains("math-error"))
+    }
+
     @Test("既定の任意引数を持つ命令は、使った場所だけ展開して無関係な式の字形を変えない")
     func optionalMacros() throws {
         let source =
@@ -82,8 +93,9 @@ struct LaTeXTypesettingTests {
             #"\begin{align}a&=1\\b&=2\nonumber\\c&=\frac{1}{2}\label{c}\end{align}\begin{gather}x\\y\end{gather}\begin{multline}p\\q\end{multline}\eqref{c}"#
         )
         let html = result.body
-        #expect(html.components(separatedBy: "latex-row-number").count == 6)
-        for n in 1...5 { #expect(html.contains("%\">(\(n))</span>")) }
+        #expect(html.components(separatedBy: "latex-row-number").count == 5)
+        for n in 1...4 { #expect(html.contains("%\">(\(n))</span>")) }
+        #expect(html.contains(#"class="latex-multline-number">(5)</span>"#))
         #expect(html.contains(##"<a class="latex-number-ref" href="#eq-2">(2)</a>"##))
         #expect(!html.contains(#"\tag{"#))
         #expect(result.readingIssues.isEmpty)

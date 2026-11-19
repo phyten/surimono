@@ -272,6 +272,20 @@ struct PrintIssueTests {
         #expect(PrintModeText.string("Check Location", language: "ja") == "該当箇所を確認")
     }
 
+    @Test("未読コマンド名は表示言語で説明し、画像化の案内は描けなかった図だけに出す")
+    func latexCommandsAndPictures() {
+        let issue = PrintIssue(id: "0", kind: .latex, detail: #"commands not read: \memo"#)
+        let picture = PrintIssue(id: "1", kind: .latex, detail: "TikZ", element: .figure)
+        for language in ["en", "ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            let title = PrintIssueText.title(issue, language: language)
+            #expect(title.contains(#"\memo"#))
+            if language != "en" { #expect(title != PrintIssueText.title(issue, language: "en")) }
+            #expect(
+                PrintIssueText.advice(issue, language: language) != PrintIssueText.advice(picture, language: language))
+        }
+        #expect(PrintIssueText.title(issue, language: "ja") == #"読み取れなかった LaTeX コマンド：\memo"#)
+    }
+
     @Test("図の失敗には8言語でタイトルと修正方法を出す")
     func mermaidTranslations() {
         let issue = PrintIssue(id: "0", kind: .mermaid, detail: "flowchart LR")

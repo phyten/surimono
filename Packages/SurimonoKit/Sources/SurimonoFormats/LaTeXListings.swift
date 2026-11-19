@@ -40,7 +40,7 @@ extension LaTeXReader {
                     applyListingOptions(style, to: &settings, depth: depth + 1)
                 }
             case "language", "numbers", "linenos", "firstnumber", "caption", "label", "basicstyle", "frame",
-                "keywordstyle", "commentstyle", "stringstyle", "numberstyle", "breaklines":
+                "keywordstyle", "commentstyle", "stringstyle", "numberstyle", "breaklines", "backgroundcolor":
                 settings[key] = value
             default: break
             }
@@ -84,11 +84,11 @@ extension LaTeXReader {
         appendHTML("<span class=\"\(classes)\" style=\"\(styles)\">\(html)</span>")
     }
 
-    // Once listings specifies a token style the other tokens use basicstyle. Other code
+    // Once listings specifies basicstyle or a token style the other tokens use basicstyle. Other code
     // (including minted) continues to use the full palette provided by the print theme.
     private func listingTokens(_ settings: [String: String]) -> Set<String>? {
         let tokens = Set(["keyword", "comment", "string"].filter { settings[$0 + "style"] != nil })
-        return tokens.isEmpty ? nil : tokens
+        return tokens.isEmpty && settings["basicstyle"] == nil ? nil : tokens
     }
 
     func listingInline(_ code: String, language: String?, tokens: Set<String>? = nil) -> String {
@@ -170,7 +170,16 @@ extension LaTeXReader {
         var body = highlighted ?? HTML.escape(text)
         let numbered = settings["numbers"] == "left" || settings["linenos"] == "true"
         var classes: [String] = verbatim ? ["latex-verbatim"] : []
-        let style = listingStyles(settings)
+        var style = listingStyles(settings)
+        if let source = settings["backgroundcolor"] {
+            let reader = LaTeXReader(source, document: document, isBlock: false)
+            reader.skipSpaces()
+            if reader.controlToken() == "\\color", let background = reader.color() {
+                if !style.isEmpty { style += "; " }
+                style += "--latex-listing-background: \(background)"
+                classes.append("latex-filled-listing")
+            }
+        }
         if let frame = settings["frame"], ["single", "lines", "tb", "none"].contains(frame) {
             classes.append("latex-frame-" + (frame == "tb" ? "lines" : frame))
         }

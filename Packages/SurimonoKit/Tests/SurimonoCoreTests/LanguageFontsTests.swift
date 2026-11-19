@@ -52,7 +52,7 @@ struct LanguageFontsTests {
 extension LanguageFontsTests {
     @Test("全テーマの和文書体には中国語書体が先行する")
     func catalog() throws {
-        let knownLatin: Set<String> = [
+        let nonJapanese: Set<String> = [
             "Marker Felt", "STIX Two Text", "SFMono-Regular", "inherit", "Avenir Next Condensed", "serif", "sans-serif",
             "monospace", "cursive", "fantasy", "system-ui", "-apple-system", "BlinkMacSystemFont", "Helvetica Neue",
             "Helvetica", "Arial", "Times New Roman", "Times", "Georgia", "Palatino", "Baskerville", "Didot",
@@ -61,16 +61,25 @@ extension LanguageFontsTests {
             "Chalkboard", "Chalkduster", "Bradley Hand", "Comic Sans MS", "Snell Roundhand", "Apple Chancery",
             "Papyrus", "Copperplate", "Impact", "DIN Alternate", "DIN Condensed", "Rockwell", "Charter",
             "Iowan Old Style", "Savoye LET", "Academy Engraved LET", "Surimono Computer Modern",
-            "Surimono Computer Modern Typewriter",
+            "Surimono Computer Modern Typewriter", "PT Serif", "Geeza Pro", "Arial Hebrew",
+            "Songti TC", "STSong", "LiSong Pro", "PingFang TC", "AppleMyungjo", "Apple SD Gothic Neo",
         ]
         let chinese: Set<String> = ["PingFang SC", "Songti SC", "Yuanti SC", "Kaiti SC"]
-        let pattern = /font-family\s*:\s*([^;}]+)/
+        let pattern = /(?:font-family|--tex-(?:serif|sans|body-fonts|sans-fonts))\s*:\s*([^;}]+)/
+        // Inspect the literal fallback names, including nested var() fallbacks. The
+        // custom properties containing the actual font lists are inspected above as well.
+        func literalFamilies(_ value: Substring) -> [Substring] {
+            var list = String(value)
+            let variable = /var\(--[\w-]+(?:,\s*([^()]+))?\)/
+            while list.contains(variable) { list = list.replacing(variable) { String($0.1 ?? "") } }
+            return list.split(separator: ",").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        }
         for theme in try PrintThemeLibrary.load() {
             for match in theme.css.matches(of: pattern) {
-                for raw in match.1.split(separator: ",") {
+                for raw in literalFamilies(match.1) {
                     let family = raw.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(
                         in: CharacterSet(charactersIn: "\"'"))
-                    if !knownLatin.contains(family) {
+                    if !nonJapanese.contains(family), !chinese.contains(family) {
                         let isolated = "p{font-family:\"\(family)\"}"
                         #expect(
                             LanguageFonts.adapt(isolated, language: "zh-Hans") != isolated, "\(theme.id): \(family)")
@@ -80,12 +89,12 @@ extension LanguageFontsTests {
             let adapted = LanguageFonts.adapt(theme.css, language: "zh-Hans")
             for match in adapted.matches(of: pattern) {
                 var hasChinese = false
-                for raw in match.1.split(separator: ",") {
+                for raw in literalFamilies(match.1) {
                     let family = raw.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(
                         in: CharacterSet(charactersIn: "\"'"))
                     if chinese.contains(family) {
                         hasChinese = true
-                    } else if !knownLatin.contains(family) {
+                    } else if !nonJapanese.contains(family) {
                         #expect(
                             hasChinese,
                             "\(theme.id): \(family) needs classification or an explicit non-Japanese exemption")
