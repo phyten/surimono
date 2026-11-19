@@ -99,6 +99,8 @@ struct LaTeXFlowPrintingTests {
         let elapsed = start.duration(to: .now)
         #expect(result.issues.isEmpty)
         #expect(result.document.pageCount == count)
-        #expect(elapsed < .seconds(count == 12 ? 3 : 15), "組版時間 \(elapsed)")
+        // Wall-clock budgets with room for a shared CI runner, which took 4.8 s where a desk Mac takes 1.5 s.
+        // They catch a layout that stopped being linear, not a slow machine.
+        #expect(elapsed < .seconds(count == 12 ? 12 : 60), "組版時間 \(elapsed)")
     }
 }

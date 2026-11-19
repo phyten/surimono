@@ -185,7 +185,8 @@ struct OverlayMenuStateTests {
         try await Task.sleep(for: .milliseconds(1200))
         #expect(menu.stage == .full)
         NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: popup)
-        try await Task.sleep(for: .milliseconds(1200))
+        // A loaded runner delivers the one-second timer late; wait for it rather than for a fixed time.
+        for _ in 0..<50 where menu.stage != .hidden { try await Task.sleep(for: .milliseconds(100)) }
         #expect(menu.stage == .hidden)
     }
 
