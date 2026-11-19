@@ -21,6 +21,72 @@ struct ThemeSamplerTests {
                 for: DocumentSource(data: Data(markdown.utf8), format: .markdown), settings: settings))
     }
 
+    @Test("全スタイルの本文・見出し・表・囲み・脚注とコードで欧文の先頭の書体を確かめる", .timeLimit(.minutes(1)))
+    func computedTypefaces() async throws {
+        _ = NSApplication.shared
+        let view = WKWebView()
+        let navigation = NavigationTracker()
+        view.navigationDelegate = navigation
+        view.loadHTMLString(
+            """
+            <style></style><body class="surimono"><h2>Title</h2><p>Sample 本文</p>
+            <table><tr><th>A</th><td>B</td></tr></table><blockquote>Quote</blockquote><ul><li>One</li></ul>
+            <figure><figcaption>Fig.</figcaption></figure><div class="callout"><p class="callout-title">Note</p></div>
+            <section class="footnotes"><p>Footnote</p></section><pre><code>let x</code></pre><kbd>K</kbd><samp>S</samp>
+            <svg><text style="font-family: KaTeX_Main">x</text></svg></body>
+            """, baseURL: nil)
+        try await WebPaginator.waitUntil(timeout: .seconds(10)) { navigation.state != .loading }
+        try #require(navigation.state == .finished)
+        let script = """
+            document.querySelector('style').textContent = css;
+            return Array.from(document.querySelectorAll('body,h2,p,th,td,blockquote,li,figcaption,code,pre,kbd,samp,svg text'),
+                el => [el.localName, ...getComputedStyle(el).fontFamily.split(',').map(f => f.trim().replace(/["']/g,''))]);
+            """
+        let custom = PrintTheme(
+            id: "user:fixture", name: "Custom",
+            css: """
+                :root { --reading: italic 12pt/1.5 Georgia, "YuMincho", serif; }
+                body { font: var(--reading) !important; }
+                h2 { font: bold 16pt "Hiragino Sans", sans-serif; }
+                pre { font: inherit; }
+                code { font-family: Menlo, "Osaka", monospace; }
+                """)
+        for theme in try PrintThemeLibrary.load() + [custom] {
+            let css = HTMLDocumentBuilder.styleSheet(theme: theme, typeface: .latex)
+            let result = try await view.callAsyncJavaScript(
+                script, arguments: ["css": css], in: nil, contentWorld: .page)
+            let rows = try #require(result as? [[String]])
+            #expect(rows.count == 15)
+            if theme.id == "tategaki" {
+                #expect(!rows.contains { $0.dropFirst().first?.hasPrefix("Surimono Computer Modern") == true })
+            } else {
+                for row in rows {
+                    // Class styles provide their own body and code faces and need no overlay.
+                    if !Typeface.isAvailable(themeID: theme.id, usesPrintTheme: true),
+                        !["body", "pre"].contains(row[0])
+                    {
+                        continue
+                    }
+                    let expected =
+                        row[0] == "text"
+                        ? "KaTeX_Main"
+                        : ["code", "pre", "kbd", "samp"].contains(row[0])
+                            ? "Surimono Computer Modern Typewriter" : "Surimono Computer Modern"
+                    #expect(row.dropFirst().first == expected, "\(theme.id) \(row)")
+                    if theme.id == custom.id {
+                        let fallback = Array(row.dropFirst(2))
+                        switch row[0] {
+                        case "body", "pre": #expect(fallback == ["Georgia", "YuMincho", "serif"])
+                        case "h2": #expect(fallback == ["Hiragino Sans", "sans-serif"])
+                        case "code": #expect(fallback == ["Menlo", "Osaka", "monospace"])
+                        default: break
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Test("見本は文書の 1 ページ目を、余白を含む論理ページの大きさに描く", .timeLimit(.minutes(1)))
     func samplesTheFirstPage() async throws {
         let standard = try #require(PrintThemeLibrary.load().first { $0.id == "standard" })
@@ -70,16 +136,17 @@ struct ThemeSamplerTests {
     func persistentKey() {
         func make(
             html: String = "<p>Sample</p>", width: CGFloat = 595, margin: Double = 15,
-            scale: Double = 1, code: CodeStyle = CodeStyle()
+            scale: Double = 1, typeface: Typeface = .style, code: CodeStyle = CodeStyle()
         ) -> ThemeSampler {
             ThemeSampler(
                 html: html, baseURL: nil, pageSize: CGSize(width: width, height: 842),
-                margins: .uniform(millimeters: margin), textScale: scale, code: code)
+                margins: .uniform(millimeters: margin), textScale: scale, typeface: typeface, code: code)
         }
         let first = theme("same", css: "body { color: black; }")
         let sample = make()
         let key = sample.cacheKey(for: first, language: "en")
         #expect(key.count == 64)
+        #expect(key != make(typeface: .latex).cacheKey(for: first, language: "en"))
         #expect(key != sample.cacheKey(for: first, language: "en", sourceHash: "changed source"))
         #expect(key == make().cacheKey(for: first, language: "en"))
         #expect(key == sample.cacheKey(for: PrintTheme(id: "same", name: "Renamed", css: first.css), language: "en"))

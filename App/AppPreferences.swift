@@ -243,6 +243,10 @@ final class AppPreferences {
     var changeFollowing: ChangeFollowing {
         didSet { defaults.set(changeFollowing.rawValue, forKey: "changeFollowing") }
     }
+    var defaultTypeface: Typeface {
+        didSet { defaults.set(defaultTypeface.rawValue, forKey: "defaultTypeface") }
+    }
+
     var defaultTextScale: Double {
         didSet { defaults.set(defaultTextScale, forKey: "defaultTextScale") }
     }
@@ -511,6 +515,7 @@ final class AppPreferences {
         changeFollowing =
             Self.screenshotChoice("SurimonoChanges")
             ?? ChangeFollowing(rawValue: defaults.string(forKey: "changeFollowing") ?? "") ?? .jump
+        defaultTypeface = defaults.string(forKey: "defaultTypeface").flatMap(Typeface.init(rawValue:)) ?? .style
         // Any whole percent of the range, as the Settings field takes it; earlier versions kept one of the steps.
         let scale = defaults.double(forKey: "defaultTextScale")
         defaultTextScale = TextScale.range.contains(scale) ? TextScale.clamped(scale) : 1

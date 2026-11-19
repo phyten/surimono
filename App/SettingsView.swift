@@ -470,6 +470,10 @@ struct SettingsView: View {
                         }
                     }
                     .settingSearchRow("Default Text Size")
+                    Picker("Default Typeface", selection: $preferences.defaultTypeface) {
+                        TypefaceChoices()
+                    }
+                    .settingSearchRow("Default Typeface")
                 } footer: {
                     VStack(alignment: .leading) {
                         defaultsNote

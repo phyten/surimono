@@ -17,6 +17,10 @@ public enum ThemeFonts {
         Family(name: "Surimono Computer Modern Typewriter", source: "KaTeX_Typewriter"),
     ]
 
+    public static let textFamilies = families.map(\.name)
+
+    public static let textFaces = textFamilies.compactMap { rules[$0] }.joined(separator: "\n")
+
     private static let variants = [("normal", "normal"), ("bold", "normal"), ("normal", "italic"), ("bold", "italic")]
 
     /// Latin letters, Latin-1 and the typographic quotes and dashes; a character the font lacks falls back anyway.

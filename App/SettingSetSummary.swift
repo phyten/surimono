@@ -31,7 +31,7 @@ struct SettingSetSummary {
         case .furniture: text("Header & Footer")
         case .finish: text("Page breaks and contents")
         case .notes: text("Notes")
-        case .style: text("Style and Text Size")
+        case .style: text("Style, Text Size, and Typeface")
         case .htmlPreset: text("HTML Preset")
         }
     }
@@ -139,6 +139,7 @@ struct SettingSetSummary {
             if let scale = set.textScale, TextScale.range.contains(scale) {
                 values.append(String(format: text("Text: %lld%%"), Int64(TextScale.percent(scale))))
             }
+            if set.typeface == .latex { values.append(text("LaTeX Typeface")) }
         case .htmlPreset:
             if let preset = presets.first(where: { $0.id == set.presetID }) {
                 values.append(String(format: text("HTML: %@"), preset.displayName(language: language)))

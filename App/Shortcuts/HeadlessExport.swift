@@ -75,6 +75,7 @@ struct HeadlessExport {
             options: preferences.printOptions,
             allowsJavaScriptInHTML: preferences.allowsJavaScript,
             textScale: format.usesPrintTheme ? preferences.defaultTextScale : 1,
+            typeface: format.usesPrintTheme ? preferences.defaultTypeface : .style,
             paperOrientation: preferences.defaultPaperOrientation)
         settings.documentName = name
         settings.pageLanguage = language

@@ -126,6 +126,7 @@ public struct RenderSettings: Equatable, Sendable {
     public var paperOrientation: PaperOrientation
     public var layout: PrintLayout
     public var theme: PrintTheme
+    public var typeface: Typeface
     public var textScale: Double
     /// The colors and blocks of the document's code; the print theme's own by default.
     public var code = CodeStyle()
@@ -171,7 +172,8 @@ public struct RenderSettings: Equatable, Sendable {
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
         options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
-        smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, paperOrientation: PaperOrientation = .auto,
+        smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, typeface: Typeface = .style,
+        paperOrientation: PaperOrientation = .auto,
         opensDetails: Bool = false, slides: SlidePrintRequest? = nil, markdownChanges: [MarkdownMarkRequest] = []
     ) {
         self.markdownChanges = markdownChanges
@@ -180,6 +182,7 @@ public struct RenderSettings: Equatable, Sendable {
         self.layout = layout
         self.paperOrientation = paperOrientation
         self.theme = theme
+        self.typeface = typeface
         self.textScale = textScale
         self.preset = preset
         self.options = options
@@ -433,6 +436,7 @@ public final class DocumentRenderer {
         let pageSize: CGSize
         let mixesImagePages: Bool
         let theme: PrintTheme?
+        let typeface: Typeface?
         let textScale: Double?
         let code: CodeStyle?
         let preset: HTMLCleanupPreset?
@@ -602,6 +606,7 @@ public final class DocumentRenderer {
                 mixesImagePages: source.format == .image && settings.usesPerPageOrientation
                     && Set(sourcePageSizes?.sizes.map { $0.width > $0.height } ?? []).count > 1,
                 theme: source.children != nil || source.format.usesPrintTheme ? settings.theme : nil,
+                typeface: source.children != nil || isThemed ? settings.typeface : nil,
                 textScale: source.children != nil || source.format.usesPrintTheme ? settings.textScale : nil,
                 code: source.children != nil || source.format.usesPrintTheme ? settings.code : nil,
                 preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
@@ -1220,7 +1225,7 @@ public final class DocumentRenderer {
             let paperHTML = PaperBackground.document(
                 theme: settings.theme, format: source.format, baseURL: directory,
                 language: fragment.language ?? settings.pageLanguage,
-                textScale: settings.textScale,
+                textScale: settings.textScale, typeface: settings.typeface,
                 pageSize: pageSize, margins: margins, pixelsPerPoint: WebPaginator.printPixelsPerPoint)
             try PageLayoutLimits.checkHTML(bytes: paperHTML.utf8.count, sourceBytes: source.data.count)
             // A paper that cannot be drawn leaves the text on white, as a theme without one; a cancelled render stops.
@@ -1327,7 +1332,8 @@ public final class DocumentRenderer {
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme,
             baseURL: source.fileURL?.deletingLastPathComponent(),
-            language: settings.pageLanguage, textScale: settings.textScale, removesPaper: separatesPaper,
+            language: settings.pageLanguage, textScale: settings.textScale, typeface: settings.typeface,
+            removesPaper: separatesPaper,
             finish: isContents ? "" : settings.finish.styleSheet, code: isContents ? CodeStyle() : settings.code)
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
         try Task.checkCancellation()

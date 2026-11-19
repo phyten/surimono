@@ -65,7 +65,7 @@ struct PrintSettingSetTests {
         #expect(
             Set(object.keys) == [
                 "id", "name", "layoutID", "paperOrientation", "margins", "linksMargins", "mirrorsMargins", "furniture",
-                "themeID", "textScale",
+                "themeID", "textScale", "typeface",
             ])
     }
 

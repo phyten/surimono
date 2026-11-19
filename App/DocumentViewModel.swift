@@ -19,6 +19,7 @@ final class ResetOrigin {
     let selectedSettingSetID: UUID?
     /// The paper's size in the view mode, as a record would take it in, whichever mode the reset was done in.
     let paperSize: CGSize?
+    let defaultTypeface: Typeface
     let defaultTextScale: Double
     let defaultPaperOrientation: PaperOrientation
     let defaultBandVisibility: BandVisibility
@@ -29,7 +30,7 @@ final class ResetOrigin {
     init(
         settings: DocumentSettings, chosenReadingOrder: (ViewOptions.Direction?, ViewOptions.ScrollAxis?),
         wasSaved: Bool, selectedSettingSetID: UUID?, paperSize: CGSize?,
-        defaultTextScale: Double, defaultPaperOrientation: PaperOrientation,
+        defaultTextScale: Double, defaultTypeface: Typeface, defaultPaperOrientation: PaperOrientation,
         defaultBandVisibility: BandVisibility, openingViewDefaults: ViewDefaultPreferences,
         defaultViewOptions: ViewOptions?
     ) {
@@ -38,6 +39,7 @@ final class ResetOrigin {
         self.wasSaved = wasSaved
         self.selectedSettingSetID = selectedSettingSetID
         self.paperSize = paperSize
+        self.defaultTypeface = defaultTypeface
         self.defaultTextScale = defaultTextScale
         self.defaultPaperOrientation = defaultPaperOrientation
         self.defaultBandVisibility = defaultBandVisibility
@@ -124,6 +126,7 @@ final class DocumentViewModel {
     /// `selectCodePalette(_:)`.
     var codePaletteID: String
     var codeBlock = CodeBlockOptions()
+    private(set) var typeface: Typeface
     private(set) var textScale: Double
     var presetID: String
     var printOptions: PrintOptions
@@ -154,6 +157,7 @@ final class DocumentViewModel {
     }
     private var openingViewDefaults: ViewDefaultPreferences
     // Keep the baseline stable if Settings changes while the document is still opening.
+    private var defaultTypeface: Typeface
     private var defaultTextScale: Double
     private var defaultPaperOrientation: PaperOrientation
     private var defaultBandVisibility: BandVisibility
@@ -514,8 +518,10 @@ final class DocumentViewModel {
         self.format = format
         self.preferences = preferences
         openingViewDefaults = preferences.viewDefaults
+        defaultTypeface = preferences.defaultTypeface
         defaultTextScale = preferences.defaultTextScale
         defaultPaperOrientation = preferences.defaultPaperOrientation
+        typeface = (binder?.usesPrintTheme ?? format.usesPrintTheme) ? preferences.defaultTypeface : .style
         textScale = (binder?.usesPrintTheme ?? format.usesPrintTheme) ? preferences.defaultTextScale : 1
         paperOrientation = preferences.defaultPaperOrientation
         isAlwaysOnTop = preferences.defaultAlwaysOnTop
@@ -553,6 +559,7 @@ final class DocumentViewModel {
         specimenSamples.inputs = { [weak self] in
             guard let self else { return (nil, nil) }
             var settings = ThemeSpecimen.settings
+            settings.typeface = typeface
             settings.layout = renderLayout
             settings.paperOrientation = paperOrientation
             return (ThemeSpecimen.source(language: language, format: self.themeFormat), settings)
@@ -692,7 +699,8 @@ final class DocumentViewModel {
             smartRemoval: format == .html && isSmartRemovalEnabled
                 ? SmartRemovalRequest(keptIDs: smartRemovalKeptIDs, highlightsCandidates: isReviewingSmartRemoval)
                 : nil,
-            textScale: usesPrintTheme ? textScale : 1, paperOrientation: paperOrientation,
+            textScale: usesPrintTheme ? textScale : 1, typeface: usesPrintTheme ? typeface : .style,
+            paperOrientation: paperOrientation,
             opensDetails: rendersSnapshot && opensClosedDetails,
             slides: slideDeck.map {
                 SlidePrintRequest(deck: $0, printsCurrentOnly: mode == .print && printsCurrentSlideOnly)
@@ -1583,6 +1591,7 @@ final class DocumentViewModel {
         keepsSettingsOverSaved = true
         if source.usesPrintTheme {
             themeID = theme(source.themeID)?.id ?? defaultThemeID
+            setTypeface(source.typeface)
             setTextScale(source.textScale)
             codePaletteID = source.codePaletteID
             codeBlock = source.codeBlock
@@ -1662,6 +1671,15 @@ final class DocumentViewModel {
         paper.goToPage(index: origin.pageIndex)
         guard let window else { return }
         ViewerWindow.setFrame(origin.frame, of: window, animate: false)
+    }
+
+    var offersTypeface: Bool { Typeface.isAvailable(themeID: themeID, usesPrintTheme: usesPrintTheme) }
+
+    func setTypeface(_ value: Typeface) {
+        guard usesPrintTheme, typeface != value else { return }
+        themeTrial.end()
+        chosenTrial = nil
+        typeface = value
     }
 
     /// Any whole percent of the range; a value between two percents takes the nearer one.
@@ -2437,7 +2455,8 @@ final class DocumentViewModel {
         DocumentSettings(
             view: viewOptions, zoom: (zoom * 100).rounded() / 100, layoutID: layoutID,
             themeID: usesPrintTheme ? themeID : nil,
-            textScale: usesPrintTheme ? textScale : nil, presetID: usesHTMLPreset ? presetID : nil,
+            textScale: usesPrintTheme ? textScale : nil,
+            typeface: usesPrintTheme && typeface != .style ? typeface : nil, presetID: usesHTMLPreset ? presetID : nil,
             smartRemoval: format == .html && (isSmartRemovalEnabled || !smartRemovalKeptIDs.isEmpty)
                 ? DocumentSettings.SmartRemoval(isEnabled: isSmartRemovalEnabled, keptIDs: smartRemovalKeptIDs) : nil,
             printOptions: printOptions,
@@ -2517,6 +2536,7 @@ final class DocumentViewModel {
         if let notes = set.notes { self.notes = notes }
         selectedSettingSetID = set.id
         if let id = set.themeID { themeID = id }
+        if let face = set.typeface { setTypeface(face) }
         if let scale = set.textScale { setTextScale(scale) }
         if let id = set.presetID { presetID = id }
         // Applying a set is a user change, not a new baseline or a theme-menu selection.
@@ -2534,6 +2554,7 @@ final class DocumentViewModel {
             view: viewDefaults(forTheme: defaultThemeID), zoom: 1, layoutID: Self.defaultLayoutID(preferences),
             themeID: usesPrintTheme ? defaultThemeID : nil,
             textScale: usesPrintTheme ? defaultTextScale : nil,
+            typeface: usesPrintTheme && defaultTypeface != .style ? defaultTypeface : nil,
             presetID: usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
             printOptions: preferences.printOptions, paperOrientation: defaultPaperOrientation,
             htmlPresentation: usesHTMLPresentation ? .web : nil,
@@ -2564,6 +2585,7 @@ final class DocumentViewModel {
             if let finish = set.finish { resolved.printFinish = finish }
             if let notes = set.notes { resolved.notes = notes == NotePages() ? nil : notes }
             if let id = set.themeID { resolved.themeID = id }
+            if let face = set.typeface { resolved.typeface = face == .style ? nil : face }
             if let scale = set.textScale { resolved.textScale = scale }
         }
         if let id = documentDirectives.layoutID,
@@ -2598,6 +2620,7 @@ final class DocumentViewModel {
         if let finish = resolved.printFinish { printFinish = finish }
         notes = resolved.notes ?? NotePages()
         if let id = resolved.themeID { themeID = id }
+        setTypeface(resolved.typeface ?? .style)
         if let scale = resolved.textScale { setTextScale(scale) }
     }
 
@@ -2748,6 +2771,7 @@ final class DocumentViewModel {
         binderStartsOnFront = saved.binderStartsOnFront ?? false
         bandVisibility = saved.bandVisibility ?? defaultBandVisibility
         if let order = saved.binderOrder { binder?.applyOrder(order) }
+        setTypeface(saved.typeface ?? .style)
         if let scale = saved.textScale { setTextScale(scale) }
         if let view = saved.view {
             chosenReadingOrder = (view.direction, view.scrollAxis)
@@ -2865,7 +2889,7 @@ final class DocumentViewModel {
             settings: rememberedSettings, chosenReadingOrder: chosenReadingOrder, wasSaved: hasSavedSettings,
             selectedSettingSetID: selectedSettingSetID,
             paperSize: currentPaperSize ?? viewPaperSizeBeforePrinting ?? restoredPaperSize,
-            defaultTextScale: defaultTextScale,
+            defaultTextScale: defaultTextScale, defaultTypeface: defaultTypeface,
             defaultPaperOrientation: defaultPaperOrientation, defaultBandVisibility: defaultBandVisibility,
             openingViewDefaults: openingViewDefaults, defaultViewOptions: defaultViewOptions)
         applyDefaultSettings(resizesWindow: true)
@@ -2896,6 +2920,7 @@ final class DocumentViewModel {
         dismissToast()
         // A record leaves out what equals the defaults, so the defaults come first, as they were for this window.
         applyDefaultSettings(resizesWindow: mode == .view && origin.paperSize == nil)
+        defaultTypeface = origin.defaultTypeface
         defaultTextScale = origin.defaultTextScale
         defaultPaperOrientation = origin.defaultPaperOrientation
         defaultBandVisibility = origin.defaultBandVisibility
@@ -2950,10 +2975,12 @@ final class DocumentViewModel {
         pendingImageOrder = nil
         restoredPaperSize = nil
         returnsToRestoredPaperSize = false
+        defaultTypeface = preferences.defaultTypeface
         defaultTextScale = preferences.defaultTextScale
         defaultPaperOrientation = preferences.defaultPaperOrientation
         defaultBandVisibility = preferences.defaultBandVisibility
         bandVisibility = defaultBandVisibility
+        typeface = usesPrintTheme ? defaultTypeface : .style
         textScale = usesPrintTheme ? defaultTextScale : 1
         paperOrientation = defaultPaperOrientation
         layoutID = Self.defaultLayoutID(preferences)

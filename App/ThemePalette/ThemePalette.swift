@@ -172,22 +172,43 @@ struct ThemePalette: View {
         }
     }
 
-    /// Beside the code column the two groups take a row each: the row is too narrow to name the text size otherwise.
     @ViewBuilder private var footer: some View {
-        if hasSideColumn {
-            VStack(alignment: .leading, spacing: 8) {
-                actions
-                textSize
+        Group {
+            if hasSideColumn {
+                stackedFooter
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        actions
+                        Spacer(minLength: 8)
+                        typeControls
+                    }
+                    stackedFooter
+                }
             }
-            .controlSize(.small)
-        } else {
-            HStack(spacing: 8) {
-                actions
-                Spacer(minLength: 8)
-                textSize
-            }
-            .controlSize(.small)
         }
+        .controlSize(.small)
+    }
+
+    private var stackedFooter: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            actions
+            ViewThatFits(in: .horizontal) {
+                typeControls
+                VStack(alignment: .leading, spacing: 6) {
+                    textSize
+                    DocumentTypefacePicker(model: model)
+                }
+            }
+        }
+    }
+
+    private var typeControls: some View {
+        HStack(spacing: 8) {
+            textSize
+            DocumentTypefacePicker(model: model)
+        }
+        .fixedSize()
     }
 
     private var actions: some View {

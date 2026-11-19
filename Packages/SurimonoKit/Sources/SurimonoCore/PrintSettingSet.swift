@@ -13,6 +13,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     /// Nil in sets saved before note pages, which leave the document's notes as they are.
     public var notes: NotePages?
     public var themeID: String?
+    public var typeface: Typeface?
     public var textScale: Double?
     public var presetID: String?
 
@@ -27,7 +28,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         if furniture != nil { result.insert(.furniture) }
         if finish != nil { result.insert(.finish) }
         if notes != nil { result.insert(.notes) }
-        if themeID != nil || textScale != nil { result.insert(.style) }
+        if themeID != nil || textScale != nil || typeface != nil { result.insert(.style) }
         if presetID != nil { result.insert(.htmlPreset) }
         return result
     }
@@ -48,6 +49,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         if !parts.contains(.notes) { result.notes = nil }
         if !parts.contains(.style) {
             result.themeID = nil
+            result.typeface = nil
             result.textScale = nil
         }
         if !parts.contains(.htmlPreset) { result.presetID = nil }
@@ -70,13 +72,14 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         finish = settings.printFinish
         notes = settings.notes
         themeID = settings.themeID
+        typeface = settings.typeface ?? (settings.textScale == nil ? nil : .style)
         textScale = settings.textScale
         presetID = settings.presetID
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, name, layoutID, paperOrientation, margins, linksMargins, mirrorsMargins, furniture, finish, notes,
-            themeID, textScale, presetID
+            themeID, textScale, typeface, presetID
         case marginsInMillimeters, showsPageNumbers
     }
 
@@ -93,6 +96,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         try values.encodeIfPresent(finish, forKey: .finish)
         try values.encodeIfPresent(notes, forKey: .notes)
         try values.encodeIfPresent(themeID, forKey: .themeID)
+        try values.encodeIfPresent(typeface, forKey: .typeface)
         try values.encodeIfPresent(textScale, forKey: .textScale)
         try values.encodeIfPresent(presetID, forKey: .presetID)
     }
@@ -121,6 +125,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         finish = field(PrintFinish.self, .finish)
         notes = field(NotePages.self, .notes)
         themeID = field(String.self, .themeID)
+        typeface = field(Typeface.self, .typeface)
         textScale = field(Double.self, .textScale)
         presetID = field(String.self, .presetID)
     }
@@ -135,6 +140,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         if let layoutID, !PrintLayout.presets.contains(where: { $0.id == layoutID }) { result.layoutID = nil }
         if !formats.contains(where: \.usesPrintTheme) {
             result.themeID = nil
+            result.typeface = nil
             result.textScale = nil
             result.finish = nil
         } else if let themeID, !themeIDs.contains(themeID) {
@@ -162,6 +168,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             finish.map { $0 == (settings.printFinish ?? PrintFinish()) },
             notes.map { $0 == (settings.notes ?? NotePages()) },
             themeID.map { $0 == settings.themeID },
+            typeface.map { $0 == (settings.typeface ?? .style) },
             textScale.map { $0 == settings.textScale },
             presetID.map { $0 == settings.presetID },
         ]

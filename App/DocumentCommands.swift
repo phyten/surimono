@@ -123,6 +123,7 @@ struct DocumentCommands: Commands {
                 .keyboardShortcut("-", modifiers: [.option, .command])
             Button("Original Text Size") { perform(.textReset) }
                 .keyboardShortcut("0", modifiers: [.option, .command])
+            if let model { DocumentTypefacePicker(model: model) }
             Divider()
             Button("Zoom In") { perform(.viewZoomIn) }
                 .keyboardShortcut("+")

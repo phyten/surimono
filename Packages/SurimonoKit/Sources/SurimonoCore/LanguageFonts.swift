@@ -46,6 +46,109 @@ public enum LanguageFonts {
             default: return css
             }
         }
+        return inserting(in: css) { declaration, _ in
+            insertion(in: declaration, replacements: replacements).map { ($0.0, "\"\($0.1)\", ") }
+        }
+    }
+
+    // Keep the fallback stack as an inherited property: a user's "pre { font: inherit }" takes
+    // its parent's fallback fonts, but still starts with the typewriter face.
+    static func prefixTypeface(in css: String) -> String {
+        // A shorthand can live in a custom property. Keep a parallel family list for those variables
+        // so the browser still resolves competing definitions, including ones inside media queries.
+        let shorthandVariables = Set(
+            css.matches(of: /(?i:font)\s*:\s*(?i:var)\(\s*(--[\w-]+)\s*\)/).map { String($0.1) })
+        let bytes = Array(css.utf8)
+        return inserting(in: css) { declaration, end in
+            guard let name = declaration.first?.value,
+                declaration.dropFirst().first?.value == ":"
+            else { return nil }
+            let property = name.lowercased()
+            guard property == "font" || property == "font-family" || shorthandVariables.contains(name) else {
+                return nil
+            }
+            let values = declaration.dropFirst(2)
+            guard let first = values.first else { return nil }
+            let important =
+                (values.last?.value.lowercased() == "!important"
+                    || values.suffix(2).map(\.value).joined().lowercased() == "!important")
+                ? " !important" : ""
+            if shorthandVariables.contains(name) {
+                guard let start = shorthandFamily(in: values) else { return nil }
+                let list = String(decoding: bytes[start.offset..<end], as: UTF8.self)
+                return (end, "; --surimono-family" + name + ": " + list)
+            }
+            if property == "font" {
+                let fallback: String?
+                if ["caption", "icon", "menu", "message-box", "small-caption", "status-bar"].contains(
+                    first.value.lowercased())
+                    || first.value.hasPrefix("-apple-system-")
+                {
+                    fallback = "system-ui"
+                } else if !first.isFamily,
+                    let variable = String(decoding: bytes[first.offset..<end], as: UTF8.self)
+                        .wholeMatch(of: /(?i:var)\(\s*(--[\w-]+)\s*\)\s*(?:!\s*(?i:important)\s*)?/)
+                {
+                    fallback = "var(--surimono-family" + variable.1 + ", serif)"
+                } else {
+                    fallback = nil
+                }
+                if let fallback {
+                    return (
+                        end,
+                        "; --surimono-style-family: " + fallback + important
+                            + "; font-family: var(--surimono-western) var(--surimono-style-family)" + important
+                    )
+                }
+            }
+            let family: Token
+            var prefix = ""
+            switch first.value.lowercased() {
+            case "inherit", "unset", "initial", "revert", "revert-layer":
+                family = first
+                if property == "font" { prefix = first.value + important + "; font-family: " }
+            default:
+                if property == "font" {
+                    guard let start = shorthandFamily(in: values) else { return nil }
+                    family = start
+                } else {
+                    family = first
+                }
+            }
+            // Keep the priority on both declarations. WebKit resolves custom properties and nested
+            // var() fallbacks at the original selector, in its original media query and cascade layer.
+            prefix +=
+                "var(--surimono-western) var(--surimono-style-family, serif)" + important
+                + "; --surimono-style-family: "
+            return (family.offset, prefix)
+        }
+    }
+
+    private static func shorthandFamily(in values: ArraySlice<Token>) -> Token? {
+        // The family follows the size and optional /line-height in the font shorthand.
+        let sizes = [
+            "xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large", "xxx-large",
+            "larger", "smaller", "math",
+        ]
+        guard
+            let size = values.firstIndex(where: {
+                let value = $0.value.lowercased().prefix { $0 != "/" }
+                return !$0.isFamily || sizes.contains(String(value)) || value == "0"
+                    || (value.first?.isNumber == true || value.first == ".") && Double(value) == nil
+            })
+        else { return nil }
+        var rest = values.suffix(from: size + 1)
+        if rest.first?.value == "/" {
+            rest = rest.dropFirst(2)
+        } else if rest.first?.value.hasPrefix("/") == true || values[size].value.hasSuffix("/") {
+            rest = rest.dropFirst()
+        }
+        return rest.first
+    }
+
+    private static func inserting(
+        in css: String, _ insertion: (ArraySlice<Token>, Int) -> (Int, String)?
+    ) -> String {
         let bytes = Array(css.utf8)
         let tokens = tokens(bytes)
         var blocked: [Bool] = []
@@ -58,7 +161,7 @@ public enum LanguageFonts {
                 start = index + 1
             } else if token.isSymbol && (token.value == ";" || token.value == "}") {
                 if !blocked.isEmpty && blocked.last != true,
-                    let insertion = insertion(in: tokens[start..<index], replacements: replacements)
+                    let insertion = insertion(tokens[start..<index], token.offset)
                 {
                     insertions.append(insertion)
                 }
@@ -69,8 +172,8 @@ public enum LanguageFonts {
         guard !insertions.isEmpty else { return css }
         var result = ""
         var offset = 0
-        for (position, family) in insertions {
-            result += String(decoding: bytes[offset..<position], as: UTF8.self) + "\"\(family)\", "
+        for (position, prefix) in insertions {
+            result += String(decoding: bytes[offset..<position], as: UTF8.self) + prefix
             offset = position
         }
         return result + String(decoding: bytes[offset...], as: UTF8.self)
