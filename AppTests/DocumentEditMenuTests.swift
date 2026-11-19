@@ -34,6 +34,54 @@ struct DocumentEditMenuTests {
         #expect(!share.isHidden)
     }
 
+    @Test("別の項目の代わりに出る項目として残さず、ショートカットも外す")
+    func hiddenEditsAreNotAlternates() {
+        let menu = NSMenu()
+        let saveAs = NSMenuItem(title: "Save As…", action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
+        saveAs.keyEquivalentModifierMask = [.command, .option, .shift]
+        let duplicate = NSMenuItem(title: "Duplicate", action: #selector(NSDocument.duplicate(_:)), keyEquivalent: "S")
+        duplicate.keyEquivalentModifierMask = [.command, .shift]
+        duplicate.isAlternate = true
+        let close = NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let closeAll = NSMenuItem(
+            title: "Close All", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "w")
+        closeAll.keyEquivalentModifierMask = [.command, .option]
+        closeAll.isAlternate = true
+        for entry in [close, closeAll, saveAs, duplicate] { menu.addItem(entry) }
+        DocumentEditMenu.hideItems(in: menu)
+        for edit in [saveAs, duplicate] {
+            #expect(edit.isHidden)
+            #expect(!edit.isAlternate)
+            #expect(edit.keyEquivalent.isEmpty)
+        }
+        #expect(closeAll.isAlternate && !closeAll.isHidden && closeAll.keyEquivalent == "w")
+        #expect(close.keyEquivalent == "w")
+    }
+
+    @Test("アプリのどのメニューにも、隠した項目の代わりに出る項目やショートカットが残っていない")
+    func appMenuLeavesNoWayToDocumentEdits() {
+        func all(_ menu: NSMenu?) -> [NSMenuItem] { (menu?.items ?? []).flatMap { [$0] + all($0.submenu) } }
+        func visit(_ menu: NSMenu?) {
+            var previous: NSMenuItem?
+            for item in menu?.items ?? [] {
+                // An open menu shows an alternate in place of a hidden primary.
+                if item.isAlternate, let previous { #expect(!previous.isHidden || item.isHidden, "\(item.title)") }
+                previous = item
+                visit(item.submenu)
+            }
+        }
+        let actions = Set(Self.documentEdits.map(\.1))
+        let edits = all(NSApp.mainMenu).filter { $0.action.map(actions.contains) == true }
+        #expect(!edits.isEmpty)
+        for edit in edits {
+            #expect(edit.isHidden, "\(edit.title)")
+            #expect(!edit.isAlternate, "\(edit.title)")
+            #expect(edit.keyEquivalent.isEmpty, "\(edit.title)")
+            #expect(!edit.allowsKeyEquivalentWhenHidden, "\(edit.title)")
+        }
+        visit(NSApp.mainMenu)
+    }
+
     @Test("復帰の後ろに出るバージョンの小メニューも隠す")
     func hidesRevertSubmenu() {
         let menu = NSMenu()

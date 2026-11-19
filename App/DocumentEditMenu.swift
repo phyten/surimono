@@ -36,6 +36,10 @@ enum DocumentEditMenu {
     }
 
     private static func conceal(_ item: NSMenuItem) {
+        // Duplicate is the alternate of Save As, and an open menu shows an alternate in place of its hidden
+        // primary: hidden alone left Duplicate in the File menu. Without the key equivalent the pair is gone too.
+        if item.isAlternate { item.isAlternate = false }
+        if !item.keyEquivalent.isEmpty { item.keyEquivalent = "" }
         if item.allowsKeyEquivalentWhenHidden { item.allowsKeyEquivalentWhenHidden = false }
         if !item.isHidden { item.isHidden = true }
     }
