@@ -465,6 +465,35 @@ struct ShortcutMenuBridgeTests {
         #expect(calls == [.documentReload, .documentReload])
     }
 
+    @Test("何も変わらなければ照合は止まり、自分の書き込みで次の照合を呼ばない", .timeLimit(.minutes(1)))
+    func idleMenuStopsReconciling() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let model = fixture.document()
+        defer { model.stop() }
+        let sharedBridge = ShortcutDispatcher.shared.bridge
+        sharedBridge.stop()
+        // AppKit posts an item change for what a pass writes; posting one from inside the pass stands for that.
+        let live = ShortcutMenuBridge(
+            controller: fixture.controller, keyWindow: { fixture.activeWindow }, model: { model },
+            lifecycleNotifications: fixture.lifecycleNotifications,
+            localize: { key in
+                NotificationCenter.default.post(name: NSMenu.didChangeItemNotification, object: NSApp.mainMenu)
+                return Bundle.main.localizedString(forKey: key, value: key, table: nil)
+            })
+        defer {
+            live.stop()
+            sharedBridge.start()
+        }
+        live.start()
+        // Let the pass scheduled after menu assembly run, then watch an idle stretch of the main queue.
+        try await Task.sleep(for: .milliseconds(300))
+        let settled = live.reconcilePasses
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(live.reconcilePasses == settled)
+        #expect(settled < 10)
+    }
+
     @Test(
         "実メニュー全体の既定キーは文書種別と表示印刷モードを変えても従来どおり",
         arguments: ["document", "images", "binder", "clipboard", "welcome", "settings"], [false, true])
