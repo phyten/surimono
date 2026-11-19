@@ -312,6 +312,8 @@ struct ServiceProviderTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let windows = ClipboardWindows(
             openFiles: { _, _, _ in Issue.record("ファイルは開かない") }, warn: { _ in Issue.record("警告しない") }, closeWelcome: {})
+        let presentation = ClipboardWindowFixture(windows, ordered: true)
+        defer { presentation.close() }
         windows.preferences = AppPreferences(defaults: suite.defaults)
         windows.library = UserLibrary(root: directory)
         let recent = NSDocumentController.shared.recentDocumentURLs

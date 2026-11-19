@@ -26,6 +26,8 @@ enum LaTeXPageReferences {
         init(_ state: LaTeXPageNumbers) {
             label = state.label
             lines = .init(top: state.header, bottom: state.footer)
+            lines.headRule = state.ruleWidth("headrulewidth")
+            lines.footRule = state.ruleWidth("footrulewidth")
         }
     }
 
@@ -100,7 +102,7 @@ enum LaTeXPageReferences {
         const marks = \(runningMarks) || declarations.some(el =>
           el.dataset.value === 'fancy' || /leftmark|rightmark/.test(el.dataset.value || ''));
         const chapters = document.body.dataset.latexChapters === 'true';
-        for (const el of document.querySelectorAll('[data-latex-page-action],[id],.latex-title-block,.latex-titlepage')) {
+        for (const el of document.querySelectorAll('[data-latex-page-action],[id],[data-latex-chapter-opening],.latex-title-block,.latex-titlepage')) {
           let action = el.dataset.latexPageAction || '';
           if (el.matches('.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,body[data-latex-chapters="true"]:not([data-latex-title-layout]) .latex-title-block')) action = 'title';
           let value = el.dataset.value || '';
@@ -115,7 +117,7 @@ enum LaTeXPageReferences {
           // Standard inline titles and chapter openings select plain locally. A measured chapter
           // can change the running marks on this same page as well.
           const classPlain = plain && action !== 'title' && !el.dataset.latexPageAction &&
-            (el.matches('body[data-latex-title-layout="inline"] .latex-title-block') || chapters && el.matches('h2[id^="sec-"]'));
+            (el.matches('body[data-latex-title-layout="inline"] .latex-title-block') || chapters && el.matches('h2[id^="sec-"],[data-latex-chapter-opening]'));
           if (!refs.has(el) && !action && !classPlain) continue;
           if (el.matches('span[data-latex-page-action]')) el.style.position = 'absolute';
           const index = targets.length;

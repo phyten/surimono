@@ -115,8 +115,8 @@ struct LaTeXReviewRegressionTests {
         let html = body("\\begin{\(environment)}{\\textwidth}[t]{lcr}左 & 中 & 右\\end{\(environment)}")
         #expect(
             html == "<table class=\"latex-tabular\"><tbody>\n"
-                + "<tr><td style=\"text-align: left\">左</td><td style=\"text-align: center\">中</td>"
-                + "<td style=\"text-align: right\">右</td></tr>\n</tbody></table>\n")
+                + "<tr><td style=\"text-align: start\">左</td><td style=\"text-align: center\">中</td>"
+                + "<td style=\"text-align: end\">右</td></tr>\n</tbody></table>\n")
     }
 
     @Test("回り込み図表は行数と位置とはみ出しと幅を本文に出さない")
@@ -156,8 +156,8 @@ struct LaTeXReviewRegressionTests {
             """#)
         #expect(
             html.contains("<figcaption id=\"tab-2\"><span class=\"latex-caption-label\">表 2</span>　長い表</figcaption>"))
-        #expect(html.contains("<th style=\"text-align: left\">名前</th><th style=\"text-align: right\">数</th>"))
-        #expect(html.contains("<td style=\"text-align: left\">甲</td><td style=\"text-align: right\">1</td>"))
+        #expect(html.contains("<th style=\"text-align: start\">名前</th><th style=\"text-align: end\">数</th>"))
+        #expect(html.contains("<td style=\"text-align: start\">甲</td><td style=\"text-align: end\">1</td>"))
         #expect(!html.contains("最後の脚注"))
         #expect(!html.contains("繰り返す見出し"))
         #expect(!html.contains("途中の脚注"))
@@ -169,8 +169,8 @@ struct LaTeXReviewRegressionTests {
     @Test("longtable は endhead だけでも先頭を見出しにし境界だけの空行を出さない")
     func longtableSingleHead() {
         let html = body("\\begin{longtable}{l}名前\\\\\\endhead\\endfoot\\endlastfoot 甲\\\\\\end{longtable}")
-        #expect(html.contains("<th style=\"text-align: left\">名前</th>"))
-        #expect(html.contains("<td style=\"text-align: left\">甲</td>"))
+        #expect(html.contains("<th style=\"text-align: start\">名前</th>"))
+        #expect(html.contains("<td style=\"text-align: start\">甲</td>"))
         #expect(html.components(separatedBy: "<tr>").count == 3)
     }
 
@@ -222,9 +222,9 @@ struct LaTeXReviewRegressionTests {
             \verb|\endhead|\\甲\\
             \end{longtable}
             """#)
-        #expect(html.contains("<th style=\"text-align: left\">名前</th>"))
-        #expect(html.contains("<td style=\"text-align: left\"><code>\\endhead</code></td>"))
-        #expect(html.contains("<td style=\"text-align: left\">甲</td>"))
+        #expect(html.contains("<th style=\"text-align: start\">名前</th>"))
+        #expect(html.contains("<td style=\"text-align: start\"><code>\\endhead</code></td>"))
+        #expect(html.contains("<td style=\"text-align: start\">甲</td>"))
         #expect(html.components(separatedBy: "<tr>").count == 4)
     }
 
@@ -239,8 +239,8 @@ struct LaTeXReviewRegressionTests {
             甲\\乙\\
             \end{longtable}
             """#)
-        #expect(html.contains("<thead>\n<tr><th style=\"text-align: left\" class=\"latex-top-double\">名前"))
-        #expect(html.contains("<td style=\"text-align: left\">甲</td>"))
+        #expect(html.contains("<thead>\n<tr><th style=\"text-align: start\" class=\"latex-top-double\">名前"))
+        #expect(html.contains("<td style=\"text-align: start\">甲</td>"))
         #expect(html.contains("class=\"latex-bottom-heavy\">乙</td>"))
         #expect(html.components(separatedBy: "latex-bottom-heavy").count == 2)
         let fallback = body(#"\begin{longtable}{l}\hline\hline\endfoot 甲\\\end{longtable}"#)

@@ -16,6 +16,40 @@ struct LaTeXFlowReaderTests {
         #expect(fragment.body.contains("data-latex-columns=\"2\"") == (columns == 2))
     }
 
+    @Test("章のあるクラスだけが目次・図目次・表目次の前でページを改める")
+    func contentsOpenings() {
+        for (name, count) in [("article", 0), ("report", 3), ("book", 3), ("ltjsreport", 3)] {
+            let tex =
+                "\\documentclass{\(name)}"
+                + #"\begin{document}Intro\tableofcontents\listoffigures\listoftables\end{document}"#
+            let body = LaTeXConverter.convert(tex).body
+            #expect(body.components(separatedBy: "data-latex-chapter-opening").count - 1 == count)
+        }
+    }
+
+    @Test("飛ばした階層もある目次は入れ子の深さにかかわらず項目本来の字下げを選ぶ")
+    func contentsLevels() {
+        let body = LaTeXConverter.convert(
+            #"\setcounter{tocdepth}{5}\tableofcontents\section{Start}\paragraph{Surface}\subparagraph{Detail}"#
+        ).body
+        #expect(body.contains(#"class="latex-toc-section""#))
+        #expect(body.contains(#"class="latex-toc-paragraph""#))
+        #expect(body.contains(#"class="latex-toc-subparagraph""#))
+    }
+
+    @Test("フレーム内の図表だけを本文に固定してフレームの外の指定を保つ")
+    func beamerFrames() {
+        let body = LaTeXConverter.convert(
+            #"""
+            \documentclass{beamer}\begin{document}\begin{frame}{Slides}
+            \begin{center}\begin{figure}[t]F\end{figure}\end{center}
+            \begin{table}[p]T\end{table}\end{frame}\begin{figure}[t]After\end{figure}\end{document}
+            """#
+        ).body
+        #expect(body.components(separatedBy: #"data-latex-placement="H""#).count == 3)
+        #expect(body.components(separatedBy: #"data-latex-placement="t""#).count == 2)
+    }
+
     @Test("本文の段数、段抜き、均等割りと段間の寸法を読み順で渡す")
     func segments() {
         let body = LaTeXConverter.convert(
@@ -64,5 +98,28 @@ struct LaTeXFlowReaderTests {
             #expect(body.contains("href=\"#\(id)\""))
             #expect(body.contains("<li id=\"\(id)\""))
         }
+    }
+
+    @Test("学会誌の表題は表の前後で原稿に書かれた順序を保つ", arguments: ["[conference]{IEEEtran}", "[sigconf]{acmart}"])
+    func tableCaptionOrder(declaration: String) throws {
+        let body = LaTeXConverter.convert(
+            #"\documentclass\#(declaration)\begin{document}"#
+                + #"\begin{table}\caption{Upper title}\label{upper}\begin{tabular}{l}Upper cell\end{tabular}\end{table}"#
+                + #"\begin{table}\begin{tabular}{l}Lower cell\end{tabular}\caption{Lower title}\end{table}\end{document}"#
+        ).body
+        let offsets = try ["Upper title", "Upper cell", "Lower cell", "Lower title"].map { text in
+            try #require(body.range(of: text)).lowerBound
+        }
+        #expect(offsets == offsets.sorted())
+    }
+
+    @Test("memoir の図は罫線だけの行を罫線の高さで測り文字を含む行では行送りを残す")
+    func memoirRuleBox() {
+        let body = LaTeXConverter.convert(
+            #"\documentclass{memoir}\begin{document}\begin{figure}\centering\rule{28mm}{2mm}\par A\rule{2mm}{2mm}\par\rule{2mm}{2mm}B\par\rule[1pt]{2mm}{2mm}\caption{Sample}\end{figure}\end{document}"#
+        ).body
+        #expect(body.components(separatedBy: "data-latex-rule-line").count == 2)
+        #expect(
+            body.contains(#"data-latex-rule-line style="text-align: center; text-indent: 0"><span class="latex-rule""#))
     }
 }

@@ -403,6 +403,7 @@ struct ShortcutActionsTests {
         var controllers: [MemoryDocumentWindowController] = []
         let environment = try Environment()
         defer { environment.restore() }
+        defer { for controller in controllers { controller.close() } }
         ShortcutEnvironment.router = windowRouter(environment) { controllers.append($0) }
         environment.isScoped = true
         let url = try environment.write("paper.pdf", TestFixtures.pdf("access", pages: 1))
@@ -413,6 +414,7 @@ struct ShortcutActionsTests {
         #expect(environment.accessLog == ["start paper.pdf"])
         controllers.first?.window?.close()
         #expect(environment.accessLog == ["start paper.pdf", "stop paper.pdf"])
+        controllers.removeAll()
     }
 
     @Test("文書を開き終えたあとで窓ができ、組版が終わる前に閉じても、アクセスを 1 回ずつ始めて手放す", .timeLimit(.minutes(1)))
@@ -446,6 +448,8 @@ struct ShortcutActionsTests {
             preferences: AppPreferences(defaults: environment.suite.defaults),
             library: UserLibrary(root: environment.directory.appendingPathComponent("Library")), renderer: renderer)
         let controller = MemoryDocumentWindowController(model: model) {}
+        defer { controller.close() }
+        controller.window?.alphaValue = 0
         controller.showWindow(nil)
         for _ in 0..<500 where !model.isRendering { try await Task.sleep(for: .milliseconds(20)) }
         #expect(model.isRendering)
@@ -519,6 +523,7 @@ struct ShortcutActionsTests {
         var controllers: [MemoryDocumentWindowController] = []
         let environment = try Environment()
         defer { environment.restore() }
+        defer { for controller in controllers { controller.close() } }
         ShortcutEnvironment.router = windowRouter(environment) { controllers.append($0) }
         environment.isScoped = true
         let url = try environment.write("paper.pdf", TestFixtures.pdf("access", pages: 1))
@@ -530,6 +535,7 @@ struct ShortcutActionsTests {
         #expect(environment.accessLog == ["start paper.pdf", "start paper.pdf", "stop paper.pdf"])
         controllers.first?.window?.close()
         #expect(environment.accessLog == ["start paper.pdf", "start paper.pdf", "stop paper.pdf", "stop paper.pdf"])
+        controllers.removeAll()
     }
 
     @Test("開けなかったファイルのアクセスは、すぐ手放す")
@@ -571,10 +577,12 @@ struct ShortcutActionsTests {
         windows.preferences = AppPreferences(defaults: environment.suite.defaults)
         windows.library = UserLibrary(root: environment.directory.appendingPathComponent("Library"))
         var bundle: DocumentViewModel?
+        defer { bundle?.window?.close() }
         ShortcutEnvironment.router = OpenRouter(
             openDocument: { _, _ in Issue.record("単独では開かない") },
             openBundle: { urls, excluded in
                 bundle = windows.open(urls, excluded: excluded)
+                bundle?.window?.orderOut(nil)
                 return bundle
             }, openBinder: { _, _ in nil }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { true },
             showWelcome: {})
@@ -588,6 +596,7 @@ struct ShortcutActionsTests {
         let window = try #require(bundle?.window)
         window.close()
         #expect(environment.accessLog.sorted() == ["start 1.png", "start 2.png", "stop 1.png", "stop 2.png"])
+        bundle = nil
     }
 
     @Test("書き出しは、組版が終わるまでファイルへのアクセスを持ち、終わったら手放す", .timeLimit(.minutes(1)))

@@ -11,7 +11,7 @@ struct LaTeXFontSettings {
         let scale: Double?
         let cjk: Bool
 
-        init?(_ name: String, options: String, cjk: Bool) {
+        init?(_ name: String, options: String, cjk: Bool, mono: Bool = false) {
             let family = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard Self.validName(family) else { return nil }
             let settings = Dictionary(LaTeXPageSettings.options(options).map { ($0.key, $0.value) }) { _, last in last }
@@ -22,9 +22,27 @@ struct LaTeXFontSettings {
                 }
             }
             self.name = family
-            bold = face("BoldFont")
-            italic = face("ItalicFont")
+            let namedBold = face("BoldFont")
+            let namedItalic = face("ItalicFont")
             scale = settings["Scale"].flatMap(Double.init).flatMap { $0.isFinite && $0 > 0 && $0 <= 10 ? $0 : nil }
+            // A scaled or partly overridden family is exposed through a CSS alias. Name its other
+            // installed variants too, since the browser cannot discover sibling faces of an alias.
+            let alias = mono && (namedBold != nil || namedItalic != nil || scale != nil)
+            func nativeFace(_ trait: CTFontSymbolicTraits) -> String? {
+                guard alias else { return nil }
+                let regular = CTFontCreateWithName(family as CFString, 12, nil)
+                let names = [
+                    CTFontCopyFamilyName(regular), CTFontCopyFullName(regular), CTFontCopyPostScriptName(regular),
+                ]
+                guard names.contains(where: { ($0 as String).caseInsensitiveCompare(family) == .orderedSame }),
+                    let variant = CTFontCreateCopyWithSymbolicTraits(regular, 0, nil, trait, trait),
+                    CTFontCopyFamilyName(variant) == CTFontCopyFamilyName(regular),
+                    CTFontGetSymbolicTraits(variant).contains(trait)
+                else { return nil }
+                return CTFontCopyPostScriptName(variant) as String
+            }
+            bold = namedBold ?? nativeFace(.boldTrait)
+            italic = namedItalic ?? nativeFace(.italicTrait)
             self.cjk = cjk
         }
 
@@ -134,7 +152,17 @@ struct LaTeXFontSettings {
         case "libertine": (role, family) = ("main", "Linux Libertine O")
         case "lmodern", "cm-super":
             (role, family) = ("main", "Surimono Computer Modern")
-            roleVariables["mono-font"] = "\"Surimono Computer Modern Typewriter\""
+            if name == "lmodern" {
+                // lmtt's bold series comes from the separate Latin Modern Mono Light family.
+                // The theme falls back to bundled cmtt when the local TeX faces are unavailable.
+                if let mono = Selection(
+                    "LMMono10-Regular", options: "BoldFont=LMMonoLt10-Bold,ItalicFont=LMMono10-Italic", cjk: false)
+                {
+                    setRole("mono", selection: mono)
+                }
+            } else {
+                roleVariables["mono-font"] = "\"Surimono Computer Modern Typewriter\""
+            }
         default: return
         }
         if role == "main" { mainFontName = family }
@@ -148,7 +176,9 @@ extension LaTeXReader {
         let name = argument() ?? ""
         let after = optional()
         let options = [before, after].compactMap { $0 }.joined(separator: ",")
-        guard let selection = LaTeXFontSettings.Selection(name, options: options, cjk: role?.hasPrefix("cjk-") == true)
+        guard
+            let selection = LaTeXFontSettings.Selection(
+                name, options: options, cjk: role?.hasPrefix("cjk-") == true, mono: role == "mono")
         else { return }
         if let selector, selector.hasPrefix("\\"), selector.count > 1, document.reserveExpansion() {
             document.pageSettings.fonts.selectors[String(selector.dropFirst())] = document.pageSettings.fonts.family(

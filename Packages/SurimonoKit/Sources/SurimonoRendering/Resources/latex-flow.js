@@ -23,7 +23,7 @@ const strips = [], segments = [], pendingMeasurements = [];
 const excluded = 'style,script,template,noscript';
 const atomic = '[data-flow-ink-block],figure:not(.latex-longtable):not(.latex-listing),table:not(.latex-longtable),tr,.math-block,.tikz-block,.latex-graphic-box,img,svg,canvas,hr,input,.latex-vspace,.latex-rule,.latex-title-block';
 const heading = 'h1,h2,h3,h4,h5,h6';
-const boundary = '[data-flow-ink-block],[data-latex-columns],[data-latex-spacing],[data-latex-wide],[data-latex-break],[data-latex-float],.latex-title-block,.latex-titlepage';
+const boundary = '[data-latex-chapter-opening],[data-flow-ink-block],[data-latex-columns],[data-latex-spacing],[data-latex-wide],[data-latex-break],[data-latex-float],.latex-title-block,.latex-titlepage';
 body.style.cssText += ';margin:0!important;padding:0!important;max-width:none!important;width:auto!important';
 const style = document.createElement('style');
 style.textContent = `
@@ -85,7 +85,7 @@ function force(kind) {
 }
 function command(node, parents) {
     const forced = breaks.get(node);
-    if (forced?.before) force('page');
+    if (forced?.before || node.nodeType === 1 && node.hasAttribute('data-latex-chapter-opening')) force('page');
     content(node, parents);
     if (forced?.after) force('page');
 }
@@ -230,7 +230,7 @@ function lines(box) {
         if (para && !paragraphs.has(para)) paragraphs.set(para, paragraphs.size + 1);
         bands.push({start:Math.max(0,(rect.top + scrollY)*unit-origin),
             end:(rect.bottom + scrollY)*unit-origin, para:paragraphs.get(para) || 0,
-            heading:!!el.closest(heading), ids});
+            element:el, discard:el.matches('.latex-vspace:not([data-latex-keep-space])'), heading:!!el.closest(heading), ids});
     }
     const walker = document.createTreeWalker(box, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(n) {
@@ -254,7 +254,7 @@ function lines(box) {
     for (const b of bands.sort((a,b) => a.start - b.start)) {
         const last = rows.at(-1);
         if (last && b.start < last.end - 0.1) {
-            last.end = Math.max(last.end,b.end); last.heading ||= b.heading;
+            last.end = Math.max(last.end,b.end); last.heading ||= b.heading; last.discard &&= b.discard;
             if (!last.para) last.para = b.para;
             for (const id of b.ids) last.ids.add(id);
         } else rows.push({...b, ids:new Set(b.ids)});
@@ -268,10 +268,14 @@ function lines(box) {
             !box.querySelector(':not(' + marks + ',p:not([style]),.latex-link-colors)')) return [];
         return [{slice:whole(box), gap:0, notes:[], wide:false}];
     }
-    rows[0].start = 0;
+    // Expose the first block's outside margin as discardable glue. Keep its border,
+    // padding and first-line leading in the slice, including the title and chapter skips.
+    let first = rows[0].element;
+    while (first !== box && first.parentElement && first.parentElement !== box) first = first.parentElement;
+    rows[0].start = Math.max(0, Math.min(rows[0].start, (first.getBoundingClientRect().top + scrollY)*unit-origin));
     rows.at(-1).end = Math.max(rows.at(-1).end, whole(box).end);
     return rows.map((r,i) => ({slice:slice(box,r.start,r.end), notes:[...r.ids], wide:false,
-        gap:i ? Math.max(0,r.start-rows[i-1].end) : 0, paragraph:r.para, heading:r.heading}));
+        gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, discardable:r.discard, paragraph:r.para, heading:r.heading}));
 }
 for (const seg of segments) {
     seg.items = seg.items.flatMap(item => {

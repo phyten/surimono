@@ -64,7 +64,8 @@ enum PageFurnitureDrawing {
         let right = rect.maxX - max(margins.right, inset)
         let center = rect.minX + margins.left + (rect.width - margins.left - margins.right) / 2
         func draw(_ texts: [String], above: Bool, centerY: (CGFloat) -> CGFloat) {
-            guard texts.contains(where: { !$0.isEmpty }) else { return }
+            let rule = (above ? lines.headRule : lines.footRule) * scale
+            guard rule > 0 || texts.contains(where: { !$0.isEmpty }) else { return }
             let row = row(
                 texts, width: right - left, scale: scale, font: latexFooter.map { footerFont($0, scale: scale) })
             let y =
@@ -73,6 +74,11 @@ enum PageFurnitureDrawing {
                         above ? rect.height - margins.top + $0.headSep * scale : margins.bottom - $0.footSkip * scale
                     return rect.minY + min(rect.height - row.ascent, max(row.descent, baseline))
                 } ?? (centerY(row.height) - (row.ascent - row.descent) / 2)
+            if rule > 0 {
+                let footGap = (latexFooter?.pointSize ?? 10) * 0.36 * scale
+                let edge = above ? y - row.descent - rule : y + row.ascent + footGap
+                drawRule(from: left, to: right, center: edge + rule / 2, thickness: rule, context: context)
+            }
             for (index, line) in row.lines.enumerated() {
                 guard let line else { continue }
                 let width = CTLineGetTypographicBounds(line, nil, nil, nil)
@@ -87,7 +93,8 @@ enum PageFurnitureDrawing {
 
     /// One line of the handout's page: the text of the three places around its slot, in `space` above or below it.
     static func drawHandoutRow(
-        _ texts: [String], beside rect: CGRect, above: Bool, space: CGFloat, padding: CGFloat, context: CGContext
+        _ texts: [String], beside rect: CGRect, above: Bool, space: CGFloat, padding: CGFloat, rule: CGFloat,
+        context: CGContext
     ) {
         let row = row(texts, width: rect.width, scale: 1)
         context.saveGState()
@@ -95,6 +102,11 @@ enum PageFurnitureDrawing {
         context.textMatrix = .identity
         let fits = space >= row.height + 2 * padding
         if !fits && above { return }
+        if rule > 0 {
+            // The handout puts furniture around the slot using sheet coordinates.
+            let edge = above ? rect.maxY : rect.minY - min(space, rule)
+            drawRule(from: rect.minX, to: rect.maxX, center: edge + rule / 2, thickness: rule, context: context)
+        }
         for (index, line) in row.lines.enumerated() {
             guard let line else { continue }
             let width = CTLineGetTypographicBounds(line, nil, nil, nil)
@@ -113,6 +125,25 @@ enum PageFurnitureDrawing {
             }
             CTLineDraw(line, context)
         }
+    }
+
+    private static func drawRule(
+        from left: CGFloat, to right: CGFloat, center: CGFloat, thickness: CGFloat, context: CGContext
+    ) {
+        guard right > left else { return }
+        // PDF viewers can enhance subpixel strokes at reading zoom. pdfTeX also emits a
+        // butt-capped stroke for this rule so its endpoints and physical width survive scaling.
+        context.saveGState()
+        defer { context.restoreGState() }
+        context.setAlpha(1)
+        context.setStrokeColor(CGColor(gray: 0, alpha: 1))
+        context.setLineWidth(thickness)
+        context.setLineCap(.butt)
+        context.setLineDash(phase: 0, lengths: [])
+        context.beginPath()
+        context.move(to: CGPoint(x: left, y: center))
+        context.addLine(to: CGPoint(x: right, y: center))
+        context.strokePath()
     }
 
     /// Draws a line at the context's text position, as text or as the shapes of its letters. The view mode's paper

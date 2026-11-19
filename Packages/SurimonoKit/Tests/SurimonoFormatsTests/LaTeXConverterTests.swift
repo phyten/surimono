@@ -50,7 +50,7 @@ struct LaTeXConverterTests {
         #expect(html.contains("<h3 id=\"sec-1-1\"><span class=\"secnum\">1.1</span>節</h3>"))
         #expect(html.contains("<h3 id=\"sec-u3\">番号なし</h3>"))
         #expect(html.contains("<span class=\"secnum\">付録A</span>補足"))
-        #expect(html.hasPrefix("<nav class=\"toc\">"))
+        #expect(html.hasPrefix("<nav class=\"toc\" data-latex-chapter-opening>"))
         #expect(!html.components(separatedBy: "</nav>")[0].contains("番号なし"))
     }
 
@@ -203,17 +203,17 @@ struct LaTeXConverterTests {
         )
         #expect(
             html.contains(
-                "<td style=\"text-align: left; border-left: 0.5pt solid currentColor; border-right: 0.5pt solid currentColor; border-top: 0.5pt solid currentColor\">甲</td>"
+                "<td style=\"text-align: start; border-left: 0.5pt solid currentColor; border-right: 0.5pt solid currentColor; border-top: 0.5pt solid currentColor\">甲</td>"
             ))
         #expect(html.contains("border-bottom: 0.5pt solid currentColor\">丁</td>"))
         #expect(
             html.contains(
-                "<th style=\"text-align: left\" class=\"latex-top-heavy\">名</th>"))
+                "<th style=\"text-align: start\" class=\"latex-top-heavy\">名</th>"))
         #expect(html.contains("colspan=\"2\">合計</td>"))
         #expect(html.contains("rowspan=\"2\">縦</td>"))
         #expect(
             html.contains(
-                "<tr class=\"latex-above-rule\"><td style=\"text-align: right\" class=\"latex-bottom-heavy\">2</td></tr>"
+                "<tr class=\"latex-above-rule\"><td style=\"text-align: end\" class=\"latex-bottom-heavy\">2</td></tr>"
             ))
     }
 

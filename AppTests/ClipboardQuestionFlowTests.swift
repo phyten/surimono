@@ -20,19 +20,22 @@ struct ClipboardQuestionFlowTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let board = NSPasteboard(name: .init("SurimonoTests.question.\(UUID().uuidString)"))
         let windows: ClipboardWindows
+        let presentation: ClipboardWindowFixture
         let preferences: AppPreferences
         var questions: [(ClipboardQuestion, ClipboardTextSource, NSWindow?)] = []
         var pending: ((ClipboardTextKind?) -> Void)?
         /// The answer given at once, or nil to leave the question open in `pending`.
         var answer: ClipboardTextKind??
         var forwarded = 0
+        private var panels: [NSWindow] = []
 
-        init(answer: ClipboardTextKind?? = nil) {
+        init(answer: ClipboardTextKind?? = nil, ordered: Bool = false) {
             self.answer = answer
             preferences = AppPreferences(defaults: suite.defaults)
             windows = ClipboardWindows(
                 openFiles: { _, _, _ in Issue.record("ファイルは開かない") }, warn: { _ in Issue.record("警告しない") },
                 closeWelcome: {})
+            presentation = ClipboardWindowFixture(windows, ordered: ordered)
             windows.preferences = preferences
             windows.library = UserLibrary(root: directory.appendingPathComponent("Library"))
             windows.ask = { [unowned self] question, source, window, completion in
@@ -48,10 +51,22 @@ struct ClipboardQuestionFlowTests {
             board.setString(text, forType: .string)
         }
 
+        func present(
+            _ question: ClipboardQuestion, over parent: NSWindow?, completion: @escaping (ClipboardTextKind?) -> Void
+        ) throws -> NSWindow {
+            ClipboardQuestionPanel.present(question, source: .clipboard, over: parent, completion: completion)
+            let panel = try #require(ClipboardQuestionPanel.window)
+            panel.alphaValue = 0
+            panels.append(panel)
+            return panel
+        }
+
         func cleanUp() {
-            for window in NSApp.windows where window.windowController is MemoryDocumentWindowController {
-                window.close()
+            for panel in panels where panel.isVisible {
+                panel.sheetParent?.endSheet(panel)
+                panel.close()
             }
+            presentation.close()
             board.releaseGlobally()
             suite.remove()
             try? FileManager.default.removeItem(at: directory)
@@ -253,7 +268,7 @@ struct ClipboardQuestionFlowTests {
 
     @Test("形式を選び直すと、同じ原文を別の形式で同じ位置の窓に開き直し、判定し直さない", .timeLimit(.minutes(1)))
     func reopenAsAnotherFormat() async throws {
-        let fixture = Fixture()
+        let fixture = Fixture(ordered: true)
         defer { fixture.cleanUp() }
         fixture.copy(Self.markdown)
         let first = try #require(fixture.windows.open(from: fixture.board, window: nil))
@@ -347,8 +362,7 @@ struct ClipboardQuestionFlowTests {
         let parent = try #require(controller.window)
         let question = ClipboardQuestion(
             text: Self.unsure, detection: ClipboardFormatDetector.detect(Self.unsure), settings: .standard)
-        ClipboardQuestionPanel.present(question, source: .clipboard, over: parent, completion: record)
-        let sheet = try #require(ClipboardQuestionPanel.window)
+        let sheet = try fixture.present(question, over: parent, completion: record)
         try #require(sheet.sheetParent === parent)
         return (parent, sheet)
     }
@@ -359,7 +373,7 @@ struct ClipboardQuestionFlowTests {
 
     @Test("質問のシートは親のウインドウが閉じると答えなしで一度だけ終わり、次の質問は新しく出る", .timeLimit(.minutes(1)))
     func sheetFinishesWhenItsParentCloses() async throws {
-        let fixture = Fixture()
+        let fixture = Fixture(ordered: true)
         defer { fixture.cleanUp() }
         var answers: [ClipboardTextKind?] = []
         let (parent, sheet) = try presentSheet(fixture) { answers.append($0) }
@@ -371,8 +385,7 @@ struct ClipboardQuestionFlowTests {
         #expect(ClipboardQuestionPanel.window == nil)
         let question = ClipboardQuestion(
             text: Self.unsure, detection: ClipboardFormatDetector.detect(Self.unsure), settings: .standard)
-        ClipboardQuestionPanel.present(question, source: .clipboard, over: nil) { answers.append($0) }
-        let next = try #require(ClipboardQuestionPanel.window)
+        let next = try fixture.present(question, over: nil) { answers.append($0) }
         #expect(next !== sheet)
         next.close()
         #expect(answers == [nil, nil])
@@ -380,7 +393,7 @@ struct ClipboardQuestionFlowTests {
 
     @Test("ほかから終えられた質問のシートは答えなしで一度だけ終わり、次の質問は新しく出る", .timeLimit(.minutes(1)))
     func sheetFinishesWhenEndedFromOutside() async throws {
-        let fixture = Fixture()
+        let fixture = Fixture(ordered: true)
         defer { fixture.cleanUp() }
         var answers: [ClipboardTextKind?] = []
         let (parent, sheet) = try presentSheet(fixture) { answers.append($0) }
@@ -392,8 +405,7 @@ struct ClipboardQuestionFlowTests {
         #expect(parent.attachedSheet == nil)
         let question = ClipboardQuestion(
             text: Self.unsure, detection: ClipboardFormatDetector.detect(Self.unsure), settings: .standard)
-        ClipboardQuestionPanel.present(question, source: .clipboard, over: parent) { answers.append($0) }
-        let next = try #require(ClipboardQuestionPanel.window)
+        let next = try fixture.present(question, over: parent) { answers.append($0) }
         #expect(next !== sheet)
         #expect(next.sheetParent === parent)
         parent.endSheet(next)

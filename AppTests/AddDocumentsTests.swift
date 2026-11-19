@@ -41,6 +41,7 @@ struct AddDocumentsTests {
                 styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: true)
             // The window is closed in place of the document's own controller, and this test still holds it.
             window.isReleasedWhenClosed = false
+            window.alphaValue = 0
             model.window = window
             return model
         }
@@ -255,11 +256,13 @@ struct AddDocumentsTests {
         source.layoutID = PrintLayout.a4Duplex.id
         source.currentPageIndex = 1
         let closing = try #require(source.window)
+        defer { closing.close() }
         closing.orderFront(nil)
         fixture.windows.turnIntoBinder(source, adding: [other], leftOut: [])
         try await wait { fixture.windows.hasWindows }
         let binder = try #require(DocumentWindows.shared.openModels.first { $0.binder?.urls.contains(own) == true })
         defer { binder.window?.close() }
+        binder.window?.alphaValue = 0
         #expect(binder.binder?.urls == [own, other])
         #expect(binder.layoutID == PrintLayout.a4Duplex.id)
         #expect(binder.currentPageIndex == 1)
@@ -277,6 +280,7 @@ struct AddDocumentsTests {
         let other = try fixture.file("other.pdf", TestFixtures.pdf("other"))
         let source = fixture.document(own, data: bytes, format: .pdf)
         defer { source.stop() }
+        defer { source.window?.close() }
         source.window?.orderFront(nil)
         source.mode = .print
         source.render()
@@ -285,8 +289,8 @@ struct AddDocumentsTests {
         #expect(!source.canOutput)
         fixture.windows.turnIntoBinder(source, adding: [other], leftOut: [])
         #expect(fixture.windows.pending.count == 1)
+        defer { DocumentWindows.shared.openModels.first { $0.binder?.urls.contains(own) == true }?.window?.close() }
         try await wait { fixture.windows.pending.isEmpty }
-        DocumentWindows.shared.openModels.first { $0.binder?.urls.contains(own) == true }?.window?.close()
     }
 
     @Test("組版の間に元の窓を閉じたら合本を出さず、何も残さない")
@@ -297,6 +301,7 @@ struct AddDocumentsTests {
         let other = try fixture.file("other.pdf", TestFixtures.pdf("other"))
         let source = fixture.document(own, data: bytes, format: .pdf)
         defer { source.stop() }
+        defer { source.window?.close() }
         source.window?.orderFront(nil)
         fixture.windows.turnIntoBinder(source, adding: [other], leftOut: [])
         source.window?.close()
@@ -331,11 +336,13 @@ struct AddDocumentsTests {
         try fixture.store.save(saved, for: key.hex)
         let source = fixture.document(own, data: bytes, format: .pdf)
         defer { source.stop() }
+        defer { source.window?.close() }
         source.window?.orderFront(nil)
         fixture.windows.turnIntoBinder(source, adding: [other], leftOut: [])
         try await wait { fixture.windows.hasWindows }
         let binder = try #require(DocumentWindows.shared.openModels.first { $0.binder?.urls.contains(own) == true })
         defer { binder.window?.close() }
+        binder.window?.alphaValue = 0
         try await wait { fixture.store.record(for: key.hex)?.layoutID == source.layoutID }
     }
 
@@ -361,6 +368,7 @@ struct AddDocumentsTests {
         let other = try fixture.file("other.pdf", TestFixtures.pdf("other"))
         let open = fixture.windows.open([own, other])
         defer { open.window?.close() }
+        open.window?.alphaValue = 0
         let source = fixture.document(own, data: TestFixtures.pdf("own"), format: .pdf)
         defer { source.stop() }
         let window = try #require(source.window)
@@ -402,11 +410,13 @@ struct AddDocumentsTests {
         let source = fixture.document(own, data: bytes, format: .pdf)
         defer { source.stop() }
         source.layoutID = PrintLayout.a4Duplex.id
+        defer { source.window?.close() }
         source.window?.orderFront(nil)
         fixture.windows.turnIntoBinder(source, adding: [other], leftOut: [])
         try await wait { fixture.windows.hasWindows }
         let binder = try #require(DocumentWindows.shared.openModels.first { $0.binder?.urls.contains(own) == true })
         defer { binder.window?.close() }
+        binder.window?.alphaValue = 0
         try await wait { binder.contentHash == key }
         #expect(binder.layoutID == PrintLayout.a4Duplex.id)
         try await wait { fixture.store.record(for: key.hex)?.layoutID == PrintLayout.a4Duplex.id }

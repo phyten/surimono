@@ -24,9 +24,18 @@ enum MermaidScript {
 
     static func preventResourceLoads(in webView: WKWebView) async throws {
         if offlineRules == nil {
-            offlineRules = try await WKContentRuleListStore.default().compileContentRuleList(
-                forIdentifier: "surimono-mermaid-offline",
-                encodedContentRuleList: #"[{"trigger":{"url-filter":".*"},"action":{"type":"block"}}]"#)
+            offlineRules = try await WebKitReply<WKContentRuleList>.wait(until: .now + .seconds(15)) { reply in
+                WKContentRuleListStore.default().compileContentRuleList(
+                    forIdentifier: "surimono-mermaid-offline",
+                    encodedContentRuleList: #"[{"trigger":{"url-filter":".*"},"action":{"type":"block"}}]"#
+                ) { list, error in
+                    if let list {
+                        reply(.success(list))
+                    } else {
+                        reply(.failure(error ?? WebPaginator.PaginationError.printFailed))
+                    }
+                }
+            }
         }
         if let offlineRules { webView.configuration.userContentController.add(offlineRules) }
     }

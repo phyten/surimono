@@ -3,8 +3,8 @@ import SurimonoCore
 import SurimonoFormats
 
 extension LaTeXPageBox {
-    /// The measure and the page goal belong to the document. Changing the stock redistributes the
-    /// surrounding white space in its original ratio; only an oversized body uses the whole axis.
+    /// Keep the document's text block when changing stock. Most classes distribute the remaining
+    /// space in the original margin ratio; classes with fixed offsets keep their leading margin.
     func margins(fitting size: CGSize) -> PageMargins {
         func fit(_ first: Double, _ last: Double, measure: Double, extent: Double) -> (Double, Double) {
             let first = max(0, first)
@@ -12,7 +12,10 @@ extension LaTeXPageBox {
             // Contradictory registers can describe a zero or negative body; preserve a usable line in that case.
             let body = measure > 0 ? min(measure, extent) : min(72, extent / 2)
             let spare = max(0, extent - body)
-            let leading = spare * (first + last > 0 ? first / (first + last) : 0.5)
+            // The REVTeX and LNCS class registers fix an absolute origin even when the PDF
+            // driver's stock differs from the class's paper registers (references 080 and 090).
+            let leading =
+                usesFixedClassOrigin ? min(first, spare) : spare * (first + last > 0 ? first / (first + last) : 0.5)
             return (leading * 25.4 / 72, (spare - leading) * 25.4 / 72)
         }
         let (left, right) = fit(left, right, measure: textWidth, extent: size.width)

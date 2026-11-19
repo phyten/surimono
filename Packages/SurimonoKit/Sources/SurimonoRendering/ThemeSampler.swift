@@ -136,7 +136,7 @@ public final class ThemeSampler {
         let key = SampleKey(themeID: theme.id, place: place)
         if let sample = samples[key], sample.theme == theme { return sample.page }
         // The web view shows one theme at a time, so a request waits for the one before it.
-        while isBusy { try await Task.sleep(for: .milliseconds(5)) }
+        try await WebPaginator.waitUntil(timeout: timeout) { !isBusy || isClosed }
         if let sample = samples[key], sample.theme == theme { return sample.page }
         guard !isClosed else { throw SamplingError.closed }
         try Task.checkCancellation()
@@ -155,22 +155,27 @@ public final class ThemeSampler {
             margins = requestedMargins
             resetSessions()
         }
-        var session = try await openSession()
-        try Task.checkCancellation()
-        var hasPaper = try await apply(theme, in: session.webView)
-        var sampleUsesFlow = false
-        if format == .latex, theme.formats == [.latex] || marginMode?.applies(to: theme) == true {
-            let protrudes = try await LaTeXFlowPaginator.markVerticalInk(
-                in: session.webView, width: printableSize.width * WebPaginator.printPixelsPerPoint)
-            sampleUsesFlow =
-                protrudes || theme.formats == [.latex] && (hasLaTeXMarginInk || LaTeXFlowPaginator.needed(in: html))
-        }
-        if sampleUsesFlow {
-            do {
+        var session: Session
+        var hasPaper: Bool
+        let checksFlow = format == .latex && (theme.formats == [.latex] || marginMode?.applies(to: theme) == true)
+        do {
+            session = try await openSession()
+            try Task.checkCancellation()
+            hasPaper = try await apply(theme, in: session.webView)
+            var sampleUsesFlow = false
+            if checksFlow {
+                let protrudes = try await LaTeXFlowPaginator.markVerticalInk(
+                    in: session.webView, width: printableSize.width * WebPaginator.printPixelsPerPoint,
+                    until: .now + timeout)
+                sampleUsesFlow =
+                    protrudes || theme.formats == [.latex] && (hasLaTeXMarginInk || LaTeXFlowPaginator.needed(in: html))
+            }
+            if sampleUsesFlow {
                 if let place {
-                    _ = try await session.webView.callAsyncJavaScript(
+                    _ = try await session.webView.evaluateForPrinting(
                         Self.placeElements + "elements[kind][index]?.setAttribute('data-flow-sample-place','')",
-                        arguments: ["kind": place.kind.rawValue, "index": place.index], in: nil, contentWorld: world)
+                        arguments: ["kind": place.kind.rawValue, "index": place.index], world: world,
+                        until: .now + timeout)
                 }
                 let pass = try await LaTeXFlowPaginator.paginate(
                     in: session.webView, pageSize: pageSize,
@@ -190,13 +195,14 @@ public final class ThemeSampler {
                 resetSessions()
                 succeeded = true
                 return page
-            } catch {
-                try Task.checkCancellation()
-                guard !isClosed else { throw SamplingError.closed }
-                resetSessions()
-                session = try await openSession()
-                hasPaper = try await apply(theme, in: session.webView)
             }
+        } catch {
+            try Task.checkCancellation()
+            guard !isClosed else { throw SamplingError.closed }
+            guard checksFlow else { throw error }
+            resetSessions()
+            session = try await openSession()
+            hasPaper = try await apply(theme, in: session.webView)
         }
         if theme.flow == .vertical {
             // Measuring moves the body into a strip. A new session gives the next theme its original DOM.
@@ -205,9 +211,10 @@ public final class ThemeSampler {
                 in: session.webView, pageSize: pageSize, margins: margins, timeout: timeout
             ) {
                 guard let place else { return nil }
-                let x = try await session.webView.callAsyncJavaScript(
+                let x = try await session.webView.evaluateForPrinting(
                     Self.placeElements + "const el = elements[kind][index]; return el ? surimonoVerticalX(el) : null;",
-                    arguments: ["kind": place.kind.rawValue, "index": place.index], in: nil, contentWorld: self.world)
+                    arguments: ["kind": place.kind.rawValue, "index": place.index], world: self.world,
+                    until: .now + self.timeout)
                 return (x as? NSNumber).map { CGFloat(truncating: $0) }
             }
             try session.checkReady()
@@ -216,7 +223,7 @@ public final class ThemeSampler {
             samples[key] = (theme, page)
             return page
         }
-        let adjusted = try await WebPaginator.useHorizontalRoot(in: session.webView)
+        let adjusted = try await WebPaginator.useHorizontalRoot(in: session.webView, timeout: timeout)
         // An inline override for this sample must not hide the next theme’s own root styles.
         defer { if adjusted { resetSessions() } }
         try Task.checkCancellation()
@@ -229,7 +236,7 @@ public final class ThemeSampler {
         let usesPaperWidth = format == .latex && theme.formats == [.latex] && marginMode?.applies(to: theme) == true
         if usesPaperWidth {
             // Keep screen samples at their existing pixel scale and measure; only the capture canvas grows.
-            _ = try await session.webView.callAsyncJavaScript(
+            _ = try await session.webView.evaluateForPrinting(
                 """
                 const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
                 const s = document.createElement('style');
@@ -237,17 +244,17 @@ public final class ThemeSampler {
                   padding-left:${left / zoom}px!important;padding-right:${right / zoom}px!important}`;
                 document.head.append(s); globalThis.surimonoSampleCanvas = s;
                 """, arguments: ["width": pageSize.width, "left": margins.left, "right": margins.right],
-                in: nil, contentWorld: world)
+                world: world, until: .now + timeout)
             captureSize.width = pageSize.width
             placementMargins.left = 0
             placementMargins.right = 0
         }
         configuration.rect = CGRect(origin: CGPoint(x: 0, y: top), size: captureSize)
-        let data = try await session.webView.pdf(configuration: configuration)
+        let data = try await session.webView.pdfForPrinting(configuration: configuration, until: .now + timeout)
         if usesPaperWidth {
-            _ = try await session.webView.callAsyncJavaScript(
+            _ = try await session.webView.evaluateForPrinting(
                 "surimonoSampleCanvas.remove(); delete globalThis.surimonoSampleCanvas;",
-                arguments: [:], in: nil, contentWorld: world)
+                arguments: [:], world: world, until: .now + timeout)
         }
         guard !isClosed else { throw SamplingError.closed }
         guard let text = StandalonePage.first(of: data) else { throw SamplingError.emptyPage }
@@ -270,7 +277,7 @@ public final class ThemeSampler {
     /// The headings and code blocks a sample can start at, in the order of the document within each kind.
     public func places() async throws -> [SamplePlace] {
         if let places { return places }
-        while isBusy { try await Task.sleep(for: .milliseconds(5)) }
+        try await WebPaginator.waitUntil(timeout: timeout) { !isBusy || isClosed }
         if let places { return places }
         guard !isClosed else { throw SamplingError.closed }
         try Task.checkCancellation()
@@ -281,8 +288,8 @@ public final class ThemeSampler {
             if !succeeded { resetSessions() }
         }
         let session = try await openSession()
-        let json = try await session.webView.callAsyncJavaScript(
-            Self.placeElements + Self.listing, arguments: [:], in: nil, contentWorld: world)
+        let json = try await session.webView.evaluateForPrinting(
+            Self.placeElements + Self.listing, arguments: [:], world: world, until: .now + timeout)
         let found = try JSONDecoder().decode([SamplePlace].self, from: Data((json as? String ?? "[]").utf8))
         try Task.checkCancellation()
         try session.checkReady()
@@ -293,10 +300,10 @@ public final class ThemeSampler {
 
     /// Where `place` starts under the theme in the web view, in the web view's points; the top without such a place.
     private func top(of place: SamplePlace, in webView: WKWebView) async throws -> CGFloat {
-        let top = try await webView.callAsyncJavaScript(
+        let top = try await webView.evaluateForPrinting(
             Self.placeElements + Self.locating,
-            arguments: ["kind": place.kind.rawValue, "index": place.index, "lead": Self.placeLead], in: nil,
-            contentWorld: world)
+            arguments: ["kind": place.kind.rawValue, "index": place.index, "lead": Self.placeLead], world: world,
+            until: .now + timeout)
         return (top as? NSNumber).map { CGFloat(truncating: $0) } ?? 0
     }
 
@@ -392,7 +399,8 @@ public final class ThemeSampler {
         }
         if format.usesPrintTheme {
             try await DiagramScript.prepare(in: session.webView, height: printableSize.height) { script in
-                try await session.webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: self.world)
+                try await session.webView.evaluateForPrinting(
+                    script, arguments: [:], world: self.world, until: .now + self.timeout)
                     as? String
             }
         }
@@ -422,24 +430,27 @@ public final class ThemeSampler {
         if documentMargins != nil, theme.formats == [.latex] || marginMode?.applies(to: theme) == true {
             css += RenderSettings.documentWidthCSS
         }
-        _ = try await webView.callAsyncJavaScript(swap, arguments: ["css": css], in: nil, contentWorld: world)
+        _ = try await webView.evaluateForPrinting(swap, arguments: ["css": css], world: world, until: .now + timeout)
         // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
         // show the fallback font and be kept that way.
         if css.contains("@font-face") { try await WebPaginator.waitForResources(in: webView, timeout: timeout) }
         if format == .latex, let script = LaTeXGraphicPreparation.script(in: html, layoutWidth: printableSize.width) {
-            _ = try await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
+            _ = try await webView.evaluateForPrinting(script, arguments: [:], world: world, until: .now + timeout)
         }
-        // Each theme has its own fonts and paddings, so its lines are fitted anew, as the samples are drawn a pixel to
-        // a point.
-        if let script = CodeFitScript.javaScript(for: code, layoutWidth: printableSize.width) {
-            _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
+        // Optional decorations can fail normally. A timed-out script might still change the DOM after
+        // this theme, so discard its session before reusing the view for another sample.
+        for script in [CodeFitScript.javaScript(for: code, layoutWidth: printableSize.width), theme.script] {
+            guard let script, !script.isEmpty else { continue }
+            do {
+                _ = try await webView.evaluateForPrinting(script, world: world, until: .now + timeout)
+            } catch WebPaginator.PaginationError.timedOut {
+                throw WebPaginator.PaginationError.timedOut
+            } catch {
+                try Task.checkCancellation()
+            }
         }
-        if let script = theme.script, !script.isEmpty {
-            // A failing decoration leaves the page undecorated rather than failing the sample, as in printing.
-            _ = try? await webView.callAsyncJavaScript(script, arguments: [:], in: nil, contentWorld: world)
-        }
-        let detection = try await webView.callAsyncJavaScript(
-            PaperBackground.detectionScript, arguments: [:], in: nil, contentWorld: world)
+        let detection = try await webView.evaluateForPrinting(
+            PaperBackground.detectionScript, arguments: [:], world: world, until: .now + timeout)
         try Task.checkCancellation()
         let hasPaper = detection as? String == "paper"
         appliedTheme = theme
@@ -489,11 +500,11 @@ public final class ThemeSampler {
             document.documentElement.style.removeProperty('background-color');
             if (document.body) { document.body.style.removeProperty('background-color'); }
             """
-        _ = try await session.webView.callAsyncJavaScript(
-            swap + "\n" + PaperBackground.opaqueScript, arguments: ["css": css], in: nil, contentWorld: world)
+        _ = try await session.webView.evaluateForPrinting(
+            swap + "\n" + PaperBackground.opaqueScript, arguments: ["css": css], world: world, until: .now + timeout)
         if css.contains("@font-face") { try await WebPaginator.waitForResources(in: session.webView, timeout: timeout) }
         let configuration = WKPDFConfiguration()
-        let adjusted = try await WebPaginator.useHorizontalRoot(in: session.webView)
+        let adjusted = try await WebPaginator.useHorizontalRoot(in: session.webView, timeout: timeout)
         defer {
             if adjusted {
                 session.close()
@@ -501,7 +512,7 @@ public final class ThemeSampler {
             }
         }
         configuration.rect = CGRect(origin: .zero, size: pageSize)
-        let data = try await session.webView.pdf(configuration: configuration)
+        let data = try await session.webView.pdfForPrinting(configuration: configuration, until: .now + timeout)
         try Task.checkCancellation()
         try session.checkReady()
         guard let page = StandalonePage.first(of: data) else { throw SamplingError.emptyPage }

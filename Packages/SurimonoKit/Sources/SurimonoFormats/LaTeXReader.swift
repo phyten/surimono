@@ -347,6 +347,7 @@ final class LaTeXReader {
         let pictureSettings = (document.pictureStyles, document.plotDefaults, document.colors)
         let previousCounts = document.countRegisters
         let previousCaptions = document.localizedCaptions
+        let numberedBeamerCaptions = document.numberedBeamerCaptions
         let previousScope = scopedLanguage
         scopedLanguage = true
         return { reader in
@@ -365,6 +366,7 @@ final class LaTeXReader {
             reader.document.countRegisters = previousCounts
             reader.document.language = previousLanguage
             reader.document.localizedCaptions = previousCaptions
+            reader.document.numberedBeamerCaptions = numberedBeamerCaptions
         }
     }
 
@@ -409,6 +411,13 @@ final class LaTeXReader {
         let text = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty {
             var attribute = noParagraphIndent ? " class=\"latex-noindent\"" : ""
+            // memoir's figure box starts at the rule itself, even when it is shorter than a text line.
+            if floatKind == "figure", document.classInfo.name == "memoir",
+                text.hasPrefix("<span class=\"latex-rule\" "), text.range(of: "</span>")?.upperBound == text.endIndex,
+                !text.contains("vertical-align:")
+            {
+                attribute += " data-latex-rule-line"
+            }
             if centered { attribute += " style=\"text-align: center; text-indent: 0\"" }
             output += "<p\(attribute)>\(takeDestinations())\(text)</p>\n"
         }
@@ -613,12 +622,28 @@ final class LaTeXReader {
         index = lookahead
     }
 
+    private func verticalGlue(_ value: String) -> String? {
+        guard let length = LaTeXSymbols.printLength(value) else { return nil }
+        let property = value.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("-") ? "margin-bottom" : "height"
+        return "\(property): \(length)"
+    }
+
+    private func verticalSpace(_ value: String, keep: Bool = false) {
+        guard let glue = verticalGlue(value) else { return }
+        let mark = keep ? " data-latex-keep-space" : ""
+        appendBlock("<div class=\"latex-vspace\"\(mark) style=\"\(glue)\"></div>\n")
+    }
+
     func controlSymbol(_ symbol: Character) {
         switch symbol {
         case "\\":
             _ = star()
-            _ = optional()
+            let skip = optional()
             appendHTML("<br>")
+            if let skip, let glue = verticalGlue(skip) {
+                // A block inside the paragraph separates the two line boxes without a second parskip.
+                appendHTML("<span class=\"latex-vspace\" style=\"display: block; \(glue)\"></span>")
+            }
         case "(": inlineMath(closing: "\\)")
         case "[": displayMath(closing: "\\]")
         default:
@@ -658,7 +683,9 @@ final class LaTeXReader {
     }
 
     func dispatchBuiltin(_ name: String) {
-        if handleFileCommand(name) || handleLanguage(name) || handleFrontMatter(name) { return }
+        if handleFileCommand(name) || handleLanguage(name) || handleFrontMatter(name) || handleBeamerCommand(name) {
+            return
+        }
         if handleControl(name) || handleCounter(name) || handleText(name) || handleReference(name) { return }
         switch name {
         case "begin": environment()
@@ -684,8 +711,9 @@ final class LaTeXReader {
                 let depth = min(5, max(-2, document.counters["tocdepth"]))
                 (list, key) = (.headings(depth: depth), "contentsname")
             }
+            let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
             let nav =
-                "<nav class=\"toc\"><p class=\"latex-contents-title\">\(captionName(key))</p>"
+                "<nav class=\"toc\"\(opening)><p class=\"latex-contents-title\">\(captionName(key))</p>"
                 + document.contentsPlaceholder(list) + "</nav>\n"
             appendBlock(styledLinks(nav, block: true))
         case "addcontentsline":
@@ -767,14 +795,12 @@ final class LaTeXReader {
         case "noindent":
             if paragraph.isEmpty { noParagraphIndent = true }
         case "par": paragraphBreak()
-        case "bigskip": appendBlock("<div class=\"latex-vspace\" style=\"height: 12pt\"></div>\n")
-        case "medskip": appendBlock("<div class=\"latex-vspace\" style=\"height: 6pt\"></div>\n")
-        case "smallskip": appendBlock("<div class=\"latex-vspace\" style=\"height: 3pt\"></div>\n")
+        case "bigskip": verticalSpace("12pt")
+        case "medskip": verticalSpace("6pt")
+        case "smallskip": verticalSpace("3pt")
         case "vspace":
-            _ = star()
-            if let length = argument().flatMap(LaTeXSymbols.cssLength) {
-                appendBlock("<div class=\"latex-vspace\" style=\"height: \(length)\"></div>\n")
-            }
+            let keep = star()
+            if let value = argument() { verticalSpace(value, keep: keep) }
         case "hspace":
             _ = star()
             if let length = argument().flatMap(LaTeXSymbols.cssLength) {
@@ -862,6 +888,12 @@ final class LaTeXReader {
         }
     }
 
+    func readFancyRule(_ name: String, value: String) {
+        if ["headrulewidth", "footrulewidth"].contains(name), LaTeXPageSettings.millimetres(value) != nil {
+            pageAction(name, value)
+        }
+    }
+
     func defineFancyPageStyle() {
         let snapshot = star()
         let name = (argument() ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -874,6 +906,17 @@ final class LaTeXReader {
         while let character = reader.peek() {
             if character == "\\" {
                 let command = reader.controlToken()
+                if [#"\renewcommand"#, #"\def"#].contains(command) {
+                    if command == #"\renewcommand"# { _ = reader.star() }
+                    let register = reader.argument() ?? ""
+                    let value = reader.argument() ?? ""
+                    if [#"\headrulewidth"#, #"\footrulewidth"#].contains(register),
+                        LaTeXPageSettings.millimetres(value) != nil
+                    {
+                        definition.fields[String(register.dropFirst())] = value
+                    }
+                    continue
+                }
                 _ = reader.readFancyFields(String(command.dropFirst())) {
                     LaTeXPageNumbers.setFields($0[...], value: $1, in: &definition.fields)
                 }
@@ -978,7 +1021,9 @@ final class LaTeXReader {
             index += 1
             let name = String(controlTokenName())
             skipSpacesAfterControlWord()
-            if handleMacro(name) || handleFileCommand(name) || handleLanguage(name) || handleFrontMatter(name) {
+            if handleMacro(name) || handleFileCommand(name) || handleLanguage(name) || handleFrontMatter(name)
+                || (name == "setbeamertemplate" && handleBeamerCommand(name))
+            {
                 continue
             }
             if handleControl(name) || handleCounter(name) || handleReference(name)
@@ -1016,7 +1061,7 @@ final class LaTeXReader {
         let options = optional()
         let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "article"
         document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
-        document.pageSettings.readOptions(options ?? "", geometry: false, japaneseStock: document.classInfo.isJapanese)
+        document.pageSettings.readClassOptions(options ?? "", info: document.classInfo)
         document.classLanguageOptions = (options ?? "").components(separatedBy: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
@@ -1109,6 +1154,12 @@ final class LaTeXReader {
         if dot, level > 0 { display = display.map { $0 + "." } }
         let tocNumber = listed && !starred ? (number.map { $0 + (dot ? "." : "") } ?? "") : nil
         document.headings.append(.init(level: level, number: tocNumber, id: id, title: short.map(inline) ?? title))
+        if document.classInfo.name == "beamer", name == "section" || name == "subsection" || name == "subsubsection" {
+            // Navigation and explicit contents pages still need the section destination.
+            appendDestination("<span id=\"\(id)\"></span>")
+            precedingUnnumberedHeading = starred || !numbered ? id : nil
+            return
+        }
         let numberHTML = display.map { "<span class=\"secnum\">\($0)</span>" } ?? ""
         let runIn = name == "paragraph" || name == "subparagraph"
         let kind = runIn ? " class=\"latex-runin-\(name)\"" : ""
@@ -1733,6 +1784,10 @@ final class LaTeXReader {
             mathEnvironment(name, body: body)
             return
         }
+        if document.classInfo.name == "beamer", ["frame", "block", "alertblock", "exampleblock"].contains(base) {
+            readBeamerEnvironment(base, body: body)
+            return
+        }
         switch base {
         case "math":
             appendInlineFormula(body, source: "\\begin{math}\(body)\\end{math}")
@@ -2051,7 +2106,12 @@ final class LaTeXReader {
         let heading = captionName(nameMacro)
         document.bibliographyCount += 1
         let headingID = "bibliography-\(document.bibliographyCount)"
-        document.headings.append(.init(level: document.hasChapters ? 0 : 1, number: nil, id: headingID, title: heading))
+        var headingHTML = ""
+        if document.classInfo.name != "beamer" {
+            document.headings.append(
+                .init(level: document.hasChapters ? 0 : 1, number: nil, id: headingID, title: heading))
+            headingHTML = "<h2 class=\"latex-bibliography-heading\" id=\"\(headingID)\">\(heading)</h2>\n"
+        }
         var entries = ""
         var number = 0
         for (position, item) in Self.items(of: reader.rest, command: "bibitem").enumerated() {
@@ -2072,9 +2132,7 @@ final class LaTeXReader {
             entries +=
                 "<li id=\"\(id)\">\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
         }
-        appendBlock(
-            "<h2 class=\"latex-bibliography-heading\" id=\"\(headingID)\">\(heading)</h2>\n"
-                + "<ol class=\"latex-bibliography\">\n\(entries)</ol>\n")
+        appendBlock(headingHTML + "<ol class=\"latex-bibliography\">\n\(entries)</ol>\n")
     }
 
     /// `\cite[after]{keys}` and natbib's `\citep[before][after]{keys}`. The numbers are filled in at the end, as
@@ -2106,10 +2164,11 @@ final class LaTeXReader {
         defer { document.figureCaptions = previous }
         let inside = reader.read()
         captions.assign(captions.last, in: document)
-        let placement = spec.flatMap { $0.isEmpty ? nil : $0 } ?? "tbp"
+        let placement = document.insideBeamerFrame ? "H" : spec.flatMap { $0.isEmpty ? nil : $0 } ?? "tbp"
         let attributes = floats ? " data-latex-float=\"\(kind)\" data-latex-placement=\"\(placement)\"" : ""
         appendBlock(
-            "<figure class=\"latex-\(kind)\"\(attributes)\(wide ? " data-latex-wide" : "")>\n\(inside)</figure>\n")
+            "<figure class=\"latex-\(kind)\"\(attributes)\(wide && !document.insideBeamerFrame ? " data-latex-wide" : "")>\n\(inside)</figure>\n"
+        )
     }
 
     private func caption(sub: Bool = false) {
@@ -2154,9 +2213,11 @@ final class LaTeXReader {
             let plain = title.replacingOccurrences(of: #"<[^>]*>"#, with: "", options: .regularExpression)
             document.lists[kind, default: []].append(.init(level: 1, number: number, id: id, title: plain))
         }
+        let numbered = document.classInfo.name != "beamer" || document.numberedBeamerCaptions
+        let label = numbered ? name + " " + HTML.escape(number) : name
         let separator = document.isJapanese ? "　" : document.language == "fr" ? " – " : ": "
         appendBlock(
-            "<figcaption id=\"\(id)\"><span class=\"latex-caption-label\">\(name) \(HTML.escape(number))</span>\(separator)\(text)</figcaption>\n"
+            "<figcaption id=\"\(id)\"><span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)</figcaption>\n"
         )
     }
 

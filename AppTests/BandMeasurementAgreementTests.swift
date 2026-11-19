@@ -74,6 +74,7 @@ struct BandMeasurementAgreementTests {
             // As the view mode's window: the band never widens the window to fit what the plan folded away.
             host.sizingOptions = []
             window.contentView = host
+            window.alphaValue = 0
             window.orderFrontRegardless()
         }
 

@@ -33,9 +33,6 @@ struct PrintEscapeOrderTests {
         // A booklet, which the tray can show folded.
         model.layoutID = PrintLayout.a4BookletA5.id
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
-        controller.showWindow(nil)
-        model.start()
         defer {
             model.themePaletteDidClose()
             model.isPrintIssuesPresented = false
@@ -44,6 +41,9 @@ struct PrintEscapeOrderTests {
             try? FileManager.default.removeItem(at: directory)
             suite.remove()
         }
+        let window = try #require(controller.window)
+        controller.showWindow(nil)
+        model.start()
         try await waitUntil { model.result != nil && !model.isRendering }
         model.enterPrintMode()
         try await waitUntil {

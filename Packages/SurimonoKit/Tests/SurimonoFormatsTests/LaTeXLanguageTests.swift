@@ -163,6 +163,23 @@ struct LaTeXLanguageTests {
         #expect(fragment.readingIssues.isEmpty)
     }
 
+    @Test("アラビア語の表は l と r を行の始端と終端にそろえ、複数列の指定にも従う")
+    func arabicTableAlignment() {
+        let fragment = LaTeXConverter.convert(
+            #"""
+            \documentclass{article}
+            \usepackage[bidi=basic]{babel}\babelprovide[import,main]{arabic}
+            \begin{document}\begin{tabular}{lr}
+            العلامة & 12 \\
+            \multicolumn{2}{r}{18}
+            \end{tabular}\end{document}
+            """#)
+        #expect(fragment.language == "ar")
+        #expect(
+            fragment.body.contains(#"<td style="text-align: start">العلامة</td><td style="text-align: end">12</td>"#))
+        #expect(fragment.body.contains(#"style="text-align: end" colspan="2">18</td>"#))
+    }
+
     @Test("babelprovide と polyglossia は前置きで指定した主言語を公開し副言語宣言は主言語を変えない")
     func mainLanguages() {
         for (preamble, tag) in [

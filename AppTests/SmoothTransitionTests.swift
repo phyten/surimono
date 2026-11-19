@@ -48,6 +48,7 @@ struct SmoothTransitionTests {
             contentRect: NSRect(x: 200, y: 150, width: width, height: height),
             styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        window.alphaValue = 0
         window.orderFront(nil)
         return window
     }
@@ -211,6 +212,7 @@ struct SmoothTransitionTests {
             contentRect: NSRect(x: 200, y: 150, width: 300, height: 400),
             styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
         window.isReleasedWhenClosed = false
+        window.alphaValue = 0
         model.window = window
         model.sizeWindowToPaper()
         // Small and low on the screen, so that a band shown by the pointer has room to grow the window.

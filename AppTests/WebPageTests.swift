@@ -102,7 +102,12 @@ struct WebPageKeyTests {
         controller.show(file, allowsJavaScript: true)
         window.orderFrontRegardless()
         let host = Host(controller: controller, window: window, directory: directory, menu: menu)
-        try await waitUntil { await keys(host) != nil }
+        do {
+            try await waitUntil { await keys(host) != nil }
+        } catch {
+            host.close()
+            throw error
+        }
         controller.focus()
         menu.showFull()
         return host

@@ -4,7 +4,7 @@ import Foundation
 /// `\\`, cells at `&`, horizontal rules from `\hline` and booktabs, and `\multicolumn` and `\multirow`.
 struct LaTeXTable {
     private struct Column {
-        var alignment = "left"
+        var alignment = "start"
         var noLeadingSpace = false
         var noTrailingSpace = false
         var ruleLeft = false
@@ -23,8 +23,8 @@ struct LaTeXTable {
             for token in source.split(whereSeparator: { !$0.isLetter }) {
                 switch token {
                 case "centering", "Centering": alignment = "center"
-                case "raggedleft", "RaggedLeft": alignment = "right"
-                case "raggedright", "RaggedRight": alignment = "left"
+                case "raggedleft", "RaggedLeft": alignment = "end"
+                case "raggedright", "RaggedRight": alignment = "start"
                 case "bfseries", "bf": bold = true
                 default: break
                 }
@@ -240,9 +240,9 @@ struct LaTeXTable {
                 column.alignment =
                     switch character {
                     case "c", "C", "S": "center"
-                    case "r", "R": "right"
+                    case "r", "R": "end"
                     case "p": "justify"
-                    default: "left"
+                    default: "start"
                     }
                 if "pmb".contains(character) {
                     column.width = LaTeXSymbols.cssLength(group())

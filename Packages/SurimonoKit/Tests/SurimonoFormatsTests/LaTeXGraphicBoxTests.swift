@@ -22,7 +22,7 @@ struct LaTeXGraphicBoxTests {
         #expect(result.body.components(separatedBy: "<table").count == 3)
         #expect(result.body.components(separatedBy: "<tr>").count == 5)
         #expect(result.body.components(separatedBy: "border-bottom: 0.5pt solid currentColor").count == 3)
-        #expect(result.body.contains("currentColor\">C</td><td style=\"text-align: left; border-bottom:"))
+        #expect(result.body.contains("currentColor\">C</td><td style=\"text-align: start; border-bottom:"))
         #expect(result.body.contains(">iv</td></tr>"))
     }
 

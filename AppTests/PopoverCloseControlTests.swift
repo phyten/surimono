@@ -200,6 +200,15 @@ private struct AppPopoverScreen {
         model.outputOverride = { _, _ in Issue.record("An output was started") }
         model.bandVisibility = .always
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
+        var handedOff = false
+        defer {
+            if !handedOff {
+                model.closeAllPopovers()
+                controller.close()
+                try? FileManager.default.removeItem(at: directory)
+                suite.remove()
+            }
+        }
         let window = try #require(controller.window)
         controller.showWindow(nil)
         model.start()
@@ -245,6 +254,7 @@ private struct AppPopoverScreen {
         try await wait { !PopoverCloseButton.dismissActions(in: popoverWindow).isEmpty }
         // Give a second × the time to appear, so that "exactly one" means something.
         try await Task.sleep(for: .milliseconds(200))
+        handedOff = true
         return AppPopoverScreen(
             model: model, controller: controller, window: window, popoverWindow: popoverWindow,
             isPresented: isPresented, directory: directory, suite: suite)

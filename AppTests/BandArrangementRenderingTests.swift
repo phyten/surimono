@@ -190,8 +190,9 @@ struct BandArrangementRenderingTests {
         let model = environment.chapters()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
+        window.alphaValue = 0
         window.orderFrontRegardless()
         try await open(model)
         let content = { window.contentRect(forFrameRect: window.frame).height }
@@ -255,8 +256,8 @@ struct BandArrangementRenderingTests {
         let model = environment.chapters()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         window.orderFrontRegardless()
         try await open(model)
         // The window opens as large as the screen lets the paper be. On a small screen (a CI runner's) that is too
@@ -305,8 +306,8 @@ struct BandArrangementRenderingTests {
         let model = environment.chapters()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         window.orderFrontRegardless()
         try await open(model)
         let anchors = model.bandAnchors
@@ -348,8 +349,8 @@ struct BandArrangementRenderingTests {
         let model = environment.chapters()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
         window.orderFrontRegardless()
         try await open(model)
         let anchors = model.bandAnchors
@@ -432,8 +433,9 @@ struct BandArrangementRenderingTests {
         #expect(plans.minimumWidth == OverlayBand.fixedWidth(lights: nil) + 24 + 34)
 
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
+        window.alphaValue = 0
         window.orderFrontRegardless()
         try await waitUntil { ViewerWindow.bandMinimumWidth(of: window) > 0 }
         // A wide band minimum against a narrow paper: the lock keeps the paper's shape at the band's width.
@@ -473,8 +475,9 @@ struct BandArrangementRenderingTests {
         model.isolateBandTestOutput()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
+        window.alphaValue = 0
         window.orderFrontRegardless()
         model.start()
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
@@ -517,8 +520,9 @@ struct BandArrangementRenderingTests {
         model.isolateBandTestOutput()
         defer { model.stop() }
         let controller = MemoryDocumentWindowController(model: model, onClose: {})
-        let window = try #require(controller.window)
         defer { controller.close() }
+        let window = try #require(controller.window)
+        window.alphaValue = 0
         window.orderFrontRegardless()
         model.render()
         try await waitUntil { model.result != nil && !model.isRendering }

@@ -143,6 +143,8 @@ struct RecentBindersTests {
         let first = try fixture.file("a.md")
         let second = try fixture.file("b.md")
         let model = fixture.windows.open([first, second])
+        defer { model.window?.close() }
+        model.window?.orderOut(nil)
         try #require(model.binder).move(fromOffsets: IndexSet(integer: 0), toOffset: 2)
         #expect(fixture.preferences.recentBinders.isEmpty)
         model.window?.close()
@@ -195,6 +197,8 @@ struct RecentBindersTests {
         #expect(fixture.preferences.recentBinders.isEmpty)
 
         let model = fixture.windows.open([first, second])
+        defer { model.window?.close() }
+        model.window?.orderOut(nil)
         model.binder?.remove(second)
         #expect(model.binder?.urls == [first])
         model.window?.close()
@@ -209,6 +213,8 @@ struct RecentBindersTests {
         let other = try fixture.file("b.md")
         try TestFixtures.png(red: 0.2).write(to: image)
         let model = fixture.windows.open([image, other])
+        defer { model.window?.close() }
+        model.window?.alphaValue = 0
         model.binderOrigin = BinderOrigin(
             contents: .images(ImageBundleModel(urls: [image]).listState),
             frame: NSRect(x: 0, y: 0, width: 400, height: 500), pageIndex: 0, wasPrinting: false)
@@ -232,10 +238,12 @@ struct RecentBindersTests {
 
         let windows = fixture.windows
         var reopened: DocumentViewModel?
+        defer { reopened?.window?.close() }
         let router = OpenRouter(
             openDocument: { _, _ in Issue.record("単独では開かない") }, openBundle: { _, _ in nil },
             openBinder: { urls, excluded in
                 reopened = windows.open(urls, excluded: excluded)
+                reopened?.window?.orderOut(nil)
                 return reopened
             }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { windows.hasWindows },
             showWelcome: { Issue.record("ウェルカム画面は出さない") })
@@ -389,10 +397,12 @@ struct RecentBindersTests {
         fixture.preferences.recordRecentBinder(entry)
         let windows = fixture.windows
         var reopened: DocumentViewModel?
+        defer { reopened?.window?.close() }
         let router = OpenRouter(
             openDocument: { _, _ in Issue.record("単独では開かない") }, openBundle: { _, _ in nil },
             openBinder: { urls, excluded in
                 reopened = windows.open(urls, excluded: excluded)
+                reopened?.window?.orderOut(nil)
                 return reopened
             }, warn: { _ in Issue.record("警告しない") }, hasOpenWindows: { windows.hasWindows },
             showWelcome: { Issue.record("ウェルカム画面は出さない") })

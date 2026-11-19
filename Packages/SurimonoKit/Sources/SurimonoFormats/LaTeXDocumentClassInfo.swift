@@ -20,11 +20,13 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public internal(set) var usesNativeCJKHeadings: Bool
     package var isJSArticle: Bool { name == "jsarticle" || name == "ltjsarticle" || name == "bxjsarticle" }
     let name: String
+    let publication: LaTeXPublicationLayout?
     let usesTraditionalJapaneseNames: Bool
 
     init(name: String = "article", options: String? = nil) {
         self.name = name
         let options = (options ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        publication = LaTeXPublicationLayout(name: name, options: options)
         pageNumbers = LaTeXPageNumbers(name: name, options: options)
         // These classes select their own first-page style at maketitle, independently of the running style.
         hidesTitlePageNumber =
@@ -42,12 +44,15 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
             hasSeparateTitlePage = nil
         }
         let usesTwoColumns =
-            name == "IEEEtran" || name == "acmart" && options.contains("sigconf")
+            name == "IEEEtran" || publication == .sigconf || publication == .elsevierFive
             || name.hasPrefix("revtex") && options.contains("reprint")
             || name.lowercased().hasPrefix("icml")
         columns =
             (options.last { ["onecolumn", "twocolumn"].contains($0) }).map { $0 == "twocolumn" ? 2 : 1 }
             ?? (usesTwoColumns ? 2 : 1)
+        // These two production layouts fix the grid after article has processed its options.
+        if publication == .elsevierOne { columns = 1 }
+        if publication == .elsevierFive { columns = 2 }
         // English journal classes such as jmlr also start with j. Recognise the Japanese class
         // families and the traditional horizontal/vertical classes instead of the first letter.
         let japanese = [
@@ -75,7 +80,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
             || name == "jlreq" && !Set(options).isDisjoint(with: ["book", "report"])
         pointSize =
             options.last(where: { ["10pt", "11pt", "12pt"].contains($0) })
-            .flatMap { Int($0.dropLast(2)) } ?? 10
+            .flatMap { Int($0.dropLast(2)) } ?? (publication == .aps && options.contains("preprint") ? 12 : 10)
     }
 }
 

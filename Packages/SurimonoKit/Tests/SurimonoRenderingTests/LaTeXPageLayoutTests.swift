@@ -45,6 +45,18 @@ struct LaTeXPageLayoutTests {
         #expect(sheet.sheetDocument.page(at: 1)?.string?.contains("V") == true)
     }
 
+    @Test("REVTeX と LNCS の固定原点はドライバーが A4 用紙を選んでも保つ")
+    func fixedClassOrigins() {
+        for (source, left, top) in [
+            (#"\documentclass[preprint]{revtex4-2}"#, 72.0, 72.0), (#"\documentclass{llncs}"#, 134.765, 115.836),
+        ] {
+            let info = LaTeXConverter.documentClassInfo(source)
+            let fitted = info.pageBox.margins(fitting: PaperSize.a4.size)
+            #expect(abs(fitted.left * 72 / 25.4 - left) < 0.02)
+            #expect(abs(fitted.top * 72 / 25.4 - top) < 0.02)
+        }
+    }
+
     @Test("用紙に収まらない余白だけを比例して減らし、数値の余白と手書きの柱を優先する")
     func chooseMargins() throws {
         let info = LaTeXConverter.documentClassInfo(

@@ -51,13 +51,17 @@ struct LaTeXPageSettings {
     }
 
     func pageBox(for info: LaTeXDocumentClassInfo) -> LaTeXPageBox {
-        let stock = self.stock ?? (info.isJapanese ? (210.0, 297.0) : (215.9, 279.4))
+        let stock =
+            self.stock ?? (info.isJapanese || info.publication?.usesA4 == true ? (210.0, 297.0) : (215.9, 279.4))
         let texPointsPerMM = 72.27 / 25.4
         let paperW = (paperWidth ?? (landscape ? stock.1 : stock.0)) * texPointsPerMM
         let paperH = (paperHeight ?? (landscape ? stock.0 : stock.1)) * texPointsPerMM
-        let twoSided = self.twoSided ?? (info.name == "book" || info.name == "jsbook" || info.name == "ltjsbook")
+        let twoSided =
+            self.twoSided
+            ?? (["book", "jsbook", "ltjsbook"].contains(info.name) || info.publication == .manuscript
+                || info.publication == .sigconf)
         var box = LaTeXClassBox.defaults(
-            className: info.name, size: info.pointSize, paperWidth: paperW, paperHeight: paperH, twoSided: twoSided)
+            info: info, paperWidth: paperW, paperHeight: paperH, twoSided: twoSided)
         if usesGeometry {
             let h = horizontal.resolve(stock: paperW, startFraction: twoSided ? 0.4 : 0.5)
             box.left = h.start
@@ -81,11 +85,23 @@ struct LaTeXPageSettings {
             paperWidth: paperW * bp, paperHeight: paperH * bp, left: left * bp,
             right: (paperW - left - (assigned["textwidth"] ?? box.width)) * bp, top: top * bp,
             bottom: (paperH - top - (assigned["textheight"] ?? box.height)) * bp,
-            headSep: headSep * bp, footSkip: (assigned["footskip"] ?? box.footSkip) * bp, mirrorsSides: twoSided)
+            headSep: headSep * bp, footSkip: (assigned["footskip"] ?? box.footSkip) * bp, mirrorsSides: twoSided,
+            usesFixedClassOrigin: !usesGeometry && assigned.isEmpty
+                && (info.publication == .lncs || info.publication == .aps))
     }
 
-    func styleVariables(for box: LaTeXPageBox) -> String {
-        var values = variables.merging(fonts.roleVariables) { _, font in font }
+    func styleVariables(for box: LaTeXPageBox, info: LaTeXDocumentClassInfo) -> String {
+        var classSkips = info.publication?.floatStyleVariables(size: info.pointSize) ?? [:]
+        if info.name == "memoir" {
+            // memoir sets both skips to half a normal baseline in its size file.
+            let halfBaseline = info.pointSize == 12 ? "7.25" : info.pointSize == 11 ? "6.8" : "6"
+            let skip = "calc(\(halfBaseline) * var(--tex-pt))"
+            classSkips["abovecaptionskip"] = skip
+            classSkips["belowcaptionskip"] = skip
+        }
+        var values = classSkips.merging(variables) { _, assignment in assignment }.merging(fonts.roleVariables) {
+            _, font in font
+        }
         let measure = box.textWidth
         if measure > 0 {
             values["text-width"] = Self.number(measure * 25.4 / 72) + "mm"
@@ -127,6 +143,13 @@ struct LaTeXPageSettings {
         "b4paper": (250, 353), "b5paper": (176, 250), "b6paper": (125, 176),
         "letterpaper": (215.9, 279.4), "legalpaper": (215.9, 355.6), "executivepaper": (184.15, 266.7),
     ]
+
+    mutating func readClassOptions(_ raw: String, info: LaTeXDocumentClassInfo) {
+        readOptions(raw, geometry: false, japaneseStock: info.isJapanese)
+        // The production classes set their own stock with geometry after processing class options.
+        if info.publication?.usesA4 == true { stock = Self.paperSizes["a4paper"] }
+        if info.publication == .sigconf || info.publication == .manuscript { stock = Self.paperSizes["letterpaper"] }
+    }
 
     mutating func readOptions(_ raw: String, geometry: Bool, japaneseStock: Bool = false) {
         if geometry {
@@ -222,7 +245,7 @@ struct LaTeXPageSettings {
         case "headheight": if let first { geometryHeadHeight = first }
         case "headsep": if let first { geometryHeadSep = first }
         case "footskip": if let first { geometryFootSkip = first }
-        case "paperwidth", "paperheight": readLength(key, value)
+        case "paperwidth", "paperheight", "columnsep": readLength(key, value)
         case "paper", "papername":
             if let size = Self.paperSizes[value] { stock = size }
         default: break
@@ -249,8 +272,18 @@ struct LaTeXPageSettings {
         return value * factor
     }
 
+    static let floatRegisters: Set<String> = [
+        "intextsep", "textfloatsep", "floatsep", "abovecaptionskip", "belowcaptionskip",
+    ]
+
     mutating func readLength(_ name: String, _ value: String, pointSize: Int = 10) {
         switch name {
+        case _ where Self.floatRegisters.contains(name):
+            let natural = value.components(separatedBy: "plus")[0].components(separatedBy: "minus")[0]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let length = LaTeXSymbols.printLength(natural) ?? Self.paragraphLength(natural) {
+                variables[name] = length
+            }
         case "extrarowheight": extraRowHeight = LaTeXSymbols.printLength(value)
         case "columnsep", "columnseprule":
             let fontScale = value.hasSuffix("em") ? 1.0 : value.hasSuffix("ex") ? 0.43 : nil
@@ -362,6 +395,15 @@ extension LaTeXReader {
     }
 
     func readPageSetting(_ name: String) -> Bool {
+        func assignLength(_ name: String, _ value: String) {
+            // These skips are measured once for each loaded document. A later declaration
+            // must never change the space surrounding floats on pages already read.
+            if !inPreamble && LaTeXPageSettings.floatRegisters.contains(name) {
+                document.recordUnknown(name)
+            } else {
+                document.pageSettings.readLength(name, value, pointSize: document.classInfo.pointSize)
+            }
+        }
         let previousGap = document.pageSettings.columnGap
         let previousRule = document.pageSettings.columnRule
         defer {
@@ -377,10 +419,10 @@ extension LaTeXReader {
             let register = argument() ?? ""
             let value = evaluatedLength(argument() ?? "")
             if register.hasPrefix("\\") {
-                document.pageSettings.readLength(
-                    String(register.dropFirst()), value, pointSize: document.classInfo.pointSize)
+                assignLength(String(register.dropFirst()), value)
             }
-        case "extrarowheight", "columnsep", "columnseprule", "parindent", "parskip", "textwidth", "oddsidemargin",
+        case "intextsep", "textfloatsep", "floatsep", "abovecaptionskip", "belowcaptionskip", "extrarowheight",
+            "columnsep", "columnseprule", "parindent", "parskip", "textwidth", "oddsidemargin",
             "evensidemargin",
             "topmargin", "textheight",
             "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip", "emergencystretch":
@@ -388,7 +430,7 @@ extension LaTeXReader {
             let dimension = #"[+-]?(?:\d+(?:\.\d*)?|\.\d+)?[ \t]*"# + unit
             let value = assignment(
                 #"[ \t]*=?[ \t]*"# + dimension + #"(?:[ \t]+(?:plus|minus)[ \t]*"# + dimension + ")*")
-            document.pageSettings.readLength(name, value, pointSize: document.classInfo.pointSize)
+            assignLength(name, value)
         case "hyphenpenalty", "widowpenalty", "clubpenalty":
             _ = assignment(#"[ \t]*=?[ \t]*[+-]?\d+"#)
         case "XeTeXlinebreaklocale":
@@ -426,7 +468,10 @@ extension LaTeXReader {
 
 extension LaTeXDocument {
     var columnSpacing: String {
-        let gap = pageSettings.columnGap.map { "data-latex-gap=\"\(LaTeXPageSettings.number($0))\" " } ?? ""
+        let gap =
+            (pageSettings.columnGap ?? classInfo.publication?.columnGap(size: classInfo.pointSize)).map {
+                "data-latex-gap=\"\(LaTeXPageSettings.number($0))\" "
+            } ?? ""
         return gap + "data-latex-rule=\"\(LaTeXPageSettings.number(pageSettings.columnRule))\""
     }
 

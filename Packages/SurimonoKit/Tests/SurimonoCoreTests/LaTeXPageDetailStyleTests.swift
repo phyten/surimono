@@ -22,7 +22,32 @@ struct LaTeXPageDetailStyleTests {
         #expect(
             css.contains(":is(td, th) table.latex-tabular { display: inline-table; vertical-align: top; margin: 0; }"))
         #expect(css.contains("figure.latex-listing { break-inside: avoid; page-break-inside: avoid; }"))
-        #expect(css.contains("font-family: var(--latex-mono-font, Menlo), Menlo, monospace;"))
+    }
+
+    @Test("LaTeX のコードは指定した等幅書体を優先し、既定のタイプライターの太字・斜体を合成しない")
+    func listingFont() throws {
+        let css = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" }).css
+        // The common sheet has a rule with the same selector first; the LaTeX sheet's comes later and wins.
+        let selector = try #require(css.range(of: "\ncode, pre {", options: .backwards))
+        let rule = css[selector.upperBound...].prefix { $0 != "}" }
+        #expect(rule.contains(#"var(--latex-mono-font, "Surimono Computer Modern Typewriter")"#))
+        #expect(rule.contains("font-synthesis: none;"))
+    }
+
+    @Test("memoir と KOMA の図にはクラスの自然長と明示した変更を適用する")
+    func memoirCaptionLengths() throws {
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
+        func page(_ declaration: String, _ settings: String = "") -> String {
+            let source = #"\documentclass\#(declaration)\#(settings)\begin{document}Text.\end{document}"#
+            return HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(source), format: .latex, theme: theme)
+        }
+        let memoir = page("{memoir}", #"\setlength{\belowcaptionskip}{4pt}"#)
+        #expect(memoir.contains("--latex-abovecaptionskip: calc(6 * var(--tex-pt))"))
+        #expect(memoir.contains("--latex-belowcaptionskip: calc(4 * var(--tex-pt"))
+        let koma = page("{scrreprt}")
+        #expect(koma.contains("--latex-intextsep: calc(12 * var(--tex-pt))"))
+        #expect(koma.contains("--latex-abovecaptionskip: calc(10 * var(--tex-pt))"))
+        #expect(koma.contains("--latex-belowcaptionskip: 0px"))
     }
 
     @Test("AMS 書籍の分類とキーワードと概要は表題の次の同じページに置く")

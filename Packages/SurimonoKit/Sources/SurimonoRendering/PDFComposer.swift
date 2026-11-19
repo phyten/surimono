@@ -291,10 +291,10 @@ public struct PDFComposer: Sendable {
         let half = points(PrintLayout.handoutGapInMillimeters) / 2
         PageFurnitureDrawing.drawHandoutRow(
             lines.top, beside: rect, above: true, space: slot == 0 ? points(options.margins.top) : half,
-            padding: slot == 0 ? 2 : 0.5, context: context)
+            padding: slot == 0 ? 2 : 0.5, rule: lines.headRule, context: context)
         PageFurnitureDrawing.drawHandoutRow(
             lines.bottom, beside: rect, above: false, space: slot < 2 ? half : points(options.margins.bottom),
-            padding: slot < 2 ? 0.5 : 2, context: context)
+            padding: slot < 2 ? 0.5 : 2, rule: lines.footRule, context: context)
     }
 
 }

@@ -144,6 +144,12 @@ public struct PageFurniture: Codable, Hashable, Sendable {
     public struct Lines: Equatable, Sendable {
         public var top: [String]
         public var bottom: [String]
+        public var headRule: Double = 0
+        public var footRule: Double = 0
+
+        public var isEmpty: Bool {
+            headRule == 0 && footRule == 0 && top.allSatisfy(\.isEmpty) && bottom.allSatisfy(\.isEmpty)
+        }
 
         public init(top: [String], bottom: [String]) {
             self.top = top

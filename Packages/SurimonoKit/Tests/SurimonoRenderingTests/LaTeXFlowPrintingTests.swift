@@ -40,14 +40,91 @@ struct LaTeXFlowPrintingTests {
         let figure = try rect("FLOATTOP")
         let textWidth = page.bounds(for: .mediaBox).width - 2 * 20 * 72 / 25.4
         #expect(abs(right.minX - left.minX - (textWidth + 10 * 72 / 72.27) / 2) < 3)
-        #expect(abs(left.midY - figure.midY) < 5)
-        #expect(figure.midY > right.midY && figure.minX > right.minX)
+        #expect(abs(right.midY - figure.midY) < 5)
+        #expect(figure.midY > left.midY && figure.minX < right.minX)
         #expect(note.minX < right.minX && abs(note.minY - 20 * 72 / 25.4) < 8)
         let text = try #require(page.string)
         let words = text.components(separatedBy: .whitespacesAndNewlines).joined()
-        let ordered = try #require(words.range(of: "LEFTSTART.*FLOATTOP.*RIGHTSTART", options: .regularExpression))
+        // PDFKit reads a line that spans both column tops (the float, then the right column's first line) before
+        // the left column, and does the same with the PDF real LaTeX makes of this page. Within a column the order
+        // is ours: the top float, the text, then the note.
+        let ordered = try #require(words.range(of: "FLOATTOP.*LEFTSTART.*NOTEBOTTOM", options: .regularExpression))
         #expect(!words[ordered].isEmpty)
+        #expect(words.contains("RIGHTSTART"))
         #expect(pdf.page(at: 1)?.string?.contains("LASTPAGE") == true)
+    }
+
+    @Test(
+        "表題が表の前でも後でも学会誌の本文との間隔を印刷 PDF に残す", .timeLimit(.minutes(1)),
+        arguments: ["[conference]{IEEEtran}", "[sigconf]{acmart}"])
+    func tableCaptionSpacing(declaration: String) async throws {
+        let fragment = LaTeXConverter.convert(
+            #"""
+            \documentclass\#(declaration)
+            \begin{document}
+            \begin{table}[H]\centering\caption{UPPER}\label{t:u}\begin{tabular}{l}ALPHA\end{tabular}\end{table}
+            \begin{table}[H]\centering\begin{tabular}{l}BETA\end{tabular}\caption{LOWER}\end{table}
+            \end{document}
+            """#)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: PaperSize.a4.size, margins: .uniform(millimeters: 20),
+            allowsJavaScript: false, latexFlow: true)
+        #expect(result.issues.isEmpty)
+        let pdf = result.document
+        let page = try #require(pdf.page(at: 0))
+        func bounds(_ token: String) throws -> CGRect {
+            let match = try #require(pdf.findString(token).first)
+            try #require(match.pages.first == page)
+            return match.bounds(for: page)
+        }
+        let upperGap = try bounds("UPPER").minY - bounds("ALPHA").maxY
+        let lowerGap = try bounds("BETA").minY - bounds("LOWER").maxY
+        // PDFKit measures glyph boxes; the line strut can add a few points to the CSS glue.
+        let skip: CGFloat = declaration.contains("IEEEtran") ? 6 : 12
+        for gap in [upperGap, lowerGap] {
+            #expect(gap > skip - 3 && gap < skip + 8)
+        }
+    }
+
+    @Test("段組みの両側で先頭見出しの十五ポイントの外余白を落とし、内側の空きは残す", .timeLimit(.minutes(1)))
+    func headingAtColumnTop() async throws {
+        let html = """
+            <style>h2 {font:16px/20px monospace;margin:18.75px 0 0;padding-top:5px}p{margin:0}</style>
+            <p>Intro</p><div data-latex-columns="2" data-latex-balance="true">
+            <h2>Left</h2><p>Body</p><template data-latex-break="column"></template><h2>Right</h2><p>Body</p></div>
+            """
+        let result = try await WebPaginator().paginateWithResult(
+            .html(html, baseURL: nil), pageSize: CGSize(width: 320, height: 210),
+            margins: .uniform(millimeters: 10), allowsJavaScript: false, latexFlow: true)
+        let pdf = result.document
+        let first = try #require(pdf.page(at: 0))
+        let left = try #require(pdf.findString("Left").first).bounds(for: first)
+        let right = try #require(pdf.findString("Right").first).bounds(for: first)
+        let intro = try #require(pdf.findString("Intro").first).bounds(for: first)
+        #expect(result.issues.isEmpty && pdf.pageCount == 1)
+        #expect(right.minX - left.minX > 100 && abs(left.maxY - right.maxY) < 1)
+        #expect(intro.minY - left.maxY < 10)
+    }
+
+    @Test("三ポイントの行送りと九ミリの段落間の空きを実寸で刷る", .timeLimit(.minutes(1)))
+    func verticalSpace() async throws {
+        let source = DocumentSource(
+            data: Data(
+                #"\documentclass{article}\begin{document}LineA\\[3pt]LineB\\LineC\par\vspace{9mm}LineD\clearpage End\end{document}"#
+                    .utf8), format: .latex)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        let result = try await DocumentRenderer().prepare(source, settings: settings)
+        let pdf = result.logicalDocument
+        let page = try #require(pdf.page(at: 0))
+        let y = try ["LineA", "LineB", "LineC", "LineD"].map {
+            try #require(pdf.findString($0).first).bounds(for: page).maxY
+        }
+        #expect(abs(y[0] - y[1] - 14.944) < 0.6)
+        #expect(abs(y[1] - y[2] - 11.955) < 0.6)
+        #expect(abs(y[2] - y[3] - 37.467) < 0.6)
     }
 
     @Test("段とページをまたぐ一段落の単語を、一語ずつ元の順に選択できる", .timeLimit(.minutes(1)))
@@ -77,6 +154,33 @@ struct LaTeXFlowPrintingTests {
         #expect(result.issues.contains { $0.id == "latex-flow-fallback" })
         #expect(result.document.string?.contains("LONGNOTE") == true)
         #expect(result.document.string?.contains("BODY") == true)
+    }
+
+    @Test("応答が途絶えた段の測定から時間内に戻り、新しい一段の文書を刷る", .timeLimit(.minutes(1)))
+    func droppedMeasurementReply() async throws {
+        let paginator = WebPaginator()
+        var started: ContinuousClock.Instant?
+        var attempts = 0
+        paginator.flowEvaluator = { _, _, _, _ in
+            attempts += 1
+            started = .now
+            // Simulate a recycled content process dropping the measurement reply.
+        }
+        let html =
+            ##"<body class="format-latex"><nav class="toc"><ul><li><a href="#dest">Index</a></li></ul></nav><h2 id="dest">CONTROL</h2></body>"##
+        let result = try await paginator.paginateWithResult(
+            .html(html, baseURL: nil), pageSize: CGSize(width: 310, height: 200),
+            margins: .uniform(millimeters: 5), allowsJavaScript: false, latexPageNumbers: .init(), latexFlow: true,
+            timeout: .seconds(2))
+        let elapsed = try #require(started).duration(to: .now)
+        #expect(attempts == 1)
+        #expect(elapsed < .seconds(8))
+        #expect(result.issues.filter { $0.id == "latex-flow-fallback" }.count == 1)
+        #expect(!result.issues.contains { $0.id == "latex-page-references" })
+        #expect(result.document.pageCount == 1)
+        let text = try #require(result.document.string)
+        #expect(text.contains("CONTROL") && text.contains("1") && !text.contains("?"))
+        #expect(paginator.openSessionCount == 0)
     }
 
     @Test("十二ページの二段論文と百ページの脚注付き本文を計時する", .timeLimit(.minutes(1)), arguments: [12, 100])

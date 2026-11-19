@@ -375,8 +375,10 @@ struct IntakeDocumentTests {
         let urls = [plan.parent] + plan.documents
         let plain = windows.open(urls)
         defer { plain.window?.close() }
+        plain.window?.alphaValue = 0
         let bound = windows.open(plan)
         defer { bound.window?.close() }
+        bound.window?.alphaValue = 0
         #expect(plain !== bound)
         #expect(plain.binder?.origin == .files)
         #expect(bound.binder?.origin == .parent(plan.parent, hasPreface: true, documents: plan.documents))
@@ -397,12 +399,14 @@ struct IntakeDocumentTests {
         windows.library = UserLibrary(root: fixture.root.appendingPathComponent("Library"))
         let bound = windows.open(plan)
         defer { bound.window?.close() }
+        bound.window?.alphaValue = 0
         try #require(bound.binder).move(fromOffsets: IndexSet(integer: 0), toOffset: 2)
         #expect(windows.open(plan) === bound)
 
         let swapped = try #require(MarkdownIncludes(markdown: "<<[b.md]\n<<[a.md]\n")).plan(parent: parent)
         let reopened = windows.open(swapped)
         defer { reopened.window?.close() }
+        reopened.window?.alphaValue = 0
         #expect(reopened !== bound)
         #expect(reopened.binder?.items.map(\.url) == [second, first].map { $0.standardizedFileURL })
     }

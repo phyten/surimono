@@ -197,6 +197,7 @@ extension LaTeXReader {
         } else {
             if command == "providecommand", isDefinedCommand(name) { return }
             document.macros[name] = macro
+            if parameters.isEmpty { readFancyRule(name, value: body) }
             document.didDefineMacro(name)
             if !macro.extendedMath {
                 let signature = parameters.indices.map { "#\($0 + 1)" }.joined()
@@ -272,6 +273,7 @@ extension LaTeXReader {
         }
         let parameters = delimiters.dropFirst().map { $0.isEmpty ? Macro.Parameter.mandatory : .delimited($0) }
         document.macros[name] = .init(prefix: delimiters[0], specification: parameters, body: body)
+        if parameters.isEmpty { readFancyRule(name, value: body) }
         let signature = delimiters.enumerated().map { ($0.offset == 0 ? "" : "#\($0.offset)") + $0.element }.joined()
         if name.count == 1 || name.allSatisfy({ $0.isASCII && $0.isLetter }) {
             addMathDefinition("\\def\\\(name)\(signature){\(body)}")
