@@ -52,6 +52,20 @@ struct ThemeSamplerTests {
         #expect(second.string?.contains("Sample") == true)
     }
 
+    @Test("縦書きの見本には指定した見出しのページの文字だけが入る", .timeLimit(.minutes(1)))
+    func verticalPageAtHeading() async throws {
+        let vertical = try #require(PrintThemeLibrary.load().first { $0.id == "tategaki" })
+        let sample = try sampler("# 春\n\n" + String(repeating: "庭。\n\n", count: 130) + "## 秋\n\n実", theme: vertical)
+        defer { sample.close() }
+        let first = try await sample.firstPage(for: vertical)
+        #expect(first.string?.contains("春") == true)
+        #expect(first.string?.contains("秋") == false)
+        let last = try #require(try await sample.places().last)
+        let page = try await sample.page(for: vertical, at: last)
+        #expect(page.string?.contains("秋") == true)
+        #expect(page.string?.contains("春") == false)
+    }
+
     @Test("見本の鍵は名前には依存せず、描画内容と寸法と言語に依存する")
     func persistentKey() {
         func make(

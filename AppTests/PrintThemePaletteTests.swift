@@ -156,19 +156,31 @@ struct PrintThemePaletteTests {
         #expect(model.mode == .print)
     }
 
-    /// Every twelfth theme, the standard one among them: composing all 95 in both languages would take a minute, and
-    /// the text PDFKit gives back from a sample is not reliable enough to look for the last words in (some fonts
-    /// return no kana, some cut the text short).
+    // The larger specimens intentionally overflow. Pin the one-page samples by ID so adding a
+    // style to any category cannot change which existing print contracts this test exercises.
     @Test("同梱見本は日本語も英語も、実際の組版で 1 ページに収まる", .timeLimit(.minutes(2)), arguments: ["ja", "en"])
     func specimenPrintsOnePage(language: String) async throws {
         let themes = try PrintThemeLibrary.load()
         let renderer = DocumentRenderer()
-        for (index, theme) in themes.enumerated() where index % 12 == 0 || theme.id == "standard" {
+        for id in [
+            "standard", "latex-article", "mincho", "memo", "lecture", "bunko", "dotgrid", "ud", "confetti", "winter",
+            "zukan",
+        ] {
+            let theme = try #require(themes.first { $0.id == id })
             var settings = ThemeSpecimen.settings
             settings.theme = theme
             let rendered = try await renderer.prepare(ThemeSpecimen.source(language: language), settings: settings)
             #expect(rendered.logicalDocument.pageCount == 1, "\(theme.id)")
         }
+    }
+
+    @Test("行間広めの見本は縦書きの追加前と同じ 2 ページになる", arguments: ["ja", "en"])
+    func spaciousSpecimen(language: String) async throws {
+        var settings = ThemeSpecimen.settings
+        settings.theme = try #require(PrintThemeLibrary.load().first { $0.id == "spacious" })
+        let rendered = try await DocumentRenderer().prepare(
+            ThemeSpecimen.source(language: language), settings: settings)
+        #expect(rendered.logicalDocument.pageCount == 2)
     }
 
     @Test("見本の元を切り替えても実文書の見本と組版設定は保つ")

@@ -1,9 +1,15 @@
 import Foundation
 
+public enum PrintFlow: String, Decodable, Sendable {
+    case horizontal
+    case vertical
+}
+
 public struct PrintTheme: Equatable, Sendable, Identifiable {
     public let id: String
     public let name: String
     public let localizedNames: [String: String]
+    public let flow: PrintFlow
     public let css: String
     public let isBuiltIn: Bool
     /// The catalog category of a built-in theme; user styles have none.
@@ -24,11 +30,13 @@ public struct PrintTheme: Equatable, Sendable, Identifiable {
 
     public init(
         id: String, name: String, localizedNames: [String: String] = [:], css: String, isBuiltIn: Bool = false,
-        category: String? = nil, formats: Set<DocumentFormat>? = nil, featuredRank: Int? = nil, script: String? = nil
+        category: String? = nil, formats: Set<DocumentFormat>? = nil, featuredRank: Int? = nil, script: String? = nil,
+        flow: PrintFlow = .horizontal
     ) {
         self.id = id
         self.name = name
         self.localizedNames = localizedNames
+        self.flow = flow
         self.css = css
         self.isBuiltIn = isBuiltIn
         self.category = category
@@ -86,6 +94,7 @@ public enum PrintThemeLibrary {
             let localizedNames: [String: String]?
             let formats: Set<DocumentFormat>?
             let category: String
+            let flow: PrintFlow?
             let script: String?
         }
         let categories: [Category]
@@ -126,7 +135,8 @@ public enum PrintThemeLibrary {
                     english: entry.name, japanese: entry.ja, localized: entry.localizedNames),
                 css: common + "\n" + (entry.category == "latex" ? tex + "\n" : "") + css, isBuiltIn: true,
                 category: entry.category, formats: formats,
-                featuredRank: catalog.featured.firstIndex(of: entry.id), script: script)
+                featuredRank: catalog.featured.firstIndex(of: entry.id), script: script, flow: entry.flow ?? .horizontal
+            )
         }
         let users = try CoreResources.userFiles(in: userDirectory, extension: "css").map { url in
             PrintTheme(

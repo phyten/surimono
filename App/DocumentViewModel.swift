@@ -14,6 +14,7 @@ typealias DocumentSettingsStore = KeyedRecordStore<DocumentSettings>
 /// The settings a reset replaced. A class, so that the toast and the window's history share whether it was used.
 final class ResetOrigin {
     let settings: DocumentSettings
+    let chosenReadingOrder: (direction: ViewOptions.Direction?, axis: ViewOptions.ScrollAxis?)
     let wasSaved: Bool
     let selectedSettingSetID: UUID?
     /// The paper's size in the view mode, as a record would take it in, whichever mode the reset was done in.
@@ -26,12 +27,14 @@ final class ResetOrigin {
     var isRestored = false
 
     init(
-        settings: DocumentSettings, wasSaved: Bool, selectedSettingSetID: UUID?, paperSize: CGSize?,
+        settings: DocumentSettings, chosenReadingOrder: (ViewOptions.Direction?, ViewOptions.ScrollAxis?),
+        wasSaved: Bool, selectedSettingSetID: UUID?, paperSize: CGSize?,
         defaultTextScale: Double, defaultPaperOrientation: PaperOrientation,
         defaultBandVisibility: BandVisibility, openingViewDefaults: ViewDefaultPreferences,
         defaultViewOptions: ViewOptions?
     ) {
         self.settings = settings
+        self.chosenReadingOrder = chosenReadingOrder
         self.wasSaved = wasSaved
         self.selectedSettingSetID = selectedSettingSetID
         self.paperSize = paperSize
@@ -100,7 +103,23 @@ final class DocumentViewModel {
     /// The series of paper the tray's cards show, once the reader switched it for this window.
     private var shownPaperSeries: PaperSeries?
     /// Set directly only when restoring or falling back; a theme the user picks goes through `selectTheme(_:)`.
-    var themeID: String
+    var themeID: String {
+        didSet {
+            guard oldValue != themeID,
+                theme(themeID)?.flow == .vertical
+                    || library.themes.first(where: { $0.id == oldValue })?.flow == .vertical
+            else { return }
+            let defaults = viewDefaults(forTheme: themeID)
+            viewOptions.direction = chosenReadingOrder.direction ?? defaults.direction
+            viewOptions.scrollAxis = chosenReadingOrder.axis ?? defaults.scrollAxis
+        }
+    }
+    private var chosenReadingOrder: (direction: ViewOptions.Direction?, axis: ViewOptions.ScrollAxis?) = (nil, nil)
+
+    private func viewDefaults(forTheme id: String?) -> ViewOptions {
+        (defaultViewOptions ?? initialViewOptions).following(
+            id.flatMap { theme($0)?.flow } ?? .horizontal, preferredScrollAxis: openingViewDefaults.scrollAxis)
+    }
     /// An axis of its own: choosing another style leaves it as it is. A palette the user picks goes through
     /// `selectCodePalette(_:)`.
     var codePaletteID: String
@@ -511,7 +530,9 @@ final class DocumentViewModel {
         let source = themeFormat.map { DocumentSource(data: data, fileURL: fileURL, format: $0) }
         let inferredStyle = UserLibrary.classStyle(for: source, renderer: renderer)
         classStyle = inferredStyle
-        themeID = library.defaultThemeID(preferred: preferences.themeID, format: themeFormat, classStyle: inferredStyle)
+        let initialTheme = library.defaultThemeID(
+            preferred: preferences.themeID, format: themeFormat, classStyle: inferredStyle)
+        themeID = initialTheme
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
         printOptions = preferences.printOptions
@@ -521,7 +542,9 @@ final class DocumentViewModel {
             for: ViewDefaultsContext(
                 kind: Self.viewKind(format: format, isBundle: imageBundle != nil), pageCount: 3,
                 firstPageSize: PaperSize.a4.size), preferences: preferences.viewDefaults)
-        viewOptions = guess
+        viewOptions = guess.following(
+            library.theme(initialTheme, for: themeFormat)?.flow ?? .horizontal,
+            preferredScrollAxis: preferences.viewDefaults.scrollAxis)
         initialViewOptions = guess
         if format == .html, htmlBaseURL != nil { htmlPresentation = .paper }
         themeSamples.inputs = { [weak self] in (self?.themedSource, self?.renderSettings) }
@@ -1570,6 +1593,7 @@ final class DocumentViewModel {
         shownPaperSeries = source.shownPaperSeries
         paperOrientation = source.paperOrientation
         printOptions = source.printOptions
+        chosenReadingOrder = source.chosenReadingOrder
         viewOptions = source.viewOptions
         hasResolvedViewOptions = true
         zoom = source.zoom
@@ -1706,6 +1730,8 @@ final class DocumentViewModel {
     func updateViewOptions(_ change: (inout ViewOptions) -> Void) {
         var options = viewOptions
         change(&options)
+        if options.direction != viewOptions.direction { chosenReadingOrder.direction = options.direction }
+        if options.scrollAxis != viewOptions.scrollAxis { chosenReadingOrder.axis = options.scrollAxis }
         hasResolvedViewOptions = true
         viewOptions = options
     }
@@ -2367,7 +2393,7 @@ final class DocumentViewModel {
         defaultViewOptions = defaults
         if !hasResolvedViewOptions {
             hasResolvedViewOptions = true
-            viewOptions = defaults
+            viewOptions = viewDefaults(forTheme: themeID)
         }
         guard !hasSavedSettings else { return }
         // Now that the defaults are complete, whatever differs from them was chosen by the user.
@@ -2505,7 +2531,7 @@ final class DocumentViewModel {
 
     private var appDefaultSettings: DocumentSettings {
         DocumentSettings(
-            view: defaultViewOptions ?? initialViewOptions, zoom: 1, layoutID: Self.defaultLayoutID(preferences),
+            view: viewDefaults(forTheme: defaultThemeID), zoom: 1, layoutID: Self.defaultLayoutID(preferences),
             themeID: usesPrintTheme ? defaultThemeID : nil,
             textScale: usesPrintTheme ? defaultTextScale : nil,
             presetID: usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
@@ -2559,6 +2585,7 @@ final class DocumentViewModel {
         {
             resolved.themeID = theme.id
         }
+        resolved.view = viewDefaults(forTheme: resolved.themeID)
         if let scale = documentDirectives.textScale { resolved.textScale = scale }
         return resolved
     }
@@ -2723,6 +2750,7 @@ final class DocumentViewModel {
         if let order = saved.binderOrder { binder?.applyOrder(order) }
         if let scale = saved.textScale { setTextScale(scale) }
         if let view = saved.view {
+            chosenReadingOrder = (view.direction, view.scrollAxis)
             viewOptions = view
             hasResolvedViewOptions = true
         }
@@ -2834,7 +2862,8 @@ final class DocumentViewModel {
     /// Goes back to the defaults at once; the toast and the window's undo are the way back.
     func resetDocumentSettings() {
         let origin = ResetOrigin(
-            settings: rememberedSettings, wasSaved: hasSavedSettings, selectedSettingSetID: selectedSettingSetID,
+            settings: rememberedSettings, chosenReadingOrder: chosenReadingOrder, wasSaved: hasSavedSettings,
+            selectedSettingSetID: selectedSettingSetID,
             paperSize: currentPaperSize ?? viewPaperSizeBeforePrinting ?? restoredPaperSize,
             defaultTextScale: defaultTextScale,
             defaultPaperOrientation: defaultPaperOrientation, defaultBandVisibility: defaultBandVisibility,
@@ -2873,6 +2902,7 @@ final class DocumentViewModel {
         openingViewDefaults = origin.openingViewDefaults
         defaultViewOptions = origin.defaultViewOptions
         apply(origin.settings)
+        chosenReadingOrder = origin.chosenReadingOrder
         selectedSettingSetID = origin.selectedSettingSetID
         restoreViewPaperSize(origin.paperSize)
         settingsBaseline = defaultSettings
@@ -2915,6 +2945,7 @@ final class DocumentViewModel {
             ownedRecordTokens[contentHash.hex] = nil
         }
         hasSavedSettings = false
+        chosenReadingOrder = (nil, nil)
         validatesMigratedContent = false
         pendingImageOrder = nil
         restoredPaperSize = nil
@@ -2951,7 +2982,7 @@ final class DocumentViewModel {
             defaultViewOptions = ViewOptions.resolved(
                 for: viewDefaultsContext(for: document), preferences: openingViewDefaults)
         }
-        if let defaultViewOptions { viewOptions = defaultViewOptions }
+        viewOptions = viewDefaults(forTheme: themeID)
         if resizesWindow, mode == .view, let window, let unit = paperUnitSize {
             ViewerWindow.setPaperSize(
                 ViewerWindow.initialPaperSize(unit: unit, on: window.screen, side: sideInset), band: bandInset,

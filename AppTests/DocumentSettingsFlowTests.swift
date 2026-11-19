@@ -65,6 +65,32 @@ struct DocumentSettingsFlowTests {
         try await waitUntil { model.contentHash != nil && model.result != nil && !model.isRendering }
     }
 
+    @Test("縦書きの右から左へのページ送りと冊子の右とじは既定で、文書に保存した向きととじ側を優先する")
+    func verticalReadingOrder() throws {
+        let fixture = try environment()
+        defer { fixture.cleanUp() }
+        let model = DocumentViewModel(
+            data: Data("本文".utf8), fileURL: nil, format: .org,
+            preferences: fixture.preferences, library: fixture.library, settingsStore: fixture.store)
+        model.layoutID = PrintLayout.a4BookletA5.id
+        model.selectTheme("tategaki")
+        #expect(model.viewOptions.direction == .rightToLeft)
+        #expect(model.viewOptions.scrollAxis == .horizontal)
+        #expect(model.layout.bookletBinding == .right)
+        #expect(model.bookletBinding == nil)
+        model.selectTheme("standard")
+        #expect(model.viewOptions.direction == .leftToRight)
+        var saved = model.rememberedSettings
+        saved.bookletBinding = .left
+        saved.themeID = "tategaki"
+        model.restoreClosedDocument(saved)
+        #expect(model.viewOptions.direction == .leftToRight)
+        #expect(model.layout.bookletBinding == .left)
+        model.selectTheme("standard")
+        model.selectTheme("tategaki")
+        #expect(model.viewOptions.direction == .leftToRight)
+    }
+
     @Test(
         "LaTeXは文書クラスに合う既定スタイルで開き、明示的に選んだスタイルだけを記憶する", .timeLimit(.minutes(1)),
         arguments: [

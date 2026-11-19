@@ -82,6 +82,15 @@ public struct ViewOptions: Codable, Equatable, Sendable {
         joinsPages = try values.decodeIfPresent(Bool.self, forKey: .joinsPages) ?? true
     }
 
+    /// With vertical text the next page lies to the left. An explicit scroll axis still takes precedence.
+    public func following(_ flow: PrintFlow, preferredScrollAxis: ScrollAxis? = nil) -> Self {
+        guard flow == .vertical else { return self }
+        var options = self
+        options.direction = .rightToLeft
+        options.scrollAxis = preferredScrollAxis ?? .horizontal
+        return options
+    }
+
     public var isSinglePageContinuous: Bool { layout == .single && isContinuous }
     /// Pages join only one above the other: side by side, the lines of one page would run into those of the next.
     public var canJoinPages: Bool { isSinglePageContinuous && scrollAxis == .vertical }

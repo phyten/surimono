@@ -1,0 +1,33 @@
+body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.75; color: #222; }
+.surimono-vertical {
+    writing-mode: vertical-rl;
+    direction: ltr;
+    text-orientation: mixed;
+    inline-size: var(--content-height);
+    box-sizing: border-box;
+    block-size: max-content;
+    display: flow-root;
+}
+.surimono-vertical p { margin: 0; }
+.surimono-vertical p + p { text-indent: 1em; }
+.surimono-vertical :is(h1, h2, h3, h4, h5, h6, strong) { font-family: "Hiragino Sans", sans-serif; }
+.surimono-vertical :is(h1, h2, h3, h4, h5, h6) { margin-block: 0.75em 0.35em; margin-inline: 0; }
+.surimono-vertical em { font-style: normal; text-emphasis: filled sesame; }
+.surimono-vertical a { text-decoration: none; border-block-end: 0.5pt solid currentColor; }
+.surimono-vertical .tcy { -webkit-text-combine: horizontal; text-combine-upright: all; }
+.surimono-vertical .upright-digits { text-orientation: upright; }
+.surimono-vertical .horizontal-box-line {
+    display: flow-root;
+    padding-inline: 0.5em;
+    margin-block: 0.5em;
+    text-indent: 0;
+}
+.surimono-vertical .horizontal-box {
+    display: inline-block;
+    writing-mode: horizontal-tb;
+    vertical-align: top;
+    max-inline-size: none;
+    margin: 0;
+}
+.surimono-vertical table.horizontal-box { display: inline-table; }
+.surimono-vertical .surimono-off-page { visibility: hidden !important; }
