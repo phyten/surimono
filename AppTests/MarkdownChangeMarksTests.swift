@@ -96,6 +96,8 @@ struct MarkdownChangeMarksTests {
     func watcherDoesNotDowngradeExplicitReload() async throws {
         let fixture = try await fixture("First")
         defer { fixture.close() }
+        fixture.model.enterPrintMode()
+        try await wait { fixture.model.canOutput }
         let held = HeldRead()
         fixture.model.readReloadData = { _ in await held.read() }
         let old = fixture.model.result?.logicalDocument
@@ -115,6 +117,8 @@ struct MarkdownChangeMarksTests {
     func removalReleasesReadProgress() async throws {
         let fixture = try await fixture("First")
         defer { fixture.close() }
+        fixture.model.enterPrintMode()
+        try await wait { fixture.model.canOutput }
         let held = HeldRead()
         fixture.model.readReloadData = { _ in await held.read() }
         let old = fixture.model.result?.logicalDocument
@@ -135,6 +139,8 @@ struct MarkdownChangeMarksTests {
         let fixture = try await fixture("First")
         defer { fixture.close() }
         let read = HeldRead()
+        fixture.model.enterPrintMode()
+        try await wait { fixture.model.canOutput }
         let composition = HeldRead()
         fixture.model.readReloadData = { _ in await read.read() }
         fixture.model.reload()

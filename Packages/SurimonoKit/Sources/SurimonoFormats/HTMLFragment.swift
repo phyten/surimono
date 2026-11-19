@@ -41,8 +41,19 @@ package enum HTML {
 }
 
 public enum PlainTextConverter {
-    public static func convert(_ text: String) -> HTMLFragment {
-        HTMLFragment(body: "<pre class=\"surimono-plain\">\(HTML.escape(text))</pre>")
+    public static func convert(_ text: String, fileExtension: String? = nil) -> HTMLFragment {
+        let language: String? =
+            switch fileExtension?.lowercased() {
+            case "json", "jsonl", "ndjson": "json"
+            case "yaml", "yml": "yaml"
+            case "toml": "toml"
+            case "xml": "xml"
+            default: nil
+            }
+        if let language, let tokens = SyntaxHighlighter.highlight(text, language: language) {
+            return HTMLFragment(body: "<pre class=\"surimono-plain\">\(tokens)</pre>")
+        }
+        return HTMLFragment(body: "<pre class=\"surimono-plain\">\(HTML.escape(text))</pre>")
     }
 }
 
@@ -103,18 +114,25 @@ public enum CSVConverter {
     }
 
     public static func convert(_ text: String, delimiter: Character = ",") -> HTMLFragment {
-        let characters = Array(TextDecoding.normalizeNewlines(text))
+        convert(text, delimiter: delimiter, checkRow: { _ in })
+    }
+
+    package static func convert(_ text: String, delimiter: Character, checkRow: (Int) throws -> Void) rethrows
+        -> HTMLFragment
+    {
+        let characters = TextDecoding.normalizeNewlines(text)
         var rows: [[String]] = []
         var row: [String] = []
         var field = ""
         var quoted = false
-        var index = 0
-        while index < characters.count {
+        var index = characters.startIndex
+        while index < characters.endIndex {
             let character = characters[index]
+            characters.formIndex(after: &index)
             if character == "\"" {
-                if quoted && index + 1 < characters.count && characters[index + 1] == "\"" {
+                if quoted && index < characters.endIndex && characters[index] == "\"" {
                     field.append("\"")
-                    index += 1
+                    characters.formIndex(after: &index)
                 } else if quoted || field.isEmpty {
                     quoted.toggle()
                 } else {
@@ -125,16 +143,17 @@ public enum CSVConverter {
                 field = ""
             } else if character == "\n" && !quoted {
                 row.append(field)
+                try checkRow(rows.count + 1)
                 rows.append(row)
                 row = []
                 field = ""
             } else {
                 field.append(character)
             }
-            index += 1
         }
         if !characters.isEmpty && (characters.last != "\n" || quoted || !row.isEmpty || !field.isEmpty) {
             row.append(field)
+            try checkRow(rows.count + 1)
             rows.append(row)
         }
         func render(_ fields: [String], tag: String) -> String {

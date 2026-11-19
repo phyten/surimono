@@ -95,7 +95,7 @@ struct SheetCompositionTests {
         var settings = settings(layout)
         settings.options.furniture = .pageNumber
         settings.options.rotatesBackSides = true
-        // The first composition serializes the logical pages; the second reuses them.
+        // A new imposition can draw from the same original PDF bytes.
         _ = try await renderer.render(source, settings: settings)
         settings.options.marginsInMillimeters += 1
         let result = try await renderer.render(source, settings: settings)

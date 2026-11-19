@@ -2,6 +2,39 @@ import SurimonoFormats
 import Testing
 
 struct ConverterTests {
+    @Test("設定ファイルでは構文を色付けしログでは山括弧を文字として保つ")
+    func highlightedFiles() {
+        for (suffix, input) in [
+            ("jsonl", "{\"count\":2}"), ("ndjson", "{\"x\":true}"), ("yaml", "count: 2"),
+            ("toml", "count = 2"), ("xml", "<count>2</count>"),
+        ] {
+            #expect(PlainTextConverter.convert(input, fileExtension: suffix).body.contains("class=\"hl-"))
+        }
+        #expect(
+            PlainTextConverter.convert("<event>", fileExtension: "log").body
+                == "<pre class=\"surimono-plain\">&lt;event&gt;</pre>")
+    }
+
+    @Test("CSVの行数は引用符内の改行と末尾の改行を余分に数えない")
+    func quotedRows() {
+        var counts: [Int] = []
+        _ = CSVConverter.convert("a,b\r\n\"first\nsecond\",two\n", delimiter: ",") { counts.append($0) }
+        #expect(counts == [1, 2])
+    }
+
+    @Test("構造化テキストの拡張子をテキストとして開く", arguments: ["json", "JSONL", "ndjson", "log", "yaml", "yml", "toml", "xml"])
+    func structuredText(extension suffix: String) {
+        #expect(DocumentFormat(fileExtension: suffix) == .plainText)
+    }
+
+    @Test("長い文書の言語は冒頭の64 KiBで決める")
+    func languageAtBeginning() {
+        let text = String(repeating: "日本語の文章です。", count: 3000) + String(repeating: "한국어", count: 100_000)
+        #expect(DocumentLanguage.detect(html: text, fallback: "en").code == "ja")
+        let hidden = "<!--" + String(repeating: "x", count: 65_536) + "-->日本語の文章です。"
+        #expect(DocumentLanguage.detect(html: hidden, fallback: "en").code == "en")
+    }
+
     @Test("プレーンテキストは特殊文字をエスケープしタブを保持する")
     func plainText() {
         #expect(

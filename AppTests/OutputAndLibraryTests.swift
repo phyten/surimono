@@ -100,6 +100,7 @@ struct OutputAndLibraryTests {
             data: data as Data, fileURL: nil, format: .pdf,
             preferences: AppPreferences(defaults: suite.defaults), library: UserLibrary(root: directory))
         defer { model.stop() }
+        model.enterPrintMode()
         model.render()
         let deadline = ContinuousClock.now + .seconds(5)
         while model.isRendering, ContinuousClock.now < deadline {

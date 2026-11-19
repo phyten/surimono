@@ -6,6 +6,30 @@ import UniformTypeIdentifiers
 @testable import Surimono
 
 struct SurimonoDocumentTests {
+    @Test("構造化テキストとログの型で原文を開ける", arguments: ["json", "jsonl", "ndjson", "log", "yaml", "yml", "toml", "xml"])
+    func plainTextFiles(suffix: String) throws {
+        let type = try #require(UTType(filenameExtension: suffix))
+        let bytes = Data("sample".utf8)
+        let file = FileWrapper(regularFileWithContents: bytes)
+        file.preferredFilename = "sample." + suffix
+        let document = try SurimonoDocument(file: file, contentType: type)
+        #expect(document.data == bytes)
+        #expect(document.format == .plainText)
+        #expect(SurimonoDocument.readableContentTypes.contains { type.conforms(to: $0) })
+    }
+
+    @Test("TOMLの読み取りを登録し既知の型がない環境向けの拡張子宣言も持つ")
+    func tomlRegistration() throws {
+        let types = try #require(Bundle.main.infoDictionary?["CFBundleDocumentTypes"] as? [[String: Any]])
+        let identifiers = types.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] }
+        #expect(identifiers.contains("public.toml"))
+        let fallback = UTType.surimonoTOML
+        #expect(identifiers.contains(fallback.identifier))
+        #expect(fallback.conforms(to: .text))
+        #expect(fallback.tags[.filenameExtension]?.contains("toml") == true)
+        #expect(SurimonoDocument.readableContentTypes.contains(fallback))
+    }
+
     @Test("ZIPの型で届いたdocxをシステムのWord型で読み、バイト列を保持する")
     func opensWord() throws {
         let type = try #require(UTType(filenameExtension: "docx"))
@@ -109,7 +133,7 @@ struct SurimonoDocumentTests {
         let notebook = try SurimonoDocument(file: file, contentType: .json)
         #expect(notebook.format == .notebook)
         file.preferredFilename = "sample.json"
-        #expect(try SurimonoDocument(file: file, contentType: .json).format != .notebook)
+        #expect(try SurimonoDocument(file: file, contentType: .json).format == .plainText)
         #expect(SurimonoDocument.readableContentTypes.contains(.surimonoNotebook))
     }
 
@@ -157,8 +181,10 @@ struct SurimonoDocumentTests {
     func matchesDocumentRegistration() throws {
         let declarations = try #require(
             Bundle.main.object(forInfoDictionaryKey: "CFBundleDocumentTypes") as? [[String: Any]])
-        let identifiers = declarations.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] }
-        #expect(Set(identifiers) == Set(SurimonoDocument.readableContentTypes.map(\.identifier)))
+        var identifiers = Set(declarations.flatMap { $0["LSItemContentTypes"] as? [String] ?? [] })
+        // The plist can advertise a viewer for public.toml even on a Mac whose registry lacks that type.
+        if UTType("public.toml") == nil { identifiers.remove("public.toml") }
+        #expect(identifiers == Set(SurimonoDocument.readableContentTypes.map(\.identifier)))
         #expect(declarations.allSatisfy { $0["CFBundleTypeRole"] as? String == "Viewer" })
         #expect(declarations.allSatisfy { $0["LSHandlerRank"] as? String == "Alternate" })
         let imported = try #require(
@@ -171,7 +197,8 @@ struct SurimonoDocumentTests {
                     UTType.surimonoDjot.identifier, UTType.surimonoTextile.identifier,
                     UTType.surimonoMediaWiki.identifier,
                     UTType.surimonoAsciiDoc.identifier, UTType.surimonoLaTeX.identifier,
-                    UTType.surimonoNotebook.identifier,
+                    UTType.surimonoNotebook.identifier, UTType.surimonoJSONLines.identifier,
+                    UTType.surimonoTOML.identifier,
                     UTType.surimonoGraphviz.identifier, UTType.surimonoPlantUML.identifier,
                 ]))
     }

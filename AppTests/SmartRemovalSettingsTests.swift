@@ -170,17 +170,35 @@ struct SmartRemovalSettingsTests {
         defer { cleanUp() }
         let requests: [(DocumentViewModel.Output, (DocumentViewModel) -> Void)] = [
             (.print(quick: true), { $0.printDocument(quick: true) }),
+            (.print(quick: false), { $0.printDocument(quick: false) }),
             (.exportPDF, { $0.exportPDF() }),
             (.exportReadingPDF, { $0.exportReadingPDF() }),
+            (.additional(.png), { $0.exportReading(.png) }),
+            (.additional(.share), { $0.exportReading(.share) }),
         ]
         for (output, request) in requests {
             let html = try await reviewing(preferences, library)
+            defer {
+                html.outputOverride = nil
+                html.stop()
+            }
+            var sent: [DocumentViewModel.Output] = []
+            html.outputOverride = { action, sheets in
+                #expect(html.renderedSettings?.smartRemoval?.highlightsCandidates == false)
+                #expect(html.canOutput && sheets.id == html.printResult?.id)
+                sent.append(action)
+            }
+            #expect(html.printResult == nil)
             request(html)
             #expect(!html.isReviewingSmartRemoval)
             #expect(html.outputAfterReview == output)
-            try await drawWithoutOutlines(html)
-            #expect(html.outputAfterReview == nil)
+            #expect(!html.canOutput && sent.isEmpty)
+            try await waitUntil { !html.isRendering && !html.isExporting && html.outputAfterReview == nil }
+            #expect(html.renderedSettings?.smartRemoval?.highlightsCandidates == false)
+            #expect(html.renderer.sheetCompositionCount == 1)
+            #expect(html.mode == (output.readsPages ? .view : .print))
             #expect(html.canOutput)
+            #expect(sent == (output.readsPages ? [] : [output]))
         }
     }
 

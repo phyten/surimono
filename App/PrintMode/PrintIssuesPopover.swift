@@ -88,7 +88,7 @@ struct PrintIssuesPopover: View {
                 Button("Make Text Smaller") { model.decreaseTextSize() }
                     .disabled(TextScale.smaller(than: model.textScale) == model.textScale)
             }
-        case .math, .latex, .bibliography, .mermaid, .verticalWriting: EmptyView()
+        case .math, .latex, .bibliography, .mermaid, .mermaidTimeout, .verticalWriting: EmptyView()
         }
     }
 }
@@ -108,6 +108,9 @@ enum PrintIssueText {
                 "Vertical writing is not supported yet. Showing it horizontally.", language: language)
         case .image: key = "Could Not Load Image: %@"
         case .math: key = "Could Not Render Formula: %@"
+        case .mermaidTimeout:
+            return PrintModeText.format(
+                "%lld diagrams were not drawn in time.", language: language, Int64(issue.detail) ?? 0)
         case .mermaid: key = "Could Not Render Diagram: %@"
         case .bibliography:
             if issue.detail.hasSuffix(" could not be read") {
@@ -142,7 +145,7 @@ enum PrintIssueText {
                 key = "Folder access is not allowed: allow access to the folder containing the document and its images."
             case .other, nil: key = "Check that the image is readable and in a supported format."
             }
-        case .verticalWriting, .bibliography: return ""
+        case .verticalWriting, .bibliography, .mermaidTimeout: return ""
         case .overflow: key = "Try landscape paper or smaller text, or adjust this element in the source document."
         case .math: key = "Check the formula's syntax and use supported commands in the source document."
         case .mermaid: key = "Check the Mermaid syntax and simplify the diagram in the source document."

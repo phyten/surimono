@@ -128,7 +128,7 @@ public struct DocumentLanguage: Equatable, Sendable {
             "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track",
             "wbr",
         ]
-        let bytes = Array(html.utf8)
+        let bytes = Array(html.utf8.prefix(64 * 1024))
         var index = 0
         func matches(_ text: String, at offset: Int) -> Bool {
             let wanted = Array(text.utf8)

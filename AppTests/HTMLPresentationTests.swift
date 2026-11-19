@@ -270,7 +270,8 @@ struct WebCaptureTests {
         fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Now</p>")))
         try await waitUntil { !model.isCapturingWeb && model.result != nil && !model.isRendering }
         #expect(fixture.laidOut() == ["<p>Now</p>"])
-        #expect(model.canOutput)
+        model.enterPrintMode()
+        try await waitUntil { model.canOutput }
     }
 
     @Test("写しの途中でファイルが変わったら、届いた古い写しは使わない")
@@ -421,7 +422,7 @@ struct WebCaptureTests {
         #expect(outputs.isEmpty)
         try await waitUntil { fixture.snapshots.requestCount == 2 }
         fixture.snapshots.resolve(.captured(snapshot))
-        try await waitUntil { model.mode == .print && !model.isCapturingWeb }
+        try await waitUntil { model.mode == .print && !model.isCapturingWeb && model.canOutput }
         #expect(model.outputAfterReview == nil)
         #expect(fixture.requests().count == requestsBefore)
         #expect(model.canOutput)
@@ -457,7 +458,7 @@ struct WebCaptureTests {
         fixture.snapshots.resolve(.captured(HTMLSnapshot(html: "<p>Retry</p>")))
         try await waitUntil { !model.isCapturingWeb && model.result != nil && !model.isRendering }
         #expect(!model.webCaptureFailed)
-        #expect(model.canOutput)
+        #expect(model.canExportReadingPDF)
         #expect(fixture.laidOut() == ["<p>Retry</p>"])
     }
 
@@ -534,7 +535,7 @@ struct WebCaptureTests {
         try await waitUntil { fixture.snapshots.requestCount == 1 }
         fixture.snapshots.resolve(
             .captured(HTMLSnapshot(html: "<details><summary>Q</summary>A</details>", closedDetailsCount: 3)))
-        try await waitUntil { !model.isCapturingWeb && model.canOutput }
+        try await waitUntil { !model.isCapturingWeb && model.isUpToDate }
         #expect(model.closedDetailsCount == 3)
         model.enterPrintMode()
         try await waitUntil { model.mode == .print }

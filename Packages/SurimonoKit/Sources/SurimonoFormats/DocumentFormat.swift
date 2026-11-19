@@ -25,7 +25,7 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         switch fileExtension.lowercased() {
         case "md", "markdown", "mdown", "mkd", "mkdn": self = .markdown
         case "org": self = .org
-        case "txt", "text": self = .plainText
+        case "txt", "text", "json", "jsonl", "ndjson", "log", "yaml", "yml", "toml", "xml": self = .plainText
         case "html", "htm": self = .html
         case "pdf": self = .pdf
         case "csv", "tsv": self = .csv
@@ -66,7 +66,10 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
         let known: [String: DocumentFormat] = [
             "net.daringfireball.markdown": .markdown, "org.orgmode.org": .org,
             "public.plain-text": .plainText, "public.text": .plainText, "public.utf8-plain-text": .plainText,
-            "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
+            "public.json": .plainText, "public.yaml": .plainText, "public.xml": .plainText,
+            "public.ndjson": .plainText, "com.apple.log": .plainText, "org.toml-lang.toml": .plainText,
+            "io.github.phyten.surimono.jsonl": .plainText,
+            "public.xhtml": .html, "public.html": .html, "com.adobe.pdf": .pdf, "public.image": .image,
             "public.png": .image, "public.jpeg": .image, "public.comma-separated-values-text": .csv,
             "public.tab-separated-values-text": .csv,
             "org.graphviz.dot": .graphviz, "net.sourceforge.plantuml": .plantuml,
@@ -153,6 +156,9 @@ public enum DocumentFormat: String, CaseIterable, Codable, Sendable {
 }
 
 extension UTType {
+    public static let surimonoJSONLines = UTType(
+        importedAs: "io.github.phyten.surimono.jsonl", conformingTo: .plainText)
+    public static let surimonoTOML = UTType(importedAs: "org.toml-lang.toml", conformingTo: .plainText)
     public static let surimonoGraphviz = UTType(importedAs: "org.graphviz.dot", conformingTo: .plainText)
     public static let surimonoPlantUML = UTType(importedAs: "net.sourceforge.plantuml", conformingTo: .plainText)
     public static let surimonoQuarto = UTType(importedAs: "org.quarto.qmarkdown", conformingTo: .plainText)

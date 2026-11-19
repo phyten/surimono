@@ -88,9 +88,11 @@ struct PrintModeView: View {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(PrintPalette.ink2)
                 Text(verbatim: error).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                Button("Reload") { model.reload() }
-                    .buttonStyle(PrintBorderedButtonStyle()).fixedSize()
-                if model.format.isWebRendered && model.format != .plainText {
+                if !model.layoutTooLarge {
+                    Button("Reload") { model.reload() }
+                        .buttonStyle(PrintBorderedButtonStyle()).fixedSize()
+                }
+                if model.offersPlainTextRecovery {
                     Button("Open as Plain Text") { model.reopenAsText() }
                         .buttonStyle(PrintBorderedButtonStyle()).fixedSize()
                 }

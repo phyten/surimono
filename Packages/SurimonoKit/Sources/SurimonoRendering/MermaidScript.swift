@@ -18,7 +18,7 @@ enum MermaidScript {
         """
     }
 
-    static let probe = "return document.querySelector('.mermaid-block > .mermaid-source') ? 'yes' : 'no';"
+    static let probe = "return String(document.querySelectorAll('.mermaid-block > .mermaid-source').length);"
 
     private static var offlineRules: WKContentRuleList?
 
@@ -37,6 +37,10 @@ enum MermaidScript {
         }
         """
 
+    static func budgetMilliseconds(count: Int) -> Int {
+        min(60_000, 10_000 + min(167, max(0, count)) * 300)
+    }
+
     static let maxTextSize = 50000
 
     static func rendering(budgetMilliseconds: Int) -> String {
@@ -53,13 +57,17 @@ enum MermaidScript {
           deterministicIds: true, maxTextSize: \(maxTextSize), maxEdges: 500,
           secure: [...Object.keys(mermaid.mermaidAPI.defaultConfig), 'htmlLabels', 'themeCSS', 'fontFamily', 'flowchart']
         });
+        for (const source of sources) source.parentElement.classList.add('mermaid-timeout');
         let stopped = false;
         for (const [index, source] of sources.entries()) {
           const block = source.parentElement;
           const remaining = deadline - performance.now();
           if (stopped || remaining <= 0) continue;
           // Over the limit, the library draws a placeholder diagram instead of throwing; keep the source instead.
-          if (source.textContent.length > \(maxTextSize)) continue;
+          if (source.textContent.length > \(maxTextSize)) {
+            block.classList.remove('mermaid-timeout');
+            continue;
+          }
           const staging = document.createElement('div');
           // Layout needs a connected element; keep unfinished work out of the printed flow.
           staging.style.cssText = 'position:absolute;left:-100000px;top:0;visibility:hidden';
@@ -71,7 +79,7 @@ enum MermaidScript {
               new Promise((_, reject) => { timer = setTimeout(() => {
                 stopped = true;
                 reject(new Error('timeout'));
-              }, Math.min(2000, remaining)); })
+              }, remaining); })
             ]);
             const parsed = new DOMParser().parseFromString(result.svg, 'image/svg+xml');
             const svg = parsed.documentElement;
@@ -88,9 +96,10 @@ enum MermaidScript {
             const rendered = document.importNode(svg, true);
             block.replaceChildren(rendered);
             globalThis.surimonoRenderedDiagrams?.add(rendered);
-            block.classList.remove('mermaid-error');
+            block.classList.remove('mermaid-error', 'mermaid-timeout');
           } catch (_) {
-            // A bad diagram keeps its escaped source; later diagrams may still be valid.
+            // Syntax failures keep their individual diagnostics.
+            if (!stopped) block.classList.remove('mermaid-timeout');
           } finally {
             clearTimeout(timer);
             staging.remove();

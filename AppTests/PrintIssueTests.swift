@@ -38,7 +38,7 @@ struct PrintIssueTests {
             }
             #expect(model.error == nil)
             #expect(model.isUpToDate)
-            #expect(model.canOutput)
+            #expect(!model.canOutput)
             #expect(model.printIssueCount == (issues == "[]" ? 0 : 1))
             model.reviewPrintIssues()
             #expect(model.isPrintIssuesPresented == (issues != "[]"))

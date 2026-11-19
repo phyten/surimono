@@ -62,6 +62,7 @@ public final class WebPaginator: NSObject {
         var richTextFigures: [RichTextFigure] = []
         /// What the renderer added to the pages of a text and read from it.
         var finishing = FinishedPages()
+        var drawingBytes: Data?
 
         public init(
             document: PDFDocument, preparationResult: String? = nil, pageRules: [PageRule] = [],
@@ -75,7 +76,7 @@ public final class WebPaginator: NSObject {
     }
 
     /// Upper bound for the print step, which normally finishes in well under a second.
-    var printTimeout: Duration = .seconds(60)
+    var printTimeout: Duration?
     /// Sessions whose web view and temporary files have not been released yet (observed by tests).
     private(set) var openSessionCount = 0
     /// Number of print operations started (observed by tests).
@@ -135,7 +136,7 @@ public final class WebPaginator: NSObject {
 
     public func paginate(
         _ source: Source, pageSize: CGSize, margins: Margins, allowsJavaScript: Bool,
-        printsBackgrounds: Bool = true, preparationScript: String? = nil, timeout: Duration = .seconds(15)
+        printsBackgrounds: Bool = true, preparationScript: String? = nil, timeout: Duration? = nil
     ) async throws -> PDFDocument {
         try await paginateWithResult(
             source, pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
@@ -153,8 +154,17 @@ public final class WebPaginator: NSObject {
         printsBackgrounds: Bool = true, preparationScript: String? = nil, readsPageRules: Bool = false,
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
         collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
-        timeout: Duration = .seconds(15)
+        timeout: Duration? = nil
     ) async throws -> Result {
+        let bytes: Int
+        switch source {
+        case .html(let html, _), .snapshot(let html, _), .sandboxed(.some(let html), _): bytes = html.utf8.count
+        case .file(let url, _): bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        case .sandboxed(nil, let access):
+            bytes = (try? access.documentURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        }
+        let timeout = timeout ?? PageLayoutLimits.timeout(bytes: bytes, baseSeconds: 15)
+        let printTimeout = printTimeout ?? PageLayoutLimits.timeout(bytes: bytes, baseSeconds: 60)
         openSessionCount += 1
         let session = PaginationSession(
             source: source, pageSize: pageSize, margins: margins, allowsJavaScript: allowsJavaScript,
@@ -200,9 +210,10 @@ public final class WebPaginator: NSObject {
                 "globalThis.surimonoRenderedDiagrams = new Set();", in: session.webView, timeout: timeout)
         }
         if rendersMermaid,
-            try await runPreparationScript(MermaidScript.probe, in: session.webView, timeout: timeout) == "yes"
+            let countText = try await runPreparationScript(MermaidScript.probe, in: session.webView, timeout: timeout),
+            let count = Int(countText), count > 0
         {
-            try await prepareMermaid(in: session.webView, timeout: timeout)
+            try await prepareMermaid(in: session.webView, count: count, timeout: timeout)
         }
         if rendersDiagrams {
             try await DiagramScript.prepare(
@@ -286,12 +297,14 @@ public final class WebPaginator: NSObject {
         didCheckPageRules?(mayDrawBelowPaper)
         let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView)
         try Task.checkCancellation()
-        let document = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
+        let pageData = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
+        guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
         if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
         var result = Result(
             document: document,
             preparationResult: preparationResult, pageRules: pageRules,
             requiredFolderAccess: session.localHandler?.requiredFolderAccess)
+        result.drawingBytes = pageData
         if adjusted { result.issues = [Self.verticalWritingIssue] }
         if collectsDiagrams {
             // Keep the finished PDF untouched even if measurement fails or a theme styles the extra anchors.
@@ -307,8 +320,8 @@ public final class WebPaginator: NSObject {
                     let sources = try? JSONDecoder().decode([DiagramGeometry.Source].self, from: Data(json.utf8)),
                     !sources.isEmpty
                 {
-                    let geometry = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
-                    if geometry.pageCount == document.pageCount {
+                    let geometryData = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
+                    if let geometry = PDFDocument(data: geometryData), geometry.pageCount == document.pageCount {
                         result.diagramPass = .init(document: geometry, sources: sources, token: token)
                     }
                 }
@@ -390,7 +403,7 @@ public final class WebPaginator: NSObject {
         }
     }
 
-    private func prepareMermaid(in webView: WKWebView, timeout: Duration) async throws {
+    private func prepareMermaid(in webView: WKWebView, count: Int, timeout: Duration) async throws {
         do {
             // The document's own resources have loaded. Diagram-generated resources must never use the network.
             try await MermaidScript.preventResourceLoads(in: webView)
@@ -403,10 +416,9 @@ public final class WebPaginator: NSObject {
                 try await runPreparationScript(
                     MermaidScript.loading(library), in: webView, timeout: timeout) == "function"
             else { throw PaginationError.timedOut }
-            let seconds = Double(timeout.components.seconds) + Double(timeout.components.attoseconds) / 1e18
-            let budget = Int(max(0, min(10000, seconds * 1000 - 1000)))
+            let budget = MermaidScript.budgetMilliseconds(count: count)
             _ = try await runPreparationScript(
-                MermaidScript.rendering(budgetMilliseconds: budget), in: webView, timeout: timeout)
+                MermaidScript.rendering(budgetMilliseconds: budget), in: webView, timeout: .milliseconds(budget + 2000))
         } catch {
             try Task.checkCancellation()
             _ = try await runPreparationScript(MermaidScript.fallback, in: webView, timeout: timeout)
@@ -475,9 +487,54 @@ public final class WebPaginator: NSObject {
 
     /// The `href` of the first real `<base>` element, ignoring comments and the contents of scripts and styles.
     private static func firstBaseHref(in html: String) -> String? {
-        let visible = html.replacingOccurrences(
-            of: #"<!--[\s\S]*?-->|<script\b[\s\S]*?</script>|<style\b[\s\S]*?</style>"#, with: "",
-            options: [.regularExpression, .caseInsensitive])
+        var index = html.startIndex
+        while let start = html[index...].firstIndex(of: "<") {
+            let tail = html[start...]
+            if tail.hasPrefix("<!--") {
+                guard let end = tail.range(of: "-->") else { return nil }
+                index = end.upperBound
+                continue
+            }
+            let closing = tail.hasPrefix("</")
+            let name = tail.dropFirst(closing ? 2 : 1).prefix { $0.isLetter || $0.isNumber || "-:".contains($0) }
+                .lowercased()
+            if (!closing && name == "body") || (closing && name == "head") { return nil }
+            var end = html.index(after: start)
+            var quote: Character?
+            while end < html.endIndex {
+                let character = html[end]
+                html.formIndex(after: &end)
+                if let open = quote {
+                    if character == open { quote = nil }
+                } else if character == "\"" || character == "'" {
+                    quote = character
+                } else if character == ">" {
+                    break
+                }
+            }
+            index = end
+            if closing { continue }
+            if name == "base", let href = baseHref(in: String(html[start..<end])) { return href }
+            if name == "script" || name == "style" {
+                // Raw text can contain a literal '<body>' or '<base>'; resume at its closing tag.
+                let closingTag = "</" + name
+                while let next = html[index...].firstIndex(of: "<") {
+                    let candidate = html[next...].prefix(closingTag.count)
+                    index = candidate.endIndex
+                    if candidate.lowercased() == closingTag,
+                        let boundary = html[index...].first, boundary == ">" || boundary.isWhitespace
+                    {
+                        index = next
+                        break
+                    }
+                    index = html.index(after: next)
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func baseHref(in visible: String) -> String? {
         let pattern = #"<base\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
             let match = regex.firstMatch(in: visible, range: NSRange(visible.startIndex..., in: visible))
@@ -620,7 +677,7 @@ private final class PaginationSession {
 
     /// - Parameter checkingBelowPaper: Whether the document may draw below the paper, so that the pages are cut back
     ///   to the paper only after finding nothing there.
-    func printToPDF(checkingBelowPaper: Bool) async throws -> PDFDocument {
+    func printToPDF(checkingBelowPaper: Bool) async throws -> Data {
         let outputURL = temporaryURL(extension: "pdf")
         let printInfo = NSPrintInfo()
         printInfo.paperSize = CGSize(width: pageSize.width, height: pageSize.height + Self.pageHeightAllowance)
@@ -666,10 +723,7 @@ private final class PaginationSession {
         // The task may have been cancelled while the last pause was in flight.
         try Task.checkCancellation()
         guard completion.result == true else { throw WebPaginator.PaginationError.printFailed }
-        guard let data = try? Data(contentsOf: outputURL), let document = PDFDocument(data: data),
-            document.pageCount > 0
-        else { throw WebPaginator.PaginationError.emptyDocument }
-        return cutToPaper(document, checkingBelowPaper: checkingBelowPaper)
+        return try await Self.cutToPaper(at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper)
     }
 
     /// WebKit cuts the printable height into pages of whole CSS pixels and lets a document's `@page` size and margins
@@ -684,24 +738,28 @@ private final class PaginationSession {
     ///
     /// The cut pages come back as a document read anew: PDFKit keeps reporting some characters of a page whose boxes
     /// were just changed at zero size, which would break finding and selecting text on the paper.
-    private func cutToPaper(_ document: PDFDocument, checkingBelowPaper: Bool) -> PDFDocument {
-        let pages = (0..<document.pageCount).compactMap { document.page(at: $0) }
-        if checkingBelowPaper, pages.contains(where: { Self.drawsBelowPaper($0, paperHeight: pageSize.height) }) {
-            return document
-        }
-        for page in pages {
+    @concurrent private static func cutToPaper(at url: URL, pageSize: CGSize, checkingBelowPaper: Bool) async throws
+        -> Data
+    {
+        guard let bytes = try? Data(contentsOf: url), let document = PDFDocument(data: bytes), document.pageCount > 0
+        else { throw WebPaginator.PaginationError.emptyDocument }
+        for index in 0..<document.pageCount {
+            try Task.checkCancellation()
+            guard let page = document.page(at: index) else { continue }
+            if checkingBelowPaper, drawsBelowPaper(page, paperHeight: pageSize.height) { return bytes }
             let media = page.bounds(for: .mediaBox)
             let height = min(pageSize.height, media.height)
             let paper = CGRect(x: media.minX, y: media.maxY - height, width: media.width, height: height)
             page.setBounds(paper, for: .mediaBox)
             page.setBounds(paper, for: .cropBox)
         }
-        return document.dataRepresentation().flatMap(PDFDocument.init(data:)) ?? document
+        guard let cut = document.dataRepresentation() else { throw WebPaginator.PaginationError.printFailed }
+        return cut
     }
 
     /// Whether the page draws anything below the paper's height. The strip is rendered on white and any pixel that is
     /// not near-white counts, so text, rules, images and backgrounds all keep the page whole.
-    static func drawsBelowPaper(_ page: PDFPage, paperHeight: CGFloat) -> Bool {
+    nonisolated static func drawsBelowPaper(_ page: PDFPage, paperHeight: CGFloat) -> Bool {
         let media = page.bounds(for: .mediaBox)
         let stripHeight = media.height - paperHeight
         guard stripHeight > 0 else { return false }

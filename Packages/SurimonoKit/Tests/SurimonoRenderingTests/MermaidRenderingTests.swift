@@ -1,4 +1,5 @@
 import AppKit
+import JavaScriptCore
 import PDFKit
 import SurimonoCore
 import Testing
@@ -11,6 +12,53 @@ struct MermaidRenderingTests {
         RenderSettings(
             layout: .a4Single, theme: PrintTheme(id: "test", name: "Test", css: "body { font-family: serif; }"),
             preset: HTMLCleanupPreset(id: "none", name: "None"))
+    }
+
+    @Test("時間を使い切った描画スクリプトは残った原文を一件の確認にまとめる")
+    func deadlineWithoutWebView() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(
+            """
+            const sources = Array.from({length: 3}, () => ({parentElement: {classList: new Set()}}));
+            const document = {body: {}, querySelectorAll(selector) {
+              if (selector === '.mermaid-block > .mermaid-source') return sources;
+              if (selector === '.mermaid-error.mermaid-timeout > .mermaid-source') {
+                return sources.filter(s => ['mermaid-error', 'mermaid-timeout'].every(c => s.parentElement.classList.has(c)));
+              }
+              return [];
+            }};
+            const mermaid = {initialize() {}, mermaidAPI: {defaultConfig: {}}};
+            const performance = {now: () => 1};
+            const getComputedStyle = () => ({fontFamily: 'serif'});
+            (async () => { \(MermaidScript.rendering(budgetMilliseconds: 0)) })();
+            """)
+        let json = context.evaluateScript(
+            "JSON.stringify((() => { \(PrintIssueAnchors.javaScript(themed: true)) })())")
+        #expect(context.exception == nil)
+        let data = Data(try #require(json?.toString()).utf8)
+        let issues = try JSONDecoder().decode([PrintIssue].self, from: data)
+        #expect(issues.map(\.kind) == [.mermaidTimeout])
+        #expect(issues.map(\.detail) == ["3"])
+    }
+
+    @Test("時間切れで原文を残した図は確認に合計を一度だけ載せる", .timeLimit(.minutes(1)))
+    func timedOutIssues() async throws {
+        let block = "<div class='mermaid-block'><pre class='mermaid-source'>graph LR</pre></div>"
+        let renderer = DocumentRenderer(paginateWithResult: { request in
+            let deadline = MermaidScript.rendering(budgetMilliseconds: 0)
+            let preparation = """
+                globalThis.mermaid = { initialize() {}, mermaidAPI: {defaultConfig: {}} };
+                await (async () => { \(deadline) })();
+                \(request.preparationScript ?? "")
+                """
+            return try await WebPaginator().paginateWithResult(
+                request.source, pageSize: request.pageSize,
+                margins: request.margins, allowsJavaScript: false, preparationScript: preparation)
+        })
+        let source = DocumentSource(data: Data((block + block).utf8), format: .markdown)
+        let pages = try await renderer.prepare(source, settings: settings)
+        #expect(pages.issues.filter { $0.kind == .mermaidTimeout }.map(\.detail) == ["2"])
+        #expect(!pages.issues.contains { $0.kind == .mermaid })
     }
 
     @Test("MarkdownとOrgの図だけがMermaidの準備を要求する")
