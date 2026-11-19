@@ -4,18 +4,48 @@ import Foundation
 /// Measure after resources and fonts settle and keep the scaled box in the page flow.
 enum LaTeXGraphicPreparation {
     static func script(in html: String, layoutWidth: Double) -> String? {
-        guard html.contains(#"class="latex-graphic-box""#) else { return nil }
+        let graphics = html.contains(#"class="latex-graphic-box""#)
+        let displays = html.contains(#"class="math math-display""#)
+        guard graphics || displays else { return nil }
         return """
             {
               const root = document.documentElement;
               const oldWidth = root.style.width;
               root.style.width = (\(layoutWidth) / (parseFloat(getComputedStyle(root).zoom) || 1)) + 'px';
               try {
-                \(measure)
+                \(displays ? measureDisplays : "")
+                \(graphics ? measure : "")
               } finally { root.style.width = oldWidth; }
             }
             """
     }
+
+    /// SwaTex reports TeX advance, ascent and depth. SVG text runs use the actual embedded
+    /// fonts' metrics, which can extend past all three. Include those runs in the page flow
+    /// before clipping the SVG so pagination cannot paint its overflow on the preceding sheet.
+    static let measureDisplays = #"""
+        for (const svg of document.querySelectorAll('body.format-latex .math-display > svg')) {
+          const box = svg.viewBox.baseVal;
+          const width = svg.width.baseVal, height = svg.height.baseVal;
+          // The converter writes dimensions in em (SVG_LENGTHTYPE_EMS = 3).
+          if (width.unitType !== 3 || height.unitType !== 3 || !(box.width > 0 && box.height > 0)) continue;
+          const ink = svg.getBBox();
+          const x = Math.min(box.x, ink.x), y = Math.min(box.y, ink.y);
+          const w = Math.max(box.x + box.width, ink.x + ink.width) - x;
+          const h = Math.max(box.y + box.height, ink.y + ink.height) - y;
+          if (!(Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0)) continue;
+          if (w !== box.width || h !== box.height) {
+            for (const label of svg.parentElement.querySelectorAll(':scope > .latex-row-number')) {
+              const old = parseFloat(label.style.top);
+              if (Number.isFinite(old)) label.style.top = (old * box.height + 100 * (box.y - y)) / h + '%';
+            }
+            svg.setAttribute('width', (width.valueInSpecifiedUnits * w / box.width) + 'em');
+            svg.setAttribute('height', (height.valueInSpecifiedUnits * h / box.height) + 'em');
+            svg.setAttribute('viewBox', [x,y,w,h].join(' '));
+          }
+          Object.assign(svg.style, {display:'block', marginInline:'auto', verticalAlign:'top', overflow:'hidden'});
+        }
+        """#
 
     static let measure = #"""
         const boxes = Array.from(document.querySelectorAll('body.format-latex .latex-graphic-box'));

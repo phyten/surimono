@@ -62,6 +62,7 @@ extension LanguageFontsTests {
             "Papyrus", "Copperplate", "Impact", "DIN Alternate", "DIN Condensed", "Rockwell", "Charter",
             "Iowan Old Style", "Savoye LET", "Academy Engraved LET", "Surimono Computer Modern",
             "Surimono Computer Modern Typewriter", "PT Serif", "Geeza Pro", "Arial Hebrew",
+            "Surimono Song SC Ideographs", "Surimono Song TC Ideographs", "Surimono Hei Ideographs",
             "Songti TC", "STSong", "LiSong Pro", "PingFang TC", "AppleMyungjo", "Apple SD Gothic Neo",
         ]
         let chinese: Set<String> = ["PingFang SC", "Songti SC", "Yuanti SC", "Kaiti SC"]

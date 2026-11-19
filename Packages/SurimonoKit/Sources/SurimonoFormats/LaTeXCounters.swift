@@ -75,7 +75,7 @@ final class LaTeXCounters {
     /// two targets the same destination, or let punctuation in a number change the HTML.
     func anchor(_ prefix: String, suffix: String) -> String {
         let safe = suffix.prefix(150).map { char in
-            char.isLetter || char.isNumber || "-_.".contains(char) ? char : "-"
+            char.isASCII && (char.isLetter || char.isNumber || "-_.".contains(char)) ? char : "-"
         }
         let base = prefix + "-" + String(safe)
         var id = base
@@ -103,6 +103,7 @@ extension LaTeXReader {
             let operand = key()
             guard let value = integerArgument(operand) else { return true }
             if name == "setcounter" {
+                if counter == "page" { pageAction("page", String(value)) }
                 document.counters[counter] = value
             } else {
                 document.counters.add(value, to: counter)
@@ -115,7 +116,7 @@ extension LaTeXReader {
             // \refstepcounter creates a destination even without a heading, so a following \label names this step.
             document.labelTarget = (number, id)
             document.describeTarget(id, kind: counter, title: "")
-            appendHTML("<span id=\"\(id)\"></span>")
+            appendDestination("<span id=\"\(id)\"></span>")
         case "value", "arabic", "roman", "Roman", "alph", "Alph", "fnsymbol":
             appendText(LaTeXSymbols.format(document.counters[key()], as: name))
         case "counterwithin", "counterwithout", "numberwithin":
@@ -182,6 +183,15 @@ extension LaTeXReader {
             }
         }
         let value = LaTeXSymbols.format(counters[name], as: style)
+        // jsarticle prefixes only the appendix section itself. Its subsections keep A.1, A.2, etc.
+        if name == "section", document.classInfo.isJSArticle, document.isAppendix, document.language == "ja",
+            !counters.formatting.contains("subsection")
+        {
+            let caption = captionName("appendixname")
+            let plain = HTML.unescape(
+                caption.replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression))
+            return plain.isEmpty ? value : plain + " " + value
+        }
         guard let parent = counters.printedParent(of: name) else { return value }
         return formattedCounter(parent, forMath: forMath) + "." + value
     }

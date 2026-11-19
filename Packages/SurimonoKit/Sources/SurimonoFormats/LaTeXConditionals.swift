@@ -102,6 +102,7 @@ extension LaTeXReader {
         var selected: Range<Int>?
         var begin = index
         var fallback = false
+        var closed = false
         var declared: Set<String> = []
         var loops = 0
         while let token = nextStructuralWord(declared: &declared) {
@@ -127,13 +128,17 @@ extension LaTeXReader {
                 continue
             }
             if selected == nil, fallback || branch == choice { selected = begin..<token.start }
-            if token.name == "fi" { break }
+            if token.name == "fi" {
+                closed = true
+                break
+            }
             fallback = token.name == "else"
             branch += 1
             skipSpacesAfterControlWord()
             begin = index
         }
         skipSpacesAfterControlWord()
+        if !closed { pictureExpansion?.failure = "ifnum/ifdim" }
         if let selected { insertExpansion(String(characters[selected])) }
     }
 
@@ -242,9 +247,15 @@ extension LaTeXReader {
     private func comparison<T: Comparable>(_ operand: () -> T?) -> Bool {
         let lhs = operand()
         skipSpaces()
-        guard let operation = peek(), ["<", "=", ">"].contains(operation) else { return false }
+        guard let operation = peek(), ["<", "=", ">"].contains(operation) else {
+            pictureExpansion?.failure = "ifnum/ifdim"
+            return false
+        }
         index += 1
-        guard let rhs = operand(), let lhs else { return false }
+        guard let rhs = operand(), let lhs else {
+            pictureExpansion?.failure = "ifnum/ifdim"
+            return false
+        }
         switch operation {
         case "<": return lhs < rhs
         case ">": return lhs > rhs

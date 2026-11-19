@@ -141,7 +141,8 @@ extension LaTeXReader {
         if command != "footnotetext" {
             let marker = "fnref-" + id.dropFirst(3)
             appendHTML(
-                "<sup class=\"footnote-ref\"><a href=\"#\(id)\" id=\"\(marker)\">\(HTML.escape(number))</a></sup>")
+                styledLinks(
+                    "<sup class=\"footnote-ref\"><a href=\"#\(id)\" id=\"\(marker)\">\(HTML.escape(number))</a></sup>"))
         }
     }
 }

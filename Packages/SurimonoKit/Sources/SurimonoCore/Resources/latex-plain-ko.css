@@ -1,2 +1,2 @@
 body { --tex-serif: "AppleMyungjo", serif; --tex-sans: "Apple SD Gothic Neo", sans-serif; }
-:is(h1, h2, h3, h4, h5, h6), .latex-contents-title { font-family: var(--tex-sans-fonts); }
+body[data-latex-native-headings] :is(h1, h2, h3, h4, h5, h6, .latex-contents-title) { font-family: var(--tex-sans-fonts); }

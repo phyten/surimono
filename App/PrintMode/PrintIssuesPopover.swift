@@ -122,6 +122,9 @@ enum PrintIssueText {
             }
             return PrintModeText.string("Citations use the numeric style.", language: language)
         case .latex:
+            if issue.detail == PrintIssue.unresolvedLaTeXPages.detail {
+                return PrintModeText.string(issue.detail, language: language)
+            }
             if let names = issue.unreadLaTeXCommands {
                 return PrintModeText.format("Unread LaTeX commands: %@", language: language, names)
             }

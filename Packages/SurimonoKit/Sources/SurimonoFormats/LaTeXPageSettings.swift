@@ -2,42 +2,99 @@ import Foundation
 
 /// The document's intended measure is independent of the stock and printable area chosen in Surimono.
 struct LaTeXPageSettings {
-    // A missing paper option in the standard classes means US Letter, independently of the app stock.
-    private var stock = (width: 215.9, height: 279.4)
+    private var stock: (width: Double, height: Double)?
+    private var paperWidth: Double?
+    private var paperHeight: Double?
     private var landscape = false
+    private var twoSided: Bool?
     private var usesGeometry = false
-    private var left: Double?
-    private var right: Double?
-    private var assignedWidth: Double?
-    private var width: Double?
-    private var scale = 0.7
+    private var horizontal = Axis()
+    private var vertical = Axis()
+    private var includeHead = false
+    private var includeFoot = false
+    private var heightIsText = false
+    private var geometryHeadHeight: Double?
+    private var geometryHeadSep: Double?
+    private var geometryFootSkip: Double?
+    // A register assignment after geometry moves the text block without asking geometry to rebalance it.
+    private var assigned: [String: Double] = [:]
+    var extraRowHeight: String?
     private var variables: [String: String] = [:]
     var fonts = LaTeXFontSettings()
     var columnTypes: [Character: String] = [:]
     var listSettings: [String: [String: String]] = [:]
 
-    var styleVariables: String {
+    private struct Axis {
+        var start: Double?
+        var end: Double?
+        var body: Double?
+        var scale: Double?
+        var centered = false
+
+        func resolve(stock: Double, startFraction: Double, addedToBody: Double = 0) -> (start: Double, body: Double) {
+            let fraction = centered ? 0.5 : startFraction
+            if let start, let end { return (start, stock - start - end) }
+            if body == nil, scale == nil {
+                // With a single margin and no explicit body, geometry uses the leading share of
+                // the default 30% spare space for its partner, even when the missing side is last.
+                let partner = stock * 0.3 * fraction
+                if let start { return (start, stock - start - (centered ? start : partner)) }
+                if let end {
+                    let leading = centered ? end : partner
+                    return (leading, stock - leading - end)
+                }
+            }
+            let measure = body.map { $0 + addedToBody } ?? stock * (scale ?? 0.7)
+            let spare = stock - measure
+            return (start ?? end.map { spare - $0 } ?? spare * fraction, measure)
+        }
+    }
+
+    func pageBox(for info: LaTeXDocumentClassInfo) -> LaTeXPageBox {
+        let stock = self.stock ?? (info.isJapanese ? (210.0, 297.0) : (215.9, 279.4))
+        let texPointsPerMM = 72.27 / 25.4
+        let paperW = (paperWidth ?? (landscape ? stock.1 : stock.0)) * texPointsPerMM
+        let paperH = (paperHeight ?? (landscape ? stock.0 : stock.1)) * texPointsPerMM
+        let twoSided = self.twoSided ?? (info.name == "book" || info.name == "jsbook" || info.name == "ltjsbook")
+        var box = LaTeXClassBox.defaults(
+            className: info.name, size: info.pointSize, paperWidth: paperW, paperHeight: paperH, twoSided: twoSided)
+        if usesGeometry {
+            let h = horizontal.resolve(stock: paperW, startFraction: twoSided ? 0.4 : 0.5)
+            box.left = h.start
+            box.width = h.body
+            box.headHeight = geometryHeadHeight ?? box.headHeight
+            box.headSep = geometryHeadSep ?? box.headSep
+            box.footSkip = geometryFootSkip ?? box.footSkip
+            let above = includeHead ? box.headHeight + box.headSep : 0
+            let below = includeFoot ? box.footSkip : 0
+            let v = vertical.resolve(stock: paperH, startFraction: 0.4, addedToBody: heightIsText ? above + below : 0)
+            box.top = v.start + above
+            box.height = v.body - above - below
+        }
+        let headHeight = assigned["headheight"] ?? box.headHeight
+        let headSep = assigned["headsep"] ?? box.headSep
+        let topMargin = assigned["topmargin"] ?? (box.top - 72.27 - box.headHeight - box.headSep)
+        let top = 72.27 + topMargin + headHeight + headSep
+        let left = assigned["oddsidemargin"].map { 72.27 + $0 } ?? box.left
+        let bp = 72 / 72.27
+        return LaTeXPageBox(
+            paperWidth: paperW * bp, paperHeight: paperH * bp, left: left * bp,
+            right: (paperW - left - (assigned["textwidth"] ?? box.width)) * bp, top: top * bp,
+            bottom: (paperH - top - (assigned["textheight"] ?? box.height)) * bp,
+            headSep: headSep * bp, footSkip: (assigned["footskip"] ?? box.footSkip) * bp, mirrorsSides: twoSided)
+    }
+
+    func styleVariables(for box: LaTeXPageBox) -> String {
         var values = variables.merging(fonts.roleVariables) { _, font in font }
-        let paper = landscape ? stock.height : stock.width
-        let geometryWidth: Double?
-        if !usesGeometry {
-            geometryWidth = nil
-        } else if let left, let right {
-            // Geometry gives a fully specified margin pair priority over its body width.
-            geometryWidth = paper - left - right
-        } else if let width {
-            geometryWidth = width
-        } else if let margin = left ?? right, scale == 0.7 {
-            // The unspecified side retains half the margin left by geometry's default 0.7 body.
-            geometryWidth = paper * 0.85 - margin
-        } else {
-            geometryWidth = paper * scale
+        let measure = box.textWidth
+        if measure > 0 {
+            values["text-width"] = Self.number(measure * 25.4 / 72) + "mm"
+            values["text-width-tex-pt"] = Self.number(measure * 72.27 / 72)
         }
-        let measure = assignedWidth ?? geometryWidth
-        if let measure, measure.isFinite, measure > 0 {
-            values["text-width"] = Self.number(measure) + "mm"
-            values["text-width-tex-pt"] = Self.number(measure * 72.27 / 25.4)
+        for (edge, value) in [("left", box.left), ("right", box.right), ("top", box.top), ("bottom", box.bottom)] {
+            values["margin-" + edge] = Self.number(value) + "pt"
         }
+        values["foot-skip"] = Self.number(box.footSkip) + "pt"
         return Self.cssVariables(values)
     }
 
@@ -71,17 +128,29 @@ struct LaTeXPageSettings {
         "letterpaper": (215.9, 279.4), "legalpaper": (215.9, 355.6), "executivepaper": (184.15, 266.7),
     ]
 
-    mutating func readOptions(_ raw: String, geometry: Bool) {
+    mutating func readOptions(_ raw: String, geometry: Bool, japaneseStock: Bool = false) {
         if geometry {
             usesGeometry = true
-            assignedWidth = nil
+            geometryHeadHeight = assigned["headheight"] ?? geometryHeadHeight
+            geometryHeadSep = assigned["headsep"] ?? geometryHeadSep
+            geometryFootSkip = assigned["footskip"] ?? geometryFootSkip
+            assigned.removeAll()
         }
         for (key, value) in Self.options(raw) {
-            if let size = Self.paperSizes[key] {
-                stock = size
+            let stockKey =
+                key == "paper" && japaneseStock ? value.replacingOccurrences(of: "paper", with: "") + "paper" : key
+            if let size = Self.paperSizes[stockKey] {
+                let jis: [String: (Double, Double)] = [
+                    "b4paper": (257, 364), "b5paper": (182, 257), "b6paper": (128, 182),
+                ]
+                stock = japaneseStock ? (jis[stockKey] ?? size) : size
+                paperWidth = nil
+                paperHeight = nil
                 continue
             }
             switch key {
+            case "twoside": twoSided = value != "false"
+            case "oneside": twoSided = value == "false"
             case "landscape": landscape = value != "false"
             case "portrait": landscape = value == "false"
             case "parskip" where !geometry:
@@ -100,31 +169,71 @@ struct LaTeXPageSettings {
 
     private mutating func geometryOption(_ key: String, _ value: String) {
         let pair = value.split(separator: ",", maxSplits: 1).map { String($0) }
-        let first = pair.first.flatMap(Self.millimetres)
+        let first = pair.first.flatMap(Self.texPoints)
+        let second = pair.count == 2 ? Self.texPoints(pair[1]) : first
         switch key {
         case "margin":
-            // geometry's margin={h,v} is one horizontal margin for both sides.
             if let first {
-                left = first
-                right = first
+                horizontal.start = first
+                horizontal.end = first
+            }
+            if let second {
+                vertical.start = second
+                vertical.end = second
             }
         case "hmargin":
             if let first {
-                left = first
-                right = pair.count == 2 ? Self.millimetres(pair[1]) : first
+                horizontal.start = first
+                horizontal.end = second
             }
-        case "left", "inner", "lmargin", "innermargin": if let first { left = first }
-        case "right", "outer", "rmargin", "outermargin": if let first { right = first }
-        case "textwidth", "width", "total", "body":
-            if let first, first > 0 { width = first }
-        case "scale", "hscale":
-            if let raw = pair.first, let factor = Double(raw), factor.isFinite, factor > 0, factor <= 1 {
-                scale = factor
+        case "vmargin":
+            if let first {
+                vertical.start = first
+                vertical.end = second
             }
+        case "left", "inner", "lmargin", "innermargin": if let first { horizontal.start = first }
+        case "right", "outer", "rmargin", "outermargin": if let first { horizontal.end = first }
+        case "top", "tmargin": if let first { vertical.start = first }
+        case "bottom", "bmargin": if let first { vertical.end = first }
+        case "textwidth", "width", "totalwidth", "total", "body":
+            if let first, first > 0 { horizontal.body = first }
+            if ["total", "body"].contains(key), pair.count == 2, let second, second > 0 {
+                vertical.body = second
+                heightIsText = false
+            }
+        case "textheight", "height", "totalheight":
+            if let first, first > 0 {
+                vertical.body = first
+                heightIsText = key == "textheight"
+            }
+        case "scale", "hscale", "vscale":
+            func factor(_ value: String?) -> Double? {
+                guard let value, let factor = Double(value), factor > 0, factor <= 1 else { return nil }
+                return factor
+            }
+            if key != "vscale", let scale = factor(pair.first) { horizontal.scale = scale }
+            if key != "hscale", let scale = factor(pair.last) { vertical.scale = scale }
+        case "centering", "hcentering", "vcentering":
+            if key != "vcentering" { horizontal.centered = value != "false" }
+            if key != "hcentering" { vertical.centered = value != "false" }
+        case "includehead", "includefoot", "includeheadfoot":
+            if key != "includefoot" { includeHead = value != "false" }
+            if key != "includehead" { includeFoot = value != "false" }
+        case "headheight": if let first { geometryHeadHeight = first }
+        case "headsep": if let first { geometryHeadSep = first }
+        case "footskip": if let first { geometryFootSkip = first }
+        case "paperwidth", "paperheight": readLength(key, value)
         case "paper", "papername":
             if let size = Self.paperSizes[value] { stock = size }
         default: break
         }
+    }
+
+    var columnGap: Double?
+    var columnRule = 0.0
+
+    private static func texPoints(_ source: String) -> Double? {
+        millimetres(source).map { $0 * (72.27 / 25.4) }
     }
 
     static func millimetres(_ source: String) -> Double? {
@@ -140,15 +249,27 @@ struct LaTeXPageSettings {
         return value * factor
     }
 
-    mutating func readLength(_ name: String, _ value: String) {
+    mutating func readLength(_ name: String, _ value: String, pointSize: Int = 10) {
         switch name {
-        case "textwidth":
-            if let length = Self.millimetres(value), length > 0 { assignedWidth = length }
+        case "extrarowheight": extraRowHeight = LaTeXSymbols.printLength(value)
+        case "columnsep", "columnseprule":
+            let fontScale = value.hasSuffix("em") ? 1.0 : value.hasSuffix("ex") ? 0.43 : nil
+            let relative = fontScale.flatMap { scale in Double(value.dropLast(2)).map { $0 * Double(pointSize) * scale }
+            }
+            if let length = Self.texPoints(value) ?? relative, length.isFinite, (0..<100_000).contains(length) {
+                if name == "columnsep" { columnGap = length } else { columnRule = length }
+            }
+        case "textwidth", "textheight":
+            if let length = Self.texPoints(value), length > 0 { assigned[name] = length }
+        case "oddsidemargin", "topmargin", "headheight", "headsep", "footskip":
+            if let length = Self.texPoints(value) { assigned[name] = length }
+        case "paperwidth":
+            if let length = Self.millimetres(value), length > 0 { paperWidth = length }
+        case "paperheight":
+            if let length = Self.millimetres(value), length > 0 { paperHeight = length }
         case "parskip", "parindent":
             if let length = Self.paragraphLength(value) { variables[name] = length }
-        default:
-            // Side and top offsets position an existing text block in TeX; they do not change its width.
-            break
+        default: break
         }
     }
 
@@ -188,7 +309,7 @@ struct LaTeXPageSettings {
             readOptions("margin=\(margin)mm", geometry: true)
         case "a4wide":
             let inches = pointSize == 10 ? 5.875 : pointSize == 11 ? 6.125 : 6.375
-            assignedWidth = inches * 25.4
+            assigned["textwidth"] = inches * 72.27
         case "parskip":
             variables["parindent"] = "0pt"
             variables["parskip"] = "0.5lh"
@@ -241,19 +362,33 @@ extension LaTeXReader {
     }
 
     func readPageSetting(_ name: String) -> Bool {
+        let previousGap = document.pageSettings.columnGap
+        let previousRule = document.pageSettings.columnRule
+        defer {
+            if !inPreamble
+                && (previousGap != document.pageSettings.columnGap || previousRule != document.pageSettings.columnRule)
+            {
+                appendBlock("<template data-latex-spacing \(document.columnSpacing)></template>\n")
+            }
+        }
         switch name {
         case "geometry": document.pageSettings.readOptions(argument() ?? "", geometry: true)
         case "setlength":
             let register = argument() ?? ""
             let value = evaluatedLength(argument() ?? "")
-            if register.hasPrefix("\\") { document.pageSettings.readLength(String(register.dropFirst()), value) }
-        case "parindent", "parskip", "textwidth", "oddsidemargin", "evensidemargin", "topmargin", "textheight",
-            "XeTeXlinebreakskip", "emergencystretch":
+            if register.hasPrefix("\\") {
+                document.pageSettings.readLength(
+                    String(register.dropFirst()), value, pointSize: document.classInfo.pointSize)
+            }
+        case "extrarowheight", "columnsep", "columnseprule", "parindent", "parskip", "textwidth", "oddsidemargin",
+            "evensidemargin",
+            "topmargin", "textheight",
+            "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip", "emergencystretch":
             let unit = #"(?:pt|pc|bp|mm|cm|in|em|ex|fil{1,3}|\\baselineskip)"#
             let dimension = #"[+-]?(?:\d+(?:\.\d*)?|\.\d+)?[ \t]*"# + unit
             let value = assignment(
                 #"[ \t]*=?[ \t]*"# + dimension + #"(?:[ \t]+(?:plus|minus)[ \t]*"# + dimension + ")*")
-            document.pageSettings.readLength(name, value)
+            document.pageSettings.readLength(name, value, pointSize: document.classInfo.pointSize)
         case "hyphenpenalty", "widowpenalty", "clubpenalty":
             _ = assignment(#"[ \t]*=?[ \t]*[+-]?\d+"#)
         case "XeTeXlinebreaklocale":
@@ -286,5 +421,20 @@ extension LaTeXReader {
         default: return false
         }
         return true
+    }
+}
+
+extension LaTeXDocument {
+    var columnSpacing: String {
+        let gap = pageSettings.columnGap.map { "data-latex-gap=\"\(LaTeXPageSettings.number($0))\" " } ?? ""
+        return gap + "data-latex-rule=\"\(LaTeXPageSettings.number(pageSettings.columnRule))\""
+    }
+
+    func columnAttributes(_ columns: Int) -> String {
+        "data-latex-columns=\"\(columns)\" \(columnSpacing)"
+    }
+
+    func columnMarker(_ columns: Int) -> String {
+        "<template \(columnAttributes(columns))></template>\n"
     }
 }

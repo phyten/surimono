@@ -302,6 +302,7 @@ public struct PDFComposer: Sendable {
 /// The header and footer the sheets draw on one logical page, and the margins they stand in, measured on a page of
 /// `pageSize` as the page lies on its sheet.
 public struct FurniturePlacement: Equatable, Sendable {
+    public var latexFooter: PageFurniture.LaTeXFooter? = nil
     public let lines: PageFurniture.Lines
     public let margins: WebPaginator.Margins
     public let pageSize: CGSize
@@ -323,7 +324,7 @@ extension PDFComposer {
         let margins = WebPaginator.Margins(layout.logicalMargins(options: options))
         let verso = layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: position)
         return FurniturePlacement(
-            lines: lines, margins: verso ? margins.mirrored : margins,
+            latexFooter: context.latexFooter, lines: lines, margins: verso ? margins.mirrored : margins,
             pageSize: layout.logicalPageSize(options: options))
     }
 
@@ -349,6 +350,7 @@ extension PDFComposer {
             placement.lines, in: logicalRect,
             margins: WebPaginator.Margins(
                 top: margins.top * scale, left: margins.left * scale, bottom: margins.bottom * scale,
-                right: margins.right * scale), scale: scale, asOutlines: asOutlines, context: context)
+                right: margins.right * scale), scale: scale, latexFooter: placement.latexFooter, asOutlines: asOutlines,
+            context: context)
     }
 }

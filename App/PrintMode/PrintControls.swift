@@ -220,7 +220,7 @@ struct PrintRadioList<Value: Hashable>: View {
     }
 }
 
-private struct PrintRadioRow: View {
+struct PrintRadioRow: View {
     let title: LocalizedStringKey
     let isOn: Bool
     let action: () -> Void

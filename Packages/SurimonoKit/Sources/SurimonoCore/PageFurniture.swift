@@ -101,6 +101,20 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         }
     }
 
+    public struct LaTeXFooter: Equatable, Sendable {
+        public var fontName: String?
+        public var pointSize: Double
+        public var headSep: Double
+        public var footSkip: Double
+
+        public init(fontName: String?, pointSize: Double, footSkip: Double, headSep: Double = 25) {
+            self.headSep = headSep
+            self.fontName = fontName
+            self.pointSize = pointSize
+            self.footSkip = footSkip
+        }
+    }
+
     /// What the variables stand for in one document.
     public struct Context: Equatable, Sendable {
         public var fileName: String
@@ -110,6 +124,9 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         /// Logical pages that were added as blanks and stay empty.
         public var blankPages: Set<Int>
         public var chapters: [String]
+        public var pageLabels: [Int: String] = [:]
+        public var documentLines: [Int: Lines] = [:]
+        public var latexFooter: LaTeXFooter?
 
         public init(
             fileName: String = "", title: String = "", date: String = "", blankPages: Set<Int> = [],
@@ -149,13 +166,15 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         position: Int? = nil
     ) -> Lines? {
         guard !isEmpty, !context.blankPages.contains(index), !(skipsFirstPage && index == 0) else { return nil }
+        if let lines = context.documentLines[index] { return lines }
         func filled(_ text: String) -> String {
             guard text.contains("{") else { return text }
             let chapter = context.chapters.indices.contains(index) ? context.chapters[index] : ""
             let result = [
                 (Variable.chapter, chapter),
                 (Variable.fileName, context.fileName), (Variable.title, context.title), (Variable.date, context.date),
-                (Variable.page, String(index + 1)), (Variable.pageCount, String(pageCount)),
+                (Variable.page, context.pageLabels[index] ?? String(index + 1)),
+                (Variable.pageCount, String(pageCount)),
             ].reduce(text) { $0.replacingOccurrences(of: $1.0.rawValue, with: $1.1) }
             if text.contains(Variable.chapter.rawValue), chapter.isEmpty,
                 result.trimmingCharacters(

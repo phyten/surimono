@@ -266,7 +266,7 @@ struct PrintFinishSheet: View {
     private var furnitureDetails: some View {
         VStack(alignment: .leading, spacing: 0) {
             let choice = model.furnitureChoice
-            if choice == .custom {
+            if choice == .custom && !model.usesDocumentFurniture {
                 slotFields([.topLeft, .topCenter, .topRight]).padding(.top, 10)
                 Text("Text")
                     .font(.system(size: 11))
@@ -289,7 +289,7 @@ struct PrintFinishSheet: View {
                     chip("Total Pages", .pageCount)
                 }
             }
-            if choice == .custom || choice == .nameAndDate {
+            if !model.usesDocumentFurniture && (choice == .custom || choice == .nameAndDate) {
                 subheading("Date Format")
                 HStack(spacing: 8) {
                     Picker("Date Format", selection: dateChoice) {
@@ -304,7 +304,7 @@ struct PrintFinishSheet: View {
                     PrintTextField(title: "Date Format", text: $model.printOptions.furniture.dateFormat)
                 }
             }
-            if choice != .none {
+            if choice != .none && !model.usesDocumentFurniture {
                 switchRow("Leave Out of the First Page", isOn: $model.printOptions.furniture.skipsFirstPage)
                     .padding(.top, 8)
                 switchRow("Swap Left and Right on Spreads", isOn: $model.printOptions.furniture.swapsOnSpreads)
@@ -561,30 +561,39 @@ struct PrintMarginEditor: View {
                 .foregroundStyle(PrintPalette.ink2)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.bottom, 5)
-            Grid(horizontalSpacing: 6, verticalSpacing: 6) {
-                GridRow {
-                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
-                    field("Top", \.top)
-                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
-                }
-                GridRow {
-                    field(mirrors ? "Inside" : "Left", \.left)
-                    paper
-                    field(mirrors ? "Outside" : "Right", \.right)
-                }
-                GridRow {
-                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
-                    field("Bottom", \.bottom)
-                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
-                }
+            if model.themeFormat == .latex {
+                toggle(
+                    "As the Document",
+                    isOn: Binding(
+                        get: { model.usesDocumentMargins },
+                        set: { model.printOptions.latexMargins = $0 ? .document : nil }))
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 8)
-            toggle(
-                "Keep All Four Sides Even",
-                isOn: Binding(get: { model.printOptions.linksMargins }, set: { model.setMarginsLinked($0) }))
-            if model.layout.hasFacingPages, model.binder == nil {
-                toggle("Treat Left and Right as Inside and Outside", isOn: $model.printOptions.mirrorsMargins)
+            if !model.usesDocumentMargins {
+                Grid(horizontalSpacing: 6, verticalSpacing: 6) {
+                    GridRow {
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                        field("Top", \.top)
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                    }
+                    GridRow {
+                        field(mirrors ? "Inside" : "Left", \.left)
+                        paper
+                        field(mirrors ? "Outside" : "Right", \.right)
+                    }
+                    GridRow {
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                        field("Bottom", \.bottom)
+                        Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 8)
+                toggle(
+                    "Keep All Four Sides Even",
+                    isOn: Binding(get: { model.printOptions.linksMargins }, set: { model.setMarginsLinked($0) }))
+                if model.layout.hasFacingPages, model.binder == nil {
+                    toggle("Treat Left and Right as Inside and Outside", isOn: $model.printOptions.mirrorsMargins)
+                }
             }
             Text("PDFs keep their own margins.")
                 .font(.system(size: 11))

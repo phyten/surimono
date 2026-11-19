@@ -22,6 +22,22 @@ struct PrintSettingSetTests {
         #expect(set.keeping([]).parts.isEmpty)
     }
 
+    @Test("文書の組版を使うセットは同じ数値を手で指定した設定と区別し、他形式では数値を使う")
+    func latexPageModes() throws {
+        var options = PrintOptions()
+        options.latexMargins = .style
+        options.latexFurniture = .document
+        let saved = DocumentSettings(printOptions: options)
+        let set = PrintSettingSet(name: "Original", settings: saved)
+        #expect(try JSONDecoder().decode(PrintSettingSet.self, from: JSONEncoder().encode(set)) == set)
+        let manual = DocumentSettings(printOptions: PrintOptions())
+        #expect(!set.keeping([.margins]).matches(manual))
+        #expect(!set.keeping([.furniture]).matches(manual))
+        #expect(set.keeping([.margins]).matches(saved))
+        #expect(set.applicable(to: .markdown, themeIDs: [], presetIDs: []).matches(manual))
+        #expect(set.applicable(to: [.latex, .org], themeIDs: [], presetIDs: []).matches(manual))
+    }
+
     @Test("部分は単独の項目からも判定され除外した項目は一致判定に含めない")
     func partialFields() {
         var set = PrintSettingSet(name: "Partial", settings: DocumentSettings(textScale: 1.25))

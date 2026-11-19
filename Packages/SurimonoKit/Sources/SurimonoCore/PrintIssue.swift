@@ -7,6 +7,9 @@ public struct PrintIssue: Codable, Sendable, Equatable, Identifiable {
     public enum ImageFailure: String, Codable, Sendable { case missing, folderAccess, other }
     public enum Element: String, Codable, Sendable { case table, image, figure, code, math }
 
+    public static let unresolvedLaTeXPages = PrintIssue(
+        id: "latex-page-references", kind: .latex, detail: "Some LaTeX page numbers could not be determined.")
+
     public let id: String
     /// Identifies the source occurrence across layouts, before display names and excerpts are shortened.
     public let locationKey: String?

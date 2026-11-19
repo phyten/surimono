@@ -6,7 +6,7 @@ import SurimonoCore
 @MainActor
 enum DiagramGeometry {
     static func hasBlocks(in html: String) -> Bool {
-        ["mermaid-block", "graphviz-block", "plantuml-block"].contains { html.contains($0) }
+        ["mermaid-block", "graphviz-block", "plantuml-block", "class=\"tikz-block\""].contains { html.contains($0) }
     }
 
     /// PaperComposer draws the source crop box at the origin of a new page.
@@ -62,7 +62,7 @@ enum DiagramGeometry {
         """
         const rendered = globalThis.surimonoRenderedDiagrams;
         if (!rendered) return '[]';
-        const diagrams = [...document.querySelectorAll('.mermaid-block > svg,.graphviz-block > svg,.plantuml-block > svg')]
+        const diagrams = [...document.querySelectorAll('.mermaid-block > svg,.graphviz-block > svg,.plantuml-block > svg,.tikz-block > svg')]
           .filter(svg => rendered.has(svg));
         if (!diagrams.length) return '[]';
         const root = document.documentElement;

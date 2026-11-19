@@ -1,6 +1,7 @@
 import AppKit
 import PDFKit
 import SurimonoCore
+import SurimonoFormats
 import UniformTypeIdentifiers
 import WebKit
 
@@ -112,7 +113,7 @@ public final class WebPaginator: NSObject {
         else { throw PaginationError.emptyDocument }
         let image = Data(diagram.svg.utf8).base64EncodedString()
         let html = """
-            <!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+            <!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'">
             <style>*{margin:0}body{background:white}img{display:block;width:\(size.width)px;height:\(size.height)px}</style>
             <img src="data:image/svg+xml;base64,\(image)">
             """
@@ -155,11 +156,16 @@ public final class WebPaginator: NSObject {
         drawsBackground: Bool = true, rendersMermaid: Bool = false, rendersDiagrams: Bool = false,
         collectsDiagrams: Bool = false, exportHTMLTitle: String? = nil, richText: Bool = false,
         richTextTypeface: Typeface = .style,
+        latexPageNumbers: LaTeXPageNumbers? = nil, restartsAfterTitle: Bool = false,
+        latexFlow: Bool = false, latexMarginInk: Bool = false, checksVerticalLaTeXInk: Bool = false,
         flow: PrintFlow = .horizontal, timeout: Duration? = nil
     ) async throws -> Result {
         let bytes: Int
+        var nativeLaTeXBreaks = false
         switch source {
-        case .html(let html, _), .snapshot(let html, _), .sandboxed(.some(let html), _): bytes = html.utf8.count
+        case .html(let html, _), .snapshot(let html, _), .sandboxed(.some(let html), _):
+            bytes = html.utf8.count
+            nativeLaTeXBreaks = !latexFlow && html.contains("class=\"latex-pagebreak\"")
         case .file(let url, _): bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         case .sandboxed(nil, let access):
             bytes = (try? access.documentURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -233,9 +239,25 @@ public final class WebPaginator: NSObject {
             : []
         let preparationResult: String?
         if let preparationScript, !preparationScript.isEmpty {
+            if checksVerticalLaTeXInk || latexFlow {
+                _ = try await runPreparationScript(
+                    "globalThis.surimonoDefersMarks = true", in: session.webView, timeout: timeout)
+            }
             preparationResult = try await runPreparationScript(preparationScript, in: session.webView, timeout: timeout)
         } else {
             preparationResult = nil
+        }
+        var capturesLaTeXFlow = latexFlow
+        if checksVerticalLaTeXInk || latexFlow {
+            let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
+            if try await LaTeXFlowPaginator.markVerticalInk(in: session.webView, width: width) {
+                capturesLaTeXFlow = true
+            }
+        }
+        if checksVerticalLaTeXInk && !capturesLaTeXFlow && preparationScript != nil {
+            _ = try await runPreparationScript(
+                "globalThis.surimonoFlowMarks?.(); delete globalThis.surimonoFlowMarks; delete globalThis.surimonoDefersMarks;",
+                in: session.webView, timeout: timeout)
         }
         try Task.checkCancellation()
         if let exportHTMLTitle {
@@ -309,39 +331,152 @@ public final class WebPaginator: NSObject {
         didCheckPageRules?(mayDrawBelowPaper)
         let adjusted = try await Self.useHorizontalRootForOutput(in: session.webView)
         try Task.checkCancellation()
-        let pageData = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
-        guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
-        if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
-        var result = Result(
-            document: document,
-            preparationResult: preparationResult, pageRules: pageRules,
-            requiredFolderAccess: session.localHandler?.requiredFolderAccess)
-        result.drawingBytes = pageData
-        if adjusted { result.issues = [Self.verticalWritingIssue] }
-        if collectsDiagrams {
-            // Keep the finished PDF untouched even if measurement fails or a theme styles the extra anchors.
-            do {
-                let token = UUID().uuidString
-                let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
-                let webView = session.webView
-                let previousMedia = webView.mediaType
-                webView.mediaType = "print"
-                defer { webView.mediaType = previousMedia }
-                if let json = try await runPreparationScript(
-                    DiagramGeometry.anchors(printWidth: width, token: token), in: webView, timeout: timeout),
-                    let sources = try? JSONDecoder().decode([DiagramGeometry.Source].self, from: Data(json.utf8)),
-                    !sources.isEmpty
-                {
-                    let geometryData = try await session.printToPDF(checkingBelowPaper: mayDrawBelowPaper)
-                    if let geometry = PDFDocument(data: geometryData), geometry.pageCount == document.pageCount {
-                        result.diagramPass = .init(document: geometry, sources: sources, token: token)
-                    }
-                }
-            } catch {
-                try Task.checkCancellation()
+        func pageDataForPass() async throws -> Data {
+            guard capturesLaTeXFlow else {
+                return try await session.printToPDF(
+                    checkingBelowPaper: mayDrawBelowPaper, latexMarginInk: latexMarginInk)
             }
+            let pass = try await LaTeXFlowPaginator.paginate(
+                in: session.webView, pageSize: pageSize, margins: margins, timeout: printTimeout)
+            guard let data = pass.document?.dataRepresentation() else { throw PaginationError.emptyDocument }
+            return data
         }
-        return result
+        func printHorizontal() async throws -> Result {
+            var texPages: [LaTeXPageReferences.Page] = []
+            var incompleteReferences = false
+            if nativeLaTeXBreaks && !capturesLaTeXFlow {
+                let media = session.webView.mediaType
+                session.webView.mediaType = "print"
+                defer { session.webView.mediaType = media }
+                _ = try await runPreparationScript(
+                    LaTeXPageReferences.coalesceNativeBreaks, in: session.webView, timeout: timeout)
+            }
+            if let latexPageNumbers {
+                do {
+                    let token = UUID().uuidString
+                    let webView = session.webView
+                    let json = try await runPreparationScript(
+                        LaTeXPageReferences.install(
+                            token: token, runningMarks: latexPageNumbers.needsRunningMarks,
+                            classPlain: latexPageNumbers.usesClassPlain,
+                            nativePrint: !capturesLaTeXFlow),
+                        in: webView, timeout: timeout)
+                    let installation = json.flatMap {
+                        try? JSONDecoder().decode(LaTeXPageReferences.Installation.self, from: Data($0.utf8))
+                    }
+                    guard let installation else { throw PaginationError.printFailed }
+                    incompleteReferences = installation.missing != 0
+                    let targets = installation.targets
+                    if !targets.isEmpty {
+                        var previous: [String: String] = [:]
+                        // Filling a reference can rewrap a line. Measure at most twice, always delivering a clean final PDF.
+                        for _ in 0..<2 {
+                            let locations: [Int: Int]
+                            let count: Int
+                            if capturesLaTeXFlow {
+                                let pass = try await LaTeXFlowPaginator.paginate(
+                                    in: webView, pageSize: pageSize,
+                                    margins: margins, timeout: printTimeout, referencesOnly: true)
+                                locations = pass.locations
+                                count = pass.pageCount
+                            } else {
+                                let data = try await pageDataForPass()
+                                guard let measured = PDFDocument(data: data) else {
+                                    throw PaginationError.emptyDocument
+                                }
+                                locations = LaTeXPageReferences.locations(
+                                    in: measured, token: token, count: targets.count)
+                                count = measured.pageCount
+                            }
+                            incompleteReferences =
+                                installation.missing != 0 || targets.indices.contains { locations[$0] == nil }
+                            let map = LaTeXPageReferences.map(
+                                latexPageNumbers, targets: targets,
+                                locations: locations, pageCount: count, restartsAfterTitle: restartsAfterTitle)
+                            texPages = map.pages
+                            if map.references == previous { break }
+                            previous = map.references
+                            let layout = try await runPreparationScript(
+                                try LaTeXPageReferences.fill(previous), in: webView, timeout: timeout)
+                            guard layout != nil else { throw PaginationError.printFailed }
+                            if layout == "stable" && !capturesLaTeXFlow { break }
+                        }
+                    }
+                    guard
+                        try await runPreparationScript(LaTeXPageReferences.removeProbes, in: webView, timeout: timeout)
+                            == "clean"
+                    else { throw PaginationError.printFailed }
+                } catch {
+                    try Task.checkCancellation()
+                    if error is CancellationError { throw error }
+                    throw LaTeXPageReferences.MeasurementFailed()
+                }
+            }
+            let pageData = try await pageDataForPass()
+            guard let document = PDFDocument(data: pageData) else { throw PaginationError.emptyDocument }
+            if session.localHandler != nil { LocalResourceSchemeHandler.restoreFileLinks(in: document) }
+            var result = Result(
+                document: document,
+                preparationResult: preparationResult, pageRules: pageRules,
+                requiredFolderAccess: session.localHandler?.requiredFolderAccess)
+            result.finishing.latexPages = texPages
+            result.drawingBytes = pageData
+            if adjusted { result.issues = [Self.verticalWritingIssue] }
+            if incompleteReferences { result.issues.append(.unresolvedLaTeXPages) }
+            if collectsDiagrams {
+                // Keep the finished PDF untouched even if measurement fails or a theme styles the extra anchors.
+                do {
+                    let token = UUID().uuidString
+                    let width = (pageSize.width - margins.left - margins.right) * Self.printPixelsPerPoint
+                    let webView = session.webView
+                    let previousMedia = webView.mediaType
+                    webView.mediaType = "print"
+                    defer { webView.mediaType = previousMedia }
+                    if let json = try await runPreparationScript(
+                        DiagramGeometry.anchors(printWidth: width, token: token), in: webView, timeout: timeout),
+                        let sources = try? JSONDecoder().decode([DiagramGeometry.Source].self, from: Data(json.utf8)),
+                        !sources.isEmpty
+                    {
+                        let geometryData = try await pageDataForPass()
+                        if let geometry = PDFDocument(data: geometryData), geometry.pageCount == document.pageCount {
+                            result.diagramPass = .init(document: geometry, sources: sources, token: token)
+                        }
+                    }
+                } catch {
+                    try Task.checkCancellation()
+                }
+            }
+            return result
+        }
+        do {
+            return try await printHorizontal()
+        } catch {
+            try Task.checkCancellation()
+            if error is CancellationError { throw error }
+            let lostReferences = error is LaTeXPageReferences.MeasurementFailed
+            guard capturesLaTeXFlow || lostReferences else { throw error }
+            // Discard this DOM even after a timeout: a late WebKit callback may still hold its measurement tree.
+            session.requestClose()
+            let cleanPreparation =
+                lostReferences
+                ? "{\n" + LaTeXPageReferences.prepareFields + "\n}\n" + (preparationScript ?? "") : preparationScript
+            var fallback = try await paginateWithResult(
+                source, pageSize: pageSize, margins: margins,
+                allowsJavaScript: allowsJavaScript, printsBackgrounds: printsBackgrounds,
+                preparationScript: cleanPreparation,
+                readsPageRules: readsPageRules, drawsBackground: drawsBackground, rendersMermaid: rendersMermaid,
+                rendersDiagrams: rendersDiagrams, collectsDiagrams: collectsDiagrams,
+                latexPageNumbers: lostReferences ? nil : latexPageNumbers,
+                restartsAfterTitle: restartsAfterTitle, latexMarginInk: latexMarginInk, timeout: timeout)
+            if lostReferences { fallback.issues.append(.unresolvedLaTeXPages) }
+            if capturesLaTeXFlow {
+                fallback.issues.append(
+                    PrintIssue(
+                        id: "latex-flow-fallback", kind: .latex,
+                        detail: "LaTeX page layout could not be completed. Printed in one column with endnotes."))
+            }
+            return fallback
+        }
     }
 
     private static let verticalWritingIssue = PrintIssue(id: "vertical-writing", kind: .verticalWriting, detail: "")
@@ -689,7 +824,7 @@ private final class PaginationSession {
 
     /// - Parameter checkingBelowPaper: Whether the document may draw below the paper, so that the pages are cut back
     ///   to the paper only after finding nothing there.
-    func printToPDF(checkingBelowPaper: Bool) async throws -> Data {
+    func printToPDF(checkingBelowPaper: Bool, latexMarginInk: Bool = false) async throws -> Data {
         let outputURL = temporaryURL(extension: "pdf")
         let printInfo = NSPrintInfo()
         printInfo.paperSize = CGSize(width: pageSize.width, height: pageSize.height + Self.pageHeightAllowance)
@@ -698,6 +833,28 @@ private final class PaginationSession {
         // The allowance goes into the bottom margin, so a document laid out with these margins keeps its height.
         printInfo.bottomMargin = margins.bottom + Self.pageHeightAllowance
         printInfo.rightMargin = margins.right
+        if latexMarginInk {
+            // NSPrintOperation clips to the printable width before Quartz sees the page. Give the root
+            // the horizontal white space instead, so a number outside its pre or a frame on the last
+            // fractional pixel can still paint. The text keeps exactly the same physical measure.
+            _ = try await webView.callAsyncJavaScript(
+                """
+                if (globalThis.surimonoMarginInk) globalThis.surimonoMarginInk.remove();
+                const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+                const style = document.createElement('style');
+                style.textContent = `@media print { html { box-sizing: border-box !important;
+                  padding-left: ${left / zoom}px !important; padding-right: ${right / zoom}px !important; } }`;
+                document.head.append(style);
+                globalThis.surimonoMarginInk = style;
+                """,
+                arguments: [
+                    "left": margins.left * WebPaginator.printPixelsPerPoint,
+                    "right": margins.right * WebPaginator.printPixelsPerPoint,
+                ],
+                in: nil, contentWorld: WebPaginator.preparationWorld)
+            printInfo.leftMargin = 0
+            printInfo.rightMargin = 0
+        }
         printInfo.horizontalPagination = .fit
         printInfo.verticalPagination = .automatic
         printInfo.isHorizontallyCentered = false
@@ -710,7 +867,9 @@ private final class PaginationSession {
         operation.showsProgressPanel = false
         // A separate print thread keeps the main run loop free for WebKit's callbacks.
         operation.canSpawnSeparateThread = true
-        operation.view?.frame = webView.bounds
+        var printBounds = webView.bounds
+        if latexMarginInk { printBounds.size.width = pageSize.width }
+        operation.view?.frame = printBounds
 
         // The completion keeps this session alive (and the session keeps the completion) until printing ends.
         let completion = PrintCompletion { [self] in printDidFinish() }
@@ -735,6 +894,11 @@ private final class PaginationSession {
         // The task may have been cancelled while the last pause was in flight.
         try Task.checkCancellation()
         guard completion.result == true else { throw WebPaginator.PaginationError.printFailed }
+        if latexMarginInk {
+            _ = try await webView.callAsyncJavaScript(
+                "globalThis.surimonoMarginInk.remove(); delete globalThis.surimonoMarginInk;",
+                arguments: [:], in: nil, contentWorld: WebPaginator.preparationWorld)
+        }
         return try await Self.cutToPaper(at: outputURL, pageSize: pageSize, checkingBelowPaper: checkingBelowPaper)
     }
 

@@ -24,7 +24,16 @@ public final class ThemeSampler {
 
     /// The logical page the samples stand for.
     public let pageSize: CGSize
-    public let margins: WebPaginator.Margins
+    public private(set) var margins: WebPaginator.Margins
+    private let numericMargins: WebPaginator.Margins
+    private var documentMargins: WebPaginator.Margins?
+    private var marginMode: LaTeXPageMode?
+    private var hasLaTeXMarginInk = false
+
+    public func margins(for theme: PrintTheme) -> WebPaginator.Margins {
+        if marginMode?.applies(to: theme) == true, let documentMargins { return documentMargins }
+        return numericMargins
+    }
     /// The area each sample covers, inside the page's margins.
     public var printableSize: CGSize {
         CGSize(
@@ -69,10 +78,19 @@ public final class ThemeSampler {
         self.baseURL = baseURL
         self.pageSize = pageSize
         self.margins = margins
+        numericMargins = margins
         self.typeface = format.usesPrintTheme ? typeface : .style
         self.textScale = textScale
         self.code = code
         self.timeout = timeout
+    }
+
+    fileprivate func configureDocumentMargins(
+        _ margins: WebPaginator.Margins?, mode: LaTeXPageMode?, hasMarginInk: Bool
+    ) {
+        documentMargins = margins
+        marginMode = mode
+        hasLaTeXMarginInk = hasMarginInk
     }
 
     private static func language(in html: String) -> String {
@@ -86,14 +104,15 @@ public final class ThemeSampler {
     // Hash the actual drawing inputs so changes to shared CSS, fonts, code options or decorations cannot reuse
     // an older specimen. Length prefixes keep adjacent fields unambiguous without persisting their contents.
     public func cacheKey(for theme: PrintTheme, language: String, sourceHash: String = "") -> String {
+        let effectiveMargins = margins(for: theme)
         let fields = [
             "theme-sample-v2", theme.id, language, sourceHash, html, format.rawValue,
             HTMLDocumentBuilder.styleSheet(
                 theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage),
             theme.script ?? "",
             String(Double(pageSize.width)), String(Double(pageSize.height)),
-            String(Double(margins.top)), String(Double(margins.left)),
-            String(Double(margins.bottom)), String(Double(margins.right)),
+            String(Double(effectiveMargins.top)), String(Double(effectiveMargins.left)),
+            String(Double(effectiveMargins.bottom)), String(Double(effectiveMargins.right)),
         ]
         let encoded = fields.map { "\($0.utf8.count):\($0)" }.joined()
         return ContentHash.of(Data(encoded.utf8)).hex
@@ -131,9 +150,54 @@ public final class ThemeSampler {
             isBusy = false
             if !succeeded { resetSessions() }
         }
-        let session = try await openSession()
+        let requestedMargins = margins(for: theme)
+        if margins != requestedMargins {
+            margins = requestedMargins
+            resetSessions()
+        }
+        var session = try await openSession()
         try Task.checkCancellation()
-        let hasPaper = try await apply(theme, in: session.webView)
+        var hasPaper = try await apply(theme, in: session.webView)
+        var sampleUsesFlow = false
+        if format == .latex, theme.formats == [.latex] || marginMode?.applies(to: theme) == true {
+            let protrudes = try await LaTeXFlowPaginator.markVerticalInk(
+                in: session.webView, width: printableSize.width * WebPaginator.printPixelsPerPoint)
+            sampleUsesFlow =
+                protrudes || theme.formats == [.latex] && (hasLaTeXMarginInk || LaTeXFlowPaginator.needed(in: html))
+        }
+        if sampleUsesFlow {
+            do {
+                if let place {
+                    _ = try await session.webView.callAsyncJavaScript(
+                        Self.placeElements + "elements[kind][index]?.setAttribute('data-flow-sample-place','')",
+                        arguments: ["kind": place.kind.rawValue, "index": place.index], in: nil, contentWorld: world)
+                }
+                let pass = try await LaTeXFlowPaginator.paginate(
+                    in: session.webView, pageSize: pageSize,
+                    margins: margins, timeout: timeout, sample: true)
+                guard let document = pass.document, let text = StandalonePage.first(of: document) else {
+                    throw SamplingError.emptyPage
+                }
+                if resourceAccess != nil { LocalResourceSchemeHandler.restoreFileLinks(on: text) }
+                let paper = hasPaper && WebPaginator.drawsClearPages ? try await paperPage(for: theme) : nil
+                guard !isClosed,
+                    let page = PaperComposer.sample(
+                        text: text, paper: paper, pageSize: pageSize,
+                        margins: .uniform(millimeters: 0))
+                else { throw SamplingError.emptyPage }
+                drawCount += 1
+                samples[key] = (theme, page)
+                resetSessions()
+                succeeded = true
+                return page
+            } catch {
+                try Task.checkCancellation()
+                guard !isClosed else { throw SamplingError.closed }
+                resetSessions()
+                session = try await openSession()
+                hasPaper = try await apply(theme, in: session.webView)
+            }
+        }
         if theme.flow == .vertical {
             // Measuring moves the body into a strip. A new session gives the next theme its original DOM.
             defer { resetSessions() }
@@ -160,8 +224,31 @@ public final class ThemeSampler {
         if let place { top = try await self.top(of: place, in: session.webView) }
         try Task.checkCancellation()
         let configuration = WKPDFConfiguration()
-        configuration.rect = CGRect(origin: CGPoint(x: 0, y: top), size: printableSize)
+        var captureSize = printableSize
+        var placementMargins = margins
+        let usesPaperWidth = format == .latex && theme.formats == [.latex] && marginMode?.applies(to: theme) == true
+        if usesPaperWidth {
+            // Keep screen samples at their existing pixel scale and measure; only the capture canvas grows.
+            _ = try await session.webView.callAsyncJavaScript(
+                """
+                const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+                const s = document.createElement('style');
+                s.textContent = `html{width:${width / zoom}px!important;box-sizing:border-box!important;
+                  padding-left:${left / zoom}px!important;padding-right:${right / zoom}px!important}`;
+                document.head.append(s); globalThis.surimonoSampleCanvas = s;
+                """, arguments: ["width": pageSize.width, "left": margins.left, "right": margins.right],
+                in: nil, contentWorld: world)
+            captureSize.width = pageSize.width
+            placementMargins.left = 0
+            placementMargins.right = 0
+        }
+        configuration.rect = CGRect(origin: CGPoint(x: 0, y: top), size: captureSize)
         let data = try await session.webView.pdf(configuration: configuration)
+        if usesPaperWidth {
+            _ = try await session.webView.callAsyncJavaScript(
+                "surimonoSampleCanvas.remove(); delete globalThis.surimonoSampleCanvas;",
+                arguments: [:], in: nil, contentWorld: world)
+        }
         guard !isClosed else { throw SamplingError.closed }
         guard let text = StandalonePage.first(of: data) else { throw SamplingError.emptyPage }
         if resourceAccess != nil { LocalResourceSchemeHandler.restoreFileLinks(on: text) }
@@ -170,7 +257,8 @@ public final class ThemeSampler {
         try Task.checkCancellation()
         guard !isClosed else { throw SamplingError.closed }
         try session.checkReady()
-        guard let page = PaperComposer.sample(text: text, paper: paper, pageSize: pageSize, margins: margins) else {
+        guard let page = PaperComposer.sample(text: text, paper: paper, pageSize: pageSize, margins: placementMargins)
+        else {
             throw SamplingError.emptyPage
         }
         drawCount += 1
@@ -329,8 +417,11 @@ public final class ThemeSampler {
             for (const element of document.querySelectorAll('[data-deco]')) { element.removeAttribute('data-deco'); }
             return document.documentElement.getBoundingClientRect().height;
             """
-        let css = HTMLDocumentBuilder.styleSheet(
+        var css = HTMLDocumentBuilder.styleSheet(
             theme: theme, textScale: textScale, typeface: typeface, code: code, language: documentLanguage)
+        if documentMargins != nil, theme.formats == [.latex] || marginMode?.applies(to: theme) == true {
+            css += RenderSettings.documentWidthCSS
+        }
         _ = try await webView.callAsyncJavaScript(swap, arguments: ["css": css], in: nil, contentWorld: world)
         // A theme that brings its own fonts starts loading them only now; drawn before they arrive, the sample would
         // show the fallback font and be kept that way.
@@ -534,12 +625,19 @@ extension DocumentRenderer {
             textScale: settings.textScale, typeface: settings.typeface, removesPaper: removesPaper,
             finish: settings.finish.styleSheet, code: settings.code)
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
+        let size = layout.logicalPageSize(options: settings.options)
+        let box = layout.kind == .handout3 ? nil : fragment.latexClass?.pageBox
+        let hasMarginInk = source.format == .latex && LaTeXFlowPaginator.hasMarginInk(in: fragment.body)
         return {
-            ThemeSampler(
+            let sampler = ThemeSampler(
                 html: html, format: source.format, baseURL: directory,
                 pageSize: layout.logicalPageSize(options: settings.options),
                 margins: WebPaginator.Margins(layout.logicalMargins(options: settings.options)),
                 textScale: settings.textScale, typeface: settings.typeface, code: settings.code, resourceAccess: access)
+            sampler.configureDocumentMargins(
+                box.map { WebPaginator.Margins($0.margins(fitting: size)) }, mode: settings.options.latexMargins,
+                hasMarginInk: hasMarginInk)
+            return sampler
         }
     }
 

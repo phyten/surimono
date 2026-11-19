@@ -315,7 +315,7 @@ struct ThemePaletteCell: View {
             VStack(spacing: 5) {
                 ThemeSampleView(
                     page: model.paletteSamples.page(for: theme), paperSize: model.paletteSamples.paperSize,
-                    margins: model.paletteSamples.margins
+                    margins: model.paletteSamples.margins(for: theme)
                 )
                 .frame(maxWidth: .infinity)
                 .shadow(color: .black.opacity(0.16), radius: 1.5, y: 0.5)

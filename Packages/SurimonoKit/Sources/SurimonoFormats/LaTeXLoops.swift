@@ -169,16 +169,48 @@ extension LaTeXReader {
         repeat {
             skipSpaces()
             let token = controlToken()
-            guard token.count > 1 else { return }
+            guard token.count > 1 else {
+                pictureExpansion?.failure = #"\foreach"#
+                return
+            }
             variables.append(String(token.dropFirst()))
             skipSpaces()
             if peek() != "/" { break }
             index += 1
         } while peek() != nil
-        guard peek() == "i", peek(1) == "n" else { return }
+        guard peek() == "i", peek(1) == "n" else {
+            pictureExpansion?.failure = #"\foreach"#
+            return
+        }
         index += 2
-        let list = argument() ?? ""
-        let body = argument() ?? ""
+        let rawList = argument()
+        if rawList == nil, let pictureExpansion {
+            pictureExpansion.failure = #"\foreach"#
+            return
+        }
+        var list = rawList ?? ""
+        if let pictureExpansion, list.contains("\\") {
+            do { list = try expandedPicture(list) } catch {
+                pictureExpansion.failure = #"\foreach"#
+                return
+            }
+        }
+        skipSpaces()
+        let body: String
+        if pictureExpansion != nil, peek() != "{" {
+            guard let path = delimitedArgument(";") else {
+                pictureExpansion?.failure = #"\foreach"#
+                return
+            }
+            body = path + ";"
+        } else {
+            let groupedBody = argument()
+            if groupedBody == nil, let pictureExpansion {
+                pictureExpansion.failure = #"\foreach"#
+                return
+            }
+            body = groupedBody ?? ""
+        }
         let entries = Self.splitList(list, separator: ",")
         var quota = LoopQuota(body, variables.joined())
         let saved = variables.map { document.macros[$0] }
@@ -195,7 +227,14 @@ extension LaTeXReader {
                 let value = values.indices.contains(position) ? values[position] : values.last ?? ""
                 document.macros[key] = .init(parameters: 0, defaultArgument: nil, body: value)
             }
-            readExpansionBody(body)
+            if let pictureExpansion {
+                let savedMacros = document.macros
+                readExpansionBody(body)
+                document.macros = savedMacros
+                if pictureExpansion.failure != nil { return false }
+            } else {
+                readExpansionBody(body)
+            }
             return !document.stopsExpanding
         }
         var position = 0
@@ -206,16 +245,29 @@ extension LaTeXReader {
             {
                 var step: Decimal = last <= end ? 1 : -1
                 if position >= 2, let previous = Self.decimal(entries[position - 2]) { step = last - previous }
+                if let pictureExpansion, step.isNaN || step == 0 || (step > 0 && end < last) || (step < 0 && end > last)
+                {
+                    pictureExpansion.failure = #"\foreach ..."#
+                    return
+                }
                 var current = last
                 // Generate one value at a time. Decimal steps keep 0.1,...,0.3 from missing the last entry.
                 while !step.isNaN && step != 0 {
                     let next = current + step
+                    if let pictureExpansion, current != end && (next.isNaN || next == current) {
+                        pictureExpansion.failure = #"\foreach ..."#
+                        return
+                    }
                     guard !next.isNaN, next != current, step > 0 ? next <= end : next >= end else { break }
                     guard visit(NSDecimalNumber(decimal: next).stringValue) else { return }
                     current = next
                 }
                 position += 2
             } else {
+                if let pictureExpansion, entry == "..." {
+                    pictureExpansion.failure = #"\foreach ..."#
+                    return
+                }
                 guard visit(entry) else { return }
                 position += 1
             }

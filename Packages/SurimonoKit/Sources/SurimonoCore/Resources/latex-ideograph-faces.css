@@ -1,0 +1,33 @@
+@font-face {
+    font-family: "Surimono Song SC Ideographs"; src: local("SimSong-Regular"), local("STFangsong"), local("HiraMinProN-W3");
+    unicode-range: KANGXI_UNIFIED_RANGE;
+}
+@font-face {
+    font-family: "Surimono Song SC Ideographs"; src: local("SimSong-Bold"), local("HiraMinProN-W6");
+    font-weight: bold; unicode-range: KANGXI_UNIFIED_RANGE;
+}
+@font-face {
+    font-family: "Surimono Song TC Ideographs"; src: local("HiraMinProN-W3");
+    unicode-range: KANGXI_UNIFIED_RANGE;
+}
+@font-face {
+    font-family: "Surimono Hei Ideographs"; src: local("HiraginoSansGB-W3");
+    unicode-range: KANGXI_UNIFIED_RANGE;
+}
+@font-face {
+    font-family: "Surimono Hei Ideographs"; src: local("HiraginoSansGB-W6");
+    font-weight: bold; unicode-range: KANGXI_UNIFIED_RANGE;
+}
+
+@font-face {
+    font-family: "Surimono Song TC Ideographs"; src: local("HiraMinProN-W6");
+    font-weight: bold; unicode-range: KANGXI_UNIFIED_RANGE;
+}
+@font-face {
+    font-family: "Surimono Mincho Ideographs"; src: local("HiraMinProN-W3");
+    unicode-range: KANGXI_UNIFIED_RANGE;
+}
+@font-face {
+    font-family: "Surimono Mincho Ideographs"; src: local("HiraMinProN-W6");
+    font-weight: bold; unicode-range: KANGXI_UNIFIED_RANGE;
+}

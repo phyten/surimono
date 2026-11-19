@@ -81,7 +81,7 @@ extension LaTeXReader {
         return reader.peek() == nil ? printedDimension(value) : raw
     }
 
-    private func numericCommand(_ name: String, depth: Int) -> Int? {
+    private func numericCommand(_ name: String, dimension: Bool = false, depth: Int) -> Int? {
         switch name {
         case "value", "arabic": return document.counters[argument() ?? ""]
         case "numexpr", "dimexpr": return expression(dimension: name == "dimexpr", depth: depth + 1)
@@ -92,11 +92,11 @@ extension LaTeXReader {
                 // Expand only tokens that supply a number, including in math. Never dispatch an assignment here.
                 if let primitive = macro.primitive {
                     guard depth + document.depth < LaTeXDocument.maximumDepth else { return nil }
-                    return numericCommand(primitive, depth: depth + 1)
+                    return numericCommand(primitive, dimension: dimension, depth: depth + 1)
                 }
                 guard let body = replacement(macro) else { return nil }
                 insertExpansion(body)
-                return numericAtom(dimension: false, depth: depth + 1)
+                return numericAtom(dimension: dimension, depth: depth + 1)
             }
             if name.hasPrefix("the"), document.counters.contains(String(name.dropFirst(3))) {
                 return Int(formattedCounter(String(name.dropFirst(3)), forMath: true))
@@ -126,7 +126,7 @@ extension LaTeXReader {
         } else if peek() == "\\" {
             let name = String(controlToken().dropFirst())
             skipSpacesAfterControlWord()
-            value = numericCommand(name, depth: depth)
+            value = numericCommand(name, dimension: dimension, depth: depth)
         } else {
             let start = index
             while let char = peek(), char.isASCII && (char.isNumber || (dimension && (char == "." || char == ","))) {

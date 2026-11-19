@@ -5,6 +5,8 @@ import Foundation
 struct LaTeXTable {
     private struct Column {
         var alignment = "left"
+        var noLeadingSpace = false
+        var noTrailingSpace = false
         var ruleLeft = false
         var ruleRight = false
         var vertical: String?
@@ -71,6 +73,9 @@ struct LaTeXTable {
     var isLongtable = false
     var columnTypes: [Character: String] = [:]
 
+    var arrayStretch: Double?
+    var extraRowHeight: String?
+
     func html(
         color: (String, String?) -> String? = { LaTeXSymbols.cssColor($0, model: $1, defined: [:]) },
         inline: (String) -> String
@@ -107,6 +112,7 @@ struct LaTeXTable {
                     style.append("vertical-align: \(vertical)")
                 }
                 if let width = format.width { style.append("width: \(width)") }
+                if format.noLeadingSpace { style.append("padding-inline-start: 0") }
                 if format.bold { style.append("font-weight: bold") }
                 if let value = cell.background.flatMap({ color($0.spec, $0.model) }) ?? rowBackground {
                     style.append("background-color: \(value)")
@@ -114,6 +120,7 @@ struct LaTeXTable {
                 if format.ruleLeft && column == 0 { style.append("border-left: \(Rule.thinCSS)") }
                 let last = column + cell.columns - 1
                 let lastFormat = last < columns.count ? columns[last] : Column()
+                if lastFormat.noTrailingSpace { style.append("padding-inline-end: 0") }
                 if lastFormat.ruleRight || (last + 1 < columns.count && columns[last + 1].ruleLeft) {
                     style.append("border-right: \(Rule.thinCSS)")
                 }
@@ -157,7 +164,13 @@ struct LaTeXTable {
         }
         let thead = head.isEmpty ? "" : "<thead>\n\(head)</thead>"
         let cssClass = isLongtable ? "latex-tabular latex-longtable" : "latex-tabular"
-        let html = "<table class=\"\(cssClass)\">\(thead)<tbody>\n\(bodyHTML)</tbody></table>\n"
+        var strut: [String] = []
+        if let arrayStretch, arrayStretch.isFinite, arrayStretch > 0, arrayStretch <= 100 {
+            strut.append("--latex-arraystretch: \(LaTeXPageSettings.number(arrayStretch))")
+        }
+        if let extraRowHeight { strut.append("--latex-extrarowheight: \(extraRowHeight)") }
+        let style = strut.isEmpty ? "" : " style=\"\(strut.joined(separator: "; "))\""
+        let html = "<table class=\"\(cssClass)\"\(style)>\(thead)<tbody>\n\(bodyHTML)</tbody></table>\n"
         return captions.isEmpty ? html : "<figure class=\"latex-table latex-longtable\">\n\(captions)\(html)</figure>\n"
     }
 
@@ -172,6 +185,7 @@ struct LaTeXTable {
     ) -> [Column] {
         var columns: [Column] = []
         var ruleBefore = false
+        var suppressLeadingSpace = false
         var decoration = Decoration()
         var index = 0
         func group() -> String {
@@ -204,6 +218,8 @@ struct LaTeXTable {
                 var added = Self.columns(
                     Array(alias), budget: &budget, aliases: aliases, aliasBudget: &aliasBudget, depth: depth + 1)
                 if !added.isEmpty {
+                    if suppressLeadingSpace { added[0].noLeadingSpace = true }
+                    suppressLeadingSpace = false
                     decoration.apply(to: &added[0])
                     if ruleBefore { added[0].ruleLeft = true }
                     ruleBefore = false
@@ -234,6 +250,8 @@ struct LaTeXTable {
                 }
                 decoration.apply(to: &column)
                 decoration = Decoration()
+                column.noLeadingSpace = suppressLeadingSpace
+                suppressLeadingSpace = false
                 column.ruleLeft = ruleBefore
                 ruleBefore = false
                 guard budget > 0 else { break }
@@ -246,17 +264,27 @@ struct LaTeXTable {
                 after.read(group())
                 if !columns.isEmpty { after.apply(to: &columns[columns.count - 1]) }
             case "@", "!":
-                _ = group()
+                let material = group()
+                if character == "@", material.isEmpty {
+                    suppressLeadingSpace = true
+                    if !columns.isEmpty { columns[columns.count - 1].noTrailingSpace = true }
+                }
             case "*":
                 let count = Int(group().trimmingCharacters(in: .whitespaces)) ?? 0
                 let inner = group()
                 guard depth < maximumDepth else { break }
                 // Read once, then copied while the budget lasts.
-                let repeated = Self.columns(
+                var repeated = Self.columns(
                     Array(inner), budget: &budget, aliases: aliases, aliasBudget: &aliasBudget, depth: depth + 1)
+                let first = repeated.first
+                if count > 0, !repeated.isEmpty, suppressLeadingSpace {
+                    repeated[0].noLeadingSpace = true
+                    suppressLeadingSpace = false
+                }
                 for _ in 1..<max(min(count, maximumColumns), 1) where budget >= repeated.count && !repeated.isEmpty {
                     budget -= repeated.count
                     columns += repeated
+                    if let first { repeated[0] = first }
                 }
                 if count >= 1 { columns += repeated }
             default:

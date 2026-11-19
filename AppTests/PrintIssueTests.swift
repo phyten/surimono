@@ -286,6 +286,15 @@ struct PrintIssueTests {
         #expect(PrintIssueText.title(issue, language: "ja") == #"読み取れなかった LaTeX コマンド：\memo"#)
     }
 
+    @Test("ページ番号を特定できなかったときは印刷前の確認に選択言語で知らせる")
+    func unresolvedLaTeXPages() {
+        let issue = PrintIssue.unresolvedLaTeXPages
+        #expect(PrintIssueText.title(issue, language: "ja") == "LaTeX 文書の一部のページ番号を特定できませんでした。")
+        for language in ["ja", "de", "es", "fr", "ko", "zh-Hans", "zh-Hant"] {
+            #expect(PrintIssueText.title(issue, language: language) != PrintIssueText.title(issue, language: "en"))
+        }
+    }
+
     @Test("図の失敗には8言語でタイトルと修正方法を出す")
     func mermaidTranslations() {
         let issue = PrintIssue(id: "0", kind: .mermaid, detail: "flowchart LR")

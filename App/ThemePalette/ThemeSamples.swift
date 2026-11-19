@@ -28,6 +28,8 @@ final class ThemeSamples {
     @ObservationIgnored var diskCache: ThemeSampleCache?
     // Only the bundled specimen opts in; document samples never persist their content.
     @ObservationIgnored var specimenLanguage: (() -> String)?
+    func margins(for theme: PrintTheme) -> WebPaginator.Margins { sampler?.margins(for: theme) ?? margins }
+
     var drawCount: Int { sampler?.drawCount ?? 0 }
 
     /// What the samples depend on: everything that lays out the page except the theme.

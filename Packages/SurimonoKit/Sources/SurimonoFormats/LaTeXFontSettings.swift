@@ -1,3 +1,4 @@
+import CoreText
 import Foundation
 
 /// A fontspec family is only a request for installed faces. local() lets WebKit test membership
@@ -36,6 +37,33 @@ struct LaTeXFontSettings {
                 }
         }
 
+        // A glyph-only Quartz PDF loses which Unicode scalar selected a shared glyph.
+        // Check installed faces, including explicit bold and italic variants; a family-name list
+        // alone misses aliases, user fonts, and changes to the system fonts after an OS update.
+        var ideographFallback: String? {
+            for face in [name, bold, italic].compactMap({ $0 }) {
+                var font = CTFontCreateWithName(face as CFString, 12, nil)
+                // Core Text substitutes Helvetica for the Windows family spelling on macOS,
+                // which would hide the glyph collision in its installed Japanese counterpart.
+                if ["yu mincho", "游明朝"].contains(face.lowercased()),
+                    CTFontCopyPostScriptName(font) as String == "Helvetica"
+                {
+                    font = CTFontCreateWithName("YuMincho" as CFString, 12, nil)
+                }
+                let variants = [CTFontSymbolicTraits.boldTrait, .italicTrait].compactMap { trait in
+                    CTFontCreateCopyWithSymbolicTraits(font, 0, nil, trait, trait)
+                }
+                guard ([font] + variants).contains(where: LaTeXIdeographs.needsFallback) else { continue }
+                let family = (CTFontCopyFamilyName(font) as String).lowercased()
+                if family.contains("song") || family.contains("宋") {
+                    return family.contains("tc") || face.lowercased().contains("tc") ? "Song TC" : "Song SC"
+                }
+                if ["pingfang", "gothic", "sans", "黑", "ゴシック"].contains(where: family.contains) { return "Hei" }
+                return "Mincho"
+            }
+            return nil
+        }
+
         var needsAlias: Bool { cjk || bold != nil || italic != nil || scale != nil }
 
         func faceCSS(alias: String) -> String {
@@ -57,6 +85,7 @@ struct LaTeXFontSettings {
         }
     }
 
+    private(set) var mainFontName: String?
     var roleVariables: [String: String] = [:]
     var selectors: [String: String] = [:]
     private var aliases: [Selection: Int] = [:]
@@ -64,7 +93,8 @@ struct LaTeXFontSettings {
 
     mutating func family(_ selection: Selection) -> String {
         let quoted = "\"\(selection.name)\""
-        guard selection.needsAlias else { return quoted }
+        let prefix = selection.ideographFallback.map { "\"Surimono \($0) Ideographs\", " } ?? ""
+        guard selection.needsAlias else { return prefix + quoted }
         let id: Int
         if let existing = aliases[selection] {
             id = existing
@@ -75,10 +105,11 @@ struct LaTeXFontSettings {
             faceRules.append(selection.faceCSS(alias: "Surimono TeX Local \(id)"))
         }
         let alias = "\"Surimono TeX Local \(id)\""
-        return selection.cjk ? alias : "\(alias), \(quoted)"
+        return prefix + (selection.cjk ? alias : "\(alias), \(quoted)")
     }
 
     mutating func setRole(_ role: String, selection: Selection) {
+        if role == "main" { mainFontName = selection.name }
         let value = family(selection)
         roleVariables["\(role)-font"] = value
     }
@@ -97,6 +128,7 @@ struct LaTeXFontSettings {
             roleVariables["mono-font"] = "\"Surimono Computer Modern Typewriter\""
         default: return
         }
+        if role == "main" { mainFontName = family }
         roleVariables["\(role)-font"] = "\"\(family)\""
     }
 }

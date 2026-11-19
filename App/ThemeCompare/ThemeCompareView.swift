@@ -411,7 +411,7 @@ private struct CompareCard: View {
             .frame(height: ThemeCompareLayout.tagRowHeight)
             ThemeSampleView(
                 page: page ?? lastPage, paperSize: model.themeSamples.paperSize,
-                margins: model.themeSamples.margins, corner: .thumbnail
+                margins: model.themeSamples.margins(for: theme), corner: .thumbnail
             )
             .frame(width: width)
             .shadow(color: PrintPalette.paperShadow, radius: 7, y: 3)
@@ -536,7 +536,7 @@ private struct CompareTrayCell: View {
             VStack(spacing: 4) {
                 ThemeSampleView(
                     page: model.themeSamples.page(for: theme), paperSize: model.themeSamples.paperSize,
-                    margins: model.themeSamples.margins, corner: .thumbnail
+                    margins: model.themeSamples.margins(for: theme), corner: .thumbnail
                 )
                 .frame(width: Self.width)
                 .shadow(color: PrintPalette.paperShadow, radius: 2, y: 1)

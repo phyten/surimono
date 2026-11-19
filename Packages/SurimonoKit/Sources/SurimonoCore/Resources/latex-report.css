@@ -8,7 +8,7 @@ body[data-latex-chapters="true"] nav.toc, body[data-latex-chapters="true"] .abst
 }
 body[data-latex-chapters="true"] .latex-contents-title {
     --tex-toc-title: 20.74;
-    padding-block-start: calc(50 * var(--tex-pt)); margin-block-end: calc(40 * var(--tex-pt));
+    padding-block-start: var(--tex-chapter-top, calc((50 + var(--tex-body)) * var(--tex-pt) + var(--tex-baseline))); margin-block-end: calc(40 * var(--tex-pt));
     font-size: calc(var(--tex-toc-title) * var(--tex-pt)); line-height: 1.2; font-weight: bold;
 }
 body[data-latex-chapters="true"][data-latex-size="12"] .latex-contents-title { --tex-toc-title: 24.88; }
@@ -22,4 +22,9 @@ body[data-latex-chapters="true"] .abstract-title { text-align: center; font-weig
 /* A title, contents or abstract already ended its page; honor only one break at that boundary. */
 body[data-latex-chapters="true"] :is(nav.toc, .abstract, .latex-title-block) + :is(h2[id^="sec-"], nav.toc, .abstract) {
     break-before: auto; page-break-before: auto;
+}
+
+body[data-latex-chapters="true"] .latex-amsbook-verso { break-after: page; page-break-after: always; }
+body[data-latex-chapters="true"] .latex-amsbook-verso > .abstract {
+    break-before: auto; page-break-before: auto; break-after: auto; page-break-after: auto; padding-block-start: 2em;
 }

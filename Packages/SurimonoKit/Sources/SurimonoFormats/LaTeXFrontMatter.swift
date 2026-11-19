@@ -69,9 +69,13 @@ final class LaTeXFrontMatter {
             ? ""
             : "<p class=\"latex-front-keywords\"><strong>\(keywordLabel(document))</strong> \(keywords.joined(separator: separator))</p>\n"
         let details = classification + keywordLine
-        return html.replacingOccurrences(of: document.placeholder("F", 0), with: printed ? "" : abstract)
-            .replacingOccurrences(of: document.placeholder("F", 1), with: printed ? "" : details)
-            .replacingOccurrences(of: document.placeholder("F", 2), with: abstract + details)
+        // amsbook prints the classification and keywords on the verso with the abstract.
+        let verso = document.classInfo.name == "amsbook" && !details.isEmpty && !abstract.isEmpty
+        let abstractPage =
+            verso ? "<div class=\"latex-amsbook-verso\">\n" + details + abstract + "</div>\n" : abstract
+        return html.replacingOccurrences(of: document.placeholder("F", 0), with: printed ? "" : abstractPage)
+            .replacingOccurrences(of: document.placeholder("F", 1), with: printed || verso ? "" : details)
+            .replacingOccurrences(of: document.placeholder("F", 2), with: abstractPage + (verso ? "" : details))
     }
 
     private func keywordLabel(_ document: LaTeXDocument) -> String {
@@ -198,7 +202,8 @@ extension LaTeXReader {
             let number = optional().flatMap(Int.init) ?? document.titleNoteCount
             let symbol = LaTeXSymbols.format(number, as: "fnsymbol")
             if document.makingTitle, let note = document.footnotes.first(where: { $0.number == symbol }) {
-                appendHTML("<sup class=\"footnote-ref\"><a href=\"#\(note.id)\">\(HTML.escape(symbol))</a></sup>")
+                appendHTML(
+                    styledLinks("<sup class=\"footnote-ref\"><a href=\"#\(note.id)\">\(HTML.escape(symbol))</a></sup>"))
             } else if !document.makingTitle, !front.authors.isEmpty {
                 front.authors[front.authors.count - 1].name += "\\authornotemark[\(number > 0 ? String(number) : "")]"
             }
@@ -213,8 +218,9 @@ extension LaTeXReader {
             for key in frontLabels(keys) {
                 if let previous = front.printedNotes[key] {
                     appendHTML(
-                        "<sup class=\"footnote-ref\"><a href=\"#\(previous.id)\">\(HTML.escape(previous.mark))</a></sup>"
-                    )
+                        styledLinks(
+                            "<sup class=\"footnote-ref\"><a href=\"#\(previous.id)\">\(HTML.escape(previous.mark))</a></sup>"
+                        ))
                 } else if let note = front.namedNotes[key] {
                     let index = document.footnotes.count
                     let html = inline("\\thanks{\(note)}")
@@ -355,7 +361,10 @@ extension LaTeXReader {
         front.printed = true
         document.makingTitle = true
         defer { document.makingTitle = false }
-        var html = "<header class=\"latex-title-block\">\n"
+        let titleStyle =
+            document.classInfo.hidesTitlePageNumber
+            ? " data-latex-page-action=\"thispagestyle\" data-value=\"empty\"" : ""
+        var html = "<header class=\"latex-title-block\"\(titleStyle)>\n"
         if let title = front.title {
             let titleHTML = inline(title)
             document.titleHTML = titleHTML

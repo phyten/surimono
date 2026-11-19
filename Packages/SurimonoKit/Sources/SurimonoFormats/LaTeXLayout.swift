@@ -169,11 +169,7 @@ extension LaTeXReader {
         switch name {
         case "newtcolorbox", "newtcbtheorem":
             defineBox(theorem: name == "newtcbtheorem")
-        case "fancypagestyle":
-            _ = star()
-            _ = argument()
-            _ = optional()
-            _ = argument()
+        case "fancypagestyle": defineFancyPageStyle()
         case "titleformat":
             if star() {
                 _ = argument()

@@ -5,6 +5,8 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     public var name: String
     public var layoutID: String?
     public var paperOrientation: PaperOrientation?
+    public var latexMargins: LaTeXPageMode?
+    public var latexFurniture: LaTeXPageMode?
     public var margins: PageMargins?
     public var linksMargins: Bool?
     public var mirrorsMargins: Bool?
@@ -40,11 +42,15 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
             result.paperOrientation = nil
         }
         if !parts.contains(.margins) {
+            result.latexMargins = nil
             result.margins = nil
             result.linksMargins = nil
             result.mirrorsMargins = nil
         }
-        if !parts.contains(.furniture) { result.furniture = nil }
+        if !parts.contains(.furniture) {
+            result.furniture = nil
+            result.latexFurniture = nil
+        }
         if !parts.contains(.finish) { result.finish = nil }
         if !parts.contains(.notes) { result.notes = nil }
         if !parts.contains(.style) {
@@ -65,6 +71,8 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         self.name = name
         layoutID = settings.layoutID
         paperOrientation = settings.paperOrientation
+        latexMargins = settings.printOptions?.latexMargins
+        latexFurniture = settings.printOptions?.latexFurniture
         margins = settings.printOptions?.margins
         linksMargins = settings.printOptions?.linksMargins
         mirrorsMargins = settings.printOptions?.mirrorsMargins
@@ -80,7 +88,7 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case id, name, layoutID, paperOrientation, margins, linksMargins, mirrorsMargins, furniture, finish, notes,
             themeID, textScale, typeface, presetID
-        case marginsInMillimeters, showsPageNumbers
+        case marginsInMillimeters, showsPageNumbers, latexMargins, latexFurniture
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -89,6 +97,8 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         try values.encode(name, forKey: .name)
         try values.encodeIfPresent(layoutID, forKey: .layoutID)
         try values.encodeIfPresent(paperOrientation, forKey: .paperOrientation)
+        try values.encodeIfPresent(latexMargins, forKey: .latexMargins)
+        try values.encodeIfPresent(latexFurniture, forKey: .latexFurniture)
         try values.encodeIfPresent(margins, forKey: .margins)
         try values.encodeIfPresent(linksMargins, forKey: .linksMargins)
         try values.encodeIfPresent(mirrorsMargins, forKey: .mirrorsMargins)
@@ -115,6 +125,8 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         layoutID = field(String.self, .layoutID)
         paperOrientation = field(PaperOrientation.self, .paperOrientation)
         // Sets saved before the four margins and the header and footer kept one margin and a switch.
+        latexMargins = field(LaTeXPageMode.self, .latexMargins)
+        latexFurniture = field(LaTeXPageMode.self, .latexFurniture)
         margins =
             field(PageMargins.self, .margins) ?? field(Double.self, .marginsInMillimeters).map(PageMargins.uniform)
         linksMargins = field(Bool.self, .linksMargins)
@@ -138,6 +150,10 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
     public func applicable(to formats: Set<DocumentFormat>, themeIDs: Set<String>, presetIDs: Set<String>) -> Self {
         var result = self
         if let layoutID, !PrintLayout.presets.contains(where: { $0.id == layoutID }) { result.layoutID = nil }
+        if formats != [.latex] {
+            result.latexMargins = nil
+            result.latexFurniture = nil
+        }
         if !formats.contains(where: \.usesPrintTheme) {
             result.themeID = nil
             result.typeface = nil
@@ -162,9 +178,11 @@ public struct PrintSettingSet: Codable, Sendable, Equatable, Identifiable {
         let comparisons: [Bool?] = [
             layoutID.map { $0 == settings.layoutID },
             paperOrientation.map { $0 == settings.paperOrientation },
-            margins.map { $0 == settings.printOptions?.margins },
+            margins.map { $0 == settings.printOptions?.margins && latexMargins == settings.printOptions?.latexMargins },
             mirrorsMargins.map { $0 == settings.printOptions?.mirrorsMargins },
-            furniture.map { $0 == settings.printOptions?.furniture },
+            furniture.map {
+                $0 == settings.printOptions?.furniture && latexFurniture == settings.printOptions?.latexFurniture
+            },
             finish.map { $0 == (settings.printFinish ?? PrintFinish()) },
             notes.map { $0 == (settings.notes ?? NotePages()) },
             themeID.map { $0 == settings.themeID },

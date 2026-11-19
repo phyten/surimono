@@ -126,9 +126,9 @@ struct LaTeXFileTests {
             #expect(!fragment.body.contains("main-figure0"))
             #expect(fragment.body.contains(#"src="fig/main-figure1.png""#))
             #expect(fragment.body.contains(#"src="main-figure2.pdf""#))
-            #expect(fragment.readingIssues.count == 2)
+            #expect(fragment.readingIssues.count == 4)
             #expect(fragment.readingIssues.contains { $0.contains("古い") && $0.contains("named.svg") })
-            #expect(fragment.readingIssues.contains { $0.contains(#"\usetikzlibrary{external}\tikzexternalize"#) })
+            #expect(fragment.readingIssues.contains { $0.contains("図 4 (TikZ)") })
         }
     }
 }

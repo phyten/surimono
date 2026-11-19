@@ -1,0 +1,258 @@
+import Foundation
+import PDFKit
+import SurimonoCore
+import SurimonoFormats
+
+/// Source headings and float captions can have identical text. Read their actual destinations
+/// from a disposable print rather than guessing which occurrence of a title starts a section.
+enum LaTeXPageReferences {
+    struct Target: Decodable {
+        var action: String
+        var value: String
+        var referenced: Bool
+        var classPlain: Bool? = nil
+    }
+
+    struct Installation: Decodable {
+        var targets: [Target]
+        var missing: Int
+    }
+
+    struct Page: Equatable, Sendable {
+        var label: String
+        var lines: PageFurniture.Lines
+        var hasFooter: Bool { lines.bottom.contains { !$0.isEmpty } }
+
+        init(_ state: LaTeXPageNumbers) {
+            label = state.label
+            lines = .init(top: state.header, bottom: state.footer)
+        }
+    }
+
+    struct Map {
+        var pages: [Page]
+        var references: [String: String]
+    }
+
+    struct MeasurementFailed: Error {}
+
+    // This also runs in a fresh session when the disposable print fails. Building the labels
+    // uses neither the destinations nor the measuring API that failed.
+    static let prepareFields = """
+        const links = [...document.querySelectorAll('nav.toc li > a[href^="#"],a.latex-pageref[href^="#"]')];
+        const pageFields = links.map(link => {
+          let field = link;
+          if (link.closest('nav.toc')) {
+            link.classList.add('latex-page-entry');
+            const caption = document.createElement('span');
+            while (link.firstChild) caption.append(link.firstChild);
+            const leader = document.createElement('span');
+            leader.className = 'latex-page-leader';
+            field = document.createElement('span');
+            field.className = 'latex-page-label';
+            link.append(caption, leader, field);
+          }
+          field.textContent = '?';
+          return {field, id: link.getAttribute('href').slice(1)};
+        });
+        """
+
+    static func install(token: String, runningMarks: Bool = false, classPlain: Bool = false, nativePrint: Bool = false)
+        -> String
+    {
+        """
+        \(prepareFields)
+        const refs = new Map();
+        let missing = 0;
+        for (const {field, id} of pageFields) {
+          const target = document.getElementById(id);
+          if (!target) { missing++; continue; }
+          if (!refs.has(target)) refs.set(target, []);
+          refs.get(target).push(field);
+        }
+        const targets = [];
+        const fields = [];
+        // A page declaration between forced breaks has no height. Attach its probe to the next
+        // printable block so neither the flow splitter nor native printing invents a blank page.
+        function attach(el, probe) {
+          const paragraph = el.closest('p');
+          const bare = paragraph && !paragraph.textContent.trim() &&
+            !paragraph.querySelector(':not(span:empty,span[data-latex-page-action],[data-latex-probe])');
+          if (!el.matches('span:empty') || paragraph && !bare || el.closest('h1,h2,h3,h4,h5,h6,li,td,th,caption,figcaption')) {
+            el.prepend(probe);
+            return;
+          }
+          if (bare) el = paragraph;
+          const transparent = 'template,style,.latex-pagebreak,span:empty';
+          let previous = el.previousElementSibling;
+          while (previous && previous.matches('style,span:empty')) previous = previous.previousElementSibling;
+          let next = el.nextElementSibling;
+          if (previous && !previous.matches(transparent) && (!next || next.matches('template[data-latex-break],.latex-pagebreak'))) {
+            previous.append(probe);
+            return;
+          }
+          while (next && next.matches(transparent)) next = next.nextElementSibling;
+          if (next) next.prepend(probe);
+          else el.prepend(probe);
+        }
+        const declarations = [...document.querySelectorAll('[data-latex-page-action]')];
+        const plain = \(classPlain) || declarations.some(el => ['pagestyle','thispagestyle','fancyStyle'].includes(el.dataset.latexPageAction));
+        const marks = \(runningMarks) || declarations.some(el =>
+          el.dataset.value === 'fancy' || /leftmark|rightmark/.test(el.dataset.value || ''));
+        const chapters = document.body.dataset.latexChapters === 'true';
+        for (const el of document.querySelectorAll('[data-latex-page-action],[id],.latex-title-block,.latex-titlepage')) {
+          let action = el.dataset.latexPageAction || '';
+          if (el.matches('.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,body[data-latex-chapters="true"]:not([data-latex-title-layout]) .latex-title-block')) action = 'title';
+          let value = el.dataset.value || '';
+          if (marks && !action && el.matches('h2[id^="sec-"],h3[id^="sec-"]') && el.querySelector(':scope > .secnum')) {
+            const num = el.querySelector(':scope > .secnum');
+            const number = num.textContent;
+            const title = Array.from(el.childNodes).filter(n => n !== num && !n.hasAttribute?.('data-latex-probe')).map(n => n.textContent).join('');
+            action = el.tagName === 'H2' ? 'majorMark' : 'rightmark';
+            const text = number + ' ' + title;
+            value = action === 'majorMark' || chapters ? text.toUpperCase() : text;
+          }
+          // Standard inline titles and chapter openings select plain locally. A measured chapter
+          // can change the running marks on this same page as well.
+          const classPlain = plain && action !== 'title' && !el.dataset.latexPageAction &&
+            (el.matches('body[data-latex-title-layout="inline"] .latex-title-block') || chapters && el.matches('h2[id^="sec-"]'));
+          if (!refs.has(el) && !action && !classPlain) continue;
+          if (el.matches('span[data-latex-page-action]')) el.style.position = 'absolute';
+          const index = targets.length;
+          fields.push(refs.get(el) || []);
+          targets.push({action, value, referenced: refs.has(el), classPlain});
+          if (!\(nativePrint) && !el.matches('span:empty')) {
+            // Flow already measures this element, including floated and wrapped captions.
+            // Reading its top avoids WebKit's static position for an absolutely positioned link.
+            el.dataset.latexPageTarget = index;
+            continue;
+          }
+          const anchor = document.createElement('a');
+          anchor.href = 'surimono-tex-page:\(token)/' + index;
+          anchor.style.cssText = 'all:initial!important;position:absolute!important;display:block!important;width:1px!important;height:1px!important;margin:0!important;padding:0!important;border:0!important;font-size:0!important;line-height:0!important;background:transparent!important';
+          anchor.dataset.latexProbe = index;
+          if (\(nativePrint)) {
+            // Some print backends omit empty link annotations. Ink only in the disposable pass
+            // supplies an independent lookup, including duplicate and translated heading text.
+            anchor.style.setProperty('font', '1px/1px monospace', 'important');
+            anchor.style.setProperty('white-space', 'nowrap', 'important');
+            anchor.textContent = 'SRM\(token.replacingOccurrences(of: "-", with: ""))X' + index + 'Z';
+          }
+          attach(el, anchor);
+        }
+        globalThis.surimonoTeXPages = {fields};
+        return JSON.stringify({targets, missing});
+        """
+    }
+
+    @MainActor
+    static func locations(in pdf: PDFDocument, token: String, count: Int) -> [Int: Int] {
+        var pages: [Int: Int] = [:]
+        let prefix = "surimono-tex-page:\(token)/"
+        for index in 0..<pdf.pageCount {
+            for link in pdf.page(at: index)?.annotations ?? [] {
+                guard let url = link.url ?? (link.action as? PDFActionURL)?.url,
+                    url.absoluteString.hasPrefix(prefix), let id = Int(url.absoluteString.dropFirst(prefix.count)),
+                    (0..<count).contains(id), pages[id] == nil
+                else { continue }
+                pages[id] = index
+            }
+        }
+        if pages.count < count {
+            let prefix = "SRM" + token.replacingOccurrences(of: "-", with: "") + "X"
+            for index in 0..<pdf.pageCount {
+                guard let text = pdf.page(at: index)?.string else { continue }
+                for entry in text.components(separatedBy: prefix).dropFirst() {
+                    let digits = entry.prefix(while: { $0.isASCII && $0.isNumber })
+                    guard let id = Int(digits), (0..<count).contains(id),
+                        entry.dropFirst(digits.count).first == "Z", pages[id] == nil
+                    else { continue }
+                    pages[id] = index
+                }
+            }
+        }
+        return pages
+    }
+
+    static func map(
+        _ initial: LaTeXPageNumbers, targets: [Target], locations: [Int: Int], pageCount: Int,
+        restartsAfterTitle: Bool
+    ) -> Map {
+        var state = initial
+        let byPage = Dictionary(grouping: targets.indices.filter { locations[$0] != nil }) { locations[$0] }
+        var result = Map(pages: [], references: [:])
+        for page in 0..<pageCount {
+            let indices = byPage[page] ?? []
+            var title = false
+            for index in indices {
+                let target = targets[index]
+                if target.classPlain == true { state.apply("classPlain", value: "") }
+                if target.action == "title" {
+                    state.apply("thispagestyle", value: "empty")
+                    title = true
+                } else if target.action == "majorMark" {
+                    state.apply("leftmark", value: target.value)
+                    state.apply("rightmark", value: "")
+                } else {
+                    state.apply(target.action, value: target.value)
+                }
+            }
+            result.pages.append(Page(state))
+            for index in indices where targets[index].referenced {
+                result.references[String(index)] = state.label
+            }
+            state.advance()
+            if title && restartsAfterTitle { state.apply("page", value: "1") }
+        }
+        return result
+    }
+
+    /// Labels contain only digits, alphabetic characters or roman numerals produced by the counter.
+    static func fill(_ values: [String: String]) throws -> String {
+        let labels = String(decoding: try JSONEncoder().encode(values), as: UTF8.self)
+        return """
+            const labels = \(labels);
+            const updates = surimonoTeXPages.fields.flatMap((fields, index) =>
+              fields.map(field => ({field, label: labels[index] ?? '?'})));
+            const metric = field => {
+              const row = field.parentElement.getBoundingClientRect();
+              const cell = field.getBoundingClientRect();
+              return [row.height, cell.width, cell.height].join(',');
+            };
+            const before = updates.map(({field}) => metric(field));
+            for (const {field, label} of updates) field.textContent = label;
+            // Inline references can wrap differently on paper. TOC columns reserve space for two digits.
+            return updates.every(({field}, i) => field.classList.contains('latex-page-label') &&
+              metric(field) === before[i]) ? 'stable' : 'remeasure';
+            """
+    }
+
+    /// NSPrintOperation can ship a page for the intervening empty div even when the next chapter
+    /// already has break-before. Only coalesce vertical commands with no printable content between.
+    static let coalesceNativeBreaks = """
+        if (!document.body.matches('.format-latex')) return;
+        const invisible = 'template,style,span[data-latex-page-action]:empty,span[id]:empty,.latex-pagebreak[hidden]';
+        function adjacent(marker, direction) {
+          let sibling = marker[direction];
+          while (sibling && (sibling.nodeType === 3 && !sibling.textContent.trim() ||
+              sibling.nodeType === 1 && sibling.matches(invisible))) sibling = sibling[direction];
+          return sibling;
+        }
+        const forced = value => ['always','page','left','right'].includes(value);
+        for (const marker of document.querySelectorAll('.latex-pagebreak')) {
+          const next = adjacent(marker, 'nextSibling');
+          const prior = adjacent(marker, 'previousSibling');
+          if (next?.nodeType === 1 && next.matches('h2,h3,h4,h5,h6')) next.dataset.latexAfterBreak = '';
+          if ((marker.parentElement === document.body && (!prior || !next)) ||
+              next?.nodeType === 1 && (next.matches('.latex-pagebreak') || forced(getComputedStyle(next).breakBefore)) ||
+              prior?.nodeType === 1 && forced(getComputedStyle(prior).breakAfter)) marker.hidden = true;
+        }
+        """
+
+    static let removeProbes = """
+        for (const probe of document.querySelectorAll('[data-latex-probe]')) probe.remove();
+        for (const el of document.querySelectorAll('[data-latex-page-target]')) el.removeAttribute('data-latex-page-target');
+        delete globalThis.surimonoTeXPages;
+        return 'clean';
+        """
+}

@@ -12,7 +12,7 @@ public enum ViewPageDocument {
     ///   resources, instead of one PDF a page. Tests compare the two.
     public static func make(
         _ source: PDFDocument, plan: ViewPageLayout, margin: CGFloat, changeMarks: [ChangeMark] = [],
-        furniture: [Int: FurniturePlacement] = [:], sharesResources: Bool = true
+        furniture: [Int: FurniturePlacement] = [:], sharesResources: Bool = true, furnitureAsText: Bool = false
     ) -> PDFDocument? {
         // What each decorated page draws, by its index in the copy.
         var decorations: [Int: Decoration] = [:]
@@ -26,7 +26,8 @@ public enum ViewPageDocument {
             let number = placement?.lines.bottom.contains { !$0.isEmpty } == true ? nil : plan.number(at: viewIndex)
             guard scale != 1 || number != nil || !marks.isEmpty || placement != nil else { continue }
             decorations[viewIndex] = Decoration(
-                original: original, number: number, furniture: placement, marks: marks,
+                original: original, number: number, furniture: placement, furnitureAsText: furnitureAsText,
+                marks: marks,
                 visibleBox: visibleBox(of: original, at: viewIndex, plan: plan, margin: margin), scale: scale)
         }
         guard let decorated = decoratedPages(decorations, margin: margin, sharesResources: sharesResources) else {
@@ -159,6 +160,7 @@ public enum ViewPageDocument {
         let original: PDFPage
         let number: Int?
         let furniture: FurniturePlacement?
+        let furnitureAsText: Bool
         let marks: [ChangeMark]
         let visibleBox: CGRect
         let scale: CGFloat
@@ -251,7 +253,9 @@ public enum ViewPageDocument {
         context.saveGState()
         context.concatenate(transform.inverted())
         if let number { PageNumberDrawing.draw(number, in: displayed, margin: margin, context: context) }
-        if let furniture { PDFComposer.draw(furniture, in: displayed, asOutlines: true, context: context) }
+        if let furniture {
+            PDFComposer.draw(furniture, in: displayed, asOutlines: !decoration.furnitureAsText, context: context)
+        }
         context.restoreGState()
         if let hex = marks.first?.backgroundHex, let color = CodeColor.components(hex) {
             context.setBlendMode(.multiply)

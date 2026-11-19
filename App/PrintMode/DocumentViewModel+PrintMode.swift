@@ -72,7 +72,13 @@ extension DocumentViewModel {
     /// What the tray's header and footer choice shows: Custom from the moment it is chosen, while the fields are empty.
     var furnitureChoice: PageFurniture.Preset { isWritingFurniture ? .custom : printOptions.furniture.preset }
 
+    func chooseDocumentFurniture() {
+        isWritingFurniture = false
+        printOptions.latexFurniture = .document
+    }
+
     func chooseFurniture(_ preset: PageFurniture.Preset) {
+        printOptions.latexFurniture = nil
         isWritingFurniture = preset == .custom
         if preset == .custom {
             presentFinish(.furniture)

@@ -132,6 +132,7 @@ public struct RenderSettings: Equatable, Sendable {
     public var code = CodeStyle()
     public var preset: HTMLCleanupPreset
     public var options: PrintOptions
+    var latexFooter: PageFurniture.LaTeXFooter?
     public var allowsJavaScriptInHTML: Bool
     /// Live HTML and paper must enforce the same combination of user and preset policy.
     public var allowsPageJavaScript: Bool { allowsJavaScriptInHTML && !preset.disablesJavaScript }
@@ -157,7 +158,8 @@ public struct RenderSettings: Equatable, Sendable {
 
     func textWidthPoints(in layout: PrintLayout) -> Double {
         let margins = layout.logicalMargins(options: options)
-        return layout.logicalPageSize(options: options).width - margins.left - margins.right
+        // The graphics reader receives PDF points; PrintOptions stores millimetres.
+        return layout.logicalPageSize(options: options).width - (margins.left + margins.right) * 72 / 25.4
     }
 
     var usesPerPageOrientation: Bool {
@@ -171,7 +173,7 @@ public struct RenderSettings: Equatable, Sendable {
 
     public init(
         layout: PrintLayout, theme: PrintTheme, preset: HTMLCleanupPreset,
-        options: PrintOptions = PrintOptions(), allowsJavaScriptInHTML: Bool = false,
+        options: PrintOptions? = nil, allowsJavaScriptInHTML: Bool = false,
         smartRemoval: SmartRemovalRequest? = nil, textScale: Double = 1, typeface: Typeface = .style,
         paperOrientation: PaperOrientation = .auto,
         opensDetails: Bool = false, slides: SlidePrintRequest? = nil, markdownChanges: [MarkdownMarkRequest] = []
@@ -185,7 +187,7 @@ public struct RenderSettings: Equatable, Sendable {
         self.typeface = typeface
         self.textScale = textScale
         self.preset = preset
-        self.options = options
+        self.options = options ?? PrintOptions().defaults(for: theme.formats == [.latex] ? .latex : nil)
         self.allowsJavaScriptInHTML = allowsJavaScriptInHTML
         self.smartRemoval = smartRemoval
     }
@@ -204,12 +206,18 @@ public struct PaginationRequest: Sendable {
     public var drawsBackground = true
     public var rendersMermaid = false
     public var rendersDiagrams = false
+    public var latexPageNumbers: LaTeXPageNumbers?
+    public var restartsAfterTitle = false
     public var collectsDiagrams = false
+    public var latexFlow = false
+    public var latexMarginInk = false
+    public var checksVerticalLaTeXInk = false
     public var flow = PrintFlow.horizontal
 }
 
 /// What the renderer adds to the pages of a text and what it reads from the text on the way.
 struct FinishedPages {
+    var latexPages: [LaTeXPageReferences.Page] = []
     var facts: DocumentFacts?
     var contentsPageCount = 0
     var blankPages: Set<Int> = []
@@ -268,7 +276,7 @@ public struct PreparedRender {
     public var furnitureDate: String { sheetKey.furniture.date }
     var sourceBytes: Data?
     let sheetKey: SheetKey
-    let options: PrintOptions
+    public let options: PrintOptions
 }
 
 /// What the composed sheets depend on: the logical pages they were made from and the settings of the imposition.
@@ -385,6 +393,7 @@ public final class DocumentRenderer {
     private var logicalSerial = 0
     private var sourcePageSizes: (source: DocumentSource, sizes: [CGSize])?
     /// The orientation the `@page` rules of an HTML source ask for, known once the source has been laid out.
+    var cachedLaTeXInfo: (source: DocumentSource, info: LaTeXDocumentClassInfo)?
     private var sourcePageRule: (source: DocumentSource, orientation: PaperOrientation?)?
 
     /// The logical pages of a cache entry. The document is handed out as is, so that a view showing it keeps it.
@@ -441,6 +450,7 @@ public final class DocumentRenderer {
         let code: CodeStyle?
         let preset: HTMLCleanupPreset?
         let margins: PageMargins
+        let usesDocumentWidth: Bool
         let allowsJavaScript: Bool
         let smartRemoval: SmartRemovalRequest?
         let opensDetails: Bool
@@ -469,7 +479,10 @@ public final class DocumentRenderer {
                     allowsJavaScript: request.allowsJavaScript, preparationScript: request.preparationScript,
                     readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
                     rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
-                    collectsDiagrams: request.collectsDiagrams, flow: request.flow)
+                    collectsDiagrams: request.collectsDiagrams, latexPageNumbers: request.latexPageNumbers,
+                    restartsAfterTitle: request.restartsAfterTitle, latexFlow: request.latexFlow,
+                    latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
+                    flow: request.flow)
             }
         }
     }
@@ -490,6 +503,7 @@ public final class DocumentRenderer {
         sheets = []
         sourcePageSizes = nil
         sourcePageRule = nil
+        cachedLaTeXInfo = nil
     }
 
     /// Prepares the logical pages and composes the printed sheets.
@@ -592,6 +606,12 @@ public final class DocumentRenderer {
                 landscape = settings.paperOrientation == .landscape
             }
             settings.layout = settings.layout.oriented(landscape)
+            if source.format == .latex, source.children == nil,
+                settings.options.latexMargins?.applies(to: settings.theme) == true
+                    || settings.options.latexFurniture?.applies(to: settings.theme) == true
+            {
+                settings.applyLaTeXPage(latexClassInfo(for: source))
+            }
             let pageSize = settings.layout.logicalPageSize(options: settings.options)
             let margins = settings.layout.logicalMargins(options: settings.options)
             guard settings.options.margins.isValid,
@@ -611,6 +631,9 @@ public final class DocumentRenderer {
                 code: source.children != nil || source.format.usesPrintTheme ? settings.code : nil,
                 preset: source.children != nil || source.format.usesHTMLPreset ? settings.preset : nil,
                 margins: isPlainPDF ? .zero : margins,
+                usesDocumentWidth: source.format == .latex
+                    && (settings.theme.formats == [.latex]
+                        || settings.options.latexMargins?.applies(to: settings.theme) == true),
                 allowsJavaScript: source.children != nil
                     ? settings.allowsJavaScriptInHTML : source.allowsJavaScript(settings),
                 smartRemoval: source.format == .html ? settings.smartRemoval : nil,
@@ -1176,6 +1199,12 @@ public final class DocumentRenderer {
             let paperMargins = WebPaginator.Margins(margins)
             let layoutWidth =
                 (pageSize.width - paperMargins.left - paperMargins.right) * WebPaginator.printPixelsPerPoint
+            let checksVerticalLaTeXInk =
+                source.format == .latex && settings.options.latexMargins?.applies(to: settings.theme) == true
+                && settings.layout.kind != .handout3
+            let latexFlow =
+                source.format == .latex && settings.theme.formats == [.latex]
+                && page.needsLaTeXFlow
             let codeScript = CodeFitScript.javaScript(for: settings.code, layoutWidth: layoutWidth) ?? ""
             let graphicScript =
                 source.format == .latex
@@ -1194,12 +1223,12 @@ public final class DocumentRenderer {
                     \(codeScript)
                     const paper = await (async () => { \(themeScript) })();
                     \(needsInk ? ChangeMarkAnchors.textScript(settings.markdownChanges) : "")
-                    \(ChangeMarkAnchors.javaScript(settings.markdownChanges, layoutWidth: layoutWidth))
+                    \(ChangeMarkAnchors.javaScript(settings.markdownChanges, layoutWidth: layoutWidth, latexFlow: latexFlow || checksVerticalLaTeXInk))
                     return \(needsInk ? "null" : "paper");
                     """
             }
             var text: WebPaginator.Result
-            if flow == .horizontal, settings.finish.footnotes == .pageBottom,
+            if !latexFlow, flow == .horizontal, settings.finish.footnotes == .pageBottom,
                 let plan = PageFootnotes.plan(for: page.paper.body),
                 let placed = try await paginateFootnotes(
                     plan, page: page, source: source, settings: settings, preparation: preparation)
@@ -1214,13 +1243,27 @@ public final class DocumentRenderer {
                         preparationScript: preparation,
                         readsPageRules: false, drawsBackground: !separatesPaper,
                         rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
-                        collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty, flow: flow),
+                        latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
+                        collectsDiagrams: page.collectsDiagrams && settings.markdownChanges.isEmpty,
+                        latexFlow: latexFlow,
+                        latexMarginInk: source.format == .latex && settings.theme.formats == [.latex]
+                            && (checksVerticalLaTeXInk || LaTeXFlowPaginator.hasMarginInk(in: fragment.body)),
+                        checksVerticalLaTeXInk: checksVerticalLaTeXInk, flow: flow),
                     source: source
                 )
             }
-            // Reader diagnostics describe the source as a whole and have no rectangle on a printed page.
+            // A fallback is also reported by its printed anchor. Keep that occurrence (and page),
+            // retaining the reader diagnostic when pagination supplied no matching figure.
+            var printedPictures: [String: Int] = [:]
+            for issue in text.issues where issue.kind == .latex && issue.element == .figure {
+                printedPictures[issue.detail, default: 0] += 1
+            }
             for (offset, detail) in fragment.readingIssues.enumerated() {
                 let kind: PrintIssue.Kind = source.format == .markdown ? .bibliography : .latex
+                if kind == .latex, let count = printedPictures[detail], count > 0 {
+                    printedPictures[detail] = count - 1
+                    continue
+                }
                 text.issues.append(PrintIssue(id: "\(kind.rawValue)-reader-\(offset)", kind: kind, detail: detail))
             }
             if page.needsFolderAccess { text.requiredFolderAccess = directory }
@@ -1263,7 +1306,23 @@ public final class DocumentRenderer {
     }
 
     private struct ThemedPage {
+        var numbering: LaTeXPageNumbers? {
+            guard let info = fragment.latexClass,
+                info.pageNumbers.needsRunningMarks
+                    || info.pageNumbers.usesClassPlain
+                        && (info.hasChapters || fragment.body.contains("latex-title-block"))
+                    || fragment.body.contains("class=\"toc\"")
+                    || fragment.body.contains("latex-pageref")
+                    || fragment.body.contains("data-latex-page-action") || fragment.body.contains("latex-titlepage")
+                    || (info.hasSeparateTitlePage ?? info.hasChapters) && fragment.body.contains("latex-title-block")
+            else { return nil }
+            return info.pageNumbers
+        }
+
+        var restartsAfterTitle: Bool { fragment.latexClass?.pageBox.mirrorsSides == false }
+
         let fragment: HTMLFragment
+        let needsLaTeXFlow: Bool
         let paper: HTMLFragment
         let html: String
         let facts: DocumentFacts
@@ -1305,6 +1364,7 @@ public final class DocumentRenderer {
                     }
                 })
         else { throw RenderingError.unsupportedFormat }
+        let needsLaTeXFlow = source.format == .latex && LaTeXFlowPaginator.needed(in: fragment.body)
         if source.format != .markdown, !settings.markdownChanges.isEmpty {
             fragment.body = FragmentChanges.identifyingBlocks(in: fragment.body, for: settings.markdownChanges)
         }
@@ -1321,10 +1381,14 @@ public final class DocumentRenderer {
         let mermaid =
             [.markdown, .org, .asciidoc, .quarto, .rMarkdown, .djot, .textile, .mediawiki].contains(source.format)
             && fragment.body.contains("class=\"mermaid-block\"")
-        let diagrams = markup && (fragment.body.contains("graphviz-block") || fragment.body.contains("plantuml-block"))
+        let diagrams =
+            markup
+            && (fragment.body.contains("graphviz-block") || fragment.body.contains("plantuml-block")
+                || source.format == .latex && fragment.body.contains("class=\"tikz-block\""))
         try Task.checkCancellation()
         return ThemedPage(
-            fragment: fragment, paper: paper, html: html, facts: DocumentFacts(fragment: fragment),
+            fragment: fragment, needsLaTeXFlow: needsLaTeXFlow, paper: paper, html: html,
+            facts: DocumentFacts(fragment: fragment),
             mermaid: mermaid, diagrams: diagrams, needsFolderAccess: needsFolderAccess)
     }
 
@@ -1333,12 +1397,18 @@ public final class DocumentRenderer {
         isContents: Bool = false
     ) async throws -> String {
         try Task.checkCancellation()
+        var finishCSS = isContents ? "" : settings.finish.styleSheet
+        if source.format == .latex, settings.layout.kind != .handout3,
+            settings.theme.formats == [.latex] || settings.options.latexMargins?.applies(to: settings.theme) == true
+        {
+            finishCSS += RenderSettings.documentWidthCSS
+        }
         let html = HTMLDocumentBuilder.build(
             fragment: fragment, format: source.format, theme: settings.theme,
             baseURL: source.fileURL?.deletingLastPathComponent(),
             language: settings.pageLanguage, textScale: settings.textScale, typeface: settings.typeface,
             removesPaper: separatesPaper,
-            finish: isContents ? "" : settings.finish.styleSheet, code: isContents ? CodeStyle() : settings.code)
+            finish: finishCSS, code: isContents ? CodeStyle() : settings.code)
         try PageLayoutLimits.checkHTML(bytes: html.utf8.count, sourceBytes: source.data.count)
         try Task.checkCancellation()
         return html
@@ -1444,7 +1514,8 @@ public final class DocumentRenderer {
             return issue
         }
         finished.finishing = FinishedPages(
-            facts: facts, contentsPageCount: contents?.pageCount ?? 0, blankPages: plan.blankPages,
+            latexPages: text.finishing.latexPages, facts: facts, contentsPageCount: contents?.pageCount ?? 0,
+            blankPages: plan.blankPages,
             plan: notes != nil ? plan : nil, pagePlan: plan, bodyHTML: fragment.body,
             showsSourceContents: finish.toc.showsSourceContents)
         return finished
@@ -1538,11 +1609,31 @@ public final class DocumentRenderer {
         case .html: title = DocumentOutline.title(ofHTML: String(decoding: source.data, as: UTF8.self))
         default: title = logical.finishing.facts?.title
         }
-        return PageFurniture.Context(
+        var context = PageFurniture.Context(
             fileName: fileName, title: title.flatMap { $0.isEmpty ? nil : $0 } ?? fallback,
             date: furniture.dateText(now(), language: settings.pageLanguage),
             blankPages: logical.finishing.blankPages.union(logical.finishing.notePages),
             chapters: furniture.uses(.chapter) ? Self.chapters(of: logical) : [])
+        if let footer = settings.latexFooter {
+            context.latexFooter = footer
+            let destinations = logical.finishing.pagePlan?.bodyPageIndices ?? Array(0..<logical.document.pageCount)
+            var initial = latexClassInfo(for: source).pageNumbers
+            let measured = logical.finishing.latexPages
+            for (bodyIndex, page) in destinations.enumerated() {
+                let number =
+                    measured.indices.contains(bodyIndex)
+                    ? measured[bodyIndex]
+                    : LaTeXPageReferences.Page(initial)
+                context.pageLabels[page] = number.label
+                if number.lines.top.allSatisfy(\.isEmpty) && number.lines.bottom.allSatisfy(\.isEmpty) {
+                    context.blankPages.insert(page)
+                } else {
+                    context.documentLines[page] = number.lines
+                }
+                initial.advance()
+            }
+        }
+        return context
     }
 
     /// The date a header or footer laid out with `settings` shows today; nil when it shows no date. Pages laid out on
@@ -1615,6 +1706,7 @@ public final class DocumentRenderer {
                     margins: margins, allowsJavaScript: false, preparationScript: preparation,
                     readsPageRules: false, drawsBackground: !WebPaginator.drawsClearPages,
                     rendersMermaid: page.mermaid, rendersDiagrams: page.diagrams,
+                    latexPageNumbers: page.numbering, restartsAfterTitle: page.restartsAfterTitle,
                     collectsDiagrams: collectsDiagrams && page.collectsDiagrams && settings.markdownChanges.isEmpty)
             }
             try Task.checkCancellation()
@@ -1669,7 +1761,10 @@ public final class DocumentRenderer {
                 request.preparationScript, themed: source.format.usesPrintTheme),
             readsPageRules: request.readsPageRules, drawsBackground: request.drawsBackground,
             rendersMermaid: request.rendersMermaid, rendersDiagrams: request.rendersDiagrams,
-            collectsDiagrams: request.collectsDiagrams, flow: request.flow)
+            latexPageNumbers: request.latexPageNumbers, restartsAfterTitle: request.restartsAfterTitle,
+            collectsDiagrams: request.collectsDiagrams, latexFlow: request.latexFlow,
+            latexMarginInk: request.latexMarginInk, checksVerticalLaTeXInk: request.checksVerticalLaTeXInk,
+            flow: request.flow)
         let output = try await paginate(wrapped)
         let preparation = output.preparationResult.flatMap {
             try? JSONDecoder().decode(PrintIssueAnchors.Preparation.self, from: Data($0.utf8))
@@ -1695,6 +1790,7 @@ public final class DocumentRenderer {
             document: document,
             preparationResult: preparation.map { $0.previous } ?? output.preparationResult,
             pageRules: output.pageRules, requiredFolderAccess: output.requiredFolderAccess)
+        result.finishing.latexPages = output.finishing.latexPages
         if let pass = output.diagramPass {
             result.diagrams = (try? pass.diagrams(transform: transform)) ?? []
             try Task.checkCancellation()

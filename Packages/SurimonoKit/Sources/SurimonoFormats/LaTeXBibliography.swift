@@ -391,6 +391,9 @@ extension LaTeXReader {
         let packages = (argument() ?? "").split(separator: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        if packages.contains(where: { $0.range(of: #"^icml(?:[0-9]{2,4})?$"#, options: .regularExpression) != nil }) {
+            document.classInfo.columns = 2
+        }
         readLanguagePackages(packages, options: options)
         if packages.contains(where: { ["amsthm", "ntheorem", "thmtools"].contains($0) }) {
             document.usesAMSTheorem = true
@@ -398,6 +401,7 @@ extension LaTeXReader {
         for package in packages {
             document.pageSettings.readPackage(package, options: packageOptions, pointSize: document.classInfo.pointSize)
         }
+        if packages.contains("hyperref") { readHyperrefOptions(packageOptions) }
         if packages.contains("natbib") {
             document.bibDatabase.natbib = true
             document.bibDatabase.applyNatbibOptions(options)
@@ -434,7 +438,7 @@ extension LaTeXReader {
             if name == "bibliography" { loadBibliography(argument() ?? "") } else { _ = optional() }
             let heading = captionName(document.hasChapters ? "bibname" : "refname")
             document.bibDatabase.printedHeadings.append("<h2 class=\"latex-bibliography-heading\">\(heading)</h2>\n")
-            appendBlock(document.placeholder("B", document.bibDatabase.printCount))
+            appendBlock(styledLinks(document.placeholder("B", document.bibDatabase.printCount), block: true))
             document.bibDatabase.printCount += 1
         }
     }

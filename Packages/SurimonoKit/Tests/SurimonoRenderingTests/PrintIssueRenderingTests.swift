@@ -51,6 +51,23 @@ struct PrintIssueRenderingTests {
         #expect(result.issues.first?.pageNumber == nil)
     }
 
+    @Test("図の読み取り診断と紙面上の診断をひとつにまとめ、図番号とページを残す")
+    func pictureIssue() async throws {
+        let renderer = DocumentRenderer(paginateWithResult: { _ in
+            let printed = PrintIssue(
+                id: "0", kind: .latex, detail: #"Figure 1 (TikZ) — \badA"#, element: .figure, pageNumber: 2)
+            let payload = try JSONEncoder().encode([printed])
+            return WebPaginator.Result(
+                document: try RenderingFixtures.pdf(count: 2),
+                preparationResult: "{\"issues\":" + String(decoding: payload, as: UTF8.self) + "}")
+        })
+        let source = #"\begin{tikzpicture}\badA;\end{tikzpicture}\begin{tikzpicture}\badB;\end{tikzpicture}"#
+        let input = DocumentSource(data: Data(source.utf8), format: .latex)
+        let result = try await renderer.render(input, settings: settings)
+        #expect(result.issues.map(\.detail) == [#"Figure 1 (TikZ) — \badA"#, #"Figure 2 (TikZ) — \badB"#])
+        #expect(result.issues.map(\.pageNumber) == [2, nil])
+    }
+
     @Test("問題と既存の準備結果はキャッシュと両面の再合成で失われない")
     func cache() async throws {
         let renderer = DocumentRenderer(paginateWithResult: { _ in

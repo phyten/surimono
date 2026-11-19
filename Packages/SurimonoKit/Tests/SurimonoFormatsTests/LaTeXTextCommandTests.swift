@@ -122,8 +122,8 @@ struct LaTeXTextCommandTests {
         for _ in 0..<5 { url.deleteLastPathComponent() }
         let result = LaTeXConverter.convert(
             try String(contentsOf: url.appending(path: "Samples/sample.tex"), encoding: .utf8))
-        #expect(result.readingIssues.count == 1)
-        #expect(result.readingIssues.first?.contains(#"\usetikzlibrary{external}"#) == true)
+        #expect(result.readingIssues.isEmpty)
+        #expect(result.body.contains("<span class=\"tikz-block\""))
         #expect(result.body.contains("星と月の展示です。"))
         #expect(!result.body.contains("Astronomy exhibit."))
     }

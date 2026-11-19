@@ -52,8 +52,8 @@ struct LaTeXFrontMatterTests {
                 """#)
         #expect(paper.readingIssues.isEmpty)
         #expect(paper.title == "折り目の測定")
-        try expectOrder(
-            ["折り目の測定", "担当甲", "sample@example.test", "製本室", "紙厚の結果。", "12X34", "Keywords:", "本文"], in: paper.body)
+        let metadata = name == "amsbook" ? ["12X34", "Keywords:", "紙厚の結果。"] : ["紙厚の結果。", "12X34", "Keywords:"]
+        try expectOrder(["折り目の測定", "担当甲", "sample@example.test", "製本室"] + metadata + ["本文"], in: paper.body)
         for word in ["試作協力", "紙厚の結果。", "製本室", "12X34"] { #expect(paper.body.components(separatedBy: word).count == 2) }
         #expect(!paper.body.contains("柱用"))
         #expect(!paper.body.contains("略称"))

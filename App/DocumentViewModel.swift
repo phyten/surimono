@@ -541,7 +541,7 @@ final class DocumentViewModel {
         themeID = initialTheme
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
         presetID = Self.defaultPresetID(preferences, library)
-        printOptions = preferences.printOptions
+        printOptions = preferences.printOptions.defaults(for: themeFormat)
         printFinish = preferences.printFinish
         // A guess until the pages are known; most documents have more than two pages.
         let guess = ViewOptions.resolved(
@@ -1005,13 +1005,11 @@ final class DocumentViewModel {
     }
 
     func start() {
-        if SandboxEnvironment.isSandboxed, folderLease == nil, let fileURL {
-            folderLease = FolderAccess.shared.acquire(for: fileURL)
-            web.allowedResourceFolders = folderLease.map { [$0.url] } ?? []
-            if folderLease != nil {
-                updateClassStyleAfterGrant()
-                web.reload()
-            }
+        if SandboxEnvironment.isSandboxed, folderLease == nil, let fileURL,
+            let lease = FolderAccess.shared.acquire(for: fileURL)
+        {
+            useDocumentFolder(lease)
+            web.reload()
         }
         web.onZoomChange = { [weak self] zoom in self?.webZoom = zoom }
         web.onPrintRequest = { [weak self] in self?.pageDidRequestPrint() }
@@ -1699,7 +1697,8 @@ final class DocumentViewModel {
         // Keep the margin attached to the pages still on screen while a new layout is being prepared.
         guard let settings = renderedSettings else { return nil }
         // Joined pages lose this much on every side, which uneven margins must not take out of the text.
-        return CGFloat(settings.layout.logicalMargins(options: settings.options).smallest * 72 / 25.4)
+        return CGFloat(
+            settings.layout.logicalMargins(options: result?.options ?? settings.options).smallest * 72 / 25.4)
     }
 
     /// Whether the margin shows on the pages view mode displays. PDFs keep their own margins, and the 3-up handout
@@ -1709,6 +1708,19 @@ final class DocumentViewModel {
     /// Whether the margin changes the printed sheets: everything but PDFs, including the 3-up handout's sheet.
     var marginsAffectPrinting: Bool { binder != nil || format != .pdf }
 
+    var usesDocumentMargins: Bool {
+        themeFormat == .latex && printOptions.latexMargins?.applies(to: theme(themeID)) == true
+    }
+
+    var usesDocumentFurniture: Bool {
+        themeFormat == .latex && printOptions.latexFurniture?.applies(to: theme(themeID)) == true
+    }
+
+    func marginLabel(in unit: MarginUnit) -> String {
+        if usesDocumentMargins { return String(localized: "As the Document") }
+        return printOptions.margins.uniformValue.map { unit.label($0) } ?? String(localized: "Mixed")
+    }
+
     /// The presets of the unit, plus the current margin when it is none of them, so the menu always checks it.
     func marginChoices(in unit: MarginUnit) -> [Double] { unit.choices(including: printOptions.margins.uniformValue) }
 
@@ -1716,6 +1728,7 @@ final class DocumentViewModel {
     /// way.
     func setMargins(_ millimeters: Double) {
         guard millimeters.isFinite else { return }
+        printOptions.latexMargins = nil
         printOptions.margins = .uniform(PageMargins.clamped(millimeters))
         printOptions.linksMargins = true
     }
@@ -1724,6 +1737,7 @@ final class DocumentViewModel {
     func setMargin(_ side: WritableKeyPath<PageMargins, Double>, to millimeters: Double) {
         guard millimeters.isFinite else { return }
         guard !printOptions.linksMargins else { return setMargins(millimeters) }
+        printOptions.latexMargins = nil
         printOptions.margins[keyPath: side] = PageMargins.clamped(millimeters)
     }
 
@@ -2510,6 +2524,10 @@ final class DocumentViewModel {
         var set = set.applicable(
             to: Set(binder?.items.map(\.format) ?? [format]),
             themeIDs: Set(availableThemes.map(\.id)), presetIDs: Set(library.presets.map(\.id)))
+        if themeFormat != .latex {
+            set.latexMargins = nil
+            set.latexFurniture = nil
+        }
         if !offersNotes { set.notes = nil }
         // A binder can hold texts and still have no page breaks or contents of its own to compare.
         if !finishAppliesToText { set.finish = nil }
@@ -2524,14 +2542,21 @@ final class DocumentViewModel {
         let set = applicablePrintSettingSet(set)
         if let id = set.layoutID { layoutID = id }
         if let orientation = set.paperOrientation { paperOrientation = orientation }
-        if let margins = set.margins { printOptions.margins = margins }
+        if let margins = set.margins {
+            printOptions.latexMargins = themeFormat == .latex ? set.latexMargins : nil
+            printOptions.margins = margins
+        }
         if let links = set.linksMargins {
             printOptions.linksMargins = links
         } else if set.margins != nil {
             printOptions.linksMargins = printOptions.margins.uniformValue != nil
         }
         if let mirrors = set.mirrorsMargins { printOptions.mirrorsMargins = mirrors }
-        if let furniture = set.furniture { printOptions.furniture = furniture }
+        if let furniture = set.furniture {
+            isWritingFurniture = false
+            printOptions.latexFurniture = themeFormat == .latex ? set.latexFurniture : nil
+            printOptions.furniture = furniture
+        }
         if let finish = set.finish { printFinish = finish }
         if let notes = set.notes { self.notes = notes }
         selectedSettingSetID = set.id
@@ -2556,7 +2581,8 @@ final class DocumentViewModel {
             textScale: usesPrintTheme ? defaultTextScale : nil,
             typeface: usesPrintTheme && defaultTypeface != .style ? defaultTypeface : nil,
             presetID: usesHTMLPreset ? Self.defaultPresetID(preferences, library) : nil,
-            printOptions: preferences.printOptions, paperOrientation: defaultPaperOrientation,
+            printOptions: preferences.printOptions.defaults(for: themeFormat),
+            paperOrientation: defaultPaperOrientation,
             htmlPresentation: usesHTMLPresentation ? .web : nil,
             binderStartsOnFront: binder != nil ? false : nil,
             printFinish: finishAppliesToText ? preferences.printFinish : nil,
@@ -2786,7 +2812,13 @@ final class DocumentViewModel {
         if let id = saved.codePaletteID.flatMap({ Self.knownCodePaletteID($0, library) }) { codePaletteID = id }
         if let block = saved.codeBlock { codeBlock = block }
         if let id = saved.presetID, library.presets.contains(where: { $0.id == id }) { presetID = id }
-        if let options = saved.printOptions { printOptions = options }
+        if var options = saved.printOptions {
+            if themeFormat != .latex {
+                options.latexMargins = nil
+                options.latexFurniture = nil
+            }
+            printOptions = options
+        }
         if let finish = saved.printFinish, finishAppliesToText { printFinish = finish }
         if let notes = saved.notes, offersNotes { self.notes = notes }
         if let range = saved.pageRange { setPageRange(range) }
@@ -2989,7 +3021,7 @@ final class DocumentViewModel {
         codePaletteID = Self.defaultCodePaletteID(preferences, library)
         codeBlock = CodeBlockOptions()
         presetID = Self.defaultPresetID(preferences, library)
-        printOptions = preferences.printOptions
+        printOptions = preferences.printOptions.defaults(for: themeFormat)
         printFinish = preferences.printFinish
         notes = NotePages()
         setPageRange(.all)
@@ -3321,7 +3353,10 @@ final class DocumentViewModel {
         return source
     }
 
-    private func updateClassStyleAfterGrant() {
+    func useDocumentFolder(_ lease: FolderAccess.Lease) {
+        folderLease?.close()
+        folderLease = lease
+        web.allowedResourceFolders = [lease.url]
         guard themeFormat == .latex else { return }
         // A newly readable preamble can set the document class. Change only an untouched default and
         // its baseline, so granting permission alone creates no settings record.
@@ -3380,10 +3415,7 @@ final class DocumentViewModel {
                     render()
                     return
                 }
-                folderLease?.close()
-                folderLease = lease
-                updateClassStyleAfterGrant()
-                web.allowedResourceFolders = [lease.url]
+                useDocumentFolder(lease)
                 dismissToast()
                 renderer.clearCache()
                 themeSamples.invalidate()
@@ -3908,7 +3940,7 @@ final class DocumentViewModel {
                 .first { !$0.isEmpty } ?? String(readingExportName.dropLast(4))
             exportingDocument = try ReadingPDFExporter.document(
                 from: document, entries: entries, title: metadataTitle, preservesOutline: format == .pdf,
-                headings: headings, sourceURL: fileURL)
+                headings: headings, sourceURL: fileURL, furniture: themeFormat == .latex ? prepared.viewFurniture : [:])
             exportingSourceURLs = sources
             return true
         } catch {

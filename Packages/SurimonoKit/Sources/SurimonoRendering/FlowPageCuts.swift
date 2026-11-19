@@ -9,7 +9,7 @@ enum FlowPageCuts {
         var keepNext: Bool = false
     }
 
-    static func pages(for fragments: [Band], capacity: CGFloat) -> [Band] {
+    static func groups(for fragments: [Band], capacity: CGFloat) -> [Band] {
         var lines: [Band] = []
         for fragment in fragments.sorted(by: { $0.start < $1.start }) {
             if let last = lines.indices.last, fragment.start < lines[last].end {
@@ -29,8 +29,12 @@ enum FlowPageCuts {
                 groups.append(Band(start: line.start, end: line.end))
             }
         }
+        return groups.reversed()
+    }
+
+    static func pages(for fragments: [Band], capacity: CGFloat) -> [Band] {
         var pages: [Band] = []
-        for group in groups.reversed() {
+        for group in groups(for: fragments, capacity: capacity) {
             if let last = pages.indices.last, group.end - pages[last].start <= capacity {
                 pages[last].end = group.end
             } else {
