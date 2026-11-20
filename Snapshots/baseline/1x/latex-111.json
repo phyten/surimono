@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.016125631724180696,
+    "changedAreaRatio" : 0.016123564732996414,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 2,
@@ -143,14 +143,14 @@
           "text" : "1",
           "width" : 3,
           "x" : 143.4,
-          "y" : 712.1
+          "y" : 711.7
         },
         {
           "height" : 11.7,
           "text" : "台紙の折り目を基準にする。",
           "width" : 99.7,
           "x" : 147.3,
-          "y" : 710.4
+          "y" : 710
         },
         {
           "height" : 11.7,
@@ -212,56 +212,56 @@
           "text" : "位置 幅（ミリ）",
           "width" : 78.1,
           "x" : 260,
-          "y" : 256
+          "y" : 254.4
         },
         {
           "height" : 14.6,
           "text" : "内側 3",
           "width" : 73.3,
           "x" : 260,
-          "y" : 271.2
+          "y" : 268.8
         },
         {
           "height" : 14.6,
           "text" : "外側 5",
           "width" : 73.3,
           "x" : 260,
-          "y" : 285.6
+          "y" : 284
         },
         {
           "height" : 14.6,
           "text" : "1. 白紙を窓に当てる。",
           "width" : 99,
           "x" : 145.9,
-          "y" : 324.7
+          "y" : 322.3
         },
         {
           "height" : 14.6,
           "text" : "2. 影の幅を台帳に写す [1]。",
           "width" : 121.6,
           "x" : 145.9,
-          "y" : 350.3
+          "y" : 344.7
         },
         {
           "height" : 23.2,
           "text" : "参考文献",
           "width" : 55.2,
           "x" : 133.8,
-          "y" : 392.5
+          "y" : 382.1
         },
         {
           "height" : 11.7,
           "text" : "[1]",
           "width" : 10.5,
           "x" : 133.8,
-          "y" : 423.5
+          "y" : 413.1
         },
         {
           "height" : 14.6,
           "text" : "紙窓模型工房『採光台帳』 。",
           "width" : 119.8,
           "x" : 149.3,
-          "y" : 420.7
+          "y" : 410.3
         },
         {
           "height" : 11.7,

@@ -111,6 +111,7 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         package var japaneseFontName: String?
         package var japaneseFontScale: Double = 0.924715
         package var headerStrutDepth: Double = 0
+        package var headerRuleDepth: Double?
         public var headSep: Double
         public var footSkip: Double
 

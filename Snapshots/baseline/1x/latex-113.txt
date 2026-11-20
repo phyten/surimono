@@ -1,0 +1,160 @@
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+Measuring Folded Card Spacers for Model Rails
+Anonymous Author(s)
+Affiliation
+Address
+email
+Abstract
+A folded card spacer fixes the height of a model rail above its baseboard. We
+measured spacers folded from three card stocks in a single test slot and
+compared the measured heights with a simple layer model. The model predicts
+the height of a folded spacer to within a tenth of a millimetre when the crease
+allowance is taken from a two-layer trial. We describe the slot, the measurement
+procedure and the remaining sources of error, and we list practical rules for
+choosing a card stock for a given rail height.
+1 Introduction
+Paper models of railways need many small parts of exact height. Rails, platform edges and signal
+bases all sit on spacers, and a spacer that is too thick by a fraction of a millimetre lifts a rail joint
+enough to derail a light wagon. Most builders cut spacers from card and fold them until they reach
+the height they want (Model Rail Desk, 2025). Folding is quick and needs no tools, but the height
+of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small
+allowance, and the allowance depends on the card and on how firmly the crease is pressed.
+This note reports a bench trial of folded spacers. Our aims were:
+•
+to measure the height of spacers with two to six layers in one fixed slot;
+•
+to compare the measurements with a layer model that adds a crease allowance; and
+•
+to give simple rules for choosing a card stock for a target height.
+Section 2 describes the slot and the procedure, Section 3 reports the measurements, and Section 4
+summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk,
+2024) and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1
+2 Method
+2.1 The test slot
+The slot was cut into a block of laminated board and lined with a strip of thin brass so that the card
+could not dent the walls. A sliding rail of known height rests on top of the spacer, and the height is
+read from a scale on the side of the block. The block was clamped to the bench throughout the trial
+so that the scale did not move between readings.
+Each spacer was inserted with its folded edge towards the back of the slot. The rail was lowered onto
+it and left for ten seconds before the reading was taken, because a freshly folded spacer springs back
+slowly. Three readings were taken for each spacer, removing and reinserting it between readings.
+1
+All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was the same for
+every spacer.
+Submitted to 40th Conference on Neural Information Processing Systems (NeurIPS 2026). Do not distribute.
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+Figure 1: Side view of the test slot with a four-layer spacer under the sliding rail. The dark block is
+the spacer; the thin lines mark the slot floor and the rail.
+Table 1: Measured and predicted heights of folded spacers (mm).
+Stock Layers Measured Predicted
+Thin 2 0.46 0.46
+Thin 4 0.95 0.98
+Medium 3 1.02 1.00
+Medium 6 2.05 2.05
+Thick 4 1.98 1.92
+2.2 Layer model
+We model the height h of a spacer with n layers of card of thickness t as
+h= n t + (n− 1) c,
+(1)
+where c is the crease allowance added by each fold. The allowance is found from a two-layer trial,
+for which Equation (1) gives c = h2− 2t. The same model was used for the gauge block of Scale
+Fixture Room (2023), where it predicted the height of folded board well for up to four layers.
+Card thickness.
+The thickness t was measured with a dial gauge on ten single sheets of each
+stock, and the mean was used in the model. The thin stock measured 0.20 mm, the medium stock
+0.30 mm and the thick stock 0.45 mm, with a spread of less than 0.01 mm in every case.
+Pressing the crease.
+Every crease was pressed once with the flat of a bone folder along a steel
+rule. Pressing twice made the crease allowance smaller but also cracked the surface of the thick
+stock, so a single pass was used for all spacers.
+3 Results
+Figure 1 shows the slot with a four-layer spacer in place, and Table 1 lists the mean measured
+height of each spacer together with the height predicted by Equation (1).
+The model agrees with the measurements to within 0.06 mm for every spacer. The largest error is
+for the thick stock, where the crease allowance grows with the number of layers: the outer layers
+must bend around a thicker core, and the crease opens slightly. For the thin and medium stocks the
+error does not grow with the number of layers, which agrees with the note of Glue Pot Corner
+(2022) on thin paper joints.
+Repeated readings of the same spacer differed by at most 0.02 mm. Spacers that were left in the
+slot overnight lost about 0.01 mm of height, which is smaller than the spread between readings and
+was ignored.
+4 Conclusion
+A folded card spacer can be designed from the card thickness and a crease allowance measured
+once for each stock. For heights up to 2 mm the thin and medium stocks follow the layer model
+closely, and they are the better choice when a rail must sit at an exact height. The thick stock is
+quicker to fold but should be checked in the slot when more than three layers are used. A card
+ladder (Window Frame Study, 2021) gives a convenient way to check many spacers at once.
+2
+59
+References
+60
+61
+Card Stock Bench and Model Rail Desk. 2024. Folding tolerances of layered card. In Proceedings of the
+Bench Meeting on Paper Models, pages 12–19.
+62
+Glue Pot Corner. 2022. Drying times for thin paper joints. Paper Model Quarterly, 4(2):33–41.
+63
+Model Rail Desk. 2025. Spacer Card Register. Trial note, Paper Model Workshop.
+64
+65
+Scale Fixture Room. 2023. A gauge block made of folded board. Workshop Leaflet 7, Paper Model
+Workshop.
+66
+Window Frame Study. 2021. Measuring slots with a card ladder. Technical memo, Paper Model Workshop.
+3

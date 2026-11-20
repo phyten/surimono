@@ -1,4 +1,6 @@
+import CoreText
 import PDFKit
+import SurimonoFormats
 import WebKit
 
 @MainActor
@@ -59,7 +61,7 @@ enum LaTeXFlowPaginator {
 
     nonisolated static func needed(in markup: String) -> Bool {
         [
-            "<template data-latex-columns=", "<div data-latex-columns=", "<div data-latex-wide",
+            " data-latex-style=\"", "<template data-latex-columns=", "<div data-latex-columns=", "<div data-latex-wide",
             "<figure class=\"latex-figure\" data-latex-float=", "<figure class=\"latex-table\" data-latex-float=",
             "<div data-latex-break=", "<div class=\"latex-pagebreak\" data-latex-break=", "<template data-latex-break=",
             "<div class=\"latex-vfill\"", "<section class=\"footnotes\">", "<span class=\"latex-vspace\"",
@@ -156,7 +158,7 @@ enum LaTeXFlowPaginator {
         else {
             throw WebPaginator.PaginationError.printFailed
         }
-        let (pages, locations) = try await plan(json, width: width, height: height, until: deadline)
+        let (pages, locations, review, lines) = try await plan(json, width: width, height: height, until: deadline)
         if referencesOnly {
             _ = try await run("surimonoRestoreFlow()")
             return Pass(
@@ -174,6 +176,7 @@ enum LaTeXFlowPaginator {
         }
         let origins = try JSONDecoder().decode([Origin].self, from: Data(positions.utf8))
         var index = 0
+        var lineNumber = 1
         let pdf = try await PDFDrawing.document(pageSize: pageSize) { context in
             for (pageIndex, page) in pages.enumerated() {
                 if sample && pageIndex != (locations[-1] ?? 0) {
@@ -218,6 +221,10 @@ enum LaTeXFlowPaginator {
                     }
                     index += 1
                 }
+                drawReview(
+                    review, lines: lines, pieces: page.pieces, pageIndex: pageIndex,
+                    textOrigin: CGPoint(x: margins.left, y: pageSize.height - margins.top), next: &lineNumber,
+                    in: context)
                 context.setFillColor(gray: 0, alpha: 1)
                 for rule in page.rules {
                     context.fill(
@@ -230,6 +237,56 @@ enum LaTeXFlowPaginator {
         }
         _ = try await run("surimonoRestoreFlow()")
         return Pass(document: pdf, pageCount: pages.count, locations: locations)
+    }
+
+    private static func drawReview(
+        _ review: LaTeXResolvedStyle.Review?, lines: [[CGFloat]], pieces: [LaTeXFlowLayout.Piece], pageIndex: Int,
+        textOrigin: CGPoint, next: inout Int, in context: CGContext
+    ) {
+        guard let review else { return }
+        let ruler = review == .ruler
+        let pt = 72.0 / 72.27
+        let font = CTFontCreateWithName((ruler ? "Helvetica-Bold" : "Helvetica") as CFString, (ruler ? 8 : 6) * pt, nil)
+        func draw(_ string: String, y: CGFloat) {
+            let label = NSAttributedString(
+                string: string,
+                attributes: [
+                    .font: font, NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true,
+                ])
+            let line = CTLineCreateWithAttributedString(label)
+            let width = CTLineGetTypographicBounds(line, nil, nil, nil)
+            context.textPosition = CGPoint(x: textOrigin.x - (ruler ? 35 * pt : 10 * pt + width), y: textOrigin.y - y)
+            CTLineDraw(line, context)
+        }
+        context.saveGState()
+        defer { context.restoreGState() }
+        context.textMatrix = .identity
+        if ruler {
+            // Quartz applies a different transfer curve when the same value is supplied as grayscale.
+            let gray: CGFloat = 178.0 / 255
+            context.setFillColor(red: gray, green: gray, blue: gray, alpha: 1)
+        } else {
+            context.setFillColor(gray: 0, alpha: 1)
+        }
+        if ruler {
+            for i in 0..<54 { draw(String(format: "%03d", pageIndex * 54 + i), y: 5.335 + CGFloat(i) * 12 * pt) }
+        } else {
+            let ratio = WebPaginator.printPixelsPerPoint
+            for piece in pieces where lines.indices.contains(piece.slice.strip) {
+                let positions = lines[piece.slice.strip]
+                var low = 0
+                var high = positions.count
+                while low < high {
+                    let mid = (low + high) / 2
+                    if positions[mid] < piece.slice.start { low = mid + 1 } else { high = mid }
+                }
+                for y in positions[low...] {
+                    if y >= piece.slice.end { break }
+                    draw(String(next), y: (piece.y + (y - piece.slice.start) * piece.scale) / ratio)
+                    next += 1
+                }
+            }
+        }
     }
 
     /// A wide strip can touch both columns. Only the first and last ink in each column can claim the
@@ -286,11 +343,11 @@ enum LaTeXFlowPaginator {
     @concurrent private static func plan(
         _ json: String, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
     ) async throws -> (
-        [LaTeXFlowLayout.Page], [Int: Int]
+        [LaTeXFlowLayout.Page], [Int: Int], LaTeXResolvedStyle.Review?, [[CGFloat]]
     ) {
         let input = try JSONDecoder().decode(LaTeXFlowLayout.Measurement.self, from: Data(json.utf8))
         let pages = try LaTeXFlowLayout.pages(input, width: width, height: height, until: deadline)
-        return (pages, locations(of: input.probes ?? [], in: pages))
+        return (pages, locations(of: input.probes ?? [], in: pages), input.review, input.reviewLines ?? [])
     }
 
     // A probe in the margin above a heading belongs to the first printed slice below it.

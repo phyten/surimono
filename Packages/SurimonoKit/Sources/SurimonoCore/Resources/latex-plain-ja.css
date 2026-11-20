@@ -188,4 +188,29 @@ body.format-latex:is([data-latex-class="ltjarticle"],[data-latex-class="jarticle
             & [data-latex-heading="subsection"] + p { padding-block-start: max(0px, calc(var(--tex-baseline) - 1cap)); }
         }
     }
+    &[data-latex-size="10"][data-latex-chapters="false"] {
+        --latex-measure-enumerate-pitch: 1;
+        /* The caption's Japanese glyph depth and one lineskip precede the tabular.
+           Its browser line-box descent otherwise also moves the list below the float. */
+        @supports (text-box-trim: trim-end) {
+            & figure.latex-table > figcaption:not([data-latex-caption-style]):has(+ table tr + tr) {
+                text-box-trim: trim-end; text-box-edge: cap alphabetic;
+                padding-block-end: calc(.12em * var(--latex-jfm-scale) + var(--tex-pt));
+            }
+        }
+        /* The outer enumerate inserts one 15pt baseline per item plus 4pt each
+           of itemsep and parsep. The label must not contribute a second strut. */
+        @supports (text-box-trim: trim-both) {
+            & ol.latex-enumerate:not(li ol) > li {
+                min-block-size: 0; text-box-trim: trim-both; text-box-edge: cap alphabetic;
+                padding-block-start: max(0px, calc(var(--tex-baseline) - 1cap));
+            }
+            & ol.latex-enumerate:not(li ol) > li > .item-label { line-height: 0; }
+            & [data-flow-after-float] > ol.latex-enumerate:first-child > li:first-child {
+                padding-block-start: max(0px, calc(var(--tex-baseline) - .12em * var(--latex-jfm-scale) - 1cap));
+            }
+        }
+        /* The starred section uses addvspace: its 1.5 Cvs includes the preceding list's topsep. */
+        & ol.latex-enumerate:has(+ .latex-bibliography-heading) { margin-block-end: 0; }
+    }
 }

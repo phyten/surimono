@@ -54,6 +54,9 @@ extension RenderSettings {
             latexFooter?.japaneseFontName = info.japaneseMainFontName
             latexFooter?.japaneseFontScale = info.japaneseFurnitureScale
             latexFooter?.headerStrutDepth = info.headerStrutDepth * textScale
+            if info.resolvedStyle != nil && info.headerStrutDepth > 0 {
+                latexFooter?.headerRuleDepth = info.headerStrutDepth * textScale
+            }
             latexFooter?.headerFont = info.pageHeadFont
             latexFooter?.numberFont = info.pageNumberFont
         }

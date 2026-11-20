@@ -800,6 +800,44 @@
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
+  "latex-113" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-114" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-117" : {
+    "fonts" : [
+      "Helvetica",
+      "Helvetica-Bold",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-118" : {
+    "fonts" : [
+      "CourierNewPSMT",
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
   "sample-booklet-demo-md" : {
     "fonts" : [
       "HiraKakuProN-W3",

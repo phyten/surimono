@@ -117,11 +117,19 @@ final class LaTeXDocument {
 
     struct Citation {
         let command: String
+        var full = false
         let keys: [String]
         let before: String?
         let after: String?
     }
 
+    var stylePackage: LaTeXStylePackageRegistry.Request?
+    var passedPackageOptions: [String: [String]] = [:]
+    var styleMainFontRevision = 0
+    var loadsTimesPackage = false
+    var finalCopy = false
+    var workshopTitle = ""
+    var preamblePageActions: [(String, String)] = []
     var startedDocument = false
     var endedDocument = false
     var typesettingInfo: LaTeXDocumentClassInfo {
@@ -144,6 +152,7 @@ final class LaTeXDocument {
             }
         }
         info.mainFontName = pageSettings.fonts.mainFontName
+        if info.resolvedStyle?.runningHeader != nil { info.headerStrutDepth = 3.6 * 72 / 72.27 }
         if info.usesTraditionalJapaneseNames && info.profile.structure.bookOpening != nil {
             info.japaneseMainFontName = pageSettings.fonts.japaneseMainFontName ?? "HiraMinProN-W3"
         }
@@ -304,6 +313,9 @@ final class LaTeXDocument {
                 ? LaTeXConverter.japaneseUnreadCommandPrefix : LaTeXConverter.unreadCommandPrefix
             issues.append(prefix + unknownNames.joined(separator: ", "))
         }
+        if let style = classInfo.resolvedStyle {
+            issues += style.diagnostics.map { "\(style.requestedName): unknown option \($0)" }
+        }
         issues.append(contentsOf: failedFormulas)
         if stopsExpanding { issues.append("LaTeX expansion limit reached") }
         return issues
@@ -374,9 +386,12 @@ final class LaTeXDocument {
         let yearOnly = citation.command == "citeyear"
         let hasDatabaseLabel = citation.keys.contains { bibDatabase.citationLabels[$0] != nil }
         let authorYear = hasDatabaseLabel && bibDatabase.authorYear
-        let textual = hasDatabaseLabel && ["citet", "textcite"].contains(citation.command)
-        let bare = (hasDatabaseLabel && (authorOnly || yearOnly)) || textual
-        let square = !hasDatabaseLabel || bibDatabase.usesSquareBrackets
+        let textual =
+            hasDatabaseLabel
+            && (["citet", "textcite"].contains(citation.command)
+                || citation.command == "cite" && bibDatabase.natbib && authorYear && citation.after == nil)
+        let bare = (hasDatabaseLabel && (authorOnly || yearOnly)) || textual || citation.command == "citealp"
+        let square = (!hasDatabaseLabel && !bibDatabase.natbib) || bibDatabase.usesSquareBrackets
         let delimiters = square ? ("[", "]") : ("(", ")")
         let close = bare ? "" : delimiters.1
         var html = "<span class=\"latex-cite\">" + (bare ? "" : delimiters.0)
@@ -385,9 +400,16 @@ final class LaTeXDocument {
             html += filled
             return true
         }
-        if let before = citation.before, !before.isEmpty, !add(before + " ") { return nil }
-        for (position, key) in citation.keys.enumerated() {
-            if position > 0, !add(authorYear && !bare ? bibDatabase.multipleCitationSeparator : ", ") { return nil }
+        if !textual, let before = citation.before, !before.isEmpty, !add(before + " ") { return nil }
+        let compress =
+            bibDatabase.natbib && bibDatabase.sortsAndCompresses && !authorYear
+            && (!bare || citation.command == "citealp")
+        let separator = authorYear && (bibDatabase.natbib || !bare) ? bibDatabase.multipleCitationSeparator : ", "
+        let parts = compress ? compressedNumbers(citation.keys) : nil
+        let count = parts?.count ?? citation.keys.count
+        for position in 0..<count {
+            let key = parts?[position].key ?? citation.keys[position]
+            if position > 0, !add(parts?[position].separator ?? separator) { return nil }
             if let entry = bibliography[key] {
                 // The label goes in on its own, so a label too long is turned down before it is copied anywhere.
                 func addLinked(_ text: String) -> Bool {
@@ -396,19 +418,26 @@ final class LaTeXDocument {
                         : add("<a href=\"#\(HTML.escape(entry.id))\">") && add(text) && add("</a>")
                 }
                 if let label = bibDatabase.citationLabels[key], authorOnly || yearOnly || textual {
+                    let author = citation.full ? bibDatabase.fullAuthors[key] ?? label.author : label.author
                     if authorOnly {
-                        guard addLinked(label.author) else { return nil }
+                        guard addLinked(author) else { return nil }
                     } else if yearOnly {
                         guard addLinked(label.year) else { return nil }
                     } else {
-                        guard add(label.author), add(" " + delimiters.0),
-                            addLinked(authorYear ? label.year : entry.label)
-                        else { return nil }
-                        if position == citation.keys.count - 1, let after = citation.after, !after.isEmpty {
+                        guard add(author), add(" " + delimiters.0) else { return nil }
+                        if position == 0, let before = citation.before, !before.isEmpty, !add(before + " ") {
+                            return nil
+                        }
+                        guard addLinked(authorYear ? label.year : entry.label) else { return nil }
+                        if position == count - 1, let after = citation.after, !after.isEmpty {
                             guard add(", "), add(after) else { return nil }
                         }
                         guard add(delimiters.1) else { return nil }
                     }
+                } else if citation.full, authorYear, let long = bibDatabase.fullAuthors[key],
+                    let label = bibDatabase.citationLabels[key]
+                {
+                    guard addLinked(long + bibDatabase.authorYearSeparator + label.year) else { return nil }
                 } else if !addLinked(entry.label) {
                     return nil
                 }
@@ -422,6 +451,27 @@ final class LaTeXDocument {
             return nil
         }
         return add(close + "</span>") ? html : nil
+    }
+
+    // Keep the endpoints as keys so each printed number still links to its own bibliography entry.
+    private func compressedNumbers(_ keys: [String]) -> [(key: String, separator: String)] {
+        let sorted = keys.map { key in
+            (key: key, number: Int(bibliography[key]?.label ?? ""))
+        }.sorted { ($0.number ?? .max) < ($1.number ?? .max) }
+        var result: [(String, String)] = []
+        var i = 0
+        while i < sorted.count {
+            let start = i
+            result.append((sorted[i].key, ", "))
+            while i + 1 < sorted.count, let current = sorted[i].number, current > 0, current < Int.max,
+                sorted[i + 1].number == current + 1
+            {
+                i += 1
+            }
+            if i > start { result.append((sorted[i].key, i - start >= 2 ? "–" : ", ")) }
+            i += 1
+        }
+        return result
     }
 
     /// A piece of a citation with its references and earlier citations filled in, or nil once it would pass `limit`.

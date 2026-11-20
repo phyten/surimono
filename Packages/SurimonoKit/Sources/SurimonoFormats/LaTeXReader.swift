@@ -433,14 +433,14 @@ final class LaTeXReader {
             var attribute = noParagraphIndent ? " class=\"latex-noindent\"" : ""
             // A solitary rule starts the float at its natural height, even when shorter than a text line.
             if floatKind == "figure",
-                document.classInfo.profile.body.naturalRuleHeight,
+                document.classInfo.profile.body.naturalRuleHeight || document.classInfo.resolvedStyle != nil,
                 text.hasPrefix("<span class=\"latex-rule\" "), text.range(of: "</span>")?.upperBound == text.endIndex,
                 !text.contains("vertical-align:")
             {
                 attribute += " data-latex-rule-line"
             }
             var styles = centered ? ["text-align: center", "text-indent: 0"] : []
-            if document.classInfo.profile.typography.selectsParagraphPitch,
+            if document.classInfo.profile.typography.selectsParagraphPitch || document.classInfo.resolvedStyle != nil,
                 let size = declarations.last(where: { $0.size != nil })?.size,
                 let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: size)
             {
@@ -795,8 +795,10 @@ final class LaTeXReader {
             _ = argument()
             _ = argument()
 
+        case "newblock" where document.bibDatabase.natbib: appendText(" ")
         case "today": appendText(document.today())
         case "label": label()
+        case "citealp" where document.bibDatabase.natbib: cite(name)
         case "cite", "citep", "citet", "parencite", "textcite", "autocite", "citeauthor", "citeyear": cite(name)
         case "bibliography", "printbibliography", "addbibresource", "bibliographystyle", "setcitestyle", "nocite":
             externalBibliography(name)
@@ -920,6 +922,7 @@ final class LaTeXReader {
 
     func pageAction(_ action: String, _ value: String) {
         if inPreamble {
+            document.preamblePageActions.append((action, value))
             document.classInfo.pageNumbers.apply(action, value: value)
         } else {
             if action == "pagestyle" || action == "fancyStyle" {
@@ -1104,11 +1107,19 @@ final class LaTeXReader {
                 if ["abstract", "CCSXML", "keyword", "keywords", "IEEEkeywords"].contains(environment) {
                     readFrontEnvironment(environment, body: environmentBody(environment))
                 } else if environment == "document" {
+                    document.resolveStylePackage()
                     document.startedDocument = true
                     document.landscapeBody = onlyLandscapeBody()
                     flush()
                     output = ""
                 }
+            case "PassOptionsToPackage":
+                let options = Self.packageOptions(argument() ?? "")
+                if let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    document.passedPackageOptions[name, default: []] += options
+                }
+            case "iclrfinalcopy": document.finalCopy = true
+            case "workshoptitle": document.workshopTitle = LaTeXPageNumbers.text(argument() ?? "")
             case "documentclass":
                 readDocumentClass()
 
@@ -1331,7 +1342,9 @@ final class LaTeXReader {
             grid += " data-latex-appendix"
         }
         let sectionTitle =
-            headings.smallCapsSections && name == "section"
+            (headings.smallCapsSections && name == "section")
+                || (document.classInfo.resolvedStyle?.displayFace == .smallCaps
+                    && ["section", "subsection", "subsubsection", "subparagraph"].contains(name))
             ? LaTeXJournalStyle.smallCaps(title, in: document) : title
         let headTitle =
             name == "chapter" && headings.wrapsChapterTitle
@@ -1369,7 +1382,7 @@ final class LaTeXReader {
     func sizeOpening(_ name: String, relativeSize: Double) -> String {
         let factor = String(format: "%g", relativeSize)
         if let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: name),
-            document.classInfo.profile.typography.selectsParagraphPitch
+            document.classInfo.profile.typography.selectsParagraphPitch || document.classInfo.resolvedStyle != nil
         {
             return
                 "<span data-latex-text-size=\"\(name)\" style=\"font-size: var(--latex-size-\(name), \(factor)em); --latex-selected-pitch: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt) * var(--latex-stretch, 1))\">"
@@ -1896,6 +1909,7 @@ final class LaTeXReader {
         switch name {
         case "document" where !document.inputChain.isEmpty && !document.startedDocument:
             // A thin main file may input the entire document, including the body boundary.
+            if !document.startedDocument { document.resolveStylePackage() }
             document.startedDocument = true
         case "verbatim", "verbatim*", "Verbatim", "alltt":
             if name == "Verbatim" { _ = optionalOnLine() }
@@ -2044,6 +2058,10 @@ final class LaTeXReader {
             let reader = LaTeXReader(body, document: document, isBlock: false)
             let language = reader.argument() ?? ""
             appendBlock(localized(reader.rest, language: language, block: true))
+        case "ack" where document.classInfo.resolvedStyle?.acknowledgementHeading != nil:
+            if let heading = document.classInfo.resolvedStyle?.acknowledgementHeading, !heading.isEmpty {
+                appendBlock("<h2>\(heading)</h2>\n" + blocks(body))
+            }
         case "theindex":
             appendBlock("<h2 class=\"latex-index-heading\">\(captionName("indexname"))</h2>\n" + blocks(body))
         case "abstract", "frontmatter", "CCSXML", "IEEEkeywords", "keyword", "keywords":
@@ -2351,12 +2369,29 @@ final class LaTeXReader {
         }
         var entries = ""
         var number = 0
-        for (position, item) in Self.items(of: reader.rest, command: "bibitem").enumerated() {
+        let items = Self.items(of: reader.rest, command: "bibitem")
+        let labels = items.map { $0.label.flatMap(LaTeXBibliography.ManualLabel.init) }
+        let database = document.bibDatabase
+        database.hasManualBibliography = true
+        if database.natbib && labels.contains(where: { $0 == nil }) { database.authorYearOption = false }
+        let authorYear = database.natbib && database.authorYear
+        for (position, item) in items.enumerated() {
             let itemReader = LaTeXReader(item.content, document: document, isBlock: false)
             let key = itemReader.argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             // As in LaTeX, an entry with its own label does not advance the numbers.
             let label: String
-            if let own = item.label {
+            if let parsed = labels[position] {
+                let author = inline(parsed.author)
+                let year = inline(parsed.year)
+                if database.natbib {
+                    database.citationLabels[key] = (author, year)
+                    database.fullAuthors[key] = parsed.fullAuthor == parsed.author ? author : inline(parsed.fullAuthor)
+                }
+                number += 1
+                label = authorYear ? author + database.authorYearSeparator + year : String(position + 1)
+            } else if database.natbib {
+                label = String(position + 1)
+            } else if let own = item.label {
                 label = inline(own)
             } else {
                 number += 1
@@ -2379,32 +2414,44 @@ final class LaTeXReader {
                 }.joined()
             }
             let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
-            let marker = "<span class=\"bib-label\">\(printed)</span>"
+            let marker = authorYear ? "" : "<span class=\"bib-label\">\(printed)</span>"
             entries +=
                 "<li id=\"\(id)\">\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
         }
         let list: String
-        if document.language == "ja", document.classInfo.profile.body.usesJapanesePunctuationMetrics,
+        if authorYear {
+            list = "<ol class=\"latex-bibliography latex-author-year\">"
+        } else if document.language == "ja", document.classInfo.profile.body.usesJapanesePunctuationMetrics,
             let widest, !widest.isEmpty, widest.utf8.allSatisfy({ (48...57).contains($0) })
         {
             list = "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(widest.count)ch\">"
         } else {
             list = "<ol class=\"latex-bibliography\">"
         }
-        appendBlock(headingHTML + list + "\n\(entries)</ol>\n")
+        var opening = list
+        if database.natbib, let size = declarations.last(where: { $0.size != nil })?.size,
+            let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: size)
+        {
+            opening =
+                String(list.dropLast())
+                + " style=\"font-size: var(--latex-size-\(size)); line-height: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt))\">"
+        }
+        appendBlock(headingHTML + opening + "\n\(entries)</ol>\n")
     }
 
     /// `\cite[after]{keys}` and natbib's `\citep[before][after]{keys}`. The numbers are filled in at the end, as
     /// the bibliography usually comes last.
     private func cite(_ command: String) {
-        _ = star()
+        let full = star()
         let first = optional()
         let second = optional()
         let keys = (argument() ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         let (before, after) = second == nil ? (nil, first) : (first, second)
         let citation = document.citation(
-            .init(command: command, keys: keys, before: before.map { inline($0) }, after: after.map { inline($0) }))
+            .init(
+                command: command, full: full, keys: keys, before: before.map { inline($0) },
+                after: after.map { inline($0) }))
         appendHTML(styledLinks(citation))
     }
 

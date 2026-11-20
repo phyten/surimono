@@ -151,7 +151,7 @@ enum LaTeXPageReferences {
           // Standard inline titles and chapter openings select plain locally. A measured chapter
           // can change the running marks on this same page as well.
           const classPlain = plain && action !== 'title' && !el.dataset.latexPageAction &&
-            (el.matches('body[data-latex-title-layout="inline"] .latex-title-block') || chapters && el.matches('h2[id^="sec-"],[data-latex-chapter-opening],body[data-latex-book-opening] .latex-part'));
+            (el.matches('body[data-latex-title-layout="inline"]:not([data-latex-style]) .latex-title-block') || chapters && el.matches('h2[id^="sec-"],[data-latex-chapter-opening],body[data-latex-book-opening] .latex-part'));
           if (!refs.has(el) && !action && !classPlain) continue;
           if (el.matches('span[data-latex-page-action]')) el.style.position = 'absolute';
           const index = targets.length;

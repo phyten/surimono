@@ -521,12 +521,15 @@ struct LaTeXClassRegistryTests {
         #expect(scaled.typography.baselineTable == .scaled(magnification: 0.8, smallBelow: 1))
     }
 
-    @Test("文書クラス名のリテラルはレジストリだけに置く")
+    @Test("クラス名と学会パッケージ名のリテラルは各レジストリだけに置く")
     func classNameLiterals() throws {
         let sources = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .appendingPathComponent("../../Sources").standardizedFileURL
         let names = LaTeXClassRegistry.registeredNames.map(NSRegularExpression.escapedPattern(for:))
-        let literal = try NSRegularExpression(pattern: "\"" + "(?:" + names.joined(separator: "|") + ")\"")
+        let literal = try NSRegularExpression(
+            pattern: "\"" + "(?:"
+                + (names + ["neurips(?:_[0-9]{0,4})?", "iclr(?:[0-9]{4}(?:_conference)?)?", "_conference"]).joined(
+                    separator: "|") + ")\"")
         // Each excerpt exempts one occurrence so another comparison in the same file still fails.
         let exceptions: [String: [String]] = [
             // These are HTML element names used to identify block boundaries.
@@ -555,7 +558,9 @@ struct LaTeXClassRegistryTests {
             let files = try #require(FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil))
             var scanned = 0
             for case let file as URL in files where file.pathExtension == "swift" {
-                if file == sources.appendingPathComponent("SurimonoFormats/LaTeXClassRegistry.swift") { continue }
+                if ["LaTeXClassRegistry.swift", "LaTeXStylePackageRegistry.swift"].contains(file.lastPathComponent) {
+                    continue
+                }
                 scanned += 1
                 var source = try String(contentsOf: file, encoding: .utf8)
                 for excerpt in exceptions[file.lastPathComponent] ?? [] {
