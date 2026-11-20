@@ -87,7 +87,7 @@ struct SettingsMenuTests {
             (["Print…", "Print"], NSEvent.ModifierFlags.command),
             (["Print with System Dialog…"], NSEvent.ModifierFlags([.option, .command])),
         ] {
-            let item = try #require(menu.items.first { titles.map(localized).contains($0.title) })
+            let item = try #require(menu.items.first { titles.map { localized($0) }.contains($0.title) })
             #expect(item.keyEquivalent == "p")
             #expect(item.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) == flags)
         }
@@ -116,7 +116,8 @@ struct SettingsMenuTests {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
         for key in ["Select Text", "Always Show Toolbar", "Float on Top", "Show on All Spaces", "View Options…"] {
             let item = try #require(menu.items.first { $0.title == localized(key) })
-            #expect(item.isEnabled)
+            #expect(
+                ShortcutDispatcher.shared.bridge.validateMenuItem(item) == (DocumentWindows.shared.currentModel != nil))
         }
         let pin = try #require(menu.items.first { $0.title == localized("Always Show Toolbar") })
         #expect(pin.keyEquivalent == "t")
@@ -132,7 +133,10 @@ struct SettingsMenuTests {
         #expect(
             entries.map { $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) }
                 == [[.option, .command], [.option, .command]])
-        #expect(entries.allSatisfy { $0.isEnabled })
+        #expect(
+            entries.allSatisfy {
+                ShortcutDispatcher.shared.bridge.validateMenuItem($0) == (DocumentWindows.shared.currentModel != nil)
+            })
     }
 
     @Test(
@@ -159,7 +163,7 @@ struct SettingsMenuTests {
                 == [
                     "Print Layout", "Setting Sets", "Print Settings…", "Choose Style…", "Add Documents…",
                     "Reset Document Settings", "Reload",
-                ].map(localized))
+                ].map { localized($0) })
         let layouts = try #require(menu.items.first?.submenu)
         // The six cards keep ⌘1 to ⌘6; the layouts that save paper on the same sheet follow without a key.
         let items = layouts.items.filter { !$0.isSeparatorItem }
@@ -171,21 +175,24 @@ struct SettingsMenuTests {
             })
     }
 
-    @Test("文書メニューには印刷の設定がひとつだけあり、文書がなくても有効なままにする")
+    @Test("文書メニューには印刷の設定がひとつだけあり、文書のある窓で有効になる")
     func printSettingsItem() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
         let entries = menu.items.filter { $0.title == localized("Print Settings…") }
         #expect(entries.count == 1)
-        #expect(entries.first?.isEnabled == true)
+        let item = try #require(entries.first)
+        #expect(ShortcutDispatcher.shared.bridge.validateMenuItem(item) == (DocumentWindows.shared.currentModel != nil))
     }
 
-    @Test("文書メニューの設定セットは文書がなくても保存と管理の項目を有効に保つ")
+    @Test("文書メニューの設定セットは文書がないときは管理だけ実行できる")
     func settingSetCommands() throws {
         let menu = try #require(NSApp.mainMenu?.items[4].submenu)
         let sets = try #require(menu.items.first { $0.title == localized("Setting Sets") }?.submenu)
         for key in ["Save Current Settings…", "Manage Setting Sets…"] {
             let item = try #require(sets.items.first { $0.title == localized(key) })
-            #expect(item.isEnabled)
+            #expect(
+                ShortcutDispatcher.shared.bridge.validateMenuItem(item)
+                    == (key == "Manage Setting Sets…" || DocumentWindows.shared.currentModel != nil))
         }
     }
 

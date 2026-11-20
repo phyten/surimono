@@ -46,6 +46,26 @@ struct ReadingNavigationTests {
         model.setLayout(.single)
     }
 
+    @Test("表示中のページにしおりを付けるとメニューを開かずにチェックを公開する", .timeLimit(.minutes(1)))
+    func publishesBookmark() async throws {
+        let fixture = Fixture()
+        let model = fixture.model()
+        defer { model.stop() }
+        try await start(model)
+        let state = MenuState()
+        let updates = MenuUpdates(
+            state: state, root: { nil }, model: { model }, preferences: { fixture.preferences },
+            lifecycle: NotificationCenter(), apply: { _ in })
+        updates.start()
+        defer { updates.stop {} }
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        let before = state.snapshot
+        #expect(!before.content.bookmarked)
+        model.toggleBookmark()
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        #expect(state.snapshot.version == before.version + 1 && state.snapshot.content.bookmarked)
+    }
+
     @Test("目次で飛んで読み進め、戻ると飛ぶ前、進むと読んだ場所へ移る", .timeLimit(.minutes(1)))
     func outlineHistory() async throws {
         let fixture = Fixture()

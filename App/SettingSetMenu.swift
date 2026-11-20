@@ -11,47 +11,32 @@ struct SettingSetMenu<Label: View>: View {
     @Environment(\.openSettings) private var openSettings
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
-    private func item(_ set: PrintSettingSet) -> some View {
-        Toggle(
-            isOn: Binding(
-                get: { model()?.matchesPrintSettingSet(set) ?? false },
-                set: { _ in model()?.applyPrintSettingSet(set) })
-        ) {
-            Text(verbatim: set.name)
-            Text(verbatim: SettingSetSummary(library: library).subtitle(set))
-        }
+    private func entries(_ sets: [PrintSettingSet]) -> [MenuSnapshot.SettingEntry] {
+        let summary = SettingSetSummary(library: library)
+        let current = model()
+        return sets.map { .init($0, model: current, summary: summary) }
     }
 
     var body: some View {
         Menu {
-            ForEach(PrintSettingSet.builtIns(language: language), content: item)
-            if !preferences.printSettingSets.isEmpty { Divider() }
-            ForEach(preferences.printSettingSets, content: item)
-            Divider()
-            Button("Save Current Settings…") {
-                guard let model = model() else { return }
-                SettingSetDialogs.save(model)
-            }
-            ForEach(preferences.printSettingSets.filter { model()?.matchesPrintSettingSet($0) == true }) { set in
-                Button("Replace “\(set.name)” with Current Settings") {
-                    model()?.savePrintSettingSet(named: set.name, parts: set.parts)
+            DocumentMenuRows(
+                rows: DocumentMenuDescriptor.settingRows(
+                    builtIns: entries(PrintSettingSet.builtIns(language: language)),
+                    saved: entries(preferences.printSettingSets)
+                )
+            ) { action in
+                switch action {
+                case .operation(.settingSetSave):
+                    if let current = model() { SettingSetDialogs.save(current) }
+                case .operation(.settingSetManage):
+                    BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
+                    openSettings()
+                default: action.perform(preferences: preferences, model: model)
                 }
-            }
-            Divider()
-            Button("Manage Setting Sets…") {
-                // Through the arrangement editor's question, as the Settings sidebar goes.
-                BandArrangementEditorSession.showSection(.settingSets, preferences: preferences)
-                openSettings()
             }
         } label: {
             label()
         }
-    }
-}
-
-extension SettingSetMenu where Label == Text {
-    init(preferences: AppPreferences, library: UserLibrary, model: @escaping () -> DocumentViewModel?) {
-        self.init(preferences: preferences, library: library, model: model) { Text("Setting Sets") }
     }
 }
 

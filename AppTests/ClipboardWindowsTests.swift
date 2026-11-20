@@ -303,8 +303,8 @@ struct ClipboardWindowsTests {
         #expect(history.entries.count == 2)
     }
 
-    @Test("ファイルメニューには URL と履歴の項目が一つずつあり、閉じた文書がないと履歴を隠す")
-    func closedDocumentMenu() throws {
+    @Test("ファイルメニューには URL と履歴の項目が一つずつあり、追跡を閉じた後で履歴の有無を反映する")
+    func closedDocumentMenu() async throws {
         let visibleBefore = Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init))
         defer {
             let visibleAfter = Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init))
@@ -322,44 +322,87 @@ struct ClipboardWindowsTests {
         defer { presentation.close() }
         prefs.keepsClosedClipboardDocuments = true
         prefs.closedClipboardDocuments = ClosedClipboardDocuments()
-        let file = try #require(NSApp.mainMenu?.items.dropFirst().first?.submenu)
-        let historyTitle = String(localized: "Recently Closed Clipboard Documents")
-        let latestTitle = String(localized: "Reopen Closed Clipboard Document")
-        #expect(file.item(withTitle: historyTitle)?.isHidden == true)
-        #expect(file.item(withTitle: latestTitle)?.isHidden == true)
+        let bridge = ShortcutDispatcher.shared.bridge
+        let state = bridge.menuState
+        func openRows() -> [DocumentMenuDescriptor] { DocumentMenuDescriptor.rows(for: .open, in: state.snapshot) }
+        let history: DocumentMenuDescriptor.ID = .menu("Recently Closed Clipboard Documents")
+        let reopen: DocumentMenuDescriptor.ID = .action(.operation(.clipboardReopen))
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        #expect(state.snapshot.content.history.isEmpty)
+        #expect(!openRows().contains { $0.id == history || $0.id == reopen })
 
-        windows.open(Data(UUID().uuidString.utf8), format: .plainText, title: "Menu sample").close()
-        windows.open(Data(UUID().uuidString.utf8), format: .plainText, title: "Second sample").close()
-        for key in ["Open from URL…", "Reopen Closed Clipboard Document", "Recently Closed Clipboard Documents"] {
-            let title = Bundle.main.localizedString(forKey: key, value: key, table: nil)
-            let matches = file.items.filter { $0.title == title }
-            #expect(matches.count == 1)
-            #expect(matches.first?.isHidden == false)
+        let first = Data(UUID().uuidString.utf8)
+        let second = Data(UUID().uuidString.utf8)
+        let main = try #require(NSApp.mainMenu)
+        // The inactive host materializes the launch menu with an empty, process-local clipboard history.
+        let file = try #require(main.item(at: 1)?.submenu)
+        #expect(file.item(withTitle: String(localized: "Recently Closed Clipboard Documents")) == nil)
+        #expect(file.item(withTitle: String(localized: "Reopen Closed Clipboard Document")) == nil)
+        let center = NotificationCenter.default
+        do {
+            defer { center.post(name: NSMenu.didEndTrackingNotification, object: main) }
+            ShortcutMenuBaselineTests.trackingTurn {
+                let writes = bridge.writes.counts
+                let version = state.snapshot.version
+                center.post(name: NSMenu.didBeginTrackingNotification, object: main)
+                let hides = bridge.updates.hider.writes.counts
+                windows.open(first, format: .plainText, title: "Menu sample").close()
+                windows.open(second, format: .plainText, title: "Second sample").close()
+                center.post(name: NSMenu.didChangeItemNotification, object: main)
+                bridge.reconcile()
+                #expect(state.snapshot.version == version)
+                #expect(state.snapshot.content.history.isEmpty)
+                #expect(!openRows().contains { $0.id == history || $0.id == reopen })
+                #expect(bridge.writes.counts == writes)
+                #expect(bridge.updates.hider.writes.counts == hides)
+            }
         }
-        let items = try #require(file.item(withTitle: historyTitle)?.submenu?.items)
-        try #require(items.count == 2)
-        #expect(items[0].title.contains("Second sample"))
-        #expect(items[1].title.contains("Menu sample"))
-        file.update()
-        let submenu = try #require(file.item(withTitle: historyTitle)?.submenu)
-        submenu.update()
-        let selected = try #require(submenu.items.firstIndex { $0.title.contains("Menu sample") })
-        submenu.performActionForItem(at: selected)
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        let entries = state.snapshot.content.history
+        #expect(entries.map(\.id) == [.of(second), .of(first)])
+        let rows = openRows()
+        for id: DocumentMenuDescriptor.ID in [.action(.operation(.appOpenURL)), reopen, history] {
+            #expect(rows.filter { $0.id == id }.count == 1)
+        }
+        let children = try #require(rows.first { $0.id == history }).children
+        #expect(children.map(\.id) == [.action(.history(.of(second))), .action(.history(.of(first)))])
+        #expect(children.map(\.title) == entries.map { .verbatim($0.title) })
+        try #require(entries.count == 2 && children.count == 2)
+        #expect(entries[0].title.contains("Second sample"))
+        #expect(entries[1].title.contains("Menu sample"))
+        guard case .action(let older) = children[1].id, case .action(let newer) = children[0].id else {
+            Issue.record("Expected two selectable history entries")
+            return
+        }
+        older.perform(preferences: prefs)
         let reopened = try #require(
             NSApp.windows.compactMap { $0.windowController as? MemoryDocumentWindowController }
-                .first { controller in
-                    guard let window = controller.window else { return false }
-                    return controller.model.displayName == "Menu sample" && window.isVisible
-                        && !visibleBefore.contains(ObjectIdentifier(window))
-                })
+                .first { $0.model.memoryContent == first && $0.window?.isVisible == true })
         defer { reopened.close() }
-        let remaining = try #require(file.item(withTitle: historyTitle)?.submenu?.items)
-        #expect(remaining.count == 1)
-        #expect(remaining.first?.title.contains("Second sample") == true)
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        #expect(state.snapshot.content.history.map(\.id) == [.of(second)])
+        let replacement = Data(UUID().uuidString.utf8)
+        prefs.closedClipboardDocuments.remove(.of(second))
+        windows.open(replacement, format: .plainText, title: "New occupant").close()
+        let visible = Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init))
+        newer.perform(preferences: prefs)
+        #expect(Set(NSApp.windows.filter(\.isVisible).map(ObjectIdentifier.init)) == visible)
+        #expect(prefs.closedClipboardDocuments.entries.map(\.menuItem.id) == [.of(replacement)])
         prefs.keepsClosedClipboardDocuments = false
-        #expect(file.item(withTitle: historyTitle)?.submenu?.items.isEmpty == true)
-        #expect(file.item(withTitle: historyTitle)?.isHidden == true)
-        #expect(file.item(withTitle: latestTitle)?.isHidden == true)
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+        #expect(state.snapshot.content.history.isEmpty)
+        #expect(!openRows().contains { $0.id == history || $0.id == reopen })
+    }
+
+    @Test("履歴の題名は一行で省略記号を含めて四十文字に収める")
+    func cappedHistoryTitle() {
+        let id = ContentHash.of(Data())
+        let exactly = String(repeating: "紙", count: 40)
+        #expect(ClosedClipboardDocuments.MenuItem(id: id, title: exactly).title == exactly)
+        #expect(
+            ClosedClipboardDocuments.MenuItem(id: id, title: exactly + "面").title == String(repeating: "紙", count: 39)
+                + "…")
+        #expect(ClosedClipboardDocuments.MenuItem(id: id, title: "一行目\n二行目").title == "一行目…")
     }
 
     @Test("ファイルメニューのコマンドNはクリップボードから開く一つだけ")

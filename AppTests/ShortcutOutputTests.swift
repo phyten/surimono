@@ -325,10 +325,14 @@ extension ShortcutOutputTests {
             let layouts = NSMenuItem(title: "Print Layout", action: nil, keyEquivalent: "")
             layouts.submenu = NSMenu()
             f.menu.items[4].submenu!.addItem(layouts)
-            for index in 0..<8 {
+            let cards: [PrintLayout] =
+                f.model.trayPaperSeries == .b
+                ? [.b5Single, .b5Duplex, .b4BookletB5, .b5BookletB6, .b4TwoUp, .a4Handout3, .b5TwoUp, .b5FourUp]
+                : [.a4Single, .a4Duplex, .a3BookletA4, .a4BookletA5, .a3TwoUp, .a4Handout3, .a4TwoUp, .a4FourUp]
+            for (index, card) in cards.enumerated() {
                 layouts.submenu!.addItem(
-                    NSMenuItem(title: "Layout \(index)", action: nil, keyEquivalent: index < 6 ? String(index + 1) : "")
-                )
+                    withTitle: card.displayName(language: f.model.language),
+                    action: nil, keyEquivalent: index < 6 ? String(index + 1) : "")
             }
             f.bridge.reconcile()
         }

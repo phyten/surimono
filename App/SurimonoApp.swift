@@ -55,8 +55,7 @@ struct SurimonoApp: App {
         // The paper fills the window; the traffic lights appear with the overlay menu.
         .windowStyle(.hiddenTitleBar)
         .commands {
-            DocumentCommands(preferences: preferences, library: library)
-            UpdateCommands()
+            DocumentCommands(preferences: preferences, menuState: ShortcutDispatcher.shared.bridge.menuState)
         }
         Settings {
             SettingsView(preferences: preferences, library: library, arrangementEditor: arrangementEditor)

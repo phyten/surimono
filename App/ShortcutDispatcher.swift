@@ -26,6 +26,7 @@ final class ShortcutDispatcher {
         self.keyWindow = keyWindow
         self.firstResponder = firstResponder
         currentModel = resolveModel
+        self.bridge.canDispatch = { [weak self] operation in self?.canPerform(operation) == true }
         self.bridge.dispatch = { [weak self] operation in self?.performFromMenu(operation, event: NSApp.currentEvent) }
         controller.synchronizeMenus = { [weak self] in
             self?.bridge.reconcile()
@@ -61,7 +62,7 @@ final class ShortcutDispatcher {
         // window change proves the physical key was released. A missed key-up costs one press, never a print job.
         let wasHeld = !held.insert(event.keyCode).inserted
         guard !controller.hotKeys.isRecording else { return false }
-        // A rebuilt menu can still carry SwiftUI's stale key or enabled state until this synchronous pass.
+        // Between tracking sessions, bind newly assembled items before resolving the event.
         bridge.reconcile()
         guard let window = keyWindow(), event.window === window || (fromMenu && event.window == nil),
             window.attachedSheet == nil, NSApp.modalWindow == nil,
@@ -70,7 +71,7 @@ final class ShortcutDispatcher {
         let responder = firstResponder(window)
         if Self.isTextInput(responder), !combination.modifiers.contains(.command) { return false }
         let matches = Self.operations.filter { operation in
-            controller.localKeys(for: operation).contains { $0 == combination }
+            controller.localKeys(for: operation).contains(combination) && bridge.commandIsPresent(operation)
         }
         if let input = responder as? NSTextInputClient, input.hasMarkedText() {
             // Keep recognized menu keys consumed during composition, as before surface routing existed.
@@ -161,15 +162,22 @@ final class ShortcutDispatcher {
     }
 
     static func isActive(_ operation: ShortcutOperationID, model: DocumentViewModel?) -> Bool {
+        isActive(operation, in: region(for: model))
+    }
+
+    static func region(for model: DocumentViewModel?) -> ShortcutRegion? {
+        guard let model else { return nil }
+        switch model.mode {
+        case .view: return model.showsWeb ? .web : .paperReading
+        case .print: return model.showsFold ? .foldedPreview : .printSheet
+        case .compare: return .comparison
+        }
+    }
+
+    static func isActive(_ operation: ShortcutOperationID, in region: ShortcutRegion?) -> Bool {
         let metadata = ShortcutOperation.operation(operation)
         if metadata.applicability == .application || operation == .appCheckUpdates { return true }
-        guard let model else { return false }
-        let region: ShortcutRegion
-        switch model.mode {
-        case .view: region = model.showsWeb ? .web : .paperReading
-        case .print: region = model.showsFold ? .foldedPreview : .printSheet
-        case .compare: region = .comparison
-        }
+        guard let region else { return false }
         return metadata.regions.contains(region)
     }
 
@@ -195,20 +203,25 @@ final class ShortcutDispatcher {
         }
     }
 
-    func perform(_ operation: ShortcutOperationID) {
+    private func canPerform(_ operation: ShortcutOperationID) -> Bool {
         guard Self.operations.contains(operation), !controller.hotKeys.isRecording,
             NSApp.modalWindow == nil, keyWindow()?.attachedSheet == nil
-        else { return }
+        else { return false }
         if let window = keyWindow(), let input = firstResponder(window) as? NSTextInputClient, input.hasMarkedText() {
-            return
+            return false
         }
         let model = currentModel()
         let application =
             ShortcutOperation.operation(operation).applicability == .application || operation == .appCheckUpdates
         if !application {
-            guard let model, model.window === keyWindow() else { return }
+            guard let model, model.window === keyWindow() else { return false }
         }
-        guard Self.isActive(operation, model: model) else { return }
+        return bridge.commandIsPresent(operation) && Self.isActive(operation, model: model)
+    }
+
+    func perform(_ operation: ShortcutOperationID) {
+        guard canPerform(operation) else { return }
+        let model = currentModel()
         if let executeOverride {
             executeOverride(operation)
             return

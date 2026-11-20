@@ -2,7 +2,7 @@ import AppKit
 import SurimonoCore
 
 @MainActor
-final class ShortcutMenuBridge: NSObject {
+final class ShortcutMenuBridge: NSObject, NSMenuItemValidation {
     struct Entry {
         let operation: ShortcutOperationID
         let menu: Int
@@ -38,6 +38,8 @@ final class ShortcutMenuBridge: NSObject {
             .init(.documentFind, 2, ["Find…"]), .init(.documentFindNext, 2, ["Find Next"]),
             .init(.documentFindPrevious, 2, ["Find Previous"]),
             .init(.viewHtmlPresentation, 3, ["Show as Web", "Show as Paper"]),
+            .init(.viewOptions, 3, ["View Options…"]), .init(.viewSelectText, 3, ["Select Text"]),
+            .init(.listRemove, 4, ["Remove from List"], parents: ["Binder"]),
             .init(.viewIgnoreSlides, 3, ["Show as Slides"]),
             .init(.viewSingle, 3, ["Single Page"]), .init(.viewSpread, 3, ["Spread"]),
             .init(.documentGoToPage, 3, ["Go to Page…"]),
@@ -66,17 +68,35 @@ final class ShortcutMenuBridge: NSObject {
             .init(.binderOddPageStarts, 4, ["Start Each Document on an Odd Page"], parents: ["Binder", "Images"]),
         ]
         + ShortcutPrintLayouts.operations.map { Entry($0, 4, [], parents: ["Print Layout"]) }
-    static let operations = Set(entries.map(\.operation))
+    // These clicks use the original SwiftUI action. Their customizable keys belong to a focused surface.
+    private static let clickOnly: Set<ShortcutOperationID> = [.viewOptions, .viewSelectText, .listRemove]
+    static let operations = Set(entries.map(\.operation)).subtracting(clickOnly)
     static func identifier(_ operation: ShortcutOperationID) -> NSUserInterfaceItemIdentifier {
         .init("surimono.shortcut." + operation.rawValue)
     }
+
+    // SwiftUI can still have the previous series on screen while assembling the new tree.
+    // All supported layout names are fixed for the application's launch language.
+    private static let layoutTitles = Dictionary(
+        uniqueKeysWithValues: ShortcutPrintLayouts.operations.map { operation in
+            let language = Bundle.main.preferredLocalizations.first ?? "en"
+            let titles = PaperSeries.allCases.compactMap { series in
+                ShortcutPrintLayouts.layout(for: operation, series: series)?.displayName(language: language)
+            }
+            return (operation, Set(titles))
+        })
 
     private let controller: ShortcutController
     private let menu: () -> NSMenu?
     private let keyWindow: () -> NSWindow?
     private let lifecycleNotifications: NotificationCenter
-    private var reconciliationPending = false
-    private weak var reconciledMenu: NSMenu?
+    let menuState: MenuState
+    private(set) lazy var writes = MenuWrites("bridge", canWrite: { [weak self] in self?.updates.allowsWrites == true })
+    private let preferences: () -> AppPreferences?
+    private(set) lazy var updates = MenuUpdates(
+        state: menuState, root: menu, model: model, preferences: preferences, lifecycle: lifecycleNotifications
+    ) { [weak self] root in self?.apply(in: root) }
+    var canDispatch: ((ShortcutOperationID) -> Bool)?
     private let model: () -> DocumentViewModel?
     private let localize: (String) -> String
     private let externalKey: (NSMenuItem) -> String
@@ -84,17 +104,19 @@ final class ShortcutMenuBridge: NSObject {
     private(set) var items: [ShortcutOperationID: NSMenuItem] = [:]
     private(set) var ambiguous: Set<ShortcutOperationID> = []
     private var originals: [ShortcutOperationID: (NSMenuItem, AnyObject?, Selector?)] = [:]
-    private var reconciling = false
-    private var started = false
+    private(set) var reconcilePasses = 0
 
     init(
         controller: ShortcutController, menu: @escaping () -> NSMenu? = { NSApp.mainMenu },
         keyWindow: @escaping () -> NSWindow? = { NSApp.keyWindow },
         model: (() -> DocumentViewModel?)? = nil,
-        lifecycleNotifications: NotificationCenter = .default,
+        lifecycleNotifications: NotificationCenter = .default, menuState: MenuState = MenuState(),
+        preferences: @escaping () -> AppPreferences? = { AppPreferences.shared },
         localize: @escaping (String) -> String = { Bundle.main.localizedString(forKey: $0, value: $0, table: nil) },
         externalKey: @escaping (NSMenuItem) -> String = { $0.userKeyEquivalent }
     ) {
+        self.menuState = menuState
+        self.preferences = preferences
         self.controller = controller
         self.menu = menu
         self.keyWindow = keyWindow
@@ -104,204 +126,106 @@ final class ShortcutMenuBridge: NSObject {
         self.externalKey = externalKey
     }
 
-    func start() {
-        guard !started else { return }
-        started = true
-        for name in [
-            NSMenu.didAddItemNotification, NSMenu.didRemoveItemNotification, NSMenu.didChangeItemNotification,
-            NSMenu.didBeginTrackingNotification,
-        ] {
-            NotificationCenter.default.addObserver(self, selector: #selector(changed), name: name, object: nil)
-        }
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(changed), name: ClosedClipboardDocuments.didChange,
-            object: ClipboardWindows.shared.preferences)
-        for name in [
-            NSApplication.didFinishLaunchingNotification, NSApplication.didBecomeActiveNotification,
-            NSApplication.didUpdateNotification,
-            NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification,
-        ] {
-            lifecycleNotifications.addObserver(self, selector: #selector(changed), name: name, object: nil)
-        }
-        reconcile()
-        reconcileAfterMenuAssembly()
-    }
+    func start() { updates.start() }
 
     func stop() {
-        NotificationCenter.default.removeObserver(self)
-        lifecycleNotifications.removeObserver(self)
-        started = false
+        updates.stop { [weak self] in self?.restoreTargets() }
+    }
+
+    private func restoreTargets() {
+        guard !MenuTrace.noBridgeWrites else { return }
         for (_, (item, target, action)) in originals where item.target === self {
+            // Keeping our target until the last write lets restoration resume if tracking interrupts it.
+            writes.set(item, \.action, "action", action)
+            setTarget(target, item: item)
+        }
+        if updates.allowsWrites { originals.removeAll() }
+    }
+
+    func reconcile() { updates.reconcile() }
+
+    private func setTarget(_ target: AnyObject?, item: NSMenuItem) {
+        guard item.target !== target else { return }
+        writes.change(
+            item, "target", from: item.target.map { String(describing: type(of: $0)) } ?? "nil",
+            to: target.map { String(describing: type(of: $0)) } ?? "nil"
+        ) {
             item.target = target
-            item.action = action
         }
-        originals = [:]
     }
 
-    @objc private func changed(_ notification: Notification) {
-        // Reconciling writes to menu items, and every write posts an item change. Scheduling another pass for
-        // those would never end: the app sat at a full core while idle.
-        if reconciling { return }
-        // A fully assembled menu can replace mainMenu without another item notification. Application updates
-        // catch that installation even when no window becomes key and no menu is opened.
-        if notification.name == NSApplication.didUpdateNotification, menu() === reconciledMenu { return }
-        if let changedMenu = notification.object as? NSMenu {
-            var root = changedMenu
-            while let parent = root.supermenu { root = parent }
-            guard root === menu() else { return }
-            // AppKit posts item changes while it holds its key-equivalent lock, for example while it fills the
-            // Services menu. Writing a key equivalent from inside that notification takes the same lock again and
-            // deadlocks the main thread, so item changes are reconciled after the notification has returned. Key
-            // events reconcile first on their own, so no stale key can fire in between.
-            if notification.name != NSMenu.didBeginTrackingNotification {
-                reconcileAfterMenuAssembly()
-                return
+    private func matchingItems(_ entry: Entry, in root: NSMenu) -> [NSMenuItem] {
+        guard root.items.indices.contains(entry.menu), var parent = root.items[entry.menu].submenu else { return [] }
+        if !entry.parents.isEmpty {
+            let titles = entry.parents.map(localize)
+            let parents = parent.items.filter { titles.contains($0.title) }
+            guard parents.count == 1, let submenu = parents.first?.submenu else { return [] }
+            parent = submenu
+        }
+        let identifier = Self.identifier(entry.operation)
+        let layouts = Self.layoutTitles[entry.operation]
+        let titles = entry.titles.map(localize)
+        return parent.items.filter { item in
+            // SwiftUI does not promise to propagate View.id to NSMenuItem. Use the AX identity where
+            // available, or the unique semantic layout title in this submenu, even during partial assembly.
+            if let layouts {
+                let ax: String? = item.accessibilityIdentifier()
+                if let ax, ax.hasPrefix("surimono.shortcut.") { return ax == identifier.rawValue }
+                return layouts.contains(item.title)
             }
+            if entry.operation == .appOpen { return item.action == NSSelectorFromString("openDocument:") }
+            if entry.operation == .appSettings {
+                return item.identifier == identifier
+                    || ["showSettingsWindow:", "showPreferencesWindow:"].contains(
+                        item.action.map(NSStringFromSelector) ?? "")
+                    || item.keyEquivalent == "," || item.title == localize("Settings") + "…"
+            }
+            guard titles.contains(item.title) else { return false }
+            let ax: String? = item.accessibilityIdentifier()
+            return ax?.hasPrefix("surimono.shortcut.") != true || ax == identifier.rawValue
         }
-        reconcile()
     }
 
-    private func reconcileAfterMenuAssembly() {
-        guard started, !reconciliationPending else { return }
-        reconciliationPending = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            reconciliationPending = false
-            if started { reconcile() }
-        }
-    }
-
-    /// How many passes ran; a test pins that an idle app stops reconciling.
-    private(set) var reconcilePasses = 0
-
-    func reconcile() {
-        guard !reconciling, let root = menu() else { return }
+    private func apply(in root: NSMenu) {
+        guard !MenuTrace.noBridgeWrites else { return }
         reconcilePasses += 1
-        reconciledMenu = root
-        reconciling = true
-        defer { reconciling = false }
-        DocumentEditMenu.hideItems(in: root)
         var found: [ShortcutOperationID: NSMenuItem] = [:]
         var external: [ShortcutOperationID: ShortcutCombination] = [:]
-        let history = ClipboardWindows.shared.preferences?.closedClipboardDocuments.entries.map(\.menuItem) ?? []
+
         ambiguous = []
         for entry in Self.entries {
-            guard root.items.indices.contains(entry.menu), var parent = root.items[entry.menu].submenu else { continue }
-            if !entry.parents.isEmpty {
-                let parents = parent.items.filter { entry.parents.map(localize).contains($0.title) }
-                guard parents.count == 1, let submenu = parents.first?.submenu else { continue }
-                parent = submenu
-            }
-            // The layout submenu has eight fixed semantic slots, with localized, series-dependent titles.
-            // Require the full shape before assigning identities; titles and layout IDs are never persisted as keys.
-            let layouts = parent.items.filter { !$0.isSeparatorItem }
-            let layoutIndex = ShortcutPrintLayouts.operations.firstIndex(of: entry.operation)
-            let matches = parent.items.filter { item in
-                if let layoutIndex {
-                    return layouts.count == 8 && layouts[layoutIndex] === item
-                }
-                if item.identifier == Self.identifier(entry.operation) { return true }
-                if entry.operation == .appOpen { return item.action == NSSelectorFromString("openDocument:") }
-                if entry.operation == .appSettings {
-                    return ["showSettingsWindow:", "showPreferencesWindow:"].contains(
-                        item.action.map(NSStringFromSelector) ?? "")
-                        || item.keyEquivalent == "," || item.title == localize("Settings") + "…"
-                }
-                return entry.titles.map(localize).contains(item.title)
-            }
+            let identifier = Self.identifier(entry.operation)
+            let matches = matchingItems(entry, in: root)
             guard matches.count == 1, let item = matches.first else {
                 if matches.count > 1 { ambiguous.insert(entry.operation) }
                 continue
             }
             if let action = item.action, DocumentEditMenu.hiddenActions.contains(action) { continue }
-            item.identifier = Self.identifier(entry.operation)
+            writes.set(item, \.identifier, "identifier", identifier) { id in
+                guard let id,
+                    Self.operations.contains(where: { Self.identifier($0) == id })
+                        || Self.clickOnly.contains(where: { Self.identifier($0) == id })
+                else { return "<other>" }
+                return id.rawValue
+            }
             found[entry.operation] = item
             if item.target !== self { originals[entry.operation] = (item, item.target, item.action) }
             if entry.operation != .appOpen && entry.operation != .appSettings {
-                if item.target !== self { item.target = self }
-                if item.action != #selector(invoke(_:)) { item.action = #selector(invoke(_:)) }
-                // SwiftUI's validation is lazy. Resolve availability against the key window on invocation.
-                if !item.isEnabled { item.isEnabled = true }
+                setTarget(self, item: item)
+                writes.set(item, \.action, "action", #selector(invoke(_:)))
             }
-            item.allowsKeyEquivalentWhenHidden = false
-            let desired =
-                entry.operation == .clipboardReopen && history.isEmpty
-                ? nil : controller.snapshot.keys(for: entry.operation).first
-            // Unchanged values are not written: each write posts an item change.
-            let automatic = controller.snapshot.overrides[entry.operation] == nil
-            if item.allowsAutomaticKeyEquivalentLocalization != automatic {
-                item.allowsAutomaticKeyEquivalentLocalization = automatic
-            }
-            if item.allowsAutomaticKeyEquivalentMirroring != automatic {
-                item.allowsAutomaticKeyEquivalentMirroring = automatic
-            }
-            let value = desired.flatMap(ShortcutMenuKey.init)
-            if item.keyEquivalent != (value?.key ?? "") { item.keyEquivalent = value?.key ?? "" }
-            let flags = value?.modifiers ?? .command
-            if item.keyEquivalentModifierMask != flags { item.keyEquivalentModifierMask = flags }
+            writes.set(
+                item, \.allowsKeyEquivalentWhenHidden, "allowsKeyEquivalentWhenHidden", false)
         }
         items = found
-        let current = model()
-        for operation in ShortcutPrintLayouts.operations {
-            if let item = items[operation],
-                let layout = ShortcutPrintLayouts.layout(for: operation, series: current?.trayPaperSeries ?? .a)
-            {
-                let title = layout.displayName(
-                    language: current?.language ?? Bundle.main.preferredLocalizations.first ?? "en")
-                if item.title != title { item.title = title }
-            }
-        }
-        let titles: [ShortcutOperationID: String] = [
-            .documentPrint: current?.mode == .print ? "Print" : "Print…",
-            .viewHtmlPresentation: current?.htmlPresentation == .paper ? "Show as Web" : "Show as Paper",
-            .listMoveUp: current?.binder == nil ? "Move Image Up" : "Move Document Up",
-            .listMoveDown: current?.binder == nil ? "Move Image Down" : "Move Document Down",
-        ]
-        for (operation, title) in titles {
-            if let item = items[operation], item.title != localize(title) { item.title = localize(title) }
-        }
-        let states: [ShortcutOperationID: Bool] = [
-            .bookmarkToggle: current?.isVisiblePageBookmarked ?? false,
-            .viewIgnoreSlides: current?.slideDeck != nil,
-            .viewToolbarAlways: current?.isBandAlwaysVisible ?? false,
-            .viewFloatOnTop: current?.isAlwaysOnTop ?? false,
-            .viewShowOnAllSpaces: current?.showsOnAllSpaces ?? false,
-            .listToggle: current?.isDrawerOpen ?? false,
-            .binderOddPageStarts: current?.binderStartsOnFront ?? false,
-        ]
-        for (operation, checked) in states {
-            let state: NSControl.StateValue = checked ? .on : .off
-            if let item = items[operation], item.state != state { item.state = state }
-        }
-        items[.clipboardReopen]?.isHidden = history.isEmpty
-        if let parent = items[.clipboardReopen]?.menu?.item(withTitle: localize("Recently Closed Clipboard Documents"))
-        {
-            updateHistoryMenu(parent, history)
-        }
-        items[.documentSaveAsFile]?.isHidden = current?.canSaveAsFile != true
-        items[.documentOpenBinder]?.isHidden = current?.includePlan == nil
-        if let parent = items[.listToggle]?.menu {
-            for item in parent.items where item.title == localize("Remove from List") {
-                item.isHidden = current?.binder == nil
-                item.allowsKeyEquivalentWhenHidden = false
-            }
-        }
-        if let list = items[.listToggle]?.menu {
-            let absent = current?.binder == nil && current?.imageBundle == nil
-            list.supermenu?.items.first { $0.submenu === list }?.isHidden = absent
-            for operation in [ShortcutOperationID.listToggle, .listMoveUp, .listMoveDown, .listSortByName] {
-                items[operation]?.isHidden = absent
-            }
-            items[.binderOddPageStarts]?.isHidden = current?.binder == nil
-        }
-        for (operation, item) in items {
+        for (operation, item) in items where !Self.clickOnly.contains(operation) {
             if !externalKey(item).isEmpty, let actual = ShortcutMenuKey(item: item).combination {
                 external[operation] = actual
             }
         }
         if controller.menuAmbiguities != ambiguous { controller.menuAmbiguities = ambiguous }
         controller.setExternalMenuKeys(external)
-        for (operation, item) in items where external[operation] == nil {
+        for (operation, item) in items where external[operation] == nil && !Self.clickOnly.contains(operation) {
             let candidate = controller.localKeys(for: operation).first
             let protectsInput =
                 ShortcutDispatcher.isTextInput(keyWindow()?.firstResponder)
@@ -310,42 +234,77 @@ final class ShortcutMenuBridge: NSObject {
                 ShortcutOperation.operation(operation).allowsBareKeys
                 && candidate?.modifiers.intersection([.command, .control]).isEmpty == true
             let key = item.isHidden || protectsInput || surfaceOnly ? nil : candidate.flatMap(ShortcutMenuKey.init)
-            if item.keyEquivalent != (key?.key ?? "") { item.keyEquivalent = key?.key ?? "" }
-            if item.keyEquivalentModifierMask != (key?.modifiers ?? .command) {
-                item.keyEquivalentModifierMask = key?.modifiers ?? .command
-            }
+            writes.set(item, \.keyEquivalent, "keyEquivalent", key?.key ?? "")
+            writes.set(
+                item, \.keyEquivalentModifierMask, "keyEquivalentModifierMask", key?.modifiers ?? .command
+            ) { String($0.rawValue) }
         }
     }
 
-    private func updateHistoryMenu(_ parent: NSMenuItem, _ history: [ClosedClipboardDocuments.MenuItem]) {
-        let submenu = parent.submenu ?? NSMenu(title: parent.title)
-        if parent.submenu == nil { parent.submenu = submenu }
-        parent.isHidden = history.isEmpty
-        if !submenu.items.elementsEqual(
-            history, by: { $0.representedObject as? ContentHash == $1.id && $0.title == $1.title })
-        {
-            submenu.removeAllItems()
-            for entry in history {
-                let item = submenu.addItem(
-                    withTitle: entry.title, action: #selector(reopenClosed(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = entry.id
+    private func currentItem(_ operation: ShortcutOperationID) -> NSMenuItem? {
+        // SwiftUI may have replaced the item since the last writable pass. Resolve presence without binding it.
+        guard let root = menu(), let entry = Self.entries.first(where: { $0.operation == operation }) else {
+            return nil
+        }
+        let matches = matchingItems(entry, in: root)
+        return matches.count == 1 ? matches.first : nil
+    }
+
+    func commandIsPresent(_ operation: ShortcutOperationID) -> Bool {
+        switch operation {
+        case .appCheckUpdates, .clipboardReopen, .documentSaveAsFile, .documentOpenBinder, .listToggle, .listMoveUp,
+            .listMoveDown,
+            .listSortByName, .binderOddPageStarts, .listRemove:
+            guard currentItem(operation)?.isHidden == false else { return false }
+            switch operation {
+            case .appCheckUpdates: return AppUpdater.shared.isAvailable
+            case .clipboardReopen: return preferences()?.closedClipboardDocuments.entries.isEmpty == false
+            case .documentSaveAsFile: return model()?.canSaveAsFile == true
+            case .documentOpenBinder: return model()?.includePlan != nil
+            case .binderOddPageStarts, .listRemove: return model()?.binder != nil
+            default: return model()?.binder != nil || model()?.imageBundle != nil
             }
+        default: return true
         }
     }
 
-    @objc private func reopenClosed(_ sender: NSMenuItem) {
-        guard let id = sender.representedObject as? ContentHash else { return }
-        ClipboardWindows.shared.reopenClosed(id)
+    static func menuIsActive(_ operation: ShortcutOperationID, in region: ShortcutRegion?) -> Bool {
+        // These clicks keep the SwiftUI action even though their keys are handled by the focused surface.
+        switch operation {
+        case .viewOptions: return region == .paperReading || region == .web
+        case .listRemove, .viewSelectText: return region != nil
+        default: return ShortcutDispatcher.isActive(operation, in: region)
+        }
+    }
+
+    private func available(_ operation: ShortcutOperationID) -> Bool {
+        if Self.clickOnly.contains(operation) {
+            guard let current = model(), current.window === keyWindow(), commandIsPresent(operation) else {
+                return false
+            }
+            return Self.menuIsActive(operation, in: ShortcutDispatcher.region(for: current))
+        }
+        return canDispatch?(operation)
+            ?? (commandIsPresent(operation) && ShortcutDispatcher.isActive(operation, model: model()))
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard let operation = items.first(where: { $0.value === menuItem })?.key else { return false }
+        return available(operation)
     }
 
     @objc private func invoke(_ sender: NSMenuItem) {
-        reconcile()
-        guard let operation = items.first(where: { $0.value === sender })?.key else { return }
-        dispatch(operation)
+        guard let operation = items.first(where: { $0.value === sender })?.key, available(operation) else { return }
+        if Self.clickOnly.contains(operation) { invokeStandard(operation) } else { dispatch(operation) }
     }
 
     func invokeStandard(_ operation: ShortcutOperationID) {
+        if MenuTrace.noBridgeWrites {
+            if let item = currentItem(operation), let action = item.action {
+                NSApp.sendAction(action, to: item.target, from: item)
+            }
+            return
+        }
         guard let (item, target, action) = originals[operation], let action else { return }
         NSApp.sendAction(action, to: target, from: item)
     }

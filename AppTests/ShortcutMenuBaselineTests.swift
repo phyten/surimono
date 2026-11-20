@@ -1,10 +1,36 @@
 import AppKit
+import SurimonoCore
+import SwiftUI
 import Testing
 
 @testable import Surimono
 
 @MainActor
 struct ShortcutMenuBaselineTests {
+    static func waitForMenu(_ condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        try #require(condition())
+    }
+
+    /// A posted begin alone cannot put AppKit in tracking mode. Drive a real modal-mode turn without showing a menu.
+    static func trackingTurn(_ action: @escaping @MainActor () -> Void = {}) {
+        var ran = false
+        let timer = Timer(timeInterval: 0, repeats: false) { _ in
+            MainActor.assumeIsolated {
+                action()
+                ran = true
+            }
+        }
+        RunLoop.main.add(timer, forMode: .eventTracking)
+        defer { timer.invalidate() }
+        let deadline = Date(timeIntervalSinceNow: 1)
+        while !ran, Date() < deadline {
+            _ = RunLoop.main.run(mode: .eventTracking, before: min(deadline, Date(timeIntervalSinceNow: 0.01)))
+        }
+        #expect(ran)
+    }
+
     // Captured from DocumentCommands before the menu bridge: independent of ShortcutDefaults.
     static let documentKeys: [(String, String, NSEvent.ModifierFlags)] = [
         ("Open from Clipboard", "n", .command),
@@ -22,8 +48,53 @@ struct ShortcutMenuBaselineTests {
         ("Always Show Toolbar", "t", [.option, .command]), ("Reload", "r", .command),
     ]
 
+    static let listKeys: [(String, String, NSEvent.ModifierFlags)] = [
+        ("Show List", "s", [.control, .command]),
+        ("Move Image Up", "\u{F700}", [.option, .command]),
+        ("Move Document Up", "\u{F700}", [.option, .command]),
+        ("Move Image Down", "\u{F701}", [.option, .command]),
+        ("Move Document Down", "\u{F701}", [.option, .command]),
+    ]
+
+    /// Pin all bindings, including the absence of a key on the other rows, independently of ShortcutDefaults.
+    static func checkDescriptorKeys(_ rows: [DocumentMenuDescriptor]) throws {
+        let layoutKeys: [ShortcutOperationID: String] = [
+            .printLayoutSingle: "1", .printLayoutDuplex: "2", .printLayoutBookletLarge: "3",
+            .printLayoutBookletSmall: "4", .printLayoutTwoUpLarge: "5", .printLayoutHandout: "6",
+        ]
+        let bindings = documentKeys + listKeys + [("Reopen Closed Clipboard Document", "t", [.shift, .command])]
+        let keys = Dictionary(uniqueKeysWithValues: bindings.map { ($0.0, ($0.1, $0.2)) })
+        var seen: Set<String> = []
+        for row in rows {
+            let expected: (String, NSEvent.ModifierFlags)?
+            if let operation = row.operation, let key = layoutKeys[operation] {
+                expected = (key, .command)
+            } else if case .key(let title) = row.title {
+                let key = title == "Print" ? "Print…" : title == "Show as Web" ? "Show as Paper" : title
+                seen.insert(key)
+                expected = keys[key]
+            } else {
+                expected = nil
+            }
+            let actual = row.shortcut
+            if let (key, flags) = expected {
+                let shortcut = try #require(actual, "Missing binding: \(row.id)")
+                #expect(String(shortcut.key.character) == key, "\(row.id)")
+                var modifiers: EventModifiers = []
+                if flags.contains(.command) { modifiers.insert(.command) }
+                if flags.contains(.control) { modifiers.insert(.control) }
+                if flags.contains(.option) { modifiers.insert(.option) }
+                if flags.contains(.shift) { modifiers.insert(.shift) }
+                #expect(shortcut.modifiers == modifiers, "\(row.id)")
+            } else {
+                #expect(actual == nil, "Unexpected binding: \(row.id)")
+            }
+        }
+        #expect(Set(documentKeys.map { $0.0 }).isSubset(of: seen))
+    }
+
     static func items(_ menu: NSMenu) -> [NSMenuItem] {
-        menu.items.flatMap { item in [item] + (item.submenu.map(items) ?? []) }
+        menu.items.flatMap { item in [item] + (item.submenu.map { Self.items($0) } ?? []) }
     }
 
     @Test("書き出すサブメニューは読むPDFと用紙PDFとPNGとHTMLとPDFの共有をこの順に持つ")
@@ -44,17 +115,39 @@ struct ShortcutMenuBaselineTests {
         #expect(exports.items[1].keyEquivalentModifierMask == [.shift, .command])
     }
 
+    @Test("起動時の実メニューは印刷項目と八つのレイアウトをブリッジに一度だけ結び付ける")
+    func nativePrintTargets() throws {
+        let bridge = ShortcutDispatcher.shared.bridge
+        let items = Self.items(try #require(NSApp.mainMenu))
+        let before = items.map { ShortcutMenuKey(item: $0) }
+        bridge.reconcile()
+        for operation in [ShortcutOperationID.documentPrint, .documentPrintSystem, .documentExportPDF, .printSettings]
+            + ShortcutPrintLayouts.operations
+        {
+            let item = try #require(bridge.items[operation], "Unmanaged menu operation: \(operation)")
+            #expect(items.contains { $0 === item })
+            #expect(item.target === bridge)
+            #expect(item.identifier == ShortcutMenuBridge.identifier(operation))
+        }
+        for (item, expected) in zip(items, before) {
+            #expect(item.keyEquivalent == expected.key)
+            #expect(item.keyEquivalentModifierMask == expected.modifiers)
+        }
+    }
+
     @Test("既定の全メニューバーは従来のキーを保持し標準の開くと設定を一つずつ残す")
     func defaultMenuKeys() throws {
         let menu = try #require(NSApp.mainMenu)
         let all = Self.items(menu)
         func localized(_ key: String) -> String { Bundle.main.localizedString(forKey: key, value: key, table: nil) }
+        let file = try #require(menu.item(at: 1)?.submenu)
+        #expect(file.items.filter { $0.title == localized("Open from URL…") }.count == 1)
         for (title, key, modifiers) in Self.documentKeys {
             let variants =
                 title == "Print…"
                 ? ["Print…", "Print"]
                 : title == "Show as Paper" ? ["Show as Paper", "Show as Web"] : [title]
-            let matches = all.filter { variants.map(localized).contains($0.title) }
+            let matches = all.filter { variants.map { localized($0) }.contains($0.title) }
             let item = try #require(matches.count == 1 ? matches.first : nil, "\(title)")
             #expect(item.keyEquivalent == key, "\(title)")
             #expect(item.keyEquivalentModifierMask == modifiers, "\(title)")
@@ -124,14 +217,7 @@ struct ShortcutMenuBaselineTests {
         #expect(layouts.prefix(6).map(\.keyEquivalent) == ["1", "2", "3", "4", "5", "6"])
         #expect(layouts.prefix(6).allSatisfy { $0.keyEquivalentModifierMask == .command })
         #expect(layouts.dropFirst(6).allSatisfy { $0.keyEquivalent.isEmpty })
-        let listKeys: [(String, String, NSEvent.ModifierFlags)] = [
-            ("Show List", "s", [.control, .command]),
-            ("Move Image Up", "\u{F700}", [.option, .command]),
-            ("Move Document Up", "\u{F700}", [.option, .command]),
-            ("Move Image Down", "\u{F701}", [.option, .command]),
-            ("Move Document Down", "\u{F701}", [.option, .command]),
-        ]
-        for (title, key, flags) in listKeys {
+        for (title, key, flags) in Self.listKeys {
             for item in all where item.title == localized(title) {
                 if !item.isHidden {
                     #expect(item.keyEquivalent == key)

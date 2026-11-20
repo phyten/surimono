@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import SurimonoCore
 import Testing
 
@@ -17,6 +18,19 @@ struct ShortcutMenuBridgeTests {
     }
 
     @MainActor
+    private final class SaveTarget: NSObject {
+        var saves = 0
+        @objc func saveDocument(_ sender: Any?) { saves += 1 }
+    }
+
+    private nonisolated final class MainMenu: NSMenu {
+        var holdsHighlight = false
+        override var highlightedItem: NSMenuItem? {
+            holdsHighlight ? items.first : super.highlightedItem
+        }
+    }
+
+    @MainActor
     private final class Fixture {
         let suite = TestDefaultsSuite()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -31,7 +45,7 @@ struct ShortcutMenuBridgeTests {
         let lifecycleNotifications = NotificationCenter()
         var activeWindow: NSWindow?
         var activeModel: DocumentViewModel?
-        var menu = NSMenu()
+        var menu: NSMenu = MainMenu()
         var calls: [ShortcutOperationID] = []
         var external = ""
         lazy var preferences = AppPreferences(defaults: suite.defaults)
@@ -50,7 +64,7 @@ struct ShortcutMenuBridgeTests {
         lazy var bridge = ShortcutMenuBridge(
             controller: controller, menu: { [unowned self] in menu },
             keyWindow: { [unowned self] in activeWindow }, model: { [unowned self] in activeModel },
-            lifecycleNotifications: lifecycleNotifications,
+            lifecycleNotifications: lifecycleNotifications, preferences: { [unowned self] in preferences },
             localize: { "test:" + $0 },
             externalKey: { [unowned self] item in
                 item.title == "test:Reload" ? external : ""
@@ -169,6 +183,8 @@ struct ShortcutMenuBridgeTests {
     @Test("メニュー追跡と項目の追加変更とキー窓とアクティブ化で再帰せず再同期する")
     func notifications() async throws {
         let fixture = Fixture()
+        // The synthetic session stays open while the test yields to the ordinary host run loop.
+        try #require(fixture.menu as? MainMenu).holdsHighlight = true
         defer { fixture.close() }
         fixture.bridge.start()
         try fixture.controller.edit(.appKeyGuide, keys: [.init(key: .character("k"), modifiers: .command)])
@@ -180,16 +196,540 @@ struct ShortcutMenuBridgeTests {
                 name: name, object: name == NSApplication.didBecomeActiveNotification ? NSApp : fixture.window)
             #expect(fixture.bridge.items[.appKeyGuide]?.keyEquivalent == "k")
         }
-        NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        let model = fixture.document()
+        fixture.bridge.reconcile()
         let parent = try #require(fixture.menu.items[6].submenu)
-        parent.removeAllItems()
-        let item = NSMenuItem(title: "test:Keys and Gestures", action: nil, keyEquivalent: "")
+        let center = NotificationCenter.default
+        // The bridge has outstanding work when AppKit starts rebuilding the File menu.
+        let stale = try #require(fixture.bridge.items[.appKeyGuide])
+        stale.keyEquivalent = "x"
+        let edit = NSMenuItem(title: "Move", action: #selector(NSDocument.move(_:)), keyEquivalent: "m")
+        let file = try #require(fixture.menu.items[1].submenu)
+        edit.allowsKeyEquivalentWhenHidden = true
+        edit.isAlternate = true
+        edit.keyEquivalentModifierMask = [.shift, .command]
+        let passes = fixture.bridge.reconcilePasses
+        let writes = fixture.bridge.writes.counts
+        let hides = fixture.bridge.updates.hider.writes.counts
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        #expect(fixture.bridge.reconcilePasses == passes)
+        #expect(fixture.bridge.writes.counts == writes)
+        #expect(fixture.bridge.updates.hider.writes.counts == hides)
+        file.addItem(edit)
+        var expected = hides
+        for property in ["isHidden", "isAlternate", "allowsKeyEquivalentWhenHidden"] {
+            expected[property, default: 0] += 1
+        }
+        #expect(fixture.bridge.updates.hider.writes.counts == expected)
+        #expect(edit.isHidden && !edit.isAlternate && !edit.allowsKeyEquivalentWhenHidden)
+        #expect(edit.keyEquivalent == "m" && edit.keyEquivalentModifierMask == [.shift, .command])
+        #expect(stale.keyEquivalent == "x")
+        edit.isHidden = false
+        expected["isHidden", default: 0] += 1
+        #expect(edit.isHidden && fixture.bridge.updates.hider.writes.counts == expected)
+        let export = NSMenuItem(title: String(localized: "Export"), action: nil, keyEquivalent: "")
+        export.submenu = NSMenu()
+        file.addItem(export)
+        #expect(!export.isHidden && fixture.bridge.updates.hider.writes.counts == expected)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: parent)
+        parent.removeItem(stale)
+        let item = NSMenuItem(title: "test:Keys and Gestures", action: nil, keyEquivalent: "z")
         parent.addItem(item)
+        model.mode = .print
+        try fixture.controller.edit(.appKeyGuide, keys: [.init(key: .character("j"), modifiers: .command)])
+        center.post(name: NSMenu.didEndTrackingNotification, object: parent)
         await fixture.afterMenuNotifications()
-        #expect(item.keyEquivalent == "k")
+        #expect(fixture.bridge.reconcilePasses == passes)
+        #expect(fixture.bridge.writes.counts == writes)
+        #expect(fixture.bridge.updates.hider.writes.counts == expected)
+        #expect(!fixture.bridge.menuState.snapshot.content.printing)
+        #expect(edit.isHidden && item.keyEquivalent == "z")
+        center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu)
+        #expect(fixture.bridge.reconcilePasses == passes)
+        await fixture.afterMenuNotifications()
+        #expect(fixture.bridge.reconcilePasses == passes + 1)
+        #expect(edit.isHidden && edit.keyEquivalent.isEmpty && item.keyEquivalent == "j")
+        expected["keyEquivalent", default: 0] += 1
+        #expect(fixture.bridge.updates.hider.writes.counts == expected)
+        #expect(fixture.bridge.menuState.snapshot.content.printing)
+        #expect(["isHidden", "title", "state", "isEnabled"].allSatisfy { fixture.bridge.writes.counts[$0] == nil })
+        let repaired = fixture.bridge.updates.hider.writes.counts
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        #expect(fixture.bridge.updates.hider.writes.counts == repaired)
+        center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu)
+        await fixture.afterMenuNotifications()
+    }
+
+    @Test("標準の保存キーは通知内では変更せず、追跡終了後はAppKitからも実行できない")
+    func hiddenSaveKeyDispatch() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let file = try #require(fixture.menu.items[1].submenu)
+        let target = SaveTarget()
+        let save = NSMenuItem(title: "Save", action: #selector(SaveTarget.saveDocument(_:)), keyEquivalent: "s")
+        save.target = target
+        let event = fixture.event("s", code: 1)
+        file.addItem(save)
+        #expect(fixture.menu.performKeyEquivalent(with: event) && target.saves == 1)
+        file.removeItem(save)
+
+        fixture.bridge.start()
+        let center = NotificationCenter.default
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        file.addItem(save)
+        #expect(save.isHidden && !save.isAlternate && !save.allowsKeyEquivalentWhenHidden)
+        #expect(save.keyEquivalent == "s")
+        center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu)
+        #expect(save.keyEquivalent == "s")
+        await fixture.afterMenuNotifications()
+        #expect(save.keyEquivalent.isEmpty)
+        #expect(!fixture.menu.performKeyEquivalent(with: event))
+        #expect(target.saves == 1)
+    }
+
+    @Test("終了直後に別の追跡が始まれば待機中の照合も公開も次の終了まで一度だけ保留する")
+    func reopenedBeforeDeferredPass() async throws {
+        let fixture = Fixture()
+        // The synthetic session stays open while the test yields to the ordinary host run loop.
+        try #require(fixture.menu as? MainMenu).holdsHighlight = true
+        defer { fixture.close() }
+        let model = fixture.document()
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let center = NotificationCenter.default
+        let state = fixture.bridge.menuState
+        let before = state.snapshot
+        let passes = fixture.bridge.reconcilePasses
+        let writes = fixture.bridge.writes.counts
+        let hides = fixture.bridge.updates.hider.writes.counts
+        let item = try #require(fixture.bridge.items[.appKeyGuide])
+        let secondMenu = try #require(fixture.menu.items[1].submenu)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        let save = NSMenuItem(title: "Save", action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
+        save.allowsKeyEquivalentWhenHidden = false
+        secondMenu.addItem(save)
+        #expect(save.isHidden && save.keyEquivalent == "s")
+        model.mode = .print
         item.keyEquivalent = "z"
+        center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: secondMenu)
         await fixture.afterMenuNotifications()
-        #expect(item.keyEquivalent == "k")
+        fixture.bridge.reconcile()
+        #expect(state.snapshot == before)
+        #expect(fixture.bridge.reconcilePasses == passes)
+        #expect(fixture.bridge.writes.counts == writes)
+        var expectedHides = hides
+        expectedHides["isHidden", default: 0] += 1
+        #expect(fixture.bridge.updates.hider.writes.counts == expectedHides)
+        #expect(save.keyEquivalent == "s")
+        #expect(item.keyEquivalent == "z")
+        center.post(name: NSMenu.didEndTrackingNotification, object: secondMenu)
+        #expect(state.snapshot == before)
+        await fixture.afterMenuNotifications()
+        #expect(fixture.bridge.reconcilePasses == passes + 1)
+        #expect(state.snapshot.version == before.version + 1)
+        #expect(state.snapshot.content.printing)
+        #expect(!before.content.printing)
+        #expect(item.keyEquivalent != "z" && save.keyEquivalent.isEmpty)
+    }
+
+    @Test("メインメニュー以外の開始が残っても、次のターンに設定と編集項目を反映する")
+    func ignoresUnrelatedTracking() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let version = state.snapshot.version
+        let center = NotificationCenter.default
+        let popup = NSMenu()
+        center.post(name: NSMenu.didBeginTrackingNotification, object: popup)
+        defer { center.post(name: NSMenu.didEndTrackingNotification, object: popup) }
+        center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu)
+        let file = try #require(fixture.menu.items[1].submenu)
+        let edit = file.addItem(withTitle: "Move", action: #selector(NSDocument.move(_:)), keyEquivalent: "m")
+        fixture.preferences.recordRecentBinder(RecentBinder(files: [.init(path: "/a.md"), .init(path: "/b.md")]))
+        fixture.bridge.reconcile()
+        #expect(edit.isHidden && !edit.allowsKeyEquivalentWhenHidden && edit.keyEquivalent == "m")
+        await fixture.afterMenuNotifications()
+        #expect(edit.keyEquivalent.isEmpty)
+        #expect(state.snapshot.version == version + 1)
+        #expect(state.snapshot.content.recentBinders.map(\.id) == [Set(["/a.md", "/b.md"])])
+    }
+
+    @Test("子の終了が欠けても、ルートを閉じると照合を一度だけ再開する")
+    func rootEndClosesChildren() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let passes = fixture.bridge.reconcilePasses
+        let center = NotificationCenter.default
+        let file = try #require(fixture.menu.items[1].submenu)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: file)
+        center.post(name: NSMenu.didBeginTrackingNotification, object: file)
+        let edit = file.addItem(withTitle: "Save", action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
+        center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu)
+        center.post(name: NSMenu.didEndTrackingNotification, object: file)
+        #expect(edit.isHidden && edit.keyEquivalent == "s")
+        #expect(fixture.bridge.reconcilePasses == passes)
+        await fixture.afterMenuNotifications()
+        #expect(fixture.bridge.reconcilePasses == passes + 1)
+        #expect(edit.keyEquivalent.isEmpty)
+    }
+
+    @Test("終了通知が欠けてもメインメニューの追跡と強調表示が終わればキーを再同期する", arguments: [false, true])
+    func recoversAfterNativeTrackingLoop(enteredTrackingMode: Bool) async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        fixture.bridge.start()
+        let file = try #require(fixture.menu.items[1].submenu)
+        let center = NotificationCenter.default
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        defer { center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu) }
+        let edit = file.addItem(withTitle: "Move", action: #selector(NSDocument.move(_:)), keyEquivalent: "m")
+        #expect(edit.isHidden && edit.keyEquivalent == "m")
+        let keyGuide = try #require(fixture.bridge.items[.appKeyGuide])
+        let originalKey = keyGuide.keyEquivalent
+        keyGuide.keyEquivalent = "z"
+        if enteredTrackingMode {
+            ShortcutMenuBaselineTests.trackingTurn {
+                // A nested default-mode loop is still inside the enclosing menu tracking frame.
+                _ = RunLoop.main.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+                fixture.bridge.reconcile()
+                #expect(keyGuide.keyEquivalent == "z")
+            }
+        }
+        #expect(keyGuide.keyEquivalent == "z")
+        try await ShortcutMenuBaselineTests.waitForMenu { keyGuide.keyEquivalent == originalKey }
+    }
+
+    @Test(
+        "キー窓・メイン窓・閉鎖・アプリの切り替えは次のターンの窓から表示を公開する",
+        arguments: [
+            NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didBecomeMainNotification,
+            NSWindow.didResignMainNotification, NSWindow.willCloseNotification,
+            NSApplication.didBecomeActiveNotification,
+            NSApplication.didResignActiveNotification,
+        ])
+    func publishesSettledWindow(name: Notification.Name) async {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let model = fixture.document(kind: "clipboard")
+        defer { model.stop() }
+        let gainingFocus = [
+            NSWindow.didBecomeKeyNotification, NSWindow.didBecomeMainNotification,
+            NSApplication.didBecomeActiveNotification,
+        ].contains(name)
+        if gainingFocus { fixture.activeModel = nil }
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let version = state.snapshot.version
+        #expect(state.snapshot.content.canSaveAsFile == !gainingFocus)
+        // Cocoa may still report the old key window from inside the notification.
+        let applicationEvent =
+            name == NSApplication.didBecomeActiveNotification || name == NSApplication.didResignActiveNotification
+        fixture.lifecycleNotifications.post(name: name, object: applicationEvent ? NSApp as AnyObject : fixture.window)
+        fixture.activeModel = gainingFocus ? model : nil
+        #expect(state.snapshot.version == version)
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 1)
+        #expect(state.snapshot.content.canSaveAsFile == gainingFocus)
+        #expect(state.snapshot.content.region == (gainingFocus ? .paperReading : nil))
+    }
+
+    @Test("クリップボード窓を閉じると次のターンに履歴と戻り先の文書が一緒に公開される", arguments: [false, true])
+    func publishesClipboardClose(hasRemainingDocument: Bool) async {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let remaining = fixture.document()
+        defer { remaining.stop() }
+        let windows = ClipboardWindows(openFiles: { _, _, _ in }, warn: { _ in }, closeWelcome: {})
+        windows.preferences = fixture.preferences
+        windows.library = remaining.library
+        let presentation = ClipboardWindowFixture(windows)
+        defer { presentation.close() }
+        let bytes = Data("Clipboard fixture".utf8)
+        let clipboard = windows.open(bytes, format: .plainText, title: "Clipboard")
+        fixture.activeModel = clipboard.model
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let before = state.snapshot
+        #expect(before.content.canSaveAsFile && before.content.history.isEmpty)
+        clipboard.close()
+        fixture.activeModel = hasRemainingDocument ? remaining : nil
+        #expect(state.snapshot == before)
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == before.version + 1)
+        #expect(state.snapshot.content.history.map(\.id) == [.of(bytes)])
+        #expect(!state.snapshot.content.canSaveAsFile)
+        #expect(state.snapshot.content.region == (hasRemainingDocument ? .paperReading : nil))
+    }
+
+    @Test("モデルの観察は照合を挟んでも各ターンで再登録され、表示・一覧・チェックの変更を届ける")
+    func publishesModelChanges() async {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let model = fixture.document(kind: "binder")
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let before = state.snapshot
+        model.mode = .print
+        fixture.bridge.reconcile()
+        #expect(state.snapshot == before)
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == before.version + 1 && state.snapshot.content.printing)
+        model.isDrawerOpen = !before.content.drawerOpen
+        await fixture.afterMenuNotifications()
+        #expect(
+            state.snapshot.version == before.version + 2
+                && state.snapshot.content.drawerOpen != before.content.drawerOpen)
+        model.binderStartsOnFront = !before.content.oddStarts
+        model.showsOnAllSpaces = !before.content.allSpaces
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == before.version + 3)
+        #expect(
+            state.snapshot.content.oddStarts != before.content.oddStarts
+                && state.snapshot.content.allSpaces != before.content.allSpaces)
+    }
+
+    @Test("画像の束・合本・HTMLへ窓が交代すると観察先が切り替わりスライドの検出も公開する")
+    func observesReplacementModels() async {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let images = fixture.document(kind: "images")
+        defer { images.stop() }
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let version = state.snapshot.version
+        #expect(state.snapshot.content.hasImages && !state.snapshot.content.hasBinder)
+        let binder = fixture.document(kind: "binder")
+        defer { binder.stop() }
+        fixture.lifecycleNotifications.post(name: NSWindow.didBecomeKeyNotification, object: fixture.window)
+        await fixture.afterMenuNotifications()
+        #expect(
+            state.snapshot.version == version + 1 && !state.snapshot.content.hasImages
+                && state.snapshot.content.hasBinder)
+        let html = DocumentViewModel(
+            data: Data("<p>Fixture</p>".utf8), fileURL: fixture.directory.appendingPathComponent("slide.html"),
+            format: .html, preferences: fixture.preferences, library: binder.library)
+        fixture.activeModel = html
+        fixture.lifecycleNotifications.post(name: NSWindow.didBecomeKeyNotification, object: fixture.window)
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 2 && !state.snapshot.content.showsSlides)
+        html.slideDeckDidChange(SlideDeck(size: CGSize(width: 640, height: 480), count: 3, currentIndex: 0))
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 3 && state.snapshot.content.showsSlides)
+    }
+
+    @Test("地域の単位変更は設定セットの副題に反映し、同じ単位なら版を進めない")
+    func publishesLocaleChange() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let set = PrintSettingSet(
+            name: "Margins", settings: DocumentSettings(printOptions: PrintOptions(marginsInMillimeters: 25.4)))
+        fixture.preferences.savePrintSettingSet(set)
+        var unit = MarginUnit.millimeters
+        let state = MenuState()
+        let updates = MenuUpdates(
+            state: state, root: { nil }, model: { nil }, preferences: { fixture.preferences },
+            lifecycle: fixture.lifecycleNotifications, marginUnit: { unit }, apply: { _ in })
+        updates.start()
+        defer { updates.stop {} }
+        await fixture.afterMenuNotifications()
+        let before = state.snapshot
+        let subtitle = try #require(before.content.savedSets.first?.subtitle)
+        unit = .inches
+        fixture.lifecycleNotifications.post(name: NSLocale.currentLocaleDidChangeNotification, object: nil)
+        #expect(state.snapshot == before)
+        await fixture.afterMenuNotifications()
+        #expect(
+            state.snapshot.version == before.version + 1 && state.snapshot.content.savedSets.first?.subtitle != subtitle
+        )
+        fixture.lifecycleNotifications.post(name: NSLocale.currentLocaleDidChangeNotification, object: nil)
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == before.version + 1)
+    }
+
+    @Test("設定セットの保存とスタイルの再読み込みは次のターンに名前と副題を公開する")
+    func publishesSettingAndLibraryChanges() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let model = fixture.document()
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let version = state.snapshot.version
+        let set = PrintSettingSet(name: "Menu fixture", settings: DocumentSettings(themeID: "user:MenuFixture.css"))
+        fixture.preferences.savePrintSettingSet(set)
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 1 && state.snapshot.content.savedSets.first?.id == set.id)
+        let styles = model.library.root.appendingPathComponent("Styles")
+        try FileManager.default.createDirectory(at: styles, withIntermediateDirectories: true)
+        try Data("body { color: black; }".utf8).write(to: styles.appendingPathComponent("MenuFixture.css"))
+        model.library.reload()
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 2)
+        #expect(state.snapshot.content.savedSets.first?.subtitle.contains("MenuFixture") == true)
+    }
+
+    @Test("最近の合本はメニューを開かずに登録と消去を公開する")
+    func publishesRecentBinders() async {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let version = state.snapshot.version
+        let binder = RecentBinder(files: [.init(path: "/a.md"), .init(path: "/b.md")])
+        fixture.preferences.recordRecentBinder(binder)
+        fixture.bridge.reconcile()
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 1 && state.snapshot.content.recentBinders.map(\.id) == [binder.id])
+        fixture.preferences.clearRecentBinders()
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 2 && state.snapshot.content.recentBinders.isEmpty)
+    }
+
+    @Test("キー割り当ての同期照合が設定の公開予約を消費しない")
+    func publishesShortcutPreferences() async throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        fixture.bridge.start()
+        await fixture.afterMenuNotifications()
+        let state = fixture.bridge.menuState
+        let version = state.snapshot.version
+        let keys = [ShortcutCombination(key: .character("k"), modifiers: .command)]
+        try fixture.controller.edit(.documentReload, keys: keys)
+        await fixture.afterMenuNotifications()
+        #expect(state.snapshot.version == version + 1 && state.snapshot.content.overrides[.documentReload] == keys)
+    }
+
+    @Test("同じ表示内容は公開せず、変化して元に戻ったときにも版は進む")
+    func snapshotRevisions() {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let state = fixture.bridge.menuState
+        var invalidations = 0
+        let before = withObservationTracking {
+            state.snapshot
+        } onChange: {
+            MainActor.assumeIsolated { invalidations += 1 }
+        }
+        state.publish(before.content)
+        #expect(state.snapshot == before)
+        #expect(invalidations == 0)
+        let changed = MenuSnapshot.Content(model: fixture.document(printMode: true), preferences: fixture.preferences)
+        state.publish(changed)
+        let printed = state.snapshot
+        #expect(invalidations == 1)
+        #expect(printed.version == before.version + 1)
+        state.publish(MenuSnapshot.Content(model: fixture.activeModel, preferences: fixture.preferences))
+        #expect(state.snapshot == printed)
+        state.publish(before.content)
+        #expect(state.snapshot.content == before.content)
+        #expect(state.snapshot.version == printed.version + 1)
+        #expect(printed.content.printing)
+    }
+
+    @Test("検証と実行はキー窓の文書をその場で確認し、文書がなくてもアプリの操作は有効")
+    func validatesCurrentWindow() throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let file = try #require(fixture.menu.items[1].submenu)
+        file.addItem(withTitle: "test:Print…", action: nil, keyEquivalent: "")
+        let export = file.addItem(withTitle: "test:Export", action: nil, keyEquivalent: "")
+        export.submenu = NSMenu()
+        export.submenu?.addItem(withTitle: "test:PDF for Reading…", action: nil, keyEquivalent: "")
+        fixture.menu.items[3].submenu?.addItem(withTitle: "test:Go to Page…", action: nil, keyEquivalent: "")
+        fixture.menu.items[4].submenu?.addItem(withTitle: "test:Choose Style…", action: nil, keyEquivalent: "")
+        fixture.bridge.reconcile()
+        let operations: [ShortcutOperationID] = [
+            .documentPrint, .documentExportReadingPDF, .documentGoToPage, .styleChoose,
+        ]
+        let documents = try operations.map { operation in try #require(fixture.bridge.items[operation]) }
+        let reload = try #require(fixture.bridge.items[.documentReload])
+        let help = try #require(fixture.bridge.items[.appKeyGuide])
+        let action = try #require(reload.action)
+        reload.isEnabled = false
+        fixture.bridge.reconcile()
+        #expect(!reload.isEnabled)
+        fixture.bridge.start()
+        let snapshot = fixture.bridge.menuState.snapshot
+        let center = NotificationCenter.default
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        defer { center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu) }
+        #expect(!fixture.bridge.validateMenuItem(reload))
+        #expect(documents.allSatisfy { !fixture.bridge.validateMenuItem($0) })
+        #expect(fixture.bridge.validateMenuItem(help))
+        NSApp.sendAction(action, to: reload.target, from: reload)
+        #expect(fixture.calls.isEmpty)
+        let model = fixture.document(kind: "clipboard")
+        defer { model.stop() }
+        #expect(fixture.bridge.menuState.snapshot == snapshot)
+        #expect(fixture.bridge.validateMenuItem(reload))
+        #expect(documents.allSatisfy { fixture.bridge.validateMenuItem($0) })
+        NSApp.sendAction(action, to: reload.target, from: reload)
+        #expect(fixture.calls == [.documentReload])
+        fixture.activeModel = nil
+        NSApp.sendAction(action, to: reload.target, from: reload)
+        #expect(!fixture.bridge.validateMenuItem(reload))
+        #expect(fixture.calls == [.documentReload])
+        #expect(fixture.bridge.menuState.snapshot == snapshot)
+    }
+
+    @Test("履歴があってもメニューに存在しない再オープンの割り当ては実行しない")
+    func absentConditionalShortcut() throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let model = fixture.document(kind: "clipboard")
+        let data = Data("sample".utf8)
+        fixture.preferences.closedClipboardDocuments.remember(
+            .init(model: model, hash: .of(data), data: data, date: Date()))
+        fixture.bridge.reconcile()
+        #expect(!fixture.bridge.commandIsPresent(.clipboardReopen))
+        #expect(!fixture.dispatcher.handle(fixture.event("T", flags: [.shift, .command])))
+        #expect(fixture.calls.isEmpty)
+        let file = try #require(fixture.menu.items[1].submenu)
+        fixture.bridge.start()
+        let center = NotificationCenter.default
+        center.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
+        defer { center.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu) }
+        let item = file.addItem(withTitle: "test:Reopen Closed Clipboard Document", action: nil, keyEquivalent: "")
+        let writes = fixture.bridge.writes.counts
+        _ = fixture.dispatcher.handle(fixture.event("T", type: .keyUp))
+        #expect(fixture.dispatcher.handle(fixture.event("T", flags: [.shift, .command])))
+        #expect(fixture.calls == [.clipboardReopen])
+        file.removeItem(item)
+        fixture.dispatcher.perform(.clipboardReopen)
+        #expect(fixture.calls == [.clipboardReopen])
+        #expect(fixture.bridge.writes.counts == writes)
+    }
+
+    @Test("印刷レイアウトの途中の項目がなくても対応する操作にだけキーを結ぶ")
+    func partialPrintLayoutMenu() throws {
+        let fixture = Fixture()
+        defer { fixture.close() }
+        let document = try #require(fixture.menu.items[4].submenu)
+        let parent = NSMenuItem(title: "test:Print Layout", action: nil, keyEquivalent: "")
+        let layouts = NSMenu()
+        parent.submenu = layouts
+        document.addItem(parent)
+        let language = fixture.bridge.menuState.snapshot.content.language
+        layouts.addItem(withTitle: PrintLayout.a4Duplex.displayName(language: language), action: nil, keyEquivalent: "")
+        let compact = layouts.addItem(withTitle: "AX fixture", action: nil, keyEquivalent: "")
+        compact.setAccessibilityIdentifier("surimono.shortcut." + ShortcutOperationID.printLayoutFourUp.rawValue)
+        fixture.bridge.reconcile()
+        #expect(fixture.bridge.items[.printLayoutSingle] == nil)
+        #expect(fixture.bridge.items[.printLayoutDuplex] === layouts.items[0])
+        #expect(layouts.items[0].keyEquivalent == "2")
+        #expect(fixture.bridge.items[.printLayoutFourUp] === compact)
     }
 
     @Test("項目の変更通知の中ではキーを書き戻さず、通知が終わってから再同期する")
@@ -235,6 +775,7 @@ struct ShortcutMenuBridgeTests {
         fixture.lifecycleNotifications.post(name: NSWindow.didBecomeKeyNotification, object: fixture.window)
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: fixture.menu)
         #expect(item.keyEquivalent == "z")
+        NotificationCenter.default.post(name: NSMenu.didEndTrackingNotification, object: fixture.menu)
     }
 
     @Test("起動時の同期は同じターンで取り付けたメニューを窓やアクティブ化なしで拾う")
@@ -244,6 +785,9 @@ struct ShortcutMenuBridgeTests {
         fixture.activeWindow = nil
         let assembled = fixture.menu
         fixture.menu = NSMenu()
+        let file = try #require(assembled.items[1].submenu)
+        let edit = file.addItem(withTitle: "Rename", action: #selector(NSDocument.rename(_:)), keyEquivalent: "r")
+        edit.allowsKeyEquivalentWhenHidden = true
         fixture.bridge.start()
         fixture.menu = assembled
         // A FIFO main-queue barrier waits for the bridge's queued pass; no sleep or activation is involved.
@@ -251,6 +795,7 @@ struct ShortcutMenuBridgeTests {
             DispatchQueue.main.async { continuation.resume() }
         }
         #expect(fixture.bridge.items[.documentReload]?.keyEquivalent == "r")
+        #expect(edit.isHidden && !edit.allowsKeyEquivalentWhenHidden && edit.keyEquivalent.isEmpty)
         #expect(fixture.bridge.items[.viewSingle]?.keyEquivalent == "1")
         #expect(fixture.bridge.items[.viewSpread]?.keyEquivalent == "2")
         #expect(fixture.bridge.items[.clipboardOpen]?.keyEquivalent == "n")
@@ -431,7 +976,8 @@ struct ShortcutMenuBridgeTests {
         sharedBridge.stop()
         let live = ShortcutMenuBridge(
             controller: fixture.controller, keyWindow: { fixture.activeWindow }, model: { model },
-            lifecycleNotifications: fixture.lifecycleNotifications)
+            lifecycleNotifications: fixture.lifecycleNotifications,
+            preferences: { fixture.preferences })
         let dispatcher = ShortcutDispatcher(
             controller: fixture.controller, bridge: live,
             keyWindow: { fixture.window }, model: { model })
@@ -456,12 +1002,6 @@ struct ShortcutMenuBridgeTests {
         try fixture.controller.edit(.documentReload, keys: [])
         #expect(item.keyEquivalent.isEmpty)
         #expect(!dispatcher.handle(fixture.event("k", flags: [.command, .shift])))
-        // Conditional SwiftUI nodes must exist even before a binder/image menu was ever opened.
-        for operation: ShortcutOperationID in [
-            .documentSaveAsFile, .documentOpenBinder, .listToggle, .listMoveUp, .listMoveDown, .binderOddPageStarts,
-        ] {
-            #expect(live.items[operation] != nil)
-        }
         #expect(calls == [.documentReload, .documentReload])
     }
 
@@ -492,46 +1032,79 @@ struct ShortcutMenuBridgeTests {
         try await Task.sleep(for: .milliseconds(500))
         #expect(live.reconcilePasses == settled)
         #expect(settled < 10)
+        let writes = live.writes.counts
+        let hides = live.updates.hider.writes.counts
+        live.reconcile()
+        #expect(live.writes.counts == writes)
+        #expect(live.updates.hider.writes.counts == hides)
+        #expect(["isHidden", "title", "state", "isEnabled"].allSatisfy { writes[$0] == nil })
     }
 
     @Test(
-        "実メニュー全体の既定キーは文書種別と表示印刷モードを変えても従来どおり",
+        "各ウィンドウの表示・印刷状態から作る全コマンドは従来の既定キーを保つ",
         arguments: ["document", "images", "binder", "clipboard", "welcome", "settings"], [false, true])
     func generatedDefaultsInEveryWindow(kind: String, printMode: Bool) throws {
         let fixture = Fixture()
         defer { fixture.close() }
         let model = fixture.document(kind: kind, printMode: printMode)
         defer { model.stop() }
-        if ["welcome", "settings"].contains(kind) { fixture.activeModel = nil }
-        let sharedBridge = ShortcutDispatcher.shared.bridge
-        sharedBridge.stop()
-        let live = ShortcutMenuBridge(
-            controller: fixture.controller, keyWindow: { fixture.activeWindow }, model: { fixture.activeModel },
-            lifecycleNotifications: fixture.lifecycleNotifications)
-        defer {
-            live.stop()
-            sharedBridge.start()
+        let hasDocument = !["welcome", "settings"].contains(kind)
+        let binder = kind == "binder"
+        let images = kind == "images"
+        let clipboard = kind == "clipboard"
+        if !hasDocument { fixture.activeModel = nil }
+        model.isDrawerOpen = printMode
+        model.binderStartsOnFront = printMode
+        let data = Data("History".utf8)
+        fixture.preferences.closedClipboardDocuments.remember(
+            .init(model: model, hash: .of(data), data: data, date: .now))
+        fixture.bridge.start()
+        let snapshot = fixture.bridge.menuState.snapshot
+        let facts = snapshot.content
+        #expect(facts.region == (hasDocument ? (printMode ? .printSheet : .paperReading) : nil))
+        #expect(facts.printing == (hasDocument && printMode))
+        #expect(facts.hasBinder == binder)
+        #expect(facts.hasImages == images)
+        #expect(facts.canSaveAsFile == clipboard)
+        #expect(!facts.canOpenBinder)
+        #expect(facts.drawerOpen == (hasDocument && printMode))
+        #expect(facts.oddStarts == (hasDocument && printMode))
+        let sections = DocumentMenuDescriptor.Section.allCases.flatMap {
+            DocumentMenuDescriptor.rows(for: $0, in: snapshot)
         }
-        live.start()
-        let menu = try #require(NSApp.mainMenu)
-        // Default-key checks alone could pass via SwiftUI's fallback even if the bridge never owned these items.
-        for operation in [ShortcutOperationID.documentPrint, .documentPrintSystem, .documentExportPDF, .printSettings]
-            + ShortcutPrintLayouts.operations
-        {
-            let item = try #require(live.items[operation], "Unmanaged menu operation: \(operation)")
-            #expect(item.target === live)
-            #expect(item.identifier == ShortcutMenuBridge.identifier(operation))
+        func flatten(_ rows: [DocumentMenuDescriptor]) -> [DocumentMenuDescriptor] {
+            rows.flatMap { [$0] + flatten($0.children) }
         }
-        let items = ShortcutMenuBaselineTests.items(menu)
-        let before = items.map { ShortcutMenuKey(item: $0) }
-        live.reconcile()
-        for (item, expected) in zip(items, before) {
-            #expect(item.keyEquivalent == expected.key)
-            #expect(item.keyEquivalentModifierMask == expected.modifiers)
+        let rows = flatten(sections)
+        let printRow = try #require(rows.first { $0.operation == .documentPrint })
+        #expect(printRow.title == (hasDocument && printMode ? "Print" : "Print…"))
+        #expect(printRow.isEnabled == hasDocument)
+        #expect(rows.first { $0.operation == .appOpenURL }?.isEnabled == true)
+        let options = try #require(rows.first { $0.id == .action(.viewOptions) })
+        #expect(options.isEnabled == (hasDocument && !printMode))
+        #expect(rows.contains { $0.operation == .documentSaveAsFile } == clipboard)
+        #expect(!rows.contains { $0.operation == .documentOpenBinder })
+        #expect(rows.contains { $0.id == .menu("Binder") } == binder)
+        #expect(rows.contains { $0.id == .menu("Images") } == images)
+        #expect(rows.contains { $0.id == .action(.removeFromList) } == binder)
+        #expect(rows.first { $0.operation == .binderOddPageStarts }?.checked == (binder ? printMode : nil))
+        #expect(rows.first { $0.operation == .listToggle }?.checked == (binder || images ? printMode : nil))
+        if binder || images {
+            #expect(
+                rows.first { $0.operation == .listMoveUp }?.title == (binder ? "Move Document Up" : "Move Image Up"))
+            #expect(
+                rows.first { $0.operation == .listMoveDown }?.title
+                    == (binder ? "Move Document Down" : "Move Image Down"))
         }
-        #expect(live.items[.documentSaveAsFile]?.isHidden == (kind != "clipboard"))
-        #expect(live.items[.listToggle]?.isHidden == !["images", "binder"].contains(kind))
-        try ShortcutMenuBaselineTests().defaultMenuKeys()
+        var absent: Set<ShortcutOperationID> = [.appOpen, .appSettings, .documentOpenBinder]
+        if !facts.canCheckUpdates { absent.insert(.appCheckUpdates) }
+        if !clipboard { absent.insert(.documentSaveAsFile) }
+        if !binder { absent.insert(.binderOddPageStarts) }
+        if !binder && !images { absent.formUnion([.listToggle, .listMoveUp, .listMoveDown, .listSortByName]) }
+        let operations = rows.compactMap(\.operation)
+        #expect(operations.count == Set(operations).count)
+        #expect(Set(operations) == ShortcutMenuBridge.operations.subtracting(absent))
+        try ShortcutMenuBaselineTests.checkDescriptorKeys(rows)
     }
 
     @Test("接続した表示のキーは実モデルの単ページと見開きを従来どおり変える")
