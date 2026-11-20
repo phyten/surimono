@@ -158,7 +158,7 @@ enum LaTeXFlowPaginator {
         else {
             throw WebPaginator.PaginationError.printFailed
         }
-        let (pages, locations, review, lines) = try await plan(json, width: width, height: height, until: deadline)
+        let (pages, locations, review) = try await plan(json, width: width, height: height, until: deadline)
         if referencesOnly {
             _ = try await run("surimonoRestoreFlow()")
             return Pass(
@@ -181,28 +181,38 @@ enum LaTeXFlowPaginator {
             for (pageIndex, page) in pages.enumerated() {
                 if sample && pageIndex != (locations[-1] ?? 0) {
                     index += page.pieces.count
+                    review?.forEachBaseline(in: page.pieces) { _, _, _ in lineNumber += 1 }
                     continue
                 }
                 context.beginPDFPage(nil)
                 defer { context.endPDFPage() }
                 let edges = verticalEdges(of: page.pieces, width: width)
-                for (piece, edge) in zip(page.pieces, edges) {
+                var position = 0
+                while position < page.pieces.count {
+                    var piece = page.pieces[position]
+                    let offsets = captureOffsets(in: page.pieces, from: position)
+                    let shown = try await run("return surimonoFlow.show(i, offsets)", ["i": index, "offsets": offsets])
+                    let count = shown as? Int ?? 1
+                    guard (1...offsets.count).contains(count), origins.indices.contains(piece.slice.strip) else {
+                        throw WebPaginator.PaginationError.printFailed
+                    }
+                    let last = position + count - 1
+                    let lastEnd = page.pieces[last].slice.end
+                    if count > 1 { piece.slice.end = piece.slice.start + page.pieces[last].end - piece.y }
                     let s = piece.slice
-                    guard origins.indices.contains(s.strip) else { throw WebPaginator.PaginationError.printFailed }
-                    let leaders = try await run("return surimonoFlow.show(i)", ["i": index]) as? String
                     let origin = origins[s.strip]
                     let startsStrip = s.start < 0.01 || origin.hasOverhang && firstStart[s.strip] == s.start
                     let capture = captureRects(
                         piece, origin: CGPoint(x: origin.x, y: origin.y), pageSize: pageSize, margins: margins,
-                        above: (edge.above || origin.hasOverhang) && startsStrip,
-                        below: (edge.below || origin.hasOverhang) && s.end >= origin.height - 0.01)
+                        above: (edges[position].above || origin.hasOverhang) && startsStrip,
+                        below: (edges[last].below || origin.hasOverhang) && lastEnd >= origin.height - 0.01)
                     context.saveGState()
                     defer { context.restoreGState() }
                     // A fragmented strip may contain a continuous border. Keep its internal cut exclusive;
                     // neighbouring text is hidden too, so it cannot reappear in the searchable PDF stream.
                     var clip = CGRect(origin: .zero, size: pageSize)
                     if !startsStrip { clip.size.height = pageSize.height - margins.top - piece.y / ratio }
-                    if s.end < origin.height - 0.01 {
+                    if lastEnd < origin.height - 0.01 {
                         let bottom = pageSize.height - margins.top - piece.end / ratio
                         clip = clip.intersection(
                             CGRect(x: 0, y: bottom, width: pageSize.width, height: pageSize.height))
@@ -211,7 +221,7 @@ enum LaTeXFlowPaginator {
                     let printed = try await FlowPageCapture.draw(
                         capture.source, from: view, into: capture.target, in: context, transparent: true,
                         deadline: deadline)
-                    if let leaders {
+                    if let leaders = shown as? String {
                         let start = CGPoint(
                             x: margins.left + piece.x / ratio,
                             y: pageSize.height - margins.top - (piece.y - s.start * piece.scale) / ratio)
@@ -219,12 +229,13 @@ enum LaTeXFlowPaginator {
                             row.draw(in: context, from: start, scale: piece.scale / ratio, slice: printed)
                         }
                     }
-                    index += 1
+                    index += count
+                    position += count
                 }
-                drawReview(
-                    review, lines: lines, pieces: page.pieces, pageIndex: pageIndex,
-                    textOrigin: CGPoint(x: margins.left, y: pageSize.height - margins.top), next: &lineNumber,
-                    in: context)
+                review?.draw(
+                    page.pieces, pageIndex: pageIndex,
+                    textOrigin: CGPoint(x: margins.left, y: pageSize.height - margins.top), width: width / ratio,
+                    next: &lineNumber, in: context)
                 context.setFillColor(gray: 0, alpha: 1)
                 for rule in page.rules {
                     context.fill(
@@ -239,54 +250,22 @@ enum LaTeXFlowPaginator {
         return Pass(document: pdf, pageCount: pages.count, locations: locations)
     }
 
-    private static func drawReview(
-        _ review: LaTeXResolvedStyle.Review?, lines: [[CGFloat]], pieces: [LaTeXFlowLayout.Piece], pageIndex: Int,
-        textOrigin: CGPoint, next: inout Int, in context: CGContext
-    ) {
-        guard let review else { return }
-        let ruler = review == .ruler
-        let pt = 72.0 / 72.27
-        let font = CTFontCreateWithName((ruler ? "Helvetica-Bold" : "Helvetica") as CFString, (ruler ? 8 : 6) * pt, nil)
-        func draw(_ string: String, y: CGFloat) {
-            let label = NSAttributedString(
-                string: string,
-                attributes: [
-                    .font: font, NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true,
-                ])
-            let line = CTLineCreateWithAttributedString(label)
-            let width = CTLineGetTypographicBounds(line, nil, nil, nil)
-            context.textPosition = CGPoint(x: textOrigin.x - (ruler ? 35 * pt : 10 * pt + width), y: textOrigin.y - y)
-            CTLineDraw(line, context)
+    /// Candidate displacements, relative to the first source band. The DOM checks ink ownership
+    /// before accepting a prefix. A new column, float strip, scale or overlapping band starts a new capture.
+    static func captureOffsets(in pieces: [LaTeXFlowLayout.Piece], from index: Int) -> [CGFloat] {
+        let first = pieces[index]
+        var offsets: [CGFloat] = [0]
+        guard first.scale == 1 else { return offsets }
+        // Bound the candidate payload even when an unusual document has thousands of tiny fragments.
+        for i in pieces.indices.dropFirst(index + 1).prefix(64) {
+            let piece = pieces[i]
+            guard piece.x == first.x, piece.scale == 1, piece.slice.strip == first.slice.strip,
+                piece.slice.start >= pieces[i - 1].slice.end - 0.001,
+                piece.y >= pieces[i - 1].end - 0.001
+            else { break }
+            offsets.append(piece.y - first.y - (piece.slice.start - first.slice.start))
         }
-        context.saveGState()
-        defer { context.restoreGState() }
-        context.textMatrix = .identity
-        if ruler {
-            // Quartz applies a different transfer curve when the same value is supplied as grayscale.
-            let gray: CGFloat = 178.0 / 255
-            context.setFillColor(red: gray, green: gray, blue: gray, alpha: 1)
-        } else {
-            context.setFillColor(gray: 0, alpha: 1)
-        }
-        if ruler {
-            for i in 0..<54 { draw(String(format: "%03d", pageIndex * 54 + i), y: 5.335 + CGFloat(i) * 12 * pt) }
-        } else {
-            let ratio = WebPaginator.printPixelsPerPoint
-            for piece in pieces where lines.indices.contains(piece.slice.strip) {
-                let positions = lines[piece.slice.strip]
-                var low = 0
-                var high = positions.count
-                while low < high {
-                    let mid = (low + high) / 2
-                    if positions[mid] < piece.slice.start { low = mid + 1 } else { high = mid }
-                }
-                for y in positions[low...] {
-                    if y >= piece.slice.end { break }
-                    draw(String(next), y: (piece.y + (y - piece.slice.start) * piece.scale) / ratio)
-                    next += 1
-                }
-            }
-        }
+        return offsets
     }
 
     /// A wide strip can touch both columns. Only the first and last ink in each column can claim the
@@ -343,11 +322,15 @@ enum LaTeXFlowPaginator {
     @concurrent private static func plan(
         _ json: String, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant
     ) async throws -> (
-        [LaTeXFlowLayout.Page], [Int: Int], LaTeXResolvedStyle.Review?, [[CGFloat]]
+        [LaTeXFlowLayout.Page], [Int: Int], ConferenceReviewDrawing?
     ) {
         let input = try JSONDecoder().decode(LaTeXFlowLayout.Measurement.self, from: Data(json.utf8))
         let pages = try LaTeXFlowLayout.pages(input, width: width, height: height, until: deadline)
-        return (pages, locations(of: input.probes ?? [], in: pages), input.review, input.reviewLines ?? [])
+        let review = input.review.map {
+            ConferenceReviewDrawing(
+                style: $0, lines: input.reviewLines ?? [], banner: input.reviewBanner, corner: input.reviewCorner)
+        }
+        return (pages, locations(of: input.probes ?? [], in: pages), review)
     }
 
     // A probe in the margin above a heading belongs to the first printed slice below it.

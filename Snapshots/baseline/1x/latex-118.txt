@@ -24,10 +24,10 @@ of a folded spacer is not simply the sum of the card thicknesses: each crease ad
 allowance, and the allowance depends on the card and on how firmly the crease is pressed.
 This note reports a bench trial of folded spacers. Our aims were:
 •
-•
-•
 to measure the height of spacers with two to six layers in one fixed slot;
+•
 to compare the measurements with a layer model that adds a crease allowance; and
+•
 to give simple rules for choosing a card stock for a target height.
 Section 2 describes the slot and the procedure, Section 3 reports the measurements, and Section 4
 summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk,

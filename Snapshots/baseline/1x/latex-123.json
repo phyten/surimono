@@ -1,0 +1,954 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.16671550802139037,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 2,
+    "maxBoxDeltaPt" : 11.5,
+    "maxLuminance" : 151.71875,
+    "maxShiftPt" : 9.1,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 165
+  },
+  "fonts" : [
+    "Helvetica",
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 95.7,
+      "height" : 792,
+      "lastY" : 693.1,
+      "lineCount" : 89,
+      "lines" : [
+        {
+          "height" : 15.9,
+          "text" : "Measuring Folded Card Spacers for Model Rails",
+          "width" : 297.8,
+          "x" : 157.1,
+          "y" : 95.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "Anonymous submission",
+          "width" : 120.6,
+          "x" : 245.7,
+          "y" : 132.5
+        },
+        {
+          "height" : 11,
+          "text" : "Abstract",
+          "width" : 37.1,
+          "x" : 154.7,
+          "y" : 217.1
+        },
+        {
+          "height" : 13.2,
+          "text" : "Method",
+          "width" : 39.8,
+          "x" : 418.8,
+          "y" : 215.3
+        },
+        {
+          "height" : 9.9,
+          "text" : "A folded card spacer fixes the height of a model rail above",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 235.3
+        },
+        {
+          "height" : 9.9,
+          "text" : "its baseboard. We measured spacers folded from three card",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 245.3
+        },
+        {
+          "height" : 9.9,
+          "text" : "stocks in a single test slot and compared the measured",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 255.2
+        },
+        {
+          "height" : 9.9,
+          "text" : "heights with a simple layer model. The model predicts the",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 265.2
+        },
+        {
+          "height" : 9.9,
+          "text" : "height of a folded spacer to within a tenth of a millimetre",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 275.1
+        },
+        {
+          "height" : 9.9,
+          "text" : "when the crease allowance is taken from a two-layer trial.",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 285.1
+        },
+        {
+          "height" : 9.9,
+          "text" : "We describe the slot, the measurement procedure and the",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 295
+        },
+        {
+          "height" : 9.9,
+          "text" : "remaining sources of error, and we list practical rules for",
+          "width" : 218.6,
+          "x" : 64,
+          "y" : 305
+        },
+        {
+          "height" : 9.9,
+          "text" : "choosing a card stock for a given rail height.",
+          "width" : 159.6,
+          "x" : 64,
+          "y" : 314.9
+        },
+        {
+          "height" : 13.2,
+          "text" : "Introduction",
+          "width" : 64.9,
+          "x" : 140.8,
+          "y" : 340.5
+        },
+        {
+          "height" : 11,
+          "text" : "Paper models of railways need many small parts of exact",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 356.4
+        },
+        {
+          "height" : 11,
+          "text" : "height. Rails, platform edges and signal bases all sit on",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 367.4
+        },
+        {
+          "height" : 11,
+          "text" : "spacers, and a spacer that is too thick by a fraction of a mil-",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 378.3
+        },
+        {
+          "height" : 11,
+          "text" : "limetre lifts a rail joint enough to derail a light wagon. Most",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 389.3
+        },
+        {
+          "height" : 11,
+          "text" : "builders cut spacers from card and fold them until they",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 400.2
+        },
+        {
+          "height" : 11,
+          "text" : "reach the height they want (Model Rail Desk 2025). Folding",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 411.2
+        },
+        {
+          "height" : 11,
+          "text" : "is quick and needs no tools, but the height of a folded spacer",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 422.1
+        },
+        {
+          "height" : 11,
+          "text" : "is not simply the sum of the card thicknesses: each crease",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 433.1
+        },
+        {
+          "height" : 11,
+          "text" : "adds a small allowance, and the allowance depends on the",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 444
+        },
+        {
+          "height" : 11,
+          "text" : "card and on how firmly the crease is pressed.",
+          "width" : 177.5,
+          "x" : 54,
+          "y" : 455
+        },
+        {
+          "height" : 11,
+          "text" : "This note reports a bench trial of folded spacers. Our",
+          "width" : 228.5,
+          "x" : 64,
+          "y" : 465.9
+        },
+        {
+          "height" : 11,
+          "text" : "aims were:",
+          "width" : 43.4,
+          "x" : 54,
+          "y" : 476.9
+        },
+        {
+          "height" : 12.1,
+          "text" : "The test slot",
+          "width" : 56.4,
+          "x" : 319.5,
+          "y" : 231.1
+        },
+        {
+          "height" : 11,
+          "text" : "The slot was cut into a block of laminated board and lined",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 245.5
+        },
+        {
+          "height" : 11,
+          "text" : "with a strip of thin brass so that the card could not dent the",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 256.4
+        },
+        {
+          "height" : 11,
+          "text" : "walls. A sliding rail of known height rests on top of the",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 267.4
+        },
+        {
+          "height" : 11,
+          "text" : "spacer, and the height is read from a scale on the side of the",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 278.3
+        },
+        {
+          "height" : 11,
+          "text" : "block. The block was clamped to the bench throughout the",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 289.3
+        },
+        {
+          "height" : 11,
+          "text" : "trial so that the scale did not move between readings.",
+          "width" : 211.4,
+          "x" : 319.5,
+          "y" : 300.2
+        },
+        {
+          "height" : 11,
+          "text" : "Each spacer was inserted with its folded edge towards the",
+          "width" : 228.5,
+          "x" : 329.5,
+          "y" : 311.2
+        },
+        {
+          "height" : 11,
+          "text" : "back of the slot. The rail was lowered onto it and left for ten",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 322.1
+        },
+        {
+          "height" : 11,
+          "text" : "seconds before the reading was taken, because a freshly",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 333.1
+        },
+        {
+          "height" : 11,
+          "text" : "folded spacer springs back slowly. Three readings were",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 344
+        },
+        {
+          "height" : 11,
+          "text" : "taken for each spacer, removing and reinserting it between",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 355
+        },
+        {
+          "height" : 11,
+          "text" : "readings.",
+          "width" : 36.2,
+          "x" : 319.5,
+          "y" : 365.9
+        },
+        {
+          "height" : 12.1,
+          "text" : "Layer model",
+          "width" : 58.9,
+          "x" : 319.5,
+          "y" : 385.6
+        },
+        {
+          "height" : 11,
+          "text" : "We model the height h of a spacer with n layers of card of",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 400
+        },
+        {
+          "height" : 11.1,
+          "text" : "thickness t as",
+          "width" : 54,
+          "x" : 319.5,
+          "y" : 411
+        },
+        {
+          "height" : 11.1,
+          "text" : "h n t n c (1)",
+          "width" : 160.3,
+          "x" : 397.7,
+          "y" : 422.1
+        },
+        {
+          "height" : 11,
+          "text" : "where c is the crease allowance added by each fold. The",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 436.3
+        },
+        {
+          "height" : 11,
+          "text" : "allowance is found from a two-layer trial, for which Equa-",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 447.3
+        },
+        {
+          "height" : 12.4,
+          "text" : "tion (1) gives c = h2− 2t. The same model was used for",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 458.1
+        },
+        {
+          "height" : 11,
+          "text" : "the gauge block of Scale Fixture Room (2023), where it pre-",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 469.2
+        },
+        {
+          "height" : 11,
+          "text" : "dicted the height of folded board well for up to four layers.",
+          "width" : 231.9,
+          "x" : 319.5,
+          "y" : 480.1
+        },
+        {
+          "height" : 11,
+          "text" : "•",
+          "width" : 3.5,
+          "x" : 58.5,
+          "y" : 491.9
+        },
+        {
+          "height" : 11,
+          "text" : "to measure the height of spacers with two to six layers",
+          "width" : 225.5,
+          "x" : 67,
+          "y" : 491.9
+        },
+        {
+          "height" : 11,
+          "text" : "in one fixed slot;",
+          "width" : 67.2,
+          "x" : 67,
+          "y" : 502.9
+        },
+        {
+          "height" : 11,
+          "text" : "•",
+          "width" : 3.5,
+          "x" : 58.5,
+          "y" : 516.5
+        },
+        {
+          "height" : 11,
+          "text" : "to compare the measurements with a layer model that",
+          "width" : 225.5,
+          "x" : 67,
+          "y" : 516.5
+        },
+        {
+          "height" : 11,
+          "text" : "adds a crease allowance; and",
+          "width" : 115.1,
+          "x" : 67,
+          "y" : 527.5
+        },
+        {
+          "height" : 11,
+          "text" : "•",
+          "width" : 3.5,
+          "x" : 58.5,
+          "y" : 541.1
+        },
+        {
+          "height" : 11.1,
+          "text" : "Card thickness.",
+          "width" : 68.6,
+          "x" : 319.5,
+          "y" : 497.2
+        },
+        {
+          "height" : 11.1,
+          "text" : "The thickness t was measured with a",
+          "width" : 159.9,
+          "x" : 398.1,
+          "y" : 497.2
+        },
+        {
+          "height" : 11,
+          "text" : "dial gauge on ten single sheets of each stock, and the mean",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 508.7
+        },
+        {
+          "height" : 11,
+          "text" : "was used in the model. The thin stock measured 0.20 mm,",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 519.6
+        },
+        {
+          "height" : 11,
+          "text" : "the medium stock 0.30 mm and the thick stock 0.45 mm,",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 530.6
+        },
+        {
+          "height" : 11,
+          "text" : "with a spread of less than 0.01 mm in every case.",
+          "width" : 195.4,
+          "x" : 319.5,
+          "y" : 541.5
+        },
+        {
+          "height" : 11,
+          "text" : "to give simple rules for choosing a card stock for a target",
+          "width" : 225.5,
+          "x" : 67,
+          "y" : 541.1
+        },
+        {
+          "height" : 11,
+          "text" : "height.",
+          "width" : 27.4,
+          "x" : 67,
+          "y" : 552.1
+        },
+        {
+          "height" : 11,
+          "text" : "The Method section describes the slot and the procedure, the",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 567.1
+        },
+        {
+          "height" : 11,
+          "text" : "Results section reports the measurements, and the Conclu-",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 578
+        },
+        {
+          "height" : 11,
+          "text" : "sion section summarises the rules. Earlier notes on layered",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 589
+        },
+        {
+          "height" : 11,
+          "text" : "card (Card Stock Bench and Model Rail Desk 2024) and on",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 599.9
+        },
+        {
+          "height" : 11,
+          "text" : "gauge blocks (Scale Fixture Room 2023) motivated the",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 610.9
+        },
+        {
+          "height" : 12,
+          "text" : "layer model used here.1",
+          "width" : 92.2,
+          "x" : 54,
+          "y" : 620.9
+        },
+        {
+          "height" : 11,
+          "text" : "Pressing the crease.",
+          "width" : 83.7,
+          "x" : 319.5,
+          "y" : 558.6
+        },
+        {
+          "height" : 11,
+          "text" : "Every crease was pressed once with",
+          "width" : 144.9,
+          "x" : 413.1,
+          "y" : 558.6
+        },
+        {
+          "height" : 11,
+          "text" : "the flat of a bone folder along a steel rule. Pressing twice",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 570.1
+        },
+        {
+          "height" : 11,
+          "text" : "made the crease allowance smaller but also cracked the sur-",
+          "width" : 238.3,
+          "x" : 319.5,
+          "y" : 581
+        },
+        {
+          "height" : 11,
+          "text" : "face of the thick stock, so a single pass was used for all",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 592
+        },
+        {
+          "height" : 11,
+          "text" : "spacers.",
+          "width" : 31.8,
+          "x" : 319.5,
+          "y" : 602.9
+        },
+        {
+          "height" : 13.2,
+          "text" : "Results",
+          "width" : 37.2,
+          "x" : 420.2,
+          "y" : 623
+        },
+        {
+          "height" : 6.6,
+          "text" : "1",
+          "width" : 3,
+          "x" : 67.2,
+          "y" : 641.3
+        },
+        {
+          "height" : 9.9,
+          "text" : "All parts were cut from the same sheets on the same afternoon,",
+          "width" : 222.4,
+          "x" : 70.1,
+          "y" : 642.3
+        },
+        {
+          "height" : 9.9,
+          "text" : "so the moisture content of the card was the same for every spacer.",
+          "width" : 230.4,
+          "x" : 54,
+          "y" : 652.2
+        },
+        {
+          "height" : 11,
+          "text" : "Figure 1 shows the slot with a four-layer spacer in place,",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 638.4
+        },
+        {
+          "height" : 11,
+          "text" : "and Table 1 lists the mean measured height of each spacer",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 649.3
+        },
+        {
+          "height" : 11,
+          "text" : "together with the height predicted by Equation (1).",
+          "width" : 202,
+          "x" : 319.5,
+          "y" : 660.3
+        },
+        {
+          "height" : 9.9,
+          "text" : "This is an anonymized submission for review purposes only. Dis-",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 664.1
+        },
+        {
+          "height" : 9.9,
+          "text" : "tribution, citation, or public sharing of this manuscript is strictly",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 674.1
+        },
+        {
+          "height" : 9.9,
+          "text" : "prohibited. Copyright and publication details will appear in the",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 684
+        },
+        {
+          "height" : 9.9,
+          "text" : "final version if accepted.",
+          "width" : 88.6,
+          "x" : 54,
+          "y" : 694
+        },
+        {
+          "height" : 11,
+          "text" : "The model agrees with the measurements to within",
+          "width" : 228.5,
+          "x" : 329.5,
+          "y" : 671.2
+        },
+        {
+          "height" : 11,
+          "text" : "0.06 mm for every spacer. The largest error is for the thick",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 682.2
+        },
+        {
+          "height" : 11,
+          "text" : "stock, where the crease allowance grows with the number of",
+          "width" : 238.5,
+          "x" : 319.5,
+          "y" : 693.1
+        }
+      ],
+      "textHeight" : 608.4,
+      "textLeft" : 54,
+      "textTop" : 95.7,
+      "textWidth" : 504,
+      "width" : 612
+    },
+    {
+      "firstY" : 130.1,
+      "height" : 792,
+      "lastY" : 651,
+      "lineCount" : 40,
+      "lines" : [
+        {
+          "height" : 11,
+          "text" : "Figure 1: Side view of the test slot with a four-layer spacer",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 130.1
+        },
+        {
+          "height" : 11,
+          "text" : "under the sliding rail. The dark block is the spacer; the thin",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 141.1
+        },
+        {
+          "height" : 11,
+          "text" : "lines mark the slot floor and the rail.",
+          "width" : 145,
+          "x" : 54,
+          "y" : 152
+        },
+        {
+          "height" : 11,
+          "text" : "Table 1: Measured and predicted heights of folded spacers",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 174.9
+        },
+        {
+          "height" : 11,
+          "text" : "(mm).",
+          "width" : 24.6,
+          "x" : 54,
+          "y" : 185.9
+        },
+        {
+          "height" : 11,
+          "text" : "Stock Layers Measured Predicted",
+          "width" : 173.6,
+          "x" : 86.4,
+          "y" : 210.6
+        },
+        {
+          "height" : 11,
+          "text" : "Thin 2 0.46 0.46",
+          "width" : 173.6,
+          "x" : 86.4,
+          "y" : 226.8
+        },
+        {
+          "height" : 11,
+          "text" : "Thin 4 0.95 0.98",
+          "width" : 173.6,
+          "x" : 86.4,
+          "y" : 237.7
+        },
+        {
+          "height" : 11,
+          "text" : "Medium 3 1.02 1.00",
+          "width" : 173.6,
+          "x" : 86.4,
+          "y" : 248.7
+        },
+        {
+          "height" : 11,
+          "text" : "Medium 6 2.05 2.05",
+          "width" : 173.6,
+          "x" : 86.4,
+          "y" : 259.7
+        },
+        {
+          "height" : 11,
+          "text" : "Thick 4 1.98 1.92",
+          "width" : 173.6,
+          "x" : 86.4,
+          "y" : 270.6
+        },
+        {
+          "height" : 11,
+          "text" : "layers: the outer layers must bend around a thicker core, and",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 306.2
+        },
+        {
+          "height" : 11,
+          "text" : "the crease opens slightly. For the thin and medium stocks the",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 317.1
+        },
+        {
+          "height" : 11,
+          "text" : "error does not grow with the number of layers, which agrees",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 328.1
+        },
+        {
+          "height" : 11,
+          "text" : "with the note of Glue Pot Corner (2022) on thin paper joints.",
+          "width" : 236.4,
+          "x" : 54,
+          "y" : 339
+        },
+        {
+          "height" : 11,
+          "text" : "Repeated readings of the same spacer differed by at most",
+          "width" : 228.5,
+          "x" : 64,
+          "y" : 350
+        },
+        {
+          "height" : 11,
+          "text" : "0.02 mm. Spacers that were left in the slot overnight lost",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 360.9
+        },
+        {
+          "height" : 11,
+          "text" : "about 0.01 mm of height, which is smaller than the spread",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 371.9
+        },
+        {
+          "height" : 11,
+          "text" : "between readings and was ignored.",
+          "width" : 139.7,
+          "x" : 54,
+          "y" : 382.8
+        },
+        {
+          "height" : 13.2,
+          "text" : "Conclusion",
+          "width" : 57.1,
+          "x" : 144.7,
+          "y" : 403.2
+        },
+        {
+          "height" : 11,
+          "text" : "A folded card spacer can be designed from the card thickness",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 418.9
+        },
+        {
+          "height" : 11,
+          "text" : "and a crease allowance measured once for each stock. For",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 429.8
+        },
+        {
+          "height" : 11,
+          "text" : "heights up to 2 mm the thin and medium stocks follow the",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 440.8
+        },
+        {
+          "height" : 11,
+          "text" : "layer model closely, and they are the better choice when a rail",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 451.7
+        },
+        {
+          "height" : 11,
+          "text" : "must sit at an exact height. The thick stock is quicker to fold",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 462.7
+        },
+        {
+          "height" : 11,
+          "text" : "but should be checked in the slot when more than three layers",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 473.6
+        },
+        {
+          "height" : 11,
+          "text" : "are used. A card ladder (Window Frame Study 2021) gives a",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 484.6
+        },
+        {
+          "height" : 11,
+          "text" : "convenient way to check many spacers at once.",
+          "width" : 183.4,
+          "x" : 54,
+          "y" : 495.5
+        },
+        {
+          "height" : 13.2,
+          "text" : "References",
+          "width" : 55.5,
+          "x" : 145.5,
+          "y" : 515.8
+        },
+        {
+          "height" : 11,
+          "text" : "Card Stock Bench and Model Rail Desk. 2024. Folding",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 531.6
+        },
+        {
+          "height" : 11,
+          "text" : "tolerances of layered card. In Proceedings of the Bench",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 542.5
+        },
+        {
+          "height" : 11,
+          "text" : "Meeting on Paper Models, pages 12–19.",
+          "width" : 161.3,
+          "x" : 54,
+          "y" : 553.5
+        },
+        {
+          "height" : 11,
+          "text" : "Glue Pot Corner. 2022. Drying times for thin paper joints.",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 566.9
+        },
+        {
+          "height" : 11,
+          "text" : "Paper Model Quarterly, 4(2):33–41.",
+          "width" : 145.8,
+          "x" : 54,
+          "y" : 577.8
+        },
+        {
+          "height" : 11,
+          "text" : "Model Rail Desk. 2025. Spacer Card Register. Trial note,",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 591.3
+        },
+        {
+          "height" : 11,
+          "text" : "Paper Model Workshop.",
+          "width" : 96.9,
+          "x" : 54,
+          "y" : 602.2
+        },
+        {
+          "height" : 11,
+          "text" : "Scale Fixture Room. 2023. A gauge block made of folded",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 615.7
+        },
+        {
+          "height" : 11,
+          "text" : "board. Workshop Leaflet 7, Paper Model Workshop.",
+          "width" : 208.4,
+          "x" : 54,
+          "y" : 626.6
+        },
+        {
+          "height" : 11,
+          "text" : "Window Frame Study. 2021. Measuring slots with a card",
+          "width" : 238.5,
+          "x" : 54,
+          "y" : 640.1
+        },
+        {
+          "height" : 11,
+          "text" : "ladder. Technical memo, Paper Model Workshop.",
+          "width" : 197.1,
+          "x" : 54,
+          "y" : 651
+        }
+      ],
+      "textHeight" : 531.9,
+      "textLeft" : 54,
+      "textTop" : 130.1,
+      "textWidth" : 238.5,
+      "width" : 612
+    }
+  ],
+  "textSHA256" : "35754b742f55b9ec3b1bfd7934163c393c6a9e63eb02fdde68c4a448b323e765"
+}

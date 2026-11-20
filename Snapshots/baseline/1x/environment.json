@@ -818,6 +818,24 @@
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
+  "latex-115" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-116" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
   "latex-117" : {
     "fonts" : [
       "Helvetica",
@@ -831,6 +849,64 @@
   "latex-118" : {
     "fonts" : [
       "CourierNewPSMT",
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-119" : {
+    "fonts" : [
+      "Helvetica",
+      "Helvetica-Bold",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-120" : {
+    "fonts" : [
+      "CourierNewPSMT",
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-121" : {
+    "fonts" : [
+      "Helvetica",
+      "Helvetica-Bold",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-122" : {
+    "fonts" : [
+      "CourierNewPSMT",
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-123" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-124" : {
+    "fonts" : [
       "Helvetica",
       "TimesNewRomanPS-BoldMT",
       "TimesNewRomanPS-ItalicMT",

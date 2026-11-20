@@ -68,11 +68,11 @@ struct LaTeXPageSettings {
         if let style = info.resolvedStyle {
             box.width = style.textWidthInches * 72.27
             box.height = style.textHeightInches * 72.27
-            box.left = (paperW - box.width) / 2
+            box.left = style.textLeft.map { $0 * 72.27 / 72 } ?? (paperW - box.width) / 2
             box.top = style.textTop * 72.27 / 72
-            box.headHeight = 12
+            box.headHeight = style.headHeight
             box.headSep = style.headSep
-            box.footSkip = 30
+            box.footSkip = style.footSkip
         }
         if usesGeometry {
             let h = horizontal.resolve(stock: paperW, startFraction: twoSided ? 0.4 : 0.5)
@@ -155,8 +155,9 @@ struct LaTeXPageSettings {
         }
         if let style = info.resolvedStyle {
             for (key, value) in [
-                ("parindent", 0), ("parskip", style.paragraphSkip), ("outer-parsep", 2), ("inner-parsep", 1),
-                ("note-pitch", style.notePitch), ("skip-footins", 9), ("footnote-rule-width", 144),
+                ("parindent", style.paragraphIndent), ("parskip", style.paragraphSkip),
+                ("outer-parsep", style.outerParsep), ("inner-parsep", 1),
+                ("note-pitch", style.notePitch), ("skip-footins", 9), ("footnote-rule-width", style.noteRuleWidth),
                 ("abovecaptionskip", style.captionSkip), ("belowcaptionskip", 0),
             ] {
                 classSkips[key] = "calc(\(Self.number(value)) * var(--tex-pt))"
@@ -511,6 +512,12 @@ extension LaTeXReader {
         return String(match).trimmingCharacters(in: CharacterSet(charactersIn: " =\t"))
     }
 
+    private func glueAssignment() -> String {
+        let unit = #"(?:pt|pc|bp|mm|cm|in|em|ex|fil{1,3}|\\baselineskip)"#
+        let dimension = #"[+-]?(?:\d+(?:\.\d*)?|\.\d+)?[ \t]*"# + unit
+        return assignment(#"[ \t]*=?[ \t]*"# + dimension + #"(?:[ \t]+(?:plus|minus)[ \t]*"# + dimension + ")*")
+    }
+
     func readPageSetting(_ name: String) -> Bool {
         func assignLength(_ name: String, _ value: String) {
             if document.classInfo.profile.body.readsQuestions, let length = LaTeXSymbols.printLength(value) {
@@ -577,11 +584,9 @@ extension LaTeXReader {
             "evensidemargin", "arrayrulewidth", "tabcolsep", "LTpre", "LTpost", "LTleft", "LTright",
             "topmargin", "textheight",
             "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip", "emergencystretch":
-            let unit = #"(?:pt|pc|bp|mm|cm|in|em|ex|fil{1,3}|\\baselineskip)"#
-            let dimension = #"[+-]?(?:\d+(?:\.\d*)?|\.\d+)?[ \t]*"# + unit
-            let value = assignment(
-                #"[ \t]*=?[ \t]*"# + dimension + #"(?:[ \t]+(?:plus|minus)[ \t]*"# + dimension + ")*")
-            assignLength(name, value)
+            assignLength(name, glueAssignment())
+        case "vskip" where document.classInfo.resolvedStyle != nil:
+            verticalSpace(glueAssignment())
         case "hyphenpenalty", "widowpenalty", "clubpenalty":
             _ = assignment(#"[ \t]*=?[ \t]*[+-]?\d+"#)
         case "XeTeXlinebreaklocale":
@@ -614,7 +619,9 @@ extension LaTeXReader {
         case "linespread", "setstretch": document.pageSettings.setStretch(argument() ?? "")
         case "onehalfspacing", "doublespacing", "singlespacing":
             document.pageSettings.lineSpacing(name, pointSize: document.classInfo.spacingPointSize)
-        case "raggedbottom", "flushbottom", "sloppy", "makeatletter", "makeatother": break
+        case "raggedbottom", "flushbottom":
+            if inPreamble { document.requestsRaggedBottom = name == "raggedbottom" }
+        case "sloppy", "makeatletter", "makeatother": break
         default: return false
         }
         return true
@@ -624,7 +631,8 @@ extension LaTeXReader {
 extension LaTeXDocument {
     var columnSpacing: String {
         let gap =
-            (pageSettings.columnGap ?? classInfo.publication?.columnGap(size: classInfo.pointSize)).map {
+            (pageSettings.columnGap ?? classInfo.resolvedStyle?.columnGap
+            ?? classInfo.publication?.columnGap(size: classInfo.pointSize)).map {
                 "data-latex-gap=\"\(LaTeXPageSettings.number($0))\" "
             } ?? ""
         return gap + "data-latex-rule=\"\(LaTeXPageSettings.number(pageSettings.columnRule))\""

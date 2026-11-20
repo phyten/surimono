@@ -133,6 +133,7 @@ enum PageFurnitureDrawing {
                     (lines.numberFont ?? style.numberFont).map { elementFont($0, style: style, scale: scale) }
                 },
                 ranges: above ? lines.headerNumberRanges : lines.footerNumberRanges,
+                oversizedTitleFallback: above ? lines.oversizedTitleFallback : nil,
                 japaneseFamily: usesJapaneseFace ? latexFooter?.japaneseFontName : nil,
                 japaneseScale: latexFooter?.japaneseFontScale ?? 1)
             let y =
@@ -273,7 +274,8 @@ enum PageFurnitureDrawing {
     /// The lines of a row, each kept to its share of `width` so that long names do not run into each other.
     private static func row(
         _ texts: [String], width: CGFloat, scale: CGFloat, font: NSFont? = nil, numberFont: NSFont? = nil,
-        ranges: [[NSRange]] = [], japaneseFamily: String? = nil, japaneseScale: Double = 1
+        ranges: [[NSRange]] = [], oversizedTitleFallback: String? = nil, japaneseFamily: String? = nil,
+        japaneseScale: Double = 1
     ) -> Row {
         let font = font ?? NSFont.systemFont(ofSize: 8 * scale)
         func line(_ text: String, slot: Int? = nil) -> CTLine {
@@ -295,7 +297,17 @@ enum PageFurnitureDrawing {
             }
             return CTLineCreateWithAttributedString(contents)
         }
-        let lines = texts.enumerated().map { line($0.element, slot: $0.offset) }
+        var lines = texts.enumerated().map { line($0.element, slot: $0.offset) }
+        if let oversizedTitleFallback {
+            // The kit checks the height above the baseline of the actual 9pt title box.
+            // Font ascent would reject even an ordinary line with no tall accents.
+            let middle = lines[1]
+            if CTLineGetTypographicBounds(middle, nil, nil, nil) > width
+                || CTLineGetBoundsWithOptions(middle, .useGlyphPathBounds).maxY > font.pointSize * (6.25 / 9)
+            {
+                lines[1] = line(oversizedTitleFallback)
+            }
+        }
         let widths = lines.map { CGFloat(CTLineGetTypographicBounds($0, nil, nil, nil)) }
         func fitted(_ index: Int, to limit: CGFloat) -> CTLine? {
             guard !texts[index].isEmpty, limit > 0 else { return nil }

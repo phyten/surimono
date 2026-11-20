@@ -127,6 +127,9 @@ final class LaTeXDocument {
     var passedPackageOptions: [String: [String]] = [:]
     var styleMainFontRevision = 0
     var loadsTimesPackage = false
+    var readingConferenceTitle = false
+    var requestsRaggedBottom = false
+    var requestsFrenchSpacing: Bool?
     var finalCopy = false
     var workshopTitle = ""
     var preamblePageActions: [(String, String)] = []
@@ -152,7 +155,9 @@ final class LaTeXDocument {
             }
         }
         info.mainFontName = pageSettings.fonts.mainFontName
-        if info.resolvedStyle?.runningHeader != nil { info.headerStrutDepth = 3.6 * 72 / 72.27 }
+        if let style = info.resolvedStyle, style.runningHeader != nil {
+            info.headerStrutDepth = style.centeredRunningTitle ? 3.08 : 3.6 * 72 / 72.27
+        }
         if info.usesTraditionalJapaneseNames && info.profile.structure.bookOpening != nil {
             info.japaneseMainFontName = pageSettings.fonts.japaneseMainFontName ?? "HiraMinProN-W3"
         }
@@ -267,6 +272,7 @@ final class LaTeXDocument {
     var theoremCount = 0
     var bibliography: [String: (label: String, id: String)] = [:]
     let bibDatabase = LaTeXBibliography()
+    var explicitPreambleInks: Set<String> = []
     var hyperref = LaTeXHyperref()
     var initialHyperref = LaTeXHyperref()
     var hasLocalLinkColors = false
@@ -389,7 +395,8 @@ final class LaTeXDocument {
         let textual =
             hasDatabaseLabel
             && (["citet", "textcite"].contains(citation.command)
-                || citation.command == "cite" && bibDatabase.natbib && authorYear && citation.after == nil)
+                || citation.command == "cite" && bibDatabase.natbib && authorYear && citation.after == nil
+                    && !bibDatabase.parentheticalCite)
         let bare = (hasDatabaseLabel && (authorOnly || yearOnly)) || textual || citation.command == "citealp"
         let square = (!hasDatabaseLabel && !bibDatabase.natbib) || bibDatabase.usesSquareBrackets
         let delimiters = square ? ("[", "]") : ("(", ")")
@@ -424,7 +431,8 @@ final class LaTeXDocument {
                     } else if yearOnly {
                         guard addLinked(label.year) else { return nil }
                     } else {
-                        guard add(author), add(" " + delimiters.0) else { return nil }
+                        let linked = bibDatabase.linksTextualAuthors && authorYear
+                        guard linked ? addLinked(author) : add(author), add(" " + delimiters.0) else { return nil }
                         if position == 0, let before = citation.before, !before.isEmpty, !add(before + " ") {
                             return nil
                         }

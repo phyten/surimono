@@ -661,13 +661,30 @@ final class LaTeXReader {
         return "\(property): \(length)"
     }
 
-    private func verticalSpace(_ value: String, keep: Bool = false) {
-        if value.trimmingCharacters(in: .whitespacesAndNewlines) == "\\fill", document.insideTitlePage {
+    func verticalSpace(_ value: String, keep: Bool = false) {
+        let source = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if source == "\\fill", document.insideTitlePage {
             appendBlock("<div class=\"latex-vfill\"></div>\n")
             return
         }
-        guard let glue = verticalGlue(value) else { return }
-        let mark = keep ? " data-latex-keep-space" : ""
+        var natural = source
+        var mark = keep ? " data-latex-keep-space" : ""
+        if document.classInfo.resolvedStyle != nil {
+            // An infinite skip keeps its natural dimension while its highest order alone absorbs surplus height.
+            let specification = source == "\\fill" ? "0 plus 1fill" : source
+            if let glue = specification.wholeMatch(
+                of: /(.+?)\s*plus\s*([+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+))\s*(fil{1,3})(?:\s*minus\s*.+)?/),
+                let coefficient = Double(glue.2), coefficient.isFinite
+            {
+                natural = String(glue.1)
+                if coefficient > 0 {
+                    mark += " data-latex-fil=\"\(LaTeXPageSettings.number(coefficient))\""
+                    let order = glue.3.count - 2
+                    if order > 1 { mark += " data-latex-fil-order=\"\(order)\"" }
+                }
+            }
+        }
+        guard let glue = verticalGlue(natural) else { return }
         appendBlock("<div class=\"latex-vspace\"\(mark) style=\"\(glue)\"></div>\n")
     }
 
@@ -681,6 +698,11 @@ final class LaTeXReader {
                 // A block inside the paragraph separates the two line boxes without a second parskip.
                 appendHTML("<span class=\"latex-vspace\" style=\"display: block; \(glue)\"></span>")
             }
+        case "," where document.classInfo.resolvedStyle != nil:
+            // An entity survives the whitespace trimming at the edges of nested font groups.
+            appendHTML("&#8239;")
+        case ":" where document.classInfo.resolvedStyle != nil, ";" where document.classInfo.resolvedStyle != nil:
+            appendHTML("&nbsp;")
         case "(": inlineMath(closing: "\\)")
         case "[": displayMath(closing: "\\]")
         default:
@@ -806,7 +828,10 @@ final class LaTeXReader {
         case "usepackage", "RequirePackage": readPackage()
         case "qed", "qedsymbol": appendText("□")
         case "qedhere": break
+        case "vfil" where document.classInfo.resolvedStyle != nil: verticalSpace("0pt plus 1fil")
         case "vfill": verticalSpace("\\fill")
+        case "thinspace" where document.classInfo.resolvedStyle != nil: appendHTML("&#8239;")
+        case "nobreakspace": appendHTML("&nbsp;")
         case "centering": centered = true
         case "num":
             _ = optional()
@@ -848,7 +873,14 @@ final class LaTeXReader {
         case "twocolumn", "onecolumn":
             appendBlock(document.columnMarker(name == "twocolumn" ? 2 : 1))
             if name == "twocolumn", let title = optional() {
-                appendBlock("<div data-latex-wide>\(blocks(title))</div>\n")
+                if document.classInfo.resolvedStyle?.usesAffiliationList == true {
+                    document.readingConferenceTitle = true
+                    _ = blocks(title)
+                    document.readingConferenceTitle = false
+                    makeTitle()
+                } else {
+                    appendBlock("<div data-latex-wide>\(blocks(title))</div>\n")
+                }
             }
         case "newpage", "clearpage", "cleardoublepage", "pagebreak", "columnbreak":
             _ = optional()
@@ -1300,7 +1332,8 @@ final class LaTeXReader {
             }
         }
         if let number, number.contains(where: \.isLetter) { document.hasNonArabicHeading = true }
-        display = display.map { $0 + document.headingEndDot }
+        let endDot = document.classInfo.resolvedStyle?.headingDot == true ? "." : document.headingEndDot
+        display = display.map { $0 + endDot }
         let suffix = number?.replacingOccurrences(of: ".", with: "-") ?? "u\(document.headings.count + 1)"
         let id = document.counters.anchor("sec", suffix: suffix)
         let tag = min(level - first + 2, 6)
@@ -1328,7 +1361,9 @@ final class LaTeXReader {
         }
         let numberHTML = display.map { "<span class=\"secnum\">\($0)</span>" } ?? ""
         let amsRunIn = document.classInfo.journalStyle == .ams && ["subsection", "subsubsection"].contains(name)
-        let runIn = name == "paragraph" || name == "subparagraph" || amsRunIn
+        let runIn =
+            name == "paragraph" || name == "subparagraph" || amsRunIn
+            || name == "subsubsection" && document.classInfo.resolvedStyle?.runInSubsubsection == true
         let kind = runIn ? " class=\"latex-runin-\(name)\"" : ""
         // An HTML newline becomes an extra word space when the theme puts the heading and paragraph on one line.
         let mark =
@@ -2058,6 +2093,8 @@ final class LaTeXReader {
             let reader = LaTeXReader(body, document: document, isBlock: false)
             let language = reader.argument() ?? ""
             appendBlock(localized(reader.rest, language: language, block: true))
+        case "icmlauthorlist" where document.classInfo.resolvedStyle?.usesAffiliationList == true:
+            _ = blocks(body)
         case "ack" where document.classInfo.resolvedStyle?.acknowledgementHeading != nil:
             if let heading = document.classInfo.resolvedStyle?.acknowledgementHeading, !heading.isEmpty {
                 appendBlock("<h2>\(heading)</h2>\n" + blocks(body))
@@ -2538,7 +2575,8 @@ final class LaTeXReader {
         let numbered = document.classInfo.profile.body.numbersCaptions || document.numberedBeamerCaptions
         let label = numbered ? name + " " + HTML.escape(number) + document.headingEndDot : name
         let separator =
-            setup.separator ?? document.classInfo.journalStyle?.captionSeparator(for: kind)
+            setup.separator ?? info.resolvedStyle?.captionSeparator ?? document.classInfo.journalStyle?
+            .captionSeparator(for: kind)
             ?? info.profile.body.captionSeparator
             ?? (longtableCaption != nil ? ": " : document.isJapanese ? "　" : document.language == "fr" ? " – " : ": ")
         let contents: String
@@ -2553,6 +2591,9 @@ final class LaTeXReader {
             let separator =
                 text.contains("<br>") && separator.hasSuffix(" ") ? String(separator.dropLast()) + space : separator
             contents = "<span class=\"latex-caption-label\">\(label)\(separator)</span><span>\(text)</span>"
+        } else if info.resolvedStyle?.captionSeparator != nil, separator == ". " {
+            // The period belongs to the caption label and takes its font.
+            contents = "<span class=\"latex-caption-label\">\(label).</span> \(text)"
         } else {
             contents = "<span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)"
         }

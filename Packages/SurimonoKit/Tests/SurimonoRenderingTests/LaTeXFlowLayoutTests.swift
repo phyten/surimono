@@ -74,6 +74,304 @@ struct LaTeXFlowLayoutTests {
         }
     }
 
+    private func spaced(_ id: Int, _ height: CGFloat, gap: CGFloat, plus: CGFloat) -> Flow.Item {
+        var row = item(id, height)
+        row.gap = gap
+        row.stretchBefore = plus
+        return row
+    }
+
+    @Test("自然改ページでは有限の伸びに比例して段末を揃え、段内の行送りを保つ")
+    func proportionalStretch() throws {
+        var lines = spaced(2, 10, gap: 4, plus: 2)
+        lines.paragraph = 5
+        var next = item(2, 10)
+        next.slice?.start = 10
+        next.slice?.end = 20
+        next.paragraph = 5
+        let rows = [
+            item(1, 30), lines, next, spaced(3, 26, gap: 5, plus: 3),
+            item(4, 40), spaced(5, 30, gap: 2, plus: 20),
+        ]
+        let pages = try Flow.pages(
+            .init(
+                glueStretch: .init(), segments: [segment(rows)], notes: [:],
+                noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0), width: 100, height: 100)
+        #expect(pages.count == 2)
+        #expect(pages[0].pieces.map(\.y) == [0, 40, 74])
+        #expect(pages[0].pieces[1].slice.height == 20)
+        #expect(pages[0].pieces.last?.end == 100)
+        #expect(pages[1].pieces.map(\.y) == [0, 42])
+        #expect(pages[1].pieces.last?.end == 72)
+    }
+
+    @Test("伸び率の大きい有限糊も段末まで使い、糊なしと強制改ページは自然長にする")
+    func raggedBreaks() throws {
+        for (plus, forced) in [(CGFloat.zero, false), (2, false), (20, true)] {
+            var rows = [item(1, 40), spaced(2, 30, gap: 5, plus: plus)]
+            if forced { rows.append(.init(forced: "page")) }
+            rows.append(item(3, 40))
+            let pages = try Flow.pages(
+                .init(
+                    glueStretch: .init(), segments: [segment(rows)], notes: [:],
+                    noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0), width: 100, height: 100)
+            #expect(pages.count == 2)
+            #expect(pages[0].pieces.last?.end == (plus > 0 && !forced ? 100 : 75))
+        }
+    }
+
+    @Test("無限糊は最も高い次数だけに配分し、同じ次数の重みの比を保つ")
+    func higherOrderStretch() throws {
+        let rows = [
+            item(1, 10), spaced(2, 10, gap: 5, plus: 8), Flow.Item(gap: 2, fil: 4),
+            item(3, 10), .init(fil: 1, filOrder: 2), item(4, 8),
+            .init(fil: 2, filOrder: 2), item(5, 10), item(6, 75),
+        ]
+        let pages = try Flow.pages(
+            .init(
+                glueStretch: .init(), segments: [segment(rows)], notes: [:], noteSkip: 0,
+                textFloatSep: 0, floatSep: 0, inTextSep: 0), width: 100, height: 100)
+        #expect(pages.count == 2)
+        #expect(pages[0].pieces.map(\.y) == [0, 15, 27, 52, 90])
+        #expect(pages[0].pieces.last?.end == 100)
+    }
+
+    @Test("脚注末行の下降部は予約から除き、本文と脚注の両方に自然の字面を残す")
+    func terminalNoteDepth() throws {
+        for columns in [1, 2] {
+            let rows = [
+                item(1, 59), spaced(2, 12, gap: 4, plus: 1), item(3, 5, notes: ["a"]), item(4, 78),
+                item(5, 50),
+            ]
+            let note = Flow.Slice(strip: 9, start: 0, end: 23, width: 45, noteDepth: 3)
+            let pages = try Flow.pages(
+                .init(
+                    glueStretch: .init(), segments: [segment(rows, columns: columns)], notes: ["a": note], noteSkip: 0,
+                    textFloatSep: 0, floatSep: 0, inTextSep: 0), width: 100, height: 100)
+            let left = pages[0].pieces.filter { $0.x == 0 }
+            #expect(left.map(\.slice.strip) == [1, 2, 3, 9])
+            #expect(left.last?.end == 103)
+            #expect(left[2].end == 80)
+        }
+    }
+
+    @Test("左右の段頭で書体の異なる行を同じトップスキップに置く")
+    func topSkipUsesFirstBaseline() throws {
+        var heading = item(1, 15)
+        var reference = item(2, 12)
+        heading.columnTopAdjustment = -2
+        reference.columnTopAdjustment = 3
+        let rows = [heading, .init(forced: "column"), reference]
+        let pages = try pages([segment([item(0, 20)]), segment(rows, columns: 2)])
+        #expect(pages[0].pieces.map(\.y) == [0, 18, 23])
+        #expect(pages[0].pieces[1].y + 12 == 30)
+        #expect(pages[0].pieces[2].y + 7 == 30)
+    }
+
+    @Test("段抜き表題の下で左右の伸縮率を独立に求め、左段の脚注だけが本文の高さを減らす")
+    func separateColumnStretch() throws {
+        let rows = [
+            item(1, 35), spaced(2, 25, gap: 4, plus: 2),
+            item(3, 43), spaced(4, 22, gap: 5, plus: 5), item(5, 55),
+        ]
+        let pages = try Flow.pages(
+            .init(
+                glueStretch: .init(),
+                columnNotice: .init(strip: 8, start: 0, end: 10, width: 45),
+                segments: [segment([item(0, 15)]), segment(rows, columns: 2)], notes: [:],
+                noteSkip: 5, textFloatSep: 0, floatSep: 0, inTextSep: 0), width: 100, height: 100)
+        #expect(pages.count == 2)
+        #expect(pages[0].pieces.map(\.slice.strip) == [0, 1, 2, 8, 3, 4])
+        #expect(pages[0].pieces.map(\.y) == [0, 15, 60, 90, 15, 78])
+        #expect(pages[0].pieces.map(\.x) == [0, 0, 0, 0, 55, 55])
+        #expect(pages[1].pieces.map(\.slice.strip) == [5])
+    }
+
+    @Test("明示改段は左段を伸ばさず右段だけを自然改ページで揃える")
+    func forcedColumnIsRagged() throws {
+        let rows = [
+            item(1, 30), spaced(2, 40, gap: 2, plus: 15), .init(forced: "column"),
+            item(3, 48), spaced(4, 38, gap: 2, plus: 6), item(5, 50),
+        ]
+        let pages = try Flow.pages(
+            .init(
+                glueStretch: .init(), segments: [segment(rows, columns: 2)], notes: [:],
+                noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0), width: 100, height: 100)
+        #expect(pages[0].pieces.map(\.y) == [0, 32, 0, 62])
+    }
+
+    @Test("段頭図と本文の間隔も有限糊の割合に応じて伸ばす")
+    func topFloatStretch() throws {
+        let rows = [item(1, 30), item(2, 20, placement: "t"), spaced(3, 25, gap: 5, plus: 2), item(4, 30)]
+        let pages = try Flow.pages(
+            .init(
+                glueStretch: .init(textFloat: 2), segments: [segment(rows)], notes: [:],
+                noteSkip: 0, textFloatSep: 10, floatSep: 5, inTextSep: 5), width: 100, height: 100)
+        #expect(pages[0].pieces.map(\.slice.strip) == [2, 1, 3])
+        #expect(pages[0].pieces.map(\.y) == [0, 35, 75])
+    }
+
+    @Test("左段の通知と本文脚注は一つの罫の下に指定順に並ぶ")
+    func columnNoticeOrder() throws {
+        let notice = Flow.Slice(strip: 8, start: 0, end: 15, width: 45, noteDepth: 2)
+        let bodyNote = Flow.Slice(strip: 9, start: 0, end: 10, width: 45, noteDepth: 3)
+        for last in [true, false] {
+            let pages = try Flow.pages(
+                .init(
+                    columnNotice: notice, columnNoticeLast: last,
+                    segments: [
+                        segment([item(1, 30, notes: ["body"]), .init(forced: "column"), item(2, 25)], columns: 2)
+                    ],
+                    notes: ["body": bodyNote], noteSkip: 5, noteRuleWidth: 16, textFloatSep: 4, floatSep: 2,
+                    inTextSep: 4),
+                width: 100, height: 100)
+            #expect(pages.count == 1)
+            #expect(pages[0].pieces.map(\.slice.strip) == (last ? [1, 9, 8, 2] : [1, 8, 9, 2]))
+            #expect(pages[0].pieces.map(\.y) == (last ? [0, 77, 87, 0] : [0, 78, 93, 0]))
+            #expect(pages[0].rules.filter { $0.width == 16 }.count == 1)
+        }
+    }
+
+    @Test("本文が版面の下端に来るとき字面の下降部を縮みとして請求しない")
+    func columnEndsOnBaseline() throws {
+        var last = spaced(2, 27, gap: 6, plus: 2)
+        last.bottomDepth = 3
+        let rows = [item(1, 65), last, item(3, 30)]
+        let measurement = Flow.Measurement(
+            glueStretch: .init(), segments: [segment(rows)], notes: [:],
+            noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+        let pages = try Flow.pages(measurement, width: 100, height: 100)
+        #expect(pages.count == 2)
+        #expect(pages[0].pieces.last?.end == 103)
+    }
+
+    @Test("段末の数式の上下と見出し前の糊は同じ比率で縮む")
+    func proportionalDisplayShrink() throws {
+        var heading = item(2, 10)
+        heading.gap = 8
+        heading.shrinkBefore = 2
+        var display = item(3, 10)
+        display.gap = 10
+        display.shrinkBefore = 5
+        display.keepBefore = true
+        var text = item(4, 14)
+        text.gap = 10
+        text.shrinkBefore = 5
+        let measurement = Flow.Measurement(
+            glueShrink: .init(),
+            segments: [segment([item(1, 44), heading, display, text])], notes: [:],
+            noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+        let pages = try Flow.pages(measurement, width: 100, height: 100)
+        #expect(pages.count == 1)
+        // 106 units of natural height fit at a glue ratio of 6 / (2 + 5 + 5).
+        #expect(pages[0].pieces.map(\.y) == [0, 51, 68.5, 86])
+    }
+
+    @Test("片方の段の見出しを追い込んでも隣の段の糊を縮めない")
+    func independentColumnShrink() throws {
+        var second = item(2, 40)
+        second.gap = 6
+        second.shrinkBefore = 4
+        var following = item(5, 18)
+        following.gap = 8
+        following.shrinkBefore = 6
+        let measurement = Flow.Measurement(
+            glueShrink: .init(), glueStretch: .init(),
+            segments: [segment([item(1, 48), second, item(3, 9), item(4, 70), following], columns: 2)],
+            notes: [:], noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+        let pages = try Flow.pages(measurement, width: 100, height: 100)
+        #expect(pages.count == 1)
+        #expect(pages[0].pieces.map(\.x) == [0, 0, 0, 55, 55])
+        #expect(pages[0].pieces.map(\.y) == [0, 51, 91, 0, 78])
+    }
+
+    @Test("段末の語中分割の罰点と、手前の切れ目を伸ばす悪さを比較する")
+    func discretionaryColumnBreak() throws {
+        for (broken, plus, expectedColumn) in [(true, 18, 55), (false, 18, 0), (true, 2, 0)] {
+            var second = spaced(2, 36, gap: 12, plus: CGFloat(plus))
+            second.shrinkBefore = 8
+            var third = item(3, 16)
+            third.brokenAfter = broken
+            let rows = [item(1, 40), second, third, item(4, 80), item(5, 80), item(6, 80)]
+            let measurement = Flow.Measurement(
+                glueShrink: .init(), glueStretch: .init(), segments: [segment(rows, columns: 2)], notes: [:],
+                noteSkip: 0, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+            let result = try Flow.pages(measurement, width: 100, height: 100)
+            #expect(result.first?.pieces.first { $0.slice.strip == 3 }?.x == CGFloat(expectedColumn))
+        }
+    }
+
+    @Test("脚注付き右段の五行段落は挿入の深さと語中分割の罰点で段を切る")
+    func discretionaryBreakWithColumnFootnote() throws {
+        var paragraph = (0..<5).map { index -> Flow.Item in
+            let start = CGFloat(index * 12)
+            return .init(
+                slice: .init(strip: 3, start: start, end: start + 12, width: 45), paragraph: 1,
+                brokenAfter: index == 2, bottomDepth: 2.165)
+        }
+        paragraph[0].gap = 6
+        // Concentrate the column's adjustable skips at the paragraph boundary.
+        paragraph[0].stretchBefore = 10.5
+        paragraph[0].shrinkBefore = 4.8
+        // The first two cases differ by the 1.85 pt title shift and a taller left notice.
+        // The last two straddle the point where the third line earns its hyphen penalty.
+        let cases: [(CGFloat, CGFloat, CGFloat)] = [(13.85, 10, 24), (12, 16, 24), (11.24, 16, 24), (10.8, 16, 36)]
+        for (title, notice, cut) in cases {
+            let columns = [item(1, 20), .init(forced: "column"), item(2, 33.35, notes: ["a"])] + paragraph
+            let measurement = Flow.Measurement(
+                glueShrink: .init(), glueStretch: .init(),
+                columnNotice: .init(strip: 8, start: 0, end: notice, width: 45),
+                segments: [segment([item(0, title)]), segment(columns, columns: 2)],
+                notes: ["a": .init(strip: 9, start: 0, end: 12, width: 45, noteDepth: 2)],
+                noteSkip: 4, noteStrutDepth: 3, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+            let pages = try Flow.pages(measurement, width: 100, height: 100)
+            try #require(pages.count == 2)
+            let first = try #require(pages[0].pieces.last { $0.slice.strip == 3 })
+            let continuation = try #require(pages[1].pieces.first { $0.slice.strip == 3 })
+            #expect(first.x == 55 && first.slice.end == cut)
+            #expect(continuation.x == 0 && continuation.slice.start == cut)
+            let note = try #require(pages[0].pieces.first { $0.slice.strip == 9 })
+            #expect(note.x == 55 && note.end - 2 == 100)
+        }
+    }
+
+    @Test("最終頁の段境界と脚注を保ち、自然に右段へ続くときだけ左段末を揃える")
+    func keepNaturalFinalColumns() throws {
+        var second = spaced(2, 28, gap: 8, plus: 1)
+        second.shrinkBefore = 6
+        let pair = [item(1, 50), second, item(3, 17, notes: ["a"])]
+        for explicit in [false, true] {
+            var rows = pair
+            if explicit { rows.insert(.init(forced: "column"), at: 2) }
+            rows.append(item(4, 20))
+            let measurement = Flow.Measurement(
+                glueShrink: .init(), glueStretch: .init(), segments: [segment(rows, columns: 2)],
+                notes: ["a": .init(strip: 8, start: 0, end: 4, width: 45, noteDepth: 2)],
+                noteSkip: 1, textFloatSep: 0, floatSep: 0, inTextSep: 0)
+            let result = try Flow.pages(measurement, width: 100, height: 100)
+            #expect(result.count == 1)
+            #expect(result[0].pieces.map(\.slice.strip) == [1, 2, 3, 4, 8])
+            #expect(result[0].pieces.map(\.x) == [0, 0, 55, 55, 55])
+            #expect(result[0].pieces.map(\.y) == [0, explicit ? 58 : 72, 0, 17, 98])
+        }
+    }
+
+    @Test("最終頁左段の図間と本文の空きが伸び、右段の本文は自然長を保つ")
+    func finalLeftColumnFloatSeparation() throws {
+        let rows = [
+            item(1, 15, placement: "t"), item(2, 15, placement: "t"), item(3, 20),
+            spaced(4, 20, gap: 4, plus: 2), item(5, 40), spaced(6, 10, gap: 2, plus: 8),
+        ]
+        let pages = try Flow.pages(
+            .init(
+                glueStretch: .init(textFloat: 4, float: 2), segments: [segment(rows, columns: 2)],
+                notes: [:], noteSkip: 0, textFloatSep: 6, floatSep: 4, inTextSep: 0), width: 100, height: 100)
+        #expect(pages.count == 1)
+        #expect(pages[0].pieces.map(\.slice.strip) == [1, 2, 3, 4, 5, 6])
+        #expect(pages[0].pieces.map(\.y) == [0, 23, 52, 80, 0, 42])
+        #expect(pages[0].pieces.map(\.x) == [0, 0, 0, 0, 55, 55])
+    }
+
     @Test("脚注と下端通知の有限の糊を使っても通知の位置を保つ")
     func shrinkFooterSkips() throws {
         let measurement = Flow.Measurement(

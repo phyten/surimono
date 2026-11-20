@@ -112,3 +112,246 @@ body.format-latex[data-latex-style="iclr"][data-latex-style-mode] {
 body[data-latex-style] .latex-first-notice {
     font-size: calc(8 * var(--tex-pt)); line-height: calc(9.5 * var(--tex-pt)); text-align: start;
 }
+
+/* Align the row strut to the type baseline while leaving booktabs strokes on
+   their original grid. The two sides of each ruled band still add to the same height. */
+body.format-latex[data-latex-style] table.latex-tabular {
+    & tr.latex-above-rule > :is(th,td) { padding-block-end: calc(.4ex + var(--tex-pt)); }
+    & tr.latex-below-rule > :is(th,td) { padding-block-start: calc(.65ex - var(--tex-pt)); }
+    & tr:has(> .latex-top-heavy) > :is(th,td) { padding-block-start: calc(.65ex + var(--latex-heavy-rule) - var(--tex-pt)); }
+    & tr:has(> .latex-top-light) > :is(th,td) { padding-block-start: calc(.65ex + var(--latex-light-rule) - var(--tex-pt)); }
+    & tr:has(> .latex-bottom-heavy) > :is(th,td) { padding-block-end: calc(.4ex + var(--latex-heavy-rule) + var(--tex-pt)); }
+    & tr:has(> .latex-bottom-light) > :is(th,td) { padding-block-end: calc(.4ex + var(--latex-light-rule) + var(--tex-pt)); }
+}
+
+/* The measured skips below are the natural (ragged-bottom) ones. Pagination
+   can change the glue between these boxes without changing their line pitch. */
+body.format-latex[data-latex-style-mode]:is([data-latex-style="icml"],[data-latex-style="cvpr"],[data-latex-style="acl"],[data-latex-style="aaai"]) {
+    --conference-display-skip: 10; --conference-short-below: 6;
+    -webkit-hyphens: auto; hyphens: auto;
+    hyphenate-limit-chars: 5 2 3;
+    & .math-inline { line-height: 0; }
+    & .latex-author-row, & .latex-front-affiliations { -webkit-hyphens: manual; hyphens: manual; }
+    & .latex-author-separator { display: none; }
+    & .math-block { margin-block: calc(var(--conference-display-skip) * var(--tex-pt)); }
+    & .math-block[data-flow-short-display] { margin-block: 0 calc(var(--conference-short-below) * var(--tex-pt)); }
+    & .latex-title-block {
+        box-sizing: border-box; text-align: center; padding: 0; margin: 0;
+    }
+    & .latex-title-block h1 {
+        font-size: calc(14.4 * var(--tex-pt)); font-weight: bold; text-align: center;
+        line-height: calc(var(--title-pitch, 16) * var(--tex-pt)); text-box-trim: trim-start;
+    }
+    & .latex-author-row { justify-content: center; align-items: baseline; padding: 0; gap: 0 1em; }
+    & .latex-front-author {
+        text-align: center; padding: 0; font-size: calc(var(--author-size, 12) * var(--tex-pt));
+        line-height: calc(var(--author-pitch, 14) * var(--tex-pt));
+    }
+    & .latex-front-author code { font-size: calc(var(--email-size, 10.95) * var(--tex-pt)); }
+    & .abstract {
+        margin: 0; padding: 0 0 calc(var(--abstract-after, 0) * var(--tex-pt));
+        font-size: calc(var(--abstract-size, 10) * var(--tex-pt)); line-height: calc(var(--abstract-pitch, 12) * var(--tex-pt));
+    }
+    & .abstract-title {
+        font-style: normal; font-weight: bold;
+        font-size: calc(var(--abstract-heading-size, 12) * var(--tex-pt)); line-height: calc(var(--abstract-heading-pitch, 14) * var(--tex-pt));
+    }
+    & .abstract > p:not(.abstract-title) {
+        margin-inline: var(--abstract-indent, 0); text-align: justify; text-indent: 0;
+    }
+    & .abstract-title + p { margin-block-start: calc(var(--abstract-before) * var(--tex-pt)); }
+    & :is(p,.abstract) + h2, & h2 { --heading-before: var(--section-before); }
+    & h3 { --heading-before: var(--subsection-before); font-size: calc(var(--subsection-size, 10) * var(--tex-pt)); }
+    & h4 { --heading-before: var(--subsubsection-before); }
+    & h2 + h3, & h2 + p, & h2[id^="sec-"] + p { --after: var(--section-after); }
+    & h3 + h4, & h3 + p { --after: var(--subsection-after); }
+    & h4 + p { --after: var(--subsubsection-after); }
+    & .latex-runin { margin-block-start: calc(var(--runin-before) * var(--tex-pt) + var(--latex-parskip)); }
+    & figure > figcaption:not([data-latex-caption-style]) {
+        font-size: calc(var(--caption-size, 10) * var(--tex-pt)); line-height: calc(var(--caption-pitch) * var(--tex-pt));
+    }
+    & .latex-bibliography-heading + ol { margin-block-start: calc(var(--references-before) * var(--tex-pt)); }
+    & ol.latex-bibliography {
+        font-size: calc(var(--reference-size, 10) * var(--tex-pt)); line-height: calc(var(--reference-pitch) * var(--tex-pt));
+    }
+    /* The first entry contributes a full baseline skip after the heading's glue. */
+    & ol.latex-bibliography > li:first-child {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+    & ol.latex-bibliography > li + li { margin-block: calc(var(--reference-sep) * var(--tex-pt)) 0; }
+    & .latex-first-notice.latex-column-notice {
+        font-size: var(--latex-note-size); line-height: var(--latex-note-pitch); text-align: justify;
+    }
+    & .latex-column-notice p { margin: 0; text-indent: 0; line-height: inherit; }
+}
+body.format-latex[data-latex-style="icml"][data-latex-style-mode] {
+    --latex-measure-title-ink: 1;
+    /* A run-in heading shares the first justified line's finite Times space. */
+    & .latex-runin { --flow-space-adjust: calc(-1 * var(--latex-word-shrink)); word-spacing: var(--flow-space-adjust); }
+    /* The section's interline distance uses its 14pt pitch even after a 12pt body line. */
+    & p:has(+ h2) { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+    & p + h2 {
+        --latex-section-trim: trim-both;
+        text-box-trim: trim-both; padding-block-start: calc(1lh - 1cap);
+    }
+    --title-pitch: 18; --author-size: 10; --author-pitch: 12;
+    --abstract-indent: calc(20 * var(--tex-pt)); --abstract-before: 6.42; --abstract-after: 8.67;
+    --section-before: 8.67; --section-after: 1.445; --subsection-before: 7.23; --subsection-after: .72;
+    --subsubsection-before: 5.78; --subsubsection-after: .72; --runin-before: 6.75;
+    --caption-size: 9; --caption-pitch: 10; --references-before: 6; --reference-pitch: 12; --reference-sep: 8;
+    --latex-list-margin: 2em; --latex-list-topsep: calc(8 * var(--tex-pt) + var(--latex-parskip));
+    & .latex-title-block { padding-block: calc(5 * var(--tex-pt)) var(--latex-title-bottom-skip, 0px); }
+    & .latex-title-block h1 {
+        border-block: var(--tex-pt) solid currentColor; padding-block: calc(18.0675 * var(--tex-pt)) calc(15.8994 * var(--tex-pt));
+    }
+    & .latex-title-block h1[data-flow-title-ink] {
+        text-box-trim: trim-both;
+        padding-block: calc(18.0675 * var(--tex-pt) + var(--flow-ink-ascent) - 1cap)
+            calc(15.8994 * var(--tex-pt) + var(--flow-ink-depth));
+    }
+    /* The affiliation mark ends in a thin kern. Two roman word spaces separate consecutive author calls. */
+    & .latex-author-row {
+        padding-block-start: calc(22.681 * var(--tex-pt)); column-gap: .5em;
+        padding-inline-end: calc(var(--latex-byline-spaces, 0) * .25em);
+    }
+    & .latex-front-author:has(> sup) { padding-inline-end: calc(1em / 6); }
+    & .latex-author-row:has([data-flow-title-ink]) { padding-block-start: calc(21.681 * var(--tex-pt)); }
+    & .latex-front-author { text-box-trim: trim-start; text-box-edge: cap alphabetic; }
+    & .latex-front-author[data-flow-title-ink] {
+        text-box-trim: trim-both; white-space: nowrap;
+        padding-block: max(0px, calc(max(var(--flow-mark-ascent, 0px), var(--flow-ink-ascent)) - 1cap))
+            calc(var(--tex-pt) + var(--flow-ink-depth));
+    }
+    & .latex-front-author sup, & sup.footnote-ref {
+        font-size: calc(7 * var(--tex-pt)); font-weight: normal; line-height: 0; vertical-align: calc(3.63 * var(--tex-pt));
+    }
+    & :is(h2,h3,h4) > .secnum { margin-inline-end: .25em; }
+    & h4 { font-variant-caps: small-caps; font-weight: normal; }
+    & .latex-caption-label { font-weight: normal; font-style: italic; }
+    & .latex-column-notice p + p { margin-block-start: var(--latex-note-pitch); }
+}
+body.format-latex[data-latex-style="cvpr"][data-latex-style-mode] {
+    --title-pitch: 18; --email-size: 9;
+    --abstract-before: 12; --abstract-after: 12; --section-before: 10; --section-after: 7;
+    --subsection-size: 11; --subsection-before: 8; --subsection-after: 5;
+    --subsubsection-before: 6; --subsubsection-after: 3; --runin-before: 14.625;
+    --caption-size: 9; --caption-pitch: 11; --references-before: 7; --reference-size: 9; --reference-pitch: 11; --reference-sep: 1;
+    --latex-list-margin: calc(8.5 * var(--tex-pt)); --latex-list-topsep: 0px;
+    --latex-list-parsep: 0px; --latex-itemsep: 0px;
+    & .latex-title-block { padding-block: calc((27.101 + 18 - .69 * 14.4) * var(--tex-pt)) calc(28 * var(--tex-pt)); }
+    & .latex-author-row { padding-block-start: calc(24 * var(--tex-pt)); }
+    & .latex-front-author strong { font-weight: normal; }
+    /* Article centres tabular boxes with one fil at each end and .17fil between authors. */
+    & .latex-author-row { gap: calc(6 * var(--tex-pt)) 0; }
+    & .latex-author-row::before, & .latex-author-row::after { content: ""; flex: 1 0 0; }
+    & .latex-front-author { padding-inline: calc(6 * var(--tex-pt)); }
+    & .latex-author-separator { display: block; flex: .17 0 calc(12 * var(--tex-pt)); }
+    & .abstract > p:not(.abstract-title) { font-style: italic; }
+    & :is(h2,h3,h4) > .secnum { margin-inline-end: .25em; }
+    & ol.latex-enumerate { --latex-list-margin: calc(1ch + .25em + 5 * var(--tex-pt)); }
+}
+body.format-latex[data-latex-style="cvpr"][data-latex-style-mode="rebuttal"] .latex-title-block {
+    padding-block: 0; & h1 { font-size: calc(12 * var(--tex-pt)); }
+}
+body.format-latex[data-latex-style="acl"][data-latex-style-mode] {
+    --conference-display-skip: 11; --conference-short-below: 6.5; --email-size: 12;
+    --abstract-indent: calc(17.072 * var(--tex-pt)); --abstract-before: 10; --section-before: 9.855; --section-after: 7.391;
+    --subsection-size: 10.95; --subsection-before: 8.87; --subsection-after: 3.94;
+    --subsubsection-before: 7.39; --subsubsection-after: 2.46; --runin-before: 7.39;
+    --caption-pitch: 12; --references-before: 6.75; --reference-pitch: 11; --reference-sep: 9;
+    --latex-list-margin: 2em; --latex-list-topsep: calc(9 * var(--tex-pt));
+    & .latex-title-block {
+        display: grid; min-height: calc(149.6 * var(--tex-pt)); grid-template-rows: auto 1fr auto 2fr;
+        padding-block: calc(9.034 * var(--tex-pt)) calc(21.681 * var(--tex-pt));
+    }
+    & .latex-title-block h1 { align-self: start; margin-block-end: calc(14.454 * var(--tex-pt)); }
+    /* Each zero-width tabular is centred on its anchor. All fil glues have the same weight. */
+    & .latex-author-row { grid-row: 3; gap: 0; }
+    & .latex-author-row::before, & .latex-author-row::after { content: ""; flex: 1 0 0; }
+    & .latex-author-separator { display: block; flex: 1 0 calc(72.27 * var(--tex-pt)); }
+    & .latex-front-author { flex: 0 0 0; min-width: 0; white-space: nowrap; }
+    & .latex-author-lines { display: block; width: max-content; position: relative; transform: translateX(-50%); }
+    & h2.latex-bibliography-heading { --heading-before: calc(13.6 + 9); }
+    & sup.footnote-ref { font-size: calc(8 * var(--tex-pt)); }
+    & ol.latex-author-year { padding-inline-start: calc(10.95 * var(--tex-pt)); }
+    & .latex-author-year > li { text-indent: calc(-10.95 * var(--tex-pt)); }
+}
+body.format-latex[data-latex-style="aaai"][data-latex-style-mode] {
+    /* newtxtext's interword shrink is one point at 10pt, including in run-in prose. */
+    --latex-prefer-whole-words: 1;
+    & :is(p,.latex-runin,li) { --latex-word-shrink: .1em; }
+    --conference-display-skip: 7; --conference-short-below: 4;
+    --abstract-size: 9; --abstract-pitch: 10; --abstract-heading-size: 10; --abstract-heading-pitch: 11;
+    --abstract-indent: calc(10 * var(--tex-pt)); --abstract-before: 7.25; --abstract-after: 5;
+    --section-before: 9; --section-after: 3; --subsection-size: 10.95; --subsection-before: 9; --subsection-after: 3;
+    --subsubsection-before: 6; --subsubsection-after: 0; --runin-before: 6;
+    --caption-pitch: 11; --references-before: 3; --reference-pitch: 11; --reference-sep: 2.5;
+    --latex-list-margin: calc(13 * var(--tex-pt)); --latex-list-topsep: calc(4 * var(--tex-pt));
+    --latex-itemsep: calc(.5 * var(--tex-pt)); --latex-list-parsep: calc(2 * var(--tex-pt));
+    & .latex-title-block {
+        display: grid; min-height: calc(162.6075 * var(--tex-pt)); grid-template-rows: auto 2fr auto 1fr auto 8fr;
+        padding-block: calc(45.169 * var(--tex-pt)) calc(10 * var(--tex-pt));
+    }
+    & .latex-title-block h1 { margin-block-end: calc(7.227 * var(--tex-pt)); }
+    & .latex-author-row { grid-row: 3; }
+    & .latex-front-author sup { font-size: calc(8 * var(--tex-pt)); font-weight: normal; vertical-align: calc(4.35 * var(--tex-pt)); }
+    & .latex-front-affiliations sup { font-size: calc(7 * var(--tex-pt)); font-weight: normal; vertical-align: calc(3.63 * var(--tex-pt)); }
+    & .latex-front-affiliations { grid-row: 5; margin: calc(2 * var(--tex-pt)) 0 0; text-align: center; line-height: var(--tex-baseline); }
+    & .latex-front-affiliation { margin: 0; }
+    /* The quote ends on its last baseline. The following section starts one
+       heading pitch after the quote and section skips. */
+    & .abstract > p:last-child { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+    & .abstract > .abstract-title + p:last-child { text-box-trim: trim-both; }
+    & .abstract.latex-front-abstract + h2[id] { text-box-trim: trim-both; padding-block-start: calc(1lh - 1cap); }
+    & h2 { text-align: center; }
+    & h3 { line-height: calc(12 * var(--tex-pt)); }
+    & .latex-runin > .latex-runin-subsubsection { display: inline; margin: 0; font-size: 1em; font-weight: bold; }
+    & .latex-runin-subsubsection + p { display: inline; margin-inline-start: 1em; }
+    & ol.latex-author-year { padding-inline-start: 0; }
+    & .latex-author-year > li { text-indent: 0; }
+}
+/* Vertical glue components in TeX points: stretch, then shrink. The flow pass
+   applies them at block boundaries after the columns and legal breaks are known. */
+body[data-latex-style="icml"] {
+    --latex-glue-note: 0 0;
+    --latex-glue-heading: 0 0; --latex-glue-section-after: 0 0; --latex-glue-subsection-after: 0 0;
+    --latex-glue-list: 2 4; --latex-glue-item: 4 2; --latex-glue-quote: 2.5 4.5;
+}
+body[data-latex-style="cvpr"] {
+    --latex-glue-paragraph: 1 0; --latex-glue-heading: 2 2; --latex-glue-runin: 4.5 .9;
+    --latex-glue-section-after: 0 0; --latex-glue-subsection-after: 0 0;
+    --latex-glue-list: 0 0; --latex-glue-item: 0 0; --latex-glue-quote: 1 0; --latex-glue-bib: 1 1;
+}
+body[data-latex-style="acl"] {
+    /* The underlying article paragraphs have zero natural skip with one point of stretch. */
+    --latex-glue-paragraph: 1 0;
+    --latex-glue-heading: 2.464 .986; --latex-glue-runin: 2.464 .986;
+    --latex-glue-section-after: 1.478 .986; --latex-glue-subsection-after: .986 0;
+    --latex-glue-list: 3 5; --latex-glue-item: 4 2; --latex-glue-display: 3 6; --latex-glue-short-after: 3.5 3;
+}
+body[data-latex-style="aaai"] {
+    --latex-glue-runin: 2 1; --latex-glue-section-after: 2 1; --latex-glue-subsection-after: 2 1;
+    --latex-glue-bib: 0 0;
+}
+
+/* Article's one-line table caption is an hbox. Its top is the capital ink,
+   without the half-leading of a CSS line. The caption package uses a strut. */
+body.format-latex[data-latex-style="neurips"][data-latex-style-mode] figure.latex-table > figcaption:first-child {
+    text-box-trim: trim-start; text-box-edge: cap alphabetic;
+}
+body.format-latex[data-latex-style-mode]:is([data-latex-style="icml"],[data-latex-style="cvpr"],[data-latex-style="acl"],[data-latex-style="aaai"]) {
+    & figure.latex-figure > figcaption:last-child:not([style]) {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block: max(0px, calc(.7lh - 1cap)) .3lh;
+    }
+    & figure.latex-table > figcaption:first-child:not([style]) {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block: max(0px, calc(.7lh - 1cap)) .3lh;
+    }
+    & .latex-front-author code, & .latex-front-author [data-latex-text-size] { line-height: 0; }
+}
+
+body.format-latex[data-latex-style] [data-flow-table-text] { position: relative; top: calc(-1 * var(--tex-pt)); }
+body.format-latex[data-latex-style="icml"] .latex-column-notice p:first-child { text-indent: calc(13 * var(--tex-pt)); }
+body.format-latex[data-latex-style="icml"] .latex-column-notice sup { font-size: calc(6 * var(--tex-pt)); line-height: 0; }
+body.format-latex[data-latex-style="aaai"] .latex-column-notice { padding-block-start: calc(2 * var(--tex-pt)); }

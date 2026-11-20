@@ -20,6 +20,12 @@ final class LaTeXFrontMatter {
 
     var title: String?
     var shortTitle: String?
+    var runningTitle: String?
+    var namedAuthors: [Author] = []
+    var titleBottomSkip: String?
+    var affiliationSymbols: [String: String] = [:]
+    var correspondingAuthors: [(name: String, email: String)] = []
+    var printedColumnNotice = false
     var subtitle: String?
     var authors: [Author] = []
     var declaredEmptyAuthor = false
@@ -129,6 +135,11 @@ extension LaTeXDocumentClassInfo {
 extension LaTeXReader {
     func handleFrontMatter(_ command: String) -> Bool {
         let front = document.frontMatter
+        if document.stylePackage?.usesAffiliationList == true && handleAffiliationList(command) { return true }
+        if document.stylePackage?.separateAffiliations == true, command == "affiliations" {
+            front.addAffiliation(label: nil, parts: [argument() ?? ""], attach: false, hasPrintedMark: true)
+            return true
+        }
         if document.classInfo.journalStyle == .ams {
             switch command {
             case "address", "curraddr", "urladdr", "email":
@@ -398,10 +409,14 @@ extension LaTeXReader {
         document.makingTitle = true
         defer { document.makingTitle = false }
         let info = document.classInfo
-        let pageStyle = info.resolvedStyle?.firstPageNotice != nil ? "empty" : info.profile.titleBlock.pageStyle
+        let pageStyle =
+            info.resolvedStyle?.firstPageNotice != nil
+            ? "empty"
+            : info.resolvedStyle?.centeredRunningTitle == true ? "plain" : info.profile.titleBlock.pageStyle
         let titleStyle = pageStyle.map { " data-latex-page-action=\"thispagestyle\" data-value=\"\($0)\"" } ?? ""
         let span = document.classInfo.columns > 1 ? " data-latex-wide" : ""
-        var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)\(frontDispositionAttribute)>\n"
+        let bottomSkip = front.titleBottomSkip.map { " style=\"--latex-title-bottom-skip: \($0)\"" } ?? ""
+        var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)\(frontDispositionAttribute)\(bottomSkip)>\n"
         if let title = front.title {
             let titleHTML = inline(title)
             document.titleHTML = titleHTML
@@ -415,23 +430,21 @@ extension LaTeXReader {
             html += "<p class=\"latex-front-subtitle\">\(inline(subtitle))</p>\n"
         }
         if let style = info.resolvedStyle {
-            let names = style.anonymousAuthor ?? front.authors.map(\.name).joined(separator: #" \And "#)
-            for row in LaTeXLexer.split(names, at: [#"\AND"#]) {
-                let blocks = LaTeXLexer.split(row, at: [#"\And"#]).map { block in
-                    let lines = LaTeXLexer.split(block, at: [#"\\"#]).map {
-                        $0.trimmingCharacters(in: .whitespacesAndNewlines)
-                    }.filter { !$0.isEmpty }
-                    let cells = lines.enumerated().map { index, line in
-                        index == 0 ? "<strong>\(inline(line))</strong>" : inline(line)
-                    }
-                    return "<span class=\"latex-front-author\">\(cells.joined(separator: "<br>"))</span>"
+            html += conferenceAuthors(style)
+            if style.separateAffiliations, style.anonymousAuthor == nil {
+                let affiliations = front.affiliations.flatMap(\.parts).map(inline)
+                if !affiliations.isEmpty {
+                    html +=
+                        "<div class=\"latex-front-affiliations\">" + affiliations.joined(separator: "<br>") + "</div>\n"
                 }
-                html += "<div class=\"latex-author-row\">\(blocks.joined())</div>\n"
             }
             if let notice = style.firstPageNotice {
                 html += "<template data-latex-first-notice=\"\(HTML.escape(notice))\"></template>"
             }
             appendBlock(html + "</header>\n" + document.placeholder("F", 2))
+            if style.separateAffiliations, let notice = style.firstColumnNotice {
+                appendBlock("<template data-latex-column-notice=\"last\">" + HTML.escape(notice) + "</template>\n")
+            }
             return
         }
         var marks: [String: String] = [:]

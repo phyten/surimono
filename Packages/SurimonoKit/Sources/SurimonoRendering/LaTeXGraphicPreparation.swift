@@ -74,7 +74,8 @@ enum LaTeXGraphicPreparation {
           const h = Math.max(box.y + box.height, ink.y + ink.height) - y;
           if (!(Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0)) continue;
           const math = svg.parentElement;
-          if (math.closest('[data-latex-js-toc]') && svg.dataset.latexTexTop === undefined) {
+          if (math.closest('[data-latex-js-toc],[data-latex-style]')
+              && svg.dataset.latexTexTop === undefined) {
             // Expanding the viewport protects the glyph ink. Save the original TeX box and
             // its baselines before verticalAlign becomes "top" for the prepared block.
             const depth = -parseFloat(svg.style.verticalAlign) / height.valueInSpecifiedUnits;
