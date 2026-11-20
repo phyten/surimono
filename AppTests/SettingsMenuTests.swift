@@ -116,9 +116,7 @@ struct SettingsMenuTests {
         let menu = try #require(NSApp.mainMenu?.items[3].submenu)
         menu.update()
         for key in ["Select Text", "Always Show Toolbar", "Float on Top", "Show on All Spaces", "View Options…"] {
-            let item = try #require(menu.items.first { $0.title == localized(key) })
-            #expect(
-                item.isEnabled == (DocumentWindows.shared.currentModel != nil))
+            _ = try #require(menu.items.first { $0.title == localized(key) })
         }
         let pin = try #require(menu.items.first { $0.title == localized("Always Show Toolbar") })
         #expect(pin.keyEquivalent == "t")
@@ -135,10 +133,6 @@ struct SettingsMenuTests {
         #expect(
             entries.map { $0.keyEquivalentModifierMask.intersection(.deviceIndependentFlagsMask) }
                 == [[.option, .command], [.option, .command]])
-        #expect(
-            entries.allSatisfy {
-                $0.isEnabled == (DocumentWindows.shared.currentModel != nil)
-            })
     }
 
     @Test(
@@ -177,27 +171,32 @@ struct SettingsMenuTests {
             })
     }
 
-    @Test("文書メニューには印刷の設定がひとつだけあり、文書のある窓で有効になる")
+    @Test("文書メニューには印刷の設定がひとつだけある")
     func printSettingsItem() throws {
         let menu = try #require(NSApp.mainMenu?.items.first { $0.title == localized("Document") }?.submenu)
         menu.update()
         let entries = menu.items.filter { $0.title == localized("Print Settings…") }
         #expect(entries.count == 1)
-        let item = try #require(entries.first)
-        #expect(item.isEnabled == (DocumentWindows.shared.currentModel != nil))
     }
 
-    @Test("文書メニューの設定セットは文書がないときは管理だけ実行できる")
-    func settingSetCommands() throws {
+    // The menu bar is declared from a snapshot that SwiftUI does not rebuild while another test's window is key,
+    // so availability is checked where the menu, the keys and the actions all read it.
+    @Test("文書がないときは表示と文書の操作を選べず、設定セットは管理だけ選べる")
+    func availabilityWithoutDocument() throws {
         let menu = try #require(NSApp.mainMenu?.items[4].submenu)
         let sets = try #require(menu.items.first { $0.title == localized("Setting Sets") }?.submenu)
-        sets.update()
         for key in ["Save Current Settings…", "Manage Setting Sets…"] {
-            let item = try #require(sets.items.first { $0.title == localized(key) })
-            #expect(
-                item.isEnabled
-                    == (key == "Manage Setting Sets…" || DocumentWindows.shared.currentModel != nil))
+            _ = try #require(sets.items.first { $0.title == localized(key) })
         }
+        let visibility = MenuSnapshot.Visibility(model: nil, preferences: nil)
+        let needsDocument: [ShortcutOperationID] = [
+            .viewSelectText, .viewToolbarAlways, .viewFloatOnTop, .viewShowOnAllSpaces, .viewOptions,
+            .viewSingle, .viewSpread, .printSettings, .settingSetSave,
+        ]
+        for operation in needsDocument {
+            #expect(!ShortcutDispatcher.isAvailable(operation, model: nil, visibility: visibility))
+        }
+        #expect(ShortcutDispatcher.isAvailable(.settingSetManage, model: nil, visibility: visibility))
     }
 
     @Test("表示の既定値は保存され未設定や不正な値なら自動に戻る")
