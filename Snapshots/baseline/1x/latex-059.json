@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.018770236299648066,
+    "changedAreaRatio" : 0.01876520864756159,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 27,
-    "maxLuminance" : 184.40625,
-    "maxShiftPt" : 28.3,
+    "maxBoxDeltaPt" : 24.8,
+    "maxLuminance" : 176.28125,
+    "maxShiftPt" : 26.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 19
@@ -18,7 +18,7 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 129.3,
+      "firstY" : 126.9,
       "height" : 841.9,
       "lastY" : 773,
       "lineCount" : 29,
@@ -28,196 +28,196 @@
           "text" : "측정판의 위치",
           "width" : 110.1,
           "x" : 242.6,
-          "y" : 129.3
+          "y" : 126.9
         },
         {
           "height" : 14.2,
           "text" : "2026년 5월 14일",
           "width" : 98.9,
           "x" : 248.2,
-          "y" : 160.3
+          "y" : 182.7
         },
         {
           "height" : 10.6,
           "text" : "초록",
           "width" : 18.2,
           "x" : 288.4,
-          "y" : 190.1
+          "y" : 212.5
         },
         {
           "height" : 10.6,
           "text" : "초록",
           "width" : 9.2,
           "x" : 297.6,
-          "y" : 190.1
+          "y" : 212.5
         },
         {
           "height" : 10.6,
           "text" : "초록",
           "width" : 9.1,
           "x" : 297.7,
-          "y" : 190.1
+          "y" : 212.5
         },
         {
           "height" : 10.6,
           "text" : "초록",
           "width" : 9.2,
           "x" : 297.9,
-          "y" : 190.1
+          "y" : 212.5
         },
         {
           "height" : 10.6,
           "text" : "두 눈금은 판의 처음 위치를 나타낸다.",
           "width" : 155.9,
           "x" : 97.2,
-          "y" : 204.5
+          "y" : 226.9
         },
         {
           "height" : 17,
           "text" : "차례",
           "width" : 29.1,
           "x" : 56.8,
-          "y" : 233.4
+          "y" : 256.6
         },
         {
           "height" : 17,
           "text" : "차례",
           "width" : 14.7,
           "x" : 71.6,
-          "y" : 233.4
+          "y" : 256.6
         },
         {
           "height" : 17,
           "text" : "차례",
           "width" : 14.6,
           "x" : 71.7,
-          "y" : 233.4
+          "y" : 256.6
         },
         {
           "height" : 17,
           "text" : "차례",
           "width" : 14.7,
           "x" : 72,
-          "y" : 233.4
+          "y" : 256.6
         },
         {
           "height" : 11.8,
           "text" : "1 1 1 1 눈금 눈금 눈금 눈금",
           "width" : 35.7,
           "x" : 56.8,
-          "y" : 261.2
+          "y" : 283.6
         },
         {
           "height" : 11.8,
           "text" : "2 2 2 2 높이 높이 높이 높이",
           "width" : 35.7,
           "x" : 56.8,
-          "y" : 282.8
+          "y" : 305.2
         },
         {
           "height" : 17,
           "text" : "1 1 1 1 눈금 눈금 눈금 눈금",
           "width" : 53.8,
           "x" : 56.8,
-          "y" : 310.2
+          "y" : 332.6
         },
         {
           "height" : 11.8,
           "text" : "“아래 눈금을 먼저 읽는다.”",
           "width" : 135.4,
           "x" : 81.7,
-          "y" : 336.4
+          "y" : 358.8
         },
         {
           "height" : 11.8,
           "text" : "1 1 1 1",
           "width" : 6.9,
           "x" : 531.8,
-          "y" : 261.2
+          "y" : 283.6
         },
         {
           "height" : 11.8,
           "text" : "1 1 1 1",
           "width" : 6.9,
           "x" : 531.8,
-          "y" : 282.8
+          "y" : 305.2
         },
         {
           "height" : 11.8,
           "text" : "그림 1: 판의 위치",
           "width" : 81.4,
           "x" : 256.9,
-          "y" : 405.1
+          "y" : 427.5
         },
         {
           "height" : 17,
           "text" : "2 2 2 2 높이 높이 높이 높이",
           "width" : 53.8,
           "x" : 56.8,
-          "y" : 444.5
+          "y" : 466.9
         },
         {
           "height" : 11.8,
           "text" : "눈금 높이 (mm)",
           "width" : 81.3,
           "x" : 257,
-          "y" : 481
+          "y" : 503.4
         },
         {
           "height" : 11.8,
           "text" : "1 12",
           "width" : 74.5,
           "x" : 263.7,
-          "y" : 493.8
+          "y" : 516.2
         },
         {
           "height" : 11.8,
           "text" : "2 18",
           "width" : 74.5,
           "x" : 263.7,
-          "y" : 505.8
+          "y" : 528.2
         },
         {
           "height" : 11.8,
           "text" : "표 1: 눈금의 높이",
           "width" : 81.4,
           "x" : 256.9,
-          "y" : 527.4
+          "y" : 549.8
         },
         {
           "height" : 17,
           "text" : "참고문헌",
           "width" : 58.5,
           "x" : 56.8,
-          "y" : 566.8
+          "y" : 589.2
         },
         {
           "height" : 17,
           "text" : "참고문헌",
           "width" : 51.4,
           "x" : 64.4,
-          "y" : 566.8
+          "y" : 589.2
         },
         {
           "height" : 17,
           "text" : "참고문헌",
           "width" : 51.5,
           "x" : 64.3,
-          "y" : 566.8
+          "y" : 589.2
         },
         {
           "height" : 17,
           "text" : "참고문헌",
           "width" : 51.4,
           "x" : 64.8,
-          "y" : 566.8
+          "y" : 589.2
         },
         {
           "height" : 11.8,
           "text" : "[1] 측정 기록장 , 2025, 제2장.",
           "width" : 145.7,
           "x" : 56.8,
-          "y" : 593.8
+          "y" : 616.2
         },
         {
           "height" : 11.8,
@@ -227,9 +227,9 @@
           "y" : 773
         }
       ],
-      "textHeight" : 655.5,
+      "textHeight" : 657.9,
       "textLeft" : 56.8,
-      "textTop" : 129.3,
+      "textTop" : 126.9,
       "textWidth" : 481.9,
       "width" : 595.3
     }

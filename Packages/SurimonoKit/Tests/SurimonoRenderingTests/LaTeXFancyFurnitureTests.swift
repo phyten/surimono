@@ -79,6 +79,34 @@ struct LaTeXFancyFurnitureTests {
         #expect(map.pages[3].lines == map.pages[0].lines)
     }
 
+    @Test("和文の柱を明朝の全角幅で描き、fancyhdr のストラットだけ基準線を上げる")
+    func japaneseHeader() async throws {
+        let info = LaTeXConverter.documentClassInfo(#"\documentclass[10pt,oneside]{ltjsreport}\pagestyle{fancy}"#)
+        let size = CGSize(width: 320, height: 280)
+        let pdf = try await PDFDrawing.document(pageSize: size) { context in
+            var style = PageFurniture.LaTeXFooter(fontName: nil, pointSize: 10 * 72 / 72.27, footSkip: 18, headSep: 20)
+            style.japaneseFontName = info.japaneseMainFontName
+            style.headerStrutDepth = info.headerStrutDepth
+            for fancy in [false, true] {
+                var lines = PageFurniture.Lines(top: ["霧窓試験帳", "", ""], bottom: ["", "", ""])
+                lines.usesFancyFields = fancy
+                context.beginPDFPage(nil)
+                PageFurnitureDrawing.draw(
+                    lines, in: CGRect(origin: .zero, size: size),
+                    margins: .init(top: 64, left: 30, bottom: 48, right: 30),
+                    scale: 1, latexFooter: style, context: context)
+                context.endPDFPage()
+            }
+        }
+        let pages = try (0..<2).map { index in try #require(pdf.page(at: index)) }
+        let bounds = try pages.map { page in
+            let text = try #require(page.selection(for: page.bounds(for: .mediaBox)))
+            return text.bounds(for: page)
+        }
+        #expect(abs(bounds[1].minY - bounds[0].minY - 4.782) < 0.1)
+        #expect(abs(bounds[1].width - 5 * 9.213) < 1)
+    }
+
     @Test("文字のない柱と脚の罫も本文幅の両端まで描く", arguments: [true, false])
     func ruleInk(header: Bool) async throws {
         let size = CGSize(width: 180, height: 220)

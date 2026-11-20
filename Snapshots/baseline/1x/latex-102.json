@@ -1,0 +1,94 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.010131357289761158,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 14.7,
+    "maxLuminance" : 146.21875,
+    "maxShiftPt" : 8.8,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica",
+    "HelveticaNeue",
+    "HiraKakuProN-W3",
+    "HiraMinProN-W3"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 164.8,
+      "height" : 841.9,
+      "lastY" : 766.1,
+      "lineCount" : 8,
+      "lines" : [
+        {
+          "height" : 31.3,
+          "text" : "第1 章",
+          "width" : 60,
+          "x" : 71.9,
+          "y" : 164.8
+        },
+        {
+          "height" : 37.6,
+          "text" : "砂時計の枠",
+          "width" : 114.6,
+          "x" : 71.9,
+          "y" : 213.7
+        },
+        {
+          "height" : 21.7,
+          "text" : "1.1 最初の記録",
+          "width" : 100.6,
+          "x" : 73.7,
+          "y" : 297.8
+        },
+        {
+          "height" : 14.1,
+          "text" : "枠を平らな台に置き、砂の筋の端に印を付ける。",
+          "width" : 202.7,
+          "x" : 81.1,
+          "y" : 329.6
+        },
+        {
+          "height" : 14.1,
+          "text" : "二度目の印は別の紙帯に移す。",
+          "width" : 127.8,
+          "x" : 71.9,
+          "y" : 347.9
+        },
+        {
+          "height" : 21.7,
+          "text" : "1.2 紙帯の保管",
+          "width" : 100.6,
+          "x" : 73.7,
+          "y" : 382.4
+        },
+        {
+          "height" : 14.1,
+          "text" : "折り目を付けず、丸い筒へ差し入れる。",
+          "width" : 164.4,
+          "x" : 81.1,
+          "y" : 414.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 766.1
+        }
+      ],
+      "textHeight" : 613.1,
+      "textLeft" : 71.9,
+      "textTop" : 164.8,
+      "textWidth" : 228.2,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "57144931fce9dea249209f5246587908ea603c5953f63883c2dc08787dcf08d5"
+}

@@ -20,6 +20,8 @@ struct LaTeXPageSettings {
     private var assigned: [String: Double] = [:]
     var extraRowHeight: String?
     private var variables: [String: String] = [:]
+    var captions = LaTeXCaptionStyle()
+    var boxDefaults = LaTeXBoxOptions()
     var fonts = LaTeXFontSettings()
     var columnTypes: [Character: String] = [:]
     var listSettings: [String: [String: String]] = [:]
@@ -60,7 +62,7 @@ struct LaTeXPageSettings {
         let paperH = (paperHeight ?? (landscape ? stock.0 : stock.1)) * texPointsPerMM
         let twoSided =
             self.twoSided
-            ?? (["book", "jsbook", "ltjsbook", "scrbook", "memoir"].contains(info.name)
+            ?? (["book", "jsbook", "ltjsbook", "bxjsbook", "scrbook", "memoir"].contains(info.name)
                 || info.publication == .manuscript
                 || info.publication == .sigconf)
         var box = LaTeXClassBox.defaults(
@@ -93,8 +95,19 @@ struct LaTeXPageSettings {
                 && (info.publication == .lncs || info.publication == .aps || ["exam", "letter"].contains(info.name)))
     }
 
+    var tableSpacing: [String: String] {
+        get { variables.filter { LaTeXTable.spacingRegisters.contains($0.key) } }
+        set {
+            for key in LaTeXTable.spacingRegisters { variables[key] = newValue[key] }
+        }
+    }
+
     func styleVariables(for box: LaTeXPageBox, info: LaTeXDocumentClassInfo) -> String {
         var classSkips = info.publication?.floatStyleVariables(size: info.pointSize) ?? [:]
+        if info.jsMagnification != nil {
+            // The jsclasses size files put five magnified points on each side of a caption.
+            for key in ["abovecaptionskip", "belowcaptionskip"] { classSkips[key] = "calc(5 * var(--js-pt))" }
+        }
         if info.name == "memoir" {
             // memoir sets both skips to half a normal baseline in its size file.
             let halfBaseline = info.pointSize == 12 ? "7.25" : info.pointSize == 11 ? "6.8" : "6"
@@ -105,7 +118,14 @@ struct LaTeXPageSettings {
         var values = classSkips.merging(variables) { _, assignment in assignment }.merging(fonts.roleVariables) {
             _, font in font
         }
+        if info.jsMagnification != nil, let skip = values["parskip"], skip.hasSuffix("lh"),
+            let multiplier = Double(skip.dropLast(2))
+        {
+            values["parskip"] =
+                "calc(\(Self.number(multiplier * LaTeXLabelMetrics(info).baselines[4])) * var(--tex-pt))"
+        }
         values.merge(info.bookStyle.variables(size: info.pointSize)) { _, font in font }
+        values["text-height-tex-pt"] = Self.number(box.textHeight * 72.27 / 72)
         let measure = box.textWidth
         if measure > 0 {
             values["text-width"] = Self.number(measure * 25.4 / 72) + "mm"
@@ -287,6 +307,15 @@ struct LaTeXPageSettings {
             if let length = LaTeXSymbols.printLength(natural) ?? Self.paragraphLength(natural) {
                 variables[name] = length
             }
+        case "LTpre", "LTpost":
+            if let length = Self.paragraphLength(value) { variables[name.lowercased()] = length }
+        case "LTleft", "LTright":
+            if value == "\\fill" || value.contains("fil") {
+                variables[name.lowercased()] = "auto"
+            } else if let length = LaTeXSymbols.printLength(value) {
+                variables[name.lowercased()] = length
+            }
+        case "tabcolsep": if let length = LaTeXSymbols.printLength(value) { variables[name] = length }
         case "extrarowheight": extraRowHeight = LaTeXSymbols.printLength(value)
         case "columnsep", "columnseprule":
             let fontScale = value.hasSuffix("em") ? 1.0 : value.hasSuffix("ex") ? 0.43 : nil
@@ -321,6 +350,8 @@ struct LaTeXPageSettings {
         return LaTeXSymbols.printLength(base)
     }
 
+    var stretch: String { variables["stretch"] ?? "1" }
+
     mutating func setStretch(_ raw: String) {
         if let value = Double(raw), value.isFinite, value > 0, value <= 100 {
             variables["stretch"] = Self.number(value)
@@ -337,14 +368,16 @@ struct LaTeXPageSettings {
         }
     }
 
-    mutating func readPackage(_ name: String, options: String, pointSize: Int) {
+    mutating func readPackage(_ name: String, options: String, info: LaTeXDocumentClassInfo) {
         switch name {
+        case "caption": captions.configure(options, kind: "")
+        case "luatexja-preset": fonts.applyJapanesePreset(options, scale: LaTeXLabelMetrics(info).japaneseScale)
         case "geometry": readOptions(options, geometry: true)
         case "fullpage":
             let margin = options.contains("cm") ? 15.0 : 25.4
             readOptions("margin=\(margin)mm", geometry: true)
         case "a4wide":
-            let inches = pointSize == 10 ? 5.875 : pointSize == 11 ? 6.125 : 6.375
+            let inches = info.pointSize == 10 ? 5.875 : info.pointSize == 11 ? 6.125 : 6.375
             assigned["textwidth"] = inches * 72.27
         case "parskip":
             variables["parindent"] = "0pt"
@@ -354,31 +387,44 @@ struct LaTeXPageSettings {
                 if key == "indent" { readLength("parindent", value) }
             }
         case "setspace":
-            for option in Self.options(options) { lineSpacing(option.key, pointSize: pointSize) }
+            variables["float-stretch"] = "1"
+            for option in Self.options(options) { lineSpacing(option.key, pointSize: info.spacingPointSize) }
         default: fonts.readPackage(name)
         }
     }
 
     mutating func configureList(_ kind: String, options: String) {
-        guard ["", "itemize", "description", "enumerate"].contains(kind) else { return }
-        var values = listSettings[kind] ?? [:]
-        Self.applyListOptions(options, to: &values)
-        listSettings[kind] = values
+        let parts = kind.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count <= 2,
+            parts.allSatisfy({ ["itemize", "description", "enumerate"].contains($0) || (1...6).contains(Int($0) ?? 0) })
+        else { return }
+        let key = parts.joined(separator: ",")
+        Self.applyListOptions(options, to: &listSettings[key, default: [:]])
     }
 
-    func listAttribute(_ kind: String, options: String?) -> String {
-        var values = (listSettings[""] ?? [:]).merging(listSettings[kind] ?? [:]) { _, local in local }
+    func listOptions(_ kind: String, depth: Int, kindDepth: Int, options: String?) -> [String: String] {
+        var values: [String: String] = [:]
+        // enumitem applies generic, nesting-level and environment settings in that order.
+        for key in ["", String(depth), kind, "\(kind),\(kindDepth)"] {
+            if let settings = listSettings[key] { values.merge(settings) { _, local in local } }
+        }
         if let options { Self.applyListOptions(options, to: &values) }
-        return values.isEmpty ? "" : " style=\"\(HTML.escape(Self.cssVariables(values)))\""
+        return values
     }
 
     private static func applyListOptions(_ options: String, to values: inout [String: String]) {
         for (key, value) in Self.options(options) {
             switch key {
+            case "style": values["style"] = value
             case "nosep":
+                values["list-parsep"] = "0pt"
                 values["itemsep"] = "0pt"
                 values["list-topsep"] = "0pt"
             case "itemsep": if let length = paragraphLength(value) { values["itemsep"] = length }
+            case "labelwidth", "labelsep", "parsep", "topsep":
+                if let length = paragraphLength(value) {
+                    values["list-" + key] = length
+                }
             case "leftmargin": if let length = LaTeXSymbols.printLength(value) { values["list-margin"] = length }
             default: break
             }
@@ -418,7 +464,24 @@ extension LaTeXReader {
             if !inPreamble && LaTeXPageSettings.floatRegisters.contains(name) {
                 document.recordUnknown(name)
             } else {
-                document.pageSettings.readLength(name, value, pointSize: document.classInfo.pointSize)
+                var natural = value
+                if name == "parskip", let scale = document.classInfo.jsMagnification,
+                    let match = value.wholeMatch(
+                        of: /\s*([+-]?[\d.]+)?\s*(em|ex|\\baselineskip)(?:\s+(?:plus|minus).*)?\s*/),
+                    let factor = Double(match.1.map(String.init) ?? "1"), factor.isFinite
+                {
+                    // TeX stores the dimension at assignment, before a chapter switches to Huge.
+                    let metrics = LaTeXLabelMetrics(document.classInfo)
+                    let unit: Double
+                    switch match.2 {
+                    case "em": unit = 10 * scale
+                    case "ex": unit = 4.30554 * scale
+                    default:
+                        unit = metrics.baselines[4] * (inPreamble ? 1 : Double(document.pageSettings.stretch) ?? 1)
+                    }
+                    natural = LaTeXPageSettings.number(factor * unit) + "pt"
+                }
+                document.pageSettings.readLength(name, natural, pointSize: document.classInfo.pointSize)
             }
         }
         let previousGap = document.pageSettings.columnGap
@@ -443,7 +506,7 @@ extension LaTeXReader {
             "linefillthickness" where document.classInfo.name == "exam",
             "intextsep", "textfloatsep", "floatsep", "abovecaptionskip", "belowcaptionskip", "extrarowheight",
             "columnsep", "columnseprule", "parindent", "parskip", "itemsep", "topsep", "textwidth", "oddsidemargin",
-            "evensidemargin",
+            "evensidemargin", "tabcolsep", "LTpre", "LTpost", "LTleft", "LTright",
             "topmargin", "textheight",
             "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip", "emergencystretch":
             let unit = #"(?:pt|pc|bp|mm|cm|in|em|ex|fil{1,3}|\\baselineskip)"#
@@ -475,10 +538,14 @@ extension LaTeXReader {
         case "setlist":
             let kind = optional() ?? ""
             document.pageSettings.configureList(kind, options: argument() ?? "")
-        case "tcbset": _ = argument()
+        case "captionsetup":
+            let kind = optional() ?? ""
+            document.pageSettings.captions.configure(argument() ?? "", kind: kind)
+        case "tcbset":
+            document.pageSettings.boxDefaults.apply(argument() ?? "")
         case "linespread", "setstretch": document.pageSettings.setStretch(argument() ?? "")
         case "onehalfspacing", "doublespacing", "singlespacing":
-            document.pageSettings.lineSpacing(name, pointSize: document.classInfo.pointSize)
+            document.pageSettings.lineSpacing(name, pointSize: document.classInfo.spacingPointSize)
         case "raggedbottom", "flushbottom", "sloppy", "makeatletter", "makeatother": break
         default: return false
         }

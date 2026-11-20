@@ -172,7 +172,49 @@ struct PageComparison: Codable {
     var beforeLayout, currentLayout: Page?
 }
 
-func compareLayout(_ old: Document, _ new: Document) -> Comparison {
+// TeX and PDFKit can expose different subsets of the line numbers in a listing.
+// A bare numeral has no textual identity across pages or between the footer and body.
+private func referenceNumberMatches(_ old: Page, _ new: Page) -> [Int: Int] {
+    struct Key: Hashable {
+        let text: String
+        let region: Int
+    }
+    func numbers(_ page: Page) -> [Key: [Int]] {
+        var groups: [Key: [Int]] = [:]
+        for (i, line) in page.lines.enumerated() where isBareNumber(line.text) {
+            let center = line.y + line.height / 2
+            let region = center < page.height * 0.1 ? -1 : center > page.height * 0.9 ? 1 : 0
+            groups[Key(text: line.text, region: region), default: []].append(i)
+        }
+        return groups
+    }
+    let current = numbers(new)
+    var matches: [Int: Int] = [:]
+    for (key, before) in numbers(old) {
+        guard let after = current[key] else { continue }
+        func distance(_ i: Int, _ j: Int) -> Double {
+            hypot(old.lines[i].x - new.lines[j].x, old.lines[i].y - new.lines[j].y)
+        }
+        // A listing-only digit must not consume the reference's sole table cell.
+        // Requiring a mutual nearest neighbour works in either extraction order.
+        var closest: [Int: Int] = [:]
+        for i in before {
+            closest[i] = after.min { distance(i, $0) < distance(i, $1) }
+        }
+        for j in after {
+            if let i = before.min(by: { distance($0, j) < distance($1, j) }), closest[i] == j {
+                matches[j] = i
+            }
+        }
+    }
+    return matches
+}
+
+private func isBareNumber(_ text: String) -> Bool {
+    !text.isEmpty && text.unicodeScalars.allSatisfy { CharacterSet.decimalDigits.contains($0) }
+}
+
+private func comparePositions(_ old: Document, _ new: Document, texReference: Bool) -> Comparison {
     var result = Comparison()
     result.metrics.pageDelta = new.pageCount - old.pageCount
     for (a, b) in zip(old.pages, new.pages) {
@@ -188,15 +230,24 @@ func compareLayout(_ old: Document, _ new: Document) -> Comparison {
     // Match identical lines in reading order across page breaks; occurrence queues preserve repeated headers.
     var occurrences: [String: [(Int, Line)]] = [:]
     for (index, page) in old.pages.enumerated() {
-        for line in page.lines { occurrences[line.text, default: []].append((index, line)) }
+        for line in page.lines where !texReference || !isBareNumber(line.text) {
+            occurrences[line.text, default: []].append((index, line))
+        }
     }
     var used: [String: Int] = [:]
     for (index, page) in new.pages.enumerated() {
-        for line in page.lines {
-            let at = used[line.text, default: 0]
-            guard let matches = occurrences[line.text], at < matches.count else { continue }
-            used[line.text] = at + 1
-            let (previous, other) = matches[at]
+        let numbers =
+            texReference && old.pages.indices.contains(index) ? referenceNumberMatches(old.pages[index], page) : [:]
+        for (j, line) in page.lines.enumerated() {
+            let (previous, other): (Int, Line)
+            if let i = numbers[j] {
+                (previous, other) = (index, old.pages[index].lines[i])
+            } else {
+                let at = used[line.text, default: 0]
+                guard let matches = occurrences[line.text], at < matches.count else { continue }
+                used[line.text] = at + 1
+                (previous, other) = matches[at]
+            }
             result.metrics.maxBoxDeltaPt = max(
                 result.metrics.maxBoxDeltaPt, pt(abs(line.width - other.width)), pt(abs(line.height - other.height)))
             let dx = pt(line.x - other.x)
@@ -208,6 +259,28 @@ func compareLayout(_ old: Document, _ new: Document) -> Comparison {
             }
         }
     }
+    return result
+}
+
+func comparableFidelity(of approved: Document, against reference: Document) -> Magnitude? {
+    guard var previous = approved.fidelity else { return nil }
+    func position(_ m: Magnitude) -> (Double, Double, Int) {
+        (m.maxShiftPt, m.maxBoxDeltaPt, m.repaginatedLines)
+    }
+    let updated = position(comparePositions(reference, approved, texReference: true).metrics)
+    if updated != position(previous) {
+        // Migrate a stored FIFO result only if this reference reproduces it.
+        // A replaced TeX PDF must not rewrite the history of the approved run.
+        let original = comparePositions(reference, approved, texReference: false).metrics
+        if position(original) == position(previous) {
+            (previous.maxShiftPt, previous.maxBoxDeltaPt, previous.repaginatedLines) = updated
+        }
+    }
+    return previous
+}
+
+func compareLayout(_ old: Document, _ new: Document, texReference: Bool = false) -> Comparison {
+    var result = comparePositions(old, new, texReference: texReference)
     let before = old.pages.flatMap(\.lines).map(\.text)
     let after = new.pages.flatMap(\.lines).map(\.text)
     for change in after.difference(from: before) {

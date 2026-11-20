@@ -107,6 +107,8 @@ enum PageFurnitureDrawing {
         func draw(_ texts: [String], above: Bool, centerY: (CGFloat) -> CGFloat) {
             let rule = (above ? lines.headRule : lines.footRule) * scale
             guard rule > 0 || texts.contains(where: { !$0.isEmpty }) else { return }
+            let headFamily = (lines.headerFont ?? latexFooter?.headerFont)?.family
+            let usesJapaneseFace = above && headFamily != "mono" && headFamily != "sans"
             let row = row(
                 texts, width: right - left, scale: scale,
                 font: latexFooter.map {
@@ -115,11 +117,15 @@ enum PageFurnitureDrawing {
                 numberFont: latexFooter.flatMap { style in
                     (lines.numberFont ?? style.numberFont).map { elementFont($0, style: style, scale: scale) }
                 },
-                ranges: above ? lines.headerNumberRanges : lines.footerNumberRanges)
+                ranges: above ? lines.headerNumberRanges : lines.footerNumberRanges,
+                japaneseFamily: usesJapaneseFace ? latexFooter?.japaneseFontName : nil)
             let y =
                 latexFooter.map {
+                    let strut = above && lines.usesFancyFields ? $0.headerStrutDepth : 0
                     let baseline =
-                        above ? rect.height - margins.top + $0.headSep * scale : margins.bottom - $0.footSkip * scale
+                        above
+                        ? rect.height - margins.top + ($0.headSep + strut) * scale
+                        : margins.bottom - $0.footSkip * scale
                     return rect.minY + min(rect.height - row.ascent, max(row.descent, baseline))
                 } ?? (centerY(row.height) - (row.ascent - row.descent) / 2)
             if rule > 0 {
@@ -250,12 +256,21 @@ enum PageFurnitureDrawing {
     /// The lines of a row, each kept to its share of `width` so that long names do not run into each other.
     private static func row(
         _ texts: [String], width: CGFloat, scale: CGFloat, font: NSFont? = nil, numberFont: NSFont? = nil,
-        ranges: [[NSRange]] = []
+        ranges: [[NSRange]] = [], japaneseFamily: String? = nil
     ) -> Row {
         let font = font ?? NSFont.systemFont(ofSize: 8 * scale)
         func line(_ text: String, slot: Int? = nil) -> CTLine {
             let contents = NSMutableAttributedString(
                 string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
+            if let japaneseFamily,
+                let face = NSFont(name: japaneseFamily, size: font.pointSize * 0.924715)
+                    ?? NSFont(name: "HiraMinProN-W3", size: font.pointSize * 0.924715)
+            {
+                // The class's JFM scales Japanese glyphs independently of Latin digits.
+                for range in text.ranges(of: /[\p{Han}\p{Hiragana}\p{Katakana}\u{3000}-\u{303F}\u{FF01}-\u{FF60}]+/) {
+                    contents.addAttribute(.font, value: face, range: NSRange(range, in: text))
+                }
+            }
             if let slot, let numberFont, ranges.indices.contains(slot) {
                 for range in ranges[slot] where NSMaxRange(range) <= contents.length {
                     contents.addAttribute(.font, value: numberFont, range: range)

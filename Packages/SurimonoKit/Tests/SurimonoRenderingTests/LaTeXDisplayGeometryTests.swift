@@ -34,7 +34,8 @@ struct LaTeXDisplayGeometryTests {
               viewBox:{baseVal:{x:0,y:0,width:80,height:20}},
               width:{baseVal:{unitType:3,valueInSpecifiedUnits:8}},
               height:{baseVal:{unitType:3,valueInSpecifiedUnits:2}},
-              style:{}, parentElement:{querySelectorAll:() => [label]},
+              style:{verticalAlign:'-0.4em'}, dataset:{},
+              parentElement:{dataset:{}, closest:() => ({}), querySelectorAll:() => [label]},
               getBBox:() => ({x:-1,y:-3,width:81,height:25}),
               setAttribute(key,value) {
                 if (key === 'viewBox') {
@@ -49,6 +50,10 @@ struct LaTeXDisplayGeometryTests {
         #expect(js.exception == nil)
         #expect(js.evaluateScript("svg.viewBox.baseVal.y")?.toDouble() == -3)
         #expect(js.evaluateScript("svg.height.baseVal.valueInSpecifiedUnits")?.toDouble() == 2.5)
+        #expect(js.evaluateScript("svg.dataset.latexTexTop")?.toDouble() == 0)
+        #expect(js.evaluateScript("svg.dataset.latexTexBottom")?.toDouble() == 20)
+        #expect(js.evaluateScript("svg.dataset.latexTexFirst")?.toDouble() == 16)
+        #expect(js.evaluateScript("svg.dataset.latexTexLast")?.toDouble() == 16)
         #expect(js.evaluateScript("label.style.top")?.toString() == "52%")
         #expect(js.evaluateScript("svg.style.overflow")?.toString() == "hidden")
         #expect(LaTeXGraphicPreparation.script(in: "<p>文章</p>", layoutWidth: 500) == nil)

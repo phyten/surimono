@@ -7,10 +7,10 @@
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 27,
     "maxLuminance" : 138.1875,
-    "maxShiftPt" : 26.8,
+    "maxShiftPt" : 28.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 12
+    "textEdits" : 9
   },
   "fonts" : [
     "Helvetica"
@@ -21,20 +21,13 @@
       "firstY" : 116.4,
       "height" : 841.9,
       "lastY" : 719.2,
-      "lineCount" : 11,
+      "lineCount" : 10,
       "lines" : [
         {
           "height" : 11.7,
-          "text" : "Model workshop",
-          "width" : 70.7,
+          "text" : "Model workshop Crew sheet",
+          "width" : 343.7,
           "x" : 125.4,
-          "y" : 116.4
-        },
-        {
-          "height" : 11.7,
-          "text" : "Crew sheet",
-          "width" : 47.4,
-          "x" : 421.7,
           "y" : 116.4
         },
         {
@@ -108,5 +101,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "a838185a654194936f4cd2c7f5f609037ebb98181c138aa20856a6bd496f79c2"
+  "textSHA256" : "df99e512ccc4425919d253dd5c2ea16b91d5eaf8720f16d17b8d8443d745d72f"
 }

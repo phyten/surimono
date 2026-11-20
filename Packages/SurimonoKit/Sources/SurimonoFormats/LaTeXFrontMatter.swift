@@ -22,6 +22,7 @@ final class LaTeXFrontMatter {
     var shortTitle: String?
     var subtitle: String?
     var authors: [Author] = []
+    var declaredEmptyAuthor = false
     var affiliations: [Affiliation] = []
     private var affiliationLabels: Set<String> = []
     private var implicitAffiliations: [[String]: String] = [:]
@@ -179,7 +180,12 @@ extension LaTeXReader {
         case "author":
             let short = optional()
             let names = LaTeXLexer.split(argument() ?? "", at: ["\\and"])
-            if !document.classInfo.journalFrontMatter { front.authors = [] }
+            if !document.classInfo.journalFrontMatter {
+                front.authors = []
+                front.declaredEmptyAuthor = names.allSatisfy {
+                    $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                }
+            }
             for source in names {
                 readFrontAuthor(source.trimmingCharacters(in: .whitespacesAndNewlines), short: short)
             }
@@ -428,6 +434,9 @@ extension LaTeXReader {
                 return "<span class=\"latex-author-name latex-front-author\">\(name)</span>"
             }
             html += "<p class=\"latex-author\">\(names.joined())</p>\n"
+        }
+        if front.declaredEmptyAuthor && front.authors.isEmpty {
+            html += "<p class=\"latex-author latex-empty-author\"><br></p>\n"
         }
         // An unreferenced corresponding-author declaration still prints a note in elsarticle.
         for key in front.noteOrder where front.printedNotes[key] == nil {

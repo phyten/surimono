@@ -45,6 +45,7 @@ struct LaTeXTypesettingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         #expect(theme.css.contains(".latex-numbered-listing pre { position: relative; overflow: visible; }"))
         #expect(theme.css.contains("inset-inline-end: calc(100% + 0.7em)"))
+        #expect(theme.css.contains(".code-line[data-no]::before { width: max-content; white-space: nowrap; }"))
         #expect(theme.css.contains("color: var(--latex-number-ink, #666)"))
         #expect(theme.css.contains("--latex-number-tiny: calc(5 * var(--tex-pt))"))
         #expect(theme.css.contains("--latex-number-tiny: calc(6 * var(--tex-pt))"))
@@ -169,7 +170,10 @@ struct LaTeXTypesettingTests {
             japanese.css.contains(#"body[data-latex-size="12"] { line-height: calc(25px * var(--latex-stretch, 1)); }"#)
         )
         #expect(japanese.css.contains("max-width: var(--latex-class-width, 49em)"))
-        #expect(japanese.css.contains(":is(h1, h2, h3, h4, h5, h6) + p { text-indent: var(--latex-parindent, 1em); }"))
+        #expect(
+            japanese.css.contains(
+                ":is(h1, h2, h3, h4, h5, h6) + p { text-indent: var(--latex-parindent, var(--latex-class-indent, 1em)); }"
+            ))
         #expect(japanese.css.contains(".latex-title-block h1 { font-family: inherit; }"))
         #expect(japanese.css.contains("font-style: italic; font-synthesis: none"))
         #expect(japanese.css.contains("table.latex-tabular :is(th, td) { line-height: var(--tex-baseline); }"))

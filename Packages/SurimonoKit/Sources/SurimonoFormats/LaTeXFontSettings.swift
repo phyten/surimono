@@ -7,11 +7,16 @@ struct LaTeXFontSettings {
     struct Selection: Hashable {
         let name: String
         let bold: String?
+        let explicitBold: String?
         let italic: String?
         let scale: Double?
         let cjk: Bool
+        private let knownPostScriptNames: Bool
 
-        init?(_ name: String, options: String, cjk: Bool, mono: Bool = false) {
+        init?(
+            _ name: String, options: String, cjk: Bool, mono: Bool = false, defaultScale: Double? = nil,
+            knownPostScriptNames: Bool = false
+        ) {
             let family = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard Self.validName(family) else { return nil }
             let settings = Dictionary(LaTeXPageSettings.options(options).map { ($0.key, $0.value) }) { _, last in last }
@@ -21,15 +26,19 @@ struct LaTeXFontSettings {
                     return Self.validName(value) ? value : nil
                 }
             }
+            self.knownPostScriptNames = knownPostScriptNames
             self.name = family
             let namedBold = face("BoldFont")
+            explicitBold = namedBold
             let namedItalic = face("ItalicFont")
-            scale = settings["Scale"].flatMap(Double.init).flatMap { $0.isFinite && $0 > 0 && $0 <= 10 ? $0 : nil }
+            scale =
+                settings["Scale"].flatMap(Double.init).flatMap { $0.isFinite && $0 > 0 && $0 <= 10 ? $0 : nil }
+                ?? defaultScale
             // A scaled or partly overridden family is exposed through a CSS alias. Name its other
             // installed variants too, since the browser cannot discover sibling faces of an alias.
             let alias = mono && (namedBold != nil || namedItalic != nil || scale != nil)
             func nativeFace(_ trait: CTFontSymbolicTraits) -> String? {
-                guard alias else { return nil }
+                guard !knownPostScriptNames, alias || cjk else { return nil }
                 let regular = CTFontCreateWithName(family as CFString, 12, nil)
                 let names = [
                     CTFontCopyFamilyName(regular), CTFontCopyFullName(regular), CTFontCopyPostScriptName(regular),
@@ -93,7 +102,7 @@ struct LaTeXFontSettings {
 
         var needsAlias: Bool { cjk || bold != nil || italic != nil || scale != nil }
 
-        func faceCSS(alias: String) -> String {
+        func faceCSS(alias: String, japaneseBold: String? = nil) -> String {
             // Restrict a CJK role to the scripts and punctuation it supplies. Many CJK families have
             // Latin glyphs too; they must not swallow the role explicitly selected by setmainfont.
             let coverage =
@@ -101,11 +110,28 @@ struct LaTeXFontSettings {
                 ? " unicode-range: U+1100-11FF,U+2E80-2FFF,U+3000-31FF,U+3200-9FFF,U+A960-A97F,U+AC00-D7FF,U+F900-FAFF,U+FE10-FE1F,U+FE30-FE4F,U+FF00-FFEF,U+20000-323AF;"
                 : ""
             let adjust = scale.map { " size-adjust: \(LaTeXPageSettings.number($0 * 100))%;" } ?? ""
-            func rule(_ face: String, _ variant: String = "") -> String {
-                "@font-face { font-family: \"\(alias)\"; src: local(\"\(face)\");\(variant)\(adjust)\(coverage) }"
+            func rule(_ face: String, _ variant: String = "", fallback: String? = nil) -> String {
+                // local() identifies an individual installed face; a collection's family name
+                // need not be its full or PostScript name. Discard Core Text substitutions.
+                var sources = ["local(\"\(face)\")"]
+                if cjk && !knownPostScriptNames {
+                    let font = CTFontCreateWithName(face as CFString, 12, nil)
+                    let ps = CTFontCopyPostScriptName(font) as String
+                    if face.caseInsensitiveCompare(CTFontCopyFamilyName(font) as String) == .orderedSame,
+                        ps != face, Self.validName(ps)
+                    {
+                        sources.insert("local(\"\(ps)\")", at: 0)
+                    }
+                }
+                if let fallback, fallback != face { sources.append("local(\"\(fallback)\")") }
+                return
+                    "@font-face { font-family: \"\(alias)\"; src: \(sources.joined(separator: ", "));\(variant)\(adjust)\(coverage) }"
             }
             return [
-                rule(name), bold.map { rule($0, " font-weight: bold;") },
+                rule(name, fallback: japaneseBold == nil ? nil : "HiraMinProN-W3"),
+                (explicitBold ?? japaneseBold ?? bold).map {
+                    rule($0, " font-weight: bold;", fallback: japaneseBold == nil ? nil : "HiraKakuProN-W6")
+                },
                 italic.map { rule($0, " font-style: italic;") },
             ]
             .compactMap { $0 }.joined(separator: "\n")
@@ -113,6 +139,9 @@ struct LaTeXFontSettings {
     }
 
     private(set) var mainFontName: String?
+    var japaneseMainFontName: String? { japaneseMain?.name }
+    private(set) var japaneseMain: Selection?
+    private(set) var japaneseSans: Selection?
     var roleVariables: [String: String] = [:]
     var selectors: [String: String] = [:]
     private var aliases: [Selection: Int] = [:]
@@ -137,8 +166,33 @@ struct LaTeXFontSettings {
 
     mutating func setRole(_ role: String, selection: Selection) {
         if role == "main" { mainFontName = selection.name }
+        if role == "cjk-main" { japaneseMain = selection }
+        if role == "cjk-sans" { japaneseSans = selection }
         let value = family(selection)
         roleVariables["\(role)-font"] = value
+    }
+
+    mutating func applyJapanesePreset(_ options: String, scale: Double?) {
+        for option in LaTeXPageSettings.options(options) {
+            let faces: (String, String)
+            switch option.key {
+            case "noto", "noto-otf", "noto-otc": faces = ("Noto Serif CJK JP", "Noto Sans CJK JP")
+            case "noto-jp": faces = ("Noto Serif JP", "Noto Sans JP")
+            case "hiragino-pron": faces = ("HiraMinProN-W3", "HiraKakuProN-W3")
+            case "hiragino-pro": faces = ("HiraMinPro-W3", "HiraKakuPro-W3")
+            case "ipaex": faces = ("IPAexMincho", "IPAexGothic")
+            case "yu-osx": faces = ("YuMincho Medium", "YuGothic Medium")
+            case "haranoaji": faces = ("HaranoAjiMincho-Regular", "HaranoAjiGothic-Medium")
+            case "morisawa-pro": faces = ("RyuminPro-Light", "GothicBBBPro-Medium")
+            case "morisawa-pr6n": faces = ("RyuminPr6N-Light", "GothicBBBPr6N-Medium")
+            default: continue
+            }
+            for (role, face) in [("cjk-main", faces.0), ("cjk-sans", faces.1)] {
+                if let selection = Selection(face, options: "", cjk: true, defaultScale: scale) {
+                    setRole(role, selection: selection)
+                }
+            }
+        }
     }
 
     mutating func readPackage(_ name: String) {
@@ -178,7 +232,9 @@ extension LaTeXReader {
         let options = [before, after].compactMap { $0 }.joined(separator: ",")
         guard
             let selection = LaTeXFontSettings.Selection(
-                name, options: options, cjk: role?.hasPrefix("cjk-") == true, mono: role == "mono")
+                name, options: options, cjk: role?.hasPrefix("cjk-") == true, mono: role == "mono",
+                defaultScale: role?.hasPrefix("cjk-") == true
+                    ? LaTeXLabelMetrics(document.classInfo).japaneseScale : nil)
         else { return }
         if let selector, selector.hasPrefix("\\"), selector.count > 1, document.reserveExpansion() {
             document.pageSettings.fonts.selectors[String(selector.dropFirst())] = document.pageSettings.fonts.family(

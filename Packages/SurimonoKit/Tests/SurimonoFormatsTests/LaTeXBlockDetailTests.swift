@@ -57,11 +57,14 @@ struct LaTeXBlockDetailTests {
         #expect(html.contains("<p><span style=\"font-size: 0.9em\">二段目</span></p>\n<p>通常</p>"))
     }
 
-    @Test("表紙環境を独立したブロックにし可変の空きは印刷しない")
+    @Test("表紙環境では上下の可変空きを別々に保持する")
     func titlePage() {
         let result = LaTeXConverter.convert(#"\begin{titlepage}\vspace*{\fill}草稿\vfill\end{titlepage}本文"#)
         #expect(result.readingIssues.isEmpty)
-        #expect(result.body.contains("<div class=\"latex-titlepage\">\n<p>草稿</p>\n</div>"))
+        #expect(
+            result.body.contains(
+                "<div class=\"latex-titlepage\">\n<div class=\"latex-vfill\"></div>\n<p>草稿</p>\n<div class=\"latex-vfill\"></div>\n</div>"
+            ))
         #expect(!result.body.contains("latex-vspace"))
     }
 

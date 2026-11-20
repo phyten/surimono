@@ -400,7 +400,7 @@ extension LaTeXReader {
             document.usesAMSTheorem = true
         }
         for package in packages {
-            document.pageSettings.readPackage(package, options: packageOptions, pointSize: document.classInfo.pointSize)
+            document.pageSettings.readPackage(package, options: packageOptions, info: document.classInfo)
         }
         if packages.contains("hyperref") { readHyperrefOptions(packageOptions) }
         if packages.contains("natbib") {
@@ -421,8 +421,16 @@ extension LaTeXReader {
         let anchor = id.map { " id=\"\($0)\"" } ?? ""
         if document.classInfo.name == "beamer" { return "" }
         if document.classInfo.journalStyle?.isAPS == true { return "<hr class=\"latex-bibliography-rule\"\(anchor)>\n" }
+        if document.classInfo.usesJSChapterSpacing {
+            return
+                "<h2 class=\"latex-bibliography-heading\" data-latex-heading=\"chapter\" data-latex-chapter-opening\(anchor)>"
+                + "<span class=\"latex-chapter-title\">\(heading)</span></h2>\n"
+        }
+        if document.classInfo.isJSArticle {
+            return "<h2 class=\"latex-bibliography-heading\" data-latex-heading=\"section\"\(anchor)>\(heading)</h2>\n"
+        }
         let book = bookHeadingAttributes(document.classInfo.hasChapters ? "chapter" : "section")
-        let opening = document.classInfo.hasChapters && !book.isEmpty ? " data-latex-chapter-opening" : ""
+        let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
         return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(heading)</h2>\n"
     }
 

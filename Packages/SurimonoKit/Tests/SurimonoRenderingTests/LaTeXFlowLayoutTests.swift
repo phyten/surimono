@@ -29,11 +29,13 @@ struct LaTeXFlowLayoutTests {
                 noteSkip: 5, textFloatSep: 4, floatSep: 2, inTextSep: 4), width: 100, height: 100)
     }
 
-    @MainActor @Test("専用スタイルの段組み・注・図だけを横組みのページ割りに送る")
+    @MainActor @Test("専用スタイルの和文格子・段組み・注・図を横組みのページ割りに送る")
     func routing() async throws {
         let dedicated = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         let general = PrintTheme(id: "general", name: "General", css: "")
         for (tex, theme, expected) in [
+            (#"\documentclass{jsarticle}\begin{document}紙\end{document}"#, dedicated, true),
+            (#"\documentclass{ltjsreport}\begin{document}紙\end{document}"#, general, false),
             ("Body", dedicated, false), ("Body\\footnote{Note}", dedicated, true),
             ("\\begin{figure}Box\\end{figure}", dedicated, true),
             ("\\twocolumn Body", dedicated, true), ("\\twocolumn Body", general, false),
@@ -48,6 +50,57 @@ struct LaTeXFlowLayoutTests {
                 settings: RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
             #expect(flags == [expected])
         }
+    }
+
+    @Test("和文の見出しが段頭に来たときだけトップスキップを加える")
+    func sectionTopSkip() throws {
+        var heading = item(1, 20)
+        heading.heading = true
+        heading.topSkip = 13.77
+        heading.gap = 28
+        let atTop = try #require(pages([segment([heading, item(2, 10)])]).first)
+        #expect(atTop.pieces.first?.y == 13.77)
+        let following = try #require(pages([segment([item(0, 10), heading, item(2, 10)])]).first)
+        #expect(following.pieces.map(\.y) == [0, 38, 58])
+    }
+
+    @Test("別行数式の下の糊は段末で不足した分だけ縮み、限界を超えた組は次段へ送る")
+    func displayShrink() throws {
+        var group = item(1, 27)
+        group.gap = 10
+        group.shrinkBefore = 4
+        for (used, expectedY, count): (CGFloat, CGFloat, Int) in [(60, 70, 1), (65, 73, 1), (68, 0, 2)] {
+            let result = try pages([segment([item(0, used), group])])
+            #expect(result.count == count)
+            #expect(result.last?.pieces.last?.y == expectedY)
+        }
+    }
+
+    @Test("数式直前の本文行は切片が別でも同じでも数式と一緒に送る")
+    func keepBeforeDisplay() throws {
+        for sameStrip in [false, true] {
+            let line = item(1, 10)
+            var display = item(sameStrip ? 1 : 2, 20)
+            if sameStrip {
+                display.slice?.start = 10
+                display.slice?.end = 30
+            }
+            display.keepBefore = true
+            let moved = try pages([segment([item(0, 75), line, display])])
+            #expect(moved.count == 2)
+            #expect(moved.first?.pieces.map(\.slice.strip) == [0])
+            #expect(moved.last?.pieces.last?.end == 30)
+            #expect(try pages([segment([item(0, 70), line, display])]).count == 1)
+        }
+    }
+
+    @Test("段末に収まる固定図は下の空きだけを捨てて本文と同じページに残す")
+    func pinnedAtFoot() throws {
+        let result = try pages([segment([item(0, 75), item(1, 20, placement: "H"), item(2, 10)])])
+        #expect(result.map { $0.pieces.map(\.slice.strip) } == [[0, 1], [2]])
+        #expect(result.first?.pieces.last?.end == 99)
+        let notes = try pages([segment([item(0, 50), item(1, 20, notes: ["a"], placement: "H")])])
+        #expect(notes.first?.pieces.map(\.slice.strip) == [0, 1, 99])
     }
 
     @Test("行間が一画素に満たないときも端数をベクトル断片の配置で保つ", arguments: [CGFloat(3), 0.3])
@@ -113,6 +166,51 @@ struct LaTeXFlowLayoutTests {
         }
         let kept = Flow.keptItems(rows, capacity: 100)
         #expect(kept.compactMap { $0.slice?.height } == [30, 10, 20])
+    }
+
+    @Test("追い込み段落の本文で改段でき、連続する見出しと次の三行のうち先頭二行を保つ")
+    func sectionAfterRunIn() {
+        let rows = [1, 0, 0, 2, 2, 2].enumerated().map { i, paragraph in
+            Flow.Item(
+                slice: .init(strip: 0, start: CGFloat(i) * 18, end: CGFloat(i + 1) * 18, width: 100),
+                paragraph: paragraph, heading: paragraph == 0)
+        }
+        #expect(Flow.keptItems(rows, capacity: 135).compactMap { $0.slice?.height } == [18, 72, 18])
+    }
+
+    @Test("段末で収まる見出しを本文と一緒に送ったときだけ直後の図を次段の頭に置く")
+    func floatAfterCarriedHeading() throws {
+        var heading = item(1, 15)
+        heading.heading = true
+        var opening = item(3, 16)
+        opening.leadingAfterHeading = 2
+        let content = [heading, item(2, 15, placement: "htbp"), opening]
+        for (used, order) in [(75, [2, 1, 3]), (90, [1, 2, 3])] {
+            let result = try pages([segment([item(0, CGFloat(used))] + content)])
+            #expect(result.last?.pieces.map(\.slice.strip) == order)
+        }
+    }
+
+    @Test("見出しに続く数式は上空きの伸縮分だけ段末に収まり、字面の高さを保つ")
+    func displayAfterHeading() throws {
+        var rows = [item(0, 49), item(1, 20)]
+        rows[1].heading = true
+        rows.append(.init(slice: .init(strip: 1, start: 28, end: 54, width: 45), gap: 8, shrinkBefore: 4))
+        let result = try pages([segment(rows)])
+        #expect(result.count == 1)
+        let page = try #require(result.last)
+        #expect(page.pieces.last?.y == 74)
+        #expect(page.pieces.last?.end == 100)
+    }
+
+    @Test("見出しと本文の間の図が段末の二行を追い出さない")
+    func headingAcrossFloat() throws {
+        var heading = item(1, 10)
+        heading.heading = true
+        let result = try pages([segment([item(0, 50), heading, item(2, 30, placement: "htbp"), item(3, 25)])])
+        #expect(result.map { $0.pieces.map(\.slice.strip) } == [[0, 1, 3], [2]])
+        let moved = try pages([segment([item(0, 70), heading, item(2, 15, placement: "t"), item(3, 25)])])
+        #expect(moved.map { $0.pieces.map(\.slice.strip) } == [[0], [2, 1, 3]])
     }
 
     @Test("段抜き表題の下で二段を始め、通常の段は詰め、均等割りの末尾だけを揃える")

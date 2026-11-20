@@ -141,20 +141,35 @@ struct LaTeXClassBox {
                 top: (paperHeight - height) / 2 - zw + glyphHeight, headHeight: zw,
                 headSep: zw + glyphHeight, footSkip: 3 * zw)
         }
-        if ["jsarticle", "ltjsarticle", "bxjsarticle"].contains(className) {
-            let scale = size == 11 ? 1.095 : Double(size) / 10
+        if let scale = info.jsMagnification {
+            let book = className.hasSuffix("book")
             let zw = 9.24715 * scale
-            let width = floor(0.76 * paperWidth / zw) * zw
-            let baseline = 16 * scale
+            let unit = info.columns == 2 ? 2 * zw : zw
+            let full = book ? paperWidth - 36 * scale * 72.27 / 25.4 : 0.76 * paperWidth
+            let fullWidth = floor(full / unit) * unit
+            let width = book && info.columns == 1 ? min(fullWidth, 40 * zw) : fullWidth
+            let baseline = LaTeXLabelMetrics(info).baselines[4]
             let headHeight = 20 * scale
+            if className.hasPrefix("bx") {
+                // BXjs lets geometry centre the head, text and foot together, then rounds the text to whole lines.
+                let topSkip = 10 * scale
+                let foot = book ? 0 : 0.03367 * paperHeight
+                let sep = book ? 6 * scale * 72.27 / 25.4 : foot - topSkip
+                let available = 0.83 * paperHeight - 2 * topSkip - sep - foot
+                let height = floor((available + 0.005) / baseline) * baseline + topSkip
+                let top = (paperHeight - height + topSkip + sep - foot) / 2
+                return Self(
+                    width: width, height: height, left: (paperWidth - fullWidth) / 2,
+                    top: top, headHeight: headHeight, headSep: sep, footSkip: foot)
+            }
             let topSkip = 1.38 * zw
-            let footSkip = max(0.03367 * paperHeight, baseline)
-            let headSep = footSkip - topSkip
+            let footSkip = book ? 0 : max(0.03367 * paperHeight, baseline)
+            let headSep = (book ? (6 * 72.27 / 25.4 + 10) * scale : footSkip) - topSkip
             let available = 0.83 * paperHeight - 10 * scale - headSep - footSkip - topSkip
             let height = floor(available / baseline) * baseline + topSkip + 0.1 * scale
             let top = (paperHeight - height - 10 * scale - headSep - footSkip) / 2 + headHeight + headSep
             return Self(
-                width: width, height: height, left: (paperWidth - width) / 2, top: top,
+                width: width, height: height, left: (paperWidth - fullWidth) / 2, top: top,
                 headHeight: headHeight, headSep: headSep, footSkip: footSkip)
         }
         let inch = 72.27

@@ -7,6 +7,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     public private(set) var format = "arabic"
     private var style = "plain"
     private var thisPageStyle: String?
+    private var japanesePlain = false
     private var twoSided = false
     private var examFirst: [String: String]?
     private var examRunning = [String: String]()
@@ -41,9 +42,12 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
 
     init(name: String, options: [String]) {
         self.init()
+        japanesePlain = ["js", "ltjs", "bxjs"].contains { prefix in
+            ["article", "report", "book"].contains { name == prefix + $0 }
+        }
         twoSided =
             (options.last { $0 == "twoside" || $0 == "oneside" }).map { $0 == "twoside" }
-            ?? ["book", "jsbook", "ltjsbook", "llncs", "scrbook", "memoir"].contains(name)
+            ?? ["book", "jsbook", "ltjsbook", "bxjsbook", "llncs", "scrbook", "memoir"].contains(name)
         if twoSided {
             fields["OLH"] = #"\leftmark"#
             fields["ORH"] = #"\rightmark"#
@@ -92,6 +96,8 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
 
     package var header: [String] { row("H") }
     package var footer: [String] { row("F") }
+
+    package var usesFancyFields: Bool { activeFields != nil }
 
     private var activeFields: [String: String]? {
         selectedFields(thisPageStyle ?? style)
@@ -143,7 +149,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
         }
         switch currentStyle {
         case "empty": return ["", "", ""]
-        case "runningheads":
+        case "plainhead", "runningheads":
             return location == "F" ? ["", "", ""] : even ? [label, "", ""] : ["", "", label]
         default: return location == "F" ? ["", label, ""] : ["", "", ""]
         }
@@ -206,7 +212,15 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 style = value
             }
         case "classPlain":
-            if usesClassPlain { thisPageStyle = "plain" }
+            if japanesePlain {
+                // plainifnotempty preserves empty front matter and uses the outer header
+                // for a page number when the running style has installed a header.
+                if style != "empty" {
+                    thisPageStyle = style == "fancy" || style == "headings" ? "plainhead" : "plainfoot"
+                }
+            } else if usesClassPlain {
+                thisPageStyle = "plain"
+            }
         case "thispagestyle": thisPageStyle = value
         case "pagenumbering":
             format = value

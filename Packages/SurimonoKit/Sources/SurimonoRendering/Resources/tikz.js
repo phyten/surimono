@@ -376,7 +376,9 @@ for (const [index, block] of blocks.entries()) {
       clips = new Map(),
       usedFaces = new Set(),
       axisEdges = new Map();
-    let padding = 0.5;
+    const jsFloat = block.closest('body[data-latex-js-toc] figure[data-latex-float]');
+    let padding = jsFloat ? 0 : 0.5;
+    const inkGuards = new Map();
     let fallbackFontMargin = 0;
     const unique = () => 'surimono-tikz-' + index + '-' + serial++;
     const attributes = new Set([
@@ -611,7 +613,11 @@ for (const [index, block] of blocks.entries()) {
             t.style[key] = a.face[key];
           t.style.fontFamily = a.family;
           t.style.fontSize = a.fontSize + 'px';
-          if (a.ja) fallbackFontMargin = Math.max(fallbackFontMargin, 0.4 * Math.min(base, a.fontSize));
+          if (a.ja) {
+            const guard = 0.4 * Math.min(base, a.fontSize);
+            if (jsFloat) inkGuards.set(t, guard);
+            else fallbackFontMargin = Math.max(fallbackFontMargin, guard);
+          }
           if (a.run.span.closest('u')) t.style.textDecoration = 'underline';
           t.style.whiteSpace = 'pre';
           t.style.setProperty('text-autospace', 'no-autospace');
@@ -740,7 +746,8 @@ for (const [index, block] of blocks.entries()) {
     function stroke(out, style) {
       const width = size(style['line width'] || '.4pt');
       if (width < 0) fail('line width');
-      padding = Math.max(padding, width);
+      if (!jsFloat) padding = Math.max(padding, width);
+      else if (width && style.draw && style.draw !== 'none') inkGuards.set(out, width / 2);
       out.setAttribute('stroke', paint(style.draw || 'none'));
       out.setAttribute('fill', paint(style.fill || 'none'));
       out.setAttribute('stroke-width', width);
@@ -844,6 +851,11 @@ for (const [index, block] of blocks.entries()) {
                 rx: Math.min(w / 2, h / 2, size(style['rounded corners'] || 0))
               });
       stroke(frame, style);
+      if (jsFloat && (item.axisRole === 'tickX' || item.axisRole === 'tickY') && inner === 0) {
+        // The lowered axis has already offset the tick ink from its anchor. PGF
+        // includes the tick node's invisible inner separation in the picture bounds.
+        inkGuards.set(frame, Math.max(inkGuards.get(frame) || 0, f.size * 0.3333));
+      }
       label.group.setAttribute('transform', 'translate(' + -label.w / 2 + ' ' + -label.h / 2 + ')');
       if (style.opacity !== undefined) label.group.setAttribute('opacity', number(style.opacity));
       group.append(frame, label.group);
@@ -1186,7 +1198,9 @@ for (const [index, block] of blocks.entries()) {
           if (startInset !== undefined) drawing.setAttribute('marker-start', marker(startInset));
           if (endInset !== undefined) drawing.setAttribute('marker-end', marker(endInset));
           // SVG's default getBBox() omits markers, including the portion beyond the shortened shaft.
-          padding = Math.max(padding, tip.width / 2, startInset ?? 0, endInset ?? 0);
+          const overhang = Math.max(tip.width / 2, startInset ?? 0, endInset ?? 0);
+          if (jsFloat) inkGuards.set(drawing, Math.max(overhang, inkGuards.get(drawing) || 0));
+          else padding = Math.max(padding, overhang);
         }
 
         layer.append(drawing);
@@ -1395,8 +1409,22 @@ for (const [index, block] of blocks.entries()) {
       }
       return right >= left ? { x: left, y: top, width: right - left, height: bottom - top } : null;
     }
+    // getBBox omits stroke width. Include each pen and fallback glyph guard in
+    // its own transformed, clipped group so an interior mark cannot inflate the whole figure.
+    const guards = [];
+    for (const [element, margin] of inkGuards) {
+      check();
+      if (!content.contains(element)) continue;
+      const b = element.getBBox();
+      const guard = svg('rect', {x:b.x-margin, y:b.y-margin, width:b.width+2*margin, height:b.height+2*margin, fill:'none'});
+      if (element.hasAttribute('transform')) guard.setAttribute('transform', element.getAttribute('transform'));
+      guards.push([element, guard]);
+    }
+    for (const [element, guard] of guards) element.after(guard);
     const box = clips.size ? visibleBox(content) : content.getBBox();
+    for (const [, guard] of guards) guard.remove();
     if (!box) fail('empty picture');
+    if (!box.width || !box.height) padding = Math.max(0.5, padding);
     padding += fallbackFontMargin;
     const w = number(box.width + padding * 2),
       h = number(box.height + padding * 2);

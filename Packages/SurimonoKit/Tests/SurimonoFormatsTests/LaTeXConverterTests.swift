@@ -46,10 +46,14 @@ struct LaTeXConverterTests {
             document(
                 "\\tableofcontents\n\\chapter{序}\n\\section{節}\n\\section*{番号なし}\n\\appendix\n\\chapter{補足}",
                 class: "jsbook"))
-        #expect(html.contains("<h2 id=\"sec-1\"><span class=\"secnum\">第1章</span>序</h2>"))
-        #expect(html.contains("<h3 id=\"sec-1-1\"><span class=\"secnum\">1.1</span>節</h3>"))
-        #expect(html.contains("<h3 id=\"sec-u3\">番号なし</h3>"))
-        #expect(html.contains("<span class=\"secnum\">付録A</span>補足"))
+        #expect(
+            html.contains(
+                "<h2 data-latex-heading=\"chapter\" id=\"sec-1\"><span class=\"secnum\">第<span class=\"latex-xkanjiskip\"> </span>1<span class=\"latex-xkanjiskip\"> </span>章</span><span class=\"latex-chapter-title\">序</span></h2>"
+            ))
+        #expect(
+            html.contains("<h3 data-latex-heading=\"section\" id=\"sec-1-1\"><span class=\"secnum\">1.1</span>節</h3>"))
+        #expect(html.contains("<h3 data-latex-heading=\"section\" id=\"sec-u3\">番号なし</h3>"))
+        #expect(html.contains("<span class=\"secnum\">付録A</span><span class=\"latex-chapter-title\">補足"))
         #expect(html.hasPrefix("<nav class=\"toc\" data-latex-chapter-opening>"))
         #expect(!html.components(separatedBy: "</nav>")[0].contains("番号なし"))
     }
@@ -57,6 +61,9 @@ struct LaTeXConverterTests {
     @Test("コメントを消し、改行を挟んだ日本語の間には空白を入れず、英語の間には入れる")
     func commentsAndLineBreaks() {
         #expect(body("日本語の%コメント\n文と\nつながる").contains("<p>日本語の文とつながる</p>"))
+        #expect(body("One% seam\n \t\n{\\small Two}").contains("One</p>\n<p><span"))
+        #expect(body("One% seam\n% second seam\nTwo").contains("<p>OneTwo</p>"))
+        #expect(body("One\n% seam\nTwo").contains("<p>One Two</p>"))
         #expect(body("English\nwords").contains("<p>English words</p>"))
         #expect(body("一段落\n\n二段落").contains("<p>一段落</p>\n<p>二段落</p>"))
         #expect(body("百\\%と\\$と\\#").contains("百%と$と#"))

@@ -41,6 +41,8 @@ extension RenderSettings {
                     * (72 / 72.27) * textScale,
                 footSkip: info.pageBox.footSkip, headSep: info.pageBox.headSep)
             latexFooter?.classSize = info.pointSize
+            latexFooter?.japaneseFontName = info.japaneseMainFontName
+            latexFooter?.headerStrutDepth = info.headerStrutDepth * textScale
             latexFooter?.headerFont = info.pageHeadFont
             latexFooter?.numberFont = info.pageNumberFont
         }

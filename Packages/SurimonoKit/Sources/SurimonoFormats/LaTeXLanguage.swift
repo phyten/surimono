@@ -166,6 +166,11 @@ extension LaTeXReader {
     func numberedHeading(_ name: String, number: String) -> String {
         let caption = captionName(name + "name")
         let number = HTML.escape(number)
+        if name == "chapter", document.classInfo.usesJSChapterSpacing, document.language == "ja" {
+            // LuaTeX-ja inserts a quarter-em xkanjiskip on both sides of the Western number.
+            let skip = #"<span class="latex-xkanjiskip"> </span>"#
+            return "第" + skip + number + skip + caption
+        }
         if ["ja", "zh-Hans", "zh-Hant"].contains(document.language) {
             return name == "appendix" ? caption + number : "第" + number + caption
         }

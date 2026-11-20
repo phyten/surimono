@@ -3,6 +3,21 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXPageNumberTests {
+    @Test("和文の章扉では空の前付けを守り柱にはノンブルだけを出す")
+    func japaneseChapterStyle() {
+        var state = LaTeXPageNumbers(name: "ltjsreport", options: ["oneside"])
+        state.apply("pagestyle", value: "empty")
+        state.apply("classPlain", value: "")
+        #expect(state.header.joined().isEmpty && state.footer.joined().isEmpty)
+        state.advance()
+        state.apply("pagestyle", value: "fancy")
+        state.apply("fancy:ORH", value: "採光")
+        state.apply("classPlain", value: "")
+        #expect(state.header == ["", "", "2"] && state.footer.joined().isEmpty)
+        state.advance()
+        #expect(state.header.last == "採光")
+    }
+
     @Test("前置きは初期値になり、本文の番号の宣言は文章の途中に測定位置を残す")
     func preambleAndBody() throws {
         let doc = LaTeXConverter.convert(
