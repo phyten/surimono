@@ -154,6 +154,7 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         public var bottom: [String]
         package var headerFont: LaTeXElementFont?
         package var numberFont: LaTeXElementFont?
+        package var oversizedTitleFallback: String?
         package var usesFancyFields = false
         package var spansOuterMargin = false
         package var headerNumberRanges: [[NSRange]] = []

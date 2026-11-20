@@ -22,7 +22,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package var headerStrutDepth: Double = 0
     // setspace indexes its compensation by @ptsize, which jsclasses holds at zero for all magnifications.
     var spacingPointSize: Int { profile.typography.spacingDesignSize ?? pointSize }
-    public var pointSize: Int { resolvedStyle == nil ? profile.typography.pointSize : 10 }
+    public var pointSize: Int { resolvedStyle?.pointSize ?? profile.typography.pointSize }
     public internal(set) var mainLanguage: String
     var resolvedPageBox: LaTeXPageBox?
     public var pageBox: LaTeXPageBox { resolvedPageBox ?? LaTeXPageSettings().pageBox(for: self) }

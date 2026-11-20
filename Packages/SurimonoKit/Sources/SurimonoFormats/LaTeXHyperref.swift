@@ -41,6 +41,13 @@ extension LaTeXReader {
             case "hidelinks": document.hyperref.colored = false
             case "linkcolor", "urlcolor", "citecolor", "allcolors":
                 guard let color = LaTeXSymbols.cssColor(value, defined: document.colors) else { continue }
+                if inPreamble {
+                    if key == "allcolors" {
+                        document.explicitPreambleInks.formUnion(["linkcolor", "citecolor", "urlcolor"])
+                    } else {
+                        document.explicitPreambleInks.insert(key)
+                    }
+                }
                 if key == "linkcolor" || key == "allcolors" { document.hyperref.link = color }
                 if key == "citecolor" || key == "allcolors" { document.hyperref.cite = color }
                 if key == "urlcolor" || key == "allcolors" { document.hyperref.url = color }

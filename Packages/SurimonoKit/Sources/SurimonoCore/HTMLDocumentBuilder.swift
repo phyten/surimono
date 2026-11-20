@@ -21,6 +21,10 @@ public enum HTMLDocumentBuilder {
                     + (info.resolvedStyle.map { style in
                         " data-latex-style=\"\(style.family.rawValue)\" data-latex-style-mode=\"\(style.mode.rawValue)\""
                             + (style.review.map { " data-latex-review=\"\($0.rawValue)\"" } ?? "")
+                            + (style.reviewBanner.map { " data-latex-review-banner=\"\(HTML.escape($0))\"" } ?? "")
+                            + (style.reviewCorner.map { " data-latex-review-corner=\"\(HTML.escape($0))\"" } ?? "")
+                            + (style.raggedBottom ? " data-latex-ragged-bottom" : "")
+                            + (style.frenchSpacing ? " data-latex-french-spacing" : "")
                     } ?? "")
                     + (info.profile.bookOpeningSide.map { " data-latex-book-opening=\"\($0)\"" } ?? "")
                     + (localMain ? " data-latex-local-main-font" : "")

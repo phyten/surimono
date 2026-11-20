@@ -133,18 +133,110 @@ for (const [id, unique] of byStrip) {
 }
 for (const period of periods.values()) period.remove();
 for (const [n,f] of edits) n.replaceWith(f);
+// A complete paragraph or list item can be moved as one box without relaying out its text.
+// More complicated paint (shared borders, protruding graphics, or clipped line fragments)
+// keeps the individual capture. Clipping alone would leave its text in every PDF selection.
+function plainParent(el) {
+    if (!el.matches('ol,ul,div,p')) return false;
+    const css = getComputedStyle(el);
+    return css.backgroundColor === 'rgba(0, 0, 0, 0)' && css.backgroundImage === 'none' &&
+        css.boxShadow === 'none' && css.outlineStyle === 'none' && css.filter === 'none' &&
+        css.overflowX === 'visible' && css.overflowY === 'visible' && css.clipPath === 'none' &&
+        css.transform === 'none' && css.maskImage === 'none' &&
+        ['Top','Right','Bottom','Left'].every(side => !parseFloat(css['border' + side + 'Width'])) &&
+        ['::before','::after'].every(p => ['none','normal'].includes(getComputedStyle(el,p).content));
+}
+const movable = pieces.map((piece,i) => {
+    if (!document.body.hasAttribute('data-latex-style') || origins[piece.strip].hasOverhang ||
+        leaders.has(owners[i]) || owners[i] !== i || !memberships[i].length) return;
+    const box = strips[piece.strip], origin = origins[piece.strip].y;
+    const roots = new Set();
+    for (const el of memberships[i]) {
+        // Move a split paragraph's block, not its inline spans: the original shaping and
+        // link rectangles then travel together. Its other owners stay hidden as before.
+        const block = el.matches('span,a') && el.parentElement.matches('p') ? el.parentElement : el;
+        if (!block.matches('p,h1,h2,h3,h4,h5,h6,li') || block !== el && !plainParent(block)) return;
+        for (let parent = block.parentElement; parent !== box; parent = parent.parentElement) {
+            if (!parent || !plainParent(parent)) return;
+        }
+        if (el.matches('img,svg,math,canvas,table,figure,input') ||
+            el.querySelector('img,svg,math,canvas,table,figure,input,[data-flow-ink-block]')) return;
+        const css = getComputedStyle(block);
+        if (!(css.position === 'static' || (css.position === 'relative' && !parseFloat(css.top) && !parseFloat(css.bottom))) ||
+            css.boxShadow !== 'none' || css.textShadow !== 'none' || css.filter !== 'none') return;
+        // Styles may scale a small-caps heading horizontally. A vertical transform or
+        // positioned descendant can put ink beyond the band measured for a text block.
+        if (css.transform !== 'none') {
+            const matrix = new DOMMatrixReadOnly(css.transform);
+            if (!matrix.is2D || matrix.b !== 0 || matrix.c !== 0 || matrix.d !== 1 || matrix.f !== 0) return;
+        }
+        for (const child of [el,...el.querySelectorAll('*')]) {
+            const ink = getComputedStyle(child);
+            if (['absolute','fixed','sticky'].includes(ink.position) || ink.boxShadow !== 'none' ||
+                ink.textShadow !== 'none' || ink.filter !== 'none' || ink.outlineStyle !== 'none' ||
+                ['::before','::after'].some(p => !['none','normal'].includes(getComputedStyle(child,p).content))) return;
+        }
+        range.selectNodeContents(el);
+        const ink = range.getBoundingClientRect(), border = el.getBoundingClientRect();
+        const top = (Math.min(ink.top,border.top) + scrollY) * unit - origin;
+        const end = (Math.max(ink.bottom,border.bottom) + scrollY) * unit - origin;
+        if (top < piece.start - .02 || end > piece.end + .02) return;
+        roots.add(block);
+    }
+    return roots;
+});
 for (const group of memberships) for (const el of group) el.classList.add('surimono-flow-hidden');
 for (const box of strips) box.classList.add('surimono-flow-hidden');
-let previous;
-surimonoFlow.show = index => {
-    const i = owners[index];
-    if (previous != null) {
-        strips[pieces[previous].strip].classList.add('surimono-flow-hidden');
-        for (const el of memberships[previous]) el.classList.add('surimono-flow-hidden');
+let visible = [], hiddenSiblings = [], positioned = [];
+surimonoFlow.show = (index, offsets = []) => {
+    for (const [el,original] of positioned) {
+        if (original == null) el.removeAttribute('style'); else el.setAttribute('style',original);
     }
-    strips[pieces[i].strip].classList.remove('surimono-flow-hidden');
-    for (const el of memberships[i]) el.classList.remove('surimono-flow-hidden');
-    previous = i;
-    return leaders.has(i) ? JSON.stringify(leaders.get(i)) : null;
+    for (const el of hiddenSiblings) el.classList.remove('surimono-flow-hidden');
+    for (const old of visible) {
+        strips[pieces[old].strip].classList.add('surimono-flow-hidden');
+        for (const el of memberships[old]) el.classList.add('surimono-flow-hidden');
+    }
+    visible = []; hiddenSiblings = []; positioned = [];
+    const i = owners[index], box = strips[pieces[i].strip];
+    let count = 1;
+    const shifts = new Map();
+    if (movable[index] && offsets.length > 1) {
+        for (const el of movable[index]) shifts.set(el,0);
+        for (; count < offsets.length; count++) {
+            const roots = movable[index + count], dy = offsets[count];
+            if (!roots || [...roots].some(el => shifts.has(el) && shifts.get(el) !== dy)) break;
+            for (const el of roots) shifts.set(el,dy);
+        }
+    }
+    box.classList.remove('surimono-flow-hidden');
+    for (let j=0;j<count;j++) {
+        const owner = owners[index+j];
+        visible.push(owner);
+        for (const el of memberships[owner]) el.classList.remove('surimono-flow-hidden');
+    }
+    if (count === 1) return leaders.has(i) ? JSON.stringify(leaders.get(i)) : null;
+    const zoom = Number(box.dataset.flowWidth) / parseFloat(box.style.width);
+    const active = new Set(), wrappers = new Set([box]);
+    for (let j=0;j<count;j++) for (const el of memberships[index+j]) {
+        active.add(el);
+        for (let parent=el.parentElement; parent!==box; parent=parent.parentElement) {
+            active.add(parent); wrappers.add(parent);
+        }
+    }
+    for (const [el,dy] of shifts) {
+        if (dy === 0) continue;
+        positioned.push([el,el.getAttribute('style')]);
+        el.style.setProperty('position','relative','important');
+        el.style.setProperty('top',dy / zoom + 'px','important');
+    }
+    // A spanning element can retain its own ink even when its text descendants are hidden.
+    // Keep only the selected blocks and their unpainted ancestors in the capture.
+    for (const parent of wrappers) for (const el of parent.children) {
+        if (!active.has(el) && !el.classList.contains('surimono-flow-hidden')) {
+            el.classList.add('surimono-flow-hidden'); hiddenSiblings.push(el);
+        }
+    }
+    return count;
 };
 return JSON.stringify(origins);

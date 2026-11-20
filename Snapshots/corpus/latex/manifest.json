@@ -1708,6 +1708,38 @@
   ]
  },
  {
+  "id": "115",
+  "dir": "115-style-icml",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "submission",
+   "natbib"
+  ]
+ },
+ {
+  "id": "116",
+  "dir": "116-style-icml-accepted",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "final",
+   "natbib"
+  ]
+ },
+ {
   "id": "117",
   "dir": "117-style-iclr",
   "title": "Measuring Folded Card Spacers for Model Rails",
@@ -1733,6 +1765,102 @@
   "pages": 3,
   "features": [
    "external-style-kit",
+   "final",
+   "natbib"
+  ]
+ },
+ {
+  "id": "119",
+  "dir": "119-style-cvpr",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "submission",
+   "natbib"
+  ]
+ },
+ {
+  "id": "120",
+  "dir": "120-style-cvpr-final",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "final",
+   "natbib"
+  ]
+ },
+ {
+  "id": "121",
+  "dir": "121-style-acl",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "submission",
+   "natbib"
+  ]
+ },
+ {
+  "id": "122",
+  "dir": "122-style-acl-final",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "final",
+   "natbib"
+  ]
+ },
+ {
+  "id": "123",
+  "dir": "123-style-aaai",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
+   "submission",
+   "natbib"
+  ]
+ },
+ {
+  "id": "124",
+  "dir": "124-style-aaai-final",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 2,
+  "features": [
+   "external-style-kit",
+   "two-column",
    "final",
    "natbib"
   ]

@@ -9,7 +9,7 @@ struct LaTeXLabelMetrics {
 
     init(_ info: LaTeXDocumentClassInfo) {
         if let style = info.resolvedStyle {
-            baselines = [7, 8, style.notePitch, 10, style.baseline, 14, 16, 20, 23, 28]
+            baselines = [7, 8, style.notePitch, style.smallPitch, style.baseline, 14, 16, 20, 23, 28]
             japaneseScale = nil
             return
         }

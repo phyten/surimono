@@ -26,6 +26,9 @@ enum LaTeXPageReferences {
         init(_ state: LaTeXPageNumbers) {
             label = state.label
             lines = .init(top: state.header, bottom: state.footer)
+            if let title = state.runningTitle, !title.isEmpty, lines.top[1] == title {
+                lines.oversizedTitleFallback = state.runningTitleFallback
+            }
             lines.usesFancyFields = state.usesFancyFields
             lines.spansOuterMargin = state.spansOuterMargin
             lines.headerFont = state.headerFont

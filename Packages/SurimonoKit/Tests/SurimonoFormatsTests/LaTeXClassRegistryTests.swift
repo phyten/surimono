@@ -528,7 +528,10 @@ struct LaTeXClassRegistryTests {
         let names = LaTeXClassRegistry.registeredNames.map(NSRegularExpression.escapedPattern(for:))
         let literal = try NSRegularExpression(
             pattern: "\"" + "(?:"
-                + (names + ["neurips(?:_[0-9]{0,4})?", "iclr(?:[0-9]{4}(?:_conference)?)?", "_conference"]).joined(
+                + (names + [
+                    "neurips(?:_[0-9]{0,4})?", "iclr(?:[0-9]{4}(?:_conference)?)?", "_conference",
+                    "icml(?:[0-9]{4})?", "cvpr", "acl", "aaai(?:[0-9]{4})?",
+                ]).joined(
                     separator: "|") + ")\"")
         // Each excerpt exempts one occurrence so another comparison in the same file still fails.
         let exceptions: [String: [String]] = [

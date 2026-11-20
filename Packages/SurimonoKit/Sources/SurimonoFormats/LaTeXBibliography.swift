@@ -20,6 +20,8 @@ final class LaTeXBibliography {
     private var seen: Set<String> = []
     var style = ""
     var authorYearOption: Bool?
+    var parentheticalCite = false
+    var linksTextualAuthors = false
     var natbib = false
     var sortsAndCompresses = false
     var hasManualBibliography = false
@@ -67,6 +69,14 @@ final class LaTeXBibliography {
         // natbib.sty's named punctuation and biblatex's nameyeardelim differ even for the same authors.
         if ["agsm", "kluwer", "aa"].contains(style) || style.hasPrefix("authoryear") && !natbib { return " " }
         return style == "dcu" ? "; " : ", "
+    }
+
+    func applyConferenceDefaults(authorYear: Bool, compress: Bool = false, separator: String? = nil) {
+        if authorYearOption == nil { authorYearOption = authorYear }
+        if squareBrackets == nil { squareBrackets = manualSquareBrackets ?? (authorYearOption == false) }
+        if manualSquareBrackets == nil { manualSquareBrackets = squareBrackets }
+        if nameYearSeparator == nil { nameYearSeparator = separator }
+        if compress { sortsAndCompresses = true }
     }
 
     func applyNatbibOptions(_ options: [String], packageDefaults: Bool = true) {
@@ -446,6 +456,7 @@ extension LaTeXReader {
             if let request = LaTeXStylePackageRegistry.match(package, options: passed + options) {
                 document.stylePackage = request
                 document.styleMainFontRevision = document.pageSettings.fonts.mainFontRevision
+                document.applyPackageDefaults(request)
                 if request.loadsNatbib {
                     document.bibDatabase.applyNatbibOptions(document.passedPackageOptions["natbib"] ?? [])
                 }

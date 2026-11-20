@@ -54,7 +54,7 @@ body[data-latex-class="article"] h2[id^="sec-"] { margin-block-end: 0.5em; }
        Resolve ex on the following text, including the first paragraph of a quote list. */
     body[data-latex-class="article"][data-latex-local-main-font] {
         & h2[id^="sec-"]:has(+ p, + blockquote:not([class]) > p:first-child) {
-            text-box-trim: trim-end; text-box-edge: cap alphabetic; margin-block-end: 0;
+            text-box-trim: var(--latex-section-trim, trim-end); text-box-edge: cap alphabetic; margin-block-end: 0;
         }
         & h2[id^="sec-"] + p, & h2[id^="sec-"] + blockquote:not([class]):has(> p:first-child) {
             margin-block-start: max(2.3ex, var(--latex-parskip, 0px));

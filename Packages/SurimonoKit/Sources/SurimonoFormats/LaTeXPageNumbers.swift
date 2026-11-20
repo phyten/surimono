@@ -97,6 +97,25 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
         }
     }
 
+    // Keep the title measurement with the fancy fields that it describes.
+    package var runningTitle: String? { fields["runningTitle"] }
+    package var runningTitleFallback: String? {
+        get { fields["runningTitleFallback"] }
+        set { fields["runningTitleFallback"] = newValue }
+    }
+
+    mutating func setRunningTitle(_ title: String) {
+        // Flattening a line break would hide the reason the measured title box exceeds its height.
+        let multiline = LaTeXLexer.split(title, at: [#"\\"#, #"\newline"#]).count > 1
+        let header = multiline ? runningTitleFallback ?? title : title
+        fields["runningTitle"] = Self.text(header)
+        apply("pagestyle", value: "fancy")
+        apply("fancy:H", value: "")
+        apply("fancy:CH", value: header)
+        apply("headrulewidth", value: "1pt")
+        headerFont = LaTeXElementFont(weight: "bold", sizeInPoints: 9)
+    }
+
     public var label: String { LaTeXSymbols.format(counter, as: format) }
     public var showsFooter: Bool { footer.contains { !$0.isEmpty } }
     var writesContentsMark: Bool { style == "headings" || style == "fancy" }
