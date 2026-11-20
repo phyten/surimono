@@ -1,0 +1,1878 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.14097754010695188,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 54.9,
+    "maxLuminance" : 115.84375,
+    "maxShiftPt" : 40.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 68
+  },
+  "fonts" : [
+    "Helvetica",
+    "Helvetica-Bold",
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 3,
+  "pages" : [
+    {
+      "firstY" : 81.1,
+      "height" : 792,
+      "lastY" : 750.9,
+      "lineCount" : 101,
+      "lines" : [
+        {
+          "height" : 8,
+          "text" : "000",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 81.1
+        },
+        {
+          "height" : 8,
+          "text" : "001",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 93
+        },
+        {
+          "height" : 8,
+          "text" : "002",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 105
+        },
+        {
+          "height" : 8,
+          "text" : "003",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 116.9
+        },
+        {
+          "height" : 8,
+          "text" : "004",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 128.9
+        },
+        {
+          "height" : 8,
+          "text" : "005",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 140.8
+        },
+        {
+          "height" : 8,
+          "text" : "006",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 152.8
+        },
+        {
+          "height" : 8,
+          "text" : "007",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 164.7
+        },
+        {
+          "height" : 8,
+          "text" : "008",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 176.7
+        },
+        {
+          "height" : 8,
+          "text" : "009",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 188.7
+        },
+        {
+          "height" : 8,
+          "text" : "010",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 200.6
+        },
+        {
+          "height" : 8,
+          "text" : "011",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 212.6
+        },
+        {
+          "height" : 8,
+          "text" : "012",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 224.5
+        },
+        {
+          "height" : 8,
+          "text" : "013",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 236.5
+        },
+        {
+          "height" : 8,
+          "text" : "014",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 248.4
+        },
+        {
+          "height" : 8,
+          "text" : "015",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 260.4
+        },
+        {
+          "height" : 8,
+          "text" : "016",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 272.3
+        },
+        {
+          "height" : 8,
+          "text" : "017",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 284.3
+        },
+        {
+          "height" : 8,
+          "text" : "018",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 296.3
+        },
+        {
+          "height" : 8,
+          "text" : "019",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 308.2
+        },
+        {
+          "height" : 8,
+          "text" : "020",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 320.2
+        },
+        {
+          "height" : 8,
+          "text" : "021",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 332.1
+        },
+        {
+          "height" : 8,
+          "text" : "022",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 344.1
+        },
+        {
+          "height" : 8,
+          "text" : "023",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 356
+        },
+        {
+          "height" : 8,
+          "text" : "024",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 368
+        },
+        {
+          "height" : 8,
+          "text" : "025",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 379.9
+        },
+        {
+          "height" : 8,
+          "text" : "026",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 391.9
+        },
+        {
+          "height" : 8,
+          "text" : "027",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 403.8
+        },
+        {
+          "height" : 8,
+          "text" : "028",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 415.8
+        },
+        {
+          "height" : 8,
+          "text" : "029",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 427.8
+        },
+        {
+          "height" : 8,
+          "text" : "030",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 439.7
+        },
+        {
+          "height" : 8,
+          "text" : "031",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 451.7
+        },
+        {
+          "height" : 8,
+          "text" : "032",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 463.6
+        },
+        {
+          "height" : 8,
+          "text" : "033",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 475.6
+        },
+        {
+          "height" : 8,
+          "text" : "034",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 487.5
+        },
+        {
+          "height" : 8,
+          "text" : "035",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 499.5
+        },
+        {
+          "height" : 8,
+          "text" : "036",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 511.4
+        },
+        {
+          "height" : 8,
+          "text" : "037",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 523.4
+        },
+        {
+          "height" : 8,
+          "text" : "038",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 535.4
+        },
+        {
+          "height" : 8,
+          "text" : "039",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 547.3
+        },
+        {
+          "height" : 8,
+          "text" : "040",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 559.3
+        },
+        {
+          "height" : 8,
+          "text" : "041",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 571.2
+        },
+        {
+          "height" : 8,
+          "text" : "042",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 583.2
+        },
+        {
+          "height" : 8,
+          "text" : "043",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 595.1
+        },
+        {
+          "height" : 8,
+          "text" : "044",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 607.1
+        },
+        {
+          "height" : 8,
+          "text" : "045",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 619
+        },
+        {
+          "height" : 8,
+          "text" : "046",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 631
+        },
+        {
+          "height" : 8,
+          "text" : "047",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 643
+        },
+        {
+          "height" : 8,
+          "text" : "048",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 654.9
+        },
+        {
+          "height" : 8,
+          "text" : "049",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 666.9
+        },
+        {
+          "height" : 8,
+          "text" : "050",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 678.8
+        },
+        {
+          "height" : 8,
+          "text" : "051",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 690.8
+        },
+        {
+          "height" : 8,
+          "text" : "052",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 702.7
+        },
+        {
+          "height" : 8,
+          "text" : "053",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 714.7
+        },
+        {
+          "height" : 11,
+          "text" : "Under review as a conference paper at ICLR 2027",
+          "width" : 200.3,
+          "x" : 108,
+          "y" : 26.5
+        },
+        {
+          "height" : 19.1,
+          "text" : "MEASURING FOLDED CARD SPACERS FOR MODEL",
+          "width" : 396,
+          "x" : 108,
+          "y" : 77.9
+        },
+        {
+          "height" : 19.1,
+          "text" : "RAILS",
+          "width" : 45.4,
+          "x" : 108,
+          "y" : 97.8
+        },
+        {
+          "height" : 11,
+          "text" : "Anonymous authors",
+          "width" : 86.1,
+          "x" : 114,
+          "y" : 136.4
+        },
+        {
+          "height" : 11,
+          "text" : "Paper under double-blind review",
+          "width" : 130.9,
+          "x" : 114,
+          "y" : 147.4
+        },
+        {
+          "height" : 13.2,
+          "text" : "ABSTRACT",
+          "width" : 55.7,
+          "x" : 278.1,
+          "y" : 185.7
+        },
+        {
+          "height" : 11,
+          "text" : "A folded card spacer fixes the height of a model rail above its baseboard. We",
+          "width" : 324.3,
+          "x" : 143.9,
+          "y" : 209.5
+        },
+        {
+          "height" : 11,
+          "text" : "measured spacers folded from three card stocks in a single test slot and",
+          "width" : 324.3,
+          "x" : 143.9,
+          "y" : 220.4
+        },
+        {
+          "height" : 11,
+          "text" : "compared the measured heights with a simple layer model. The model predicts",
+          "width" : 324.3,
+          "x" : 143.9,
+          "y" : 231.4
+        },
+        {
+          "height" : 11,
+          "text" : "the height of a folded spacer to within a tenth of a millimetre when the crease",
+          "width" : 324.3,
+          "x" : 143.9,
+          "y" : 242.3
+        },
+        {
+          "height" : 11,
+          "text" : "allowance is taken from a two-layer trial. We describe the slot, the measurement",
+          "width" : 324.3,
+          "x" : 143.9,
+          "y" : 253.3
+        },
+        {
+          "height" : 11,
+          "text" : "procedure and the remaining sources of error, and we list practical rules for",
+          "width" : 324.3,
+          "x" : 143.9,
+          "y" : 264.2
+        },
+        {
+          "height" : 11,
+          "text" : "choosing a card stock for a given rail height.",
+          "width" : 177.3,
+          "x" : 143.9,
+          "y" : 275.2
+        },
+        {
+          "height" : 13.2,
+          "text" : "1 INTRODUCTION",
+          "width" : 97.6,
+          "x" : 108,
+          "y" : 304.4
+        },
+        {
+          "height" : 11,
+          "text" : "Paper models of railways need many small parts of exact height. Rails, platform edges and signal",
+          "width" : 396,
+          "x" : 108,
+          "y" : 329
+        },
+        {
+          "height" : 11,
+          "text" : "bases all sit on spacers, and a spacer that is too thick by a fraction of a millimetre lifts a rail joint",
+          "width" : 396,
+          "x" : 108,
+          "y" : 340
+        },
+        {
+          "height" : 11,
+          "text" : "enough to derail a light wagon. Most builders cut spacers from card and fold them until they reach",
+          "width" : 396,
+          "x" : 108,
+          "y" : 350.9
+        },
+        {
+          "height" : 11,
+          "text" : "the height they want (Model Rail Desk, 2025). Folding is quick and needs no tools, but the height",
+          "width" : 396,
+          "x" : 108,
+          "y" : 361.9
+        },
+        {
+          "height" : 11,
+          "text" : "of a folded spacer is not simply the sum of the card thicknesses: each crease adds a small",
+          "width" : 396,
+          "x" : 108,
+          "y" : 372.8
+        },
+        {
+          "height" : 11,
+          "text" : "allowance, and the allowance depends on the card and on how firmly the crease is pressed.",
+          "width" : 361.6,
+          "x" : 108,
+          "y" : 383.8
+        },
+        {
+          "height" : 11,
+          "text" : "This note reports a bench trial of folded spacers. Our aims were:",
+          "width" : 256.2,
+          "x" : 108,
+          "y" : 400.7
+        },
+        {
+          "height" : 11,
+          "text" : "•",
+          "width" : 3.5,
+          "x" : 135.4,
+          "y" : 419.9
+        },
+        {
+          "height" : 11,
+          "text" : "to measure the height of spacers with two to six layers in one fixed slot;",
+          "width" : 286.1,
+          "x" : 143.9,
+          "y" : 419.9
+        },
+        {
+          "height" : 11,
+          "text" : "•",
+          "width" : 3.5,
+          "x" : 135.4,
+          "y" : 433.9
+        },
+        {
+          "height" : 11,
+          "text" : "to compare the measurements with a layer model that adds a crease allowance; and",
+          "width" : 330.6,
+          "x" : 143.9,
+          "y" : 433.9
+        },
+        {
+          "height" : 11,
+          "text" : "•",
+          "width" : 3.5,
+          "x" : 135.4,
+          "y" : 448
+        },
+        {
+          "height" : 11,
+          "text" : "to give simple rules for choosing a card stock for a target height.",
+          "width" : 256.8,
+          "x" : 143.9,
+          "y" : 448
+        },
+        {
+          "height" : 11,
+          "text" : "Section 2 describes the slot and the procedure, Section 3 reports the measurements, and Section 4",
+          "width" : 396,
+          "x" : 108,
+          "y" : 467.2
+        },
+        {
+          "height" : 11,
+          "text" : "summarises the rules. Earlier notes on layered card (Card Stock Bench and Model Rail Desk,",
+          "width" : 396,
+          "x" : 108,
+          "y" : 478.1
+        },
+        {
+          "height" : 12,
+          "text" : "2024) and on gauge blocks (Scale Fixture Room, 2023) motivated the layer model used here.1",
+          "width" : 374.2,
+          "x" : 108,
+          "y" : 488.1
+        },
+        {
+          "height" : 13.2,
+          "text" : "2 METHOD",
+          "width" : 65.3,
+          "x" : 108,
+          "y" : 515.5
+        },
+        {
+          "height" : 11,
+          "text" : "2.1 THE TEST SLOT",
+          "width" : 89.6,
+          "x" : 108,
+          "y" : 540.1
+        },
+        {
+          "height" : 11,
+          "text" : "The slot was cut into a block of laminated board and lined with a strip of thin brass so that the card",
+          "width" : 396,
+          "x" : 108,
+          "y" : 560.6
+        },
+        {
+          "height" : 11,
+          "text" : "could not dent the walls. A sliding rail of known height rests on top of the spacer, and the height is",
+          "width" : 396,
+          "x" : 108,
+          "y" : 571.6
+        },
+        {
+          "height" : 11,
+          "text" : "read from a scale on the side of the block. The block was clamped to the bench throughout the trial",
+          "width" : 396,
+          "x" : 108,
+          "y" : 582.5
+        },
+        {
+          "height" : 11,
+          "text" : "so that the scale did not move between readings.",
+          "width" : 192.8,
+          "x" : 108,
+          "y" : 593.5
+        },
+        {
+          "height" : 11,
+          "text" : "Each spacer was inserted with its folded edge towards the back of the slot. The rail was lowered onto",
+          "width" : 396,
+          "x" : 108,
+          "y" : 610.4
+        },
+        {
+          "height" : 11,
+          "text" : "it and left for ten seconds before the reading was taken, because a freshly folded spacer springs back",
+          "width" : 396,
+          "x" : 108,
+          "y" : 621.4
+        },
+        {
+          "height" : 11,
+          "text" : "slowly. Three readings were taken for each spacer, removing and reinserting it between readings.",
+          "width" : 380.4,
+          "x" : 108,
+          "y" : 632.3
+        },
+        {
+          "height" : 11,
+          "text" : "2.2 LAYER MODEL",
+          "width" : 86.6,
+          "x" : 108,
+          "y" : 656.5
+        },
+        {
+          "height" : 11.1,
+          "text" : "We model the height h of a spacer with n layers of card of thickness t as",
+          "width" : 288.9,
+          "x" : 108,
+          "y" : 677.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "h= n t + (n− 1) c,",
+          "width" : 82.1,
+          "x" : 265,
+          "y" : 691
+        },
+        {
+          "height" : 11.7,
+          "text" : "(1)",
+          "width" : 11.6,
+          "x" : 492.4,
+          "y" : 691
+        },
+        {
+          "height" : 6.6,
+          "text" : "1",
+          "width" : 3,
+          "x" : 121.2,
+          "y" : 709
+        },
+        {
+          "height" : 9.9,
+          "text" : "All parts were cut from the same sheets on the same afternoon, so the moisture content of the card was",
+          "width" : 379.8,
+          "x" : 124.1,
+          "y" : 710
+        },
+        {
+          "height" : 9.9,
+          "text" : "the same for every spacer.",
+          "width" : 93.4,
+          "x" : 108,
+          "y" : 719.9
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 303.5,
+          "y" : 750.9
+        }
+      ],
+      "textHeight" : 735.4,
+      "textLeft" : 73.1,
+      "textTop" : 26.5,
+      "textWidth" : 430.9,
+      "width" : 612
+    },
+    {
+      "firstY" : 81.1,
+      "height" : 792,
+      "lastY" : 750.9,
+      "lineCount" : 93,
+      "lines" : [
+        {
+          "height" : 8,
+          "text" : "054",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 81.1
+        },
+        {
+          "height" : 8,
+          "text" : "055",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 93
+        },
+        {
+          "height" : 8,
+          "text" : "056",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 105
+        },
+        {
+          "height" : 8,
+          "text" : "057",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 116.9
+        },
+        {
+          "height" : 8,
+          "text" : "058",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 128.9
+        },
+        {
+          "height" : 8,
+          "text" : "059",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 140.8
+        },
+        {
+          "height" : 8,
+          "text" : "060",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 152.8
+        },
+        {
+          "height" : 8,
+          "text" : "061",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 164.7
+        },
+        {
+          "height" : 8,
+          "text" : "062",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 176.7
+        },
+        {
+          "height" : 8,
+          "text" : "063",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 188.7
+        },
+        {
+          "height" : 8,
+          "text" : "064",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 200.6
+        },
+        {
+          "height" : 8,
+          "text" : "065",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 212.6
+        },
+        {
+          "height" : 8,
+          "text" : "066",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 224.5
+        },
+        {
+          "height" : 8,
+          "text" : "067",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 236.5
+        },
+        {
+          "height" : 8,
+          "text" : "068",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 248.4
+        },
+        {
+          "height" : 8,
+          "text" : "069",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 260.4
+        },
+        {
+          "height" : 8,
+          "text" : "070",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 272.3
+        },
+        {
+          "height" : 8,
+          "text" : "071",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 284.3
+        },
+        {
+          "height" : 8,
+          "text" : "072",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 296.3
+        },
+        {
+          "height" : 8,
+          "text" : "073",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 308.2
+        },
+        {
+          "height" : 8,
+          "text" : "074",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 320.2
+        },
+        {
+          "height" : 8,
+          "text" : "075",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 332.1
+        },
+        {
+          "height" : 8,
+          "text" : "076",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 344.1
+        },
+        {
+          "height" : 8,
+          "text" : "077",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 356
+        },
+        {
+          "height" : 8,
+          "text" : "078",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 368
+        },
+        {
+          "height" : 8,
+          "text" : "079",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 379.9
+        },
+        {
+          "height" : 8,
+          "text" : "080",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 391.9
+        },
+        {
+          "height" : 8,
+          "text" : "081",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 403.8
+        },
+        {
+          "height" : 8,
+          "text" : "082",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 415.8
+        },
+        {
+          "height" : 8,
+          "text" : "083",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 427.8
+        },
+        {
+          "height" : 8,
+          "text" : "084",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 439.7
+        },
+        {
+          "height" : 8,
+          "text" : "085",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 451.7
+        },
+        {
+          "height" : 8,
+          "text" : "086",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 463.6
+        },
+        {
+          "height" : 8,
+          "text" : "087",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 475.6
+        },
+        {
+          "height" : 8,
+          "text" : "088",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 487.5
+        },
+        {
+          "height" : 8,
+          "text" : "089",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 499.5
+        },
+        {
+          "height" : 8,
+          "text" : "090",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 511.4
+        },
+        {
+          "height" : 8,
+          "text" : "091",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 523.4
+        },
+        {
+          "height" : 8,
+          "text" : "092",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 535.4
+        },
+        {
+          "height" : 8,
+          "text" : "093",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 547.3
+        },
+        {
+          "height" : 8,
+          "text" : "094",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 559.3
+        },
+        {
+          "height" : 8,
+          "text" : "095",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 571.2
+        },
+        {
+          "height" : 8,
+          "text" : "096",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 583.2
+        },
+        {
+          "height" : 8,
+          "text" : "097",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 595.1
+        },
+        {
+          "height" : 8,
+          "text" : "098",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 607.1
+        },
+        {
+          "height" : 8,
+          "text" : "099",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 619
+        },
+        {
+          "height" : 8,
+          "text" : "100",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 631
+        },
+        {
+          "height" : 8,
+          "text" : "101",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 643
+        },
+        {
+          "height" : 8,
+          "text" : "102",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 654.9
+        },
+        {
+          "height" : 8,
+          "text" : "103",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 666.9
+        },
+        {
+          "height" : 8,
+          "text" : "104",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 678.8
+        },
+        {
+          "height" : 8,
+          "text" : "105",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 690.8
+        },
+        {
+          "height" : 8,
+          "text" : "106",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 702.7
+        },
+        {
+          "height" : 8,
+          "text" : "107",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 714.7
+        },
+        {
+          "height" : 11,
+          "text" : "Under review as a conference paper at ICLR 2027",
+          "width" : 200.3,
+          "x" : 108,
+          "y" : 26.5
+        },
+        {
+          "height" : 11,
+          "text" : "Figure 1: Side view of the test slot with a four-layer spacer under the sliding rail. The dark block is",
+          "width" : 396,
+          "x" : 108,
+          "y" : 162.4
+        },
+        {
+          "height" : 11,
+          "text" : "the spacer; the thin lines mark the slot floor and the rail.",
+          "width" : 223,
+          "x" : 108,
+          "y" : 173.3
+        },
+        {
+          "height" : 11,
+          "text" : "Table 1: Measured and predicted heights of folded spacers (mm).",
+          "width" : 259.3,
+          "x" : 176.3,
+          "y" : 206.2
+        },
+        {
+          "height" : 11,
+          "text" : "Stock Layers Measured Predicted",
+          "width" : 173.6,
+          "x" : 219.2,
+          "y" : 217.7
+        },
+        {
+          "height" : 11,
+          "text" : "Thin 2 0.46 0.46",
+          "width" : 173.6,
+          "x" : 219.2,
+          "y" : 229.2
+        },
+        {
+          "height" : 11,
+          "text" : "Thin 4 0.95 0.98",
+          "width" : 173.6,
+          "x" : 219.2,
+          "y" : 240.1
+        },
+        {
+          "height" : 11,
+          "text" : "Medium 3 1.02 1.00",
+          "width" : 173.6,
+          "x" : 219.2,
+          "y" : 251.1
+        },
+        {
+          "height" : 11,
+          "text" : "Medium 6 2.05 2.05",
+          "width" : 173.6,
+          "x" : 219.2,
+          "y" : 262
+        },
+        {
+          "height" : 11,
+          "text" : "Thick 4 1.98 1.92",
+          "width" : 173.6,
+          "x" : 219.2,
+          "y" : 273
+        },
+        {
+          "height" : 11,
+          "text" : "where c is the crease allowance added by each fold. The allowance is found from a two-layer trial,",
+          "width" : 396,
+          "x" : 108,
+          "y" : 304.4
+        },
+        {
+          "height" : 12.4,
+          "text" : "for which Equation (1) gives c = h2− 2t. The same model was used for the gauge block of Scale",
+          "width" : 396,
+          "x" : 108,
+          "y" : 315.6
+        },
+        {
+          "height" : 11,
+          "text" : "Fixture Room (2023), where it predicted the height of folded board well for up to four layers.",
+          "width" : 371.8,
+          "x" : 108,
+          "y" : 326.9
+        },
+        {
+          "height" : 11.1,
+          "text" : "Card thickness.",
+          "width" : 67.6,
+          "x" : 108,
+          "y" : 351.1
+        },
+        {
+          "height" : 11.1,
+          "text" : "The thickness t was measured with a dial gauge on ten single sheets of each",
+          "width" : 318.5,
+          "x" : 185.5,
+          "y" : 351.1
+        },
+        {
+          "height" : 11,
+          "text" : "stock, and the mean was used in the model. The thin stock measured 0.20 mm, the medium stock",
+          "width" : 396,
+          "x" : 108,
+          "y" : 362.5
+        },
+        {
+          "height" : 11,
+          "text" : "0.30 mm and the thick stock 0.45 mm, with a spread of less than 0.01 mm in every case.",
+          "width" : 350.2,
+          "x" : 108,
+          "y" : 373.5
+        },
+        {
+          "height" : 11,
+          "text" : "Pressing the crease.",
+          "width" : 84.4,
+          "x" : 108,
+          "y" : 397.6
+        },
+        {
+          "height" : 11,
+          "text" : "Every crease was pressed once with the flat of a bone folder along a steel",
+          "width" : 301.7,
+          "x" : 202.3,
+          "y" : 397.6
+        },
+        {
+          "height" : 11,
+          "text" : "rule. Pressing twice made the crease allowance smaller but also cracked the surface of the thick",
+          "width" : 396,
+          "x" : 108,
+          "y" : 409.1
+        },
+        {
+          "height" : 11,
+          "text" : "stock, so a single pass was used for all spacers.",
+          "width" : 187.3,
+          "x" : 108,
+          "y" : 420
+        },
+        {
+          "height" : 13.2,
+          "text" : "3 RESULTS",
+          "width" : 64.3,
+          "x" : 108,
+          "y" : 446.3
+        },
+        {
+          "height" : 11,
+          "text" : "Figure 1 shows the slot with a four-layer spacer in place, and Table 1 lists the mean measured",
+          "width" : 396,
+          "x" : 108,
+          "y" : 471.8
+        },
+        {
+          "height" : 11,
+          "text" : "height of each spacer together with the height predicted by Equation (1).",
+          "width" : 288.8,
+          "x" : 108,
+          "y" : 482.7
+        },
+        {
+          "height" : 11,
+          "text" : "The model agrees with the measurements to within 0.06 mm for every spacer. The largest error is",
+          "width" : 396,
+          "x" : 108,
+          "y" : 499.7
+        },
+        {
+          "height" : 11,
+          "text" : "for the thick stock, where the crease allowance grows with the number of layers: the outer layers",
+          "width" : 396,
+          "x" : 108,
+          "y" : 510.6
+        },
+        {
+          "height" : 11,
+          "text" : "must bend around a thicker core, and the crease opens slightly. For the thin and medium stocks the",
+          "width" : 396,
+          "x" : 108,
+          "y" : 521.6
+        },
+        {
+          "height" : 11,
+          "text" : "error does not grow with the number of layers, which agrees with the note of Glue Pot Corner",
+          "width" : 396,
+          "x" : 108,
+          "y" : 532.5
+        },
+        {
+          "height" : 11,
+          "text" : "(2022) on thin paper joints.",
+          "width" : 108.7,
+          "x" : 108,
+          "y" : 543.5
+        },
+        {
+          "height" : 11,
+          "text" : "Repeated readings of the same spacer differed by at most 0.02 mm. Spacers that were left in the",
+          "width" : 396,
+          "x" : 108,
+          "y" : 560.4
+        },
+        {
+          "height" : 11,
+          "text" : "slot overnight lost about 0.01 mm of height, which is smaller than the spread between readings and",
+          "width" : 396,
+          "x" : 108,
+          "y" : 571.4
+        },
+        {
+          "height" : 11,
+          "text" : "was ignored.",
+          "width" : 50.9,
+          "x" : 108,
+          "y" : 582.3
+        },
+        {
+          "height" : 13.2,
+          "text" : "4 CONCLUSION",
+          "width" : 87.1,
+          "x" : 108,
+          "y" : 609.5
+        },
+        {
+          "height" : 11,
+          "text" : "A folded card spacer can be designed from the card thickness and a crease allowance measured",
+          "width" : 396,
+          "x" : 108,
+          "y" : 634.9
+        },
+        {
+          "height" : 11,
+          "text" : "once for each stock. For heights up to 2 mm the thin and medium stocks follow the layer model",
+          "width" : 396,
+          "x" : 108,
+          "y" : 645.9
+        },
+        {
+          "height" : 11,
+          "text" : "closely, and they are the better choice when a rail must sit at an exact height. The thick stock is",
+          "width" : 396,
+          "x" : 108,
+          "y" : 656.8
+        },
+        {
+          "height" : 11,
+          "text" : "quicker to fold but should be checked in the slot when more than three layers are used. A card",
+          "width" : 396,
+          "x" : 108,
+          "y" : 667.8
+        },
+        {
+          "height" : 11,
+          "text" : "ladder (Window Frame Study, 2021) gives a convenient way to check many spacers at once.",
+          "width" : 367.4,
+          "x" : 108,
+          "y" : 678.7
+        },
+        {
+          "height" : 11,
+          "text" : "2",
+          "width" : 5,
+          "x" : 303.5,
+          "y" : 750.9
+        }
+      ],
+      "textHeight" : 735.4,
+      "textLeft" : 73.1,
+      "textTop" : 26.5,
+      "textWidth" : 430.9,
+      "width" : 612
+    },
+    {
+      "firstY" : 26.5,
+      "height" : 792,
+      "lastY" : 750.9,
+      "lineCount" : 65,
+      "lines" : [
+        {
+          "height" : 11,
+          "text" : "Under review as a conference paper at ICLR 2027",
+          "width" : 200.3,
+          "x" : 108,
+          "y" : 26.5
+        },
+        {
+          "height" : 8,
+          "text" : "108",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 81.1
+        },
+        {
+          "height" : 8,
+          "text" : "109",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 93
+        },
+        {
+          "height" : 8,
+          "text" : "110",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 105
+        },
+        {
+          "height" : 8,
+          "text" : "111",
+          "width" : 12.4,
+          "x" : 73.1,
+          "y" : 116.9
+        },
+        {
+          "height" : 8,
+          "text" : "112",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 128.9
+        },
+        {
+          "height" : 8,
+          "text" : "113",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 140.8
+        },
+        {
+          "height" : 8,
+          "text" : "114",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 152.8
+        },
+        {
+          "height" : 8,
+          "text" : "115",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 164.7
+        },
+        {
+          "height" : 8,
+          "text" : "116",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 176.7
+        },
+        {
+          "height" : 8,
+          "text" : "117",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 188.7
+        },
+        {
+          "height" : 8,
+          "text" : "118",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 200.6
+        },
+        {
+          "height" : 8,
+          "text" : "119",
+          "width" : 12.9,
+          "x" : 73.1,
+          "y" : 212.6
+        },
+        {
+          "height" : 8,
+          "text" : "120",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 224.5
+        },
+        {
+          "height" : 8,
+          "text" : "121",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 236.5
+        },
+        {
+          "height" : 8,
+          "text" : "122",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 248.4
+        },
+        {
+          "height" : 8,
+          "text" : "123",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 260.4
+        },
+        {
+          "height" : 8,
+          "text" : "124",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 272.3
+        },
+        {
+          "height" : 8,
+          "text" : "125",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 284.3
+        },
+        {
+          "height" : 8,
+          "text" : "126",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 296.3
+        },
+        {
+          "height" : 8,
+          "text" : "127",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 308.2
+        },
+        {
+          "height" : 8,
+          "text" : "128",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 320.2
+        },
+        {
+          "height" : 8,
+          "text" : "129",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 332.1
+        },
+        {
+          "height" : 8,
+          "text" : "130",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 344.1
+        },
+        {
+          "height" : 8,
+          "text" : "131",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 356
+        },
+        {
+          "height" : 8,
+          "text" : "132",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 368
+        },
+        {
+          "height" : 8,
+          "text" : "133",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 379.9
+        },
+        {
+          "height" : 8,
+          "text" : "134",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 391.9
+        },
+        {
+          "height" : 8,
+          "text" : "135",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 403.8
+        },
+        {
+          "height" : 8,
+          "text" : "136",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 415.8
+        },
+        {
+          "height" : 8,
+          "text" : "137",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 427.8
+        },
+        {
+          "height" : 8,
+          "text" : "138",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 439.7
+        },
+        {
+          "height" : 8,
+          "text" : "139",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 451.7
+        },
+        {
+          "height" : 8,
+          "text" : "140",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 463.6
+        },
+        {
+          "height" : 8,
+          "text" : "141",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 475.6
+        },
+        {
+          "height" : 8,
+          "text" : "142",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 487.5
+        },
+        {
+          "height" : 8,
+          "text" : "143",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 499.5
+        },
+        {
+          "height" : 8,
+          "text" : "144",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 511.4
+        },
+        {
+          "height" : 8,
+          "text" : "145",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 523.4
+        },
+        {
+          "height" : 8,
+          "text" : "146",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 535.4
+        },
+        {
+          "height" : 8,
+          "text" : "147",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 547.3
+        },
+        {
+          "height" : 8,
+          "text" : "148",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 559.3
+        },
+        {
+          "height" : 8,
+          "text" : "149",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 571.2
+        },
+        {
+          "height" : 8,
+          "text" : "150",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 583.2
+        },
+        {
+          "height" : 8,
+          "text" : "151",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 595.1
+        },
+        {
+          "height" : 8,
+          "text" : "152",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 607.1
+        },
+        {
+          "height" : 8,
+          "text" : "153",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 619
+        },
+        {
+          "height" : 8,
+          "text" : "154",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 631
+        },
+        {
+          "height" : 8,
+          "text" : "155",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 643
+        },
+        {
+          "height" : 8,
+          "text" : "156",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 654.9
+        },
+        {
+          "height" : 8,
+          "text" : "157",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 666.9
+        },
+        {
+          "height" : 8,
+          "text" : "158",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 678.8
+        },
+        {
+          "height" : 8,
+          "text" : "159",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 690.8
+        },
+        {
+          "height" : 8,
+          "text" : "160",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 702.7
+        },
+        {
+          "height" : 8,
+          "text" : "161",
+          "width" : 13.3,
+          "x" : 73.1,
+          "y" : 714.7
+        },
+        {
+          "height" : 13.2,
+          "text" : "REFERENCES",
+          "width" : 66.5,
+          "x" : 108,
+          "y" : 81.2
+        },
+        {
+          "height" : 11,
+          "text" : "Card Stock Bench and Model Rail Desk. 2024. Folding tolerances of layered card. In Proceedings",
+          "width" : 396,
+          "x" : 108,
+          "y" : 100.5
+        },
+        {
+          "height" : 11,
+          "text" : "of the Bench Meeting on Paper Models, pages 12–19.",
+          "width" : 213.6,
+          "x" : 118,
+          "y" : 111.4
+        },
+        {
+          "height" : 11,
+          "text" : "Glue Pot Corner. 2022. Drying times for thin paper joints. Paper Model Quarterly, 4(2):33–41.",
+          "width" : 379.1,
+          "x" : 108,
+          "y" : 130.4
+        },
+        {
+          "height" : 11,
+          "text" : "Model Rail Desk. 2025. Spacer Card Register. Trial note, Paper Model Workshop.",
+          "width" : 329.4,
+          "x" : 108,
+          "y" : 149.3
+        },
+        {
+          "height" : 11,
+          "text" : "Scale Fixture Room. 2023. A gauge block made of folded board. Workshop Leaflet 7, Paper Model",
+          "width" : 396,
+          "x" : 108,
+          "y" : 168.2
+        },
+        {
+          "height" : 11,
+          "text" : "Workshop.",
+          "width" : 43.2,
+          "x" : 118,
+          "y" : 179.1
+        },
+        {
+          "height" : 11,
+          "text" : "Window Frame Study. 2021. Measuring slots with a card ladder. Technical memo, Paper Model",
+          "width" : 396,
+          "x" : 108,
+          "y" : 198.1
+        },
+        {
+          "height" : 11,
+          "text" : "Workshop.",
+          "width" : 43.2,
+          "x" : 118,
+          "y" : 209
+        },
+        {
+          "height" : 11,
+          "text" : "3",
+          "width" : 5,
+          "x" : 303.5,
+          "y" : 750.9
+        }
+      ],
+      "textHeight" : 735.4,
+      "textLeft" : 73.1,
+      "textTop" : 26.5,
+      "textWidth" : 430.9,
+      "width" : 612
+    }
+  ],
+  "textSHA256" : "9b7e4569b7541e4f4d1343e58b7369d8b97bfb26c790dedc7057fcc18122fae3"
+}

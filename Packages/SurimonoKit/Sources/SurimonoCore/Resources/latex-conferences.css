@@ -1,0 +1,114 @@
+/* Natural skips from the single-column kits, before page stretching. */
+body.format-latex[data-latex-style][data-latex-style-mode] {
+    --tex-baseline: calc(var(--latex-array-baseline) * var(--tex-pt));
+    --latex-size-tiny: calc(6 * var(--tex-pt));
+    --tex-top-sep: 4; --tex-partop-sep: 1;
+    --latex-list-margin: calc(36 * var(--tex-pt));
+    --latex-list-topsep: calc(4 * var(--tex-pt) + var(--latex-parskip));
+    word-spacing: normal;
+    /* The kits allow loose justified lines. Preserve discretionary hyphens supplied by the author. */
+    -webkit-hyphens: manual; hyphens: manual;
+    & .latex-title-block {
+        padding: 0 0 calc(21.681 * var(--tex-pt)); margin: 0;
+        break-inside: avoid; break-after: auto;
+    }
+    & .latex-title-block h1 {
+        all: unset; display: block; font-family: inherit; color: inherit;
+        font-size: calc(17.28 * var(--tex-pt)); line-height: calc(20 * var(--tex-pt));
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+    }
+    & .latex-author-row {
+        display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between;
+        margin: 0; padding-block-start: calc(24 * var(--tex-pt) + var(--latex-parskip) - 1cap);
+    }
+    & .latex-front-author { padding-inline: calc(6 * var(--tex-pt)); text-align: start; }
+    & .abstract {
+        margin: 0 calc(36 * var(--tex-pt)); padding-block: calc(5.42 * var(--tex-pt)) calc(5 * var(--tex-pt));
+        font: inherit;
+    }
+    & .abstract-title {
+        text-align: center; font-size: calc(12 * var(--tex-pt)); line-height: calc(14 * var(--tex-pt));
+        margin: 0; text-indent: 0; text-box-trim: trim-end; text-box-edge: cap alphabetic;
+    }
+    & .abstract-title + p {
+        margin-block-start: calc(7.25 * var(--tex-pt) + var(--latex-parskip)); text-indent: 0;
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+    & .abstract > p:not(.abstract-title) + p { margin-block-start: calc(2 * var(--tex-pt)); }
+    & :is(h2,h3,h4) {
+        --heading-before: 9;
+        font-size: calc(12 * var(--tex-pt)); line-height: calc(14 * var(--tex-pt));
+        margin-block: calc(var(--heading-before) * var(--tex-pt) + var(--latex-parskip)) 0;
+        text-box-trim: trim-end; text-box-edge: cap alphabetic;
+    }
+    & h3, & h4 { font-size: 1em; line-height: inherit; }
+    & h3 { --heading-before: 8.1; }
+    & h4 { --heading-before: 6.75; }
+    & h2[id^="sec-"]:has(+ p), & h2[id^="sec-"] { margin-block-end: 0; }
+    & :is(h2,h3,h4) + p, & h2[id^="sec-"] + p, & h2 + h3, & h3 + h4 {
+        margin-block-start: calc(var(--after, 6.75) * var(--tex-pt) + var(--latex-parskip));
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+    & h2 + h3:has(+ p), & h3 + h4:has(+ p) { text-box-trim: trim-both; }
+    & :is(p,.abstract) + h2 { --heading-before: 9.9; }
+    & h3 + p, & h3 + h4 { --after: 3.6; }
+    & h4 + p { --after: 2.25; }
+    & .latex-runin { margin-block-start: calc(6.75 * var(--tex-pt) + var(--latex-parskip)); }
+    & :is(li ul,li ol) { --latex-list-margin: 2em; --latex-list-topsep: calc(2 * var(--tex-pt)); }
+    & :is(li li ul,li li ol) { --latex-list-margin: 1.5em; --latex-list-topsep: var(--tex-pt); }
+    & :is(li li li ul,li li li ol) { --latex-list-margin: 1em; }
+    & :is(li li li li ul,li li li li ol) { --latex-list-margin: .5em; }
+    & .math-block { padding-block: 0; margin-block: calc(7 * var(--tex-pt)); }
+    & .math-block + p { margin-block-start: 0; }
+    & sup.footnote-ref { font-size: .7em; line-height: 0; vertical-align: calc(3.63 * var(--tex-pt)); }
+    & table.latex-tabular :is(th,td) { padding-inline: var(--latex-tabcolsep, calc(6 * var(--tex-pt))); }
+    & figure { --latex-parskip: 0px; }
+    & figure > figcaption:not([data-latex-caption-style]) { font: inherit; text-align: justify; width: fit-content; margin-inline: auto; }
+    & .latex-bibliography-heading + ol { margin-block-start: calc(.675em + 2 * var(--tex-pt)); }
+    & ol.latex-author-year { padding-inline-start: calc(10 * var(--tex-pt)); }
+    & .latex-author-year > li { text-indent: calc(-10 * var(--tex-pt)); }
+    & .latex-author-year > li + li { margin-block: calc(8 * var(--tex-pt)) 0; }
+    & .footnotes { font-size: var(--latex-note-size); line-height: var(--latex-note-pitch); }
+    & .footnotes > ol > li { text-indent: 1.8em; }
+    & .footnotes > ol > li > p:first-child { text-indent: 1.8em; }
+    & .footnotes li[value]::before {
+        inset-inline: 0 auto; width: calc(1.8 * var(--latex-note-size)); text-indent: 0; text-align: end;
+        font-size: calc(6 * var(--tex-pt)); top: .45em;
+    }
+    & .footnotes ol { padding: 0; margin: 0; }
+    & .latex-ams-small-cap { font-size: .8em; font-variant-caps: normal; text-transform: uppercase; }
+}
+body.format-latex[data-latex-style="neurips"][data-latex-style-mode] {
+    & .latex-title-block { padding-block-start: calc(7.227 * var(--tex-pt)); }
+    & .latex-title-block h1 {
+        font-weight: bold; text-align: center; text-box-trim: trim-start;
+        border-block: calc(4 * var(--tex-pt)) solid currentColor; border-block-end-width: var(--tex-pt);
+        padding-block: calc(18.0675 * var(--tex-pt)) calc(20.9583 * var(--tex-pt) - var(--latex-parskip));
+    }
+    & .latex-author-row { justify-content: space-evenly; padding-block-start: calc(36 * var(--tex-pt) - 1cap - .22em); }
+    & .latex-front-author { text-align: center; }
+    & figure.latex-table > figcaption:not([data-latex-caption-style],[style*="--latex-caption-table-gap"]):has(+ table) {
+        margin-block-end: calc(var(--latex-caption-table-gap) + var(--tex-pt));
+    }
+}
+body.format-latex[data-latex-style="iclr"][data-latex-style-mode] {
+    --tex-footnote: 9;
+    /* Map the complete line to the virtual face's measure. Word shaping, selection,
+       justification and the vertical size of both capital heights are preserved. */
+    & :is(.latex-title-block h1,h2,h3,h4,.abstract-title):has(.latex-ams-small-cap) {
+        width: calc(100% / var(--latex-small-caps-width, 1)); box-sizing: border-box;
+        transform: scaleX(var(--latex-small-caps-width, 1)); transform-origin: left center;
+    }
+    & h2:has(.latex-ams-small-cap) > .secnum { margin-inline-end: .966em; }
+    & .latex-author-row::after { content: ""; }
+    & .latex-title-block h1 { font-weight: normal; text-align: justify; text-align-last: start; }
+    /* The surrounding title supplies the 20pt strut on both lines. */
+    & .latex-title-block h1 .latex-ams-small-cap { line-height: 0; }
+    & :is(h2,h3,h4,.abstract-title) { font-weight: normal; }
+    & figure.latex-table > figcaption:not([style*="--latex-caption-table-gap"]) {
+        margin-block: var(--latex-abovecaptionskip) var(--latex-belowcaptionskip);
+    }
+}
+body[data-latex-style] .latex-first-notice {
+    font-size: calc(8 * var(--tex-pt)); line-height: calc(9.5 * var(--tex-pt)); text-align: start;
+}

@@ -15,6 +15,7 @@ private func executable(_ name: String) throws -> URL {
     throw TeXFailure.missing(name)
 }
 private func typeset(_ row: CorpusEntry, source: URL, scratch: URL) throws -> Data {
+    if row.features.contains("external-style-kit") { throw TeXFailure.missing("official style kit") }
     guard ["pdflatex", "xelatex", "lualatex"].contains(row.engine), validID(row.id),
         row.dir.hasPrefix(row.id + "-"), !row.dir.contains("/")
     else { throw SnapshotError("Invalid corpus entry") }

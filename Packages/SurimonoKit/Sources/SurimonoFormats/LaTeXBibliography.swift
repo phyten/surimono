@@ -21,6 +21,26 @@ final class LaTeXBibliography {
     var style = ""
     var authorYearOption: Bool?
     var natbib = false
+    var sortsAndCompresses = false
+    var hasManualBibliography = false
+    private var manualSquareBrackets: Bool?
+    struct ManualLabel {
+        let author: String
+        let year: String
+        let fullAuthor: String
+
+        init?(_ source: String) {
+            guard let open = source.firstIndex(of: "("),
+                let close = source[open...].firstIndex(of: ")")
+            else { return nil }
+            author = source[..<open].trimmingCharacters(in: .whitespacesAndNewlines)
+            year = source[source.index(after: open)..<close].trimmingCharacters(in: .whitespacesAndNewlines)
+            let long = source[source.index(after: close)...].trimmingCharacters(in: .whitespacesAndNewlines)
+            fullAuthor = long.isEmpty ? author : long
+            guard !author.isEmpty, !year.isEmpty else { return nil }
+        }
+    }
+    var fullAuthors: [String: String] = [:]
     private var squareBrackets: Bool?
     private var nameYearSeparator: String?
     var citationOrderOverride: Bool?
@@ -34,18 +54,28 @@ final class LaTeXBibliography {
     }
 
     private var natbibStyle: Bool { natbib && ["plainnat", "unsrtnat", "abbrvnat"].contains(style) }
-    var usesSquareBrackets: Bool { squareBrackets ?? (!authorYear || natbibStyle) }
+    var usesSquareBrackets: Bool {
+        if natbib && hasManualBibliography {
+            return manualSquareBrackets ?? natbibStyle
+        }
+        return squareBrackets ?? (!authorYear || natbibStyle)
+    }
     var multipleCitationSeparator: String { natbibStyle || ["agsm", "kluwer"].contains(style) ? ", " : "; " }
 
-    private var authorYearSeparator: String {
+    var authorYearSeparator: String {
         if let nameYearSeparator { return nameYearSeparator }
         // natbib.sty's named punctuation and biblatex's nameyeardelim differ even for the same authors.
         if ["agsm", "kluwer", "aa"].contains(style) || style.hasPrefix("authoryear") && !natbib { return " " }
         return style == "dcu" ? "; " : ", "
     }
 
-    func applyNatbibOptions(_ options: [String]) {
+    func applyNatbibOptions(_ options: [String], packageDefaults: Bool = true) {
         for option in options {
+            if packageDefaults && ["numbers", "authoryear"].contains(option) {
+                manualSquareBrackets = option == "numbers"
+            }
+            if option == "square" || option == "round" { manualSquareBrackets = option == "square" }
+            if option == "sort&compress" { sortsAndCompresses = true }
             if option == "authoryear" { authorYearOption = true }
             if option == "numbers" || option == "super" { authorYearOption = false }
             if option == "square" || option == "round" { squareBrackets = option == "square" }
@@ -391,13 +421,19 @@ extension LaTeXReader {
         }
     }
 
+    static func packageOptions(_ raw: String) -> [String] {
+        LaTeXLexer.split(raw, at: [","]).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter {
+            !$0.isEmpty
+        }
+    }
+
     func readPackage() {
         let packageOptions = optional() ?? ""
-        let options = packageOptions.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let options = Self.packageOptions(packageOptions)
         let packages = (argument() ?? "").split(separator: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if packages.contains(where: { $0.range(of: #"^icml(?:[0-9]{2,4})?$"#, options: .regularExpression) != nil }) {
+        if packages.contains(where: LaTeXStylePackageRegistry.usesLegacyColumns) {
             document.classInfo.columns = 2
         }
         readLanguagePackages(packages, options: options)
@@ -405,12 +441,21 @@ extension LaTeXReader {
             document.usesAMSTheorem = true
         }
         for package in packages {
+            let passed = document.passedPackageOptions[package] ?? []
+            if package == "times" { document.loadsTimesPackage = true }
+            if let request = LaTeXStylePackageRegistry.match(package, options: passed + options) {
+                document.stylePackage = request
+                document.styleMainFontRevision = document.pageSettings.fonts.mainFontRevision
+                if request.loadsNatbib {
+                    document.bibDatabase.applyNatbibOptions(document.passedPackageOptions["natbib"] ?? [])
+                }
+            }
             document.pageSettings.readPackage(package, options: packageOptions, info: document.classInfo)
         }
         if packages.contains("hyperref") { readHyperrefOptions(packageOptions) }
         if packages.contains("natbib") {
             document.bibDatabase.natbib = true
-            document.bibDatabase.applyNatbibOptions(options)
+            document.bibDatabase.applyNatbibOptions((document.passedPackageOptions["natbib"] ?? []) + options)
         }
         if packages.contains("biblatex") {
             for option in options {
@@ -441,6 +486,7 @@ extension LaTeXReader {
             let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
             let title =
                 document.classInfo.profile.headings.smallCapsSections
+                    || document.classInfo.resolvedStyle?.displayFace == .smallCaps
                 ? LaTeXJournalStyle.smallCaps(heading, in: document) : heading
             return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(title)</h2>\n"
         }
@@ -449,10 +495,7 @@ extension LaTeXReader {
     func externalBibliography(_ name: String) {
         switch name {
         case "setcitestyle":
-            let options = (argument() ?? "").split(separator: ",").map {
-                $0.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            document.bibDatabase.applyNatbibOptions(options)
+            document.bibDatabase.applyNatbibOptions(Self.packageOptions(argument() ?? ""), packageDefaults: false)
         case "bibliographystyle":
             document.bibDatabase.style = (argument() ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         case "nocite":

@@ -120,6 +120,7 @@ struct LaTeXFontSettings {
 
     init(index: InstalledFontIndex) { self.index = index }
 
+    private(set) var mainFontRevision = 0
     private(set) var mainFontName: String?
     var japaneseMainFontName: String? { japaneseMain?.name }
     private(set) var japaneseMain: Selection?
@@ -147,7 +148,10 @@ struct LaTeXFontSettings {
     }
 
     mutating func setRole(_ role: String, selection: Selection) {
-        if role == "main" { mainFontName = selection.name }
+        if role == "main" {
+            mainFontName = selection.name
+            mainFontRevision += 1
+        }
         if role == "cjk-main" { japaneseMain = selection }
         if role == "cjk-sans" { japaneseSans = selection }
         let value = family(selection)
@@ -202,7 +206,10 @@ struct LaTeXFontSettings {
             }
         default: return
         }
-        if role == "main" { mainFontName = family }
+        if role == "main" {
+            mainFontName = family
+            mainFontRevision += 1
+        }
         roleVariables["\(role)-font"] = "\"\(family)\""
     }
 }

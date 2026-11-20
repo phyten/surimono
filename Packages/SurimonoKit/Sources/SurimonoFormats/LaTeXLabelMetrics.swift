@@ -8,6 +8,11 @@ struct LaTeXLabelMetrics {
     let japaneseScale: Double?
 
     init(_ info: LaTeXDocumentClassInfo) {
+        if let style = info.resolvedStyle {
+            baselines = [7, 8, style.notePitch, 10, style.baseline, 14, 16, 20, 23, 28]
+            japaneseScale = nil
+            return
+        }
         let index = info.pointSize - 10
         switch info.profile.typography.baselineTable {
         case .scaled(let magnification, let smallBelow):

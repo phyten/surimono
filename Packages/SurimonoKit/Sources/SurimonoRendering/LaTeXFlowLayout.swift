@@ -1,4 +1,5 @@
 import Foundation
+import SurimonoFormats
 
 /// All measurements use the same top-down CSS pixel coordinates as the capture view.
 struct LaTeXFlowLayout {
@@ -34,6 +35,7 @@ struct LaTeXFlowLayout {
         var leadingAfterHere: CGFloat?
         var leadingAfterHeading: CGFloat?
         var shrinkBefore: CGFloat?
+        var topInset: CGFloat?
         var topSkip: CGFloat?
         var extraAfter: CGFloat?
         var corrections: [Correction]?
@@ -62,7 +64,24 @@ struct LaTeXFlowLayout {
         let position: CGFloat
     }
 
+    struct FloatFractions: Decodable {
+        var top, bottom, text, page: CGFloat
+    }
+
+    struct GlueShrink: Decodable {
+        var note: CGFloat = 0
+        var textFloat: CGFloat = 0
+        var float: CGFloat = 0
+        var inText: CGFloat = 0
+    }
+
     struct Measurement: Decodable {
+        var glueShrink: GlueShrink?
+        var floatFractions: FloatFractions?
+        var firstNotice: Slice?
+        var firstPageExtension: CGFloat?
+        var review: LaTeXResolvedStyle.Review?
+        var reviewLines: [[CGFloat]]?
         var probes: [Probe]?
         var segments: [Segment]
         var notes: [String: Slice]
@@ -85,6 +104,7 @@ struct LaTeXFlowLayout {
         var isBlankVersoOrRecto = false
         var pieces: [Piece] = []
         var rules: [CGRect] = []
+        fileprivate var shrinkFraction: CGFloat = 0
         fileprivate var footers: [Lane: Footer] = [:]
         fileprivate var columnEnds: [Lane: Int] = [:]
         fileprivate var depths: [Lane: CGFloat] = [:]
@@ -188,7 +208,23 @@ struct LaTeXFlowLayout {
 
     private let input: Measurement
     private let full: Lane
-    private let height: CGFloat
+    private let normalHeight: CGFloat
+    private var textFloatSep: CGFloat {
+        max(0, input.textFloatSep - page.shrinkFraction * (input.glueShrink?.textFloat ?? 0))
+    }
+    private var floatSep: CGFloat {
+        max(0, input.floatSep - page.shrinkFraction * (input.glueShrink?.float ?? 0))
+    }
+    private var inTextSep: CGFloat {
+        max(0, input.inTextSep - page.shrinkFraction * (input.glueShrink?.inText ?? 0))
+    }
+    private var noteSkip: CGFloat {
+        max(0, input.noteSkip - page.shrinkFraction * (input.glueShrink?.note ?? 0))
+    }
+    private var height: CGFloat {
+        guard pages.isEmpty, let notice = input.firstNotice else { return normalHeight }
+        return max(1, normalHeight + (input.firstPageExtension ?? 0) - notice.height - textFloatSep)
+    }
     private let deadline: ContinuousClock.Instant?
     private var pages: [Page] = []
     private var page = Page()
@@ -201,7 +237,7 @@ struct LaTeXFlowLayout {
         guard width.isFinite, width > 0, height.isFinite, height > 0,
             spacing.allSatisfy({ $0.isFinite && $0 >= 0 }), input.notes.values.allSatisfy(\.valid)
         else { throw CannotFit() }
-        var layout = Self(input: input, full: Lane(x: 0, width: width), height: height, deadline: deadline)
+        var layout = Self(input: input, full: Lane(x: 0, width: width), normalHeight: height, deadline: deadline)
         for var segment in input.segments where !segment.items.isEmpty {
             try layout.checkBudget()
             guard segment.rule.isFinite, segment.gap.isFinite,
@@ -217,6 +253,22 @@ struct LaTeXFlowLayout {
                         && ($0.slice?.valid ?? ($0.forced != nil))
                 })
             else { throw CannotFit() }
+            if input.glueShrink != nil {
+                // JS has separated these lines despite a fractional overlap of their font
+                // boxes. A common cut preserves their pitch and prevents an internal widow
+                // penalty from propagating through the following paragraph during grouping.
+                for i in segment.items.indices.dropFirst() {
+                    guard let previous = segment.items[i - 1].slice, let next = segment.items[i].slice,
+                        previous.strip == next.strip, previous.start < next.start, previous.end < next.end
+                    else { continue }
+                    let overlap = previous.end - next.start
+                    if overlap > 0 && overlap <= 0.1 {
+                        let cut = next.start + overlap / 2
+                        segment.items[i - 1].slice?.end = cut
+                        segment.items[i].slice?.start = cut
+                    }
+                }
+            }
             segment.items = keptItems(segment.items, capacity: height, inTextSep: input.inTextSep)
             // A clear page drains the old queue before text after the command can enter the new one.
             var start = 0
@@ -337,7 +389,10 @@ struct LaTeXFlowLayout {
     }
 
     private mutating func endPage() {
-        page.finish(height: height, full: full, skip: input.noteSkip, ruleWidth: input.noteRuleWidth ?? 180)
+        page.finish(height: height, full: full, skip: noteSkip, ruleWidth: input.noteRuleWidth ?? 180)
+        if pages.isEmpty, let notice = input.firstNotice {
+            page.pieces.append(Piece(slice: notice, x: 0, y: height + textFloatSep, scale: 1))
+        }
         pages.append(page)
         page = Page()
         top = 0
@@ -354,6 +409,29 @@ struct LaTeXFlowLayout {
             let initialPage = page
             let initialTop = top
             var depth = try fill(segment, cursor: &cursor, limit: height)
+            if input.glueShrink != nil && segment.columns == 1 && cursor.item < segment.items.count {
+                // Retry the same page, including its float and note reservations. Keep the
+                // natural layout unless finite shrink buys another item. Then consume only
+                // the fraction needed for that break, shared across the eligible skips.
+                var best = (page, cursor, depth)
+                var high: CGFloat = 1
+                var low: CGFloat = 0
+                for trial in 0..<9 {
+                    let fraction = trial == 0 ? 1 : (low + high) / 2
+                    page = initialPage
+                    if page.pieces.isEmpty && page.footers.isEmpty { page.shrinkFraction = fraction }
+                    var candidate = initial
+                    let used = try fill(segment, cursor: &candidate, limit: height, shrinkFraction: fraction)
+                    if trial == 0 && candidate.item <= best.1.item { break }
+                    if candidate.item >= best.1.item {
+                        best = (page, candidate, used)
+                        high = fraction
+                    } else {
+                        low = fraction
+                    }
+                }
+                (page, cursor, depth) = best
+            }
             let finished = cursor.item == segment.items.count && cursor.waiting.isEmpty
             if finished && segment.balance && segment.columns > 1 && depth > initialTop {
                 // Replay only the last page. Trials use identical notes, float queues and legal line groups.
@@ -390,7 +468,9 @@ struct LaTeXFlowLayout {
         }
     }
 
-    private mutating func fill(_ segment: Segment, cursor: inout Cursor, limit: CGFloat) throws -> CGFloat {
+    private mutating func fill(_ segment: Segment, cursor: inout Cursor, limit: CGFloat, shrinkFraction: CGFloat = 0)
+        throws -> CGFloat
+    {
         let width = (full.width - CGFloat(segment.columns - 1) * segment.gap) / CGFloat(segment.columns)
         var base = top
         if let first = cursor.waiting.first, isFloatPage(first.item), page.pieces.isEmpty, page.footers.isEmpty,
@@ -437,16 +517,16 @@ struct LaTeXFlowLayout {
                     if y > 0 || !page.pieces.isEmpty || !cursor.waiting.isEmpty { return height }
                     continue
                 }
-                guard let s = item.slice, s.height > 0 else { throw CannotFit() }
+                guard var s = item.slice, s.height > 0 else { throw CannotFit() }
                 if let spec = item.placement {
                     let pinned = spec.contains("H") && !item.wide
                     // Two in-text floats each own their upper and lower intextsep.
-                    let hereSkip = max(0, input.inTextSep - (atColumnTop ? 0 : item.leadingBeforeHere ?? 0))
+                    let hereSkip = max(0, inTextSep - (atColumnTop ? 0 : item.leadingBeforeHere ?? 0))
                     let above =
                         atColumnTop && band.hasFloats
-                        ? input.floatSep - input.textFloatSep : (y == 0 ? 0 : hereSkip)
+                        ? floatSep - textFloatSep : (y == 0 ? 0 : hereSkip)
                     let scale = pinned ? min(1, height / s.height) : 1
-                    let below = min(input.inTextSep, max(0, height - s.height * scale))
+                    let below = min(inTextSep, max(0, height - s.height * scale))
                     let cost = above + s.height * scale + below
                     let queueClear =
                         cursor.waiting.isEmpty && page.footers[lane]?.kinds.contains(item.floatKind ?? "") != true
@@ -506,6 +586,9 @@ struct LaTeXFlowLayout {
                     cursor.item += 1
                     continue
                 }
+                if atColumnTop && !band.hasFloats, let inset = item.topInset, inset > 0, inset < s.height {
+                    s.start += inset
+                }
                 let groupHeight = s.height + (item.corrections?.reduce(0) { $0 + $1.extra } ?? 0)
                 guard groupHeight.isFinite, groupHeight > 0 else { throw CannotFit() }
                 // The Japanese sectioning command starts with a null box at topskip.
@@ -517,14 +600,20 @@ struct LaTeXFlowLayout {
                 if !atColumnTop, let shrink = item.shrinkBefore {
                     // Use only the glue needed to keep the following group on this page.
                     let available = min(limit, height - page.reserved(lane, full: full))
-                    gap -= min(gap, shrink, max(0, y + gap + groupHeight * scale - available))
+                    gap -=
+                        input.glueShrink != nil
+                        ? min(gap, shrink) * shrinkFraction
+                        : min(gap, shrink, max(0, y + gap + groupHeight * scale - available))
                 }
                 let tableHead = atColumnTop ? item.repeatHead : nil
                 gap += tableHead?.height ?? 0
                 let naturalEnd = y + gap + groupHeight * scale
                 let room = min(limit, height - page.reserved(lane, full: full))
-                var shrink = min(
-                    max(0, naturalEnd - room), (item.corrections?.reduce(0) { $0 + $1.shrink } ?? 0) * scale)
+                let internalShrink = (item.corrections?.reduce(0) { $0 + $1.shrink } ?? 0) * scale
+                var shrink =
+                    input.glueShrink != nil
+                    ? internalShrink * shrinkFraction
+                    : min(max(0, naturalEnd - room), internalShrink)
                 if let before = item.tablePreShrink {
                     tableStart = page.pieces.count
                     tableShrink = min(gap, before)
@@ -559,7 +648,8 @@ struct LaTeXFlowLayout {
                 var part = s
                 var target = y + gap
                 for correction in item.corrections ?? [] {
-                    let take = min(shrink, correction.shrink * scale)
+                    let take = min(
+                        shrink, correction.shrink * scale * (input.glueShrink != nil ? shrinkFraction : 1))
                     if correction.extra == 0 && take == 0 { continue }
                     part.end = correction.position
                     if part.height > 0 { page.draw(part, at: target, lane: lane, scale: scale) }
@@ -604,11 +694,11 @@ struct LaTeXFlowLayout {
             return note
         }
         let hasRule = page.footers[footLane]?.notes.isEmpty == false
-        let extra = notes.reduce(0) { $0 + $1.height } + (!notes.isEmpty && !hasRule ? input.noteSkip : 0)
+        let extra = notes.reduce(0) { $0 + $1.height } + (!notes.isEmpty && !hasRule ? noteSkip : 0)
         let nextNotes = (item.followingNotes ?? []).compactMap { input.notes[$0] }
         let nextExtra =
             nextNotes.reduce(0) { $0 + $1.height }
-            + (!nextNotes.isEmpty && notes.isEmpty && !hasRule ? input.noteSkip : 0)
+            + (!nextNotes.isEmpty && notes.isEmpty && !hasRule ? noteSkip : 0)
         // If an oversized group and its notes cannot share even an empty page, allow
         // the normal oversized-block policy to advance instead of retrying forever.
         let keep = (item.slice?.height ?? 0) + following + extra + nextExtra <= height ? following : 0
@@ -640,13 +730,14 @@ struct LaTeXFlowLayout {
         // Bottom floats are already in the footer reservation. Only add the height of their
         // neighbouring notes here; each float (and its separation) is counted exactly once.
         let notes = page.footers.filter { $0.key.overlaps(lane) }.values.map {
-            $0.notes.reduce(CGFloat.zero) { $0 + $1.height } + ($0.notes.isEmpty ? 0 : input.noteSkip)
+            $0.notes.reduce(CGFloat.zero) { $0 + $1.height } + ($0.notes.isEmpty ? 0 : noteSkip)
         }.reduce(0, +)
         let newNotes = item.notes.reduce(CGFloat.zero) { $0 + (input.notes[$1]?.height ?? 0) }
-        let skip = !item.notes.isEmpty && page.footers[footLane]?.notes.isEmpty != false ? input.noteSkip : 0
+        let skip = !item.notes.isEmpty && page.footers[footLane]?.notes.isEmpty != false ? noteSkip : 0
         return usage.total + spanning.total < 3
             && (item.placement?.contains("!") == true
-                || usage.occupied + spanning.occupied + cost + notes + newNotes + skip <= height * 0.8)
+                || usage.occupied + spanning.occupied + cost + notes + newNotes + skip <= height
+                    * (1 - (input.floatFractions?.text ?? 0.2)))
     }
 
     private mutating func placeTops(
@@ -667,18 +758,21 @@ struct LaTeXFlowLayout {
     private mutating func insertTop(
         _ item: Item, slice: Slice, lane: Lane, footLane: Lane, band: inout ColumnTop, y: inout CGFloat, limit: CGFloat
     ) throws -> Bool {
+        var slice = slice
+        if let inset = item.topInset, inset > 0, inset < slice.height { slice.start += inset }
         let use = page.floats[lane] ?? FloatUsage()
         let spanning = lane == full ? FloatUsage() : page.floats[full] ?? FloatUsage()
-        let separation = band.hasFloats ? input.floatSep : 0
-        let cost = slice.height + (band.hasFloats ? separation : input.textFloatSep)
+        let separation = band.hasFloats ? floatSep : 0
+        let cost = slice.height + (band.hasFloats ? separation : textFloatSep)
         guard use.top + spanning.top < 2,
             item.placement?.contains("!") == true
-                || use.topHeight + spanning.topHeight + separation + slice.height <= height * 0.7,
+                || use.topHeight + spanning.topHeight + separation + slice.height <= height
+                    * (input.floatFractions?.top ?? 0.7),
             allowsFloat(item, cost: cost, lane: lane, footLane: footLane),
             page.footers[lane]?.kinds.contains(item.floatKind ?? "") != true,
             try reserve(item, in: lane, footLane: footLane, end: y + cost, limit: limit)
         else { return false }
-        let floatY = band.textStart + (band.hasFloats ? separation - input.textFloatSep : 0)
+        let floatY = band.textStart + (band.hasFloats ? separation - textFloatSep : 0)
         for i in band.index..<page.pieces.count { page.pieces[i].y += cost }
         page.pieces.insert(Piece(slice: slice, x: lane.x, y: floatY, scale: 1), at: band.index)
         band.index += 1
@@ -696,13 +790,13 @@ struct LaTeXFlowLayout {
     private mutating func placeBottom(
         _ item: Item, slice: Slice, spec: String, segment: Segment, lane: Lane, y: CGFloat, limit: CGFloat
     ) throws -> Bool {
-        let cost = slice.height + input.textFloatSep
+        let cost = slice.height + textFloatSep
         guard page.floats[lane, default: FloatUsage()].bottom < 1,
-            spec.contains("!") || slice.height <= height * 0.3,
+            spec.contains("!") || slice.height <= height * (input.floatFractions?.bottom ?? 0.3),
             allowsFloat(item, cost: cost, lane: lane, footLane: segment.pageNotes ? full : lane),
             try reserve(item, in: lane, footLane: segment.pageNotes ? full : lane, end: y + cost, limit: limit)
         else { return false }
-        page.footers[lane, default: Footer()].floats.append((slice, input.textFloatSep))
+        page.footers[lane, default: Footer()].floats.append((slice, textFloatSep))
         page.footers[lane, default: Footer()].height += cost
         page.footers[lane, default: Footer()].kinds.insert(item.floatKind ?? "")
         page.floats[lane, default: FloatUsage()].bottom += 1
@@ -720,7 +814,7 @@ struct LaTeXFlowLayout {
         {
             let lane = first.item.wide ? full : Lane(x: 0, width: width)
             let scale = min(1, height / s.height)
-            let y = used + (page.pieces.isEmpty ? 0 : input.floatSep)
+            let y = used + (page.pieces.isEmpty ? 0 : floatSep)
             guard
                 try reserve(
                     first.item, in: lane, footLane: segment.pageNotes ? full : lane,
@@ -739,7 +833,9 @@ struct LaTeXFlowLayout {
     private func isFloatPage(_ item: Item) -> Bool {
         guard let spec = item.placement, let s = item.slice else { return false }
         let bottomOnly = spec.contains("b") && !spec.contains("t") && !spec.contains("h") && !item.wide
-        return !spec.contains(where: { "htbH".contains($0) }) || s.height + input.textFloatSep > height
-            || !spec.contains("!") && (s.height > height * 0.5 || bottomOnly && s.height > height * 0.3)
+        return !spec.contains(where: { "htbH".contains($0) }) || s.height + textFloatSep > height
+            || !spec.contains("!")
+                && (s.height > height * (input.floatFractions?.page ?? 0.5)
+                    || bottomOnly && s.height > height * (input.floatFractions?.bottom ?? 0.3))
     }
 }

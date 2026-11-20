@@ -3,6 +3,7 @@ import Foundation
 /// The document's intended measure is independent of the stock and printable area chosen in Surimono.
 struct LaTeXPageSettings {
     private var stock: (width: Double, height: Double)?
+    private var classStock: (width: Double, height: Double)?
     private var paperWidth: Double?
     private var paperHeight: Double?
     private var landscape = false
@@ -55,13 +56,24 @@ struct LaTeXPageSettings {
     }
 
     func pageBox(for info: LaTeXDocumentClassInfo) -> LaTeXPageBox {
-        let stock = self.stock ?? info.profile.page.defaultPaper.millimetres
+        let stock =
+            self.stock ?? info.resolvedStyle?.paper.millimetres ?? classStock
+            ?? info.profile.page.defaultPaper.millimetres
         let texPointsPerMM = 72.27 / 25.4
         let paperW = (paperWidth ?? (landscape ? stock.1 : stock.0)) * texPointsPerMM
         let paperH = (paperHeight ?? (landscape ? stock.0 : stock.1)) * texPointsPerMM
         let twoSided = self.twoSided ?? info.profile.page.twoSidedBox
         var box = LaTeXClassBox.defaults(
             info: info, paperWidth: paperW, paperHeight: paperH, twoSided: twoSided)
+        if let style = info.resolvedStyle {
+            box.width = style.textWidthInches * 72.27
+            box.height = style.textHeightInches * 72.27
+            box.left = (paperW - box.width) / 2
+            box.top = style.textTop * 72.27 / 72
+            box.headHeight = 12
+            box.headSep = style.headSep
+            box.footSkip = 30
+        }
         if usesGeometry {
             let h = horizontal.resolve(stock: paperW, startFraction: twoSided ? 0.4 : 0.5)
             box.left = h.start
@@ -141,6 +153,29 @@ struct LaTeXPageSettings {
             classSkips["belowcaptionskip"] = skip
         case .inherited: break
         }
+        if let style = info.resolvedStyle {
+            for (key, value) in [
+                ("parindent", 0), ("parskip", style.paragraphSkip), ("outer-parsep", 2), ("inner-parsep", 1),
+                ("note-pitch", style.notePitch), ("skip-footins", 9), ("footnote-rule-width", 144),
+                ("abovecaptionskip", style.captionSkip), ("belowcaptionskip", 0),
+            ] {
+                classSkips[key] = "calc(\(Self.number(value)) * var(--tex-pt))"
+            }
+            for (key, value) in [
+                ("top-fraction", style.maximumTopFloatFraction), ("bottom-fraction", style.maximumBottomFloatFraction),
+                ("text-fraction", style.minimumTextFraction), ("float-page-fraction", style.floatPageFraction),
+            ] {
+                classSkips[key] = Self.number(value)
+            }
+            if fonts.mainFontName == "Times New Roman" {
+                classSkips["word-shrink"] = "0.06em"
+                if style.displayFace == .smallCaps {
+                    // The OT1 Times small-cap virtual face has wider advances than scaled Roman capitals.
+                    classSkips["small-caps-width"] = "1.078"
+                }
+            }
+            classSkips["note-size"] = "calc(\(Self.number(style.noteSize)) * var(--tex-pt))"
+        }
         var values = classSkips.merging(variables) { _, assignment in assignment }.merging(fonts.roleVariables) {
             _, font in font
         }
@@ -204,6 +239,8 @@ struct LaTeXPageSettings {
         }
         // The production classes set their own stock with geometry after processing class options.
         if let forced = info.profile.page.forcedPaper { stock = forced.millimetres }
+        classStock = stock
+        stock = nil
     }
 
     mutating func readOptions(_ raw: String, geometry: Bool, japaneseStock: Bool = false, keyedPaper: Bool = false) {

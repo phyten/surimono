@@ -29,6 +29,78 @@ struct LaTeXFlowLayoutTests {
                 noteSkip: 5, textFloatSep: 4, floatSep: 2, inTextSep: 4), width: 100, height: 100)
     }
 
+    @Test("行枠がわずかに重なる脚注段落の改ページ禁止を次の節に持ち越さない")
+    func fractionalOverlapBeforeHeading() throws {
+        func line(_ start: CGFloat, _ end: CGFloat, paragraph: Int, heading: Bool = false, notes: [String] = [])
+            -> Flow.Item
+        {
+            .init(
+                slice: .init(strip: 0, start: start, end: end, width: 100), notes: notes, paragraph: paragraph,
+                heading: heading)
+        }
+        let rows = [
+            item(9, 42), line(0, 10, paragraph: 1), line(9.96, 20, paragraph: 1),
+            line(19.96, 30, paragraph: 1, notes: ["a"]), line(32, 44, paragraph: 0, heading: true),
+            line(45, 55, paragraph: 2), line(55, 65, paragraph: 2), line(65, 75, paragraph: 2),
+        ]
+        let measure = Flow.Measurement(
+            glueShrink: .init(), segments: [segment(rows)],
+            notes: ["a": .init(strip: 8, start: 0, end: 10, width: 100)], noteSkip: 3, textFloatSep: 4, floatSep: 2,
+            inTextSep: 4)
+        let pages = try Flow.pages(measure, width: 100, height: 100)
+        #expect(pages.count == 2)
+        #expect(pages[0].pieces.map(\.slice.strip) == [9, 0, 8])
+        #expect(pages[0].pieces[1].slice.end == 30)
+        #expect(pages[1].pieces.first?.slice.start == 32)
+    }
+
+    @Test("頁の前半の糊も使って次の段落を収め、縮められる量を超えたときは送る")
+    func finitePageShrink() throws {
+        var second = item(2, 20)
+        var third = item(3, 18)
+        second.gap = 4
+        second.shrinkBefore = 2
+        third.gap = 6
+        third.shrinkBefore = 3
+        for (tail, pages) in [(12, 1), (13, 2)] {
+            let measurement = Flow.Measurement(
+                glueShrink: .init(),
+                segments: [segment([item(1, 45), second, third, item(4, CGFloat(tail))])], notes: [:],
+                noteSkip: 5, textFloatSep: 4, floatSep: 2, inTextSep: 4)
+            let result = try Flow.pages(measurement, width: 100, height: 100)
+            #expect(result.count == pages)
+            #expect(result.flatMap(\.pieces).allSatisfy { $0.scale == 1 })
+            #expect(result[0].pieces[1].y == (tail == 12 ? 47 : 49))
+        }
+    }
+
+    @Test("脚注と下端通知の有限の糊を使っても通知の位置を保つ")
+    func shrinkFooterSkips() throws {
+        let measurement = Flow.Measurement(
+            glueShrink: .init(note: 2, textFloat: 4),
+            firstNotice: .init(strip: 77, start: 0, end: 10, width: 100), firstPageExtension: 10,
+            segments: [segment([item(1, 50, notes: ["a"]), item(2, 23)])],
+            notes: ["a": .init(strip: 99, start: 0, end: 20, width: 100)],
+            noteSkip: 9, textFloatSep: 4, floatSep: 2, inTextSep: 4)
+        let result = try Flow.pages(measurement, width: 100, height: 100)
+        #expect(result.count == 1)
+        #expect(result.first?.pieces.map(\.slice.strip) == [1, 2, 99, 77])
+        #expect(result.first?.pieces.last?.y == 100)
+    }
+
+    @Test("初頁だけを延長し、脚注の後ろに余白を確保して提出通知を置く")
+    func firstPageNotice() throws {
+        let measurement = Flow.Measurement(
+            firstNotice: .init(strip: 77, start: 0, end: 10, width: 100), firstPageExtension: 22,
+            segments: [segment([item(1, 81, notes: ["a"]), item(2, 92)])],
+            notes: ["a": .init(strip: 99, start: 0, end: 20, width: 100)],
+            noteSkip: 5, textFloatSep: 4, floatSep: 2, inTextSep: 4)
+        let output = try Flow.pages(measurement, width: 100, height: 100)
+        #expect(output.map { $0.pieces.map(\.slice.strip) } == [[1, 99, 77], [2]])
+        #expect(output.first?.pieces.last?.y == 112)
+        #expect(output.first?.pieces.first(where: { $0.slice.strip == 99 })?.end == 108)
+    }
+
     @Test("章起こしは浮動体を送り出してから片側にだけ白ページを挟む")
     func facingOpenings() throws {
         let right = Flow.Item(forced: "right")

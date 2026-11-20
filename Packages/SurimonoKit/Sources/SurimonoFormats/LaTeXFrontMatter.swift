@@ -347,7 +347,10 @@ extension LaTeXReader {
         case "abstract":
             let previous = front.readingAbstract
             front.readingAbstract = true
-            let heading = captionName("abstractname")
+            let label = captionName("abstractname")
+            let heading =
+                document.classInfo.resolvedStyle?.displayFace == .smallCaps
+                ? LaTeXJournalStyle.smallCaps(label, in: document) : label
             let disposition = frontDispositionAttribute
             let content = blocks(body)
             let html =
@@ -395,7 +398,7 @@ extension LaTeXReader {
         document.makingTitle = true
         defer { document.makingTitle = false }
         let info = document.classInfo
-        let pageStyle = info.profile.titleBlock.pageStyle
+        let pageStyle = info.resolvedStyle?.firstPageNotice != nil ? "empty" : info.profile.titleBlock.pageStyle
         let titleStyle = pageStyle.map { " data-latex-page-action=\"thispagestyle\" data-value=\"\($0)\"" } ?? ""
         let span = document.classInfo.columns > 1 ? " data-latex-wide" : ""
         var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)\(frontDispositionAttribute)>\n"
@@ -403,10 +406,33 @@ extension LaTeXReader {
             let titleHTML = inline(title)
             document.titleHTML = titleHTML
             let notes = front.titleNotes.map { inline("\\thanks{\($0)}") }.joined()
-            html += "<h1 class=\"latex-title latex-front-title\">\(titleHTML)\(notes)</h1>\n"
+            let display =
+                info.resolvedStyle?.displayFace == .smallCaps
+                ? LaTeXJournalStyle.smallCaps(titleHTML, in: document) : titleHTML
+            html += "<h1 class=\"latex-title latex-front-title\">\(display)\(notes)</h1>\n"
         }
         if let subtitle = front.subtitle {
             html += "<p class=\"latex-front-subtitle\">\(inline(subtitle))</p>\n"
+        }
+        if let style = info.resolvedStyle {
+            let names = style.anonymousAuthor ?? front.authors.map(\.name).joined(separator: #" \And "#)
+            for row in LaTeXLexer.split(names, at: [#"\AND"#]) {
+                let blocks = LaTeXLexer.split(row, at: [#"\And"#]).map { block in
+                    let lines = LaTeXLexer.split(block, at: [#"\\"#]).map {
+                        $0.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }.filter { !$0.isEmpty }
+                    let cells = lines.enumerated().map { index, line in
+                        index == 0 ? "<strong>\(inline(line))</strong>" : inline(line)
+                    }
+                    return "<span class=\"latex-front-author\">\(cells.joined(separator: "<br>"))</span>"
+                }
+                html += "<div class=\"latex-author-row\">\(blocks.joined())</div>\n"
+            }
+            if let notice = style.firstPageNotice {
+                html += "<template data-latex-first-notice=\"\(HTML.escape(notice))\"></template>"
+            }
+            appendBlock(html + "</header>\n" + document.placeholder("F", 2))
+            return
         }
         var marks: [String: String] = [:]
         for (index, affiliation) in front.affiliations.enumerated()

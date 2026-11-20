@@ -146,7 +146,8 @@ enum PageFurnitureDrawing {
                 } ?? (centerY(row.height) - (row.ascent - row.descent) / 2)
             if rule > 0 {
                 let footGap = (latexFooter?.pointSize ?? 10) * 0.36 * scale
-                let edge = above ? y - row.descent - rule : y + row.ascent + footGap
+                let headDepth = latexFooter?.headerRuleDepth.map { $0 * scale } ?? row.descent
+                let edge = above ? y - headDepth - rule : y + row.ascent + footGap
                 drawRule(from: left, to: right, center: edge + rule / 2, thickness: rule, context: context)
             }
             for (index, line) in row.lines.enumerated() {

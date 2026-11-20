@@ -4,9 +4,10 @@ import Foundation
 /// The app still chooses the output stock. The document's stock determines its intended margins.
 public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package let profile: LaTeXClassProfile
+    package var resolvedStyle: LaTeXResolvedStyle?
     public var isJapanese: Bool { profile.typography.usesJapaneseStyle }
     var usesAMSA4Layout: Bool { profile.page.usesAMSA4Layout }
-    var hidesTitlePageNumber: Bool { profile.pageStyle.hidesTitlePageNumber }
+    var hidesTitlePageNumber: Bool { resolvedStyle?.firstPageNotice != nil || profile.pageStyle.hidesTitlePageNumber }
     public var hasChapters: Bool { profile.structure.hasChapters }
     public internal(set) var styleVariables = ""
     public internal(set) var localFontFaces = ""
@@ -21,7 +22,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     package var headerStrutDepth: Double = 0
     // setspace indexes its compensation by @ptsize, which jsclasses holds at zero for all magnifications.
     var spacingPointSize: Int { profile.typography.spacingDesignSize ?? pointSize }
-    public var pointSize: Int { profile.typography.pointSize }
+    public var pointSize: Int { resolvedStyle == nil ? profile.typography.pointSize : 10 }
     public internal(set) var mainLanguage: String
     var resolvedPageBox: LaTeXPageBox?
     public var pageBox: LaTeXPageBox { resolvedPageBox ?? LaTeXPageSettings().pageBox(for: self) }
@@ -46,7 +47,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
 
     // Equality describes the current typesetting state. Later commands can erase differences between class options.
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
+        lhs.resolvedStyle == rhs.resolvedStyle && lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
             && lhs.profile.headings.endDots == rhs.profile.headings.endDots
             && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese && lhs.usesAMSA4Layout == rhs.usesAMSA4Layout
             && lhs.hidesTitlePageNumber == rhs.hidesTitlePageNumber && lhs.hasChapters == rhs.hasChapters

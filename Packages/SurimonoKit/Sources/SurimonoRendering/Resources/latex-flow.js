@@ -45,7 +45,7 @@ const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
 // listings. Lay the Japanese grid out at finer resolution and undo that enlargement
 // before measuring or capturing. One PDF point still occupies the same viewport width.
 const fineGrid = body.hasAttribute('data-latex-js-toc') && !!getComputedStyle(body).getPropertyValue('--js-pt').trim();
-if (fineGrid) {
+if (fineGrid || body.hasAttribute('data-latex-style')) {
     body.style.setProperty('zoom', '32', 'important');
     body.style.setProperty('transform', 'scale(0.03125)', 'important');
     body.style.setProperty('transform-origin', 'top left', 'important');
@@ -76,8 +76,11 @@ const zw = fineGrid ? length('zw', 0) / zoom : 0;
 const jsPoint = fineGrid ? length('js-point', 0) : 0;
 const displayShrink = fineGrid ? length('display-shrink', 0) : 0;
 const defaultGap = length('columnsep', 12.4533);
+probe.style.setProperty('width', 'var(--tex-pt)', 'important');
+const texPoint = probe.getBoundingClientRect().width * unit;
 probe.style.setProperty('width', 'var(--tex-baseline)', 'important');
-const normalPitch = fineGrid ? probe.getBoundingClientRect().width * unit / zoom : 0;
+const baseline = probe.getBoundingClientRect().width * unit;
+const normalPitch = fineGrid ? baseline / zoom : 0;
 probe.remove();
 const defaults = {columns:1, gap:defaultGap, rule:0, balance:false, pageNotes:false};
 let segment, run;
@@ -247,6 +250,15 @@ for (const seg of segments) {
         }
     }
 }
+const noticeText = body.querySelector('template[data-latex-first-notice]')?.dataset.latexFirstNotice;
+let noticeBox;
+if (noticeText) {
+    noticeBox = strip(width);
+    const notice = document.createElement('div');
+    notice.className = 'latex-first-notice';
+    notice.textContent = noticeText;
+    noticeBox.append(notice);
+}
 // Independently captured notes need the same source baseline phase. A single grid
 // cell gives each strut the same origin without stretching shorter notes to its height.
 if (pendingMeasurements.length && ['article','report','book'].includes(body.dataset.latexClass)) {
@@ -286,6 +298,66 @@ if (fineGrid) {
 }
 if (seenNotes.size !== noteBodies.size) throw Error('Unpaired LaTeX footnote');
 await Promise.all([document.fonts.ready, ...[...body.querySelectorAll('img')].map(img => img.decode().catch(() => {}))]);
+// Browser justification stretches spaces but does not try TeX's finite interword
+// shrink before wrapping. Use the smallest trial that saves a line in a paragraph.
+if (body.hasAttribute('data-latex-style') && getComputedStyle(body).getPropertyValue('--latex-word-shrink').trim()) {
+    const paragraphs = [...body.querySelectorAll('p')].filter(p =>
+        !p.closest('header,figure,table,li,.footnotes,.latex-runin') && !p.matches('.abstract-title') &&
+        ['normal','0px'].includes(getComputedStyle(p).wordSpacing) && getComputedStyle(p).textAlign === 'justify');
+    let pending = paragraphs.map(p => ({p, height:p.getBoundingClientRect().height,
+        halfLine:parseFloat(getComputedStyle(p).lineHeight) * zoom / unit / 2}));
+    for (const fraction of [.25,.5,.75,1]) {
+        for (const {p} of pending) p.style.wordSpacing = 'calc(-' + fraction + ' * var(--latex-word-shrink))';
+        pending = pending.filter(({p,height,halfLine}) => p.getBoundingClientRect().height > height - halfLine);
+    }
+    for (const {p} of pending) p.style.removeProperty('word-spacing');
+}
+// A shallow inline SVG can extend its line's descent a fraction past the body
+// strut. Remove that excess from the following skip; tall displays keep their depth.
+if (body.hasAttribute('data-latex-style')) {
+    for (const math of body.querySelectorAll('.math-block:has(+ p) > .math-display:has(> svg:only-child)')) {
+        const block = math.parentElement, p = block.nextElementSibling;
+        const mark = baselineProbe(), next = baselineProbe();
+        math.append(mark); p.prepend(next);
+        const distance = (next.getBoundingClientRect().top - mark.getBoundingClientRect().top) * unit / zoom;
+        mark.remove(); next.remove();
+        const margin = parseFloat(getComputedStyle(block).marginBottom);
+        const excess = distance - margin - parseFloat(getComputedStyle(p).lineHeight);
+        if (excess > 0 && excess <= texPoint / zoom) block.style.marginBottom = Math.max(0,margin-excess) + 'px';
+    }
+}
+// A mixed Latin label and Japanese text can contribute different ascents and
+// descents even to a trimmed list item. Use the two actual baselines rather
+// than charging the fallback font's extra strut to the class's itemsep.
+if (getComputedStyle(body).getPropertyValue('--latex-measure-enumerate-pitch').trim() === '1') {
+    for (const list of body.querySelectorAll('ol.latex-enumerate:not(li ol)')) {
+        const items = [...list.children].filter(li => li.matches('li:has(> .item-label)') &&
+            !li.querySelector(':scope > :is(p,ul,ol,div,table,figure,pre,blockquote)'));
+        if (!items.length) continue;
+        const probes = items.map(li => {
+            const head = baselineProbe(), tail = baselineProbe();
+            li.querySelector(':scope > .item-label').after(head);
+            li.append(tail);
+            return {li,head,tail};
+        });
+        const metrics = probes.map(({li,head,tail}) => {
+            const css = getComputedStyle(li);
+            const cssY = el => el.getBoundingClientRect().top * unit / zoom;
+            return {li, first:cssY(head), last:cssY(tail), top:cssY(li), pitch:parseFloat(css.lineHeight),
+                margin:parseFloat(css.marginBlockStart), padding:parseFloat(css.paddingBlockStart),
+                depth:.12 * parseFloat(css.fontSize) * parseFloat(css.getPropertyValue('--latex-jfm-scale'))};
+        });
+        for (const {head,tail} of probes) { head.remove(); tail.remove(); }
+        for (const [i,m] of metrics.entries()) {
+            if (i && items[i-1].nextElementSibling === m.li) {
+                const delta = m.pitch + m.margin - (m.first - metrics[i-1].last);
+                m.li.style.marginBlockStart = (m.margin + delta) + 'px';
+            } else if (!i && list.matches('[data-flow-after-float] > ol:first-child') && Number.isFinite(m.depth)) {
+                m.li.style.paddingBlockStart = Math.max(0, m.padding + m.pitch - m.depth - (m.first - m.top)) + 'px';
+            }
+        }
+    }
+}
 // Fixed-size graphics and tables can be wider than the newly established column measure.
 const fits = [];
 for (const el of body.querySelectorAll('img,svg,table,.latex-graphic-box')) {
@@ -603,6 +675,42 @@ function tableItems(box, table) {
     }
     return items;
 }
+function baselineProbe() {
+    const marker = document.createElement('i');
+    marker.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;padding:0;margin:0;border:0';
+    return marker;
+}
+const conferencePage = body.hasAttribute('data-latex-style');
+// Only a transition between blocks owns glue. Paragraph glue is rigid in both kits.
+function conferenceShrink(previous, current) {
+    if (!previous || !conferencePage) return 0;
+    const block = el => el.closest('.math-block,.latex-runin,h2,h3,h4,li,p');
+    const a = block(previous.element), b = block(current.element);
+    if (!a || !b || a === b) return 0;
+    // The abstract body is a quote list entered in vertical mode (topsep + partopsep).
+    const quoteSkip = 2.5 * texPoint;
+    if (a.matches('.abstract-title') && b.closest('.abstract')) return quoteSkip;
+    if (a.closest('.abstract') && !b.closest('.abstract')) {
+        return quoteSkip + (b.matches('h2,h3,h4') ? .9 * texPoint : 0);
+    }
+    if (a.matches('.math-block') || b.matches('.math-block')) return 5 * texPoint;
+    const before = a.closest('li'), after = b.closest('li');
+    if (before !== after) {
+        if ((before || after).parentElement.matches('.latex-bibliography')) {
+            return (before && after ? 2 : a.matches('h2') ? .9 : 0) * texPoint;
+        }
+        // A list boundary has topsep minus 2pt, consecutive items have
+        // itemsep and parsep minus 0.5pt each.
+        const list = (after || before).parentElement;
+        if (before?.parentElement === after?.parentElement) {
+            const depth = list.closest('li') ? .5 : 1;
+            return depth * texPoint;
+        }
+        return (list.closest('li') ? .5 : 2) * texPoint;
+    }
+    if (a.matches('h2') || !a.matches('h3,h4') && b.matches('h2,h3,h4,.latex-runin')) return .9 * texPoint;
+    return 0;
+}
 function lines(box, endsPage) {
     // A title page fits on its final baseline. Its final descent can paint into the
     // margin through captureRects, just like ink from a raised box. Let long titles split.
@@ -655,6 +763,14 @@ function lines(box, endsPage) {
     const rows = [];
     for (const b of bands.sort((a,b) => a.start - b.start)) {
         const last = rows.at(-1);
+        // With tight leading, adjacent lines of the same paragraph can have overlapping
+        // font rectangles even where the ink is clear. Give them a common cut so the
+        // widow/orphan rules can still break a long paragraph at a real line boundary.
+        if (conferencePage && b.para && last?.para === b.para && b.start < last.end &&
+            last.end - b.start <= .08 * Math.min(b.end - b.start, last.end - last.start) &&
+            b.start > last.start && b.end > last.end) {
+            last.end = b.start = (last.end + b.start) / 2;
+        }
         if (last && b.start < last.end - 0.1) {
             if (b.end >= last.end) last.shrinkAfter = b.shrinkAfter;
             last.end = Math.max(last.end,b.end); last.extra += b.extra; last.heading ||= b.heading; last.discard &&= b.discard;
@@ -678,8 +794,17 @@ function lines(box, endsPage) {
     rows[0].start = Math.max(0, Math.min(rows[0].start, (first.getBoundingClientRect().top + scrollY)*unit-origin));
     const last = rows.at(-1);
     if (!(endsPage && last.shrinkAfter > 0)) last.end = Math.max(last.end, whole(box).end);
-    return rows.map((r,i) => ({slice:slice(box,r.start,r.end), notes:[...r.ids], wide:false,
-        gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, shrinkBefore:((rows[i-1]?.shrinkAfter || 0) + r.shrinkAbove) || undefined, discardable:r.discard, extraAfter:r.extra,
+    const firstHeadingInset = r => {
+        const h = conferencePage && r.element.closest('h2');
+        if (!h || h.closest('header')) return undefined;
+        const marker = baselineProbe();
+        h.prepend(marker);
+        const baseline = (marker.getBoundingClientRect().bottom + scrollY)*unit-origin;
+        marker.remove();
+        return Math.max(0, baseline - r.start - 10 * texPoint);
+    };
+    return rows.map((r,i) => ({slice:slice(box,r.start,r.end), topInset:firstHeadingInset(r), notes:[...r.ids], wide:false,
+        gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, shrinkBefore:((rows[i-1]?.shrinkAfter || 0) + r.shrinkAbove + conferenceShrink(rows[i-1],r)) || undefined, discardable:r.discard, extraAfter:r.extra,
         topSkip:r.element.closest('[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined}));
 }
 // A TeX paragraph ends at the deepest glyph on its final line. Its HTML line box includes
@@ -775,7 +900,20 @@ for (const seg of segments) {
             }
             return rows;
         }
-        if (item.box) { item.slice = whole(item.box); delete item.box; }
+        if (item.box) {
+            item.slice = whole(item.box);
+            const drawing = conferencePage && item.box.querySelector(':scope > figure > p:first-child');
+            const first = drawing?.firstElementChild;
+            // Inline artwork inherits an empty text strut. At the top of a page its
+            // first graphic starts at the margin; internal distances stay intact.
+            const graphic = '.latex-rule,img,svg,.latex-graphic-box';
+            if (first?.matches(graphic) && [...drawing.childNodes].every(n =>
+                n.nodeType === Node.TEXT_NODE ? !n.textContent.trim() : n.nodeType === Node.ELEMENT_NODE &&
+                    n.matches(graphic + ',.latex-vspace,br'))) {
+                item.topInset = Math.max(0, (first.getBoundingClientRect().top + scrollY)*unit - origins[item.slice.strip].y);
+            }
+            delete item.box;
+        }
         return [item];
     });
 }
@@ -788,4 +926,55 @@ for (const a of body.querySelectorAll('[data-latex-page-target],[data-latex-prob
     probes.push({index:a.hasAttribute('data-flow-sample-place') ? -1 : Number(a.dataset.latexPageTarget ?? a.dataset.latexProbe), strip,
         position:(a.getBoundingClientRect().top + scrollY)*unit - origins[strip].y});
 }
-return JSON.stringify({segments,notes,noteSkip,noteRuleWidth,textFloatSep,floatSep,inTextSep,probes});
+// The ruler is independent of prose. Linenumbers follow the actual wrapped text ranges.
+// Measure a font's baseline against a zero-height box in an isolated sample; inserting
+// markers into words of the live paragraph would change shaping and PDF selection.
+const review = body.dataset.latexReview;
+let reviewLines;
+if (review === 'textLines') {
+    const offsets = new Map();
+    const sample = document.createElement('span'), mark = document.createElement('i');
+    sample.style.cssText = 'position:absolute;white-space:nowrap;line-height:normal';
+    mark.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    const glyph = document.createTextNode('M');
+    sample.append(glyph, mark); body.append(sample);
+    const glyphRange = document.createRange();
+    glyphRange.selectNodeContents(glyph);
+    reviewLines = strips.map(box => {
+        const ys = [], origin = origins[+box.dataset.flowStrip].y;
+        const tree = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+        for (let n = tree.nextNode(); n; n = tree.nextNode()) {
+            const el = n.parentElement;
+            if (!n.data.trim() || !el.closest('p,li,h1,h2,h3,h4,h5,h6,.latex-runin') ||
+                el.closest('header,.abstract-title,.math-block,figure,table,.footnotes,sup,sub,svg,style,template')) continue;
+            const css = getComputedStyle(el);
+            const font = css.fontStyle + ' ' + css.fontWeight + ' ' + css.fontSize + ' ' + css.fontFamily;
+            if (!offsets.has(font)) {
+                sample.style.font = font;
+                offsets.set(font, (mark.getBoundingClientRect().bottom - glyphRange.getBoundingClientRect().top) * unit);
+            }
+            range.selectNodeContents(n);
+            for (const r of range.getClientRects()) {
+                budget();
+                if (r.width && r.height) ys.push((r.top + scrollY) * unit - origin + offsets.get(font));
+            }
+        }
+        ys.sort((a,b) => a-b);
+        return ys.filter((y,i) => !i || y - ys[i-1] > 1);
+    });
+    sample.remove();
+}
+let floatFractions;
+if (body.hasAttribute('data-latex-style')) {
+    const css = getComputedStyle(body);
+    const fraction = key => Number(css.getPropertyValue('--latex-' + key));
+    floatFractions = {top:fraction('top-fraction'), bottom:fraction('bottom-fraction'),
+        text:fraction('text-fraction'), page:fraction('float-page-fraction')};
+}
+// A document may replace a skip with a rigid length. Only the kits' default
+// lengths carry the corresponding article glue in this measurement.
+const shrink = (length, natural, minus) => Math.abs(length - natural * texPoint) < .1 ? minus * texPoint : 0;
+const glueShrink = conferencePage ? {note:shrink(noteSkip,9,2), textFloat:shrink(textFloatSep,20,4),
+    float:shrink(floatSep,12,2), inText:shrink(inTextSep,12,2)} : undefined;
+return JSON.stringify({segments,notes,glueShrink,floatFractions,noteSkip,noteRuleWidth,textFloatSep,floatSep,inTextSep,probes,review,reviewLines,
+    firstNotice:noticeBox ? whole(noticeBox) : undefined, firstPageExtension:noticeBox ? 2 * baseline : undefined});

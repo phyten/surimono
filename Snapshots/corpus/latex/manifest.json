@@ -1676,5 +1676,65 @@
    "appendix",
    "backmatter"
   ]
+ },
+ {
+  "id": "113",
+  "dir": "113-style-neurips",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 3,
+  "features": [
+   "external-style-kit",
+   "submission",
+   "natbib"
+  ]
+ },
+ {
+  "id": "114",
+  "dir": "114-style-neurips-final",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 3,
+  "features": [
+   "external-style-kit",
+   "final",
+   "natbib"
+  ]
+ },
+ {
+  "id": "117",
+  "dir": "117-style-iclr",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 3,
+  "features": [
+   "external-style-kit",
+   "submission",
+   "natbib"
+  ]
+ },
+ {
+  "id": "118",
+  "dir": "118-style-iclr-final",
+  "title": "Measuring Folded Card Spacers for Model Rails",
+  "category": "Conference styles",
+  "engine": "pdflatex",
+  "compiles": false,
+  "reason_if_not": "Requires the official conference style kit beside the document.",
+  "pages": 3,
+  "features": [
+   "external-style-kit",
+   "final",
+   "natbib"
+  ]
  }
 ]
