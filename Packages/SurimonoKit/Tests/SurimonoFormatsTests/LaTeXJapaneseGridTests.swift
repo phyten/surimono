@@ -140,7 +140,8 @@ struct LaTeXJapaneseGridTests {
     @Test("和文プリセットを選び個別の書体指定で役割ごとに上書きできる")
     func faces() {
         let info = LaTeXConverter.documentClassInfo(
-            #"\documentclass{ltjsarticle}\usepackage[noto-otf]{luatexja-preset}\setsansjfont{Hiragino Sans}\setmonojfont{Example Mono}"#
+            #"\documentclass{ltjsarticle}\usepackage[noto-otf]{luatexja-preset}\setsansjfont{Hiragino Sans}\setmonojfont{Example Mono}"#,
+            fontIndex: .testInventory
         )
         #expect(info.localFontFaces.contains(#"local("Noto Serif CJK JP")"#))
         #expect(info.localFontFaces.contains(#"local("Hiragino Sans")"#))
@@ -155,7 +156,8 @@ struct LaTeXJapaneseGridTests {
             (#"\setsansjfont[BoldFont=YuGo-Bold]{YuGothic}"#, "YuGo-Bold"),
             (#"\setmainjfont[BoldFont=HiraMinProN-W6]{HiraMinProN-W3}\setsansjfont{YuGothic}"#, "HiraMinProN-W6"),
         ] {
-            let info = LaTeXConverter.documentClassInfo(#"\documentclass{ltjsreport}"# + options)
+            let info = LaTeXConverter.documentClassInfo(
+                #"\documentclass{ltjsreport}"# + options, fontIndex: .testInventory)
             let rule = info.localFontFaces.components(separatedBy: "\n").first {
                 $0.contains("\"Surimono JS Mincho\"") && $0.contains("font-weight: bold")
             }

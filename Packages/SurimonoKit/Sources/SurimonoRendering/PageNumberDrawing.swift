@@ -33,13 +33,16 @@ enum PageFurnitureDrawing {
 
     private static func footerFont(_ style: PageFurniture.LaTeXFooter, scale: CGFloat) -> NSFont {
         let size = style.pointSize * scale
-        if let name = style.fontName, let font = NSFont(name: name, size: size) { return font }
+        if let name = style.fontName, let font = InstalledFontIndex.systemFont(named: name, size: size) as NSFont? {
+            return font
+        }
         if let computerModern, let provider = CGDataProvider(data: computerModern as CFData),
             let font = CGFont(provider)
         {
             return CTFontCreateWithGraphicsFont(font, size, nil, nil) as NSFont
         }
-        return NSFont(name: "Times New Roman", size: size) ?? NSFont.systemFont(ofSize: size)
+        return InstalledFontIndex.systemFont(named: "Times New Roman", size: size) as NSFont?
+            ?? NSFont.systemFont(ofSize: size)
     }
 
     // Cache the bytes across page drawings because a book uses the same furniture face on every sheet.
@@ -63,13 +66,17 @@ enum PageFurnitureDrawing {
         let base = style.classSize == 11 ? 10.95 : Double(style.classSize)
         let size = style.pointSize * scale * ((element.pointSize(base: style.classSize) ?? base) / base)
         if element.family != "sans", element.family != "mono", let installed = style.fontName,
-            let face = NSFont(name: installed, size: size)
+            let face = InstalledFontIndex.system.face(named: installed)
         {
-            var traits: CTFontSymbolicTraits = []
-            if element.weight == "bold" { traits.insert(.traitBold) }
-            if element.shape == "italic" { traits.insert(.traitItalic) }
-            return CTFontCreateCopyWithSymbolicTraits(face, size, nil, traits, [.traitBold, .traitItalic]) as NSFont?
-                ?? face
+            let family = InstalledFontIndex.system.face(named: face.family) ?? face
+            let variant: String? =
+                switch (element.weight == "bold", element.shape == "italic") {
+                case (true, true): family.boldItalic
+                case (true, false): family.bold
+                case (false, true): family.italic
+                case (false, false): family.postScriptName
+                }
+            if let font = NSFont(name: variant ?? face.postScriptName, size: size) { return font }
         }
         let family =
             element.family == "mono" ? "KaTeX_Typewriter" : element.family == "sans" ? "KaTeX_SansSerif" : "KaTeX_Main"
@@ -263,8 +270,8 @@ enum PageFurnitureDrawing {
             let contents = NSMutableAttributedString(
                 string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
             if let japaneseFamily,
-                let face = NSFont(name: japaneseFamily, size: font.pointSize * 0.924715)
-                    ?? NSFont(name: "HiraMinProN-W3", size: font.pointSize * 0.924715)
+                let face = InstalledFontIndex.systemFont(named: japaneseFamily, size: font.pointSize * 0.924715)
+                    ?? InstalledFontIndex.systemFont(named: "HiraMinProN-W3", size: font.pointSize * 0.924715)
             {
                 // The class's JFM scales Japanese glyphs independently of Latin digits.
                 for range in text.ranges(of: /[\p{Han}\p{Hiragana}\p{Katakana}\u{3000}-\u{303F}\u{FF01}-\u{FF60}]+/) {

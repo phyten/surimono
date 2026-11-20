@@ -1,0 +1,178 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.01452589240824535,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 176.7,
+    "maxLuminance" : 155.0625,
+    "maxShiftPt" : 24.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 34
+  },
+  "fonts" : [
+    "GeezaPro",
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 281.8,
+      "height" : 841.9,
+      "lastY" : 587.7,
+      "lineCount" : 20,
+      "lines" : [
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 56.8,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 56.8,
+          "y" : 303.8
+        },
+        {
+          "height" : 19.1,
+          "text" : "ﻟﻮح اﻟﻘﯿﺎس",
+          "width" : 59.8,
+          "x" : 267.7,
+          "y" : 126.5
+        },
+        {
+          "height" : 13.2,
+          "text" : "١٤ ﻣﺎﯾﻮ ٢٠٢٦",
+          "width" : 60.9,
+          "x" : 267.2,
+          "y" : 182
+        },
+        {
+          "height" : 9.9,
+          "text" : "ﻣﻠﺨﺺ",
+          "width" : 20,
+          "x" : 287.6,
+          "y" : 211.5
+        },
+        {
+          "height" : 11,
+          "text" : "ﺷﻜﻞ 1: ﻣﻮﺿﻊ اﻟﻠﻮح",
+          "width" : 69.2,
+          "x" : 263,
+          "y" : 425.7
+        },
+        {
+          "height" : 11,
+          "text" : "اﻻرﺗﻔﺎع )mm( اﻟﻌﻼﻣﺔ",
+          "width" : 83.2,
+          "x" : 256,
+          "y" : 501.2
+        },
+        {
+          "height" : 11,
+          "text" : "12 1",
+          "width" : 34.3,
+          "x" : 264.4,
+          "y" : 513.6
+        },
+        {
+          "height" : 11,
+          "text" : "18 2",
+          "width" : 34.3,
+          "x" : 264.4,
+          "y" : 525.6
+        },
+        {
+          "height" : 11,
+          "text" : "ﺟﺪول 1: ارﺗﻔﺎع اﻟﻌﻼﻣﺎت",
+          "width" : 82.7,
+          "x" : 256.3,
+          "y" : 547.6
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "ﺗﺪل ﻋﻼﻣﺘﺎن ﻋﻠﻰ ﻣﻮﺿﻊ اﻟﻠﻮح اﻷول.",
+          "width" : 110.4,
+          "x" : 387.6,
+          "y" : 226.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "اﻟﻤﺤﺘﻮﯾﺎت",
+          "width" : 46.9,
+          "x" : 491.6,
+          "y" : 255.1
+        },
+        {
+          "height" : 11,
+          "text" : "1 اﻟﻌﻼﻣﺎت",
+          "width" : 41.3,
+          "x" : 497.1,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "2 اﻻرﺗﻔﺎع",
+          "width" : 39.9,
+          "x" : 498.5,
+          "y" : 303.8
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 اﻟﻌﻼﻣﺎت",
+          "width" : 59.5,
+          "x" : 478.9,
+          "y" : 331.9
+        },
+        {
+          "height" : 12.3,
+          "text" : "»اﻗﺮأ اﻟﻌﻼﻣﺔ اﻟﺴﻔﻠﻰ أوﻻً«.",
+          "width" : 87.5,
+          "x" : 426,
+          "y" : 356.5
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 اﻻرﺗﻔﺎع",
+          "width" : 57.5,
+          "x" : 481,
+          "y" : 465.8
+        },
+        {
+          "height" : 12.2,
+          "text" : "دفتر القياس, 2025, ﺑﺎب",
+          "width" : 86.3,
+          "x" : 433.4,
+          "y" : 613.5
+        },
+        {
+          "height" : 15.9,
+          "text" : "]1[اﻟﻤﺮ",
+          "width" : 36,
+          "x" : 502.5,
+          "y" : 587.7
+        }
+      ],
+      "textHeight" : 657.3,
+      "textLeft" : 56.8,
+      "textTop" : 126.5,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "b2df2e03267d06c2786c4223e2f3702aacd43e36c197bfb7957443eddb90c173"
+}

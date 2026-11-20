@@ -1,0 +1,9 @@
+Settling on two beds
+100
+Fine bed
+Coarse bed
+Residue
+10−1
+0 1 2 3 4
+Time
+1

@@ -1,0 +1,4 @@
+開始 / Start
+印刷 / Print
+用紙 / Paper
+A4 → A5 確認 / Preview 完了 / Done

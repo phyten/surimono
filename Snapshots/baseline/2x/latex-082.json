@@ -1,0 +1,222 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.03163013259748447,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 557.4,
+    "maxLuminance" : 242.375,
+    "maxShiftPt" : 272.4,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 17
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 3,
+  "pages" : [
+    {
+      "firstY" : 399.3,
+      "height" : 841.9,
+      "lastY" : 456.3,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 20.2,
+          "text" : "Model Rail Handbook",
+          "width" : 164,
+          "x" : 215.3,
+          "y" : 399.3
+        },
+        {
+          "height" : 14,
+          "text" : "Model Rail Desk",
+          "width" : 86.7,
+          "x" : 253.9,
+          "y" : 434.4
+        },
+        {
+          "height" : 10.5,
+          "text" : "Paper Model Workshop",
+          "width" : 93.3,
+          "x" : 250.6,
+          "y" : 456.3
+        }
+      ],
+      "textHeight" : 67.6,
+      "textLeft" : 215.3,
+      "textTop" : 399.3,
+      "textWidth" : 164,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 150.6,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 12.2,
+          "text" : "Keywords: Folded spacers, model rails",
+          "width" : 174.4,
+          "x" : 125.4,
+          "y" : 150.6
+        },
+        {
+          "height" : 12.1,
+          "text" : "Abstract",
+          "width" : 43.8,
+          "x" : 275.4,
+          "y" : 188.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "This handbook records the two measured heights of a reversible card spacer.",
+          "width" : 334.5,
+          "x" : 125.4,
+          "y" : 209.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.3,
+      "textLeft" : 125.4,
+      "textTop" : 150.6,
+      "textWidth" : 334.5,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 219.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 16,
+      "lines" : [
+        {
+          "height" : 25.4,
+          "text" : "Chapter 1",
+          "width" : 103.7,
+          "x" : 125.4,
+          "y" : 219.4
+        },
+        {
+          "height" : 30.2,
+          "text" : "The folded spacer",
+          "width" : 216.8,
+          "x" : 125.4,
+          "y" : 259.2
+        },
+        {
+          "height" : 17.5,
+          "text" : "Scope",
+          "width" : 41.5,
+          "x" : 125.4,
+          "y" : 320.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "A folded spacer fixes the height of a model rail. Two card thicknesses were",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 345.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "tested in the same slot.",
+          "width" : 101.4,
+          "x" : 125.4,
+          "y" : 357.8
+        },
+        {
+          "height" : 17.5,
+          "text" : "1.1 Bench trial",
+          "width" : 115.2,
+          "x" : 125.4,
+          "y" : 384.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "The thin card entered freely. The folded card held the rail level at the second",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 410.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "mark.",
+          "width" : 25.2,
+          "x" : 125.4,
+          "y" : 422.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1.1: Side view of the spacer",
+          "width" : 150.5,
+          "x" : 222,
+          "y" : 468.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "Card Height (mm)",
+          "width" : 97.5,
+          "x" : 248.6,
+          "y" : 504.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Thin 1",
+          "width" : 97.5,
+          "x" : 248.6,
+          "y" : 516.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Folded 2",
+          "width" : 97.5,
+          "x" : 248.6,
+          "y" : 528.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Table 1.1: Spacer heights",
+          "width" : 110.2,
+          "x" : 242.2,
+          "y" : 550.1
+        },
+        {
+          "height" : 17.5,
+          "text" : "Chapter reference",
+          "width" : 128.8,
+          "x" : 125.4,
+          "y" : 589
+        },
+        {
+          "height" : 11.7,
+          "text" : "Model Rail Desk, Spacer card register, trial note (2025).",
+          "width" : 246.3,
+          "x" : 125.4,
+          "y" : 614.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 511.4,
+      "textLeft" : 125.4,
+      "textTop" : 219.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "0e67a718c80259a849efd1cdb6368fdaf42ea390e7ae4644d9c2b34051e47c14"
+}

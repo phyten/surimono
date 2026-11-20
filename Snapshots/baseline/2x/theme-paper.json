@@ -1,0 +1,61 @@
+{
+  "fonts" : [
+    "Menlo-Regular",
+    "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+    "YuMin-Demibold",
+    "YuMin-Extrabold",
+    "YuMin-Medium"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 41.8,
+      "height" : 841.9,
+      "lastY" : 175.8,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 25.4,
+          "text" : "紙見本 · Field notes",
+          "width" : 173.6,
+          "x" : 210.4,
+          "y" : 41.8
+        },
+        {
+          "height" : 19.2,
+          "text" : "薄い紙に\u0000太字、italic 、code\u0000を並べる。",
+          "width" : 200.3,
+          "x" : 53.7,
+          "y" : 88.1
+        },
+        {
+          "height" : 17.7,
+          "text" : "Fold\u0000the\u0000sheet\u0000along\u0000the\u0000dotted\u0000line.",
+          "width" : 169.3,
+          "x" : 63.8,
+          "y" : 118.9
+        },
+        {
+          "height" : 19.2,
+          "text" : "紙 mm",
+          "width" : 50.8,
+          "x" : 272.2,
+          "y" : 150.9
+        },
+        {
+          "height" : 18.6,
+          "text" : "A5 148",
+          "width" : 50.8,
+          "x" : 272.2,
+          "y" : 175.8
+        }
+      ],
+      "textHeight" : 152.7,
+      "textLeft" : 53.7,
+      "textTop" : 41.8,
+      "textWidth" : 330.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "0ee87b5dada30867b1f67f6b68a7c6633ffaeb7e3a90dc183940b44f0996f850"
+}

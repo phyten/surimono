@@ -3,6 +3,7 @@ import CoreText
 import Foundation
 import PDFKit
 import SurimonoCore
+import SurimonoFormats
 
 @MainActor
 public enum NotePageDrawing {
@@ -209,8 +210,9 @@ struct NotePaperCanvas {
 
     func text(_ value: String, x: CGFloat, y: CGFloat, size: CGFloat, right: Bool = false) {
         let attributes: [NSAttributedString.Key: Any] = [
-            NSAttributedString.Key(kCTFontAttributeName as String): CTFontCreateWithName(
-                "HiraginoSans-W3" as CFString, size, nil),
+            NSAttributedString.Key(kCTFontAttributeName as String): InstalledFontIndex.systemFont(
+                named: "HiraginoSans-W3", size: size) as NSFont?
+                ?? NSFont.systemFont(ofSize: size),
             NSAttributedString.Key(kCTForegroundColorAttributeName as String): Self.color(style.colorHex)
                 ?? CGColor(gray: 0.5, alpha: 1),
         ]

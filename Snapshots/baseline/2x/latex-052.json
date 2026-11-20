@@ -1,0 +1,170 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.025506284565108093,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 23,
+    "maxLuminance" : 192.375,
+    "maxShiftPt" : 24.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 21
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 126.5,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "Η σανίδα µέτρησης",
+          "width" : 131.1,
+          "x" : 232.3,
+          "y" : 126.5
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 Μαΐου 2026",
+          "width" : 75.5,
+          "x" : 259.9,
+          "y" : 182
+        },
+        {
+          "height" : 9.9,
+          "text" : "Περίληψη",
+          "width" : 39.1,
+          "x" : 278.1,
+          "y" : 211.5
+        },
+        {
+          "height" : 9.9,
+          "text" : "Δύο σηµάδια δείχνουν την αρχική θέση της σανίδας.",
+          "width" : 195.2,
+          "x" : 97.2,
+          "y" : 226.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "Περιεχόµενα",
+          "width" : 77.6,
+          "x" : 56.8,
+          "y" : 255.1
+        },
+        {
+          "height" : 11,
+          "text" : "1 Τα σηµάδια 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "2 Ύψος 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 303.8
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Τα σηµάδια",
+          "width" : 94.2,
+          "x" : 56.8,
+          "y" : 331.9
+        },
+        {
+          "height" : 11,
+          "text" : "«Διαβάστε πρώτα το κάτω σηµάδι».",
+          "width" : 147.9,
+          "x" : 81.7,
+          "y" : 357.8
+        },
+        {
+          "height" : 11,
+          "text" : "Σχήµα 1: Θέση της σανίδας",
+          "width" : 113.8,
+          "x" : 240.7,
+          "y" : 425.7
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Ύψος",
+          "width" : 57,
+          "x" : 56.8,
+          "y" : 465.8
+        },
+        {
+          "height" : 11,
+          "text" : "Σηµάδι Ύψος (mm)",
+          "width" : 88.6,
+          "x" : 253.3,
+          "y" : 501.2
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 76.7,
+          "x" : 265.3,
+          "y" : 513.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 76.7,
+          "x" : 265.3,
+          "y" : 525.6
+        },
+        {
+          "height" : 11,
+          "text" : "Πίνακας 1: Ύψος των σηµαδιών",
+          "width" : 132.6,
+          "x" : 231.3,
+          "y" : 547.6
+        },
+        {
+          "height" : 15.9,
+          "text" : "Αναφορές",
+          "width" : 59.7,
+          "x" : 56.8,
+          "y" : 587.7
+        },
+        {
+          "height" : 11,
+          "text" : "[1]",
+          "width" : 11.6,
+          "x" : 56.8,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "Τετράδιο µετρήσεων, 2025, Κεφάλαιο 2.",
+          "width" : 162.7,
+          "x" : 76.7,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 657.3,
+      "textLeft" : 56.8,
+      "textTop" : 126.5,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "7d02d2e8216dbe6a5aec4867638c6e80e380a2771ad9270ab546ac8a60fc2247"
+}

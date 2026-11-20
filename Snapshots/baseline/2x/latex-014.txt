@@ -1,0 +1,7 @@
+Bounds on a tray count
+Definition 1. A full row contains exactly four tokens.
+Lemma 2. Two full rows contain an even number of tokens.
+Verification. Their combined count is eight.
+Remark. Removing a pair preserves the parity in Lemma 2.
+□
+1

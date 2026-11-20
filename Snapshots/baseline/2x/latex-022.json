@@ -1,0 +1,77 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02621618903971845,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 146.421875,
+    "maxShiftPt" : 31,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 7
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Batch comparison grid",
+          "width" : 162.1,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 19.2,
+          "text" : "Batch x1 x2 x3 xˉ Maximum deviation",
+          "width" : 287.2,
+          "x" : 153.7,
+          "y" : 185.1
+        },
+        {
+          "height" : 16.3,
+          "text" : "Amber 4 5 6 5 1",
+          "width" : 287.2,
+          "x" : 153.7,
+          "y" : 203.4
+        },
+        {
+          "height" : 16.3,
+          "text" : "Slate 2 4 6 4 2",
+          "width" : 287.2,
+          "x" : 153.7,
+          "y" : 220.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Table 1: Three readings per batch, in scale divisions",
+          "width" : 228.1,
+          "x" : 183.2,
+          "y" : 246.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 315.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "47312db8e5189346ead755811f0d02079371aefda367e8cba68ac6013fdb0d32"
+}

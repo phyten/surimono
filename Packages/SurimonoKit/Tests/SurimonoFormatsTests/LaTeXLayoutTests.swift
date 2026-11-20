@@ -195,7 +195,7 @@ struct LaTeXLayoutTests {
                 \hypersetup{ignored}\pgfplotsset{ignored}\usetikzlibrary{ignored}
                 \begin{figure}\caption{題}\end{figure}
                 \end{document}
-                """#)
+                """#, fontIndex: .testInventory)
         #expect(result.readingIssues.isEmpty)
         #expect(result.body.contains("図 1"))
         #expect(!DocumentOutline.plainText(ofHTML: result.body).contains("ignored"))

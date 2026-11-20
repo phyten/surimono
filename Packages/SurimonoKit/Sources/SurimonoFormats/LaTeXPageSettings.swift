@@ -22,7 +22,9 @@ struct LaTeXPageSettings {
     private var variables: [String: String] = [:]
     var captions = LaTeXCaptionStyle()
     var boxDefaults = LaTeXBoxOptions()
-    var fonts = LaTeXFontSettings()
+    var fonts: LaTeXFontSettings
+
+    init(fontIndex: InstalledFontIndex = .system) { fonts = LaTeXFontSettings(index: fontIndex) }
     var columnTypes: [Character: String] = [:]
     var listSettings: [String: [String: String]] = [:]
 

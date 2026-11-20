@@ -14,7 +14,8 @@ struct LaTeXTypesettingTests {
             (#"\setmainfont{Hiragino Mincho ProN}"#, true),
         ] {
             let fragment = LaTeXConverter.convert(
-                #"\documentclass{article}\#(preamble)\begin{document}\section{One}Two\end{document}"#)
+                #"\documentclass{article}\#(preamble)\begin{document}\section{One}Two\end{document}"#,
+                fontIndex: .init(faces: [:]))
             let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
             let body = try #require(html.components(separatedBy: "<body ").last?.prefix { $0 != ">" })
             #expect(body.contains(" data-latex-local-main-font") == local)
@@ -213,7 +214,8 @@ extension LaTeXTypesettingTests {
     @Test("専用スタイルは指定幅を実寸で組み、本文の書体と独立した絶対字級で副題を小さくする")
     func documentTypography() throws {
         let fragment = LaTeXConverter.convert(
-            #"\documentclass[a4paper]{article}\usepackage[margin=25mm]{geometry}\setmainfont[BoldFont=Face B]{Face A}\title{Title\\\large Subtitle}\begin{document}\maketitle\end{document}"#
+            #"\documentclass[a4paper]{article}\usepackage[margin=25mm]{geometry}\setmainfont[BoldFont=Face B]{Face A}\title{Title\\\large Subtitle}\begin{document}\maketitle\end{document}"#,
+            fontIndex: .init(faces: [:])
         )
         for theme in try PrintThemeLibrary.load() where theme.category == "latex" {
             let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)

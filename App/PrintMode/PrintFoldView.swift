@@ -1,6 +1,7 @@
 import AppKit
 import PDFKit
 import SurimonoCore
+import SurimonoFormats
 import SurimonoRendering
 import SwiftUI
 
@@ -246,7 +247,9 @@ final class FoldBook {
         context.beginPDFPage(nil)
         context.setFillColor(CGColor(srgbRed: 0xEB / 255, green: 0xEB / 255, blue: 0xE8 / 255, alpha: 1))
         context.fill(box)
-        let font = NSFont(name: "HiraMinProN-W6", size: size.width * 0.05) ?? .systemFont(ofSize: size.width * 0.05)
+        let font =
+            InstalledFontIndex.systemFont(named: "HiraMinProN-W6", size: size.width * 0.05) as NSFont?
+            ?? .systemFont(ofSize: size.width * 0.05)
         let text = NSAttributedString(
             string: label,
             attributes: [

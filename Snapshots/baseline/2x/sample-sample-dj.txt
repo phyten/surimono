@@ -1,0 +1,23 @@
+紙の実験 / Paper workshop
+準備 / Setup
+Choose paper
+余白を確認
+Sheet
+One piece of paper.
+用紙 / Paper sizes
+紙 Sheets
+A4 2
+Warning
+余白は x2 に合わせます。1
+A= w × h
+let sheets = 2
+Paper
+Print
+paper
+print
+Paper Printer
+Paper Printer
+“Ready” ‒ 準備 / Setup
+Proof
+Paper proof
+1. Check the margin before printing.

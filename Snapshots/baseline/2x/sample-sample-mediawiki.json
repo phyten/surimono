@@ -1,0 +1,284 @@
+{
+  "fonts" : [
+    "Helvetica",
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "Menlo-Bold",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 760.4,
+      "lineCount" : 28,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "紙の試験室 / Paper workshop",
+          "width" : 303,
+          "x" : 42.5,
+          "y" : 39.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "観察",
+          "width" : 22.4,
+          "x" : 42.5,
+          "y" : 81.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "記録",
+          "width" : 22.4,
+          "x" : 42.5,
+          "y" : 100.5
+        },
+        {
+          "height" : 27.1,
+          "text" : "観察",
+          "width" : 31.4,
+          "x" : 42.5,
+          "y" : 135.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "折り目に沿って紙をひらく。測定表を参照。A sheet has two faces.",
+          "width" : 350.5,
+          "x" : 42.5,
+          "y" : 168.5
+        },
+        {
+          "height" : 17.4,
+          "text" : "Infobox trial",
+          "width" : 66,
+          "x" : 264.6,
+          "y" : 207.1
+        },
+        {
+          "height" : 17.4,
+          "text" : "素材",
+          "width" : 20.2,
+          "x" : 58.9,
+          "y" : 234.7
+        },
+        {
+          "height" : 17.4,
+          "text" : "linen paper",
+          "width" : 55.7,
+          "x" : 89.5,
+          "y" : 234.7
+        },
+        {
+          "height" : 17.4,
+          "text" : "温度",
+          "width" : 20.2,
+          "x" : 58.9,
+          "y" : 257.5
+        },
+        {
+          "height" : 17.4,
+          "text" : "20 °C",
+          "width" : 27.3,
+          "x" : 89.5,
+          "y" : 257.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "生成りの紙",
+          "width" : 56.1,
+          "x" : 74.6,
+          "y" : 303.9
+        },
+        {
+          "height" : 18.4,
+          "text" : "1. 端をそろえる",
+          "width" : 83.8,
+          "x" : 89.8,
+          "y" : 323.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "2. 半分に折る",
+          "width" : 72.9,
+          "x" : 89.8,
+          "y" : 342.4
+        },
+        {
+          "height" : 19.4,
+          "text" : "見当",
+          "width" : 22.4,
+          "x" : 42.5,
+          "y" : 369
+        },
+        {
+          "height" : 18.4,
+          "text" : "位置合わせの目印",
+          "width" : 89.7,
+          "x" : 59.3,
+          "y" : 390
+        },
+        {
+          "height" : 18.4,
+          "text" : "記録者の追記。",
+          "width" : 78.5,
+          "x" : 59.3,
+          "y" : 414.9
+        },
+        {
+          "height" : 27.1,
+          "text" : "記録",
+          "width" : 31.4,
+          "x" : 42.5,
+          "y" : 450.6
+        },
+        {
+          "height" : 18.4,
+          "text" : "折りの記録",
+          "width" : 56.1,
+          "x" : 42.5,
+          "y" : 482.9
+        },
+        {
+          "height" : 19.4,
+          "text" : "回数",
+          "width" : 22.4,
+          "x" : 48.5,
+          "y" : 505.2
+        },
+        {
+          "height" : 19.4,
+          "text" : "厚み",
+          "width" : 22.4,
+          "x" : 82.6,
+          "y" : 505.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "1 2 mm",
+          "width" : 66,
+          "x" : 48.5,
+          "y" : 530.6
+        },
+        {
+          "height" : 20.8,
+          "text" : "厚みは tn = 2nt0 と仮定した。1 同じ記録を再掲する。1",
+          "width" : 284.6,
+          "x" : 42.5,
+          "y" : 558.6
+        },
+        {
+          "height" : 16.5,
+          "text" : "画像が見つかりません: fold-study.png 折り目の 模式図",
+          "width" : 271.9,
+          "x" : 53.4,
+          "y" : 607.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "Paper opens",
+          "width" : 70.1,
+          "x" : 42.5,
+          "y" : 643.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "影がひらく",
+          "width" : 56.1,
+          "x" : 42.5,
+          "y" : 662.8
+        },
+        {
+          "height" : 13.1,
+          "text" : "let folds = 2",
+          "width" : 87.8,
+          "x" : 42.5,
+          "y" : 694.6
+        },
+        {
+          "height" : 18.4,
+          "text" : "紙の繊維を 目 と呼ぶ。",
+          "width" : 119.6,
+          "x" : 64.7,
+          "y" : 720.4
+        },
+        {
+          "height" : 15.3,
+          "text" : "関連項目: 紙目",
+          "width" : 63.4,
+          "x" : 42.4,
+          "y" : 760.4
+        }
+      ],
+      "textHeight" : 736.6,
+      "textLeft" : 42.4,
+      "textTop" : 39.1,
+      "textWidth" : 350.7,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 42,
+      "height" : 841.9,
+      "lastY" : 271,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 18.4,
+          "text" : "Workshop ・ [1] {{原文のまま}} / H2O",
+          "width" : 197,
+          "x" : 42.5,
+          "y" : 42
+        },
+        {
+          "height" : 16.2,
+          "text" : "a2 + b2",
+          "width" : 36.1,
+          "x" : 266,
+          "y" : 70
+        },
+        {
+          "height" : 16.2,
+          "text" : "= c2",
+          "width" : 22.7,
+          "x" : 306.2,
+          "y" : 70
+        },
+        {
+          "height" : 16.5,
+          "text" : "画像が見つかりません: cross-section.png 断面のスケッチ",
+          "width" : 282.5,
+          "x" : 85.5,
+          "y" : 114.7
+        },
+        {
+          "height" : 16.5,
+          "text" : "この文書では <timeline> を表示できません。",
+          "width" : 207,
+          "x" : 53.4,
+          "y" : 175.6
+        },
+        {
+          "height" : 16.5,
+          "text" : "1. Paper workshop. Trial notebook. 2026",
+          "width" : 205.7,
+          "x" : 43.7,
+          "y" : 242.9
+        },
+        {
+          "height" : 15.3,
+          "text" : "カテゴリ: 紙の実験",
+          "width" : 80.1,
+          "x" : 42.5,
+          "y" : 271
+        }
+      ],
+      "textHeight" : 244.4,
+      "textLeft" : 42.5,
+      "textTop" : 42,
+      "textWidth" : 325.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "832cbc97aaff3b3ebd762f1d8a7a6356c03ca297025c83d3ec1ee47811754905"
+}

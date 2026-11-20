@@ -1,0 +1,43 @@
+{
+  "fonts" : [
+    "HiraKakuProN-W3"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 42,
+      "height" : 841.9,
+      "lastY" : 99.7,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 18.4,
+          "text" : "摺物のテキストサンプル",
+          "width" : 121.6,
+          "x" : 42.5,
+          "y" : 42
+        },
+        {
+          "height" : 18.4,
+          "text" : "これは Shift_JIS で保存された日本語のダミー文書です。",
+          "width" : 289.6,
+          "x" : 42.5,
+          "y" : 80.4
+        },
+        {
+          "height" : 18.4,
+          "text" : "文字コード判定を追加するときの確認に使います。",
+          "width" : 256.8,
+          "x" : 42.5,
+          "y" : 99.7
+        }
+      ],
+      "textHeight" : 76.1,
+      "textLeft" : 42.5,
+      "textTop" : 42,
+      "textWidth" : 289.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "1291e05a11872477fa3fc658658953d19858a7e0d4c07fc2a2530cdb4c155c4a"
+}

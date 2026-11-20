@@ -1,0 +1,201 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.018986347523227812,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 24.3,
+    "maxLuminance" : 196.65625,
+    "maxShiftPt" : 25.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 9
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 3,
+  "pages" : [
+    {
+      "firstY" : 221.6,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 7,
+      "lines" : [
+        {
+          "height" : 25.2,
+          "text" : "Contents",
+          "width" : 94.2,
+          "x" : 125.4,
+          "y" : 221.6
+        },
+        {
+          "height" : 12.1,
+          "text" : "1 Landing places 2",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 286.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1.1 East bank 2",
+          "width" : 328.8,
+          "x" : 140.4,
+          "y" : 297.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "1.1.1 Lower ramp 2",
+          "width" : 305.9,
+          "x" : 163.3,
+          "y" : 309.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "1.1.1.1 Surface 2",
+          "width" : 274,
+          "x" : 195.2,
+          "y" : 321.8
+        },
+        {
+          "height" : 12.1,
+          "text" : "A Survey marks 3",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 344.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 509.3,
+      "textLeft" : 125.4,
+      "textTop" : 221.6,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 219.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 25.4,
+          "text" : "Chapter 1",
+          "width" : 103.7,
+          "x" : 125.4,
+          "y" : 219.4
+        },
+        {
+          "height" : 30.2,
+          "text" : "Landing places",
+          "width" : 182.3,
+          "x" : 125.4,
+          "y" : 258.9
+        },
+        {
+          "height" : 17.5,
+          "text" : "1.1 East bank",
+          "width" : 106.7,
+          "x" : 125.4,
+          "y" : 320.4
+        },
+        {
+          "height" : 14.6,
+          "text" : "1.1.1 Lower ramp",
+          "width" : 112.5,
+          "x" : 125.4,
+          "y" : 345.1
+        },
+        {
+          "height" : 12.1,
+          "text" : "1.1.1.1 Surface",
+          "width" : 79.3,
+          "x" : 125.4,
+          "y" : 366.6
+        },
+        {
+          "height" : 12.2,
+          "text" : "1.1.1.1.1 Tile spacing Leave a narrow gap.",
+          "width" : 210,
+          "x" : 125.4,
+          "y" : 391.8
+        },
+        {
+          "height" : 12.2,
+          "text" : "1.1.1.1.1.1 Corner pieces Turn the last tile to face the water. See",
+          "width" : 328.8,
+          "x" : 140.4,
+          "y" : 417.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "Appendix A.",
+          "width" : 55.6,
+          "x" : 125.4,
+          "y" : 430.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 511.4,
+      "textLeft" : 125.4,
+      "textTop" : 219.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 219.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 25.4,
+          "text" : "Appendix A",
+          "width" : 125.7,
+          "x" : 125.4,
+          "y" : 219.4
+        },
+        {
+          "height" : 30.2,
+          "text" : "Survey marks",
+          "width" : 169.3,
+          "x" : 125.4,
+          "y" : 259.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "A square identifies the ramp foot.",
+          "width" : 147.4,
+          "x" : 125.4,
+          "y" : 321
+        },
+        {
+          "height" : 11.7,
+          "text" : "3",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 511.5,
+      "textLeft" : 125.4,
+      "textTop" : 219.4,
+      "textWidth" : 174.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "75671c33bfde6a646fd5f2dce0a8fa7d031c5b926671acfef31b878222e49365"
+}

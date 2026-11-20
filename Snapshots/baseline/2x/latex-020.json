@@ -1,0 +1,77 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.015981975836873056,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 54.2,
+    "maxLuminance" : 142.4375,
+    "maxShiftPt" : 28.4,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 2
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 179,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 12.2,
+          "text" : "Mark Before After Observation",
+          "width" : 206.8,
+          "x" : 125.4,
+          "y" : 179
+        },
+        {
+          "height" : 17.5,
+          "text" : "Inspection cards",
+          "width" : 116.7,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 12.1,
+          "text" : "Rim rough smooth The second pass removed the ridge at the",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 197
+        },
+        {
+          "height" : 11.7,
+          "text" : "joint.",
+          "width" : 23,
+          "x" : 279.2,
+          "y" : 209.1
+        },
+        {
+          "height" : 12.2,
+          "text" : "Pin level level Rotation left the reference line in place.",
+          "width" : 327.2,
+          "x" : 125.4,
+          "y" : 221.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "8fb363e2a3ec0b27430e9de204d7f5107f64479aaf06727f60011d177d5605d4"
+}

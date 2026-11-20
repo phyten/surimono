@@ -1,0 +1,90 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.006007709877117374,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 26.4,
+    "maxLuminance" : 142.5625,
+    "maxShiftPt" : 27.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "1 Receipt",
+          "width" : 77.6,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "Two blue slips arrived with the brass gauge. The final reading is in Section 2.",
+          "width" : 339.7,
+          "x" : 125.4,
+          "y" : 175.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 339.7,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 151.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "2 Inspection",
+          "width" : 97,
+          "x" : 125.4,
+          "y" : 151.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "The gauge fitted the middle slot. Both slips carry its mark.",
+          "width" : 258.9,
+          "x" : 125.4,
+          "y" : 175.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 579.6,
+      "textLeft" : 125.4,
+      "textTop" : 151.2,
+      "textWidth" : 258.9,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "75be6bbbb3ea9ee9dbd4b99b083f0da7f4adfeb2e8a0b469af936018d9a9eae7"
+}

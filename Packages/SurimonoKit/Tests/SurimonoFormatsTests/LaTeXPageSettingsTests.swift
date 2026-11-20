@@ -6,7 +6,8 @@ import Testing
 struct LaTeXPageSettingsTests {
     private func document(_ preamble: String, body: String = "Ink", options: String = "a4paper") -> HTMLFragment {
         LaTeXConverter.convert(
-            "\\documentclass[\(options)]{article}\n\(preamble)\n\\begin{document}\n\(body)\n\\end{document}")
+            "\\documentclass[\(options)]{article}\n\(preamble)\n\\begin{document}\n\(body)\n\\end{document}",
+            fontIndex: .testInventory)
     }
 
     @Test(

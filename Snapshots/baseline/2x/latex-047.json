@@ -1,0 +1,170 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.024889894419306183,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 23,
+    "maxLuminance" : 172.1875,
+    "maxShiftPt" : 24.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 3
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 126.5,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "Мірна дошка",
+          "width" : 93.6,
+          "x" : 251,
+          "y" : 126.5
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 травня 2026 року",
+          "width" : 105.1,
+          "x" : 245.1,
+          "y" : 182
+        },
+        {
+          "height" : 9.9,
+          "text" : "Анотація",
+          "width" : 37.5,
+          "x" : 278.9,
+          "y" : 211.5
+        },
+        {
+          "height" : 9.9,
+          "text" : "Дві позначки показують початкове положення дошки.",
+          "width" : 209.8,
+          "x" : 97.2,
+          "y" : 226.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "Зміст",
+          "width" : 34.7,
+          "x" : 56.8,
+          "y" : 255.1
+        },
+        {
+          "height" : 11,
+          "text" : "1 Позначки 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "2 Висота 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 303.8
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Позначки",
+          "width" : 85.1,
+          "x" : 56.8,
+          "y" : 331.9
+        },
+        {
+          "height" : 11,
+          "text" : "«Спершу прочитайте нижню позначку».",
+          "width" : 173.7,
+          "x" : 81.7,
+          "y" : 357.8
+        },
+        {
+          "height" : 11,
+          "text" : "Рис. 1: Положення дошки",
+          "width" : 111.5,
+          "x" : 241.9,
+          "y" : 425.7
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Висота",
+          "width" : 67.1,
+          "x" : 56.8,
+          "y" : 465.8
+        },
+        {
+          "height" : 11,
+          "text" : "Позначка Висота (mm)",
+          "width" : 106.1,
+          "x" : 244.6,
+          "y" : 501.2
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 88.8,
+          "x" : 261.9,
+          "y" : 513.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 88.8,
+          "x" : 261.9,
+          "y" : 525.6
+        },
+        {
+          "height" : 11,
+          "text" : "Табл. 1: Висота позначок",
+          "width" : 108.8,
+          "x" : 243.2,
+          "y" : 547.6
+        },
+        {
+          "height" : 15.9,
+          "text" : "Література",
+          "width" : 72.1,
+          "x" : 56.8,
+          "y" : 587.7
+        },
+        {
+          "height" : 11,
+          "text" : "[1]",
+          "width" : 11.6,
+          "x" : 56.8,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "Зошит вимірювань, 2025, Розділ 2.",
+          "width" : 151.2,
+          "x" : 76.7,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 657.3,
+      "textLeft" : 56.8,
+      "textTop" : 126.5,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "df50591c8edcec4418cbce726dde6981f1cb8f44718fbd1fc7e3623013fae512"
+}

@@ -138,10 +138,11 @@ extension LaTeXConverter {
     /// Read the preamble, including language options following the class declaration. Reuse the reader's handling of comments, definitions,
     /// and untaken branches so a quoted example of a Japanese class cannot select that style for an article.
     public static func documentClassInfo(
-        _ text: String, documentURL: URL? = nil, readFile: @escaping (URL) -> Data? = { _ in nil },
+        _ text: String, fontIndex: InstalledFontIndex = .system, documentURL: URL? = nil,
+        readFile: @escaping (URL) -> Data? = { _ in nil },
         fileIdentity: @escaping (URL) -> URL = { $0.standardizedFileURL }
     ) -> LaTeXDocumentClassInfo {
-        let document = LaTeXDocument()
+        let document = LaTeXDocument(fontIndex: fontIndex)
         if documentURL != nil || text.contains("\\") {
             document.mainURL = documentURL
             document.directory = documentURL?.deletingLastPathComponent()

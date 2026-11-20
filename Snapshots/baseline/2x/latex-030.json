@@ -1,0 +1,189 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.043692059653365575,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 140.953125,
+    "maxShiftPt" : 35.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 25
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 22,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Bench adjustment",
+          "width" : 130.6,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "A packing strip lifts the outer rail by one division. The fixture follows the",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 175.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "bench drawing [6] and the scale study [5]. The hinge has its own assembly",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 187.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "card [4].",
+          "width" : 35.5,
+          "x" : 125.4,
+          "y" : 199.1
+        },
+        {
+          "height" : 17.5,
+          "text" : "References",
+          "width" : 77.5,
+          "x" : 125.4,
+          "y" : 226
+        },
+        {
+          "height" : 11.7,
+          "text" : "[1]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 253.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "[2]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 268.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "[3]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 295.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "[4]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 310.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "[5]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 339.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "[6]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 366.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
+          "width" : 303.5,
+          "x" : 141,
+          "y" : 253.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 268.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "pages 8–12. Model Quay Press, 2017.",
+          "width" : 162,
+          "x" : 141,
+          "y" : 281.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
+          "width" : 185.2,
+          "x" : 141,
+          "y" : 295.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 310.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Forum, pages 21–24, 2018.",
+          "width" : 116.3,
+          "x" : 141,
+          "y" : 323.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 339.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "tember 2019.",
+          "width" : 56.5,
+          "x" : 141,
+          "y" : 351.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 366.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Quay Laboratory, 2020.",
+          "width" : 104.3,
+          "x" : 141,
+          "y" : 378.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "27a7fd6737d26a3e2e7cc5473c0a2bb0df710d536497f448a24d2de279c874a4"
+}

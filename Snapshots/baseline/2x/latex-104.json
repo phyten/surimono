@@ -1,0 +1,212 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.012546636488595376,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 6.2,
+    "maxLuminance" : 97.28125,
+    "maxShiftPt" : 5.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 8
+  },
+  "fonts" : [
+    "Helvetica",
+    "HelveticaNeue",
+    "HiraKakuProN-W3",
+    "HiraMinProN-W3"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 72.4,
+      "height" : 841.9,
+      "lastY" : 758.6,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 15.4,
+          "text" : "上端の試料札。",
+          "width" : 70.6,
+          "x" : 70.9,
+          "y" : 72.4
+        },
+        {
+          "height" : 13.9,
+          "text" : "折り板の保管手順。",
+          "width" : 81.7,
+          "x" : 70.9,
+          "y" : 402.2
+        },
+        {
+          "height" : 13.9,
+          "text" : "青い面を上へ向ける。",
+          "width" : 90.8,
+          "x" : 70.9,
+          "y" : 416.4
+        },
+        {
+          "height" : 13.9,
+          "text" : "窓の端に揃えて置く。",
+          "width" : 90.2,
+          "x" : 70.9,
+          "y" : 430.5
+        },
+        {
+          "height" : 15.4,
+          "text" : "下端の試料札。",
+          "width" : 70.6,
+          "x" : 70.9,
+          "y" : 758.6
+        }
+      ],
+      "textHeight" : 701.6,
+      "textLeft" : 70.9,
+      "textTop" : 72.4,
+      "textWidth" : 90.8,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 89.3,
+      "height" : 841.9,
+      "lastY" : 789.5,
+      "lineCount" : 18,
+      "lines" : [
+        {
+          "height" : 23.8,
+          "text" : "1 測定の準備",
+          "width" : 97.1,
+          "x" : 72.8,
+          "y" : 89.3
+        },
+        {
+          "height" : 19.8,
+          "text" : "1.1 紙を折る",
+          "width" : 79.7,
+          "x" : 72.5,
+          "y" : 119.6
+        },
+        {
+          "height" : 16.5,
+          "text" : "窓の端",
+          "width" : 30.3,
+          "x" : 70.9,
+          "y" : 148.4
+        },
+        {
+          "height" : 15.4,
+          "text" : "最初に基準線を写す。",
+          "width" : 99.6,
+          "x" : 81,
+          "y" : 166.2
+        },
+        {
+          "height" : 15.4,
+          "text" : "右端まで伸びる短い印を描く。",
+          "width" : 141.2,
+          "x" : 101.1,
+          "y" : 218.6
+        },
+        {
+          "height" : 15.4,
+          "text" : "白い窓の影",
+          "width" : 50.4,
+          "x" : 101.1,
+          "y" : 244.7
+        },
+        {
+          "height" : 15.4,
+          "text" : "青い窓の影",
+          "width" : 50.4,
+          "x" : 101.1,
+          "y" : 262.2
+        },
+        {
+          "height" : 15.4,
+          "text" : "曇り窓の影",
+          "width" : 50.4,
+          "x" : 101.1,
+          "y" : 279.6
+        },
+        {
+          "height" : 16.6,
+          "text" : "二枚の紙•",
+          "width" : 35.7,
+          "x" : 92.7,
+          "y" : 304.8
+        },
+        {
+          "height" : 15.4,
+          "text" : "薄い紙–",
+          "width" : 25.6,
+          "x" : 116.7,
+          "y" : 323.3
+        },
+        {
+          "height" : 15.4,
+          "text" : "厚い紙–",
+          "width" : 25.6,
+          "x" : 116.7,
+          "y" : 340.7
+        },
+        {
+          "height" : 16.6,
+          "text" : "三枚の紙•",
+          "width" : 35.7,
+          "x" : 92.7,
+          "y" : 360.1
+        },
+        {
+          "height" : 9.1,
+          "text" : "1 white = 2",
+          "width" : 61.5,
+          "x" : 55.7,
+          "y" : 414.7
+        },
+        {
+          "height" : 9.1,
+          "text" : "2 blue = 3",
+          "width" : 56.4,
+          "x" : 55.7,
+          "y" : 428.9
+        },
+        {
+          "height" : 15.4,
+          "text" : "枚数を表の裏に記す。",
+          "width" : 99.6,
+          "x" : 70.9,
+          "y" : 446.7
+        },
+        {
+          "height" : 15.4,
+          "text" : "紙帯の中央",
+          "width" : 50.4,
+          "x" : 277.5,
+          "y" : 192.4
+        },
+        {
+          "height" : 13.9,
+          "text" : "Listing 1 紙の枚数",
+          "width" : 82.4,
+          "x" : 256.4,
+          "y" : 389.5
+        },
+        {
+          "height" : 12.8,
+          "text" : "1",
+          "width" : 5.5,
+          "x" : 294.9,
+          "y" : 789.5
+        }
+      ],
+      "textHeight" : 713,
+      "textLeft" : 55.7,
+      "textTop" : 89.3,
+      "textWidth" : 283.1,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "4809ee32762d2dddbfd5930766ab274e3e96fe80771d41e39b9e9b42f1547e44"
+}

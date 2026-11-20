@@ -1,0 +1,90 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.0077596782302664655,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 21.7,
+    "maxLuminance" : 132.609375,
+    "maxShiftPt" : 24.1,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 85.1,
+      "height" : 841.9,
+      "lastY" : 761.2,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Binding allowance",
+          "width" : 130.6,
+          "x" : 80.2,
+          "y" : 85.1
+        },
+        {
+          "height" : 12.8,
+          "text" : "Punch the sample card on its long edge. The blank strip accommodates a linen hinge.",
+          "width" : 410.4,
+          "x" : 80.2,
+          "y" : 109.7
+        },
+        {
+          "height" : 12.8,
+          "text" : "1",
+          "width" : 5.5,
+          "x" : 311.2,
+          "y" : 761.2
+        }
+      ],
+      "textHeight" : 688.9,
+      "textLeft" : 80.2,
+      "textTop" : 85.1,
+      "textWidth" : 410.4,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 84.4,
+      "height" : 841.9,
+      "lastY" : 761.2,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Reverse of the card",
+          "width" : 138.3,
+          "x" : 47.6,
+          "y" : 84.4
+        },
+        {
+          "height" : 12.8,
+          "text" : "Align the grain arrow with the fold.",
+          "width" : 171.6,
+          "x" : 47.6,
+          "y" : 109
+        },
+        {
+          "height" : 12.8,
+          "text" : "2",
+          "width" : 5.5,
+          "x" : 278.6,
+          "y" : 761.2
+        }
+      ],
+      "textHeight" : 689.7,
+      "textLeft" : 47.6,
+      "textTop" : 84.4,
+      "textWidth" : 236.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "97f128e8119709491383d85c72c58f760bba32503046010896eb681cfab699c0"
+}

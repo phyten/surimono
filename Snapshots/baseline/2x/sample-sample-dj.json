@@ -1,0 +1,201 @@
+{
+  "fonts" : [
+    "Helvetica",
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "HiraginoSans-W4",
+    "Menlo-Bold",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 737.7,
+      "lineCount" : 22,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "紙の実験 / Paper workshop",
+          "width" : 282.8,
+          "x" : 42.5,
+          "y" : 39.1
+        },
+        {
+          "height" : 27.1,
+          "text" : "準備 / Setup",
+          "width" : 99.7,
+          "x" : 42.5,
+          "y" : 75.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "Choose paper",
+          "width" : 78.1,
+          "x" : 78.3,
+          "y" : 106.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "余白を確認",
+          "width" : 56.1,
+          "x" : 78.3,
+          "y" : 125.7
+        },
+        {
+          "height" : 19.4,
+          "text" : "Sheet",
+          "width" : 34.7,
+          "x" : 42.5,
+          "y" : 152.4
+        },
+        {
+          "height" : 18.4,
+          "text" : "One piece of paper.",
+          "width" : 109.1,
+          "x" : 59.3,
+          "y" : 179.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "用紙 / Paper sizes",
+          "width" : 98.4,
+          "x" : 42.5,
+          "y" : 207
+        },
+        {
+          "height" : 19.4,
+          "text" : "紙 Sheets",
+          "width" : 86.4,
+          "x" : 48.5,
+          "y" : 229.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "A4 2",
+          "width" : 86.4,
+          "x" : 48.5,
+          "y" : 254.7
+        },
+        {
+          "height" : 19.4,
+          "text" : "Warning",
+          "width" : 50.4,
+          "x" : 75,
+          "y" : 288.1
+        },
+        {
+          "height" : 20.8,
+          "text" : "余白は x2 に合わせます。1",
+          "width" : 136.6,
+          "x" : 52,
+          "y" : 312.3
+        },
+        {
+          "height" : 14.5,
+          "text" : "A= w × h",
+          "width" : 57,
+          "x" : 269.2,
+          "y" : 354.8
+        },
+        {
+          "height" : 13.1,
+          "text" : "let sheets = 2",
+          "width" : 94.5,
+          "x" : 42.5,
+          "y" : 383.4
+        },
+        {
+          "height" : 21,
+          "text" : "Paper",
+          "width" : 37.2,
+          "x" : 202.5,
+          "y" : 421.2
+        },
+        {
+          "height" : 21,
+          "text" : "Print",
+          "width" : 30,
+          "x" : 359.9,
+          "y" : 421.2
+        },
+        {
+          "height" : 15,
+          "text" : "paper",
+          "width" : 38.2,
+          "x" : 278.6,
+          "y" : 478.8
+        },
+        {
+          "height" : 15,
+          "text" : "print",
+          "width" : 29.1,
+          "x" : 283.2,
+          "y" : 555.7
+        },
+        {
+          "height" : 18.5,
+          "text" : "Paper Printer",
+          "width" : 87.9,
+          "x" : 256.4,
+          "y" : 599.5
+        },
+        {
+          "height" : 18.5,
+          "text" : "Paper Printer",
+          "width" : 87.9,
+          "x" : 256.4,
+          "y" : 648.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "“Ready” ‒ 準備 / Setup",
+          "width" : 124.2,
+          "x" : 42.5,
+          "y" : 683.6
+        },
+        {
+          "height" : 19.4,
+          "text" : "Proof",
+          "width" : 33.9,
+          "x" : 42.5,
+          "y" : 710.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "Paper proof",
+          "width" : 67,
+          "x" : 42.5,
+          "y" : 737.7
+        }
+      ],
+      "textHeight" : 716.9,
+      "textLeft" : 42.5,
+      "textTop" : 39.1,
+      "textWidth" : 347.4,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 53,
+      "height" : 841.9,
+      "lastY" : 53,
+      "lineCount" : 1,
+      "lines" : [
+        {
+          "height" : 16.5,
+          "text" : "1. Check the margin before printing.",
+          "width" : 184.8,
+          "x" : 43.7,
+          "y" : 53
+        }
+      ],
+      "textHeight" : 16.5,
+      "textLeft" : 43.7,
+      "textTop" : 53,
+      "textWidth" : 184.8,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "8a2c2838272fd691f642f634965bacad967dff398da42171ee39796832463311"
+}

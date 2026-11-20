@@ -1,0 +1,98 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.024395173453996985,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 145.984375,
+    "maxShiftPt" : 29.3,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Settling on two beds",
+          "width" : 145.8,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 12.6,
+          "text" : "100",
+          "width" : 13.5,
+          "x" : 147.3,
+          "y" : 183.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Fine bed",
+          "width" : 37.2,
+          "x" : 307.6,
+          "y" : 181
+        },
+        {
+          "height" : 11.7,
+          "text" : "Coarse bed",
+          "width" : 47.4,
+          "x" : 302.5,
+          "y" : 193.4
+        },
+        {
+          "height" : 34,
+          "text" : "Residue",
+          "width" : 11.7,
+          "x" : 126,
+          "y" : 239.4
+        },
+        {
+          "height" : 12.6,
+          "text" : "10−1",
+          "width" : 18.9,
+          "x" : 141.9,
+          "y" : 260.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "0 1 2 3 4",
+          "width" : 166.9,
+          "x" : 178.4,
+          "y" : 338
+        },
+        {
+          "height" : 11.7,
+          "text" : "Time",
+          "width" : 22.7,
+          "x" : 250.5,
+          "y" : 351.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 224.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "8563581a45b2644d99b79e8cdf391e7de4e93ed3d5fe7c023873643c1808f103"
+}

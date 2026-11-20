@@ -1,0 +1,106 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.013558428673301709,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 128.65625,
+    "maxShiftPt" : 27.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 10
+  },
+  "fonts" : [
+    "Helvetica",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 10,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Packing the field tray",
+          "width" : 154.6,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "1. Assemble the tray.",
+          "width" : 94.8,
+          "x" : 137.6,
+          "y" : 175.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Lay a cork strip along each edge.•",
+          "width" : 146.9,
+          "x" : 167.3,
+          "y" : 191.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Fit two dividers.•",
+          "width" : 75,
+          "x" : 167.3,
+          "y" : 209.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "2. Check the marks against the key.",
+          "width" : 159,
+          "x" : 137.6,
+          "y" : 227.1
+        },
+        {
+          "height" : 12.2,
+          "text" : "Open circle",
+          "width" : 56.4,
+          "x" : 125.4,
+          "y" : 247.4
+        },
+        {
+          "height" : 12.2,
+          "text" : "A dry sample well.",
+          "width" : 82,
+          "x" : 191.8,
+          "y" : 247.4
+        },
+        {
+          "height" : 12.2,
+          "text" : "Solid dot",
+          "width" : 44.7,
+          "x" : 125.4,
+          "y" : 266.2
+        },
+        {
+          "height" : 12.2,
+          "text" : "A well reserved for a second reading.",
+          "width" : 161,
+          "x" : 180.1,
+          "y" : 266.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 215.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "91773a72f6207a61baca54a7bf260a868877f05fafa7e3a7e49b339a08e5a8d8"
+}

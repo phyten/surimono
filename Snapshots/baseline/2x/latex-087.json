@@ -1,0 +1,133 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.015472462509947394,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 2.9,
+    "maxLuminance" : 94.921875,
+    "maxShiftPt" : 3.1,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 4
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 248.8,
+      "height" : 841.9,
+      "lastY" : 538.5,
+      "lineCount" : 14,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "Model workshop",
+          "width" : 71.5,
+          "x" : 406.3,
+          "y" : 248.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "East bench",
+          "width" : 48.4,
+          "x" : 406.3,
+          "y" : 260.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "14 May 2026",
+          "width" : 55.9,
+          "x" : 406.3,
+          "y" : 286.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Stores desk",
+          "width" : 49.1,
+          "x" : 134.2,
+          "y" : 319.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Paper Model Workshop",
+          "width" : 103.5,
+          "x" : 134.2,
+          "y" : 331.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Dear stores team,",
+          "width" : 77,
+          "x" : 134.2,
+          "y" : 364.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Please reserve two card thicknesses for the next rail trial. The folded strip",
+          "width" : 343.7,
+          "x" : 134.2,
+          "y" : 383.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "held the rail level at the second mark.",
+          "width" : 166.2,
+          "x" : 134.2,
+          "y" : 395.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Stock Sheets",
+          "width" : 66.1,
+          "x" : 272.9,
+          "y" : 415.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Thin 3",
+          "width" : 66.1,
+          "x" : 272.9,
+          "y" : 427.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Heavy 2",
+          "width" : 66.1,
+          "x" : 272.9,
+          "y" : 439.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "With thanks,",
+          "width" : 57.6,
+          "x" : 306,
+          "y" : 465.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Rail fixture desk",
+          "width" : 72.5,
+          "x" : 306,
+          "y" : 519.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "encl: Trial stock list",
+          "width" : 87.3,
+          "x" : 134.2,
+          "y" : 538.5
+        }
+      ],
+      "textHeight" : 301.3,
+      "textLeft" : 134.2,
+      "textTop" : 248.8,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "290860468cbf9bc9fda7768f071750827f6496c91dc70cfba9ec6de0c8b05fb8"
+}

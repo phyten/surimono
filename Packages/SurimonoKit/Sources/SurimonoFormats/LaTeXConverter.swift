@@ -11,7 +11,7 @@ public enum LaTeXConverter {
 
     /// Companion files are supplied by the caller so parsing never implicitly opens a path from the document.
     public static func convert(
-        _ text: String, directory: URL? = nil,
+        _ text: String, fontIndex: InstalledFontIndex = .system, directory: URL? = nil,
         documentURL: URL? = nil, textWidthPoints: Double? = nil, imageExists: @escaping (URL) -> Bool = { _ in false },
         canProbePictureFallback: @escaping (URL) -> Bool = { _ in true },
         imageSizeInPoints: @escaping (URL) -> CGSize? = { _ in nil },
@@ -21,7 +21,7 @@ public enum LaTeXConverter {
     ) -> HTMLFragment {
         let source = TextDecoding.normalizeNewlines(text)
         func makeReader() -> LaTeXReader {
-            let document = LaTeXDocument()
+            let document = LaTeXDocument(fontIndex: fontIndex)
             document.directory = directory ?? documentURL?.deletingLastPathComponent()
             document.mainURL = documentURL
             document.textWidthPoints = textWidthPoints
@@ -155,7 +155,8 @@ final class LaTeXDocument {
         info.localFontFaces =
             (pageSettings.fonts.faceRules
             + [
-                labelMetrics.localFace(fonts: pageSettings.fonts), labelMetrics.headingFace,
+                labelMetrics.localFace(fonts: pageSettings.fonts),
+                labelMetrics.headingFace(index: pageSettings.fonts.index),
                 info.isKOMA ? LaTeXBookStyle.sansFaces : nil,
             ]
             .compactMap { $0 }).joined(
@@ -167,7 +168,9 @@ final class LaTeXDocument {
     var landscapeBody = false
     var startedLandscape = false
     var exam = LaTeXExam()
-    var pageSettings = LaTeXPageSettings()
+    var pageSettings: LaTeXPageSettings
+
+    init(fontIndex: InstalledFontIndex = .system) { pageSettings = LaTeXPageSettings(fontIndex: fontIndex) }
     var classInfo = LaTeXDocumentClassInfo()
     var language = "en"
     var nativeCaptionLanguage: String?

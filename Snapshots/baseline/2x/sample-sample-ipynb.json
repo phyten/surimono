@@ -1,0 +1,312 @@
+{
+  "fonts" : [
+    "Helvetica",
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "Menlo-Bold",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 748.6,
+      "lineCount" : 30,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "保存した実験ノート",
+          "width" : 181.1,
+          "x" : 42.5,
+          "y" : 39.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "日本語と English の見本です。コードは実行せず、保存済みの結果を刷ります。",
+          "width" : 402,
+          "x" : 42.5,
+          "y" : 78
+        },
+        {
+          "height" : 18.4,
+          "text" : "計算 / Calculation",
+          "width" : 96.2,
+          "x" : 42.5,
+          "y" : 108.5
+        },
+        {
+          "height" : 18.4,
+          "text" : "図と表 / Results",
+          "width" : 87.1,
+          "x" : 42.5,
+          "y" : 127.7
+        },
+        {
+          "height" : 18.4,
+          "text" : "エラーと対話型出力 / Diagnostics",
+          "width" : 177.7,
+          "x" : 42.5,
+          "y" : 146.9
+        },
+        {
+          "height" : 27.1,
+          "text" : "計算 / Calculation",
+          "width" : 143.4,
+          "x" : 42.5,
+          "y" : 182.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "Inline math: x2 + y2",
+          "width" : 104.3,
+          "x" : 42.5,
+          "y" : 215
+        },
+        {
+          "height" : 18.4,
+          "text" : ".",
+          "width" : 2.7,
+          "x" : 147.9,
+          "y" : 215
+        },
+        {
+          "height" : 34.8,
+          "text" : "∑3",
+          "width" : 12.3,
+          "x" : 273.2,
+          "y" : 243.4
+        },
+        {
+          "height" : 10.1,
+          "text" : "k=1",
+          "width" : 15.8,
+          "x" : 274.2,
+          "y" : 275.6
+        },
+        {
+          "height" : 14.5,
+          "text" : "k= 6",
+          "width" : 29.4,
+          "x" : 293.1,
+          "y" : 256.5
+        },
+        {
+          "height" : 10.4,
+          "text" : "[1]",
+          "width" : 16.2,
+          "x" : 42.5,
+          "y" : 298.2
+        },
+        {
+          "height" : 13.1,
+          "text" : "for i in range(3):",
+          "width" : 121.5,
+          "x" : 42.5,
+          "y" : 322.1
+        },
+        {
+          "height" : 13.1,
+          "text" : "print(i)",
+          "width" : 54,
+          "x" : 69.5,
+          "y" : 341.3
+        },
+        {
+          "height" : 13.1,
+          "text" : "0",
+          "width" : 6.8,
+          "x" : 48.1,
+          "y" : 374.2
+        },
+        {
+          "height" : 13.1,
+          "text" : "1",
+          "width" : 6.8,
+          "x" : 48.1,
+          "y" : 393.4
+        },
+        {
+          "height" : 13.1,
+          "text" : "2",
+          "width" : 6.8,
+          "x" : 48.1,
+          "y" : 412.6
+        },
+        {
+          "height" : 27.1,
+          "text" : "図と表 / Results",
+          "width" : 128.1,
+          "x" : 42.5,
+          "y" : 449
+        },
+        {
+          "height" : 18.4,
+          "text" : "保存済みの画像と表です。",
+          "width" : 133.4,
+          "x" : 42.5,
+          "y" : 481.3
+        },
+        {
+          "height" : 10.4,
+          "text" : "[2]",
+          "width" : 16.2,
+          "x" : 42.5,
+          "y" : 515.2
+        },
+        {
+          "height" : 13.1,
+          "text" : "display(saved_image)",
+          "width" : 135,
+          "x" : 42.5,
+          "y" : 539.6
+        },
+        {
+          "height" : 10.4,
+          "text" : "[3]",
+          "width" : 16.2,
+          "x" : 42.5,
+          "y" : 609
+        },
+        {
+          "height" : 13.1,
+          "text" : "display(table)",
+          "width" : 94.5,
+          "x" : 42.5,
+          "y" : 632.9
+        },
+        {
+          "height" : 17.4,
+          "text" : "Item",
+          "width" : 24,
+          "x" : 49.5,
+          "y" : 660
+        },
+        {
+          "height" : 17.4,
+          "text" : "Value",
+          "width" : 29.8,
+          "x" : 99.8,
+          "y" : 660
+        },
+        {
+          "height" : 16.5,
+          "text" : "Apple",
+          "width" : 28.9,
+          "x" : 49.5,
+          "y" : 685.4
+        },
+        {
+          "height" : 16.5,
+          "text" : "42",
+          "width" : 13.3,
+          "x" : 99.8,
+          "y" : 685.4
+        },
+        {
+          "height" : 16.5,
+          "text" : "Orange",
+          "width" : 36.8,
+          "x" : 49.5,
+          "y" : 711
+        },
+        {
+          "height" : 16.5,
+          "text" : "17",
+          "width" : 13.3,
+          "x" : 99.8,
+          "y" : 711
+        },
+        {
+          "height" : 27.1,
+          "text" : "エラーと対話型出力 / Diagnostics",
+          "width" : 258.2,
+          "x" : 42.5,
+          "y" : 748.6
+        }
+      ],
+      "textHeight" : 736.6,
+      "textLeft" : 42.5,
+      "textTop" : 39.1,
+      "textWidth" : 402,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 45.5,
+      "height" : 841.9,
+      "lastY" : 270.9,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 10.4,
+          "text" : "[4]",
+          "width" : 16.2,
+          "x" : 42.5,
+          "y" : 45.5
+        },
+        {
+          "height" : 13.1,
+          "text" : "1 / 0",
+          "width" : 33.8,
+          "x" : 42.5,
+          "y" : 69.8
+        },
+        {
+          "height" : 13.1,
+          "text" : "ZeroDivisionError: division by zero",
+          "width" : 236.3,
+          "x" : 49.7,
+          "y" : 102.2
+        },
+        {
+          "height" : 13.1,
+          "text" : "ZeroDivisionError: division by zero",
+          "width" : 236.3,
+          "x" : 49.7,
+          "y" : 121.5
+        },
+        {
+          "height" : 13.1,
+          "text" : "Cell In[4], line 1: 1 / 0",
+          "width" : 168.8,
+          "x" : 49.7,
+          "y" : 140.7
+        },
+        {
+          "height" : 10.4,
+          "text" : "[5]",
+          "width" : 16.2,
+          "x" : 42.5,
+          "y" : 175.6
+        },
+        {
+          "height" : 13.1,
+          "text" : "display(widget)",
+          "width" : 101.3,
+          "x" : 42.5,
+          "y" : 200
+        },
+        {
+          "height" : 16.5,
+          "text" : "対話型の出力は紙に表示できません",
+          "width" : 161.5,
+          "x" : 51.4,
+          "y" : 229.6
+        },
+        {
+          "height" : 13.1,
+          "text" : "Saved result with hidden input",
+          "width" : 202.6,
+          "x" : 48.1,
+          "y" : 270.9
+        }
+      ],
+      "textHeight" : 238.5,
+      "textLeft" : 42.5,
+      "textTop" : 45.5,
+      "textWidth" : 243.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "a320eec742962ed8247f1ff419fee0f5e9b5411d3544611b5b28e727e7ca9854"
+}

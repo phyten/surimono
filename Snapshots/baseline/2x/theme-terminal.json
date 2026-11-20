@@ -1,0 +1,88 @@
+{
+  "fonts" : [
+    "HiraginoSans-W4",
+    "HiraginoSans-W7",
+    "Menlo-Bold",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 41.1,
+      "height" : 841.9,
+      "lastY" : 193,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 22.6,
+          "text" : "$ 紙見本 · Field notes",
+          "width" : 173,
+          "x" : 42.5,
+          "y" : 41.1
+        },
+        {
+          "height" : 17.9,
+          "text" : "薄い紙に 太字、italic、",
+          "width" : 123.9,
+          "x" : 42.5,
+          "y" : 70.5
+        },
+        {
+          "height" : 16.8,
+          "text" : "`code` を並べる。",
+          "width" : 93.5,
+          "x" : 166.4,
+          "y" : 70.5
+        },
+        {
+          "height" : 11.8,
+          "text" : "/*",
+          "width" : 12.2,
+          "x" : 42.5,
+          "y" : 100
+        },
+        {
+          "height" : 11.8,
+          "text" : "*/",
+          "width" : 12.2,
+          "x" : 42.5,
+          "y" : 142.5
+        },
+        {
+          "height" : 11.8,
+          "text" : "Fold the sheet along the dotted line.",
+          "width" : 226,
+          "x" : 42.5,
+          "y" : 121.3
+        },
+        {
+          "height" : 16.8,
+          "text" : "紙 mm",
+          "width" : 41.1,
+          "x" : 48,
+          "y" : 169
+        },
+        {
+          "height" : 11.8,
+          "text" : "A5",
+          "width" : 12.2,
+          "x" : 48,
+          "y" : 193
+        },
+        {
+          "height" : 11.8,
+          "text" : "148",
+          "width" : 18.3,
+          "x" : 70.8,
+          "y" : 193
+        }
+      ],
+      "textHeight" : 163.6,
+      "textLeft" : 42.5,
+      "textTop" : 41.1,
+      "textWidth" : 226,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "f34d91fd378915a91cdaaec286347776d862d931bd636c44e4cd1727b5511fd1"
+}

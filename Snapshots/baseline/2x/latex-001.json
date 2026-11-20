@@ -1,0 +1,154 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.029969305180913404,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25,
+    "maxLuminance" : 143.9375,
+    "maxShiftPt" : 27.6,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 13
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 189.7,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 17,
+      "lines" : [
+        {
+          "height" : 20.2,
+          "text" : "A survey of the lantern court",
+          "width" : 208.5,
+          "x" : 193.2,
+          "y" : 189.7
+        },
+        {
+          "height" : 14,
+          "text" : "Notes from the winter trial",
+          "width" : 132,
+          "x" : 231.4,
+          "y" : 217.6
+        },
+        {
+          "height" : 17,
+          "text" : "Survey desk* Model workshop",
+          "width" : 177.2,
+          "x" : 208.7,
+          "y" : 245
+        },
+        {
+          "height" : 10.9,
+          "text" : "Abstract",
+          "width" : 39.5,
+          "x" : 277.6,
+          "y" : 277.1
+        },
+        {
+          "height" : 10.5,
+          "text" : "Three paper screens were placed along a model courtyard. We",
+          "width" : 276.5,
+          "x" : 165.8,
+          "y" : 292.3
+        },
+        {
+          "height" : 10.5,
+          "text" : "recorded the first position at which the rear lantern disappeared.",
+          "width" : 255.9,
+          "x" : 152.3,
+          "y" : 302.7
+        },
+        {
+          "height" : 17.5,
+          "text" : "1 Arrangement",
+          "width" : 118.5,
+          "x" : 125.4,
+          "y" : 328.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "A narrow screen stood beside each gate. The observer moved one tile at a",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 353
+        },
+        {
+          "height" : 14.6,
+          "text" : "time.1",
+          "width" : 26.3,
+          "x" : 125.4,
+          "y" : 362.1
+        },
+        {
+          "height" : 17.5,
+          "text" : "2 Result",
+          "width" : 69.2,
+          "x" : 125.4,
+          "y" : 392
+        },
+        {
+          "height" : 11.7,
+          "text" : "The middle gate concealed the lantern first. Its screen crossed the sight line at",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 416.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "tile four.",
+          "width" : 37.4,
+          "x" : 125.4,
+          "y" : 428.6
+        },
+        {
+          "height" : 7,
+          "text" : "*",
+          "width" : 3,
+          "x" : 136,
+          "y" : 673.4
+        },
+        {
+          "height" : 9.4,
+          "text" : "Drawings use a common scale.",
+          "width" : 107,
+          "x" : 141.8,
+          "y" : 675.2
+        },
+        {
+          "height" : 7,
+          "text" : "1",
+          "width" : 3,
+          "x" : 135.1,
+          "y" : 686.6
+        },
+        {
+          "height" : 9.4,
+          "text" : "A tile measures one model unit.",
+          "width" : 111.8,
+          "x" : 139,
+          "y" : 687.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 541.2,
+      "textLeft" : 125.4,
+      "textTop" : 189.7,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "558350abf0f337a5b7e329b9aeae7661cf8813924fc0f832a974a6bb9de43053"
+}

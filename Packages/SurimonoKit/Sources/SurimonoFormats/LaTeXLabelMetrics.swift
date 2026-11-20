@@ -57,24 +57,24 @@ struct LaTeXLabelMetrics {
                 "HiraMinProN-W3",
                 options: (japaneseScale == 0.924715 ? "" : "BoldFont=HiraMinProN-W6,") + "Scale=\(japaneseScale)",
                 cjk: true,
-                knownPostScriptNames: true)
+                knownPostScriptNames: true, index: fonts.index)
         else { return nil }
         if japaneseScale == 0.924715 {
             // The js body family switches to Gothic for its bold Japanese series, even
             // when the weight is inherited from a table column or a box title.
             let gothic = fonts.japaneseSans?.bold ?? fonts.japaneseSans?.name ?? "HiraKakuProN-W6"
-            return (fonts.japaneseMain ?? font).faceCSS(alias: japaneseAlias, japaneseBold: gothic)
+            return (fonts.japaneseMain ?? font).faceCSS(alias: japaneseAlias, japaneseBold: gothic, index: fonts.index)
         }
-        return font.faceCSS(alias: japaneseAlias)
+        return font.faceCSS(alias: japaneseAlias, index: fonts.index)
     }
 
-    var headingFace: String? {
+    func headingFace(index: InstalledFontIndex) -> String? {
         guard japaneseScale == 0.924715,
             let font = LaTeXFontSettings.Selection(
                 "HiraKakuProN-W3", options: "BoldFont=HiraKakuProN-W6,Scale=0.924715", cjk: true,
-                knownPostScriptNames: true)
+                knownPostScriptNames: true, index: index)
         else { return nil }
-        return font.faceCSS(alias: "Surimono JS Gothic")
+        return font.faceCSS(alias: "Surimono JS Gothic", index: index)
     }
 
     var variables: String {

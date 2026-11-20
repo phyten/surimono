@@ -1,0 +1,8 @@
+Sorting the casting slips
+Slip
+Complete
+Incomplete
+Archive
+Return
+Figure 1: Each slip follows one branch after inspection.
+1

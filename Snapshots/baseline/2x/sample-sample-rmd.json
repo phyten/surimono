@@ -1,0 +1,170 @@
+{
+  "fonts" : [
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 39.1,
+      "height" : 841.9,
+      "lastY" : 334.9,
+      "lineCount" : 10,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "Paper measurements",
+          "width" : 232.9,
+          "x" : 181.2,
+          "y" : 39.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "Workshop team",
+          "width" : 88.4,
+          "x" : 253.4,
+          "y" : 79.2
+        },
+        {
+          "height" : 18.4,
+          "text" : "2026-01-01",
+          "width" : 67,
+          "x" : 264.2,
+          "y" : 100.5
+        },
+        {
+          "height" : 34.9,
+          "text" : "Measurements",
+          "width" : 161.5,
+          "x" : 42.5,
+          "y" : 141.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "The plot in Figure 1 compares the widths. The inline estimate is mean(widths).",
+          "width" : 431.4,
+          "x" : 42.5,
+          "y" : 180.2
+        },
+        {
+          "height" : 16.5,
+          "text" : "Results are unavailable because the code is not run.",
+          "width" : 260.5,
+          "x" : 83.4,
+          "y" : 218
+        },
+        {
+          "height" : 16.5,
+          "text" : "Figure 1 Measured widths",
+          "width" : 130.2,
+          "x" : 74.6,
+          "y" : 249.7
+        },
+        {
+          "height" : 13.1,
+          "text" : "widths <- c(2, 4, 6)",
+          "width" : 135,
+          "x" : 42.5,
+          "y" : 282.5
+        },
+        {
+          "height" : 16.5,
+          "text" : "summary.R",
+          "width" : 55.9,
+          "x" : 42.5,
+          "y" : 305.3
+        },
+        {
+          "height" : 13.1,
+          "text" : "summary(widths)",
+          "width" : 101.3,
+          "x" : 42.5,
+          "y" : 334.9
+        }
+      ],
+      "textHeight" : 308.9,
+      "textLeft" : 42.5,
+      "textTop" : 39.1,
+      "textWidth" : 431.4,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 53,
+      "height" : 841.9,
+      "lastY" : 277.7,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 19.4,
+          "text" : "Width",
+          "width" : 35.2,
+          "x" : 48.6,
+          "y" : 53
+        },
+        {
+          "height" : 19.4,
+          "text" : "Unit",
+          "width" : 24.7,
+          "x" : 95.4,
+          "y" : 53
+        },
+        {
+          "height" : 18.4,
+          "text" : "2 mm",
+          "width" : 39.9,
+          "x" : 76.4,
+          "y" : 78.4
+        },
+        {
+          "height" : 16.5,
+          "text" : "Table 1 Paper width",
+          "width" : 99,
+          "x" : 42.5,
+          "y" : 109.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "See Table 1. The source citation is [@workshop].",
+          "width" : 269,
+          "x" : 42.5,
+          "y" : 134.1
+        },
+        {
+          "height" : 20.4,
+          "text" : "An underlined note remains visible in print.1",
+          "width" : 243.6,
+          "x" : 42.5,
+          "y" : 158.9
+        },
+        {
+          "height" : 18.4,
+          "text" : "Measurements are ilustrative.",
+          "width" : 166.7,
+          "x" : 42.5,
+          "y" : 188.2
+        },
+        {
+          "height" : 16.5,
+          "text" : "Bibliography references are unresolved.",
+          "width" : 199.6,
+          "x" : 51.4,
+          "y" : 222.8
+        },
+        {
+          "height" : 16.5,
+          "text" : "1. Al widths use the same unit.",
+          "width" : 157.8,
+          "x" : 43.7,
+          "y" : 277.7
+        }
+      ],
+      "textHeight" : 241.2,
+      "textLeft" : 42.5,
+      "textTop" : 53,
+      "textWidth" : 269,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "6a4cf32483f0f5eb779b8eb6f603ad77bd9e6a4f157bddb6f19ab93c281495b8"
+}

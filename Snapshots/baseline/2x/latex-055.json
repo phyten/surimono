@@ -1,0 +1,164 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.022878833584715937,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 22.9,
+    "maxLuminance" : 157.0625,
+    "maxShiftPt" : 24.4,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 2
+  },
+  "fonts" : [
+    "STSongti-SC-Bold",
+    "STSongti-SC-Regular",
+    "SimSong-Bold",
+    "SimSong-Regular"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 124,
+      "height" : 841.9,
+      "lastY" : 771.1,
+      "lineCount" : 18,
+      "lines" : [
+        {
+          "height" : 24.1,
+          "text" : "测量板的位置",
+          "width" : 103.3,
+          "x" : 246,
+          "y" : 124
+        },
+        {
+          "height" : 16.7,
+          "text" : "2026年5月14日",
+          "width" : 75.1,
+          "x" : 260.1,
+          "y" : 180.4
+        },
+        {
+          "height" : 12.6,
+          "text" : "摘要",
+          "width" : 17.9,
+          "x" : 288.7,
+          "y" : 209.9
+        },
+        {
+          "height" : 12.6,
+          "text" : "木板上有两条刻线，用来记录初始位置。",
+          "width" : 161.4,
+          "x" : 101.7,
+          "y" : 224.7
+        },
+        {
+          "height" : 20.1,
+          "text" : "目录",
+          "width" : 28.7,
+          "x" : 56.8,
+          "y" : 253.4
+        },
+        {
+          "height" : 13.9,
+          "text" : "1 刻线 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 281.7
+        },
+        {
+          "height" : 13.9,
+          "text" : "2 高度 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 303.7
+        },
+        {
+          "height" : 20.1,
+          "text" : "1 刻线",
+          "width" : 49.8,
+          "x" : 56.8,
+          "y" : 329.8
+        },
+        {
+          "height" : 13.9,
+          "text" : "“先读下面的刻线。”",
+          "width" : 87.7,
+          "x" : 81.7,
+          "y" : 357.7
+        },
+        {
+          "height" : 13.9,
+          "text" : "图 1: 木板位置",
+          "width" : 61.6,
+          "x" : 266.8,
+          "y" : 425.2
+        },
+        {
+          "height" : 20.1,
+          "text" : "2 高度",
+          "width" : 49.8,
+          "x" : 56.8,
+          "y" : 463.3
+        },
+        {
+          "height" : 13.9,
+          "text" : "刻线 高度 (mm)",
+          "width" : 74.8,
+          "x" : 260.3,
+          "y" : 500.7
+        },
+        {
+          "height" : 13.9,
+          "text" : "1 12",
+          "width" : 67.1,
+          "x" : 267.9,
+          "y" : 513.1
+        },
+        {
+          "height" : 13.9,
+          "text" : "2 18",
+          "width" : 67.1,
+          "x" : 267.9,
+          "y" : 525.1
+        },
+        {
+          "height" : 13.9,
+          "text" : "表 1: 刻线高度",
+          "width" : 61.6,
+          "x" : 266.8,
+          "y" : 547.1
+        },
+        {
+          "height" : 20.1,
+          "text" : "参考文献",
+          "width" : 57.4,
+          "x" : 56.8,
+          "y" : 585.2
+        },
+        {
+          "height" : 13.9,
+          "text" : "[1] 测量 手 册 , 2025, 第2章.",
+          "width" : 114.6,
+          "x" : 56.8,
+          "y" : 613.1
+        },
+        {
+          "height" : 13.9,
+          "text" : "1",
+          "width" : 4.7,
+          "x" : 295.3,
+          "y" : 771.1
+        }
+      ],
+      "textHeight" : 661,
+      "textLeft" : 56.8,
+      "textTop" : 124,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "50f584c74377f6c12a56e7201331f842bc78615610235ae0a4509647e13eab42"
+}

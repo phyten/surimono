@@ -1,0 +1,100 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.012037123161669716,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 6.7,
+    "maxLuminance" : 176.625,
+    "maxShiftPt" : 1.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 4
+  },
+  "fonts" : [
+    "Helvetica",
+    "HelveticaNeue-Bold",
+    "HiraKakuProN-W6",
+    "HiraMinProN-W3"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 310.1,
+      "height" : 841.9,
+      "lastY" : 310.1,
+      "lineCount" : 1,
+      "lines" : [
+        {
+          "height" : 43,
+          "text" : "第I 部 凍砂の記録",
+          "width" : 212.8,
+          "x" : 103.4,
+          "y" : 310.1
+        }
+      ],
+      "textHeight" : 43,
+      "textLeft" : 103.4,
+      "textTop" : 310.1,
+      "textWidth" : 212.8,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 134.3,
+      "height" : 841.9,
+      "lastY" : 750.5,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 34.4,
+          "text" : "第1 章 砂時計の試作品",
+          "width" : 215.3,
+          "x" : 78.5,
+          "y" : 134.3
+        },
+        {
+          "height" : 24.1,
+          "text" : "1.1 流れの確かめ方",
+          "width" : 131,
+          "x" : 80.2,
+          "y" : 206.8
+        },
+        {
+          "height" : 15.2,
+          "text" : "細い管を通る青い砂の量を量る。",
+          "width" : 149.4,
+          "x" : 88.4,
+          "y" : 244.4
+        },
+        {
+          "height" : 20.7,
+          "text" : "1.1.1 管の交換",
+          "width" : 86.4,
+          "x" : 80,
+          "y" : 268.2
+        },
+        {
+          "height" : 15.2,
+          "text" : "同じ砂を別の管へ移す。",
+          "width" : 108.3,
+          "x" : 88.4,
+          "y" : 294.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 750.5
+        }
+      ],
+      "textHeight" : 627.8,
+      "textLeft" : 78.5,
+      "textTop" : 134.3,
+      "textWidth" : 221.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "1b37b356899bdd3b8728401be758b6fe3c0f63fac01b1bb7a97e25e2801683ee"
+}
