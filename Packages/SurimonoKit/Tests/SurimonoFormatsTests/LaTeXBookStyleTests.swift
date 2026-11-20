@@ -3,6 +3,18 @@ import SurimonoFormats
 import Testing
 
 struct LaTeXBookStyleTests {
+    @Test("標準の部と章は番号と折り返し可能な題を分け、星付きの部には番号を置かない")
+    func standardOpenings() {
+        for name in ["book", "report"] {
+            let html = LaTeXConverter.convert(
+                #"\documentclass{"# + name + #"}\begin{document}\part{Upper}\chapter{Water}\part*{End}\end{document}"#
+            ).body
+            #expect(html.contains(#"Part I</span><span class="latex-chapter-title">Upper</span>"#))
+            #expect(html.contains(#"Chapter 1</span><span class="latex-chapter-title">Water</span>"#))
+            #expect(html.contains(#"id="part-u"><span class="latex-chapter-title">End</span>"#))
+        }
+    }
+
     @Test("KOMA 論文は表題を本文内に置き、参考文献にも節の書体を引き継ぐ")
     func articleFrontMatter() throws {
         let fragment = LaTeXConverter.convert(

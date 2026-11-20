@@ -7,6 +7,7 @@ package struct LaTeXElementFont: Codable, Equatable, Sendable {
     package var shape: String?
     package var capitals: String?
     package var sizeName: String?
+    var sizeInPoints: Double?
 
     mutating func apply(_ commands: String) {
         for word in commands.split(whereSeparator: { !$0.isLetter }) {
@@ -38,6 +39,7 @@ package struct LaTeXElementFont: Codable, Equatable, Sendable {
     }
 
     package func pointSize(base: Int) -> Double? {
+        if let sizeInPoints { return sizeInPoints }
         guard let sizeName,
             let index = [
                 "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge",

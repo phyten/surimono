@@ -450,11 +450,10 @@
   "latex-062" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HelveticaNeue-Medium",
       "HiraKakuProN-W3",
       "HiraKakuProN-W6",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -672,104 +671,89 @@
   "latex-097" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HelveticaNeue-Medium",
-      "HiraKakuProN-W3",
-      "HiraKakuProN-W6",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5",
+      "TimesNewRomanPSMT"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-098" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
       "HiraMinProN-W3",
-      "HiraginoSans-W3",
-      "HiraginoSansGB-W3"
+      "HiraginoSans-W4"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-099" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue-Bold",
-      "HiraKakuProN-W6",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-100" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HiraKakuProN-W3",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-101" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
       "HiraKakuProN-W3",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-102" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HiraKakuProN-W3",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-103" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HelveticaNeue-Medium",
-      "HiraKakuProN-W3",
-      "HiraKakuProN-W6",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-104" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HiraKakuProN-W3",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-105" : {
     "fonts" : [
-      "Helvetica",
-      "HelveticaNeue"
+      "Helvetica"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-106" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HelveticaNeue-Medium",
-      "HiraKakuProN-W3",
-      "HiraKakuProN-W6",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
   "latex-107" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
       "HiraKakuProN-W3",
-      "HiraMinProN-W3"
+      "HiraMinProN-W3",
+      "HiraginoSans-W5"
     ],
     "macOS" : "Version 26.6.2 (Build 25G83)"
   },
@@ -960,11 +944,10 @@
   "sample-sample-tex" : {
     "fonts" : [
       "Helvetica",
-      "HelveticaNeue",
-      "HelveticaNeue-Medium",
       "HiraKakuProN-W3",
       "HiraKakuProN-W6",
       "HiraMinProN-W3",
+      "HiraginoSans-W5",
       "Menlo-Regular",
       "TimesNewRomanPSMT"
     ],

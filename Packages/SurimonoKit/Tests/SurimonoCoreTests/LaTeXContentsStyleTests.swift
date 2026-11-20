@@ -19,6 +19,7 @@ struct LaTeXContentsStyleTests {
             body.contains(
                 #"body[data-latex-chapters="false"] nav.toc .latex-toc-section > a > .latex-page-leader { background: none; }"#
             ))
-        #expect(body.contains("font-family: var(--tex-sans-fonts); font-weight: 500; --latex-toc-number-width: 3.7em;"))
+        #expect(
+            body.contains("font-family: var(--tex-sans-fonts); font-weight: normal; --latex-toc-number-width: 3.7em;"))
     }
 }

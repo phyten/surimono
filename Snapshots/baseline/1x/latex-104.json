@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.012546636488595376,
+    "changedAreaRatio" : 0.012413315557209148,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 6.2,
-    "maxLuminance" : 97.28125,
+    "maxLuminance" : 71.9375,
     "maxShiftPt" : 5.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -14,9 +14,8 @@
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
-    "HiraKakuProN-W3",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5"
   ],
   "pageCount" : 2,
   "pages" : [
@@ -69,31 +68,31 @@
       "width" : 595.3
     },
     {
-      "firstY" : 89.3,
+      "firstY" : 89.2,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 18,
       "lines" : [
         {
-          "height" : 23.8,
+          "height" : 24.4,
           "text" : "1 測定の準備",
-          "width" : 97.1,
-          "x" : 72.8,
-          "y" : 89.3
+          "width" : 96.2,
+          "x" : 72.7,
+          "y" : 89.2
         },
         {
-          "height" : 19.8,
+          "height" : 20.4,
           "text" : "1.1 紙を折る",
-          "width" : 79.7,
-          "x" : 72.5,
-          "y" : 119.6
+          "width" : 78.2,
+          "x" : 72.4,
+          "y" : 119.5
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "窓の端",
           "width" : 30.3,
           "x" : 70.9,
-          "y" : 148.4
+          "y" : 148.3
         },
         {
           "height" : 15.4,
@@ -107,7 +106,7 @@
           "text" : "右端まで伸びる短い印を描く。",
           "width" : 141.2,
           "x" : 101.1,
-          "y" : 218.6
+          "y" : 218.5
         },
         {
           "height" : 15.4,
@@ -142,7 +141,7 @@
           "text" : "薄い紙–",
           "width" : 25.6,
           "x" : 116.7,
-          "y" : 323.3
+          "y" : 323.2
         },
         {
           "height" : 15.4,
@@ -156,7 +155,7 @@
           "text" : "三枚の紙•",
           "width" : 35.7,
           "x" : 92.7,
-          "y" : 360.2
+          "y" : 360.1
         },
         {
           "height" : 9.1,
@@ -170,7 +169,7 @@
           "text" : "2 blue = 3",
           "width" : 56.4,
           "x" : 55.7,
-          "y" : 428.9
+          "y" : 428.8
         },
         {
           "height" : 15.4,
@@ -201,9 +200,9 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 713,
+      "textHeight" : 713.2,
       "textLeft" : 55.7,
-      "textTop" : 89.3,
+      "textTop" : 89.2,
       "textWidth" : 283.1,
       "width" : 595.3
     }

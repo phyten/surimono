@@ -61,6 +61,14 @@ enum LaTeXPageReferences {
             while (link.firstChild) caption.append(link.firstChild);
             const leader = document.createElement('span');
             leader.className = 'latex-page-leader';
+            const major = link.parentElement.matches('.latex-toc-part,.latex-toc-chapter') ||
+              document.body.dataset.latexChapters === 'false' && link.parentElement.matches('.latex-toc-section');
+            if (!major && document.body.hasAttribute('data-latex-js-toc')) {
+              const dots = document.createElement('span');
+              dots.className = 'latex-leader-dots';
+              leader.setAttribute('aria-hidden', 'true');
+              leader.append(dots);
+            }
             field = document.createElement('span');
             field.className = 'latex-page-label';
             link.append(caption, leader, field);
@@ -122,12 +130,12 @@ enum LaTeXPageReferences {
         const chapters = document.body.dataset.latexChapters === 'true';
         for (const el of document.querySelectorAll('[data-latex-page-action],[data-exam-credit],[id],[data-latex-chapter-opening],.latex-title-block,.latex-titlepage')) {
           let action = el.dataset.latexPageAction || '';
-          if (el.matches('.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,body[data-latex-chapters="true"]:not([data-latex-title-layout]) .latex-title-block')) action = 'title';
+          if (!el.matches('body[data-latex-class="amsbook"] .latex-title-block') && el.matches('.latex-titlepage,body[data-latex-title-layout="separate"] .latex-title-block,body[data-latex-chapters="true"]:not([data-latex-title-layout]) .latex-title-block')) action = 'title';
           let value = el.dataset.value || '';
           if (examPages && el.hasAttribute('data-exam-credit')) {
             action = 'examCredit'; value = el.dataset.examCredit;
           }
-          if (marks && !action && el.matches('h2[id^="sec-"],h3[id^="sec-"]') && el.querySelector(':scope > .secnum')) {
+          if (marks && !action && !el.closest('body:is([data-latex-class="amsart"],[data-latex-class="amsproc"])') && el.matches('h2[id^="sec-"],h3[id^="sec-"]') && el.querySelector(':scope > .secnum')) {
             const num = el.querySelector(':scope > .secnum');
             const number = num.textContent;
             const title = Array.from(el.childNodes).filter(n => n !== num && !n.hasAttribute?.('data-latex-probe')).map(n => n.textContent).join('');

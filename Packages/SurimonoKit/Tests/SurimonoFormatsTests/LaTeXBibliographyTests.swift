@@ -28,11 +28,12 @@ struct LaTeXBibliographyTests {
             #"\cite{one,two,pair,four,many,corp}\bibliographystyle{alpha}\bibliography{refs}"#,
             files: ["refs.bib": records]
         ).body
+        #expect(html.contains("latex-alpha"))
         for label in ["Smi81a", "Smi81b", "EA05", "EAOP06", "EAO+07", "Aut08"] {
             #expect(html.contains(">\(label)</a>"))
             #expect(html.contains(">[\(label)]</span>"))
         }
-        #expect(html.contains("[Smi81a]</span> J Smith. <em>Ash</em>"))
+        #expect(html.contains("[Smi81a]</span> <span>J Smith. <em>Ash</em>"))
     }
 
     @Test("unsrt は複数ファイルの引用だけを引用順に並べ、連結した文字列・保護した表記・欧文アクセントを読む")

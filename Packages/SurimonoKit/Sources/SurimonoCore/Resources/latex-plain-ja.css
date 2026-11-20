@@ -16,6 +16,19 @@ body[data-latex-native-headings] :is(h1, h2, h3, h4, h5, h6, .latex-contents-tit
     font-weight: bold;
 }
 body[data-latex-native-headings] .latex-title-block h1 { font-family: inherit; }
+body.format-latex[data-latex-native-headings]:lang(ja) {
+    --latex-heading-gothic: "Surimono JS Gothic";
+    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-heading-gothic)), var(--latex-sans-font, "Surimono Computer Modern Sans"), var(--tex-sans);
+}
+body.format-latex[data-latex-native-headings]:lang(ja) [data-latex-heading] { font-weight: normal; }
+body.format-latex[data-latex-class="jlreq"]:lang(ja) :is([data-latex-heading],.latex-part) { font-weight: bold; }
+body.format-latex[data-latex-js-toc]:lang(ja) figcaption[style*="--latex-label-weight: bold"] > .latex-caption-label,
+body.format-latex[data-latex-js-toc]:lang(ja) [style*="--tcb-title-weight: bold"] > .callout-title {
+    font-family: var(--latex-label-family, var(--tcb-title-family, var(--latex-cjk-sans-font, var(--latex-heading-gothic)), var(--tex-body-fonts)));
+}
+body.format-latex[data-latex-js-toc] .latex-title-block h1 {
+    font-family: var(--tex-body-fonts); font-weight: normal;
+}
 /* The bundled italic face covers Latin. Gothic supplies the Japanese glyphs upright. */
 em {
     font-family: var(--latex-cjk-sans-font, var(--latex-sans-font, "Surimono Computer Modern")), var(--latex-sans-font, "Surimono Computer Modern"), "Hiragino Kaku Gothic ProN", "YuGothic", sans-serif;

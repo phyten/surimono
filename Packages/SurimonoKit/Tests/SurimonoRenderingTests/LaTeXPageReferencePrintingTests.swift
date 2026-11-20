@@ -7,6 +7,25 @@ import Testing
 
 @MainActor
 struct LaTeXPageReferencePrintingTests {
+    @Test("AMS 書籍は表題と裏面を数え、章扉に 3 を刷る", .timeLimit(.minutes(1)))
+    func amsBookTitleVerso() async throws {
+        let tex = #"""
+            \documentclass[oneside,openany]{amsbook}\title{Handbook}\author{Workshop}
+            \begin{document}\keywords{Card}\begin{abstract}Verso material.\end{abstract}
+            \maketitle\chapter{Fold}\section{Trial}Chapter material.\end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
+        let prepared = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(tex.utf8), format: .latex),
+            settings: .init(layout: .a4Single, theme: theme, preset: .init(id: "none", name: "")))
+        #expect(prepared.logicalDocument.pageCount == 3)
+        #expect(prepared.logicalDocument.page(at: 1)?.string?.contains("Verso material") == true)
+        #expect(prepared.logicalDocument.page(at: 2)?.string?.contains("Chapter material") == true)
+        #expect(prepared.viewFurniture[0] == nil)
+        #expect(prepared.viewFurniture[1] == nil)
+        #expect(prepared.viewFurniture[2]?.lines.bottom == ["", "3", ""])
+    }
+
     @Test(
         "短い手紙は無ノンブルの一枚で終わり、続きのある手紙だけに二頁目の柱を刷る",
         .timeLimit(.minutes(1)), arguments: [false, true])

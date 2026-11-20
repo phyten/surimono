@@ -60,7 +60,7 @@ struct LaTeXLayoutTests {
     }
 
     @Test(
-        "長い表は見出しを thead に入れ、脚注を落とし、列指定・部分罫・色・セル内改行を反映する",
+        "長い表は見出しを thead に入れ、継続と最後の脚を保持し、列指定・部分罫・色・セル内改行を反映する",
         arguments: ["longtable", "xltabular", "supertabular"])
     func longTables(name: String) {
         let width = name == "xltabular" ? #"[c]{\textwidth}"# : ""
@@ -78,7 +78,8 @@ struct LaTeXLayoutTests {
         #expect(result.readingIssues.isEmpty)
         #expect(result.body.contains("<thead>\n<tr><th"))
         #expect(result.body.contains("</thead><tbody>"))
-        #expect(!result.body.contains("dropped"))
+        #expect(result.body.contains("last dropped"))
+        #expect(result.body.contains("data-latex-repeat-foot hidden"))
         #expect(
             result.body.contains(
                 #"data-latex-column="p" style="text-align: end; vertical-align: var(--latex-cell-align, top); width: calc(56.9055118 * var(--tex-pt, 0.996264pt))"#
@@ -94,7 +95,29 @@ struct LaTeXLayoutTests {
             result.body.contains(
                 #"data-latex-column="b" style="text-align: justify; vertical-align: var(--latex-cell-align, bottom); width: calc(28.4527559 * var(--tex-pt, 0.996264pt))"#
             ))
-        #expect(result.body.contains(#"border-top: 0.5pt solid currentColor"><span class="latex-bottom-cell">D"#))
+        #expect(
+            result.body.contains(
+                #"border-top: var(--latex-arrayrulewidth, calc(.4 * var(--tex-pt, .996264pt))) solid currentColor" class="latex-top-hline"><span class="latex-bottom-cell">D"#
+            ))
+    }
+
+    @Test("長表の横罫は各表を読み取った時点の arrayrulewidth で組む")
+    func longTableRuleWidth() {
+        let source = #"""
+            \documentclass{article}\begin{document}
+            \begin{longtable}{l}First\\\hline\end{longtable}
+            {\setlength{\arrayrulewidth}{1.2pt}\begin{longtable}{l}Second\\\hline\end{longtable}}
+            \begin{longtable}{l}Third\\\hline\end{longtable}
+            \end{document}
+            """#
+        let result = LaTeXConverter.convert(source)
+        #expect(result.readingIssues.isEmpty)
+        let tables = result.body.components(separatedBy: "<table").dropFirst()
+        #expect(
+            tables.map { $0.contains("--latex-arrayrulewidth: calc(1.2 * var(--tex-pt, 0.996264pt))") } == [
+                false, true, false,
+            ])
+        #expect(tables.allSatisfy { $0.contains(#"class="latex-bottom-hline""#) })
     }
 
     @Test("段落列だけを折り返し、表幅の残りを伸縮列で等分する")

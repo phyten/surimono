@@ -4,7 +4,7 @@
 body {
     --tex-pt: 1.24533px;
     --tex-body: 10; --tex-baseline: 15px; --tex-width: 345; --tex-indent: 15;
-    --latex-columnsep: calc(10 * var(--tex-pt));
+    --latex-columnsep: calc(10 * var(--tex-pt)); --latex-bigskip-shrink: calc(4 * var(--tex-pt));
     --latex-skip-footins: calc(10 * var(--tex-pt));
     --latex-textfloatsep: calc(20 * var(--tex-pt));
     --latex-abovecaptionskip: calc(10 * var(--tex-pt));
@@ -188,6 +188,20 @@ table.latex-tabular .latex-bottom-double { padding-block-end: calc(2.8 * var(--t
 .latex-top-double::before, .latex-bottom-double::after {
     block-size: calc(20 * var(--tex-pt)); border-block: calc(4 * var(--tex-pt)) solid currentColor;
 }
+/* Keep the collapsed border's space in the alignment. Paint arrayrulewidth inside
+   its owning cell so both sides survive the cut between a repeated band and the body.
+   The enlarged box avoids rounding a subpixel rule to one whole print pixel. */
+table.latex-longtable :is(.latex-top-hline,.latex-bottom-hline) { position: relative; }
+table.latex-longtable .latex-top-hline { border-top-color: transparent !important; }
+table.latex-longtable .latex-bottom-hline { border-bottom-color: transparent !important; }
+.latex-top-hline::before, .latex-bottom-hline::after {
+    content: ""; position: absolute; inset-inline: 0;
+    height: calc(32 * var(--latex-arrayrulewidth, calc(.4 * var(--tex-pt))));
+    background: currentColor; transform: scaleY(.03125);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.latex-top-hline::before { inset-block-start: 0; transform-origin: top; }
+.latex-bottom-hline::after { inset-block-end: 0; transform-origin: bottom; }
 /* A short caption shrink-wraps and centers. A longer one fills the text block and justifies. */
 figcaption { width: fit-content; max-width: 100%; margin: 0.7em auto 0; font-size: 1em; text-align: justify; }
 figure[data-latex-float] > figcaption { margin-block: var(--latex-abovecaptionskip) var(--latex-belowcaptionskip); }
@@ -225,7 +239,7 @@ ol.latex-bibliography.latex-numbered { padding-inline-start: calc(var(--latex-la
     width: calc(var(--latex-label-digits) + 0.56em); min-width: 0; margin: 0; text-align: end; white-space: nowrap;
 }
 .footnotes { margin-block-start: 1em; padding: 0; border: none; font-size: calc(var(--tex-footnote) * var(--tex-pt)); line-height: 1.2; }
-.footnotes::before { content: ""; display: block; width: 40%; border-block-start: 0.4pt solid #000; margin-block-end: 0.35em; }
+.footnotes::before { content: ""; display: block; width: var(--latex-footnote-rule-width, 40%); border-block-start: 0.4pt solid #000; margin-block-end: 0.35em; }
 .footnotes ol { margin-block: 0; padding-inline-start: 1.7em; }
 .footnotes > ol > li {
     list-style: none; position: relative; margin-block: 0.15em;
@@ -279,7 +293,12 @@ body[data-latex-chapters="false"] nav.toc .latex-toc-section > a { font-weight: 
 body[data-latex-js-toc][data-latex-chapters="true"] nav.toc :is(.latex-toc-part, .latex-toc-chapter) > a,
 body[data-latex-chapters="false"][data-latex-js-toc] nav.toc .latex-toc-section > a {
     /* jsclasses uses \headfont (gothic and sans); corpus 062 has 4zw between the two starts. */
-    font-family: var(--tex-sans-fonts); font-weight: 500; --latex-toc-number-width: 3.7em;
+    font-family: var(--tex-sans-fonts); font-weight: normal; --latex-toc-number-width: 3.7em;
+}
+body[data-latex-js-chapters] nav.toc .latex-toc-chapter > a { font-weight: bold; }
+/* jsarticle's section puts the page number at the start of its pnumwidth box. */
+body[data-latex-js-toc][data-latex-chapters="false"] nav.toc .latex-toc-section > a > .latex-page-label {
+    min-width: 1.55em; text-align: start;
 }
 nav.toc li > a .secnum { display: inline-block; min-width: var(--latex-toc-number-width, 2.3em); box-sizing: border-box; padding-inline-end: 0.2em; margin-inline-end: 0; }
 .latex-contents-title { font-size: calc(var(--tex-Large) * var(--tex-pt)); text-indent: 0; font-weight: bold; margin-block-end: 0.65em; }
@@ -389,7 +408,7 @@ body[data-latex-chapters="true"] h2.latex-part {
 }
 
 body.format-latex [style*="--latex-comment-shape: italic"] .hl-comment {
-    font-style: var(--latex-comment-shape);
+    font-style: var(--latex-comment-shape); font-synthesis: style;
 }
 
 /* A wrapping entry keeps its page number on the last baseline, beyond the dot leader. */
@@ -408,6 +427,27 @@ nav.toc a.latex-page-entry { display: flex; align-items: baseline; gap: 0.25em; 
 }
 nav.toc :is(.latex-toc-part, .latex-toc-chapter) > a > .latex-page-leader,
 body[data-latex-chapters="false"] nav.toc .latex-toc-section > a > .latex-page-leader { background: none; }
+/* TeX aligns complete leader boxes to the left of the text measure. Their phase
+   is independent of the entry's indent, its title, and the number of digits. */
+body[data-latex-js-toc] nav.toc .latex-page-entry:has(.latex-leader-dots) {
+    gap: 0; container-type: inline-size;
+    --latex-leader-pitch: .778em; --latex-leader-diameter: .108em;
+}
+body[data-latex-js-toc] .latex-page-leader {
+    position: relative; background: none;
+}
+body[data-latex-js-toc] .latex-leader-dots {
+    --latex-leader-tail: mod(calc(100cqi + var(--toc-indent, 0px) - 1.55em), var(--latex-leader-pitch));
+    position: absolute; inset-block: 0; inset-inline-end: var(--latex-leader-tail); margin-block: auto; height: var(--latex-leader-diameter);
+    width: max(0px, round(down, calc(100% - var(--latex-leader-tail)), var(--latex-leader-pitch)));
+    background: radial-gradient(circle, currentColor .05em, transparent .054em) left center / var(--latex-leader-pitch) 100% repeat-x;
+}
+body[data-latex-js-toc] nav.toc .latex-page-label { min-width: 1.55em; }
+body[data-latex-js-toc] nav.toc .latex-page-entry:has(.latex-leader-dots) > .latex-page-label { flex: none; width: 1.55em; white-space: nowrap; }
+body[data-latex-js-toc] nav.toc .latex-page-entry > :first-child { max-width: calc(100% - 2.55em); }
+body[data-latex-js-toc][data-latex-chapters="false"] nav.toc > .latex-contents-title + ul > li:first-child > a {
+    padding-block-start: calc(var(--latex-parskip, 0px) + (1lh - 1cap) / 2);
+}
 .latex-page-label { align-self: flex-end; min-width: 2ch; text-align: end; }
 
 ol.latex-exam-list { list-style: none; padding-inline-start: 1.78em; }
@@ -460,7 +500,6 @@ body[data-latex-class="moderncv"] h2::before {
 /* jsclasses scales the entire design. Cvs is saved during class loading, before a
    document can change baselinestretch. A heading's own line box is stretched. */
 body.format-latex[data-latex-js-toc] {
-    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-sans-font, "Helvetica Neue")), "Surimono JS Gothic", var(--latex-sans-font, "Helvetica Neue"), var(--tex-sans);
     --tex-body-fonts: var(--latex-js-body-font), var(--latex-cjk-main-font, var(--latex-main-font, "Surimono Computer Modern")), var(--latex-main-font, "Surimono Computer Modern"), "Surimono Computer Modern", var(--tex-serif);
     --js-pt: calc(var(--latex-js-scale) * var(--tex-pt)); --latex-js-point: var(--js-pt);
     --latex-floatsep: calc(12 * var(--js-pt)); --latex-intextsep: calc(12 * var(--js-pt));
@@ -663,6 +702,10 @@ body[data-latex-js-chapters] nav[data-latex-chapter-opening] > .latex-contents-t
     font: normal var(--latex-size-Huge)/calc(33 * var(--js-pt) * var(--latex-stretch, 1)) var(--tex-sans-fonts);
     padding-block-start: var(--tex-chapter-top); margin-block: 0 calc(3 * var(--js-cvs));
 }
+/* In jsclasses, a running mark after the chapter vskip prevents the first entry's addvspace from coalescing with it. */
+body[data-latex-js-chapters] nav[data-latex-contents-mark]:has(> ul > .latex-toc-chapter:first-child) > .latex-contents-title {
+    padding-block-end: calc(3 * var(--js-cvs)); margin-block-end: 0;
+}
 @supports (text-box-trim: trim-both) {
     body[data-latex-js-chapters] nav[data-latex-chapter-opening] > .latex-contents-title {
         text-box-trim: trim-both; text-box-edge: cap alphabetic;
@@ -764,6 +807,9 @@ body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-bl
 
 body[data-latex-js-chapters][data-latex-js-toc] nav.toc .latex-toc-chapter > a { --latex-toc-number-width: calc(4.683 * var(--latex-zw)); }
 .latex-xkanjiskip { display: inline-block; width: .25em; }
+/* A real space interrupts WebKit’s implicit ideograph-to-digit spacing at an anchor boundary. */
+.latex-xkanjiskip:empty { display: inline; }
+.latex-xkanjiskip:empty::before { content: "\2005"; font-family: serif; white-space: pre; }
 body[data-latex-js-chapters] nav.toc .latex-toc-chapter > a > .latex-page-label { font-weight: normal; }
 @supports (text-box-trim: trim-both) {
     body[data-latex-js-chapters] nav.toc li > a {
@@ -965,16 +1011,92 @@ body[data-latex-js-toc] .latex-proof { margin-block: calc(6 * var(--tex-pt)); }
         text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: max(0px, calc(1lh - 1cap));
         &[style*="--latex-table-prev-depth"] { text-box-trim: trim-both; }
     }
-    body[data-latex-js-toc] figure[data-latex-placement="H"] > figcaption[style*="--latex-last-depth"]:last-child {
+    body[data-latex-js-toc] figure[data-latex-placement] > figcaption[style*="--latex-last-depth"]:last-child {
         text-box-trim: trim-end; text-box-edge: cap alphabetic; padding-block-end: var(--latex-last-depth);
     }
     /* A centred multiline tabular ends below its reference baseline. The
        following caption starts at lineskip plus the Japanese label's ascent. */
-    body[data-latex-js-toc] figure.latex-table[data-latex-placement="H"] > table:has(tr ~ tr) + figcaption[style*="--latex-last-depth"]:last-child {
+    body[data-latex-js-toc] figure.latex-table[data-latex-placement] > table:has(tr ~ tr) + figcaption[style*="--latex-last-depth"]:last-child {
         text-box-trim: trim-both; text-box-edge: cap alphabetic;
         padding-block-start: max(0px, calc(var(--js-pt) + .88em * var(--latex-jfm-scale) - 1cap));
     }
-    body[data-latex-js-toc] figure[data-latex-placement="H"] > p:has(> :is(.tikz-block,.latex-rule):only-child) + figcaption[style*="--latex-last-depth"] {
+    body[data-latex-js-toc] figure[data-latex-placement] > p:has(> :is(.tikz-block,.latex-rule):only-child) + figcaption[style*="--latex-last-depth"] {
         text-box-trim: trim-both;
     }
+}
+
+/* Alphabetic labels have proportional letters. The shared max-content track
+   measures the widest printed label, including its brackets, before adding labelsep. */
+ol.latex-alpha { display: grid; grid-template-columns: max-content minmax(0,1fr); column-gap: .5em; padding-inline-start: 0; }
+ol.latex-alpha > li { display: grid; grid-column: span 2; grid-template-columns: subgrid; }
+ol.latex-alpha .bib-label { margin: 0; min-width: 0; text-align: start; }
+
+body:is([data-latex-class="article"],[data-latex-class="report"],[data-latex-class="book"]) {
+    /* Between items LaTeX inserts itemsep as well as the list paragraph's parsep.
+       At entry to a nested list the preceding paragraph still uses its parent's parsep. */
+    & :is(ol.latex-enumerate,ul:not(.toc ul)) > li + li, & .latex-bibliography > li + li {
+        margin-block: calc(var(--latex-itemsep, var(--latex-outer-parsep)) + var(--latex-list-parsep, var(--latex-outer-parsep))) 0;
+    }
+    & .latex-bibliography > li:first-child { margin-block: 0; }
+    /* The upright paragraph strut sets the pitch even when an italic book title
+       or a bold run-in description label has different font metrics. */
+    & .latex-bibliography :is(em,i,strong,b), & .latex-description:not(.latex-nextline) dt { line-height: 0; }
+    & :is(ol.latex-enumerate,ul) + dl.latex-description {
+        margin-block-start: var(--latex-list-topsep, calc((var(--tex-top-sep) + var(--tex-partop-sep, 2)) * var(--tex-pt)));
+    }
+    & li > :is(ul:not(.toc ul),ol.latex-enumerate) {
+        --list-level-parsep: var(--latex-inner-parsep); --list-level-itemsep: var(--latex-inner-parsep);
+        margin-block: calc(var(--latex-list-topsep, var(--latex-outer-parsep)) + var(--latex-list-parsep, var(--latex-outer-parsep)));
+    }
+    & li li > :is(ul:not(.toc ul),ol.latex-enumerate) {
+        --list-level-parsep: 0px;
+        margin-block: calc(var(--latex-list-topsep, var(--latex-inner-parsep)) + var(--latex-list-parsep, var(--latex-inner-parsep)));
+    }
+    & li > :is(ul:not(.toc ul),ol.latex-enumerate) > li + li {
+        margin-block-start: calc(var(--latex-itemsep, var(--list-level-itemsep)) + var(--latex-list-parsep, var(--list-level-parsep)));
+    }
+    & :is(li,blockquote:not([class])) > p + p { margin-block-start: var(--latex-list-parsep, var(--list-level-parsep, var(--latex-outer-parsep))); }
+    & blockquote.latex-quotation > p { margin-block: 0; text-indent: 1.5em; }
+    & li li li > :is(ul:not(.toc ul),ol.latex-enumerate) {
+        margin-block: calc(var(--latex-list-topsep, var(--latex-inner-parsep)) + var(--latex-list-parsep, 0px));
+    }
+    & .latex-description > div + div {
+        margin-block-start: calc(var(--latex-itemsep, var(--latex-outer-parsep)) + var(--latex-list-parsep, var(--latex-outer-parsep)));
+    }
+    & .footnotes { line-height: var(--latex-note-pitch); }
+    & .footnotes :is(li,li > p) { margin-block: 0; line-height: inherit; }
+    & .footnotes li > p { min-block-size: var(--latex-note-pitch); }
+    & .footnotes li[value]::before, & .footnotes .latex-symbolic-note { font-size: var(--latex-size-tiny); line-height: 0; }
+    /* Move the ink after layout so subpixel mark raises survive WebKit's baseline rounding. */
+    & .footnotes li[value]::before { font-size: var(--latex-note-number-size); inset-block-start: .34em; inset-inline-end: 100%; transform: translateY(-.06em); }
+    & .footnotes .latex-symbolic-note { vertical-align: .5em; transform: translateY(.18em); }
+}
+
+/* Block line spans inside an inline code box leave an anonymous line in the pre.
+   The first numbered line should start on the code strut immediately after the caption skip. */
+figure.latex-listing .latex-numbered-listing pre > code { display: block; }
+/* Natural typewriter advances keep each word searchable in the PDF text layer. */
+.format-latex .latex-sized-code pre { font-size: var(--latex-listing-design-size, var(--latex-code-size)); }
+/* In the 9pt caption label, the colon's spacefactor gives lmr 4.116pt and lmbx 4.728pt. */
+body[data-latex-js-toc] figcaption:not([style*="--latex-caption-align"]) .latex-caption-colon-space { display: inline-block; width: var(--latex-label-colon-space, .4573em); }
+/* A jsclasses full stop ends the line in a half-zw box. Its ink keeps its natural position. */
+.latex-caption-jfm-end { margin-inline-end: calc(-.5em * var(--latex-jfm-scale)); }
+figure figcaption:has(br):not([style*="--latex-caption-align"]) { display: block; text-align: center; }
+body[data-latex-js-toc] figure figcaption:has(br):not([style*="--latex-caption-align"]) { width: 100%; box-sizing: border-box; }
+
+/* book.cls and report.cls give a part one vfil above and two below
+   (the second comes from newpage). The title may occupy several lines. */
+body:is([data-latex-class="book"],[data-latex-class="report"])[data-latex-chapters] {
+    & h2.latex-part {
+        box-sizing: border-box; display: flex; flex-direction: column;
+        min-height: calc(var(--latex-text-height-tex-pt) * var(--tex-pt));
+        padding-block: calc(var(--tex-body) * var(--tex-pt) + var(--tex-baseline)) 0;
+    }
+    & h2.latex-part::before, & h2.latex-part::after { content: ""; flex: 1 0 0; }
+    & h2.latex-part::after { flex-grow: 2; }
+    & h2:is(.latex-part,[id^="sec-"]) > .secnum {
+        font-size: var(--latex-size-huge); line-height: 1.2; margin: 0 0 calc(20 * var(--tex-pt) + .1em);
+    }
+    & h2[id^="sec-"]:not(.latex-part) { margin-block-end: calc(40 * var(--tex-pt) - .15em); }
+    & h2 > .latex-chapter-title { display: block; font-size: var(--latex-size-Huge); line-height: 1.2; }
 }

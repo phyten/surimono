@@ -2,12 +2,13 @@ import Foundation
 
 /// Publishing classes use different printed and reference forms for the same counter.
 package enum LaTeXJournalStyle: String, Sendable {
-    case ieee, aps
+    case ams, ieee, aps
     case apsPreprint = "aps-preprint"
     case lncs, elsevier
 
     init?(name: String, options: [String]) {
         switch name {
+        case "amsart", "amsproc", "amsbook": self = .ams
         case "IEEEtran" where !options.contains("compsoc") && !options.contains("transmag"): self = .ieee
         case "revtex4-2" where Set(options).isDisjoint(with: ["aip", "aapm", "sor"]):
             self = options.last(where: { $0 == "preprint" || $0 == "reprint" }) == "preprint" ? .apsPreprint : .aps
@@ -15,6 +16,27 @@ package enum LaTeXJournalStyle: String, Sendable {
         case "elsarticle": self = .elsevier
         default: return nil
         }
+    }
+
+    // cmcsc10's small letters have wider advances than synthesized browser small caps.
+    // Preserve the source case for contents, selection and accessibility.
+    static func smallCaps(_ html: String, in document: LaTeXDocument) -> String {
+        guard html.utf8.count <= 32768 else { return html }
+        var svgDepth = 0
+        return HTMLScanner.tokens(html).map { token in
+            switch token {
+            case .tag(let tag):
+                if tag.name == "svg", !tag.isSelfClosing { svgDepth += tag.isClosing ? -1 : 1 }
+                return tag.source
+            case .opaque(let source): return source
+            case .text(let text):
+                guard svgDepth == 0 else { return text }
+                return text.replacing(/&[#a-zA-Z0-9]+;|([a-z]+)/) { match in
+                    guard match.1 != nil, document.reserveExpansion(characters: 40) else { return String(match.0) }
+                    return "<span class=\"latex-ams-small-cap\">\(match.0)</span>"
+                }
+            }
+        }.joined()
     }
 
     var isAPS: Bool { self == .aps || self == .apsPreprint }
@@ -67,7 +89,7 @@ package enum LaTeXJournalStyle: String, Sendable {
     func abstract(heading: String, body: String) -> String {
         let start = "<div class=\"abstract latex-front-abstract\">\n"
         if self == .aps { return start + body + "</div>\n" }
-        guard self == .ieee || self == .lncs else {
+        guard self == .ieee || self == .lncs || self == .ams else {
             return start + "<p class=\"abstract-title\">\(heading)</p>\n" + body + "</div>\n"
         }
         let suffix = self == .ieee ? "—" : (heading.hasSuffix(".") ? " " : ". ")

@@ -4,6 +4,7 @@ import Foundation
 /// The app still chooses the output stock. The document's stock determines its intended margins.
 public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public let isJapanese: Bool
+    let usesAMSA4Layout: Bool
     let hidesTitlePageNumber: Bool
     public let hasChapters: Bool
     public internal(set) var styleVariables = ""
@@ -37,6 +38,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
         isKOMA = ["scrartcl", "scrreprt", "scrbook"].contains(name)
         if isKOMA { bookStyle.readOptions(options) }
         journalStyle = LaTeXJournalStyle(name: name, options: options)
+        usesAMSA4Layout = journalStyle == .ams && options.contains("a4paper")
         publication = LaTeXPublicationLayout(name: name, options: options)
         pageNumbers = LaTeXPageNumbers(name: name, options: options)
         // These classes select their own first-page style at maketitle, independently of the running style.

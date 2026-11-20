@@ -86,7 +86,7 @@ Lend 紙。
 LTend 紙。
 Ruleend 紙。
 Listing 1 Listcap
-表 1 Longcap
+表 1: Longcap
 RowA 北
 RowB 南
 RowC 西
@@ -111,7 +111,7 @@ Afterlong 紙。
 7 Figures
 Afterfig 紙。
 Listing 2 Plaincap
-表 3 Plainlong
+表 3: Plainlong
 PlainA 北
 PlainB 南
 図 3 Herefig

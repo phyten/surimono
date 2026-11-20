@@ -33,10 +33,10 @@ extension LaTeXDocument {
             let value = Int(note.number)
             let attribute = value.map { " value=\"\($0)\"" } ?? " style=\"list-style:none\""
             var content = note.html ?? ""
-            if value == nil {
+            if value == nil && !note.number.isEmpty {
                 // A superscript before a block paragraph takes a line of its own. Put the mark on the
                 // first text baseline, including when the note starts with an explicitly unindented paragraph.
-                let mark = "<sup class=\"latex-symbolic-note\">\(HTML.escape(note.number))</sup>&nbsp;"
+                let mark = "<sup class=\"latex-symbolic-note\">\(HTML.escape(note.number))</sup>"
                 if content.hasPrefix("<p>") || content.hasPrefix("<p "), let tagEnd = content.firstIndex(of: ">") {
                     content.insert(contentsOf: mark, at: content.index(after: tagEnd))
                 } else {

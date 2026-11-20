@@ -65,6 +65,8 @@ struct LaTeXTable {
         var partialRules: [(columns: ClosedRange<Int>, rule: Rule)] = []
         var hasBooktabsAbove: Bool { ruleAbove?.isBooktabs == true || partialRules.contains { $0.rule.isBooktabs } }
         var extraDepth: String?
+        var ruleOnly = false
+        var group = ""
         var isHeader = false
         var background: (spec: String, model: String?)?
     }
@@ -76,7 +78,7 @@ struct LaTeXTable {
     var targetWidth: String?
     var columnTypes: [Character: String] = [:]
 
-    static let spacingRegisters: Set<String> = ["tabcolsep", "ltleft", "ltright", "ltpre", "ltpost"]
+    static let spacingRegisters: Set<String> = ["arrayrulewidth", "tabcolsep", "ltleft", "ltright", "ltpre", "ltpost"]
     var spacing: [String: String] = [:]
     var arrayStretch: Double?
     var extraRowHeight: String?
@@ -99,14 +101,23 @@ struct LaTeXTable {
         let columns = Self.columns(Array(spec), budget: &budget, aliases: columnTypes, aliasBudget: &aliasBudget)
         let flexible = columns.filter { $0.paragraph == "X" }.count
         let tableWidth = flexible == 0 ? nil : targetWidth
-        let rows = self.rows()
+        let (rows, repeatFirst, repeatLast) = tableRows()
         var pendingRowspans: [Int: Int] = [:]
         var head = ""
         var bodyHTML = ""
+        var groups: [String: String] = [:]
         var captions = ""
         for (index, row) in rows.enumerated() {
+            if index > 0 && rows[index - 1].group != row.group { pendingRowspans.removeAll() }
             if isLongtable, Self.isCaption(row) {
-                captions += inline(row.cells[0]) + "\n"
+                let caption = inline(row.cells[0])
+                if row.group.isEmpty {
+                    captions += caption + "\n"
+                } else {
+                    let width = max(1, columns.count)
+                    groups[row.group, default: ""] +=
+                        "<tr><td colspan=\"\(width)\"><figure>\(caption)</figure></td></tr>\n"
+                }
                 continue
             }
             let rowBackground = row.background.flatMap { color($0.spec, $0.model) }
@@ -119,11 +130,13 @@ struct LaTeXTable {
                     column += 1
                     continue
                 }
-                let cell = Self.cell(
+                var cell = Self.cell(
                     source.trimmingCharacters(in: .whitespacesAndNewlines), aliases: columnTypes,
                     aliasBudget: &aliasBudget)
+                if row.ruleOnly { cell.columns = max(1, columns.count) }
                 let format = cell.columnFormat ?? (column < columns.count ? columns[column] : Column())
                 var style = ["text-align: \(format.alignment)"]
+                if row.ruleOnly { style.append("height: 0; line-height: 0; padding: 0") }
                 if let vertical = cell.vertical {
                     style.append("vertical-align: \(vertical)")
                 } else if let column = format.paragraph, column != "X" {
@@ -157,6 +170,11 @@ struct LaTeXTable {
                     guard let rule else { continue }
                     if let kind = rule.printedKind {
                         ruleClasses.append("latex-\(edge)-\(kind)")
+                    } else if isLongtable {
+                        ruleClasses.append("latex-\(edge)-hline")
+                        style.append(
+                            "border-\(edge): var(--latex-arrayrulewidth, calc(.4 * var(--tex-pt, .996264pt))) solid currentColor"
+                        )
                     } else {
                         style.append("border-\(edge): \(Rule.thinCSS)")
                     }
@@ -192,7 +210,13 @@ struct LaTeXTable {
             let attr = spacing.isEmpty ? "" : " class=\"\(spacing.dropFirst())\""
             let depth = row.extraDepth.map { " style=\"--latex-row-skip: \($0)\"" } ?? ""
             let rowHTML = "<tr\(attr)\(depth)>\(cells)</tr>\n"
-            if isLongtable && row.isHeader { head += rowHTML } else { bodyHTML += rowHTML }
+            if !row.group.isEmpty {
+                groups[row.group, default: ""] += rowHTML
+            } else if isLongtable && row.isHeader {
+                head += rowHTML
+            } else {
+                bodyHTML += rowHTML
+            }
         }
         let thead = head.isEmpty ? "" : "<thead>\n\(head)</thead>"
         let cssClass = isLongtable ? "latex-tabular latex-longtable" : "latex-tabular"
@@ -230,8 +254,18 @@ struct LaTeXTable {
         let style = strut.isEmpty ? "" : " style=\"\(strut.joined(separator: "; "))\""
         // babel's basic bidi mode leaves the TeX alignment grid LTR; each entry still reads RTL.
         let direction = basicBidi ? " dir=\"ltr\"" : ""
+        var sections = ""
+        for group in ["last-foot", "repeat-head", "repeat-foot"] {
+            if let content = groups[group] {
+                let hidden = group == "last-foot" ? "" : " hidden"
+                sections += "<tbody data-latex-\(group)\(hidden)>\n\(content)</tbody>"
+            }
+        }
+        let repeatAttributes =
+            (repeatFirst ? " data-latex-repeat-first" : "") + (repeatLast ? " data-latex-repeat-last" : "")
+        let paged = sections.isEmpty && repeatAttributes.isEmpty ? "" : " data-latex-paged-table" + repeatAttributes
         let html =
-            "<table\(direction) class=\"\(cssClass)\"\(sized)\(style)>\(tracks)\(thead)<tbody>\n\(bodyHTML)</tbody></table>\n"
+            "<table\(direction) class=\"\(cssClass)\"\(sized)\(style)\(paged)>\(tracks)\(thead)<tbody>\n\(bodyHTML)</tbody>\(sections)</table>\n"
         let wrapper = spacingCSS.isEmpty ? "" : " style=\"\(spacingCSS)\""
         return captions.isEmpty
             ? html : "<figure class=\"latex-table latex-longtable\"\(wrapper)>\n\(captions)\(html)</figure>\n"
@@ -356,8 +390,8 @@ struct LaTeXTable {
         return columns
     }
 
-    private func rows() -> [Row] {
-        guard isLongtable else { return rows(in: body).rows }
+    private func tableRows() -> ([Row], Bool, Bool) {
+        guard isLongtable else { return (rows(in: body).rows, false, false) }
         let boundaries = ["\\endfirsthead", "\\endhead", "\\endfoot", "\\endlastfoot"]
         let parts = LaTeXLexer.split(body, at: boundaries, keepingSeparators: true, protectingEnvironments: true)
         var sections: [String: String] = [:]
@@ -370,21 +404,42 @@ struct LaTeXTable {
                 content += part
             }
         }
-        // WebKit prints the thead only once. Prefer the actual first-page heading (even an
-        // explicitly empty one), so a "continued" caption cannot displace the original.
-        let header = sections["\\endfirsthead"] ?? sections["\\endhead"]
+        let first = sections["\\endfirsthead"]
+        let continuing = sections["\\endhead"]
+        let header = first ?? continuing
         var headRows = rows(in: header ?? "", detectHeader: false).rows
         for index in headRows.indices { headRows[index].isHeader = true }
         var bodyRows = rows(in: content, detectHeader: header == nil).rows
-        if let foot = sections["\\endlastfoot"] ?? sections["\\endfoot"], !bodyRows.isEmpty {
-            // Continuation text is page-specific. Only its full-width closing rule belongs
-            // to the continuous HTML table, on the last body row exactly once.
-            let footer = rows(in: foot, detectHeader: false)
-            if let rule = footer.trailingRule ?? footer.rows.reversed().lazy.compactMap(\.ruleAbove).first {
-                bodyRows[bodyRows.count - 1].ruleBelow = rule
+        var extra: [Row] = []
+        func appendGroup(_ source: String, as group: String) {
+            let parsed = rows(in: source, detectHeader: false)
+            var groupRows = parsed.rows
+            if groupRows.isEmpty, let rule = parsed.trailingRule {
+                if group == "last-foot", !bodyRows.isEmpty {
+                    bodyRows[bodyRows.count - 1].ruleBelow = rule
+                } else {
+                    groupRows = [Row(cells: [""], ruleBelow: rule, ruleOnly: true)]
+                }
+            }
+            for var row in groupRows {
+                row.group = group
+                row.isHeader = group == "repeat-head"
+                extra.append(row)
             }
         }
-        return headRows + bodyRows
+        if let firstFoot = sections["\\endlastfoot"] ?? sections["\\endfoot"] {
+            appendGroup(firstFoot, as: "last-foot")
+        }
+        if first != nil, let continuing { appendGroup(continuing, as: "repeat-head") }
+        if let foot = sections["\\endfoot"],
+            sections["\\endlastfoot"] != nil || !extra.contains(where: { $0.group == "last-foot" })
+        {
+            appendGroup(foot, as: "repeat-foot")
+        }
+        return (
+            headRows + bodyRows + extra, first == nil && continuing != nil,
+            sections["\\endlastfoot"] == nil && sections["\\endfoot"] != nil
+        )
     }
 
     private static func isCaption(_ row: Row) -> Bool {

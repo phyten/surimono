@@ -41,7 +41,8 @@ extension LaTeXReader {
                 }
             case "language", "numbers", "linenos", "firstnumber", "caption", "label", "basicstyle", "frame",
                 "keywordstyle", "commentstyle", "stringstyle", "numberstyle", "breaklines", "backgroundcolor",
-                "lineskip", "aboveskip", "belowskip", "xleftmargin":
+                "lineskip", "aboveskip", "belowskip", "xleftmargin", "columns", "basewidth", "numbersep",
+                "abovecaptionskip", "belowcaptionskip":
                 settings[key] = value
             default: break
             }
@@ -139,6 +140,9 @@ extension LaTeXReader {
                             ? "var(--latex-number-\(name), \(relative))" : relative
                         styles.append("\(prefix)-size: \(value)")
                         if key == "basicstyle", let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: name) {
+                            if ["article", "report", "book"].contains(document.classInfo.name) {
+                                styles.append("--latex-listing-design-size: var(--latex-size-\(name))")
+                            }
                             styles.append(
                                 "--latex-listing-pitch: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt) * var(--latex-stretch, 1))"
                             )

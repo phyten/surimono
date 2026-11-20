@@ -115,8 +115,12 @@ final class LaTeXBibliography {
             } else {
                 labels = selected.indices.map { String($0 + 1) }
             }
-            let width = labels.map(\.count).max() ?? 1
-            html += "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(width)ch\">\n"
+            if style == "alpha" {
+                html += "<ol class=\"latex-bibliography latex-alpha\">\n"
+            } else {
+                let width = labels.map(\.count).max() ?? 1
+                html += "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(width)ch\">\n"
+            }
         }
         for (position, item) in selected.enumerated() {
             let id = "bib-db-\(position + 1)"
@@ -124,7 +128,8 @@ final class LaTeXBibliography {
             let label = authorYear ? labels[position] : HTML.escape(labels[position])
             let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
             let marker = authorYear ? "" : "<span class=\"bib-label\">\(printed)</span> "
-            let row = "<li id=\"\(id)\">\(marker)\(entry.html)</li>\n"
+            let content = style == "alpha" && !authorYear ? "<span>\(entry.html)</span>" : entry.html
+            let row = "<li id=\"\(id)\">\(marker)\(content)</li>\n"
             guard document.reserveExpansion(characters: row.utf8.count) else { break }
             document.bibliography[item.key] = (label, printCount > 0 ? id : "")
             citationLabels[item.key] = (entry.shortAuthor, entry.year)
@@ -431,7 +436,8 @@ extension LaTeXReader {
         }
         let book = bookHeadingAttributes(document.classInfo.hasChapters ? "chapter" : "section")
         let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
-        return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(heading)</h2>\n"
+        let title = document.classInfo.name == "amsart" ? LaTeXJournalStyle.smallCaps(heading, in: document) : heading
+        return "<h2 class=\"latex-bibliography-heading\"\(book)\(opening)\(anchor)>\(title)</h2>\n"
     }
 
     func externalBibliography(_ name: String) {

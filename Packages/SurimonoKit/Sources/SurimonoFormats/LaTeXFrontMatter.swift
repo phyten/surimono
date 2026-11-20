@@ -28,6 +28,9 @@ final class LaTeXFrontMatter {
     private var implicitAffiliations: [[String]: String] = [:]
     var publishers: String?
     var date: String?
+    var amsContacts: [String] = []
+    var classificationYear = "2020"
+    var amsThanks: [String] = []
     var titleNotes: [String] = []
     var namedNotes: [String: String] = [:]
     var noteOrder: [String] = []
@@ -59,6 +62,9 @@ final class LaTeXFrontMatter {
     }
 
     func resolve(in html: String, document: LaTeXDocument) -> String {
+        if document.classInfo.journalStyle == .ams {
+            return resolveAMS(in: html, document: document)
+        }
         guard printed || abstractHTML != nil || reservedKeywords else { return html }
         let abstract = abstractHTML ?? ""
         let classification =
@@ -71,16 +77,12 @@ final class LaTeXFrontMatter {
             ? ""
             : "<p class=\"latex-front-keywords\"><strong>\(keywordLabel(document))</strong>\(keywordGap)\(keywords.joined(separator: separator))</p>\n"
         let details = classification + keywordLine
-        // amsbook prints the classification and keywords on the verso with the abstract.
-        let verso = document.classInfo.name == "amsbook" && !details.isEmpty && !abstract.isEmpty
-        let abstractPage =
-            verso ? "<div class=\"latex-amsbook-verso\">\n" + details + abstract + "</div>\n" : abstract
-        let endOfTitle = abstractPage + (verso ? "" : details)
+        let endOfTitle = abstract + details
         let spansColumns = document.classInfo.columns > 1 && document.classInfo.journalStyle?.hasWideAbstract == true
         let printedDetails =
             spansColumns && !endOfTitle.isEmpty ? "<div data-latex-wide>\n" + endOfTitle + "</div>\n" : endOfTitle
-        return html.replacingOccurrences(of: document.placeholder("F", 0), with: printed ? "" : abstractPage)
-            .replacingOccurrences(of: document.placeholder("F", 1), with: printed || verso ? "" : details)
+        return html.replacingOccurrences(of: document.placeholder("F", 0), with: printed ? "" : abstract)
+            .replacingOccurrences(of: document.placeholder("F", 1), with: printed ? "" : details)
             .replacingOccurrences(of: document.placeholder("F", 2), with: printedDetails)
     }
 
@@ -114,7 +116,8 @@ extension LaTeXDocumentClassInfo {
     /// Shared templates often supply a fallback only when the document class lacks its own command.
     func definesClassCommand(_ command: String) -> Bool {
         switch name {
-        case "amsart", "amsbook": return ["address", "email", "keywords", "subjclass"].contains(command)
+        case "amsart", "amsproc", "amsbook":
+            return ["address", "curraddr", "urladdr", "email", "keywords", "subjclass"].contains(command)
         case "IEEEtran":
             return [
                 "IEEEauthorblockN", "IEEEauthorblockA", "IEEEauthorrefmark", "IEEEkeywords", "IEEEcompsocitemizethanks",
@@ -159,13 +162,39 @@ extension LaTeXDocumentClassInfo {
     }
 
     var journalFrontMatter: Bool {
-        ["amsart", "amsbook", "IEEEtran", "llncs", "acmart", "elsarticle"].contains(name) || name.hasPrefix("revtex")
+        ["amsart", "amsbook", "amsproc", "IEEEtran", "llncs", "acmart", "elsarticle"].contains(name)
+            || name.hasPrefix("revtex")
     }
 }
 
 extension LaTeXReader {
     func handleFrontMatter(_ command: String) -> Bool {
         let front = document.frontMatter
+        if document.classInfo.journalStyle == .ams {
+            switch command {
+            case "address", "curraddr", "urladdr", "email":
+                let qualifier = optional().map(inline) ?? ""
+                let source = argument() ?? ""
+                let value = inline(source).replacingOccurrences(of: "<br/>", with: ", ")
+                if !value.isEmpty {
+                    let line: String
+                    if command == "address" {
+                        line = (qualifier.isEmpty ? "" : "(\(qualifier)) ") + "<span>\(value)</span>"
+                    } else {
+                        let label =
+                            command == "email" ? "Email address" : command == "urladdr" ? "URL" : "Current address"
+                        let detail = command == "curraddr" ? value : "<code>\(value)</code>"
+                        line = "<em>\(label)\(qualifier.isEmpty ? "" : ", " + qualifier)</em>: " + detail
+                    }
+                    front.amsContacts.append("<p class=\"latex-ams-\(command)\">\(line)</p>\n")
+                }
+                return true
+            case "thanks":
+                front.amsThanks.append(inline(argument() ?? ""))
+                return true
+            default: break
+            }
+        }
         switch command {
         case "title":
             front.shortTitle = optional()
@@ -267,7 +296,10 @@ extension LaTeXReader {
         case "keywords", "IEEEkeywords":
             readKeywords(argument() ?? "")
         case "subjclass", "ccsdesc":
-            _ = optional()
+            let option = optional()
+            if command == "subjclass", let option, ["1991", "2000", "2010", "2020"].contains(option) {
+                front.classificationYear = option
+            }
             let value = inline(argument() ?? "")
             if !value.isEmpty { front.classifications.append(value) }
             reserveFrontKeywords()
@@ -402,9 +434,10 @@ extension LaTeXReader {
         front.printed = true
         document.makingTitle = true
         defer { document.makingTitle = false }
-        let titleStyle =
-            document.classInfo.hidesTitlePageNumber
-            ? " data-latex-page-action=\"thispagestyle\" data-value=\"empty\"" : ""
+        let info = document.classInfo
+        let pageStyle =
+            info.name == "amsbook" || info.hidesTitlePageNumber ? "empty" : info.journalStyle == .ams ? "plain" : nil
+        let titleStyle = pageStyle.map { " data-latex-page-action=\"thispagestyle\" data-value=\"\($0)\"" } ?? ""
         let span = document.classInfo.columns > 1 ? " data-latex-wide" : ""
         var html = "<header class=\"latex-title-block\"\(span)\(titleStyle)\(frontDispositionAttribute)>\n"
         if let title = front.title {
@@ -453,7 +486,9 @@ extension LaTeXReader {
             html += "</div>\n"
         }
         // These classes do not include a date in their normal title block, even if the author supplies one.
-        if !["amsbook", "IEEEtran", "llncs", "acmart", "elsarticle"].contains(document.classInfo.name) {
+        if document.classInfo.journalStyle != .ams,
+            !["IEEEtran", "llncs", "acmart", "elsarticle"].contains(document.classInfo.name)
+        {
             let date = front.date ?? (document.classInfo.journalFrontMatter ? "" : "\\today")
             let dateHTML = inline(date)
             if !dateHTML.isEmpty {
@@ -463,6 +498,19 @@ extension LaTeXReader {
         }
         if let publishers = front.publishers {
             html += "<p class=\"latex-front-publishers\">\(inline(publishers))</p>\n"
+        }
+        if document.classInfo.journalStyle == .ams {
+            if info.name != "amsbook" {
+                let marks = [
+                    ("leftmark", front.authors.map { $0.shortName ?? $0.name }.joined(separator: ", ")),
+                    ("rightmark", front.shortTitle ?? front.title ?? ""),
+                ]
+                for (kind, source) in marks {
+                    html +=
+                        "<span data-latex-page-action=\"\(kind)\" data-value=\"\(HTML.escape(LaTeXPageNumbers.text(source)))\"></span>"
+                }
+            }
+            html += document.placeholder("F", 3)
         }
         appendBlock(html + "</header>\n" + document.placeholder("F", 2))
     }

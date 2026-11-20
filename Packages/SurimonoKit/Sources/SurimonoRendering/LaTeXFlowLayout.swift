@@ -18,6 +18,10 @@ struct LaTeXFlowLayout {
         var slice: Slice?
         var gap: CGFloat = 0
         var notes: [String] = []
+        var repeatHead: Slice?
+        var repeatFoot: Slice?
+        var tableBreakDepth: CGFloat?
+        var tablePreShrink: CGFloat?
         var placement: String?
         var floatKind: String?
         var wide: Bool = false
@@ -27,6 +31,7 @@ struct LaTeXFlowLayout {
         var keepBefore: Bool?
         var discardable: Bool?
         var leadingBeforeHere: CGFloat?
+        var leadingAfterHere: CGFloat?
         var leadingAfterHeading: CGFloat?
         var shrinkBefore: CGFloat?
         var topSkip: CGFloat?
@@ -62,6 +67,7 @@ struct LaTeXFlowLayout {
         var segments: [Segment]
         var notes: [String: Slice]
         var noteSkip: CGFloat
+        var noteRuleWidth: CGFloat?
         var textFloatSep: CGFloat
         var floatSep: CGFloat
         var inTextSep: CGFloat
@@ -101,7 +107,7 @@ struct LaTeXFlowLayout {
                 + (footers.lazy.filter { $0.key != full && $0.key.overlaps(lane) }.map(\.value.height).max() ?? 0)
         }
 
-        fileprivate mutating func finish(height: CGFloat, full: Lane, skip: CGFloat) {
+        fileprivate mutating func finish(height: CGFloat, full: Lane, skip: CGFloat, ruleWidth: CGFloat) {
             // Reserve footers during layout, then splice them into the capture stream at their
             // column ends. Work backwards so earlier offsets remain valid. Page-wide notes read last.
             let bodyCount = pieces.count
@@ -123,7 +129,8 @@ struct LaTeXFlowLayout {
                 }
                 if !footer.notes.isEmpty {
                     y += skip
-                    rules.append(CGRect(x: lane.x, y: y - min(3, skip / 2), width: min(180, lane.width), height: 0.5))
+                    rules.append(
+                        CGRect(x: lane.x, y: y - min(3, skip / 2), width: min(ruleWidth, lane.width), height: 0.5))
                 }
                 for slice in footer.notes {
                     blocks.append(Piece(slice: slice, x: lane.x, y: y, scale: 1))
@@ -189,7 +196,7 @@ struct LaTeXFlowLayout {
     static func pages(
         _ input: Measurement, width: CGFloat, height: CGFloat, until deadline: ContinuousClock.Instant? = nil
     ) throws -> [Page] {
-        let spacing = [input.noteSkip, input.textFloatSep, input.floatSep, input.inTextSep]
+        let spacing = [input.noteSkip, input.noteRuleWidth ?? 180, input.textFloatSep, input.floatSep, input.inTextSep]
         guard width.isFinite, width > 0, height.isFinite, height > 0,
             spacing.allSatisfy({ $0.isFinite && $0 >= 0 }), input.notes.values.allSatisfy(\.valid)
         else { throw CannotFit() }
@@ -199,9 +206,13 @@ struct LaTeXFlowLayout {
             guard segment.rule.isFinite, segment.gap.isFinite,
                 segment.items.allSatisfy({
                     $0.gap.isFinite && ($0.leadingBeforeHere ?? 0).isFinite && ($0.extraAfter ?? 0).isFinite
+                        && ($0.leadingAfterHere ?? 0).isFinite && ($0.leadingAfterHere ?? 0) >= 0
                         && ($0.leadingAfterHeading ?? 0).isFinite && ($0.leadingAfterHeading ?? 0) >= 0
                         && ($0.shrinkBefore ?? 0).isFinite && ($0.shrinkBefore ?? 0) >= 0
                         && ($0.extraAfter ?? 0) > -1 && ($0.topSkip ?? 0).isFinite && ($0.topSkip ?? 0) >= 0
+                        && ($0.tableBreakDepth ?? 0).isFinite && ($0.tableBreakDepth ?? 0) >= 0
+                        && ($0.tablePreShrink ?? 0).isFinite && ($0.tablePreShrink ?? 0) >= 0
+                        && ($0.repeatHead?.valid ?? true) && ($0.repeatFoot?.valid ?? true)
                         && ($0.slice?.valid ?? ($0.forced != nil))
                 })
             else { throw CannotFit() }
@@ -318,7 +329,7 @@ struct LaTeXFlowLayout {
     }
 
     private mutating func endPage() {
-        page.finish(height: height, full: full, skip: input.noteSkip)
+        page.finish(height: height, full: full, skip: input.noteSkip, ruleWidth: input.noteRuleWidth ?? 180)
         pages.append(page)
         page = Page()
         top = 0
@@ -393,7 +404,11 @@ struct LaTeXFlowLayout {
             var y = base
             var band = ColumnTop(index: page.pieces.count, textStart: base, hasFloats: base > top)
             try placeTops(segment, cursor: &cursor, lane: lane, wide: false, band: &band, y: &y, limit: limit)
+            var tableFoot: Slice?
+            var tableStart = 0
+            var tableShrink: CGFloat = 0
             var atColumnTop = true
+            var followsHere = false
             var followsHeading = false
             var inTextKinds = Set<String>()
             while let first = cursor.waiting.first, !first.item.wide, !isFloatPage(first.item),
@@ -449,6 +464,7 @@ struct LaTeXFlowLayout {
                         // The lower intextsep of an H box is discardable glue at a column break.
                         y = min(y + cost, limit, height - page.reserved(lane, full: full))
                         atColumnTop = false
+                        followsHere = !pinned
                         followsHeading = false
                         inTextKinds.insert(item.floatKind ?? "")
                         if !pinned {
@@ -488,24 +504,50 @@ struct LaTeXFlowLayout {
                 // An oversized group still has to make progress on an empty page.
                 var gap = atColumnTop ? min(item.topSkip ?? 0, max(0, height - groupHeight)) : item.gap
                 if followsHeading { gap += item.leadingAfterHeading ?? 0 }
+                if followsHere { gap += item.leadingAfterHere ?? 0 }
                 let scale = min(1, height / groupHeight)
                 if !atColumnTop, let shrink = item.shrinkBefore {
                     // Use only the glue needed to keep the following group on this page.
                     let available = min(limit, height - page.reserved(lane, full: full))
                     gap -= min(gap, shrink, max(0, y + gap + groupHeight * scale - available))
                 }
+                let tableHead = atColumnTop ? item.repeatHead : nil
+                gap += tableHead?.height ?? 0
                 let naturalEnd = y + gap + groupHeight * scale
                 let room = min(limit, height - page.reserved(lane, full: full))
                 var shrink = min(
                     max(0, naturalEnd - room), (item.corrections?.reduce(0) { $0 + $1.shrink } ?? 0) * scale)
-                let end = naturalEnd - shrink
-                guard try reserve(item, in: lane, footLane: segment.pageNotes ? full : lane, end: end, limit: limit)
+                if let before = item.tablePreShrink {
+                    tableStart = page.pieces.count
+                    tableShrink = min(gap, before)
+                }
+                let footHeight = item.repeatFoot?.height ?? 0
+                let depth =
+                    footHeight > 0 && item.notes.isEmpty && page.reserved(lane, full: full) == 0
+                    ? min(item.tableBreakDepth ?? 0, footHeight + groupHeight) : 0
+                let required = naturalEnd - shrink + footHeight - depth
+                let take = footHeight > 0 ? min(tableShrink, max(0, required - room)) : 0
+                let end = naturalEnd - shrink - take
+                guard
+                    try reserve(
+                        item, in: lane, footLane: segment.pageNotes ? full : lane,
+                        end: end + footHeight - depth, limit: limit)
                 else {
                     if item.heading == true && end <= min(limit, height - page.reserved(lane, full: full)) {
                         cursor.floatAfterMovedHeading = cursor.item + 1
                     }
                     break
                 }
+                if take > 0 {
+                    // LTpre is shared by all the rows already placed in this lane. Consume
+                    // its finite shrink once, and only after accepting the new row.
+                    for i in tableStart..<page.pieces.count { page.pieces[i].y -= take }
+                    y -= take
+                    tableShrink -= take
+                }
+                if item.repeatFoot == nil { tableShrink = 0 }
+                if let tableHead { page.draw(tableHead, at: y + gap - tableHead.height, lane: lane) }
+                tableFoot = item.repeatFoot
                 var part = s
                 var target = y + gap
                 for correction in item.corrections ?? [] {
@@ -520,9 +562,14 @@ struct LaTeXFlowLayout {
                 part.end = s.end
                 if part.height > 0 { page.draw(part, at: target, lane: lane, scale: scale) }
                 y = end
+                followsHere = false
                 followsHeading = item.heading == true
                 atColumnTop = false
                 cursor.item += 1
+            }
+            if let tableFoot {
+                page.draw(tableFoot, at: y, lane: lane)
+                y += tableFoot.height
             }
             deepest = max(deepest, y)
         }

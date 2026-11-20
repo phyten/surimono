@@ -137,7 +137,7 @@ struct LaTeXReviewRegressionTests {
         #expect(!html.contains("1em"))
     }
 
-    @Test("longtable の題と最初の見出しを一度だけ出し継続ページの見出しと脚注を落とす")
+    @Test("longtable の題と最初の見出しを一度だけ出し継続用の見出し・脚と最終ページの脚を区別する")
     func longtableCaptionAndSections() {
         let html = body(
             #"""
@@ -155,15 +155,33 @@ struct LaTeXReviewRegressionTests {
             \end{document}
             """#)
         #expect(
-            html.contains("<figcaption id=\"tab-2\"><span class=\"latex-caption-label\">表 2</span>　長い表</figcaption>"))
+            html.contains("<figcaption id=\"tab-2\"><span class=\"latex-caption-label\">表 2</span>: 長い表</figcaption>"))
         #expect(html.contains("<th style=\"text-align: start\">名前</th><th style=\"text-align: end\">数</th>"))
         #expect(html.contains("<td style=\"text-align: start\">甲</td><td style=\"text-align: end\">1</td>"))
-        #expect(!html.contains("最後の脚注"))
-        #expect(!html.contains("繰り返す見出し"))
-        #expect(!html.contains("途中の脚注"))
-        #expect(html.components(separatedBy: "<tr>").count == 4)
+        #expect(html.contains("最後の脚注"))
+        #expect(html.contains("data-latex-repeat-head hidden"))
+        #expect(html.contains("繰り返す見出し"))
+        #expect(html.contains("data-latex-repeat-foot hidden"))
+        #expect(html.contains("途中の脚注"))
+        #expect(html.components(separatedBy: "<tr>").count == 7)
         #expect(html.contains("<a class=\"latex-number-ref\" href=\"#tab-2\">2</a>"))
         #expect(html.contains("<span class=\"latex-caption-label\">図 1</span>"))
+    }
+
+    @Test("長表の継続見出しの表題は同じ番号を使い、空の短縮題を表目次に加えない")
+    func continuingCaption() {
+        let html = body(
+            #"""
+            \listoftables
+            \begin{longtable}{ll}\caption{Initial}\\\endfirsthead
+            \caption[]{Continuation}\\\endhead A&B\\\end{longtable}
+            \begin{table}\caption{Next table}\end{table}
+            """#)
+        #expect(html.contains(#"data-latex-repeat-head hidden>"#))
+        #expect(html.contains(#"colspan="2"><figure><figcaption"#))
+        #expect(html.contains("Table 1</span>: Continuation"))
+        #expect(html.contains("Table 2</span>: Next table"))
+        #expect(html.components(separatedBy: "Continuation").count == 2)
     }
 
     @Test("longtable は endhead だけでも先頭を見出しにし境界だけの空行を出さない")

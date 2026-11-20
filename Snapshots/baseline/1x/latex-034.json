@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.015317438171126201,
+    "changedAreaRatio" : 0.014759350551369899,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 25.4,
     "maxLuminance" : 138.828125,
-    "maxShiftPt" : 40.6,
+    "maxShiftPt" : 29.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 9
@@ -42,49 +42,49 @@
           "text" : "1",
           "width" : 3.8,
           "x" : 111.7,
-          "y" : 218.9
+          "y" : 203.7
         },
         {
           "height" : 6.6,
           "text" : "2",
           "width" : 3.8,
           "x" : 111.7,
-          "y" : 230.1
+          "y" : 214.9
         },
         {
           "height" : 6.6,
           "text" : "3",
           "width" : 3.8,
           "x" : 111.7,
-          "y" : 241.3
+          "y" : 226.1
         },
         {
           "height" : 8.3,
           "text" : "def slot(row, column, width=4):",
           "width" : 145.9,
           "x" : 125.4,
-          "y" : 219.2
+          "y" : 204
         },
         {
           "height" : 8.3,
           "text" : "# Counting begins at the upper left.",
-          "width" : 169.5,
+          "width" : 169.8,
           "x" : 144.3,
-          "y" : 230.4
+          "y" : 215.2
         },
         {
           "height" : 8.3,
           "text" : "return row * width + column",
           "width" : 127.1,
           "x" : 144.3,
-          "y" : 241.6
+          "y" : 226.4
         },
         {
           "height" : 11.7,
           "text" : "The first slot on row two is slot(1, 0).",
           "width" : 172.6,
           "x" : 125.4,
-          "y" : 256.5
+          "y" : 245.3
         },
         {
           "height" : 11.7,

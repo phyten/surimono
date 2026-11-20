@@ -1,39 +1,38 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.021558718052067508,
+    "changedAreaRatio" : 0.01948449239863992,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 10.4,
+    "maxBoxDeltaPt" : 4.7,
     "maxLuminance" : 176.515625,
-    "maxShiftPt" : 16.7,
+    "maxShiftPt" : 10.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 4
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
-    "HelveticaNeue-Medium",
     "HiraKakuProN-W3",
     "HiraKakuProN-W6",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5"
   ],
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 148.1,
+      "firstY" : 149,
       "height" : 841.9,
       "lastY" : 766.1,
       "lineCount" : 18,
       "lines" : [
         {
-          "height" : 27.5,
+          "height" : 24.3,
           "text" : "測定板の位置",
           "width" : 95.5,
           "x" : 249.9,
-          "y" : 148.1
+          "y" : 149
         },
         {
           "height" : 16.9,
@@ -57,95 +56,95 @@
           "y" : 261.6
         },
         {
-          "height" : 22.9,
+          "height" : 22.3,
           "text" : "目次",
           "width" : 26.5,
           "x" : 71.9,
-          "y" : 284.9
+          "y" : 295
         },
         {
-          "height" : 15.1,
+          "height" : 15.5,
           "text" : "1 目盛の読み方 1",
-          "width" : 451.4,
+          "width" : 441,
           "x" : 71.9,
-          "y" : 314.5
+          "y" : 326
         },
         {
-          "height" : 15.1,
+          "height" : 15.5,
           "text" : "2 高さ 1",
-          "width" : 451.4,
+          "width" : 441,
           "x" : 71.9,
-          "y" : 340.4
+          "y" : 351.9
         },
         {
-          "height" : 21.7,
+          "height" : 22.3,
           "text" : "1 目盛の読み方",
-          "width" : 101.9,
-          "x" : 73.7,
-          "y" : 376.3
+          "width" : 101.1,
+          "x" : 73.6,
+          "y" : 388
         },
         {
           "height" : 14.1,
           "text" : "「下の線から順に読む。」",
           "width" : 110.6,
           "x" : 99.6,
-          "y" : 405.7
+          "y" : 417.5
         },
         {
           "height" : 12.7,
           "text" : "図 1 板の取り付け位置",
           "width" : 89.6,
           "x" : 252.8,
-          "y" : 474
+          "y" : 485.9
         },
         {
-          "height" : 21.7,
+          "height" : 22.3,
           "text" : "2 高さ",
-          "width" : 48.9,
-          "x" : 73.7,
-          "y" : 524.5
+          "width" : 48.1,
+          "x" : 73.6,
+          "y" : 533.9
         },
         {
           "height" : 14.1,
           "text" : "目盛 高さ (mm)",
           "width" : 75.6,
           "x" : 259.8,
-          "y" : 563
+          "y" : 572.5
         },
         {
           "height" : 11.7,
           "text" : "1 12",
           "width" : 68.9,
           "x" : 266.5,
-          "y" : 581.8
+          "y" : 591.3
         },
         {
           "height" : 11.7,
           "text" : "2 18",
           "width" : 68.9,
           "x" : 266.5,
-          "y" : 597.7
+          "y" : 607.2
         },
         {
           "height" : 12.7,
           "text" : "表 1 目盛の高さ",
           "width" : 64.8,
           "x" : 265.3,
-          "y" : 615.6
+          "y" : 623.8
         },
         {
-          "height" : 21.7,
+          "height" : 22.3,
           "text" : "参考文献",
           "width" : 53.1,
           "x" : 71.9,
-          "y" : 666.1
+          "y" : 671.8
         },
         {
           "height" : 16.3,
           "text" : "[1] 測定台帳, 2025, 第2章.",
           "width" : 118.8,
           "x" : 71.9,
-          "y" : 694.2
+          "y" : 700
         },
         {
           "height" : 11.7,
@@ -155,10 +154,10 @@
           "y" : 766.1
         }
       ],
-      "textHeight" : 629.7,
+      "textHeight" : 628.9,
       "textLeft" : 71.9,
-      "textTop" : 148.1,
-      "textWidth" : 451.4,
+      "textTop" : 149,
+      "textWidth" : 441,
       "width" : 595.3
     }
   ],

@@ -12,12 +12,15 @@ public enum ThemeFonts {
         let source: String
     }
 
-    private static let families = [
+    private static let typefaceFamilies = [
         Family(name: "Surimono Computer Modern", source: "KaTeX_Main"),
         Family(name: "Surimono Computer Modern Typewriter", source: "KaTeX_Typewriter"),
     ]
 
-    public static let textFamilies = families.map(\.name)
+    private static let families =
+        typefaceFamilies + [Family(name: "Surimono Computer Modern Sans", source: "KaTeX_SansSerif")]
+
+    public static let textFamilies = typefaceFamilies.map(\.name)
 
     public static let textFaces = textFamilies.compactMap { rules[$0] }.joined(separator: "\n")
 

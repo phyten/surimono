@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.0130427143728232,
+    "changedAreaRatio" : 0.01296210171663618,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 26.2,
     "maxLuminance" : 158.671875,
-    "maxShiftPt" : 27.5,
+    "maxShiftPt" : 28.2,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 10
@@ -65,28 +65,28 @@
           "text" : "1. Upper drawer",
           "width" : 68.3,
           "x" : 159.8,
-          "y" : 224.8
+          "y" : 228.8
         },
         {
           "height" : 11,
           "text" : "–",
           "width" : 5,
           "x" : 184.2,
-          "y" : 240
+          "y" : 244.8
         },
         {
           "height" : 11,
           "text" : "Blue tray",
           "width" : 37.6,
           "x" : 194.2,
-          "y" : 240
+          "y" : 244.8
         },
         {
           "height" : 11,
           "text" : "(a) Folded strip",
           "width" : 64.7,
           "x" : 200.1,
-          "y" : 256
+          "y" : 259.2
         },
         {
           "height" : 11,

@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.009875050382910117,
+    "changedAreaRatio" : 0.009158837937556197,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 5.2,
-    "maxLuminance" : 113.765625,
+    "maxBoxDeltaPt" : 6.3,
+    "maxLuminance" : 100.765625,
     "maxShiftPt" : 4.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -14,65 +14,64 @@
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
-    "HiraKakuProN-W3",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5"
   ],
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 295,
+      "firstY" : 294.9,
       "height" : 841.9,
-      "lastY" : 352.1,
+      "lastY" : 351.9,
       "lineCount" : 2,
       "lines" : [
         {
-          "height" : 37.2,
+          "height" : 38.2,
           "text" : "第I 部",
-          "width" : 57.7,
-          "x" : 268.8,
-          "y" : 295
+          "width" : 58.2,
+          "x" : 268.5,
+          "y" : 294.9
         },
         {
-          "height" : 44.7,
+          "height" : 45.8,
           "text" : "薄片の記録",
           "width" : 136.3,
           "x" : 229.5,
-          "y" : 352.1
+          "y" : 351.9
         }
       ],
-      "textHeight" : 101.7,
+      "textHeight" : 102.8,
       "textLeft" : 229.5,
-      "textTop" : 295,
+      "textTop" : 294.9,
       "textWidth" : 136.3,
       "width" : 595.3
     },
     {
-      "firstY" : 156.5,
+      "firstY" : 156.3,
       "height" : 841.9,
       "lastY" : 758.9,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 37.2,
+          "height" : 38.2,
           "text" : "第1 章",
-          "width" : 71.4,
+          "width" : 70,
           "x" : 73.1,
-          "y" : 156.5
+          "y" : 156.3
         },
         {
-          "height" : 44.7,
+          "height" : 45.8,
           "text" : "切片の収納",
           "width" : 136.3,
           "x" : 73.1,
-          "y" : 208.8
+          "y" : 208.5
         },
         {
-          "height" : 25.9,
+          "height" : 26.5,
           "text" : "1.1 流れの確かめ方",
-          "width" : 151.2,
-          "x" : 75.2,
-          "y" : 305
+          "width" : 149.3,
+          "x" : 75.1,
+          "y" : 304.9
         },
         {
           "height" : 16.7,
@@ -82,11 +81,11 @@
           "y" : 340
         },
         {
-          "height" : 21.5,
+          "height" : 22.1,
           "text" : "1.1.1 管の交換",
-          "width" : 98.4,
-          "x" : 74.9,
-          "y" : 375.9
+          "width" : 96,
+          "x" : 74.7,
+          "y" : 375.8
         },
         {
           "height" : 16.7,
@@ -103,9 +102,9 @@
           "y" : 758.9
         }
       ],
-      "textHeight" : 614.2,
+      "textHeight" : 614.4,
       "textLeft" : 73.1,
-      "textTop" : 156.5,
+      "textTop" : 156.3,
       "textWidth" : 227,
       "width" : 595.3
     }

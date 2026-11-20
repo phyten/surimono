@@ -53,6 +53,26 @@ extension LaTeXDocument {
         targetDescriptions[id] = TargetDescription(kind: kind, title: HTML.unescape(String(plain.prefix(4_000))))
     }
 
+    // A link interrupts WebKit's Japanese–Latin spacing on both sides of a generated counter.
+    func spacedReference(_ index: Int, in source: NSString, range: NSRange) -> String {
+        let html = referenceHTML(index)
+        guard classInfo.isJapanese, language == "ja", references.indices.contains(index),
+            ["ref", "pageref"].contains(references[index].command),
+            let key = references[index].keys.first, let number = labels[key]?.number,
+            number.first?.isASCII == true, number.last?.isASCII == true
+        else { return html }
+
+        func skip(at offset: Int) -> String {
+            guard offset >= 0, offset < source.length,
+                let scalar = Unicode.Scalar(source.character(at: offset)),
+                scalar.properties.generalCategory == .otherLetter,
+                LaTeXSymbols.isCJK(Character(scalar))
+            else { return "" }
+            return #"<span class="latex-xkanjiskip"></span>"#
+        }
+        return skip(at: range.location - 1) + html + skip(at: NSMaxRange(range))
+    }
+
     /// Group by kind in first-use order so each run of numbers shares a name and each number retains its own link.
     func referenceHTML(_ index: Int) -> String {
         guard references.indices.contains(index) else { return "" }

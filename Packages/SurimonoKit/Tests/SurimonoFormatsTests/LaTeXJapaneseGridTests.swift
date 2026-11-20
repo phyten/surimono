@@ -4,6 +4,82 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXJapaneseGridTests {
+    @Test("和文の目次で見出しと最初の章の間に柱のマークが入るかは、その時点の通常ページスタイルで決まる")
+    func contentsRunningMark() {
+        let html = LaTeXConverter.convert(
+            #"""
+            \documentclass{ltjsreport}\pagestyle{fancy}\begin{document}
+            \thispagestyle{empty}\tableofcontents
+            \pagestyle{empty}\tableofcontents
+            \pagestyle{headings}\tableofcontents\chapter{雪}\end{document}
+            """#
+        ).body
+        let openings = HTMLScanner.tokens(html).compactMap { token -> Bool? in
+            guard case .tag(let tag) = token, tag.name == "nav", !tag.isClosing else { return nil }
+            return tag.source.contains("data-latex-contents-mark")
+        }
+        #expect(openings == [true, false, true])
+    }
+
+    @Test("和文の明示されたヒラギノ角ゴシックは W4 を使い、部首と字形を共有する漢字にも同じ和文書体を優先する")
+    func explicitJapaneseSans() {
+        let face = InstalledFontIndex.Face(
+            family: "Hiragino Sans", postScriptName: "HiraginoSans-W4", sharesIdeographs: true)
+        let info = LaTeXConverter.documentClassInfo(
+            #"\documentclass{ltjsarticle}\setsansjfont{Hiragino Sans}"#,
+            fontIndex: .init(faces: ["HiraginoSans-W4": face]))
+        #expect(info.localFontFaces.contains(#"src: local("HiraginoSans-W4")"#))
+        #expect(info.styleVariables.contains(#"--latex-cjk-sans-font: "Surimono TeX Local 1""#))
+    }
+
+    @Test("手動改行する図題はコロンと続く本文の間に空きを残す")
+    func multilineCaptionSeparator() {
+        let html = LaTeXConverter.convert(
+            #"""
+            \documentclass{ltjsreport}\usepackage{caption}\captionsetup{format=hang,labelsep=colon,labelfont=bf}
+            \begin{document}\begin{figure}\caption{表側。\\裏側。}\end{figure}\end{document}
+            """#
+        ).body
+        #expect(html.contains("--latex-label-colon-space: .5253em"))
+        #expect(html.contains(#":<span class="latex-caption-colon-space">&nbsp;</span></span><span>表側。<br>裏側。"#))
+    }
+
+    @Test("和文記事の目次は無番号節と同じ組版で、参照の両隣に和欧文間隔を入れる")
+    func contentsAndCounterBoundaries() {
+        let source = #"""
+            \documentclass{ltjsarticle}\begin{document}
+            \tableofcontents\section{窓}\label{s}
+            図\ref{s}の印。図1の印。A\ref{s}B。図\ref{s}。
+            \end{document}
+            """#
+        let html = LaTeXConverter.convert(source).body
+        let skip = #"<span class="latex-xkanjiskip"></span>"#
+        #expect(html.contains(#"<h2 class="latex-contents-title" data-latex-heading="section">目次</h2>"#))
+        #expect(html.contains("図" + skip + "<a"))
+        #expect(html.contains("</a>" + skip + "の印。図1の印。A<a"))
+        #expect(html.contains("</a>B。"))
+        #expect(html.contains("</a>。"))
+        let chapter = LaTeXConverter.convert(
+            #"\documentclass[report]{jlreq}\begin{document}\chapter{窓}\end{document}"#
+        ).body
+        #expect(chapter.contains(#"第<span class="latex-xkanjiskip"> </span>1<span class="latex-xkanjiskip"> </span>章"#))
+    }
+
+    @Test("和文見出しは利用可能な中太の角ゴシックを優先し、未登録の書体を要求しない")
+    func headingInventory() {
+        for name in ["HiraginoSans-W5", "HiraginoSans-W4"] {
+            let index = InstalledFontIndex(faces: [
+                name: .init(family: "Hiragino Sans", postScriptName: name),
+                "HiraginoSans-W6": .init(family: "Hiragino Sans", postScriptName: "HiraginoSans-W6"),
+            ])
+            let info = LaTeXConverter.documentClassInfo(#"\documentclass{ltjsarticle}"#, fontIndex: index)
+            #expect(info.localFontFaces.contains("src: local(\"\(name)\"); size-adjust: 92.4715%"))
+            #expect(info.localFontFaces.contains("src: local(\"\(name)\"); font-weight: bold; size-adjust: 92.4715%"))
+        }
+        let missing = LaTeXConverter.documentClassInfo(#"\documentclass{ltjsarticle}"#, fontIndex: .init(faces: [:]))
+        #expect(!missing.localFontFaces.contains("Surimono JS Gothic"))
+    }
+
     @Test("リストの表題にも caption の共通設定と種類別の設定が順に届く")
     func listingCaption() {
         let html = LaTeXConverter.convert(

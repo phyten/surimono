@@ -54,6 +54,11 @@ struct LaTeXCaptionStyle {
         if options["format"] == "hang", ["none", "quad"].contains(options["labelsep"] ?? "") {
             css["caption-label-gap"] = "0px"
         }
+        if info.jsMagnification != nil, options["format"] == "hang", options["justification"] == nil,
+            (css["label-weight"] ?? css["caption-weight"]) == "bold"
+        {
+            css["label-colon-space"] = ".5253em"
+        }
         let attributes =
             " data-latex-caption-style"
             + (css.isEmpty ? "" : " style=\"\(HTML.escape(LaTeXPageSettings.cssVariables(css)))\"")

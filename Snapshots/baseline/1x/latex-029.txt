@@ -3,20 +3,15 @@ The short scale starts at the bed of the channel. The fixture follows the bench
 drawing [Tra20] and the scale study [Riv19]. The hinge has its own assembly
 card [Hin18].
 References
-[Cop16]
+[Cop16] Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.
 [Fol17]
-[Gau21]
-[Hin18]
-[Riv19]
-[Tra20]
-Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.
-Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Water-
-ways, pages 8–12. Model Quay Press, 2017.
-Gauge Desk. Gauge Card Handbook, 2021.
-Hinge Study Group. A reversible flap. In Proceedings of the Model
+Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Wa-
+terways, pages 8–12. Model Quay Press, 2017.
+[Gau21] Gauge Desk. Gauge Card Handbook, 2021.
+[Hin18] Hinge Study Group. A reversible flap. In Proceedings of the Model
 Gate Forum, pages 21–24, 2018.
-River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14,
+[Riv19] River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14,
 September 2019.
-Tray Workshop. A bench for tilted channels. Technical Report 7,
+[Tra20] Tray Workshop. A bench for tilted channels. Technical Report 7,
 Model Quay Laboratory, 2020.
 1

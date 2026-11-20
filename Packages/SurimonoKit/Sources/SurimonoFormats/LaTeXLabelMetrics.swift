@@ -19,6 +19,15 @@ struct LaTeXLabelMetrics {
         } else if info.name == "jlreq" {
             baselines = [6, 8, 11.5, 13, 17, 17, 21, 25, 28, 33].map { $0 * Double(info.pointSize) / 10 }
             japaneseScale = nil
+        } else if info.journalStyle == .ams {
+            // The AMS classes define their own size ladder, including Small for footnotes.
+            baselines =
+                [
+                    [7, 8, 10, 11, 12, 13, 14, 17, 20, 24],
+                    [8, 10, 11, 12, 13, 14, 17, 20, 24, 30],
+                    [10, 11, 12, 13, 14, 17, 20, 24, 30, 30],
+                ][index]
+            japaneseScale = nil
         } else if info.usesTraditionalJapaneseNames {
             baselines =
                 [
@@ -68,10 +77,15 @@ struct LaTeXLabelMetrics {
         return font.faceCSS(alias: japaneseAlias, index: fonts.index)
     }
 
-    func headingFace(index: InstalledFontIndex) -> String? {
-        guard japaneseScale == 0.924715,
+    func headingFace(for info: LaTeXDocumentClassInfo, index: InstalledFontIndex) -> String? {
+        guard info.isJapanese else { return nil }
+        // Harano Aji Gothic's vertical stem in 目 measures 93/1000 em in corpus 106.
+        let candidates = ["HiraginoSans-W5", "HiraginoSans-W4", "HiraKakuProN-W3"]
+        guard let face = candidates.lazy.compactMap({ index.face(named: $0) }).first else { return nil }
+        let bold = "BoldFont=" + face.postScriptName
+        guard
             let font = LaTeXFontSettings.Selection(
-                "HiraKakuProN-W3", options: "BoldFont=HiraKakuProN-W6,Scale=0.924715", cjk: true,
+                face.postScriptName, options: bold, cjk: true, defaultScale: japaneseScale,
                 knownPostScriptNames: true, index: index)
         else { return nil }
         return font.faceCSS(alias: "Surimono JS Gothic", index: index)
