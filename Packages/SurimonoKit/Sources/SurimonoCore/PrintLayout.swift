@@ -261,6 +261,12 @@ public struct PrintLayout: Codable, Hashable, Sendable, Identifiable {
         options.mirrorsDocumentPages || options.mirrorsMargins && hasFacingPages
     }
 
+    /// Moving the already typeset page preserves its line breaks and PDF text positions.
+    package func versoContentShift(options: PrintOptions) -> Double {
+        let margins = logicalMargins(options: options)
+        return (margins.right - margins.left) * 72 / 25.4 + options.versoOffset
+    }
+
     public var pagesPerSide: Int { kind == .fourUp ? 4 : kind == .handout3 ? 3 : kind == .normal ? 1 : 2 }
 
     public func displayName(language: String = "en") -> String {
@@ -421,6 +427,7 @@ public struct PrintOptions: Codable, Equatable, Sendable {
     public var mirrorsMargins: Bool
     /// Resolved for a render only. A two-sided source alternates text boxes even when sent to a simplex printer.
     package var mirrorsDocumentPages = false
+    package var versoOffset = 0.0
     public var latexMargins: LaTeXPageMode?
     public var latexFurniture: LaTeXPageMode?
 

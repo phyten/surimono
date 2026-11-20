@@ -80,12 +80,14 @@ struct LaTeXPageSettings {
         let topMargin = assigned["topmargin"] ?? (box.top - 72.27 - box.headHeight - box.headSep)
         let top = 72.27 + topMargin + headHeight + headSep
         let left = assigned["oddsidemargin"].map { 72.27 + $0 } ?? box.left
+        let evenLeft = assigned["evensidemargin"].map { 72.27 + $0 } ?? (usesGeometry ? nil : box.evenLeft)
         let bp = 72 / 72.27
         return LaTeXPageBox(
             paperWidth: paperW * bp, paperHeight: paperH * bp, left: left * bp,
             right: (paperW - left - (assigned["textwidth"] ?? box.width)) * bp, top: top * bp,
             bottom: (paperH - top - (assigned["textheight"] ?? box.height)) * bp,
             headSep: headSep * bp, footSkip: (assigned["footskip"] ?? box.footSkip) * bp, mirrorsSides: twoSided,
+            evenLeft: twoSided ? evenLeft.map { $0 * bp } : nil,
             usesFixedClassOrigin: !usesGeometry && assigned.isEmpty
                 && info.profile.page.usesFixedClassOrigin)
     }
@@ -110,6 +112,18 @@ struct LaTeXPageSettings {
             ] {
                 classSkips[key] = "calc(\(Self.number(points)) * var(--tex-pt))"
             }
+        }
+        if info.profile.typography.baselineTable == .traditional {
+            let metrics = LaTeXLabelMetrics(info)
+            for name in ["small", "large", "Large"] {
+                if let pitch = metrics.baseline(for: name) {
+                    classSkips["pitch-" + name] = "calc(\(Self.number(pitch)) * var(--tex-pt))"
+                }
+            }
+        }
+        if info.profile.body.equationNumberOnLeft {
+            classSkips["eqno-start"] = "0px"
+            classSkips["eqno-end"] = "auto"
         }
         if info.journalStyle == .ams {
             // amsart.cls and amsbook.cls set the footnote rule to five picas.

@@ -831,11 +831,10 @@ public final class DocumentRenderer {
         guard let notes = settings.activeNotes else { return logical }
         let pageSize = settings.layout.logicalPageSize(options: settings.options)
         let isPlainPDF = source.format == .pdf
-        let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
         // A text is already on its sides: it moves before its paper goes under it, which must not move with it.
         let moves =
             !isPlainPDF && logical.finishing.plan == nil && settings.layout.mirrorsMargins(options: settings.options)
-        let shift = moves ? margins.right - margins.left : 0
+        let shift = moves ? settings.layout.versoContentShift(options: settings.options) : 0
         let key = NotedKey(
             notes: notes, layoutKind: settings.layout.kind, pageSize: pageSize, mirrorShift: shift,
             rightBound: settings.layout.isRightBound)
@@ -1502,7 +1501,6 @@ public final class DocumentRenderer {
                 if case .body = beforeNotes[$0] { return true }
                 return false
             }
-            let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
             finished.diagrams = text.diagrams.compactMap {
                 guard bodyPlaces.indices.contains($0.pageIndex) else { return nil }
                 var diagram = $0
@@ -1510,7 +1508,7 @@ public final class DocumentRenderer {
                 if mirrored !== document {
                     let shift =
                         settings.layout.swapsSides(onPage: plan.bodyPageIndices[$0.pageIndex])
-                        ? margins.right - margins.left : 0
+                        ? settings.layout.versoContentShift(options: settings.options) : 0
                     diagram.rect = DiagramGeometry.redrawn(
                         diagram.rect, on: document.page(at: diagram.pageIndex), shift: shift)
                 }
@@ -1592,8 +1590,7 @@ public final class DocumentRenderer {
     ) -> PDFDocument {
         guard settings.mirrorsLaidOutPages || plan != nil else { return document }
         guard settings.layout.mirrorsMargins(options: settings.options) else { return document }
-        let margins = WebPaginator.Margins(settings.layout.logicalMargins(options: settings.options))
-        let shift = margins.right - margins.left
+        let shift = settings.layout.versoContentShift(options: settings.options)
         let places = plan.map { plan in plan.pages.indices.filter { plan.pages[$0] != .note } }
         guard shift != 0, document.pageCount > 1 || places != nil || settings.layout.isRightBound else {
             return document

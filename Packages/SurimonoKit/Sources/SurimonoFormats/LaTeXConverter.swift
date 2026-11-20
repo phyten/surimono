@@ -144,6 +144,9 @@ final class LaTeXDocument {
             }
         }
         info.mainFontName = pageSettings.fonts.mainFontName
+        if info.usesTraditionalJapaneseNames && info.profile.structure.bookOpening != nil {
+            info.japaneseMainFontName = pageSettings.fonts.japaneseMainFontName ?? "HiraMinProN-W3"
+        }
         if info.profile.typography.usesScaledBodyFont {
             let fallback =
                 pageSettings.fonts.japaneseMain?.ideographFallback.map { "\"Surimono \($0) Ideographs\", " } ?? ""
@@ -211,6 +214,15 @@ final class LaTeXDocument {
         }
     }
     var isAppendix = false
+    var numbersChapters = true
+    var hasNonArabicHeading = false
+    var headingEndDot: String {
+        switch classInfo.profile.headings.endDots {
+        case .never: ""
+        case .always: "."
+        case .automatic: placeholder("D", 0)
+        }
+    }
     let counters = LaTeXCounters()
     var figureCaptions: LaTeXFigureCaptions?
     var insideSubfigure = false
@@ -326,7 +338,10 @@ final class LaTeXDocument {
         let pictures = pictureHeadings.isEmpty ? html : replacing("P", in: html)
         let body = bibDatabase.printCount > 0 ? replacing("B", in: pictures, bibliography: bibliography) : pictures
         resolveCitations()
-        return replacing("M", in: replacing("C", in: replacing("R", in: replacing("T", in: body))))
+        let resolved = replacing("M", in: replacing("C", in: replacing("R", in: replacing("T", in: body))))
+        // KOMA records non-Arabic heading numbers in the aux file for the next run.
+        guard classInfo.profile.headings.endDots == .automatic else { return resolved }
+        return resolved.replacingOccurrences(of: placeholder("D", 0), with: hasNonArabicHeading ? "." : "")
     }
 
     private var resolvedCitations: [String] = []
@@ -512,7 +527,13 @@ final class LaTeXDocument {
                     resolvedCitations.indices.contains(index)
                     ? resolvedCitations[index] : "<span class=\"latex-missing\">?</span>"
                 if citation.utf8.count <= budget {
-                    output += citation
+                    if !rawText, classInfo.profile.body.spacesLinkedCounters, language == "ja",
+                        citations.indices.contains(index), citations[index].command == "cite"
+                    {
+                        output += spacedJapaneseLink(citation, in: nsHTML, range: match.range)
+                    } else {
+                        output += citation
+                    }
                     budget -= citation.utf8.count
                 } else {
                     output += "<span class=\"latex-cite\">[…]</span>"
@@ -536,7 +557,7 @@ final class LaTeXDocument {
     }
 
     enum ContentsList: Equatable {
-        case headings(depth: Int)
+        case headings(depth: Int, chapterFormat: String?)
         case figures
         case tables
     }
@@ -552,8 +573,11 @@ final class LaTeXDocument {
     private func tableOfContents(_ index: Int) -> String {
         guard contentsLists.indices.contains(index) else { return "" }
         let entries: [Heading]
+        var chapterFormat: String?
         switch contentsLists[index] {
-        case .headings(let depth): entries = headings.filter { $0.number != nil && $0.level <= depth }
+        case .headings(let depth, let format):
+            entries = headings.filter { $0.number != nil && $0.level <= depth }
+            chapterFormat = format
         case .figures: entries = lists["figure"] ?? []
         case .tables: entries = lists["table"] ?? []
         }
@@ -576,8 +600,12 @@ final class LaTeXDocument {
             }
             if open.last == true { html += "</li>" }
             let number =
-                entry.number.flatMap {
-                    $0.isEmpty ? nil : "<span class=\"secnum\">\(entry.chapterLabelHTML ?? HTML.escape($0))</span>"
+                entry.number.flatMap { number -> String? in
+                    guard !number.isEmpty else { return nil }
+                    let formatted =
+                        entry.level == 0
+                        ? chapterFormat?.replacingOccurrences(of: placeholder("N", 0), with: HTML.escape(number)) : nil
+                    return "<span class=\"secnum\">\(formatted ?? entry.chapterLabelHTML ?? HTML.escape(number))</span>"
                 } ?? ""
             let kind: String
             switch (contentsLists[index], entry.level) {

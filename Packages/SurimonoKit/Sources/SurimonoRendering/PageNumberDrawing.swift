@@ -62,7 +62,14 @@ enum PageFurnitureDrawing {
     private static func elementFont(_ element: LaTeXElementFont?, style: PageFurniture.LaTeXFooter, scale: CGFloat)
         -> NSFont
     {
-        guard let element else { return footerFont(style, scale: scale) }
+        guard var element else { return footerFont(style, scale: scale) }
+        if element.shape == "oblique" {
+            // CMSL slants the upright outlines and retains the roman advances.
+            element.shape = "normal"
+            let upright = elementFont(element, style: style, scale: scale)
+            var slant = CGAffineTransform(a: 1, b: 0, c: 1 / 6, d: 1, tx: 0, ty: 0)
+            return CTFontCreateCopyWithAttributes(upright, 0, &slant, nil) as NSFont
+        }
         let base = style.classSize == 11 ? 10.95 : Double(style.classSize)
         let size = style.pointSize * scale * ((element.pointSize(base: style.classSize) ?? base) / base)
         if element.family != "sans", element.family != "mono", let installed = style.fontName,
@@ -108,8 +115,9 @@ enum PageFurnitureDrawing {
         context.textMatrix = .identity
         // With no margin, the text stays inside the page instead of being cut off by its edge.
         let inset = 2 * scale
-        let left = rect.minX + max(margins.left, inset)
-        let right = rect.maxX - max(margins.right, inset)
+        let outer = min(margins.left, margins.right)
+        let left = rect.minX + max(lines.spansOuterMargin ? outer : margins.left, inset)
+        let right = rect.maxX - max(lines.spansOuterMargin ? outer : margins.right, inset)
         let center = rect.minX + margins.left + (rect.width - margins.left - margins.right) / 2
         func draw(_ texts: [String], above: Bool, centerY: (CGFloat) -> CGFloat) {
             let rule = (above ? lines.headRule : lines.footRule) * scale
@@ -125,7 +133,8 @@ enum PageFurnitureDrawing {
                     (lines.numberFont ?? style.numberFont).map { elementFont($0, style: style, scale: scale) }
                 },
                 ranges: above ? lines.headerNumberRanges : lines.footerNumberRanges,
-                japaneseFamily: usesJapaneseFace ? latexFooter?.japaneseFontName : nil)
+                japaneseFamily: usesJapaneseFace ? latexFooter?.japaneseFontName : nil,
+                japaneseScale: latexFooter?.japaneseFontScale ?? 1)
             let y =
                 latexFooter.map {
                     let strut = above && lines.usesFancyFields ? $0.headerStrutDepth : 0
@@ -263,15 +272,15 @@ enum PageFurnitureDrawing {
     /// The lines of a row, each kept to its share of `width` so that long names do not run into each other.
     private static func row(
         _ texts: [String], width: CGFloat, scale: CGFloat, font: NSFont? = nil, numberFont: NSFont? = nil,
-        ranges: [[NSRange]] = [], japaneseFamily: String? = nil
+        ranges: [[NSRange]] = [], japaneseFamily: String? = nil, japaneseScale: Double = 1
     ) -> Row {
         let font = font ?? NSFont.systemFont(ofSize: 8 * scale)
         func line(_ text: String, slot: Int? = nil) -> CTLine {
             let contents = NSMutableAttributedString(
                 string: text, attributes: [.font: font, .foregroundColor: NSColor.black])
             if let japaneseFamily,
-                let face = InstalledFontIndex.systemFont(named: japaneseFamily, size: font.pointSize * 0.924715)
-                    ?? InstalledFontIndex.systemFont(named: "HiraMinProN-W3", size: font.pointSize * 0.924715)
+                let face = InstalledFontIndex.systemFont(named: japaneseFamily, size: font.pointSize * japaneseScale)
+                    ?? InstalledFontIndex.systemFont(named: "HiraMinProN-W3", size: font.pointSize * japaneseScale)
             {
                 // The class's JFM scales Japanese glyphs independently of Latin digits.
                 for range in text.ranges(of: /[\p{Han}\p{Hiragana}\p{Katakana}\u{3000}-\u{303F}\u{FF01}-\u{FF60}]+/) {

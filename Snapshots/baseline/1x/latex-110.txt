@@ -1,0 +1,31 @@
+A spacing rule for folded stops
+Fold Desk and Slot Desk
+Abstract. Two card stops leave a measurable gap in a model rail. A fixed fold
+preserves this gap when the stops move together.
+1. A trial gauge
+1.1. The common fold. Cut two stops on the same grid as the strip in Fig-
+ure 1.
+Figure 1. Rail for the folded stops
+(1)
+Theorem 1. Sliding both stops by one grid step preserves their separation.
+Proof. Let the original marks be a and b. After a step of length t the gap is
+(b + t)− (a + t) = b− a.
+2020 Mathematics Subject Classification. Primary 05B45.
+Key words and phrases. paper gauge, spacing rule.
+The fold bench supplied the trial strips.
+The slot bench cut the test rail.
+1
+2 FOLD DESK AND SLOT DESK
+2. Bench check
+Table 1 checks equation (1) against the workshop card [1].
+Table 1. Positions on the grid
+Trial First Second
+Before 3 8
+After 4 9
+[1]
+References
+Model Gauge Workshop, Grid rail card, bench series.
+Model Gauge Workshop, Fold Bench
+Email address: fold@example.invalid
+Model Gauge Workshop, Slot Bench
+Email address: slot@example.invalid

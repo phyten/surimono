@@ -1,0 +1,50 @@
+% Keep the temporary build directory out of the PDF trailer ID.
+\ifdefined\pdfvariable\pdfvariable suppressoptionalinfo 512\relax\fi
+\documentclass{ltjsbook}
+\title{紙橋の型帳}
+\author{紙橋模型工房}
+\date{}
+\begin{document}
+\frontmatter
+\maketitle
+\tableofcontents
+\mainmatter
+\part{橋を組む}
+\chapter{橋脚の型}
+\section{折り筋}
+細い帯を二つ折りにし、橋脚の芯を作る。\footnote{折り目は内側から押さえる。}
+\subsection{採寸}
+図\ref{fig:strip}の帯と表\ref{tab:cuts}の幅を照合する。
+\begin{figure}[htbp]
+\centering\rule{32mm}{3mm}
+\caption{橋脚の帯}\label{fig:strip}
+\end{figure}
+\begin{itemize}
+\item 白い帯には表の印を付ける。
+\item 灰色の帯は補強に回す。
+\end{itemize}
+\newpage
+\section{組立順}
+\begin{enumerate}
+\item 芯を台に立てる。
+\item 桁を載せて傾きを見る。
+\end{enumerate}
+\chapter{試験台}
+\section{間隔}
+\subsection{切り幅}
+式\ref{eq:span}で二本分の幅を出す。
+\begin{equation}\label{eq:span}
+s=2w
+\end{equation}
+\begin{table}[htbp]
+\centering\caption{帯の切り幅}\label{tab:cuts}
+\begin{tabular}{lr}部材 & 幅（ミリ）\\芯 & 6\\桁 & 8\end{tabular}
+\end{table}
+\appendix
+\chapter{型の保管}
+平らな封筒に帯を戻す。台の向きは型札に従う\cite{tag}。
+\backmatter
+\begin{thebibliography}{9}
+\bibitem{tag} 紙橋模型工房『試験台の型札』。
+\end{thebibliography}
+\end{document}

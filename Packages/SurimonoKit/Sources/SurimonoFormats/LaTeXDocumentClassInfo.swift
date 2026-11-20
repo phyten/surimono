@@ -16,6 +16,7 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
     public var hasSeparateTitlePage: Bool? { profile.structure.titlePage.isSeparate }
     public var usesJSChapterSpacing: Bool { profile.structure.usesJSChapterSpacing }
     package var jsMagnification: Double? { profile.typography.jsMagnification }
+    package var japaneseFurnitureScale: Double { LaTeXLabelMetrics(self).japaneseScale ?? 1 }
     package var japaneseMainFontName: String?
     package var headerStrutDepth: Double = 0
     // setspace indexes its compensation by @ptsize, which jsclasses holds at zero for all magnifications.
@@ -45,7 +46,9 @@ public struct LaTeXDocumentClassInfo: Sendable, Equatable {
 
     // Equality describes the current typesetting state. Later commands can erase differences between class options.
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese && lhs.usesAMSA4Layout == rhs.usesAMSA4Layout
+        lhs.profile.structure.bookOpening == rhs.profile.structure.bookOpening
+            && lhs.profile.headings.endDots == rhs.profile.headings.endDots
+            && lhs.name == rhs.name && lhs.isJapanese == rhs.isJapanese && lhs.usesAMSA4Layout == rhs.usesAMSA4Layout
             && lhs.hidesTitlePageNumber == rhs.hidesTitlePageNumber && lhs.hasChapters == rhs.hasChapters
             && lhs.styleVariables == rhs.styleVariables && lhs.localFontFaces == rhs.localFontFaces
             && lhs.pageNumbers == rhs.pageNumbers && lhs.mainFontName == rhs.mainFontName && lhs.columns == rhs.columns

@@ -60,7 +60,7 @@ extension LanguageFontsTests {
             "Tahoma", "Menlo", "Monaco", "Courier New", "Courier", "American Typewriter", "Noteworthy", "Chalkboard SE",
             "Chalkboard", "Chalkduster", "Bradley Hand", "Comic Sans MS", "Snell Roundhand", "Apple Chancery",
             "Papyrus", "Copperplate", "Impact", "DIN Alternate", "DIN Condensed", "Rockwell", "Charter",
-            "Iowan Old Style", "Savoye LET", "Academy Engraved LET", "Surimono Computer Modern",
+            "Iowan Old Style", "Savoye LET", "Academy Engraved LET", "Surimono Computer Modern", "Latin Modern Roman",
             "Surimono Computer Modern Typewriter", "Surimono Computer Modern Sans", "Surimono KOMA Sans", "PT Serif",
             "Geeza Pro", "Arial Hebrew",
             "Surimono Song SC Ideographs", "Surimono Song TC Ideographs", "Surimono Hei Ideographs",

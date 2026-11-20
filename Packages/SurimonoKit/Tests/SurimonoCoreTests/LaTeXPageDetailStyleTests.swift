@@ -49,6 +49,38 @@ struct LaTeXPageDetailStyleTests {
         #expect(koma.contains("--latex-belowcaptionskip: 0px"))
     }
 
+    @Test("KOMA の小節番号の後ろを半角幅にする")
+    func subsectionNumberGap() throws {
+        let book = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
+        let bookHTML = HTMLDocumentBuilder.build(
+            fragment: LaTeXConverter.convert(
+                #"\documentclass{scrbook}\begin{document}\subsection{Slot}\end{document}"#),
+            format: .latex, theme: book)
+        #expect(bookHTML.contains(#"data-latex-koma-heading="subsection" id="sec-"#))
+        #expect(book.css.contains(#"[data-latex-koma-heading="subsection"] > .secnum { margin-inline-end: .5em; }"#))
+    }
+
+    @Test("議事録の初頁注は八ポイントの高さで小さい本文用書体の幅を確保する")
+    func proceedingsTitleNoteWidth() throws {
+        let article = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let notes = HTMLDocumentBuilder.build(
+            fragment: LaTeXConverter.convert(
+                #"\documentclass{amsproc}\title{Rail}\author{Fold Desk}\keywords{gauge}\begin{document}\maketitle\end{document}"#
+            ), format: .latex, theme: article)
+        #expect(notes.contains(#"<li id="fn-ams-title" style="list-style:none"><p class="latex-front-keywords">"#))
+        #expect(
+            article.css.contains(
+                #"[data-latex-size="10"]:not([data-latex-local-main-font]) .footnotes #fn-ams-title > p"#))
+        #expect(article.css.contains("inline-size: calc(100% / var(--ams-note-width-scale))"))
+        #expect(article.css.contains("transform: scaleX(var(--ams-note-width-scale))"))
+    }
+
+    @Test("議事録の証明では数式上端の保護幅を所定の数式間隔に含める")
+    func proceedingsDisplaySkip() throws {
+        let article = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        #expect(article.css.contains("calc(.35 * var(--ams-linespacing) * var(--tex-pt) - .15em)"))
+    }
+
     @Test("AMS 書籍の分類とキーワードと概要は表題の次の同じページに置く")
     func abstractPage() throws {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })

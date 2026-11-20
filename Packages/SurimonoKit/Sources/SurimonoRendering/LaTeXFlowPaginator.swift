@@ -87,16 +87,27 @@ enum LaTeXFlowPaginator {
     }
 
     private struct Leader: Decodable {
-        let x, y, width, diameter: CGFloat
-        let count: Int
+        struct Glyph: Decodable {
+            let x, y, descentFraction: CGFloat
+            let text: String
+        }
 
-        func draw(in context: CGContext, from origin: CGPoint, scale: CGFloat) {
+        let x, y, pitch, diameter: CGFloat
+        let count: Int
+        let folio: Glyph?
+
+        func draw(in context: CGContext, from origin: CGPoint, scale: CGFloat, slice: FlowPageCapture.PrintedSlice) {
             let size = diameter * scale
-            let pitch = width * scale / CGFloat(count)
-            let bottom = origin.y - y * scale - size / 2
+            // WebKit snaps the painted glyph's baseline independently of its DOM line box.
+            // TeX's period rests on that baseline, including when the digit has a curved descender.
+            let baseline = folio.flatMap { glyph in
+                let point = CGPoint(x: origin.x + glyph.x * scale, y: origin.y - glyph.y * scale)
+                return slice.glyphBounds(of: glyph.text, at: point).map { $0.minY + $0.height * glyph.descentFraction }
+            }
+            let bottom = baseline ?? (origin.y - y * scale - size / 2)
             context.setFillColor(gray: 0, alpha: 1)
             for i in 0..<count {
-                let left = origin.x + x * scale + (CGFloat(i) + 0.5) * pitch - size / 2
+                let left = origin.x + x * scale + (CGFloat(i) + 0.5) * pitch * scale - size / 2
                 context.fillEllipse(in: CGRect(x: left, y: bottom, width: size, height: size))
             }
         }
@@ -104,6 +115,7 @@ enum LaTeXFlowPaginator {
 
     struct Pass {
         var document: PDFDocument?
+        var blankPages: Set<Int> = []
         var pageCount: Int
         var locations: [Int: Int]
     }
@@ -147,7 +159,9 @@ enum LaTeXFlowPaginator {
         let (pages, locations) = try await plan(json, width: width, height: height, until: deadline)
         if referencesOnly {
             _ = try await run("surimonoRestoreFlow()")
-            return Pass(pageCount: pages.count, locations: locations)
+            return Pass(
+                blankPages: Set(pages.indices.filter { pages[$0].isBlankVersoOrRecto }), pageCount: pages.count,
+                locations: locations)
         }
         let slices = pages.flatMap { $0.pieces.map(\.slice) }
         // The first printable box can start below the strip origin after discarding its margin.
@@ -191,7 +205,7 @@ enum LaTeXFlowPaginator {
                             CGRect(x: 0, y: bottom, width: pageSize.width, height: pageSize.height))
                     }
                     context.clip(to: clip)
-                    try await FlowPageCapture.draw(
+                    let printed = try await FlowPageCapture.draw(
                         capture.source, from: view, into: capture.target, in: context, transparent: true,
                         deadline: deadline)
                     if let leaders {
@@ -199,7 +213,7 @@ enum LaTeXFlowPaginator {
                             x: margins.left + piece.x / ratio,
                             y: pageSize.height - margins.top - (piece.y - s.start * piece.scale) / ratio)
                         for row in try JSONDecoder().decode([Leader].self, from: Data(leaders.utf8)) {
-                            row.draw(in: context, from: start, scale: piece.scale / ratio)
+                            row.draw(in: context, from: start, scale: piece.scale / ratio, slice: printed)
                         }
                     }
                     index += 1

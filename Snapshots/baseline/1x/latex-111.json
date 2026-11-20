@@ -1,0 +1,282 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.016125631724180696,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 2,
+    "maxBoxDeltaPt" : 4.9,
+    "maxLuminance" : 226.625,
+    "maxShiftPt" : 92.6,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 24
+  },
+  "fonts" : [
+    "Helvetica",
+    "HiraMinProN-W3",
+    "HiraginoSans-W5",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 163.3,
+      "height" : 841.9,
+      "lastY" : 740.5,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 25.3,
+          "text" : "格子窓の試し刷り",
+          "width" : 132.5,
+          "x" : 230.4,
+          "y" : 163.3
+        },
+        {
+          "height" : 17.6,
+          "text" : "紙窓模型工房",
+          "width" : 69,
+          "x" : 262.1,
+          "y" : 200
+        },
+        {
+          "height" : 14.5,
+          "text" : "概 要",
+          "width" : 20.6,
+          "x" : 286.3,
+          "y" : 239.9
+        },
+        {
+          "height" : 13.2,
+          "text" : "窓枠を紙に写し、折り返した帯が開口を隠さないか調べた。",
+          "width" : 232.9,
+          "x" : 174.1,
+          "y" : 256.3
+        },
+        {
+          "height" : 23.2,
+          "text" : "目 次",
+          "width" : 33,
+          "x" : 133.8,
+          "y" : 292.5
+        },
+        {
+          "height" : 16.1,
+          "text" : "1 採寸 1",
+          "width" : 325.8,
+          "x" : 134.1,
+          "y" : 323.9
+        },
+        {
+          "height" : 14.6,
+          "text" : "1.1 帯の向き 1",
+          "width" : 310.8,
+          "x" : 149,
+          "y" : 339.1
+        },
+        {
+          "height" : 16.1,
+          "text" : "2 試験結果 2",
+          "width" : 325.8,
+          "x" : 134.1,
+          "y" : 363.8
+        },
+        {
+          "height" : 17.5,
+          "text" : "1",
+          "width" : 8.2,
+          "x" : 134.1,
+          "y" : 406.1
+        },
+        {
+          "height" : 14.6,
+          "text" : "1.1",
+          "width" : 17.6,
+          "x" : 133.8,
+          "y" : 432.3
+        },
+        {
+          "height" : 23.2,
+          "text" : "採寸",
+          "width" : 27.6,
+          "x" : 156.7,
+          "y" : 402.1
+        },
+        {
+          "height" : 19.3,
+          "text" : "帯の向き",
+          "width" : 46,
+          "x" : 163.3,
+          "y" : 429
+        },
+        {
+          "height" : 14.6,
+          "text" : "白い面を上にして窓枠を置く。1",
+          "width" : 138.4,
+          "x" : 143.7,
+          "y" : 454.3
+        },
+        {
+          "height" : 16.1,
+          "text" : "目印 長辺に一本の筋を引く。",
+          "width" : 134.6,
+          "x" : 133.8,
+          "y" : 482.7
+        },
+        {
+          "height" : 15.2,
+          "text" : "桟の幅を写す。•",
+          "width" : 61.9,
+          "x" : 153.7,
+          "y" : 505.1
+        },
+        {
+          "height" : 15.2,
+          "text" : "短辺の切り口をそろえる。•",
+          "width" : 109.9,
+          "x" : 153.7,
+          "y" : 527.5
+        },
+        {
+          "height" : 7,
+          "text" : "1",
+          "width" : 3,
+          "x" : 143.4,
+          "y" : 712.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "台紙の折り目を基準にする。",
+          "width" : 99.7,
+          "x" : 147.3,
+          "y" : 710.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.2,
+          "y" : 740.5
+        }
+      ],
+      "textHeight" : 588.8,
+      "textLeft" : 133.8,
+      "textTop" : 163.3,
+      "textWidth" : 326.1,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 128.7,
+      "height" : 841.9,
+      "lastY" : 740.5,
+      "lineCount" : 14,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "2",
+          "width" : 8.2,
+          "x" : 134.1,
+          "y" : 128.7
+        },
+        {
+          "height" : 23.2,
+          "text" : "試験結果",
+          "width" : 55.2,
+          "x" : 156.7,
+          "y" : 124.7
+        },
+        {
+          "height" : 14.6,
+          "text" : "図 1 の桟を表 1 の順に重ねる。",
+          "width" : 135,
+          "x" : 143.7,
+          "y" : 152.1
+        },
+        {
+          "height" : 14.6,
+          "text" : "図 1: 窓枠の桟",
+          "width" : 64,
+          "x" : 264.7,
+          "y" : 203.3
+        },
+        {
+          "height" : 14.6,
+          "text" : "表 1: 帯の幅",
+          "width" : 54.4,
+          "x" : 269.5,
+          "y" : 241.6
+        },
+        {
+          "height" : 14.6,
+          "text" : "位置 幅（ミリ）",
+          "width" : 78.1,
+          "x" : 260,
+          "y" : 256
+        },
+        {
+          "height" : 14.6,
+          "text" : "内側 3",
+          "width" : 73.3,
+          "x" : 260,
+          "y" : 271.2
+        },
+        {
+          "height" : 14.6,
+          "text" : "外側 5",
+          "width" : 73.3,
+          "x" : 260,
+          "y" : 285.6
+        },
+        {
+          "height" : 14.6,
+          "text" : "1. 白紙を窓に当てる。",
+          "width" : 99,
+          "x" : 145.9,
+          "y" : 324.7
+        },
+        {
+          "height" : 14.6,
+          "text" : "2. 影の幅を台帳に写す [1]。",
+          "width" : 121.6,
+          "x" : 145.9,
+          "y" : 350.3
+        },
+        {
+          "height" : 23.2,
+          "text" : "参考文献",
+          "width" : 55.2,
+          "x" : 133.8,
+          "y" : 392.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "[1]",
+          "width" : 10.5,
+          "x" : 133.8,
+          "y" : 423.5
+        },
+        {
+          "height" : 14.6,
+          "text" : "紙窓模型工房『採光台帳』 。",
+          "width" : 119.8,
+          "x" : 149.3,
+          "y" : 420.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 294.2,
+          "y" : 740.5
+        }
+      ],
+      "textHeight" : 627.4,
+      "textLeft" : 133.8,
+      "textTop" : 124.7,
+      "textWidth" : 204.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "a9e75632e63faf3a14a79492385e08dbe14da7edf1e75e1c4384dd06183bb6d9"
+}

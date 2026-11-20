@@ -20,14 +20,34 @@ for (const [i, p] of pieces.entries()) {
 }
 const range = document.createRange(), edits = [];
 // Append all probes before reading geometry so a long contents does not force layout for each row.
-const periods = new Map();
+// Measuring a long rule once avoids accumulating a rounded layout unit in every pitch.
+const pitches = 128, periods = new Map();
+let metrics;
+function folioGlyph(field, origin) {
+    const text = field.firstChild;
+    if (text?.nodeType !== Node.TEXT_NODE || !text.length) return null;
+    metrics ??= document.createElement('canvas').getContext('2d');
+    if (!metrics) return null;
+    const char = [...text.data].at(-1);
+    range.setStart(text, text.length-char.length);
+    range.setEnd(text, text.length);
+    const r = range.getBoundingClientRect(), css = getComputedStyle(field);
+    // Only the ratio of ink ascent to descent is needed. A design-sized measurement
+    // keeps rounding of small canvas metrics out of the printed baseline.
+    metrics.font = css.fontStyle + ' ' + css.fontWeight + ' 1000px ' + css.fontFamily;
+    const m = metrics.measureText(char);
+    const height = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    if (!(height > 0 && r.width > 0)) return null;
+    return {x:((r.left+r.right)/2+scrollX)*unit-origin.x, y:((r.top+r.bottom)/2+scrollY)*unit-origin.y,
+        text:char, descentFraction:m.actualBoundingBoxDescent/height};
+}
 for (const dots of document.querySelectorAll('nav.toc .latex-page-entry > .latex-page-leader > .latex-leader-dots')) {
     const field = dots.closest('.latex-page-entry')?.lastElementChild;
     if (!field?.matches('.latex-page-label')) continue;
     // The empty inline box has no advance. Its lower edge is on the number's last baseline.
     const period = document.createElement('span');
-    period.style.cssText = 'display:inline-block;vertical-align:baseline;width:var(--latex-leader-pitch);' +
-        'margin-inline-start:calc(-1 * var(--latex-leader-pitch));height:var(--latex-leader-diameter)';
+    period.style.cssText = `display:inline-block;vertical-align:baseline;width:calc(${pitches} * var(--latex-leader-pitch));` +
+        `margin-inline-start:calc(-${pitches} * var(--latex-leader-pitch));height:var(--latex-leader-diameter)`;
     field.append(period);
     periods.set(dots, period);
 }
@@ -58,15 +78,16 @@ for (const [id, unique] of byStrip) {
         if (!(r.width > 0 && r.height > 0)) continue;
         // TeX aligns complete leader boxes to the enclosing line's left edge. Work in
         // one coordinate system, including the actual indent and reserved pnumwidth.
-        const first = Math.ceil((title.right - measure) / r.width);
-        const count = Math.floor((end - measure) / r.width) - first;
+        const pitch = r.width / pitches;
+        const first = Math.ceil((title.right - measure) / pitch);
+        const count = Math.floor((end - measure) / pitch) - first;
         if (count > 4096) continue;
         dots.style.backgroundImage = 'none';
         if (count <= 0) continue;
         const midY = (r.top + r.bottom) / 2, owner = at(midY);
         if (!leaders.has(owner)) leaders.set(owner, []);
-        leaders.get(owner).push({x:(measure + first*r.width + scrollX)*unit-origins[id].x, y:(midY+scrollY)*unit-origin,
-            width:count*r.width*unit, diameter:r.height*unit, count});
+        leaders.get(owner).push({x:(measure + first*pitch + scrollX)*unit-origins[id].x, y:(midY+scrollY)*unit-origin,
+            pitch:pitch*unit, diameter:r.height*unit, count, folio:folioGlyph(period.parentElement, origins[id])});
     }
     if (entries.length === 1) continue;
     const tree = document.createTreeWalker(strips[id], NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {

@@ -1,0 +1,55 @@
+The Span Gauge
+Paper Bridge Workshop
+Contents
+I. Making the gauge 1
+1. The sliding strip 3
+1.1. Cutting the slot 3
+1.1.1. Checking the edge 3
+2. Setting the stops 5
+2.1. The second mark 5
+2.1.1. Trial positions 5
+A. Spare gauges 7
+Workshop record 9
+iii
+Part I.
+Making the gauge
+1
+1. The sliding strip
+1.1. Cutting the slot
+Mark the centre of the card before cutting the slot.1
+1.1.1. Checking the edge
+Use the dark strip in Figure 1.1 to check for daylight.
+Figure 1.1.: The shim seen on edge
+∙
+∙
+Cut across the grain.
+Keep the straight edge.
+1
+Keep the offcut as a shim.
+3
+1. The sliding strip
+Bench note
+Store the strip flat until the glue has set.
+4
+2. Setting the stops
+2.1. The second mark
+2.1.1. Trial positions
+Table 2.1 records the positions. Equation 2.1 gives the gap.
+g= b− a (2.1)
+Table 2.1.: Stop positions
+Stop Position (mm)
+Near 6
+Far 18
+1. Seat the first stop.
+2. Slide the strip to the second mark.
+5
+A. Spare gauges
+Keep a spare strip with each bridge.
+7
+Workshop record
+The folded gauge follows the bench card [1].
+9
+Bibliography
+[1]
+Paper Bridge Workshop, Stop setting card.
+11

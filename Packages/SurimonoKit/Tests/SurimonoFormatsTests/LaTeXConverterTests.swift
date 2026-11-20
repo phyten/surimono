@@ -48,13 +48,20 @@ struct LaTeXConverterTests {
                 class: "jsbook"))
         #expect(
             html.contains(
-                "<h2 data-latex-heading=\"chapter\" id=\"sec-1\"><span class=\"secnum\">第<span class=\"latex-xkanjiskip\"> </span>1<span class=\"latex-xkanjiskip\"> </span>章</span><span class=\"latex-chapter-title\">序</span></h2>"
+                "<h2 data-latex-heading=\"chapter\" data-latex-book-mark=\"第\u{2005}1\u{2005}章　序\" id=\"sec-1\"><span class=\"secnum\">第<span class=\"latex-xkanjiskip\"> </span>1<span class=\"latex-xkanjiskip\"> </span>章</span><span class=\"latex-chapter-title\">序</span></h2>"
             ))
         #expect(
-            html.contains("<h3 data-latex-heading=\"section\" id=\"sec-1-1\"><span class=\"secnum\">1.1</span>節</h3>"))
+            html.contains(
+                "<h3 data-latex-heading=\"section\" data-latex-book-mark=\"1.1 節\" id=\"sec-1-1\"><span class=\"secnum\">1.1</span>節</h3>"
+            ))
         #expect(html.contains("<h3 data-latex-heading=\"section\" id=\"sec-u3\">番号なし</h3>"))
-        #expect(html.contains("<span class=\"secnum\">付録A</span><span class=\"latex-chapter-title\">補足"))
-        #expect(html.hasPrefix("<nav class=\"toc\" data-latex-chapter-opening>"))
+        #expect(
+            html.contains(
+                "<span class=\"secnum\">付録<span class=\"latex-xkanjiskip\"> </span>A</span><span class=\"latex-chapter-title\">補足"
+            ))
+        #expect(
+            html.hasPrefix(
+                "<nav class=\"toc\" data-latex-chapter-opening data-latex-contents-mark data-latex-book-mark=\"目次\">"))
         #expect(!html.components(separatedBy: "</nav>")[0].contains("番号なし"))
     }
 

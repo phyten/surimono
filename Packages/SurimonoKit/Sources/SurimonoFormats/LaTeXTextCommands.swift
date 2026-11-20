@@ -5,6 +5,7 @@ extension LaTeXDocument {
     struct Footnote {
         let id: String
         let number: String
+        var mark: String? = nil
         // nil means the mark still awaits its text. An explicitly empty note is already paired.
         var html: String?
     }
@@ -30,13 +31,13 @@ extension LaTeXDocument {
     func footnoteSection() -> String {
         guard !footnotes.isEmpty else { return "" }
         let items = footnotes.map { note in
-            let value = Int(note.number)
+            let value = note.mark == nil ? Int(note.number) : nil
             let attribute = value.map { " value=\"\($0)\"" } ?? " style=\"list-style:none\""
             var content = note.html ?? ""
             if value == nil && !note.number.isEmpty {
                 // A superscript before a block paragraph takes a line of its own. Put the mark on the
                 // first text baseline, including when the note starts with an explicitly unindented paragraph.
-                let mark = "<sup class=\"latex-symbolic-note\">\(HTML.escape(note.number))</sup>"
+                let mark = "<sup class=\"latex-symbolic-note\">\(HTML.escape(note.mark ?? note.number))</sup>"
                 if content.hasPrefix("<p>") || content.hasPrefix("<p "), let tagEnd = content.firstIndex(of: ">") {
                     content.insert(contentsOf: mark, at: content.index(after: tagEnd))
                 } else {
@@ -125,7 +126,10 @@ extension LaTeXReader {
             slot = document.footnotes.count
             let candidate = Int(number).map { "fn-\($0)" } ?? "fn-symbol-\(slot + 1)"
             let id = document.usedNoteIDs.insert(candidate).inserted ? candidate : "fn-repeat-\(slot + 1)"
-            document.footnotes.append(.init(id: id, number: number, html: nil))
+            let starred =
+                document.classInfo.profile.body.asteriskFootnotes && Int(number) != nil
+                && document.macros["thefootnote"] == nil && !(command == "thanks" && document.makingTitle)
+            document.footnotes.append(.init(id: id, number: number, mark: starred ? "*" + number : nil, html: nil))
             if command == "footnotemark" { document.pendingByNumber[number, default: []].append(slot) }
         }
         let number = document.footnotes[slot].number
@@ -139,10 +143,12 @@ extension LaTeXReader {
             document.footnotes[slot].html = html
         }
         if command != "footnotetext" {
+            if document.language == "ja", document.footnotes[slot].mark != nil { trimPunctuationBeforeNote() }
             let marker = "fnref-" + id.dropFirst(3)
             appendHTML(
                 styledLinks(
-                    "<sup class=\"footnote-ref\"><a href=\"#\(id)\" id=\"\(marker)\">\(HTML.escape(number))</a></sup>"))
+                    "<sup class=\"footnote-ref\"><a href=\"#\(id)\" id=\"\(marker)\">\(HTML.escape(document.footnotes[slot].mark ?? number))</a></sup>"
+                ))
         }
     }
 }

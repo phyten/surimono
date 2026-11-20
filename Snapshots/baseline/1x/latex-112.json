@@ -1,0 +1,407 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.007456670697299476,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 6,
+    "maxBoxDeltaPt" : 8.4,
+    "maxLuminance" : 80.6875,
+    "maxShiftPt" : 140.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 3,
+    "textEdits" : 24
+  },
+  "fonts" : [
+    "Helvetica",
+    "HiraMinProN-W3",
+    "HiraginoSans-W5",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 11,
+  "pages" : [
+    {
+      "firstY" : 340,
+      "height" : 841.9,
+      "lastY" : 393.8,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 25.3,
+          "text" : "紙塔の組立帳",
+          "width" : 99.4,
+          "x" : 220.1,
+          "y" : 340
+        },
+        {
+          "height" : 21.1,
+          "text" : "段丘模型工房",
+          "width" : 82.8,
+          "x" : 228.3,
+          "y" : 393.8
+        }
+      ],
+      "textHeight" : 74.9,
+      "textLeft" : 220.1,
+      "textTop" : 340,
+      "textWidth" : 99.4,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 100.9,
+      "height" : 841.9,
+      "lastY" : 327,
+      "lineCount" : 8,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "iii",
+          "width" : 8.3,
+          "x" : 424.3,
+          "y" : 100.9
+        },
+        {
+          "height" : 33.4,
+          "text" : "目 次",
+          "width" : 47.5,
+          "x" : 106.9,
+          "y" : 158.8
+        },
+        {
+          "height" : 16.1,
+          "text" : "第 1 章 基壇 1",
+          "width" : 325.8,
+          "x" : 107.2,
+          "y" : 232.4
+        },
+        {
+          "height" : 14.6,
+          "text" : "1.1 台の角 1",
+          "width" : 310.8,
+          "x" : 122.1,
+          "y" : 247.5
+        },
+        {
+          "height" : 14.6,
+          "text" : "1.2 台紙の裏 2",
+          "width" : 310.8,
+          "x" : 122.1,
+          "y" : 262.5
+        },
+        {
+          "height" : 16.1,
+          "text" : "第 2 章 上層 3",
+          "width" : 325.8,
+          "x" : 107.2,
+          "y" : 287.2
+        },
+        {
+          "height" : 14.6,
+          "text" : "2.1 高さの比較 3",
+          "width" : 310.8,
+          "x" : 122.1,
+          "y" : 302.3
+        },
+        {
+          "height" : 16.1,
+          "text" : "第 A 章 保管箱 5",
+          "width" : 325.8,
+          "x" : 107.2,
+          "y" : 327
+        }
+      ],
+      "textHeight" : 242.3,
+      "textLeft" : 106.9,
+      "textTop" : 100.9,
+      "textWidth" : 326.1,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 100.9,
+      "height" : 841.9,
+      "lastY" : 309.8,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 427.7,
+          "y" : 100.9
+        },
+        {
+          "height" : 33.4,
+          "text" : "第 1 章 基壇",
+          "width" : 116.9,
+          "x" : 106.9,
+          "y" : 160.2
+        },
+        {
+          "height" : 17.5,
+          "text" : "1.1",
+          "width" : 21.1,
+          "x" : 107.2,
+          "y" : 237.5
+        },
+        {
+          "height" : 23.2,
+          "text" : "台の角",
+          "width" : 41.4,
+          "x" : 142.6,
+          "y" : 233.5
+        },
+        {
+          "height" : 14.6,
+          "text" : "図 1.1 の型に沿って灰色の台紙を折る。",
+          "width" : 170.4,
+          "x" : 116.8,
+          "y" : 261
+        },
+        {
+          "height" : 14.6,
+          "text" : "図 1.1: 基壇の型",
+          "width" : 71.7,
+          "x" : 233.9,
+          "y" : 309.8
+        }
+      ],
+      "textHeight" : 223.6,
+      "textLeft" : 106.9,
+      "textTop" : 100.9,
+      "textWidth" : 325.8,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 98.1,
+      "height" : 841.9,
+      "lastY" : 151.5,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 14.6,
+          "text" : "2 第 1 章 基壇",
+          "width" : 325.8,
+          "x" : 161.7,
+          "y" : 98.1
+        },
+        {
+          "height" : 17.5,
+          "text" : "1.2",
+          "width" : 21.1,
+          "x" : 162,
+          "y" : 128.1
+        },
+        {
+          "height" : 23.2,
+          "text" : "台紙の裏",
+          "width" : 55.2,
+          "x" : 197.4,
+          "y" : 124.1
+        },
+        {
+          "height" : 14.6,
+          "text" : "返した紙の端に塔の向きを書き、折り筋を表まで通す。",
+          "width" : 238.4,
+          "x" : 171.6,
+          "y" : 151.5
+        }
+      ],
+      "textHeight" : 68.1,
+      "textLeft" : 161.7,
+      "textTop" : 98.1,
+      "textWidth" : 325.8,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 100.9,
+      "height" : 841.9,
+      "lastY" : 335.3,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "3",
+          "width" : 5,
+          "x" : 427.7,
+          "y" : 100.9
+        },
+        {
+          "height" : 33.4,
+          "text" : "第 2 章 上層",
+          "width" : 116.9,
+          "x" : 106.9,
+          "y" : 160.1
+        },
+        {
+          "height" : 17.5,
+          "text" : "2.1",
+          "width" : 21.1,
+          "x" : 107.2,
+          "y" : 237.4
+        },
+        {
+          "height" : 23.2,
+          "text" : "高さの比較",
+          "width" : 69,
+          "x" : 142.6,
+          "y" : 233.4
+        },
+        {
+          "height" : 14.6,
+          "text" : "表 2.1 の二つの層を順に積み、塔の影が台の中央にくるか調べる。",
+          "width" : 286.1,
+          "x" : 116.8,
+          "y" : 260.9
+        },
+        {
+          "height" : 14.6,
+          "text" : "表 2.1: 各層の高さ",
+          "width" : 81.3,
+          "x" : 229.1,
+          "y" : 292.9
+        },
+        {
+          "height" : 14.6,
+          "text" : "層 高さ（ミリ）",
+          "width" : 87.6,
+          "x" : 228.3,
+          "y" : 304.9
+        },
+        {
+          "height" : 14.6,
+          "text" : "下段 12",
+          "width" : 82.9,
+          "x" : 228.3,
+          "y" : 320.1
+        },
+        {
+          "height" : 14.6,
+          "text" : "上段 8",
+          "width" : 82.9,
+          "x" : 228.3,
+          "y" : 335.3
+        }
+      ],
+      "textHeight" : 249.1,
+      "textLeft" : 106.9,
+      "textTop" : 100.9,
+      "textWidth" : 325.8,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 159.8,
+      "height" : 841.9,
+      "lastY" : 100.9,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 33.4,
+          "text" : "付 録A",
+          "width" : 68,
+          "x" : 107.2,
+          "y" : 159.8
+        },
+        {
+          "height" : 33.4,
+          "text" : "保管箱",
+          "width" : 59.6,
+          "x" : 202.3,
+          "y" : 159.8
+        },
+        {
+          "height" : 14.6,
+          "text" : "外した部材は台札 [1] の順に箱へ戻す。",
+          "width" : 167.6,
+          "x" : 116.8,
+          "y" : 234.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "5",
+          "width" : 5,
+          "x" : 427.7,
+          "y" : 100.9
+        }
+      ],
+      "textHeight" : 148,
+      "textLeft" : 107.2,
+      "textTop" : 100.9,
+      "textWidth" : 325.5,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 100.9,
+      "height" : 841.9,
+      "lastY" : 233.4,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "7",
+          "width" : 5,
+          "x" : 427.7,
+          "y" : 100.9
+        },
+        {
+          "height" : 33.4,
+          "text" : "関連図書",
+          "width" : 79.5,
+          "x" : 106.9,
+          "y" : 159.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "[1]",
+          "width" : 10.5,
+          "x" : 106.9,
+          "y" : 236.2
+        },
+        {
+          "height" : 14.6,
+          "text" : "段丘模型工房『紙塔の台札』 。",
+          "width" : 129.4,
+          "x" : 122.4,
+          "y" : 233.4
+        }
+      ],
+      "textHeight" : 147.2,
+      "textLeft" : 106.9,
+      "textTop" : 100.9,
+      "textWidth" : 325.8,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "f6fbf630d428aed9e2902e33427f1ce6743659828cfde3e5804a3ba57008b775"
+}

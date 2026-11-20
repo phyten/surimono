@@ -94,10 +94,30 @@ enum VerticalPaginator {
 /// Each capture goes into an open logical page. A different flow can place several slices in distinct columns.
 @MainActor
 enum FlowPageCapture {
+    struct PrintedSlice {
+        let page: PDFPage
+        let transform: CGAffineTransform
+
+        func glyphBounds(of text: String, at point: CGPoint) -> CGRect? {
+            let index = page.characterIndex(at: point.applying(transform.inverted()))
+            let length = text.utf16.count
+            guard index >= 0, length > 0, index <= page.numberOfCharacters - length,
+                page.selection(for: NSRange(location: index, length: length))?.string == text
+            else { return nil }
+            let bounds = page.characterBounds(at: index).applying(transform)
+            // PDFKit can pick the nearest character in a neighbouring row for a blank label.
+            guard bounds.width > 0, bounds.height > 0,
+                bounds.insetBy(dx: -bounds.width / 2, dy: -bounds.height / 2).contains(point)
+            else { return nil }
+            return bounds
+        }
+    }
+
+    @discardableResult
     static func draw(
         _ rect: CGRect, from webView: WKWebView, into target: CGRect, in context: CGContext, transparent: Bool = false,
         deadline: ContinuousClock.Instant? = nil
-    ) async throws {
+    ) async throws -> PrintedSlice {
         let config = WKPDFConfiguration()
         config.rect = rect
         config.allowTransparentBackground = transparent
@@ -108,10 +128,11 @@ enum FlowPageCapture {
             data = try await webView.pdf(configuration: config)
         }
         try Task.checkCancellation()
-        try draw(data, into: target, in: context)
+        return try draw(data, into: target, in: context)
     }
 
-    static func draw(_ data: Data, into target: CGRect, in context: CGContext) throws {
+    @discardableResult
+    static func draw(_ data: Data, into target: CGRect, in context: CGContext) throws -> PrintedSlice {
         guard let source = PDFDocument(data: data), source.pageCount == 1, let page = source.page(at: 0),
             let ref = page.pageRef
         else { throw WebPaginator.PaginationError.printFailed }
@@ -131,5 +152,6 @@ enum FlowPageCapture {
                 if !area.isEmpty { context.setURL(url as CFURL, for: area.applying(transform)) }
             }
         }
+        return PrintedSlice(page: page, transform: transform)
     }
 }

@@ -62,6 +62,10 @@ extension LaTeXDocument {
             number.first?.isASCII == true, number.last?.isASCII == true
         else { return html }
 
+        return spacedJapaneseLink(html, in: source, range: range)
+    }
+
+    func spacedJapaneseLink(_ html: String, in source: NSString, range: NSRange) -> String {
         func skip(at offset: Int) -> String {
             guard offset >= 0, offset < source.length,
                 let scalar = Unicode.Scalar(source.character(at: offset)),

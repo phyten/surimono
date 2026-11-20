@@ -23,9 +23,13 @@ extension LaTeXFrontMatter {
             let reader = LaTeXReader(date, document: document, isBlock: false)
             add("date", reader.read(), label: document.classInfo.profile.titleBlock.noteDateLabel)
         }
+        let year = HTML.escape(classificationYear)
+        let yearHTML =
+            document.classInfo.profile.titleBlock.uprightClassificationYear
+            ? "<span class=\"latex-msc-year\">\(year)</span>" : year
         add(
             "classifications", classifications.joined(separator: "; "),
-            label: "\(classificationYear) Mathematics Subject Classification.")
+            label: "\(yearHTML) Mathematics Subject Classification.")
         add("keywords", keywords.joined(separator: ", "), label: "Key words and phrases.")
         for note in amsThanks { add("thanks", note) }
         let details = lines.joined(separator: "\n") + (lines.isEmpty ? "" : "\n")

@@ -423,7 +423,10 @@ extension LaTeXReader {
     }
 
     func bibliographyHeading(_ heading: String, id: String? = nil) -> String {
-        let anchor = id.map { " id=\"\($0)\"" } ?? ""
+        let mark =
+            document.classInfo.profile.structure.bookOpening == nil
+            ? "" : " data-latex-book-mark=\"\(HTML.escape(DocumentOutline.plainText(ofHTML: heading)))\""
+        let anchor = mark + (id.map { " id=\"\($0)\"" } ?? "")
         switch document.classInfo.profile.headings.bibliography {
         case .none: return ""
         case .rule: return "<hr class=\"latex-bibliography-rule\"\(anchor)>\n"

@@ -458,8 +458,14 @@ extension LaTeXReader {
         }
         if document.classInfo.journalStyle == .ams {
             if info.profile.titleBlock.writesAuthorMarks {
+                let names = front.authors.map { $0.shortName ?? $0.name }
+                var byline = names.dropLast().joined(separator: ", ")
+                if let last = names.last {
+                    if names.count > 1 { byline += names.count == 2 ? " and " : ", and " }
+                    byline += last
+                }
                 let marks = [
-                    ("leftmark", front.authors.map { $0.shortName ?? $0.name }.joined(separator: ", ")),
+                    ("leftmark", byline),
                     ("rightmark", front.shortTitle ?? front.title ?? ""),
                 ]
                 for (kind, source) in marks {

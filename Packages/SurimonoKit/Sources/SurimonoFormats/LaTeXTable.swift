@@ -93,6 +93,7 @@ struct LaTeXTable {
     }
 
     func html(
+        japanesePunctuation: Bool = false,
         color: (String, String?) -> String? = { LaTeXSymbols.cssColor($0, model: $1, defined: [:]) },
         inline: (String) -> String
     ) -> String {
@@ -190,6 +191,10 @@ struct LaTeXTable {
                     pendingRowspans[column] = cell.rows - 1
                 }
                 var contents = cell.isPlainText ? HTML.escape(cell.content) : inline(cell.content)
+                if japanesePunctuation, let last = contents.last, "）」』】〉》".contains(last) {
+                    // A closing bracket at the end of a TeX cell has no trailing half-em glue.
+                    contents = String(contents.dropLast()) + "<span class=\"latex-jfm-close\">\(last)</span>"
+                }
                 if format.paragraph == "m", cell.vertical == nil {
                     contents = "<span class=\"latex-middle-cell\"><span>\(contents)</span></span>"
                 } else if format.paragraph == "b", cell.vertical == nil {

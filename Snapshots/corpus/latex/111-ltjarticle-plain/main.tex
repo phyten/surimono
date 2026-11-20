@@ -1,0 +1,34 @@
+% Keep the temporary build directory out of the PDF trailer ID.
+\ifdefined\pdfvariable\pdfvariable suppressoptionalinfo 512\relax\fi
+\documentclass{ltjarticle}
+\title{格子窓の試し刷り}
+\author{紙窓模型工房}
+\date{}
+\begin{document}
+\maketitle
+\begin{abstract}
+窓枠を紙に写し、折り返した帯が開口を隠さないか調べた。
+\end{abstract}
+\tableofcontents
+\section{採寸}
+\subsection{帯の向き}
+白い面を上にして窓枠を置く。\footnote{台紙の折り目を基準にする。}
+\paragraph{目印}
+長辺に一本の筋を引く。
+\begin{itemize}\item 桟の幅を写す。\item 短辺の切り口をそろえる。\end{itemize}
+\newpage
+\section{試験結果}
+図\ref{fig:bar}の桟を表\ref{tab:width}の順に重ねる。
+\begin{figure}[htbp]
+\centering\rule{30mm}{3mm}
+\caption{窓枠の桟}\label{fig:bar}
+\end{figure}
+\begin{table}[htbp]
+\centering\caption{帯の幅}\label{tab:width}
+\begin{tabular}{lr}位置 & 幅（ミリ）\\内側 & 3\\外側 & 5\end{tabular}
+\end{table}
+\begin{enumerate}\item 白紙を窓に当てる。\item 影の幅を台帳に写す\cite{ledger}。\end{enumerate}
+\begin{thebibliography}{9}
+\bibitem{ledger} 紙窓模型工房『採光台帳』。
+\end{thebibliography}
+\end{document}

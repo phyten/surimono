@@ -23,7 +23,7 @@ package struct LaTeXElementFont: Codable, Equatable, Sendable {
             case "bfseries": weight = "bold"
             case "mdseries": weight = "normal"
             case "itshape", "slshape":
-                shape = "italic"
+                shape = word == "itshape" ? "italic" : "oblique"
                 capitals = "normal"
             case "upshape":
                 shape = "normal"

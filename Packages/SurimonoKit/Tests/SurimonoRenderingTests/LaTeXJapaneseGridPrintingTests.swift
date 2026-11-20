@@ -94,6 +94,29 @@ struct LaTeXJapaneseGridPrintingTests {
             abs(flexibleColumn - (70.866 + 89 * 72 / 25.4 + 5 * 6 * (size == "11pt" ? 1.095 : 1) * 72 / 72.27)) < 1.5)
     }
 
+    @Test("和文の文献番号と最初の項目が同じ基線に乗り、箇条書きの丸を文字として検索できる", .timeLimit(.minutes(1)))
+    func bibliographyLabelAndBullet() async throws {
+        let tex = #"""
+            \documentclass{ltjsarticle}\begin{document}
+            \begin{itemize}\item 台帳\end{itemize}
+            \begin{thebibliography}{9}\bibitem{a}1Fold 台帳。\end{thebibliography}\end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-plain-ja" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.options.latexMargins = .style
+        let pdf = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings
+        ).logicalDocument
+        let page = try #require(pdf.page(at: 0))
+        let text = try #require(pdf.findString("1Fold").first).bounds(for: page)
+        let first = try initialGlyph(in: text, on: page)
+        let label = try #require(pdf.findString("[1]").first).bounds(for: page)
+        let index = page.characterIndex(at: CGPoint(x: label.midX, y: label.midY))
+        try #require((0..<page.numberOfCharacters).contains(index))
+        #expect(abs(page.characterBounds(at: index).maxY - first.maxY) < 0.25)
+        #expect(pdf.findString("•", withOptions: []).count == 1)
+    }
+
     @Test("宋体の標準論文で空の著者表をはさむ題名と日付の基線間隔が保たれる", .timeLimit(.minutes(1)))
     func emptyArticleAuthor() async throws {
         let tex = #"""

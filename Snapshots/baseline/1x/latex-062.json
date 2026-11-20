@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01948449239863992,
+    "changedAreaRatio" : 0.019383209830610072,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -142,8 +142,8 @@
         {
           "height" : 16.3,
           "text" : "[1] 測定台帳, 2025, 第2章.",
-          "width" : 118.8,
-          "x" : 71.9,
+          "width" : 114.4,
+          "x" : 72,
           "y" : 700
         },
         {

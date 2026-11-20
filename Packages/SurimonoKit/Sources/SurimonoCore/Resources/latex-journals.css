@@ -177,6 +177,9 @@ body[data-latex-class="amsart"] {
 body[data-latex-journal="ams"]:not([data-latex-class="amsbook"]) :is(.latex-ams-address,.latex-ams-curraddr,.latex-ams-urladdr,.latex-ams-email) {
     font-size: var(--latex-size-footnotesize); line-height: calc(var(--ams-note-pitch) * var(--tex-pt));
 }
+body[data-latex-class="amsproc"] .latex-equation > .eqno {
+    inset-inline-start: var(--latex-eqno-start, auto); inset-inline-end: var(--latex-eqno-end, 0);
+}
 body[data-latex-class="amsproc"] .latex-title-block { padding-block-start: calc(84 * var(--tex-pt)); }
 body[data-latex-class="amsproc"] .latex-title-block h1 { font-size: calc(12 * var(--tex-pt)); }
 body[data-latex-class="amsproc"] .latex-title-block .latex-author { font-size: calc(11 * var(--tex-pt)); margin-block-start: calc(13 * var(--tex-pt)); }
@@ -198,3 +201,37 @@ body[data-latex-class="amsbook"][data-latex-chapters] {
         font-size: var(--latex-size-normalsize); font-weight: normal; text-transform: uppercase;
     }
 }
+
+body[data-latex-class="amsproc"] {
+    & .latex-author-name + .latex-author-name { margin-inline-start: 0; vertical-align: baseline; }
+    & .latex-front-abstract { margin-block-end: calc(33 * var(--tex-pt)); }
+    & [data-latex-heading="section"] > .secnum, & .latex-cite > a { font-weight: bold; }
+    /* The OpenType small-cap substitution supplies alternate glyphs, preserving the source case in a single shaping run. */
+    & :is(.latex-abstract-label,.latex-caption-label,.latex-ams-address span,.theorem-head,.proof-head) {
+        font-family: "Iowan Old Style", serif; font-feature-settings: "smcp"; font-style: normal; font-weight: normal;
+        font-variant-caps: normal; font-synthesis: none;
+    }
+    & :is(.latex-theorem,.latex-proof) > p:first-child { text-indent: calc(var(--tex-indent) * var(--tex-pt)); }
+    & :is(.latex-theorem,.latex-proof) { margin-block: calc(.5 * var(--ams-linespacing) * var(--tex-pt)); }
+    /* AMS uses medskipamount around a display and smallskipamount before the closing box. */
+    & .latex-proof .math-block {
+        /* The top ink guard already occupies part of the natural display skip. */
+        margin-block: max(0px, calc(.35 * var(--ams-linespacing) * var(--tex-pt) - .15em)) calc(.35 * var(--ams-linespacing) * var(--tex-pt));
+    }
+    & .latex-proof .math-block:has(+ .qed-line) { margin-block-end: calc(.175 * var(--ams-linespacing) * var(--tex-pt)); }
+    & .latex-qed-square {
+        width: .65em; height: .65em; box-sizing: border-box; border: calc(.4 * var(--tex-pt)) solid currentColor;
+    }
+    & .latex-proof .qed-line { margin-block: 0; line-height: 0; }
+    & .footnotes ol { padding-inline-start: calc(var(--tex-indent) * var(--tex-pt)); }
+    & .footnotes li > p { font-size: inherit; text-indent: 0; margin: 0; }
+    /* CMR8 and CMTI8 have wider advances than the bundled ten-point design at 8pt.
+       Preserve the eight-point glyph height, ten-point leading and available line measure. */
+    &[data-latex-size="10"]:not([data-latex-local-main-font]) .footnotes #fn-ams-title > p {
+        --ams-note-width-scale: 1.09;
+        inline-size: calc(100% / var(--ams-note-width-scale));
+        transform: scaleX(var(--ams-note-width-scale)); transform-origin: left;
+    }
+    & .footnotes :is(.latex-front-classifications,.latex-front-keywords) > em { margin-inline-end: .167em; }
+}
+body[data-latex-journal="ams"] .latex-msc-year { font-style: normal; }
