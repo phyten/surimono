@@ -19,7 +19,7 @@ RELEASE_APP = $(DERIVED_DATA)/Build/Products/Release/Surimono.app
 APP_STORE_DERIVED_DATA ?= build/DerivedData-AppStore
 APP_STORE_APP = $(APP_STORE_DERIVED_DATA)/Build/Products/Release/Surimono.app
 
-.PHONY: help build run test test-kit test-formats test-core test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
+.PHONY: help build run test test-kit test-formats test-core latex-dump test-rendering test-app bench bench-compare lint format package build-appstore check-appstore clean
 
 help:
 	@echo "build      Build the app (Debug by default)"
@@ -73,6 +73,10 @@ test-formats:
 
 test-core:
 	$(SWIFT_TEST) --filter SurimonoCoreTests
+
+latex-dump:
+	@test -n "$(DIR)" || { echo "Usage: make latex-dump DIR=<directory>" >&2; exit 2; }
+	SURIMONO_LATEX_DUMP="$(abspath $(DIR))" $(SWIFT_TEST) --filter LaTeXCorpusDumpTests
 
 test-rendering:
 	$(SWIFT_TEST) --filter SurimonoRenderingTests --no-parallel

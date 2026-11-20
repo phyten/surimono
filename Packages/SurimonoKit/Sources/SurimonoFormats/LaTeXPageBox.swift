@@ -28,34 +28,6 @@ public struct LaTeXPageBox: Equatable, Sendable {
 enum LaTeXPublicationLayout: Equatable, Sendable {
     case ieeeConference, ieeeJournal, sigconf, manuscript, aps, lncs, elsevierOne, elsevierThree, elsevierFive
 
-    init?(name: String, options: [String]) {
-        switch name {
-        case "IEEEtran": self = options.contains("conference") ? .ieeeConference : .ieeeJournal
-        case "acmart":
-            let formats = [
-                "manuscript", "acmsmall", "acmlarge", "acmtog", "sigconf", "siggraph", "sigplan", "sigchi", "sigchi-a",
-                "acmengage", "acmcp",
-            ]
-            let format = options.map { $0.hasPrefix("format=") ? String($0.dropFirst(7)) : $0 }.last(
-                where: formats.contains)
-            switch format {
-            case "sigconf": self = .sigconf
-            case "manuscript", nil: self = .manuscript
-            default: return nil
-            }
-        case "revtex4-2": self = .aps
-        case "llncs": self = .lncs
-        case "elsarticle":
-            switch options.last(where: { ["1p", "3p", "5p", "preprint"].contains($0) }) {
-            case "1p": self = .elsevierOne
-            case "3p": self = .elsevierThree
-            case "5p": self = .elsevierFive
-            default: return nil  // Preprint inherits the article class registers.
-            }
-        default: return nil
-        }
-    }
-
     var usesA4: Bool { self == .elsevierOne || self == .elsevierThree || self == .elsevierFive }
 
     func columnGap(size: Int) -> Double? {

@@ -6,18 +6,6 @@ package enum LaTeXJournalStyle: String, Sendable {
     case apsPreprint = "aps-preprint"
     case lncs, elsevier
 
-    init?(name: String, options: [String]) {
-        switch name {
-        case "amsart", "amsproc", "amsbook": self = .ams
-        case "IEEEtran" where !options.contains("compsoc") && !options.contains("transmag"): self = .ieee
-        case "revtex4-2" where Set(options).isDisjoint(with: ["aip", "aapm", "sor"]):
-            self = options.last(where: { $0 == "preprint" || $0 == "reprint" }) == "preprint" ? .apsPreprint : .aps
-        case "llncs": self = .lncs
-        case "elsarticle": self = .elsevier
-        default: return nil
-        }
-    }
-
     // cmcsc10's small letters have wider advances than synthesized browser small caps.
     // Preserve the source case for contents, selection and accessibility.
     static func smallCaps(_ html: String, in document: LaTeXDocument) -> String {

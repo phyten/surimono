@@ -115,55 +115,14 @@ final class LaTeXFrontMatter {
 extension LaTeXDocumentClassInfo {
     /// Shared templates often supply a fallback only when the document class lacks its own command.
     func definesClassCommand(_ command: String) -> Bool {
-        switch name {
-        case "amsart", "amsproc", "amsbook":
-            return ["address", "curraddr", "urladdr", "email", "keywords", "subjclass"].contains(command)
-        case "IEEEtran":
-            return [
-                "IEEEauthorblockN", "IEEEauthorblockA", "IEEEauthorrefmark", "IEEEkeywords", "IEEEcompsocitemizethanks",
-            ].contains(command)
-        case "beamer":
-            return ["institute", "subtitle", "frame", "titlepage", "frametitle", "framesubtitle", "setbeamertemplate"]
-                .contains(command)
-        case "llncs": return ["institute", "inst", "email", "orcidID", "keywords"].contains(command)
-        case "acmart":
-            return [
-                "subtitle", "affiliation", "institution", "city", "country", "orcid", "email", "authornote",
-                "authornotemark", "keywords", "ccsdesc",
-            ].contains(command)
-        case "elsarticle":
-            return [
-                "affiliation", "address", "ead", "corref", "cortext", "fnref", "fntext", "tnoteref", "tnotetext", "sep",
-            ].contains(command)
-        case "scrartcl", "scrreprt", "scrbook":
-            return ["subtitle", "publishers", "addsec", "addchap", "setkomafont", "addtokomafont"].contains(command)
-        case "memoir": return ["epigraph", "chapterstyle"].contains(command)
-        case "exam":
-            return [
-                "questions", "parts", "subparts", "choices", "oneparchoices", "checkboxes",
-                "solution", "solutionorbox", "solutionorlines", "solutionordottedlines",
-                "addpoints", "printanswers", "noprintanswers", "numquestions", "numpoints", "gradetable",
-                "pointtable", "fillin", "makeemptybox", "fillwithlines", "fillwithdottedlines",
-                "linefillheight", "dottedlinefillheight", "linefillthickness",
-                "header", "footer", "firstpageheader", "firstpagefooter", "runningheader", "runningfooter",
-            ].contains(command)
-        case "letter":
-            return ["letter", "name", "address", "signature", "opening", "closing", "ps", "cc", "encl"]
-                .contains(command)
-        case "moderncv":
-            return [
-                "moderncvstyle", "moderncvcolor", "name", "address", "phone", "social", "email", "homepage",
-                "extrainfo", "photo", "makecvtitle", "cventry", "cvitem", "cvitemwithcomment", "cvdoubleitem",
-                "cvlistitem", "cvlistdoubleitem",
-            ].contains(command)
-        default:
-            return name.hasPrefix("revtex") && ["affiliation", "altaffiliation", "email", "keywords"].contains(command)
-        }
+        profile.classCommands.contains(command)
     }
 
     var journalFrontMatter: Bool {
-        ["amsart", "amsbook", "amsproc", "IEEEtran", "llncs", "acmart", "elsarticle"].contains(name)
-            || name.hasPrefix("revtex")
+        switch profile.frontMatter {
+        case .standard: false
+        case .journal: true
+        }
     }
 }
 
