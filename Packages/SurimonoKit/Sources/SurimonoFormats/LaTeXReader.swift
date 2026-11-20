@@ -292,6 +292,12 @@ final class LaTeXReader {
         lastCharacter = text.last
     }
 
+    func trimPunctuationBeforeNote() {
+        guard pendingSpace == nil, let last = paragraph.last, "。、）」』".contains(last) else { return }
+        paragraph.removeLast()
+        paragraph += "<span class=\"latex-jfm-close\">\(last)</span>"
+    }
+
     func appendHTML(_ html: String, last: Character? = "x") {
         guard !html.isEmpty else { return }
         startContent()
@@ -726,7 +732,11 @@ final class LaTeXReader {
             if argument() == "document", document.startedDocument { document.endedDocument = true }
         case "part", "chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph":
             section(name)
+        case "frontmatter", "mainmatter", "backmatter":
+            bookMatter(name)
         case "maketitle": makeTitle()
+        case "minisec" where document.classInfo.profile.classCommands.contains(name):
+            appendBlock("<h6\(bookHeadingAttributes(name))>\(inline(argument() ?? ""))</h6>\n")
         case "addchap", "addsec":
             section(name == "addchap" ? "chapter" : "section", numbered: false, listed: !star())
         case "epigraph":
@@ -741,19 +751,29 @@ final class LaTeXReader {
             case "listoftables": (list, key) = (.tables, "listtablename")
             default:
                 let depth = min(5, max(-2, document.counters["tocdepth"]))
-                (list, key) = (.headings(depth: depth), "contentsname")
+                // The .toc stores only the counter. The prefix used when it is read may precede the appendix.
+                let chapterFormat =
+                    document.classInfo.profile.structure.formatsContentsChapterNames && document.language == "ja"
+                    ? numberedHeading(
+                        document.isAppendix ? "appendix" : "chapter", number: document.placeholder("N", 0)) : nil
+                (list, key) = (.headings(depth: depth, chapterFormat: chapterFormat), "contentsname")
             }
             let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
             let pageStyle = document.bodyPageStyles ?? document.classInfo.pageNumbers
             let mark =
                 document.classInfo.profile.structure.contents == .chapterMarks && pageStyle.writesContentsMark
                 ? " data-latex-contents-mark" : ""
+            let caption = captionName(key)
             let title =
                 document.classInfo.profile.structure.contents == .sectionTitle
-                ? "<h2 class=\"latex-contents-title\" data-latex-heading=\"section\">\(captionName(key))</h2>"
-                : "<p class=\"latex-contents-title\">\(captionName(key))</p>"
+                ? "<h2 class=\"latex-contents-title\" data-latex-heading=\"section\">\(caption)</h2>"
+                : "<p class=\"latex-contents-title\">\(caption)</p>"
+            let bookMark =
+                document.classInfo.profile.structure.bookOpening == nil
+                ? "" : " data-latex-book-mark=\"\(HTML.escape(DocumentOutline.plainText(ofHTML: caption)))\""
+            let measure = document.classInfo.profile.structure.contentsMeasure.attributes
             let nav =
-                "<nav class=\"toc\"\(opening)\(mark)>\(title)"
+                "<nav class=\"toc\"\(opening)\(mark)\(bookMark)\(measure)>\(title)"
                 + document.contentsPlaceholder(list) + "</nav>\n"
             appendBlock(styledLinks(nav, block: true))
         case "addcontentsline":
@@ -851,6 +871,7 @@ final class LaTeXReader {
         case "graphicspath": document.graphicsPaths = graphicsPaths(argument() ?? "")
         case "appendix":
             document.isAppendix = true
+            document.counters[document.hasChapters ? "section" : "subsection"] = 0
             let counter = document.hasChapters ? "chapter" : "section"
             document.counters[counter] = 0
             document.macros.removeValue(forKey: "the" + counter)
@@ -1144,6 +1165,7 @@ final class LaTeXReader {
         document.language = document.classInfo.mainLanguage
         document.nativeCaptionLanguage = document.language == "en" ? nil : document.language
         if document.classInfo.hasChapters { document.hasChapters = true }
+        if let depth = document.classInfo.profile.structure.contentsDepth { document.counters["tocdepth"] = depth }
         if !inPreamble && isBlock && document.classInfo.columns > 1 {
             appendBlock(document.columnMarker(document.classInfo.columns))
         }
@@ -1183,6 +1205,28 @@ final class LaTeXReader {
 
     // MARK: - Structure
 
+    private func bookMatter(_ name: String) {
+        guard let opening = document.classInfo.profile.structure.bookOpening else {
+            generic(name)
+            return
+        }
+        // Front and main matter start an odd numbered sequence even in an openany book.
+        let structure = document.classInfo.profile.structure
+        let side: LaTeXClassProfile.OpeningSide
+        if name == "backmatter" {
+            side = structure.backMatterOpensRight ? .right : opening
+        } else {
+            side = document.classInfo.profile.pageStyle.twoSidedNumbers ? .right : .any
+        }
+        appendBlock("<template data-latex-break=\"\(side.rawValue)\"></template>")
+        document.numbersChapters = name == "mainmatter"
+        let options = structure.readsMatterOptions
+        let starred = options && star()
+        let format =
+            (options ? optional() : nil) ?? (name == "frontmatter" ? "roman" : name == "mainmatter" ? "arabic" : "")
+        if !starred, !format.isEmpty { pageAction("pagenumbering", format) }
+    }
+
     func section(_ name: String, numbered: Bool = true, listed: Bool = true) {
         // A chapter in skipped code cannot change the numbering of an article.
         if name == "chapter" { document.hasChapters = true }
@@ -1191,15 +1235,24 @@ final class LaTeXReader {
         let source = argument() ?? ""
         let headings = document.classInfo.profile.headings
         if name == "part" {
+            if let opening = document.classInfo.profile.structure.bookOpening {
+                appendBlock("<template data-latex-break=\"\(opening.rawValue)\"></template>")
+            }
             let hasNumber = numbered && !starred && document.counters["secnumdepth"] >= (document.hasChapters ? -1 : 0)
             let numeral = hasNumber ? stepCounter("part") : ""
-            let label = numberedHeading("part", number: numeral)
+            if !numeral.isEmpty, numeral.contains(where: \.isLetter) { document.hasNonArabicHeading = true }
+            let label = numberedHeading("part", number: numeral) + document.headingEndDot
             let id = document.counters.anchor("part", suffix: hasNumber ? String(document.counters["part"]) : "u")
             document.labelTarget = (numeral, id)
             let title = inline(source)
             document.describeTarget(id, kind: "part", title: title)
             if !starred && listed {
-                document.headings.append(.init(level: -1, number: numeral, id: id, title: short.map(inline) ?? title))
+                document.headings.append(
+                    .init(
+                        chapterLabelHTML: document.classInfo.profile.structure.contents == .chapterMarks
+                            && document.language == "ja" ? label : nil, level: -1,
+                        number: hasNumber ? numeral + document.headingEndDot : "", id: id,
+                        title: short.map(inline) ?? title))
             }
             let partTitle =
                 headings.wrapsChapterTitle
@@ -1210,6 +1263,9 @@ final class LaTeXReader {
             appendBlock(
                 "<h2 class=\"latex-part\"\(pageStyle) id=\"\(id)\">\(!hasNumber ? "" : "<span class=\"secnum\">\(label)</span>")\(partTitle)</h2>\n"
             )
+            if let opening = document.classInfo.profile.structure.bookOpening {
+                appendBlock("<template data-latex-break=\"\(opening.rawValue)\"></template>")
+            }
             return
         }
         let level = LaTeXCounters.levels.firstIndex(of: name) ?? 1
@@ -1217,7 +1273,7 @@ final class LaTeXReader {
         let deepestNumbered = document.counters["secnumdepth"]
         var number: String?
         var display: String?
-        if numbered, !starred, level <= deepestNumbered, level >= first {
+        if numbered, !starred, level != 0 || document.numbersChapters, level <= deepestNumbered, level >= first {
             number = stepCounter(name)
             if level == 0, let chapter = number {
                 display =
@@ -1232,6 +1288,8 @@ final class LaTeXReader {
                 }
             }
         }
+        if let number, number.contains(where: \.isLetter) { document.hasNonArabicHeading = true }
+        display = display.map { $0 + document.headingEndDot }
         let suffix = number?.replacingOccurrences(of: ".", with: "-") ?? "u\(document.headings.count + 1)"
         let id = document.counters.anchor("sec", suffix: suffix)
         let tag = min(level - first + 2, 6)
@@ -1242,14 +1300,15 @@ final class LaTeXReader {
         let dot =
             document.language == "es" && document.classicBabelLanguages.contains("es") && document.spanishSectionDots
         if dot, level > 0 { display = display.map { $0.hasSuffix(".") ? $0 : $0 + "." } }
-        let tocNumber = listed && !starred ? number.map { $0 + (dot ? "." : "") } ?? "" : nil
+        let tocNumber = listed && !starred ? number.map { $0 + (dot ? "." : document.headingEndDot) } ?? "" : nil
         let chapterLabel =
             name == "chapter" && document.classInfo.profile.structure.contents == .chapterMarks
                 && document.language == "ja" ? display : nil
+        let shortTitle = short.map(inline) ?? title
         document.headings.append(
             .init(
                 chapterLabelHTML: chapterLabel, level: level, number: tocNumber, id: id,
-                title: short.map(inline) ?? title))
+                title: shortTitle))
         if headings.navigationOnlySections, name == "section" || name == "subsection" || name == "subsubsection" {
             // Navigation and explicit contents pages still need the section destination.
             appendDestination("<span id=\"\(id)\"></span>")
@@ -1263,16 +1322,40 @@ final class LaTeXReader {
         // An HTML newline becomes an extra word space when the theme puts the heading and paragraph on one line.
         let mark =
             name == "paragraph" && headings.readsParagraphMark ? captionName("jsParagraphMark") : ""
-        if name == "chapter" { appendBlock("<template data-latex-break=\"page\"></template>") }
-        let grid = headings.marksHeadingLevel ? " data-latex-heading=\"\(name)\"" : ""
+        if name == "chapter" {
+            let opening = document.classInfo.profile.structure.bookOpening?.rawValue ?? "page"
+            appendBlock("<template data-latex-break=\"\(opening)\"></template>")
+        }
+        var grid = headings.marksHeadingLevel ? " data-latex-heading=\"\(name)\"" : ""
+        if name == "chapter", display != nil, document.isAppendix, document.classInfo.usesTraditionalJapaneseNames {
+            grid += " data-latex-appendix"
+        }
         let sectionTitle =
             headings.smallCapsSections && name == "section"
             ? LaTeXJournalStyle.smallCaps(title, in: document) : title
         let headTitle =
             name == "chapter" && headings.wrapsChapterTitle
             ? "<span class=\"latex-chapter-title\">\(title)</span>" : sectionTitle
+        let bookMark: String
+        if document.classInfo.profile.structure.bookOpening != nil, !starred, listed, level == 0 || level == 1 {
+            let japanese =
+                name == "chapter" && document.language == "ja"
+                && (headings.chapterLabel == .spacedJapaneseNumber
+                    || headings.chapterLabel == .traditionalJapaneseNumber)
+            let prefix =
+                display.map {
+                    let number = DocumentOutline.plainText(ofHTML: $0)
+                    return japanese
+                        ? number.replacingOccurrences(of: " ", with: "\u{2005}") + "　"
+                        : number + headings.runningNumberSeparator
+                } ?? ""
+            let text = prefix + DocumentOutline.plainText(ofHTML: shortTitle)
+            bookMark = " data-latex-book-mark=\"\(HTML.escape(text))\""
+        } else {
+            bookMark = ""
+        }
         let heading =
-            "<h\(tag)\(kind)\(grid)\(bookHeadingAttributes(name)) id=\"\(id)\">\(numberHTML)\(mark)\(amsRunIn ? LaTeXFrontMatter.period(headTitle) : headTitle)</h\(tag)>"
+            "<h\(tag)\(kind)\(grid)\(bookHeadingAttributes(name))\(bookMark) id=\"\(id)\">\(numberHTML)\(mark)\(amsRunIn ? LaTeXFrontMatter.period(headTitle) : headTitle)</h\(tag)>"
         if runIn && isBlock {
             appendBlock("<div class=\"latex-runin\">" + heading)
             closesRunInParagraph = true
@@ -2211,7 +2294,7 @@ final class LaTeXReader {
         head += numberHTML
         let noteHTML = note.map { document.isJapanese ? "（\($0)）" : " (\($0))" } ?? ""
         head =
-            document.usesAMSTheorem
+            document.usesAMSTheorem || document.classInfo.profile.body.proceedingsTheoremStyle
             ? head + (noteHTML.isEmpty ? "" : "<span class=\"theorem-note\">\(noteHTML)</span>") + "."
             : head + noteHTML
         let style = theorem.style == "plain" && document.isJapanese ? "definition" : theorem.style
@@ -2229,7 +2312,9 @@ final class LaTeXReader {
             reader.optionalOnLine().map { inline($0) }
             ?? captionName("proofname")
         var content = blocks(reader.rest).trimmingCharacters(in: .whitespacesAndNewlines)
-        let box = "<span class=\"qed\">□</span>"
+        let box =
+            document.classInfo.profile.body.proceedingsTheoremStyle
+            ? #"<span class="qed latex-qed-square" role="img" aria-label="□"></span>"# : #"<span class="qed">□</span>"#
         if content.hasSuffix("</p>") {
             content = content.dropLast(4) + box + "</p>"
         } else {
@@ -2250,7 +2335,7 @@ final class LaTeXReader {
     private func bibliography(_ body: String) {
         let reader = LaTeXReader(body, document: document, isBlock: false)
         // The widest label; without it the first `\bibitem` would be taken for it.
-        if reader.rest.drop(while: \.isWhitespace).first == "{" { _ = reader.argument() }
+        let widest = reader.rest.drop(while: \.isWhitespace).first == "{" ? reader.argument() : nil
         let nameMacro = document.hasChapters ? "bibname" : "refname"
         let heading = captionName(nameMacro)
         document.bibliographyCount += 1
@@ -2279,13 +2364,34 @@ final class LaTeXReader {
             }
             let id = "bib-\(document.bibliographyCount)-\(position + 1)"
             if !key.isEmpty { document.bibliography[key] = (label, id) }
-            let text = compact(blocks(itemReader.rest))
+            var text = compact(blocks(itemReader.rest))
+            if document.language == "ja", document.classInfo.profile.body.usesJapanesePunctuationMetrics,
+                text.contains("』。")
+            {
+                // JFM gives adjacent closing punctuation a half-width advance.
+                text = HTMLScanner.tokens(text).map { token in
+                    switch token {
+                    case .text(let value):
+                        value.replacingOccurrences(of: "』。", with: "<span class=\"latex-jfm-close\">』</span>。")
+                    case .tag(let tag): tag.source
+                    case .opaque(let source): source
+                    }
+                }.joined()
+            }
             let printed = document.classInfo.journalStyle?.bibliographyLabel(label) ?? "[\(label)]"
             let marker = "<span class=\"bib-label\">\(printed)</span>"
             entries +=
                 "<li id=\"\(id)\">\(text.hasPrefix("<p>") ? "<p>" + marker + text.dropFirst(3) : marker + text)</li>\n"
         }
-        appendBlock(headingHTML + "<ol class=\"latex-bibliography\">\n\(entries)</ol>\n")
+        let list: String
+        if document.language == "ja", document.classInfo.profile.body.usesJapanesePunctuationMetrics,
+            let widest, !widest.isEmpty, widest.utf8.allSatisfy({ (48...57).contains($0) })
+        {
+            list = "<ol class=\"latex-bibliography latex-numbered\" style=\"--latex-label-digits: \(widest.count)ch\">"
+        } else {
+            list = "<ol class=\"latex-bibliography\">"
+        }
+        appendBlock(headingHTML + list + "\n\(entries)</ol>\n")
     }
 
     /// `\cite[after]{keys}` and natbib's `\citep[before][after]{keys}`. The numbers are filled in at the end, as
@@ -2383,9 +2489,10 @@ final class LaTeXReader {
                     level: 1, number: number, id: id, title: plain))
         }
         let numbered = document.classInfo.profile.body.numbersCaptions || document.numberedBeamerCaptions
-        let label = numbered ? name + " " + HTML.escape(number) : name
+        let label = numbered ? name + " " + HTML.escape(number) + document.headingEndDot : name
         let separator =
             setup.separator ?? document.classInfo.journalStyle?.captionSeparator(for: kind)
+            ?? info.profile.body.captionSeparator
             ?? (longtableCaption != nil ? ": " : document.isJapanese ? "　" : document.language == "fr" ? " – " : ": ")
         let contents: String
         if setup.hangs {
@@ -2541,6 +2648,8 @@ final class LaTeXReader {
             japaneseMetrics: document.classInfo.profile.body.usesScaledTableMetrics
                 ? LaTeXLabelMetrics(document.classInfo) : nil
         ).html(
+            japanesePunctuation: document.language == "ja"
+                && document.classInfo.profile.body.usesJapanesePunctuationMetrics,
             color: { LaTeXSymbols.cssColor($0, model: $1, defined: document.colors) },
             inline: reader.inline)
     }

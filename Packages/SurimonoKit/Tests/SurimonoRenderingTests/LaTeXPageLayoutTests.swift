@@ -85,16 +85,39 @@ struct LaTeXPageLayoutTests {
         #expect(page.lines.headerNumberRanges.first == [NSRange(location: 13, length: 1)])
     }
 
-    @Test("REVTeX と LNCS の固定原点はドライバーが A4 用紙を選んでも保つ")
-    func fixedClassOrigins() {
+    @Test("伝統的書籍の裏面補正は面付けと本文で同じ原点に戻る")
+    func traditionalVerso() throws {
+        let info = LaTeXConverter.documentClassInfo(#"\documentclass{ltjbook}"#)
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.applyLaTeXPage(info)
+        let odd = WebPaginator.Margins(settings.options.margins).left
+        let shift = PDFComposer.sideCorrection(
+            forPage: 0, at: 1, layout: settings.layout, options: settings.options,
+            sides: .init(movesContent: true))
+        #expect(abs(odd + shift - 161.664) < 0.01)
+        let placement = try #require(
+            PDFComposer.furniture(
+                onPage: 1, at: 1, pageCount: 2, layout: settings.layout,
+                options: settings.options, context: .init()))
+        #expect(abs(placement.margins.left - (odd + shift)) < 0.01)
+    }
+
+    @Test("REVTeX・LNCS・AMS 論文集の固定原点はドライバーが A4 用紙を選んでも保つ")
+    func fixedClassOrigins() throws {
         for (source, left, top) in [
             (#"\documentclass[preprint]{revtex4-2}"#, 72.0, 72.0), (#"\documentclass{llncs}"#, 134.765, 115.836),
+            (#"\documentclass{amsproc}"#, 126.672, 116.050),
         ] {
             let info = LaTeXConverter.documentClassInfo(source)
             let fitted = info.pageBox.margins(fitting: PaperSize.a4.size)
             #expect(abs(fitted.left * 72 / 25.4 - left) < 0.02)
             #expect(abs(fitted.top * 72 / 25.4 - top) < 0.02)
         }
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.applyLaTeXPage(LaTeXConverter.documentClassInfo(#"\documentclass{amsproc}"#))
+        #expect(abs(settings.layout.versoContentShift(options: settings.options)) < 0.01)
     }
 
     @Test("用紙に収まらない余白だけを比例して減らし、数値の余白と手書きの柱を優先する")

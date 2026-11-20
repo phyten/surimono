@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.012413315557209148,
+    "changedAreaRatio" : 0.01242158352194628,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
@@ -15,7 +15,8 @@
   "fonts" : [
     "Helvetica",
     "HiraMinProN-W3",
-    "HiraginoSans-W5"
+    "HiraginoSans-W5",
+    "Times-Roman"
   ],
   "pageCount" : 2,
   "pages" : [
@@ -130,11 +131,11 @@
           "y" : 279.6
         },
         {
-          "height" : 16.6,
+          "height" : 15.4,
           "text" : "二枚の紙•",
-          "width" : 35.7,
-          "x" : 92.7,
-          "y" : 304.8
+          "width" : 37.6,
+          "x" : 90.8,
+          "y" : 305.8
         },
         {
           "height" : 15.4,
@@ -151,11 +152,11 @@
           "y" : 340.7
         },
         {
-          "height" : 16.6,
+          "height" : 15.4,
           "text" : "三枚の紙•",
-          "width" : 35.7,
-          "x" : 92.7,
-          "y" : 360.1
+          "width" : 37.6,
+          "x" : 90.8,
+          "y" : 361.1
         },
         {
           "height" : 9.1,

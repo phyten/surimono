@@ -82,6 +82,7 @@ struct LaTeXFlowLayout {
     }
 
     struct Page {
+        var isBlankVersoOrRecto = false
         var pieces: [Piece] = []
         var rules: [CGRect] = []
         fileprivate var footers: [Lane: Footer] = [:]
@@ -219,12 +220,19 @@ struct LaTeXFlowLayout {
             segment.items = keptItems(segment.items, capacity: height, inTextSep: input.inTextSep)
             // A clear page drains the old queue before text after the command can enter the new one.
             var start = 0
-            for i in segment.items.indices where segment.items[i].forced == "clear" || segment.items[i].forced == "page"
-            {
+            for i in segment.items.indices {
+                guard let boundary = segment.items[i].forced, ["clear", "page", "right", "left"].contains(boundary)
+                else { continue }
                 var part = segment
                 part.items = Array(segment.items[start..<i])
                 try layout.place(part)
                 if !layout.page.pieces.isEmpty || !layout.page.footers.isEmpty { layout.endPage() }
+                if boundary == "right" && !layout.pages.count.isMultiple(of: 2)
+                    || boundary == "left" && layout.pages.count.isMultiple(of: 2)
+                {
+                    layout.page.isBlankVersoOrRecto = true
+                    layout.endPage()
+                }
                 start = i + 1
             }
             if start > 0 { segment.items = Array(segment.items[start...]) }

@@ -1,0 +1,36 @@
+% Keep the temporary build directory out of the PDF trailer ID.
+\ifdefined\pdfvariable\pdfvariable suppressoptionalinfo 512\relax\fi
+\documentclass{ltjbook}
+\title{紙塔の組立帳}
+\author{段丘模型工房}
+\date{}
+\begin{document}
+\frontmatter
+\maketitle
+\tableofcontents
+\mainmatter
+\chapter{基壇}
+\section{台の角}
+図\ref{fig:base}の型に沿って灰色の台紙を折る。
+\begin{figure}[htbp]
+\centering\rule{34mm}{4mm}
+\caption{基壇の型}\label{fig:base}
+\end{figure}
+\newpage
+\section{台紙の裏}
+返した紙の端に塔の向きを書き、折り筋を表まで通す。
+\chapter{上層}
+\section{高さの比較}
+表\ref{tab:height}の二つの層を順に積み、塔の影が台の中央にくるか調べる。
+\begin{table}[htbp]
+\centering\caption{各層の高さ}\label{tab:height}
+\begin{tabular}{lr}層 & 高さ（ミリ）\\下段 & 12\\上段 & 8\end{tabular}
+\end{table}
+\appendix
+\chapter{保管箱}
+外した部材は台札\cite{box}の順に箱へ戻す。
+\backmatter
+\begin{thebibliography}{9}
+\bibitem{box} 段丘模型工房『紙塔の台札』。
+\end{thebibliography}
+\end{document}

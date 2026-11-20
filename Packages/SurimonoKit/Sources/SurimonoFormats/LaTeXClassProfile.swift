@@ -24,8 +24,33 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         }
     }
 
+    enum OpeningSide: String, Equatable, Sendable {
+        case any = "page"
+        case right, left
+    }
+
+    struct ContentsMeasure: Equatable, Sendable {
+        var dotSeparationMu: Double? = 4.5
+        var pageNumberWidth = "1.55em"
+        var rightMargin = "2.55em"
+
+        var attributes: String {
+            guard self != Self() else { return "" }
+            var values = ["--latex-toc-page-width: " + pageNumberWidth, "--latex-toc-right-margin: " + rightMargin]
+            if let dotSeparationMu { values.append("--latex-toc-dotsep: " + LaTeXPageSettings.number(dotSeparationMu)) }
+            let undotted = dotSeparationMu == nil ? " data-latex-undotted" : ""
+            return undotted + " style=\"" + values.joined(separator: "; ") + "\""
+        }
+    }
+
     struct Structure: Equatable, Sendable {
         var hasChapters = false
+        var bookOpening: OpeningSide?
+        var backMatterOpensRight = false
+        var readsMatterOptions = false
+        var contentsMeasure = ContentsMeasure()
+        var contentsDepth: Int?
+        var formatsContentsChapterNames = false
         var titlePage = TitlePage.unmodelled
         // Differs from journalStyle today; kept apart until each consumer is checked against real LaTeX.
         var columns = 1
@@ -38,7 +63,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     enum ChapterLabel: Equatable, Sendable {
-        case localized, bareNumber, spacedJapaneseNumber
+        case localized, bareNumber, spacedJapaneseNumber, traditionalJapaneseNumber
     }
 
     enum BibliographyHeading: Equatable, Sendable {
@@ -49,8 +74,12 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         case plain, sectionTitle, chapterMarks
     }
 
+    enum EndDots: Equatable, Sendable { case never, automatic, always }
+
     struct Headings: Equatable, Sendable {
+        var endDots = EndDots.never
         var chapterLabel = ChapterLabel.localized
+        var runningNumberSeparator = " "
         var readsParagraphMark = false
         // Chapter classes read the mark but supply no default glyph; kept apart until each consumer is checked against real LaTeX.
         var defaultParagraphMark: String?
@@ -77,6 +106,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         // REVTeX accepts supplied dates in journal front matter; kept apart until each consumer is checked against real LaTeX.
         var includesDate = true
         var notesOnVerso = false
+        var uprightClassificationYear = false
         var noteDateLabel = "Received by the editors"
         var writesAuthorMarks = false
         // The title block also requests empty for amsbook; kept apart until each consumer is checked against real LaTeX.
@@ -92,7 +122,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     }
 
     enum StandardMeasure: Equatable, Sendable {
-        case inherited, doubleColumn, bookOffsets, letterOffsets
+        case inherited, doubleColumn, bookOffsets, letterOffsets, traditionalArticle, traditionalBook
     }
 
     enum LayoutRule: Equatable, Sendable {
@@ -114,13 +144,18 @@ package struct LaTeXClassProfile: Equatable, Sendable {
         var readsQuestions = false
         var readsFrames = false
         var numbersCaptions = true
+        var equationNumberOnLeft = false
         // Both APS modes use a bibliography rule, only preprint sizes figure rules naturally; kept apart until each consumer is checked against real LaTeX.
         var naturalRuleHeight = false
         var usesSizeFileGlue = false
         var usesListingDesignSize = false
         // Unstyled captions consult the body language; kept apart until each consumer is checked against real LaTeX.
         var styledCaptionSeparator: String?
+        var captionSeparator: String?
         var untranslatedProofName: String?
+        var usesJapanesePunctuationMetrics = false
+        var asteriskFootnotes = false
+        var proceedingsTheoremStyle = false
         var spacesLinkedCounters = false
         var captionSkip = CaptionSkip.inherited
         var usesScaledTableMetrics = false
@@ -175,6 +210,7 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     enum RunningStyle: Equatable, Sendable {
         case plain
         case ams(fontSize: Double)
+        case markedBook(numberInHead: Bool, ruled: Bool)
         case exam, empty, runningHeads
     }
 
@@ -195,6 +231,8 @@ package struct LaTeXClassProfile: Equatable, Sendable {
     package enum Style: Equatable, Sendable {
         case japanese, chaptered, sectioned
     }
+
+    package var bookOpeningSide: String? { structure.bookOpening?.rawValue }
 
     package var defaultStyle: Style {
         if typography.usesJapaneseStyle { return .japanese }

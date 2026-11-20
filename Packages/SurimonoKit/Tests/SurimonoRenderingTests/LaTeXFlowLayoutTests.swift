@@ -29,6 +29,20 @@ struct LaTeXFlowLayoutTests {
                 noteSkip: 5, textFloatSep: 4, floatSep: 2, inTextSep: 4), width: 100, height: 100)
     }
 
+    @Test("章起こしは浮動体を送り出してから片側にだけ白ページを挟む")
+    func facingOpenings() throws {
+        let right = Flow.Item(forced: "right")
+        let left = Flow.Item(forced: "left")
+        let result = try pages([
+            segment([
+                right, item(1, 15), item(2, 10, placement: "p"), right, right, item(3, 10), left, item(4, 10), left,
+                item(5, 10),
+            ])
+        ])
+        #expect(result.map { $0.pieces.map(\.slice.strip) } == [[1], [2], [3], [4], [], [5]])
+        #expect(result.indices.filter { result[$0].isBlankVersoOrRecto } == [4])
+    }
+
     @MainActor @Test("専用スタイルの和文格子・段組み・注・図を横組みのページ割りに送る")
     func routing() async throws {
         let dedicated = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })

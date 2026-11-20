@@ -1,0 +1,42 @@
+\documentclass{amsproc}
+\newtheorem{theorem}{Theorem}
+\title[Folded stops]{A spacing rule for folded stops}
+\author{Fold Desk}\address{Model Gauge Workshop, Fold Bench}
+\email{fold@example.invalid}\thanks{The fold bench supplied the trial strips.}
+\author{Slot Desk}\address{Model Gauge Workshop, Slot Bench}
+\email{slot@example.invalid}\thanks{The slot bench cut the test rail.}
+\subjclass[2020]{Primary 05B45}
+\keywords{paper gauge, spacing rule}
+\begin{document}
+\begin{abstract}
+Two card stops leave a measurable gap in a model rail. A fixed fold preserves
+this gap when the stops move together.
+\end{abstract}
+\maketitle
+\section{A trial gauge}
+\subsection{The common fold}
+Cut two stops on the same grid as the strip in Figure~\ref{fig:rail}.
+\begin{figure}[htbp]
+\centering\rule{30mm}{2mm}
+\caption{Rail for the folded stops}\label{fig:rail}
+\end{figure}
+\begin{theorem}
+Sliding both stops by one grid step preserves their separation.
+\end{theorem}
+\begin{proof}
+Let the original marks be $a$ and $b$. After a step of length $t$ the gap is
+\begin{equation}\label{eq:shift}
+(b+t)-(a+t)=b-a .
+\end{equation}
+\end{proof}
+\newpage
+\section{Bench check}
+Table~\ref{tab:shift} checks equation~\eqref{eq:shift} against the workshop card~\cite{card}.
+\begin{table}[htbp]
+\centering\caption{Positions on the grid}\label{tab:shift}
+\begin{tabular}{lrr}Trial & First & Second\\Before & 3 & 8\\After & 4 & 9\end{tabular}
+\end{table}
+\begin{thebibliography}{9}
+\bibitem{card} Model Gauge Workshop, \emph{Grid rail card}, bench series.
+\end{thebibliography}
+\end{document}

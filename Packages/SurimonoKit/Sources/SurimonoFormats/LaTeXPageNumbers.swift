@@ -27,6 +27,9 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
         var snapshotsFields: Bool
         var fields: [String: String] = [:]
         var snapshot: [String: String]?
+
+        // Built-in styles start with an empty snapshot so fancyhdr declarations cannot leak into them.
+        var isClassStyle: Bool { !snapshotsFields && snapshot?.isEmpty == true }
     }
 
     private var definitions: [String: Definition] = [:]
@@ -60,6 +63,31 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             style = "headings"
             headerFont = LaTeXElementFont(sizeInPoints: size)
             numberFont = headerFont
+        case .markedBook(let numberInHead, let ruled):
+            // Independent definitions keep class furniture out of the user's fancyhdr fields.
+            let number = #"\thepage"#
+            var plain =
+                numberInHead
+                ? ["ELH": number, "ORH": number]
+                : ["ELF": number, twoSided ? "ORF" : "OCF": number]
+            plain["headrulewidth"] = "0pt"
+            if ruled { plain["fullwidth"] = "true" }
+            var running = plain
+            if numberInHead {
+                running["ERH"] = #"\leftmark"#
+                running["OLH"] = ruled && !twoSided ? #"\leftmark"# : #"\rightmark"#
+                if ruled {
+                    numberFont = LaTeXElementFont(weight: "bold")
+                    running["headrulewidth"] = "0.4pt"
+                }
+            } else {
+                running["ELH"] = #"\leftmark"#
+                running[twoSided ? "ORH" : "OCH"] = twoSided ? #"\rightmark"# : #"\leftmark"#
+            }
+            for (name, rows) in [("headings", running), ("plain", plain)] {
+                definitions[name] = Definition(name: name, snapshotsFields: false, fields: rows, snapshot: [:])
+            }
+            style = "headings"
         case .exam:
             style = "headandfoot"
             examFirst = [:]
@@ -106,7 +134,11 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     package var header: [String] { row("H") }
     package var footer: [String] { row("F") }
 
-    package var usesFancyFields: Bool { activeFields != nil }
+    package var spansOuterMargin: Bool { activeFields?["fullwidth"] == "true" }
+
+    package var usesFancyFields: Bool {
+        activeFields != nil && definitions[thisPageStyle ?? style]?.isClassStyle != true
+    }
 
     private var activeFields: [String: String]? {
         selectedFields(thisPageStyle ?? style)
@@ -194,7 +226,8 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 }
             }
         }
-        return output.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        // TeX collapses source whitespace. Spaces with explicit widths in running marks survive shipout.
+        return output.split { $0.isASCII && $0.isWhitespace }.joined(separator: " ")
     }
 
     mutating func define(_ definition: Definition) {
@@ -215,7 +248,9 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 define(definition)
             }
         case "pagestyle":
-            if let selected = selectedFields(value) {
+            if definitions[value]?.isClassStyle == true {
+                style = value
+            } else if let selected = selectedFields(value) {
                 // pagestyle installs the fields in the running style. thispagestyle below applies
                 // them only while shipping its page, leaving subsequent pages' fields untouched.
                 fields = selected
@@ -224,7 +259,9 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
                 style = value
             }
         case "classPlain":
-            if japanesePlain {
+            if style == "headings", definitions["headings"] != nil {
+                thisPageStyle = "plain"
+            } else if japanesePlain {
                 // plainifnotempty preserves empty front matter and uses the outer header
                 // for a page number when the running style has installed a header.
                 if style != "empty" {

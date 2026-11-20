@@ -378,6 +378,7 @@ public final class WebPaginator: NSObject {
                         for _ in 0..<2 {
                             let locations: [Int: Int]
                             let count: Int
+                            var blankPages: Set<Int> = []
                             if capturesLaTeXFlow {
                                 measuringColumns = true
                                 let pass = try await LaTeXFlowPaginator.paginate(
@@ -387,6 +388,7 @@ public final class WebPaginator: NSObject {
                                 measuringColumns = false
                                 locations = pass.locations
                                 count = pass.pageCount
+                                blankPages = pass.blankPages
                             } else {
                                 let data = try await pageDataForPass()
                                 guard let measured = PDFDocument(data: data) else {
@@ -400,7 +402,8 @@ public final class WebPaginator: NSObject {
                                 installation.missing != 0 || targets.indices.contains { locations[$0] == nil }
                             let map = LaTeXPageReferences.map(
                                 latexPageNumbers, targets: targets,
-                                locations: locations, pageCount: count, restartsAfterTitle: restartsAfterTitle)
+                                locations: locations, pageCount: count, restartsAfterTitle: restartsAfterTitle,
+                                blankPages: blankPages)
                             texPages = map.pages
                             if map.references == previous && map.examScores == previousScores { break }
                             previousScores = map.examScores

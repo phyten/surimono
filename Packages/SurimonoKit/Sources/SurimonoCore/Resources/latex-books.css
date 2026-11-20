@@ -153,3 +153,53 @@ body[data-latex-class="scrartcl"] .abstract-title + p { text-indent: 1em; }
     body[data-latex-class="scrartcl"] .abstract-title { text-box-trim: trim-both; }
     body[data-latex-class="scrartcl"] .abstract-title + p { text-box-trim: trim-start; }
 }
+
+body[data-latex-class="scrbook"] {
+    --latex-display-to-table-skip: calc(.8 * var(--tex-body) * var(--tex-pt));
+    --latex-footnote-rule-width: calc(.4 * var(--latex-text-width-tex-pt) * var(--tex-pt));
+    & :is(.latex-front-title,.latex-part,.latex-contents-title) {
+        font-family: var(--latex-koma-disposition-family, var(--tex-sans-fonts));
+        font-weight: var(--latex-koma-disposition-weight, bold);
+    }
+    & :is(.latex-front-title,.latex-contents-title) { font-size: var(--latex-size-huge); }
+    /* The title page shares five fill units above, below the date and below the centre list. */
+    &[data-latex-title-layout="separate"] .latex-title-block {
+        --latex-title-fill-units: 5;
+        padding-block-start: calc(2.4 * var(--tex-baseline) + var(--latex-title-fill, 0px));
+        padding-block-end: 3em; margin-block-end: 0;
+    }
+    & .latex-title-block .latex-author { font-size: var(--latex-size-Large); margin-block-start: calc(2.75 * var(--tex-body) * var(--tex-pt)); }
+    & h2.latex-part {
+        box-sizing: border-box; min-height: calc(var(--latex-text-height-tex-pt) * var(--tex-pt));
+        display: flex; flex-direction: column; padding-block: var(--tex-baseline) 0;
+    }
+    & h2.latex-part::before, & h2.latex-part::after { content: ""; flex: 1 0 0; }
+    & h2.latex-part::after { flex-grow: 2; }
+    & h2.latex-part > .secnum { font-size: var(--latex-size-huge); margin: 0 0 calc(20 * var(--tex-pt)); }
+    & nav[data-latex-chapter-opening] > .latex-contents-title {
+        padding-block-start: calc(2.9 * var(--tex-baseline) + var(--koma-topskip, 10) * var(--tex-pt));
+        margin-block-end: calc(1.45 * var(--tex-baseline));
+    }
+    & nav.toc :is(.latex-toc-part,.latex-toc-chapter) > a {
+        font-family: var(--latex-koma-disposition-family, var(--tex-sans-fonts)); font-weight: var(--latex-koma-disposition-weight, bold);
+    }
+    & nav.toc .latex-toc-part > a { font-size: var(--latex-size-large); --latex-toc-number-width: 1.8em; }
+    & [data-latex-koma-heading="section"] > .secnum { margin-inline-end: .55em; }
+    & [data-latex-koma-heading="subsection"] > .secnum { margin-inline-end: .5em; }
+    & [data-latex-koma-heading="section"] { margin-block-end: calc(2.3 * .43055 * var(--tex-body) * var(--tex-pt)); }
+    & h2[data-latex-koma-heading="chapter"] { margin-block-end: calc(1.48 * var(--tex-baseline)); }
+    & [data-latex-koma-heading="minisec"] { padding-block: .28em .14em; }
+    & figure.latex-table > figcaption:has(+ table):not([data-latex-caption-style]) {
+        margin-block: var(--latex-abovecaptionskip) var(--latex-belowcaptionskip);
+    }
+    &[data-latex-size="11"] :is(ul:not(.toc ul,li ul),ol.latex-enumerate:not(li ol)) {
+        margin-block-start: calc(var(--latex-list-topsep, 9 * var(--tex-pt)) + var(--latex-list-parsep, 4.5 * var(--tex-pt)));
+    }
+    &[data-latex-size="11"] :is(ul:not(.toc ul,li ul),ol.latex-enumerate:not(li ol)) > li + li {
+        margin-block-start: calc(var(--latex-itemsep, 4.5 * var(--tex-pt)) + var(--latex-list-parsep, 4.5 * var(--tex-pt)));
+    }
+    & .footnotes ol { padding-inline-start: 1em; }
+}
+body[data-latex-class^="scr"] [data-latex-koma-heading="minisec"] {
+    font-size: 1em; margin-block: 1.5ex 0; text-indent: 0;
+}

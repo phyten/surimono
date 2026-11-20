@@ -8,6 +8,54 @@ import Testing
 
 @MainActor
 struct LaTeXFlowPrintingTests {
+    @Test("議事録の小型大文字を刷った PDF から原稿の綴りで検索できる", .timeLimit(.minutes(1)))
+    func proceedingsSmallCapSearch() async throws {
+        let tex = #"""
+            \documentclass{amsproc}\title{Fold stops}\author{Fold Desk}
+            \address{Paper Workshop}\thanks{The fold bench supplied the trial strips.}
+            \begin{document}\begin{abstract}Gauge spacing.\end{abstract}\maketitle
+            \begin{figure}[h]\rule{12mm}{2mm}\caption{Edge}\end{figure}
+            \begin{table}[h]\caption{Gap}\begin{tabular}{c}3\end{tabular}\end{table}
+            \end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        let settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        let pdf = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings
+        ).logicalDocument
+        for word in ["Abstract", "Figure", "Table", "Paper Workshop"] {
+            #expect(pdf.findString(word, withOptions: []).count == 1)
+        }
+
+        let page = try #require(pdf.page(at: 0))
+        let thanks = try #require(pdf.findString("The fold bench supplied the trial strips.", withOptions: []).first)
+        // CMR8 gives this note a 147.65 PDF-point advance in the proceedings reference.
+        #expect(abs(thanks.bounds(for: page).width - 147.65) < 2)
+    }
+
+    @Test("前付の次の左ページを白紙にして本文章の右下を一に戻す", .timeLimit(.minutes(1)))
+    func matterOpeningAndFolio() async throws {
+        let tex = #"""
+            \documentclass{scrbook}\begin{document}
+            \frontmatter\chapter{Preface}Fold the gauge.
+            \mainmatter\chapter{Bench}Set the stop.\newpage Check again.
+            \backmatter\addchap{Register}Store the card.\end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-report" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.options.latexFurniture = .style
+        let output = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings)
+        #expect(output.logicalDocument.pageCount == 5)
+        #expect(output.viewFurniture[0]?.lines.bottom == ["", "", "i"])
+        let blank = try #require(output.logicalDocument.page(at: 1))
+        #expect((blank.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #expect(output.viewFurniture[1]?.lines.isEmpty ?? true)
+        #expect(output.viewFurniture[2]?.lines.bottom == ["", "", "1"])
+        #expect(output.viewFurniture[3]?.lines.top == ["1\u{2002}Bench", "", ""])
+        #expect(output.viewFurniture[4]?.lines.bottom == ["", "", "3"])
+    }
+
     @Test("標準書籍の部扉と章扉は組版領域を基準にして番号と題を置く", .timeLimit(.minutes(1)))
     func bookOpeningPositions() async throws {
         let tex =
@@ -104,12 +152,59 @@ struct LaTeXFlowPrintingTests {
         ).logicalDocument
         let page = try #require(pdf.page(at: 0))
         let title = try #require(pdf.findString(heading).first { $0.pages.first == page }).bounds(for: page)
+        try checkLeader(
+            page, title: title, startX: title.maxX + 1, count: report ? 45 : 39,
+            diameter: report ? 7...10 : 8...11, pitch: report ? 7.75 : 8.49, lastDistance: report ? 18.78 : 22.14)
+    }
+
+    @Test("伝統的和文書籍と KOMA の目次は本文幅を基準に黒い丸を並べ番号箱の手前で止める", .timeLimit(.minutes(1)), arguments: [false, true])
+    func bookContentsLeader(koma: Bool) async throws {
+        let corpus = (0..<5).reduce(URL(fileURLWithPath: #filePath)) { url, _ in url.deletingLastPathComponent() }
+            .appendingPathComponent("Snapshots/corpus/latex")
+        let file = corpus.appendingPathComponent(koma ? "109-scrbook-parts/main.tex" : "112-ltjbook-chapters/main.tex")
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == (koma ? "latex-report" : "latex-plain-ja") })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.options.latexMargins = .style
+        let pdf = try await DocumentRenderer().prepare(
+            DocumentSource(data: try Data(contentsOf: file), format: .latex), settings: settings
+        ).logicalDocument
+        let page = try #require(pdf.page(at: 2))
+        if !koma {
+            // Reference 112 repeats the searchable label on the contents page and chapter opener.
+            let pages = pdf.findString("第 1 章", withOptions: []).compactMap { $0.pages.first }.map {
+                pdf.index(for: $0)
+            }
+            #expect(pages.contains(2) && pages.contains(4))
+        }
+        let chapter = try #require(pdf.findString(koma ? "The sliding strip" : "基壇").first { $0.pages.first == page })
+        let bounds = chapter.bounds(for: page)
+        let crop = try grayCrop(
+            page, origin: CGPoint(x: 250, y: bounds.minY), width: 600, height: Int(bounds.height * 6), scale: 6)
+        let pixels = try #require(crop.data).assumingMemoryBound(to: UInt8.self)
+        #expect((0..<(crop.bytesPerRow * crop.height)).allSatisfy { pixels[$0] > 200 })
+        // The KOMA dot centred at x = 250.42 pt crosses x = 250. Start in the gap to measure its full diameter.
+        let titles = koma ? ["Cutting the slot", "Checking the edge"] : ["台の角", "台紙の裏"]
+        let rises = try titles.map { text in
+            let title = try #require(pdf.findString(text).first { $0.pages.first == page })
+            return try checkLeader(
+                page, title: title.bounds(for: page), startX: koma ? 247 : 223, count: 25,
+                diameter: koma ? 8...11 : 7...10, pitch: koma ? 8.49 : 7.75, lastDistance: koma ? 19.44 : 17.22)
+        }
+        // Both rows have the same rise in the references. Allow one 600-dpi pixel for each sampled edge.
+        #expect(abs(rises[0] - rises[1]) <= 0.24)
+    }
+
+    @discardableResult
+    private func checkLeader(
+        _ page: PDFPage, title: CGRect, startX: CGFloat, count: Int, diameter: ClosedRange<Int>,
+        pitch: Double, lastDistance: Double
+    ) throws -> Double {
         // Sample one complete row at 600 dpi, including the ink of its final digit.
         let scale = 600.0 / 72
-        let width = Int(ceil((page.bounds(for: .mediaBox).maxX - title.maxX - 1) * scale))
+        let width = Int(ceil((page.bounds(for: .mediaBox).maxX - startX) * scale))
         let height = Int(ceil((title.height + 4) * scale))
         let ctx = try grayCrop(
-            page, origin: CGPoint(x: title.maxX + 1, y: title.minY - 2),
+            page, origin: CGPoint(x: startX, y: title.minY - 2),
             width: width, height: height, scale: scale)
         let pixels = try #require(ctx.data).assumingMemoryBound(to: UInt8.self)
         let columns = (0..<width).filter { x in (0..<height).contains { y in pixels[y * width + x] < 32 } }
@@ -125,13 +220,13 @@ struct LaTeXFlowPrintingTests {
         let numberInk = runs.popLast()
         let digit = try #require(numberInk)
         let dot = try #require(runs.last)
-        #expect(runs.count == (report ? 45 : 39))
-        #expect(runs.allSatisfy { (report ? 7...10 : 8...11).contains($0.count) })
+        #expect(runs.count == count)
+        #expect(runs.allSatisfy { diameter.contains($0.count) })
         for (a, b) in zip(runs, runs.dropFirst()) {
-            #expect(abs(Double(b.lowerBound - a.lowerBound) / scale - (report ? 7.75 : 8.49)) < 0.3)
+            #expect(abs(Double(b.lowerBound - a.lowerBound) / scale - pitch) < 0.3)
         }
         let distance = Double(digit.lowerBound + digit.upperBound - dot.lowerBound - dot.upperBound) / (2 * scale)
-        #expect(abs(distance - (report ? 18.78 : 22.14)) < 0.6)
+        #expect(abs(distance - lastDistance) < 0.6)
         func inkRows(_ span: Range<Int>) -> [Int] {
             (0..<height).filter { y in span.contains { x in pixels[y * width + x] < 64 } }
         }
@@ -140,7 +235,10 @@ struct LaTeXFlowPrintingTests {
         let bottom = try #require(ink.last)
         let baseline = try #require(inkRows(digit).last)
         let rise = Double(2 * baseline - top - bottom) / (2 * scale)
-        #expect((0.25...1.0).contains(rise))
+        // The references put the dot centre 0.54 pt (LuaTeX-ja classes) to 0.84 pt (KOMA) above the baseline. The
+        // background that draws the dots lands on the device grid, which moves it by up to a third of a point.
+        #expect((0.1...1.2).contains(rise))
+        return rise
     }
 
     @Test("標準記事の引用段落と脚注の二行には別々の基準線間隔を使う", .timeLimit(.minutes(1)))

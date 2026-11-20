@@ -168,11 +168,18 @@ extension LaTeXReader {
     func numberedHeading(_ name: String, number: String) -> String {
         let caption = captionName(name + "name")
         let number = HTML.escape(number)
-        if name == "chapter", document.classInfo.profile.headings.chapterLabel == .spacedJapaneseNumber,
+        let label = document.classInfo.profile.headings.chapterLabel
+        if label == .traditionalJapaneseNumber, name == "chapter", document.language == "ja" {
+            // The explicit spaces share the searchable chapter label's text run.
+            return "第 " + number + " " + caption
+        }
+        if label == .spacedJapaneseNumber || label == .traditionalJapaneseNumber,
+            name == "chapter" || document.classInfo.profile.structure.formatsContentsChapterNames,
             document.language == "ja"
         {
             // LuaTeX-ja inserts a quarter-em xkanjiskip on both sides of the Western number.
             let skip = #"<span class="latex-xkanjiskip"> </span>"#
+            if name == "appendix" { return caption + skip + number }
             return "第" + skip + number + skip + caption
         }
         if ["ja", "zh-Hans", "zh-Hant"].contains(document.language) {

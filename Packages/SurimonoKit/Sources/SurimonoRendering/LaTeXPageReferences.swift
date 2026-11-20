@@ -27,6 +27,7 @@ enum LaTeXPageReferences {
             label = state.label
             lines = .init(top: state.header, bottom: state.footer)
             lines.usesFancyFields = state.usesFancyFields
+            lines.spansOuterMargin = state.spansOuterMargin
             lines.headerFont = state.headerFont
             lines.numberFont = state.numberFont
             lines.headerNumberRanges = state.numberRanges(header: true)
@@ -63,7 +64,7 @@ enum LaTeXPageReferences {
             leader.className = 'latex-page-leader';
             const major = link.parentElement.matches('.latex-toc-part,.latex-toc-chapter') ||
               document.body.dataset.latexChapters === 'false' && link.parentElement.matches('.latex-toc-section');
-            if (!major && document.body.hasAttribute('data-latex-js-toc')) {
+            if (!major && !link.closest('[data-latex-undotted]')) {
               const dots = document.createElement('span');
               dots.className = 'latex-leader-dots';
               leader.setAttribute('aria-hidden', 'true');
@@ -135,6 +136,10 @@ enum LaTeXPageReferences {
           if (examPages && el.hasAttribute('data-exam-credit')) {
             action = 'examCredit'; value = el.dataset.examCredit;
           }
+          if (marks && el.hasAttribute('data-latex-book-mark')) {
+            action = el.matches('h3') ? 'rightmark' : 'majorMark';
+            value = el.dataset.latexBookMark;
+          }
           if (marks && !action && !el.closest('body:is([data-latex-class="amsart"],[data-latex-class="amsproc"])') && el.matches('h2[id^="sec-"],h3[id^="sec-"]') && el.querySelector(':scope > .secnum')) {
             const num = el.querySelector(':scope > .secnum');
             const number = num.textContent;
@@ -146,7 +151,7 @@ enum LaTeXPageReferences {
           // Standard inline titles and chapter openings select plain locally. A measured chapter
           // can change the running marks on this same page as well.
           const classPlain = plain && action !== 'title' && !el.dataset.latexPageAction &&
-            (el.matches('body[data-latex-title-layout="inline"] .latex-title-block') || chapters && el.matches('h2[id^="sec-"],[data-latex-chapter-opening]'));
+            (el.matches('body[data-latex-title-layout="inline"] .latex-title-block') || chapters && el.matches('h2[id^="sec-"],[data-latex-chapter-opening],body[data-latex-book-opening] .latex-part'));
           if (!refs.has(el) && !action && !classPlain) continue;
           if (el.matches('span[data-latex-page-action]')) el.style.position = 'absolute';
           const index = targets.length;
@@ -207,7 +212,7 @@ enum LaTeXPageReferences {
 
     static func map(
         _ initial: LaTeXPageNumbers, targets: [Target], locations: [Int: Int], pageCount: Int,
-        restartsAfterTitle: Bool
+        restartsAfterTitle: Bool, blankPages: Set<Int> = []
     ) -> Map {
         var state = initial
         let byPage = Dictionary(grouping: targets.indices.filter { locations[$0] != nil }) { locations[$0] }
@@ -235,6 +240,7 @@ enum LaTeXPageReferences {
             if hasAllCredits && score > 0 {
                 result.examScores.append(ExamScore(label: state.label, points: score))
             }
+            if blankPages.contains(page) { state.apply("thispagestyle", value: "empty") }
             result.pages.append(Page(state))
             for index in indices where targets[index].referenced {
                 result.references[String(index)] = state.label

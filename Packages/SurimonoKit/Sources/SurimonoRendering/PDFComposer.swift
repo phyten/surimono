@@ -35,8 +35,7 @@ public struct PDFComposer: Sendable {
         guard sides.movesContent, !sides.fixedPages.contains(index), layout.mirrorsMargins(options: options),
             layout.swapsSides(onPage: index) != layout.swapsSides(onPage: position)
         else { return 0 }
-        let margins = layout.logicalMargins(options: options)
-        let shift = CGFloat((margins.right - margins.left) * 72 / 25.4)
+        let shift = layout.versoContentShift(options: options)
         return layout.swapsSides(onPage: position) ? shift : -shift
     }
 
@@ -321,10 +320,14 @@ extension PDFComposer {
             let lines = furnitureLines(
                 onPage: index, at: position, pageCount: pageCount, layout: layout, options: options, context: context)
         else { return nil }
-        let margins = WebPaginator.Margins(layout.logicalMargins(options: options))
-        let verso = layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: position)
+        var margins = WebPaginator.Margins(layout.logicalMargins(options: options))
+        if layout.mirrorsMargins(options: options) && layout.swapsSides(onPage: position) {
+            margins = margins.mirrored
+            margins.left += options.versoOffset
+            margins.right -= options.versoOffset
+        }
         return FurniturePlacement(
-            latexFooter: context.latexFooter, lines: lines, margins: verso ? margins.mirrored : margins,
+            latexFooter: context.latexFooter, lines: lines, margins: margins,
             pageSize: layout.logicalPageSize(options: options))
     }
 

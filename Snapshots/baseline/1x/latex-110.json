@@ -1,0 +1,266 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02765840903688546,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 2,
+    "maxBoxDeltaPt" : 16.9,
+    "maxLuminance" : 99.625,
+    "maxShiftPt" : 5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 12
+  },
+  "fonts" : [
+    "Helvetica",
+    "IowanOldStyle-Roman"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 198.8,
+      "height" : 841.9,
+      "lastY" : 703.5,
+      "lineCount" : 17,
+      "lines" : [
+        {
+          "height" : 14.6,
+          "text" : "A spacing rule for folded stops",
+          "width" : 176.9,
+          "x" : 217.6,
+          "y" : 198.8
+        },
+        {
+          "height" : 12.9,
+          "text" : "Fold Desk and Slot Desk",
+          "width" : 116,
+          "x" : 248,
+          "y" : 225.9
+        },
+        {
+          "height" : 10.9,
+          "text" : "Abstract. Two card stops leave a measurable gap in a model rail. A fixed fold",
+          "width" : 286.9,
+          "x" : 162.5,
+          "y" : 258.7
+        },
+        {
+          "height" : 9.4,
+          "text" : "preserves this gap when the stops move together.",
+          "width" : 167.4,
+          "x" : 162.5,
+          "y" : 269.4
+        },
+        {
+          "height" : 12.1,
+          "text" : "1. A trial gauge",
+          "width" : 77.3,
+          "x" : 267.4,
+          "y" : 311.1
+        },
+        {
+          "height" : 12.2,
+          "text" : "1.1. The common fold. Cut two stops on the same grid as the strip in Fig-",
+          "width" : 340.7,
+          "x" : 144.6,
+          "y" : 328.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "ure 1.",
+          "width" : 24.1,
+          "x" : 126.7,
+          "y" : 341.2
+        },
+        {
+          "height" : 13.6,
+          "text" : "Figure 1. Rail for the folded stops",
+          "width" : 150.4,
+          "x" : 230.8,
+          "y" : 383.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "(1)",
+          "width" : 12.7,
+          "x" : 126.7,
+          "y" : 451.2
+        },
+        {
+          "height" : 13.6,
+          "text" : "Theorem 1. Sliding both stops by one grid step preserves their separation.",
+          "width" : 318.2,
+          "x" : 144.6,
+          "y" : 414.2
+        },
+        {
+          "height" : 13.6,
+          "text" : "Proof. Let the original marks be a and b. After a step of length t the gap is",
+          "width" : 322.9,
+          "x" : 144.6,
+          "y" : 433.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "(b + t)− (a + t) = b− a.",
+          "width" : 106.5,
+          "x" : 253,
+          "y" : 451
+        },
+        {
+          "height" : 9.4,
+          "text" : "2020 Mathematics Subject Classification. Primary 05B45.",
+          "width" : 216.2,
+          "x" : 144.6,
+          "y" : 660
+        },
+        {
+          "height" : 9.4,
+          "text" : "Key words and phrases. paper gauge, spacing rule.",
+          "width" : 188.3,
+          "x" : 144.6,
+          "y" : 670.4
+        },
+        {
+          "height" : 9.4,
+          "text" : "The fold bench supplied the trial strips.",
+          "width" : 147.2,
+          "x" : 144.6,
+          "y" : 680.8
+        },
+        {
+          "height" : 9.4,
+          "text" : "The slot bench cut the test rail.",
+          "width" : 116.9,
+          "x" : 144.6,
+          "y" : 690.4
+        },
+        {
+          "height" : 8.2,
+          "text" : "1",
+          "width" : 3.5,
+          "x" : 304.3,
+          "y" : 703.5
+        }
+      ],
+      "textHeight" : 512.9,
+      "textLeft" : 126.7,
+      "textTop" : 198.8,
+      "textWidth" : 358.6,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 95.8,
+      "height" : 841.9,
+      "lastY" : 312.1,
+      "lineCount" : 14,
+      "lines" : [
+        {
+          "height" : 8.2,
+          "text" : "2 FOLD DESK AND SLOT DESK",
+          "width" : 229.3,
+          "x" : 126.7,
+          "y" : 95.8
+        },
+        {
+          "height" : 12.1,
+          "text" : "2. Bench check",
+          "width" : 75.4,
+          "x" : 268.3,
+          "y" : 116.3
+        },
+        {
+          "height" : 12.2,
+          "text" : "Table 1 checks equation (1) against the workshop card [1].",
+          "width" : 249.5,
+          "x" : 144.6,
+          "y" : 133.9
+        },
+        {
+          "height" : 13.6,
+          "text" : "Table 1. Positions on the grid",
+          "width" : 130.1,
+          "x" : 240.9,
+          "y" : 157.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "Trial First Second",
+          "width" : 101.2,
+          "x" : 255.4,
+          "y" : 181.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Before 3 8",
+          "width" : 101.2,
+          "x" : 255.4,
+          "y" : 193.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "After 4 9",
+          "width" : 101.2,
+          "x" : 255.4,
+          "y" : 205.5
+        },
+        {
+          "height" : 9.4,
+          "text" : "[1]",
+          "width" : 8.4,
+          "x" : 126.7,
+          "y" : 256.9
+        },
+        {
+          "height" : 12.1,
+          "text" : "References",
+          "width" : 53.8,
+          "x" : 279.1,
+          "y" : 237
+        },
+        {
+          "height" : 9.4,
+          "text" : "Model Gauge Workshop, Grid rail card, bench series.",
+          "width" : 182,
+          "x" : 142.6,
+          "y" : 256.9
+        },
+        {
+          "height" : 10.9,
+          "text" : "Model Gauge Workshop, Fold Bench",
+          "width" : 157,
+          "x" : 144.6,
+          "y" : 274.2
+        },
+        {
+          "height" : 9.4,
+          "text" : "Email address: fold@example.invalid",
+          "width" : 136.1,
+          "x" : 144.6,
+          "y" : 284.9
+        },
+        {
+          "height" : 10.9,
+          "text" : "Model Gauge Workshop, Slot Bench",
+          "width" : 155.9,
+          "x" : 144.6,
+          "y" : 301.4
+        },
+        {
+          "height" : 9.4,
+          "text" : "Email address: slot@example.invalid",
+          "width" : 136.1,
+          "x" : 144.6,
+          "y" : 312.1
+        }
+      ],
+      "textHeight" : 225.6,
+      "textLeft" : 126.7,
+      "textTop" : 95.8,
+      "textWidth" : 267.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "aedbd516cdef41c0a29f6893ee6acdc641a47f90ea7d9db73076c9d84361b895"
+}

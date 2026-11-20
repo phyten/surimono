@@ -11,6 +11,7 @@ public struct LaTeXPageBox: Equatable, Sendable {
     public let headSep: Double
     public let footSkip: Double
     public let mirrorsSides: Bool
+    package var evenLeft: Double?
     package var usesFixedClassOrigin = false
 
     var turnedForLandscape: Self {
@@ -73,6 +74,7 @@ struct LaTeXClassBox {
     var headHeight: Double
     var headSep: Double
     var footSkip: Double
+    var evenLeft: Double?
 
     // Default odd-page margins (left/right/top/bottom, PDF pt, rounded), from TeX Live 2026's
     // size*.clo, bk*.clo and ltjsarticle.cls registers. The geometry logs 006–010 and the
@@ -100,10 +102,11 @@ struct LaTeXClassBox {
             // calclayout centres the 30pc by 50.5pc area including the 8pt head and its 14pt separation.
             let measure = 360.0
             let height = info.usesAMSA4Layout ? 654.0 : 606.0
+            let left = max(36.135, (paperWidth - measure) / 2)
             return Self(
-                width: measure, height: height - 22, left: max(36.135, (paperWidth - measure) / 2),
+                width: measure, height: height - 22, left: left,
                 top: max(36.135, (paperHeight - height) / 2) + 22, headHeight: 8, headSep: 14,
-                footSkip: footSkip)
+                footSkip: footSkip, evenLeft: info.profile.page.usesFixedClassOrigin ? left : nil)
         case .exam:
             let inch = 72.27
             return Self(
@@ -161,12 +164,16 @@ struct LaTeXClassBox {
     ) -> Self {
         let size = info.pointSize
         let inch = 72.27
-        let book = measure == .bookOffsets
-        let baseline = size == 10 ? 12.0 : size == 11 ? 13.6 : 14.5
-        let classWidth = size == 10 ? 345.0 : size == 11 ? 360.0 : 390.0
-        let doubleMeasure = info.columns == 2 && (measure == .doubleColumn || book)
+        let book = measure == .bookOffsets || measure == .traditionalBook
+        let traditional = measure == .traditionalBook || measure == .traditionalArticle
+        let baseline = traditional ? [15, 15.5, 16.5][size - 10] : [12, 13.6, 14.5][size - 10]
+        let classWidth: Double = traditional ? [327, 342, 372][size - 10] : [345, 360, 390][size - 10]
+        let doubleMeasure = info.columns == 2 && (measure == .doubleColumn || book || traditional)
         let width = max(1, floor(min(paperWidth - 2 * inch, doubleMeasure ? 2 * classWidth : classWidth)))
-        let height = max(0, floor((paperHeight - 3.5 * inch) / baseline)) * baseline + Double(size)
+        // The traditional size files truncate the line grid plus the height of 漢 to whole TeX points.
+        let topSkip = traditional ? [8.46753, 9.27193, 10.16104][size - 10] : Double(size)
+        let naturalHeight = max(0, floor((paperHeight - 3.5 * inch) / baseline)) * baseline + topSkip
+        let height = traditional ? floor(naturalHeight) : naturalHeight
         if measure == .letterOffsets {
             return Self(
                 width: width, height: height, left: (paperWidth - width) / 2, top: inch + 27 + 12 + 45,
@@ -176,9 +183,11 @@ struct LaTeXClassBox {
         let footSkip = book && size != 12 ? (size == 10 ? 0.35 : 0.38) * inch : 30
         let oddSideMargin = ((paperWidth - width) * (twoSided ? 0.4 : 0.5) - inch).rounded(.towardZero)
         let topMargin = ((paperHeight - 2 * inch - 12 - headSep - height - footSkip) / 2).rounded(.towardZero)
+        // The jclasses truncate the two side registers independently before shipping a spread.
+        let evenLeft = traditional && twoSided ? inch + ((paperWidth - width) * 0.6 - inch).rounded(.towardZero) : nil
         let standard = Self(
             width: width, height: height, left: inch + oddSideMargin, top: inch + topMargin + 12 + headSep,
-            headHeight: 12, headSep: headSep, footSkip: footSkip)
+            headHeight: 12, headSep: headSep, footSkip: footSkip, evenLeft: evenLeft)
         guard let publication = info.publication else { return standard }
         switch publication {
         case .lncs:

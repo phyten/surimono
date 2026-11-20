@@ -238,6 +238,11 @@ ol.latex-bibliography.latex-numbered { padding-inline-start: calc(var(--latex-la
     position: absolute; inset-inline-end: calc(100% + 0.5em); inset-block-start: 0;
     width: calc(var(--latex-label-digits) + 0.56em); min-width: 0; margin: 0; text-align: end; white-space: nowrap;
 }
+/* The jsclasses trim and pad each bibliography line. The label belongs on its first baseline. */
+body[data-latex-js-toc] .latex-bibliography.latex-numbered .bib-label {
+    position: static; vertical-align: baseline;
+    margin-inline: calc(-1 * (var(--latex-label-digits) + 1.06em)) .5em;
+}
 .footnotes { margin-block-start: 1em; padding: 0; border: none; font-size: calc(var(--tex-footnote) * var(--tex-pt)); line-height: 1.2; }
 .footnotes::before { content: ""; display: block; width: var(--latex-footnote-rule-width, 40%); border-block-start: 0.4pt solid #000; margin-block-end: 0.35em; }
 .footnotes ol { margin-block: 0; padding-inline-start: 1.7em; }
@@ -419,32 +424,32 @@ nav.toc a.latex-page-entry { display: flex; align-items: baseline; gap: 0.25em; 
     text-indent: calc(-1 * var(--latex-toc-number-width, 2.3em));
 }
 .latex-page-entry .secnum { text-indent: 0; }
-/* LaTeX's 4.5mu on either side of a period yields a 0.778em pitch (7.75 PDF pt in corpus 002). */
-.latex-page-leader {
-    flex: 1 0 0.8em; align-self: flex-end; height: 0.14em; margin-bottom: 0.23em;
-    background: radial-gradient(circle, currentColor 0.04em, transparent 0.05em) left bottom / 0.778em 100% repeat-x;
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
-}
-nav.toc :is(.latex-toc-part, .latex-toc-chapter) > a > .latex-page-leader,
-body[data-latex-chapters="false"] nav.toc .latex-toc-section > a > .latex-page-leader { background: none; }
+.latex-page-leader { flex: 1 0 0; background: none; }
 /* TeX aligns complete leader boxes to the left of the text measure. Their phase
    is independent of the entry's indent, its title, and the number of digits. */
-body[data-latex-js-toc] nav.toc .latex-page-entry:has(.latex-leader-dots) {
-    gap: 0; container-type: inline-size;
-    --latex-leader-pitch: .778em; --latex-leader-diameter: .108em;
+nav.toc { --latex-toc-page-width: 1.55em; --latex-toc-right-margin: 2.55em; --latex-toc-dotsep: 4.5; }
+body.format-latex nav.toc .latex-page-entry:has(.latex-leader-dots) {
+    gap: 0; container-type: inline-size; align-items: last baseline;
+    --latex-leader-pitch: calc((.278 + var(--latex-toc-dotsep) / 9) * 1em); --latex-leader-diameter: .108em;
 }
-body[data-latex-js-toc] .latex-page-leader {
-    position: relative; background: none;
+body.format-latex .latex-page-leader {
+    position: relative; height: 0;
 }
-body[data-latex-js-toc] .latex-leader-dots {
-    --latex-leader-tail: mod(calc(100cqi + var(--toc-indent, 0px) - 1.55em), var(--latex-leader-pitch));
-    position: absolute; inset-block: 0; inset-inline-end: var(--latex-leader-tail); margin-block: auto; height: var(--latex-leader-diameter);
+body.format-latex .latex-leader-dots {
+    --latex-leader-tail: mod(calc(100cqi + var(--toc-indent, 0px) - var(--latex-toc-page-width)), var(--latex-leader-pitch));
+    position: absolute; inset-block-end: 0; inset-inline-end: var(--latex-leader-tail); height: var(--latex-leader-diameter);
     width: max(0px, round(down, calc(100% - var(--latex-leader-tail)), var(--latex-leader-pitch)));
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
     background: radial-gradient(circle, currentColor .05em, transparent .054em) left center / var(--latex-leader-pitch) 100% repeat-x;
 }
+body.format-latex nav.toc .latex-page-entry:has(.latex-leader-dots) > :first-child { max-width: calc(100% - var(--latex-toc-right-margin)); }
 body[data-latex-js-toc] nav.toc .latex-page-label { min-width: 1.55em; }
-body[data-latex-js-toc] nav.toc .latex-page-entry:has(.latex-leader-dots) > .latex-page-label { flex: none; width: 1.55em; white-space: nowrap; }
-body[data-latex-js-toc] nav.toc .latex-page-entry > :first-child { max-width: calc(100% - 2.55em); }
+body.format-latex nav.toc .latex-page-entry:has(.latex-leader-dots) > .latex-page-label,
+body.format-latex nav[data-latex-undotted] .latex-page-label { flex: none; align-self: last baseline; width: var(--latex-toc-page-width); white-space: nowrap; }
+/* The js grid trims and pads the number and title separately before measuring their shared row. */
+body[data-latex-js-toc] nav.toc .latex-page-entry:has(.latex-leader-dots) { align-items: baseline; }
+body[data-latex-js-toc] nav.toc .latex-page-entry:has(.latex-leader-dots) > .latex-page-label { align-self: flex-end; }
+body[data-latex-js-toc] nav.toc .latex-page-entry:not(:has(.latex-leader-dots)) > :first-child { max-width: calc(100% - 2.55em); }
 body[data-latex-js-toc][data-latex-chapters="false"] nav.toc > .latex-contents-title + ul > li:first-child > a {
     padding-block-start: calc(var(--latex-parskip, 0px) + (1lh - 1cap) / 2);
 }
@@ -1099,4 +1104,20 @@ body:is([data-latex-class="book"],[data-latex-class="report"])[data-latex-chapte
     }
     & h2[id^="sec-"]:not(.latex-part) { margin-block-end: calc(40 * var(--tex-pt) - .15em); }
     & h2 > .latex-chapter-title { display: block; font-size: var(--latex-size-Huge); line-height: 1.2; }
+}
+
+/* Latin Modern's text bullet is centered in a 778-unit advance. Times supplies the
+   same round ink at text size when the Latin Modern face is unavailable. */
+body[data-latex-js-toc] ul:not(.toc ul,li ul) > li:not(.latex-custom-label)::before {
+    content: "•"; font-family: var(--latex-main-font, "Latin Modern Roman"), Times, serif; width: .778em; text-align: center;
+    inset-inline-end: calc(100% + var(--latex-list-labelsep, .5 * var(--latex-zw, 1em)));
+}
+body[data-latex-class="scrbook"] ul:not(.toc ul,li ul) > li:not(.latex-custom-label)::before {
+    content: "∙"; font-family: var(--latex-main-font, "Surimono Computer Modern"), serif;
+}
+body:is([data-latex-class="ltjsbook"],[data-latex-class="scrbook"],[data-latex-class="ltjarticle"],[data-latex-class="amsproc"]) .footnotes > ol > li:last-child {
+    margin-block-end: 0;
+}
+body:is([data-latex-class="ltjsbook"],[data-latex-class="scrbook"],[data-latex-class="ltjarticle"],[data-latex-class="amsproc"]) .footnotes > ol > li:last-child > p:last-child {
+    margin-block-end: 0; text-box-trim: trim-end; text-box-edge: cap alphabetic;
 }

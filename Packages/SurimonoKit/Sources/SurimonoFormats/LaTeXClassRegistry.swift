@@ -67,6 +67,8 @@ enum LaTeXClassRegistry {
             builder.body.usesListingDesignSize = true
         },
         Rule(.names([.amsart, .amsproc, .amsbook])) { builder in
+            builder.structure.contentsMeasure = .init(
+                dotSeparationMu: nil, pageNumberWidth: "1.6em", rightMargin: "2.6em")
             builder.structure.hasChapters = builder.id == .amsbook
             builder.journal(.ams, commands: Commands.ams)
             let book = builder.id == .amsbook
@@ -74,6 +76,12 @@ enum LaTeXClassRegistry {
             builder.typography.baselineTable = .ams
             builder.headings.marksHeadingLevel = true
             builder.headings.smallCapsSections = builder.id == .amsart
+            if builder.id == .amsproc {
+                builder.titleBlock.uprightClassificationYear = true
+                builder.body.proceedingsTheoremStyle = true
+                builder.page.usesFixedClassOrigin = true
+                builder.body.equationNumberOnLeft = builder.options.last { $0 == "leqno" || $0 == "reqno" } != "reqno"
+            }
             builder.headings.unprefixedChapterCounters = book
             builder.titleBlock.notesOnVerso = book
             builder.titleBlock.writesAuthorMarks = !book
@@ -99,6 +107,7 @@ enum LaTeXClassRegistry {
             builder.pageStyle.running = conference ? .empty : .plain
         },
         Rule(.names([.llncs])) { builder in
+            builder.structure.contentsMeasure = .init(dotSeparationMu: 2, pageNumberWidth: "2em", rightMargin: "3.5em")
             builder.journal(.lncs, commands: Commands.lncs)
             builder.page.publication = .lncs
             builder.titleBlock.includesDate = false
@@ -110,6 +119,8 @@ enum LaTeXClassRegistry {
             builder.pageStyle.running = builder.options.contains("runningheads") ? .runningHeads : .empty
         },
         Rule(.names([.acmart])) { builder in
+            builder.structure.contentsMeasure = .init(
+                dotSeparationMu: nil, pageNumberWidth: "1.6em", rightMargin: "2.6em")
             builder.journal(nil, commands: Commands.acm)
             builder.titleBlock.includesDate = false
             let formats = [
@@ -157,6 +168,20 @@ enum LaTeXClassRegistry {
         Rule(.names([.scrartcl, .scrreprt, .scrbook])) { builder in
             builder.structure.hasChapters = builder.id != .scrartcl
             builder.setBookSides(builder.id == .scrbook)
+            if builder.id == .scrbook {
+                builder.setBookOpening(numberInHead: false)
+                builder.headings.runningNumberSeparator = "\u{2002}"
+                builder.bookStyle.fonts["pagehead"] = LaTeXElementFont(shape: "oblique")
+                builder.structure.readsMatterOptions = true
+                builder.structure.backMatterOpensRight = builder.structure.bookOpening == .left
+                switch builder.options.last(where: { $0.hasPrefix("numbers=") }) {
+                case "numbers=enddot", "numbers=endperiod", "numbers=withenddot", "numbers=withendperiod",
+                    "numbers=periodatend", "numbers=dotatend":
+                    builder.headings.endDots = .always
+                case "numbers=noenddot", "numbers=noendperiod", "numbers=noperiodatend", "numbers=nodotatend": break
+                default: builder.headings.endDots = .automatic
+                }
+            }
             builder.page.paperOptions = .keyed
             builder.page.defaultPaper = .a4
             builder.typography.pointSize = 11
@@ -167,12 +192,13 @@ enum LaTeXClassRegistry {
             builder.headings.readsElementFonts = true
             builder.page.layoutRule = .typeArea
             builder.body.naturalRuleHeight = true
-            if builder.id == .scrartcl {
+            if builder.id == .scrartcl || builder.id == .scrbook {
                 let separate = ["titlepage", "titlepage=true", "titlepage=firstiscover"]
                 let selected = builder.options.last {
                     separate.contains($0) || $0 == "notitlepage" || $0 == "titlepage=false"
                 }
-                builder.structure.titlePage = selected.map(separate.contains) == true ? .separate : .inline
+                builder.structure.titlePage =
+                    (selected.map(separate.contains) ?? (builder.id == .scrbook)) ? .separate : .inline
             }
         },
         Rule(.names([.memoir])) { builder in
@@ -223,6 +249,11 @@ enum LaTeXClassRegistry {
             builder.setStandardTitlePage(separate: !article)
             let book = [.jsbook, .ltjsbook, .bxjsbook].contains(builder.id)
             builder.setBookSides(book)
+            if book {
+                builder.setBookOpening(numberInHead: true, ruled: true)
+                builder.structure.contentsDepth = 1
+                builder.structure.formatsContentsChapterNames = true
+            }
             builder.pageStyle.japanesePlain = true
             let bx = [.bxjsarticle, .bxjsreport, .bxjsbook].contains(builder.id)
             let scale = magnification(builder.options, bx: bx)
@@ -232,6 +263,7 @@ enum LaTeXClassRegistry {
             builder.typography.usesScaledBodyFont = true
             builder.typography.selectsParagraphPitch = true
             builder.page.layoutRule = .scaledGrid(scale: scale, bookMeasure: book, centersFurniture: bx)
+            builder.body.asteriskFootnotes = true
             builder.headings.chapterLabel = article ? .localized : .spacedJapaneseNumber
             builder.headings.marksHeadingLevel = true
             builder.headings.wrapsChapterTitle = !article
@@ -249,6 +281,7 @@ enum LaTeXClassRegistry {
             builder.body.naturalRuleHeight = true
         },
         Rule(.names([.jlreq])) { builder in
+            builder.structure.contentsMeasure = .init(dotSeparationMu: 2, pageNumberWidth: "2ic")
             builder.japanese()
             builder.keyedSize = true
             builder.structure.hasChapters = builder.options.contains("book") || builder.options.contains("report")
@@ -267,6 +300,20 @@ enum LaTeXClassRegistry {
             builder.japanese()
             builder.structure.usesTraditionalJapaneseNames = true
             builder.typography.baselineTable = .traditional
+            if [.ltjarticle, .jarticle, .ltjbook, .jbook].contains(builder.id) {
+                let book = builder.id == .ltjbook || builder.id == .jbook
+                builder.page.layoutRule = .standard(book ? .traditionalBook : .traditionalArticle)
+                builder.setStandardTitlePage(separate: book)
+                builder.setBookSides(book)
+                builder.body.captionSeparator = ":\u{2002}"
+                if book { builder.headings.chapterLabel = .traditionalJapaneseNumber }
+                builder.headings.marksHeadingLevel = true
+                builder.typography.selectsParagraphPitch = true
+                if book {
+                    builder.setBookOpening(numberInHead: true)
+                    builder.structure.formatsContentsChapterNames = true
+                }
+            }
             builder.structure.hasChapters = ![.jarticle, .ltjarticle, .ujarticle, .utarticle, .tarticle].contains(
                 builder.id)
         },
@@ -320,6 +367,19 @@ enum LaTeXClassRegistry {
             pageStyle.twoSidedFields = twoSided
         }
 
+        mutating func setBookOpening(numberInHead: Bool, ruled: Bool = false) {
+            let opening = options.last {
+                ["openright", "openleft", "openany", "open=right", "open=left", "open=any"].contains($0)
+            }
+            let twoSided = options.last { $0 == "oneside" || $0 == "twoside" } != "oneside"
+            if !twoSided || opening == "openany" || opening == "open=any" {
+                structure.bookOpening = .any
+            } else {
+                structure.bookOpening = opening == "openleft" || opening == "open=left" ? .left : .right
+            }
+            pageStyle.running = .markedBook(numberInHead: numberInHead, ruled: ruled)
+        }
+
         mutating func japanese() {
             page.paperOptions = .japanese
             typography.usesJapaneseStyle = true
@@ -327,6 +387,7 @@ enum LaTeXClassRegistry {
             typography.prefersHiraginoSansW4 = true
             body.styledCaptionSeparator = ": "
             body.untranslatedProofName = "Proof"
+            body.usesJapanesePunctuationMetrics = true
             body.spacesLinkedCounters = true
             typography.mainLanguage = options.contains("english") ? "en" : "ja"
             structure.usesNativeCJKHeadings = true
@@ -382,7 +443,9 @@ private enum Commands {
     static let elsevier: Set<String> = [
         "affiliation", "address", "ead", "corref", "cortext", "fnref", "fntext", "tnoteref", "tnotetext", "sep",
     ]
-    static let koma: Set<String> = ["subtitle", "publishers", "addsec", "addchap", "setkomafont", "addtokomafont"]
+    static let koma: Set<String> = [
+        "subtitle", "publishers", "minisec", "addsec", "addchap", "setkomafont", "addtokomafont",
+    ]
     static let memoir: Set<String> = ["epigraph", "chapterstyle"]
     static let exam: Set<String> = [
         "questions", "parts", "subparts", "choices", "oneparchoices", "checkboxes",

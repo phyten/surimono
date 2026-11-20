@@ -29,7 +29,17 @@ extension RenderSettings {
 
     mutating func applyLaTeXPage(_ info: LaTeXDocumentClassInfo) {
         if options.latexMargins?.applies(to: theme) == true && layout.kind != .handout3 {
-            options.margins = info.pageBox.margins(fitting: layout.logicalPageSize(options: options))
+            let box = info.pageBox
+            options.margins = box.margins(fitting: layout.logicalPageSize(options: options))
+            let spare = box.left + box.right
+            if let evenLeft = box.evenLeft, spare > 0 {
+                let fitted = WebPaginator.Margins(options.margins)
+                let room = fitted.left + fitted.right
+                let origin = box.usesFixedClassOrigin ? evenLeft : room * evenLeft / spare
+                options.versoOffset = min(room, max(0, origin)) - fitted.right
+            } else {
+                options.versoOffset = 0
+            }
             options.mirrorsDocumentPages = info.pageBox.mirrorsSides
             options.mirrorsMargins = info.pageBox.mirrorsSides
         }
@@ -42,6 +52,7 @@ extension RenderSettings {
                 footSkip: info.pageBox.footSkip, headSep: info.pageBox.headSep)
             latexFooter?.classSize = info.pointSize
             latexFooter?.japaneseFontName = info.japaneseMainFontName
+            latexFooter?.japaneseFontScale = info.japaneseFurnitureScale
             latexFooter?.headerStrutDepth = info.headerStrutDepth * textScale
             latexFooter?.headerFont = info.pageHeadFont
             latexFooter?.numberFont = info.pageNumberFont

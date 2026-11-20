@@ -1582,5 +1582,99 @@
    "longtable caption",
    "comment paragraphs"
   ]
+ },
+ {
+  "id": "108",
+  "dir": "108-ltjsbook-parts",
+  "title": "紙橋の型帳",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 13,
+  "features": [
+   "ltjsbook",
+   "frontmatter",
+   "parts",
+   "chapters",
+   "appendix",
+   "backmatter",
+   "running-heads"
+  ]
+ },
+ {
+  "id": "109",
+  "dir": "109-scrbook-parts",
+  "title": "The Span Gauge",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 15,
+  "features": [
+   "scrbook",
+   "frontmatter",
+   "parts",
+   "chapters",
+   "minisec",
+   "addchap",
+   "appendix",
+   "backmatter"
+  ]
+ },
+ {
+  "id": "110",
+  "dir": "110-class-amsproc",
+  "title": "A spacing rule for folded stops",
+  "category": "Organisation classes",
+  "engine": "pdflatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "amsproc",
+   "author-notes",
+   "abstract",
+   "theorem",
+   "proof",
+   "address",
+   "references"
+  ]
+ },
+ {
+  "id": "111",
+  "dir": "111-ltjarticle-plain",
+  "title": "格子窓の試し刷り",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "ltjarticle",
+   "abstract",
+   "contents",
+   "run-in-heading",
+   "captions",
+   "bibliography"
+  ]
+ },
+ {
+  "id": "112",
+  "dir": "112-ltjbook-chapters",
+  "title": "紙塔の組立帳",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 11,
+  "features": [
+   "ltjbook",
+   "frontmatter",
+   "chapters",
+   "running-heads",
+   "appendix",
+   "backmatter"
+  ]
  }
 ]

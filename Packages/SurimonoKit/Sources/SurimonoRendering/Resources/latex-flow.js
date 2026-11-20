@@ -8,6 +8,10 @@ globalThis.surimonoRestoreFlow = () => {
     delete globalThis.surimonoRestoreFlow;
 };
 const nodes = [...body.childNodes];
+// Sibling relationships are lost when adjacent floats move into separate capture strips.
+for (const node of body.querySelectorAll('figure[data-latex-float] + figure[data-latex-float]')) {
+    node.dataset.flowAfterFloat = '';
+}
 // Read the theme and print-finish breaks while sibling selectors still see the original document.
 const breaks = new WeakMap();
 for (const el of body.querySelectorAll('h1,h2,h3,h4,h5,h6,nav,header,section,div,hr')) {
@@ -64,6 +68,7 @@ function length(name, fallback) {
 }
 const noteSkip = length('skip-footins', 12), textFloatSep = length('textfloatsep', 25);
 const noteRuleWidth = length('footnote-rule-width', 180);
+const displayToTableSkip = length('display-to-table-skip', 0);
 const bigSkipShrink = length('bigskip-shrink', 0);
 const floatSep = length('floatsep', 15), inTextSep = length('intextsep', 15);
 const sectionTop = length('heading-topskip', 0);
@@ -105,7 +110,9 @@ function force(kind) {
 }
 function command(node, parents) {
     const forced = breaks.get(node);
-    if (forced?.before || node.nodeType === 1 && node.hasAttribute('data-latex-chapter-opening')) force('page');
+    if (node.nodeType === 1 && node.hasAttribute('data-latex-chapter-opening')) {
+        force(body.dataset.latexBookOpening || 'page');
+    } else if (forced?.before) force('page');
     content(node, parents);
     if (forced?.after) force('page');
 }
@@ -297,6 +304,47 @@ for (const el of body.querySelectorAll('img,svg,table,.latex-graphic-box')) {
     if (natural > available + 0.5) fits.push([el, available / natural * (parseFloat(getComputedStyle(el).zoom) || 1)]);
 }
 for (const [el, scale] of fits) el.style.zoom = scale;
+// Reserve the unscaled list height in normal flow. Only its rows need the
+// finer layout grid to keep a fractional baselineskip on every printed line.
+const contentsZoom = Number(getComputedStyle(body).getPropertyValue('--latex-toc-layout-zoom'));
+if (contentsZoom > 1) {
+    const lists = [];
+    for (const list of body.querySelectorAll('nav.toc > ul')) {
+        if (!list.firstElementChild) continue;
+        lists.push({list, width:list.getBoundingClientRect().width * unit / zoom,
+            skip:getComputedStyle(list.firstElementChild).marginBlockStart});
+    }
+    for (const entry of lists) {
+        const {list, width, skip} = entry;
+        const frame = document.createElement('div');
+        frame.style.cssText = 'position:relative;margin-block-start:' + skip;
+        list.before(frame); frame.append(list);
+        list.firstElementChild.style.marginBlockStart = '0';
+        list.style.cssText += ';position:absolute;inset:0 auto auto 0;zoom:' + contentsZoom +
+            ';width:' + width + 'px;transform:scale(' + (1 / contentsZoom) + ');transform-origin:top left';
+        entry.frame = frame;
+        // A following section measures its beforeskip from the last entry's
+        // baseline. Its lower half-leading belongs to the CSS line, not to TeX.
+        if (frame.parentElement.nextElementSibling?.matches('[data-latex-heading="section"]')) {
+            const last = list.querySelectorAll(':scope a');
+            const field = last[last.length - 1]?.querySelector('.latex-page-label');
+            if (field) {
+                const baseline = document.createElement('span');
+                baseline.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+                field.append(baseline);
+                entry.baseline = baseline;
+            }
+        }
+    }
+    const heights = lists.map(({list, baseline}) => {
+        const rect = list.getBoundingClientRect();
+        return (baseline ? baseline.getBoundingClientRect().bottom - rect.top : rect.height) * unit / zoom;
+    });
+    lists.forEach(({frame, baseline}, i) => {
+        frame.style.height = heights[i] + 'px';
+        baseline?.remove();
+    });
+}
 if (fineGrid) japaneseProseLines(body);
 if (fineGrid && CSS.supports('text-box-trim', 'trim-both')) {
     for (const row of body.querySelectorAll('.latex-box-row')) {
@@ -457,10 +505,12 @@ for (const [el, whole, remainder] of spacers) {
     el.style.height = whole / zoom + 'px';
     glueRemainders.set(el, remainder);
 }
-// The class gives one fil to the top and two to the bottom. Measure after wrapping:
+// Each titlepage assigns a share of the stretchable glue above its centre list. Measure after wrapping:
 // a long title, a second author line, or a title note reduces that shared space.
-if (fineGrid && body.dataset.latexTitleLayout === 'separate') {
+if (body.dataset.latexTitleLayout === 'separate') {
     for (const title of body.querySelectorAll('.latex-title-block:not(.latex-titlepage *)')) {
+        const shares = parseFloat(getComputedStyle(title).getPropertyValue('--latex-title-fill-units')) || (fineGrid ? 3 : 0);
+        if (!shares) continue;
         const line = parseFloat(getComputedStyle(body).lineHeight) * zoom;
         const noteHeight = [...title.querySelectorAll('[data-flow-note]')].reduce((sum, a) => {
             const box = pendingMeasurements.find(([id]) => id === a.dataset.flowNote)?.[1];
@@ -469,7 +519,7 @@ if (fineGrid && body.dataset.latexTitleLayout === 'separate') {
         const scale = parseFloat(getComputedStyle(body).getPropertyValue('--latex-js-scale')) || 1;
         const end = line + (title.querySelector('.latex-date') ? 0 : 15 * 1.24533 * zoom * scale);
         const spare = bodyHeight - title.getBoundingClientRect().height * unit - end - noteHeight - (noteHeight ? noteSkip : 0);
-        title.style.setProperty('--latex-title-fill', Math.max(0,spare) / (3 * zoom) + 'px');
+        title.style.setProperty('--latex-title-fill', Math.max(0,spare) / (shares * zoom) + 'px');
     }
 }
 // Diagram links were installed before the reader knew each float's final measure.
@@ -637,27 +687,37 @@ function lines(box, endsPage) {
 // actually lands here; deferred floats and consecutive floats retain their own full skips.
 let inkContext;
 function trailingLeading(box, last) {
-    const p = box.lastElementChild, text = p?.lastChild;
-    if (!last || !p?.matches('p') || !text) return 0;
-    // A manual line break can precede the final line whose depth TeX measured.
-    if (p.childNodes.length !== 1 && !(fineGrid && [...p.children].every(child => child.tagName === 'BR'))) return 0;
-    if (text.nodeType !== Node.TEXT_NODE || !text.length || text.length > 32768) return 0;
+    const block = box.lastElementChild;
+    const p = block?.matches('.latex-runin') ? block.lastElementChild : block;
+    if (!last || !p?.matches('p')) return 0;
+    // References and inter-script glue split a single line into several text nodes.
+    // Superscripts, images and arbitrary inline styles can have independent baselines.
+    if ([...p.querySelectorAll('*')].some(el => !el.matches('br,a.latex-number-ref,.latex-xkanjiskip'))) return 0;
     const css = getComputedStyle(p);
     if (css.writingMode !== 'horizontal-tb' || css.direction !== 'ltr' || css.textTransform !== 'none') return 0;
     inkContext ??= document.createElement('canvas').getContext('2d');
     if (!inkContext) return 0;
-    const end = text.data.trimEnd().length;
-    if (!end) return 0;
-    range.setStart(text,end-1); range.setEnd(text,end);
-    const finalY = range.getBoundingClientRect().top;
-    let lo = 0, hi = end-1;
-    while (lo < hi) {
-        const mid = (lo+hi) >>> 1;
-        range.setStart(text,mid); range.setEnd(text,mid+1);
-        if (range.getBoundingClientRect().top < finalY-0.25) lo = mid+1; else hi = mid;
-    }
     inkContext.font = css.fontStyle+' '+css.fontWeight+' '+css.fontSize+' '+css.fontFamily;
-    const depth = inkContext.measureText(text.data.slice(lo,end)).actualBoundingBoxDescent * zoom;
+    const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+    let finalY, depth = 0;
+    for (let text = walker.lastChild(); text; text = walker.previousSibling()) {
+        const end = text.data.trimEnd().length;
+        if (!end) continue;
+        if (end > 32768) return 0;
+        range.setStart(text,end-1); range.setEnd(text,end);
+        const top = range.getBoundingClientRect().top;
+        finalY ??= top;
+        if (top < finalY - .25) break;
+        let lo = 0, hi = end - 1;
+        while (lo < hi) {
+            const mid = (lo+hi) >>> 1;
+            range.setStart(text,mid); range.setEnd(text,mid+1);
+            if (range.getBoundingClientRect().top < finalY - .25) lo = mid+1; else hi = mid;
+        }
+        depth = Math.max(depth, inkContext.measureText(text.data.slice(lo,end)).actualBoundingBoxDescent * zoom);
+        if (lo) break;
+    }
+    if (finalY === undefined) return 0;
     if (!Number.isFinite(depth)) return 0;
     const baseline = document.createElement('i');
     baseline.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline;margin:0;padding:0;border:0';
@@ -667,6 +727,7 @@ function trailingLeading(box, last) {
     return Math.max(0, Math.min(inTextSep, last.end-y-Math.max(0,depth)));
 }
 const bookFloats = ['memoir','scrartcl','scrreprt','scrbook'].includes(body.dataset.latexClass);
+const usesParagraphDepth = getComputedStyle(body).getPropertyValue('--latex-here-paragraph-depth').trim() === '1';
 for (const seg of segments) {
     seg.items = seg.items.flatMap((item, i) => {
         if (item.table) return tableItems(item.run, item.table);
@@ -691,8 +752,10 @@ for (const seg of segments) {
                 }
                 delete p.dataset.flowFollowingHeading;
             }
-            if (next?.floatKind === 'figure' && /[hH]/.test(next.placement)
-                && (bookFloats || next.box.querySelector('figure > p:first-child[data-latex-rule-line]'))) {
+            const hereFigure = next?.floatKind === 'figure' &&
+                (bookFloats || item.run.lastElementChild?.matches('.latex-runin') || next.box.querySelector('figure > p:first-child[data-latex-rule-line]'));
+            if (next?.box && /[hH]/.test(next.placement) &&
+                (hereFigure || usesParagraphDepth && ['figure','table'].includes(next.floatKind))) {
                 next.leadingBeforeHere = trailingLeading(item.run, rows.at(-1)?.slice);
             }
             if (fineGrid && next?.box && /[hH]/.test(next.placement)) {
@@ -703,6 +766,12 @@ for (const seg of segments) {
                 } else if (next.placement.includes('H') && previous?.matches('p')) {
                     next.leadingBeforeHere = Math.max(0, trailingLeading(item.run, rows.at(-1)?.slice) - jsPoint);
                 }
+            }
+            // The display and the float live in different strips. Preserve their intervening
+            // vertical glue only when the table actually lands at this point in the text.
+            if (displayToTableSkip && next?.floatKind === 'table' && /[hH]/.test(next.placement) &&
+                item.run.lastElementChild?.matches('.math-block')) {
+                next.leadingBeforeHere = -displayToTableSkip;
             }
             return rows;
         }

@@ -1,0 +1,541 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.01037939623187507,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 4,
+    "maxBoxDeltaPt" : 5.6,
+    "maxLuminance" : 70.4375,
+    "maxShiftPt" : 217.6,
+    "pageDelta" : 0,
+    "repaginatedLines" : 3,
+    "textEdits" : 49
+  },
+  "fonts" : [
+    "Helvetica",
+    "HiraMinProN-W3",
+    "HiraginoSans-W5",
+    "Times-Roman",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 13,
+  "pages" : [
+    {
+      "firstY" : 351.4,
+      "height" : 841.9,
+      "lastY" : 404.2,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 24.3,
+          "text" : "紙橋の型帳",
+          "width" : 79.6,
+          "x" : 198,
+          "y" : 351.4
+        },
+        {
+          "height" : 16.9,
+          "text" : "紙橋模型工房",
+          "width" : 66.3,
+          "x" : 204.6,
+          "y" : 404.2
+        }
+      ],
+      "textHeight" : 69.7,
+      "textLeft" : 198,
+      "textTop" : 351.4,
+      "textWidth" : 79.6,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 86.1,
+      "height" : 841.9,
+      "lastY" : 413.1,
+      "lineCount" : 10,
+      "lines" : [
+        {
+          "height" : 12.1,
+          "text" : "iii",
+          "width" : 9.5,
+          "x" : 532.2,
+          "y" : 86.1
+        },
+        {
+          "height" : 38.6,
+          "text" : "目次",
+          "width" : 45.8,
+          "x" : 53.5,
+          "y" : 158.1
+        },
+        {
+          "height" : 18.6,
+          "text" : "第I 部 橋を組む 1",
+          "width" : 368.5,
+          "x" : 53.5,
+          "y" : 259.4
+        },
+        {
+          "height" : 15.5,
+          "text" : "第1 章 橋脚の型 3",
+          "width" : 368.5,
+          "x" : 53.5,
+          "y" : 287.6
+        },
+        {
+          "height" : 14.1,
+          "text" : "1.1 折り筋 3",
+          "width" : 359.3,
+          "x" : 62.7,
+          "y" : 304
+        },
+        {
+          "height" : 14.1,
+          "text" : "1.2 組立順 4",
+          "width" : 359.3,
+          "x" : 62.7,
+          "y" : 319.9
+        },
+        {
+          "height" : 15.5,
+          "text" : "第2 章 試験台 5",
+          "width" : 368.5,
+          "x" : 53.5,
+          "y" : 345.4
+        },
+        {
+          "height" : 14.1,
+          "text" : "2.1 間隔 5",
+          "width" : 359.3,
+          "x" : 62.7,
+          "y" : 361.8
+        },
+        {
+          "height" : 15.5,
+          "text" : "第A 章 型の保管 7",
+          "width" : 368.5,
+          "x" : 53.5,
+          "y" : 387.2
+        },
+        {
+          "height" : 15.5,
+          "text" : "参考文献 9",
+          "width" : 368.5,
+          "x" : 53.5,
+          "y" : 413.1
+        }
+      ],
+      "textHeight" : 342.5,
+      "textLeft" : 53.5,
+      "textTop" : 86.1,
+      "textWidth" : 488.3,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 317.1,
+      "height" : 841.9,
+      "lastY" : 365,
+      "lineCount" : 2,
+      "lines" : [
+        {
+          "height" : 32.1,
+          "text" : "第I 部",
+          "width" : 54.3,
+          "x" : 210.6,
+          "y" : 317.1
+        },
+        {
+          "height" : 38.6,
+          "text" : "橋を組む",
+          "width" : 91.7,
+          "x" : 191.9,
+          "y" : 365
+        }
+      ],
+      "textHeight" : 86.5,
+      "textLeft" : 191.9,
+      "textTop" : 317.1,
+      "textWidth" : 91.7,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 158,
+      "height" : 841.9,
+      "lastY" : 86.1,
+      "lineCount" : 14,
+      "lines" : [
+        {
+          "height" : 32.1,
+          "text" : "第1 章",
+          "width" : 58.9,
+          "x" : 53.5,
+          "y" : 158
+        },
+        {
+          "height" : 38.6,
+          "text" : "橋脚の型",
+          "width" : 91.7,
+          "x" : 53.5,
+          "y" : 201.9
+        },
+        {
+          "height" : 14.3,
+          "text" : "1.1",
+          "width" : 18.3,
+          "x" : 53.7,
+          "y" : 289.1
+        },
+        {
+          "height" : 22.3,
+          "text" : "折り筋",
+          "width" : 39.8,
+          "x" : 87.8,
+          "y" : 282.9
+        },
+        {
+          "height" : 14.1,
+          "text" : "細い帯を二つ折りにし、橋脚の芯を作る。",
+          "width" : 175,
+          "x" : 62.7,
+          "y" : 312.4
+        },
+        {
+          "height" : 9.8,
+          "text" : "*1",
+          "width" : 8.3,
+          "x" : 233.1,
+          "y" : 312.9
+        },
+        {
+          "height" : 12,
+          "text" : "1.1.1",
+          "width" : 24.6,
+          "x" : 53.4,
+          "y" : 347.7
+        },
+        {
+          "height" : 18.6,
+          "text" : "採寸",
+          "width" : 22.1,
+          "x" : 91.4,
+          "y" : 342.6
+        },
+        {
+          "height" : 14.1,
+          "text" : "図 1.1 の帯と表 2.1 の幅を照合する。",
+          "width" : 155.2,
+          "x" : 62.7,
+          "y" : 369.2
+        },
+        {
+          "height" : 12.7,
+          "text" : "図 1.1 橋脚の帯",
+          "width" : 63.4,
+          "x" : 206,
+          "y" : 409.6
+        },
+        {
+          "height" : 14.1,
+          "text" : "白い帯には表の印を付ける。•",
+          "width" : 117.3,
+          "x" : 74.4,
+          "y" : 448.1
+        },
+        {
+          "height" : 14.1,
+          "text" : "灰色の帯は補強に回す。•",
+          "width" : 98.3,
+          "x" : 74.4,
+          "y" : 464.1
+        },
+        {
+          "height" : 11.2,
+          "text" : "*1 折り目は内側から押さえる。",
+          "width" : 103.2,
+          "x" : 68,
+          "y" : 767.1
+        },
+        {
+          "height" : 12.1,
+          "text" : "3",
+          "width" : 5.7,
+          "x" : 536,
+          "y" : 86.1
+        }
+      ],
+      "textHeight" : 692.3,
+      "textLeft" : 53.4,
+      "textTop" : 86.1,
+      "textWidth" : 488.4,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 84.3,
+      "height" : 841.9,
+      "lastY" : 172,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 14.1,
+          "text" : "4 第 1 章 橋脚の型",
+          "width" : 488.3,
+          "x" : 53.5,
+          "y" : 84.3
+        },
+        {
+          "height" : 14.3,
+          "text" : "1.2",
+          "width" : 18.3,
+          "x" : 173.4,
+          "y" : 132.7
+        },
+        {
+          "height" : 22.3,
+          "text" : "組立順",
+          "width" : 39.8,
+          "x" : 207.6,
+          "y" : 126.6
+        },
+        {
+          "height" : 14.1,
+          "text" : "1. 芯を台に立てる。",
+          "width" : 86.4,
+          "x" : 188.2,
+          "y" : 156
+        },
+        {
+          "height" : 14.1,
+          "text" : "2. 桁を載せて傾きを見る。",
+          "width" : 114.1,
+          "x" : 188.2,
+          "y" : 172
+        }
+      ],
+      "textHeight" : 101.8,
+      "textLeft" : 53.5,
+      "textTop" : 84.3,
+      "textWidth" : 488.3,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 158,
+      "height" : 841.9,
+      "lastY" : 86.1,
+      "lineCount" : 13,
+      "lines" : [
+        {
+          "height" : 32.1,
+          "text" : "第2 章",
+          "width" : 58.9,
+          "x" : 53.5,
+          "y" : 158
+        },
+        {
+          "height" : 38.6,
+          "text" : "試験台",
+          "width" : 68.8,
+          "x" : 53.5,
+          "y" : 201.9
+        },
+        {
+          "height" : 14.3,
+          "text" : "2.1",
+          "width" : 18.3,
+          "x" : 53.7,
+          "y" : 289.1
+        },
+        {
+          "height" : 12,
+          "text" : "2.1.1",
+          "width" : 24.6,
+          "x" : 53.4,
+          "y" : 315.8
+        },
+        {
+          "height" : 22.3,
+          "text" : "間隔",
+          "width" : 26.5,
+          "x" : 87.8,
+          "y" : 283
+        },
+        {
+          "height" : 18.6,
+          "text" : "切り幅",
+          "width" : 33.2,
+          "x" : 91.4,
+          "y" : 310.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "式 2.1 で二本分の幅を出す。",
+          "width" : 117.9,
+          "x" : 62.7,
+          "y" : 337.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "s = 2w (2.1)",
+          "width" : 199.4,
+          "x" : 222.6,
+          "y" : 351.6
+        },
+        {
+          "height" : 12.7,
+          "text" : "表 2.1 帯の切り幅",
+          "width" : 71.7,
+          "x" : 201.9,
+          "y" : 399.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "部材 幅（ミリ）",
+          "width" : 76.4,
+          "x" : 201.8,
+          "y" : 418.3
+        },
+        {
+          "height" : 14.1,
+          "text" : "芯 6",
+          "width" : 71.8,
+          "x" : 201.8,
+          "y" : 434.3
+        },
+        {
+          "height" : 14.1,
+          "text" : "桁 8",
+          "width" : 71.8,
+          "x" : 201.8,
+          "y" : 450.2
+        },
+        {
+          "height" : 12.1,
+          "text" : "5",
+          "width" : 5.7,
+          "x" : 536,
+          "y" : 86.1
+        }
+      ],
+      "textHeight" : 378.2,
+      "textLeft" : 53.4,
+      "textTop" : 86.1,
+      "textWidth" : 488.4,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 86.1,
+      "height" : 841.9,
+      "lastY" : 283.6,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 12.1,
+          "text" : "7",
+          "width" : 5.7,
+          "x" : 536,
+          "y" : 86.1
+        },
+        {
+          "height" : 32.1,
+          "text" : "付録A",
+          "width" : 57.2,
+          "x" : 53.5,
+          "y" : 158
+        },
+        {
+          "height" : 38.6,
+          "text" : "型の保管",
+          "width" : 91.7,
+          "x" : 53.5,
+          "y" : 201.9
+        },
+        {
+          "height" : 14.1,
+          "text" : "平らな封筒に帯を戻す。台の向きは型札に従う [1]。",
+          "width" : 214.5,
+          "x" : 62.7,
+          "y" : 283.6
+        }
+      ],
+      "textHeight" : 211.5,
+      "textLeft" : 53.5,
+      "textTop" : 86.1,
+      "textWidth" : 488.3,
+      "width" : 595.3
+    },
+    {
+      "height" : 841.9,
+      "lineCount" : 0,
+      "lines" : [
+
+      ],
+      "width" : 595.3
+    },
+    {
+      "firstY" : 158.1,
+      "height" : 841.9,
+      "lastY" : 86.1,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 38.6,
+          "text" : "参考文献",
+          "width" : 91.7,
+          "x" : 53.5,
+          "y" : 158.1
+        },
+        {
+          "height" : 14.1,
+          "text" : "[1] 紙橋模型工房『試験台の型札』 。",
+          "width" : 149.1,
+          "x" : 53.5,
+          "y" : 239.7
+        },
+        {
+          "height" : 12.1,
+          "text" : "9",
+          "width" : 5.7,
+          "x" : 536,
+          "y" : 86.1
+        }
+      ],
+      "textHeight" : 167.7,
+      "textLeft" : 53.5,
+      "textTop" : 86.1,
+      "textWidth" : 488.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "fec74fbf749d626f831569b03844bc096bd81d2891671a6a2ef3dcb7414c2cf5"
+}

@@ -18,6 +18,7 @@ public enum HTMLDocumentBuilder {
                 let title = info.hasSeparateTitlePage.map { $0 ? "separate" : "inline" }
                 let localMain = info.mainFontName.map { $0 != "Surimono Computer Modern" } == true
                 return attributes + " data-latex-class=\"\(HTML.escape(info.name))\""
+                    + (info.profile.bookOpeningSide.map { " data-latex-book-opening=\"\($0)\"" } ?? "")
                     + (localMain ? " data-latex-local-main-font" : "")
                     + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")
                     + (info.columns == 2 && info.profile.usesGridFlow
