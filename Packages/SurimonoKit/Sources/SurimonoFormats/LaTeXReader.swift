@@ -427,16 +427,15 @@ final class LaTeXReader {
             var attribute = noParagraphIndent ? " class=\"latex-noindent\"" : ""
             // A solitary rule starts the float at its natural height, even when shorter than a text line.
             if floatKind == "figure",
-                document.classInfo.name == "memoir" || document.classInfo.isKOMA
-                    || document.classInfo.jsMagnification != nil
-                    || document.classInfo.journalStyle == .apsPreprint || document.classInfo.journalStyle == .elsevier,
+                document.classInfo.profile.body.naturalRuleHeight,
                 text.hasPrefix("<span class=\"latex-rule\" "), text.range(of: "</span>")?.upperBound == text.endIndex,
                 !text.contains("vertical-align:")
             {
                 attribute += " data-latex-rule-line"
             }
             var styles = centered ? ["text-align: center", "text-indent: 0"] : []
-            if document.classInfo.jsMagnification != nil, let size = declarations.last(where: { $0.size != nil })?.size,
+            if document.classInfo.profile.typography.selectsParagraphPitch,
+                let size = declarations.last(where: { $0.size != nil })?.size,
                 let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: size)
             {
                 // TeX selects the paragraph's baseline skip from the size active at its end.
@@ -747,10 +746,10 @@ final class LaTeXReader {
             let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
             let pageStyle = document.bodyPageStyles ?? document.classInfo.pageNumbers
             let mark =
-                document.classInfo.usesJSChapterSpacing && pageStyle.writesContentsMark
+                document.classInfo.profile.structure.contents == .chapterMarks && pageStyle.writesContentsMark
                 ? " data-latex-contents-mark" : ""
             let title =
-                document.classInfo.isJSArticle
+                document.classInfo.profile.structure.contents == .sectionTitle
                 ? "<h2 class=\"latex-contents-title\" data-latex-heading=\"section\">\(captionName(key))</h2>"
                 : "<p class=\"latex-contents-title\">\(captionName(key))</p>"
             let nav =
@@ -1132,14 +1131,16 @@ final class LaTeXReader {
 
     private func readDocumentClass() {
         let options = optional()
-        let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "article"
+        let name = argument()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? LaTeXClassID.article.rawValue
         document.classInfo = LaTeXDocumentClassInfo(name: name, options: options)
         document.classInfo.journalStyle?.defineCounters(in: document)
         document.pageSettings.readClassOptions(options ?? "", info: document.classInfo)
         document.classLanguageOptions = (options ?? "").components(separatedBy: ",").map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        if name == "exam" { document.booleans["printanswers"] = document.classLanguageOptions.contains("answers") }
+        if document.classInfo.profile.body.readsQuestions {
+            document.booleans["printanswers"] = document.classLanguageOptions.contains("answers")
+        }
         document.language = document.classInfo.mainLanguage
         document.nativeCaptionLanguage = document.language == "en" ? nil : document.language
         if document.classInfo.hasChapters { document.hasChapters = true }
@@ -1188,7 +1189,7 @@ final class LaTeXReader {
         let starred = star()
         let short = optional()
         let source = argument() ?? ""
-        let standardBook = ["book", "report"].contains(document.classInfo.name)
+        let headings = document.classInfo.profile.headings
         if name == "part" {
             let hasNumber = numbered && !starred && document.counters["secnumdepth"] >= (document.hasChapters ? -1 : 0)
             let numeral = hasNumber ? stepCounter("part") : ""
@@ -1201,11 +1202,10 @@ final class LaTeXReader {
                 document.headings.append(.init(level: -1, number: numeral, id: id, title: short.map(inline) ?? title))
             }
             let partTitle =
-                document.classInfo.usesJSChapterSpacing || standardBook
+                headings.wrapsChapterTitle
                 ? "<span class=\"latex-chapter-title\">\(title)</span>" : title
             let pageStyle =
-                document.classInfo.usesJSChapterSpacing
-                    || document.classInfo.name == "jlreq" && document.classInfo.hasChapters
+                headings.emptyPartPage
                 ? " data-latex-page-action=\"thispagestyle\" data-value=\"empty\"" : ""
             appendBlock(
                 "<h2 class=\"latex-part\"\(pageStyle) id=\"\(id)\">\(!hasNumber ? "" : "<span class=\"secnum\">\(label)</span>")\(partTitle)</h2>\n"
@@ -1221,7 +1221,7 @@ final class LaTeXReader {
             number = stepCounter(name)
             if level == 0, let chapter = number {
                 display =
-                    document.classInfo.isKOMA || document.classInfo.bookStyle.chapterStyle != "default"
+                    headings.chapterLabel == .bareNumber || document.classInfo.bookStyle.chapterStyle != "default"
                     ? HTML.escape(chapter)
                     : numberedHeading(document.isAppendix ? "appendix" : "chapter", number: chapter)
             } else {
@@ -1244,12 +1244,13 @@ final class LaTeXReader {
         if dot, level > 0 { display = display.map { $0.hasSuffix(".") ? $0 : $0 + "." } }
         let tocNumber = listed && !starred ? number.map { $0 + (dot ? "." : "") } ?? "" : nil
         let chapterLabel =
-            name == "chapter" && document.classInfo.usesJSChapterSpacing && document.language == "ja" ? display : nil
+            name == "chapter" && document.classInfo.profile.structure.contents == .chapterMarks
+                && document.language == "ja" ? display : nil
         document.headings.append(
             .init(
                 chapterLabelHTML: chapterLabel, level: level, number: tocNumber, id: id,
                 title: short.map(inline) ?? title))
-        if document.classInfo.name == "beamer", name == "section" || name == "subsection" || name == "subsubsection" {
+        if headings.navigationOnlySections, name == "section" || name == "subsection" || name == "subsubsection" {
             // Navigation and explicit contents pages still need the section destination.
             appendDestination("<span id=\"\(id)\"></span>")
             precedingUnnumberedHeading = starred || !numbered ? id : nil
@@ -1261,15 +1262,14 @@ final class LaTeXReader {
         let kind = runIn ? " class=\"latex-runin-\(name)\"" : ""
         // An HTML newline becomes an extra word space when the theme puts the heading and paragraph on one line.
         let mark =
-            name == "paragraph" && document.classInfo.jsMagnification != nil ? captionName("jsParagraphMark") : ""
+            name == "paragraph" && headings.readsParagraphMark ? captionName("jsParagraphMark") : ""
         if name == "chapter" { appendBlock("<template data-latex-break=\"page\"></template>") }
-        let gridHeading = document.classInfo.jsMagnification != nil || document.classInfo.name == "jlreq"
-        let grid = gridHeading || document.classInfo.journalStyle == .ams ? " data-latex-heading=\"\(name)\"" : ""
+        let grid = headings.marksHeadingLevel ? " data-latex-heading=\"\(name)\"" : ""
         let sectionTitle =
-            document.classInfo.name == "amsart" && name == "section"
+            headings.smallCapsSections && name == "section"
             ? LaTeXJournalStyle.smallCaps(title, in: document) : title
         let headTitle =
-            name == "chapter" && (document.classInfo.usesJSChapterSpacing || standardBook)
+            name == "chapter" && headings.wrapsChapterTitle
             ? "<span class=\"latex-chapter-title\">\(title)</span>" : sectionTitle
         let heading =
             "<h\(tag)\(kind)\(grid)\(bookHeadingAttributes(name)) id=\"\(id)\">\(numberHTML)\(mark)\(amsRunIn ? LaTeXFrontMatter.period(headTitle) : headTitle)</h\(tag)>"
@@ -1286,7 +1286,7 @@ final class LaTeXReader {
     func sizeOpening(_ name: String, relativeSize: Double) -> String {
         let factor = String(format: "%g", relativeSize)
         if let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: name),
-            document.classInfo.jsMagnification != nil
+            document.classInfo.profile.typography.selectsParagraphPitch
         {
             return
                 "<span data-latex-text-size=\"\(name)\" style=\"font-size: var(--latex-size-\(name), \(factor)em); --latex-selected-pitch: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt) * var(--latex-stretch, 1))\">"
@@ -1537,7 +1537,7 @@ final class LaTeXReader {
     }
 
     private var singleDisplayAttribute: String {
-        document.classInfo.jsMagnification == nil ? "" : " data-latex-single-display"
+        document.classInfo.profile.body.alignsDisplayRows ? " data-latex-single-display" : ""
     }
 
     private func displayMath(closing: String) {
@@ -1678,7 +1678,7 @@ final class LaTeXReader {
                 }
                 rows[position] = frozen
             }
-            let keepGrid = document.classInfo.jsMagnification != nil || numbers.contains { $0 != nil }
+            let keepGrid = document.classInfo.profile.body.alignsDisplayRows || numbers.contains { $0 != nil }
             appendBlock(
                 "<div class=\"math-block\">\(anchors)\(render(rows.joined(separator: "\\\\"), expanded: true, numbers: keepGrid ? numbers : []))</div>\n"
             )
@@ -1904,7 +1904,8 @@ final class LaTeXReader {
             mathEnvironment(name, body: body)
             return
         }
-        if document.classInfo.name == "beamer", ["frame", "block", "alertblock", "exampleblock"].contains(base) {
+        if document.classInfo.profile.body.readsFrames, ["frame", "block", "alertblock", "exampleblock"].contains(base)
+        {
             readBeamerEnvironment(base, body: body)
             return
         }
@@ -1935,7 +1936,7 @@ final class LaTeXReader {
             document.insideTitlePage = true
             defer { document.insideTitlePage = previous }
             appendBlock("<div class=\"latex-titlepage\">\n\(blocks(body))</div>\n")
-        case "letter" where document.classInfo.name == "letter":
+        case "letter" where document.classInfo.profile.body.correspondence == .letter:
             readLetter(body)
         case "spacing", "singlespace", "onehalfspace", "doublespace":
             let reader = LaTeXReader(body, document: document, isBlock: false)
@@ -2255,10 +2256,11 @@ final class LaTeXReader {
         document.bibliographyCount += 1
         let headingID = "bibliography-\(document.bibliographyCount)"
         var headingHTML = ""
-        if document.classInfo.name != "beamer" {
+        if document.classInfo.profile.headings.bibliography != .none {
             document.headings.append(
                 .init(
-                    level: document.hasChapters ? 0 : 1, number: document.classInfo.usesJSChapterSpacing ? "" : nil,
+                    level: document.hasChapters ? 0 : 1,
+                    number: document.classInfo.profile.headings.bibliography == .chapter ? "" : nil,
                     id: headingID, title: heading))
             headingHTML = bibliographyHeading(heading, id: headingID)
         }
@@ -2377,10 +2379,10 @@ final class LaTeXReader {
             let plain = title.replacingOccurrences(of: #"<[^>]*>"#, with: "", options: .regularExpression)
             document.lists[kind, default: []].append(
                 .init(
-                    chapter: info.usesJSChapterSpacing ? document.counters["chapter"] : nil,
+                    chapter: info.profile.structure.contents == .chapterMarks ? document.counters["chapter"] : nil,
                     level: 1, number: number, id: id, title: plain))
         }
-        let numbered = document.classInfo.name != "beamer" || document.numberedBeamerCaptions
+        let numbered = document.classInfo.profile.body.numbersCaptions || document.numberedBeamerCaptions
         let label = numbered ? name + " " + HTML.escape(number) : name
         let separator =
             setup.separator ?? document.classInfo.journalStyle?.captionSeparator(for: kind)
@@ -2389,7 +2391,7 @@ final class LaTeXReader {
         if setup.hangs {
             // A manual break centres the individual lines. Keep the separator space when the grid becomes inline.
             let space: String
-            if info.jsMagnification != nil, separator == ": ", text.contains("<br>") {
+            if info.profile.body.alignsHangingCaptions, separator == ": ", text.contains("<br>") {
                 space = #"<span class="latex-caption-colon-space">&nbsp;</span>"#
             } else {
                 space = "&nbsp;"
@@ -2522,7 +2524,7 @@ final class LaTeXReader {
             $0.specification.isEmpty ? Double($0.body.trimmingCharacters(in: .whitespacesAndNewlines)) : nil
         }
         var registers = document.pageSettings.tableSpacing
-        if document.classInfo.jsMagnification != nil, registers["tabcolsep"] == nil {
+        if document.classInfo.profile.body.usesScaledTableMetrics, registers["tabcolsep"] == nil {
             registers["tabcolsep"] = "calc(6 * var(--js-pt))"
         }
         if isLong, let alignment, ["l", "r", "c"].contains(alignment) {
@@ -2534,9 +2536,10 @@ final class LaTeXReader {
             basicBidi: document.basicBidiTables && DocumentLanguage(code: document.language).isRightToLeft,
             isLongtable: isLong, targetWidth: targetWidth, columnTypes: document.pageSettings.columnTypes,
             spacing: registers, arrayStretch: stretch, extraRowHeight: document.pageSettings.extraRowHeight,
-            japaneseSize: document.classInfo.jsMagnification != nil
+            japaneseSize: document.classInfo.profile.body.usesScaledTableMetrics
                 ? declarations.last(where: { $0.size != nil })?.size : nil,
-            japaneseMetrics: document.classInfo.jsMagnification != nil ? LaTeXLabelMetrics(document.classInfo) : nil
+            japaneseMetrics: document.classInfo.profile.body.usesScaledTableMetrics
+                ? LaTeXLabelMetrics(document.classInfo) : nil
         ).html(
             color: { LaTeXSymbols.cssColor($0, model: $1, defined: document.colors) },
             inline: reader.inline)

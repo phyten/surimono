@@ -90,10 +90,12 @@ extension LaTeXDocument {
             return label
         }
         if name == "lstlistingname" { return "Listing" }
-        if name == "jsParagraphMark", classInfo.isJSArticle { return "■" }
+        if name == "jsParagraphMark", let mark = classInfo.profile.headings.defaultParagraphMark { return mark }
         // jsclasses do not translate amsthm. A language package or a document macro can do so.
-        if name == "proofname", classInfo.isJapanese, language == "ja", !classicBabelLanguages.contains("ja") {
-            return "Proof"
+        if name == "proofname", language == "ja", !classicBabelLanguages.contains("ja"),
+            let proofName = classInfo.profile.body.untranslatedProofName
+        {
+            return proofName
         }
         if classicBabelLanguages.contains(language) {
             if language == "es", hasChapters, name == "contentsname" { return "Índice general" }
@@ -166,7 +168,7 @@ extension LaTeXReader {
     func numberedHeading(_ name: String, number: String) -> String {
         let caption = captionName(name + "name")
         let number = HTML.escape(number)
-        if name == "chapter", document.classInfo.usesJSChapterSpacing || document.classInfo.name == "jlreq",
+        if name == "chapter", document.classInfo.profile.headings.chapterLabel == .spacedJapaneseNumber,
             document.language == "ja"
         {
             // LuaTeX-ja inserts a quarter-em xkanjiskip on both sides of the Western number.

@@ -184,7 +184,8 @@ extension LaTeXReader {
         }
         let value = LaTeXSymbols.format(counters[name], as: style)
         // jsarticle prefixes only the appendix section itself. Its subsections keep A.1, A.2, etc.
-        if name == "section", document.classInfo.isJSArticle, document.isAppendix, document.language == "ja",
+        if name == "section", document.classInfo.profile.headings.labelsAppendixSection, document.isAppendix,
+            document.language == "ja",
             !counters.formatting.contains("subsection")
         {
             let caption = captionName("appendixname")

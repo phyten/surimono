@@ -4,7 +4,7 @@ extension LaTeXReader {
     /// Print each frame's contents once. Its overlay and alignment options describe projection,
     /// while the surrounding document continues to choose the paper and page breaks.
     func handleBeamerCommand(_ name: String) -> Bool {
-        guard document.classInfo.name == "beamer" else { return false }
+        guard document.classInfo.profile.body.readsFrames else { return false }
         switch name {
         case "frame":
             skipFrameOptions()

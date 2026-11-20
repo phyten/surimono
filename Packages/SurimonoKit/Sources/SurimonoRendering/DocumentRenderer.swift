@@ -1374,7 +1374,7 @@ public final class DocumentRenderer {
         else { throw RenderingError.unsupportedFormat }
         let needsLaTeXFlow =
             source.format == .latex
-            && (fragment.latexClass?.isJSArticle == true || fragment.latexClass?.usesJSChapterSpacing == true
+            && (fragment.latexClass?.profile.usesGridFlow == true
                 || LaTeXFlowPaginator.needed(in: fragment.body))
         if source.format != .markdown, !settings.markdownChanges.isEmpty {
             fragment.body = FragmentChanges.identifyingBlocks(in: fragment.body, for: settings.markdownChanges)

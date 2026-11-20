@@ -20,12 +20,12 @@ public enum HTMLDocumentBuilder {
                 return attributes + " data-latex-class=\"\(HTML.escape(info.name))\""
                     + (localMain ? " data-latex-local-main-font" : "")
                     + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")
-                    + (info.columns == 2 && (info.isJSArticle || info.usesJSChapterSpacing)
+                    + (info.columns == 2 && info.profile.usesGridFlow
                         ? " data-latex-js-twocolumn" : "")
                     + (info.usesJSChapterSpacing ? " data-latex-js-chapters" : "")
                     + (info.usesNativeCJKHeadings ? " data-latex-native-headings" : "")
                     + (info.journalStyle.map { " data-latex-journal=\"\($0.rawValue)\"" } ?? "")
-                    + (info.isJSArticle || info.usesJSChapterSpacing ? " data-latex-js-toc" : "")
+                    + (info.profile.usesGridFlow ? " data-latex-js-toc" : "")
                     + (info.styleVariables.isEmpty ? "" : " style=\"\(HTML.escape(info.styleVariables))\"")
             } ?? ""
         // Local font aliases live outside the replaceable theme sheet. Selecting a new

@@ -56,7 +56,7 @@ extension LaTeXDocument {
     // A link interrupts WebKit's Japanese–Latin spacing on both sides of a generated counter.
     func spacedReference(_ index: Int, in source: NSString, range: NSRange) -> String {
         let html = referenceHTML(index)
-        guard classInfo.isJapanese, language == "ja", references.indices.contains(index),
+        guard classInfo.profile.body.spacesLinkedCounters, language == "ja", references.indices.contains(index),
             ["ref", "pageref"].contains(references[index].command),
             let key = references[index].keys.first, let number = labels[key]?.number,
             number.first?.isASCII == true, number.last?.isASCII == true
@@ -277,7 +277,7 @@ extension LaTeXDocument {
     func mathHTML(_ latex: String, display: Bool, macros: String, source: String, numbers: [String?]) -> String {
         if let rendered = MathRenderer.html(
             latex, display: display, macros: macros, rowNumberHTML: numbers,
-            measureRows: classInfo.jsMagnification != nil)
+            measureRows: classInfo.profile.body.alignsDisplayRows)
         {
             return rendered
         }

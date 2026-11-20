@@ -90,27 +90,26 @@ struct LaTeXClassBox {
     static func defaults(
         info: LaTeXDocumentClassInfo, paperWidth: Double, paperHeight: Double, twoSided: Bool
     ) -> Self {
-        let className = info.name
         let size = info.pointSize
-        if let box = LaTeXClassBox.bookBox(info, width: paperWidth, height: paperHeight, twoSided: twoSided) {
-            return box
-        }
-        if info.journalStyle == .ams {
+        switch info.profile.page.layoutRule {
+        case .typeArea:
+            return typeAreaBox(info, width: paperWidth, height: paperHeight, twoSided: twoSided)
+        case .ruledBook:
+            return ruledBookBox(info, width: paperWidth, height: paperHeight, twoSided: twoSided)
+        case .ams(let footSkip):
             // calclayout centres the 30pc by 50.5pc area including the 8pt head and its 14pt separation.
             let measure = 360.0
             let height = info.usesAMSA4Layout ? 654.0 : 606.0
             return Self(
                 width: measure, height: height - 22, left: max(36.135, (paperWidth - measure) / 2),
                 top: max(36.135, (paperHeight - height) / 2) + 22, headHeight: 8, headSep: 14,
-                footSkip: className == "amsbook" ? 18 : 12)
-        }
-        if className == "exam" {
+                footSkip: footSkip)
+        case .exam:
             let inch = 72.27
             return Self(
                 width: paperWidth - 2 * inch, height: paperHeight - 2.2 * inch, left: inch, top: inch,
                 headHeight: 15, headSep: 15, footSkip: 29)
-        }
-        if className == "jlreq" {
+        case .characterGrid:
             let zw = Double(size)
             let baseline = 1.7 * zw
             let width = floor(0.75 * paperWidth / zw) * zw
@@ -121,9 +120,7 @@ struct LaTeXClassBox {
                 width: width, height: height, left: (paperWidth - width) / 2,
                 top: (paperHeight - height) / 2 - zw + glyphHeight, headHeight: zw,
                 headSep: zw + glyphHeight, footSkip: 3 * zw)
-        }
-        if let scale = info.jsMagnification {
-            let book = className.hasSuffix("book")
+        case .scaledGrid(let scale, let book, let centersFurniture):
             let zw = 9.24715 * scale
             let unit = info.columns == 2 ? 2 * zw : zw
             let full = book ? paperWidth - 36 * scale * 72.27 / 25.4 : 0.76 * paperWidth
@@ -131,7 +128,7 @@ struct LaTeXClassBox {
             let width = book && info.columns == 1 ? min(fullWidth, 40 * zw) : fullWidth
             let baseline = LaTeXLabelMetrics(info).baselines[4]
             let headHeight = 20 * scale
-            if className.hasPrefix("bx") {
+            if centersFurniture {
                 // BXjs lets geometry centre the head, text and foot together, then rounds the text to whole lines.
                 let topSkip = 10 * scale
                 let foot = book ? 0 : 0.03367 * paperHeight
@@ -152,15 +149,25 @@ struct LaTeXClassBox {
             return Self(
                 width: width, height: height, left: (paperWidth - fullWidth) / 2, top: top,
                 headHeight: headHeight, headSep: headSep, footSkip: footSkip)
+        case .standard(let measure):
+            return standardBox(
+                info, measure: measure, paperWidth: paperWidth, paperHeight: paperHeight, twoSided: twoSided)
         }
+    }
+
+    private static func standardBox(
+        _ info: LaTeXDocumentClassInfo, measure: LaTeXClassProfile.StandardMeasure,
+        paperWidth: Double, paperHeight: Double, twoSided: Bool
+    ) -> Self {
+        let size = info.pointSize
         let inch = 72.27
-        let book = className == "book"
+        let book = measure == .bookOffsets
         let baseline = size == 10 ? 12.0 : size == 11 ? 13.6 : 14.5
         let classWidth = size == 10 ? 345.0 : size == 11 ? 360.0 : 390.0
-        let doubleMeasure = info.columns == 2 && ["article", "report", "book"].contains(className)
+        let doubleMeasure = info.columns == 2 && (measure == .doubleColumn || book)
         let width = max(1, floor(min(paperWidth - 2 * inch, doubleMeasure ? 2 * classWidth : classWidth)))
         let height = max(0, floor((paperHeight - 3.5 * inch) / baseline)) * baseline + Double(size)
-        if className == "letter" {
+        if measure == .letterOffsets {
             return Self(
                 width: width, height: height, left: (paperWidth - width) / 2, top: inch + 27 + 12 + 45,
                 headHeight: 12, headSep: 45, footSkip: 25)

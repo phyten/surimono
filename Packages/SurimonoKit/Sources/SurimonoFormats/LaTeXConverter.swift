@@ -54,7 +54,7 @@ public enum LaTeXConverter {
         // Notes and the table of contents may hold references too, so they are in place before references resolve.
         html += document.footnoteSection()
         html = document.resolvePlaceholders(in: html)
-        if document.classInfo.name == "exam" {
+        if document.classInfo.profile.body.readsQuestions {
             html = document.replacing("E", in: html)
             document.classInfo.pageNumbers.examTotals = [
                 "numquestions": String(document.exam.questions.count),
@@ -136,7 +136,7 @@ final class LaTeXDocument {
         if let scale = info.jsMagnification {
             info.styleVariables += "; --latex-js-scale: " + LaTeXPageSettings.number(scale)
         }
-        if classInfo.name == "moderncv" {
+        if classInfo.profile.body.correspondence == .curriculumVitae {
             let ink = LaTeXCorrespondence.palette[correspondence.color] ?? LaTeXCorrespondence.defaultInk
             info.styleVariables += "; --latex-cv-ink: " + ink
             if classLanguageOptions.last(where: { ["sans", "roman"].contains($0) }) == "sans" {
@@ -144,7 +144,7 @@ final class LaTeXDocument {
             }
         }
         info.mainFontName = pageSettings.fonts.mainFontName
-        if info.jsMagnification != nil {
+        if info.profile.typography.usesScaledBodyFont {
             let fallback =
                 pageSettings.fonts.japaneseMain?.ideographFallback.map { "\"Surimono \($0) Ideographs\", " } ?? ""
             info.styleVariables += "; --latex-js-body-font: " + fallback + "\"Surimono JS Mincho\""
@@ -157,7 +157,7 @@ final class LaTeXDocument {
             + [
                 labelMetrics.localFace(fonts: pageSettings.fonts),
                 labelMetrics.headingFace(for: info, index: pageSettings.fonts.index),
-                info.isKOMA ? LaTeXBookStyle.sansFaces : nil,
+                info.profile.headings.readsElementFonts ? LaTeXBookStyle.sansFaces : nil,
             ]
             .compactMap { $0 }).joined(
                 separator: "\n")
@@ -199,12 +199,12 @@ final class LaTeXDocument {
     var hasChapters = false {
         didSet {
             if hasChapters && !oldValue {
-                let ams = classInfo.name == "amsbook"
-                counters.defaultSectionDepth = ams ? 3 : 2
-                counters.within("section", parent: "chapter", prefix: !ams)
+                let unprefixed = classInfo.profile.headings.unprefixedChapterCounters
+                counters.defaultSectionDepth = unprefixed ? 3 : 2
+                counters.within("section", parent: "chapter", prefix: !unprefixed)
                 // The standard book/report classes omit chapter zero on floats and equations in front matter.
-                for name in ams ? ["figure", "table"] : ["equation", "figure", "table"] {
-                    counters.within(name, parent: "chapter", prefix: !ams, omitNonpositiveParent: true)
+                for name in unprefixed ? ["figure", "table"] : ["equation", "figure", "table"] {
+                    counters.within(name, parent: "chapter", prefix: !unprefixed, omitNonpositiveParent: true)
                 }
                 counters.within("footnote", parent: "chapter", prefix: false)
             }

@@ -140,7 +140,7 @@ extension LaTeXReader {
                             ? "var(--latex-number-\(name), \(relative))" : relative
                         styles.append("\(prefix)-size: \(value)")
                         if key == "basicstyle", let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: name) {
-                            if ["article", "report", "book"].contains(document.classInfo.name) {
+                            if document.classInfo.profile.body.usesListingDesignSize {
                                 styles.append("--latex-listing-design-size: var(--latex-size-\(name))")
                             }
                             styles.append(

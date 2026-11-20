@@ -91,7 +91,7 @@ struct LaTeXExam {
 
 extension LaTeXReader {
     func handleExamEnvironment(_ name: String, body: String) -> Bool {
-        guard document.classInfo.name == "exam" else { return false }
+        guard document.classInfo.profile.body.readsQuestions else { return false }
         if let list = LaTeXExam.List(rawValue: name) {
             let child = LaTeXReader(body, document: document, isBlock: true)
             child.examList = list
@@ -121,7 +121,7 @@ extension LaTeXReader {
     }
 
     func handleExamCommand(_ name: String) -> Bool {
-        guard document.classInfo.name == "exam" else { return false }
+        guard document.classInfo.profile.body.readsQuestions else { return false }
         if let list = examList, list.command == name || list.command == "choice" && name.lowercased() == "correctchoice"
         {
             examItem(list, correct: name.lowercased() == "correctchoice" && document.booleans["printanswers"] == true)

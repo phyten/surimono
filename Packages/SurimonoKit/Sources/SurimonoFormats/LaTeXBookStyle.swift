@@ -169,31 +169,35 @@ extension LaTeXDocumentClassInfo {
 }
 
 extension LaTeXClassBox {
-    static func bookBox(_ info: LaTeXDocumentClassInfo, width paper: Double, height stock: Double, twoSided: Bool)
-        -> Self?
+    static func typeAreaBox(_ info: LaTeXDocumentClassInfo, width paper: Double, height stock: Double, twoSided: Bool)
+        -> Self
     {
         let size = info.pointSize
         let baseline = [12.0, 13.6, 14.5][size - 10]
-        if info.isKOMA {
-            let options = info.bookStyle
-            let binding = min(paper / 2, max(0, options.binding))
-            let headHeight = 1.25 * baseline
-            let headSep = 1.5 * baseline
-            let footSkip = 3.5 * baseline
-            let div = options.resolvedDivision(
-                size: size, columns: info.columns, paper: paper, stock: stock,
-                head: headHeight + headSep, foot: footSkip)
-            let h = (paper - binding) / div
-            let v = stock / div
-            let head = options.includeHead ? headHeight + headSep : 0
-            let available = stock - 3 * v - head - (options.includeFoot ? footSkip : 0)
-            // typearea rounds upward to an integral number of baselines below topskip.
-            let height = Double(size) + ceil((available - Double(size)) / baseline) * baseline
-            return Self(
-                width: paper - binding - 3 * h, height: height, left: binding + h * (twoSided ? 1 : 1.5),
-                top: v + head, headHeight: headHeight, headSep: headSep, footSkip: footSkip)
-        }
-        guard info.name == "memoir" else { return nil }
+        let options = info.bookStyle
+        let binding = min(paper / 2, max(0, options.binding))
+        let headHeight = 1.25 * baseline
+        let headSep = 1.5 * baseline
+        let footSkip = 3.5 * baseline
+        let div = options.resolvedDivision(
+            size: size, columns: info.columns, paper: paper, stock: stock,
+            head: headHeight + headSep, foot: footSkip)
+        let h = (paper - binding) / div
+        let v = stock / div
+        let head = options.includeHead ? headHeight + headSep : 0
+        let available = stock - 3 * v - head - (options.includeFoot ? footSkip : 0)
+        // typearea rounds upward to an integral number of baselines below topskip.
+        let height = Double(size) + ceil((available - Double(size)) / baseline) * baseline
+        return Self(
+            width: paper - binding - 3 * h, height: height, left: binding + h * (twoSided ? 1 : 1.5),
+            top: v + head, headHeight: headHeight, headSep: headSep, footSkip: footSkip)
+    }
+
+    static func ruledBookBox(_ info: LaTeXDocumentClassInfo, width paper: Double, height stock: Double, twoSided: Bool)
+        -> Self
+    {
+        let size = info.pointSize
+        let baseline = [12.0, 13.6, 14.5][size - 10]
         let inch = 72.27
         let width = floor(min(paper - 2 * inch, [341.0, 369.0, 383.0][size - 10] * Double(info.columns)))
         let height = floor((stock - 3.5 * inch) / baseline) * baseline + Double(size)
@@ -209,13 +213,13 @@ extension LaTeXClassBox {
 
 extension LaTeXReader {
     func readBookClassSetting(_ name: String) -> Bool {
-        if name == "chapterstyle", document.classInfo.name == "memoir" {
+        if name == "chapterstyle", document.classInfo.profile.headings.readsChapterStyle {
             let style = argument() ?? ""
             document.classInfo.bookStyle.chapterStyle =
                 ["hangnum", "section", "article"].contains(style) ? style : "default"
             return true
         }
-        if ["setkomafont", "addtokomafont"].contains(name), document.classInfo.isKOMA {
+        if ["setkomafont", "addtokomafont"].contains(name), document.classInfo.profile.headings.readsElementFonts {
             let element = argument() ?? ""
             let declaration = argument() ?? ""
             if !inPreamble, document.classInfo.bookStyle.preambleFonts == nil {
@@ -236,11 +240,11 @@ extension LaTeXReader {
 
     func bookHeadingAttributes(_ name: String) -> String {
         let info = document.classInfo
-        if info.isKOMA {
+        if info.profile.headings.readsElementFonts {
             return " data-latex-koma-heading=\"\(name)\""
                 + info.bookStyle.fontAttribute(elements: ["disposition", name], size: info.pointSize)
         }
-        if name == "chapter", info.name == "memoir" {
+        if name == "chapter", info.profile.headings.readsChapterStyle {
             return " data-latex-memoir-style=\"\(info.bookStyle.chapterStyle)\""
         }
         return ""

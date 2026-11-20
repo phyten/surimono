@@ -217,7 +217,7 @@ extension LaTeXReader {
         // first, including the radicals which also occur in Chinese fonts.
         let index = document.pageSettings.fonts.index
         let upright =
-            role == "cjk-sans" && document.classInfo.isJapanese
+            role == "cjk-sans" && document.classInfo.profile.typography.prefersHiraginoSansW4
                 && name.caseInsensitiveCompare("Hiragino Sans") == .orderedSame
             ? (index.face(named: "HiraginoSans-W4") ?? index.face(named: name))?.postScriptName : nil
         guard

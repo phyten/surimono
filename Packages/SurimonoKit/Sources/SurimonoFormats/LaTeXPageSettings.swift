@@ -99,7 +99,7 @@ struct LaTeXPageSettings {
 
     func styleVariables(for box: LaTeXPageBox, info: LaTeXDocumentClassInfo) -> String {
         var classSkips = info.publication?.floatStyleVariables(size: info.pointSize) ?? [:]
-        if ["article", "report", "book"].contains(info.name) {
+        if info.profile.body.usesSizeFileGlue {
             // size10/11/12.clo give listii the outer parsep as topsep and listiii the inner parsep.
             let outer = Double(info.pointSize - 10) / 2 + 4
             let inner = info.pointSize == 12 ? 2.5 : 2
@@ -115,23 +115,24 @@ struct LaTeXPageSettings {
             // amsart.cls and amsbook.cls set the footnote rule to five picas.
             classSkips["footnote-rule-width"] = "calc(60 * var(--tex-pt))"
         }
-        if info.jsMagnification != nil {
+        switch info.profile.body.captionSkip {
+        case .fiveScaledPoints:
             // The jsclasses size files put five magnified points on each side of a caption.
             for key in ["abovecaptionskip", "belowcaptionskip"] { classSkips[key] = "calc(5 * var(--js-pt))" }
-        }
-        if info.name == "memoir" {
+        case .halfBaseline:
             // memoir sets both skips to half a normal baseline in its size file.
             let halfBaseline = info.pointSize == 12 ? "7.25" : info.pointSize == 11 ? "6.8" : "6"
             let skip = "calc(\(halfBaseline) * var(--tex-pt))"
             classSkips["abovecaptionskip"] = skip
             classSkips["belowcaptionskip"] = skip
+        case .inherited: break
         }
         var values = classSkips.merging(variables) { _, assignment in assignment }.merging(fonts.roleVariables) {
             _, font in font
         }
         // Each table captures its register at the alignment. A later assignment must not repaint an earlier rule.
         values.removeValue(forKey: "arrayrulewidth")
-        if info.jsMagnification != nil, let skip = values["parskip"], skip.hasSuffix("lh"),
+        if info.profile.typography.selectsParagraphPitch, let skip = values["parskip"], skip.hasSuffix("lh"),
             let multiplier = Double(skip.dropLast(2))
         {
             values["parskip"] =
@@ -461,7 +462,7 @@ extension LaTeXReader {
 
     func readPageSetting(_ name: String) -> Bool {
         func assignLength(_ name: String, _ value: String) {
-            if document.classInfo.name == "exam", let length = LaTeXSymbols.printLength(value) {
+            if document.classInfo.profile.body.readsQuestions, let length = LaTeXSymbols.printLength(value) {
                 switch name {
                 case "linefillheight":
                     document.exam.linePitch = length
@@ -517,9 +518,9 @@ extension LaTeXReader {
             if register.hasPrefix("\\") {
                 assignLength(String(register.dropFirst()), value)
             }
-        case "linefillheight" where document.classInfo.name == "exam",
-            "dottedlinefillheight" where document.classInfo.name == "exam",
-            "linefillthickness" where document.classInfo.name == "exam",
+        case "linefillheight" where document.classInfo.profile.body.readsQuestions,
+            "dottedlinefillheight" where document.classInfo.profile.body.readsQuestions,
+            "linefillthickness" where document.classInfo.profile.body.readsQuestions,
             "intextsep", "textfloatsep", "floatsep", "abovecaptionskip", "belowcaptionskip", "extrarowheight",
             "columnsep", "columnseprule", "parindent", "parskip", "itemsep", "topsep", "textwidth", "oddsidemargin",
             "evensidemargin", "arrayrulewidth", "tabcolsep", "LTpre", "LTpost", "LTleft", "LTright",
