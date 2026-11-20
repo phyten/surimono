@@ -55,18 +55,11 @@ struct LaTeXPageSettings {
     }
 
     func pageBox(for info: LaTeXDocumentClassInfo) -> LaTeXPageBox {
-        let stock =
-            self.stock
-            ?? (info.isJapanese || info.isKOMA || info.name == "moderncv" || info.publication?.usesA4 == true
-                ? (210.0, 297.0) : (215.9, 279.4))
+        let stock = self.stock ?? info.profile.page.defaultPaper.millimetres
         let texPointsPerMM = 72.27 / 25.4
         let paperW = (paperWidth ?? (landscape ? stock.1 : stock.0)) * texPointsPerMM
         let paperH = (paperHeight ?? (landscape ? stock.0 : stock.1)) * texPointsPerMM
-        let twoSided =
-            self.twoSided
-            ?? (["book", "jsbook", "ltjsbook", "bxjsbook", "scrbook", "memoir"].contains(info.name)
-                || info.journalStyle == .ams || info.publication == .manuscript
-                || info.publication == .sigconf)
+        let twoSided = self.twoSided ?? info.profile.page.twoSidedBox
         var box = LaTeXClassBox.defaults(
             info: info, paperWidth: paperW, paperHeight: paperH, twoSided: twoSided)
         if usesGeometry {
@@ -94,7 +87,7 @@ struct LaTeXPageSettings {
             bottom: (paperH - top - (assigned["textheight"] ?? box.height)) * bp,
             headSep: headSep * bp, footSkip: (assigned["footskip"] ?? box.footSkip) * bp, mirrorsSides: twoSided,
             usesFixedClassOrigin: !usesGeometry && assigned.isEmpty
-                && (info.publication == .lncs || info.publication == .aps || ["exam", "letter"].contains(info.name)))
+                && info.profile.page.usesFixedClassOrigin)
     }
 
     var tableSpacing: [String: String] {
@@ -189,12 +182,13 @@ struct LaTeXPageSettings {
     ]
 
     mutating func readClassOptions(_ raw: String, info: LaTeXDocumentClassInfo) {
-        readOptions(raw, geometry: false, japaneseStock: info.isJapanese, keyedPaper: info.isKOMA)
-        // The production classes set their own stock with geometry after processing class options.
-        if info.publication?.usesA4 == true { stock = Self.paperSizes["a4paper"] }
-        if info.publication == .sigconf || info.journalStyle == .ams || info.publication == .manuscript {
-            stock = Self.paperSizes["letterpaper"]
+        switch info.profile.page.paperOptions {
+        case .standard: readOptions(raw, geometry: false)
+        case .keyed: readOptions(raw, geometry: false, keyedPaper: true)
+        case .japanese: readOptions(raw, geometry: false, japaneseStock: true)
         }
+        // The production classes set their own stock with geometry after processing class options.
+        if let forced = info.profile.page.forcedPaper { stock = forced.millimetres }
     }
 
     mutating func readOptions(_ raw: String, geometry: Bool, japaneseStock: Bool = false, keyedPaper: Bool = false) {

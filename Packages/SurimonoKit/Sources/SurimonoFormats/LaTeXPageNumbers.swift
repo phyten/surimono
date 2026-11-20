@@ -42,33 +42,30 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     }
 
     init(name: String, options: [String]) {
+        self.init(LaTeXClassRegistry.resolve(.init(name: name, options: options)).pageStyle)
+    }
+
+    init(_ policy: LaTeXClassProfile.PageStyle) {
         self.init()
-        japanesePlain = ["js", "ltjs", "bxjs"].contains { prefix in
-            ["article", "report", "book"].contains { name == prefix + $0 }
-        }
-        twoSided =
-            (options.last { $0 == "twoside" || $0 == "oneside" }).map { $0 == "twoside" }
-            ?? ["book", "jsbook", "ltjsbook", "bxjsbook", "llncs", "scrbook", "memoir"].contains(name)
-        if twoSided {
+        japanesePlain = policy.japanesePlain
+        twoSided = policy.twoSidedNumbers
+        if policy.twoSidedFields {
             fields["OLH"] = #"\leftmark"#
             fields["ORH"] = #"\rightmark"#
         }
-        amsHeadings = ["amsart", "amsbook", "amsproc"].contains(name)
-        if amsHeadings {
+        switch policy.running {
+        case .plain: break
+        case .ams(let size):
+            amsHeadings = true
             style = "headings"
-            // AMS uses the third entry of its size table for both running heads and folios.
-            let size = options.last(where: { ["10pt", "11pt", "12pt"].contains($0) }) ?? "10pt"
-            headerFont = LaTeXElementFont(sizeInPoints: size == "12pt" ? 9 : size == "11pt" ? 8 : 7)
+            headerFont = LaTeXElementFont(sizeInPoints: size)
             numberFont = headerFont
-            twoSided = options.last { $0 == "twoside" || $0 == "oneside" } != "oneside"
-        }
-        if name == "exam" {
+        case .exam:
             style = "headandfoot"
             examFirst = [:]
             examRunning["CF"] = #"Page \thepage"#
-        }
-        if name == "IEEEtran" && options.contains("conference") || name == "llncs" {
-            style = name == "llncs" && options.contains("runningheads") ? "runningheads" : "empty"
+        case .empty: style = "empty"
+        case .runningHeads: style = "runningheads"
         }
     }
 

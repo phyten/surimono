@@ -37,10 +37,13 @@ let package = Package(
         ),
         .target(
             name: "SurimonoRendering", dependencies: ["SurimonoCore"], resources: [.process("Resources")]),
+        .target(name: "LaTeXCorpusSupport", dependencies: ["SurimonoFormats"], path: "Tests/LaTeXCorpusSupport"),
         .testTarget(
-            name: "SurimonoFormatsTests", dependencies: ["SurimonoFormats"], resources: [.copy("Fixtures")]),
+            name: "SurimonoFormatsTests", dependencies: ["SurimonoFormats", "LaTeXCorpusSupport"],
+            resources: [.copy("Fixtures")]),
         .testTarget(
-            name: "SurimonoCoreTests", dependencies: ["SurimonoCore"], resources: [.copy("Fixtures")]),
+            name: "SurimonoCoreTests", dependencies: ["SurimonoCore", "LaTeXCorpusSupport"],
+            resources: [.copy("Fixtures")]),
         .testTarget(
             name: "SurimonoRenderingTests", dependencies: ["SurimonoRendering"],
             resources: [.copy("Fixtures")]),
