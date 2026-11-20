@@ -1,0 +1,19 @@
+Deska pomiarowa
+14 maja 2026
+Streszczenie
+Dwa znaki wskazują początkowe położenie deski.
+Spis treści
+1 Znaki 1
+2 Wysokość 1
+1 Znaki
+„Najpierw odczytaj dolny znak”.
+Rysunek 1: Położenie deski
+2 Wysokość
+Znak Wysokość (mm)
+1 12
+2 18
+Tabela 1: Wysokość znaków
+Literatura
+[1]
+Zeszyt pomiarów, 2025, Rozdział 2.
+1

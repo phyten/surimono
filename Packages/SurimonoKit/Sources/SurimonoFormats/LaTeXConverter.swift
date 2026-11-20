@@ -11,7 +11,7 @@ public enum LaTeXConverter {
 
     /// Companion files are supplied by the caller so parsing never implicitly opens a path from the document.
     public static func convert(
-        _ text: String, directory: URL? = nil,
+        _ text: String, fontIndex: InstalledFontIndex = .system, directory: URL? = nil,
         documentURL: URL? = nil, textWidthPoints: Double? = nil, imageExists: @escaping (URL) -> Bool = { _ in false },
         canProbePictureFallback: @escaping (URL) -> Bool = { _ in true },
         imageSizeInPoints: @escaping (URL) -> CGSize? = { _ in nil },
@@ -21,7 +21,7 @@ public enum LaTeXConverter {
     ) -> HTMLFragment {
         let source = TextDecoding.normalizeNewlines(text)
         func makeReader() -> LaTeXReader {
-            let document = LaTeXDocument()
+            let document = LaTeXDocument(fontIndex: fontIndex)
             document.directory = directory ?? documentURL?.deletingLastPathComponent()
             document.mainURL = documentURL
             document.textWidthPoints = textWidthPoints
@@ -99,6 +99,8 @@ final class LaTeXDocument {
     var picturePrefix = ""
     var nextPictureName: String?
     struct Heading {
+        var chapter: Int?
+        var chapterLabelHTML: String?
         let level: Int
         let number: String?
         let id: String
@@ -131,6 +133,9 @@ final class LaTeXDocument {
         info.styleVariables =
             pageSettings.styleVariables(for: box, info: info) + "; " + labelMetrics.variables
             + "; --latex-array-baseline: " + LaTeXPageSettings.number(labelMetrics.baselines[4])
+        if let scale = info.jsMagnification {
+            info.styleVariables += "; --latex-js-scale: " + LaTeXPageSettings.number(scale)
+        }
         if classInfo.name == "moderncv" {
             let ink = LaTeXCorrespondence.palette[correspondence.color] ?? LaTeXCorrespondence.defaultInk
             info.styleVariables += "; --latex-cv-ink: " + ink
@@ -139,9 +144,22 @@ final class LaTeXDocument {
             }
         }
         info.mainFontName = pageSettings.fonts.mainFontName
+        if info.jsMagnification != nil {
+            let fallback =
+                pageSettings.fonts.japaneseMain?.ideographFallback.map { "\"Surimono \($0) Ideographs\", " } ?? ""
+            info.styleVariables += "; --latex-js-body-font: " + fallback + "\"Surimono JS Mincho\""
+            info.japaneseMainFontName = pageSettings.fonts.japaneseMainFontName ?? "HiraMinProN-W3"
+            // fancyhdr terminates its header with a normal-size strut, above headsep.
+            info.headerStrutDepth = 0.3 * labelMetrics.baselines[4] * 72 / 72.27
+        }
         info.localFontFaces =
             (pageSettings.fonts.faceRules
-            + [labelMetrics.localFace, info.isKOMA ? LaTeXBookStyle.sansFaces : nil].compactMap { $0 }).joined(
+            + [
+                labelMetrics.localFace(fonts: pageSettings.fonts),
+                labelMetrics.headingFace(index: pageSettings.fonts.index),
+                info.isKOMA ? LaTeXBookStyle.sansFaces : nil,
+            ]
+            .compactMap { $0 }).joined(
                 separator: "\n")
         return info
     }
@@ -150,7 +168,9 @@ final class LaTeXDocument {
     var landscapeBody = false
     var startedLandscape = false
     var exam = LaTeXExam()
-    var pageSettings = LaTeXPageSettings()
+    var pageSettings: LaTeXPageSettings
+
+    init(fontIndex: InstalledFontIndex = .system) { pageSettings = LaTeXPageSettings(fontIndex: fontIndex) }
     var classInfo = LaTeXDocumentClassInfo()
     var language = "en"
     var nativeCaptionLanguage: String?
@@ -215,6 +235,7 @@ final class LaTeXDocument {
     var nameCopies = 0
     var referenceNames: [String: ReferenceNames] = [:]
     var deferredMath: [ReferencedFormula] = []
+    var listStack: [String] = []
     var enumerateDepth = 0
     var theorems: [String: Theorem] = [:]
     var theoremStyle = "plain"
@@ -234,6 +255,7 @@ final class LaTeXDocument {
     static let maximumDepth = 100
     /// Set while `\maketitle` reads the title, so a title that makes the title again is not read again.
     var makingTitle = false
+    var insideTitlePage = false
     var titleNoteCount = 0
     var failedFormulas: [String] = []
     var seenFormulaIssues: Set<String> = []
@@ -536,6 +558,7 @@ final class LaTeXDocument {
         var html = ""
         var depth = 0
         var open: [Bool] = []
+        var lastChapter: Int?
         for entry in entries {
             let level = entry.level - top + 1
             while depth < level {
@@ -550,7 +573,9 @@ final class LaTeXDocument {
             }
             if open.last == true { html += "</li>" }
             let number =
-                entry.number.flatMap { $0.isEmpty ? nil : "<span class=\"secnum\">\(HTML.escape($0))</span>" } ?? ""
+                entry.number.flatMap {
+                    $0.isEmpty ? nil : "<span class=\"secnum\">\(entry.chapterLabelHTML ?? HTML.escape($0))</span>"
+                } ?? ""
             let kind: String
             switch (contentsLists[index], entry.level) {
             case (.headings, -1): kind = " class=\"latex-toc-part\""
@@ -559,7 +584,10 @@ final class LaTeXDocument {
             case (.figures, _), (.tables, _): kind = " class=\"latex-toc-float\""
             default: kind = ""
             }
-            html += "<li\(kind)><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"
+            let chapterBreak = entry.chapter != nil && lastChapter != nil && entry.chapter != lastChapter
+            lastChapter = entry.chapter
+            html +=
+                "<li\(kind)\(chapterBreak ? " data-latex-list-chapter" : "")><a href=\"#\(HTML.escape(entry.id))\">\(number)\(entry.title)</a>"
             open[open.count - 1] = true
         }
         while depth > 0 {

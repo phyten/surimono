@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01676721970839618,
+    "changedAreaRatio" : 0.01693212669683258,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 182.5,
+    "maxBoxDeltaPt" : 176.7,
     "maxLuminance" : 167.8125,
-    "maxShiftPt" : 547.5,
+    "maxShiftPt" : 24.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 35
@@ -20,9 +20,9 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 261,
+      "firstY" : 281.8,
       "height" : 841.9,
-      "lastY" : 567.3,
+      "lastY" : 588.9,
       "lineCount" : 21,
       "lines" : [
         {
@@ -30,70 +30,70 @@
           "text" : "1",
           "width" : 5,
           "x" : 56.8,
-          "y" : 261
+          "y" : 281.8
         },
         {
           "height" : 11,
           "text" : "1",
           "width" : 5,
           "x" : 56.8,
-          "y" : 282.6
+          "y" : 304.2
         },
         {
           "height" : 19.1,
           "text" : "לוח המדידה",
           "width" : 69.2,
           "x" : 263.1,
-          "y" : 129.7
+          "y" : 126.5
         },
         {
           "height" : 13.2,
           "text" : "14 במאי 2026",
           "width" : 63.7,
           "x" : 265.8,
-          "y" : 160.8
+          "y" : 181.6
         },
         {
           "height" : 9.9,
           "text" : "תקציר",
           "width" : 20.5,
           "x" : 287.4,
-          "y" : 190.7
+          "y" : 211.5
         },
         {
           "height" : 11,
           "text" : "איור 1: מיקום הלוח",
           "width" : 69.2,
           "x" : 263.1,
-          "y" : 404.9
+          "y" : 426.5
         },
         {
           "height" : 11,
           "text" : "גובה )mm( סימן",
           "width" : 66.7,
           "x" : 264.3,
-          "y" : 480.8
+          "y" : 502.4
         },
         {
           "height" : 11,
           "text" : "12 1",
           "width" : 30.9,
           "x" : 269.3,
-          "y" : 493.6
+          "y" : 515.2
         },
         {
           "height" : 11,
           "text" : "18 2",
           "width" : 30.9,
           "x" : 269.3,
-          "y" : 505.6
+          "y" : 527.2
         },
         {
           "height" : 11,
           "text" : "טבלה 1: גובה הסימנים",
           "width" : 79,
           "x" : 258.2,
-          "y" : 528
+          "y" : 548.8
         },
         {
           "height" : 11,
@@ -107,75 +107,75 @@
           "text" : "שני סימנים מציינים את מקומו הראשון של הלוח.",
           "width" : 152.1,
           "x" : 346,
-          "y" : 205.1
+          "y" : 226.7
         },
         {
           "height" : 15.9,
           "text" : "תוכן העניינים",
           "width" : 71.6,
           "x" : 466.8,
-          "y" : 233.9
+          "y" : 255.5
         },
         {
           "height" : 11,
           "text" : "1 הסימנים",
           "width" : 44.5,
           "x" : 493.9,
-          "y" : 261
+          "y" : 281.8
         },
         {
           "height" : 11,
           "text" : "2 גובה",
           "width" : 31.2,
           "x" : 507.2,
-          "y" : 282.6
+          "y" : 304.2
         },
         {
           "height" : 15.9,
           "text" : "1 הסימנים",
           "width" : 64.1,
           "x" : 474.3,
-          "y" : 310.7
+          "y" : 331.5
         },
         {
           "height" : 11,
           "text" : "״",
           "width" : 3.7,
           "x" : 397.7,
-          "y" : 336.2
+          "y" : 357.8
         },
         {
           "height" : 11,
           "text" : "״קראו תחילה את הסימן התחתון.",
           "width" : 112.2,
           "x" : 401.4,
-          "y" : 336.2
+          "y" : 357.8
         },
         {
           "height" : 15.9,
           "text" : "2 גובה",
           "width" : 45,
           "x" : 493.5,
-          "y" : 445
+          "y" : 466.6
         },
         {
           "height" : 11,
           "text" : "מחברת המדידות, 2025, פרק",
           "width" : 99,
           "x" : 419.5,
-          "y" : 593.6
+          "y" : 615.2
         },
         {
           "height" : 15.9,
           "text" : "]1[מקו",
           "width" : 37.2,
           "x" : 501.2,
-          "y" : 567.3
+          "y" : 588.9
         }
       ],
-      "textHeight" : 654.1,
+      "textHeight" : 657.3,
       "textLeft" : 56.8,
-      "textTop" : 129.7,
+      "textTop" : 126.5,
       "textWidth" : 481.6,
       "width" : 595.3
     }

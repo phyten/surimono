@@ -20,6 +20,8 @@ public enum HTMLDocumentBuilder {
                 return attributes + " data-latex-class=\"\(HTML.escape(info.name))\""
                     + (localMain ? " data-latex-local-main-font" : "")
                     + (title.map { " data-latex-title-layout=\"\($0)\"" } ?? "")
+                    + (info.columns == 2 && (info.isJSArticle || info.usesJSChapterSpacing)
+                        ? " data-latex-js-twocolumn" : "")
                     + (info.usesJSChapterSpacing ? " data-latex-js-chapters" : "")
                     + (info.usesNativeCJKHeadings ? " data-latex-native-headings" : "")
                     + (info.journalStyle.map { " data-latex-journal=\"\($0.rawValue)\"" } ?? "")

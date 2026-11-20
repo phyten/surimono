@@ -64,13 +64,13 @@ func trend(_ old: Magnitude, _ new: Magnitude) -> String {
 
 private func comparison(
     item: RunCase, out: URL, oldFile: URL?, old: Document?, current: Document?,
-    prefix: String, tolerance: Tolerance
+    prefix: String, tolerance: Tolerance, texReference: Bool = false
 ) throws -> Comparison {
     let isUI = item.item.kind == .ui
     let pdf = try oldFile.flatMap { isUI ? nil : try PDFInput($0) }
     let layout = try old ?? pdf?.document()
     var result = Comparison()
-    if let layout, let current { result = compareLayout(layout, current) }
+    if let layout, let current { result = compareLayout(layout, current, texReference: texReference) }
     let imagesBefore = pdf?.pdf.pageCount ?? (oldFile == nil ? 0 : 1)
     let currentCount = current?.pageCount ?? 1
     if let pdf, imagesBefore != currentCount {
@@ -174,8 +174,8 @@ func makeReport(base: URL, dir: URL, run: Run, tolerance: Tolerance) throws -> R
                         let doc = try PDFInput(url).document()
                         row.fidelity = try comparison(
                             item: capture, out: out, oldFile: url, old: doc, current: current,
-                            prefix: "reference", tolerance: tolerance)
-                        row.previousFidelity = old?.fidelity
+                            prefix: "reference", tolerance: tolerance, texReference: true)
+                        row.previousFidelity = old.flatMap { comparableFidelity(of: $0, against: doc) }
                         if let previous = row.previousFidelity, let latest = row.fidelity?.metrics {
                             row.trend = trend(previous, latest)
                         }

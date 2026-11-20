@@ -1,0 +1,77 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.010315319505162311,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 4.8,
+    "maxLuminance" : 102.34375,
+    "maxShiftPt" : 2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 8
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 50.9,
+      "height" : 841.9,
+      "lastY" : 811.8,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "The two drying racks",
+          "width" : 152.1,
+          "x" : 51,
+          "y" : 50.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "The upper shelf receives the first batch. A gap be-",
+          "width" : 241.6,
+          "x" : 51,
+          "y" : 75.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "tween tiles lets air reach the edges.",
+          "width" : 152.9,
+          "x" : 51,
+          "y" : 87.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "The lower shelf receives the second batch. Record",
+          "width" : 226.7,
+          "x" : 317.6,
+          "y" : 50.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "the time when the last tile lifts cleanly.",
+          "width" : 171.7,
+          "x" : 302.6,
+          "y" : 62.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 811.8
+        }
+      ],
+      "textHeight" : 772.7,
+      "textLeft" : 51,
+      "textTop" : 50.8,
+      "textWidth" : 493.2,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "149d667da534f77cb1dadabe8bbf0b86e34e46afb978313bcc5cae8bce6fecde"
+}

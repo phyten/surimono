@@ -1,0 +1,85 @@
+{
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 71,
+      "height" : 841.9,
+      "lastY" : 294.6,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 16.9,
+          "text" : "Model rail practical",
+          "width" : 122.5,
+          "x" : 252.2,
+          "y" : 71
+        },
+        {
+          "height" : 11.7,
+          "text" : "1. (2 points) The strip is one millimetre thick. What height does a single fold produce?",
+          "width" : 381.6,
+          "x" : 77.2,
+          "y" : 95
+        },
+        {
+          "height" : 11.7,
+          "text" : "2. (3 points) Explain how to check for a tilted rail.",
+          "width" : 223.5,
+          "x" : 77.2,
+          "y" : 163.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "Question:",
+          "width" : 41.6,
+          "x" : 78.4,
+          "y" : 258.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1 2",
+          "width" : 37.3,
+          "x" : 139.8,
+          "y" : 258.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "Total",
+          "width" : 23.8,
+          "x" : 196.9,
+          "y" : 258.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "Points:",
+          "width" : 30.6,
+          "x" : 78.4,
+          "y" : 276.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "2 3 5",
+          "width" : 71.5,
+          "x" : 139.8,
+          "y" : 276.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "Score:",
+          "width" : 26,
+          "x" : 78.4,
+          "y" : 294.6
+        }
+      ],
+      "textHeight" : 235.3,
+      "textLeft" : 77.2,
+      "textTop" : 71,
+      "textWidth" : 381.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "6185e15a5171bad7fe3b3a3d50c57c1f8d88d88c8d1ea374dfd57d7d17a3457d"
+}

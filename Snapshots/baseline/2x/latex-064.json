@@ -1,0 +1,70 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.00964504776269482,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 126.40625,
+    "maxShiftPt" : 30.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Profile of a curved ramp",
+          "width" : 173.5,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 9.3,
+          "text" : "h",
+          "width" : 5.7,
+          "x" : 286.5,
+          "y" : 191.9
+        },
+        {
+          "height" : 9.3,
+          "text" : "x",
+          "width" : 5.7,
+          "x" : 360.9,
+          "y" : 268.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: The two ends of the parabolic channel reach the same height.",
+          "width" : 311.9,
+          "x" : 141.3,
+          "y" : 290.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 327.8,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "11b9e490e80cb64bc5ffa9fdec3f7e3959a6f6b60d45a3ad3485c68387c17c61"
+}

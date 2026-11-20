@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02502865761689291,
+    "changedAreaRatio" : 0.024974358974358974,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 24.6,
-    "maxLuminance" : 163.78125,
-    "maxShiftPt" : 25.3,
+    "maxBoxDeltaPt" : 23,
+    "maxLuminance" : 161.640625,
+    "maxShiftPt" : 24.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -20,7 +20,7 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 129.7,
+      "firstY" : 126.5,
       "height" : 841.9,
       "lastY" : 772.8,
       "lineCount" : 19,
@@ -30,126 +30,126 @@
           "text" : "The measuring shelf",
           "width" : 136,
           "x" : 229.8,
-          "y" : 129.7
+          "y" : 126.5
         },
         {
           "height" : 13.2,
           "text" : "14 May 2026",
           "width" : 65.4,
           "x" : 264.9,
-          "y" : 160.8
+          "y" : 181.6
         },
         {
           "height" : 9.9,
           "text" : "Abstract",
           "width" : 33.4,
           "x" : 281,
-          "y" : 190.7
+          "y" : 211.5
         },
         {
           "height" : 9.9,
           "text" : "Two marks identify the original position of the tray.",
           "width" : 191.9,
           "x" : 97.2,
-          "y" : 205.1
+          "y" : 226.7
         },
         {
           "height" : 15.9,
           "text" : "Contents",
           "width" : 55,
           "x" : 56.8,
-          "y" : 233.9
+          "y" : 255.5
         },
         {
           "height" : 11,
           "text" : "1 Shelf marks 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 261
+          "y" : 281.8
         },
         {
           "height" : 11,
           "text" : "2 Height 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 282.6
+          "y" : 304.2
         },
         {
           "height" : 15.9,
           "text" : "1 Shelf marks",
           "width" : 96.1,
           "x" : 56.8,
-          "y" : 310.7
+          "y" : 331.5
         },
         {
           "height" : 11,
           "text" : "‘Read the lower mark first.’",
           "width" : 114.2,
           "x" : 81.7,
-          "y" : 336.2
+          "y" : 357.8
         },
         {
           "height" : 11,
           "text" : "Figure 1: Position of the shelf",
           "width" : 122.8,
           "x" : 236.2,
-          "y" : 404.9
+          "y" : 426.5
         },
         {
           "height" : 15.9,
           "text" : "2 Height",
           "width" : 63,
           "x" : 56.8,
-          "y" : 445
+          "y" : 466.6
         },
         {
           "height" : 11,
           "text" : "Mark Height (mm)",
           "width" : 85.1,
           "x" : 255.1,
-          "y" : 480.8
+          "y" : 502.4
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 76.8,
           "x" : 263.4,
-          "y" : 493.6
+          "y" : 515.2
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 76.8,
           "x" : 263.4,
-          "y" : 505.6
+          "y" : 527.2
         },
         {
           "height" : 11,
           "text" : "Table 1: Heights of the marks",
           "width" : 122.1,
           "x" : 236.6,
-          "y" : 528
+          "y" : 548.8
         },
         {
           "height" : 15.9,
           "text" : "References",
           "width" : 66.6,
           "x" : 56.8,
-          "y" : 567.3
+          "y" : 588.9
         },
         {
           "height" : 11,
           "text" : "[1]",
           "width" : 11.6,
           "x" : 56.8,
-          "y" : 593.6
+          "y" : 615.2
         },
         {
           "height" : 11,
           "text" : "Shelf notebook, 2025, Chapter 2.",
           "width" : 133.6,
           "x" : 76.7,
-          "y" : 593.6
+          "y" : 615.2
         },
         {
           "height" : 11,
@@ -159,9 +159,9 @@
           "y" : 772.8
         }
       ],
-      "textHeight" : 654.1,
+      "textHeight" : 657.3,
       "textLeft" : 56.8,
-      "textTop" : 129.7,
+      "textTop" : 126.5,
       "textWidth" : 481.6,
       "width" : 595.3
     }

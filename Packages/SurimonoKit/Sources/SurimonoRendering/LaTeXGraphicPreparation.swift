@@ -73,6 +73,20 @@ enum LaTeXGraphicPreparation {
           const w = Math.max(box.x + box.width, ink.x + ink.width) - x;
           const h = Math.max(box.y + box.height, ink.y + ink.height) - y;
           if (!(Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0)) continue;
+          const math = svg.parentElement;
+          if (math.closest('[data-latex-js-toc]') && svg.dataset.latexTexTop === undefined) {
+            // Expanding the viewport protects the glyph ink. Save the original TeX box and
+            // its baselines before verticalAlign becomes "top" for the prepared block.
+            const depth = -parseFloat(svg.style.verticalAlign) / height.valueInSpecifiedUnits;
+            const first = Number(math.dataset.latexFirstBaseline ?? 1 - depth);
+            const last = Number(math.dataset.latexLastBaseline ?? 1 - depth);
+            if (Number.isFinite(first) && Number.isFinite(last)) {
+              svg.dataset.latexTexTop = box.y;
+              svg.dataset.latexTexBottom = box.y + box.height;
+              svg.dataset.latexTexFirst = box.y + first * box.height;
+              svg.dataset.latexTexLast = box.y + last * box.height;
+            }
+          }
           if (w !== box.width || h !== box.height) {
             for (const label of svg.parentElement.querySelectorAll(':scope > .latex-row-number')) {
               const old = parseFloat(label.style.top);

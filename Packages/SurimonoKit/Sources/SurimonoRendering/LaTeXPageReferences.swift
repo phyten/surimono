@@ -26,6 +26,7 @@ enum LaTeXPageReferences {
         init(_ state: LaTeXPageNumbers) {
             label = state.label
             lines = .init(top: state.header, bottom: state.footer)
+            lines.usesFancyFields = state.usesFancyFields
             lines.headerFont = state.headerFont
             lines.numberFont = state.numberFont
             lines.headerNumberRanges = state.numberRanges(header: true)
@@ -94,12 +95,18 @@ enum LaTeXPageReferences {
             el.prepend(probe);
             return;
           }
+          const localPage = el.dataset.latexPageAction === 'thispagestyle';
           if (bare) el = paragraph;
           const transparent = 'template,style,.latex-pagebreak,span:empty';
           let previous = el.previousElementSibling;
           while (previous && previous.matches('style,span:empty')) previous = previous.previousElementSibling;
           let next = el.nextElementSibling;
-          if (previous && !previous.matches(transparent) && (!next || next.matches('template[data-latex-break],.latex-pagebreak'))) {
+          // An inline maketitle still belongs to the current page. A separate title
+          // has already shipped it, so a following declaration travels with the next text.
+          const inlineTitle = previous?.matches('body[data-latex-title-layout="inline"] .latex-title-block');
+          const shippedTitle = previous?.matches('body[data-latex-title-layout="separate"] .latex-title-block,.latex-titlepage');
+          if (previous && !shippedTitle && !previous.matches(transparent) &&
+              (localPage && inlineTitle || !next || next.matches('template[data-latex-break],.latex-pagebreak'))) {
             previous.append(probe);
             return;
           }

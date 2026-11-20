@@ -60,6 +60,45 @@ func movement() {
     #expect(Magnitude(maxLuminance: 13).classify(tolerance) == .changed)
 }
 
+@Test("実TeXとの照合では行番号を柱や表の数字と取り違えず本文の改ページは数える")
+func referenceNumbers() {
+    func page(_ entries: [(String, Double, Double)]) -> Page {
+        Page(
+            width: 600, height: 840, lineCount: entries.count,
+            lines: entries.map { Line(text: $0.0, x: $0.1, y: $0.2, width: 10, height: 9) })
+    }
+    let old = Document(
+        pages: [page([("3", 375, 440), ("1", 295, 787), ("x = 27", 90, 750)]), page([])],
+        pageCount: 2, textSHA256: "", fonts: [])
+    let new = Document(
+        pages: [
+            page([("1", 78, 166), ("3", 78, 195), ("3", 375, 438), ("1", 295, 790)]),
+            page([("x = 27", 90, 70), ("1", 78, 120)]),
+        ], pageCount: 2, textSHA256: "", fonts: [])
+    let result = compareLayout(old, new, texReference: true)
+    #expect(
+        result.moves == [
+            Move(text: "3", fromPage: 1, toPage: 1, dx: 0, dy: -2),
+            Move(text: "1", fromPage: 1, toPage: 1, dx: 0, dy: 3),
+            Move(text: "x = 27", fromPage: 1, toPage: 2, dx: 0, dy: -680),
+        ])
+    #expect(result.metrics.maxShiftPt == 680 && result.metrics.repaginatedLines == 1)
+    #expect(result.edits.map(\.text) == compareLayout(old, new).edits.map(\.text))
+    #expect(compareLayout(new, old, texReference: true).metrics.maxShiftPt == 680)
+}
+
+@Test("参照PDFで再現する旧方式の行移動だけを換算して承認済み画像の差を保つ")
+func approvedReferenceNumbers() {
+    let reference = doc([("1", 116)])
+    var approved = doc([("1", 30), ("1", 117)])
+    var stored = compareLayout(reference, approved).metrics
+    stored.changedAreaRatio = 0.02
+    approved.fidelity = stored
+    #expect(comparableFidelity(of: approved, against: reference)?.maxShiftPt == 1)
+    #expect(comparableFidelity(of: approved, against: reference)?.changedAreaRatio == 0.02)
+    #expect(comparableFidelity(of: approved, against: doc([("1", 102)])) == stored)
+}
+
 @Test("マニフェストの重複・出力引数・パス逸脱を拒む")
 func manifest() throws {
     let item = SnapshotCase(id: "test", kind: .document, input: "Samples/sample.md", arguments: [], tags: ["sample"])

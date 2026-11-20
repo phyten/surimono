@@ -1,0 +1,20 @@
+Window tracing sheet.
+Beside the window.
+x = 27
+1 Fold
+Alpha paper.
+Beta paper.
+1
+Gamma paper.
+Delta paper.
+2
+Second tracing sheet.
+Beside the window.
+x = 27
+3
+2 Fold again
+Alpha paper.
+Beta paper.
+Gamma paper.
+Delta paper.
+4

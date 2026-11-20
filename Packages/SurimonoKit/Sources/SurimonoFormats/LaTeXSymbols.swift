@@ -265,6 +265,12 @@ package enum LaTeXSymbols {
             return "calc(\(points) * var(--tex-pt, 0.996264pt))"
         }
         if source.trimmingCharacters(in: .whitespacesAndNewlines) == "0" { return "0px" }
+        if let match = source.trimmingCharacters(in: .whitespacesAndNewlines)
+            .wholeMatch(of: /(-?[0-9]*\.?[0-9]+)\s*\\?zw/),
+            let count = Double(match.1), count.isFinite, abs(count) < 100_000
+        {
+            return "calc(\(LaTeXPageSettings.number(count)) * var(--latex-zw, 1ic))"
+        }
         return relativeLength(source)
     }
 }

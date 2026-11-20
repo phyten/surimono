@@ -1,0 +1,53 @@
+{
+  "fonts" : [
+    "Helvetica",
+    "Helvetica-Bold",
+    "HiraginoSans-W4",
+    "HiraginoSans-W7"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 97.2,
+      "height" : 841.9,
+      "lastY" : 101.6,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 24.7,
+          "text" : "開始 / Start",
+          "width" : 60.7,
+          "x" : 60.6,
+          "y" : 97.2
+        },
+        {
+          "height" : 20.3,
+          "text" : "印刷 / Print",
+          "width" : 60,
+          "x" : 261.8,
+          "y" : 61.7
+        },
+        {
+          "height" : 24.7,
+          "text" : "用紙 / Paper",
+          "width" : 68.9,
+          "x" : 189.7,
+          "y" : 97.2
+        },
+        {
+          "height" : 26.8,
+          "text" : "A4 → A5 確認 / Preview 完了 / Done",
+          "width" : 333.9,
+          "x" : 196.7,
+          "y" : 101.6
+        }
+      ],
+      "textHeight" : 66.8,
+      "textLeft" : 60.6,
+      "textTop" : 61.7,
+      "textWidth" : 469.9,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "a2675f74efe5c87eb3a364a852ab05ed3eb0295a07e210cc3e77570018880564"
+}

@@ -1388,5 +1388,199 @@
    "tolerance",
    "emergency-stretch"
   ]
+ },
+ {
+  "id": "097",
+  "dir": "097-ltjsreport-grid",
+  "title": "霧窓の採光記録",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 5,
+  "features": [
+   "chapter",
+   "linespread",
+   "fancyhdr",
+   "caption",
+   "tcolorbox"
+  ]
+ },
+ {
+  "id": "098",
+  "dir": "098-ltjsarticle-notebook",
+  "title": "折板の寸法",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "listings",
+   "enumitem",
+   "minipage",
+   "tabularx",
+   "longtable",
+   "luatexja-fontspec"
+  ]
+ },
+ {
+  "id": "099",
+  "dir": "099-jlreq-divisions",
+  "title": "凍砂の記録",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "jlreq",
+   "part",
+   "chapter",
+   "section"
+  ]
+ },
+ {
+  "id": "100",
+  "dir": "100-bxjsreport-jbase",
+  "title": "薄片の記録",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "bxjsreport",
+   "jbase",
+   "part",
+   "chapter"
+  ]
+ },
+ {
+  "id": "101",
+  "dir": "101-jsarticle-page-edge",
+  "title": "風見輪の刻み",
+  "category": "Japanese typesetting",
+  "engine": "uplatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "jsarticle",
+   "tabularx",
+   "minipage",
+   "figure",
+   "kept section"
+  ]
+ },
+ {
+  "id": "102",
+  "dir": "102-jsreport-chapters",
+  "title": "砂時計の枠",
+  "category": "Japanese typesetting",
+  "engine": "uplatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 1,
+  "features": [
+   "jsreport",
+   "chapter",
+   "linespread"
+  ]
+ },
+ {
+  "id": "103",
+  "dir": "103-ltjsreport-registers",
+  "title": "砂窓の観察記録",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 6,
+  "features": [
+   "ltjsreport",
+   "parskip",
+   "chapter",
+   "tabularx",
+   "longtable",
+   "tcolorbox",
+   "caption",
+   "bibliography"
+  ]
+ },
+ {
+  "id": "104",
+  "dir": "104-ltjsarticle-environments",
+  "title": "測定の準備",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 2,
+  "features": [
+   "ltjsarticle",
+   "titlepage",
+   "vfill",
+   "minipage",
+   "enumitem",
+   "verse",
+   "listings"
+  ]
+ },
+ {
+  "id": "105",
+  "dir": "105-ltjsarticle-page-end",
+  "title": "窓の写し取り用紙",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 4,
+  "features": [
+   "ltjsarticle",
+   "page-end display",
+   "kept section",
+   "vspace"
+  ]
+ },
+ {
+  "id": "106",
+  "dir": "106-ltjsarticle-block-heights",
+  "title": "窓札の観察",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 4,
+  "features": [
+   "ltjsarticle",
+   "environment spacing",
+   "framed listing",
+   "float captions",
+   "longtable",
+   "top-aligned minipages",
+   "display skips",
+   "bibliography"
+  ]
+ },
+ {
+  "id": "107",
+  "dir": "107-ltjsarticle-line-breaks",
+  "title": "折り目と紙窓の記録",
+  "category": "Japanese typesetting",
+  "engine": "lualatex",
+  "compiles": true,
+  "reason_if_not": null,
+  "pages": 8,
+  "features": [
+   "run-in headings",
+   "deferred floats",
+   "description label width",
+   "Japanese line breaks",
+   "consecutive displays",
+   "listing line numbers",
+   "longtable caption",
+   "comment paragraphs"
+  ]
  }
 ]

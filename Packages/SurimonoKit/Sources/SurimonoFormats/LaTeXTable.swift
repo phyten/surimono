@@ -76,8 +76,19 @@ struct LaTeXTable {
     var targetWidth: String?
     var columnTypes: [Character: String] = [:]
 
+    static let spacingRegisters: Set<String> = ["tabcolsep", "ltleft", "ltright", "ltpre", "ltpost"]
+    var spacing: [String: String] = [:]
     var arrayStretch: Double?
     var extraRowHeight: String?
+    var japaneseSize: String?
+    var japaneseMetrics: LaTeXLabelMetrics?
+
+    private func trackWidth(_ css: String) -> String {
+        guard japaneseMetrics != nil, css.hasSuffix("%"), let percent = Double(css.dropLast()) else { return css }
+        // A TeX paragraph column resolves linewidth against the enclosing text, even in
+        // a naturally sized longtable. CSS percentages alone refer to the table itself.
+        return "calc(\(LaTeXPageSettings.number(percent / 100)) * var(--latex-table-measure, 100%))"
+    }
 
     func html(
         color: (String, String?) -> String? = { LaTeXSymbols.cssColor($0, model: $1, defined: [:]) },
@@ -121,7 +132,7 @@ struct LaTeXTable {
                     let fallback = column == "m" ? "middle" : column == "b" ? "bottom" : "top"
                     style.append("vertical-align: var(--latex-cell-align, \(fallback))")
                 }
-                if let width = format.width {
+                if let width = format.width.map(trackWidth) {
                     style.append("width: \(width)")
                     if tableWidth != nil { style.append("min-width: \(width)") }
                 }
@@ -185,7 +196,14 @@ struct LaTeXTable {
         }
         let thead = head.isEmpty ? "" : "<thead>\n\(head)</thead>"
         let cssClass = isLongtable ? "latex-tabular latex-longtable" : "latex-tabular"
-        var strut: [String] = []
+        let spacingCSS = LaTeXPageSettings.cssVariables(spacing)
+        var strut = spacingCSS.isEmpty ? [] : [spacingCSS]
+        if let japaneseSize, let pitch = japaneseMetrics?.baseline(for: japaneseSize) {
+            strut += [
+                "font-size: var(--latex-size-\(japaneseSize))",
+                "--latex-array-baseline: \(LaTeXPageSettings.number(pitch))",
+            ]
+        }
         if let arrayStretch, arrayStretch.isFinite, arrayStretch > 0, arrayStretch <= 100 {
             strut.append("--latex-arraystretch: \(LaTeXPageSettings.number(arrayStretch))")
         }
@@ -193,13 +211,30 @@ struct LaTeXTable {
         if let tableWidth {
             strut += ["width: \(tableWidth)", "--latex-x-share: \(LaTeXPageSettings.number(100 / Double(flexible)))%"]
         }
+        // A grid of paragraph columns has no natural-width cells to measure. Give the fixed
+        // tracks their entire outer widths and let the remaining X tracks share the difference.
+        let paragraphGrid = tableWidth != nil && columns.allSatisfy { $0.paragraph == "X" || $0.width != nil }
+        let tracks =
+            paragraphGrid
+            ? "<colgroup>"
+                + columns.enumerated().map { index, column in
+                    let pads = (column.noLeadingSpace ? 0 : 1) + (column.noTrailingSpace ? 0 : 1)
+                    let rules =
+                        (index == 0 && column.ruleLeft ? 1 : 0)
+                        + (column.ruleRight || (index + 1 < columns.count && columns[index + 1].ruleLeft) ? 1 : 0)
+                    guard let width = column.width.map(trackWidth) else { return "<col>" }
+                    return
+                        "<col style=\"width: calc(\(width) + \(pads) * var(--latex-tabcolsep, calc(6 * var(--tex-pt))) + \(rules) * .4 * var(--tex-pt))\">"
+                }.joined() + "</colgroup>" : ""
         let sized = tableWidth == nil ? "" : " data-latex-tabularx"
         let style = strut.isEmpty ? "" : " style=\"\(strut.joined(separator: "; "))\""
         // babel's basic bidi mode leaves the TeX alignment grid LTR; each entry still reads RTL.
         let direction = basicBidi ? " dir=\"ltr\"" : ""
         let html =
-            "<table\(direction) class=\"\(cssClass)\"\(sized)\(style)>\(thead)<tbody>\n\(bodyHTML)</tbody></table>\n"
-        return captions.isEmpty ? html : "<figure class=\"latex-table latex-longtable\">\n\(captions)\(html)</figure>\n"
+            "<table\(direction) class=\"\(cssClass)\"\(sized)\(style)>\(tracks)\(thead)<tbody>\n\(bodyHTML)</tbody></table>\n"
+        let wrapper = spacingCSS.isEmpty ? "" : " style=\"\(spacingCSS)\""
+        return captions.isEmpty
+            ? html : "<figure class=\"latex-table latex-longtable\"\(wrapper)>\n\(captions)\(html)</figure>\n"
     }
 
     /// More columns than any page holds; the specification stops growing there, so nested `*{100}{…}` stays small.

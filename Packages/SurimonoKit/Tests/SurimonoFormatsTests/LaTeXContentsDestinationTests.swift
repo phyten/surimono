@@ -18,7 +18,10 @@ struct LaTeXContentsDestinationTests {
         #expect(Set(targets).count == targets.count)
         #expect(targets.allSatisfy { id in id.utf8.allSatisfy { $0 < 128 } && body.contains("id=\"\(id)\"") })
         #expect(contents.contains("<a href=\"#sec-u1\">序文</a>"))
-        #expect(body.contains("<h2 id=\"sec-u1\">はじめに</h2>"))
+        #expect(
+            body.contains(
+                "<h2 data-latex-heading=\"chapter\" id=\"sec-u1\"><span class=\"latex-chapter-title\">はじめに</span></h2>")
+        )
         #expect(body.contains(#"data-latex-page-action="pagenumbering" data-value="roman""#))
         #expect(body.contains(#"data-latex-page-action="pagenumbering" data-value="arabic""#))
     }

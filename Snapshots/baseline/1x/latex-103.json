@@ -1,0 +1,392 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.029501131677673396,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 2,
+    "maxBoxDeltaPt" : 12.5,
+    "maxLuminance" : 172.6875,
+    "maxShiftPt" : 10.1,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 17
+  },
+  "fonts" : [
+    "Helvetica",
+    "HelveticaNeue",
+    "HelveticaNeue-Medium",
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "HiraMinProN-W3"
+  ],
+  "pageCount" : 6,
+  "pages" : [
+    {
+      "firstY" : 46.2,
+      "height" : 841.9,
+      "lastY" : 305.1,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 519.4,
+          "y" : 46.2
+        },
+        {
+          "height" : 37.6,
+          "text" : "目次",
+          "width" : 45.8,
+          "x" : 70.9,
+          "y" : 128.7
+        },
+        {
+          "height" : 15.1,
+          "text" : "第1 章 細い砂窓を三枚並べて夕方の光が通る位置を読み取るための観察記録 3",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 216.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "1.1 曇り窓の寸法 3",
+          "width" : 444.3,
+          "x" : 80.1,
+          "y" : 239.9
+        },
+        {
+          "height" : 15.1,
+          "text" : "第2 章 朝の透かし板 4",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 272.3
+        },
+        {
+          "height" : 15.1,
+          "text" : "参考文献 6",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 305.1
+        }
+      ],
+      "textHeight" : 274,
+      "textLeft" : 70.9,
+      "textTop" : 46.2,
+      "textWidth" : 453.5,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 46.2,
+      "height" : 841.9,
+      "lastY" : 249.8,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "2",
+          "width" : 5,
+          "x" : 519.4,
+          "y" : 46.2
+        },
+        {
+          "height" : 37.6,
+          "text" : "図目次",
+          "width" : 68.8,
+          "x" : 70.9,
+          "y" : 128.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "1.1 夕方の印。帯の中央に置いた細い印。 3",
+          "width" : 444.3,
+          "x" : 80.1,
+          "y" : 217
+        },
+        {
+          "height" : 14.1,
+          "text" : "2.1 明るい方の帯。 4",
+          "width" : 444.3,
+          "x" : 80.1,
+          "y" : 249.8
+        }
+      ],
+      "textHeight" : 217.6,
+      "textLeft" : 70.9,
+      "textTop" : 46.2,
+      "textWidth" : 453.5,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 46.2,
+      "height" : 841.9,
+      "lastY" : 573.4,
+      "lineCount" : 15,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "3",
+          "width" : 5,
+          "x" : 519.4,
+          "y" : 46.2
+        },
+        {
+          "height" : 31.3,
+          "text" : "第1 章",
+          "width" : 60,
+          "x" : 70.9,
+          "y" : 127.8
+        },
+        {
+          "height" : 37.6,
+          "text" : "細い砂窓を三枚並べて夕方の光が通る位置",
+          "width" : 435.5,
+          "x" : 70.9,
+          "y" : 181.2
+        },
+        {
+          "height" : 37.6,
+          "text" : "を読み取るための観察記録",
+          "width" : 275.1,
+          "x" : 70.9,
+          "y" : 219
+        },
+        {
+          "height" : 21.7,
+          "text" : "1.1 曇り窓の寸法",
+          "width" : 113.9,
+          "x" : 72.7,
+          "y" : 307.6
+        },
+        {
+          "height" : 14.1,
+          "text" : "砂粒の位置を紙に写す。",
+          "width" : 100.1,
+          "x" : 80.1,
+          "y" : 343.8
+        },
+        {
+          "height" : 14.1,
+          "text" : "紙を裏返してもう一度測る。",
+          "width" : 118.6,
+          "x" : 70.9,
+          "y" : 362.2
+        },
+        {
+          "height" : 12.7,
+          "text" : "図 1.1: 夕方の印。",
+          "width" : 68.2,
+          "x" : 263.5,
+          "y" : 409.7
+        },
+        {
+          "height" : 12.7,
+          "text" : "帯の中央に置いた細い印。",
+          "width" : 99.5,
+          "x" : 247.9,
+          "y" : 424.6
+        },
+        {
+          "height" : 14.1,
+          "text" : "試料 場所 目盛",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 461.3
+        },
+        {
+          "height" : 14.1,
+          "text" : "薄片 北の窓 15",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 485.4
+        },
+        {
+          "height" : 14.1,
+          "text" : "紙片 南の窓 18",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 503.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "小片 西の窓 23",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 522
+        },
+        {
+          "height" : 14.1,
+          "text" : "試料 印の種類 数",
+          "width" : 301,
+          "x" : 147.1,
+          "y" : 555.1
+        },
+        {
+          "height" : 14.1,
+          "text" : "薄片 短い横線 4",
+          "width" : 301,
+          "x" : 147.1,
+          "y" : 573.4
+        }
+      ],
+      "textHeight" : 541.3,
+      "textLeft" : 70.9,
+      "textTop" : 46.2,
+      "textWidth" : 453.5,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 46.2,
+      "height" : 841.9,
+      "lastY" : 418.9,
+      "lineCount" : 9,
+      "lines" : [
+        {
+          "height" : 11.7,
+          "text" : "4",
+          "width" : 5,
+          "x" : 519.4,
+          "y" : 46.2
+        },
+        {
+          "height" : 31.3,
+          "text" : "第2 章",
+          "width" : 60,
+          "x" : 70.9,
+          "y" : 127.8
+        },
+        {
+          "height" : 37.6,
+          "text" : "朝の透かし板",
+          "width" : 137.5,
+          "x" : 70.9,
+          "y" : 181.2
+        },
+        {
+          "height" : 12.7,
+          "text" : "図 2.1: 明るい方の帯。",
+          "width" : 84.8,
+          "x" : 255.3,
+          "y" : 287.7
+        },
+        {
+          "height" : 15.9,
+          "text" : "保管する紙片",
+          "width" : 55.3,
+          "x" : 80.2,
+          "y" : 328.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "三枚の紙を薄い布にはさむ。",
+          "width" : 119.8,
+          "x" : 80.2,
+          "y" : 350.9
+        },
+        {
+          "height" : 12.7,
+          "text" : "淡色 手前 2",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 382.3
+        },
+        {
+          "height" : 12.7,
+          "text" : "濃色 中央 5",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 400.6
+        },
+        {
+          "height" : 12.7,
+          "text" : "灰色 奥側 8",
+          "width" : 453.5,
+          "x" : 70.9,
+          "y" : 418.9
+        }
+      ],
+      "textHeight" : 385.3,
+      "textLeft" : 70.9,
+      "textTop" : 46.2,
+      "textWidth" : 453.5,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 128.7,
+      "height" : 841.9,
+      "lastY" : 46.2,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 37.6,
+          "text" : "保管用の控え",
+          "width" : 137.5,
+          "x" : 70.9,
+          "y" : 128.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "窓の端を包み、試料を戻す。",
+          "width" : 118.6,
+          "x" : 80.1,
+          "y" : 217.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "5",
+          "width" : 5,
+          "x" : 519.4,
+          "y" : 46.2
+        }
+      ],
+      "textHeight" : 184.9,
+      "textLeft" : 70.9,
+      "textTop" : 46.2,
+      "textWidth" : 453.5,
+      "width" : 595.3
+    },
+    {
+      "firstY" : 128.7,
+      "height" : 841.9,
+      "lastY" : 46.2,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 37.6,
+          "text" : "参考文献",
+          "width" : 91.7,
+          "x" : 70.9,
+          "y" : 128.7
+        },
+        {
+          "height" : 14.1,
+          "text" : "[1] 砂窓観察室『試料の読み方』。",
+          "width" : 148.9,
+          "x" : 70.9,
+          "y" : 217.1
+        },
+        {
+          "height" : 14.1,
+          "text" : "[2] 紙帯編集室『印の記録』。",
+          "width" : 130.5,
+          "x" : 70.9,
+          "y" : 235.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "6",
+          "width" : 5,
+          "x" : 519.4,
+          "y" : 46.2
+        }
+      ],
+      "textHeight" : 203.2,
+      "textLeft" : 70.9,
+      "textTop" : 46.2,
+      "textWidth" : 453.5,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "ea410e1635f11e164b1fb26588c0df9ee7d8bee59c1545b6c7aa604576f21261"
+}

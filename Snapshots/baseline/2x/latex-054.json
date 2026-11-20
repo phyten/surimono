@@ -1,0 +1,184 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.01662946204122675,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 176.7,
+    "maxLuminance" : 167.8125,
+    "maxShiftPt" : 24.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 35
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 281.8,
+      "height" : 841.9,
+      "lastY" : 587.7,
+      "lineCount" : 21,
+      "lines" : [
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 56.8,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 56.8,
+          "y" : 303.8
+        },
+        {
+          "height" : 19.1,
+          "text" : "לוח המדידה",
+          "width" : 69.2,
+          "x" : 263.1,
+          "y" : 126.5
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 במאי 2026",
+          "width" : 63.7,
+          "x" : 265.8,
+          "y" : 182
+        },
+        {
+          "height" : 9.9,
+          "text" : "תקציר",
+          "width" : 20.5,
+          "x" : 287.4,
+          "y" : 211.5
+        },
+        {
+          "height" : 11,
+          "text" : "איור 1: מיקום הלוח",
+          "width" : 69.2,
+          "x" : 263.1,
+          "y" : 425.7
+        },
+        {
+          "height" : 11,
+          "text" : "גובה )mm( סימן",
+          "width" : 66.7,
+          "x" : 264.3,
+          "y" : 501.2
+        },
+        {
+          "height" : 11,
+          "text" : "12 1",
+          "width" : 30.9,
+          "x" : 269.3,
+          "y" : 513.6
+        },
+        {
+          "height" : 11,
+          "text" : "18 2",
+          "width" : 30.9,
+          "x" : 269.3,
+          "y" : 525.6
+        },
+        {
+          "height" : 11,
+          "text" : "טבלה 1: גובה הסימנים",
+          "width" : 79,
+          "x" : 258.2,
+          "y" : 547.6
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        },
+        {
+          "height" : 9.9,
+          "text" : "שני סימנים מציינים את מקומו הראשון של הלוח.",
+          "width" : 152.1,
+          "x" : 346,
+          "y" : 226.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "תוכן העניינים",
+          "width" : 71.6,
+          "x" : 466.8,
+          "y" : 255.1
+        },
+        {
+          "height" : 11,
+          "text" : "1 הסימנים",
+          "width" : 44.5,
+          "x" : 493.9,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "2 גובה",
+          "width" : 31.2,
+          "x" : 507.2,
+          "y" : 303.8
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 הסימנים",
+          "width" : 64.1,
+          "x" : 474.3,
+          "y" : 331.9
+        },
+        {
+          "height" : 11,
+          "text" : "״",
+          "width" : 3.7,
+          "x" : 397.7,
+          "y" : 357.8
+        },
+        {
+          "height" : 11,
+          "text" : "״קראו תחילה את הסימן התחתון.",
+          "width" : 112.2,
+          "x" : 401.4,
+          "y" : 357.8
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 גובה",
+          "width" : 45,
+          "x" : 493.5,
+          "y" : 465.8
+        },
+        {
+          "height" : 11,
+          "text" : "מחברת המדידות, 2025, פרק",
+          "width" : 99,
+          "x" : 419.5,
+          "y" : 613.6
+        },
+        {
+          "height" : 15.9,
+          "text" : "]1[מקו",
+          "width" : 37.2,
+          "x" : 501.2,
+          "y" : 587.7
+        }
+      ],
+      "textHeight" : 657.3,
+      "textLeft" : 56.8,
+      "textTop" : 126.5,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "fe1d90dec48f7a9228717617c3e480afb0d28f48a9124a346cfcacd25c842833"
+}

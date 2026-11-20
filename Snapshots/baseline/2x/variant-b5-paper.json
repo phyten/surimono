@@ -1,0 +1,187 @@
+{
+  "fonts" : [
+    "HiraKakuProN-W3",
+    "HiraKakuProN-W6",
+    "HiraginoSans-W3",
+    "HiraginoSans-W4",
+    "Menlo-Bold",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 2,
+  "pages" : [
+    {
+      "firstY" : 38.8,
+      "height" : 728.5,
+      "lastY" : 576.5,
+      "lineCount" : 17,
+      "lines" : [
+        {
+          "height" : 34.9,
+          "text" : "Surimono サンプル",
+          "width" : 190.9,
+          "x" : 42.5,
+          "y" : 38.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "気軽に開いて読むための架空の文書です。",
+          "width" : 211.5,
+          "x" : 42.5,
+          "y" : 77.6
+        },
+        {
+          "height" : 27.1,
+          "text" : "買い物メモ",
+          "width" : 78,
+          "x" : 42.5,
+          "y" : 113
+        },
+        {
+          "height" : 18.4,
+          "text" : "ノート",
+          "width" : 33.6,
+          "x" : 74.6,
+          "y" : 144.1
+        },
+        {
+          "height" : 18.4,
+          "text" : "鉛筆",
+          "width" : 22.4,
+          "x" : 74.6,
+          "y" : 163.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "消しゴム",
+          "width" : 44.4,
+          "x" : 74.6,
+          "y" : 182.6
+        },
+        {
+          "height" : 19.4,
+          "text" : "品物",
+          "width" : 22.4,
+          "x" : 48.5,
+          "y" : 212.4
+        },
+        {
+          "height" : 19.4,
+          "text" : "個数",
+          "width" : 22.4,
+          "x" : 93.8,
+          "y" : 212.4
+        },
+        {
+          "height" : 18.4,
+          "text" : "ノート 2",
+          "width" : 67.7,
+          "x" : 48.5,
+          "y" : 237.8
+        },
+        {
+          "height" : 18.4,
+          "text" : "鉛筆 3",
+          "width" : 67.7,
+          "x" : 48.5,
+          "y" : 263
+        },
+        {
+          "height" : 18.4,
+          "text" : "let message = \"こんにちは、摺物\"",
+          "width" : 197.7,
+          "x" : 42.5,
+          "y" : 294.3
+        },
+        {
+          "height" : 13.1,
+          "text" : "print(message)",
+          "width" : 94.5,
+          "x" : 42.5,
+          "y" : 317.3
+        },
+        {
+          "height" : 18.4,
+          "text" : "まずは一枚、試しに刷ってみましょう。",
+          "width" : 201.5,
+          "x" : 64.7,
+          "y" : 343.1
+        },
+        {
+          "height" : 27.1,
+          "text" : "Graphviz と PlantUML",
+          "width" : 181.7,
+          "x" : 42.5,
+          "y" : 378.5
+        },
+        {
+          "height" : 24.7,
+          "text" : "開始",
+          "width" : 29.9,
+          "x" : 243.3,
+          "y" : 422.8
+        },
+        {
+          "height" : 24.7,
+          "text" : "確認",
+          "width" : 29.9,
+          "x" : 243.3,
+          "y" : 499.6
+        },
+        {
+          "height" : 24.7,
+          "text" : "印刷",
+          "width" : 29.9,
+          "x" : 243.3,
+          "y" : 576.5
+        }
+      ],
+      "textHeight" : 562.5,
+      "textLeft" : 42.5,
+      "textTop" : 38.8,
+      "textWidth" : 230.6,
+      "width" : 515.9
+    },
+    {
+      "firstY" : 47.2,
+      "height" : 728.5,
+      "lastY" : 128.1,
+      "lineCount" : 4,
+      "lines" : [
+        {
+          "height" : 18.5,
+          "text" : "利用者 摺物",
+          "width" : 99.3,
+          "x" : 208.3,
+          "y" : 47.2
+        },
+        {
+          "height" : 17.2,
+          "text" : "印刷依頼",
+          "width" : 41.6,
+          "x" : 230.7,
+          "y" : 74.6
+        },
+        {
+          "height" : 17.2,
+          "text" : "プレビュー",
+          "width" : 51.7,
+          "x" : 238.7,
+          "y" : 96.3
+        },
+        {
+          "height" : 18.5,
+          "text" : "利用者 摺物",
+          "width" : 99.3,
+          "x" : 208.3,
+          "y" : 128.1
+        }
+      ],
+      "textHeight" : 99.5,
+      "textLeft" : 208.3,
+      "textTop" : 47.2,
+      "textWidth" : 99.3,
+      "width" : 515.9
+    }
+  ],
+  "textSHA256" : "1cf238049bd0c1d8ab5d75b8251f02a214cc57d41849a36f654863c0a764377f"
+}

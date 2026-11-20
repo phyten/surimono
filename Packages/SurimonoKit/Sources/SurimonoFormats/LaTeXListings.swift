@@ -40,7 +40,8 @@ extension LaTeXReader {
                     applyListingOptions(style, to: &settings, depth: depth + 1)
                 }
             case "language", "numbers", "linenos", "firstnumber", "caption", "label", "basicstyle", "frame",
-                "keywordstyle", "commentstyle", "stringstyle", "numberstyle", "breaklines", "backgroundcolor":
+                "keywordstyle", "commentstyle", "stringstyle", "numberstyle", "breaklines", "backgroundcolor",
+                "lineskip", "aboveskip", "belowskip", "xleftmargin":
                 settings[key] = value
             default: break
             }
@@ -137,8 +138,20 @@ extension LaTeXReader {
                             key == "numberstyle" && ["tiny", "scriptsize"].contains(name)
                             ? "var(--latex-number-\(name), \(relative))" : relative
                         styles.append("\(prefix)-size: \(value)")
+                        if key == "basicstyle", let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: name) {
+                            styles.append(
+                                "--latex-listing-pitch: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt) * var(--latex-stretch, 1))"
+                            )
+                        }
                     }
                 }
+            }
+        }
+        for key in [
+            "lineskip", "aboveskip", "belowskip", "xleftmargin", "numbersep", "abovecaptionskip", "belowcaptionskip",
+        ] {
+            if let length = settings[key].flatMap(LaTeXSymbols.printLength) {
+                styles.append("--latex-listing-\(key): \(length)")
             }
         }
         if usesDefaultComment, settings["commentstyle"] == nil {
@@ -223,12 +236,22 @@ extension LaTeXReader {
             let caption = settings["caption"].map(inline)
             document.describeTarget(id, kind: "listing", title: caption ?? "")
             let name = captionName("lstlistingname")
-            let separator = document.isJapanese ? "　" : ": "
+            let setup = document.pageSettings.captions.resolve("lstlisting", info: document.classInfo)
+            let separator = setup.separator ?? (document.isJapanese ? "　" : ": ")
+            let label = "<span class=\"latex-caption-label\">\(name) \(HTML.escape(number))"
             let title =
                 caption.map {
-                    "<figcaption><span class=\"latex-caption-label\">\(name) \(HTML.escape(number))</span>\(separator)\($0)</figcaption>\n"
+                    let content =
+                        setup.hangs
+                        ? "\(label)\(separator)</span><span>\($0)</span>" : "\(label)</span>\(separator)\($0)"
+                    let hang = setup.hangs ? " data-latex-caption-hang" : ""
+                    return "<figcaption\(setup.attributes)\(hang)>\(content)</figcaption>\n"
                 } ?? ""
-            html = "<figure class=\"latex-listing\" id=\"\(id)\">\n\(title)\(html)</figure>\n"
+            let skips = style.components(separatedBy: "; ").filter {
+                $0.hasPrefix("--latex-listing-") && $0.contains("skip:")
+            }.joined(separator: "; ")
+            let spacing = skips.isEmpty ? "" : " style=\"\(skips)\""
+            html = "<figure class=\"latex-listing\"\(spacing) id=\"\(id)\">\n\(title)\(html)</figure>\n"
         }
         appendBlock(html)
     }

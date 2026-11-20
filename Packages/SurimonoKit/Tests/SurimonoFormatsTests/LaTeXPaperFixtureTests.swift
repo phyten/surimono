@@ -27,7 +27,7 @@ struct LaTeXPaperFixtureTests {
             \begin{thebibliography}{1}\bibitem{a}折り紙の記録\end{thebibliography}
             \appendix\section{記録票}\label{app}付録\ref{app}。
             \end{document}
-            """#)
+            """#, fontIndex: .testInventory)
         let info = try #require(fragment.latexClass)
         #expect(fragment.language == "ja")
         #expect(!info.isJapanese)

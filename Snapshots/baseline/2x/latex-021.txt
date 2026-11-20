@@ -1,0 +1,46 @@
+Shift log for the settling tank
+Table 1: Readings at ten-minute intervals
+Interval Gate Surface Depth (mm)
+1 open rippled 25
+2 open rippled 26
+3 open rippled 27
+4 open rippled 28
+5 open rippled 29
+6 open rippled 30
+7 open rippled 31
+8 open rippled 32
+9 open rippled 33
+10 open rippled 34
+11 open rippled 35
+12 closed rippled 36
+13 closed rippled 37
+14 closed rippled 38
+15 closed rippled 39
+16 closed rippled 40
+17 closed still 41
+18 closed still 41
+19 closed still 41
+20 closed still 41
+21 closed still 41
+22 closed still 41
+23 closed still 41
+24 closed still 41
+25 closed still 41
+26 closed still 41
+27 closed still 41
+28 closed still 41
+29 closed still 41
+30 closed still 41
+31 closed still 41
+32 closed still 41
+33 closed still 41
+34 closed still 41
+1
+35 closed still 41
+36 closed still 41
+37 closed still 41
+38 closed still 41
+39 closed still 41
+40 closed still 41
+41 closed still 41
+2

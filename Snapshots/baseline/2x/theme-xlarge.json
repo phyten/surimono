@@ -1,0 +1,66 @@
+{
+  "fonts" : [
+    "BIZUDGothic-Bold",
+    "BIZUDGothic-Regular",
+    "Menlo-Regular"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 47.6,
+      "height" : 841.9,
+      "lastY" : 255.5,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 29.8,
+          "text" : "紙見本 · Field notes",
+          "width" : 298,
+          "x" : 42.5,
+          "y" : 47.6
+        },
+        {
+          "height" : 21.3,
+          "text" : "薄い紙に 太字、italic 、code を並べる。",
+          "width" : 370.8,
+          "x" : 42.5,
+          "y" : 101.7
+        },
+        {
+          "height" : 19.2,
+          "text" : "Fold the sheet along the dotted line.",
+          "width" : 355.6,
+          "x" : 80.3,
+          "y" : 153
+        },
+        {
+          "height" : 19.2,
+          "text" : "紙 mm",
+          "width" : 68.1,
+          "x" : 52.9,
+          "y" : 211.1
+        },
+        {
+          "height" : 19.2,
+          "text" : "A5",
+          "width" : 19.2,
+          "x" : 52.9,
+          "y" : 255.5
+        },
+        {
+          "height" : 19.2,
+          "text" : "148",
+          "width" : 28.8,
+          "x" : 92.2,
+          "y" : 255.5
+        }
+      ],
+      "textHeight" : 227.2,
+      "textLeft" : 42.5,
+      "textTop" : 47.6,
+      "textWidth" : 393.4,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "a4ba0a80c2c2802e70db24cb4ec11fa990a742a17404b0176bc4c849ebd327a1"
+}

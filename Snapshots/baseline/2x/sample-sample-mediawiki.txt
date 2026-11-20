@@ -1,0 +1,35 @@
+紙の試験室 / Paper workshop
+観察
+記録
+観察
+折り目に沿って紙をひらく。測定表を参照。A sheet has two faces.
+Infobox trial
+素材
+linen paper
+温度
+20 °C
+生成りの紙
+1. 端をそろえる
+2. 半分に折る
+見当
+位置合わせの目印
+記録者の追記。
+記録
+折りの記録
+回数
+厚み
+1 2 mm
+厚みは tn = 2nt0 と仮定した。1 同じ記録を再掲する。1
+画像が見つかりません: fold-study.png 折り目の 模式図
+Paper opens
+影がひらく
+let folds = 2
+紙の繊維を 目 と呼ぶ。
+関連項目: 紙目
+Workshop ・ [1] {{原文のまま}} / H2O
+a2 + b2
+= c2
+画像が見つかりません: cross-section.png 断面のスケッチ
+この文書では <timeline> を表示できません。
+1. Paper workshop. Trial notebook. 2026
+カテゴリ: 紙の実験

@@ -1,0 +1,77 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.0154228255404726,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 129.3125,
+    "maxShiftPt" : 31.2,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 6,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Routing a sample card",
+          "width" : 160.3,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 11.8,
+          "text" : "Collect Measure",
+          "width" : 121.6,
+          "x" : 235.4,
+          "y" : 192.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "signed",
+          "width" : 27.2,
+          "x" : 342.4,
+          "y" : 212.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "File card",
+          "width" : 37.8,
+          "x" : 320,
+          "y" : 234.6
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: Cards are signed after measurement.",
+          "width" : 202.5,
+          "x" : 196,
+          "y" : 260.8
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 273.1,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e822f0269cb61601e85d970b7e24220bdf2922c7459587c5a3bae6d82091ed25"
+}

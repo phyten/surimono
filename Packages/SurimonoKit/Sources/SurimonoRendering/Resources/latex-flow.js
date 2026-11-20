@@ -21,7 +21,7 @@ const noteBodies = new Map([...body.querySelectorAll('section.footnotes > ol > l
 const seenNotes = new Set();
 const strips = [], segments = [], pendingMeasurements = [];
 const excluded = 'style,script,template,noscript';
-const atomic = '[data-flow-ink-block],figure:not(.latex-longtable):not(.latex-listing),table:not(.latex-longtable),tr,.math-block,.tikz-block,.latex-graphic-box,img,svg,canvas,hr,input,.latex-vspace,.latex-exam-space,.latex-rule,.latex-title-block';
+const atomic = '[data-flow-ink-block],figure:not(.latex-longtable):not(.latex-listing),table:not(.latex-longtable),tr,.math-block,.tikz-block,.latex-graphic-box,img,svg,canvas,hr,input,.latex-vspace,.latex-exam-space,.latex-rule,.latex-title-block,.latex-minipage,.latex-box-row,[data-latex-tcolorbox]:not([data-latex-breakable])';
 const heading = 'h1,h2,h3,h4,h5,h6';
 const boundary = '[data-latex-chapter-opening],[data-flow-ink-block],[data-latex-columns],[data-latex-spacing],[data-latex-wide],[data-latex-break],[data-latex-float],.latex-title-block,.latex-titlepage';
 body.style.cssText += ';margin:0!important;padding:0!important;max-width:none!important;width:auto!important';
@@ -37,6 +37,16 @@ body.replaceChildren(style);
 const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
 // WKPDFConfiguration cannot recover ink painted left of the document's origin. Leave a canvas
 // around the measured strips, independent of their explicitly assigned column widths.
+// WebKit rounds inline baselines to layout pixels, including inside atomic floats and
+// listings. Lay the Japanese grid out at finer resolution and undo that enlargement
+// before measuring or capturing. One PDF point still occupies the same viewport width.
+const fineGrid = body.hasAttribute('data-latex-js-toc') && !!getComputedStyle(body).getPropertyValue('--js-pt').trim();
+if (fineGrid) {
+    body.style.setProperty('zoom', '32', 'important');
+    body.style.setProperty('transform', 'scale(0.03125)', 'important');
+    body.style.setProperty('transform-origin', 'top left', 'important');
+}
+body.style.setProperty('--latex-page-goal', bodyHeight / zoom + 'px');
 const guardPixels = 2;
 body.style.setProperty('padding-left', (Math.max(leftMargin, width / 2) + guardPixels) / zoom + 'px', 'important');
 body.style.setProperty('padding-right', (Math.max(rightMargin, width / 2) + guardPixels) / zoom + 'px', 'important');
@@ -54,7 +64,13 @@ function length(name, fallback) {
 }
 const noteSkip = length('skip-footins', 12), textFloatSep = length('textfloatsep', 25);
 const floatSep = length('floatsep', 15), inTextSep = length('intextsep', 15);
+const sectionTop = length('heading-topskip', 0);
+const zw = fineGrid ? length('zw', 0) / zoom : 0;
+const jsPoint = fineGrid ? length('js-point', 0) : 0;
+const displayShrink = fineGrid ? length('display-shrink', 0) : 0;
 const defaultGap = length('columnsep', 12.4533);
+probe.style.setProperty('width', 'var(--tex-baseline)', 'important');
+const normalPitch = fineGrid ? probe.getBoundingClientRect().width * unit / zoom : 0;
 probe.remove();
 const defaults = {columns:1, gap:defaultGap, rule:0, balance:false, pageNotes:false};
 let segment, run;
@@ -73,6 +89,8 @@ function strip(width) {
     if (!(width > 0)) throw Error('Invalid LaTeX column width');
     const box = document.createElement('div');
     box.dataset.flowStrip = strips.length;
+    // Page-margin ownership uses the requested column boundary. The DOM rounds its width to layout pixels.
+    box.dataset.flowWidth = width;
     box.style.width = width / zoom + 'px';
     body.append(box);
     strips.push(box);
@@ -134,7 +152,7 @@ function content(node, parents) {
             return;
         }
         if (node.matches(excluded)) return;
-        if (node.querySelector(boundary)) {
+        if (!node.matches('.latex-minipage,.latex-box-row,[data-latex-tcolorbox]:not([data-latex-breakable])') && node.querySelector(boundary)) {
             for (const child of [...node.childNodes]) command(child, [...parents, node]);
             return;
         }
@@ -144,7 +162,9 @@ function content(node, parents) {
 function append(node, parents) {
     if (!run) {
         const box = strip(measureWidth());
-        if (segment.items.at(-1)?.forced) box.dataset.flowPageStart = '';
+        if (!fineGrid && segment.items.at(-1)?.forced) box.dataset.flowPageStart = '';
+        if (segment.items.at(-1)?.floatKind) box.dataset.flowAfterFloat = '';
+        if (segment.items.at(-1)?.placement?.includes('H')) box.dataset.flowAfterPinned = '';
         run = {box, parents:[], clones:[box]};
         segment.items.push({run:box});
     }
@@ -182,6 +202,14 @@ for (const seg of segments) {
         }
     }
 }
+if (fineGrid) {
+    // A paragraph entirely in small type has that face's strut. A normal-size
+    // parent strut would add ascent to one face and descent to the other.
+    for (const p of body.querySelectorAll('p:has(> [data-latex-text-size])')) {
+        if (p.childNodes.length === 1) p.style.fontSize = p.firstElementChild.style.fontSize;
+        else p.dataset.flowMixedSize = '';
+    }
+}
 if (seenNotes.size !== noteBodies.size) throw Error('Unpaired LaTeX footnote');
 await Promise.all([document.fonts.ready, ...[...body.querySelectorAll('img')].map(img => img.decode().catch(() => {}))]);
 // Fixed-size graphics and tables can be wider than the newly established column measure.
@@ -190,16 +218,165 @@ for (const el of body.querySelectorAll('img,svg,table,.latex-graphic-box')) {
     if (el.parentElement.closest('svg,.latex-graphic-box')) continue;
     const strip = el.closest('[data-flow-strip]');
     if (!strip) continue;
+    if (fineGrid && el.matches('table')) {
+        const parent = el.parentElement;
+        const css = getComputedStyle(parent);
+        const measure = parent.getBoundingClientRect().width * unit / zoom
+            - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - parseFloat(css.borderLeftWidth) - parseFloat(css.borderRightWidth);
+        if (measure > 0) el.style.setProperty('--latex-table-measure', measure + 'px');
+    }
     const available = strip.getBoundingClientRect().width;
     const natural = el.getBoundingClientRect().width;
     if (natural > available + 0.5) fits.push([el, available / natural * (parseFloat(getComputedStyle(el).zoom) || 1)]);
 }
 for (const [el, scale] of fits) el.style.zoom = scale;
+if (fineGrid) japaneseProseLines(body);
+if (fineGrid && CSS.supports('text-box-trim', 'trim-both')) {
+    for (const row of body.querySelectorAll('.latex-box-row')) {
+        const boxes = [...row.children];
+        if (boxes.length && boxes.every(box => box.matches('.latex-minipage') && box.style.verticalAlign === 'top'
+            && box.firstElementChild?.matches('[data-latex-heading]') && box.lastElementChild?.matches('p'))) {
+            row.dataset.flowHeadingBoxes = '';
+        }
+    }
+    // Longtable restores the depth from before the alignment. The native caption
+    // is a top-aligned parbox whose final glyph depth precedes a full baseline skip.
+    for (const table of body.querySelectorAll('figure.latex-longtable:has(> figcaption:not([data-latex-caption-style]))')) {
+        const cap = table.querySelector(':scope > figcaption'), prev = table.previousElementSibling;
+        const depth = japaneseLineDepth(cap);
+        if (depth !== null) cap.style.setProperty('--latex-last-depth', depth + 'px');
+        const before = prev?.matches('p') ? japaneseLineDepth(prev) : null;
+        if (before !== null) {
+            prev.style.setProperty('--latex-table-prev-depth', before + 'px');
+            table.nextElementSibling?.style.setProperty('--latex-table-prev-depth', before + 'px');
+        }
+    }
+    for (const cap of body.querySelectorAll('figure[data-latex-placement="H"] > figcaption:last-child:not([data-latex-caption-style])')) {
+        const depth = japaneseLineDepth(cap);
+        if (depth !== null) cap.style.setProperty('--latex-last-depth', depth + 'px');
+    }
+}
+// Ink guards can isolate neighbouring blocks in separate capture strips.
+const previous = new WeakMap(), following = new WeakMap();
+for (const segment of segments) for (let i = 1; i < segment.items.length; i++) {
+    const left = segment.items[i-1].run?.lastElementChild, right = segment.items[i].run?.firstElementChild;
+    if (left && right) { previous.set(right, left); following.set(left, right); }
+}
+// TeX forbids a page break between a paragraph's final line and its display,
+// including when a separate strip is needed to capture overhanging formula ink.
+for (const block of body.querySelectorAll('.math-block')) {
+    if ((block.previousElementSibling || previous.get(block))?.matches('p')) block.dataset.flowAfterText = '';
+}
+if (fineGrid) measureJapaneseDisplays();
+
+function measureJapaneseDisplays() {
+    const point = jsPoint / zoom, cssPerRect = unit / zoom;
+    if (!(point > 0 && normalPitch > 0 && zw > 0)) return;
+    const displays = [], markers = [];
+    // A zero-size inline box gives the baseline and advance of the actual last line.
+    function baseline(p, atEnd) {
+        const mark = document.createElement('i');
+        mark.style.cssText = 'display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline';
+        if (atEnd) p.append(mark); else p.prepend(mark);
+        markers.push(mark);
+        return mark;
+    }
+    for (const block of body.querySelectorAll('.math-block')) {
+        const math = block.querySelector(':scope > .math-display'), svg = math?.querySelector(':scope > svg');
+        if (!svg) continue;
+        const aligned = math.hasAttribute('data-latex-first-baseline');
+        if (!aligned && !block.hasAttribute('data-latex-single-display')) continue;
+        const before = block.previousElementSibling || previous.get(block);
+        const next = block.nextElementSibling || following.get(block);
+        const afterHeading = before?.hasAttribute('data-latex-heading'), adjacent = before?.matches('.math-block');
+        if (!before || !(adjacent || afterHeading || before.matches('p')) || getComputedStyle(before).direction !== 'ltr') continue;
+        if (!svg.getBoundingClientRect().height) continue;
+        const normal = getComputedStyle(block.closest('[data-flow-strip]')).fontSize, css = getComputedStyle(block);
+        if (css.fontSize !== normal || !afterHeading && getComputedStyle(before).fontSize !== normal) continue;
+        const stretch = Number(css.getPropertyValue('--latex-stretch').trim() || 1);
+        if (!(stretch > 0 && Number.isFinite(stretch))) continue;
+        // The SVG generator records height and baseline offset in the same em units.
+        // Their ratio survives the print zoom and does not depend on computed SVG styles.
+        const heightEm = parseFloat(svg.getAttribute('height'));
+        let depthRatio = aligned ? 1 - Number(math.dataset.latexLastBaseline) : -parseFloat(svg.style.verticalAlign) / heightEm;
+        let ascentRatio = aligned ? Number(math.dataset.latexFirstBaseline) : 1 - depthRatio;
+        let upperInk = 0, lowerInk = 0;
+        if (svg.hasAttribute('data-latex-tex-top')) {
+            const view = svg.viewBox.baseVal;
+            ascentRatio = (Number(svg.dataset.latexTexFirst) - view.y) / view.height;
+            depthRatio = (view.y + view.height - Number(svg.dataset.latexTexLast)) / view.height;
+            upperInk = (Number(svg.dataset.latexTexTop) - view.y) / view.height;
+            lowerInk = (view.y + view.height - Number(svg.dataset.latexTexBottom)) / view.height;
+        }
+        if (!(ascentRatio > 0 && Number.isFinite(ascentRatio) && depthRatio >= 0 && Number.isFinite(depthRatio))) continue;
+        displays.push({block, math, before, aligned, adjacent, afterHeading, depthRatio, ascentRatio, upperInk, lowerInk,
+            narrow:12 * point * stretch, pitch:normalPitch * stretch,
+            after:next?.matches('p') && getComputedStyle(next).fontSize === normal ? next : null});
+    }
+    for (const d of displays) {
+        d.block.dataset.flowDisplay = 'normal';
+        // The flex item and the paragraph marker use the same HTML coordinate
+        // system. SVG graphics and HTML ranges can report different zoomed bounds.
+        d.edge = baseline(d.math, false);
+        d.edge.style.flex = 'none';
+        if (d.before.matches('p')) d.end = baseline(d.before, true);
+        if (d.after) d.start = baseline(d.after, false);
+    }
+    const depths = new Map();
+    for (const d of displays) {
+        const rect = d.math.getBoundingClientRect();
+        d.ascent = rect.height * cssPerRect * d.ascentRatio;
+        d.depth = rect.height * cssPerRect * d.depthRatio;
+        d.texAscent = d.ascent - rect.height * cssPerRect * d.upperInk;
+        d.texDepth = d.depth - rect.height * cssPerRect * d.lowerInk;
+        // amsmath aligns rows to the full measure. The class uses two quads
+        // beyond the final glyph when choosing the ordinary equation's upper skip.
+        d.short = !d.aligned && (d.adjacent || d.afterHeading ||
+            (d.edge.getBoundingClientRect().left - d.end.getBoundingClientRect().right) * cssPerRect >= 20 * point);
+        const skip = d.short ? 0 : 11 * point;
+        d.above = d.adjacent ? Math.max(0, skip + d.narrow - d.ascent - (depths.get(d.before) || 0))
+            : skip + Math.max(d.narrow, d.texAscent + .12 * zw + point) - d.ascent + (d.afterHeading ? d.pitch : 0);
+        d.below = 9 * point - (d.depth - d.texDepth);
+        depths.set(d.block, d.texDepth);
+    }
+    function applySkips(d) {
+        // Ink outside the TeX box can consume all of a skip. Negative padding
+        // would invalidate both sides of the CSS declaration.
+        const style = d.block.style;
+        style.paddingBlock = Math.max(0, d.above) + 'px ' + Math.max(0, d.below) + 'px';
+        style.marginTop = d.above < 0 ? d.above + 'px' : '';
+        style.marginBottom = d.below < 0 ? d.below + 'px' : '';
+    }
+    for (const d of displays) {
+        d.block.dataset.flowDisplay = d.short ? 'short' : 'normal';
+        applySkips(d);
+        if (d.start) d.start.parentElement.style.setProperty('--latex-display-depth', d.depth + 'px');
+    }
+    // Trim and fractional font metrics vary between print engines. Reconcile the
+    // two *measured* baseline distances, including the leading on the text sides.
+    for (const d of displays) {
+        const rect = d.math.getBoundingClientRect();
+        if (d.end) {
+            const actual = (rect.top - d.end.getBoundingClientRect().top) * cssPerRect + d.ascent;
+            d.above += (d.short ? 0 : 11 * point) + Math.max(d.narrow, d.texAscent + .12 * zw + point) - actual;
+        }
+        if (d.start) {
+            const actual = (d.start.getBoundingClientRect().top - rect.bottom) * cssPerRect + d.depth;
+            const parskip = parseFloat(getComputedStyle(d.start.parentElement).marginTop) || 0;
+            d.below += 9 * point + Math.max(d.pitch, d.texDepth + .88 * zw + point) + parskip - actual;
+        }
+    }
+    for (const mark of markers) mark.remove();
+    for (const d of displays) {
+        applySkips(d);
+        d.block.style.setProperty('--latex-display-bottom', Math.max(0,d.below) + d.depth + 'px');
+    }
+}
 // WebKit positions the next baseline on a layout pixel even when the skip is fractional.
 // Keep integral glue in the strip and place the remainder between vector captures.
 const glueRemainders = new WeakMap(), spacers = [];
 for (const segment of segments) for (const item of segment.items) {
-    if (!item.run) continue;
+    if (fineGrid || !item.run) continue;
     for (const el of item.run.querySelectorAll('.latex-vspace')) {
         if (el.parentElement.closest(atomic)) continue;
         const height = parseFloat(getComputedStyle(el).height);
@@ -212,6 +389,21 @@ for (const segment of segments) for (const item of segment.items) {
 for (const [el, whole, remainder] of spacers) {
     el.style.height = whole / zoom + 'px';
     glueRemainders.set(el, remainder);
+}
+// The class gives one fil to the top and two to the bottom. Measure after wrapping:
+// a long title, a second author line, or a title note reduces that shared space.
+if (fineGrid && body.dataset.latexTitleLayout === 'separate') {
+    for (const title of body.querySelectorAll('.latex-title-block:not(.latex-titlepage *)')) {
+        const line = parseFloat(getComputedStyle(body).lineHeight) * zoom;
+        const noteHeight = [...title.querySelectorAll('[data-flow-note]')].reduce((sum, a) => {
+            const box = pendingMeasurements.find(([id]) => id === a.dataset.flowNote)?.[1];
+            return sum + (box?.getBoundingClientRect().height || 0) * unit;
+        }, 0);
+        const scale = parseFloat(getComputedStyle(body).getPropertyValue('--latex-js-scale')) || 1;
+        const end = line + (title.querySelector('.latex-date') ? 0 : 15 * 1.24533 * zoom * scale);
+        const spare = bodyHeight - title.getBoundingClientRect().height * unit - end - noteHeight - (noteHeight ? noteSkip : 0);
+        title.style.setProperty('--latex-title-fill', Math.max(0,spare) / (3 * zoom) + 'px');
+    }
 }
 // Diagram links were installed before the reader knew each float's final measure.
 for (const anchor of body.querySelectorAll('.surimono-diagram-anchor')) {
@@ -228,7 +420,7 @@ for (const anchor of body.querySelectorAll('.surimono-diagram-anchor')) {
 if (globalThis.surimonoFlowMarks) surimonoFlowMarks();
 const origins = strips.map(box => {
     const r = box.getBoundingClientRect();
-    return {x:(r.left + scrollX)*unit, y:(r.top + scrollY)*unit, width:r.width*unit, height:r.height*unit,
+    return {x:(r.left + scrollX)*unit, y:(r.top + scrollY)*unit, width:Number(box.dataset.flowWidth), height:r.height*unit,
         hasOverhang:!!box.querySelector('[data-flow-ink-block]')};
 });
 function slice(box, start, end) {
@@ -238,7 +430,14 @@ function slice(box, start, end) {
 function whole(box) { return slice(box, 0, origins[+box.dataset.flowStrip].height); }
 for (const [id, box] of pendingMeasurements) notes[id] = whole(box);
 const range = document.createRange();
-function lines(box) {
+function lines(box, endsPage) {
+    // A title page fits on its final baseline. Its final descent can paint into the
+    // margin through captureRects, just like ink from a raised box. Let long titles split.
+    const title = box.children.length === 1 && box.firstElementChild;
+    if (title && title.matches('.latex-titlepage:has(.latex-vfill)') && whole(box).end <= bodyHeight + .001
+        && !title.querySelector('[data-flow-note]')) {
+        return [{slice:whole(box), gap:0, notes:[], wide:false}];
+    }
     const bands = [], paragraphs = new Map();
     const origin = origins[+box.dataset.flowStrip].y;
     function add(rect, el, ids = []) {
@@ -246,9 +445,21 @@ function lines(box) {
         budget();
         const para = el.closest('p,li,pre');
         if (para && !paragraphs.has(para)) paragraphs.set(para, paragraphs.size + 1);
-        bands.push({start:Math.max(0,(rect.top + scrollY)*unit-origin),
-            end:(rect.bottom + scrollY)*unit-origin, para:paragraphs.get(para) || 0,
-            element:el, extra:glueRemainders.get(el) || 0, discard:el.matches('.latex-vspace:not([data-latex-keep-space])'), heading:!!el.closest(heading), ids});
+        let end = (rect.bottom + scrollY)*unit-origin, shrinkAfter = 0;
+        if (el.hasAttribute('data-flow-display') && (el.nextElementSibling || endsPage)) {
+            // Below-display glue belongs to the gap before the next band. Keep the
+            // usual SVG ink guard inside the capture even when that gap is discarded.
+            const css = getComputedStyle(el);
+            const glue = Math.max(0, parseFloat(css.paddingBottom) - .15 * parseFloat(css.fontSize)) * zoom;
+            end -= glue;
+            shrinkAfter = Math.min(glue, displayShrink);
+        }
+        // Expose the shrinkable part of the upper skip as blank space before the
+        // formula. A kept heading and formula can then use it at a page boundary.
+        const shrinkAbove = el.dataset.flowDisplay === 'normal'
+            ? Math.min(displayShrink, parseFloat(getComputedStyle(el).paddingTop) * zoom) : 0;
+        bands.push({start:Math.max(0,(rect.top + scrollY)*unit-origin) + shrinkAbove, end, shrinkAfter, shrinkAbove, para:paragraphs.get(para) || 0,
+            element:el, extra:glueRemainders.get(el) || 0, discard:el.matches('.latex-vspace:not([data-latex-keep-space])'), heading:!!el.closest(heading) && !el.closest('.latex-runin:has(> p)'), ids});
     }
     const walker = document.createTreeWalker(box, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
         acceptNode(n) {
@@ -272,6 +483,7 @@ function lines(box) {
     for (const b of bands.sort((a,b) => a.start - b.start)) {
         const last = rows.at(-1);
         if (last && b.start < last.end - 0.1) {
+            if (b.end >= last.end) last.shrinkAfter = b.shrinkAfter;
             last.end = Math.max(last.end,b.end); last.extra += b.extra; last.heading ||= b.heading; last.discard &&= b.discard;
             if (!last.para) last.para = b.para;
             for (const id of b.ids) last.ids.add(id);
@@ -291,18 +503,22 @@ function lines(box) {
     let first = rows[0].element;
     while (first !== box && first.parentElement && first.parentElement !== box) first = first.parentElement;
     rows[0].start = Math.max(0, Math.min(rows[0].start, (first.getBoundingClientRect().top + scrollY)*unit-origin));
-    rows.at(-1).end = Math.max(rows.at(-1).end, whole(box).end);
+    const last = rows.at(-1);
+    if (!(endsPage && last.shrinkAfter > 0)) last.end = Math.max(last.end, whole(box).end);
     return rows.map((r,i) => ({slice:slice(box,r.start,r.end), notes:[...r.ids], wide:false,
-        gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, discardable:r.discard, extraAfter:r.extra, paragraph:r.para, heading:r.heading}));
+        gap:i ? Math.max(0,r.start-rows[i-1].end) : r.start, shrinkBefore:((rows[i-1]?.shrinkAfter || 0) + r.shrinkAbove) || undefined, discardable:r.discard, extraAfter:r.extra,
+        topSkip:r.element.closest('[data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]') ? sectionTop : 0, paragraph:r.para, heading:r.heading, keepBefore:r.element.hasAttribute('data-flow-after-text') || undefined}));
 }
 // A TeX paragraph ends at the deepest glyph on its final line. Its HTML line box includes
 // extra leading beneath that ink. Count that existing space towards intextsep when a figure
 // actually lands here; deferred floats and consecutive floats retain their own full skips.
 let inkContext;
 function trailingLeading(box, last) {
-    const p = box.lastElementChild, text = p?.firstChild;
-    if (!last || !p?.matches('p') || p.childNodes.length !== 1 || text?.nodeType !== Node.TEXT_NODE
-        || !text.length || text.length > 32768) return 0;
+    const p = box.lastElementChild, text = p?.lastChild;
+    if (!last || !p?.matches('p') || !text) return 0;
+    // A manual line break can precede the final line whose depth TeX measured.
+    if (p.childNodes.length !== 1 && !(fineGrid && [...p.children].every(child => child.tagName === 'BR'))) return 0;
+    if (text.nodeType !== Node.TEXT_NODE || !text.length || text.length > 32768) return 0;
     const css = getComputedStyle(p);
     if (css.writingMode !== 'horizontal-tb' || css.direction !== 'ltr' || css.textTransform !== 'none') return 0;
     inkContext ??= document.createElement('canvas').getContext('2d');
@@ -331,10 +547,30 @@ const bookFloats = ['memoir','scrartcl','scrreprt','scrbook'].includes(body.data
 for (const seg of segments) {
     seg.items = seg.items.flatMap((item, i) => {
         if (item.run) {
-            const rows = lines(item.run), next = seg.items[i+1];
+            const next = seg.items[i+1];
+            const rows = lines(item.run, next?.forced || (!next && seg === segments.at(-1)));
+            // A deferred float leaves the two surrounding text strips adjacent. Measure
+            // the first paragraph's missing afterheading leading at its actual size.
+            const p = item.run.firstElementChild;
+            if (fineGrid && rows.length && p?.matches('p') && i >= 2 && seg.items[i-1].floatKind
+                && seg.items[i-2].run?.lastElementChild?.matches('[data-latex-heading]')) {
+                const natural = p.getBoundingClientRect().height;
+                p.dataset.flowFollowingHeading = '';
+                rows[0].leadingAfterHeading = Math.max(0, (p.getBoundingClientRect().height - natural) * unit);
+                delete p.dataset.flowFollowingHeading;
+            }
             if (next?.floatKind === 'figure' && /[hH]/.test(next.placement)
                 && (bookFloats || next.box.querySelector('figure > p:first-child[data-latex-rule-line]'))) {
                 next.leadingBeforeHere = trailingLeading(item.run, rows.at(-1)?.slice);
+            }
+            if (fineGrid && next?.box && /[hH]/.test(next.placement)) {
+                const previous = item.run.lastElementChild;
+                if (previous?.matches('[data-latex-heading]')) {
+                    const depth = japaneseLineDepth(previous);
+                    if (depth !== null) next.leadingBeforeHere = -depth * zoom - (next.placement.includes('H') ? jsPoint : 0);
+                } else if (next.placement.includes('H') && previous?.matches('p')) {
+                    next.leadingBeforeHere = Math.max(0, trailingLeading(item.run, rows.at(-1)?.slice) - jsPoint);
+                }
             }
             return rows;
         }

@@ -108,6 +108,8 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         package var headerFont: LaTeXElementFont?
         package var numberFont: LaTeXElementFont?
         package var classSize = 10
+        package var japaneseFontName: String?
+        package var headerStrutDepth: Double = 0
         public var headSep: Double
         public var footSkip: Double
 
@@ -150,6 +152,7 @@ public struct PageFurniture: Codable, Hashable, Sendable {
         public var bottom: [String]
         package var headerFont: LaTeXElementFont?
         package var numberFont: LaTeXElementFont?
+        package var usesFancyFields = false
         package var headerNumberRanges: [[NSRange]] = []
         package var footerNumberRanges: [[NSRange]] = []
         public var headRule: Double = 0

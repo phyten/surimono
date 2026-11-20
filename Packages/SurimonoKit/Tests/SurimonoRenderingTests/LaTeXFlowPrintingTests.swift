@@ -8,6 +8,32 @@ import Testing
 
 @MainActor
 struct LaTeXFlowPrintingTests {
+    @Test("単段記事のコード枠は右余白に出た縦罫まで印刷する", .timeLimit(.minutes(1)))
+    func listingRightRule() async throws {
+        let tex = #"""
+            \documentclass{article}\usepackage{listings}
+            \begin{document}\section*{Counting folds}
+            \begin{lstlisting}[basicstyle=\small\ttfamily,numbers=left,frame=single,caption={A rack}]
+            first
+            middle
+            last
+            \end{lstlisting}
+            \end{document}
+            """#
+        let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
+        var settings = RenderSettings(layout: .a4Single, theme: theme, preset: .init(id: "none", name: ""))
+        settings.options.latexMargins = .style
+        let pdf = try await DocumentRenderer().prepare(
+            DocumentSource(data: Data(tex.utf8), format: .latex), settings: settings
+        ).logicalDocument
+        let page = try #require(pdf.page(at: 0))
+        let middle = try #require(pdf.findString("middle").first).bounds(for: page)
+        // The 10pt article measure is 345 TeX points. Only the frame can paint past it mid-line.
+        let edge = Int(middle.minX + 345 * 72 / 72.27)
+        let samples = try (edge + 1...edge + 6).map { try RenderingFixtures.pixel(page, x: $0, y: Int(middle.midY))[0] }
+        #expect(samples.contains { $0 < 230 })
+    }
+
     @Test(
         "本文書体の x 高で節から引用と通常段落への基準線間隔が変わる", .timeLimit(.minutes(1)),
         arguments: [("Times New Roman", 22.20, 33.53), ("Hiragino Mincho ProN", 24.28, 36.69)])

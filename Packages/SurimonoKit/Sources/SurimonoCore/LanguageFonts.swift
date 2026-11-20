@@ -10,7 +10,8 @@ public enum LanguageFonts {
             (
                 .gothic,
                 [
-                    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "YuGothic", "BIZ UDGothic",
+                    "Surimono JS Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "YuGothic",
+                    "BIZ UDGothic",
                     "BIZ UDPGothic", "Osaka", "Toppan Bunkyu Gothic", "Toppan Bunkyu Midashi Gothic",
                 ]
             ),

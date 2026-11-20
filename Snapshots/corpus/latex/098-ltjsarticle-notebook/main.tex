@@ -1,0 +1,41 @@
+\documentclass[a4paper,11pt]{ltjsarticle}
+\usepackage[margin=25mm]{geometry}
+\usepackage{luatexja-fontspec}
+\setmainjfont{Hiragino Mincho ProN}
+\setsansjfont{Hiragino Sans}
+\usepackage{listings,enumitem,tabularx,longtable}
+\lstset{basicstyle=\small\ttfamily,numbers=left,numberstyle=\tiny,frame=single,breaklines=true,xleftmargin=2em,aboveskip=5pt,belowskip=4pt}
+\begin{document}
+\section{折板の寸法}
+測定台の左端を起点とした。\\
+同じ手順でもう一組の板を読む。
+\begin{lstlisting}
+ridge = 12
+valley = 9
+span = ridge + valley
+\end{lstlisting}
+\begin{description}[style=nextline,leftmargin=4em,labelwidth=3em]
+\item[峰] 板の外側の折り線。
+\item[試験用の長い谷線] 内側に引いた細い線。
+\end{description}
+\begin{enumerate}
+\item 切片を並べる。
+\item 頂点を探す。
+\begin{itemize}
+\item 白印の位置を測る。
+\item 黒印の位置を測る。
+\end{itemize}
+\end{enumerate}
+\noindent\begin{tabularx}{\linewidth}{p{32mm}p{57mm}X}
+測定片 & 開口の向き & 残りの幅 \\
+第一片 & 北側 & 17 \\
+第二片 & 南側 & 23
+\end{tabularx}
+\begin{longtable}{lp{35mm}r}
+番号 & 説明 & 回数 \\
+一 & 端を押さえて静かに折り目を開く & 3 \\
+二 & 折り目を閉じる & 5
+\end{longtable}
+\noindent\begin{minipage}[t]{.46\linewidth}\subsection*{手前の台}細い方の板を置く。\end{minipage}\hfill
+\begin{minipage}[t]{.46\linewidth}\subsection*{奥の台}広い方の板を置く。\end{minipage}
+\end{document}

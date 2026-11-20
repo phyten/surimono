@@ -1,0 +1,118 @@
+Start 行間を記す。
+■折り目 Runline 白い紙を重ねる。
+1
+1 Folded
+1.1 Edges
+First 端を揃える。
+Second 裏を見る。
+Third 元に戻す。
+2
+Priorpage 紙。
+3
+図 1 Topmark
+2 Floatmark
+Floatend 紙の位置を記す。
+Secondleaf 紙。
+短 Shortbody 折り目。
+幅広い紙の端
+Longbody 裏の印。
+赤 Redbody 表の印。
+長い折り目
+Widebody 裏の印。
+Gridstart
+折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折
+紙窓札折紙窓札折紙窓札折紙窓札。
+東の「紙窓」
+、西の「細板」
+、青の「角札」
+、赤の「端板」
+、白の「折板」
+、奥の「紙窓」
+、手前の「角札」 、
+南の「折板」。
+紙A 紙B 紙C 紙D 紙E 紙F 紙G 紙H 紙I 紙J 紙K 紙L 紙M 紙N 紙O 紙P 紙Q 紙R 紙S 紙
+T 紙U 紙V 紙W 紙X 紙Y 紙Z 紙。
+Gridend
+4
+Mathstart 紙。
+Mathmid 紙。
+Mathend 紙。
+Proof. Proofstart x の幅を測る。
+Proofend 記録する。
+Mixedbefore 紙。
+Mixedline 小さな窓大きな窓。
+Mixedafter 紙。
+Newpara 別の段落。
+■札 Runend 端を読む。
+3 Afterrun
+InsideNote 縁を記す。
+3.1 Afternote
+Boxline
+白い札
+4 Afterbox
+Versestart 窓。
+Versemid 青い印。
+赤い印。
+Verseend 紙。
+a = 27
+b= 28
+c = 29
+d= 30
+e = 31
+f= 32
+g= {1 x > 0
+0 x ≤ 0
+5
+□
+Lstart 行。
+1 a
+2 b
+3 c
+4 d
+5 e
+6 f
+7 g
+8 h
+9 i
+10 j
+11 k
+12 l
+13 m
+14 n
+15 o
+16 p
+17 q
+Lend 紙。
+LTend 紙。
+Ruleend 紙。
+Listing 1 Listcap
+表 1 Longcap
+RowA 北
+RowB 南
+RowC 西
+6
+Tabstart 窓。
+Tabend 紙。
+5 Fighead
+Figend 紙。
+TabA 北
+TabB 南
+表 2 Tabcap
+図 2 Figcap
+7
+6 Leafverse
+Verseopen 紙。
+Verseclose 縁。
+Beforeplain 紙。
+1 width = 1
+2 count = 4
+Afterplain 紙。
+Afterlong 紙。
+7 Figures
+Afterfig 紙。
+Listing 2 Plaincap
+表 3 Plainlong
+PlainA 北
+PlainB 南
+図 3 Herefig
+8

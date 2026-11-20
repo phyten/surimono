@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.024830568124685773,
+    "changedAreaRatio" : 0.024765208647561588,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 24.6,
-    "maxLuminance" : 167.109375,
-    "maxShiftPt" : 25.4,
+    "maxBoxDeltaPt" : 23,
+    "maxLuminance" : 164.21875,
+    "maxShiftPt" : 24.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -20,7 +20,7 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 129.7,
+      "firstY" : 126.5,
       "height" : 841.9,
       "lastY" : 772.8,
       "lineCount" : 19,
@@ -30,126 +30,126 @@
           "text" : "Deska pomiarowa",
           "width" : 120.8,
           "x" : 237.4,
-          "y" : 129.7
+          "y" : 126.5
         },
         {
           "height" : 13.2,
           "text" : "14 maja 2026",
           "width" : 66.7,
           "x" : 264.3,
-          "y" : 160.8
+          "y" : 181.6
         },
         {
           "height" : 9.9,
           "text" : "Streszczenie",
           "width" : 46.6,
           "x" : 274.3,
-          "y" : 190.7
+          "y" : 211.5
         },
         {
           "height" : 9.9,
           "text" : "Dwa znaki wskazują początkowe położenie deski.",
           "width" : 183.9,
           "x" : 97.2,
-          "y" : 205.1
+          "y" : 226.7
         },
         {
           "height" : 15.9,
           "text" : "Spis treści",
           "width" : 63.1,
           "x" : 56.8,
-          "y" : 233.9
+          "y" : 255.5
         },
         {
           "height" : 11,
           "text" : "1 Znaki 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 261
+          "y" : 281.8
         },
         {
           "height" : 11,
           "text" : "2 Wysokość 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 282.6
+          "y" : 304.2
         },
         {
           "height" : 15.9,
           "text" : "1 Znaki",
           "width" : 58.2,
           "x" : 56.8,
-          "y" : 310.7
+          "y" : 331.5
         },
         {
           "height" : 11,
           "text" : "„Najpierw odczytaj dolny znak”.",
           "width" : 133.6,
           "x" : 81.7,
-          "y" : 336.2
+          "y" : 357.8
         },
         {
           "height" : 11,
           "text" : "Rysunek 1: Położenie deski",
           "width" : 112.5,
           "x" : 241.4,
-          "y" : 404.9
+          "y" : 426.5
         },
         {
           "height" : 15.9,
           "text" : "2 Wysokość",
           "width" : 82.4,
           "x" : 56.8,
-          "y" : 445
+          "y" : 466.6
         },
         {
           "height" : 11,
           "text" : "Znak Wysokość (mm)",
           "width" : 97.8,
           "x" : 248.7,
-          "y" : 480.8
+          "y" : 502.4
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 90,
           "x" : 256.5,
-          "y" : 493.6
+          "y" : 515.2
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 90,
           "x" : 256.5,
-          "y" : 505.6
+          "y" : 527.2
         },
         {
           "height" : 11,
           "text" : "Tabela 1: Wysokość znaków",
           "width" : 116,
           "x" : 239.6,
-          "y" : 528
+          "y" : 548.8
         },
         {
           "height" : 15.9,
           "text" : "Literatura",
           "width" : 64.5,
           "x" : 56.8,
-          "y" : 567.3
+          "y" : 588.9
         },
         {
           "height" : 11,
           "text" : "[1]",
           "width" : 11.6,
           "x" : 56.8,
-          "y" : 593.6
+          "y" : 615.2
         },
         {
           "height" : 11,
           "text" : "Zeszyt pomiarów, 2025, Rozdział 2.",
           "width" : 146.4,
           "x" : 76.7,
-          "y" : 593.6
+          "y" : 615.2
         },
         {
           "height" : 11,
@@ -159,9 +159,9 @@
           "y" : 772.8
         }
       ],
-      "textHeight" : 654.1,
+      "textHeight" : 657.3,
       "textLeft" : 56.8,
-      "textTop" : 129.7,
+      "textTop" : 126.5,
       "textWidth" : 481.6,
       "width" : 595.3
     }

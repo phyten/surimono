@@ -1,0 +1,56 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.028241327300150828,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 146.671875,
+    "maxShiftPt" : 26.8,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 0
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 3,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "A section through the filter",
+          "width" : 195.2,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: Hatching marks the granular bed below the water.",
+          "width" : 263.5,
+          "x" : 165.5,
+          "y" : 271.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 303.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "b576d508fffa3ece6618f002eb7aa61c058a3deb32ed2e93ee2e119e84628dec"
+}

@@ -1,0 +1,2110 @@
+{
+  "format-image" : {
+    "fonts" : [
+
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "format-pdf" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "format-zip" : {
+    "fonts" : [
+
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-001" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-002" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-003" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-004" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-005" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-006" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-007" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-008" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-009" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-010" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-011" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-012" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-013" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-014" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-015" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-016" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-017" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-018" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-019" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-020" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-021" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-022" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-023" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-024" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-025" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-026" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-027" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-028" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-029" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-030" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-031" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-032" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-033" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-034" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-035" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-036" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-037" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-038" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-039" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-040" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-041" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-042" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-043" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-044" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-045" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-046" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-047" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-048" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-049" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-050" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-051" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-052" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-053" : {
+    "fonts" : [
+      "GeezaPro",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-054" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-055" : {
+    "fonts" : [
+      "STSongti-SC-Bold",
+      "STSongti-SC-Regular",
+      "SimSong-Bold",
+      "SimSong-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-056" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue-Bold",
+      "HiraginoSansGB-W6",
+      "PingFangSC-Regular",
+      "PingFangSC-Semibold",
+      "STSongti-SC-Bold",
+      "STSongti-SC-Regular",
+      "SimSong-Bold",
+      "SimSong-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-057" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "STSongti-TC-Bold",
+      "STSongti-TC-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-058" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue-Bold",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HiraginoSansGB-W6",
+      "PingFangTC-Regular",
+      "PingFangTC-Semibold",
+      "STSongti-TC-Bold",
+      "STSongti-TC-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-059" : {
+    "fonts" : [
+      "AppleMyungjo"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-060" : {
+    "fonts" : [
+      "AppleMyungjo",
+      "AppleSDGothicNeo-Bold",
+      "AppleSDGothicNeo-Regular",
+      "Helvetica",
+      "HelveticaNeue",
+      "HelveticaNeue-Bold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-061" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-062" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HelveticaNeue-Medium",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-063" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-064" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-065" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-066" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-067" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-068" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-069" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-070" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-071" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-072" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-073" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-074" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-075" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-076" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-077" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-078" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-079" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-080" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-081" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-082" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-083" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-084" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-085" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-086" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-087" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-088" : {
+    "fonts" : [
+      "TimesNewRomanPS-BoldItalicMT",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPS-ItalicMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-089" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-090" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-091" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-092" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-093" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-094" : {
+    "fonts" : [
+      "Helvetica",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-095" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "TimesNewRomanPS-BoldMT",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-096" : {
+    "fonts" : [
+      "Helvetica"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-097" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HelveticaNeue-Medium",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-098" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HiraMinProN-W3",
+      "HiraginoSans-W3",
+      "HiraginoSansGB-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-099" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue-Bold",
+      "HiraKakuProN-W6",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-100" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HiraKakuProN-W3",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-101" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HiraKakuProN-W3",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-102" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HiraKakuProN-W3",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-103" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HelveticaNeue-Medium",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-104" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HiraKakuProN-W3",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-105" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-106" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HelveticaNeue-Medium",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "latex-107" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HiraKakuProN-W3",
+      "HiraMinProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-booklet-demo-md" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-callouts-md" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-markdown-features-md" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "HiraginoSans-W6",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-mermaid-md" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-preflight-md" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-adoc" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "HiraginoSans-W4",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-csv" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-dj" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W4",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-docx" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-dot" : {
+    "fonts" : [
+      "Helvetica",
+      "Helvetica-Bold",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-html" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-ipynb" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-json" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-md" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "HiraginoSans-W4",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-mediawiki" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-org" : {
+    "fonts" : [
+      "Helvetica",
+      "Helvetica-Bold",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "Menlo-Bold",
+      "Menlo-Italic",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-puml" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-qmd" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-rmd" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-sjis-txt" : {
+    "fonts" : [
+      "HiraKakuProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-tex" : {
+    "fonts" : [
+      "Helvetica",
+      "HelveticaNeue",
+      "HelveticaNeue-Medium",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraMinProN-W3",
+      "Menlo-Regular",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-textile" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W4",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "sample-sample-txt" : {
+    "fonts" : [
+      "HiraKakuProN-W3"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-academic" : {
+    "fonts" : [
+      "HiraKakuProN-W6",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-ai" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HiraginoSans-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-airy" : {
+    "fonts" : [
+      "AvenirNext-DemiBold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "AvenirNext-UltraLight",
+      "HiraginoSans-W3",
+      "HiraginoSans-W4",
+      "HiraginoSans-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-api" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Italic",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-autumn" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "YuGo-Bold",
+      "YuGo-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-blueprint" : {
+    "fonts" : [
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "AvenirNextCondensed-Bold",
+      "AvenirNextCondensed-DemiBold",
+      "HiraginoSans-W4",
+      "HiraginoSans-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-bunko" : {
+    "fonts" : [
+      "HiraMinProN-W6",
+      "Menlo-Regular",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-candy" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-changelog" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-checklist" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-christmas" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HoeflerText-Black",
+      "HoeflerText-Italic",
+      "HoeflerText-Regular",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-compact" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-confetti" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-cornell" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-crayon" : {
+    "fonts" : [
+      "ChalkboardSE-Bold",
+      "ChalkboardSE-Regular",
+      "MarkerFelt-Wide",
+      "Menlo-Regular",
+      "TsukuARdGothic-Bold",
+      "TsukuARdGothic-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-crisp" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Italic",
+      "HelveticaNeue-Medium",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "HiraginoSans-W8",
+      "Menlo-Bold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-docs" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-DemiBold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-dotgrid" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-DemiBold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-emoji" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Heavy",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-essay" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-executive" : {
+    "fonts" : [
+      "Baskerville",
+      "Baskerville-Italic",
+      "Didot",
+      "Didot-Bold",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-extra" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraginoSans-W7",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiGothicStdN-ExtraBold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-fine" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-gakkyu" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-github" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "TimesNewRomanPSMT"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-grid" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-haiku" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-halloween" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "Chalkduster",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiGothicStdN-ExtraBold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-handout" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-highcontrast" : {
+    "fonts" : [
+      "HiraginoSans-W5",
+      "HiraginoSans-W7",
+      "HiraginoSans-W8",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-hiragana" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "YuKyo-Bold",
+      "YuKyo-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-homework" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-inksaver" : {
+    "fonts" : [
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Light",
+      "HelveticaNeue-LightItalic",
+      "HelveticaNeue-Medium",
+      "HiraginoSans-W3",
+      "HiraginoSans-W5",
+      "HiraginoSans-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-journal" : {
+    "fonts" : [
+      "Baskerville",
+      "Baskerville-Bold",
+      "Baskerville-Italic",
+      "Baskerville-SemiBold",
+      "Menlo-Regular",
+      "YuMin-Demibold",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-kamishibai" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-kappan" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HoeflerText-Black",
+      "HoeflerText-Italic",
+      "HoeflerText-Regular",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-kinari" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "YuGo-Bold",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-kissaten" : {
+    "fonts" : [
+      "Copperplate-Bold",
+      "HiraMinProN-W6",
+      "HoeflerText-Italic",
+      "HoeflerText-Regular",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-kobun" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "ToppanBunkyuMinchoPr6N-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-labnote" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Italic",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-large" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-latex" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "STIXTwoText"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-latex-article" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-latex-plain-ja" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-latex-plain-ko" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-latex-plain-zh" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-latex-report" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-lecture" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-ledger" : {
+    "fonts" : [
+      "BIZUDGothic-Bold",
+      "BIZUDGothic-Regular",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-letter" : {
+    "fonts" : [
+      "HiraMinProN-W6",
+      "Menlo-Regular",
+      "YuMin-Demibold",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-magazine" : {
+    "fonts" : [
+      "Futura-Bold",
+      "Futura-Medium",
+      "Georgia",
+      "Georgia-Italic",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HiraginoSans-W7",
+      "HiraginoSans-W8",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-manga" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "HiraginoSans-W8",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-manual" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-matchbox" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "HiraginoSans-W8",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-memo" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-mimeograph" : {
+    "fonts" : [
+      "Klee-Demibold",
+      "Klee-Medium",
+      "Osaka"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-mincho" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-minimal" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Italic",
+      "HelveticaNeue-Medium",
+      "HiraginoSans-W4",
+      "HiraginoSans-W5",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-minutes" : {
+    "fonts" : [
+      "BIZUDGothic-Bold",
+      "BIZUDGothic-Regular",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-modern" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Italic",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-monochrome" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-navy" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Italic",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-neon" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "Futura-Bold",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-newspaper" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-newyear" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-nishikie" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-nishoku" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "HiraginoSans-W8",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-notes" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-novel" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HoeflerText-Italic",
+      "HoeflerText-Regular",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-paper" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "YuMin-Demibold",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-picturebook" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular",
+      "TsukuARdGothic-Bold",
+      "TsukuARdGothic-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-pixel" : {
+    "fonts" : [
+      "Menlo-Bold",
+      "Osaka-Mono"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-planner" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Italic",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-poetry" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-proposal" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-rainbow" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Heavy",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "HiraginoSans-W8",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-readme" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-recipecard" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-report" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-ruled" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-science" : {
+    "fonts" : [
+      "Charter-Italic",
+      "Charter-Roman",
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-shinsho" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-showa" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "YuKyo-Bold",
+      "YuKyo-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-shu" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-slate" : {
+    "fonts" : [
+      "AvenirNext-DemiBold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-soft" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular",
+      "TsukuARdGothic-Bold",
+      "TsukuARdGothic-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-solarized" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-spacious" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "YuGo-Bold",
+      "YuGo-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-sparkle" : {
+    "fonts" : [
+      "AppleColorEmoji",
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-spec" : {
+    "fonts" : [
+      "HelveticaNeue",
+      "HelveticaNeue-Bold",
+      "HelveticaNeue-Italic",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-spring" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-standard" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-sticker" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Heavy",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-sticky" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-story" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "HiraMinProN-W6",
+      "HoeflerText-Black",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "ZapfDingbatsITC"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-sumi" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+      "ToppanBunkyuMinchoPr6N-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-summer" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-tanabata" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular",
+      "ToppanBunkyuMidashiMinchoStdN-ExtraBold"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-tategaki" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-telegram" : {
+    "fonts" : [
+      "CourierNewPS-BoldMT",
+      "CourierNewPS-ItalicMT",
+      "CourierNewPSMT",
+      "Menlo-Regular",
+      "Osaka"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-terminal" : {
+    "fonts" : [
+      "HiraginoSans-W4",
+      "HiraginoSans-W7",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-textbook" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular",
+      "YuKyo_Yoko-Bold",
+      "YuKyo_Yoko-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-thesis" : {
+    "fonts" : [
+      "Menlo-Regular",
+      "YuMin-Demibold",
+      "YuMin-Extrabold",
+      "YuMin-Medium"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-typewriter" : {
+    "fonts" : [
+      "AmericanTypewriter",
+      "AmericanTypewriter-Bold",
+      "AmericanTypewriter-Semibold",
+      "CourierNewPSMT",
+      "Osaka"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-ud" : {
+    "fonts" : [
+      "BIZUDGothic-Bold",
+      "BIZUDGothic-Regular",
+      "BIZUDMincho-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-undokai" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-warm" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-DemiBold",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "HiraginoSans-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular",
+      "Palatino-Italic",
+      "Palatino-Roman"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-washi" : {
+    "fonts" : [
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-winter" : {
+    "fonts" : [
+      "AvenirNext-Bold",
+      "AvenirNext-DemiBold",
+      "AvenirNext-Italic",
+      "AvenirNext-Regular",
+      "HiraginoSans-W4",
+      "HiraginoSans-W6",
+      "HiraginoSans-W7",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-worksheet" : {
+    "fonts" : [
+      "BIZUDGothic-Bold",
+      "BIZUDGothic-Regular",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-xlarge" : {
+    "fonts" : [
+      "BIZUDGothic-Bold",
+      "BIZUDGothic-Regular",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-zoo" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-zukan" : {
+    "fonts" : [
+      "HiraMaruProN-W4",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "theme-zuroku" : {
+    "fonts" : [
+      "Baskerville",
+      "Baskerville-Italic",
+      "HiraMinProN-W3",
+      "HiraMinProN-W6",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "variant-a5-booklet" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "HiraginoSans-W4",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "variant-b5-paper" : {
+    "fonts" : [
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "HiraginoSans-W4",
+      "Menlo-Bold",
+      "Menlo-Regular"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  },
+  "variant-latex-face" : {
+    "fonts" : [
+      "Helvetica",
+      "HiraKakuProN-W3",
+      "HiraKakuProN-W6",
+      "HiraginoSans-W3",
+      "HiraginoSans-W4"
+    ],
+    "macOS" : "Version 26.6.2 (Build 25G83)"
+  }
+}

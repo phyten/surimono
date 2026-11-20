@@ -1,0 +1,170 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.024073403720462544,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 23,
+    "maxLuminance" : 179.53125,
+    "maxShiftPt" : 24.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 3
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 126.5,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "A tábua de medição",
+          "width" : 132.9,
+          "x" : 231.4,
+          "y" : 126.5
+        },
+        {
+          "height" : 13.2,
+          "text" : "14 de maio de 2026",
+          "width" : 97.6,
+          "x" : 248.8,
+          "y" : 182
+        },
+        {
+          "height" : 9.9,
+          "text" : "Resumo",
+          "width" : 30.9,
+          "x" : 282.2,
+          "y" : 211.5
+        },
+        {
+          "height" : 9.9,
+          "text" : "Duas marcas indicam a posição inicial da tábua.",
+          "width" : 178.1,
+          "x" : 97.2,
+          "y" : 226.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "Índice",
+          "width" : 38.3,
+          "x" : 56.8,
+          "y" : 255.1
+        },
+        {
+          "height" : 11,
+          "text" : "1 As marcas 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "2 Altura 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 303.8
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 As marcas",
+          "width" : 86.2,
+          "x" : 56.8,
+          "y" : 331.9
+        },
+        {
+          "height" : 11,
+          "text" : "«Ler primeiro a marca inferior.»",
+          "width" : 131.9,
+          "x" : 81.7,
+          "y" : 357.8
+        },
+        {
+          "height" : 11,
+          "text" : "Figura 1: Posição da tábua",
+          "width" : 109,
+          "x" : 243.1,
+          "y" : 425.7
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Altura",
+          "width" : 62.2,
+          "x" : 56.8,
+          "y" : 465.8
+        },
+        {
+          "height" : 11,
+          "text" : "Marca Altura (mm)",
+          "width" : 87.3,
+          "x" : 254,
+          "y" : 501.2
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 77.1,
+          "x" : 264.2,
+          "y" : 513.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 77.1,
+          "x" : 264.2,
+          "y" : 525.6
+        },
+        {
+          "height" : 11,
+          "text" : "Tabela 1: Altura das marcas",
+          "width" : 114.4,
+          "x" : 240.4,
+          "y" : 547.6
+        },
+        {
+          "height" : 15.9,
+          "text" : "Referências",
+          "width" : 71.7,
+          "x" : 56.8,
+          "y" : 587.7
+        },
+        {
+          "height" : 11,
+          "text" : "[1]",
+          "width" : 11.6,
+          "x" : 56.8,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "Caderno de medições, 2025, Capítulo 2.",
+          "width" : 164.6,
+          "x" : 76.7,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 657.3,
+      "textLeft" : 56.8,
+      "textTop" : 126.5,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "1c02dce7d06915d206a5d4e0f4bf55070382eed8a2c57365fe0ca6fa2f17dee9"
+}

@@ -1,0 +1,41 @@
+\documentclass[a4paper,11pt]{ltjsarticle}
+\usepackage[margin=25mm]{geometry}
+\usepackage{enumitem,listings}
+\begin{document}
+\begin{titlepage}
+\noindent 上端の試料札。
+\vfill
+\noindent\begin{minipage}{.6\linewidth}
+\small 折り板の保管手順。\\
+青い面を上へ向ける。\\
+窓の端に揃えて置く。
+\end{minipage}
+\vfill
+\noindent 下端の試料札。
+\end{titlepage}
+\section{測定の準備}
+\subsection{紙を折る}
+\subsubsection*{窓の端}
+最初に基準線を写す。
+\begin{center}紙帯の中央\end{center}
+\begin{quote}右端まで伸びる短い印を描く。\end{quote}
+\begin{verse}
+白い窓の影\\
+青い窓の影
+
+曇り窓の影
+\end{verse}
+\begin{itemize}[itemsep=3pt]
+\item 二枚の紙
+\begin{itemize}
+\item 薄い紙
+\item 厚い紙
+\end{itemize}
+\item 三枚の紙
+\end{itemize}
+\begin{lstlisting}[basicstyle=\small\ttfamily,numbers=left,caption={紙の枚数}]
+white = 2
+blue = 3
+\end{lstlisting}
+枚数を表の裏に記す。
+\end{document}

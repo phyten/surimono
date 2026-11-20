@@ -38,7 +38,7 @@ body[data-latex-size="12"] {
     --tex-partop-sep: 3; --tex-item-sep: 7.5; --tex-top-sep: 10;
     --tex-small: 10.95; --tex-footnote: 10; --tex-large: 14.4; --tex-Large: 17.28; --tex-LARGE: 20.74;
 }
-p { margin-block: var(--latex-parskip, 0) 0; text-indent: var(--latex-parindent, calc(var(--tex-indent) * var(--tex-pt))); }
+p { margin-block: var(--latex-parskip, 0) 0; text-indent: var(--latex-parindent, var(--latex-class-indent, calc(var(--tex-indent) * var(--tex-pt)))); }
 :is(h1, h2, h3, h4, h5, h6) + p, p.latex-noindent, li p, dd p, th p, td p, figcaption p,
 .abstract-title, .latex-title-block p, .latex-theorem > p:first-child, .latex-proof > p:first-child { text-indent: 0; }
 h1, h2, h3, h4, h5, h6 {
@@ -350,8 +350,6 @@ body[data-latex-chapters="true"] h2[id^="sec-"] {
     break-before: page; page-break-before: always;
     padding-block-start: var(--tex-chapter-top, calc((50 + 2 * var(--tex-body)) * var(--tex-pt))); margin-block: 0 1.3em; font-size: calc(var(--tex-Huge) * var(--tex-pt));
 }
-/* jsclasses use two full Japanese baselines for the chapter skip. */
-body[data-latex-js-chapters] { --tex-chapter-top: calc(2 * var(--latex-array-baseline, 16) * var(--tex-pt) + var(--tex-body) * var(--tex-pt)); }
 .latex-pagebreak + :is(h2,h3,h4,h5,h6), :is(h2,h3,h4,h5,h6)[data-latex-after-break],
 [data-flow-page-start] > :is(h2,h3,h4,h5,h6):first-child { margin-block-start: 0; }
 body[data-latex-chapters="true"] h2 > .secnum { display: block; font-size: 0.84em; margin: 0 0 0.7em; }
@@ -458,3 +456,525 @@ body[data-latex-class="moderncv"] h2::before {
    Only the space above a short letter is needed in the printable flow. */
 .latex-letter { display: flex; flex-direction: column; }
 .latex-letter > * { flex: none; }
+
+/* jsclasses scales the entire design. Cvs is saved during class loading, before a
+   document can change baselinestretch. A heading's own line box is stretched. */
+body.format-latex[data-latex-js-toc] {
+    --tex-sans-fonts: var(--latex-cjk-sans-font, var(--latex-sans-font, "Helvetica Neue")), "Surimono JS Gothic", var(--latex-sans-font, "Helvetica Neue"), var(--tex-sans);
+    --tex-body-fonts: var(--latex-js-body-font), var(--latex-cjk-main-font, var(--latex-main-font, "Surimono Computer Modern")), var(--latex-main-font, "Surimono Computer Modern"), "Surimono Computer Modern", var(--tex-serif);
+    --js-pt: calc(var(--latex-js-scale) * var(--tex-pt)); --latex-js-point: var(--js-pt);
+    --latex-floatsep: calc(12 * var(--js-pt)); --latex-intextsep: calc(12 * var(--js-pt));
+    --latex-textfloatsep: calc(20 * var(--js-pt));
+    --latex-zw: calc(9.24715 * var(--js-pt)); --latex-class-indent: calc(var(--latex-jfm-scale) * 1em);
+    --latex-columnsep: calc(2 * var(--latex-zw));
+    --js-normal-pitch: calc(var(--latex-array-baseline) / var(--latex-js-scale));
+    --js-cvs: calc(var(--latex-array-baseline) * var(--tex-pt));
+    --latex-size-tiny: calc(5 * var(--js-pt)); --latex-size-scriptsize: calc(7 * var(--js-pt));
+    --latex-size-huge: calc(20.74 * var(--js-pt));
+    --tex-body: calc(10 * var(--latex-js-scale));
+    --tex-small: calc(9 * var(--latex-js-scale)); --tex-footnote: calc(8 * var(--latex-js-scale));
+    --tex-large: calc(12 * var(--latex-js-scale)); --tex-Large: calc(14.4 * var(--latex-js-scale));
+    --tex-LARGE: calc(17.28 * var(--latex-js-scale)); --tex-Huge: calc(24.88 * var(--latex-js-scale));
+    --tex-baseline: var(--js-cvs); --tex-item-sep: 0; --tex-top-sep: calc(0.5 * var(--latex-array-baseline) * var(--latex-stretch, 1));
+    --latex-tabcolsep: calc(6 * var(--js-pt)); --tex-chapter-top: calc(2 * var(--js-cvs) + var(--js-topskip, 12.761) * var(--js-pt));
+    line-height: calc(var(--js-cvs) * var(--latex-stretch, 1));
+}
+body.format-latex[data-latex-js-toc] [data-latex-heading], body.format-latex[data-latex-js-toc] h2.latex-part {
+    font-family: var(--tex-sans-fonts); font-weight: normal;
+}
+body[data-latex-js-toc] [data-latex-heading]:is(h2,h3,h4,h5):not([data-latex-heading="chapter"],.latex-runin-paragraph) {
+    font-size: calc(var(--js-heading-size, 14.4) * var(--js-pt));
+    line-height: calc(var(--js-heading-pitch, 21) * var(--js-pt) * var(--latex-stretch, 1));
+    margin-block: var(--js-heading-before, var(--js-cvs)) var(--js-heading-after, calc(0.5 * var(--js-cvs)));
+}
+body[data-latex-js-toc] [data-latex-heading="subsection"] { --js-heading-size: 12; --js-heading-pitch: 17; }
+body[data-latex-js-toc] [data-latex-heading="subsubsection"] { --js-heading-size: 10; --js-heading-pitch: var(--js-normal-pitch); --js-heading-after: 0px; }
+body[data-latex-js-twocolumn] [data-latex-heading="section"] {
+    --js-heading-size: 12; --js-heading-pitch: var(--js-normal-pitch); --js-heading-before: calc(.6 * var(--js-cvs)); --js-heading-after: calc(.4 * var(--js-cvs));
+}
+body[data-latex-js-twocolumn] :is([data-latex-heading="subsection"],[data-latex-heading="subsubsection"]) {
+    --js-heading-size: 10; --js-heading-pitch: var(--js-normal-pitch); --js-heading-before: 0px; --js-heading-after: 0px;
+}
+body[data-latex-js-toc] .latex-runin { margin-block-start: calc(.5 * var(--js-cvs)); }
+body[data-latex-js-toc] .latex-runin > h6, body[data-latex-js-toc] [data-latex-heading="paragraph"] { font-size: 1em; }
+body[data-latex-js-chapters] h2[data-latex-heading="chapter"] {
+    padding-block-start: var(--tex-chapter-top); margin-block: 0 calc(3 * var(--js-cvs));
+    font-size: calc(24.88 * var(--js-pt)); line-height: calc(33 * var(--js-pt) * var(--latex-stretch, 1));
+}
+body[data-latex-js-chapters] h2:is([data-latex-heading="chapter"],.latex-part) > .secnum {
+    font-size: calc(20.74 * var(--js-pt)); line-height: calc(28 * var(--js-pt) * var(--latex-stretch, 1));
+    margin-block: 0 var(--js-cvs);
+}
+body[data-latex-js-chapters] h2.latex-part > .secnum { margin-block-end: calc(20 * var(--js-pt)); }
+/* Keep the chapter’s final vskip inside its block so paragraph margins cannot collapse it. */
+body[data-latex-js-chapters] h2[data-latex-heading="chapter"]:has(+ [data-latex-heading]) { padding-block-end: calc(3 * var(--js-cvs)); margin-block-end: 0; }
+body[data-latex-js-toc] table.latex-tabular, body[data-latex-js-toc] table.latex-tabular :is(th,td) {
+    font-size: inherit; line-height: calc(var(--latex-array-baseline) * var(--tex-pt) * var(--latex-stretch, 1));
+}
+body[data-latex-js-toc] table.latex-tabular :is(th,td) { padding-inline: var(--latex-tabcolsep); }
+body[data-latex-js-toc] li :is(ul,ol) { margin-block: var(--latex-list-topsep, 0); }
+body[data-latex-js-toc] :is(ul,ol,dl) p + p { margin-block-start: var(--latex-list-parsep, 0); }
+body[data-latex-js-toc] .latex-description dt { font-family: var(--tex-sans-fonts); font-weight: normal; }
+
+/* jlreq's horizontal report and book put the label and title on one line, centred
+   vertically in five lines of the body grid. Sections reserve three, subsections two. */
+body.format-latex[data-latex-class="jlreq"] {
+    --tex-body: calc(var(--latex-array-baseline) / 1.7); --tex-small: calc(.9 * var(--tex-body)); --tex-footnote: calc(.8 * var(--tex-body));
+    --tex-large: calc(1.2 * var(--tex-body)); --tex-Large: calc(1.4 * var(--tex-body)); --tex-Huge: calc(2.5 * var(--tex-body));
+    --tex-baseline: calc(var(--latex-array-baseline) * var(--tex-pt)); line-height: calc(var(--tex-baseline) * var(--latex-stretch, 1));
+}
+body[data-latex-class="jlreq"] [data-latex-heading]:is(h2,h3,h4,h5):not(.latex-runin-paragraph) {
+    box-sizing: border-box; align-content: center; margin-block: 0; padding-block: 0;
+    min-height: calc(var(--jlreq-lines, 3) * 1.7 * var(--tex-body) * var(--tex-pt) * var(--latex-stretch, 1));
+}
+body[data-latex-class="jlreq"] h2[data-latex-heading="chapter"] { --jlreq-lines: 5; font-size: 2em; }
+body[data-latex-class="jlreq"] [data-latex-heading="subsection"],
+body[data-latex-class="jlreq"] [data-latex-heading="subsubsection"] { --jlreq-lines: 2; }
+body[data-latex-class="jlreq"] h2:is([data-latex-heading="chapter"],.latex-part) > .secnum { display: inline; margin-inline-end: 1em; font-size: inherit; }
+
+figure figcaption[data-latex-caption-style] {
+    font-size: var(--latex-caption-size, inherit); line-height: var(--latex-caption-pitch, inherit);
+    font-family: var(--latex-caption-family, inherit); font-weight: var(--latex-caption-weight, inherit);
+    font-style: var(--latex-caption-shape, inherit); text-align: var(--latex-caption-align, justify);
+    width: var(--latex-caption-width, fit-content);
+}
+figcaption[data-latex-caption-style] > .latex-caption-label {
+    font-size: var(--latex-label-size, inherit); font-family: var(--latex-label-family, inherit);
+    font-weight: var(--latex-label-weight, inherit); font-style: var(--latex-label-shape, inherit);
+}
+figcaption[data-latex-caption-hang] { display: grid; grid-template-columns: max-content minmax(0,1fr); column-gap: var(--latex-caption-label-gap, .25em); }
+.format-latex [style*="--latex-listing-pitch"] pre, .format-latex [style*="--latex-listing-lineskip"] pre {
+    line-height: calc(var(--latex-listing-pitch, var(--tex-baseline)) + var(--latex-listing-lineskip, 0px));
+}
+.format-latex [style*="--latex-listing-pitch"] pre code, .format-latex [style*="--latex-listing-lineskip"] pre code { line-height: inherit; }
+.format-latex [style*="--latex-listing-aboveskip"] pre { margin-block-start: var(--latex-listing-aboveskip); }
+.format-latex [style*="--latex-listing-belowskip"] pre { margin-block-end: var(--latex-listing-belowskip); }
+.format-latex [style*="--latex-listing-xleftmargin"] pre { margin-inline-start: var(--latex-listing-xleftmargin); }
+/* A short label occupies its gutter; a wide unbroken label takes the first flex line alone. */
+.latex-description.latex-nextline > div {
+    display: flex; flex-wrap: wrap; align-items: baseline; padding: 0; text-indent: 0;
+    --desc-indent: var(--latex-list-margin, var(--desc-default-margin, 2.5em));
+    --desc-sep: var(--latex-list-labelsep, .5em);
+    --desc-label: var(--latex-list-labelwidth, calc(var(--desc-indent) - var(--desc-sep)));
+    margin-inline-start: max(0px, calc(var(--desc-indent) - var(--desc-label) - var(--desc-sep)));
+}
+dl.latex-description.latex-nextline { padding-inline-start: 0; }
+.latex-nextline > div > dt {
+    flex: 0 0 auto; min-width: var(--desc-label);
+    width: max-content; max-width: 100%; margin-inline-end: var(--desc-sep);
+}
+.latex-description.latex-nextline > div > dd {
+    flex: 0 0 calc(100% - var(--desc-label) - var(--desc-sep)); margin-inline-start: auto; min-width: 0;
+}
+
+.callout[data-latex-tcolorbox] {
+    --tcb-mm: calc(2.84527559 * var(--tex-pt));
+    --tcb-inset: var(--tcb-boxsep, var(--tcb-mm));
+    --tcb-side: calc(4 * var(--tcb-mm)); --tcb-end: calc(2 * var(--tcb-mm));
+    --callout-color: #404040; --callout-tint: #f2f2f2;
+    margin-block: var(--tcb-before-skip, .5lh) var(--tcb-after-skip, .5lh);
+    --tcb-rule: var(--tcb-boxrule, calc(.5 * var(--tcb-mm)));
+    padding: var(--tcb-toprule,var(--tcb-rule)) var(--tcb-rightrule,var(--tcb-rule)) var(--tcb-bottomrule,var(--tcb-rule)) var(--tcb-leftrule,var(--tcb-rule)); border: 0; border-radius: var(--tcb-arc, var(--tcb-mm));
+    background: var(--callout-color);
+}
+.callout[data-latex-tcolorbox]::before { content: none; }
+.callout[data-latex-tcolorbox] > .callout-title {
+    width: auto; margin: 0; padding-block: var(--tcb-inset); border: 0; border-radius: 0;
+    padding-inline: calc(var(--tcb-inset) + var(--tcb-lefttitle,var(--tcb-side))) calc(var(--tcb-inset) + var(--tcb-righttitle,var(--tcb-side)));
+    background: var(--callout-color); color: var(--tcb-title-ink, white);
+    font-weight: var(--tcb-title-weight, normal); font-style: var(--tcb-title-shape, normal);
+    font-family: var(--tcb-title-family, inherit); font-size: var(--tcb-title-size, inherit); line-height: inherit;
+}
+.latex-tcb-body {
+    padding-inline: calc(var(--tcb-inset) + var(--tcb-leftupper,var(--tcb-side))) calc(var(--tcb-inset) + var(--tcb-rightupper,var(--tcb-side)));
+    background: var(--callout-tint); border-radius: var(--tcb-arc, var(--tcb-mm));
+    padding-block: calc(var(--tcb-inset) + var(--tcb-top,var(--tcb-end))) calc(var(--tcb-inset) + var(--tcb-bottom,var(--tcb-end)));
+}
+[data-latex-tcolorbox]:not([data-latex-parbox-off]) > .latex-tcb-body > p:first-child { text-indent: 0; margin-block-start: 0; }
+.callout[data-latex-breakable] { break-inside: auto; page-break-inside: auto; }
+.latex-minipage, .latex-box-row, table.latex-tabular:not(.latex-longtable) { break-inside: avoid; page-break-inside: avoid; }
+
+table[data-latex-tabularx]:has(> colgroup) { table-layout: fixed; }
+table[data-latex-tabularx]:has(> colgroup) > :is(tbody,thead) > tr > [data-latex-column="X"] { width: auto; }
+
+/* TeX measures interline glue from baselines. Trimming only the junction of two
+   known lines keeps a font's extra descent from changing the class's vertical skips. */
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-toc] p:has(+ [data-latex-heading]) { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+    body[data-latex-js-toc] :is([data-latex-heading="section"],[data-latex-heading="subsection"],[data-latex-heading="subsubsection"]),
+    body[data-latex-js-chapters] h2[data-latex-heading="chapter"] > :is(.secnum,.latex-chapter-title) {
+        display: block; text-box-trim: trim-both; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap + var(--latex-parskip, 0px));
+    }
+    body[data-latex-js-toc] [data-latex-heading] + p {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; margin-block-start: 0; padding-block-start: calc(1lh - 1cap + var(--latex-parskip, 0px));
+    }
+    body[data-latex-js-toc] [data-latex-heading] + p:has(+ [data-latex-heading]) { text-box-trim: trim-both; }
+}
+/* afterheading suppresses the next section's before-skip when no paragraph intervenes. */
+body[data-latex-js-chapters] [data-latex-heading="chapter"] + [data-latex-heading] { --js-heading-before: 0px; }
+
+body[data-latex-class^="bxjs"] { --js-topskip: 10; }
+body[data-latex-js-twocolumn] .latex-runin { margin-block-start: 0; }
+body[data-latex-js-toc] .latex-runin > :is(h5,h6) + p { margin-inline-start: var(--latex-zw); }
+/* The null box above the part starts at topskip. TeX adds another stretchable
+   skip when it ships the page, leaving one third of the spare height above it. */
+body[data-latex-js-chapters] h2.latex-part, body[data-latex-class="jlreq"][data-latex-chapters="true"] h2.latex-part {
+    padding-block-start: calc(var(--latex-text-height-tex-pt) * var(--tex-pt) / 3);
+    line-height: calc(33 * var(--js-pt, var(--tex-pt)) * var(--latex-stretch, 1));
+}
+body[data-latex-js-chapters] h2.latex-part {
+    --part-space: calc((var(--latex-text-height-tex-pt) * var(--tex-pt) - (var(--js-topskip, 12.761) + 20 + (28 + 33) * var(--latex-stretch, 1)) * var(--js-pt)) / 3);
+    padding-block-start: calc(var(--js-topskip, 12.761) * var(--js-pt) + var(--part-space));
+}
+body[data-latex-class="jlreq"][data-latex-chapters="true"] h2.latex-part { text-align: start; text-indent: 1em; }
+
+[data-latex-tcolorbox] > .callout-title + .latex-tcb-body { border-start-start-radius: 0; border-start-end-radius: 0; }
+/* A tcolorbox measures the first glyph's height and the last glyph's depth. The
+   Japanese JFM assigns those two parts of a full-width character in a 9:1 ratio. */
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-toc] [data-latex-tcolorbox] > .callout-title {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block: calc(var(--tcb-inset) + .9 * var(--latex-zw) - 1cap)
+                      calc(var(--tcb-inset) + .1 * var(--latex-zw) + var(--tcb-titlerule,var(--tcb-rule)));
+    }
+    body[data-latex-js-toc] .latex-tcb-body > p:first-child {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic;
+        padding-block-start: max(0px, calc(.9 * var(--latex-zw) - 1cap));
+    }
+    body[data-latex-js-toc] .latex-tcb-body > p:last-child {
+        text-box-trim: trim-end; text-box-edge: cap alphabetic; padding-block-end: calc(.1 * var(--latex-zw));
+    }
+    body[data-latex-js-toc] .latex-tcb-body > p:only-child { text-box-trim: trim-both; }
+}
+body[data-latex-js-toc][data-latex-chapters="false"] h2.latex-part {
+    margin-block: calc(4 * .431 * var(--tex-body) * var(--tex-pt)) calc(3 * .431 * var(--tex-body) * var(--tex-pt));
+    font-size: var(--latex-size-huge);
+    line-height: calc(28 * var(--js-pt) * var(--latex-stretch, 1));
+}
+body[data-latex-js-toc][data-latex-chapters="false"] h2.latex-part > .secnum {
+    display: block; font-size: var(--latex-size-Large); line-height: calc(21 * var(--js-pt) * var(--latex-stretch, 1));
+}
+body[data-latex-js-toc] .latex-leading { line-height: calc(var(--js-cvs) * var(--latex-stretch)); }
+body[data-latex-js-toc][style*="--latex-float-stretch"] figure[data-latex-float] {
+    --latex-stretch: var(--latex-float-stretch); line-height: var(--js-cvs);
+}
+
+body[data-latex-js-chapters] nav[data-latex-chapter-opening] > .latex-contents-title {
+    font: normal var(--latex-size-Huge)/calc(33 * var(--js-pt) * var(--latex-stretch, 1)) var(--tex-sans-fonts);
+    padding-block-start: var(--tex-chapter-top); margin-block: 0 calc(3 * var(--js-cvs));
+}
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-chapters] nav[data-latex-chapter-opening] > .latex-contents-title {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block-start: calc(var(--tex-chapter-top) + 1lh - 1cap + var(--latex-parskip, 0px));
+    }
+}
+
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-chapters] h2.latex-part > :is(.secnum,.latex-chapter-title) {
+        display: block; text-box-trim: trim-both; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+}
+body[data-latex-js-chapters] h2.latex-part:not(:has(> .secnum)) {
+    --part-space: calc((var(--latex-text-height-tex-pt) * var(--tex-pt) - (var(--js-topskip, 12.761) + 33 * var(--latex-stretch, 1)) * var(--js-pt)) / 3);
+}
+
+/* The null box in jsclasses' sectioning command survives a page cut. The paginator
+   reserves its topskip only when this heading actually starts a column. */
+body[data-latex-js-toc] {
+    --latex-heading-topskip: calc(var(--js-topskip, 12.761) * var(--js-pt));
+    --latex-display-shrink: calc(4 * var(--js-pt));
+}
+body[data-latex-js-toc] [data-latex-heading] + [data-latex-heading] { --js-heading-before: 0px; }
+body[data-latex-js-toc][data-latex-chapters="false"] .abstract { line-height: calc(13 * var(--js-pt) * var(--latex-stretch, 1)); }
+body[data-latex-js-toc] :is(.latex-center,blockquote) { margin-block: calc(.5 * var(--js-cvs)); }
+body[data-latex-js-toc] blockquote { margin-inline: calc(3 * var(--latex-zw)) 0; }
+body[data-latex-js-toc] :is(.latex-center,blockquote) > p { margin-block: 0; }
+body[data-latex-js-toc] .latex-verse { white-space: normal; }
+body[data-latex-js-toc] li > :is(ul,ol,dl) {
+    --latex-itemsep: 0px; --latex-list-parsep: 0px; --latex-list-topsep: 0px;
+}
+body[data-latex-js-toc] .latex-bibliography li { margin-block: 0; }
+body[data-latex-js-toc] nav.toc li > a { line-height: calc(var(--js-cvs) * var(--latex-stretch, 1)); padding-block-start: var(--latex-parskip, 0px); }
+body[data-latex-js-chapters] nav.toc [data-latex-list-chapter] { margin-block-start: calc(10 * var(--js-pt)); }
+body[data-latex-js-toc] .latex-description.latex-nextline > div {
+    --desc-default-margin: calc(3 * var(--latex-zw));
+}
+body[data-latex-js-toc] :is(.latex-numbered-listing,.latex-basic-listing) pre { padding-block: 0; padding-inline: 0; }
+/* A source number occupies one box even when the code itself wraps. */
+.format-latex .latex-numbered-listing .code-line[data-no]::before { width: max-content; white-space: nowrap; }
+body[data-latex-js-toc] .latex-numbered-listing { --latex-number-size: 1em; --latex-number-tiny: var(--latex-size-tiny); --latex-number-scriptsize: var(--latex-size-scriptsize); }
+/* A zero-width inline number shares the code baseline even when pre trims its first line.
+   Equal and opposite margins put the number in the gutter without indenting wrapped code. */
+body[data-latex-js-toc] .latex-numbered-listing .code-line[data-no]::before {
+    position: static; display: inline-block; width: 0; line-height: 0; direction: rtl; unicode-bidi: isolate; text-align: start; vertical-align: baseline;
+    margin-right: var(--latex-listing-numbersep, calc(10 * var(--tex-pt))); margin-left: calc(-1 * var(--latex-listing-numbersep, 10 * var(--tex-pt)));
+}
+body[data-latex-js-toc] .latex-numbered-listing .code-line[data-no] > .code-src { display: inline; }
+body[data-latex-js-toc] figure.latex-listing { display: flow-root; margin-block: var(--latex-listing-aboveskip, calc(6 * var(--tex-pt))) var(--latex-listing-belowskip, calc(6 * var(--tex-pt))); }
+body[data-latex-js-toc] figure.latex-listing :is(pre,figcaption) { margin-block: 0; }
+body[data-latex-js-toc] figure.latex-listing figcaption { margin-block: var(--latex-listing-abovecaptionskip, calc(3 * var(--tex-pt))) var(--latex-listing-belowcaptionskip, calc(3 * var(--tex-pt))); }
+body[data-latex-js-toc] figure[data-latex-float] p > img:only-child { margin-block: 0; }
+body[data-latex-js-toc] .latex-description { --latex-list-labelsep: calc(.5 * var(--latex-zw)); }
+body[data-latex-js-toc] [data-flow-after-float] > [data-latex-tcolorbox]:not([data-latex-tcb-plain-skip]):first-child {
+    /* Balanced skips restore the strut depth, less the preceding Japanese box depth. */
+    margin-block-start: max(0px, calc(var(--tcb-before-skip, .5lh) + .3lh - .12 * var(--latex-zw) - var(--latex-parskip, 0px)));
+}
+@supports (text-box-trim: trim-end) {
+    body[data-latex-js-toc] p:has(+ [data-latex-tcb-plain-skip]) {
+        text-box-trim: trim-end; text-box-edge: cap alphabetic; padding-block-end: calc(.12 * var(--latex-zw));
+    }
+    body[data-latex-js-toc] .latex-titlepage:has(.latex-vfill) > p:first-child {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: max(0px, calc(var(--latex-heading-topskip) - 1cap));
+    }
+    body[data-latex-js-toc] .latex-titlepage:has(.latex-vfill) > p:last-child {
+        text-box-trim: trim-end; text-box-edge: cap alphabetic;
+    }
+}
+body[data-latex-js-toc] .latex-longtable {
+    margin-block: var(--latex-ltpre, calc(12 * var(--tex-pt))) var(--latex-ltpost, calc(12 * var(--tex-pt)));
+    margin-inline: var(--latex-ltleft, auto) var(--latex-ltright, auto);
+}
+body[data-latex-js-toc] figure.latex-longtable > table.latex-longtable { margin-block: 0; }
+body[data-latex-js-toc] [data-flow-strip] > table.latex-tabular:not(.latex-longtable) { margin-inline: 0 auto; }
+body[data-latex-js-toc] table.latex-tabular + .latex-runin { margin-block-start: 0; }
+body[data-latex-js-toc] [data-latex-text-size] { line-height: var(--latex-selected-pitch); }
+.latex-titlepage:has(.latex-vfill) {
+    display: flex; flex-direction: column; min-height: var(--latex-page-goal, calc(var(--latex-text-height-tex-pt) * var(--tex-pt)));
+}
+.latex-titlepage .latex-vfill { flex: 1 0 0px; }
+.latex-titlepage:has(.latex-vfill) > :not(.latex-vfill) { flex-shrink: 0; }
+.latex-empty-author { min-height: 1lh; }
+body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-block {
+    /* A null line and the 60pt skip precede the title. The flow pass measures the
+       centre list before distributing the three fil units of remaining height. */
+    padding-block-start: calc((var(--js-topskip, 12.761) + 60) * var(--js-pt) + var(--latex-title-fill, 0px));
+    margin-block-end: 0;
+}
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-block > :is(h1,.latex-author,.latex-date) {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+    body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-block h1 { line-height: calc(25 * var(--js-pt) * var(--latex-stretch,1)); }
+    body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-block :is(.latex-author,.latex-date) { line-height: calc(17 * var(--js-pt) * var(--latex-stretch,1)); }
+    body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-block .latex-author-name { vertical-align: baseline; }
+}
+body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-block .latex-author { margin-block-start: calc(30 * var(--js-pt)); }
+body[data-latex-js-chapters][data-latex-title-layout="separate"] .latex-title-block .latex-date { margin-block-start: calc(15 * var(--js-pt)); }
+
+body[data-latex-js-chapters][data-latex-js-toc] nav.toc .latex-toc-chapter > a { --latex-toc-number-width: calc(4.683 * var(--latex-zw)); }
+.latex-xkanjiskip { display: inline-block; width: .25em; }
+body[data-latex-js-chapters] nav.toc .latex-toc-chapter > a > .latex-page-label { font-weight: normal; }
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-chapters] nav.toc li > a {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block-start: calc(1lh - 1cap + var(--latex-parskip, 0px));
+    }
+    body[data-latex-js-toc] [data-latex-heading] + p:has(+ [data-latex-tcb-plain-skip]) { text-box-trim: trim-both; }
+}
+body[data-latex-js-toc] .latex-title-block .latex-empty-author { line-height: calc(17 * var(--js-pt) * var(--latex-stretch, 1)); }
+
+body[data-latex-js-toc] figure[data-latex-float] { --latex-parskip: 0px; }
+@supports (text-box-trim: trim-both) {
+    /* Page-reference measurement wraps the text and page label in separate flex items.
+       Trim their own line boxes so the two passes use the same baseline. */
+    body[data-latex-js-chapters] nav.toc li > a.latex-page-entry { padding-block-start: var(--latex-parskip, 0px); }
+    body[data-latex-js-chapters] nav.toc a.latex-page-entry > :is(:first-child,.latex-page-label) {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+}
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-chapters] .latex-bibliography-heading + ol.latex-bibliography > li {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+    }
+    body[data-latex-js-chapters] .latex-bibliography-heading + ol.latex-bibliography > li:first-child {
+        padding-block-start: calc(1lh - 1cap + var(--latex-parskip, 0px));
+    }
+}
+
+@supports (text-box-trim: trim-both) {
+    /* article.cls sets the empty author tabular on a large baseline, then ends
+       the date paragraph at normal size. The empty tabular itself has no ink. */
+    body[data-latex-class="article"][data-latex-title-layout="inline"] .latex-title-block:has(> .latex-empty-author) {
+        &:has(> h1:first-child + .latex-empty-author):not(.latex-titlepage *) {
+            padding-block-start: calc((var(--article-topskip, 10) + 2 * var(--tex-body)) * var(--tex-pt));
+        }
+        & h1:first-child:has(+ .latex-empty-author) {
+            line-height: calc(var(--article-title-pitch, 22) * var(--tex-pt) * var(--latex-stretch, 1));
+            text-box-trim: trim-both; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap);
+        }
+        & .latex-empty-author {
+            height: calc(var(--article-large-pitch, 14) * var(--tex-pt) * var(--latex-stretch, 1));
+            min-height: 0; line-height: 0; margin-block: calc(1.5 * var(--tex-body) * var(--tex-pt)) 0;
+        }
+        & .latex-empty-author + .latex-date {
+            text-box-trim: trim-start; text-box-edge: cap alphabetic;
+            padding-block-start: max(0px, calc(var(--latex-array-baseline) * var(--tex-pt) * var(--latex-stretch, 1) - 1cap));
+            margin-block-start: calc(var(--tex-body) * var(--tex-pt));
+        }
+    }
+    body[data-latex-class="article"][data-latex-size="11"] { --article-topskip: 11; }
+    body[data-latex-class="article"][data-latex-size="12"] { --article-topskip: 12; --article-large-pitch: 18; --article-title-pitch: 25; }
+
+    /* A top-aligned minipage in TeX can extend far below its reference
+       baseline. The following paragraph then starts at lineskip after the box. */
+    body[data-latex-js-toc] p:has(+ [data-flow-heading-boxes]) {
+        text-box-trim: trim-end; text-box-edge: cap alphabetic;
+    }
+    body[data-latex-js-toc] [data-flow-heading-boxes] {
+        & > .latex-minipage > p:last-child {
+            text-box-trim: trim-end; text-box-edge: cap alphabetic; padding-block-end: calc(.12 * var(--latex-zw));
+        }
+        & + p {
+            text-box-trim: trim-start; text-box-edge: cap alphabetic;
+            padding-block-start: max(0px, calc(.88 * var(--latex-zw) + var(--js-pt) - 1cap));
+        }
+    }
+
+    body[data-latex-js-toc] p:has(+ [data-flow-display]) { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+    body[data-latex-js-toc] [data-flow-display] + p {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic;
+        padding-block-start: max(0px, calc(max(1lh - var(--latex-display-depth), .88 * var(--latex-zw) + var(--js-pt)) - 1cap));
+    }
+    body[data-latex-js-toc] :is([data-latex-heading], [data-flow-heading-boxes], [data-flow-display]) + p:has(+ :is([data-flow-display], [data-flow-heading-boxes], [data-latex-heading])),
+    body[data-latex-js-toc] [data-flow-heading-boxes] > .latex-minipage > [data-latex-heading] + p:last-child {
+        text-box-trim: trim-both;
+    }
+
+    body[data-latex-js-toc] .latex-bibliography-heading[data-latex-heading="section"] + ol.latex-bibliography > li:first-child {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap + var(--latex-parskip, 0px));
+    }
+}
+/* The flow pass supplies display skips from the two adjacent text baselines. */
+body[data-latex-js-toc] .math-block[data-flow-display] { margin-block: 0; }
+body[data-latex-js-toc] [data-flow-display] + [data-flow-display] { margin-block-start: var(--latex-parskip, 0px); }
+[data-flow-display] > .math-display { display: flex; justify-content: center; }
+/* Auto margins on the prepared SVG would leave the measuring marker at the strip edge. */
+[data-flow-display] > .math-display > svg { margin-inline: 0 !important; }
+.latex-equation[data-flow-display] > .eqno {
+    top: auto; bottom: var(--latex-display-bottom); transform: none;
+    text-box-trim: trim-both; text-box-edge: cap alphabetic;
+}
+/* listings positions the frame outside the code. Its separation from the
+   text is a margin of the rule and does not add padding to every listing. */
+body[data-latex-class="article"] figure.latex-listing {
+    display: flow-root; margin-block: var(--latex-listing-aboveskip, calc(6 * var(--tex-pt))) var(--latex-listing-belowskip, calc(6 * var(--tex-pt)));
+    & pre { margin-block: 0; }
+    & .latex-numbered-listing .code-line[data-no]::before { inset-inline-end: calc(100% + var(--latex-listing-numbersep, 10 * var(--tex-pt))); }
+    & figcaption { margin-block: var(--latex-listing-abovecaptionskip, calc(3 * var(--tex-pt))) var(--latex-listing-belowcaptionskip, calc(3 * var(--tex-pt))); }
+}
+@supports (text-box-trim: trim-both) {
+    body[data-latex-class="article"] h2:has(+ figure.latex-listing) { text-box-trim: trim-end; text-box-edge: cap alphabetic; margin-block-end: 0; }
+    body[data-latex-class="article"] h2 + figure.latex-listing {
+        margin-block-start: calc(2.3ex + var(--latex-listing-aboveskip, 6 * var(--tex-pt)));
+        & figcaption { text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap); }
+    }
+
+    /* The listings frame starts after lineskip. Its last strut retains three tenths
+       of the code baseline below the ink, even when the last line has no descenders. */
+    body:is([data-latex-class="article"], [data-latex-js-toc]) figure.latex-listing:has(> .latex-frame-single) {
+        & figcaption { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+        & > .latex-frame-single { padding-block-start: calc(var(--js-pt, var(--tex-pt)) + 3.4 * var(--tex-pt)); }
+        & .latex-frame-single pre {
+            border: 0; outline: calc(.4 * var(--tex-pt)) solid currentColor; outline-offset: calc(3 * var(--tex-pt));
+            text-box-trim: trim-both; text-box-edge: cap alphabetic;
+            padding-block: max(0px, calc(.7lh - 1cap)) .3lh; padding-inline: 0;
+        }
+        & + p { text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: calc(1lh - 1cap); }
+    }
+    body[data-latex-class="article"] h2 + figure.latex-listing:has(> .latex-frame-single) figcaption { text-box-trim: trim-both; }
+
+    body[data-latex-class="article"] figure.latex-listing .latex-frame-single.latex-numbered-listing[style*="--latex-listing-pitch"] {
+        /* WebKit rounds inline baselines. The fractional block minimum keeps each
+           numbered source line on the declared pitch and still allows wrapped rows. */
+        & pre { text-box-trim: none; padding-block: 0; }
+        & .code-line { min-height: calc(var(--latex-listing-pitch) + var(--latex-listing-lineskip, 0px)); }
+        & .code-src {
+            text-box-trim: trim-both; text-box-edge: cap alphabetic;
+            padding-block: max(0px, calc(.7lh - 1cap)) .3lh;
+        }
+    }
+
+    /* The gothic label and mincho definition share one TeX strut, including
+       when enumitem wraps the definition onto a second flex line. */
+    body[data-latex-js-toc] .latex-description.latex-nextline > div > :is(dt, dd) {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block: max(0px, calc(.7lh - 1cap)) .3lh;
+    }
+}
+
+/* The js caption macro selects small inside the float. Longtable uses its own
+   normal-size caption row and ends its top-aligned parbox with a baseline skip. */
+body[data-latex-js-toc] figure:not(.latex-longtable) > figcaption:not([data-latex-caption-style]) {
+    font-size: var(--latex-size-small); line-height: calc(13 * var(--js-pt) * var(--latex-stretch, 1));
+}
+body[data-latex-js-toc] figure.latex-longtable > figcaption:not([data-latex-caption-style]):has(~ table) {
+    margin-block: 0 1lh;
+}
+/* A locally selected size supplies ink to a mixed line; the paragraph's
+   ending size supplies interline glue. Reserve the glyph without a second strut. */
+body[data-latex-js-toc] [data-flow-mixed-size] > [data-latex-text-size] { line-height: var(--latex-jfm-scale); }
+
+body[data-latex-js-toc] .latex-proof { margin-block: calc(6 * var(--tex-pt)); }
+@supports (text-box-trim: trim-both) {
+    body[data-latex-js-toc] .latex-runin:has(+ [data-latex-heading]) { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+    body[data-latex-js-toc] p[data-flow-following-heading],
+    body[data-latex-js-toc] [data-latex-heading] + blockquote > p:first-child,
+    body[data-latex-js-toc] [data-flow-after-pinned] > p:first-child {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: max(0px, calc(1lh - 1cap));
+    }
+    body[data-latex-js-toc] blockquote:has(+ [data-latex-heading]) {
+        margin-block-end: 0; padding-block-end: calc(.5 * var(--js-cvs));
+        & > p:last-child { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+    }
+    body[data-latex-js-toc] [data-latex-heading] + blockquote:has(+ [data-latex-heading]) > p:only-child { text-box-trim: trim-both; }
+    body[data-latex-js-toc] figure.latex-longtable > figcaption:not([data-latex-caption-style]) {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block: max(0px, calc(.7lh - 1cap)) var(--latex-last-depth, calc(.12 * var(--latex-zw)));
+    }
+    body[data-latex-js-toc] p[style*="--latex-table-prev-depth"]:has(+ figure.latex-longtable) {
+        text-box-trim: trim-end; text-box-edge: cap alphabetic; padding-block-end: var(--latex-table-prev-depth);
+    }
+    body[data-latex-js-toc] figure.latex-longtable + p[style*="--latex-table-prev-depth"] {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic;
+        padding-block-start: max(0px, calc(1lh - var(--latex-table-prev-depth) - 1cap));
+    }
+    body[data-latex-js-toc] figure.latex-figure > p:has(> :is(.tikz-block,.latex-rule):only-child) + figcaption:not([data-latex-caption-style]) {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: max(0px, calc(1lh - 1cap));
+    }
+
+    /* The package puts its caption vbox on a body baseline; the class macro
+       typesets the caption paragraph directly on the smaller baseline. */
+    body[data-latex-js-toc] p:has(+ figure.latex-listing) { text-box-trim: trim-end; text-box-edge: cap alphabetic; }
+    body[data-latex-js-toc] p + figure.latex-listing > figcaption:first-child {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block-start: max(0px, calc(1lh - 1cap));
+        &[data-latex-caption-style] { padding-block-start: max(0px, calc(var(--tex-baseline) * var(--latex-stretch, 1) - 1cap)); }
+    }
+    body[data-latex-js-toc] [data-latex-heading] + p:has(+ figure.latex-listing),
+    body[data-latex-js-toc] [data-flow-after-pinned] > p:first-child:has(+ [data-latex-heading]),
+    body[data-latex-js-toc] figure.latex-longtable + p[style*="--latex-table-prev-depth"]:has(+ [data-latex-heading]),
+    body[data-latex-js-toc] figure.latex-listing:has(> .latex-frame-single) + p[style*="--latex-table-prev-depth"] {
+        text-box-trim: trim-both;
+    }
+
+    body[data-latex-js-toc] figure.latex-listing:has(> figcaption):not(:has(> .latex-frame-single)) pre {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic; padding-block: max(0px, calc(1lh - 1cap)) 0;
+    }
+    body[data-latex-js-toc] figure.latex-listing:has(> figcaption):not(:has(> .latex-frame-single)) + p {
+        text-box-trim: trim-start; text-box-edge: cap alphabetic; padding-block-start: max(0px, calc(1lh - 1cap));
+        &[style*="--latex-table-prev-depth"] { text-box-trim: trim-both; }
+    }
+    body[data-latex-js-toc] figure[data-latex-placement="H"] > figcaption[style*="--latex-last-depth"]:last-child {
+        text-box-trim: trim-end; text-box-edge: cap alphabetic; padding-block-end: var(--latex-last-depth);
+    }
+    /* A centred multiline tabular ends below its reference baseline. The
+       following caption starts at lineskip plus the Japanese label's ascent. */
+    body[data-latex-js-toc] figure.latex-table[data-latex-placement="H"] > table:has(tr ~ tr) + figcaption[style*="--latex-last-depth"]:last-child {
+        text-box-trim: trim-both; text-box-edge: cap alphabetic;
+        padding-block-start: max(0px, calc(var(--js-pt) + .88em * var(--latex-jfm-scale) - 1cap));
+    }
+    body[data-latex-js-toc] figure[data-latex-placement="H"] > p:has(> :is(.tikz-block,.latex-rule):only-child) + figcaption[style*="--latex-last-depth"] {
+        text-box-trim: trim-both;
+    }
+}

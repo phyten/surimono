@@ -127,6 +127,45 @@ extension LaTeXReader {
         appendLayoutBox(boxHTML(width: width, position: "b") { blocks(body) + caption })
     }
 
+    func colorPanel(options: String?, body: String) -> String {
+        var skin = document.pageSettings.boxDefaults
+        skin.apply(options ?? "")
+        let values = skin.values
+        guard document.reserveExpansion(characters: body.count + values.values.reduce(0) { $0 + $1.utf8.count }) else {
+            return ""
+        }
+        var css: [String] = []
+        for (key, variable) in [
+            ("colback", "--callout-tint"), ("colframe", "--callout-color"), ("coltitle", "--tcb-title-ink"),
+        ] {
+            if let color = values[key].flatMap({ LaTeXSymbols.cssColor($0, defined: document.colors) }) {
+                css.append("\(variable): \(color)")
+            }
+        }
+        for key in [
+            "boxrule", "leftrule", "rightrule", "toprule", "bottomrule", "titlerule", "arc", "boxsep", "left", "right",
+            "top", "bottom", "lefttitle", "righttitle", "leftupper", "rightupper", "before skip", "after skip",
+        ] {
+            if let value = values[key].flatMap(LaTeXSymbols.printLength) {
+                css.append("--tcb-\(key.replacingOccurrences(of: " ", with: "-")): \(value)")
+            }
+        }
+        if values["sharp corners"] != nil { css.append("--tcb-arc: 0px") }
+        var font = LaTeXElementFont()
+        font.apply(values["fonttitle"] ?? "")
+        if let weight = font.weight { css.append("--tcb-title-weight: \(weight)") }
+        if let shape = font.shape { css.append("--tcb-title-shape: \(shape)") }
+        if let size = font.sizeName { css.append("--tcb-title-size: var(--latex-size-\(size))") }
+        if font.family == "sans" { css.append("--tcb-title-family: var(--tex-sans-fonts)") }
+        let title = values["title"].map { "<p class=\"callout-title\">\(inline($0))</p>\n" } ?? ""
+        let style = css.isEmpty ? "" : " style=\"\(HTML.escape(css.joined(separator: "; ")))\""
+        let split = values["breakable"].map { $0 != "false" } == true ? " data-latex-breakable" : ""
+        let skip = skin.balancedBefore ? "" : " data-latex-tcb-plain-skip"
+        let indent = values["parbox"] == "false" ? " data-latex-parbox-off" : ""
+        return
+            "<div class=\"callout callout-neutral\" data-latex-tcolorbox\(split)\(indent)\(skip)\(style)>\n\(title)<div class=\"latex-tcb-body\">\(blocks(body))</div></div>\n"
+    }
+
     func callout(options: String?, body: String) -> String {
         guard document.reserveExpansion(characters: body.count + (options?.count ?? 0)) else { return "" }
         let title =
@@ -186,6 +225,12 @@ extension LaTeXReader {
             let role = ["rm": "main", "sf": "sans", "tt": "mono"][family]
             let matchesMain = language.map { LaTeXLanguage.tag($0) == document.classInfo.mainLanguage } ?? true
             readFont(role: matchesMain ? role : nil)
+        case "ltjapplypreset":
+            document.pageSettings.fonts.applyJapanesePreset(
+                argument() ?? "", scale: LaTeXLabelMetrics(document.classInfo).japaneseScale)
+        case "ltjsetparameter", "ltjglobalsetparameter":
+            // LuaTeX-ja parameters assign per-character math fonts or spacing, not text families.
+            _ = argument()
         case "setmainfont": readFont(role: "main")
         case "setsansfont": readFont(role: "sans")
         case "setmonofont": readFont(role: "mono")

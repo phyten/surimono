@@ -255,7 +255,10 @@ extension LaTeXDocument {
     /// Failed equations keep their source on paper. Limit the diagnostic excerpts so a damaged
     /// document cannot fill the print check panel with a second copy of its entire math source.
     func mathHTML(_ latex: String, display: Bool, macros: String, source: String, numbers: [String?]) -> String {
-        if let rendered = MathRenderer.html(latex, display: display, macros: macros, rowNumberHTML: numbers) {
+        if let rendered = MathRenderer.html(
+            latex, display: display, macros: macros, rowNumberHTML: numbers,
+            measureRows: classInfo.jsMagnification != nil)
+        {
             return rendered
         }
         let issue = (isJapanese ? "数式を描けません: " : "Formula could not be typeset: ") + String(source.prefix(100))

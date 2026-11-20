@@ -1,0 +1,16 @@
+A gate with a stop
+Let u be the handle travel. The gate height is
+h(u) =
+⎧
+⎨
+⎩
+0 u < 0,
+u 0 ≤ u ≤ 3,
+3 u > 3.
+At the two stops we obtain
+h(−1) = h(0),
+h(3) = h(4).
+h(2)− h(1) = 1.
+1
+(1)
+(2)

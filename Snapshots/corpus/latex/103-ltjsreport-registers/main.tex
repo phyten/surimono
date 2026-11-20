@@ -1,0 +1,58 @@
+\documentclass[a4paper,10pt,oneside]{ltjsreport}
+\usepackage[margin=25mm]{geometry}
+\usepackage{fancyhdr,array,tabularx,booktabs,longtable,caption,tcolorbox}
+\tcbset{band/.style={boxrule=.4mm,leftrule=.3mm,rightrule=.3mm,boxsep=1mm,left=2mm,right=2mm,fonttitle=\bfseries}}
+\newtcolorbox{sampleband}[1][]{band,#1}
+\linespread{1.15}
+\setlength{\parskip}{.45em}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{砂窓の記録}
+\fancyfoot[C]{\thepage}
+\captionsetup{font=small,format=hang,justification=centering,skip=6pt}
+\begin{document}
+\tableofcontents
+\listoffigures
+\chapter{細い砂窓を三枚並べて夕方の光が通る位置を読み取るための観察記録}
+\section{曇り窓の寸法}
+砂粒の位置を紙に写す。\\
+紙を裏返してもう一度測る。
+\begin{figure}[htbp]
+\centering\rule{36mm}{6mm}
+\caption{夕方の印。\\帯の中央に置いた細い印。}
+\end{figure}
+
+\noindent\begin{tabularx}{\linewidth}{@{}p{24mm}>{\raggedright\arraybackslash}Xr@{}}
+\toprule
+試料 & 場所 & 目盛 \\ \midrule
+薄片 & 北の窓 & 15 \\
+紙片 & 南の窓 & 18 \\
+小片 & 西の窓 & 23 \\ \bottomrule
+\end{tabularx}
+
+\begin{longtable}{lp{.55\linewidth}r}
+試料 & 印の種類 & 数 \\
+薄片 & 短い横線 & 4 \\
+\end{longtable}
+\chapter{朝の透かし板}
+\begin{figure}[htbp]
+\centering\rule{24mm}{4mm}
+\caption{明るい方の帯。}
+\end{figure}
+\begin{sampleband}[title={保管する紙片}]
+三枚の紙を薄い布にはさむ。
+\end{sampleband}
+{\small\renewcommand{\arraystretch}{1.23}
+\setlength{\tabcolsep}{8pt}
+\noindent\begin{tabularx}{\linewidth}{@{}p{24mm}>{\raggedright\arraybackslash}Xr@{}}
+淡色 & 手前 & 2 \\
+濃色 & 中央 & 5 \\
+灰色 & 奥側 & 8
+\end{tabularx}}
+\chapter*{保管用の控え}
+窓の端を包み、試料を戻す。
+\begin{thebibliography}{9}
+\bibitem{sand} 砂窓観察室『試料の読み方』。
+\bibitem{mark} 紙帯編集室『印の記録』。
+\end{thebibliography}
+\end{document}

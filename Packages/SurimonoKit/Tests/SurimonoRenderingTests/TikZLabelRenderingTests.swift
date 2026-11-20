@@ -7,6 +7,24 @@ import Testing
 
 @MainActor
 struct TikZLabelRenderingTests {
+    @Test("固定図の内側にある和文ラベルは矩形の外寸を増やさない", .timeLimit(.minutes(1)))
+    func interiorLabel() async throws {
+        let tex = #"""
+            \documentclass[a4paper,10pt,oneside]{ltjsreport}\linespread{1.15}\usepackage{tikz,float}
+            \begin{document}\begin{figure}[H]\centering\begin{tikzpicture}
+            \draw[line width=1pt] (0,0) rectangle (4,2);\node at (2,1) {測定};
+            \draw[->,line width=2pt] (.4,.5)--(1.4,.5);
+            \end{tikzpicture}\caption{紙帯}\end{figure}\end{document}
+            """#
+        let root = try #require(try await render(tex, theme: "latex-plain-ja").rootElement())
+        for (name, expected) in [("width", 114.382), ("height", 57.689)] {
+            let length = try #require(root.attribute(forName: name)?.stringValue)
+            // DiagramGeometry serializes absolute SVG dimensions in CSS pixels.
+            let points = try #require(Double(length)) * 72 / 96
+            #expect(abs(points - expected) < 0.1)
+        }
+    }
+
     @Test("一行の枠に本文行の上下の空きを足さず、文字の深さを保つ", .timeLimit(.minutes(1)))
     func singleLine() async throws {
         let source = #"""

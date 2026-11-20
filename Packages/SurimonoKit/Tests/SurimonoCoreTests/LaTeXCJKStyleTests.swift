@@ -15,7 +15,8 @@ struct LaTeXCJKStyleTests {
     func headingFamily(_ fixture: (String, String, Bool)) throws {
         let (className, preamble, nativeHeadings) = fixture
         let fragment = LaTeXConverter.convert(
-            #"\documentclass{\#(className)}\#(preamble)\begin{document}\title{春}\maketitle\section{一}月\end{document}"#)
+            #"\documentclass{\#(className)}\#(preamble)\begin{document}\title{春}\maketitle\section{一}月\end{document}"#,
+            fontIndex: .init(faces: [:]))
         let info = try #require(fragment.latexClass)
         let id = PrintThemeLibrary.defaultLaTeXStyle(for: info)
         let style = try #require(PrintThemeLibrary.load().first { $0.id == id })
@@ -31,10 +32,14 @@ struct LaTeXCJKStyleTests {
         let text = "月日目木用高面手文⽉"
         for (face, alias) in [
             ("Songti SC", "Song SC"), ("Songti TC", "Song TC"), ("YuMincho", "Mincho"), ("HiraMinProN-W3", ""),
-            ("Yu Mincho", "Mincho"), ("游明朝", "Mincho"), ("Custom", ""),
+            ("Yu Mincho", "Mincho"), ("游明朝", "Mincho"), ("Custom", ""), ("Workshop", "Hei"),
         ] {
             let fragment = LaTeXConverter.convert(
-                #"\documentclass{article}\setmainfont{\#(face)}\begin{document}\#(text)\end{document}"#)
+                #"\documentclass{article}\setmainfont{\#(face)}\begin{document}\#(text)\end{document}"#,
+                fontIndex: .init(faces: [
+                    "Workshop": .init(
+                        family: "Workshop Sans", postScriptName: "Workshop-Regular", sharesIdeographs: true)
+                ]))
             #expect(fragment.body.contains(text))
             let info = try #require(fragment.latexClass)
             #expect(info.styleVariables.contains(" Ideographs") == !alias.isEmpty)

@@ -30,7 +30,7 @@ final class LaTeXReader {
     private var noParagraphIndent = false
     private var lastCharacter: Character?
     /// Markup for declarations such as `\bfseries`, which last to the end of their group.
-    private var declarations: [(open: String, close: String)] = []
+    private var declarations: [(open: String, close: String, size: String?)] = []
     private var opened = 0
     private var typewriter = false
     private var centered = false
@@ -136,7 +136,11 @@ final class LaTeXReader {
         retireFileFrames()
         switch character {
         case "\\": command()
-        case "%": skipComment()
+        case "%":
+            skipComment()
+            // The comment consumed its own endline. An empty following source line
+            // still starts TeX in new-line state and emits a paragraph token.
+            if peek() == "\n" { paragraphBreak() }
         case "{":
             index += 1
             if document.depth < LaTeXDocument.maximumDepth {
@@ -342,6 +346,8 @@ final class LaTeXReader {
         )
         let outer = declarations.count
         let previousRowHeight = document.pageSettings.extraRowHeight
+        let tableRegisters = document.pageSettings.tableSpacing
+        let previousSkin = document.pageSettings.boxDefaults
         let previousLinkColors = document.hyperref
         let previousFace = typewriter
         let previousCentered = centered
@@ -360,6 +366,8 @@ final class LaTeXReader {
             reader.closeDeclarations(keeping: outer)
             reader.declarations.removeLast(reader.declarations.count - outer)
             reader.document.pageSettings.extraRowHeight = previousRowHeight
+            reader.document.pageSettings.tableSpacing = tableRegisters
+            reader.document.pageSettings.boxDefaults = previousSkin
             reader.document.hyperref = previousLinkColors
             reader.typewriter = previousFace
             reader.centered = previousCentered
@@ -372,18 +380,18 @@ final class LaTeXReader {
         }
     }
 
-    private func openDeclaration(_ open: String, _ close: String) {
+    private func openDeclaration(_ open: String, _ close: String, size: String? = nil) {
         guard declarations.last?.open != open,
             document.reserveExpansion(characters: open.utf8.count + close.utf8.count)
         else { return }
         if paragraph.isEmpty {
-            declarations.append((open, close))
+            declarations.append((open, close, size))
             return
         }
         reopenDeclarations()
         guard opened == declarations.count else { return }
         appendHTML(open, last: lastCharacter)
-        declarations.append((open, close))
+        declarations.append((open, close, size))
         opened += 1
     }
 
@@ -416,13 +424,22 @@ final class LaTeXReader {
             // A solitary rule starts the float at its natural height, even when shorter than a text line.
             if floatKind == "figure",
                 document.classInfo.name == "memoir" || document.classInfo.isKOMA
+                    || document.classInfo.jsMagnification != nil
                     || document.classInfo.journalStyle == .apsPreprint || document.classInfo.journalStyle == .elsevier,
                 text.hasPrefix("<span class=\"latex-rule\" "), text.range(of: "</span>")?.upperBound == text.endIndex,
                 !text.contains("vertical-align:")
             {
                 attribute += " data-latex-rule-line"
             }
-            if centered { attribute += " style=\"text-align: center; text-indent: 0\"" }
+            var styles = centered ? ["text-align: center", "text-indent: 0"] : []
+            if document.classInfo.jsMagnification != nil, let size = declarations.last(where: { $0.size != nil })?.size,
+                let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: size)
+            {
+                // TeX selects the paragraph's baseline skip from the size active at its end.
+                styles.append(
+                    "line-height: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt) * var(--latex-stretch, 1))")
+            }
+            if !styles.isEmpty { attribute += " style=\"\(styles.joined(separator: "; "))\"" }
             output += "<p\(attribute)>\(takeDestinations())\(text)</p>\n"
         }
         if closesRunInParagraph {
@@ -633,6 +650,10 @@ final class LaTeXReader {
     }
 
     private func verticalSpace(_ value: String, keep: Bool = false) {
+        if value.trimmingCharacters(in: .whitespacesAndNewlines) == "\\fill", document.insideTitlePage {
+            appendBlock("<div class=\"latex-vfill\"></div>\n")
+            return
+        }
         guard let glue = verticalGlue(value) else { return }
         let mark = keep ? " data-latex-keep-space" : ""
         appendBlock("<div class=\"latex-vspace\"\(mark) style=\"\(glue)\"></div>\n")
@@ -748,7 +769,8 @@ final class LaTeXReader {
         case "hypersetup": readHyperrefOptions(argument() ?? "")
         case "usepackage", "RequirePackage": readPackage()
         case "qed", "qedsymbol": appendText("□")
-        case "qedhere", "vfill": break
+        case "qedhere": break
+        case "vfill": verticalSpace("\\fill")
         case "centering": centered = true
         case "num":
             _ = optional()
@@ -986,7 +1008,7 @@ final class LaTeXReader {
                 openDeclaration(declaration.open, declaration.close)
             }
         } else if let size = LaTeXSymbols.sizes[name] {
-            openDeclaration(sizeOpening(name, relativeSize: size), "</span>")
+            openDeclaration(sizeOpening(name, relativeSize: size), "</span>", size: name)
         } else if let logo = LaTeXSymbols.logoHTML(name) {
             appendHTML(logo, last: LaTeXSymbols.text[name]?.last)
         } else if let text = LaTeXSymbols.text[name] {
@@ -1158,8 +1180,14 @@ final class LaTeXReader {
             if !starred && listed {
                 document.headings.append(.init(level: -1, number: numeral, id: id, title: short.map(inline) ?? title))
             }
+            let partTitle =
+                document.classInfo.usesJSChapterSpacing ? "<span class=\"latex-chapter-title\">\(title)</span>" : title
+            let pageStyle =
+                document.classInfo.usesJSChapterSpacing
+                    || document.classInfo.name == "jlreq" && document.classInfo.hasChapters
+                ? " data-latex-page-action=\"thispagestyle\" data-value=\"empty\"" : ""
             appendBlock(
-                "<h2 class=\"latex-part\" id=\"\(id)\">\(!hasNumber ? "" : "<span class=\"secnum\">\(label)</span>")\(title)</h2>\n"
+                "<h2 class=\"latex-part\"\(pageStyle) id=\"\(id)\">\(!hasNumber ? "" : "<span class=\"secnum\">\(label)</span>")\(partTitle)</h2>\n"
             )
             return
         }
@@ -1193,8 +1221,13 @@ final class LaTeXReader {
         let dot =
             document.language == "es" && document.classicBabelLanguages.contains("es") && document.spanishSectionDots
         if dot, level > 0 { display = display.map { $0.hasSuffix(".") ? $0 : $0 + "." } }
-        let tocNumber = listed && !starred ? (number.map { $0 + (dot ? "." : "") } ?? "") : nil
-        document.headings.append(.init(level: level, number: tocNumber, id: id, title: short.map(inline) ?? title))
+        let tocNumber = listed && !starred ? number.map { $0 + (dot ? "." : "") } ?? "" : nil
+        let chapterLabel =
+            name == "chapter" && document.classInfo.usesJSChapterSpacing && document.language == "ja" ? display : nil
+        document.headings.append(
+            .init(
+                chapterLabelHTML: chapterLabel, level: level, number: tocNumber, id: id,
+                title: short.map(inline) ?? title))
         if document.classInfo.name == "beamer", name == "section" || name == "subsection" || name == "subsubsection" {
             // Navigation and explicit contents pages still need the section destination.
             appendDestination("<span id=\"\(id)\"></span>")
@@ -1205,10 +1238,16 @@ final class LaTeXReader {
         let runIn = name == "paragraph" || name == "subparagraph"
         let kind = runIn ? " class=\"latex-runin-\(name)\"" : ""
         // An HTML newline becomes an extra word space when the theme puts the heading and paragraph on one line.
-        let mark = name == "paragraph" && document.classInfo.isJSArticle ? captionName("jsParagraphMark") : ""
+        let mark =
+            name == "paragraph" && document.classInfo.jsMagnification != nil ? captionName("jsParagraphMark") : ""
         if name == "chapter" { appendBlock("<template data-latex-break=\"page\"></template>") }
+        let gridHeading = document.classInfo.jsMagnification != nil || document.classInfo.name == "jlreq"
+        let grid = gridHeading ? " data-latex-heading=\"\(name)\"" : ""
+        let headTitle =
+            name == "chapter" && document.classInfo.usesJSChapterSpacing
+            ? "<span class=\"latex-chapter-title\">\(title)</span>" : title
         let heading =
-            "<h\(tag)\(kind)\(bookHeadingAttributes(name)) id=\"\(id)\">\(numberHTML)\(mark)\(title)</h\(tag)>"
+            "<h\(tag)\(kind)\(grid)\(bookHeadingAttributes(name)) id=\"\(id)\">\(numberHTML)\(mark)\(headTitle)</h\(tag)>"
         if runIn && isBlock {
             appendBlock("<div class=\"latex-runin\">" + heading)
             closesRunInParagraph = true
@@ -1221,6 +1260,12 @@ final class LaTeXReader {
     /// LaTeX selects a size from the class table even inside a larger title or author line.
     func sizeOpening(_ name: String, relativeSize: Double) -> String {
         let factor = String(format: "%g", relativeSize)
+        if let pitch = LaTeXLabelMetrics(document.classInfo).baseline(for: name),
+            document.classInfo.jsMagnification != nil
+        {
+            return
+                "<span data-latex-text-size=\"\(name)\" style=\"font-size: var(--latex-size-\(name), \(factor)em); --latex-selected-pitch: calc(\(LaTeXPageSettings.number(pitch)) * var(--tex-pt) * var(--latex-stretch, 1))\">"
+        }
         guard document.makingTitle else { return "<span style=\"font-size: \(factor)em\">" }
         return "<span style=\"font-size: var(--latex-size-\(name), \(factor)rem)\">"
     }
@@ -1466,11 +1511,15 @@ final class LaTeXReader {
         appendHTML("<span class=\"latex-nowrap\">\(html)\(marks)</span>", last: marks.last)
     }
 
+    private var singleDisplayAttribute: String {
+        document.classInfo.jsMagnification == nil ? "" : " data-latex-single-display"
+    }
+
     private func displayMath(closing: String) {
         let opening = closing == "$$" ? "$$" : "\\["
         let latex = mathSource(closing: closing)
         appendBlock(
-            "<div class=\"math-block\">\(formula(latex, display: true, source: opening + latex + closing))</div>\n",
+            "<div class=\"math-block\"\(singleDisplayAttribute)>\(formula(latex, display: true, source: opening + latex + closing))</div>\n",
             continuesParagraph: true)
     }
 
@@ -1604,8 +1653,9 @@ final class LaTeXReader {
                 }
                 rows[position] = frozen
             }
+            let keepGrid = document.classInfo.jsMagnification != nil || numbers.contains { $0 != nil }
             appendBlock(
-                "<div class=\"math-block\">\(anchors)\(render(rows.joined(separator: "\\\\"), expanded: true, numbers: numbers.contains(where: { $0 != nil }) ? numbers : []))</div>\n"
+                "<div class=\"math-block\">\(anchors)\(render(rows.joined(separator: "\\\\"), expanded: true, numbers: keepGrid ? numbers : []))</div>\n"
             )
             return
         }
@@ -1629,7 +1679,9 @@ final class LaTeXReader {
             id = ""
             printed = ""
         } else {
-            appendBlock("<div class=\"math-block\">\(mathAnchor(labels, tag: nil))\(render(formula))</div>\n")
+            appendBlock(
+                "<div class=\"math-block\"\(singleDisplayAttribute)>\(mathAnchor(labels, tag: nil))\(render(formula))</div>\n"
+            )
             return
         }
         if base == "multline" {
@@ -1652,7 +1704,7 @@ final class LaTeXReader {
             return
         }
         let content = render(clean) + "<span class=\"eqno\">\(printed)</span>"
-        appendBlock("<div class=\"math-block latex-equation\" id=\"\(id)\">\(content)</div>\n")
+        appendBlock("<div class=\"math-block latex-equation\" id=\"\(id)\"\(singleDisplayAttribute)>\(content)</div>\n")
     }
 
     /// Each line without its comment; an escaped percent sign stays.
@@ -1837,8 +1889,15 @@ final class LaTeXReader {
         case "itemize", "enumerate", "description":
             let reader = LaTeXReader(body, document: document, isBlock: false)
             let options = reader.optionalOnLine()
-            var html = list(base, options: options, body: reader.rest)
-            let attribute = document.pageSettings.listAttribute(base, options: options)
+            document.listStack.append(base)
+            defer { document.listStack.removeLast() }
+            var settings = document.pageSettings.listOptions(
+                base, depth: document.listStack.count,
+                kindDepth: document.listStack.filter { $0 == base }.count, options: options)
+            let nextLine = settings.removeValue(forKey: "style") == "nextline"
+            var html = list(base, options: options, body: reader.rest, nextLine: nextLine)
+            let attribute =
+                settings.isEmpty ? "" : " style=\"\(HTML.escape(LaTeXPageSettings.cssVariables(settings)))\""
             if !attribute.isEmpty, let end = html.firstIndex(of: ">") { html.insert(contentsOf: attribute, at: end) }
             appendBlock(html)
         case "quote", "quotation":
@@ -1847,9 +1906,24 @@ final class LaTeXReader {
         case "verse":
             appendBlock("<blockquote class=\"latex-verse\">\n\(blocks(body))</blockquote>\n")
         case "titlepage":
+            let previous = document.insideTitlePage
+            document.insideTitlePage = true
+            defer { document.insideTitlePage = previous }
             appendBlock("<div class=\"latex-titlepage\">\n\(blocks(body))</div>\n")
         case "letter" where document.classInfo.name == "letter":
             readLetter(body)
+        case "spacing", "singlespace", "onehalfspace", "doublespace":
+            let reader = LaTeXReader(body, document: document, isBlock: false)
+            var spacing = document.pageSettings
+            if base == "spacing" {
+                spacing.setStretch(reader.argument() ?? "")
+            } else {
+                spacing.lineSpacing(
+                    String(base.dropLast(5)) + "spacing", pointSize: document.classInfo.spacingPointSize)
+            }
+            appendBlock(
+                "<div class=\"latex-leading\" style=\"--latex-stretch: \(spacing.stretch)\">\n\(blocks(reader.rest))</div>\n"
+            )
         case "landscape":
             let boundary = "<template data-latex-break=\"clear\"></template>"
             let before = !document.landscapeBody || document.startedLandscape ? boundary : ""
@@ -1908,7 +1982,9 @@ final class LaTeXReader {
         case "tcolorbox", "mdframed", "framed", "shaded":
             let reader = LaTeXReader(body, document: document, isBlock: false)
             let options = reader.optional()
-            appendBlock(callout(options: options, body: reader.rest))
+            appendBlock(
+                base == "tcolorbox"
+                    ? colorPanel(options: options, body: reader.rest) : callout(options: options, body: reader.rest))
         case "subequations": subequations(body)
         case "proof": proof(body)
         case "thebibliography": bibliography(body)
@@ -1928,7 +2004,7 @@ final class LaTeXReader {
 
     // MARK: - Lists
 
-    private func list(_ kind: String, options: String?, body: String) -> String {
+    private func list(_ kind: String, options: String?, body: String, nextLine: Bool) -> String {
         var prefix = ""
         let items = Self.items(of: body) { prefix = $0 }
         switch kind {
@@ -1945,8 +2021,8 @@ final class LaTeXReader {
                 // A term and its definition share the first line in class styles. Leave their gap to CSS.
                 "<div><dt>\(inline(label ?? ""))</dt><dd>\(compact(blocks(content)))</dd></div>\n"
             }
-            let nextLine = option("style", in: options) == "nextline" ? " latex-nextline" : ""
-            return "<dl class=\"latex-description\(nextLine)\">\n\(html.joined())</dl>\n"
+            let style = nextLine ? " latex-nextline" : ""
+            return "<dl class=\"latex-description\(style)\">\n\(html.joined())</dl>\n"
         default:
             document.enumerateDepth += 1
             defer { document.enumerateDepth -= 1 }
@@ -2156,7 +2232,9 @@ final class LaTeXReader {
         var headingHTML = ""
         if document.classInfo.name != "beamer" {
             document.headings.append(
-                .init(level: document.hasChapters ? 0 : 1, number: nil, id: headingID, title: heading))
+                .init(
+                    level: document.hasChapters ? 0 : 1, number: document.classInfo.usesJSChapterSpacing ? "" : nil,
+                    id: headingID, title: heading))
             headingHTML = bibliographyHeading(heading, id: headingID)
         }
         var entries = ""
@@ -2224,7 +2302,18 @@ final class LaTeXReader {
         let short = optional()
         let source = argument() ?? ""
         let info = document.classInfo
-        let font = info.bookStyle.fontAttribute(elements: ["caption", "captionlabel"], size: info.pointSize)
+        let kind = floatKind ?? "figure"
+        let setup = document.pageSettings.captions.resolve(kind, info: info)
+        let koma = info.bookStyle.fontAttribute(elements: ["caption", "captionlabel"], size: info.pointSize)
+        // Both packages can set font variables; a tag accepts just one style attribute.
+        let font: String
+        if !koma.isEmpty, let split = setup.attributes.range(of: " style=\"") {
+            font =
+                String(setup.attributes[..<split.lowerBound]) + koma.dropLast() + "; "
+                + setup.attributes[split.upperBound...]
+        } else {
+            font = koma + setup.attributes
+        }
         if unnumbered {
             document.pictureCaptions?.assign(nil, in: document)
             appendBlock("<figcaption\(font)>\(inline(source))</figcaption>\n")
@@ -2235,7 +2324,6 @@ final class LaTeXReader {
             appendBlock(subcaptionHTML(source, target: target))
             return
         }
-        let kind = floatKind ?? "figure"
         let number: String
         if kind == "figure", let figure = document.figureCaptions {
             number = figure.mainCaptionPrinted ? stepCounter(kind) : figure.number ?? stepCounter(kind)
@@ -2261,16 +2349,24 @@ final class LaTeXReader {
         if kind == "figure" || kind == "table" {
             let title = short.map(inline) ?? text
             let plain = title.replacingOccurrences(of: #"<[^>]*>"#, with: "", options: .regularExpression)
-            document.lists[kind, default: []].append(.init(level: 1, number: number, id: id, title: plain))
+            document.lists[kind, default: []].append(
+                .init(
+                    chapter: info.usesJSChapterSpacing ? document.counters["chapter"] : nil,
+                    level: 1, number: number, id: id, title: plain))
         }
         let numbered = document.classInfo.name != "beamer" || document.numberedBeamerCaptions
         let label = numbered ? name + " " + HTML.escape(number) : name
         let separator =
-            document.classInfo.journalStyle?.captionSeparator(for: kind)
+            setup.separator ?? document.classInfo.journalStyle?.captionSeparator(for: kind)
             ?? (document.isJapanese ? "　" : document.language == "fr" ? " – " : ": ")
-        appendBlock(
-            "<figcaption id=\"\(id)\"\(font)><span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)</figcaption>\n"
-        )
+        let contents: String
+        if setup.hangs {
+            contents = "<span class=\"latex-caption-label\">\(label)\(separator)</span><span>\(text)</span>"
+        } else {
+            contents = "<span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)"
+        }
+        let hang = setup.hangs ? " data-latex-caption-hang" : ""
+        appendBlock("<figcaption id=\"\(id)\"\(font)\(hang)>\(contents)</figcaption>\n")
     }
 
     private func image() -> String {
@@ -2374,13 +2470,13 @@ final class LaTeXReader {
 
     private func tabular(_ name: String, body: String) -> String {
         let reader = LaTeXReader(body, document: document, isBlock: false)
-        if name == "xltabular" { _ = reader.optional() }
+        var alignment = name == "xltabular" ? reader.optional() : nil
         var targetWidth: String?
         if ["tabular*", "tabularx", "tabulary", "xltabular", "supertabular*", "tabu"].contains(name) {
             let width = reader.argument()
             if name == "tabularx" || name == "xltabular" { targetWidth = width.flatMap(LaTeXSymbols.printLength) }
         }
-        _ = reader.optional()
+        if let position = reader.optional() { alignment = position }
         let spec = reader.argument() ?? ""
         let rest = reader.rest
         let isLong = ["longtable", "xltabular", "supertabular", "supertabular*"].contains(name)
@@ -2389,11 +2485,22 @@ final class LaTeXReader {
         let stretch = document.macros["arraystretch"].flatMap {
             $0.specification.isEmpty ? Double($0.body.trimmingCharacters(in: .whitespacesAndNewlines)) : nil
         }
+        var registers = document.pageSettings.tableSpacing
+        if document.classInfo.jsMagnification != nil, registers["tabcolsep"] == nil {
+            registers["tabcolsep"] = "calc(6 * var(--js-pt))"
+        }
+        if isLong, let alignment, ["l", "r", "c"].contains(alignment) {
+            registers["ltleft"] = alignment == "l" ? "0px" : "auto"
+            registers["ltright"] = alignment == "r" ? "0px" : "auto"
+        }
         return LaTeXTable(
             spec: spec, body: rest,
             basicBidi: document.basicBidiTables && DocumentLanguage(code: document.language).isRightToLeft,
             isLongtable: isLong, targetWidth: targetWidth, columnTypes: document.pageSettings.columnTypes,
-            arrayStretch: stretch, extraRowHeight: document.pageSettings.extraRowHeight
+            spacing: registers, arrayStretch: stretch, extraRowHeight: document.pageSettings.extraRowHeight,
+            japaneseSize: document.classInfo.jsMagnification != nil
+                ? declarations.last(where: { $0.size != nil })?.size : nil,
+            japaneseMetrics: document.classInfo.jsMagnification != nil ? LaTeXLabelMetrics(document.classInfo) : nil
         ).html(
             color: { LaTeXSymbols.cssColor($0, model: $1, defined: document.colors) },
             inline: reader.inline)

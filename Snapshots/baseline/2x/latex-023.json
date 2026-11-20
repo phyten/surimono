@@ -1,0 +1,70 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.06410759175465058,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 25.4,
+    "maxLuminance" : 173.23992919921875,
+    "maxShiftPt" : 28.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 4
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.2,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 5,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "The ridge profile",
+          "width" : 119.3,
+          "x" : 125.4,
+          "y" : 150.2
+        },
+        {
+          "height" : 11.7,
+          "text" : "The overview follows the crest from left to right. The detail isolates the cen-",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 174.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "tral notch.",
+          "width" : 46,
+          "x" : 125.4,
+          "y" : 186.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Figure 1: Full ridge and cropped detail",
+          "width" : 169.8,
+          "x" : 212.4,
+          "y" : 376.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.6,
+      "textLeft" : 125.4,
+      "textTop" : 150.2,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e5d72cdb509b9c9fbba377b1d28d8b4cbaae3f27d64728c07595adbb13858ae6"
+}

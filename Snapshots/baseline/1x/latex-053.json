@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.015106083459024635,
+    "changedAreaRatio" : 0.014881850175967822,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 182.5,
-    "maxLuminance" : 155.609375,
-    "maxShiftPt" : 547.5,
+    "maxBoxDeltaPt" : 176.7,
+    "maxLuminance" : 155.0625,
+    "maxShiftPt" : 24.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 34
@@ -21,9 +21,9 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 261,
+      "firstY" : 281.8,
       "height" : 841.9,
-      "lastY" : 567.3,
+      "lastY" : 588.9,
       "lineCount" : 20,
       "lines" : [
         {
@@ -31,70 +31,70 @@
           "text" : "1",
           "width" : 5,
           "x" : 56.8,
-          "y" : 261
+          "y" : 281.8
         },
         {
           "height" : 11,
           "text" : "1",
           "width" : 5,
           "x" : 56.8,
-          "y" : 282.6
+          "y" : 304.2
         },
         {
           "height" : 19.1,
           "text" : "ﻟﻮح اﻟﻘﯿﺎس",
           "width" : 59.8,
           "x" : 267.7,
-          "y" : 129.7
+          "y" : 126.5
         },
         {
           "height" : 13.2,
           "text" : "١٤ ﻣﺎﯾﻮ ٢٠٢٦",
           "width" : 60.9,
           "x" : 267.2,
-          "y" : 160.8
+          "y" : 181.6
         },
         {
           "height" : 9.9,
           "text" : "ﻣﻠﺨﺺ",
           "width" : 20,
           "x" : 287.6,
-          "y" : 190.7
+          "y" : 211.5
         },
         {
           "height" : 11,
           "text" : "ﺷﻜﻞ 1: ﻣﻮﺿﻊ اﻟﻠﻮح",
           "width" : 69.2,
           "x" : 263,
-          "y" : 404.9
+          "y" : 426.5
         },
         {
           "height" : 11,
           "text" : "اﻻرﺗﻔﺎع )mm( اﻟﻌﻼﻣﺔ",
           "width" : 83.2,
           "x" : 256,
-          "y" : 480.8
+          "y" : 502.4
         },
         {
           "height" : 11,
           "text" : "12 1",
           "width" : 34.3,
           "x" : 264.4,
-          "y" : 493.6
+          "y" : 515.2
         },
         {
           "height" : 11,
           "text" : "18 2",
           "width" : 34.3,
           "x" : 264.4,
-          "y" : 505.6
+          "y" : 527.2
         },
         {
           "height" : 11,
           "text" : "ﺟﺪول 1: ارﺗﻔﺎع اﻟﻌﻼﻣﺎت",
           "width" : 82.7,
           "x" : 256.3,
-          "y" : 528
+          "y" : 548.8
         },
         {
           "height" : 11,
@@ -108,68 +108,68 @@
           "text" : "ﺗﺪل ﻋﻼﻣﺘﺎن ﻋﻠﻰ ﻣﻮﺿﻊ اﻟﻠﻮح اﻷول.",
           "width" : 110.4,
           "x" : 387.6,
-          "y" : 205.1
+          "y" : 226.7
         },
         {
           "height" : 15.9,
           "text" : "اﻟﻤﺤﺘﻮﯾﺎت",
           "width" : 46.9,
           "x" : 491.6,
-          "y" : 233.9
+          "y" : 255.5
         },
         {
           "height" : 11,
           "text" : "1 اﻟﻌﻼﻣﺎت",
           "width" : 41.3,
           "x" : 497.1,
-          "y" : 261
+          "y" : 281.8
         },
         {
           "height" : 11,
           "text" : "2 اﻻرﺗﻔﺎع",
           "width" : 39.9,
           "x" : 498.5,
-          "y" : 282.6
+          "y" : 304.2
         },
         {
           "height" : 15.9,
           "text" : "1 اﻟﻌﻼﻣﺎت",
           "width" : 59.5,
           "x" : 478.9,
-          "y" : 310.7
+          "y" : 331.5
         },
         {
           "height" : 12.3,
           "text" : "»اﻗﺮأ اﻟﻌﻼﻣﺔ اﻟﺴﻔﻠﻰ أوﻻً«.",
           "width" : 87.5,
           "x" : 426,
-          "y" : 334.9
+          "y" : 356.5
         },
         {
           "height" : 15.9,
           "text" : "2 اﻻرﺗﻔﺎع",
           "width" : 57.5,
           "x" : 481,
-          "y" : 445
+          "y" : 466.6
         },
         {
           "height" : 12.2,
           "text" : "دفتر القياس, 2025, ﺑﺎب",
           "width" : 86.3,
           "x" : 433.4,
-          "y" : 593.5
+          "y" : 615.1
         },
         {
           "height" : 15.9,
           "text" : "]1[اﻟﻤﺮ",
           "width" : 36,
           "x" : 502.5,
-          "y" : 567.3
+          "y" : 588.9
         }
       ],
-      "textHeight" : 654.1,
+      "textHeight" : 657.3,
       "textLeft" : 56.8,
-      "textTop" : 129.7,
+      "textTop" : 126.5,
       "textWidth" : 481.6,
       "width" : 595.3
     }

@@ -1,0 +1,97 @@
+{
+  "fonts" : [
+    "HiraMaruProN-W4",
+    "HiraMinProN-W6",
+    "HoeflerText-Black",
+    "Menlo-Regular",
+    "ToppanBunkyuMidashiMinchoStdN-ExtraBold",
+    "ZapfDingbatsITC"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 124,
+      "height" : 841.9,
+      "lastY" : 251.5,
+      "lineCount" : 10,
+      "lines" : [
+        {
+          "height" : 50.8,
+          "text" : "薄",
+          "width" : 34.7,
+          "x" : 42.5,
+          "y" : 124
+        },
+        {
+          "height" : 21.5,
+          "text" : "紙 紙 紙 紙",
+          "width" : 14.1,
+          "x" : 49.6,
+          "y" : 219
+        },
+        {
+          "height" : 21.5,
+          "text" : "A5",
+          "width" : 18.9,
+          "x" : 49.6,
+          "y" : 251.5
+        },
+        {
+          "height" : 19.5,
+          "text" : "❦ ❦ ❦ ❦ ✿ ❦ ❦ ❦ ❦",
+          "width" : 65,
+          "x" : 261.7,
+          "y" : 39.5
+        },
+        {
+          "height" : 39.1,
+          "text" : "紙見本 · Field notes",
+          "width" : 276.6,
+          "x" : 158.3,
+          "y" : 57.9
+        },
+        {
+          "height" : 14.6,
+          "text" : "~ ✦ ✦ ✦ ✦ ~",
+          "width" : 55.1,
+          "x" : 266.7,
+          "y" : 106.2
+        },
+        {
+          "height" : 21.5,
+          "text" : "い紙に 太字 太字 太字 太字、italic、code を並べる。",
+          "width" : 226.9,
+          "x" : 81.4,
+          "y" : 137.3
+        },
+        {
+          "height" : 21.5,
+          "text" : "Fold the sheet along the dotted line.",
+          "width" : 237.5,
+          "x" : 184.4,
+          "y" : 176.2
+        },
+        {
+          "height" : 21.5,
+          "text" : "mm mm mm mm",
+          "width" : 24.5,
+          "x" : 84.2,
+          "y" : 219
+        },
+        {
+          "height" : 21.5,
+          "text" : "148",
+          "width" : 26.1,
+          "x" : 82.2,
+          "y" : 251.5
+        }
+      ],
+      "textHeight" : 233.5,
+      "textLeft" : 42.5,
+      "textTop" : 39.5,
+      "textWidth" : 392.3,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "e3e27641e9c04bff13d73669d3c0cd293cfc5559d855867d73136f2c381465ea"
+}

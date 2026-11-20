@@ -1,0 +1,39 @@
+保存した実験ノート
+日本語と English の見本です。コードは実行せず、保存済みの結果を刷ります。
+計算 / Calculation
+図と表 / Results
+エラーと対話型出力 / Diagnostics
+計算 / Calculation
+Inline math: x2 + y2
+.
+∑3
+k=1
+k= 6
+[1]
+for i in range(3):
+print(i)
+0
+1
+2
+図と表 / Results
+保存済みの画像と表です。
+[2]
+display(saved_image)
+[3]
+display(table)
+Item
+Value
+Apple
+42
+Orange
+17
+エラーと対話型出力 / Diagnostics
+[4]
+1 / 0
+ZeroDivisionError: division by zero
+ZeroDivisionError: division by zero
+Cell In[4], line 1: 1 / 0
+[5]
+display(widget)
+対話型の出力は紙に表示できません
+Saved result with hidden input

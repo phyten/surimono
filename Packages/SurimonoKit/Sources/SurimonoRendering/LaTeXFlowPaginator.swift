@@ -23,6 +23,8 @@ enum LaTeXFlowPaginator {
             root.style.width = width / zoom + 'px';
             const hosts = new Set();
             try {
+              const japanese = document.body.hasAttribute('data-latex-js-toc') &&
+                getComputedStyle(document.body).getPropertyValue('--js-pt').trim();
               for (const el of document.body.querySelectorAll('*:not(svg *,style,template,script)')) {
                 const style = getComputedStyle(el);
                 const outline = style.outlineStyle === 'none' ? 0 :
@@ -33,6 +35,9 @@ enum LaTeXFlowPaginator {
                     !el.matches('svg,img,.latex-rule')) continue;
                 let host = el.parentElement;
                 while (host && getComputedStyle(host).display === 'inline') host = host.parentElement;
+                // The display and its equation number share one atomic box. Only ink
+                // outside that box requires a separate strip and capture margins.
+                if (japanese) host = el.parentElement.closest('.math-block') || host;
                 if (!host || getComputedStyle(host).overflowY !== 'visible') continue;
                 const box = host.getBoundingClientRect(), ink = el.getBoundingClientRect();
                 if (!ink.width || !ink.height) continue;
@@ -57,7 +62,8 @@ enum LaTeXFlowPaginator {
             "<template data-latex-columns=", "<div data-latex-columns=", "<div data-latex-wide",
             "<figure class=\"latex-figure\" data-latex-float=", "<figure class=\"latex-table\" data-latex-float=",
             "<div data-latex-break=", "<div class=\"latex-pagebreak\" data-latex-break=", "<template data-latex-break=",
-            "<section class=\"footnotes\">", "<span class=\"latex-vspace\"", "<div class=\"latex-vspace\"",
+            "<div class=\"latex-vfill\"", "<section class=\"footnotes\">", "<span class=\"latex-vspace\"",
+            "<div class=\"latex-vspace\"",
         ].contains { markup.contains($0) }
     }
 
@@ -66,6 +72,11 @@ enum LaTeXFlowPaginator {
             throw WebPaginator.PaginationError.printFailed
         }
         return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    // Body prose and diagram labels share grapheme boundaries and prohibited line starts.
+    static func japaneseLineScript() throws -> String {
+        try script("tikz-label-layout") + "\n" + script("latex-japanese-lines")
     }
 
     private struct Origin: Decodable {
@@ -108,10 +119,10 @@ enum LaTeXFlowPaginator {
         // Failed passes are discarded with their session. Successful passes restore the exact preparation DOM.
         guard
             let json = try await run(
-                script("latex-flow"),
+                japaneseLineScript() + "\n" + script("latex-flow"),
                 [
                     "width": width, "leftMargin": margins.left * ratio, "rightMargin": margins.right * ratio,
-                    "paperHeight": pageSize.height * ratio,
+                    "paperHeight": pageSize.height * ratio, "bodyHeight": height,
                 ]
             ) as? String
         else {

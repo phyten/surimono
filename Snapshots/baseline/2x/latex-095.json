@@ -1,0 +1,107 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.0130427143728232,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 26.2,
+    "maxLuminance" : 158.671875,
+    "maxShiftPt" : 27.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 10
+  },
+  "fonts" : [
+    "HiraMinProN-W3",
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 151.3,
+      "height" : 841.9,
+      "lastY" : 719.3,
+      "lineCount" : 10,
+      "lines" : [
+        {
+          "height" : 15.9,
+          "text" : "A multilingual shelf card",
+          "width" : 154.3,
+          "x" : 125.4,
+          "y" : 151.3
+        },
+        {
+          "height" : 15.2,
+          "text" : "The shelf card reads “North rail”, 北のレール, and « rail nord » on one line.",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 173.8
+        },
+        {
+          "height" : 11,
+          "text" : "Every label refers to the same removable strip.",
+          "width" : 191.7,
+          "x" : 125.4,
+          "y" : 189.2
+        },
+        {
+          "height" : 11,
+          "text" : "•",
+          "width" : 3.5,
+          "x" : 141.9,
+          "y" : 209.2
+        },
+        {
+          "height" : 11,
+          "text" : "Cabinet",
+          "width" : 31,
+          "x" : 150.3,
+          "y" : 209.2
+        },
+        {
+          "height" : 11,
+          "text" : "1. Upper drawer",
+          "width" : 68.3,
+          "x" : 159.8,
+          "y" : 224.8
+        },
+        {
+          "height" : 11,
+          "text" : "–",
+          "width" : 5,
+          "x" : 184.2,
+          "y" : 240
+        },
+        {
+          "height" : 11,
+          "text" : "Blue tray",
+          "width" : 37.6,
+          "x" : 194.2,
+          "y" : 240
+        },
+        {
+          "height" : 11,
+          "text" : "(a) Folded strip",
+          "width" : 64.7,
+          "x" : 200.1,
+          "y" : 255.6
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.3
+        }
+      ],
+      "textHeight" : 579,
+      "textLeft" : 125.4,
+      "textTop" : 151.3,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "3f522623e17c3f3647706ce48c88e8eff82ad0dbc832b547167f5aeb4b529bbe"
+}

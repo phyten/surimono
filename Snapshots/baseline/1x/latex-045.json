@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.026876822523881346,
+    "changedAreaRatio" : 0.026607340372046255,
     "dimensionsChanged" : true,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 24.6,
+    "maxBoxDeltaPt" : 23,
     "maxLuminance" : 180.453125,
-    "maxShiftPt" : 25.5,
+    "maxShiftPt" : 24.5,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
@@ -20,7 +20,7 @@
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 129.7,
+      "firstY" : 126.5,
       "height" : 841.9,
       "lastY" : 772.8,
       "lineCount" : 18,
@@ -30,119 +30,119 @@
           "text" : "De meetplank",
           "width" : 93.1,
           "x" : 251.2,
-          "y" : 129.7
+          "y" : 126.5
         },
         {
           "height" : 13.2,
           "text" : "14 mei 2026",
           "width" : 61.4,
           "x" : 266.9,
-          "y" : 160.8
+          "y" : 181.6
         },
         {
           "height" : 9.9,
           "text" : "Samenvatting",
           "width" : 52.8,
           "x" : 271.2,
-          "y" : 190.7
+          "y" : 211.5
         },
         {
           "height" : 9.9,
           "text" : "Twee tekens geven de oorspronkelijke stand van de plank aan.",
           "width" : 230.9,
           "x" : 97.2,
-          "y" : 205.1
+          "y" : 226.7
         },
         {
           "height" : 15.9,
           "text" : "Inhoudsopgave",
           "width" : 93.3,
           "x" : 56.8,
-          "y" : 233.9
+          "y" : 255.5
         },
         {
           "height" : 11,
           "text" : "1 De merktekens 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 261
+          "y" : 281.8
         },
         {
           "height" : 11,
           "text" : "2 Hoogte 1",
           "width" : 481.6,
           "x" : 56.8,
-          "y" : 282.6
+          "y" : 304.2
         },
         {
           "height" : 15.9,
           "text" : "1 De merktekens",
           "width" : 114.4,
           "x" : 56.8,
-          "y" : 310.7
+          "y" : 331.5
         },
         {
           "height" : 11,
           "text" : "‘Lees eerst het onderste teken af.’",
           "width" : 138.6,
           "x" : 81.7,
-          "y" : 336.2
+          "y" : 357.8
         },
         {
           "height" : 11,
           "text" : "Figuur 1: Stand van de plank",
           "width" : 119.5,
           "x" : 237.9,
-          "y" : 404.9
+          "y" : 426.5
         },
         {
           "height" : 15.9,
           "text" : "2 Hoogte",
           "width" : 65.3,
           "x" : 56.8,
-          "y" : 445
+          "y" : 466.6
         },
         {
           "height" : 11,
           "text" : "Teken Hoogte (mm)",
           "width" : 89.9,
           "x" : 252.7,
-          "y" : 480.8
+          "y" : 502.4
         },
         {
           "height" : 11,
           "text" : "1 12",
           "width" : 80.3,
           "x" : 262.3,
-          "y" : 493.6
+          "y" : 515.2
         },
         {
           "height" : 11,
           "text" : "2 18",
           "width" : 80.3,
           "x" : 262.3,
-          "y" : 505.6
+          "y" : 527.2
         },
         {
           "height" : 11,
           "text" : "Tabel 1: Hoogte van de tekens",
           "width" : 124.9,
           "x" : 235.2,
-          "y" : 528
+          "y" : 548.8
         },
         {
           "height" : 15.9,
           "text" : "Referenties",
           "width" : 69,
           "x" : 56.8,
-          "y" : 567.3
+          "y" : 588.9
         },
         {
           "height" : 11,
           "text" : "[1] Meetboekje, 2025, Hoofdstuk 2.",
           "width" : 150.2,
           "x" : 56.8,
-          "y" : 593.6
+          "y" : 615.2
         },
         {
           "height" : 11,
@@ -152,9 +152,9 @@
           "y" : 772.8
         }
       ],
-      "textHeight" : 654.1,
+      "textHeight" : 657.3,
       "textLeft" : 56.8,
-      "textTop" : 129.7,
+      "textTop" : 126.5,
       "textWidth" : 481.6,
       "width" : 595.3
     }

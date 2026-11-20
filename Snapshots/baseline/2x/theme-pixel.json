@@ -1,0 +1,100 @@
+{
+  "fonts" : [
+    "Menlo-Bold",
+    "Osaka-Mono"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 51,
+      "height" : 841.9,
+      "lastY" : 179.2,
+      "lineCount" : 11,
+      "lines" : [
+        {
+          "height" : 21.1,
+          "text" : "▶ 紙見本 紙見本 紙見本 紙見本 · Field notes Field notes Field notes Field notes",
+          "width" : 249,
+          "x" : 34.7,
+          "y" : 51
+        },
+        {
+          "height" : 11.2,
+          "text" : "薄い紙に 太字 太字 太字 太字、italic 、code を並べる。",
+          "width" : 203.5,
+          "x" : 42.5,
+          "y" : 93.1
+        },
+        {
+          "height" : 11.2,
+          "text" : "Fold the sheet along the dotted line.",
+          "width" : 197.6,
+          "x" : 65.7,
+          "y" : 121.1
+        },
+        {
+          "height" : 11.2,
+          "text" : "紙 紙",
+          "width" : 11,
+          "x" : 49.9,
+          "y" : 154.4
+        },
+        {
+          "height" : 11.2,
+          "text" : "紙 紙",
+          "width" : 5.6,
+          "x" : 55.5,
+          "y" : 154.4
+        },
+        {
+          "height" : 11.2,
+          "text" : "mm",
+          "width" : 11,
+          "x" : 78.3,
+          "y" : 154.4
+        },
+        {
+          "height" : 11.2,
+          "text" : "mm",
+          "width" : 5.6,
+          "x" : 83.9,
+          "y" : 154.4
+        },
+        {
+          "height" : 11.2,
+          "text" : "mm",
+          "width" : 5.6,
+          "x" : 84,
+          "y" : 154.4
+        },
+        {
+          "height" : 11.2,
+          "text" : "mm",
+          "width" : 5.6,
+          "x" : 84.2,
+          "y" : 154.4
+        },
+        {
+          "height" : 11.2,
+          "text" : "A5",
+          "width" : 10.7,
+          "x" : 49.9,
+          "y" : 179.2
+        },
+        {
+          "height" : 11.2,
+          "text" : "148",
+          "width" : 16,
+          "x" : 73.5,
+          "y" : 179.2
+        }
+      ],
+      "textHeight" : 139.4,
+      "textLeft" : 34.7,
+      "textTop" : 51,
+      "textWidth" : 249,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "c6f3eabe13aa8f59907fd2a9c4d6cbdb195cdf9d84f98a7b2fed605670ae3b1e"
+}

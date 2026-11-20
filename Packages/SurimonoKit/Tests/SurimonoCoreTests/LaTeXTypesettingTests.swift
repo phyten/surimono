@@ -14,7 +14,8 @@ struct LaTeXTypesettingTests {
             (#"\setmainfont{Hiragino Mincho ProN}"#, true),
         ] {
             let fragment = LaTeXConverter.convert(
-                #"\documentclass{article}\#(preamble)\begin{document}\section{One}Two\end{document}"#)
+                #"\documentclass{article}\#(preamble)\begin{document}\section{One}Two\end{document}"#,
+                fontIndex: .init(faces: [:]))
             let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)
             let body = try #require(html.components(separatedBy: "<body ").last?.prefix { $0 != ">" })
             #expect(body.contains(" data-latex-local-main-font") == local)
@@ -45,6 +46,7 @@ struct LaTeXTypesettingTests {
         let theme = try #require(PrintThemeLibrary.load().first { $0.id == "latex-article" })
         #expect(theme.css.contains(".latex-numbered-listing pre { position: relative; overflow: visible; }"))
         #expect(theme.css.contains("inset-inline-end: calc(100% + 0.7em)"))
+        #expect(theme.css.contains(".code-line[data-no]::before { width: max-content; white-space: nowrap; }"))
         #expect(theme.css.contains("color: var(--latex-number-ink, #666)"))
         #expect(theme.css.contains("--latex-number-tiny: calc(5 * var(--tex-pt))"))
         #expect(theme.css.contains("--latex-number-tiny: calc(6 * var(--tex-pt))"))
@@ -169,7 +171,10 @@ struct LaTeXTypesettingTests {
             japanese.css.contains(#"body[data-latex-size="12"] { line-height: calc(25px * var(--latex-stretch, 1)); }"#)
         )
         #expect(japanese.css.contains("max-width: var(--latex-class-width, 49em)"))
-        #expect(japanese.css.contains(":is(h1, h2, h3, h4, h5, h6) + p { text-indent: var(--latex-parindent, 1em); }"))
+        #expect(
+            japanese.css.contains(
+                ":is(h1, h2, h3, h4, h5, h6) + p { text-indent: var(--latex-parindent, var(--latex-class-indent, 1em)); }"
+            ))
         #expect(japanese.css.contains(".latex-title-block h1 { font-family: inherit; }"))
         #expect(japanese.css.contains("font-style: italic; font-synthesis: none"))
         #expect(japanese.css.contains("table.latex-tabular :is(th, td) { line-height: var(--tex-baseline); }"))
@@ -209,7 +214,8 @@ extension LaTeXTypesettingTests {
     @Test("専用スタイルは指定幅を実寸で組み、本文の書体と独立した絶対字級で副題を小さくする")
     func documentTypography() throws {
         let fragment = LaTeXConverter.convert(
-            #"\documentclass[a4paper]{article}\usepackage[margin=25mm]{geometry}\setmainfont[BoldFont=Face B]{Face A}\title{Title\\\large Subtitle}\begin{document}\maketitle\end{document}"#
+            #"\documentclass[a4paper]{article}\usepackage[margin=25mm]{geometry}\setmainfont[BoldFont=Face B]{Face A}\title{Title\\\large Subtitle}\begin{document}\maketitle\end{document}"#,
+            fontIndex: .init(faces: [:])
         )
         for theme in try PrintThemeLibrary.load() where theme.category == "latex" {
             let html = HTMLDocumentBuilder.build(fragment: fragment, format: .latex, theme: theme)

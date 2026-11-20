@@ -20,14 +20,24 @@ public enum MathRenderer {
     }
 
     static func html(
-        _ latex: String, display: Bool, macros: String, rowNumberHTML: [String?], reportTruncation: Bool = true
+        _ latex: String, display: Bool, macros: String, rowNumberHTML: [String?], measureRows: Bool = false,
+        reportTruncation: Bool = true
     ) -> String? {
         let source = latex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !source.isEmpty, let nodes = try? parseLaTeX(macros + source) else { return nil }
         let box = layout(nodes, options: LayoutOptions(style: display ? .display : .text))
         let list = toDisplayList(box)
         guard !reportTruncation || !list.truncated else { return nil }
-        let labels = rowNumberHTML.isEmpty ? "" : numbersHTML(rowNumberHTML, box: box)
+        let rows = rowNumberHTML.isEmpty ? [] : rowBaselines(in: box)
+        let labels = zip(rowNumberHTML, rows).compactMap { number, baseline in
+            number.map {
+                "<span class=\"latex-row-number\" style=\"top: \(String(format: "%.4f", baseline * 100))%\">\($0)</span>"
+            }
+        }.joined()
+        var metrics = ""
+        if measureRows, let first = rows.first, let last = rows.last {
+            metrics = " data-latex-first-baseline=\"\(first)\" data-latex-last-baseline=\"\(last)\""
+        }
         let svg = SVGRenderer(options: SVGOptions(fontSize: fontSize, padding: 0)).render(list)
         let nsSVG = svg as NSString
         guard let viewBox, let size,
@@ -47,32 +57,27 @@ public enum MathRenderer {
         var html = nsSVG.replacingCharacters(in: root.range, with: attributes)
         // Formulas take the theme's text color unless they set a color of their own.
         html = html.replacingOccurrences(of: "\"rgba(0,0,0,1)\"", with: "\"currentColor\"")
-        return "<span class=\"math math-\(display ? "display" : "inline")\">\(html)\(labels)</span>"
+        return "<span class=\"math math-\(display ? "display" : "inline")\"\(metrics)>\(html)\(labels)</span>"
     }
 
     /// A numbered alignment stays a single grid so columns align across rows. SwaTex's measured
     /// row heights locate the labels even when a row contains a tall matrix or a stacked fraction.
     /// The surrounding block supplies the width of the paper, which a formula's SVG cannot know.
-    private static func numbersHTML(_ numbers: [String?], box: LayoutBox) -> String {
+    private static func rowBaselines(in box: LayoutBox) -> [Double] {
         var grid = box
         while case .hbox(let children) = grid.content,
             let child = children.first(where: { $0.totalHeight > 0 })
         {
             grid = child
         }
-        guard case .array(let array) = grid.content, grid.totalHeight > 0 else { return "" }
+        guard case .array(let array) = grid.content, grid.totalHeight > 0 else { return [] }
         var y = grid.height - array.offset
-        var html = ""
-        for (index, heights) in zip(array.rowHeights, array.rowDepths).enumerated() {
-            y += heights.0
-            if numbers.indices.contains(index), let number = numbers[index] {
-                // CSS aligns the text's baseline to the same row that SwaTex uses for its cells.
-                let top = String(format: "%.4f", 100 * y / grid.totalHeight)
-                html += "<span class=\"latex-row-number\" style=\"top: \(top)%\">\(number)</span>"
-            }
-            y += heights.1
+        return zip(array.rowHeights, array.rowDepths).map { height, depth in
+            y += height
+            let baseline = y / grid.totalHeight
+            y += depth
+            return baseline
         }
-        return html
     }
 
     /// The formula's source as written, marked so a reader sees that it could not be read.

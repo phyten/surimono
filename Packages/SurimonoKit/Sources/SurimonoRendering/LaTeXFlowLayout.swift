@@ -24,15 +24,22 @@ struct LaTeXFlowLayout {
         var forced: String?
         var paragraph: Int?
         var heading: Bool?
+        var keepBefore: Bool?
         var discardable: Bool?
         var leadingBeforeHere: CGFloat?
+        var leadingAfterHeading: CGFloat?
+        var shrinkBefore: CGFloat?
+        var topSkip: CGFloat?
         var extraAfter: CGFloat?
         var corrections: [Correction]?
+        var followingHeight: CGFloat?
+        var followingNotes: [String]?
     }
 
     struct Correction: Decodable {
         var position: CGFloat
         var extra: CGFloat
+        var shrink: CGFloat = 0
     }
 
     struct Segment: Decodable {
@@ -168,6 +175,7 @@ struct LaTeXFlowLayout {
     private struct Cursor {
         var item = 0
         var waiting: ArraySlice<Waiting> = []
+        var floatAfterMovedHeading: Int?
     }
 
     private let input: Measurement
@@ -191,11 +199,13 @@ struct LaTeXFlowLayout {
             guard segment.rule.isFinite, segment.gap.isFinite,
                 segment.items.allSatisfy({
                     $0.gap.isFinite && ($0.leadingBeforeHere ?? 0).isFinite && ($0.extraAfter ?? 0).isFinite
-                        && ($0.extraAfter ?? 0) > -1
+                        && ($0.leadingAfterHeading ?? 0).isFinite && ($0.leadingAfterHeading ?? 0) >= 0
+                        && ($0.shrinkBefore ?? 0).isFinite && ($0.shrinkBefore ?? 0) >= 0
+                        && ($0.extraAfter ?? 0) > -1 && ($0.topSkip ?? 0).isFinite && ($0.topSkip ?? 0) >= 0
                         && ($0.slice?.valid ?? ($0.forced != nil))
                 })
             else { throw CannotFit() }
-            segment.items = keptItems(segment.items, capacity: height)
+            segment.items = keptItems(segment.items, capacity: height, inTextSep: input.inTextSep)
             // A clear page drains the old queue before text after the command can enter the new one.
             var start = 0
             for i in segment.items.indices where segment.items[i].forced == "clear" || segment.items[i].forced == "page"
@@ -213,7 +223,7 @@ struct LaTeXFlowLayout {
         return layout.pages
     }
 
-    static func keptItems(_ items: [Item], capacity: CGFloat) -> [Item] {
+    static func keptItems(_ items: [Item], capacity: CGFloat, inTextSep: CGFloat = 0) -> [Item] {
         var result: [Item] = []
         var first = 0
         while first < items.count {
@@ -224,15 +234,24 @@ struct LaTeXFlowLayout {
             }
             var end = first + 1
             while end < items.count && items[end].slice?.strip == strip { end += 1 }
+            let followsHeading =
+                result.last(where: { $0.placement == nil || $0.placement?.contains("H") == true })?.heading == true
             let bands = (first..<end).compactMap { i -> FlowPageCuts.Band? in
                 guard let s = items[i].slice else { return nil }
                 let p = items[i].paragraph ?? 0
                 let sameNext = p != 0 && i + 1 < end && items[i + 1].paragraph == p
                 let firstPair = i == first || items[i - 1].paragraph != p
                 let lastPair = i + 2 >= end || items[i + 2].paragraph != p
+                // A three-line opening may leave its third line on the next page.
+                // A soft widow penalty must not chain an entire section to its heading.
+                let afterFirstTwo =
+                    i > first && items[i - 1].paragraph == p
+                    && (i == first + 1 ? followsHeading : items[i - 2].heading == true)
                 return .init(
                     start: s.start, end: s.end,
-                    keepNext: items[i].heading == true || sameNext && (firstPair || lastPair))
+                    keepNext: items[i].heading == true || (i + 1 < end && items[i + 1].keepBefore == true)
+                        || sameNext && (firstPair || lastPair && !afterFirstTwo)
+                )
             }
             var i = first
             for band in FlowPageCuts.groups(for: bands, capacity: capacity) {
@@ -241,16 +260,54 @@ struct LaTeXFlowLayout {
                 item.slice?.end = band.end
                 let start = i
                 repeat {
-                    if i != start { item.notes.append(contentsOf: items[i].notes) }
+                    if i != start {
+                        item.notes.append(contentsOf: items[i].notes)
+                        if let shrink = items[i].shrinkBefore, shrink > 0, let slice = items[i].slice {
+                            if item.corrections == nil { item.corrections = [] }
+                            item.corrections?.append(
+                                Correction(position: slice.start, extra: 0, shrink: min(items[i].gap, shrink)))
+                        }
+                    }
                     if let extra = items[i].extraAfter, extra != 0, let slice = items[i].slice {
                         if item.corrections == nil { item.corrections = [] }
                         item.corrections?.append(Correction(position: slice.end, extra: extra))
                     }
                     i += 1
                 } while i < end && (items[i].slice?.end ?? .infinity) <= band.end
+                item.heading = items[i - 1].heading
                 result.append(item)
             }
             first = end
+        }
+        // Floats are measured in separate strips. Keep the heading with the first
+        // body group across that boundary; an intervening float may consume only the surplus.
+        var heading: Int?
+        for i in result.indices {
+            let current = result[i]
+            if current.forced != nil {
+                heading = nil
+                continue
+            }
+            if current.placement != nil && current.placement?.contains("H") != true { continue }
+            // A display can have its own capture strip while still belonging to the preceding paragraph.
+            let previousLine =
+                current.keepBefore == true && i > 0 && result[i - 1].slice != nil && result[i - 1].placement == nil
+                ? i - 1 : nil
+            if let start = heading ?? previousLine, let slice = current.slice {
+                let pinned = current.placement?.contains("H") == true
+                let required =
+                    slice.height
+                    + (pinned
+                        ? max(0, inTextSep - (current.leadingBeforeHere ?? 0))
+                        : max(0, current.gap) + (current.leadingAfterHeading ?? 0))
+                if required + (result[start].slice?.height ?? 0) <= capacity {
+                    for index in start..<i {
+                        result[index].followingHeight = required
+                        result[index].followingNotes = current.notes
+                    }
+                }
+            }
+            heading = current.heading == true ? i : nil
         }
         return result
     }
@@ -337,6 +394,7 @@ struct LaTeXFlowLayout {
             var band = ColumnTop(index: page.pieces.count, textStart: base, hasFloats: base > top)
             try placeTops(segment, cursor: &cursor, lane: lane, wide: false, band: &band, y: &y, limit: limit)
             var atColumnTop = true
+            var followsHeading = false
             var inTextKinds = Set<String>()
             while let first = cursor.waiting.first, !first.item.wide, !isFloatPage(first.item),
                 let s = first.item.slice, let spec = first.item.placement, spec.contains("b"),
@@ -369,15 +427,29 @@ struct LaTeXFlowLayout {
                     let cost = above + s.height * scale + below
                     let queueClear =
                         cursor.waiting.isEmpty && page.footers[lane]?.kinds.contains(item.floatKind ?? "") != true
+                    // A float called by a heading carried over from the previous column
+                    // is already eligible for this column's top float list.
+                    if cursor.floatAfterMovedHeading == cursor.item && !pinned && !item.wide && queueClear
+                        && spec.contains("t") && !inTextKinds.contains(item.floatKind ?? ""),
+                        try insertTop(
+                            item, slice: s, lane: lane, footLane: segment.pageNotes ? full : lane,
+                            band: &band, y: &y, limit: limit)
+                    {
+                        cursor.item += 1
+                        continue
+                    }
                     if pinned
                         || !item.wide && queueClear && spec.contains("h")
                             && allowsFloat(item, cost: cost, lane: lane, footLane: segment.pageNotes ? full : lane),
                         try reserve(
-                            item, in: lane, footLane: segment.pageNotes ? full : lane, end: y + cost, limit: limit)
+                            item, in: lane, footLane: segment.pageNotes ? full : lane,
+                            end: y + cost - (pinned ? below : 0), limit: limit)
                     {
                         page.draw(s, at: y + above, lane: lane, scale: scale)
-                        y += cost
+                        // The lower intextsep of an H box is discardable glue at a column break.
+                        y = min(y + cost, limit, height - page.reserved(lane, full: full))
                         atColumnTop = false
+                        followsHeading = false
                         inTextKinds.insert(item.floatKind ?? "")
                         if !pinned {
                             page.floats[lane, default: FloatUsage()].total += 1
@@ -410,24 +482,45 @@ struct LaTeXFlowLayout {
                     cursor.item += 1
                     continue
                 }
-                let gap = atColumnTop ? 0 : item.gap
                 let groupHeight = s.height + (item.corrections?.reduce(0) { $0 + $1.extra } ?? 0)
                 guard groupHeight.isFinite, groupHeight > 0 else { throw CannotFit() }
+                // The Japanese sectioning command starts with a null box at topskip.
+                // An oversized group still has to make progress on an empty page.
+                var gap = atColumnTop ? min(item.topSkip ?? 0, max(0, height - groupHeight)) : item.gap
+                if followsHeading { gap += item.leadingAfterHeading ?? 0 }
                 let scale = min(1, height / groupHeight)
-                let end = y + gap + groupHeight * scale
+                if !atColumnTop, let shrink = item.shrinkBefore {
+                    // Use only the glue needed to keep the following group on this page.
+                    let available = min(limit, height - page.reserved(lane, full: full))
+                    gap -= min(gap, shrink, max(0, y + gap + groupHeight * scale - available))
+                }
+                let naturalEnd = y + gap + groupHeight * scale
+                let room = min(limit, height - page.reserved(lane, full: full))
+                var shrink = min(
+                    max(0, naturalEnd - room), (item.corrections?.reduce(0) { $0 + $1.shrink } ?? 0) * scale)
+                let end = naturalEnd - shrink
                 guard try reserve(item, in: lane, footLane: segment.pageNotes ? full : lane, end: end, limit: limit)
-                else { break }
+                else {
+                    if item.heading == true && end <= min(limit, height - page.reserved(lane, full: full)) {
+                        cursor.floatAfterMovedHeading = cursor.item + 1
+                    }
+                    break
+                }
                 var part = s
                 var target = y + gap
                 for correction in item.corrections ?? [] {
+                    let take = min(shrink, correction.shrink * scale)
+                    if correction.extra == 0 && take == 0 { continue }
                     part.end = correction.position
-                    page.draw(part, at: target, lane: lane, scale: scale)
-                    target += (part.height + correction.extra) * scale
+                    if part.height > 0 { page.draw(part, at: target, lane: lane, scale: scale) }
+                    target += (part.height + correction.extra) * scale - take
+                    shrink -= take
                     part.start = part.end
                 }
                 part.end = s.end
                 if part.height > 0 { page.draw(part, at: target, lane: lane, scale: scale) }
                 y = end
+                followsHeading = item.heading == true
                 atColumnTop = false
                 cursor.item += 1
             }
@@ -448,16 +541,26 @@ struct LaTeXFlowLayout {
     private mutating func reserve(_ item: Item, in lane: Lane, footLane: Lane, end: CGFloat, limit: CGFloat) throws
         -> Bool
     {
-        guard end <= limit + 0.001 else { return false }
         let room = height - page.reserved(lane, full: full)
-        guard !item.notes.isEmpty else { return end <= room + 0.001 }
+        if item.notes.isEmpty && item.followingHeight == nil { return end <= min(limit, room) + 0.001 }
+        let following = item.followingHeight ?? 0
         let notes = try item.notes.map { id in
             guard let note = input.notes[id] else { throw CannotFit() }
             return note
         }
-        let extra =
-            notes.reduce(0) { $0 + $1.height } + (page.footers[footLane]?.notes.isEmpty != false ? input.noteSkip : 0)
-        guard end + extra <= room + 0.001 else { return false }
+        let hasRule = page.footers[footLane]?.notes.isEmpty == false
+        let extra = notes.reduce(0) { $0 + $1.height } + (!notes.isEmpty && !hasRule ? input.noteSkip : 0)
+        let nextNotes = (item.followingNotes ?? []).compactMap { input.notes[$0] }
+        let nextExtra =
+            nextNotes.reduce(0) { $0 + $1.height }
+            + (!nextNotes.isEmpty && notes.isEmpty && !hasRule ? input.noteSkip : 0)
+        // If an oversized group and its notes cannot share even an empty page, allow
+        // the normal oversized-block policy to advance instead of retrying forever.
+        let keep = (item.slice?.height ?? 0) + following + extra + nextExtra <= height ? following : 0
+        guard end + keep <= limit + 0.001, end + extra + keep + (keep > 0 ? nextExtra : 0) <= room + 0.001 else {
+            return false
+        }
+        guard !notes.isEmpty else { return true }
         if footLane == full && page.reserved(full, full: full) + extra > height { return false }
         if footLane != full
             && page.footers.keys.contains(where: {

@@ -1,0 +1,221 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.03329922797879267,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 0,
+    "maxBoxDeltaPt" : 15.6,
+    "maxLuminance" : 144.609375,
+    "maxShiftPt" : 11.7,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 6
+  },
+  "fonts" : [
+    "Helvetica",
+    "HelveticaNeue",
+    "HiraMinProN-W3",
+    "HiraginoSans-W3",
+    "HiraginoSansGB-W3"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 89.3,
+      "height" : 841.9,
+      "lastY" : 789.5,
+      "lineCount" : 26,
+      "lines" : [
+        {
+          "height" : 23.8,
+          "text" : "1 折板の寸法",
+          "width" : 98.3,
+          "x" : 72.8,
+          "y" : 89.3
+        },
+        {
+          "height" : 15.4,
+          "text" : "測定台の左端を起点とした。",
+          "width" : 131.1,
+          "x" : 81,
+          "y" : 121.5
+        },
+        {
+          "height" : 15.4,
+          "text" : "同じ手順でもう一組の板を読む。",
+          "width" : 150.9,
+          "x" : 70.9,
+          "y" : 138.9
+        },
+        {
+          "height" : 9.1,
+          "text" : "1 ridge = 12",
+          "width" : 64.4,
+          "x" : 78.2,
+          "y" : 164.3
+        },
+        {
+          "height" : 9.1,
+          "text" : "2 valley = 9",
+          "width" : 64.4,
+          "x" : 78.2,
+          "y" : 178.5
+        },
+        {
+          "height" : 9.1,
+          "text" : "3 span = ridge + valley",
+          "width" : 121.1,
+          "x" : 78.2,
+          "y" : 192.6
+        },
+        {
+          "height" : 16.5,
+          "text" : "峰 板の外側の折り線。",
+          "width" : 128.6,
+          "x" : 76.7,
+          "y" : 212.9
+        },
+        {
+          "height" : 16.5,
+          "text" : "試験用の長い谷線",
+          "width" : 83.2,
+          "x" : 76.7,
+          "y" : 230.4
+        },
+        {
+          "height" : 15.4,
+          "text" : "内側に引いた細い線。",
+          "width" : 100.9,
+          "x" : 114.5,
+          "y" : 248.2
+        },
+        {
+          "height" : 15.4,
+          "text" : "1. 切片を並べる。",
+          "width" : 84.6,
+          "x" : 84.2,
+          "y" : 274.7
+        },
+        {
+          "height" : 15.4,
+          "text" : "2. 頂点を探す。",
+          "width" : 73.2,
+          "x" : 84.2,
+          "y" : 292.2
+        },
+        {
+          "height" : 16.6,
+          "text" : "白印の位置を測る。•",
+          "width" : 86.2,
+          "x" : 116.7,
+          "y" : 308.6
+        },
+        {
+          "height" : 16.6,
+          "text" : "黒印の位置を測る。•",
+          "width" : 86.2,
+          "x" : 116.7,
+          "y" : 326.1
+        },
+        {
+          "height" : 15.4,
+          "text" : "測定片 開口の向き 残りの幅",
+          "width" : 318.8,
+          "x" : 77.4,
+          "y" : 353.2
+        },
+        {
+          "height" : 15.4,
+          "text" : "第一片 北側 17",
+          "width" : 289.4,
+          "x" : 77.4,
+          "y" : 370.7
+        },
+        {
+          "height" : 15.4,
+          "text" : "第二片 南側 23",
+          "width" : 289.4,
+          "x" : 77.4,
+          "y" : 388.2
+        },
+        {
+          "height" : 15.4,
+          "text" : "番号 説明 回数",
+          "width" : 165.7,
+          "x" : 214.8,
+          "y" : 417.6
+        },
+        {
+          "height" : 15.4,
+          "text" : "一 端を押さえて静かに",
+          "width" : 131.9,
+          "x" : 214.8,
+          "y" : 435
+        },
+        {
+          "height" : 12.8,
+          "text" : "3",
+          "width" : 5.5,
+          "x" : 375.1,
+          "y" : 437.6
+        },
+        {
+          "height" : 15.4,
+          "text" : "折り目を開く",
+          "width" : 60.5,
+          "x" : 248,
+          "y" : 452.5
+        },
+        {
+          "height" : 15.4,
+          "text" : "二 折り目を閉じる 5",
+          "width" : 165.7,
+          "x" : 214.8,
+          "y" : 469.9
+        },
+        {
+          "height" : 19.8,
+          "text" : "手前の台",
+          "width" : 49.4,
+          "x" : 70.9,
+          "y" : 519.8
+        },
+        {
+          "height" : 15.4,
+          "text" : "細い方の板を置く。",
+          "width" : 90.8,
+          "x" : 70.9,
+          "y" : 548.9
+        },
+        {
+          "height" : 19.8,
+          "text" : "奥の台",
+          "width" : 36.3,
+          "x" : 315.8,
+          "y" : 519.8
+        },
+        {
+          "height" : 15.4,
+          "text" : "広い方の板を置く。",
+          "width" : 90.8,
+          "x" : 315.8,
+          "y" : 548.9
+        },
+        {
+          "height" : 12.8,
+          "text" : "1",
+          "width" : 5.5,
+          "x" : 294.9,
+          "y" : 789.5
+        }
+      ],
+      "textHeight" : 713.1,
+      "textLeft" : 70.9,
+      "textTop" : 89.3,
+      "textWidth" : 335.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "c759df62dfc933b41464c24be96c1bb4de5df023c6a5da8b31f57b5e9079ddf3"
+}

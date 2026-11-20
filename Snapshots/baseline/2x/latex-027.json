@@ -1,0 +1,182 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.04205500263541376,
+    "dimensionsChanged" : false,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 25.6,
+    "maxLuminance" : 140.953125,
+    "maxShiftPt" : 26.9,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 24
+  },
+  "fonts" : [
+    "Helvetica"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 150.4,
+      "height" : 841.9,
+      "lastY" : 719.2,
+      "lineCount" : 21,
+      "lines" : [
+        {
+          "height" : 17.5,
+          "text" : "Channel lining",
+          "width" : 104.3,
+          "x" : 125.4,
+          "y" : 150.4
+        },
+        {
+          "height" : 11.7,
+          "text" : "At a tight bend the inner liner must slide. The fixture follows the bench",
+          "width" : 343.7,
+          "x" : 125.4,
+          "y" : 175.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "drawing [6] and the scale study [5]. The hinge has its own assembly card [4].",
+          "width" : 334.2,
+          "x" : 125.4,
+          "y" : 187.1
+        },
+        {
+          "height" : 17.5,
+          "text" : "References",
+          "width" : 77.5,
+          "x" : 125.4,
+          "y" : 214
+        },
+        {
+          "height" : 11.7,
+          "text" : "[1]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 241.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "[2]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 256.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "[3]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 283.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "[4]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 298.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "[5]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 327.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "[6]",
+          "width" : 10.5,
+          "x" : 125.5,
+          "y" : 354.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
+          "width" : 303.5,
+          "x" : 141,
+          "y" : 241.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 256.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "pages 8–12. Model Quay Press, 2017.",
+          "width" : 162,
+          "x" : 141,
+          "y" : 269.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
+          "width" : 185.2,
+          "x" : 141,
+          "y" : 283.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 298.7
+        },
+        {
+          "height" : 11.7,
+          "text" : "Forum, pages 21–24, 2018.",
+          "width" : 116.3,
+          "x" : 141,
+          "y" : 311.5
+        },
+        {
+          "height" : 11.7,
+          "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 327.1
+        },
+        {
+          "height" : 11.7,
+          "text" : "tember 2019.",
+          "width" : 56.5,
+          "x" : 141,
+          "y" : 339.9
+        },
+        {
+          "height" : 11.7,
+          "text" : "Tray Workshop. A bench for tilted channels. Technical Report 7, Model",
+          "width" : 328.2,
+          "x" : 141,
+          "y" : 354.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "Quay Laboratory, 2020.",
+          "width" : 104.3,
+          "x" : 141,
+          "y" : 366.3
+        },
+        {
+          "height" : 11.7,
+          "text" : "1",
+          "width" : 5,
+          "x" : 294.8,
+          "y" : 719.2
+        }
+      ],
+      "textHeight" : 580.4,
+      "textLeft" : 125.4,
+      "textTop" : 150.4,
+      "textWidth" : 343.7,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "97466eee5fceb0597661a59d3fe76721c81e1d75a1237b08fce1b7ad9ff36f80"
+}

@@ -1,0 +1,170 @@
+{
+  "fidelity" : {
+    "anyPixelDifference" : true,
+    "changedAreaRatio" : 0.02217898441427853,
+    "dimensionsChanged" : true,
+    "layoutChanged" : true,
+    "lineCountChangedPages" : 1,
+    "maxBoxDeltaPt" : 23,
+    "maxLuminance" : 193.9375,
+    "maxShiftPt" : 24.5,
+    "pageDelta" : 0,
+    "repaginatedLines" : 0,
+    "textEdits" : 3
+  },
+  "fonts" : [
+    "TimesNewRomanPS-BoldMT",
+    "TimesNewRomanPS-ItalicMT",
+    "TimesNewRomanPSMT"
+  ],
+  "pageCount" : 1,
+  "pages" : [
+    {
+      "firstY" : 126.5,
+      "height" : 841.9,
+      "lastY" : 772.8,
+      "lineCount" : 19,
+      "lines" : [
+        {
+          "height" : 19.1,
+          "text" : "Měřicí deska",
+          "width" : 86.4,
+          "x" : 254.6,
+          "y" : 126.5
+        },
+        {
+          "height" : 13.2,
+          "text" : "14. května 2026",
+          "width" : 78.4,
+          "x" : 258.5,
+          "y" : 182
+        },
+        {
+          "height" : 9.9,
+          "text" : "Abstrakt",
+          "width" : 34.4,
+          "x" : 280.4,
+          "y" : 211.5
+        },
+        {
+          "height" : 9.9,
+          "text" : "Dvě značky ukazují počáteční polohu desky.",
+          "width" : 163.9,
+          "x" : 97.2,
+          "y" : 226.3
+        },
+        {
+          "height" : 15.9,
+          "text" : "Obsah",
+          "width" : 39.9,
+          "x" : 56.8,
+          "y" : 255.1
+        },
+        {
+          "height" : 11,
+          "text" : "1 Značky 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 281.8
+        },
+        {
+          "height" : 11,
+          "text" : "2 Výška 1",
+          "width" : 481.6,
+          "x" : 56.8,
+          "y" : 303.8
+        },
+        {
+          "height" : 15.9,
+          "text" : "1 Značky",
+          "width" : 67.8,
+          "x" : 56.8,
+          "y" : 331.9
+        },
+        {
+          "height" : 11,
+          "text" : "„Nejprve odečtěte dolní značku.“",
+          "width" : 135.2,
+          "x" : 81.7,
+          "y" : 357.8
+        },
+        {
+          "height" : 11,
+          "text" : "Obrázek 1: Poloha desky",
+          "width" : 102.4,
+          "x" : 246.4,
+          "y" : 425.7
+        },
+        {
+          "height" : 15.9,
+          "text" : "2 Výška",
+          "width" : 59.8,
+          "x" : 56.8,
+          "y" : 465.8
+        },
+        {
+          "height" : 11,
+          "text" : "Značka Výška (mm)",
+          "width" : 91.2,
+          "x" : 252,
+          "y" : 501.2
+        },
+        {
+          "height" : 11,
+          "text" : "1 12",
+          "width" : 79,
+          "x" : 264.2,
+          "y" : 513.6
+        },
+        {
+          "height" : 11,
+          "text" : "2 18",
+          "width" : 79,
+          "x" : 264.2,
+          "y" : 525.6
+        },
+        {
+          "height" : 11,
+          "text" : "Tabulka 1: Výška značek",
+          "width" : 102.8,
+          "x" : 246.2,
+          "y" : 547.6
+        },
+        {
+          "height" : 15.9,
+          "text" : "Reference",
+          "width" : 61.1,
+          "x" : 56.8,
+          "y" : 587.7
+        },
+        {
+          "height" : 11,
+          "text" : "[1]",
+          "width" : 11.6,
+          "x" : 56.8,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "Zápisník měření, 2025, Kapitola 2.",
+          "width" : 141.9,
+          "x" : 76.7,
+          "y" : 613.6
+        },
+        {
+          "height" : 11,
+          "text" : "1",
+          "width" : 5,
+          "x" : 295.1,
+          "y" : 772.8
+        }
+      ],
+      "textHeight" : 657.3,
+      "textLeft" : 56.8,
+      "textTop" : 126.5,
+      "textWidth" : 481.6,
+      "width" : 595.3
+    }
+  ],
+  "textSHA256" : "9b971a2d6dd5e49dad91128408b63d57302b1aab088fd2e495cfe4ae56c67416"
+}
