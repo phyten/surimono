@@ -52,6 +52,41 @@ struct LaTeXFlowLayoutTests {
         }
     }
 
+    @Test("長表は送りの脚を予約し、次の用紙の最初の行の前に継続見出しを置く")
+    func tablePageBreak() throws {
+        var rows = [item(1, 50), item(2, 40), item(3, 45), item(4, 35)]
+        for i in rows.indices {
+            if i > 0 { rows[i].repeatHead = .init(strip: 7, start: 0, end: 12, width: 100) }
+            if i < 3 { rows[i].repeatFoot = .init(strip: 8, start: 0, end: 8, width: 100) }
+        }
+        let result = try pages([segment(rows)])
+        #expect(result.map { $0.pieces.map(\.slice.strip) } == [[1, 2, 8], [7, 3, 4]])
+        #expect(result.last?.pieces.map(\.y) == [0, 12, 57])
+    }
+
+    @Test("長表は行と送り脚の深さを描画に残し、先頭の伸縮糊を一度だけ縮める")
+    func tableFootDepth() throws {
+        var first = item(1, 35)
+        first.gap = 10
+        first.tablePreShrink = 4
+        var second = item(2, 30)
+        let foot = Flow.Slice(strip: 8, start: 0, end: 12, width: 100)
+        first.repeatFoot = foot
+        second.repeatFoot = foot
+        second.tableBreakDepth = 6
+        let result = try pages([segment([item(0, 22), first, second, item(3, 80)])])
+        #expect(result.count == 2)
+        #expect(result[0].pieces.map(\.slice.strip) == [0, 1, 2, 8])
+        #expect(result[0].pieces.map(\.y) == [0, 29, 64, 94])
+    }
+
+    @Test("長表の継続見出しと行が空の用紙にも収まらないときは改ページを繰り返さない")
+    func oversizedContinuation() {
+        var last = item(2, 95)
+        last.repeatHead = .init(strip: 7, start: 0, end: 12, width: 100)
+        #expect(throws: Flow.CannotFit.self) { try pages([segment([item(1, 70), last])]) }
+    }
+
     @Test("和文の見出しが段頭に来たときだけトップスキップを加える")
     func sectionTopSkip() throws {
         var heading = item(1, 20)
@@ -188,6 +223,23 @@ struct LaTeXFlowLayoutTests {
         for (used, order) in [(75, [2, 1, 3]), (90, [1, 2, 3])] {
             let result = try pages([segment([item(0, CGFloat(used))] + content)])
             #expect(result.last?.pieces.map(\.slice.strip) == order)
+        }
+    }
+
+    @Test("見出しの深さを引いた行間は図を本文中に置けたときだけ加える")
+    func leadingAfterInTextFloat() throws {
+        var text = item(3, 16)
+        text.leadingAfterHere = 2
+        for used in [0, 75] {
+            var heading = item(1, 15)
+            heading.heading = true
+            let before = used == 0 ? [] : [item(0, CGFloat(used))]
+            let content = before + [heading, item(2, 15, placement: "htbp")]
+            let ordinary = try pages([segment(content + [item(3, 16)])])
+            let adjusted = try pages([segment(content + [text])])
+            let start = try #require(ordinary.last?.pieces.last?.y)
+            let end = try #require(adjusted.last?.pieces.last?.y)
+            #expect(end - start == (used == 0 ? 2 : 0))
         }
     }
 

@@ -1,39 +1,37 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.018508872559658534,
+    "changedAreaRatio" : 0.017470209489556528,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 4.6,
-    "maxLuminance" : 165,
-    "maxShiftPt" : 12.8,
+    "maxBoxDeltaPt" : 5.4,
+    "maxLuminance" : 77.9375,
+    "maxShiftPt" : 2.6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 19
+    "textEdits" : 17
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
-    "HelveticaNeue-Medium",
-    "HiraKakuProN-W3",
-    "HiraKakuProN-W6",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5",
+    "TimesNewRomanPSMT"
   ],
   "pageCount" : 5,
   "pages" : [
     {
-      "firstY" : 343.3,
+      "firstY" : 344.1,
       "height" : 841.9,
       "lastY" : 399.4,
       "lineCount" : 2,
       "lines" : [
         {
-          "height" : 27.5,
+          "height" : 24.3,
           "text" : "霧窓の採光記録",
           "width" : 111.4,
           "x" : 241.9,
-          "y" : 343.3
+          "y" : 344.1
         },
         {
           "height" : 16.9,
@@ -43,38 +41,38 @@
           "y" : 399.4
         }
       ],
-      "textHeight" : 73.1,
+      "textHeight" : 72.2,
       "textLeft" : 241.9,
-      "textTop" : 343.3,
+      "textTop" : 344.1,
       "textWidth" : 111.4,
       "width" : 595.3
     },
     {
-      "firstY" : 165.7,
+      "firstY" : 165.5,
       "height" : 841.9,
       "lastY" : 332.8,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 37.6,
+          "height" : 38.6,
           "text" : "目次",
           "width" : 45.8,
           "x" : 71.9,
-          "y" : 165.7
+          "y" : 165.5
         },
         {
-          "height" : 15.1,
+          "height" : 15.5,
           "text" : "第1 章 格子戸の測定 2",
           "width" : 451.4,
           "x" : 71.9,
-          "y" : 249.2
+          "y" : 249.1
         },
         {
           "height" : 14.1,
           "text" : "1.1 朝の採光 2",
           "width" : 442.2,
           "x" : 81.1,
-          "y" : 267.9
+          "y" : 267.8
         },
         {
           "height" : 14.1,
@@ -84,11 +82,11 @@
           "y" : 286.2
         },
         {
-          "height" : 15.1,
+          "height" : 15.5,
           "text" : "第2 章 遮光板の置き方 4",
           "width" : 451.4,
           "x" : 71.9,
-          "y" : 314.1
+          "y" : 314
         },
         {
           "height" : 14.1,
@@ -98,45 +96,45 @@
           "y" : 332.8
         }
       ],
-      "textHeight" : 181.2,
+      "textHeight" : 181.3,
       "textLeft" : 71.9,
-      "textTop" : 165.7,
+      "textTop" : 165.5,
       "textWidth" : 451.4,
       "width" : 595.3
     },
     {
-      "firstY" : 164.8,
+      "firstY" : 164.6,
       "height" : 841.9,
       "lastY" : 87.7,
       "lineCount" : 12,
       "lines" : [
         {
-          "height" : 31.3,
+          "height" : 32.1,
           "text" : "第1 章",
-          "width" : 60,
+          "width" : 58.9,
           "x" : 71.9,
-          "y" : 164.8
+          "y" : 164.6
         },
         {
-          "height" : 37.6,
+          "height" : 38.6,
           "text" : "格子戸の測定",
           "width" : 137.5,
           "x" : 71.9,
-          "y" : 213.7
+          "y" : 213.5
         },
         {
-          "height" : 21.7,
+          "height" : 22.3,
           "text" : "1.1 朝の採光",
-          "width" : 87.4,
-          "x" : 73.7,
-          "y" : 297.8
+          "width" : 85.7,
+          "x" : 73.6,
+          "y" : 297.7
         },
         {
           "height" : 14.1,
           "text" : "霧窓を東へ向け、格子の内側に白い紙を置いた。",
           "width" : 202.1,
           "x" : 81.1,
-          "y" : 329.6
+          "y" : 329.5
         },
         {
           "height" : 14.1,
@@ -146,46 +144,46 @@
           "y" : 347.9
         },
         {
-          "height" : 21.7,
+          "height" : 22.3,
           "text" : "1.2 夕方の採光",
-          "width" : 100.6,
-          "x" : 73.7,
-          "y" : 382.4
+          "width" : 99,
+          "x" : 73.6,
+          "y" : 382.3
         },
         {
           "height" : 14.1,
           "text" : "影の伸びる向きだけを紙帯に記す。",
           "width" : 146.2,
           "x" : 81.1,
-          "y" : 414.2
+          "y" : 414.1
         },
         {
-          "height" : 14.3,
+          "height" : 13.9,
           "text" : "図 1.1: 窓の幅を写した帯。",
-          "width" : 103.4,
-          "x" : 234,
+          "width" : 105.9,
+          "x" : 246.8,
           "y" : 466.9
         },
         {
           "height" : 12.7,
           "text" : "細い印は開口の端を表す。",
           "width" : 98.4,
-          "x" : 262.8,
+          "x" : 250.5,
           "y" : 482.2
         },
         {
-          "height" : 15.9,
+          "height" : 15.5,
           "text" : "凍結時の扱い",
           "width" : 55.3,
           "x" : 81.9,
-          "y" : 527.9
+          "y" : 528
         },
         {
           "height" : 14.1,
           "text" : "氷の粒は窓枠を外してから数える。",
           "width" : 146.3,
           "x" : 81.9,
-          "y" : 547.6
+          "y" : 547.5
         },
         {
           "height" : 11.7,
@@ -195,7 +193,7 @@
           "y" : 87.7
         }
       ],
-      "textHeight" : 474,
+      "textHeight" : 473.9,
       "textLeft" : 71.9,
       "textTop" : 87.7,
       "textWidth" : 451.4,
@@ -216,10 +214,10 @@
         },
         {
           "height" : 14.1,
-          "text" : "図1.1の紙帯を次の測定にも使う。",
-          "width" : 142.9,
+          "text" : "図 1.1 の紙帯を次の測定にも使う。",
+          "width" : 146.7,
           "x" : 81.1,
-          "y" : 113.6
+          "y" : 113.9
         },
         {
           "height" : 11.7,
@@ -236,41 +234,41 @@
       "width" : 595.3
     },
     {
-      "firstY" : 164.8,
+      "firstY" : 164.6,
       "height" : 841.9,
       "lastY" : 87.7,
       "lineCount" : 7,
       "lines" : [
         {
-          "height" : 31.3,
+          "height" : 32.1,
           "text" : "第2 章",
-          "width" : 60,
+          "width" : 58.9,
           "x" : 71.9,
-          "y" : 164.8
+          "y" : 164.6
         },
         {
-          "height" : 37.6,
+          "height" : 38.6,
           "text" : "遮光板の置き方",
           "width" : 160.4,
           "x" : 71.9,
-          "y" : 213.7
+          "y" : 213.5
         },
         {
-          "height" : 21.7,
+          "height" : 22.3,
           "text" : "2.1 二枚の目印",
-          "width" : 100.6,
-          "x" : 73.7,
-          "y" : 297.8
+          "width" : 99,
+          "x" : 73.6,
+          "y" : 297.6
         },
         {
           "height" : 14.1,
           "text" : "黒い板を交互に重ね、開口の幅を記録する。",
           "width" : 184.3,
           "x" : 81.1,
-          "y" : 329.6
+          "y" : 329.5
         },
         {
-          "height" : 15.9,
+          "height" : 15.5,
           "text" : "保管用の帯",
           "width" : 46.1,
           "x" : 87.5,
@@ -281,7 +279,7 @@
           "text" : "乾いた帯の端に風向きを書いた。",
           "width" : 138.2,
           "x" : 87.5,
-          "y" : 373.2
+          "y" : 373.1
         },
         {
           "height" : 11.7,
@@ -291,12 +289,12 @@
           "y" : 87.7
         }
       ],
-      "textHeight" : 299.6,
+      "textHeight" : 299.5,
       "textLeft" : 71.9,
       "textTop" : 87.7,
       "textWidth" : 451.4,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "e9cc60df88c743e68013a02fb63267a511e24f5fca7d47b0302b57c9b3a8573b"
+  "textSHA256" : "529e4d220e8406b3123a536caa29a3b05ad19a8fa9a510f91459666458ab1556"
 }

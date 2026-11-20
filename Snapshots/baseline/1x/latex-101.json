@@ -1,37 +1,37 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.01099846009156771,
+    "changedAreaRatio" : 0.011077005756570448,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 8,
-    "maxLuminance" : 132.15625,
-    "maxShiftPt" : 5.9,
+    "maxBoxDeltaPt" : 8.6,
+    "maxLuminance" : 114.890625,
+    "maxShiftPt" : 6,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 2
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
     "HiraKakuProN-W3",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5"
   ],
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 89.3,
+      "firstY" : 89.2,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 9,
       "lines" : [
         {
-          "height" : 23.8,
+          "height" : 24.4,
           "text" : "1 風見輪の刻み",
-          "width" : 111.6,
-          "x" : 72.8,
-          "y" : 89.3
+          "width" : 110.7,
+          "x" : 72.7,
+          "y" : 89.2
         },
         {
           "height" : 15.4,
@@ -48,11 +48,11 @@
           "y" : 138.9
         },
         {
-          "height" : 19.8,
+          "height" : 20.4,
           "text" : "1.1 二枚の比較",
-          "width" : 91.8,
-          "x" : 72.5,
-          "y" : 172
+          "width" : 90.3,
+          "x" : 72.4,
+          "y" : 171.9
         },
         {
           "height" : 15.4,
@@ -80,7 +80,7 @@
           "text" : "■記録 白い印の数を書き留める。",
           "width" : 162.2,
           "x" : 70.9,
-          "y" : 247.2
+          "y" : 247.1
         },
         {
           "height" : 12.8,
@@ -90,9 +90,9 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 713,
+      "textHeight" : 713.2,
       "textLeft" : 70.9,
-      "textTop" : 89.3,
+      "textTop" : 89.2,
       "textWidth" : 310.5,
       "width" : 595.3
     },
@@ -110,18 +110,18 @@
           "y" : 90.7
         },
         {
-          "height" : 23.8,
+          "height" : 24.4,
           "text" : "2 裏面の印",
-          "width" : 82.5,
-          "x" : 72.8,
-          "y" : 151.2
+          "width" : 81.7,
+          "x" : 72.7,
+          "y" : 151.1
         },
         {
-          "height" : 19.8,
+          "height" : 20.4,
           "text" : "外輪",
           "width" : 24.2,
           "x" : 70.9,
-          "y" : 199
+          "y" : 198.9
         },
         {
           "height" : 15.4,
@@ -135,14 +135,14 @@
           "text" : "一番深い刻みに白い点を打つ。",
           "width" : 140.9,
           "x" : 70.9,
-          "y" : 245.6
+          "y" : 245.5
         },
         {
-          "height" : 19.8,
+          "height" : 20.4,
           "text" : "内輪",
           "width" : 24.2,
           "x" : 315.8,
-          "y" : 199
+          "y" : 198.9
         },
         {
           "height" : 15.4,
@@ -156,7 +156,7 @@
           "text" : "最後の印を青で囲む。",
           "width" : 100.9,
           "x" : 315.8,
-          "y" : 245.6
+          "y" : 245.5
         },
         {
           "height" : 12.8,

@@ -10,7 +10,7 @@ time.1
 2 Result
 The middle gate concealed the lantern first. Its screen crossed the sight line at
 tile four.
-* Drawings use a common scale.
+Drawings use a common scale.*
 1
 A tile measures one model unit.
 1

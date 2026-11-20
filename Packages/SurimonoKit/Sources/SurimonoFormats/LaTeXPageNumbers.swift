@@ -7,6 +7,7 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
     public private(set) var format = "arabic"
     private var style = "plain"
     private var thisPageStyle: String?
+    private var amsHeadings = false
     private var japanesePlain = false
     private var twoSided = false
     private var examFirst: [String: String]?
@@ -52,6 +53,15 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             fields["OLH"] = #"\leftmark"#
             fields["ORH"] = #"\rightmark"#
         }
+        amsHeadings = ["amsart", "amsbook", "amsproc"].contains(name)
+        if amsHeadings {
+            style = "headings"
+            // AMS uses the third entry of its size table for both running heads and folios.
+            let size = options.last(where: { ["10pt", "11pt", "12pt"].contains($0) }) ?? "10pt"
+            headerFont = LaTeXElementFont(sizeInPoints: size == "12pt" ? 9 : size == "11pt" ? 8 : 7)
+            numberFont = headerFont
+            twoSided = options.last { $0 == "twoside" || $0 == "oneside" } != "oneside"
+        }
         if name == "exam" {
             style = "headandfoot"
             examFirst = [:]
@@ -64,18 +74,20 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
 
     public var label: String { LaTeXSymbols.format(counter, as: format) }
     public var showsFooter: Bool { footer.contains { !$0.isEmpty } }
+    var writesContentsMark: Bool { style == "headings" || style == "fancy" }
 
     package var needsRunningMarks: Bool {
         func usesMarks(_ fields: [String: String]) -> Bool {
             fields.values.contains { $0.contains(#"\leftmark"#) || $0.contains(#"\rightmark"#) }
         }
         // A later thispagestyle can select a preamble definition using marks from earlier pages.
-        return (usesClassPlain || thisPageStyle == "fancy" || !definitions.isEmpty)
-            && (usesMarks(fields)
-                || definitions.values.contains { usesMarks($0.fields) || $0.snapshot.map(usesMarks) == true })
+        return amsHeadings && style == "headings"
+            || (usesClassPlain || thisPageStyle == "fancy" || !definitions.isEmpty)
+                && (usesMarks(fields)
+                    || definitions.values.contains { usesMarks($0.fields) || $0.snapshot.map(usesMarks) == true })
     }
 
-    package var usesClassPlain: Bool { style == "fancy" || definitions["plain"] != nil }
+    package var usesClassPlain: Bool { amsHeadings || style == "fancy" || definitions["plain"] != nil }
 
     private func selectedFields(_ name: String) -> [String: String]? {
         var chain: [Definition] = []
@@ -148,6 +160,9 @@ public struct LaTeXPageNumbers: Equatable, Sendable {
             return ["L", "C", "R"].map { Self.text(source[$0 + location] ?? "", page: label, totals: examTotals) }
         }
         switch currentStyle {
+        case "headings" where amsHeadings:
+            guard location == "H" else { return ["", "", ""] }
+            return even ? [label, leftMark.uppercased(), ""] : ["", rightMark.uppercased(), label]
         case "empty": return ["", "", ""]
         case "plainhead", "runningheads":
             return location == "F" ? ["", "", ""] : even ? [label, "", ""] : ["", "", label]

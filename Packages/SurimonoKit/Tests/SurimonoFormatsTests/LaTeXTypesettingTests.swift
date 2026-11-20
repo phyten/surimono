@@ -4,6 +4,14 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXTypesettingTests {
+    @Test("標準クラスの入れ子リストと脚注は級数別の自然長を使う", arguments: [(10, "2", "9.5"), (11, "2", "11"), (12, "2.5", "12")])
+    func standardListSkips(_ values: (Int, String, String)) {
+        let (size, nested, footnote) = values
+        let variables = LaTeXConverter.documentClassInfo(#"\documentclass[\#(size)pt]{article}"#).styleVariables
+        #expect(variables.contains("--latex-inner-parsep: calc(\(nested) * var(--tex-pt))"))
+        #expect(variables.contains("--latex-note-pitch: calc(\(footnote) * var(--tex-pt))"))
+    }
+
     @Test("multline は左・中央・右に組み、星付きでも行揃えを保つ", arguments: ["multline", "multline*"])
     func multlineAlignment(environment: String) {
         let html = LaTeXConverter.convert("\\begin{\(environment)}a+b\\\\=c\\\\=d\\end{\(environment)}").body
@@ -60,7 +68,7 @@ struct LaTeXTypesettingTests {
             #"\title{Paper\thanks{First}}\author{A\thanks{Second} and B\thanks{Third}}\maketitle Body\footnote{Main}"#)
         for mark in ["*", "†", "‡"] { #expect(result.body.contains(">\(mark)</a></sup>")) }
         for (mark, text) in [("*", "First"), ("†", "Second"), ("‡", "Third")] {
-            #expect(result.body.contains("<p><sup class=\"latex-symbolic-note\">\(mark)</sup>&nbsp;\(text)</p>"))
+            #expect(result.body.contains("<p><sup class=\"latex-symbolic-note\">\(mark)</sup>\(text)</p>"))
         }
         #expect(result.body.contains(##"id="fnref-1">1</a>"##))
         #expect(result.body.contains(##"<li id="fn-1" value="1"><p>Main</p>"##))

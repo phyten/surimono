@@ -120,3 +120,81 @@ body[data-latex-journal="elsevier"] :is(h2,h3) + p { text-indent: var(--latex-pa
 body:is([data-latex-journal="aps-preprint"], [data-latex-journal="elsevier"]) figure > p[data-latex-rule-line] + figcaption {
     padding-block-start: max(0px, calc((1lh - 1cap) / 2));
 }
+
+/* The AMS classes reserve part of the text block for the head, then measure title
+   and chapter positions from the first baseline rather than the top of a line box. */
+body[data-latex-journal="ams"] {
+    --tex-indent: 18; --ams-note-pitch: 10; --ams-linespacing: 12;
+    --latex-skip-footins: calc(7 * var(--tex-pt));
+}
+body[data-latex-class="amsart"] { --tex-indent: 12; }
+body[data-latex-journal="ams"][data-latex-size="11"] { --ams-note-pitch: 11; --ams-linespacing: 13; }
+body[data-latex-journal="ams"][data-latex-size="12"] { --ams-note-pitch: 12; --ams-linespacing: 14; }
+body[data-latex-journal="ams"] {
+    & .latex-title-block { margin-block-end: 0; }
+    & .latex-title-block h1 { text-align: center; font-weight: bold; }
+    & .latex-title-block .latex-author { text-align: center; }
+    & .latex-author-name { display: inline; }
+    & .latex-author-name + .latex-author-name::before { content: ", "; }
+    & .latex-author-name:last-child:not(:first-child)::before { content: " and "; }
+    & .latex-front-abstract { margin: calc(20 * var(--tex-pt)) calc(36 * var(--tex-pt)) calc(22 * var(--tex-pt)); }
+    & :is(.latex-front-abstract,.latex-bibliography,.footnotes) {
+        font-size: var(--latex-size-footnotesize); line-height: calc(var(--ams-note-pitch) * var(--tex-pt));
+    }
+    & .latex-front-abstract p:first-child { text-indent: 0; }
+    & :is(.latex-abstract-label,.latex-caption-label,.latex-ams-address span) { font-weight: normal; font-variant-caps: small-caps; }
+    & [data-latex-heading="section"], & .latex-bibliography-heading:not([data-latex-chapter-opening]) {
+        font-size: 1em; text-align: center; font-weight: bold;
+        margin-block: calc(.7 * var(--ams-linespacing) * var(--tex-pt)) calc(.5 * var(--ams-linespacing) * var(--tex-pt));
+    }
+    & [data-latex-heading="section"] + p { text-indent: var(--latex-parindent, calc(var(--tex-indent) * var(--tex-pt))); }
+    & [data-latex-heading] .secnum { font-weight: normal; font-style: normal; margin-inline-end: .5em; }
+    & .latex-runin { margin-block-start: calc(.5 * var(--ams-linespacing) * var(--tex-pt)); }
+    & .latex-runin > :is(.latex-runin-subsection,.latex-runin-subsubsection) { display: inline; font-size: 1em; margin: 0; }
+    & .latex-runin > [data-latex-heading="subsubsection"] { font-weight: normal; font-style: italic; }
+    & .latex-runin > [data-latex-heading] + p { display: inline; margin-inline-start: .5em; }
+    & figure figcaption:not([data-latex-caption-style]) { font-size: 1em; }
+    & .latex-ams-address { margin-block-start: .7lh; }
+    & :is(.latex-ams-address,.latex-ams-email,.latex-ams-curraddr,.latex-ams-urladdr) {
+        text-align: start; text-indent: calc(var(--tex-indent) * var(--tex-pt));
+    }
+    & .latex-ams-note-ref { position: absolute; font-size: 0; }
+    /* In @makecaption a table has only belowcaptionskip, including when its caption follows the rows. */
+    & figure.latex-table > table + figcaption:not([data-latex-caption-style]) { margin-block: 0 calc(12 * var(--tex-pt)); }
+    & .footnotes p { margin: 0; }
+}
+body[data-latex-class="amsart"] {
+    & .latex-front-abstract { margin-block-end: calc(34 * var(--tex-pt)); }
+    & .latex-bibliography-heading + ol { margin-block-start: 0; }
+    & .latex-bibliography li { margin-block: 0; }
+    /* PDFKit needs the capital and the smaller run to meet at the natural advance. */
+    & .latex-ams-small-cap { font-size: .82em; font-variant-caps: normal; text-transform: uppercase; }
+    & .latex-title-block { padding-block-start: calc(32 * var(--tex-pt)); }
+    & .latex-title-block h1 { text-transform: uppercase; font-size: 1em; line-height: calc(14 * var(--tex-pt)); }
+    & .latex-title-block .latex-author { text-transform: uppercase; font-size: var(--latex-size-footnotesize); margin-block-start: calc((30 - var(--ams-note-pitch)) * var(--tex-pt)); }
+    & [data-latex-heading="section"], & .latex-bibliography-heading:not([data-latex-chapter-opening]) { font-variant-caps: small-caps; font-weight: normal; }
+}
+body[data-latex-journal="ams"]:not([data-latex-class="amsbook"]) :is(.latex-ams-address,.latex-ams-curraddr,.latex-ams-urladdr,.latex-ams-email) {
+    font-size: var(--latex-size-footnotesize); line-height: calc(var(--ams-note-pitch) * var(--tex-pt));
+}
+body[data-latex-class="amsproc"] .latex-title-block { padding-block-start: calc(84 * var(--tex-pt)); }
+body[data-latex-class="amsproc"] .latex-title-block h1 { font-size: calc(12 * var(--tex-pt)); }
+body[data-latex-class="amsproc"] .latex-title-block .latex-author { font-size: calc(11 * var(--tex-pt)); margin-block-start: calc(13 * var(--tex-pt)); }
+body:is([data-latex-class="amsbook"],[data-latex-class="amsproc"]) .latex-runin { text-indent: calc(18 * var(--tex-pt)); }
+body:is([data-latex-class="amsbook"],[data-latex-class="amsproc"]) .latex-runin:has(> .latex-runin-subsubsection) { margin-block-start: 0; }
+body[data-latex-class="amsbook"][data-latex-chapters] {
+    & .latex-title-block { padding-block-start: calc(8 * var(--tex-pt)); }
+    & .latex-title-block :is(h1,.latex-author) { font-size: calc(14.4 * var(--tex-pt)); }
+    & .latex-title-block .latex-author { margin-block: calc(24 * var(--tex-pt)) calc(18 * var(--tex-pt)); }
+    & .latex-amsbook-verso { text-align: center; }
+    & .latex-amsbook-verso > p:last-of-type { margin-block-end: 0; }
+    & .latex-amsbook-verso > .abstract { margin: 0 calc(36 * var(--tex-pt)); padding-block-start: calc(20 * var(--tex-pt)); text-align: justify; font-size: var(--latex-size-footnotesize); line-height: calc(var(--ams-note-pitch) * var(--tex-pt)); }
+    & h2[data-latex-heading="chapter"][id] {
+        position: relative; text-align: center; font-size: calc(14.4 * var(--tex-pt));
+        padding-block-start: calc(76 * var(--tex-pt)); line-height: calc(18 * var(--tex-pt)); margin-block-end: calc(22 * var(--tex-pt));
+    }
+    & h2[data-latex-heading="chapter"] > .secnum {
+        position: absolute; inset: auto 0 calc(36 * var(--tex-pt)); margin: 0;
+        font-size: var(--latex-size-normalsize); font-weight: normal; text-transform: uppercase;
+    }
+}

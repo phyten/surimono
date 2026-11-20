@@ -123,6 +123,15 @@ struct LaTeXClassBox {
         if let box = LaTeXClassBox.bookBox(info, width: paperWidth, height: paperHeight, twoSided: twoSided) {
             return box
         }
+        if info.journalStyle == .ams {
+            // calclayout centres the 30pc by 50.5pc area including the 8pt head and its 14pt separation.
+            let measure = 360.0
+            let height = info.usesAMSA4Layout ? 654.0 : 606.0
+            return Self(
+                width: measure, height: height - 22, left: max(36.135, (paperWidth - measure) / 2),
+                top: max(36.135, (paperHeight - height) / 2) + 22, headHeight: 8, headSep: 14,
+                footSkip: className == "amsbook" ? 18 : 12)
+        }
         if className == "exam" {
             let inch = 72.27
             return Self(

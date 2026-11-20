@@ -1,13 +1,13 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.007161090957947065,
+    "changedAreaRatio" : 0.0070856457797207496,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 25.6,
     "maxLuminance" : 133.609375,
-    "maxShiftPt" : 27,
+    "maxShiftPt" : 27.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 4
@@ -43,21 +43,21 @@
           "text" : "WORKING: Quartz",
           "width" : 72.9,
           "x" : 150.3,
-          "y" : 187.9
+          "y" : 191.9
         },
         {
           "height" : 11.7,
           "text" : "RESERVE: Slate",
           "width" : 61.3,
           "x" : 150.3,
-          "y" : 199.9
+          "y" : 207.9
         },
         {
           "height" : 11.7,
           "text" : "Length: 12 mm",
           "width" : 65.2,
           "x" : 150.3,
-          "y" : 211.9
+          "y" : 223.9
         },
         {
           "height" : 11.7,

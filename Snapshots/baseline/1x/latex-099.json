@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.012116702322264595,
+    "changedAreaRatio" : 0.010985024648869872,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 6.7,
-    "maxLuminance" : 176.625,
+    "maxBoxDeltaPt" : 5.6,
+    "maxLuminance" : 171.328125,
     "maxShiftPt" : 1.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -14,51 +14,50 @@
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue-Bold",
-    "HiraKakuProN-W6",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5"
   ],
   "pageCount" : 2,
   "pages" : [
     {
-      "firstY" : 310.5,
+      "firstY" : 310.7,
       "height" : 841.9,
-      "lastY" : 310.5,
+      "lastY" : 310.7,
       "lineCount" : 1,
       "lines" : [
         {
-          "height" : 43,
+          "height" : 41.9,
           "text" : "第I 部 凍砂の記録",
-          "width" : 212.8,
+          "width" : 213.7,
           "x" : 103.4,
-          "y" : 310.5
+          "y" : 310.7
         }
       ],
-      "textHeight" : 43,
+      "textHeight" : 41.9,
       "textLeft" : 103.4,
-      "textTop" : 310.5,
-      "textWidth" : 212.8,
+      "textTop" : 310.7,
+      "textWidth" : 213.7,
       "width" : 595.3
     },
     {
-      "firstY" : 134.3,
+      "firstY" : 134.5,
       "height" : 841.9,
       "lastY" : 750.5,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 34.4,
+          "height" : 33.5,
           "text" : "第1 章 砂時計の試作品",
-          "width" : 215.3,
+          "width" : 220.2,
           "x" : 78.5,
-          "y" : 134.3
+          "y" : 134.5
         },
         {
-          "height" : 24.1,
+          "height" : 23.5,
           "text" : "1.1 流れの確かめ方",
-          "width" : 131,
+          "width" : 131.2,
           "x" : 80.2,
-          "y" : 206.8
+          "y" : 206.9
         },
         {
           "height" : 15.2,
@@ -68,11 +67,11 @@
           "y" : 244.4
         },
         {
-          "height" : 20.7,
+          "height" : 20.1,
           "text" : "1.1.1 管の交換",
-          "width" : 86.4,
+          "width" : 86.8,
           "x" : 80,
-          "y" : 268.6
+          "y" : 267.8
         },
         {
           "height" : 15.2,
@@ -89,9 +88,9 @@
           "y" : 750.5
         }
       ],
-      "textHeight" : 627.8,
+      "textHeight" : 627.7,
       "textLeft" : 78.5,
-      "textTop" : 134.3,
+      "textTop" : 134.5,
       "textWidth" : 221.7,
       "width" : 595.3
     }

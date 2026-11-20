@@ -1,12 +1,12 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.03329922797879267,
+    "changedAreaRatio" : 0.03334883576721545,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
     "maxBoxDeltaPt" : 15.6,
-    "maxLuminance" : 144.609375,
+    "maxLuminance" : 157.109375,
     "maxShiftPt" : 11.7,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
@@ -14,25 +14,23 @@
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
     "HiraMinProN-W3",
-    "HiraginoSans-W3",
-    "HiraginoSansGB-W3"
+    "HiraginoSans-W4"
   ],
   "pageCount" : 1,
   "pages" : [
     {
-      "firstY" : 89.3,
+      "firstY" : 89.2,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 26,
       "lines" : [
         {
-          "height" : 23.8,
+          "height" : 24,
           "text" : "1 折板の寸法",
-          "width" : 98.3,
-          "x" : 72.8,
-          "y" : 89.3
+          "width" : 96.2,
+          "x" : 72.7,
+          "y" : 89.2
         },
         {
           "height" : 15.4,
@@ -70,16 +68,16 @@
           "y" : 192.6
         },
         {
-          "height" : 16.5,
+          "height" : 16.7,
           "text" : "峰 板の外側の折り線。",
           "width" : 128.6,
           "x" : 76.7,
           "y" : 212.9
         },
         {
-          "height" : 16.5,
+          "height" : 16.7,
           "text" : "試験用の長い谷線",
-          "width" : 83.2,
+          "width" : 80.7,
           "x" : 76.7,
           "y" : 230.4
         },
@@ -123,7 +121,7 @@
           "text" : "測定片 開口の向き 残りの幅",
           "width" : 318.8,
           "x" : 77.4,
-          "y" : 353.2
+          "y" : 353.3
         },
         {
           "height" : 15.4,
@@ -175,9 +173,9 @@
           "y" : 469.9
         },
         {
-          "height" : 19.8,
+          "height" : 20,
           "text" : "手前の台",
-          "width" : 49.4,
+          "width" : 48.4,
           "x" : 70.9,
           "y" : 519.8
         },
@@ -186,10 +184,10 @@
           "text" : "細い方の板を置く。",
           "width" : 90.8,
           "x" : 70.9,
-          "y" : 548.9
+          "y" : 549
         },
         {
-          "height" : 19.8,
+          "height" : 20,
           "text" : "奥の台",
           "width" : 36.3,
           "x" : 315.8,
@@ -200,7 +198,7 @@
           "text" : "広い方の板を置く。",
           "width" : 90.8,
           "x" : 315.8,
-          "y" : 548.9
+          "y" : 549
         },
         {
           "height" : 12.8,
@@ -212,7 +210,7 @@
       ],
       "textHeight" : 713.1,
       "textLeft" : 70.9,
-      "textTop" : 89.3,
+      "textTop" : 89.2,
       "textWidth" : 335.7,
       "width" : 595.3
     }

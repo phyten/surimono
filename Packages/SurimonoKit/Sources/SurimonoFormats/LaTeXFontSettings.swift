@@ -15,7 +15,7 @@ struct LaTeXFontSettings {
 
         init?(
             _ name: String, options: String, cjk: Bool, mono: Bool = false, defaultScale: Double? = nil,
-            knownPostScriptNames: Bool = false, index: InstalledFontIndex
+            knownPostScriptNames: Bool = false, japaneseUpright: String? = nil, index: InstalledFontIndex
         ) {
             let family = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard Self.validName(family) else { return nil }
@@ -27,7 +27,7 @@ struct LaTeXFontSettings {
                 }
             }
             self.knownPostScriptNames = knownPostScriptNames
-            self.name = family
+            self.name = japaneseUpright ?? family
             let namedBold = face("BoldFont")
             explicitBold = namedBold
             let namedItalic = face("ItalicFont")
@@ -37,11 +37,12 @@ struct LaTeXFontSettings {
             // A scaled or partly overridden family is exposed through a CSS alias. Name its other
             // installed variants too, since the browser cannot discover sibling faces of an alias.
             let alias = mono && (namedBold != nil || namedItalic != nil || scale != nil)
-            let native = !knownPostScriptNames && (alias || cjk) ? index.face(named: family) : nil
+            let native = !knownPostScriptNames && (alias || cjk) ? index.face(named: japaneseUpright ?? family) : nil
             bold = namedBold ?? native?.bold
             italic = namedItalic ?? native?.italic
             ideographFallback =
-                knownPostScriptNames ? nil : Self.fallback(for: family, bold: bold, italic: italic, in: index)
+                knownPostScriptNames || japaneseUpright != nil
+                ? nil : Self.fallback(for: family, bold: bold, italic: italic, in: index)
             self.cjk = cjk
         }
 
@@ -212,12 +213,19 @@ extension LaTeXReader {
         let name = argument() ?? ""
         let after = optional()
         let options = [before, after].compactMap { $0 }.joined(separator: ",")
+        // LuaTeX-ja resolves the unqualified family to W4. Use its Japanese glyphs
+        // first, including the radicals which also occur in Chinese fonts.
+        let index = document.pageSettings.fonts.index
+        let upright =
+            role == "cjk-sans" && document.classInfo.isJapanese
+                && name.caseInsensitiveCompare("Hiragino Sans") == .orderedSame
+            ? (index.face(named: "HiraginoSans-W4") ?? index.face(named: name))?.postScriptName : nil
         guard
             let selection = LaTeXFontSettings.Selection(
                 name, options: options, cjk: role?.hasPrefix("cjk-") == true, mono: role == "mono",
                 defaultScale: role?.hasPrefix("cjk-") == true
                     ? LaTeXLabelMetrics(document.classInfo).japaneseScale : nil,
-                index: document.pageSettings.fonts.index)
+                japaneseUpright: upright, index: index)
         else { return }
         if let selector, selector.hasPrefix("\\"), selector.count > 1, document.reserveExpansion() {
             document.pageSettings.fonts.selectors[String(selector.dropFirst())] = document.pageSettings.fonts.family(

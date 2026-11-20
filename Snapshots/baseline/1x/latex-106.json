@@ -1,67 +1,64 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.02899885281989272,
+    "changedAreaRatio" : 0.02027098254425945,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
-    "maxBoxDeltaPt" : 23.2,
-    "maxLuminance" : 155.546875,
-    "maxShiftPt" : 28,
+    "maxBoxDeltaPt" : 13.2,
+    "maxLuminance" : 103.015625,
+    "maxShiftPt" : 6.1,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 11
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
-    "HelveticaNeue-Medium",
-    "HiraKakuProN-W3",
-    "HiraKakuProN-W6",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5"
   ],
   "pageCount" : 4,
   "pages" : [
     {
-      "firstY" : 67.6,
+      "firstY" : 89.2,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 25.1,
+          "height" : 24.4,
           "text" : "目次",
           "width" : 29.1,
           "x" : 70.9,
-          "y" : 67.6
+          "y" : 89.2
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "1 窓札の観察 2",
-          "width" : 453.5,
+          "width" : 442.1,
           "x" : 70.9,
-          "y" : 99.9
+          "y" : 123.1
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "2 集計の手順 3",
-          "width" : 453.5,
+          "width" : 442.1,
           "x" : 70.9,
-          "y" : 128.3
+          "y" : 151.4
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "付録 A 台の見取図 4",
-          "width" : 453.5,
+          "width" : 442.1,
           "x" : 70.9,
-          "y" : 156.7
+          "y" : 179.8
         },
         {
           "height" : 15.4,
           "text" : "A.1 折り目の位置 4",
           "width" : 443.5,
           "x" : 81,
-          "y" : 174.2
+          "y" : 197.7
         },
         {
           "height" : 12.8,
@@ -71,24 +68,24 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 734.8,
+      "textHeight" : 713.2,
       "textLeft" : 70.9,
-      "textTop" : 67.6,
+      "textTop" : 89.2,
       "textWidth" : 453.5,
       "width" : 595.3
     },
     {
-      "firstY" : 89.3,
+      "firstY" : 89.2,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 27,
       "lines" : [
         {
-          "height" : 23.8,
+          "height" : 24.4,
           "text" : "1 窓札の観察",
-          "width" : 97.1,
-          "x" : 72.8,
-          "y" : 89.3
+          "width" : 96.2,
+          "x" : 72.7,
+          "y" : 89.2
         },
         {
           "height" : 15.4,
@@ -123,7 +120,7 @@
           "text" : "同じ長さの札を二組作る。",
           "width" : 121.1,
           "x" : 101.1,
-          "y" : 252.4
+          "y" : 252.3
         },
         {
           "height" : 15.4,
@@ -144,7 +141,7 @@
           "text" : "深い窓の印",
           "width" : 50.4,
           "x" : 101.1,
-          "y" : 322.2
+          "y" : 322.1
         },
         {
           "height" : 15.4,
@@ -165,7 +162,7 @@
           "text" : "白い札•",
           "width" : 25.6,
           "x" : 92.7,
-          "y" : 391
+          "y" : 390.9
         },
         {
           "height" : 15.4,
@@ -179,7 +176,7 @@
           "text" : "広い窓–",
           "width" : 25.6,
           "x" : 116.7,
-          "y" : 426.9
+          "y" : 426.8
         },
         {
           "height" : 16.6,
@@ -200,7 +197,7 @@
           "text" : "1. 外側を測る。",
           "width" : 74.5,
           "x" : 84.2,
-          "y" : 499.7
+          "y" : 499.6
         },
         {
           "height" : 15.4,
@@ -214,7 +211,7 @@
           "text" : "3. 数値を記す。",
           "width" : 73.2,
           "x" : 84.2,
-          "y" : 534.6
+          "y" : 534.5
         },
         {
           "height" : 15.4,
@@ -224,18 +221,18 @@
           "y" : 560.7
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "端 短い方。",
           "width" : 78.1,
           "x" : 76.7,
-          "y" : 586.2
+          "y" : 586.1
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "折り返した場所",
           "width" : 70.6,
           "x" : 76.7,
-          "y" : 603.7
+          "y" : 603.6
         },
         {
           "height" : 15.4,
@@ -263,7 +260,7 @@
           "text" : "細い刻み",
           "width" : 40.4,
           "x" : 277.5,
-          "y" : 182.6
+          "y" : 182.5
         },
         {
           "height" : 12.8,
@@ -273,24 +270,24 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 713,
+      "textHeight" : 713.2,
       "textLeft" : 70.9,
-      "textTop" : 89.3,
+      "textTop" : 89.2,
       "textWidth" : 257,
       "width" : 595.3
     },
     {
-      "firstY" : 89.3,
+      "firstY" : 89.2,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 22,
       "lines" : [
         {
-          "height" : 23.8,
+          "height" : 24.4,
           "text" : "2 集計の手順",
-          "width" : 97.1,
-          "x" : 72.8,
-          "y" : 89.3
+          "width" : 96.2,
+          "x" : 72.7,
+          "y" : 89.2
         },
         {
           "height" : 15.4,
@@ -304,49 +301,49 @@
           "text" : "1 thin = 2",
           "width" : 56.4,
           "x" : 55.7,
-          "y" : 182.8
+          "y" : 170.9
         },
         {
           "height" : 9.1,
           "text" : "2 wide = 4",
           "width" : 56.4,
           "x" : 55.7,
-          "y" : 197
+          "y" : 185
         },
         {
           "height" : 9.1,
           "text" : "3 total = thin + wide",
           "width" : 113.1,
           "x" : 55.7,
-          "y" : 211.2
+          "y" : 199.2
         },
         {
           "height" : 15.4,
           "text" : "MarkJ 表に結果を記す。",
           "width" : 113.2,
           "x" : 70.9,
-          "y" : 228.4
+          "y" : 221.3
         },
         {
           "height" : 15.4,
           "text" : "MarkK 図を控える。",
           "width" : 96.9,
           "x" : 70.9,
-          "y" : 382.6
+          "y" : 375.6
         },
         {
           "height" : 15.4,
           "text" : "MarkL 次の列を照合する。",
           "width" : 125.8,
           "x" : 70.9,
-          "y" : 496.3
+          "y" : 489.2
         },
         {
           "height" : 15.4,
           "text" : "MarkM 作業を終える。",
           "width" : 108.5,
           "x" : 70.9,
-          "y" : 621.2
+          "y" : 614.1
         },
         {
           "height" : 13.9,
@@ -360,77 +357,77 @@
           "text" : "表 1: 二組の窓札",
           "width" : 67,
           "x" : 264.1,
-          "y" : 260.7
+          "y" : 253.6
         },
         {
           "height" : 15.4,
           "text" : "形 場所 数",
           "width" : 76.6,
           "x" : 259.3,
-          "y" : 285.5
+          "y" : 278.4
         },
         {
           "height" : 24.1,
           "text" : "細長 東 2",
           "width" : 76.6,
           "x" : 259.3,
-          "y" : 309.2
+          "y" : 302.1
         },
         {
           "height" : 15.4,
           "text" : "西 5",
           "width" : 38.3,
           "x" : 297.6,
-          "y" : 326.7
+          "y" : 319.6
         },
         {
           "height" : 15.4,
           "text" : "正方 南 4",
           "width" : 76.6,
           "x" : 259.3,
-          "y" : 344.1
+          "y" : 337.1
         },
         {
           "height" : 13.9,
           "text" : "図 1: 外側の札。",
           "width" : 67,
-          "x" : 238.6,
-          "y" : 443.7
+          "x" : 266.4,
+          "y" : 436.6
         },
         {
           "height" : 13.9,
           "text" : "裏側からも同じ形に見える。",
           "width" : 117.8,
-          "x" : 238.6,
-          "y" : 457.9
+          "x" : 240.9,
+          "y" : 450.8
         },
         {
           "height" : 15.4,
           "text" : "札 数",
           "width" : 53.4,
           "x" : 270.9,
-          "y" : 530.1
+          "y" : 523
         },
         {
           "height" : 15.4,
           "text" : "狭い窓 3",
           "width" : 53.4,
           "x" : 270.9,
-          "y" : 553.8
+          "y" : 546.7
         },
         {
           "height" : 15.4,
           "text" : "広い窓 4",
           "width" : 53.4,
           "x" : 270.9,
-          "y" : 571.3
+          "y" : 564.2
         },
         {
           "height" : 15.4,
           "text" : "丸い窓 2",
           "width" : 53.4,
           "x" : 270.9,
-          "y" : 588.7
+          "y" : 581.6
         },
         {
           "height" : 12.8,
@@ -440,31 +437,31 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 713,
+      "textHeight" : 713.2,
       "textLeft" : 55.7,
-      "textTop" : 89.3,
-      "textWidth" : 300.6,
+      "textTop" : 89.2,
+      "textWidth" : 302.9,
       "width" : 595.3
     },
     {
-      "firstY" : 89.3,
+      "firstY" : 89.2,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 21,
       "lines" : [
         {
-          "height" : 23.8,
+          "height" : 24.4,
           "text" : "付録 A 台の見取図",
-          "width" : 131.9,
-          "x" : 72.8,
-          "y" : 89.3
+          "width" : 131.8,
+          "x" : 72.7,
+          "y" : 89.2
         },
         {
-          "height" : 19.8,
+          "height" : 20.4,
           "text" : "A.1 折り目の位置",
-          "width" : 105.1,
-          "x" : 72.5,
-          "y" : 119.6
+          "width" : 104.6,
+          "x" : 72.4,
+          "y" : 119.5
         },
         {
           "height" : 15.4,
@@ -474,11 +471,11 @@
           "y" : 148.7
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "左の台",
           "width" : 30.3,
           "x" : 70.9,
-          "y" : 183.3
+          "y" : 183.2
         },
         {
           "height" : 15.4,
@@ -492,7 +489,7 @@
           "text" : "二枚重ねる。",
           "width" : 60.5,
           "x" : 70.9,
-          "y" : 218.6
+          "y" : 218.5
         },
         {
           "height" : 15.4,
@@ -516,18 +513,18 @@
           "y" : 338.8
         },
         {
-          "height" : 23.8,
+          "height" : 24.4,
           "text" : "参考文献",
           "width" : 58.1,
           "x" : 70.9,
-          "y" : 373.2
+          "y" : 373
         },
         {
           "height" : 15.4,
           "text" : "[1] MarkR 窓札工房『紙の幅』。",
           "width" : 158.9,
           "x" : 70.9,
-          "y" : 405.4
+          "y" : 405.3
         },
         {
           "height" : 15.4,
@@ -541,7 +538,7 @@
           "text" : "[3] MarkT 折り箱室『輪の控え』。",
           "width" : 168.9,
           "x" : 70.9,
-          "y" : 440.3
+          "y" : 440.2
         },
         {
           "height" : 15.4,
@@ -551,11 +548,11 @@
           "y" : 466.4
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "右の台",
           "width" : 30.3,
           "x" : 315.8,
-          "y" : 183.3
+          "y" : 183.2
         },
         {
           "height" : 15.4,
@@ -569,14 +566,14 @@
           "text" : "一枚広げる。",
           "width" : 60.5,
           "x" : 315.8,
-          "y" : 218.6
+          "y" : 218.5
         },
         {
           "height" : 12.8,
           "text" : "a = 27",
           "width" : 31.2,
           "x" : 282,
-          "y" : 245.4
+          "y" : 245.3
         },
         {
           "height" : 12.8,
@@ -600,9 +597,9 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 713,
+      "textHeight" : 713.2,
       "textLeft" : 70.9,
-      "textTop" : 89.3,
+      "textTop" : 89.2,
       "textWidth" : 305.4,
       "width" : 595.3
     }

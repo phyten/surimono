@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.029955869738215568,
+    "changedAreaRatio" : 0.03005198482828471,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -108,25 +108,25 @@
           "y" : 428.2
         },
         {
-          "height" : 10.8,
-          "text" : "* Drawings use a common scale.",
-          "width" : 112.8,
-          "x" : 136,
-          "y" : 673.4
+          "height" : 9.4,
+          "text" : "Drawings use a common scale.*",
+          "width" : 104.7,
+          "x" : 139,
+          "y" : 678.2
         },
         {
           "height" : 7,
           "text" : "1",
           "width" : 3,
-          "x" : 135.1,
-          "y" : 686.2
+          "x" : 136,
+          "y" : 686.7
         },
         {
           "height" : 9.4,
           "text" : "A tile measures one model unit.",
           "width" : 111.8,
           "x" : 139,
-          "y" : 686.8
+          "y" : 687.6
         },
         {
           "height" : 11.7,
@@ -143,5 +143,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "a74b6bad893aa45c53d8ff64b22a108b6b610b8c6727453aad4371f7e78b8126"
+  "textSHA256" : "99bda2c798ab7b55aabfb3f361ad1653d663ea2bf1b04e574eb4ec84d650eaba"
 }

@@ -1,23 +1,22 @@
 Model Rail Handbook
 Model Rail Desk
-Paper Model Workshop
-Keywords: Folded spacers, model rails
-Abstract
-This handbook records the two measured heights of a reversible card spacer.
-1
-Chapter 1
+PAPER MODEL WORKSHOP
+Key words and phrases. Folded spacers, model rails
+ABSTRACT. This handbook records the two measured heights of a reversible card
+spacer.
+CHAPTER 1
 The folded spacer
 Scope
 A folded spacer fixes the height of a model rail. Two card thicknesses were
 tested in the same slot.
-1.1 Bench trial
+1. Bench trial
 The thin card entered freely. The folded card held the rail level at the second
 mark.
-Figure 1.1: Side view of the spacer
+FIGURE 1. Side view of the spacer
 Card Height (mm)
 Thin 1
 Folded 2
-Table 1.1: Spacer heights
+TABLE 1. Spacer heights
 Chapter reference
 Model Rail Desk, Spacer card register, trial note (2025).
-2
+3

@@ -1,20 +1,19 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.004258001839622154,
+    "changedAreaRatio" : 0.004178422679027274,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 0,
-    "maxBoxDeltaPt" : 7.8,
+    "maxBoxDeltaPt" : 7.3,
     "maxLuminance" : 113.0625,
-    "maxShiftPt" : 3.7,
+    "maxShiftPt" : 6.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
     "textEdits" : 0
   },
   "fonts" : [
-    "Helvetica",
-    "HelveticaNeue"
+    "Helvetica"
   ],
   "pageCount" : 4,
   "pages" : [
@@ -46,11 +45,11 @@
           "y" : 668.2
         },
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "1 Fold",
-          "width" : 55.3,
+          "width" : 52.2,
           "x" : 70.9,
-          "y" : 711.2
+          "y" : 714.4
         },
         {
           "height" : 12.8,
@@ -156,17 +155,17 @@
       "width" : 595.3
     },
     {
-      "firstY" : 92.7,
+      "firstY" : 95.9,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "2 Fold again",
-          "width" : 97.8,
+          "width" : 91,
           "x" : 70.9,
-          "y" : 92.7
+          "y" : 95.9
         },
         {
           "height" : 12.8,
@@ -204,9 +203,9 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 709.6,
+      "textHeight" : 706.4,
       "textLeft" : 70.9,
-      "textTop" : 92.7,
+      "textTop" : 95.9,
       "textWidth" : 229.5,
       "width" : 595.3
     }

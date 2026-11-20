@@ -1,7 +1,7 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.042525243129838054,
+    "changedAreaRatio" : 0.04299341663307806,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
@@ -63,35 +63,35 @@
           "text" : "[2]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 267.1
+          "y" : 272.7
         },
         {
           "height" : 11.7,
           "text" : "[3]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 295.1
+          "y" : 304.7
         },
         {
           "height" : 11.7,
           "text" : "[4]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 323.1
+          "y" : 336.7
         },
         {
           "height" : 11.7,
           "text" : "[5]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 338.3
+          "y" : 356.7
         },
         {
           "height" : 11.7,
           "text" : "[6]",
           "width" : 10.5,
           "x" : 125.5,
-          "y" : 353.5
+          "y" : 376.7
         },
         {
           "height" : 11.7,
@@ -112,56 +112,56 @@
           "text" : "River Model Circle. Calibrating the sill. Model Quay Notes, 4:11–14, Sep-",
           "width" : 328.2,
           "x" : 141,
-          "y" : 267.1
+          "y" : 272.7
         },
         {
           "height" : 11.7,
           "text" : "tember 2019.",
           "width" : 56.5,
           "x" : 141,
-          "y" : 279.9
+          "y" : 284.7
         },
         {
           "height" : 11.7,
           "text" : "Hinge Study Group. A reversible flap. In Proceedings of the Model Gate",
           "width" : 328.2,
           "x" : 141,
-          "y" : 295.1
+          "y" : 304.7
         },
         {
           "height" : 11.7,
           "text" : "Forum, pages 21–24, 2018.",
           "width" : 116.3,
           "x" : 141,
-          "y" : 307.9
+          "y" : 316.7
         },
         {
           "height" : 11.7,
           "text" : "Copper Atlas Group. Atlas of Paper Channels. Fold Workshop, 2016.",
           "width" : 303.5,
           "x" : 141,
-          "y" : 323.1
+          "y" : 336.7
         },
         {
           "height" : 11.7,
           "text" : "Gauge Desk. Gauge Card Handbook, 2021.",
           "width" : 185.2,
           "x" : 141,
-          "y" : 338.3
+          "y" : 356.7
         },
         {
           "height" : 11.7,
           "text" : "Fold Workshop. Lining the bend. In Atlas Desk, editor, Paper Waterways,",
           "width" : 328.2,
           "x" : 141,
-          "y" : 353.5
+          "y" : 376.7
         },
         {
           "height" : 11.7,
           "text" : "pages 8–12. Model Quay Press, 2017.",
           "width" : 162,
           "x" : 141,
-          "y" : 366.3
+          "y" : 388.7
         },
         {
           "height" : 11.7,

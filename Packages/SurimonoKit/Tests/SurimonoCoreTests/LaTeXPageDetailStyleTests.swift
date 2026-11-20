@@ -10,10 +10,10 @@ struct LaTeXPageDetailStyleTests {
         let tex =
             #"\documentclass{book}\begin{document}\part{Paper}\begin{thebibliography}{1}\bibitem{a}Book\end{thebibliography}\end{document}"#
         let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(tex), format: .latex, theme: theme)
-        #expect(html.contains(#"<span class="secnum">Part I</span>Paper"#))
+        #expect(html.contains(#"<span class="secnum">Part I</span><span class="latex-chapter-title">Paper</span>"#))
         #expect(html.contains(#"body[data-latex-chapters="true"] .latex-bibliography-heading { break-before: page"#))
         #expect(html.contains(#"body[data-latex-chapters="true"] h2.latex-part {"#))
-        #expect(html.contains("text-align: center; padding-block-start: min(37vh, 28rem)"))
+        #expect(html.contains("& h2.latex-part::after { flex-grow: 2; }"))
     }
 
     @Test("入れ子の表はセルの行内に置き、題とリストは一緒に送る")
@@ -55,7 +55,10 @@ struct LaTeXPageDetailStyleTests {
         let tex =
             #"\documentclass{amsbook}\begin{document}\keywords{Paper}\subjclass{01A}\begin{abstract}Folds\end{abstract}\maketitle\chapter{One}\end{document}"#
         let html = HTMLDocumentBuilder.build(fragment: LaTeXConverter.convert(tex), format: .latex, theme: theme)
-        #expect(html.contains("<div class=\"latex-amsbook-verso\">\n<p class=\"latex-front-classifications\">01A"))
+        #expect(
+            html.contains(
+                "<div class=\"latex-amsbook-verso\" data-latex-page-action=\"thispagestyle\" data-value=\"empty\">\n<p class=\"latex-front-classifications\"><em>2020 Mathematics Subject Classification.</em> 01A"
+            ))
         #expect(html.contains("Paper</p>\n<div class=\"abstract latex-front-abstract\">"))
         #expect(html.contains(".latex-amsbook-verso > .abstract {\n    break-before: auto"))
     }

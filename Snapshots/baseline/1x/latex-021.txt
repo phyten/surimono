@@ -35,7 +35,10 @@ Interval Gate Surface Depth (mm)
 32 closed still 41
 33 closed still 41
 34 closed still 41
+Continued on next sheet
 1
+Settling tank, continued
+Interval Gate Surface Depth (mm)
 35 closed still 41
 36 closed still 41
 37 closed still 41

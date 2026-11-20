@@ -35,7 +35,11 @@ final class LaTeXReader {
     private var typewriter = false
     private var centered = false
     private var groups: [(LaTeXReader) -> Void] = []
-    /// The float a `\caption` here belongs to: figures and tables are numbered apart.
+    // Alternate heads can contain another caption for the same alignment and counter.
+    private final class LongtableCaption {
+        var number: String?
+    }
+    private var longtableCaption: LongtableCaption?
     private var floatKind: String?
 
     init(_ text: String, document: LaTeXDocument, isBlock: Bool) {
@@ -459,6 +463,7 @@ final class LaTeXReader {
 
     func inline(_ text: String) -> String {
         let reader = LaTeXReader(text, document: document, isBlock: false)
+        reader.longtableCaption = longtableCaption
         reader.floatKind = floatKind
         reader.typewriter = typewriter
         return reader.read()
@@ -468,6 +473,7 @@ final class LaTeXReader {
     /// not the last source character: a comment and its newline do not contribute a space.
     private func styledInline(_ source: String, typewriter: Bool? = nil) -> String {
         let reader = LaTeXReader(source, document: document, isBlock: false)
+        reader.longtableCaption = longtableCaption
         reader.floatKind = floatKind
         reader.typewriter = typewriter ?? self.typewriter
         let html = reader.read()
@@ -477,6 +483,7 @@ final class LaTeXReader {
 
     func blocks(_ text: String) -> String {
         let reader = LaTeXReader(text, document: document, isBlock: true)
+        reader.longtableCaption = longtableCaption
         reader.floatKind = floatKind
         reader.typewriter = typewriter
         return reader.read()
@@ -738,8 +745,16 @@ final class LaTeXReader {
                 (list, key) = (.headings(depth: depth), "contentsname")
             }
             let opening = document.classInfo.hasChapters ? " data-latex-chapter-opening" : ""
+            let pageStyle = document.bodyPageStyles ?? document.classInfo.pageNumbers
+            let mark =
+                document.classInfo.usesJSChapterSpacing && pageStyle.writesContentsMark
+                ? " data-latex-contents-mark" : ""
+            let title =
+                document.classInfo.isJSArticle
+                ? "<h2 class=\"latex-contents-title\" data-latex-heading=\"section\">\(captionName(key))</h2>"
+                : "<p class=\"latex-contents-title\">\(captionName(key))</p>"
             let nav =
-                "<nav class=\"toc\"\(opening)><p class=\"latex-contents-title\">\(captionName(key))</p>"
+                "<nav class=\"toc\"\(opening)\(mark)>\(title)"
                 + document.contentsPlaceholder(list) + "</nav>\n"
             appendBlock(styledLinks(nav, block: true))
         case "addcontentsline":
@@ -887,6 +902,10 @@ final class LaTeXReader {
         if inPreamble {
             document.classInfo.pageNumbers.apply(action, value: value)
         } else {
+            if action == "pagestyle" || action == "fancyStyle" {
+                if document.bodyPageStyles == nil { document.bodyPageStyles = document.classInfo.pageNumbers }
+                document.bodyPageStyles?.apply(action, value: value)
+            }
             // A declaration between blocks must not introduce a paragraph (or split an existing one).
             let marker =
                 "<span data-latex-page-action=\"\(HTML.escape(action))\" data-value=\"\(HTML.escape(value))\"></span>"
@@ -1169,6 +1188,7 @@ final class LaTeXReader {
         let starred = star()
         let short = optional()
         let source = argument() ?? ""
+        let standardBook = ["book", "report"].contains(document.classInfo.name)
         if name == "part" {
             let hasNumber = numbered && !starred && document.counters["secnumdepth"] >= (document.hasChapters ? -1 : 0)
             let numeral = hasNumber ? stepCounter("part") : ""
@@ -1181,7 +1201,8 @@ final class LaTeXReader {
                 document.headings.append(.init(level: -1, number: numeral, id: id, title: short.map(inline) ?? title))
             }
             let partTitle =
-                document.classInfo.usesJSChapterSpacing ? "<span class=\"latex-chapter-title\">\(title)</span>" : title
+                document.classInfo.usesJSChapterSpacing || standardBook
+                ? "<span class=\"latex-chapter-title\">\(title)</span>" : title
             let pageStyle =
                 document.classInfo.usesJSChapterSpacing
                     || document.classInfo.name == "jlreq" && document.classInfo.hasChapters
@@ -1235,19 +1256,23 @@ final class LaTeXReader {
             return
         }
         let numberHTML = display.map { "<span class=\"secnum\">\($0)</span>" } ?? ""
-        let runIn = name == "paragraph" || name == "subparagraph"
+        let amsRunIn = document.classInfo.journalStyle == .ams && ["subsection", "subsubsection"].contains(name)
+        let runIn = name == "paragraph" || name == "subparagraph" || amsRunIn
         let kind = runIn ? " class=\"latex-runin-\(name)\"" : ""
         // An HTML newline becomes an extra word space when the theme puts the heading and paragraph on one line.
         let mark =
             name == "paragraph" && document.classInfo.jsMagnification != nil ? captionName("jsParagraphMark") : ""
         if name == "chapter" { appendBlock("<template data-latex-break=\"page\"></template>") }
         let gridHeading = document.classInfo.jsMagnification != nil || document.classInfo.name == "jlreq"
-        let grid = gridHeading ? " data-latex-heading=\"\(name)\"" : ""
+        let grid = gridHeading || document.classInfo.journalStyle == .ams ? " data-latex-heading=\"\(name)\"" : ""
+        let sectionTitle =
+            document.classInfo.name == "amsart" && name == "section"
+            ? LaTeXJournalStyle.smallCaps(title, in: document) : title
         let headTitle =
-            name == "chapter" && document.classInfo.usesJSChapterSpacing
-            ? "<span class=\"latex-chapter-title\">\(title)</span>" : title
+            name == "chapter" && (document.classInfo.usesJSChapterSpacing || standardBook)
+            ? "<span class=\"latex-chapter-title\">\(title)</span>" : sectionTitle
         let heading =
-            "<h\(tag)\(kind)\(grid)\(bookHeadingAttributes(name)) id=\"\(id)\">\(numberHTML)\(mark)\(headTitle)</h\(tag)>"
+            "<h\(tag)\(kind)\(grid)\(bookHeadingAttributes(name)) id=\"\(id)\">\(numberHTML)\(mark)\(amsRunIn ? LaTeXFrontMatter.period(headTitle) : headTitle)</h\(tag)>"
         if runIn && isBlock {
             appendBlock("<div class=\"latex-runin\">" + heading)
             closesRunInParagraph = true
@@ -2331,7 +2356,8 @@ final class LaTeXReader {
             figure.number = number
             figure.mainCaptionPrinted = true
         } else {
-            number = stepCounter(kind)
+            number = longtableCaption?.number ?? stepCounter(kind)
+            longtableCaption?.number = number
         }
         let prefix: String
         let name: String
@@ -2346,7 +2372,7 @@ final class LaTeXReader {
         document.labelTarget = (number, id)
         let text = inline(source)
         document.describeTarget(id, kind: kind, title: text)
-        if kind == "figure" || kind == "table" {
+        if kind == "figure" || kind == "table", short != "" {
             let title = short.map(inline) ?? text
             let plain = title.replacingOccurrences(of: #"<[^>]*>"#, with: "", options: .regularExpression)
             document.lists[kind, default: []].append(
@@ -2358,9 +2384,18 @@ final class LaTeXReader {
         let label = numbered ? name + " " + HTML.escape(number) : name
         let separator =
             setup.separator ?? document.classInfo.journalStyle?.captionSeparator(for: kind)
-            ?? (document.isJapanese ? "　" : document.language == "fr" ? " – " : ": ")
+            ?? (longtableCaption != nil ? ": " : document.isJapanese ? "　" : document.language == "fr" ? " – " : ": ")
         let contents: String
         if setup.hangs {
+            // A manual break centres the individual lines. Keep the separator space when the grid becomes inline.
+            let space: String
+            if info.jsMagnification != nil, separator == ": ", text.contains("<br>") {
+                space = #"<span class="latex-caption-colon-space">&nbsp;</span>"#
+            } else {
+                space = "&nbsp;"
+            }
+            let separator =
+                text.contains("<br>") && separator.hasSuffix(" ") ? String(separator.dropLast()) + space : separator
             contents = "<span class=\"latex-caption-label\">\(label)\(separator)</span><span>\(text)</span>"
         } else {
             contents = "<span class=\"latex-caption-label\">\(label)</span>\(separator)\(text)"
@@ -2481,6 +2516,7 @@ final class LaTeXReader {
         let rest = reader.rest
         let isLong = ["longtable", "xltabular", "supertabular", "supertabular*"].contains(name)
         guard document.reserveExpansion(characters: rest.count) else { return "" }
+        reader.longtableCaption = isLong ? LongtableCaption() : nil
         reader.floatKind = isLong ? "table" : floatKind
         let stretch = document.macros["arraystretch"].flatMap {
             $0.specification.isEmpty ? Double($0.body.trimmingCharacters(in: .whitespacesAndNewlines)) : nil

@@ -19,12 +19,36 @@ struct LaTeXFrontMatterTests {
         }
     }
 
+    @Test("AMS 書籍では章ごとに図と節を振り直し、式番号は文書を通して進める")
+    func amsBookCounterReset() {
+        let fragment = convert(
+            "amsbook",
+            #"""
+            \chapter{One}\section{First}\begin{figure}\caption{A}\end{figure}
+            \refstepcounter{equation}
+            \chapter{Two}\section{Second}\begin{figure}\caption{B}\end{figure}
+            \refstepcounter{equation}Equation \theequation.
+            """#)
+        #expect(fragment.body.contains("Figure 1</span>. B"))
+        #expect(fragment.body.contains(#"class="secnum">1.</span>Second"#))
+        #expect(fragment.body.contains("Equation 2."))
+    }
+
+    @Test("AMS の A4 判は 54.5 パイカから柱を引き、12 ポイント版の柱とノンブルは 9 ポイントになる")
+    func amsPaperAndRunningFont() {
+        let info = LaTeXConverter.documentClassInfo(#"\documentclass[a4paper,12pt]{amsart}"#)
+        // amsart.cls sets A4's initial height before calclayout takes the head and headsep from it.
+        #expect(abs(info.pageBox.textHeight - (654 - 22) * 72 / 72.27) < 0.01)
+        #expect(info.pageNumbers.headerFont?.pointSize(base: 12) == 9)
+        #expect(info.pageNumbers.numberFont?.pointSize(base: 12) == 9)
+    }
+
     @Test("学会誌のクラスは日付を指定したときだけ刷る", arguments: ["amsart", "revtex4-2"])
     func journalDates(name: String) {
         let paper = #"\title{仕口の寸法}\maketitle"#
         #expect(!convert(name, paper).body.contains("latex-date"))
         #expect(!convert(name, paper, preamble: #"\date{}"#).body.contains("latex-date"))
-        let printed = name == "revtex4-2" ? "(Dated: 冬学期)" : "冬学期"
+        let printed = name == "revtex4-2" ? "(Dated: 冬学期)" : "冬学期."
         #expect(convert(name, paper, preamble: #"\date{冬学期}"#).body.contains("\(printed)</p>"))
     }
 
@@ -53,11 +77,33 @@ struct LaTeXFrontMatterTests {
                 """#)
         #expect(paper.readingIssues.isEmpty)
         #expect(paper.title == "折り目の測定")
-        let metadata = name == "amsbook" ? ["12X34", "Keywords:", "紙厚の結果。"] : ["紙厚の結果。", "12X34", "Keywords:"]
-        try expectOrder(["折り目の測定", "担当甲", "sample@example.test", "製本室"] + metadata + ["本文"], in: paper.body)
+        let order =
+            name == "amsbook"
+            ? ["製本室", "sample@example.test", "12X34", "Key words and phrases.", "試作協力", "紙厚の結果。", "本文"]
+            : ["紙厚の結果。", "本文", "製本室", "sample@example.test", "12X34", "Key words and phrases.", "試作協力"]
+        try expectOrder(["折り目の測定", "担当甲"] + order, in: paper.body)
+        #expect(paper.body.contains("2020 Mathematics Subject Classification."))
         for word in ["試作協力", "紙厚の結果。", "製本室", "12X34"] { #expect(paper.body.components(separatedBy: word).count == 2) }
-        #expect(!paper.body.contains("柱用"))
-        #expect(!paper.body.contains("略称"))
+        let visible = paper.body.replacingOccurrences(of: "<[^>]*>", with: "", options: .regularExpression)
+        #expect(!visible.contains("柱用"))
+        #expect(!visible.contains("略称"))
+    }
+
+    @Test("AMS の節番号・図題と本文へ続く小見出しにはピリオドを置く", arguments: ["amsart", "amsproc", "amsbook"])
+    func amsHeadings(name: String) {
+        let chapter = name == "amsbook" ? #"\chapter{Start}"# : ""
+        let paper = convert(
+            name, chapter + #"\section{Trial}\subsection{First}Result.\begin{figure}\caption{Fold}\end{figure}"#)
+        let title = name == "amsart" ? #"T<span class="latex-ams-small-cap">rial</span>"# : "Trial"
+        #expect(paper.body.contains(#"class="secnum">1.</span>"# + title))
+        #expect(
+            paper.latexClass?.styleVariables.contains("--latex-footnote-rule-width: calc(60 * var(--tex-pt))") == true)
+        #expect(paper.body.contains(#"class="latex-runin-subsection""#))
+        #expect(paper.body.contains("First.</h"))
+        #expect(paper.body.contains("Figure 1</span>. Fold"))
+        // amsart.cls calclayout subtracts the 8pt head and 14pt separation from 50.5pc.
+        #expect(abs((paper.latexClass?.pageBox.textHeight ?? 0) - 581.818) < 0.01)
+        #expect(abs((paper.latexClass?.pageBox.textWidth ?? 0) - 358.655) < 0.01)
     }
 
     @Test("REVTeX の本文で先に読む概要を、明示した日付とキーワードの間に組む")
@@ -216,7 +262,7 @@ struct LaTeXFrontMatterTests {
         let source = #"\title{冊子}\keywords{断裁}\maketitle"#
         let fallback = #"\providecommand{\keywords}[1]{代替: #1}"#
         let journal = convert("amsart", source, preamble: fallback)
-        #expect(journal.body.contains("Keywords:</strong> 断裁"))
+        #expect(journal.body.contains("Key words and phrases.</em> 断裁"))
         #expect(!journal.body.contains("代替:"))
         #expect(convert("article", source, preamble: fallback).body.contains("代替: 断裁"))
     }

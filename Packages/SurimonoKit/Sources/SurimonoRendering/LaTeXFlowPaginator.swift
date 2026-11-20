@@ -63,7 +63,7 @@ enum LaTeXFlowPaginator {
             "<figure class=\"latex-figure\" data-latex-float=", "<figure class=\"latex-table\" data-latex-float=",
             "<div data-latex-break=", "<div class=\"latex-pagebreak\" data-latex-break=", "<template data-latex-break=",
             "<div class=\"latex-vfill\"", "<section class=\"footnotes\">", "<span class=\"latex-vspace\"",
-            "<div class=\"latex-vspace\"",
+            "<div class=\"latex-vspace\"", " data-latex-paged-table",
         ].contains { markup.contains($0) }
     }
 
@@ -84,6 +84,22 @@ enum LaTeXFlowPaginator {
         let y: CGFloat
         let height: CGFloat
         let hasOverhang: Bool
+    }
+
+    private struct Leader: Decodable {
+        let x, y, width, diameter: CGFloat
+        let count: Int
+
+        func draw(in context: CGContext, from origin: CGPoint, scale: CGFloat) {
+            let size = diameter * scale
+            let pitch = width * scale / CGFloat(count)
+            let bottom = origin.y - y * scale - size / 2
+            context.setFillColor(gray: 0, alpha: 1)
+            for i in 0..<count {
+                let left = origin.x + x * scale + (CGFloat(i) + 0.5) * pitch - size / 2
+                context.fillEllipse(in: CGRect(x: left, y: bottom, width: size, height: size))
+            }
+        }
     }
 
     struct Pass {
@@ -156,7 +172,7 @@ enum LaTeXFlowPaginator {
                 for (piece, edge) in zip(page.pieces, edges) {
                     let s = piece.slice
                     guard origins.indices.contains(s.strip) else { throw WebPaginator.PaginationError.printFailed }
-                    _ = try await run("surimonoFlow.show(i)", ["i": index])
+                    let leaders = try await run("return surimonoFlow.show(i)", ["i": index]) as? String
                     let origin = origins[s.strip]
                     let startsStrip = s.start < 0.01 || origin.hasOverhang && firstStart[s.strip] == s.start
                     let capture = captureRects(
@@ -178,6 +194,14 @@ enum LaTeXFlowPaginator {
                     try await FlowPageCapture.draw(
                         capture.source, from: view, into: capture.target, in: context, transparent: true,
                         deadline: deadline)
+                    if let leaders {
+                        let start = CGPoint(
+                            x: margins.left + piece.x / ratio,
+                            y: pageSize.height - margins.top - (piece.y - s.start * piece.scale) / ratio)
+                        for row in try JSONDecoder().decode([Leader].self, from: Data(leaders.utf8)) {
+                            row.draw(in: context, from: start, scale: piece.scale / ratio)
+                        }
+                    }
                     index += 1
                 }
                 context.setFillColor(gray: 0, alpha: 1)

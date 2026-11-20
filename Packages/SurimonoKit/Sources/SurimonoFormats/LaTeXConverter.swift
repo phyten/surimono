@@ -156,7 +156,7 @@ final class LaTeXDocument {
             (pageSettings.fonts.faceRules
             + [
                 labelMetrics.localFace(fonts: pageSettings.fonts),
-                labelMetrics.headingFace(index: pageSettings.fonts.index),
+                labelMetrics.headingFace(for: info, index: pageSettings.fonts.index),
                 info.isKOMA ? LaTeXBookStyle.sansFaces : nil,
             ]
             .compactMap { $0 }).joined(
@@ -172,6 +172,7 @@ final class LaTeXDocument {
 
     init(fontIndex: InstalledFontIndex = .system) { pageSettings = LaTeXPageSettings(fontIndex: fontIndex) }
     var classInfo = LaTeXDocumentClassInfo()
+    var bodyPageStyles: LaTeXPageNumbers?
     var language = "en"
     var nativeCaptionLanguage: String?
     var basicBidiTables = false
@@ -198,11 +199,12 @@ final class LaTeXDocument {
     var hasChapters = false {
         didSet {
             if hasChapters && !oldValue {
-                counters.defaultSectionDepth = 2
-                counters.within("section", parent: "chapter", prefix: true)
+                let ams = classInfo.name == "amsbook"
+                counters.defaultSectionDepth = ams ? 3 : 2
+                counters.within("section", parent: "chapter", prefix: !ams)
                 // The standard book/report classes omit chapter zero on floats and equations in front matter.
-                for name in ["equation", "figure", "table"] {
-                    counters.within(name, parent: "chapter", prefix: true, omitNonpositiveParent: true)
+                for name in ams ? ["figure", "table"] : ["equation", "figure", "table"] {
+                    counters.within(name, parent: "chapter", prefix: !ams, omitNonpositiveParent: true)
                 }
                 counters.within("footnote", parent: "chapter", prefix: false)
             }
@@ -520,7 +522,8 @@ final class LaTeXDocument {
                     output += "…"
                     continue
                 }
-                let resolved = kind == "M" ? renderFormula(index) : referenceHTML(index)
+                let resolved =
+                    kind == "M" ? renderFormula(index) : spacedReference(index, in: nsHTML, range: match.range)
                 if resolved.utf8.count <= budget {
                     output += resolved
                     budget -= resolved.utf8.count

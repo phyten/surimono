@@ -23,7 +23,7 @@ const strips = [], segments = [], pendingMeasurements = [];
 const excluded = 'style,script,template,noscript';
 const atomic = '[data-flow-ink-block],figure:not(.latex-longtable):not(.latex-listing),table:not(.latex-longtable),tr,.math-block,.tikz-block,.latex-graphic-box,img,svg,canvas,hr,input,.latex-vspace,.latex-exam-space,.latex-rule,.latex-title-block,.latex-minipage,.latex-box-row,[data-latex-tcolorbox]:not([data-latex-breakable])';
 const heading = 'h1,h2,h3,h4,h5,h6';
-const boundary = '[data-latex-chapter-opening],[data-flow-ink-block],[data-latex-columns],[data-latex-spacing],[data-latex-wide],[data-latex-break],[data-latex-float],.latex-title-block,.latex-titlepage';
+const boundary = '[data-latex-paged-table],[data-latex-chapter-opening],[data-flow-ink-block],[data-latex-columns],[data-latex-spacing],[data-latex-wide],[data-latex-break],[data-latex-float],.latex-title-block,.latex-titlepage';
 body.style.cssText += ';margin:0!important;padding:0!important;max-width:none!important;width:auto!important';
 const style = document.createElement('style');
 style.textContent = `
@@ -63,6 +63,8 @@ function length(name, fallback) {
     return probe.getBoundingClientRect().width * unit;
 }
 const noteSkip = length('skip-footins', 12), textFloatSep = length('textfloatsep', 25);
+const noteRuleWidth = length('footnote-rule-width', 180);
+const bigSkipShrink = length('bigskip-shrink', 0);
 const floatSep = length('floatsep', 15), inTextSep = length('intextsep', 15);
 const sectionTop = length('heading-topskip', 0);
 const zw = fineGrid ? length('zw', 0) / zoom : 0;
@@ -143,6 +145,42 @@ function content(node, parents) {
             begin(previous);
             return;
         }
+        const table = node.matches('table[data-latex-paged-table]') ? node :
+            node.matches('figure.latex-longtable') && node.querySelector(':scope > table[data-latex-paged-table]');
+        if (table && table.tBodies[0]?.rows.length) {
+            // Keep every variant on the same column tracks. Only selected slices are copied into the PDF.
+            run = null;
+            append(node, parents);
+            segment.items.at(-1).table = table;
+            // The first or last band can double as the continuation band. Its reusable
+            // sample needs a disjoint source rectangle from the page that includes it.
+            for (const [flag, source, role] of [
+                ['data-latex-repeat-first', table.tHead, 'data-latex-repeat-head'],
+                ['data-latex-repeat-last', table.querySelector(':scope > [data-latex-last-foot]'), 'data-latex-repeat-foot']
+            ]) {
+                if (!table.hasAttribute(flag) || !source) continue;
+                const sample = table.createTBody();
+                sample.setAttribute(role, ''); sample.hidden = true;
+                for (const row of source.rows) { budget(); sample.append(row.cloneNode(true)); }
+                for (const el of sample.querySelectorAll('[id]')) el.removeAttribute('id');
+            }
+            for (const group of [...table.tBodies]) {
+                if (!group.hidden) continue;
+                // Collapsed borders belong to both neighbours. Separate the off-page samples
+                // so a last-row rule cannot paint into the top of a continuation header.
+                const spacer = document.createElement('tbody');
+                const cell = spacer.insertRow().insertCell();
+                cell.colSpan = Math.max(1, group.rows[0]?.cells[0]?.colSpan || 1);
+                cell.style.cssText = 'height:2px;padding:0;border:0;line-height:0';
+                table.insertBefore(spacer, group);
+                group.hidden = false;
+            }
+            run = null;
+            return;
+        }
+        // Splitting the frame away from its caption clones the figure's outer skips
+        // into both strips. Keep their shared formatting context when the frame protrudes.
+        if (node.matches('figure.latex-listing')) { append(node, parents); return; }
         // Paint from a raised or positioned child belongs to this box, even beyond its layout
         // height. A separate strip preserves that ink without capturing a neighbouring paragraph.
         if (node.hasAttribute('data-flow-ink-block') && !node.querySelector('[data-latex-break],[data-latex-columns],[data-latex-float]')) {
@@ -202,7 +240,36 @@ for (const seg of segments) {
         }
     }
 }
+// Independently captured notes need the same source baseline phase. A single grid
+// cell gives each strut the same origin without stretching shorter notes to its height.
+if (pendingMeasurements.length && ['article','report','book'].includes(body.dataset.latexClass)) {
+    const area = document.createElement('div');
+    area.style.cssText = 'display:grid;align-items:start';
+    body.append(area);
+    for (const [, box] of pendingMeasurements) {
+        box.style.gridArea = '1 / 1';
+        area.append(box);
+    }
+}
 if (fineGrid) {
+    for (const caption of body.querySelectorAll('figcaption:has(br)')) {
+        if (getComputedStyle(caption).textAlign !== 'center') continue;
+        const walk = document.createTreeWalker(caption, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+        let last;
+        const ends = [];
+        for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+            if (n.nodeName === 'BR') { if (last) ends.push(last); last = null; }
+            else if (n.nodeType === Node.TEXT_NODE && n.data.trim()) last = n;
+            else if (n.matches?.('img,svg,ruby,.math-inline')) last = null;
+        }
+        if (last) ends.push(last);
+        for (const n of ends) {
+            if (!/[。、]$/u.test(n.data) || n.parentElement.closest('svg,ruby,.math-inline')) continue;
+            const end = document.createElement('span');
+            end.className = 'latex-caption-jfm-end';
+            n.after(end);
+        }
+    }
     // A paragraph entirely in small type has that face's strut. A normal-size
     // parent strut would add ascent to one face and descent to the other.
     for (const p of body.querySelectorAll('p:has(> [data-latex-text-size])')) {
@@ -251,7 +318,7 @@ if (fineGrid && CSS.supports('text-box-trim', 'trim-both')) {
             table.nextElementSibling?.style.setProperty('--latex-table-prev-depth', before + 'px');
         }
     }
-    for (const cap of body.querySelectorAll('figure[data-latex-placement="H"] > figcaption:last-child:not([data-latex-caption-style])')) {
+    for (const cap of body.querySelectorAll('figure[data-latex-placement="H"] > figcaption:last-child:not([data-latex-caption-style]), body[data-latex-chapters="false"] figure:is(.latex-figure,.latex-table)[data-latex-placement*="h"] > figcaption:last-child:not([data-latex-caption-style])')) {
         const depth = japaneseLineDepth(cap);
         if (depth !== null) cap.style.setProperty('--latex-last-depth', depth + 'px');
     }
@@ -430,6 +497,62 @@ function slice(box, start, end) {
 function whole(box) { return slice(box, 0, origins[+box.dataset.flowStrip].height); }
 for (const [id, box] of pendingMeasurements) notes[id] = whole(box);
 const range = document.createRange();
+function tableItems(box, table) {
+    const origin = origins[+box.dataset.flowStrip].y;
+    function bounds(el) {
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        return rect.height > 0 ? slice(box, (rect.top + scrollY) * unit - origin, (rect.bottom + scrollY) * unit - origin) : null;
+    }
+    const lastFoot = table.querySelector(':scope > [data-latex-last-foot]');
+    const headGroup = table.querySelector(':scope > [data-latex-repeat-head]');
+    const head = bounds(headGroup);
+    const footGroup = table.querySelector(':scope > [data-latex-repeat-foot]');
+    const foot = bounds(footGroup);
+    const rows = [...table.tBodies[0].rows], items = [];
+    const start = bounds(table.closest('figure.latex-longtable') || table)?.start || 0;
+    const noteIDs = el => el ? [...el.querySelectorAll('[data-flow-note]')].map(n => n.dataset.flowNote) : [];
+    const css = getComputedStyle(table);
+    // A collapsed border straddles the row edge. An isolated capture owns its outside
+    // half as well, even when an unused continuation sample follows in the source strip.
+    function includeBottomRule(part, row) {
+        if (!part || !row || css.borderCollapse !== 'collapse') return;
+        let border = 0;
+        for (const cell of row.cells) border = Math.max(border, parseFloat(getComputedStyle(cell).borderBottomWidth));
+        part.end += border * zoom / 2;
+    }
+    if (headGroup) includeBottomRule(head, headGroup.rows[headGroup.rows.length - 1]);
+    const strutDepth = .3 * parseFloat(css.lineHeight) * (Number(css.getPropertyValue('--latex-arraystretch')) || 1) * zoom;
+    function breakDepth(row, size) {
+        // A terminal rule is a zero-depth box below the row's strut.
+        return row && Number.isFinite(strutDepth) && ![...row.cells].some(c => c.classList.contains('latex-bottom-hline') || c.style.borderBottomWidth) ?
+            Math.min(strutDepth, size) : 0;
+    }
+    const footDepth = foot ? breakDepth(footGroup.rows[footGroup.rows.length-1], foot.end-foot.start) : 0;
+    const preShrink = css.getPropertyValue('--latex-ltpre').trim() ? 0 : Math.min(start, bigSkipShrink);
+    for (const [i, row] of rows.entries()) {
+        budget();
+        const part = bounds(row);
+        if (!part) continue;
+        const notes = noteIDs(row);
+        if (!i) {
+            part.start = start;
+            notes.push(...noteIDs(table.tHead), ...noteIDs(table.previousElementSibling?.closest('figcaption')));
+        }
+        if (i === rows.length - 1 && lastFoot) {
+            part.end = bounds(lastFoot)?.end ?? part.end;
+            notes.push(...noteIDs(lastFoot));
+        }
+        if (i === rows.length - 1) includeBottomRule(part, lastFoot?.rows[lastFoot.rows.length - 1] || row);
+        items.push({slice:part, gap:i ? 0 : start, notes, wide:false,
+            tablePreShrink:i ? null : preShrink,
+            // LT@start reserves ht, not ht+dp, for the foot. TeX also keeps the last row's
+            // depth outside pagetotal. Both depths still paint when the page is shipped.
+            tableBreakDepth:foot ? breakDepth(row, part.end-part.start) + footDepth : 0,
+            repeatHead:i ? head : null, repeatFoot:i + 1 < rows.length ? foot : null});
+    }
+    return items;
+}
 function lines(box, endsPage) {
     // A title page fits on its final baseline. Its final descent can paint into the
     // margin through captureRects, just like ink from a raised box. Let long titles split.
@@ -546,6 +669,7 @@ function trailingLeading(box, last) {
 const bookFloats = ['memoir','scrartcl','scrreprt','scrbook'].includes(body.dataset.latexClass);
 for (const seg of segments) {
     seg.items = seg.items.flatMap((item, i) => {
+        if (item.table) return tableItems(item.run, item.table);
         if (item.run) {
             const next = seg.items[i+1];
             const rows = lines(item.run, next?.forced || (!next && seg === segments.at(-1)));
@@ -557,6 +681,14 @@ for (const seg of segments) {
                 const natural = p.getBoundingClientRect().height;
                 p.dataset.flowFollowingHeading = '';
                 rows[0].leadingAfterHeading = Math.max(0, (p.getBoundingClientRect().height - natural) * unit);
+                // An in-text float preserves TeX's prevdepth from the preceding heading.
+                // A top float instead leaves the paragraph directly after that heading.
+                const float = seg.items[i-1];
+                if (body.dataset.latexChapters === 'false' && float.placement?.includes('h') &&
+                    strips[float.slice.strip].querySelector('figure > figcaption[style*="--latex-last-depth"]')) {
+                    const depth = japaneseLineDepth(seg.items[i-2].run.lastElementChild);
+                    if (depth !== null) rows[0].leadingAfterHere = Math.max(0, rows[0].leadingAfterHeading - depth * zoom);
+                }
                 delete p.dataset.flowFollowingHeading;
             }
             if (next?.floatKind === 'figure' && /[hH]/.test(next.placement)
@@ -587,4 +719,4 @@ for (const a of body.querySelectorAll('[data-latex-page-target],[data-latex-prob
     probes.push({index:a.hasAttribute('data-flow-sample-place') ? -1 : Number(a.dataset.latexPageTarget ?? a.dataset.latexProbe), strip,
         position:(a.getBoundingClientRect().top + scrollY)*unit - origins[strip].y});
 }
-return JSON.stringify({segments,notes,noteSkip,textFloatSep,floatSep,inTextSep,probes});
+return JSON.stringify({segments,notes,noteSkip,noteRuleWidth,textFloatSep,floatSep,inTextSep,probes});

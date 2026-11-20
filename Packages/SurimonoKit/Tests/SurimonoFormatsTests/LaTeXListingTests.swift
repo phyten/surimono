@@ -4,6 +4,24 @@ import Testing
 @testable import SurimonoFormats
 
 struct LaTeXListingTests {
+    @Test("コードの文字サイズを指定しても検索できるように語の中の字送りを保つ")
+    func searchableTypewriterSize() {
+        for size in ["small", "footnotesize"] {
+            let html = LaTeXConverter.convert(
+                #"""
+                \documentclass{article}\begin{document}
+                \begin{lstlisting}[basicstyle=\\#(size)\ttfamily]
+                ABC
+                \end{lstlisting}\end{document}
+                """#
+            ).body
+            #expect(html.contains("ABC</code>"))
+            #expect(!html.contains("latex-fixed-columns"))
+            #expect(!html.contains("--latex-listing-column"))
+            #expect(html.contains("--latex-listing-design-size: var(--latex-size-\(size))"))
+        }
+    }
+
     @Test("基本書体だけを名前付きの listings スタイルで指定したら本文も行内コードもトークンを色付けしない")
     func basicStyleWithoutTokenStyles() {
         let html = LaTeXConverter.convert(

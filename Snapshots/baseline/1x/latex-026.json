@@ -53,13 +53,6 @@
         },
         {
           "height" : 11.7,
-          "text" : "[2]",
-          "width" : 10.5,
-          "x" : 125.4,
-          "y" : 243.9
-        },
-        {
-          "height" : 11.7,
           "text" : "Fold desk, Closing the return gate, model note 3 (2018).",
           "width" : 244.5,
           "x" : 145.4,
@@ -67,10 +60,17 @@
         },
         {
           "height" : 11.7,
+          "text" : "[2]",
+          "width" : 10.5,
+          "x" : 125.4,
+          "y" : 248.7
+        },
+        {
+          "height" : 11.7,
           "text" : "Gauge desk, Cards for narrow slots, trial circular (2020).",
           "width" : 248.3,
           "x" : 145.4,
-          "y" : 243.9
+          "y" : 248.7
         },
         {
           "height" : 11.7,
@@ -87,5 +87,5 @@
       "width" : 595.3
     }
   ],
-  "textSHA256" : "4892bc0bd520e7d51d5bbd59b38f9e7769a1901c8717cc7dd835bde07c7cf3e0"
+  "textSHA256" : "32d354fb47c5de6cc04dce26f40888011127c8d452e945c4f4d6001e3dee1b08"
 }

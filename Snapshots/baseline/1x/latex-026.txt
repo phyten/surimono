@@ -2,7 +2,7 @@ Reading cards for the sluice model
 Use the card dimensions from [2] with the fold sequence in [1].
 References
 [1]
-[2]
 Fold desk, Closing the return gate, model note 3 (2018).
+[2]
 Gauge desk, Cards for narrow slots, trial circular (2020).
 1

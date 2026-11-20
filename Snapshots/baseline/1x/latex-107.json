@@ -1,22 +1,22 @@
 {
   "fidelity" : {
     "anyPixelDifference" : true,
-    "changedAreaRatio" : 0.033629946568277884,
+    "changedAreaRatio" : 0.022422720367097634,
     "dimensionsChanged" : false,
     "layoutChanged" : true,
     "lineCountChangedPages" : 1,
     "maxBoxDeltaPt" : 450.6,
-    "maxLuminance" : 143.9375,
-    "maxShiftPt" : 14.9,
+    "maxLuminance" : 118.1875,
+    "maxShiftPt" : 6.3,
     "pageDelta" : 0,
     "repaginatedLines" : 0,
-    "textEdits" : 26
+    "textEdits" : 22
   },
   "fonts" : [
     "Helvetica",
-    "HelveticaNeue",
     "HiraKakuProN-W3",
-    "HiraMinProN-W3"
+    "HiraMinProN-W3",
+    "HiraginoSans-W5"
   ],
   "pageCount" : 8,
   "pages" : [
@@ -55,24 +55,24 @@
       "width" : 595.3
     },
     {
-      "firstY" : 92.7,
+      "firstY" : 95.9,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 6,
       "lines" : [
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "1 Folded",
-          "width" : 73,
+          "width" : 67.3,
           "x" : 70.9,
-          "y" : 92.7
+          "y" : 95.9
         },
         {
-          "height" : 15.3,
+          "height" : 13.1,
           "text" : "1.1 Edges",
-          "width" : 68.1,
+          "width" : 61.8,
           "x" : 70.9,
-          "y" : 122.5
+          "y" : 125.1
         },
         {
           "height" : 15.4,
@@ -103,9 +103,9 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 709.6,
+      "textHeight" : 706.4,
       "textLeft" : 70.9,
-      "textTop" : 92.7,
+      "textTop" : 95.9,
       "textWidth" : 229.5,
       "width" : 595.3
     },
@@ -150,165 +150,165 @@
           "y" : 107.7
         },
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "2 Floatmark",
-          "width" : 94.6,
+          "width" : 90.4,
           "x" : 70.9,
-          "y" : 171.6
+          "y" : 173
         },
         {
           "height" : 15.4,
           "text" : "Floatend 紙の位置を記す。",
           "width" : 124.4,
           "x" : 70.9,
-          "y" : 200.4
+          "y" : 198.6
         },
         {
           "height" : 15.4,
           "text" : "Secondleaf 紙。",
           "width" : 72.9,
           "x" : 70.9,
-          "y" : 217.8
+          "y" : 216.1
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "短 Shortbody 折り目。",
           "width" : 122.8,
           "x" : 70.9,
-          "y" : 243.3
+          "y" : 241.5
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "幅広い紙の端",
           "width" : 60.5,
           "x" : 70.9,
-          "y" : 260.8
+          "y" : 258.9
         },
         {
           "height" : 15.4,
           "text" : "Longbody 裏の印。",
           "width" : 90.2,
           "x" : 101.1,
-          "y" : 278.6
+          "y" : 276.8
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "赤 Redbody 表の印。",
           "width" : 115.4,
           "x" : 84.5,
-          "y" : 304.4
+          "y" : 302.6
         },
         {
-          "height" : 16.5,
+          "height" : 17,
           "text" : "長い折り目",
           "width" : 50.4,
           "x" : 84.5,
-          "y" : 321.9
+          "y" : 320.1
         },
         {
           "height" : 15.4,
           "text" : "Widebody 裏の印。",
           "width" : 91.6,
           "x" : 114.5,
-          "y" : 339.7
+          "y" : 338
         },
         {
           "height" : 12.8,
           "text" : "Gridstart",
           "width" : 44.5,
           "x" : 70.9,
-          "y" : 368.8
+          "y" : 367
         },
         {
           "height" : 15.4,
           "text" : "折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折紙窓札折",
           "width" : 453.6,
           "x" : 70.9,
-          "y" : 383.7
+          "y" : 381.9
         },
         {
           "height" : 15.4,
           "text" : "紙窓札折紙窓札折紙窓札折紙窓札。",
           "width" : 161.4,
           "x" : 70.9,
-          "y" : 401.1
+          "y" : 399.4
         },
         {
           "height" : 15.4,
           "text" : "東の「紙窓」",
           "width" : 59.7,
           "x" : 70.9,
-          "y" : 418.6
+          "y" : 416.8
         },
         {
           "height" : 15.4,
           "text" : "、西の「細板」",
           "width" : 66.5,
           "x" : 128,
-          "y" : 418.6
+          "y" : 416.8
         },
         {
           "height" : 15.4,
           "text" : "、青の「角札」",
           "width" : 66.5,
           "x" : 192,
-          "y" : 418.6
+          "y" : 416.8
         },
         {
           "height" : 15.4,
           "text" : "、赤の「端板」",
           "width" : 66.5,
           "x" : 256,
-          "y" : 418.6
+          "y" : 416.8
         },
         {
           "height" : 15.4,
           "text" : "、白の「折板」",
           "width" : 66.5,
           "x" : 319.9,
-          "y" : 418.6
+          "y" : 416.8
         },
         {
           "height" : 15.4,
           "text" : "、奥の「紙窓」",
           "width" : 66.5,
           "x" : 383.9,
-          "y" : 418.6
+          "y" : 416.8
         },
         {
           "height" : 15.4,
           "text" : "、手前の「角札」 、",
           "width" : 81.6,
           "x" : 447.9,
-          "y" : 418.6
+          "y" : 416.8
         },
         {
           "height" : 15.4,
           "text" : "南の「折板」。",
           "width" : 65.6,
           "x" : 70.9,
-          "y" : 436
+          "y" : 434.3
         },
         {
           "height" : 15.4,
           "text" : "紙A 紙B 紙C 紙D 紙E 紙F 紙G 紙H 紙I 紙J 紙K 紙L 紙M 紙N 紙O 紙P 紙Q 紙R 紙S 紙",
           "width" : 453.5,
           "x" : 70.9,
-          "y" : 453.5
+          "y" : 451.7
         },
         {
           "height" : 15.4,
           "text" : "T 紙U 紙V 紙W 紙X 紙Y 紙Z 紙。",
           "width" : 174.6,
           "x" : 70.9,
-          "y" : 470.9
+          "y" : 469.2
         },
         {
           "height" : 12.8,
           "text" : "Gridend",
           "width" : 38.9,
           "x" : 70.9,
-          "y" : 490.9
+          "y" : 489.2
         },
         {
           "height" : 12.8,
@@ -377,7 +377,7 @@
           "text" : "Mixedline 小さな窓大きな窓。",
           "width" : 153.9,
           "x" : 70.9,
-          "y" : 368.2
+          "y" : 368.1
         },
         {
           "height" : 15.4,
@@ -401,11 +401,11 @@
           "y" : 433.3
         },
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "3 Afterrun",
-          "width" : 80.6,
+          "width" : 78.5,
           "x" : 70.9,
-          "y" : 472.5
+          "y" : 475.6
         },
         {
           "height" : 15.4,
@@ -415,11 +415,11 @@
           "y" : 501.2
         },
         {
-          "height" : 15.3,
+          "height" : 13.1,
           "text" : "3.1 Afternote",
-          "width" : 85.3,
+          "width" : 81.4,
           "x" : 70.9,
-          "y" : 545.9
+          "y" : 548.5
         },
         {
           "height" : 15.4,
@@ -436,25 +436,25 @@
           "y" : 572.1
         },
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "4 Afterbox",
-          "width" : 84.4,
+          "width" : 80.1,
           "x" : 70.9,
-          "y" : 609.9
+          "y" : 613
         },
         {
           "height" : 15.4,
           "text" : "Versestart 窓。",
           "width" : 71.9,
           "x" : 70.9,
-          "y" : 638.7
+          "y" : 638.6
         },
         {
           "height" : 15.4,
           "text" : "Versemid 青い印。",
           "width" : 87.7,
           "x" : 101.1,
-          "y" : 664.9
+          "y" : 664.8
         },
         {
           "height" : 15.4,
@@ -468,7 +468,7 @@
           "text" : "Verseend 紙。",
           "width" : 66.3,
           "x" : 70.9,
-          "y" : 708.5
+          "y" : 708.4
         },
         {
           "height" : 12.8,
@@ -565,140 +565,140 @@
           "text" : "1 a",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 129.1
+          "y" : 117.1
         },
         {
           "height" : 9.1,
           "text" : "2 b",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 143.3
+          "y" : 131.3
         },
         {
           "height" : 9.1,
           "text" : "3 c",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 157.4
+          "y" : 145.5
         },
         {
           "height" : 9.1,
           "text" : "4 d",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 171.6
+          "y" : 159.7
         },
         {
           "height" : 9.1,
           "text" : "5 e",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 185.8
+          "y" : 173.8
         },
         {
           "height" : 9.1,
           "text" : "6 f",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 200
+          "y" : 188
         },
         {
           "height" : 9.1,
           "text" : "7 g",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 214.1
+          "y" : 202.2
         },
         {
           "height" : 9.1,
           "text" : "8 h",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 228.3
+          "y" : 216.4
         },
         {
           "height" : 9.1,
           "text" : "9 i",
           "width" : 20.3,
           "x" : 55.7,
-          "y" : 242.5
+          "y" : 230.5
         },
         {
           "height" : 9.1,
           "text" : "10 j",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 256.7
+          "y" : 244.7
         },
         {
           "height" : 9.1,
           "text" : "11 k",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 270.8
+          "y" : 258.9
         },
         {
           "height" : 9.1,
           "text" : "12 l",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 285
+          "y" : 273.1
         },
         {
           "height" : 9.1,
           "text" : "13 m",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 299.2
+          "y" : 287.2
         },
         {
           "height" : 9.1,
           "text" : "14 n",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 313.4
+          "y" : 301.4
         },
         {
           "height" : 9.1,
           "text" : "15 o",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 327.5
+          "y" : 315.6
         },
         {
           "height" : 9.1,
           "text" : "16 p",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 341.7
+          "y" : 329.8
         },
         {
           "height" : 9.1,
           "text" : "17 q",
           "width" : 25.4,
           "x" : 50.6,
-          "y" : 355.9
+          "y" : 343.9
         },
         {
           "height" : 15.4,
           "text" : "Lend 紙。",
           "width" : 46.7,
           "x" : 70.9,
-          "y" : 373.1
+          "y" : 366
         },
         {
           "height" : 15.4,
           "text" : "LTend 紙。",
           "width" : 54.6,
           "x" : 70.9,
-          "y" : 512.4
+          "y" : 505.4
         },
         {
           "height" : 15.4,
           "text" : "Ruleend 紙。",
           "width" : 61.8,
           "x" : 70.9,
-          "y" : 559.3
+          "y" : 552.2
         },
         {
           "height" : 11.5,
@@ -709,31 +709,31 @@
         },
         {
           "height" : 15.4,
-          "text" : "表 1 Longcap",
-          "width" : 68.5,
-          "x" : 263.4,
-          "y" : 398.5
+          "text" : "表 1: Longcap",
+          "width" : 64.2,
+          "x" : 265.5,
+          "y" : 391.4
         },
         {
           "height" : 15.4,
           "text" : "RowA 北",
           "width" : 52.7,
           "x" : 271.3,
-          "y" : 435.1
+          "y" : 428.1
         },
         {
           "height" : 15.4,
           "text" : "RowB 南",
           "width" : 52.7,
           "x" : 271.3,
-          "y" : 458.8
+          "y" : 451.8
         },
         {
           "height" : 15.4,
           "text" : "RowC 西",
           "width" : 52.7,
           "x" : 271.3,
-          "y" : 476.3
+          "y" : 469.2
         },
         {
           "height" : 12.8,
@@ -770,18 +770,18 @@
           "y" : 180.9
         },
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "5 Fighead",
-          "width" : 80.9,
+          "width" : 74.9,
           "x" : 70.9,
-          "y" : 218.7
+          "y" : 221.9
         },
         {
           "height" : 15.4,
           "text" : "Figend 紙。",
           "width" : 55.5,
           "x" : 70.9,
-          "y" : 333.9
+          "y" : 333.8
         },
         {
           "height" : 15.4,
@@ -809,7 +809,7 @@
           "text" : "図 2 Figcap",
           "width" : 54.3,
           "x" : 270.5,
-          "y" : 297.1
+          "y" : 297
         },
         {
           "height" : 12.8,
@@ -826,17 +826,17 @@
       "width" : 595.3
     },
     {
-      "firstY" : 92.8,
+      "firstY" : 95.9,
       "height" : 841.9,
       "lastY" : 789.5,
       "lineCount" : 16,
       "lines" : [
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "6 Leafverse",
-          "width" : 92.5,
+          "width" : 84,
           "x" : 70.9,
-          "y" : 92.8
+          "y" : 95.9
         },
         {
           "height" : 15.4,
@@ -888,11 +888,11 @@
           "y" : 351.2
         },
         {
-          "height" : 18.3,
+          "height" : 15.7,
           "text" : "7 Figures",
-          "width" : 75.9,
+          "width" : 70.6,
           "x" : 70.9,
-          "y" : 389
+          "y" : 392.1
         },
         {
           "height" : 15.4,
@@ -910,9 +910,9 @@
         },
         {
           "height" : 15.4,
-          "text" : "表 3 Plainlong",
-          "width" : 73.4,
-          "x" : 260.9,
+          "text" : "表 3: Plainlong",
+          "width" : 69.1,
+          "x" : 263.1,
           "y" : 269.3
         },
         {
@@ -934,7 +934,7 @@
           "text" : "図 3 Herefig",
           "width" : 56.1,
           "x" : 269.6,
-          "y" : 466.3
+          "y" : 466.2
         },
         {
           "height" : 12.8,
@@ -944,12 +944,12 @@
           "y" : 789.5
         }
       ],
-      "textHeight" : 709.6,
+      "textHeight" : 706.4,
       "textLeft" : 55.7,
-      "textTop" : 92.8,
+      "textTop" : 95.9,
       "textWidth" : 283.6,
       "width" : 595.3
     }
   ],
-  "textSHA256" : "4e94ae5fd2d4daefe6b845e9d75014ac6f8846f0e09d143adb37aac453d4eaf0"
+  "textSHA256" : "9b30174583adebe30429f63d70f098d67a3e501ba473a24c5e336d2860e349d1"
 }

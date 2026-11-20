@@ -65,7 +65,7 @@ struct LaTeXPageSettings {
         let twoSided =
             self.twoSided
             ?? (["book", "jsbook", "ltjsbook", "bxjsbook", "scrbook", "memoir"].contains(info.name)
-                || info.publication == .manuscript
+                || info.journalStyle == .ams || info.publication == .manuscript
                 || info.publication == .sigconf)
         var box = LaTeXClassBox.defaults(
             info: info, paperWidth: paperW, paperHeight: paperH, twoSided: twoSided)
@@ -106,6 +106,22 @@ struct LaTeXPageSettings {
 
     func styleVariables(for box: LaTeXPageBox, info: LaTeXDocumentClassInfo) -> String {
         var classSkips = info.publication?.floatStyleVariables(size: info.pointSize) ?? [:]
+        if ["article", "report", "book"].contains(info.name) {
+            // size10/11/12.clo give listii the outer parsep as topsep and listiii the inner parsep.
+            let outer = Double(info.pointSize - 10) / 2 + 4
+            let inner = info.pointSize == 12 ? 2.5 : 2
+            for (key, points) in [
+                ("outer-parsep", outer), ("inner-parsep", inner), ("note-pitch", LaTeXLabelMetrics(info).baselines[2]),
+                // fontmath.ltx uses 6pt scripts for 8/9pt notes, and 7pt scripts for 10pt notes.
+                ("note-number-size", info.pointSize == 12 ? 7 : 6),
+            ] {
+                classSkips[key] = "calc(\(Self.number(points)) * var(--tex-pt))"
+            }
+        }
+        if info.journalStyle == .ams {
+            // amsart.cls and amsbook.cls set the footnote rule to five picas.
+            classSkips["footnote-rule-width"] = "calc(60 * var(--tex-pt))"
+        }
         if info.jsMagnification != nil {
             // The jsclasses size files put five magnified points on each side of a caption.
             for key in ["abovecaptionskip", "belowcaptionskip"] { classSkips[key] = "calc(5 * var(--js-pt))" }
@@ -120,6 +136,8 @@ struct LaTeXPageSettings {
         var values = classSkips.merging(variables) { _, assignment in assignment }.merging(fonts.roleVariables) {
             _, font in font
         }
+        // Each table captures its register at the alignment. A later assignment must not repaint an earlier rule.
+        values.removeValue(forKey: "arrayrulewidth")
         if info.jsMagnification != nil, let skip = values["parskip"], skip.hasSuffix("lh"),
             let multiplier = Double(skip.dropLast(2))
         {
@@ -174,7 +192,9 @@ struct LaTeXPageSettings {
         readOptions(raw, geometry: false, japaneseStock: info.isJapanese, keyedPaper: info.isKOMA)
         // The production classes set their own stock with geometry after processing class options.
         if info.publication?.usesA4 == true { stock = Self.paperSizes["a4paper"] }
-        if info.publication == .sigconf || info.publication == .manuscript { stock = Self.paperSizes["letterpaper"] }
+        if info.publication == .sigconf || info.journalStyle == .ams || info.publication == .manuscript {
+            stock = Self.paperSizes["letterpaper"]
+        }
     }
 
     mutating func readOptions(_ raw: String, geometry: Bool, japaneseStock: Bool = false, keyedPaper: Bool = false) {
@@ -317,7 +337,7 @@ struct LaTeXPageSettings {
             } else if let length = LaTeXSymbols.printLength(value) {
                 variables[name.lowercased()] = length
             }
-        case "tabcolsep": if let length = LaTeXSymbols.printLength(value) { variables[name] = length }
+        case "tabcolsep", "arrayrulewidth": if let length = LaTeXSymbols.printLength(value) { variables[name] = length }
         case "extrarowheight": extraRowHeight = LaTeXSymbols.printLength(value)
         case "columnsep", "columnseprule":
             let fontScale = value.hasSuffix("em") ? 1.0 : value.hasSuffix("ex") ? 0.43 : nil
@@ -508,7 +528,7 @@ extension LaTeXReader {
             "linefillthickness" where document.classInfo.name == "exam",
             "intextsep", "textfloatsep", "floatsep", "abovecaptionskip", "belowcaptionskip", "extrarowheight",
             "columnsep", "columnseprule", "parindent", "parskip", "itemsep", "topsep", "textwidth", "oddsidemargin",
-            "evensidemargin", "tabcolsep", "LTpre", "LTpost", "LTleft", "LTright",
+            "evensidemargin", "arrayrulewidth", "tabcolsep", "LTpre", "LTpost", "LTleft", "LTright",
             "topmargin", "textheight",
             "headheight", "headsep", "footskip", "paperwidth", "paperheight", "XeTeXlinebreakskip", "emergencystretch":
             let unit = #"(?:pt|pc|bp|mm|cm|in|em|ex|fil{1,3}|\\baselineskip)"#
