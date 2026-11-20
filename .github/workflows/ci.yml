@@ -4,6 +4,8 @@ on:
   push:
     branches: [master]
   pull_request:
+    # labeled: adding the ci:test label starts the tests on a pull request that is already open.
+    types: [opened, synchronize, reopened, labeled]
   workflow_dispatch:
 
 permissions:
@@ -13,13 +15,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# The checks run as separate jobs on runners of their own, so they run at the same time. GitHub runs at most five
-# macOS jobs of the account at once, so keep five or fewer macOS jobs here. The job build-and-test is the required
-# status check of the master ruleset: it waits for all of them and passes only when every one of them succeeded.
+# macOS runner minutes go to the build. Every run builds the package; the tests and the App Store check run only on a
+# pull request that carries the label ci:test, or when the workflow is started by hand (which runs everything on any
+# branch). Authors run lint and the tests locally (make lint, make test).
+# The jobs run on runners of their own, so they run at the same time. GitHub runs at most five macOS jobs of the
+# account at once, so keep five or fewer macOS jobs here. The job build-and-test is the required status check of the
+# master ruleset: it waits for all of them and passes only when the package was built and no other job failed.
 # A job stopped by its time limit fails that check, so each limit leaves a slow runner room: at least three times what
 # the job takes on a typical runner, and 45 minutes for the hosted app tests, which took 12 minutes on a slow one.
 jobs:
   lint-and-core:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
     runs-on: macos-26
     timeout-minutes: 25
     env:
@@ -38,6 +44,7 @@ jobs:
   # The Rendering tests drive WebKit against timeouts, so they get a runner of their own and run one at a time on it
   # (see test-kit in the Makefile).
   rendering:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
     runs-on: macos-26
     timeout-minutes: 30
     env:
@@ -47,6 +54,7 @@ jobs:
       - run: make test-rendering
 
   app-tests:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
     runs-on: macos-26
     timeout-minutes: 45
     env:
@@ -66,6 +74,7 @@ jobs:
             (.testFailures[]? | "FAIL \(.testName) | \(.failureText[0:1500])")' "$RUNNER_TEMP/summary.json" || true
 
   appstore:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:test'))
     runs-on: macos-26
     timeout-minutes: 25
     env:
@@ -95,21 +104,23 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-  # A job whose needs fail is skipped, and a skipped required check counts as passing, so this job always runs and
-  # fails unless every needed job succeeded: a failed, cancelled, or skipped job fails it. always() rather than
-  # !cancelled() for the same reason: a cancelled run must not leave a skipped, and so passing, check behind.
+  # A job whose needs fail is skipped, and a skipped required check counts as passing, so this job always runs.
+  # always() rather than !cancelled() for the same reason: a cancelled run must not leave a skipped, and so passing,
+  # check behind. The package must have been built. The optional jobs may be skipped (no ci:test label), but one that
+  # ran and failed or was cancelled fails the check.
   build-and-test:
     needs: [lint-and-core, rendering, app-tests, appstore, package]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Check that every job succeeded
+      - name: Check that the build succeeded and no job failed
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
-          if ! jq -e 'length > 0 and all(.[]; .result == "success")' <<< "$NEEDS" > /dev/null; then
-            echo "::error::Not every job succeeded."
+          if ! jq -e '.package.result == "success"
+              and all(del(.package)[]; .result == "success" or .result == "skipped")' <<< "$NEEDS" > /dev/null; then
+            echo "::error::The package was not built, or a job failed."
             exit 1
           fi

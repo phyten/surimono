@@ -10,7 +10,7 @@ Thanks for your interest in Surimono! This is a small project maintained in spar
 
 ## Development workflow
 
-- `master` is protected: changes land through pull requests, and CI must pass before merging.
+- `master` is protected: changes land through pull requests, and CI must pass before merging. CI builds the app on every pull request; it runs lint and the tests only when the pull request has the `ci:test` label, so run `make lint` and `make test` locally first.
 - Create a topic branch from `master`, for example `feat/booklet-signatures` or `fix/org-tables`.
 - Keep pull requests focused. Several small, logical commits are preferred over one large commit.
 - Fill in the pull request template, including how you tested the change.

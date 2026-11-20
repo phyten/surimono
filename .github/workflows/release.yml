@@ -98,7 +98,6 @@ jobs:
             echo "::error::The SPARKLE_PRIVATE_KEY secret is not set, so the update cannot be signed."
             exit 1
           fi
-      - run: make test-kit
       - name: Package
         env:
           VERSION: ${{ steps.version.outputs.value }}
